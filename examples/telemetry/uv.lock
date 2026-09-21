@@ -18,7 +18,7 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-09-10T21:03:01.504995Z"
+exclude-newer = "2026-09-14T18:00:44.246912Z"
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -38,6 +38,7 @@ tornado = false
 [manifest]
 constraints = [
     { name = "aiohttp", specifier = ">=3.14.1" },
+    { name = "anyio", specifier = ">=4.14.2" },
     { name = "banks", specifier = ">=2.4.5" },
     { name = "cryptography", specifier = ">=48.0.1" },
     { name = "httpcore2", specifier = ">=2.10.0" },
@@ -274,15 +275,15 @@ wheels = [
 
 [[package]]
 name = "anyio"
-version = "4.13.0"
+version = "4.14.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
     { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/19/14/2c5dd9f512b66549ae92767a9c7b330ae88e1932ca57876909410251fe13/anyio-4.13.0.tar.gz", hash = "sha256:334b70e641fd2221c1505b3890c69882fe4a2df910cba14d97019b90b24439dc", size = 231622, upload-time = "2026-03-24T12:59:09.671Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/61/cc/a381afa6efea9f496eff839d4a6a1aed3bfafc7b3ab4b0d1b243a12573dd/anyio-4.14.2.tar.gz", hash = "sha256:cfa139f3ed1a23ee8f88a145ddb5ac7605b8bbfd8592baacd7ce3d8bb4313c7f", size = 260176, upload-time = "2026-07-12T20:29:07.082Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/da/42/e921fccf5015463e32a3cf6ee7f980a6ed0f395ceeaa45060b61d86486c2/anyio-4.13.0-py3-none-any.whl", hash = "sha256:08b310f9e24a9594186fd75b4f73f4a4152069e3853f1ed8bfbf58369f4ad708", size = 114353, upload-time = "2026-03-24T12:59:08.246Z" },
+    { url = "https://files.pythonhosted.org/packages/da/35/f2287558c17e29fafc8ef3daf819bb9834061cfa43bff8014f7df7f63bdc/anyio-4.14.2-py3-none-any.whl", hash = "sha256:9f505dda5ac9f0c8309b5e8bd445a8c2bf7246f3ce950121e45ea15bc41d1494", size = 125813, upload-time = "2026-07-12T20:29:05.763Z" },
 ]
 
 [[package]]
@@ -1629,16 +1630,16 @@ resolution-markers = [
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
 dependencies = [
-    { name = "anyio" },
-    { name = "distro" },
+    { name = "anyio", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
+    { name = "distro", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
     { name = "google-auth", extra = ["requests"], marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
-    { name = "httpx" },
-    { name = "pydantic" },
-    { name = "requests" },
-    { name = "sniffio" },
-    { name = "tenacity" },
-    { name = "typing-extensions" },
-    { name = "websockets" },
+    { name = "httpx", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
+    { name = "pydantic", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
+    { name = "requests", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
+    { name = "sniffio", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
+    { name = "tenacity", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
+    { name = "websockets", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/19/e3/1dd592243a0dfc3487ddfff7995f12686d0557ec953173dd9bdbeba2cb96/google_genai-2.18.1.tar.gz", hash = "sha256:a1e2be75c16234adc6641afd1ad4dd44218c9eec005d938bdc428585a048918a", size = 659694, upload-time = "2026-08-13T22:13:50.226Z" }
 wheels = [
@@ -3750,7 +3751,7 @@ resolution-markers = [
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
 dependencies = [
-    { name = "typing-extensions" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ee/8b/aa9e2d8b8dfa7c946f7dec5d1f8f6ba8eca062f43509a06bdb5ce93d26c0/opentelemetry_api-1.44.0.tar.gz", hash = "sha256:67647e5e9566edcf421166fdf022b3537f818635daa852b289e34604dc6fb33a", size = 72406, upload-time = "2026-07-16T15:25:32.678Z" }
 wheels = [
@@ -3790,7 +3791,7 @@ resolution-markers = [
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
 dependencies = [
-    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/09/4d717852c1cf3f854b76c7110a5d00883bc3c99288b9b0dbcbeb9e306eb6/opentelemetry_exporter_otlp_proto_common-1.44.0.tar.gz", hash = "sha256:dc87a5a5bc58f149a56d1547e4691588fa12994cdc3bc039a694ccb3375862ac", size = 20202, upload-time = "2026-07-16T15:25:37.658Z" }
 wheels = [
@@ -3836,13 +3837,13 @@ resolution-markers = [
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
 dependencies = [
-    { name = "googleapis-common-protos" },
-    { name = "grpcio" },
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "opentelemetry-exporter-otlp-proto-common", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "opentelemetry-sdk", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "typing-extensions" },
+    { name = "googleapis-common-protos", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
+    { name = "grpcio", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
+    { name = "opentelemetry-exporter-otlp-proto-common", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
+    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
+    { name = "opentelemetry-sdk", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1f/47/80d9e9d468dc5de3af5096f5ccdb065fa4dd1470f74495cc53e59e397f47/opentelemetry_exporter_otlp_proto_grpc-1.44.0.tar.gz", hash = "sha256:40d1ae9e03fcc36de3cbac610cc99f35894938bff9cfd90fc4ec68bd85448463", size = 27225, upload-time = "2026-07-16T15:25:38.308Z" }
 wheels = [
@@ -3888,13 +3889,13 @@ resolution-markers = [
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
 dependencies = [
-    { name = "googleapis-common-protos" },
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "opentelemetry-exporter-otlp-proto-common", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "opentelemetry-sdk", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "requests" },
-    { name = "typing-extensions" },
+    { name = "googleapis-common-protos", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
+    { name = "opentelemetry-exporter-otlp-proto-common", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
+    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
+    { name = "opentelemetry-sdk", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
+    { name = "requests", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1a/87/95e2a5aaa795b4e2260d74e16df2d5541deb2ea9de010bcd615f4dee2654/opentelemetry_exporter_otlp_proto_http-1.44.0.tar.gz", hash = "sha256:c633d7270ad6b57cd4cfbe8b0007a9e2e7c0cb50bd6c50fe2a7b245f721a09d8", size = 25806, upload-time = "2026-07-16T15:25:39.162Z" }
 wheels = [
@@ -4028,7 +4029,7 @@ resolution-markers = [
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
 dependencies = [
-    { name = "protobuf" },
+    { name = "protobuf", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/64/01/40ac4ae9a149263cc52c2cee200ddd80cb6d8db1a4610abf8eabce0fe771/opentelemetry_proto-1.44.0.tar.gz", hash = "sha256:c547a79c2f8c0c515d31509154682e5921c7cfd5ca67b70e1f9266e2c3e103f3", size = 46488, upload-time = "2026-07-16T15:25:45.34Z" }
 wheels = [
@@ -4070,9 +4071,9 @@ resolution-markers = [
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
-    { name = "typing-extensions" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
+    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5d/77/a6592cbc7c8d9bcc9d6757a9df45e04a7c585e3e6e7a13456da522b21109/opentelemetry_sdk-1.44.0.tar.gz", hash = "sha256:cebe7f65dc12f26ead75c6064de12fd2a9052e5060c0272d402cfa203aae123b", size = 208624, upload-time = "2026-07-16T15:25:46.078Z" }
 wheels = [
@@ -4113,8 +4114,8 @@ resolution-markers = [
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "typing-extensions" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8f/73/0cbdebcb4cf545fdd328da14f5137e37d0770c3f26185e478b0d15d94f50/opentelemetry_semantic_conventions-0.65b0.tar.gz", hash = "sha256:f9b2b81e9d5b64f11bc952075e7e9c7fb0aab075c7fd1c46d597f1b919852d60", size = 148774, upload-time = "2026-07-16T15:25:46.902Z" }
 wheels = [

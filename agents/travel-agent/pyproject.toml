@@ -65,6 +65,7 @@ exclude-newer = "1 week"
 exclude-newer-package = { pydantic-settings = false, langsmith = false, langchain = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, cryptography = false, python-multipart = false, langchain-classic = false, langchain-core = false, idna = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
+    "anyio>=4.14.2",
     "pyasn1>=0.6.4",
     "orjson>=3.11.7",
     "tornado>=6.5.7",
