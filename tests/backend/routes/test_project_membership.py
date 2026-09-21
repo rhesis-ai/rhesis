@@ -93,6 +93,23 @@ def _enroll(test_db: Session, user_id: str, project_id: str, org_id: str) -> Non
     test_db.flush()
 
 
+def _is_org_owner(test_db: Session, user_id: str, org_id: str) -> bool:
+    """Return True if *user_id* is the organization owner."""
+    from rhesis.backend.app.auth.org_owner_check import is_org_owner
+
+    return is_org_owner(test_db, user_id, org_id)
+
+
+def _skip_if_org_owner(test_db: Session, user_id: str, org_id: str) -> None:
+    """Skip the test if the authenticated user is an org owner.
+
+    Org owners bypass the membership filter and see all projects, so tests
+    that assert "non-member = invisible" do not hold for them.
+    """
+    if _is_org_owner(test_db, user_id, org_id):
+        pytest.skip("Authenticated user is an org owner (bypasses membership filter)")
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -128,7 +145,13 @@ class TestProjectListingMembership:
     def test_non_member_project_excluded_from_listing(
         self, authenticated_client, test_db, test_org_id, authenticated_user_id
     ):
-        """A project the user is NOT enrolled in must not appear in GET /projects/."""
+        """A project the user is NOT enrolled in must not appear in GET /projects/.
+
+        Org owners bypass membership filtering and see all projects, so this
+        test only applies to non-owner members.
+        """
+        _skip_if_org_owner(test_db, authenticated_user_id, test_org_id)
+
         project = _make_project(test_db, test_org_id)
         test_db.flush()
 
@@ -163,7 +186,11 @@ class TestProjectListingMembership:
     def test_x_total_count_reflects_membership(
         self, authenticated_client, test_db, test_org_id, authenticated_user_id
     ):
-        """X-Total-Count must be a membership-filtered count (not all org projects)."""
+        """X-Total-Count must be a membership-filtered count (not all org projects).
+
+        Org owners see all projects, so this test only applies to non-owners.
+        """
+        _skip_if_org_owner(test_db, authenticated_user_id, test_org_id)
         # Two projects: only one enrolled.
         enrolled = _make_project(test_db, test_org_id)
         _enroll(test_db, str(authenticated_user_id), str(enrolled.id), test_org_id)
@@ -266,6 +293,96 @@ class TestProjectCreatorAutoEnroll:
 
         member_user_ids = [m["user_id"] for m in response.json()]
         assert str(authenticated_user_id) in member_user_ids
+
+
+
+# ---------------------------------------------------------------------------
+# 2b. Org-owner project visibility bypass
+# ---------------------------------------------------------------------------
+
+
+class TestOrgOwnerProjectVisibility:
+    """Org owners see all projects in their organization, even without a membership row."""
+
+    def test_org_owner_sees_project_without_membership(
+        self, authenticated_client, test_db, test_org_id, authenticated_user_id
+    ):
+        """An org owner can see a project they have no membership row for."""
+        from rhesis.backend.app.models.organization import Organization
+
+        org = test_db.query(Organization).filter(Organization.id == test_org_id).first()
+        if org is None or str(org.owner_id) != str(authenticated_user_id):
+            pytest.skip("Authenticated user is not the org owner in this test environment")
+
+        project = _make_project(test_db, test_org_id)
+        test_db.flush()
+
+        # Confirm no membership row exists.
+        with bypass_tenant_filter():
+            membership = (
+                test_db.query(ProjectMembership)
+                .filter_by(project_id=project.id, user_id=authenticated_user_id)
+                .first()
+            )
+        assert membership is None, "Pre-condition: owner must not have a membership row"
+
+        response = authenticated_client.get("/projects/")
+        assert response.status_code == status.HTTP_200_OK
+        ids = [p["id"] for p in response.json()]
+        assert str(project.id) in ids
+
+    def test_org_owner_can_get_project_by_id_without_membership(
+        self, authenticated_client, test_db, test_org_id, authenticated_user_id
+    ):
+        """An org owner can GET /projects/{id} without a membership row."""
+        from rhesis.backend.app.models.organization import Organization
+
+        org = test_db.query(Organization).filter(Organization.id == test_org_id).first()
+        if org is None or str(org.owner_id) != str(authenticated_user_id):
+            pytest.skip("Authenticated user is not the org owner in this test environment")
+
+        project = _make_project(test_db, test_org_id)
+        test_db.flush()
+
+        response = authenticated_client.get(f"/projects/{project.id}")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["id"] == str(project.id)
+
+    def test_org_owner_sees_project_in_mine(
+        self, authenticated_client, test_db, test_org_id, authenticated_user_id
+    ):
+        """An org owner's project appears in GET /projects/mine without a membership row."""
+        from rhesis.backend.app.models.organization import Organization
+
+        org = test_db.query(Organization).filter(Organization.id == test_org_id).first()
+        if org is None or str(org.owner_id) != str(authenticated_user_id):
+            pytest.skip("Authenticated user is not the org owner in this test environment")
+
+        project = _make_project(test_db, test_org_id)
+        test_db.flush()
+
+        response = authenticated_client.get("/projects/mine")
+        assert response.status_code == status.HTTP_200_OK
+        ids = [p["id"] for p in response.json()]
+        assert str(project.id) in ids
+
+    def test_non_owner_still_needs_membership(
+        self, authenticated_client, test_db, test_org_id, authenticated_user_id
+    ):
+        """A non-owner org member still cannot see a project without a membership row."""
+        from rhesis.backend.app.models.organization import Organization
+
+        org = test_db.query(Organization).filter(Organization.id == test_org_id).first()
+        if org is not None and str(org.owner_id) == str(authenticated_user_id):
+            pytest.skip("Authenticated user IS the org owner; need a non-owner for this test")
+
+        project = _make_project(test_db, test_org_id)
+        test_db.flush()
+
+        response = authenticated_client.get("/projects/")
+        assert response.status_code == status.HTTP_200_OK
+        ids = [p["id"] for p in response.json()]
+        assert str(project.id) not in ids
 
 
 # ---------------------------------------------------------------------------
@@ -408,19 +525,19 @@ class TestProjectMembersAPI:
 
 
 class TestProjectByIdMembershipEnforcement:
-    """GET / PUT / DELETE /projects/{id} must require project membership.
+    """GET / PUT / DELETE /projects/{id} must require project membership for non-owners.
 
-    Before SP0 the by-ID handlers called crud.project.get_project() which filtered
-    by organisation only, not by membership.  Any org member who knew a project
-    UUID could read, update, or delete it (IDOR).  This class verifies that
-    the gap is closed — non-members receive 404 on all three verbs, while
-    actual members continue to work normally.
+    Org owners bypass the membership filter and see all projects. Non-owner org
+    members must have a ``project_membership`` row to access a project by ID.
     """
 
     # --- GET ---
 
-    def test_non_member_get_by_id_returns_404(self, authenticated_client, test_db, test_org_id):
-        """A user who is NOT enrolled cannot read a project by ID (404)."""
+    def test_non_member_get_by_id_returns_404(
+        self, authenticated_client, test_db, test_org_id, authenticated_user_id
+    ):
+        """A non-owner user who is NOT enrolled cannot read a project by ID (404)."""
+        _skip_if_org_owner(test_db, authenticated_user_id, test_org_id)
         project = _make_project(test_db, test_org_id)
         test_db.flush()
 
@@ -441,8 +558,11 @@ class TestProjectByIdMembershipEnforcement:
 
     # --- PUT ---
 
-    def test_non_member_put_by_id_returns_404(self, authenticated_client, test_db, test_org_id):
-        """A user who is NOT enrolled cannot update a project by ID (404)."""
+    def test_non_member_put_by_id_returns_404(
+        self, authenticated_client, test_db, test_org_id, authenticated_user_id
+    ):
+        """A non-owner user who is NOT enrolled cannot update a project by ID (404)."""
+        _skip_if_org_owner(test_db, authenticated_user_id, test_org_id)
         project = _make_project(test_db, test_org_id)
         test_db.flush()
 
@@ -468,8 +588,11 @@ class TestProjectByIdMembershipEnforcement:
 
     # --- DELETE ---
 
-    def test_non_member_delete_by_id_returns_404(self, authenticated_client, test_db, test_org_id):
-        """A user who is NOT enrolled cannot delete a project by ID (404)."""
+    def test_non_member_delete_by_id_returns_404(
+        self, authenticated_client, test_db, test_org_id, authenticated_user_id
+    ):
+        """A non-owner user who is NOT enrolled cannot delete a project by ID (404)."""
+        _skip_if_org_owner(test_db, authenticated_user_id, test_org_id)
         project = _make_project(test_db, test_org_id)
         test_db.flush()
 
@@ -497,9 +620,10 @@ class TestProjectByIdMembershipEnforcement:
     # --- Parameters sub-router (_load_project) ---
 
     def test_non_member_parameters_schema_returns_404(
-        self, authenticated_client, test_db, test_org_id
+        self, authenticated_client, test_db, test_org_id, authenticated_user_id
     ):
         """GET /projects/{id}/parameters/schema is also membership-gated (_load_project)."""
+        _skip_if_org_owner(test_db, authenticated_user_id, test_org_id)
         project = _make_project(test_db, test_org_id)
         test_db.flush()
 

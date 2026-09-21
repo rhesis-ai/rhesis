@@ -205,6 +205,13 @@ def bootstrap(app: "FastAPI") -> None:
 
     register_org_membership_handler(assign_default_org_role)
 
+    # Extend the org-owner check so multi-owner orgs (Owner-level roles in
+    # organization_member) are recognized by the project listing CRUD layer.
+    from rhesis.backend.app.auth.org_owner_check import register_org_owner_checker
+    from rhesis.backend.ee.rbac.owner_check import is_ee_org_owner
+
+    register_org_owner_checker(is_ee_org_owner)
+
     # Guard the community add-member endpoint's optional role_id with the same
     # privilege-escalation check as the EE role-assignment endpoint, so a member
     # can be added with a role in one atomic request without bypassing the guard.
