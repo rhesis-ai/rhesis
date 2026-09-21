@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import (
@@ -683,6 +683,10 @@ def bulk_create_tests(
     if test_set_id:
         db_test_set = (
             db.query(models.TestSet)
+            # test_set_type is read right below, so load it with the row
+            # rather than lazily -- appending to a set is the batching path,
+            # and tests there run under the no-implicit-lazy-load trip-wire.
+            .options(joinedload(models.TestSet.test_set_type))
             .filter(
                 models.TestSet.id == test_set_id,
                 models.TestSet.organization_id == organization_id,

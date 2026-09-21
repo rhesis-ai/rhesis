@@ -50,6 +50,41 @@ class TestBulkCreateTestSetReportsItsSize:
         body = response.json()
         assert body["total_tests"] == body["attributes"]["metadata"]["total_tests"]
 
+    def test_appending_reports_the_batch_not_the_new_total(self, authenticated_client: TestClient):
+        """POST /tests/bulk is how a set larger than one call gets built, and
+        the Architect sums the total_tests of each batch to know how big the
+        set became. That sum is only right while this field means "written by
+        this call". If it ever became "size of the set now", every batched set
+        would be counted several times over and read as an overshoot.
+        """
+        created = authenticated_client.post(
+            "/test_sets/bulk", json=_payload("Appended set", ["one", "two"])
+        )
+        assert created.status_code == status.HTTP_200_OK
+        test_set_id = created.json()["id"]
+
+        appended = authenticated_client.post(
+            "/tests/bulk",
+            json={
+                "test_set_id": test_set_id,
+                "tests": [
+                    {
+                        "prompt": {"content": content},
+                        "requirement": "Answers the question",
+                        "category": "Functional",
+                        "topic": "General",
+                    }
+                    for content in ("three", "four", "five")
+                ],
+            },
+        )
+
+        assert appended.status_code == status.HTTP_200_OK
+        assert appended.json()["total_tests"] == 3
+
+        listed = authenticated_client.get(f"/test_sets/{test_set_id}/tests")
+        assert len(listed.json()) == 5
+
     def test_the_count_matches_what_the_set_holds(self, authenticated_client: TestClient):
         """Reading the tests back must agree with the number the write claimed.
 
