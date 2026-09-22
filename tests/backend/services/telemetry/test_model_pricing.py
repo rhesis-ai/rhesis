@@ -110,11 +110,25 @@ class TestEveryProviderStaysPriceable:
         assert output_rate > input_rate
 
     def test_cost_is_linear_in_tokens(self, model, provider):
-        """Twice the tokens, twice the cost, at a size below any long-context tier."""
+        """Twice the tokens, twice the cost, at a size below any long-context tier.
+
+        Compared with an absolute tolerance because costs are rounded to six decimal
+        places per span and again per trace, so doubling a rounded figure need not equal
+        the rounding of the doubled one. A rate whose thousand-token cost does not land
+        on a six-place boundary differs by 1e-6, and 112 models in today's price list
+        are like that: amazon.nova-2-pro-preview at 2.187e-06 gives 0.002187 against
+        0.004375. A relative tolerance would fail those for a rounding artefact rather
+        than for a pricing change, which is the opposite of what this file is for.
+
+        The bound is the arithmetic: 5e-7 rounding on the single figure, 1e-6 once
+        doubled, 5e-7 on the doubled one, so 1.5e-6 at worst. 2e-6 leaves a little
+        room. It is still far tighter than any real non-linearity, which would be a
+        tier change and roughly double the figure.
+        """
         one = calculate_token_costs([llm_span(model, TOKENS, TOKENS)]).total_cost_usd
         two = calculate_token_costs([llm_span(model, 2 * TOKENS, 2 * TOKENS)]).total_cost_usd
 
-        assert two == pytest.approx(2 * one, rel=1e-6)
+        assert two == pytest.approx(2 * one, rel=1e-6, abs=2e-6)
 
     def test_it_is_attributed_to_the_provider_the_product_names(self, model, provider):
         """Ties the alias table to what LiteLLM actually returns today.
