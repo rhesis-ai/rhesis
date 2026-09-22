@@ -965,7 +965,8 @@ class TestTraceEnricher:
 
         # Mock get_trace_by_id to return empty list
         mock_get_trace = mocker.patch(
-            "rhesis.backend.app.services.telemetry.enrichment.processor.get_trace_by_id", return_value=[]
+            "rhesis.backend.app.services.telemetry.enrichment.processor.get_trace_by_id",
+            return_value=[],
         )
 
         enricher = TraceEnricher(mock_db)
