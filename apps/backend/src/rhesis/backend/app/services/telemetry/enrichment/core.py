@@ -55,19 +55,14 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
     model name rather than being dropped. Dropping it would make a trace that mixes
     priced and unpriced spans undercount its tokens.
 
-    Its costs come back as ``None``, not zero. Zero is what a genuinely free model
-    costs, and a reader who cannot tell the two apart reads an unpriceable run as a
-    free one.
+    Its costs come back as ``None``, not zero, whenever the span cannot be priced.
+    Zero is what a genuinely free model costs, and a reader who cannot tell the two
+    apart reads an unpriceable run as a free one. Three things stop a span being
+    priced: no model name, a model LiteLLM has no rate for, and no tokens to price.
     """
     input_tokens, output_tokens, total_tokens = _span_token_counts(span)
     model_name = span.attributes.get(AIAttributes.MODEL_NAME)
     provider = resolve_provider(span.attributes, model_name)
-
-    if input_tokens == 0 and output_tokens == 0:
-        logger.warning(
-            f"⚠️  Zero tokens for span {span.span_id}! "
-            f"Available attributes: {list(span.attributes.keys())}"
-        )
 
     input_cost_usd: Optional[float] = None
     output_cost_usd: Optional[float] = None
@@ -75,6 +70,15 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
     if not model_name:
         logger.warning(f"⚠️  Span {span.span_id} has no model name: recording tokens without a cost")
         model_name = UNKNOWN_MODEL_NAME
+    elif input_tokens == 0 and output_tokens == 0:
+        # Pricing this anyway is the trap. LiteLLM happily returns 0.0 for zero tokens,
+        # which lands on screen as a run that cost nothing rather than one we could not
+        # read, and an llm.invoke span with no tokens almost always means we failed to
+        # parse the provider's reply.
+        logger.warning(
+            f"⚠️  Zero tokens for span {span.span_id}: recording no cost. "
+            f"Available attributes: {list(span.attributes.keys())}"
+        )
     else:
         try:
             # Returns tuple: (prompt_cost_usd, completion_cost_usd)

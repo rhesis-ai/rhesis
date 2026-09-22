@@ -29,7 +29,9 @@ carry token counts but are deliberately left out:
   `embedding.create`. Pricing them would put the token total and the cost total on different
   footings.
 
-A trace with no `llm.invoke` spans has no cost at all, not a cost of zero.
+A trace with no `llm.invoke` spans has no cost at all, not a cost of zero. Neither has a span that
+reported no tokens: there is nothing to multiply the rate by, and a call that used nothing is
+almost always one whose reply Rhesis could not read rather than one that was free.
 
 ## When a figure is missing
 
@@ -40,6 +42,7 @@ data** for that case, and a trace with no cost shows a dash in the list rather t
 | What you see | What it means |
 | --- | --- |
 | **No cost data**, tokens present | No model in the run could be priced |
+| **No cost data**, no tokens either | The calls reported no tokens, so there was nothing to price |
 | **Working out what this cost**, tokens present | Enrichment has traces of this run left to price |
 | A cost of zero | The run was priced and came to nothing, for example on a free tier |
 | Cost present, no input/output split | The trace was priced before Rhesis recorded the two halves separately |

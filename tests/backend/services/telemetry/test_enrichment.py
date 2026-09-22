@@ -239,6 +239,93 @@ class TestCalculateTokenCosts:
         assert costs.total_cost_usd is None
         assert costs.breakdown[0].model_name == UNKNOWN_MODEL_NAME
 
+    def test_zero_tokens_report_no_cost_even_on_a_priceable_model(self):
+        """The other way a run can look free when it is only unread.
+
+        LiteLLM prices zero tokens at 0.0 without complaining, so a span whose reply
+        we failed to parse used to land on screen as a run that cost nothing. The
+        model here is one LiteLLM knows perfectly well: it is the token count that is
+        missing, not the rate.
+        """
+        spans = [
+            Mock(
+                spec=Trace,
+                span_id="span1",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.MODEL_NAME: "gpt-4",
+                    AIAttributes.LLM_TOKENS_INPUT: 0,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 0,
+                },
+            )
+        ]
+
+        costs = calculate_token_costs(spans)
+
+        assert costs is not None
+        assert costs.total_cost_usd is None
+        assert costs.total_tokens == 0
+        # Still named, so the Models card and the provider filter have something.
+        assert costs.models_used == ["gpt-4"]
+
+    def test_a_span_with_tokens_still_prices_on_the_same_model(self):
+        """The control for the case above: only the zero-token span is held back."""
+        spans = [
+            Mock(
+                spec=Trace,
+                span_id="span1",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.MODEL_NAME: "gpt-4",
+                    AIAttributes.LLM_TOKENS_INPUT: 100,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 50,
+                    AIAttributes.LLM_TOKENS_TOTAL: 150,
+                },
+            )
+        ]
+
+        costs = calculate_token_costs(spans)
+
+        assert costs is not None
+        assert costs.total_cost_usd is not None
+        assert costs.total_cost_usd > 0
+
+    def test_a_trace_mixing_a_read_and_an_unread_span_prices_the_read_one(self):
+        """One span we could not parse must not cost the trace its whole figure."""
+        spans = [
+            Mock(
+                spec=Trace,
+                span_id="read",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.MODEL_NAME: "gpt-4",
+                    AIAttributes.LLM_TOKENS_INPUT: 100,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 50,
+                    AIAttributes.LLM_TOKENS_TOTAL: 150,
+                },
+            ),
+            Mock(
+                spec=Trace,
+                span_id="unread",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.MODEL_NAME: "gpt-4",
+                    AIAttributes.LLM_TOKENS_INPUT: 0,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 0,
+                },
+            ),
+        ]
+
+        costs = calculate_token_costs(spans)
+
+        assert costs is not None
+        expected_usd = sum(
+            litellm.cost_per_token(model="gpt-4", prompt_tokens=100, completion_tokens=50)
+        )
+        assert costs.total_cost_usd == pytest.approx(expected_usd, rel=0.01)
+        unread = next(b for b in costs.breakdown if b.span_id == "unread")
+        assert unread.total_cost_usd is None
+
     def test_reported_total_is_trusted_not_derived(self):
         """Google ADK folds cache-read tokens into the reported total.
 
