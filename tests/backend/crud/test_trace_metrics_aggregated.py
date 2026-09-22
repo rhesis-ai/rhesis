@@ -840,6 +840,55 @@ class TestPricingProgressSignals:
         # The model is still counted, so the Models card has something to show.
         assert "my-self-hosted-llama" in metrics["models_used"]
 
+    def test_a_trace_whose_tokens_we_could_not_read_is_not_priced(
+        self, test_db, db_project, test_org_id
+    ):
+        """A priceable model, but no tokens to price.
+
+        LiteLLM returns 0.0 for zero tokens without complaining, so enrichment used to
+        record a real zero here and the run read as free. It now records no cost, which
+        keeps known_cost_usd NULL and priced_traces at zero, exactly like a model with
+        no published rate.
+        """
+        project_id = str(db_project.id)
+        trace_id = uuid.uuid4().hex
+        create_trace_spans(
+            test_db,
+            [
+                span(
+                    trace_id,
+                    uuid.uuid4().hex[:16],
+                    project_id,
+                    operation="llm.invoke",
+                    tokens=(0, 0, 0),
+                )
+            ],
+            organization_id=test_org_id,
+        )
+        mark_trace_processed(
+            test_db,
+            trace_id,
+            {
+                "costs": {
+                    "total_tokens": 0,
+                    "breakdown": [
+                        {
+                            "span_id": uuid.uuid4().hex[:16],
+                            "model_name": "gpt-4",
+                            "input_tokens": 0,
+                            "output_tokens": 0,
+                            "total_tokens": 0,
+                        }
+                    ],
+                }
+            },
+        )
+
+        metrics = self._metrics(test_db, project_id, test_org_id)
+
+        assert metrics["enriched_traces"] == 1
+        assert metrics["priced_traces"] == 0
+
     def test_a_trace_priced_at_zero_is_priced(self, test_db, db_project, test_org_id):
         """A free model costs a knowable nothing, and must not read as unknown."""
         project_id = str(db_project.id)
