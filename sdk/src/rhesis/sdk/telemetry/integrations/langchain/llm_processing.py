@@ -98,23 +98,7 @@ def extract_and_set_tokens(span: trace.Span, response: Any) -> None:
 
     # Source 3: response.usage (direct usage attribute)
     if not total_tokens and hasattr(response, "usage") and response.usage:
-        usage = response.usage
-        if isinstance(usage, dict):
-            input_tokens, output_tokens, total_tokens = extract_token_usage(usage)
-        else:
-            # Handle usage as object with attributes
-            usage_dict = {}
-            for attr in [
-                "input_tokens",
-                "output_tokens",
-                "prompt_tokens",
-                "completion_tokens",
-                "total_tokens",
-            ]:
-                if hasattr(usage, attr):
-                    usage_dict[attr] = getattr(usage, attr)
-            if usage_dict:
-                input_tokens, output_tokens, total_tokens = extract_token_usage(usage_dict)
+        input_tokens, output_tokens, total_tokens = extract_token_usage(response.usage)
         if total_tokens:
             token_source = "response.usage"
             logger.debug(
@@ -272,17 +256,7 @@ def _extract_tokens_from_message(msg: Any) -> tuple[int, int, int, str | None]:
 
 def _extract_from_usage_object(usage: Any) -> tuple[int, int, int]:
     """Extract tokens from a usage object (dict or object)."""
-    if isinstance(usage, dict):
-        return extract_token_usage(usage)
-    else:
-        # Handle UsageMetadata object
-        usage_dict = {}
-        for attr in ["input_tokens", "output_tokens", "total_tokens"]:
-            if hasattr(usage, attr):
-                usage_dict[attr] = getattr(usage, attr)
-        if usage_dict:
-            return extract_token_usage(usage_dict)
-    return 0, 0, 0
+    return extract_token_usage(usage)
 
 
 def _extract_tokens_from_generation_info(info: Dict) -> tuple[int, int, int, str | None]:
@@ -293,22 +267,7 @@ def _extract_tokens_from_generation_info(info: Dict) -> tuple[int, int, int, str
     for key in ["usage_metadata", "token_usage", "usage"]:
         usage = info.get(key, {})
         if usage:
-            if isinstance(usage, dict):
-                tokens = extract_token_usage(usage)
-            else:
-                usage_dict = {}
-                token_attrs = [
-                    "input_tokens",
-                    "output_tokens",
-                    "total_tokens",
-                    "prompt_tokens",
-                    "completion_tokens",
-                ]
-                for attr in token_attrs:
-                    if hasattr(usage, attr):
-                        usage_dict[attr] = getattr(usage, attr)
-                tokens = extract_token_usage(usage_dict) if usage_dict else (0, 0, 0)
-            input_tokens, output_tokens, total_tokens = tokens
+            input_tokens, output_tokens, total_tokens = extract_token_usage(usage)
             if total_tokens:
                 token_source = f"generation_info.{key}"
                 logger.debug(
