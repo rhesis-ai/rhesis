@@ -200,3 +200,93 @@ class TestNothingToReport:
         extract_and_set_tokens(span, result(llm_output={}))
 
         assert tokens_on(span) == (None, None, None)
+
+
+def cache_tokens_on(span):
+    return (
+        span.attributes.get(AIAttributes.LLM_TOKENS_CACHE_WRITE),
+        span.attributes.get(AIAttributes.LLM_TOKENS_CACHE_READ),
+    )
+
+
+class TestCacheTokens:
+    """Cached prompt tokens reach the span so the backend can price them.
+
+    They are counted in the total but billed at their own rates, so recording only the
+    total left a cached call costed as though it had not used the cache.
+    """
+
+    def test_they_are_recorded_from_a_usage_object(self):
+        from anthropic.types import Usage
+
+        span = RecordingSpan()
+
+        extract_and_set_tokens(
+            span,
+            result(
+                usage=Usage(
+                    input_tokens=50,
+                    output_tokens=20,
+                    cache_creation_input_tokens=1000,
+                    cache_read_input_tokens=4000,
+                )
+            ),
+        )
+
+        assert cache_tokens_on(span) == (1000, 4000)
+        # And the three ordinary counts still add up with them.
+        assert tokens_on(span) == (50, 20, 5070)
+
+    def test_they_are_recorded_from_llm_output(self):
+        span = RecordingSpan()
+
+        extract_and_set_tokens(
+            span,
+            result(
+                llm_output={
+                    "usage": {
+                        "input_tokens": 50,
+                        "output_tokens": 20,
+                        "cache_read_input_tokens": 4000,
+                    }
+                }
+            ),
+        )
+
+        assert cache_tokens_on(span) == (None, 4000)
+
+    def test_they_are_recorded_from_message_metadata(self):
+        span = RecordingSpan()
+        message = SimpleNamespace(
+            usage_metadata={
+                "input_tokens": 12,
+                "output_tokens": 8,
+                "cache_creation_input_tokens": 300,
+            },
+            response_metadata={},
+        )
+
+        extract_and_set_tokens(
+            span, result(generations=[[SimpleNamespace(message=message, generation_info=None)]])
+        )
+
+        assert cache_tokens_on(span) == (300, None)
+
+    def test_a_call_that_used_no_cache_records_neither(self):
+        """Absent, not zero, so the attributes stay off the overwhelming majority."""
+        span = RecordingSpan()
+
+        extract_and_set_tokens(
+            span,
+            result(
+                llm_output={
+                    "token_usage": {
+                        "prompt_tokens": 10,
+                        "completion_tokens": 20,
+                        "total_tokens": 30,
+                    }
+                }
+            ),
+        )
+
+        assert cache_tokens_on(span) == (None, None)

@@ -450,6 +450,30 @@ class TestAttributeTranslation:
         assert translated[AIAttributes.LLM_TOKENS_OUTPUT] == 9
         assert translated[AIAttributes.LLM_TOKENS_TOTAL] == 24
 
+    def test_cache_read_tokens_are_kept_as_well_as_counted(self):
+        """Folding them into the total alone left the cost priced without them.
+
+        Gemini bills a cached input token below the input rate, so the count has to
+        survive as its own attribute for the backend to charge it correctly.
+        """
+        translated = mapping.translate_attributes(CALL_LLM_ATTRIBUTES)
+        assert translated[AIAttributes.LLM_TOKENS_CACHE_READ] == 4
+        # input + output + cache is the total, which is what makes the split add up.
+        assert (
+            translated[AIAttributes.LLM_TOKENS_INPUT]
+            + translated[AIAttributes.LLM_TOKENS_OUTPUT]
+            + translated[AIAttributes.LLM_TOKENS_CACHE_READ]
+            == translated[AIAttributes.LLM_TOKENS_TOTAL]
+        )
+
+    def test_a_call_that_read_no_cache_carries_no_cache_attribute(self):
+        attributes = dict(CALL_LLM_ATTRIBUTES)
+        attributes.pop(mapping.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS, None)
+
+        translated = mapping.translate_attributes(attributes)
+
+        assert AIAttributes.LLM_TOKENS_CACHE_READ not in translated
+
     def test_content_blobs_are_stripped_from_the_translated_attributes(self):
         """Their payload is re-emitted as events; keeping both ships it twice."""
         translated = mapping.translate_attributes(CALL_LLM_ATTRIBUTES)

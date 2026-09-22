@@ -1,6 +1,6 @@
 """Tests for provider-agnostic token usage extraction."""
 
-from rhesis.telemetry.token_extraction import extract_token_usage
+from rhesis.telemetry.token_extraction import extract_cache_tokens, extract_token_usage
 
 
 class TestExtractTokenUsage:
@@ -194,3 +194,49 @@ class TestFlatteningKeepsEverything:
                 raise RuntimeError("lazy load failed")
 
         assert extract_token_usage(Usage()) == (50, 20, 70)
+
+
+class TestExtractCacheTokens:
+    """Cached prompt tokens, kept apart because they are billed at their own rates.
+
+    Writing a cache costs more than an ordinary input token and reading one costs far
+    less, so they cannot be folded into the input count and priced there.
+    """
+
+    def test_anthropic_reports_both(self):
+        from anthropic.types import Usage
+
+        usage = Usage(
+            input_tokens=50,
+            output_tokens=20,
+            cache_creation_input_tokens=1000,
+            cache_read_input_tokens=4000,
+        )
+
+        assert extract_cache_tokens(usage) == (1000, 4000)
+
+    def test_camel_case_keys_are_read(self):
+        usage = {"cacheCreationInputTokens": 7, "cacheReadInputTokens": 9}
+
+        assert extract_cache_tokens(usage) == (7, 9)
+
+    def test_a_call_that_used_no_cache_reports_none_of_it(self):
+        assert extract_cache_tokens({"prompt_tokens": 10, "completion_tokens": 5}) == (0, 0)
+
+    def test_nothing_in_means_nothing_out(self):
+        assert extract_cache_tokens(None) == (0, 0)
+        assert extract_cache_tokens({}) == (0, 0)
+
+    def test_it_agrees_with_the_total_the_other_reader_derives(self):
+        """input + output + cache is what the total adds up to, by construction."""
+        usage = {
+            "input_tokens": 50,
+            "output_tokens": 20,
+            "cache_creation_input_tokens": 1000,
+            "cache_read_input_tokens": 4000,
+        }
+
+        input_tokens, output_tokens, total = extract_token_usage(usage)
+        cache_write, cache_read = extract_cache_tokens(usage)
+
+        assert input_tokens + output_tokens + cache_write + cache_read == total
