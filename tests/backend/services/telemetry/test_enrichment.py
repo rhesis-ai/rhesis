@@ -19,6 +19,15 @@ from rhesis.backend.app.services.telemetry.enrichment import (
 from rhesis.backend.app.services.telemetry.enrichment.core import UNKNOWN_MODEL_NAME
 from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
 
+# A model LiteLLM prices, and prices cached prompt tokens for. Pinned by name so a
+# release that drops it fails here rather than quietly pricing the cache at nothing.
+CACHING_MODEL = "claude-sonnet-4-5"
+
+# A model LiteLLM prices but publishes no cache rates for, and one that publishes a
+# cache-read rate and no cache-write rate. Both exist, so both have to behave.
+NO_CACHE_RATES_MODEL = "ai21.j2-mid-v1"
+READ_ONLY_CACHE_RATES_MODEL = "gpt-4o"
+
 
 class TestCalculateTokenCosts:
     """Test token cost calculation."""
@@ -325,6 +334,184 @@ class TestCalculateTokenCosts:
         assert costs.total_cost_usd == pytest.approx(expected_usd, rel=0.01)
         unread = next(b for b in costs.breakdown if b.span_id == "unread")
         assert unread.total_cost_usd is None
+
+    def test_cached_prompt_tokens_are_priced_at_their_own_rates(self):
+        """Cache tokens were counted in the total but never charged.
+
+        Anthropic bills a cache write above the input rate and a cache read far below
+        it, so they cannot be folded into the input count and priced there. Before
+        this, a call reporting 5070 tokens was costed as if it had used 70.
+
+        The expected figure is built from the published per-token rates rather than by
+        asking LiteLLM the same question the code asks, so the assertion can actually
+        disagree with it.
+        """
+        rates = litellm.model_cost[CACHING_MODEL]
+        spans = [
+            Mock(
+                spec=Trace,
+                span_id="span1",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.MODEL_NAME: CACHING_MODEL,
+                    AIAttributes.LLM_TOKENS_INPUT: 50,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 20,
+                    AIAttributes.LLM_TOKENS_CACHE_WRITE: 1000,
+                    AIAttributes.LLM_TOKENS_CACHE_READ: 4000,
+                    AIAttributes.LLM_TOKENS_TOTAL: 5070,
+                },
+            )
+        ]
+
+        costs = calculate_token_costs(spans)
+
+        expected = (
+            50 * rates["input_cost_per_token"]
+            + 20 * rates["output_cost_per_token"]
+            + 1000 * rates["cache_creation_input_token_cost"]
+            + 4000 * rates["cache_read_input_token_cost"]
+        )
+        assert costs is not None
+        assert costs.total_cost_usd == pytest.approx(expected, rel=1e-6)
+
+    def test_uncached_input_tokens_are_still_charged_beside_cached_ones(self):
+        """LiteLLM's prompt_tokens includes the cached ones; ours excludes them.
+
+        Hand it the bare input count and it subtracts the cache from it, charging
+        nothing for the tokens that were not cached. Fifty real input tokens beside
+        five thousand cached ones came to zero.
+        """
+        rates = litellm.model_cost[CACHING_MODEL]
+
+        def cost_with(input_tokens):
+            spans = [
+                Mock(
+                    spec=Trace,
+                    span_id="span1",
+                    attributes={
+                        AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                        AIAttributes.MODEL_NAME: CACHING_MODEL,
+                        AIAttributes.LLM_TOKENS_INPUT: input_tokens,
+                        AIAttributes.LLM_TOKENS_OUTPUT: 0,
+                        AIAttributes.LLM_TOKENS_CACHE_READ: 4000,
+                    },
+                )
+            ]
+            return calculate_token_costs(spans).total_cost_usd
+
+        difference = cost_with(50) - cost_with(0)
+
+        assert difference == pytest.approx(50 * rates["input_cost_per_token"], rel=1e-6)
+
+    def test_a_span_with_only_cache_tokens_is_still_priced(self):
+        """Every prompt token served from cache is a real, chargeable call."""
+        rates = litellm.model_cost[CACHING_MODEL]
+        spans = [
+            Mock(
+                spec=Trace,
+                span_id="span1",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.MODEL_NAME: CACHING_MODEL,
+                    AIAttributes.LLM_TOKENS_INPUT: 0,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 0,
+                    AIAttributes.LLM_TOKENS_CACHE_READ: 4000,
+                },
+            )
+        ]
+
+        costs = calculate_token_costs(spans)
+
+        assert costs is not None
+        assert costs.total_cost_usd == pytest.approx(
+            4000 * rates["cache_read_input_token_cost"], rel=1e-6
+        )
+
+    def test_a_span_with_no_cache_tokens_prices_exactly_as_before(self):
+        """The overwhelming majority of spans, which must not move."""
+        rates = litellm.model_cost[CACHING_MODEL]
+        spans = [
+            Mock(
+                spec=Trace,
+                span_id="span1",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.MODEL_NAME: CACHING_MODEL,
+                    AIAttributes.LLM_TOKENS_INPUT: 50,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 20,
+                },
+            )
+        ]
+
+        costs = calculate_token_costs(spans)
+
+        expected = 50 * rates["input_cost_per_token"] + 20 * rates["output_cost_per_token"]
+        assert costs is not None
+        assert costs.total_cost_usd == pytest.approx(expected, rel=1e-6)
+
+    def test_a_model_with_no_cache_rates_charges_them_at_the_input_rate(self):
+        """Never for nothing, which is what handing the counts over blindly did.
+
+        A cache count LiteLLM has no rate for is charged at zero *and* deducted from
+        the prompt tokens, so it vanishes from the bill: this model came out 72 times
+        cheaper with 5000 cached tokens than the same call without them. Left out of
+        the call instead, the tokens stay in the prompt count and are charged
+        ordinarily.
+        """
+        rates = litellm.model_cost[NO_CACHE_RATES_MODEL]
+        spans = [
+            Mock(
+                spec=Trace,
+                span_id="span1",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.MODEL_NAME: NO_CACHE_RATES_MODEL,
+                    AIAttributes.LLM_TOKENS_INPUT: 50,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 20,
+                    AIAttributes.LLM_TOKENS_CACHE_WRITE: 1000,
+                    AIAttributes.LLM_TOKENS_CACHE_READ: 4000,
+                },
+            )
+        ]
+
+        costs = calculate_token_costs(spans)
+
+        expected = 5050 * rates["input_cost_per_token"] + 20 * rates["output_cost_per_token"]
+        assert costs is not None
+        assert costs.total_cost_usd == pytest.approx(expected, rel=1e-6)
+
+    def test_each_cache_rate_is_checked_on_its_own(self):
+        """A model can publish one and not the other, so one missing must not sink both.
+
+        gpt-4o has a cache-read rate and no cache-write rate: the read is priced at its
+        own rate and the write falls back to the input rate.
+        """
+        rates = litellm.model_cost[READ_ONLY_CACHE_RATES_MODEL]
+        spans = [
+            Mock(
+                spec=Trace,
+                span_id="span1",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.MODEL_NAME: READ_ONLY_CACHE_RATES_MODEL,
+                    AIAttributes.LLM_TOKENS_INPUT: 50,
+                    AIAttributes.LLM_TOKENS_OUTPUT: 20,
+                    AIAttributes.LLM_TOKENS_CACHE_WRITE: 1000,
+                    AIAttributes.LLM_TOKENS_CACHE_READ: 4000,
+                },
+            )
+        ]
+
+        costs = calculate_token_costs(spans)
+
+        expected = (
+            # the uncached input and the unpriceable cache writes, at the input rate
+            1050 * rates["input_cost_per_token"]
+            + 20 * rates["output_cost_per_token"]
+            + 4000 * rates["cache_read_input_token_cost"]
+        )
+        assert costs is not None
+        assert costs.total_cost_usd == pytest.approx(expected, rel=1e-6)
 
     def test_reported_total_is_trusted_not_derived(self):
         """Google ADK folds cache-read tokens into the reported total.
@@ -847,7 +1034,8 @@ class TestTraceEnricher:
 
         # Mock get_trace_by_id to return empty list
         mock_get_trace = mocker.patch(
-            "rhesis.backend.app.services.telemetry.enrichment.processor.get_trace_by_id", return_value=[]
+            "rhesis.backend.app.services.telemetry.enrichment.processor.get_trace_by_id",
+            return_value=[],
         )
 
         enricher = TraceEnricher(mock_db)

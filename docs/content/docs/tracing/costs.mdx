@@ -51,6 +51,19 @@ data** for that case, and a trace with no cost shows a dash in the list rather t
 A span that cannot be priced still contributes its tokens. Dropping it would make a trace that
 mixes priced and unpriced models undercount what it actually used.
 
+## Cached prompts
+
+Providers that cache prompts bill those tokens at their own rates: writing a cache costs more than
+an ordinary input token, reading one costs far less. Rhesis records the two counts separately, as
+`ai.llm.tokens.cache_write` and `ai.llm.tokens.cache_read`, and prices each at its own rate.
+
+`ai.llm.tokens.input` is the uncached part alone, which is why a trace's total is the input plus the
+output plus the cached tokens. A call that read 4,000 tokens from cache beside 50 fresh ones
+therefore reports 4,070 tokens and a cost covering all of them.
+
+Traces recorded before Rhesis kept these counts report no cached tokens and price exactly as they
+did before, since there is nothing to charge them for.
+
 ## Providers
 
 The provider is read from the `ai.model.provider` span attribute where the span carries one. An
@@ -90,5 +103,5 @@ Two things to know when reconciling a Rhesis figure against a provider invoice.
 Per-span costs are rounded to six decimal places before being summed, so input cost plus output cost
 can differ from the total by a fraction of a cent on a trace with many spans.
 
-Rhesis prices what the instrumented call reported. Discounts, committed-use pricing, batch rates and
-cached-token rates are not applied, so a figure here is list price for the tokens observed.
+Rhesis prices what the instrumented call reported. Discounts, committed-use pricing and batch rates
+are not applied, so a figure here is list price for the tokens observed.

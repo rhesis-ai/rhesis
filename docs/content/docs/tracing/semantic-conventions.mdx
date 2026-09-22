@@ -109,7 +109,9 @@ span.set_attribute(AIAttributes.LLM_TOKENS_OUTPUT, 200)`}
 |----------|-----|-------------|
 | `LLM_TOKENS_INPUT` | `ai.llm.tokens.input` | Input token count |
 | `LLM_TOKENS_OUTPUT` | `ai.llm.tokens.output` | Output token count |
-| `LLM_TOKENS_TOTAL` | `ai.llm.tokens.total` | Total token count |
+| `LLM_TOKENS_TOTAL` | `ai.llm.tokens.total` | Total token count, including any cached tokens |
+| `LLM_TOKENS_CACHE_WRITE` | `ai.llm.tokens.cache_write` | Prompt tokens written to the provider's cache |
+| `LLM_TOKENS_CACHE_READ` | `ai.llm.tokens.cache_read` | Prompt tokens served from the provider's cache |
 | `LLM_TEMPERATURE` | `ai.llm.temperature` | Temperature parameter |
 | `LLM_MAX_TOKENS` | `ai.llm.max_tokens` | Max tokens parameter |
 

@@ -44,7 +44,11 @@ from rhesis.telemetry.schemas import (
     SpanLink,
     StatusCode,
 )
-from rhesis.telemetry.token_extraction import extract_token_usage, get_first_value
+from rhesis.telemetry.token_extraction import (
+    extract_cache_tokens,
+    extract_token_usage,
+    get_first_value,
+)
 
 __all__ = [
     "RhesisOTLPExporter",
@@ -86,5 +90,6 @@ __all__ = [
     "set_tracing_disabled",
     # Token usage
     "extract_token_usage",
+    "extract_cache_tokens",
     "get_first_value",
 ]

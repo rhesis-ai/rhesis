@@ -59,6 +59,12 @@ class AIAttributes:
     LLM_TOKENS_INPUT = "ai.llm.tokens.input"
     LLM_TOKENS_OUTPUT = "ai.llm.tokens.output"
     LLM_TOKENS_TOTAL = "ai.llm.tokens.total"
+    # Cached prompt tokens, which providers bill at their own rates: writing a cache
+    # costs more than an ordinary input token, reading one costs far less. Kept apart
+    # from the input count for that reason, and because input plus output plus these
+    # is what the total adds up to.
+    LLM_TOKENS_CACHE_WRITE = "ai.llm.tokens.cache_write"
+    LLM_TOKENS_CACHE_READ = "ai.llm.tokens.cache_read"
     LLM_FINISH_REASON = "ai.llm.finish_reason"
     LLM_TEMPERATURE = "ai.llm.temperature"
     LLM_MAX_TOKENS = "ai.llm.max_tokens"

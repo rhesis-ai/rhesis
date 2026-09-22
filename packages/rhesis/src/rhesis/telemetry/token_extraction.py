@@ -25,7 +25,7 @@ from typing import Any, Dict, Tuple, Union
 # Declared, not inferred: the backwards-compatible shim at
 # rhesis.sdk.telemetry.utils.token_extraction has to forward this exact set, and a test asserts it
 # does.
-__all__ = ["extract_token_usage", "get_first_value"]
+__all__ = ["extract_cache_tokens", "extract_token_usage", "get_first_value"]
 
 logger = logging.getLogger(__name__)
 
@@ -257,3 +257,29 @@ def extract_token_usage(usage: Union[Dict, Any]) -> Tuple[int, int, int]:
         total_tokens = input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens
 
     return input_tokens, output_tokens, total_tokens
+
+
+def extract_cache_tokens(usage: Union[Dict, Any]) -> Tuple[int, int]:
+    """Extract (cache_write, cache_read) prompt-cache token counts.
+
+    Separate from :func:`extract_token_usage` so its three-value return stays as it is
+    for every existing caller, and reading the same payload twice is cheap.
+
+    These are billed at their own rates: writing a cache costs more than an ordinary
+    input token and reading one costs far less, so they cannot simply be added to the
+    input count and priced there. A caller that records them lets the cost of a cached
+    call be worked out properly instead of charged as if the cache did not exist.
+
+    Example:
+        >>> usage = {"cache_creation_input_tokens": 1000, "cache_read_input_tokens": 4000}
+        >>> extract_cache_tokens(usage)
+        (1000, 4000)
+    """
+    usage = _as_mapping(usage)
+    if not usage:
+        return 0, 0
+
+    return (
+        get_first_value(usage, _CACHE_CREATION_KEYS),
+        get_first_value(usage, _CACHE_READ_KEYS),
+    )
