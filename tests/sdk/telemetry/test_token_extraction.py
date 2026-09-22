@@ -240,3 +240,37 @@ class TestExtractCacheTokens:
         cache_write, cache_read = extract_cache_tokens(usage)
 
         assert input_tokens + output_tokens + cache_write + cache_read == total
+
+
+class TestOpenAICachedTokensAreNotReadYet:
+    """Pins a known gap, so the documentation stays true and the fix is deliberate.
+
+    OpenAI reports cached tokens as ``prompt_tokens_details.cached_tokens``, which
+    Rhesis does not read. Adding the key alone would be wrong: the two providers count
+    them opposite ways round. Anthropic's ``input_tokens`` excludes the cached ones, so
+    they are added to reach a total, while OpenAI's ``prompt_tokens`` already includes
+    them, so adding them would count them twice.
+
+    Handling that needs the input count adjusted per provider. Until then a cached
+    OpenAI call is priced as though every prompt token were fresh, which overstates the
+    cost rather than understating it.
+    """
+
+    def usage(self):
+        from openai.types import CompletionUsage
+        from openai.types.completion_usage import PromptTokensDetails
+
+        return CompletionUsage(
+            prompt_tokens=1000,
+            completion_tokens=20,
+            total_tokens=1020,
+            prompt_tokens_details=PromptTokensDetails(cached_tokens=800),
+        )
+
+    def test_the_cached_count_is_not_reported(self):
+        assert extract_cache_tokens(self.usage()) == (0, 0)
+
+    def test_the_totals_are_not_double_counted(self):
+        """The important half. Reading the key without adjusting the input would make
+        this 1820 against the 1020 OpenAI itself reported."""
+        assert extract_token_usage(self.usage()) == (1000, 20, 1020)
