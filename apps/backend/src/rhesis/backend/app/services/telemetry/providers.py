@@ -1,9 +1,14 @@
 """Which provider served an LLM call.
 
-Every SDK integration stamps ``ai.model.provider`` on the span, so that is the answer
-whenever it is there. The model-name lookup below is the fallback for spans that arrive
-without it -- raw OTLP, a framework we do not translate, or a trace enriched before this
-module existed, where only the model name survives in the cost breakdown.
+A stamped ``ai.model.provider`` is the answer whenever it is there, because a span that
+names its provider knows better than a guess from the model name. That is precisely why
+an integration must stamp nothing when it cannot place the call: a stamped "unknown"
+looks like an answer and stops the lookup below from running.
+
+The model-name lookup is the fallback for spans that arrive without one -- an
+integration that could not place the call, raw OTLP, a framework we do not translate, or
+a trace enriched before this module existed, where only the model name survives in the
+cost breakdown.
 """
 
 from functools import lru_cache
@@ -26,6 +31,12 @@ _PROVIDER_ALIASES = {
     "cohere_chat": "cohere",
     "text-completion-openai": "openai",
     "azure_text": "azure",
+    # The SDK names a provider after the company, LiteLLM after how it routes there, so
+    # the same company arrived under two spellings and showed as two rows in the filter.
+    # A Gemini call traced through LangChain said google, through Google ADK gemini.
+    "google": "gemini",
+    "mistralai": "mistral",
+    "aws": "bedrock",
 }
 
 

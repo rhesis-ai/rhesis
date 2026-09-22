@@ -11,6 +11,7 @@ import pytest
 
 from rhesis.sdk.telemetry.integrations.langchain.extractors import (
     extract_agent_output,
+    extract_provider,
     tool_call_names,
 )
 
@@ -67,3 +68,33 @@ class TestAgentOutput:
 
     def test_nothing_to_report(self):
         assert extract_agent_output({}) == ""
+
+
+class TestExtractProvider:
+    """Who served the call, from the module path, the class name or the model name."""
+
+    @pytest.mark.parametrize(
+        ("serialized", "kwargs", "expected"),
+        [
+            ({"id": ["langchain_openai", "ChatOpenAI"]}, {}, "openai"),
+            ({"id": ["langchain_anthropic", "ChatAnthropic"]}, {}, "anthropic"),
+            ({"id": ["langchain_google_genai", "ChatGoogleGenerativeAI"]}, {}, "google"),
+            ({"id": ["langchain_aws", "ChatBedrock"]}, {}, "aws"),
+            ({"id": ["langchain_mistralai", "ChatMistralAI"]}, {}, "mistralai"),
+            ({}, {"model": "gpt-4o"}, "openai"),
+        ],
+    )
+    def test_it_places_the_call(self, serialized, kwargs, expected):
+        assert extract_provider(serialized, kwargs) == expected
+
+    def test_an_unplaceable_call_returns_nothing(self):
+        """Not the word "unknown", which is the whole point.
+
+        The caller only stamps a provider it was given, and the backend looks the model
+        up in LiteLLM when a span carries none. Stamping "unknown" looked like an
+        answer, so the backend took the stamped value and skipped the lookup, leaving
+        an ordinary gpt-4 call permanently unattributed whenever its payload did not
+        match one of the patterns above.
+        """
+        assert extract_provider({"name": "MysteryLLM"}, {}) is None
+        assert extract_provider({}, {}) is None

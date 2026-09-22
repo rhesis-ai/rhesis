@@ -373,6 +373,12 @@ def extract_provider(serialized: Dict, kwargs: Dict) -> Optional[str]:
     """Extract provider from model/invocation info.
 
     Checks module path, class name, and model name to identify the provider.
+
+    Returns ``None`` when none of them place it, rather than the word "unknown".
+    The caller only stamps a provider it was given, and the backend falls back to
+    looking the model up in LiteLLM when the span carries none. Stamping "unknown"
+    looked like an answer, took that branch, and left an ordinary gpt-4 call
+    permanently unattributed.
     """
     from rhesis.sdk.telemetry.utils import (
         identify_provider_from_class_name,
@@ -400,4 +406,4 @@ def extract_provider(serialized: Dict, kwargs: Dict) -> Optional[str]:
         if provider := identify_provider_from_model_name(str(kwargs["model"])):
             return provider
 
-    return "unknown"
+    return None

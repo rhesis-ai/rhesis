@@ -53,9 +53,12 @@ mixes priced and unpriced models undercount what it actually used.
 
 ## Providers
 
-The provider is read from the `ai.model.provider` span attribute, which every Rhesis integration
-sets. A span that does not set one, such as raw OTLP, has its provider derived from the model name
-instead. Where neither works, the provider is recorded as `unknown`.
+The provider is read from the `ai.model.provider` span attribute where the span carries one. An
+integration sets it when it can place the call: from the framework's own report, from the module
+or class that made it, or from the model name. Where it cannot, it sets nothing rather than
+guessing, and Rhesis derives the provider from the model name instead. That fallback is also what
+covers raw OTLP and any framework Rhesis does not translate. Where neither works, the provider is
+recorded as `unknown`.
 
 Provider names are normalised so one provider appears once. LiteLLM names providers by how it routes
 to them, which splits some into two: a bare `gemini-2.0-flash` is `vertex_ai` to LiteLLM while the

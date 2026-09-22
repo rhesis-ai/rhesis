@@ -47,6 +47,7 @@ from rhesis.sdk.telemetry.integrations.genai import (
     content_capture_enabled,
 )
 from rhesis.sdk.telemetry.integrations.haystack import extraction, mapping
+from rhesis.sdk.telemetry.utils import identify_provider_from_model_name
 from rhesis.telemetry.attributes import MAX_CONTENT_LENGTH, AIAttributes, AIEvents
 from rhesis.telemetry.constants import ConversationContext
 from rhesis.telemetry.context import get_root_trace_id
@@ -487,6 +488,22 @@ def _stringify_content(value: Any) -> str:
         return str(coerced)
 
 
+def _set_model_attributes(otel_span: Any, model: Any) -> None:
+    """Record the model a span used, and the provider behind it.
+
+    The provider is derived from the model name because Haystack does not report one.
+    Stamping it here rather than leaving the backend to infer it keeps a Haystack span
+    comparable with every other integration, and is what the provider filter groups on.
+    """
+    if not model or not isinstance(model, str):
+        return
+
+    otel_span.set_attribute(AIAttributes.MODEL_NAME, model)
+    provider = identify_provider_from_model_name(model)
+    if provider:
+        otel_span.set_attribute(AIAttributes.MODEL_PROVIDER, provider)
+
+
 def _sanitize_usage_data(usage: dict[str, Any]) -> dict[str, int]:
     if not isinstance(usage, dict):
         return {}
@@ -541,9 +558,7 @@ def _apply_chat_reply_metadata(otel_span: trace.Span, replies: list[Any]) -> Non
             otel_span.set_attribute(mapping.COMPLETION_START_TIME_ATTRIBUTE, parsed.isoformat())
         except ValueError:
             logger.error("Failed to parse completion_start_time: %s", completion_start_time)
-    model = meta.get("model")
-    if model:
-        otel_span.set_attribute(AIAttributes.MODEL_NAME, model)
+    _set_model_attributes(otel_span, meta.get("model"))
     _set_token_attributes(otel_span, meta.get("usage"))
 
 
@@ -799,18 +814,14 @@ class DefaultSpanHandler(SpanHandler):
         elif component_type and component_type.endswith("Generator"):
             meta = data.get(mapping.COMPONENT_OUTPUT, {}).get("meta")
             if meta:
-                model = meta[0].get("model")
-                if model:
-                    otel_span.set_attribute(AIAttributes.MODEL_NAME, model)
+                _set_model_attributes(otel_span, meta[0].get("model"))
                 _set_token_attributes(otel_span, meta[0].get("usage"))
 
         elif component_type and component_type.endswith("Embedder"):
             meta = data.get(mapping.COMPONENT_OUTPUT, {}).get("meta")
             if meta and isinstance(meta, dict):
                 _set_token_attributes(otel_span, meta.get("usage") or meta.get("billed_units"))
-                model = meta.get("model")
-                if model and isinstance(model, str):
-                    otel_span.set_attribute(AIAttributes.MODEL_NAME, model)
+                _set_model_attributes(otel_span, meta.get("model"))
 
 
 class RhesisTracer(Tracer):
