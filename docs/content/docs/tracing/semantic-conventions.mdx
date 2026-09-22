@@ -161,6 +161,53 @@ span.set_attribute(AIAttributes.LLM_TOKENS_OUTPUT, 200)`}
 | `OPERATION_AGENT_INVOKE` | `agent.invoke` | Agent invocation |
 | `OPERATION_AGENT_HANDOFF` | `agent.handoff` | Agent handoff |
 
+## Supported Providers
+
+Every provider reports its token counts under different key names. Rhesis reads all of
+them onto the three `ai.llm.tokens.*` attributes above, so a trace looks the same
+whichever provider produced it.
+
+| Provider | Input key | Output key | Cached prompt tokens |
+|----------|-----------|------------|----------------------|
+| OpenAI | `prompt_tokens` | `completion_tokens` | not read yet, see below |
+| Anthropic | `input_tokens` | `output_tokens` | `cache_creation_input_tokens`, `cache_read_input_tokens` |
+| Google | `prompt_token_count` | `candidates_token_count` | `gen_ai.usage.cache_read.input_tokens` |
+| Mistral | `prompt_tokens` | `completion_tokens` | not reported |
+| Cohere | `billed_units.input_tokens` | `billed_units.output_tokens` | not reported |
+
+The camelCase spelling of each key is read too, and Cohere's counts are nested one level
+down under `billed_units`, which is the figure its invoice charges. Where a provider
+reports both a billed and a raw count, the billed one wins.
+
+OpenAI reports its cached tokens as `prompt_tokens_details.cached_tokens`, and Rhesis
+does not read them yet. The two providers count them opposite ways round: Anthropic's
+`input_tokens` excludes the cached ones, so Rhesis adds them to reach a total, while
+OpenAI's `prompt_tokens` already includes them, so adding them would count them twice.
+Until that difference is handled, an OpenAI call that hits the cache is priced as though
+every prompt token were fresh, which overstates it rather than understating it.
+
+A provider not listed here still works if it uses one of those key names, which most do.
+One that does not reports no tokens, and the trace then shows **No cost data** rather
+than a cost of zero.
+
+### Who served the call
+
+`ai.model.provider` says which provider served a call. An integration sets it when it can
+place the call, and leaves it unset otherwise so Rhesis can derive it from the model name
+instead.
+
+| Integration | Sets the provider |
+|-------------|-------------------|
+| LangChain, LangGraph | From the module path, the class name, or the model name |
+| Google ADK | Derived from the model id |
+| Haystack | Derived from the model name |
+| Microsoft Agent Framework, Pydantic AI | Only where the framework reports `gen_ai.provider.name` or `gen_ai.system` |
+| Raw OTLP, anything else | No, derived from the model name on the way in |
+
+Provider names are normalised so one provider appears once, whichever route the call
+took. See [Token Costs](/docs/tracing/costs) for how those names are folded together and
+how each figure is priced.
+
 ## Events
 
 Use `AIEvents` for span events:
