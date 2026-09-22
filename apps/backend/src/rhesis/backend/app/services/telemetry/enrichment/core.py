@@ -47,6 +47,20 @@ def _span_token_counts(span: Trace) -> tuple[int, int, int]:
     return input_tokens, output_tokens, int(reported_total)
 
 
+def _span_cache_token_counts(span: Trace) -> tuple[int, int]:
+    """Cache-write and cache-read prompt tokens for a span, zero when it reported none.
+
+    Priced apart from ordinary input tokens because they cost different amounts:
+    writing a cache is dearer than an ordinary input token, reading one is far
+    cheaper. A trace from before these attributes existed reports zero for both and
+    prices exactly as it did.
+    """
+    return (
+        int(span.attributes.get(AIAttributes.LLM_TOKENS_CACHE_WRITE, 0) or 0),
+        int(span.attributes.get(AIAttributes.LLM_TOKENS_CACHE_READ, 0) or 0),
+    )
+
+
 def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
     """Price a single ``llm.invoke`` span.
 
@@ -61,6 +75,7 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
     priced: no model name, a model LiteLLM has no rate for, and no tokens to price.
     """
     input_tokens, output_tokens, total_tokens = _span_token_counts(span)
+    cache_write_tokens, cache_read_tokens = _span_cache_token_counts(span)
     model_name = span.attributes.get(AIAttributes.MODEL_NAME)
     provider = resolve_provider(span.attributes, model_name)
 
@@ -70,7 +85,7 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
     if not model_name:
         logger.warning(f"⚠️  Span {span.span_id} has no model name: recording tokens without a cost")
         model_name = UNKNOWN_MODEL_NAME
-    elif input_tokens == 0 and output_tokens == 0:
+    elif not any((input_tokens, output_tokens, cache_write_tokens, cache_read_tokens)):
         # Pricing this anyway is the trap. LiteLLM happily returns 0.0 for zero tokens,
         # which lands on screen as a run that cost nothing rather than one we could not
         # read, and an llm.invoke span with no tokens almost always means we failed to
@@ -82,10 +97,17 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
     else:
         try:
             # Returns tuple: (prompt_cost_usd, completion_cost_usd)
+            # LiteLLM expects prompt_tokens to *include* the cached ones and subtracts
+            # them before charging the input rate. Our ai.llm.tokens.input excludes
+            # them, which is why a trace's total is input plus output plus cache. Handing
+            # it the bare input count therefore charges nothing for the tokens that were
+            # not cached: 50 real input tokens beside 5000 cached ones came to zero.
             input_cost_usd, output_cost_usd = litellm.cost_per_token(
                 model=model_name,
-                prompt_tokens=input_tokens,
+                prompt_tokens=input_tokens + cache_write_tokens + cache_read_tokens,
                 completion_tokens=output_tokens,
+                cache_creation_input_tokens=cache_write_tokens,
+                cache_read_input_tokens=cache_read_tokens,
             )
         except Exception as e:
             logger.warning(
