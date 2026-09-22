@@ -50,8 +50,7 @@ function automatedVerdictFor(span: SpanNode) {
   let passed = 0;
   for (const section of ['turn_metrics', 'conversation_metrics']) {
     const sectionData = traceMetrics[section] as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     const metrics = (sectionData?.metrics ?? {}) as Record<string, MetricEntry>;
     for (const metric of Object.values(metrics)) {
       total++;

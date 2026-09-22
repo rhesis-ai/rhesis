@@ -45,8 +45,7 @@ export function spanMetricNames(
   const names: string[] = [];
   for (const section of ['turn_metrics', 'conversation_metrics']) {
     const sectionData = traceMetrics[section] as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     const metrics = sectionData?.metrics as Record<string, unknown> | undefined;
     if (metrics) names.push(...Object.keys(metrics));
   }

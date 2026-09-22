@@ -27,6 +27,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed the Ragas backend from metric icon handling now that the backend no longer serves it.
 
+## [0.17.0] - 2026-09-22
+
+### Added
+
+- **Multi-Currency Support:** Display costs in USD, EUR, GBP, or CHF. Added currency pickers for Organization defaults and Personal overrides, with converted costs and exchange rate age shown on hover.
+- **Detailed Usage Columns:** Added detailed usage metrics (Tokens, Input/Output tokens, Cost, Input/Output cost, and Model) to both the Test Runs and Traces grids, complete with server-side sorting.
+- **System Version Tracking:** Display application/system version information in test run configurations, endpoint mappings, and trace details.
+- **Organization Branding Settings:** Added a Branding tab to Organization Settings to customize primary/secondary colors, product name, favicon, and brand fonts with a live preview editor.
+- **User Notification Preferences:** Added a Notifications tab in User Settings to toggle email alerts for job completions and task assignments.
+- **LLM Provider Filtering:** Added an LLM Provider checklist filter to the traces filter drawer.
+- **Trello MCP Integration:** Added Trello as a supported tool provider.
+- **Bulk Delete for Experiments:** Enabled checkbox selection and bulk deletion in the experiments grid.
+- **Tags Column:** Added a tags column to the test run results table.
+- **Live Usage Polling:** The test run usage card now polls and updates live as a run executes, stopping automatically when figures settle.
+
+### Changed
+
+- **Unified Annotations System:** Fully migrated the legacy "Reviews" framework to a robust, unified Annotations system. Features a shared `AnnotationsPanel`, unified `AnnotationDrawer`, tab badging, and advanced filtering (by test set, endpoint, metric, annotator, requirement, and date range).
+- **Reworked Cost and Usage Cards:** Renamed "Usage" to "Cost" across the application. Cards now lead with cost, show "No cost data" with documentation links when unpriced (instead of a misleading $0.00), and hide when no traces exist.
+- **Enhanced Run Comparison:** Compare cost, tokens, and models between two runs with colored delta indicators showing cost and token improvements.
+- **Reworked Trace Summary Tiles:** Tiles now display richer information, including failed span counts, input/output token splits, and active models.
+- **Tool Connection Drawer:** Redesigned the provider picker as a clean grid of tiles and dynamically render connection fields directly from provider manifests.
+- **Project Detail Layout:** Split the "Advanced Configuration" tab into dedicated "Experiments" and "Traces" tabs.
+
+### Fixed
+
+- **Notification Toggles:** Prevented page reloads when toggling email notification preferences.
+- **Layout Shifts:** Aligned spacing, field heights, and eliminated layout shifts on the project detail page.
+- **Run Configuration Snapshots:** Ensured the test run Configuration tab displays the exact snapshot of the configuration used during the run, rather than live mutable data.
+- **Playground Parameter Persistence:** Persisted playground test parameters in `localStorage` per endpoint to prevent loss on reload.
+- **Security Updates:** Resolved multiple security vulnerabilities by upgrading npm dependencies.
+- **UI Polish:** Fixed various UI bugs, including empty alert rendering, truncated headers, and incorrect rounding in run comparison deltas.
+
+### Removed
+
+- **Ragas Integration:** Removed Ragas integration from the frontend (use DeepEval or Rhesis instead).
+
 ## [0.16.0] - 2026-09-16
 
 ### Added

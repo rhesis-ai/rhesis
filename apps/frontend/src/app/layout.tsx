@@ -130,8 +130,8 @@ function buildFontFaceCss(font: BrandFont): string {
  * and `auth()` hands back a fresh object each call, so passing the session in
  * would miss the cache every time and re-fetch the organisation.
  */
-const getRequestSession = cache(
-  async (): Promise<Session | null> => auth().catch(() => null)
+const getRequestSession = cache(async (): Promise<Session | null> =>
+  auth().catch(() => null)
 );
 
 /**

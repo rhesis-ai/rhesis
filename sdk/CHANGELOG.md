@@ -21,6 +21,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DeepEval or Rhesis providers instead. This also drops `diskcache`, `gitpython`, `scipy` and
   `sqlalchemy` from the SDK's dependency tree.
 
+## [0.17.0] - 2026-09-22
+
+### Breaking Changes
+
+* **Removed Ragas Metric Provider**: Removed the Ragas metric provider and all associated classes (`RagasMetricBase`, `RagasAnswerAccuracy`, `RagasAspectCritic`, `RagasContextRelevance`, `RagasFaithfulness`, and `RagasMetricFactory`). Users should migrate to DeepEval or Rhesis providers.
+
+### Added
+
+* **Trace and Span Entities**: Introduced first-class `Trace` and `Span` SDK entities, enabling developers to query traces, walk span trees, and resolve span row IDs back to traces.
+* **Annotation Entity & Ergonomic APIs**: Added the `Annotation` entity along with `get_annotations()` on `TestResult`, `Test`, and `TestRun`. Added an ergonomic `.annotate(verdict, comment)` helper method directly on annotatable entities.
+* **In-Context Trace Annotation**: Added `annotate_current_trace` and `annotate_trace` to allow instrumented applications to record human verdicts (e.g., thumbs-up/down) using the active OpenTelemetry trace ID without needing to resolve database row IDs first.
+* **Prompt Cache Tracking**: Added `ai.llm.tokens.cache_write` and `ai.llm.tokens.cache_read` span attributes, alongside a new `extract_cache_tokens` utility, to support tracking and pricing cached prompt tokens.
+* **Application Version Tracking**: Added support for capturing and mapping `version_info` (application version metadata) on endpoints, test runs, and invocation spans.
+
+### Changed
+
+* **Robust Token Extraction**: Overhauled token usage extraction to flatten and parse payloads across OpenAI, Anthropic, Mistral, Cohere, and Google. This prevents nested counts or provider-specific cache fields from being dropped, and safely handles custom properties without raising exceptions.
+* **Unified Conversation Anchoring**: Standardized conversation trace anchoring across LangGraph, Haystack, Google ADK, and Multi-Agent Framework (MAF) integrations to prevent split traces on alternating turns.
+* **Multi-Exporter Reliability**: Improved Google ADK and MAF exporters to read and defer the release of conversation content, preventing telemetry data starvation when running multiple concurrent exporters.
+* **Offline OWASP Data**: Bundled pre-extracted OWASP report data directly within the SDK package to eliminate runtime PDF downloads and improve startup performance.
+* **Dependency & Security Updates**: Upgraded `anyio` to `>=4.14.2` and resolved multiple security advisories across Python dependencies. Pinned exact versions for stdio MCP providers in templates to ensure reproducible environments.
+
+### Fixed
+
+* **LangChain Provider Resolution**: Fixed an issue where the LangChain integration stamped "unknown" as a provider, which incorrectly bypassed the backend's model-lookup resolution.
+* **Haystack Provider Stamping**: Fixed Haystack integration to automatically derive and stamp the provider attribute from the model name.
+* **Trace Error Status Consistency**: Fixed `has_errors` on the Trace detail route to consistently reflect the root span's status, matching the list route behavior.
+* **Invalid Trace Anchoring**: Prevented integrations from anchoring conversations to invalid, non-recording (all-zero) trace IDs.
+
+
 ## [0.16.0] - 2026-09-16
 
 ### Added

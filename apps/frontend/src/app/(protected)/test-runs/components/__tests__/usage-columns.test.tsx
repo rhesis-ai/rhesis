@@ -53,8 +53,7 @@ function renderCell(field: string, row: TestRunDetail) {
   // these columns are pure formatting, and the DataGrid brings virtualisation that
   // makes assertions about a single cell far more fragile than the cell itself.
   const getValue = col.valueGetter as
-    | ((value: unknown, row: TestRunDetail) => unknown)
-    | undefined;
+    ((value: unknown, row: TestRunDetail) => unknown) | undefined;
   const value = getValue?.(undefined, row);
   const cell = col.renderCell as
     | ((params: { value: unknown; row: TestRunDetail }) => React.ReactNode)

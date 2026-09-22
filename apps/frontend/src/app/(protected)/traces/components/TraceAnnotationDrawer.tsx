@@ -41,8 +41,7 @@ function allTraceMetrics(
   const result: Record<string, MetricEntry> = {};
   for (const section of ['turn_metrics', 'conversation_metrics']) {
     const sectionData = traceMetrics[section] as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     Object.assign(
       result,
       (sectionData?.metrics ?? {}) as Record<string, MetricEntry>
@@ -82,14 +81,11 @@ export default function TraceAnnotationDrawer({
 
     if (target.type === 'turn') {
       const traceMetrics = selectedSpan.trace_metrics as
-        | Record<string, unknown>
-        | undefined;
+        Record<string, unknown> | undefined;
       const turnSection = traceMetrics?.turn_metrics as
-        | Record<string, unknown>
-        | undefined;
+        Record<string, unknown> | undefined;
       const turnMetrics = turnSection?.metrics as
-        | Record<string, { is_successful?: boolean }>
-        | undefined;
+        Record<string, { is_successful?: boolean }> | undefined;
       // Per-turn: finer than anything the backend records an outcome for.
       return turnMetrics && Object.keys(turnMetrics).length > 0
         ? allMetricsPassed(Object.values(turnMetrics))

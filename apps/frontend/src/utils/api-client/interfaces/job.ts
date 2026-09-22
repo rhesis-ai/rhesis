@@ -9,12 +9,7 @@
 
 /** Values of the backend `JobStatus` enum. */
 export type JobStatus =
-  | 'queued'
-  | 'running'
-  | 'cancelling'
-  | 'completed'
-  | 'failed'
-  | 'cancelled';
+  'queued' | 'running' | 'cancelling' | 'completed' | 'failed' | 'cancelled';
 
 export interface Job {
   id: string;

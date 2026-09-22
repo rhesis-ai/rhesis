@@ -178,8 +178,4 @@ export interface FlowState {
  * Document processing status
  */
 export type DocumentStatus =
-  | 'uploading'
-  | 'extracting'
-  | 'generating'
-  | 'completed'
-  | 'error';
+  'uploading' | 'extracting' | 'generating' | 'completed' | 'error';
