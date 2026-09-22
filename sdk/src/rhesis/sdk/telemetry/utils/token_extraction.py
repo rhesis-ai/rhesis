@@ -7,6 +7,10 @@ the lightweight ``rhesis[telemetry]`` package instead of the full SDK. The modul
 New code should import from ``rhesis.telemetry.token_extraction``.
 """
 
-from rhesis.telemetry.token_extraction import extract_token_usage, get_first_value
+from rhesis.telemetry.token_extraction import (
+    extract_cache_tokens,
+    extract_token_usage,
+    get_first_value,
+)
 
-__all__ = ["extract_token_usage", "get_first_value"]
+__all__ = ["extract_cache_tokens", "extract_token_usage", "get_first_value"]
