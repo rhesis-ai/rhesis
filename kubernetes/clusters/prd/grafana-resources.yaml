@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: aade5e089343000ee54be55c3c209265e8c495a6
+    targetRevision: e6bc068019f548699f3daf3b9f78adfec5c1328e
     path: kubernetes/clusters/prd/grafana-resources
   destination:
     server: https://kubernetes.default.svc
