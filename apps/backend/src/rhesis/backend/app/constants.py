@@ -257,6 +257,9 @@ class AISpanAttributes:
     TOKENS_INPUT = "ai.llm.tokens.input"
     TOKENS_OUTPUT = "ai.llm.tokens.output"
     TOKENS_TOTAL = "ai.llm.tokens.total"
+    # Cached prompt tokens, billed at their own rates rather than the input rate.
+    TOKENS_CACHE_WRITE = "ai.llm.tokens.cache_write"
+    TOKENS_CACHE_READ = "ai.llm.tokens.cache_read"
 
     # Only spans with this operation type carry countable token usage. Agent-run
     # spans repeat their children's tokens as an aggregate, so counting them too
