@@ -14,7 +14,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-09-14T18:00:38.799341Z"
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
@@ -6048,10 +6048,13 @@ dev = [
     { name = "agent-framework-core" },
     { name = "agent-framework-openai" },
     { name = "agent-framework-orchestrations" },
+    { name = "anthropic" },
+    { name = "cohere" },
     { name = "garak" },
     { name = "google-adk" },
     { name = "hatch" },
     { name = "haystack-ai" },
+    { name = "mistralai" },
     { name = "myst-parser" },
     { name = "pandas-stubs" },
     { name = "pre-commit" },
@@ -6152,10 +6155,13 @@ dev = [
     { name = "agent-framework-core", specifier = ">=1.1.0" },
     { name = "agent-framework-openai", specifier = ">=1.1.0" },
     { name = "agent-framework-orchestrations", specifier = ">=1.0.0b260421" },
+    { name = "anthropic", specifier = ">=0.40.0" },
+    { name = "cohere", specifier = ">=5.13.0" },
     { name = "garak", specifier = ">=0.14.0" },
     { name = "google-adk", specifier = ">=2.6,<3" },
     { name = "hatch", specifier = ">=1.14.1" },
     { name = "haystack-ai", specifier = ">=2.22.0" },
+    { name = "mistralai", specifier = ">=1.2.0" },
     { name = "myst-parser", specifier = ">=4.0.0" },
     { name = "pandas-stubs", specifier = ">=2.2.3.250308" },
     { name = "pre-commit", specifier = ">=4.3.0" },

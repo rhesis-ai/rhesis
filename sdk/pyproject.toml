@@ -205,6 +205,15 @@ dev = [
     # and agents against stub generators. End users install via
     # ``rhesis-sdk[haystack]``.
     "haystack-ai>=2.22.0",
+    # Provider clients, for their usage types only. tests/sdk/telemetry/
+    # test_token_extraction.py builds a real Usage object per provider and asserts we
+    # read its token counts, which is the one thing a hand-written dict cannot check:
+    # the object path is where the extraction bug lived. No API keys and no network --
+    # the types construct offline. Not an extra, because nothing in the SDK imports
+    # them.
+    "anthropic>=0.40.0",
+    "cohere>=5.13.0",
+    "mistralai>=1.2.0",
 ]
 
 [build-system]
