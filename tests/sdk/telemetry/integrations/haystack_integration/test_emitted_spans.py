@@ -125,6 +125,39 @@ class TestPipelineSpans:
         assert llm.attributes[AIAttributes.LLM_TOKENS_OUTPUT] == 3
         assert llm.attributes[AIAttributes.LLM_TOKENS_TOTAL] == 13
 
+    def test_llm_span_carries_the_provider_behind_the_model(self, traced_exporter):
+        """Haystack does not report a provider, so the integration derives one.
+
+        Without it every Haystack span reached the backend unattributed and the
+        provider filter could not group them with the same calls made through any
+        other integration.
+        """
+        exporter, _ = traced_exporter
+        generator = ScriptedChatGenerator(
+            replies=[
+                ChatMessage.from_assistant(
+                    "done",
+                    meta={"model": "gpt-4o", "usage": {"prompt_tokens": 4, "completion_tokens": 2}},
+                )
+            ]
+        )
+        chat_pipeline(generator).run({"prompt": {"q": "hello"}})
+
+        llm = spans_by_name(exporter)["ai.llm.invoke"]
+
+        assert llm.attributes[AIAttributes.MODEL_NAME] == "gpt-4o"
+        assert llm.attributes[AIAttributes.MODEL_PROVIDER] == "openai"
+
+    def test_a_model_nobody_recognises_carries_no_provider(self, traced_exporter):
+        """Better to say nothing than to guess. The backend still tries LiteLLM."""
+        exporter, _ = traced_exporter
+        chat_pipeline().run({"prompt": {"q": "hello"}})
+
+        llm = spans_by_name(exporter)["ai.llm.invoke"]
+
+        assert llm.attributes[AIAttributes.MODEL_NAME] == "scripted-1"
+        assert AIAttributes.MODEL_PROVIDER not in llm.attributes
+
     def test_llm_span_has_prompt_and_completion_events(self, traced_exporter):
         exporter, _ = traced_exporter
         chat_pipeline().run({"prompt": {"q": "hello"}})
