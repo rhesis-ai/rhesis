@@ -61,6 +61,34 @@ def _span_cache_token_counts(span: Trace) -> tuple[int, int]:
     )
 
 
+def _priceable_cache_kwargs(model_name: str, cache_write: int, cache_read: int) -> Dict[str, int]:
+    """The cache counts LiteLLM has a published rate for, as keyword arguments.
+
+    A count handed over without a matching rate is charged at nothing *and* deducted
+    from the prompt tokens, so it disappears from the bill entirely: an ai21 model given
+    5000 cached tokens came out 72 times cheaper than the same call without them.
+
+    A count left out stays inside ``prompt_tokens`` and is charged at the ordinary input
+    rate instead. That is the honest default for a model whose cache pricing nobody
+    publishes, and it never costs less than not counting the tokens at all.
+
+    The two are checked separately because a model can publish one and not the other:
+    gpt-4o has a cache-read rate and no cache-write rate.
+    """
+    try:
+        info = litellm.get_model_info(model_name)
+    except Exception:
+        # Unknown to LiteLLM, which the caller is about to discover anyway.
+        return {}
+
+    kwargs: Dict[str, int] = {}
+    if cache_write and info.get("cache_creation_input_token_cost"):
+        kwargs["cache_creation_input_tokens"] = cache_write
+    if cache_read and info.get("cache_read_input_token_cost"):
+        kwargs["cache_read_input_tokens"] = cache_read
+    return kwargs
+
+
 def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
     """Price a single ``llm.invoke`` span.
 
@@ -102,12 +130,14 @@ def _price_span(span: Trace, usd_to_eur: float) -> CostBreakdown:
             # them, which is why a trace's total is input plus output plus cache. Handing
             # it the bare input count therefore charges nothing for the tokens that were
             # not cached: 50 real input tokens beside 5000 cached ones came to zero.
+            #
+            # A cache count is passed only where its rate is published. Left out, it
+            # stays in the sum below and is charged at the ordinary input rate.
             input_cost_usd, output_cost_usd = litellm.cost_per_token(
                 model=model_name,
                 prompt_tokens=input_tokens + cache_write_tokens + cache_read_tokens,
                 completion_tokens=output_tokens,
-                cache_creation_input_tokens=cache_write_tokens,
-                cache_read_input_tokens=cache_read_tokens,
+                **_priceable_cache_kwargs(model_name, cache_write_tokens, cache_read_tokens),
             )
         except Exception as e:
             logger.warning(
