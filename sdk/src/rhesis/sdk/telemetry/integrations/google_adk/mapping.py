@@ -458,7 +458,8 @@ def _apply_token_attributes(attributes: Mapping[str, Any], translated: dict[str,
     ``.output_tokens``. ADK reports cached input and reasoning output separately,
     and already *includes* reasoning tokens in its output total (its
     ``TokenUsage`` sums ``candidates_token_count + thoughts_token_count``), so
-    only the cache-read count still has to be added to reach a true total.
+    only the cache-read count still has to be added to reach a true total. It is
+    also recorded in its own right, because it is billed at its own rate.
     """
     input_tokens = attributes.get(GEN_AI_USAGE_INPUT_TOKENS)
     output_tokens = attributes.get(GEN_AI_USAGE_OUTPUT_TOKENS)
@@ -471,6 +472,11 @@ def _apply_token_attributes(attributes: Mapping[str, Any], translated: dict[str,
     translated[AIAttributes.LLM_TOKENS_TOTAL] = (
         (input_tokens or 0) + (output_tokens or 0) + cache_read
     )
+    # Kept as well as counted. Gemini bills a cached input token below the input
+    # rate, so folding it into the total alone left the cost priced as though the
+    # call had not used the cache at all.
+    if cache_read:
+        translated[AIAttributes.LLM_TOKENS_CACHE_READ] = cache_read
 
 
 # ---------------------------------------------------------------------------

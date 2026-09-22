@@ -7,12 +7,12 @@ strategies.
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List
 
 from opentelemetry import trace
 
 from rhesis.telemetry.attributes import AIAttributes, AIEvents
-from rhesis.telemetry.token_extraction import extract_token_usage
+from rhesis.telemetry.token_extraction import extract_cache_tokens, extract_token_usage
 
 from .extractors import (
     MAX_CONTENT_LENGTH,
@@ -279,6 +279,60 @@ def _extract_tokens_from_generation_info(info: Dict) -> tuple[int, int, int, str
     return input_tokens, output_tokens, total_tokens, token_source
 
 
+def _usage_payloads(response: Any) -> Iterator[Any]:
+    """Every place this response might carry a usage payload, in priority order.
+
+    The token walk above reads these one at a time, stopping at the first that yields a
+    count, and keeps only the numbers. Cache tokens need the payload itself, so they are
+    read here rather than threaded back through seven call sites.
+    """
+    llm_output = getattr(response, "llm_output", None)
+    if isinstance(llm_output, dict):
+        yield llm_output.get("token_usage")
+        yield llm_output.get("usage")
+
+    yield getattr(response, "usage", None)
+
+    generations = getattr(response, "generations", None)
+    if not generations or not generations[0]:
+        return
+
+    generation = generations[0][0]
+    message = getattr(generation, "message", None)
+    if message is not None:
+        yield getattr(message, "usage_metadata", None)
+        metadata = getattr(message, "response_metadata", None)
+        if isinstance(metadata, dict):
+            yield metadata.get("token_usage")
+
+    yield getattr(generation, "usage_metadata", None)
+
+    info = getattr(generation, "generation_info", None)
+    if isinstance(info, dict):
+        for key in ("usage_metadata", "token_usage", "usage"):
+            yield info.get(key)
+
+
+def _set_cache_token_attributes(span: trace.Span, response: Any) -> None:
+    """Record cached prompt tokens, where the provider reported any.
+
+    Anthropic bills a cache write above the input rate and a cache read far below it,
+    so these cannot be folded into the input count and priced there. Recorded apart,
+    they let the backend price a cached call for what it actually cost. Without them a
+    call reporting 5070 tokens was charged as if it had used 70.
+    """
+    for payload in _usage_payloads(response):
+        if not payload:
+            continue
+        cache_write, cache_read = extract_cache_tokens(payload)
+        if cache_write or cache_read:
+            if cache_write:
+                span.set_attribute(AIAttributes.LLM_TOKENS_CACHE_WRITE, cache_write)
+            if cache_read:
+                span.set_attribute(AIAttributes.LLM_TOKENS_CACHE_READ, cache_read)
+            return
+
+
 def _set_token_attributes(
     span: trace.Span,
     input_tokens: int,
@@ -294,6 +348,7 @@ def _set_token_attributes(
         span.set_attribute(
             AIAttributes.LLM_TOKENS_TOTAL, total_tokens or (input_tokens + output_tokens)
         )
+        _set_cache_token_attributes(span, response)
         logger.debug(
             f"Set token attributes from {token_source}: "
             f"input={input_tokens}, output={output_tokens}, "
