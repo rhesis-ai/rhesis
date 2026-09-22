@@ -176,3 +176,21 @@ class TestFlatteningKeepsEverything:
 
     def test_an_object_that_cannot_be_flattened_is_zeroes(self):
         assert extract_token_usage(object()) == (0, 0, 0)
+
+    def test_an_attribute_that_raises_is_skipped_not_propagated(self):
+        """Telemetry must not take the caller's request down with it.
+
+        Reading an attribute can run arbitrary code, and getattr's default only
+        swallows AttributeError, so a lazy property that fails for its own reasons
+        used to escape into the request that was only trying to be traced.
+        """
+
+        class Usage:
+            input_tokens = 50
+            output_tokens = 20
+
+            @property
+            def total_tokens(self):
+                raise RuntimeError("lazy load failed")
+
+        assert extract_token_usage(Usage()) == (50, 20, 70)

@@ -136,10 +136,18 @@ def _as_mapping(usage: Union[Dict, Any]) -> Dict:
         # nor __dict__ finds it. Probing the same key lists covers that without a second
         # list to keep in step.
         for key in _ALL_KEYS:
-            if key not in flat:
+            if key in flat:
+                continue
+            try:
                 value = getattr(usage, key, None)
-                if value is not None:
-                    flat[key] = value
+            except Exception as e:
+                # A property or a custom __getattr__ can run arbitrary code, and the
+                # default argument above only swallows AttributeError. This runs inside
+                # the caller's request, so a token count is never worth raising over.
+                logger.debug(f"Error reading {key} from usage object: {e}")
+                continue
+            if value is not None:
+                flat[key] = value
     if not flat:
         return {}
 
