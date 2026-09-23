@@ -43,6 +43,7 @@ import { useLiveTestRun } from '../hooks/useLiveTestRun';
 import { useTestRunAnnotations } from '../hooks/useTestRunAnnotations';
 import {
   getTestEvaluationSummary,
+  getEffectiveTestResultStatus,
   matchesStatusFilter,
 } from '@/utils/test-result-status';
 import { TAB_KEYS, TabKey, tabIndexFromKey } from '../utils/tab-key';
@@ -201,6 +202,14 @@ export default function TestRunMainView({
       test => testResultUpdates.get(test.id) || test
     );
   }, [loadedTestResults, testResultUpdates]);
+
+  const hasInconclusive = useMemo(
+    () =>
+      testResults.some(
+        test => getEffectiveTestResultStatus(test) === 'Inconclusive'
+      ),
+    [testResults]
+  );
 
   const filteredTests = useMemo(() => {
     let filtered = [...testResults];
@@ -613,6 +622,7 @@ export default function TestRunMainView({
           isRerunning={isRerunDrawerOpen}
           canRerun={canRerun}
           totalTests={testResults.length}
+          hasInconclusive={hasInconclusive}
           testRunId={testRunId}
           loading={loading}
           prompts={prompts}

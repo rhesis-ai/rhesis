@@ -56,10 +56,14 @@ describe('testResultStatus', () => {
       expect(matchesStatusFilter(result('ok', 'pass'), 'failed')).toBe(false);
     });
 
-    it('leaves an inconclusive result out of both Passed and Failed', () => {
+    it('puts an inconclusive result under Inconclusive only', () => {
       const inconclusive = result('ok', 'inconclusive');
+      expect(matchesStatusFilter(inconclusive, 'inconclusive')).toBe(true);
       expect(matchesStatusFilter(inconclusive, 'failed')).toBe(false);
       expect(matchesStatusFilter(inconclusive, 'passed')).toBe(false);
+      expect(matchesStatusFilter(result('ok', 'pass'), 'inconclusive')).toBe(
+        false
+      );
     });
 
     it('keeps only passes under Passed', () => {
