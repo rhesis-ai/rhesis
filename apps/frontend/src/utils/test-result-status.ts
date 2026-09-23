@@ -136,6 +136,23 @@ export function getEffectiveTestResultStatus(
 }
 
 /**
+ * Whether a result belongs under the Tests tab's Passed/Failed filter.
+ *
+ * "failed" is what the Failures card counts -- a failed verdict or an error.
+ * Inconclusive is neither (no pass/fail verdict was given), so it only shows
+ * under "all".
+ */
+export function matchesStatusFilter(
+  test: TestResultDetail,
+  filter: 'passed' | 'failed'
+): boolean {
+  const status = getEffectiveTestResultStatus(test);
+  return filter === 'passed'
+    ? status === 'Pass'
+    : status === 'Fail' || status === 'Error';
+}
+
+/**
  * Gets the label text for a test result status, accounting for any human
  * annotation (the backend's `execution`/`verdict` already do).
  *

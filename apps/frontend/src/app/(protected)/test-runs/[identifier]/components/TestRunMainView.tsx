@@ -43,7 +43,7 @@ import { useLiveTestRun } from '../hooks/useLiveTestRun';
 import { useTestRunAnnotations } from '../hooks/useTestRunAnnotations';
 import {
   getTestEvaluationSummary,
-  getEffectiveTestResultStatus,
+  matchesStatusFilter,
 } from '@/utils/test-result-status';
 import { TAB_KEYS, TabKey, tabIndexFromKey } from '../utils/tab-key';
 import TestRunAnnotationsTab from './TestRunAnnotationsTab';
@@ -229,10 +229,10 @@ export default function TestRunMainView({
       // Re-deriving it from raw metrics here made the filter disagree with
       // what the user could see: a test annotated Pass showed a "Passed"
       // chip but was excluded from the "passed" filter.
-      filtered = filtered.filter(test => {
-        const isPassed = getEffectiveTestResultStatus(test) === 'Pass';
-        return filter.statusFilter === 'passed' ? isPassed : !isPassed;
-      });
+      const statusFilter = filter.statusFilter;
+      filtered = filtered.filter(test =>
+        matchesStatusFilter(test, statusFilter)
+      );
     }
 
     if (filter.selectedRequirements.length > 0) {
