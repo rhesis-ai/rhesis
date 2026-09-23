@@ -16,6 +16,8 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.app.crud import test as test_crud
+from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.app.utils.user_model_utils import resolve_model
 from rhesis.backend.jobs.execution.executors.data import get_test_and_prompt
 from rhesis.backend.jobs.execution.executors.metrics import determine_status_from_metrics
@@ -120,6 +122,8 @@ async def execute_test_in_place(
             start_time=start_time,
         )
 
+    # Same unit and timing as a batch run: one test executed, counted once it finishes.
+    dispatch_accrual(organization_id, QuotaResource.TEST_EXECUTIONS, 1)
     return result
 
 

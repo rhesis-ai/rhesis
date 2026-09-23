@@ -196,7 +196,9 @@ describe('RunDrawer quota gate', () => {
     mockExecutionUsage(usageItem(100, 100, 100));
     renderRunDrawer();
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/test runs limit/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /test executions limit/i
+    );
   });
 
   it("disables Run when the run's tests don't fit in what's left", async () => {

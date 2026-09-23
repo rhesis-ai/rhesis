@@ -28,6 +28,13 @@ from tests.backend.routes.fixtures.data_factories import (
 fake = Faker()
 
 
+@pytest.fixture(autouse=True)
+def mock_dispatch_accrual():
+    """Keep accrual off the Celery broker; tests that care assert on the mock."""
+    with patch.object(test_execution, "dispatch_accrual") as mock:
+        yield mock
+
+
 # ============================================================================
 # Data Factories
 # ============================================================================
@@ -1068,3 +1075,71 @@ class TestInPlaceExecutionPrefetchRunsOffTheLoop:
         assert len(threads) == 3
         assert len(set(threads)) == 1
         assert threading.get_ident() not in threads
+
+
+@pytest.mark.unit
+class TestInPlaceExecutionAccruesUsage:
+    """`POST /tests/execute` checks the TEST_EXECUTIONS quota, so it must also count toward it."""
+
+    def _inline_test(self):
+        inline_test = MagicMock()
+        inline_test.id = uuid4()
+        inline_test.prompt_id = None
+        inline_test.test_type.type_value = "Single-Turn"
+        return inline_test
+
+    @pytest.mark.asyncio
+    async def test_a_finished_execution_counts_as_one(self, mock_dispatch_accrual):
+        from rhesis.backend.app.quota import QuotaResource
+
+        inline_test = self._inline_test()
+        org_id = str(uuid4())
+
+        with (
+            patch.object(test_execution, "resolve_model", return_value="gpt-4"),
+            patch.object(
+                test_execution,
+                "_load_test_for_execution",
+                return_value=(inline_test, str(inline_test.id), "prompt", "expected"),
+            ),
+            patch.object(test_execution, "SingleTurnRunner") as runner_class,
+        ):
+            runner_class.return_value.run = AsyncMock(return_value=(1.0, {"out": 1}, {}))
+
+            await test_execution.execute_test_in_place(
+                db=MagicMock(),
+                request_data={"prompt": {"content": "hi"}},
+                endpoint_id=str(uuid4()),
+                organization_id=org_id,
+                user_id=str(uuid4()),
+                evaluate_metrics=False,
+            )
+
+        mock_dispatch_accrual.assert_called_once_with(org_id, QuotaResource.TEST_EXECUTIONS, 1)
+
+    @pytest.mark.asyncio
+    async def test_a_failed_execution_is_not_counted(self, mock_dispatch_accrual):
+        inline_test = self._inline_test()
+
+        with (
+            patch.object(test_execution, "resolve_model", return_value="gpt-4"),
+            patch.object(
+                test_execution,
+                "_load_test_for_execution",
+                return_value=(inline_test, str(inline_test.id), "prompt", "expected"),
+            ),
+            patch.object(test_execution, "SingleTurnRunner") as runner_class,
+        ):
+            runner_class.return_value.run = AsyncMock(side_effect=RuntimeError("endpoint down"))
+
+            with pytest.raises(RuntimeError):
+                await test_execution.execute_test_in_place(
+                    db=MagicMock(),
+                    request_data={"prompt": {"content": "hi"}},
+                    endpoint_id=str(uuid4()),
+                    organization_id=str(uuid4()),
+                    user_id=str(uuid4()),
+                    evaluate_metrics=False,
+                )
+
+        mock_dispatch_accrual.assert_not_called()

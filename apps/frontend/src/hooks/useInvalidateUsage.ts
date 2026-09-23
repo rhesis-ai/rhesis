@@ -14,7 +14,7 @@ import { useUserScope } from '@/hooks/useIsAuthenticated';
  * them to stays blocked for up to five minutes, having done exactly what
  * was asked.
  *
- * Flow resources (test runs, generation, spans, tokens) deliberately stay on
+ * Flow resources (test executions, generation, spans, tokens) deliberately stay on
  * `staleTime`: a stale flow count only ever drifts up, so the preflight errs
  * open and the server-side 402 catches it.
  *
