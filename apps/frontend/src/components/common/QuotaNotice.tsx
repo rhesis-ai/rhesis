@@ -16,6 +16,8 @@ export interface QuotaNoticeProps {
   limit: number;
   zone: Exclude<QuotaZone, 'healthy'>;
   periodEnd?: string;
+  requested?: number;
+  remaining?: number;
   canUpgrade: boolean;
 }
 

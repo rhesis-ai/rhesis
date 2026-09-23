@@ -20,6 +20,7 @@ from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.services.test_set import enforce_test_run_quota
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import (
@@ -205,6 +206,8 @@ def execute_test_configuration_endpoint(
         )
         if db_test_configuration is None:
             raise HTTPException(status_code=404, detail="Test configuration not found")
+        if db_test_configuration.test_set_id:
+            enforce_test_run_quota(db, organization_id, user_id, db_test_configuration.test_set_id)
 
         # Update test configuration with parameter references if provided
         if execution_request:

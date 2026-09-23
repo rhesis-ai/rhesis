@@ -56,12 +56,18 @@ def _set_pass_fail_status(db_test_result: models.TestResult, passed: bool) -> No
     _apply_outcome(db_test_result, Execution.OK, Verdict.PASS if passed else Verdict.FAIL)
 
 
+def _no_metrics_applied(db_test_result: models.TestResult) -> bool:
+    test_metrics = db_test_result.test_metrics
+    return isinstance(test_metrics, dict) and bool(test_metrics.get("no_metrics_applied"))
+
+
 def _has_evaluable_content(db_test_result: models.TestResult) -> bool:
     metrics = (db_test_result.test_metrics or {}).get("metrics")
     has_metrics = isinstance(metrics, dict) and bool(metrics)
     test_output = db_test_result.test_output
     has_goal_eval = isinstance(test_output, dict) and bool(test_output.get("goal_evaluation"))
-    return has_metrics or has_goal_eval
+    # No metric judged it, but the endpoint answered: a reviewer can.
+    return has_metrics or has_goal_eval or _no_metrics_applied(db_test_result)
 
 
 def apply_override(
@@ -322,7 +328,10 @@ def recalculate_overall_status(db_test_result: models.TestResult) -> None:
 
     if not metrics:
         if turns_passed is None:
-            _apply_outcome(db_test_result, Execution.ERROR, None)
+            execution, verdict = classify_metrics(
+                metrics, no_metrics_applied=_no_metrics_applied(db_test_result)
+            )
+            _apply_outcome(db_test_result, execution, verdict)
             return
         execution, verdict = Execution.OK, (Verdict.PASS if turns_passed else Verdict.FAIL)
     else:

@@ -52,6 +52,7 @@ function makeMatrix(overrides: Partial<VerdictMatrix> = {}): VerdictMatrix {
         id: 'req-1',
         name: 'Safety',
         metric_keys: ['m1', 'm2'],
+        test_status: '',
       },
     ],
     rows: [
@@ -217,8 +218,14 @@ describe('RequirementTable', () => {
       <RequirementTable
         matrix={makeMatrix({
           requirements: [
-            { id: null, name: 'Unassigned', metric_keys: ['m1', 'm2'] },
+            {
+              id: null,
+              name: 'Unassigned',
+              metric_keys: ['m1', 'm2'],
+              test_status: '',
+            },
           ],
+          rows: makeMatrix().rows.map(r => ({ ...r, requirement_id: null })),
         })}
         density="shape"
         onDensityChange={jest.fn()}
@@ -236,6 +243,111 @@ describe('RequirementTable', () => {
       screen.queryByRole('button', { expanded: true })
     ).not.toBeInTheDocument();
     expect(screen.queryByText('Unassigned')).not.toBeInTheDocument();
+  });
+
+  it('shows a shared metric key only under the requirement that owns the row', () => {
+    // Two requirements both carry 'relevance', each with its own row scoped
+    // to its own tests. Matching on the key alone rendered both rows under
+    // both requirements.
+    const row = (requirement_id: string, verdicts: string): VerdictRow => ({
+      requirement_id,
+      metric_key: 'relevance',
+      metric_name: 'Recommendation Relevance',
+      metric_id: `mid-${requirement_id}`,
+      ambiguous: false,
+      verdicts,
+      overrides: '000',
+      passed: 1,
+      failed: 0,
+      pending: 0,
+    });
+    renderWithClock(
+      <RequirementTable
+        matrix={makeMatrix({
+          requirements: [
+            {
+              id: 'req-a',
+              name: 'Core',
+              metric_keys: ['relevance'],
+              test_status: '',
+            },
+            {
+              id: 'req-b',
+              name: 'Preference',
+              metric_keys: ['relevance'],
+              test_status: '',
+            },
+          ],
+          rows: [row('req-a', 'PXX'), row('req-b', 'XXP')],
+        })}
+        density="numbers"
+        onDensityChange={jest.fn()}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+
+    expect(screen.getAllByText('Recommendation Relevance')).toHaveLength(2);
+    // Each header rolls up only its own test (Total 3, Passed 1, Failed 0);
+    // with the leak, each would also count the other requirement's pass.
+    const [core, preference] = screen.getAllByRole('button', {
+      expanded: true,
+    });
+    expect(core).toHaveTextContent(/^Core310100%/);
+    expect(preference).toHaveTextContent(/^Preference310100%/);
+  });
+
+  it('shows the tests of a requirement with no metrics, errored ones as failed', () => {
+    // Nicolai's run: the requirement's only test errored for lack of
+    // metrics -- counted as a failure, with no cell anywhere to show it.
+    renderWithClock(
+      <RequirementTable
+        matrix={makeMatrix({
+          requirements: [
+            {
+              id: 'req-bare',
+              name: 'Destination Planning',
+              metric_keys: [],
+              test_status: 'XEX',
+            },
+          ],
+          rows: [],
+        })}
+        density="numbers"
+        onDensityChange={jest.fn()}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+
+    expect(screen.getByText('No metrics configured')).toBeInTheDocument();
+    const [header] = screen.getAllByRole('button', { expanded: true });
+    // Total 3, Passed 0, Failed 1.
+    expect(header).toHaveTextContent(/^Destination Planning301/);
+  });
+
+  it('shows unscored tests of a requirement with no metrics as no verdict', () => {
+    renderWithClock(
+      <RequirementTable
+        matrix={makeMatrix({
+          requirements: [
+            {
+              id: 'req-bare',
+              name: 'Destination Planning',
+              metric_keys: [],
+              test_status: 'XSX',
+            },
+          ],
+          rows: [],
+        })}
+        density="numbers"
+        onDensityChange={jest.fn()}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+
+    expect(screen.getByText('No metrics configured')).toBeInTheDocument();
+    const [header] = screen.getAllByRole('button', { expanded: true });
+    // Neither passed nor failed, so no pass rate either.
+    expect(header).toHaveTextContent(/^Destination Planning300--/);
   });
 
   it('derives group header Total/Passed/Failed from the per-test rollup', () => {
@@ -527,7 +639,12 @@ describe('RequirementTable', () => {
         <RequirementTable
           matrix={makeMatrix({
             requirements: [
-              { id: 'req-1', name: 'Safety', metric_keys: ['m1'] },
+              {
+                id: 'req-1',
+                name: 'Safety',
+                metric_keys: ['m1'],
+                test_status: '',
+              },
             ],
             rows: [row],
             // One test id per verdict char -- the group header rolls up over

@@ -58,6 +58,8 @@ class QuotaVerdict:
         round trip to `GET /usage`. ``None`` for a stock resource: seats,
         projects and endpoints are live counts that never reset, so a
         period end would be a meaningless date on the wire.
+    :param requested: how many units the request would consume.
+    :param remaining: units left before the ceiling, or ``None`` if unlimited.
     """
 
     resource: QuotaResource
@@ -67,6 +69,8 @@ class QuotaVerdict:
     over_limit: bool
     kind: str
     period_end: Optional[str]
+    requested: int = 1
+    remaining: Optional[int] = None
 
 
 class QuotaExceededError(Exception):
@@ -105,6 +109,13 @@ def quota_exceeded_response_body(verdict: QuotaVerdict) -> dict:
     resource_display = resource_label(verdict.resource)
     is_stock = verdict.resource in _STOCK_COUNTERS
     suffix = "" if is_stock else " for this period"
+    if verdict.requested > 1 and verdict.remaining:
+        message = (
+            f"This needs {verdict.requested:,} {resource_display}, but your organization "
+            f"has {verdict.remaining:,} left{suffix}."
+        )
+    else:
+        message = f"Your organization is at its {resource_display} limit{suffix}."
     return {
         "error": "quota_exceeded",
         "resource": verdict.resource.value,
@@ -112,7 +123,9 @@ def quota_exceeded_response_body(verdict: QuotaVerdict) -> dict:
         "limit": verdict.limit,
         "kind": verdict.kind,
         "period_end": verdict.period_end,
-        "message": f"Your organization is at its {resource_display} limit{suffix}.",
+        "requested": verdict.requested,
+        "remaining": verdict.remaining,
+        "message": message,
     }
 
 
@@ -179,18 +192,23 @@ def check_quota(
     org_id: str,
     org: Optional[Organization],
     resource: QuotaResource,
+    amount: int = 1,
+    reserved: int = 0,
 ) -> QuotaVerdict:
-    """Return whether *org_id* may still consume *resource*. Never raises.
+    """Return whether *org_id* may consume *amount* more of *resource*. Never raises.
 
     Blocking rule, with ``ceiling = policy.ceiling_for(limit)``:
 
     - ``limit is None`` -> always allowed (unlimited).
-    - ``used < limit`` -> allowed.
-    - ``used >= limit``, policy ``HARD`` -> blocked (``ceiling == limit``
-      for ``HARD``, so this is really just ``used >= ceiling``).
-    - ``limit <= used < ceiling``, policy ``SOFT`` -> allowed, over_limit
-      (the grace band).
-    - ``used >= ceiling``, policy ``SOFT`` -> blocked.
+    - ``used + reserved + amount <= ceiling`` -> allowed; ``over_limit``
+      once ``used >= limit`` (the ``SOFT`` grace band).
+    - otherwise blocked.
+
+    With the defaults this is ``used < ceiling``. A larger *amount* is for
+    work whose size is known up front, like a test run: it is refused whole
+    rather than allowed to start and end far past the ceiling. *reserved*
+    is work already started but not yet recorded in ``usage`` (test runs
+    still queued or running), so two runs can't each claim the same room.
     """
     policy = QuotaRegistry.get_policy(org)
     limit = policy.limits.get(resource)
@@ -209,6 +227,7 @@ def check_quota(
             over_limit=False,
             kind=kind,
             period_end=period_end,
+            requested=amount,
         )
 
     ceiling = policy.ceiling_for(limit)
@@ -216,10 +235,12 @@ def check_quota(
         resource=resource,
         used=used,
         limit=limit,
-        allowed=used < ceiling,
+        allowed=used + reserved + amount <= ceiling,
         over_limit=used >= limit,
         kind=kind,
         period_end=period_end,
+        requested=amount,
+        remaining=max(ceiling - used - reserved, 0),
     )
 
 
@@ -228,6 +249,8 @@ def enforce_quota(
     org_id: str,
     org: Optional[Organization],
     resource: QuotaResource,
+    amount: int = 1,
+    reserved: int = 0,
 ) -> QuotaVerdict:
     """Check *resource* for *org_id* and raise if blocked.
 
@@ -238,7 +261,7 @@ def enforce_quota(
 
     :raises QuotaExceededError: if the verdict is not allowed.
     """
-    verdict = check_quota(db, org_id, org, resource)
+    verdict = check_quota(db, org_id, org, resource, amount, reserved)
     if not verdict.allowed:
         raise QuotaExceededError(verdict)
     return verdict

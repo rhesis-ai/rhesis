@@ -6,6 +6,7 @@ import {
   isPassedStatusName,
   findStatusByCategory,
   getTestEvaluationSummary,
+  matchesStatusFilter,
   TEST_RESULT_STATUS_NAMES,
 } from '../test-result-status';
 import {
@@ -43,6 +44,34 @@ const createAnnotation = (statusName: string, comments: string = 'Test') => ({
 });
 
 describe('testResultStatus', () => {
+  describe('matchesStatusFilter', () => {
+    const result = (
+      execution: TestResultDetail['execution'],
+      verdict: TestResultDetail['verdict']
+    ) => ({ execution, verdict }) as TestResultDetail;
+
+    it('counts failed verdicts and errors as failed, like the Failures card', () => {
+      expect(matchesStatusFilter(result('ok', 'fail'), 'failed')).toBe(true);
+      expect(matchesStatusFilter(result('error', null), 'failed')).toBe(true);
+      expect(matchesStatusFilter(result('ok', 'pass'), 'failed')).toBe(false);
+    });
+
+    it('puts an inconclusive result under Inconclusive only', () => {
+      const inconclusive = result('ok', 'inconclusive');
+      expect(matchesStatusFilter(inconclusive, 'inconclusive')).toBe(true);
+      expect(matchesStatusFilter(inconclusive, 'failed')).toBe(false);
+      expect(matchesStatusFilter(inconclusive, 'passed')).toBe(false);
+      expect(matchesStatusFilter(result('ok', 'pass'), 'inconclusive')).toBe(
+        false
+      );
+    });
+
+    it('keeps only passes under Passed', () => {
+      expect(matchesStatusFilter(result('ok', 'pass'), 'passed')).toBe(true);
+      expect(matchesStatusFilter(result('error', null), 'passed')).toBe(false);
+    });
+  });
+
   describe('getEffectiveTestResultStatus', () => {
     it('returns Pass for execution=ok, verdict=pass', () => {
       const test: Partial<TestResultDetail> = {

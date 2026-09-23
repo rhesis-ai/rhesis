@@ -7,7 +7,12 @@ import CostCard from './CostCard';
 import VerdictStrip from './VerdictStrip';
 import { deriveRunStatus } from './run-status';
 import { formatDuration } from './run-meta';
-import { computeVerdictBlocks, formatVerdictBlocks } from './verdict-model';
+import {
+  ERROR_CHAR,
+  computeVerdictBlocks,
+  formatVerdictBlocks,
+  withMetriclessRows,
+} from './verdict-model';
 import {
   aggregateGroupByTest,
   computeGroupRollup,
@@ -54,14 +59,19 @@ export default function KpiRow({
   // just scoped to every row instead of one requirement's) -- this is what
   // the Pass Rate card's sparkline and "N of M tests" subtitle are built
   // from, distinct from kpis.pass_rate, which is a per-verdict rate.
+  const rollupRows = useMemo(
+    () => withMetriclessRows(matrix.requirements, matrix.rows),
+    [matrix.requirements, matrix.rows]
+  );
+
   const runRollup = useMemo(
-    () => aggregateGroupByTest(matrix.rows, testIds, timings, Infinity),
-    [matrix.rows, testIds, timings]
+    () => aggregateGroupByTest(rollupRows, testIds, timings, Infinity),
+    [rollupRows, testIds, timings]
   );
 
   const sparklineAt = useCallback(
-    (t: number) => computeGroupRollup(matrix.rows, testIds, timings, t),
-    [matrix.rows, testIds, timings]
+    (t: number) => computeGroupRollup(rollupRows, testIds, timings, t),
+    [rollupRows, testIds, timings]
   );
 
   const passRateStripAriaLabel = useMemo(
@@ -92,12 +102,22 @@ export default function KpiRow({
     [matrix.rows]
   );
 
+  // kpis.failures counts errored tests too; say so, or a failure with no
+  // failing verdict behind it reads as a contradiction.
+  const erroredTestCount = useMemo(
+    () => [...matrix.test_status].filter(c => c === ERROR_CHAR).length,
+    [matrix.test_status]
+  );
+
   const hasFailures = kpis.failures > 0;
 
   const verdictsSubtitle = hasFailures
     ? `${kpis.verdicts_resolved} of ${kpis.verdicts_planned} verdicts` +
       (failedMetricCount > 0
         ? ` · ${failedMetricCount} metric${failedMetricCount === 1 ? '' : 's'} affected`
+        : '') +
+      (erroredTestCount > 0
+        ? ` · ${erroredTestCount} error${erroredTestCount === 1 ? '' : 's'}`
         : '')
     : verdictBlocksSubtitle;
 
@@ -160,7 +180,7 @@ export default function KpiRow({
             subtitle={verdictsSubtitle}
             infoTooltip={
               hasFailures
-                ? 'Tests with at least one failing verdict. Click to view them.'
+                ? 'Tests that failed a verdict or errored. Click to view them.'
                 : 'Each test/metric pair produces one verdict. Shows verdicts resolved out of the total planned for this run.'
             }
             onClick={hasFailures ? onViewFailures : undefined}

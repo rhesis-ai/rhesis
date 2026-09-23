@@ -2,6 +2,7 @@ import json
 import logging
 import random
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 from uuid import UUID
@@ -22,7 +23,10 @@ from rhesis.backend.app.constants import (
     TestSetType,
 )
 from rhesis.backend.app.models import Prompt, TestSet
+from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota.enforcement import enforce_quota
 from rhesis.backend.app.services.test import bulk_create_test_set_associations, bulk_create_tests
 from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
@@ -784,6 +788,9 @@ def execute_test_set_on_endpoint(
     _validate_user_access(current_user, db_test_set, db_endpoint)
 
     _validate_test_set_not_empty(db, db_test_set)
+    enforce_test_run_quota(
+        db, str(current_user.organization_id), str(current_user.id), db_test_set.id
+    )
 
     # Validate reference test run if provided (output reuse / re-scoring)
     if reference_test_run_id:
@@ -879,6 +886,53 @@ def count_test_set_tests(db: Session, test_set_id: uuid.UUID) -> int:
         )
         .scalar()
     ) or 0
+
+
+#: Queued or running runs older than this stop holding quota back. A run
+#: can't execute past Celery's ~65 min hard limit, so an older one is almost
+#: always a crashed run whose status never left "Progress".
+IN_FLIGHT_RUN_WINDOW = timedelta(hours=24)
+
+
+def _in_flight_run_tests(db: Session, organization_id: str, user_id: str) -> int:
+    """Tests in the org's queued and running runs, which ``usage`` doesn't hold yet.
+
+    Quota is per org, but project RLS fails closed: a session sees one
+    project's runs (plus project-less ones) at a time, and no scope sees them
+    all. So this sums project by project, each under its own scope.
+    """
+    from rhesis.backend.app.crud.project import list_org_project_ids
+    from rhesis.backend.app.crud.test_run import sum_run_test_counts
+    from rhesis.backend.app.database import temporary_project_scope
+    from rhesis.backend.jobs.enums import RunStatus
+
+    statuses = [RunStatus.QUEUED.value, RunStatus.PROGRESS.value]
+    since = datetime.now(timezone.utc) - IN_FLIGHT_RUN_WINDOW
+    total = sum_run_test_counts(db, organization_id, None, statuses, since)
+    for project_id in list_org_project_ids(db, organization_id):
+        with temporary_project_scope(db, organization_id, user_id, str(project_id)):
+            total += sum_run_test_counts(db, organization_id, project_id, statuses, since)
+    return total
+
+
+def enforce_test_run_quota(
+    db: Session, organization_id: str, user_id: str, test_set_id: uuid.UUID
+) -> None:
+    """Refuse a run whose tests don't fit in the org's remaining test executions.
+
+    The job records one test execution per test once the run ends, so this
+    counts the same tests up front, plus the tests of runs still in flight.
+    Raises ``QuotaExceededError``.
+    """
+    org = db.get(Organization, organization_id)
+    enforce_quota(
+        db,
+        str(organization_id),
+        org,
+        QuotaResource.TEST_EXECUTIONS,
+        amount=count_test_set_tests(db, test_set_id),
+        reserved=_in_flight_run_tests(db, str(organization_id), str(user_id)),
+    )
 
 
 def _validate_test_set_not_empty(db: Session, test_set: models.TestSet) -> None:

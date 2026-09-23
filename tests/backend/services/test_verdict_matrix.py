@@ -489,6 +489,32 @@ class TestTwoRequirements:
         assert (row_a.passed, row_a.failed) == (1, 0)
         assert (row_b.passed, row_b.failed) == (0, 1)
 
+    def test_each_requirement_carries_its_own_tests_status(
+        self, test_db: Session, two_requirement_setup
+    ):
+        # What lets the grid show a requirement's tests when it has no
+        # metric rows at all to carry them.
+        setup = two_requirement_setup
+        plan = build_metric_plan(
+            test_db, setup["test_config"], setup["test_set"], organization_id=setup["org_id"]
+        )
+        test_run = setup["test_run"]
+        test_run.attributes = {"metric_plan": plan}
+        test_db.commit()
+        test_db.refresh(test_run)
+
+        matrix = get_verdict_matrix(test_db, test_run)
+
+        test_order = plan["test_order"]
+        index_a = test_order.index(str(setup["test_a"].id))
+        index_b = test_order.index(str(setup["test_b"].id))
+        by_req = {str(r.id): r.test_status for r in matrix.requirements}
+        status_a = by_req[str(setup["requirement_a"].id)]
+        status_b = by_req[str(setup["requirement_b"].id)]
+
+        assert (status_a[index_a], status_a[index_b]) == ("P", "X")
+        assert (status_b[index_a], status_b[index_b]) == ("X", "F")
+
     def test_planned_verdicts_exclude_foreign_columns(
         self, test_db: Session, two_requirement_setup
     ):
@@ -1135,7 +1161,7 @@ class TestGetTestOutcomesForRun:
 
         tests = {
             label: models.Test(user_id=user_id, organization_id=org_id)
-            for label in ("passed", "failed", "error", "cancelled", "not_run")
+            for label in ("passed", "failed", "error", "cancelled", "not_run", "inconclusive")
         }
         test_db.add_all(tests.values())
         test_db.flush()
@@ -1146,6 +1172,7 @@ class TestGetTestOutcomesForRun:
             ("error", "error", None),
             ("cancelled", "cancelled", None),
             ("not_run", "not_run", None),
+            ("inconclusive", "ok", "inconclusive"),
         ):
             test_db.add(
                 models.TestResult(
@@ -1171,6 +1198,9 @@ class TestGetTestOutcomesForRun:
         assert outcomes[str(tests["error"].id)] == "error"
         assert outcomes[str(tests["cancelled"].id)] == "cancelled"
         assert outcomes[str(tests["not_run"].id)] == "pending"
+        # The view folds this into "pending"; a finished test with no
+        # verdict must not read as one that never ran.
+        assert outcomes[str(tests["inconclusive"].id)] == "inconclusive"
 
 
 class TestVerdictMatrixCaching:

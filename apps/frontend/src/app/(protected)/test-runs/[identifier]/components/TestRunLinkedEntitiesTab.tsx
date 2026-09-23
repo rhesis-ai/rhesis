@@ -46,6 +46,7 @@ interface TestRunLinkedEntitiesTabProps {
   project?: { icon?: string; useCase?: string; name?: string };
   projectName?: string;
   metricsSource?: string;
+  hasInconclusive?: boolean;
 }
 
 export default function TestRunLinkedEntitiesTab({
@@ -76,6 +77,7 @@ export default function TestRunLinkedEntitiesTab({
   project,
   projectName,
   metricsSource,
+  hasInconclusive = false,
 }: TestRunLinkedEntitiesTabProps) {
   return (
     <Paper
@@ -112,6 +114,7 @@ export default function TestRunLinkedEntitiesTab({
         canRerun={canRerun}
         variant="linkedEntities"
         hideViewModeToggle
+        hasInconclusive={hasInconclusive}
       />
 
       <TestsTableView

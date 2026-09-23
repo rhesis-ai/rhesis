@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import RunDrawer from '../RunDrawer';
 import type { BaseDrawerProps } from '../BaseDrawer';
@@ -74,9 +74,19 @@ jest.mock('@/components/common/Can', () => ({
   can: () => true,
 }));
 
+/** Tests in the drawer's test set; the gate asks for this many. */
+let mockTestSetTestCount = 1;
+const mockGetTestSetTests = jest.fn(() =>
+  Promise.resolve({
+    data: [],
+    pagination: { totalCount: mockTestSetTestCount },
+  })
+);
+
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
     getTestSetsClient: () => ({
+      getTestSetTests: mockGetTestSetTests,
       getTestSet: jest
         .fn()
         .mockResolvedValue({ test_set_type: { type_value: 'single_turn' } }),
@@ -140,6 +150,7 @@ function renderRunDrawer() {
 describe('RunDrawer quota gate', () => {
   afterEach(() => {
     jest.clearAllMocks();
+    mockTestSetTestCount = 1;
   });
 
   it('enables Run when usage has not reached the limit', () => {
@@ -188,5 +199,32 @@ describe('RunDrawer quota gate', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       /test executions limit/i
     );
+  });
+
+  it("disables Run when the run's tests don't fit in what's left", async () => {
+    mockTestSetTestCount = 20;
+    mockExecutionUsage(usageItem(90, 100));
+    renderRunDrawer();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: /re-run tests/i })
+      ).toBeDisabled()
+    );
+    expect(mockGetTestSetTests).toHaveBeenCalledWith('ts-1', { limit: 1 });
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /This needs 20 .+, but your organization has 10 left for this period\./
+    );
+  });
+
+  it("keeps Run enabled when the run's tests exactly fit", async () => {
+    mockTestSetTestCount = 20;
+    mockExecutionUsage(usageItem(80, 100));
+    renderRunDrawer();
+
+    await waitFor(() => expect(mockGetTestSetTests).toHaveBeenCalled());
+    // Let the fetched count land, so the gate is judging 20 tests, not 1.
+    await act(async () => {});
+    expect(screen.getByRole('button', { name: /re-run tests/i })).toBeEnabled();
   });
 });

@@ -17,9 +17,10 @@ the cascade to test results is driven by ``config/cascade_config.py`` inside
 
 import logging
 import uuid
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import func
+from sqlalchemy import Integer, cast, func
 from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session, joinedload
 
@@ -32,6 +33,8 @@ from rhesis.backend.app.crud.usage_sql import (
     models_used_rows,
     per_trace_usage_subquery,
 )
+from rhesis.backend.app.outcomes import INCONCLUSIVE_RESULT, Verdict
+from rhesis.backend.app.scope import bypass_tenant_filter
 from rhesis.backend.app.services.telemetry.providers import resolve_provider
 from rhesis.backend.app.utils.crud_utils import (
     bulk_delete_by_ids,
@@ -177,6 +180,40 @@ def has_sibling_test_runs(
     if organization_id:
         query = query.filter(models.TestRun.organization_id == uuid.UUID(str(organization_id)))
     return db.query(query.exists()).scalar()
+
+
+def sum_run_test_counts(
+    db: Session,
+    organization_id: str,
+    project_id: Optional[uuid.UUID],
+    status_names: List[str],
+    created_since: datetime,
+) -> int:
+    """Total of ``attributes.total_tests`` over one project's runs in *status_names*.
+
+    ``project_id=None`` means the org's project-less runs. Project RLS still
+    applies underneath the explicit filters: the session must be scoped to
+    *project_id*, or the rows are invisible and this returns 0.
+    """
+    project_filter = (
+        models.TestRun.project_id.is_(None)
+        if project_id is None
+        else models.TestRun.project_id == project_id
+    )
+    with bypass_tenant_filter():
+        total = (
+            db.query(func.sum(cast(models.TestRun.attributes["total_tests"].astext, Integer)))
+            .join(models.Status, models.TestRun.status_id == models.Status.id)
+            .filter(
+                models.TestRun.organization_id == uuid.UUID(str(organization_id)),
+                project_filter,
+                models.Status.name.in_(status_names),
+                models.TestRun.created_at >= created_since,
+                models.TestRun.deleted_at.is_(None),
+            )
+            .scalar()
+        )
+    return total or 0
 
 
 def _test_run_experiment_filter(
@@ -569,6 +606,35 @@ def get_metric_verdicts_for_run(
     return query.all()
 
 
+def test_has_planned_metrics(
+    db: Session, test_run_id: uuid.UUID | str, test_id: uuid.UUID | str
+) -> Optional[bool]:
+    """Whether the run's dispatch-time ``metric_plan`` gives this test any metric.
+
+    None when there is no plan to ask, or the test isn't one of its columns --
+    callers must treat that as "unknown", not as "no metrics". Checked in
+    SQL so the plan (one entry per test x metric) is never loaded.
+    """
+    test_id = str(test_id)
+    attributes = models.TestRun.attributes
+    plan = attributes["metric_plan"]
+    row = (
+        db.query(
+            attributes.has_key("metric_plan"),
+            plan["test_order"].contains([test_id]),
+            plan["cell_keys"].has_key(test_id),
+        )
+        .filter(models.TestRun.id == uuid.UUID(str(test_run_id)))
+        .first()
+    )
+    if row is None:
+        return None
+    has_plan, in_plan, has_metrics = row
+    if not has_plan or not in_plan:
+        return None
+    return bool(has_metrics)
+
+
 def get_test_outcomes_for_run(
     db: Session, test_run_id: uuid.UUID, organization_id: str | None = None
 ) -> Dict[str, str]:
@@ -579,12 +645,25 @@ def get_test_outcomes_for_run(
     truth, see ``app/outcomes.py``) and distinguishes passed/failed/error/
     cancelled/pending on its own, so there is no synonym list left to run
     here.
+
+    One refinement: the view folds an inconclusive verdict into "pending"
+    (see ``GRID_RESULT``), which would make a finished test with no
+    pass/fail verdict look like one that never ran. Those come back as
+    "inconclusive" instead.
     """
-    query = db.query(
-        models.TestResultStatsView.test_id,
-        models.TestResultStatsView.result,
-        models.TestResultStatsView.created_at,
-    ).filter(models.TestResultStatsView.test_run_id == test_run_id)
+    query = (
+        db.query(
+            models.TestResultStatsView.test_id,
+            models.TestResultStatsView.result,
+            models.TestResultStatsView.created_at,
+            models.TestResult.verdict,
+        )
+        .join(
+            models.TestResult,
+            models.TestResult.id == models.TestResultStatsView.test_result_id,
+        )
+        .filter(models.TestResultStatsView.test_run_id == test_run_id)
+    )
     if organization_id:
         query = query.filter(
             models.TestResultStatsView.organization_id == uuid.UUID(str(organization_id))
@@ -592,7 +671,9 @@ def get_test_outcomes_for_run(
     rows = query.all()
 
     latest: Dict[str, Tuple[Any, str]] = {}
-    for test_id, result, created_at in rows:
+    for test_id, result, created_at, verdict in rows:
+        if verdict == Verdict.INCONCLUSIVE.value:
+            result = INCONCLUSIVE_RESULT
         key = str(test_id)
         if key not in latest or created_at > latest[key][0]:
             latest[key] = (created_at, result)

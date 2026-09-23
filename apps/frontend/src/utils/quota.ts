@@ -230,6 +230,11 @@ export interface QuotaCopyInput {
   /** ISO date the current period ends. Required for the `blocked`+`flow`
    * row, which names the reset date; unused otherwise. */
   periodEnd?: string;
+  /** From a 402 for a request bigger than what's left (a test run). When
+   * `requested > 1` and `remaining > 0`, the sentence names both instead of
+   * calling the org "at its limit", which it isn't. */
+  requested?: number;
+  remaining?: number;
   /** Whether this reader can act on an upgrade -- an org admin. A member
    * gets pointed at an admin instead, never at the upgrade link. */
   canUpgrade: boolean;
@@ -253,6 +258,8 @@ export function quotaCopy({
   limit,
   zone,
   periodEnd,
+  requested,
+  remaining,
   canUpgrade,
 }: QuotaCopyInput): QuotaCopyResult {
   const label = QUOTA_RESOURCE_LABELS[resource].toLowerCase();
@@ -300,8 +307,15 @@ export function quotaCopy({
 
   if (kind === 'flow') {
     const reset = periodEnd ? formatResetDate(periodEnd) : 'soon';
+    const tooBig =
+      requested !== undefined &&
+      requested > 1 &&
+      remaining !== undefined &&
+      remaining > 0;
     return {
-      sentence: `Your organization is at its ${label} limit for this period ${countSuffix}.`,
+      sentence: tooBig
+        ? `This needs ${requested.toLocaleString()} ${label}, but your organization has ${remaining.toLocaleString()} left for this period.`
+        : `Your organization is at its ${label} limit for this period ${countSuffix}.`,
       recourse: canUpgrade
         ? `Resets ${reset}. Upgrade to raise this limit.`
         : `Resets ${reset}. Ask an org admin to raise this limit.`,
@@ -323,6 +337,8 @@ export interface QuotaError {
   limit: number | null;
   kind: 'flow' | 'stock' | undefined;
   periodEnd: string | undefined;
+  requested?: number;
+  remaining?: number;
   message: string;
 }
 
@@ -344,6 +360,8 @@ export function parseQuotaError(err: unknown): QuotaError | null {
     limit: data.limit ?? null,
     kind: data.kind,
     periodEnd: data.period_end,
+    requested: typeof data.requested === 'number' ? data.requested : undefined,
+    remaining: typeof data.remaining === 'number' ? data.remaining : undefined,
     message: typeof data.message === 'string' ? data.message : '',
   };
 }

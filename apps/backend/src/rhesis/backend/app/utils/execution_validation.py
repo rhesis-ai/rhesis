@@ -14,6 +14,7 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_db_session
 from rhesis.backend.app.error_handlers import UpstreamHTTPException, internal_error
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.quota.enforcement import QuotaExceededError
 from rhesis.backend.app.services.invokers.common.errors import (
     INTERNAL_ERROR_TYPE,
     EndpointInvocationError,
@@ -164,8 +165,8 @@ def handle_execution_error(error: Exception, operation: str = "execute tests") -
         # Already an HTTPException, re-raise as-is
         raise error
 
-    if isinstance(error, ItemDeletedException):
-        # Let the app-level handler turn this into its 410 response
+    if isinstance(error, (ItemDeletedException, QuotaExceededError)):
+        # Let the app-level handlers turn these into their 410 / 402 responses
         raise error
 
     if isinstance(error, ModelConfigurationError):

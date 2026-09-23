@@ -111,7 +111,9 @@ describe('RunSummary', () => {
   it('hides the density control and forces Numbers below 720px', () => {
     setMatchMediaNarrow(true);
     mockMatrix = makeMatrix({
-      requirements: [{ id: 'req-1', name: 'Safety', metric_keys: ['m1'] }],
+      requirements: [
+        { id: 'req-1', name: 'Safety', metric_keys: ['m1'], test_status: '' },
+      ],
       rows: [
         {
           requirement_id: 'req-1',

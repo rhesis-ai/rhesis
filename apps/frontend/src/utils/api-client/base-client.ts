@@ -41,6 +41,11 @@ export interface ApiErrorData {
   /** ISO date the current billing period ends, on a 402 quota-exceeded
    * body -- lets a blocked flow resource say when it resets. */
   period_end?: string;
+  /** How many units the blocked request needed, on a 402 quota-exceeded
+   * body. Above 1 for a test run, which is checked whole. */
+  requested?: number;
+  /** Units left before the ceiling, on a 402 quota-exceeded body. */
+  remaining?: number | null;
   [key: string]: unknown;
 }
 
