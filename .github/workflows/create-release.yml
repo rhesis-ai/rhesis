@@ -66,8 +66,10 @@ jobs:
       - name: Run Prettier to format frontend code
         working-directory: apps/frontend
         run: |
-          npx --yes prettier@^3 --version
-          npx --yes prettier@^3 --write .
+          # Use the lockfile's version: lint.yml checks with it, and newer 3.x formats differently
+          PRETTIER_VERSION=$(node -p "require('./package-lock.json').packages['node_modules/prettier'].version")
+          npx --yes "prettier@${PRETTIER_VERSION}" --version
+          npx --yes "prettier@${PRETTIER_VERSION}" --write .
 
       - name: Commit changes
         run: |
