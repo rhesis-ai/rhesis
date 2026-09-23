@@ -89,6 +89,8 @@ jobs:
           git config user.email "237771051+rheo-app[bot]@users.noreply.github.com"
 
           # cnpg-operator.yaml is intentionally excluded — manual sync, manual promotion.
+          # grafana-resources.yaml tracks main (like dev/stg), so dashboard changes
+          # deploy on merge without waiting for a release.
           FILES=(
             kubernetes/bootstrap/prd-base.yaml
             kubernetes/clusters/prd/arc.yaml
@@ -101,7 +103,6 @@ jobs:
             kubernetes/clusters/prd/cert-manager.yaml
             kubernetes/clusters/prd/ingress-nginx-internal.yaml
             kubernetes/clusters/prd/internal-dns.yaml
-            kubernetes/clusters/prd/grafana-resources.yaml
             kubernetes/clusters/prd/alloy.yaml
             kubernetes/clusters/prd/cluster-dns-application.yaml
             kubernetes/clusters/prd/external-dns.yaml
