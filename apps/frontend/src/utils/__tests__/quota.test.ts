@@ -136,7 +136,7 @@ describe('quotaCopy', () => {
       zone: 'approaching',
     });
     expect(sentence).toBe(
-      'Your organization has used 80% of its test runs for this period.'
+      'Your organization has used 80% of its test executions for this period.'
     );
     expect(sentence).not.toMatch(/\byou(r)?\b(?! organization)/i);
   });
@@ -163,7 +163,7 @@ describe('quotaCopy', () => {
       zone: 'pastIncluded',
     });
     expect(sentence).toBe(
-      'Your organization is past its included test runs for this period.'
+      'Your organization is past its included test executions for this period.'
     );
     expect(recourse).toBe(
       'You can keep running until the overage allowance runs out.'
@@ -181,7 +181,7 @@ describe('quotaCopy', () => {
       canUpgrade: true,
     });
     expect(sentence).toBe(
-      'Your organization is at its test runs limit for this period (1,000 of 1,000).'
+      'Your organization is at its test executions limit for this period (1,000 of 1,000).'
     );
     expect(recourse).toBe('Resets 31 Aug. Upgrade to raise this limit.');
   });

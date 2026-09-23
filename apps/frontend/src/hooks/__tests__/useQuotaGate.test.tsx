@@ -107,7 +107,7 @@ describe('useQuotaGate', () => {
     expect(screen.getByTestId('exhausted')).toHaveTextContent('true');
     expect(screen.getByTestId('notice')).toHaveTextContent('has-notice');
     expect(screen.getByTestId('message')).toHaveTextContent(
-      /Your organization is at its test runs limit/
+      /Your organization is at its test executions limit/
     );
   });
 
