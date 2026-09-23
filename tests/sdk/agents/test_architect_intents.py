@@ -217,6 +217,17 @@ class TestLoaderValidation:
         with pytest.raises(IntentsError, match="intent 'sample' is missing .* 'name'"):
             load_from_text(text)
 
+    def test_a_malformed_shape_still_raises_intents_error(self, load_from_text):
+        """A hand-edited file fails on its shape, not with AttributeError from deep inside."""
+        cases = {
+            "- key: sample\n": "is not a mapping",
+            "intents:\n  - just-a-string\n": "intent entry is not a mapping",
+            _one_intent(menu="3"): "'menu' that is not a mapping",
+        }
+        for text, message in cases.items():
+            with pytest.raises(IntentsError, match=message):
+                load_from_text(text)
+
     def test_duplicate_keys_are_rejected(self, load_from_text):
         with pytest.raises(IntentsError, match="duplicate intent keys"):
             load_from_text(_one_intent() + _one_intent().removeprefix("intents:\n"))

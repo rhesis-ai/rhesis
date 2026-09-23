@@ -86,9 +86,11 @@ def _require(raw: Dict[str, Any], field: str, key: str) -> Any:
     return raw[field]
 
 
-def _parse_menu(raw: Optional[Dict[str, Any]], key: str) -> Optional[MenuEntry]:
+def _parse_menu(raw: Any, key: str) -> Optional[MenuEntry]:
     if not raw:
         return None
+    if not isinstance(raw, dict):
+        raise IntentsError(f"intent '{key}' has a 'menu' that is not a mapping: {raw!r}")
     return MenuEntry(
         number=int(_require(raw, "number", key)),
         word=str(_require(raw, "word", key)),
@@ -115,7 +117,9 @@ def _parse_workflow_path(raw: Any, key: str) -> WorkflowPath:
     return path
 
 
-def _parse_intent(raw: Dict[str, Any]) -> Intent:
+def _parse_intent(raw: Any) -> Intent:
+    if not isinstance(raw, dict):
+        raise IntentsError(f"intent entry is not a mapping: {raw!r}")
     key = str(raw.get("key") or "")
     if not key:
         raise IntentsError(f"intent entry has no 'key': {raw!r}")
@@ -143,6 +147,12 @@ def load_intents() -> Tuple[Intent, ...]:
         document = yaml.safe_load(path.read_text()) or {}
     except (OSError, yaml.YAMLError) as exc:
         raise IntentsError(f"could not read {path}: {exc}") from exc
+
+    if not isinstance(document, dict):
+        raise IntentsError(
+            f"{path} is not a mapping; expected a top-level 'intents' list, "
+            f"got {type(document).__name__}"
+        )
 
     entries = document.get("intents")
     if not isinstance(entries, list) or not entries:
