@@ -65,7 +65,8 @@ export function PlanCrownIcon({ plan }: { plan: Plan | null | undefined }) {
   // colour, so a non-paid crown matches the sibling nav icons ("Star Rhesis",
   // "Support") exactly. Naming a secondary token here made it visibly lighter
   // than the icons beside it.
-  const color = style.crownColor === null ? 'inherit' : palette[style.crownColor];
+  const color =
+    style.crownColor === null ? 'inherit' : palette[style.crownColor];
 
   // Decorative: the tier is already carried by the badge text, and the
   // filled-vs-outlined shape is the non-colour second channel. Announcing the
