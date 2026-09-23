@@ -83,6 +83,7 @@ import { formatDate } from '@/utils/date';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { QuotaResource } from '@/constants/quota';
 import { useQuotaErrorHandler, useQuotaGate } from '@/hooks/useQuotaGate';
+import { useRunTestCount } from '@/hooks/useRunTestCount';
 
 // ---------------------------------------------------------------------------
 // Shared local types
@@ -291,9 +292,8 @@ export default function RunDrawer(props: RunDrawerProps) {
   const [executing, setExecuting] = useState(false);
   const [error, setError] = useState<React.ReactNode>();
 
-  // Preflight gate + the reactive 402 path, both from the shared hook so the
-  // threshold and the copy stay identical to every other gated action.
-  const executionQuota = useQuotaGate(QuotaResource.TEST_EXECUTIONS);
+  // The reactive 402 path; the preflight gate sits below, once the drawer
+  // knows which test sets and experiments a click would run.
   const asQuotaError = useQuotaErrorHandler();
 
   // ---- Project / Endpoint ----
@@ -1026,17 +1026,27 @@ export default function RunDrawer(props: RunDrawerProps) {
   // Form validity
   // -----------------------------------------------------------------------
 
-  // Proactive quota gate: mirrors the backend's require_quota(TEST_EXECUTIONS)
-  // check on the execute endpoints, so the button is disabled before a
-  // request goes out at all rather than only after it comes back 402. Not a
-  // replacement for that check -- usage can change between render and
-  // submit, so the server-side gate is still authoritative; this is purely
-  // about giving the user the answer earlier.
+  // Proactive quota gate: mirrors the backend's TEST_EXECUTIONS check on the
+  // execute endpoints, which refuses a run whose tests don't fit in what's
+  // left, so the button is disabled before a request goes out at all rather
+  // than only after it comes back 402. Not a replacement for that check --
+  // usage can change between render and submit, and only the backend sees
+  // runs still in flight -- so the server-side gate is still authoritative.
+  // Until the test count loads it asks for 1, which fails open.
   //
   // Compares against `ceiling`, not `limit`: on a soft tier those differ by
   // the overage tolerance, and gating on `limit` would disable the button
   // for an org the backend would still happily accept -- erasing exactly the
   // grace band the tier grants.
+  const runTestCount = useRunTestCount(
+    resolveTestSetIds(),
+    Math.max(resolveExperiments().length, 1),
+    open
+  );
+  const executionQuota = useQuotaGate(
+    QuotaResource.TEST_EXECUTIONS,
+    runTestCount ?? 1
+  );
 
   const canExecute = useMemo(() => {
     const endpointId = resolveEndpointId();

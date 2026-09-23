@@ -17,9 +17,10 @@ the cascade to test results is driven by ``config/cascade_config.py`` inside
 
 import logging
 import uuid
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import func
+from sqlalchemy import Integer, cast, func
 from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session, joinedload
 
@@ -32,6 +33,7 @@ from rhesis.backend.app.crud.usage_sql import (
     models_used_rows,
     per_trace_usage_subquery,
 )
+from rhesis.backend.app.scope import bypass_tenant_filter
 from rhesis.backend.app.services.telemetry.providers import resolve_provider
 from rhesis.backend.app.utils.crud_utils import (
     bulk_delete_by_ids,
@@ -177,6 +179,40 @@ def has_sibling_test_runs(
     if organization_id:
         query = query.filter(models.TestRun.organization_id == uuid.UUID(str(organization_id)))
     return db.query(query.exists()).scalar()
+
+
+def sum_run_test_counts(
+    db: Session,
+    organization_id: str,
+    project_id: Optional[uuid.UUID],
+    status_names: List[str],
+    created_since: datetime,
+) -> int:
+    """Total of ``attributes.total_tests`` over one project's runs in *status_names*.
+
+    ``project_id=None`` means the org's project-less runs. Project RLS still
+    applies underneath the explicit filters: the session must be scoped to
+    *project_id*, or the rows are invisible and this returns 0.
+    """
+    project_filter = (
+        models.TestRun.project_id.is_(None)
+        if project_id is None
+        else models.TestRun.project_id == project_id
+    )
+    with bypass_tenant_filter():
+        total = (
+            db.query(func.sum(cast(models.TestRun.attributes["total_tests"].astext, Integer)))
+            .join(models.Status, models.TestRun.status_id == models.Status.id)
+            .filter(
+                models.TestRun.organization_id == uuid.UUID(str(organization_id)),
+                project_filter,
+                models.Status.name.in_(status_names),
+                models.TestRun.created_at >= created_since,
+                models.TestRun.deleted_at.is_(None),
+            )
+            .scalar()
+        )
+    return total or 0
 
 
 def _test_run_experiment_filter(

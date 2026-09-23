@@ -230,6 +230,105 @@ class TestQuotaExceededResponseBody:
         assert "test runs" in body["message"]
 
 
+class TestCheckQuotaAmount:
+    """A run's size is known before it starts, so the check asks for all of
+    it at once instead of letting a big run start near the ceiling and end
+    far past it."""
+
+    def test_an_amount_that_exactly_fits_is_allowed(self, test_db, test_org_id, clean_registry):
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_EXECUTIONS: 100}, overage=OveragePolicy.HARD)
+        )
+        increment_usage(test_db, test_org_id, QuotaResource.TEST_EXECUTIONS, 90)
+
+        verdict = check_quota(test_db, test_org_id, None, QuotaResource.TEST_EXECUTIONS, 10)
+
+        assert verdict.allowed is True
+        assert verdict.remaining == 10
+
+    def test_an_amount_one_past_the_ceiling_is_blocked(self, test_db, test_org_id, clean_registry):
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_EXECUTIONS: 100}, overage=OveragePolicy.HARD)
+        )
+        increment_usage(test_db, test_org_id, QuotaResource.TEST_EXECUTIONS, 90)
+
+        verdict = check_quota(test_db, test_org_id, None, QuotaResource.TEST_EXECUTIONS, 11)
+
+        assert verdict.allowed is False
+        assert verdict.over_limit is False
+        assert verdict.requested == 11
+        assert verdict.remaining == 10
+
+    def test_the_soft_grace_band_counts_toward_what_fits(
+        self, test_db, test_org_id, clean_registry
+    ):
+        """Ceiling is 125 for a SOFT limit of 100 at 25%."""
+        _install(
+            QuotaPolicy(
+                limits={QuotaResource.TEST_EXECUTIONS: 100},
+                overage=OveragePolicy.SOFT,
+                overage_tolerance_percent=25,
+            )
+        )
+        increment_usage(test_db, test_org_id, QuotaResource.TEST_EXECUTIONS, 100)
+
+        fits = check_quota(test_db, test_org_id, None, QuotaResource.TEST_EXECUTIONS, 25)
+        too_big = check_quota(test_db, test_org_id, None, QuotaResource.TEST_EXECUTIONS, 26)
+
+        assert fits.allowed is True
+        assert fits.over_limit is True
+        assert too_big.allowed is False
+
+    def test_unlimited_allows_any_amount(self, test_db, test_org_id, clean_registry):
+        _install(QuotaPolicy(limits={QuotaResource.TEST_EXECUTIONS: None}))
+
+        verdict = check_quota(test_db, test_org_id, None, QuotaResource.TEST_EXECUTIONS, 10_000)
+
+        assert verdict.allowed is True
+        assert verdict.remaining is None
+
+    def test_enforce_raises_with_the_requested_amount(self, test_db, test_org_id, clean_registry):
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_EXECUTIONS: 100}, overage=OveragePolicy.HARD)
+        )
+        increment_usage(test_db, test_org_id, QuotaResource.TEST_EXECUTIONS, 99)
+
+        with pytest.raises(QuotaExceededError) as exc_info:
+            enforce_quota(test_db, test_org_id, None, QuotaResource.TEST_EXECUTIONS, 500)
+
+        assert exc_info.value.verdict.requested == 500
+        assert exc_info.value.verdict.remaining == 1
+
+
+class TestQuotaExceededResponseBodyForAnAmount:
+    def test_names_what_was_needed_and_what_is_left(self, test_db, test_org_id, clean_registry):
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_EXECUTIONS: 500}, overage=OveragePolicy.HARD)
+        )
+        increment_usage(test_db, test_org_id, QuotaResource.TEST_EXECUTIONS, 499)
+        verdict = check_quota(test_db, test_org_id, None, QuotaResource.TEST_EXECUTIONS, 1_200)
+
+        body = quota_exceeded_response_body(verdict)
+
+        assert body["requested"] == 1_200
+        assert body["remaining"] == 1
+        assert body["message"].startswith("This needs 1,200 ")
+        assert body["message"].endswith("but your organization has 1 left for this period.")
+
+    def test_at_the_ceiling_keeps_the_limit_message(self, test_db, test_org_id, clean_registry):
+        """Nothing left means the plain "at its limit" copy, even for a big run."""
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_EXECUTIONS: 10}, overage=OveragePolicy.HARD)
+        )
+        increment_usage(test_db, test_org_id, QuotaResource.TEST_EXECUTIONS, 10)
+        verdict = check_quota(test_db, test_org_id, None, QuotaResource.TEST_EXECUTIONS, 5)
+
+        body = quota_exceeded_response_body(verdict)
+
+        assert body["remaining"] == 0
+        assert body["message"].startswith("Your organization is at its ")
+
+
 class TestCheckBackstopUnlimited:
     """An unlimited tier (limit is None) is never backstopped."""
 

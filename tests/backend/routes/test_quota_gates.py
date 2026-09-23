@@ -441,6 +441,90 @@ class TestFlowResourceQuotaGate:
         assert body["resource"] == QuotaResource.TEST_GENERATION.value
 
 
+@pytest.fixture
+def three_test_configuration(test_db, test_organization, db_user, db_status, db_test_configuration):
+    """A test configuration whose test set holds three tests."""
+    from rhesis.backend.app.models.test import Test, test_test_set_association
+    from rhesis.backend.app.models.test_set import TestSet
+
+    test_set = TestSet(
+        name="quota-run-size-test-set",
+        user_id=db_user.id,
+        organization_id=test_organization.id,
+        status_id=db_status.id,
+    )
+    test_db.add(test_set)
+    test_db.flush()
+    for _ in range(3):
+        test = Test(
+            user_id=db_user.id, organization_id=test_organization.id, status_id=db_status.id
+        )
+        test_db.add(test)
+        test_db.flush()
+        test_db.execute(
+            test_test_set_association.insert().values(
+                test_id=test.id,
+                test_set_id=test_set.id,
+                organization_id=test_organization.id,
+                user_id=db_user.id,
+            )
+        )
+    db_test_configuration.test_set_id = test_set.id
+    test_db.commit()
+    return db_test_configuration
+
+
+class TestRunSizeQuotaGate:
+    """Under the limit is not enough: a run must fit in what's left, because
+    the job records one test execution per test once it ends."""
+
+    def _install_hard_10_with_used(self, test_db, test_org_id, used):
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_EXECUTIONS: 10}, overage=OveragePolicy.HARD)
+        )
+        increment_usage(test_db, test_org_id, QuotaResource.TEST_EXECUTIONS, used)
+
+    def test_execute_a_run_bigger_than_what_is_left_returns_402(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        _bypass_model_validation,
+        three_test_configuration,
+    ):
+        self._install_hard_10_with_used(test_db, test_org_id, 8)
+
+        response = authenticated_client.post(
+            f"/test_configurations/{three_test_configuration.id}/execute"
+        )
+
+        assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED, response.text
+        body = response.json()
+        assert body["used"] == 8
+        assert body["requested"] == 3
+        assert body["remaining"] == 2
+
+    def test_rescore_a_run_bigger_than_what_is_left_returns_402(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        three_test_configuration,
+        db_test_run,
+    ):
+        """Rescoring had no quota check at all, though its job records every test."""
+        # Rescore counts the run's own configuration; it must be the 3-test one.
+        assert db_test_run.test_configuration_id == three_test_configuration.id
+        self._install_hard_10_with_used(test_db, test_org_id, 8)
+
+        response = authenticated_client.post(f"/test_runs/{db_test_run.id}/rescore")
+
+        assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED, response.text
+        assert response.json()["requested"] == 3
+
+
 class TestRequireQuotaFlowResourceWarningHeader:
     """The SOFT-policy grace band sets `QUOTA_WARNING_HEADER` on an allowed
     response, so a caller past the advertised limit is warned before the

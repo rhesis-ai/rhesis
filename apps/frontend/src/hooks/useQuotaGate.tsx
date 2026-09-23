@@ -75,7 +75,7 @@ export function useQuotaGate(
     usage.ceiling !== null &&
     usage.used + amount > usage.ceiling;
 
-  if (!exhausted || usage === null) {
+  if (!exhausted || usage === null || usage.ceiling === null) {
     return { exhausted: false, notice: undefined, message: undefined };
   }
 
@@ -86,6 +86,8 @@ export function useQuotaGate(
     limit: usage.limit ?? 0,
     zone: 'blocked' as const,
     periodEnd: usage.period_end,
+    requested: amount,
+    remaining: Math.max(usage.ceiling - usage.used, 0),
     canUpgrade,
   };
   const { sentence, recourse } = quotaCopy(copyInput);
@@ -179,6 +181,8 @@ export function useQuotaErrorHandler(): (
         limit: quotaError.limit ?? 0,
         zone: 'blocked' as const,
         periodEnd: quotaError.periodEnd,
+        requested: quotaError.requested,
+        remaining: quotaError.remaining,
         canUpgrade,
       };
       const { sentence, recourse } = quotaCopy(copyInput);
