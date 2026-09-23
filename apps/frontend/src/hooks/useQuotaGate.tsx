@@ -179,6 +179,8 @@ export function useQuotaErrorHandler(): (
         limit: quotaError.limit ?? 0,
         zone: 'blocked' as const,
         periodEnd: quotaError.periodEnd,
+        requested: quotaError.requested,
+        remaining: quotaError.remaining,
         canUpgrade,
       };
       const { sentence, recourse } = quotaCopy(copyInput);

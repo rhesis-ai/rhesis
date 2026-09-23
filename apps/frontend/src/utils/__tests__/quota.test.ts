@@ -186,6 +186,40 @@ describe('quotaCopy', () => {
     expect(recourse).toBe('Resets 31 Aug. Upgrade to raise this limit.');
   });
 
+  it('names what a too-big run needed and what is left, not "at its limit"', () => {
+    const { sentence, recourse } = quotaCopy({
+      resource: QuotaResource.TEST_EXECUTIONS,
+      kind: 'flow',
+      used: 499,
+      limit: 500,
+      zone: 'blocked',
+      periodEnd: '2026-08-31',
+      requested: 1200,
+      remaining: 1,
+      canUpgrade: true,
+    });
+    expect(sentence).toMatch(
+      /^This needs 1,200 .+, but your organization has 1 left for this period\.$/
+    );
+    expect(sentence).not.toMatch(/at its/);
+    expect(recourse).toBe('Resets 31 Aug. Upgrade to raise this limit.');
+  });
+
+  it('keeps the limit sentence when nothing is left', () => {
+    const { sentence } = quotaCopy({
+      resource: QuotaResource.TEST_EXECUTIONS,
+      kind: 'flow',
+      used: 500,
+      limit: 500,
+      zone: 'blocked',
+      periodEnd: '2026-08-31',
+      requested: 20,
+      remaining: 0,
+      canUpgrade: true,
+    });
+    expect(sentence).toMatch(/^Your organization is at its .+ limit/);
+  });
+
   it('points a member at an admin instead of at the upgrade link', () => {
     expect(
       quotaCopy({
@@ -278,6 +312,22 @@ describe('parseQuotaError', () => {
     );
     expect(parsed?.kind).toBeUndefined();
     expect(parsed?.periodEnd).toBeUndefined();
+  });
+
+  it('reads what a too-big request needed and what was left', () => {
+    const parsed = parseQuotaError(
+      quota402({
+        error: 'quota_exceeded',
+        resource: 'test_executions',
+        used: 499,
+        limit: 500,
+        kind: 'flow',
+        requested: 1200,
+        remaining: 1,
+      })
+    );
+    expect(parsed?.requested).toBe(1200);
+    expect(parsed?.remaining).toBe(1);
   });
 
   it('ignores a 402 that is not a quota error', () => {
