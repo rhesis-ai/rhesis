@@ -33,6 +33,7 @@ from rhesis.backend.app.crud.usage_sql import (
     models_used_rows,
     per_trace_usage_subquery,
 )
+from rhesis.backend.app.outcomes import INCONCLUSIVE_RESULT, Verdict
 from rhesis.backend.app.scope import bypass_tenant_filter
 from rhesis.backend.app.services.telemetry.providers import resolve_provider
 from rhesis.backend.app.utils.crud_utils import (
@@ -605,6 +606,35 @@ def get_metric_verdicts_for_run(
     return query.all()
 
 
+def test_has_planned_metrics(
+    db: Session, test_run_id: uuid.UUID | str, test_id: uuid.UUID | str
+) -> Optional[bool]:
+    """Whether the run's dispatch-time ``metric_plan`` gives this test any metric.
+
+    None when there is no plan to ask, or the test isn't one of its columns --
+    callers must treat that as "unknown", not as "no metrics". Checked in
+    SQL so the plan (one entry per test x metric) is never loaded.
+    """
+    test_id = str(test_id)
+    attributes = models.TestRun.attributes
+    plan = attributes["metric_plan"]
+    row = (
+        db.query(
+            attributes.has_key("metric_plan"),
+            plan["test_order"].contains([test_id]),
+            plan["cell_keys"].has_key(test_id),
+        )
+        .filter(models.TestRun.id == uuid.UUID(str(test_run_id)))
+        .first()
+    )
+    if row is None:
+        return None
+    has_plan, in_plan, has_metrics = row
+    if not has_plan or not in_plan:
+        return None
+    return bool(has_metrics)
+
+
 def get_test_outcomes_for_run(
     db: Session, test_run_id: uuid.UUID, organization_id: str | None = None
 ) -> Dict[str, str]:
@@ -615,12 +645,25 @@ def get_test_outcomes_for_run(
     truth, see ``app/outcomes.py``) and distinguishes passed/failed/error/
     cancelled/pending on its own, so there is no synonym list left to run
     here.
+
+    One refinement: the view folds an inconclusive verdict into "pending"
+    (see ``GRID_RESULT``), which would make a finished test with no
+    pass/fail verdict look like one that never ran. Those come back as
+    "inconclusive" instead.
     """
-    query = db.query(
-        models.TestResultStatsView.test_id,
-        models.TestResultStatsView.result,
-        models.TestResultStatsView.created_at,
-    ).filter(models.TestResultStatsView.test_run_id == test_run_id)
+    query = (
+        db.query(
+            models.TestResultStatsView.test_id,
+            models.TestResultStatsView.result,
+            models.TestResultStatsView.created_at,
+            models.TestResult.verdict,
+        )
+        .join(
+            models.TestResult,
+            models.TestResult.id == models.TestResultStatsView.test_result_id,
+        )
+        .filter(models.TestResultStatsView.test_run_id == test_run_id)
+    )
     if organization_id:
         query = query.filter(
             models.TestResultStatsView.organization_id == uuid.UUID(str(organization_id))
@@ -628,7 +671,9 @@ def get_test_outcomes_for_run(
     rows = query.all()
 
     latest: Dict[str, Tuple[Any, str]] = {}
-    for test_id, result, created_at in rows:
+    for test_id, result, created_at, verdict in rows:
+        if verdict == Verdict.INCONCLUSIVE.value:
+            result = INCONCLUSIVE_RESULT
         key = str(test_id)
         if key not in latest or created_at > latest[key][0]:
             latest[key] = (created_at, result)

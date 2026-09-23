@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import schemas
 from rhesis.backend.app.crud import file as file_crud
 from rhesis.backend.app.crud import test_result as test_result_crud
+from rhesis.backend.app.crud.test_run import test_has_planned_metrics
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.outcomes import (
     classify_metrics,
@@ -205,6 +206,28 @@ def _extract_oversize_tool_call_arguments(processed_result: Dict, file_position_
     return extracted
 
 
+def _no_metrics_applied(
+    db: Session,
+    test_run_id: str,
+    test_id: str,
+    metrics_results: Dict,
+    processed_result: Dict,
+) -> bool:
+    """True when a test got usable output but no metric was ever meant to judge it.
+
+    Asks the dispatch-time metric plan rather than trusting an empty dict: a
+    metric that should have run and didn't is a real Error. An output the
+    pipeline itself marked as an error (e.g. an unusable multi-turn contract,
+    which carries no ``error_type`` and so isn't an endpoint failure) stays
+    Error too.
+    """
+    if any(isinstance(v, dict) for v in (metrics_results or {}).values()):
+        return False
+    if isinstance(processed_result, dict) and processed_result.get("status") == "error":
+        return False
+    return test_has_planned_metrics(db, test_run_id, test_id) is False
+
+
 def create_test_result_record(
     db: Session,
     test: Test,
@@ -250,8 +273,15 @@ def create_test_result_record(
     endpoint_error = has_endpoint_failure_in_result(processed_result)
     if endpoint_error:
         metrics_results = {}
+    no_metrics_applied = not endpoint_error and _no_metrics_applied(
+        db, test_run_id, test_id, metrics_results, processed_result
+    )
 
-    execution, verdict = classify_metrics(metrics_results, endpoint_error=endpoint_error)
+    execution, verdict = classify_metrics(
+        metrics_results,
+        endpoint_error=endpoint_error,
+        no_metrics_applied=no_metrics_applied,
+    )
     outcome = outcome_of(execution, verdict)
     status_value = outcome_to_test_result_status_name(outcome)
 
@@ -266,6 +296,10 @@ def create_test_result_record(
     }
     if metadata:
         test_metrics["metadata"] = metadata
+    # Kept on the row so later recomputes (annotation overrides) don't read
+    # "no metrics" as Error without the plan to hand.
+    if no_metrics_applied:
+        test_metrics["no_metrics_applied"] = True
 
     collapsed = _dedupe_target_interaction(processed_result)
     if collapsed:

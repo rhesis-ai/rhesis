@@ -27,6 +27,10 @@ class VerdictRequirement(BaseModel):
     id: Optional[UUID4] = None
     name: str
     metric_keys: List[str]
+    # Each test's own outcome, one char per column in test_ids' order, "X"
+    # outside this requirement. Lets the grid show a requirement's tests even
+    # when it has no metric rows to carry them.
+    test_status: str
 
 
 class VerdictRow(BaseModel):

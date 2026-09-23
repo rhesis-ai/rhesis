@@ -12,7 +12,7 @@ eager-loads the relationships, which is why the list endpoint calls the detail v
 """
 
 import uuid
-from typing import List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -125,3 +125,35 @@ def delete_requirement(
 ) -> Optional[models.Requirement]:
     """Delete requirement."""
     return delete_item(db, models.Requirement, requirement_id, organization_id, user_id)
+
+
+def get_requirement_names(db: Session, requirement_ids: Iterable[str]) -> Dict[str, str]:
+    """``{requirement_id: name}`` for the given ids; unknown or deleted ids are left out."""
+    ids = [uuid.UUID(str(r)) for r in requirement_ids]
+    if not ids:
+        return {}
+    rows = db.query(models.Requirement.id, models.Requirement.name).filter(
+        models.Requirement.id.in_(ids)
+    )
+    return {str(rid): name for rid, name in rows.all()}
+
+
+def get_scorable_metrics_by_requirement(
+    db: Session, requirement_ids: Iterable[str]
+) -> Dict[str, List[models.Metric]]:
+    """Each requirement's metrics that can actually run (those with a ``class_name``)."""
+    ids = [uuid.UUID(str(r)) for r in requirement_ids]
+    if not ids:
+        return {}
+    association = models.requirement_metric_association
+    rows = (
+        db.query(association.c.requirement_id, models.Metric)
+        .join(models.Metric, models.Metric.id == association.c.metric_id)
+        .filter(association.c.requirement_id.in_(ids))
+        .filter(models.Metric.class_name.isnot(None))
+        .all()
+    )
+    by_requirement: Dict[str, List[models.Metric]] = {}
+    for requirement_id, metric in rows:
+        by_requirement.setdefault(str(requirement_id), []).append(metric)
+    return by_requirement

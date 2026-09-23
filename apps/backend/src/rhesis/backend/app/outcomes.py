@@ -83,7 +83,10 @@ def outcome_of(execution: Execution, verdict: Optional[Verdict] = None) -> Outco
 
 
 def classify_metrics(
-    metrics: Optional[Dict[str, Any]], *, endpoint_error: bool = False
+    metrics: Optional[Dict[str, Any]],
+    *,
+    endpoint_error: bool = False,
+    no_metrics_applied: bool = False,
 ) -> Tuple[Execution, Optional[Verdict]]:
     """Classify a test result's outcome from its metrics dict.
 
@@ -102,7 +105,10 @@ def classify_metrics(
        this covers any invoker failure, not only ones carrying an HTTP
        status: see ``utils/response_extractor.is_endpoint_failure``.
     2. No metrics at all, or nothing metrics-shaped -- nothing was
-       evaluated -- ``ERROR``.
+       evaluated -- ``ERROR``. Unless ``no_metrics_applied``: then no metric
+       was ever meant to judge this test (its requirement has none, or none
+       fits its scope), the endpoint answered fine, and the honest outcome is
+       ``INCONCLUSIVE`` -- a setup gap, not a failure of the system under test.
     3. Any metric definitively failed -- ``FAIL``. A real failure is never
        masked by another metric that merely errored or was inconclusive;
        it is the strongest signal available and reviewers need to see it.
@@ -120,6 +126,8 @@ def classify_metrics(
 
     valid = {k: v for k, v in (metrics or {}).items() if isinstance(v, dict)}
     if not valid:
+        if no_metrics_applied:
+            return Execution.OK, Verdict.INCONCLUSIVE
         return Execution.ERROR, None
 
     saw_fail = False
@@ -201,6 +209,10 @@ GRID_RESULT: Dict[Outcome, str] = {
     Outcome.CANCELLED: "cancelled",
     Outcome.PENDING: "pending",
 }
+# What get_test_outcomes_for_run reports instead of "pending" for a test that
+# finished without a pass/fail verdict -- the verdict grid has to tell those
+# apart from tests that haven't run.
+INCONCLUSIVE_RESULT = "inconclusive"
 
 
 def execution_verdict_from_status_name(
