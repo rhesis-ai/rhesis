@@ -185,6 +185,8 @@ describe('RunDrawer quota gate', () => {
     mockExecutionUsage(usageItem(100, 100, 100));
     renderRunDrawer();
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/test executions limit/i);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /test executions limit/i
+    );
   });
 });
