@@ -17,6 +17,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import BlockOutlinedIcon from '@mui/icons-material/BlockOutlined';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import ListIcon from '@mui/icons-material/List';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import TableRowsIcon from '@mui/icons-material/TableRows';
@@ -33,9 +34,11 @@ import TestRunDetailFilterDrawer, {
 
 export type MetricOutcomeFilter = 'evaluated' | 'passed' | 'failed';
 
+export type StatusFilter = 'all' | 'passed' | 'failed' | 'inconclusive';
+
 export interface FilterState {
   searchQuery: string;
-  statusFilter: 'all' | 'passed' | 'failed';
+  statusFilter: StatusFilter;
   selectedRequirements: string[];
   overruleFilter: 'all' | 'overruled' | 'original' | 'conflicting';
   /** Metric name -> selected outcome. Absent entries are not filtered on. */
@@ -67,6 +70,8 @@ interface TestRunFilterBarProps {
   /** Linked entities tab: search + status pills + advanced filters only */
   variant?: 'default' | 'linkedEntities';
   hideViewModeToggle?: boolean;
+  /** Offer an Inconclusive filter -- only worth the space when the run has any. */
+  hasInconclusive?: boolean;
 }
 
 export default function TestRunFilterBar({
@@ -88,6 +93,7 @@ export default function TestRunFilterBar({
   rerunDisabledReason,
   variant = 'default',
   hideViewModeToggle = false,
+  hasInconclusive = false,
 }: TestRunFilterBarProps) {
   const showHeaderActions = variant !== 'linkedEntities';
   const showViewMode = !hideViewModeToggle && onViewModeChange;
@@ -101,7 +107,11 @@ export default function TestRunFilterBar({
     });
   };
 
-  const handleStatusFilterChange = (status: 'all' | 'passed' | 'failed') => {
+  // Kept while selected, so the option can't vanish out from under an active filter.
+  const showInconclusive =
+    hasInconclusive || filter.statusFilter === 'inconclusive';
+
+  const handleStatusFilterChange = (status: StatusFilter) => {
     onFilterChange({
       ...filter,
       statusFilter: status,
@@ -169,10 +179,19 @@ export default function TestRunFilterBar({
                   label: 'Failed',
                   icon: <BlockOutlinedIcon />,
                 },
+                ...(showInconclusive
+                  ? [
+                      {
+                        value: 'inconclusive',
+                        label: 'Inconclusive',
+                        icon: <HelpOutlineIcon />,
+                      },
+                    ]
+                  : []),
               ]}
               activeValue={filter.statusFilter}
               onSingleChange={value =>
-                handleStatusFilterChange(value as 'all' | 'passed' | 'failed')
+                handleStatusFilterChange(value as StatusFilter)
               }
             />
           }
@@ -259,6 +278,19 @@ export default function TestRunFilterBar({
           >
             Failed
           </Button>
+          {showInconclusive && (
+            <Button
+              onClick={() => handleStatusFilterChange('inconclusive')}
+              variant={
+                filter.statusFilter === 'inconclusive'
+                  ? 'contained'
+                  : 'outlined'
+              }
+              startIcon={<HelpOutlineIcon fontSize="small" />}
+            >
+              Inconclusive
+            </Button>
+          )}
         </ButtonGroup>
 
         <Badge

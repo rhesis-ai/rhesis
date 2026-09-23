@@ -18,12 +18,16 @@ from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
 
 def _mock_annotation(*, target_type, target_reference=None, user_id=None, annotation_id=None):
-    ann = type("Annotation", (), {
-        "id": uuid.UUID(annotation_id) if annotation_id else uuid.uuid4(),
-        "user_id": user_id,
-        "target_type": target_type,
-        "target_reference": target_reference,
-    })()
+    ann = type(
+        "Annotation",
+        (),
+        {
+            "id": uuid.UUID(annotation_id) if annotation_id else uuid.uuid4(),
+            "user_id": user_id,
+            "target_type": target_type,
+            "target_reference": target_reference,
+        },
+    )()
     return ann
 
 
@@ -105,6 +109,55 @@ class TestCreateTestResultRecordOutcome:
         row = self._create(outcome_writer_setup, {})
         assert (row.execution, row.verdict) == ("error", None)
         assert row.status.name == "Error"
+
+    def _set_plan(self, setup, cell_keys):
+        test_id = str(setup["test"].id)
+        run = (
+            setup["db"]
+            .query(models.TestRun)
+            .filter(models.TestRun.id == uuid.UUID(setup["test_run_id"]))
+            .one()
+        )
+        run.attributes = {"metric_plan": {"test_order": [test_id], "cell_keys": cell_keys}}
+        setup["db"].commit()
+
+    def test_no_metric_planned_for_the_test_is_inconclusive_not_error(self, outcome_writer_setup):
+        # Its requirement had no metrics at dispatch: the endpoint answered
+        # fine, nothing was meant to judge it -- a setup gap, not a failure.
+        self._set_plan(outcome_writer_setup, cell_keys={})
+        row = self._create(outcome_writer_setup, {})
+        assert (row.execution, row.verdict) == ("ok", "inconclusive")
+        assert row.status.name == "Inconclusive"
+        assert row.test_metrics["no_metrics_applied"] is True
+
+    def test_planned_metrics_that_never_came_back_stay_error(self, outcome_writer_setup):
+        test_id = str(outcome_writer_setup["test"].id)
+        self._set_plan(outcome_writer_setup, cell_keys={test_id: {"m": "Accuracy"}})
+        row = self._create(outcome_writer_setup, {})
+        assert (row.execution, row.verdict) == ("error", None)
+        assert "no_metrics_applied" not in row.test_metrics
+
+    def test_endpoint_failure_stays_error_even_with_no_metric_planned(self, outcome_writer_setup):
+        self._set_plan(outcome_writer_setup, cell_keys={})
+        row = self._create(
+            outcome_writer_setup,
+            {},
+            processed_result={"error": "boom", "error_type": "sdk_timeout"},
+        )
+        assert (row.execution, row.verdict) == ("error", None)
+
+    def test_pipeline_error_output_stays_error_even_with_no_metric_planned(
+        self, outcome_writer_setup
+    ):
+        # An unusable multi-turn contract: no error_type, so not an endpoint
+        # failure, but the conversation never ran.
+        self._set_plan(outcome_writer_setup, cell_keys={})
+        row = self._create(
+            outcome_writer_setup,
+            {},
+            processed_result={"status": "error", "error": "could not be interpreted"},
+        )
+        assert (row.execution, row.verdict) == ("error", None)
 
     def test_http_error_beats_present_metrics(self, outcome_writer_setup):
         """The HTTP-error branch is the whole reason this writer's copy of
@@ -422,3 +475,46 @@ class TestAnnotatedResultCanLeaveError:
         metric = row.test_metrics["metrics"]["Accuracy"]
         assert metric["error"] == "judge timeout"
         assert "override" not in metric
+
+
+@pytest.mark.unit
+class TestNoMetricsAppliedResultCanBeReviewed:
+    """A test no metric was meant to judge still has a real response, so a
+    reviewer can give it a verdict -- and removing that verdict puts it back
+    to Inconclusive, not Error.
+    """
+
+    def test_annotate_then_revert(self, outcome_writer_setup):
+        from rhesis.backend.app.services.annotation_override.test_result import (
+            apply_override,
+            revert_override,
+        )
+
+        db = outcome_writer_setup["db"]
+        row = models.TestResult(
+            test_configuration_id=outcome_writer_setup["test_config_id"],
+            test_run_id=outcome_writer_setup["test_run_id"],
+            test_id=outcome_writer_setup["test"].id,
+            organization_id=outcome_writer_setup["org_id"],
+            user_id=outcome_writer_setup["user_id"],
+            execution="ok",
+            verdict="inconclusive",
+            test_metrics={"metrics": {}, "no_metrics_applied": True},
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+
+        annotation = _mock_annotation(target_type="test_result", user_id=row.user_id)
+        apply_override(row, annotation, {"name": "Fail"})
+        assert (row.execution, row.verdict) == ("ok", "fail")
+
+        revert_override(
+            db,
+            row,
+            target_type="test_result",
+            target_reference=None,
+            deleted_annotation_id=str(annotation.id),
+            replacement=None,
+        )
+        assert (row.execution, row.verdict) == ("ok", "inconclusive")

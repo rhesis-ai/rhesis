@@ -16,6 +16,7 @@ from rhesis.backend.app.crud.metric import get_requirement_metrics
 from rhesis.backend.app.crud.test_run import get_test_run, get_test_run_requirements
 from rhesis.backend.app.outcomes import (
     GRID_RESULT,
+    INCONCLUSIVE_RESULT,
     NOT_APPLICABLE_CHAR,
     VERDICT_CHAR,
     Outcome,
@@ -34,8 +35,11 @@ _TERMINAL_RUN_STATUSES = {"Completed", "Partial", "Failed", "Cancelled"}
 # encoded as. VERDICT_CHAR[Outcome.PENDING] covers everything else --
 # cancelled included, since the grid has no separate glyph for it.
 _TEST_STATUS_CHAR = {
-    GRID_RESULT[outcome]: VERDICT_CHAR[outcome]
-    for outcome in (Outcome.PASS, Outcome.FAIL, Outcome.ERROR)
+    **{
+        GRID_RESULT[outcome]: VERDICT_CHAR[outcome]
+        for outcome in (Outcome.PASS, Outcome.FAIL, Outcome.ERROR)
+    },
+    INCONCLUSIVE_RESULT: VERDICT_CHAR[Outcome.INCONCLUSIVE],
 }
 
 # Past this many tests the grid renders binned, where per-cell animation is
@@ -450,6 +454,20 @@ def _build_timing_columns(
     return started, generated, resolved, elapsed_ds
 
 
+def _encode_test_status(
+    test_order: List[str],
+    outcomes: Dict[str, str],
+    scope: Optional[set] = None,
+) -> str:
+    """One char per test: its own outcome, or ``X`` when outside ``scope``."""
+    return "".join(
+        NOT_APPLICABLE_CHAR
+        if scope is not None and tid not in scope
+        else _TEST_STATUS_CHAR.get(outcomes.get(tid, ""), VERDICT_CHAR[Outcome.PENDING])
+        for tid in test_order
+    )
+
+
 def get_verdict_matrix(
     db: Session,
     test_run: models.TestRun,
@@ -515,13 +533,6 @@ def get_verdict_matrix(
     for group in plan.get("requirements", []):
         req_id = group.get("id")
         metrics = group.get("metrics", [])
-        requirements_payload.append(
-            schemas.VerdictRequirement(
-                id=req_id,
-                name=group.get("name", "Unassigned"),
-                metric_keys=[m["key"] for m in metrics],
-            )
-        )
 
         # A row belongs to one requirement, so every column outside that
         # requirement's own tests is structurally not-applicable. Without
@@ -530,6 +541,15 @@ def get_verdict_matrix(
         # verdicts as its own, since verdict_index is keyed on
         # (test_id, jsonb_key) with no requirement dimension.
         group_test_ids = set(group.get("test_ids", test_order))
+
+        requirements_payload.append(
+            schemas.VerdictRequirement(
+                id=req_id,
+                name=group.get("name", "Unassigned"),
+                metric_keys=[m["key"] for m in metrics],
+                test_status=_encode_test_status(test_order, outcomes, group_test_ids),
+            )
+        )
 
         for metric in metrics:
             key = metric["key"]
@@ -620,10 +640,7 @@ def get_verdict_matrix(
         status=status_name,
         is_terminal=is_terminal,
         test_ids=None if columns == "none" else [uuid.UUID(tid) for tid in test_order],
-        test_status="".join(
-            _TEST_STATUS_CHAR.get(outcomes.get(tid, ""), VERDICT_CHAR[Outcome.PENDING])
-            for tid in test_order
-        ),
+        test_status=_encode_test_status(test_order, outcomes),
         test_started_ds=started_ds,
         test_generated_ds=generated_ds,
         test_resolved_ds=resolved_ds,

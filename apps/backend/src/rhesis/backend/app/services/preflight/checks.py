@@ -2,23 +2,25 @@
 
 import asyncio
 import logging
-from typing import List, Optional
+from typing import Dict, List, Optional, Set
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.crud.requirement import (
+    get_requirement_names,
+    get_scorable_metrics_by_requirement,
+)
+from rhesis.backend.app.crud.test_run import get_ordered_tests_for_test_set
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.metric import Metric, requirement_metric_association
 from rhesis.backend.app.models.prompt import Prompt
-from rhesis.backend.app.models.requirement import Requirement
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_set import TestSet, test_test_set_association
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
-from rhesis.backend.app.utils.crud_utils import get_item_detail
-
-from .constants import (
+from rhesis.backend.app.services.preflight.constants import (
     CHECK_ENDPOINT_CONNECTIVITY,
     CHECK_EVALUATION_MODEL,
     CHECK_EXECUTION_MODEL,
@@ -27,7 +29,7 @@ from .constants import (
     CHECK_REQUIREMENT_METRIC_COVERAGE,
     CHECK_TEST_SET_NOT_EMPTY,
 )
-from .utils import (
+from rhesis.backend.app.services.preflight.utils import (
     PreflightDbGate,
     _apply_test_set_fields,
     _make_composite_key,
@@ -36,6 +38,7 @@ from .utils import (
     _publish_result,
     _verify_model_responds,
 )
+from rhesis.backend.app.utils.crud_utils import get_item_detail
 
 logger = logging.getLogger(__name__)
 
@@ -800,24 +803,43 @@ def _test_set_metric_coverage(
     )
 
 
-def _requirement_metric_coverage(db: Session, test_set_id: UUID) -> PreflightCheckResult:
-    check_id = CHECK_REQUIREMENT_METRIC_COVERAGE
-    requirement_rows = (
-        db.query(Test.requirement_id, Requirement.name)
-        .join(
-            test_test_set_association,
-            Test.id == test_test_set_association.c.test_id,
-        )
-        .join(Requirement, Requirement.id == Test.requirement_id)
-        .filter(test_test_set_association.c.test_set_id == test_set_id)
-        .filter(Test.requirement_id.isnot(None))
-        .distinct()
-        .all()
-    )
-    requirement_map = {row[0]: row[1] for row in requirement_rows}
-    requirement_id_set = set(requirement_map.keys())
+def _requirements_without_scorable_metrics(
+    db: Session, scopes_by_requirement: Dict[str, Set[bool]]
+) -> List[str]:
+    """Requirements with a test that none of their own metrics can score.
 
-    if not requirement_id_set:
+    Scope matters, not just presence: a requirement whose only metrics are
+    single-turn leaves its multi-turn tests just as unscored as one with no
+    metrics at all.
+    """
+    metrics_by_requirement = get_scorable_metrics_by_requirement(db, scopes_by_requirement)
+    return [
+        requirement_id
+        for requirement_id, scopes in scopes_by_requirement.items()
+        if not all(
+            _scope_compatible_metrics(metrics_by_requirement.get(requirement_id, []), multi_turn)
+            for multi_turn in scopes
+        )
+    ]
+
+
+def _requirement_metric_coverage(
+    db: Session, test_set_id: UUID, organization_id: str
+) -> PreflightCheckResult:
+    check_id = CHECK_REQUIREMENT_METRIC_COVERAGE
+    scopes_by_requirement: Dict[str, Set[bool]] = {}
+    for _, requirement_id, is_multi_turn in get_ordered_tests_for_test_set(
+        db, test_set_id, organization_id
+    ):
+        if requirement_id:
+            scopes_by_requirement.setdefault(requirement_id, set()).add(is_multi_turn)
+
+    requirement_map = get_requirement_names(db, scopes_by_requirement)
+    scopes_by_requirement = {
+        rid: scopes for rid, scopes in scopes_by_requirement.items() if rid in requirement_map
+    }
+
+    if not scopes_by_requirement:
         return _make_result(
             check_id,
             PreflightCheckStatus.WARNING,
@@ -825,42 +847,27 @@ def _requirement_metric_coverage(db: Session, test_set_id: UUID) -> PreflightChe
             "Tests in this set have no associated requirements.",
         )
 
-    requirements_with_metrics = set(
-        row[0]
-        for row in db.query(requirement_metric_association.c.requirement_id)
-        .join(
-            Metric,
-            Metric.id == requirement_metric_association.c.metric_id,
-        )
-        .filter(requirement_metric_association.c.requirement_id.in_(requirement_id_set))
-        .filter(Metric.class_name.isnot(None))
-        .distinct()
-        .all()
-    )
-
-    missing = requirement_id_set - requirements_with_metrics
+    missing = _requirements_without_scorable_metrics(db, scopes_by_requirement)
     if missing:
-        names_list = [requirement_map.get(bid) or str(bid) for bid in missing]
+        names_list = [requirement_map[rid] for rid in missing]
         names_str = ", ".join(names_list[:10])
         if len(names_list) > 10:
             names_str += f" and {len(names_list) - 10} more"
         return _make_result(
             check_id,
             PreflightCheckStatus.WARNING,
-            f"{len(missing)} of "
-            f"{len(requirement_id_set)} requirement(s)"
-            f" missing metric associations",
-            f"No metrics assigned to: {names_str}. "
-            "Tests linked to these requirements will be "
-            "skipped during evaluation.",
+            f"{len(missing)} of {len(scopes_by_requirement)} requirement(s) have tests no "
+            "metric can score",
+            f"No metric fits the tests of: {names_str}. These tests will still run but "
+            "won't get a pass/fail verdict and will appear unscored in the run summary. "
+            "Add a metric of the right scope (single-turn or multi-turn) to score them.",
         )
 
-    requirement_names = list(requirement_map.values())
     return _make_result(
         check_id,
         PreflightCheckStatus.PASSED,
-        f"All {len(requirement_id_set)} requirement(s) have metrics",
-        ", ".join(n for n in requirement_names if n) or None,
+        f"All {len(scopes_by_requirement)} requirement(s) have metrics",
+        ", ".join(n for n in requirement_map.values() if n) or None,
     )
 
 
@@ -876,7 +883,7 @@ def _metric_coverage_result(
         return _custom_metric_coverage(db, selected_metrics)
     if metric_mode == "use_test_set":
         return _test_set_metric_coverage(db, test_set_id, organization_id)
-    return _requirement_metric_coverage(db, test_set_id)
+    return _requirement_metric_coverage(db, test_set_id, organization_id)
 
 
 async def check_requirement_metric_coverage(

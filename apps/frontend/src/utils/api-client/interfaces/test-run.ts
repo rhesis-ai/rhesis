@@ -91,6 +91,8 @@ export interface VerdictRequirement {
   id: string | null;
   name: string;
   metric_keys: string[];
+  /** Each test's own outcome, one char per column, 'X' outside this requirement. */
+  test_status: string;
 }
 
 export interface VerdictRow {

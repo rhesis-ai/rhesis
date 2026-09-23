@@ -83,6 +83,25 @@ class TestClassifyMetrics:
         assert classify_metrics({}) == (Execution.ERROR, None)
         assert classify_metrics(None) == (Execution.ERROR, None)
 
+    def test_no_metrics_applied_is_inconclusive(self):
+        assert classify_metrics({}, no_metrics_applied=True) == (
+            Execution.OK,
+            Verdict.INCONCLUSIVE,
+        )
+
+    def test_no_metrics_applied_never_masks_an_endpoint_error(self):
+        assert classify_metrics({}, endpoint_error=True, no_metrics_applied=True) == (
+            Execution.ERROR,
+            None,
+        )
+
+    def test_no_metrics_applied_is_ignored_when_metrics_are_present(self):
+        metrics = {"Accuracy": {"is_successful": False}}
+        assert classify_metrics(metrics, no_metrics_applied=True) == (
+            Execution.OK,
+            Verdict.FAIL,
+        )
+
     def test_non_dict_metric_values_ignored_leaving_none_valid(self):
         assert classify_metrics({"Accuracy": "not-a-dict"}) == (Execution.ERROR, None)
 

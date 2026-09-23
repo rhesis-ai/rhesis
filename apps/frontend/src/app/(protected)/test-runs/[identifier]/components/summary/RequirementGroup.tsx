@@ -16,6 +16,7 @@ import {
   computeGroupRollup,
   type TestTimingMap,
 } from './verdict-timeline';
+import { metriclessRow, rowsForRequirement } from './verdict-model';
 import { describeStrip } from './verdict-strip-render';
 import { trimSharedPrefix } from './shared-prefix';
 import MetricRow from './MetricRow';
@@ -67,10 +68,12 @@ export default function RequirementGroup({
 }: RequirementGroupProps) {
   const [expanded, setExpanded] = useState(true);
 
-  const groupRows = useMemo(
-    () => rows.filter(r => requirement.metric_keys.includes(r.metric_key)),
-    [rows, requirement.metric_keys]
-  );
+  const groupRows = useMemo(() => {
+    const own = rowsForRequirement(requirement, rows);
+    if (own.length > 0) return own;
+    const placeholder = metriclessRow(requirement);
+    return placeholder ? [placeholder] : own;
+  }, [rows, requirement]);
 
   const metricNames = useMemo(
     () => groupRows.map(r => r.metric_name),
@@ -93,7 +96,8 @@ export default function RequirementGroup({
       trimmedName={trimmedNames[idx]}
       fullName={metricNames[idx]}
       dataVersion={dataVersion}
-      onViewMetric={onViewMetric}
+      // The placeholder row is no metric, so there's nothing to drill into.
+      onViewMetric={row.metric_key ? onViewMetric : undefined}
     />
   ));
 
