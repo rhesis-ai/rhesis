@@ -515,6 +515,8 @@ class TestRunSizeQuotaGate:
         db_test_run,
     ):
         """Rescoring had no quota check at all, though its job records every test."""
+        # Rescore counts the run's own configuration; it must be the 3-test one.
+        assert db_test_run.test_configuration_id == three_test_configuration.id
         self._install_hard_10_with_used(test_db, test_org_id, 8)
 
         response = authenticated_client.post(f"/test_runs/{db_test_run.id}/rescore")
