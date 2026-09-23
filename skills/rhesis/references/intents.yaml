@@ -1,0 +1,175 @@
+# Canonical workflow intents for the Rhesis agent skill.
+#
+# One entry per thing a user can ask for at the start of a session. Everything
+# that classifies or presents those choices derives from this file: the menu in
+# `workflow-index.md` and `SKILL.md`, and the routing built into the Rhesis SDK's
+# Architect agent. The two markdown copies are hand-synced, because skill loaders
+# read them as plain markdown with no template engine; the SDK test suite fails
+# when a label there drifts from a label here.
+#
+# Fields:
+#   key                    stable identifier, safe to return from a classifier
+#   workflow_path          coarse path the agent switches to; two intents share
+#                          `explore` because they read the same references
+#   match_priority         classification order, lowest first
+#   trigger_signals        prose guidance for a classifying model, not for code
+#   keyword_signals        lowercased substrings matched against the user message
+#   keyword_min_length     message must be longer than this before keywords count
+#   attachment_min_length  a message this long with an attachment matches outright
+#   menu.cues              words that confirm the choice when its number is present
+#   menu.phrases           regular expressions that match the choice on their own
+#   next_references        files to read once this intent is chosen
+
+intents:
+  - key: quick_exploration
+    name: Quick exploration
+    workflow_path: explore
+    description: >-
+      Fast scan of a named endpoint's domain and boundaries, enough to plan
+      against without a full capability sweep.
+    match_priority: 40
+    menu:
+      number: 1
+      word: one
+      label: Quick exploration — fast scan of an endpoint's domain and boundaries
+      cues:
+        - quick
+      phrases:
+        - quick exploration
+    trigger_signals:
+      - user names one endpoint and asks to test or explore it
+      - user asks whether a specific behavior works
+      - short, focused request
+    keyword_signals:
+      - explore my
+      - explore the
+      - test my endpoint
+      - test my chatbot
+      - test the endpoint
+    next_references:
+      - phases/discovery.md
+      - exploration-strategies.md
+
+  - key: full_exploration
+    name: Comprehensive exploration
+    workflow_path: explore
+    description: >-
+      Broad discovery across a feature area, with full capability and boundary
+      analysis before planning.
+    match_priority: 50
+    menu:
+      number: 2
+      word: two
+      label: Comprehensive exploration — full capability and boundary analysis
+      cues:
+        - comprehensive
+      phrases:
+        - comprehensive exploration
+    trigger_signals:
+      - user describes a feature area without naming specific behaviors
+      - user asks what should be tested for an area
+      - open-ended exploration request
+    keyword_signals: []
+    next_references:
+      - phases/discovery.md
+      - exploration-strategies.md
+
+  - key: spec_foundation
+    name: Spec to test foundation
+    workflow_path: prd
+    description: >-
+      Turn a product spec, PRD, or numbered functional requirements into
+      requirements, metrics, tags, and test sets.
+    match_priority: 10
+    menu:
+      number: 3
+      word: three
+      label: Build test foundation from a spec — requirements, metrics, and test sets
+      cues:
+        - prd
+        - foundation
+        - requirements
+      phrases:
+        - test foundation from your prd
+        - build.*from.*prd
+    trigger_signals:
+      - user pastes or references a PRD, spec, or requirements document
+      - user mentions requirements, functional requirements, or acceptance criteria
+      - attachment carrying structured product content
+    keyword_signals:
+      - acceptance criteria
+      - functional requirement
+      - user story
+      - product spec
+      - requirements doc
+      - guardrails doc
+      - numbered fr
+      - " fr-"
+      - prd
+    # Short messages mention a PRD in passing; a pasted one is long.
+    keyword_min_length: 400
+    attachment_min_length: 200
+    next_references:
+      - spec-workflow.md
+      - use-case-bracketfeld.md
+
+  - key: run_analyze
+    name: Run and analyze
+    workflow_path: run_analyze
+    description: >-
+      Execute an existing test set, or review and compare results from runs that
+      already happened.
+    match_priority: 20
+    menu:
+      number: 4
+      word: four
+      label: Run or analyze existing tests — execute a test set or review/compare past runs
+      cues:
+        - run
+        - analyze
+      phrases:
+        - run or analyze existing
+    trigger_signals:
+      - user asks to run tests or see results
+      - user names an existing test set or test run
+      - user asks about outcomes, failures, or a comparison between runs
+    keyword_signals:
+      - compare run
+      - compare my
+      - last run
+      - test results
+      - analyze run
+      - run analyze
+      - past runs
+      - summarize insights
+      - insights summary
+      - insights page
+    next_references:
+      - phases/execution.md
+      - phases/analysis.md
+      - result-analysis.md
+      - insights-summary.md
+
+  - key: direct
+    name: Direct action
+    workflow_path: direct
+    description: >-
+      One CRUD action on a known entity. Not a workflow, so it never appears in
+      the menu and is only reached from signals.
+    match_priority: 30
+    menu: null
+    trigger_signals:
+      - user asks to list, update, or link one entity type
+      - single imperative action rather than a workflow
+    keyword_signals:
+      - list my
+      - list test
+      - list metric
+      - list requirement
+      - update metric
+      - improve metric
+      - link metric
+      - unlink metric
+    next_references:
+      - phases/direct-requests.md
+      - tool-catalog.md
