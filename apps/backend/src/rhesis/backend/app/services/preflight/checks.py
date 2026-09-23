@@ -856,11 +856,11 @@ def _requirement_metric_coverage(
         return _make_result(
             check_id,
             PreflightCheckStatus.WARNING,
-            f"{len(missing)} of {len(scopes_by_requirement)} requirement(s) have no metric "
-            "to score their tests",
-            f"No metric fits the tests of: {names_str}. These tests will still run, but "
-            "won't get a pass/fail verdict and won't count toward the pass rate. Add a "
-            "metric of the right scope (single-turn or multi-turn) to score them.",
+            f"{len(missing)} of {len(scopes_by_requirement)} requirement(s) have tests no "
+            "metric can score",
+            f"No metric fits the tests of: {names_str}. These tests will still run but "
+            "won't get a pass/fail verdict and will appear unscored in the run summary. "
+            "Add a metric of the right scope (single-turn or multi-turn) to score them.",
         )
 
     return _make_result(
