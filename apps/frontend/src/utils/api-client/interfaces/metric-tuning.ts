@@ -32,7 +32,10 @@ export interface MetricTuningAnnotation {
 }
 
 export type MetricTuningOutcome =
-  'accepted' | 'rejected' | 'errored' | 'unannotated';
+  | 'accepted'
+  | 'rejected'
+  | 'errored'
+  | 'unannotated';
 
 /**
  * A metric tuning case: one input plus the answer the metric has to judge.

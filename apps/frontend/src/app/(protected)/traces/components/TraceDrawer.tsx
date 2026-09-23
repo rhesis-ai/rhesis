@@ -272,15 +272,18 @@ export default function TraceDrawer({
   const handleAnnotateMetric = useCallback(
     (metricName: string) => {
       const traceMetrics = selectedSpan?.trace_metrics as
-        Record<string, unknown> | undefined;
+        | Record<string, unknown>
+        | undefined;
       if (!traceMetrics) return;
 
       let isSuccessful = false;
       for (const section of ['turn_metrics', 'conversation_metrics']) {
         const sectionData = traceMetrics[section] as
-          Record<string, unknown> | undefined;
+          | Record<string, unknown>
+          | undefined;
         const metrics = sectionData?.metrics as
-          Record<string, { is_successful?: boolean }> | undefined;
+          | Record<string, { is_successful?: boolean }>
+          | undefined;
         if (metrics?.[metricName]) {
           isSuccessful = !!metrics[metricName].is_successful;
           break;
@@ -334,7 +337,8 @@ export default function TraceDrawer({
         const testRun = await testRunsClient.getTestRun(trace.test_run.id);
         if (testRun?.experiment_id) {
           const attrs = testRun.attributes as
-            Record<string, unknown> | undefined;
+            | Record<string, unknown>
+            | undefined;
           setExperimentInfo({
             id: testRun.experiment_id,
             name: (attrs?.parameter_experiment_name as string) || 'Unknown',

@@ -270,7 +270,8 @@ describe('BaseApiClient', () => {
         );
 
         let caughtError:
-          (Error & { status?: number; data?: ApiErrorData }) | null = null;
+          | (Error & { status?: number; data?: ApiErrorData })
+          | null = null;
         try {
           await client.fetchPublic('/test_configurations/1/execute', {
             method: 'POST',
