@@ -183,6 +183,7 @@ describe('KpiRow', () => {
       makeRow({
         requirement_id: 'req-1',
         metric_key: 'm1',
+        verdicts: 'P'.repeat(20) + 'F'.repeat(5) + '..' + 'X'.repeat(11),
         passed: 20,
         failed: 5,
         pending: 2,
@@ -190,6 +191,7 @@ describe('KpiRow', () => {
       makeRow({
         requirement_id: 'req-2',
         metric_key: 'm2',
+        verdicts: 'X'.repeat(27) + 'P'.repeat(8) + 'FF.',
         passed: 8,
         failed: 2,
         pending: 1,
@@ -201,8 +203,18 @@ describe('KpiRow', () => {
           {},
           {
             requirements: [
-              { id: 'req-1', name: 'Req1', metric_keys: ['m1'] },
-              { id: 'req-2', name: 'Req2', metric_keys: ['m2'] },
+              {
+                id: 'req-1',
+                name: 'Req1',
+                metric_keys: ['m1'],
+                test_status: '',
+              },
+              {
+                id: 'req-2',
+                name: 'Req2',
+                metric_keys: ['m2'],
+                test_status: '',
+              },
             ],
             rows,
           }
@@ -256,16 +268,51 @@ describe('KpiRow', () => {
     expect(screen.getByText(/1 metric affected/)).toBeInTheDocument();
   });
 
+  it('names errored tests in the Failures subtitle', () => {
+    // Nicolai's run: the one failure is a test that errored with no metrics,
+    // so every verdict resolved and none failed.
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix(
+          {
+            failures: 1,
+            tests_total: 5,
+            verdicts_resolved: 10,
+            verdicts_planned: 10,
+          },
+          { test_ids: ['t1', 't2', 't3', 't4', 't5'], test_status: 'PEPPP' }
+        )}
+        testRun={makeTestRun()}
+        isRunning={false}
+        testIds={[]}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    expect(screen.getByText('10 of 10 verdicts · 1 error')).toBeInTheDocument();
+  });
+
   it('falls back to the blocks subtitle on the Verdicts card when there are no failures', () => {
     const rows = [
-      makeRow({ requirement_id: 'req-1', metric_key: 'm1', passed: 5 }),
+      makeRow({
+        requirement_id: 'req-1',
+        metric_key: 'm1',
+        verdicts: 'PPPPP',
+        passed: 5,
+      }),
     ];
     renderWithClock(
       <KpiRow
         matrix={makeMatrix(
           { failures: 0 },
           {
-            requirements: [{ id: 'req-1', name: 'Req1', metric_keys: ['m1'] }],
+            requirements: [
+              {
+                id: 'req-1',
+                name: 'Req1',
+                metric_keys: ['m1'],
+                test_status: '',
+              },
+            ],
             rows,
           }
         )}
@@ -277,6 +324,41 @@ describe('KpiRow', () => {
     );
     expect(screen.queryByText(/failed/)).not.toBeInTheDocument();
     expect(screen.getByText('blocks: 5×1')).toBeInTheDocument();
+  });
+
+  it("counts a metric-less requirement's tests in the pass rate strip", () => {
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix(
+          { failures: 1 },
+          {
+            test_ids: ['t1', 't2'],
+            requirements: [
+              {
+                id: 'req-1',
+                name: 'Req1',
+                metric_keys: ['m1'],
+                test_status: 'PX',
+              },
+              { id: 'req-2', name: 'Bare', metric_keys: [], test_status: 'XE' },
+            ],
+            rows: [makeRow({ verdicts: 'PX', passed: 1 })],
+          }
+        )}
+        testRun={makeTestRun()}
+        isRunning={false}
+        testIds={['t1', 't2']}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    // Without the placeholder row, t2 reads as not applicable -- drawn grey
+    // with no failure, beside a Failures card that says there is one.
+    expect(screen.getByText('1 of 2 tests')).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', {
+        name: 'Pass rate: 1 of 2 tests passed. Failure at test 2.',
+      })
+    ).toBeInTheDocument();
   });
 
   it('shows progress bar when running', () => {
@@ -331,7 +413,14 @@ describe('KpiRow', () => {
           { pass_rate: 0.5 },
           {
             test_ids: ['t1', 't2', 't3'],
-            requirements: [{ id: 'req-1', name: 'Req1', metric_keys: ['m1'] }],
+            requirements: [
+              {
+                id: 'req-1',
+                name: 'Req1',
+                metric_keys: ['m1'],
+                test_status: '',
+              },
+            ],
             rows,
           }
         )}
