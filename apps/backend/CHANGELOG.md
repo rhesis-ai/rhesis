@@ -24,6 +24,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   anything that referenced them. Recorded metric scores are unaffected: test results and the
   verdict grid read their own JSONB snapshots, not the metric table.
 
+## [0.17.0] - 2026-09-22
+
+### Added
+* **Multi-Currency Support:** Added support for displaying costs in USD, EUR, GBP, or CHF, with automatic daily exchange rate conversions and customizable organization-level and user-level display currency settings.
+* **Trace MCP Tools:** Added five new MCP tools for agents (`list_traces`, `get_trace`, `get_trace_metrics`, `lookup_span`, and `list_trace_providers`) to allow direct inspection and debugging of application traces.
+* **Trello Integration:** Added Trello as a supported tool provider via MCP.
+* **Organization Branding:** Added support for custom organization branding settings, including primary/secondary colors, product name, favicon uploads, and custom brand fonts.
+* **Application Version Tracking:** Added a free-form JSON `version_info` field to track and snapshot the version of the system under test for both test runs and standalone invocation traces.
+* **Spend Metrics for Test Runs:** Added rollup of trace usage totals (tokens, cost, and models) per test run, allowing the test runs list to be sorted by total spend and token consumption.
+* **Trace Cost Splits:** Added input/output cost splits, model names, and provider names to individual traces, with full support for sorting traces by these metrics.
+* **Trace Filtering by Provider:** Added the ability to filter application traces by LLM provider.
+* **External Trace Annotation:** Added support for annotating traces directly using native OpenTelemetry `trace_id` hex strings.
+* **Annotation Filtering & MCP Tools:** Added rich filtering (by test set, endpoint, metric, annotator, requirement, and date range) and MCP tools (`get_annotation`, `create_annotation`, `update_annotation`) for managing annotations.
+* **Notification Preferences:** Added user settings to toggle email notifications for job completions and task assignments.
+* **Batch Test Set Creation:** Added support for appending tests to a test set in batches via `add_tests_bulk` to prevent API truncation on large sets.
+
+### Changed
+* **Unified Annotation System:** Fully migrated legacy JSONB "reviews" (test reviews, trace reviews, metric tuning judgements, and explorer human labels) into a first-class, polymorphic `annotation` database table.
+* **Enrichment Progress Tracking:** Added `enriched_traces` and `priced_traces` counts to track and display real-time pricing enrichment progress while a test run executes.
+* **Architect Plan Binding:** Tightened the Architect agent's execution to strictly bind its calls to approved plans, preventing unauthorized parameter substitutions and tracking test generation shortfalls.
+* **Deferred Explorer Embeddings:** Offloaded explorer test embedding generation to background workers instead of running them inline during the request, significantly improving test creation performance.
+* **OAuth Portability:** Lifted core OAuth state signing, PKCE generation, and SSRF-safe HTTP client primitives out of Enterprise Edition (EE) into the open-source Core codebase.
+
+### Fixed
+* **Unpriced Model Costing:** Stopped pricing unknown models at $0.00; they now correctly report as "No cost data" to distinguish unpriced runs from free ones.
+* **Historical Run Configurations:** Test run configurations are now snapshotted at execution time, preventing subsequent edits to a parent configuration from altering historical run records.
+* **Tenant Isolation & RLS:** Resolved multiple Row-Level Security (RLS) bugs, including tenant isolation crashes on blank organization GUCs, trace retention sweep failures, and incorrect RBAC caching.
+* **Provider Name Consolidation:** Standardized LLM provider naming (e.g., folding `google` to `gemini`, `aws` to `bedrock`) to ensure consistent filtering and group attribution.
+* **Task Assignment Emails:** Fixed a bug where task assignment notification emails failed to send due to missing organization filters.
+* **Database Connection Reliability:** Configured a default 30-minute idle-in-transaction timeout to automatically terminate leaked database connections and prevent migration locks.
+* **File I/O Blocking:** Offloaded blocking file storage operations to a thread pool to prevent event loop starvation.
+* **Test Result Timestamps:** Fixed an issue where `created_at` and `updated_at` timestamps were omitted from test result responses, causing execution history tables to display incorrect page-load times.
+* **Hallucination Prevention:** Empty tool results now return explicit empty state hints to prevent LLM agents from fabricating reviews or annotations.
+
+### Removed
+* **Ragas Metric Provider (BREAKING CHANGE):** Removed the deprecated and unmaintained Ragas metric backend, its seeded metrics, and its transitive dependencies (including `diskcache` and `gitpython`).
+
+### Security
+* Resolved multiple security vulnerabilities by upgrading core dependencies, including `anyio` (to v4.14.2), `soupsieve`, and `pydantic-ai`.
+* Pinned exact versions for all stdio MCP provider templates to prevent unreviewed upstream execution.
+
+
 ## [0.16.0] - 2026-09-16
 
 ### Added

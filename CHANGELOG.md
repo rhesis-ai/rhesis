@@ -18,6 +18,42 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
   since January 2026 and carried advisories with no upstream fix. Existing Ragas metrics and their
   associations are deleted by a backend migration; recorded test results keep their scores.
 
+## [0.17.0] - 2026-09-22
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.17.0**
+- **Frontend 0.17.0**
+- **SDK 0.17.0**
+
+### Summary of Changes
+
+**Backend v0.17.0:**
+- Introduced multi-currency support (USD, EUR, GBP, CHF) for trace and run costs, alongside accurate pricing for cached prompt tokens and clearer handling of unpriced runs.
+- Migrated human reviews, metric tuning, and explorer labels to a unified, first-class "Annotations" entity with support for trace annotation via OTEL IDs.
+- Added organization-level branding settings, allowing administrators to customize product names, colors, favicons, and fonts.
+- Expanded MCP capabilities with a new Trello integration, manifest-driven tool providers, and dedicated trace-analysis tools for AI agents.
+
+**Frontend v0.17.0:**
+- Overhauled the tool connection drawer to dynamically render fields from provider manifests, replacing the old dropdown with a clean grid of tiles (including new Trello MCP integration) and a streamlined two-step setup flow.
+- Introduced comprehensive cost tracking with support for multiple currencies (USD, EUR, GBP, CHF), live-updating cost cards during runs, and detailed cost/token split columns with server-side sorting in the traces and test runs grids.
+- Fully transitioned from "reviews" to "annotations" with a unified AnnotationDrawer, allowing users to edit annotations directly from the hub, view annotation count badges on test runs, and filter annotations by test set, endpoint, metric, and date range.
+- Added custom organization branding settings (colors, product name, favicon, and fonts with live preview) and a new user notification preferences tab.
+
+**SDK v0.17.0:**
+- Added first-class SDK entities for Traces, Spans, and Annotations, allowing users to query trace data, inspect span trees, and programmatically submit human verdicts directly from SDK objects.
+- Introduced tracking and recording of cached prompt tokens (`cache_write` and `cache_read`) on LLM spans, with robust token extraction across major providers.
+- Unified multi-turn conversation tracking across LangGraph, Haystack, Google ADK, and MAF integrations using a shared process-wide anchor store.
+- Removed the unmaintained Ragas metric provider and its associated classes as a breaking change.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.16.0] - 2026-09-16
 
 ### Platform Release
