@@ -31,13 +31,16 @@ describe('resolvePlanStyle', () => {
     expect(style.crownShadow).toBe(true);
   });
 
-  it('gives an active Enterprise plan a filled premium crown', () => {
-    const style = resolvePlanStyle(plan({ name: 'Enterprise' }));
-    expect(style.variant).toBe('paid');
-    expect(style.crownFilled).toBe(true);
-    expect(style.crownColor).toBe('premium');
-    expect(style.crownShadow).toBe(true);
-  });
+  it.each(['Enterprise', 'enterprise', ' Enterprise '])(
+    'gives an active Enterprise plan (%s) a filled premium crown',
+    name => {
+      const style = resolvePlanStyle(plan({ name }));
+      expect(style.variant).toBe('paid');
+      expect(style.crownFilled).toBe(true);
+      expect(style.crownColor).toBe('premium');
+      expect(style.crownShadow).toBe(true);
+    }
+  );
 
   it('lifts only an active paid crown off the surface', () => {
     // A shadow on the neutral crown would make a free plan look like it was

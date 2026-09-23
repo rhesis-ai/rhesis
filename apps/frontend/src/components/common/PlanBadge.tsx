@@ -45,7 +45,7 @@ export function PlanBadge({ plan }: { plan: Plan | null | undefined }) {
 /**
  * The plan's crown, for a row that leads with an icon.
  *
- * Filled and premium-gold for an active paid plan; outlined otherwise. Kept beside the
+ * Filled and tier-coloured for an active paid plan; outlined otherwise. Kept beside the
  * badge so the crown and the pill are resolved from the same place — the icon
  * and the pill disagreeing about whether a plan is paid would be worse than
  * either being wrong alone.
