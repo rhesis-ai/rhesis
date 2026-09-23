@@ -23,8 +23,16 @@ describe('resolvePlanStyle', () => {
     expect(style.crownColor).toBeNull();
   });
 
-  it('gives an active paid plan a filled premium crown', () => {
+  it('gives an active Team plan a filled silver crown', () => {
     const style = resolvePlanStyle(plan());
+    expect(style.variant).toBe('paid');
+    expect(style.crownFilled).toBe(true);
+    expect(style.crownColor).toBe('silver');
+    expect(style.crownShadow).toBe(true);
+  });
+
+  it('gives an active Enterprise plan a filled premium crown', () => {
+    const style = resolvePlanStyle(plan({ name: 'Enterprise' }));
     expect(style.variant).toBe('paid');
     expect(style.crownFilled).toBe(true);
     expect(style.crownColor).toBe('premium');
@@ -74,15 +82,13 @@ describe('resolvePlanStyle', () => {
     expect(Object.keys(paid).sort()).toEqual(Object.keys(free).sort());
   });
 
-  it('styles a tier it has never heard of by its flags, not its name', () => {
-    // The whole point of the resolver's shape: a tier added on the backend
-    // renders correctly with no frontend release. A resolver switching on
-    // known names would have silently styled this as free.
+  it('defaults an unknown paid tier to silver, not premium', () => {
     const style = resolvePlanStyle(
       plan({ name: 'Ultra Premium Plus', is_paid: true, is_active: true })
     );
     expect(style.variant).toBe('paid');
     expect(style.crownFilled).toBe(true);
+    expect(style.crownColor).toBe('silver');
   });
 
   it.each([

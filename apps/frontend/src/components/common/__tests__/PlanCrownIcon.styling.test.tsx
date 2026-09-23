@@ -59,15 +59,19 @@ describe('PlanCrownIcon styling', () => {
     expect(String(sx.filter).match(/drop-shadow/g)).toHaveLength(2);
   });
 
-  it('paints the paid crown in the premium token, not an ad-hoc colour', () => {
+  it('paints a Team crown in the silver token', () => {
     render(<PlanCrownIcon plan={plan()} />);
-    // Default MUI theme is light in tests.
+    expect(sxOf(filled).color).toBe(PLAN_COLORS.light.silver);
+  });
+
+  it('paints an Enterprise crown in the premium token', () => {
+    render(<PlanCrownIcon plan={plan({ name: 'Enterprise' })} />);
     expect(sxOf(filled).color).toBe(PLAN_COLORS.light.premium);
   });
 
   it('uses the shadow token verbatim, not a locally built filter', () => {
     render(<PlanCrownIcon plan={plan()} />);
-    expect(sxOf(filled).filter).toBe(PLAN_CROWN_SHADOW.light);
+    expect(sxOf(filled).filter).toBe(PLAN_CROWN_SHADOW.light.silver);
   });
 
   it.each([
