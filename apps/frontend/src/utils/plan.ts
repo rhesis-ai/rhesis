@@ -113,7 +113,9 @@ export function resolvePlanStyle(plan: Plan | null | undefined): PlanStyle {
 
 /** Enterprise gets gold; every other paid tier gets silver. */
 function crownColorFor(plan: Plan): 'premium' | 'silver' {
-  return plan.name?.toLowerCase() === 'enterprise' ? 'premium' : 'silver';
+  return plan.name?.trim().toLowerCase().startsWith('enterprise')
+    ? 'premium'
+    : 'silver';
 }
 
 /**
