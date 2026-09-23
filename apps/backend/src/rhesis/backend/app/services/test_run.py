@@ -236,7 +236,7 @@ def rescore_test_run(
     if not ref_config:
         raise ValueError(f"Test run {reference_test_run_id} has no test configuration")
     if ref_config.test_set_id:
-        enforce_test_run_quota(db, org_id, ref_config.test_set_id)
+        enforce_test_run_quota(db, org_id, uid, ref_config.test_set_id)
 
     # 2. Build attributes for the new test configuration
     attributes = {

@@ -193,20 +193,22 @@ def check_quota(
     org: Optional[Organization],
     resource: QuotaResource,
     amount: int = 1,
+    reserved: int = 0,
 ) -> QuotaVerdict:
     """Return whether *org_id* may consume *amount* more of *resource*. Never raises.
 
     Blocking rule, with ``ceiling = policy.ceiling_for(limit)``:
 
     - ``limit is None`` -> always allowed (unlimited).
-    - ``used + amount <= ceiling`` -> allowed; ``over_limit`` once
-      ``used >= limit`` (the ``SOFT`` grace band).
+    - ``used + reserved + amount <= ceiling`` -> allowed; ``over_limit``
+      once ``used >= limit`` (the ``SOFT`` grace band).
     - otherwise blocked.
 
-    With the default ``amount=1`` this is ``used < ceiling``. A larger
-    *amount* is for work whose size is known up front, like a test run: it
-    is refused whole rather than allowed to start and end far past the
-    ceiling.
+    With the defaults this is ``used < ceiling``. A larger *amount* is for
+    work whose size is known up front, like a test run: it is refused whole
+    rather than allowed to start and end far past the ceiling. *reserved*
+    is work already started but not yet recorded in ``usage`` (test runs
+    still queued or running), so two runs can't each claim the same room.
     """
     policy = QuotaRegistry.get_policy(org)
     limit = policy.limits.get(resource)
@@ -233,12 +235,12 @@ def check_quota(
         resource=resource,
         used=used,
         limit=limit,
-        allowed=used + amount <= ceiling,
+        allowed=used + reserved + amount <= ceiling,
         over_limit=used >= limit,
         kind=kind,
         period_end=period_end,
         requested=amount,
-        remaining=max(ceiling - used, 0),
+        remaining=max(ceiling - used - reserved, 0),
     )
 
 
@@ -248,6 +250,7 @@ def enforce_quota(
     org: Optional[Organization],
     resource: QuotaResource,
     amount: int = 1,
+    reserved: int = 0,
 ) -> QuotaVerdict:
     """Check *resource* for *org_id* and raise if blocked.
 
@@ -258,7 +261,7 @@ def enforce_quota(
 
     :raises QuotaExceededError: if the verdict is not allowed.
     """
-    verdict = check_quota(db, org_id, org, resource, amount)
+    verdict = check_quota(db, org_id, org, resource, amount, reserved)
     if not verdict.allowed:
         raise QuotaExceededError(verdict)
     return verdict

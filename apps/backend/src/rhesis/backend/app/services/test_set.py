@@ -2,6 +2,7 @@ import json
 import logging
 import random
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 from uuid import UUID
@@ -787,7 +788,9 @@ def execute_test_set_on_endpoint(
     _validate_user_access(current_user, db_test_set, db_endpoint)
 
     _validate_test_set_not_empty(db, db_test_set)
-    enforce_test_run_quota(db, str(current_user.organization_id), db_test_set.id)
+    enforce_test_run_quota(
+        db, str(current_user.organization_id), str(current_user.id), db_test_set.id
+    )
 
     # Validate reference test run if provided (output reuse / re-scoring)
     if reference_test_run_id:
@@ -885,11 +888,36 @@ def count_test_set_tests(db: Session, test_set_id: uuid.UUID) -> int:
     ) or 0
 
 
-def enforce_test_run_quota(db: Session, organization_id: str, test_set_id: uuid.UUID) -> None:
+#: Queued or running runs older than this stop holding quota back. A run
+#: can't execute past Celery's ~65 min hard limit, so an older one is almost
+#: always a crashed run whose status never left "Progress".
+IN_FLIGHT_RUN_WINDOW = timedelta(hours=24)
+
+
+def _in_flight_run_tests(db: Session, organization_id: str, user_id: str) -> int:
+    """Tests in the org's queued and running runs, which ``usage`` doesn't hold yet."""
+    from rhesis.backend.app.crud.test_run import sum_run_test_counts
+    from rhesis.backend.app.database import temporary_project_scope
+    from rhesis.backend.jobs.enums import RunStatus
+
+    # An empty project clears the project RLS filter: quota is per org, not per project.
+    with temporary_project_scope(db, organization_id, user_id, ""):
+        return sum_run_test_counts(
+            db,
+            organization_id,
+            [RunStatus.QUEUED.value, RunStatus.PROGRESS.value],
+            datetime.now(timezone.utc) - IN_FLIGHT_RUN_WINDOW,
+        )
+
+
+def enforce_test_run_quota(
+    db: Session, organization_id: str, user_id: str, test_set_id: uuid.UUID
+) -> None:
     """Refuse a run whose tests don't fit in the org's remaining test executions.
 
     The job records one test execution per test once the run ends, so this
-    counts the same tests up front. Raises ``QuotaExceededError``.
+    counts the same tests up front, plus the tests of runs still in flight.
+    Raises ``QuotaExceededError``.
     """
     org = db.get(Organization, organization_id)
     enforce_quota(
@@ -897,7 +925,8 @@ def enforce_test_run_quota(db: Session, organization_id: str, test_set_id: uuid.
         str(organization_id),
         org,
         QuotaResource.TEST_EXECUTIONS,
-        count_test_set_tests(db, test_set_id),
+        amount=count_test_set_tests(db, test_set_id),
+        reserved=_in_flight_run_tests(db, str(organization_id), str(user_id)),
     )
 
 
