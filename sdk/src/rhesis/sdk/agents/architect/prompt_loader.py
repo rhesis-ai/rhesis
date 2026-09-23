@@ -3,52 +3,17 @@
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import List, Sequence
 
 import jinja2
 
+from rhesis.sdk.agents.architect.intents import menu_intents
+from rhesis.sdk.agents.architect.references import resolve_skills_references_dir
+from rhesis.sdk.agents.architect.workflow import WorkflowPath
 from rhesis.sdk.agents.constants import AgentMode
 
-from .workflow import WorkflowPath
-
 logger = logging.getLogger(__name__)
-
-_ARCHITECT_DIR = Path(__file__).resolve().parent
-_SKILLS_REFERENCES_SUFFIX = Path("skills") / "rhesis" / "references"
-
-
-def resolve_skills_references_dir() -> Optional[Path]:
-    """Return skill reference markdown for Architect prompt includes.
-
-    Resolution order:
-    1. ``RHESIS_SKILLS_REFERENCES`` env override
-    2. Monorepo ``skills/rhesis/references`` (walk up from this module)
-    3. Bundled ``prompt_templates/skill_refs`` (populated at wheel build)
-    """
-    override = os.environ.get("RHESIS_SKILLS_REFERENCES", "").strip()
-    if override:
-        path = Path(override)
-        return path if path.is_dir() else None
-
-    current = _ARCHITECT_DIR
-    for _ in range(12):
-        references = current / _SKILLS_REFERENCES_SUFFIX
-        if references.is_dir():
-            return references
-        if current.parent == current:
-            break
-        current = current.parent
-
-    bundled = _ARCHITECT_DIR / "prompt_templates" / "skill_refs"
-    if bundled.is_dir():
-        return bundled
-
-    logger.warning(
-        "skills/rhesis/references not found — Architect prompt includes may be incomplete"
-    )
-    return None
 
 
 def build_architect_jinja_env(templates_dir: Path) -> jinja2.Environment:
@@ -59,12 +24,16 @@ def build_architect_jinja_env(templates_dir: Path) -> jinja2.Environment:
     if skills_dir is not None:
         loaders.append(jinja2.FileSystemLoader(str(skills_dir)))
 
-    return jinja2.Environment(
+    env = jinja2.Environment(
         loader=jinja2.ChoiceLoader(loaders),
         autoescape=False,
         trim_blocks=True,
         lstrip_blocks=True,
     )
+    # A global, not render context: workflow-routing.j2 is included from
+    # system_prompt.j2, which renders with no context of its own.
+    env.globals["menu_intents"] = menu_intents()
+    return env
 
 
 def phase_include_names(mode: AgentMode, workflow_path: WorkflowPath) -> List[str]:

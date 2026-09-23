@@ -22,10 +22,9 @@ resolve by name → list_requirements + list_metrics once → plan → user appr
 ```text
 What would you like to do?
 
-1. Quick exploration — fast scan of an endpoint's domain and boundaries
-2. Comprehensive exploration — full capability and boundary analysis
-3. Build test foundation from a spec — requirements, metrics, and test sets
-4. Run or analyze existing tests — execute a test set or review/compare past runs
+{% for intent in menu_intents %}
+{{ intent.menu.number }}. {{ intent.menu.label }}
+{% endfor %}
 ```
 
 Skip the menu when intent is clear. Spec and run/analyze skip exploration unless the user asks later.
