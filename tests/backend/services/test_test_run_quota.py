@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.models.test import Test, test_test_set_association
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.models.test_set import TestSet
@@ -15,6 +16,7 @@ from rhesis.backend.app.quota.enforcement import QuotaExceededError
 from rhesis.backend.app.services.test_set import IN_FLIGHT_RUN_WINDOW, enforce_test_run_quota
 from rhesis.backend.app.services.usage import increment_usage
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
+from tests.backend.fixtures.rls import scope_to_project
 
 
 class _FixedPolicyProvider:
@@ -66,13 +68,16 @@ def three_test_set(test_db, test_organization, db_user, db_status) -> TestSet:
     return test_set
 
 
-def _add_run(test_db, org_id, user_id, config, status_name, total_tests, created_at=None):
+def _add_run(
+    test_db, org_id, user_id, config, status_name, total_tests, created_at=None, project_id=None
+):
     status = get_or_create_status(test_db, status_name, "TestRun", organization_id=str(org_id))
     run = TestRun(
         test_configuration_id=config.id,
         status_id=status.id,
         organization_id=org_id,
         user_id=user_id,
+        project_id=project_id,
         attributes={"total_tests": total_tests},
     )
     if created_at is not None:
@@ -127,3 +132,45 @@ def test_a_run_stuck_past_the_window_holds_back_nothing(
     _add_run(test_db, test_org_id, db_user.id, db_test_configuration, "Progress", 4, stale)
 
     enforce_test_run_quota(test_db, test_org_id, str(db_user.id), three_test_set.id)
+
+
+def test_runs_in_every_project_hold_back_their_tests(
+    test_db,
+    test_org_id,
+    test_organization,
+    db_user,
+    db_status,
+    db_project,
+    db_test_configuration,
+    three_test_set,
+):
+    """Quota is per org, but project RLS fails closed: a session scoped to one
+    project can't see another project's runs, and one with no project sees
+    only project-less rows. Real runs always carry a project."""
+    other = Project(
+        name="in-flight-quota-other-project",
+        organization_id=test_organization.id,
+        user_id=db_user.id,
+        status_id=db_status.id,
+    )
+    test_db.add(other)
+    test_db.flush()
+    increment_usage(test_db, test_org_id, QuotaResource.TEST_EXECUTIONS, 3)
+    scope_to_project(test_db, db_project.id)
+    _add_run(
+        test_db, test_org_id, db_user.id, db_test_configuration, "Queued", 2, None, db_project.id
+    )
+    scope_to_project(test_db, other.id)
+    _add_run(test_db, test_org_id, db_user.id, db_test_configuration, "Queued", 2, None, other.id)
+    scope_to_project(test_db, db_project.id)
+
+    # 3 used + 2 + 2 in flight leaves 3: fits exactly. One more queued test would not.
+    enforce_test_run_quota(test_db, test_org_id, str(db_user.id), three_test_set.id)
+    scope_to_project(test_db, other.id)
+    _add_run(test_db, test_org_id, db_user.id, db_test_configuration, "Queued", 1, None, other.id)
+    scope_to_project(test_db, db_project.id)
+
+    with pytest.raises(QuotaExceededError) as exc_info:
+        enforce_test_run_quota(test_db, test_org_id, str(db_user.id), three_test_set.id)
+
+    assert exc_info.value.verdict.remaining == 2

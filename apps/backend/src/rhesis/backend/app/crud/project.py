@@ -110,6 +110,23 @@ def get_projects(
         return builder.with_pagination(skip, limit).with_sorting(sort_by, sort_order).all()
 
 
+def list_org_project_ids(db: Session, organization_id: str) -> List[uuid.UUID]:
+    """Every project id in the org, soft-deleted included, ignoring membership.
+
+    For org-wide bookkeeping (quota), not for showing projects to a user.
+    """
+    from rhesis.backend.app.database import without_soft_delete_filter
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    with bypass_tenant_filter(), without_soft_delete_filter():
+        rows = (
+            db.query(models.Project.id)
+            .filter(models.Project.organization_id == uuid.UUID(str(organization_id)))
+            .all()
+        )
+    return [row.id for row in rows]
+
+
 def count_projects(
     db: Session,
     filter: str | None = None,

@@ -895,19 +895,24 @@ IN_FLIGHT_RUN_WINDOW = timedelta(hours=24)
 
 
 def _in_flight_run_tests(db: Session, organization_id: str, user_id: str) -> int:
-    """Tests in the org's queued and running runs, which ``usage`` doesn't hold yet."""
+    """Tests in the org's queued and running runs, which ``usage`` doesn't hold yet.
+
+    Quota is per org, but project RLS fails closed: a session sees one
+    project's runs (plus project-less ones) at a time, and no scope sees them
+    all. So this sums project by project, each under its own scope.
+    """
+    from rhesis.backend.app.crud.project import list_org_project_ids
     from rhesis.backend.app.crud.test_run import sum_run_test_counts
     from rhesis.backend.app.database import temporary_project_scope
     from rhesis.backend.jobs.enums import RunStatus
 
-    # An empty project clears the project RLS filter: quota is per org, not per project.
-    with temporary_project_scope(db, organization_id, user_id, ""):
-        return sum_run_test_counts(
-            db,
-            organization_id,
-            [RunStatus.QUEUED.value, RunStatus.PROGRESS.value],
-            datetime.now(timezone.utc) - IN_FLIGHT_RUN_WINDOW,
-        )
+    statuses = [RunStatus.QUEUED.value, RunStatus.PROGRESS.value]
+    since = datetime.now(timezone.utc) - IN_FLIGHT_RUN_WINDOW
+    total = sum_run_test_counts(db, organization_id, None, statuses, since)
+    for project_id in list_org_project_ids(db, organization_id):
+        with temporary_project_scope(db, organization_id, user_id, str(project_id)):
+            total += sum_run_test_counts(db, organization_id, project_id, statuses, since)
+    return total
 
 
 def enforce_test_run_quota(
