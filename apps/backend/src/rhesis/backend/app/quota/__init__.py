@@ -71,11 +71,10 @@ QuotaResourceLike = Union[QuotaResource, str]
 # banner, this side renders the notification a quota crossing writes, and
 # the two are read by the same person about the same resource.
 #
-# Deliberately not `resource.value.replace("_", " ")`: TEST_EXECUTIONS is
-# called "test runs" throughout the product, which no mechanical transform
-# of the wire value produces.
+# TEST_EXECUTIONS counts each test executed, not each run: a run can hold 5
+# tests or 500. Don't label it "test runs".
 QUOTA_RESOURCE_LABELS: dict[QuotaResource, str] = {
-    QuotaResource.TEST_EXECUTIONS: "test runs",
+    QuotaResource.TEST_EXECUTIONS: "test executions",
     QuotaResource.TRACING_SPANS: "tracing spans",
     QuotaResource.TEST_GENERATION: "test generation",
     QuotaResource.MODEL_TOKENS: "model tokens",

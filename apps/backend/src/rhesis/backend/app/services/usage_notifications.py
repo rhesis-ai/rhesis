@@ -6,7 +6,7 @@ its `ceiling` -- not on every call once an org is already past a
 threshold, only on the transition. Two entry points, one per resource kind:
 
 - :func:`notify_flow_crossing`, from `services/usage.py:increment_usage`,
-  for flow resources (test runs, test generation, tracing spans, model
+  for flow resources (test executions, test generation, tracing spans, model
   tokens) -- the accrual write itself is the natural before/after point.
 - :func:`notify_stock_crossing`, from the three stock-resource creation
   routes (project, endpoint, user/seats), right after `require_quota` has
