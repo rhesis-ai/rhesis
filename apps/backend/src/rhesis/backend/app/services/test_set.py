@@ -22,7 +22,10 @@ from rhesis.backend.app.constants import (
     TestSetType,
 )
 from rhesis.backend.app.models import Prompt, TestSet
+from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota.enforcement import enforce_quota
 from rhesis.backend.app.services.test import bulk_create_test_set_associations, bulk_create_tests
 from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
@@ -784,6 +787,7 @@ def execute_test_set_on_endpoint(
     _validate_user_access(current_user, db_test_set, db_endpoint)
 
     _validate_test_set_not_empty(db, db_test_set)
+    enforce_test_run_quota(db, str(current_user.organization_id), db_test_set.id)
 
     # Validate reference test run if provided (output reuse / re-scoring)
     if reference_test_run_id:
@@ -879,6 +883,22 @@ def count_test_set_tests(db: Session, test_set_id: uuid.UUID) -> int:
         )
         .scalar()
     ) or 0
+
+
+def enforce_test_run_quota(db: Session, organization_id: str, test_set_id: uuid.UUID) -> None:
+    """Refuse a run whose tests don't fit in the org's remaining test executions.
+
+    The job records one test execution per test once the run ends, so this
+    counts the same tests up front. Raises ``QuotaExceededError``.
+    """
+    org = db.get(Organization, organization_id)
+    enforce_quota(
+        db,
+        str(organization_id),
+        org,
+        QuotaResource.TEST_EXECUTIONS,
+        count_test_set_tests(db, test_set_id),
+    )
 
 
 def _validate_test_set_not_empty(db: Session, test_set: models.TestSet) -> None:

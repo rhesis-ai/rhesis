@@ -20,6 +20,7 @@ from rhesis.backend.app.outcomes import (
     VERDICT_CHAR,
     Outcome,
 )
+from rhesis.backend.app.services.test_set import enforce_test_run_quota
 from rhesis.backend.app.services.verdict_matrix_cache import get_verdict_matrix_cache
 
 logger = logging.getLogger(__name__)
@@ -234,6 +235,8 @@ def rescore_test_run(
     ref_config = ref_run.test_configuration
     if not ref_config:
         raise ValueError(f"Test run {reference_test_run_id} has no test configuration")
+    if ref_config.test_set_id:
+        enforce_test_run_quota(db, org_id, ref_config.test_set_id)
 
     # 2. Build attributes for the new test configuration
     attributes = {
