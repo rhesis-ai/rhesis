@@ -103,7 +103,7 @@ describe('QuotaBanner', () => {
     render(<QuotaBanner />);
     expect(
       screen.getByText(
-        /Your organization has used 80% of its test runs for this period\./i
+        /Your organization has used 80% of its test executions for this period\./i
       )
     ).toBeInTheDocument();
   });
@@ -141,7 +141,7 @@ describe('QuotaBanner', () => {
     });
     render(<QuotaBanner />);
     expect(screen.getByText(/99 of 100 projects/i)).toBeInTheDocument();
-    expect(screen.queryByText(/test runs/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/test executions/i)).not.toBeInTheDocument();
   });
 
   it('ignores a resource the label map does not know about', () => {
@@ -211,7 +211,7 @@ describe('QuotaBanner', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /dismiss/i }));
 
-    expect(screen.queryByText(/test runs/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/test executions/i)).not.toBeInTheDocument();
   });
 
   it('re-surfaces when a different resource crosses the threshold', async () => {
