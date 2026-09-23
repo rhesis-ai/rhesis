@@ -65,7 +65,8 @@ export function PlanCrownIcon({ plan }: { plan: Plan | null | undefined }) {
   // colour, so a non-paid crown matches the sibling nav icons ("Star Rhesis",
   // "Support") exactly. Naming a secondary token here made it visibly lighter
   // than the icons beside it.
-  const color = style.crownColor === null ? 'inherit' : palette.premium;
+  const color =
+    style.crownColor === null ? 'inherit' : palette[style.crownColor];
 
   // Decorative: the tier is already carried by the badge text, and the
   // filled-vs-outlined shape is the non-colour second channel. Announcing the
@@ -79,9 +80,11 @@ export function PlanCrownIcon({ plan }: { plan: Plan | null | undefined }) {
         // neutral crown would make a free plan look like it was signalling
         // something, which is the opposite of the intent. The recipe itself is
         // a token -- see PLAN_CROWN_SHADOW for why it is two chained shadows.
-        ...(style.crownShadow
+        ...(style.crownShadow && style.crownColor
           ? {
-              filter: isDark ? PLAN_CROWN_SHADOW.dark : PLAN_CROWN_SHADOW.light,
+              filter: isDark
+                ? PLAN_CROWN_SHADOW.dark[style.crownColor]
+                : PLAN_CROWN_SHADOW.light[style.crownColor],
             }
           : {}),
       }}

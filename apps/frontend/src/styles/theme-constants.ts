@@ -58,11 +58,15 @@ export const GREYSCALE = {
  */
 export const PLAN_COLORS = {
   light: {
-    /** Crown for an active paid plan. */
+    /** Crown for Enterprise — dark goldenrod, 3.25:1 on white. */
     premium: '#B8860B',
+    /** Crown for Team — steel grey, 4.3:1 on white. */
+    silver: '#6B7B8D',
   },
   dark: {
     premium: '#F2C14E',
+    /** Bright slate, 5.8:1 on the dark sidebar. */
+    silver: '#94A3B8',
   },
 } as const;
 
@@ -85,12 +89,22 @@ export const PLAN_COLORS = {
  * and the halo has to carry the effect.
  */
 export const PLAN_CROWN_SHADOW = {
-  light:
-    'drop-shadow(0 1px 1.5px rgba(146, 105, 8, 0.70)) ' +
-    'drop-shadow(0 0 5px rgba(184, 134, 11, 0.45))',
-  dark:
-    'drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.55)) ' +
-    'drop-shadow(0 0 5px rgba(242, 193, 78, 0.45))',
+  light: {
+    premium:
+      'drop-shadow(0 1px 1.5px rgba(146, 105, 8, 0.70)) ' +
+      'drop-shadow(0 0 5px rgba(184, 134, 11, 0.45))',
+    silver:
+      'drop-shadow(0 1px 1.5px rgba(80, 92, 107, 0.70)) ' +
+      'drop-shadow(0 0 5px rgba(107, 123, 141, 0.45))',
+  },
+  dark: {
+    premium:
+      'drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.55)) ' +
+      'drop-shadow(0 0 5px rgba(242, 193, 78, 0.45))',
+    silver:
+      'drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.55)) ' +
+      'drop-shadow(0 0 5px rgba(148, 163, 184, 0.45))',
+  },
 } as const;
 
 export const BORDER_RADIUS = {

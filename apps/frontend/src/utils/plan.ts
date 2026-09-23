@@ -6,11 +6,11 @@
  * and gets its styling from here. One resolver, one badge, so two surfaces
  * can never disagree about what a plan looks like.
  *
- * **It never looks at the plan's name.** Styling is decided entirely by the
- * two booleans the API supplies (`is_paid`, `is_active`), which is what makes
- * a renamed or newly added tier render correctly with no frontend release. A
- * resolver that switched on `"community"` / `"enterprise"` would silently
- * style an unknown tier as free — the failure this shape exists to prevent.
+ * Paid/free/lapsed is decided entirely by the two booleans the API supplies
+ * (`is_paid`, `is_active`), so a new tier renders correctly with no frontend
+ * release. The crown *colour* uses the plan name to separate Enterprise
+ * (gold) from other paid tiers (silver); an unknown paid tier defaults to
+ * silver rather than gold, so it never over-promotes.
  *
  * `Plan` is deliberately not a union of known tiers. There is no client-side
  * list of tiers to fall out of date.
@@ -47,7 +47,7 @@ export interface PlanStyle {
    * saturated pill in the UI — and a paid plan is marked by the crown rather
    * than by a louder badge.
    */
-  crownColor: 'premium' | null;
+  crownColor: 'premium' | 'silver' | null;
   /**
    * Whether the crown is lifted off the surface with a drop shadow.
    *
@@ -107,7 +107,13 @@ export const DEFAULT_PLAN_STYLE: PlanStyle = STYLES.free;
 export function resolvePlanStyle(plan: Plan | null | undefined): PlanStyle {
   if (!plan || typeof plan !== 'object') return DEFAULT_PLAN_STYLE;
   if (plan.is_paid !== true) return STYLES.free;
-  return plan.is_active === true ? STYLES.paid : STYLES.lapsed;
+  if (plan.is_active !== true) return STYLES.lapsed;
+  return { ...STYLES.paid, crownColor: crownColorFor(plan) };
+}
+
+/** Enterprise gets gold; every other paid tier gets silver. */
+function crownColorFor(plan: Plan): 'premium' | 'silver' {
+  return plan.name?.toLowerCase() === 'enterprise' ? 'premium' : 'silver';
 }
 
 /**
