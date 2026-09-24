@@ -6,9 +6,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from rhesis.backend.jobs.architect.monitor import (
+    _drain_early_completions,
     _on_task_done,
     _resolve_awaiting_key,
     _resume_architect,
+    _store_early_completion,
     _summarize_result,
     register_awaiting_tasks,
 )
@@ -455,3 +457,307 @@ class TestResumeArchitect:
 
         kw = mock_chat_task.apply_async.call_args.kwargs
         assert kw["headers"]["project_id"] == ""
+
+
+# ---------------------------------------------------------------------------
+# _store_early_completion
+# ---------------------------------------------------------------------------
+
+
+class TestStoreEarlyCompletion:
+    def test_stores_under_task_id_and_test_run_id(self, mock_redis):
+        pipe = mock_redis.pipeline.return_value
+        keys = _store_early_completion(
+            mock_redis,
+            "celery-abc",
+            "SUCCESS",
+            {"test_run_id": "tr-1", "execution_status": "Complete"},
+        )
+        assert "arch:early:celery-abc" in keys
+        assert "arch:early:tr-1" in keys
+        set_calls = [c for c in pipe.method_calls if c[0] == "set"]
+        assert len(set_calls) == 2
+        pipe.execute.assert_called_once()
+
+    def test_stores_only_task_id_when_run_id_same(self, mock_redis):
+        pipe = mock_redis.pipeline.return_value
+        keys = _store_early_completion(
+            mock_redis,
+            "tr-1",
+            "SUCCESS",
+            {"test_run_id": "tr-1"},
+        )
+        assert keys == ["arch:early:tr-1"]
+        set_calls = [c for c in pipe.method_calls if c[0] == "set"]
+        assert len(set_calls) == 1
+
+    def test_skips_non_dict_retval(self, mock_redis):
+        keys = _store_early_completion(mock_redis, "tid", "SUCCESS", "string")
+        assert keys == []
+
+    def test_skips_dict_without_run_or_set_id(self, mock_redis):
+        keys = _store_early_completion(mock_redis, "tid", "SUCCESS", {"other": 1})
+        assert keys == []
+
+    def test_stores_for_generation_result(self, mock_redis):
+        keys = _store_early_completion(
+            mock_redis,
+            "celery-gen",
+            "SUCCESS",
+            {"test_set_id": "ts-1", "name": "Safety", "test_count": 10},
+        )
+        assert "arch:early:celery-gen" in keys
+        assert len(keys) == 1  # test_set_id not stored as alt key
+
+    def test_stored_data_contains_result(self, mock_redis):
+        pipe = mock_redis.pipeline.return_value
+        retval = {"test_run_id": "tr-1", "tests_passed": 5}
+        _store_early_completion(mock_redis, "celery-x", "SUCCESS", retval)
+
+        set_calls = [c for c in pipe.method_calls if c[0] == "set"]
+        data = json.loads(set_calls[0][1][1])
+        assert data["task_id"] == "celery-x"
+        assert data["state"] == "SUCCESS"
+        assert data["result"]["tests_passed"] == 5
+
+
+# ---------------------------------------------------------------------------
+# _drain_early_completions
+# ---------------------------------------------------------------------------
+
+
+class TestDrainEarlyCompletions:
+    @patch("rhesis.backend.jobs.architect.monitor._resume_architect")
+    def test_drains_single_early_result(self, mock_resume, mock_redis):
+        early_data = json.dumps({
+            "task_id": "celery-abc",
+            "state": "SUCCESS",
+            "result": {"test_run_id": "tr-1", "tests_passed": 5},
+        })
+        mock_redis.get.return_value = early_data.encode()
+        mock_redis.delete.return_value = 1  # claim succeeds
+        mock_redis.decr.return_value = 0
+
+        context = {
+            "session_id": "sess-1",
+            "org_id": "org-1",
+            "user_id": "user-1",
+            "auto_approve": False,
+            "project_id": None,
+        }
+
+        _drain_early_completions(mock_redis, "sess-1", ["tr-1"], context)
+
+        mock_redis.set.assert_called_once()
+        result_key = mock_redis.set.call_args[0][0]
+        assert result_key == "arch:result:sess-1:celery-abc"
+
+        mock_redis.decr.assert_called_once_with("arch:count:sess-1")
+        mock_resume.assert_called_once_with("sess-1", context, mock_redis)
+
+    @patch("rhesis.backend.jobs.architect.monitor._resume_architect")
+    def test_skips_when_no_early_result(self, mock_resume, mock_redis):
+        mock_redis.get.return_value = None
+
+        _drain_early_completions(
+            mock_redis, "sess-1", ["tr-1"],
+            {"session_id": "sess-1", "org_id": "", "user_id": ""},
+        )
+
+        mock_redis.decr.assert_not_called()
+        mock_resume.assert_not_called()
+
+    @patch("rhesis.backend.jobs.architect.monitor._resume_architect")
+    def test_skips_when_claim_fails(self, mock_resume, mock_redis):
+        """If _on_task_done's re-check already consumed arch:task, skip."""
+        early_data = json.dumps({
+            "task_id": "celery-abc",
+            "state": "SUCCESS",
+            "result": {"test_run_id": "tr-1"},
+        })
+        mock_redis.get.return_value = early_data.encode()
+        mock_redis.delete.return_value = 0  # claim fails
+
+        _drain_early_completions(
+            mock_redis, "sess-1", ["tr-1"],
+            {"session_id": "sess-1", "org_id": "", "user_id": ""},
+        )
+
+        mock_redis.set.assert_not_called()
+        mock_redis.decr.assert_not_called()
+        mock_resume.assert_not_called()
+
+    @patch("rhesis.backend.jobs.architect.monitor._resume_architect")
+    def test_does_not_resume_while_tasks_remain(self, mock_resume, mock_redis):
+        early_data = json.dumps({
+            "task_id": "celery-abc",
+            "state": "SUCCESS",
+            "result": {"test_run_id": "tr-1"},
+        })
+        mock_redis.get.return_value = early_data.encode()
+        mock_redis.delete.return_value = 1
+        mock_redis.decr.return_value = 1  # one task still pending
+
+        _drain_early_completions(
+            mock_redis, "sess-1", ["tr-1", "tr-2"],
+            {"session_id": "sess-1", "org_id": "", "user_id": ""},
+        )
+
+        mock_resume.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _on_task_done — early completion path
+# ---------------------------------------------------------------------------
+
+
+class TestOnTaskDoneEarlyCompletion:
+    @patch("rhesis.backend.jobs.architect.monitor._store_early_completion")
+    def test_stores_early_result_when_no_match(self, mock_store, mock_redis):
+        """When no arch:task key exists, execution results are stashed."""
+        mock_redis.exists.return_value = False
+        mock_store.return_value = ["arch:early:celery-abc"]
+
+        _on_task_done(
+            task_id="celery-abc",
+            state="SUCCESS",
+            retval={"test_run_id": "tr-1", "execution_status": "Complete"},
+        )
+
+        mock_store.assert_called_once()
+        args = mock_store.call_args
+        assert args[0][1] == "celery-abc"
+        assert args[0][2] == "SUCCESS"
+
+    @patch("rhesis.backend.jobs.architect.monitor._process_task_completion")
+    @patch("rhesis.backend.jobs.architect.monitor._store_early_completion")
+    def test_recheck_processes_if_registration_appeared(
+        self, mock_store, mock_process, mock_redis
+    ):
+        """After storing early, re-check finds registration and processes."""
+        call_count = [0]
+
+        def _exists_side_effect(key):
+            call_count[0] += 1
+            # First two calls (resolve_awaiting_key): no match
+            # Third call (re-check resolve_awaiting_key): match
+            return call_count[0] > 2
+
+        mock_redis.exists.side_effect = _exists_side_effect
+        mock_store.return_value = ["arch:early:celery-abc"]
+
+        _on_task_done(
+            task_id="celery-abc",
+            state="SUCCESS",
+            retval={"test_run_id": "tr-1", "execution_status": "Complete"},
+        )
+
+        mock_store.assert_called_once()
+        mock_process.assert_called_once()
+        # Early keys cleaned up
+        mock_redis.delete.assert_any_call("arch:early:celery-abc")
+
+    @patch("rhesis.backend.jobs.architect.monitor._store_early_completion")
+    def test_no_early_storage_for_plain_results(self, mock_store, mock_redis):
+        """Tasks without test_run_id/test_set_id don't get stashed."""
+        mock_redis.exists.return_value = False
+        mock_store.return_value = []
+
+        _on_task_done(task_id="random-task", state="SUCCESS", retval={})
+
+        mock_store.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# register_awaiting_tasks — with early completions
+# ---------------------------------------------------------------------------
+
+
+class TestRegisterWithEarlyCompletions:
+    @patch("rhesis.backend.jobs.architect.monitor._drain_early_completions")
+    def test_calls_drain_after_registration(self, mock_drain, mock_redis):
+        register_awaiting_tasks(
+            session_id="sess-1",
+            task_ids=["tr-1"],
+            org_id="org-1",
+            user_id="user-1",
+        )
+
+        mock_drain.assert_called_once()
+        args = mock_drain.call_args[0]
+        assert args[1] == "sess-1"
+        assert args[2] == ["tr-1"]
+        context = args[3]
+        assert context["session_id"] == "sess-1"
+        assert context["org_id"] == "org-1"
+
+    @patch("rhesis.backend.jobs.architect.monitor._resume_architect")
+    def test_end_to_end_race_condition(self, mock_resume, mock_redis):
+        """Simulate the race: task finishes before registration.
+
+        1. _on_task_done fires — no arch:task key → stores arch:early
+        2. register_awaiting_tasks writes keys, then drains early → resume
+        """
+        pipe = mock_redis.pipeline.return_value
+
+        # Phase 1: _on_task_done finds no registration
+        mock_redis.exists.return_value = False
+        _on_task_done(
+            task_id="collect-xyz",
+            state="SUCCESS",
+            retval={
+                "test_run_id": "tr-run-1",
+                "execution_status": "Complete",
+                "tests_passed": 8,
+                "tests_failed": 2,
+                "total_tests": 10,
+                "test_set_name": "Safety Tests",
+            },
+        )
+
+        # Verify early keys were stored
+        early_set_calls = [
+            c for c in pipe.method_calls
+            if c[0] == "set" and "arch:early:" in str(c[1][0])
+        ]
+        assert len(early_set_calls) >= 1
+
+        # Phase 2: register_awaiting_tasks
+        # Reset mock to isolate phase 2
+        mock_redis.reset_mock()
+        pipe = mock_redis.pipeline.return_value
+
+        # The early key exists when drain checks
+        early_data = json.dumps({
+            "task_id": "collect-xyz",
+            "state": "SUCCESS",
+            "result": {
+                "test_run_id": "tr-run-1",
+                "execution_status": "Complete",
+                "tests_passed": 8,
+                "tests_failed": 2,
+            },
+        })
+
+        def _get_side_effect(key):
+            if "arch:early:" in str(key):
+                return early_data.encode()
+            return None
+
+        mock_redis.get.side_effect = _get_side_effect
+        mock_redis.delete.return_value = 1  # claim succeeds
+        mock_redis.decr.return_value = 0  # last task
+
+        register_awaiting_tasks(
+            session_id="sess-1",
+            task_ids=["tr-run-1"],
+            org_id="org-1",
+            user_id="user-1",
+            auto_approve=True,
+            project_id="proj-1",
+        )
+
+        mock_resume.assert_called_once()
+        ctx = mock_resume.call_args[0][1]
+        assert ctx["auto_approve"] is True
+        assert ctx["project_id"] == "proj-1"
