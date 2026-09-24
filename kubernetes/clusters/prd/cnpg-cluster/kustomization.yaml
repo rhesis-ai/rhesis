@@ -1,6 +1,42 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+
 resources:
-  - cnpg-cluster.yaml
+  - ../../../base/cnpg-cluster
   - cnpg-podmonitor.yaml
   - cnpg-scheduled-backup.yaml
+
+patches:
+  - path: cnpg-cluster.yaml
+    target:
+      kind: Cluster
+      name: cnpg-cluster
+    options:
+      allowNameChange: true
+
+configMapGenerator:
+  - name: cnpg-config
+    literals:
+      - analytics-database=rhesis-analytics-prd-db
+    options:
+      annotations:
+        config.kubernetes.io/local-config: "true"
+      disableNameSuffixHash: true
+
+# The analytics DB lives outside the application DB, so the bootstrap SQL that
+# creates it must name it literally. Entries 3-5 of the base postInitSQL.
+replacements:
+  - source:
+      kind: ConfigMap
+      name: cnpg-config
+      fieldPath: data.analytics-database
+    targets:
+      - select:
+          kind: Cluster
+        fieldPaths:
+          - spec.bootstrap.initdb.postInitSQL.3
+          - spec.bootstrap.initdb.postInitSQL.4
+          - spec.bootstrap.initdb.postInitSQL.5
+        options:
+          delimiter: '"'
+          index: 1

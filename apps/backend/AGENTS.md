@@ -42,6 +42,13 @@ binds nothing, sends the literal `:ids` to the server and fails with `syntax err
 Nothing warns you until the statement runs. Guarded by
 `tests/backend/alembic/test_bind_param_casts.py`.
 
+**A new table with `organization_id` or `project_id` creates its own RLS in the same migration**:
+`ENABLE` and `FORCE ROW LEVEL SECURITY`, a permissive `tenant_isolation` policy, and a restrictive
+`project_isolation` policy. Copy the current bodies, not older ones: `tenant_isolation` from
+`f4a91c3e7b52`, `project_isolation` from `b8d2f3e4a5c6`. Nothing adds them for you: an event trigger would
+need superuser, which the migration role doesn't have on CNPG. `tests/backend/security/test_rls_coverage.py`
+fails when one is missing; a table that is exempt on purpose goes in its `EXEMPT_*` sets with a reason.
+
 ## Ambient Request Scope (Tenant Filtering & Stamping)
 
 All tenant context (`organization_id`, `user_id`, `project_id`) is stored **once per request** on
