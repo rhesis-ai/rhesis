@@ -1520,9 +1520,7 @@ describe('useArchitectChat', () => {
         result.current.markAgentWorking();
       });
 
-      const optimisticId = result.current.messages.find(
-        m => m.isStreaming
-      )?.id;
+      const optimisticId = result.current.messages.find(m => m.isStreaming)?.id;
       expect(optimisticId).toBeDefined();
 
       act(() => {
@@ -1557,6 +1555,24 @@ describe('useArchitectChat', () => {
 
       // No additional streaming bubble created
       expect(result.current.messages.length).toBe(msgCountBefore);
+    });
+
+    it('does not create duplicate bubbles on rapid calls', () => {
+      const { result } = renderHook(() =>
+        useArchitectChat({ sessionId: 'sess-1' })
+      );
+
+      act(() => {
+        result.current.markAgentWorking();
+      });
+      const msgCountAfterFirst = result.current.messages.length;
+
+      act(() => {
+        result.current.markAgentWorking();
+      });
+
+      // Second call is a no-op — no duplicate bubble
+      expect(result.current.messages.length).toBe(msgCountAfterFirst);
     });
   });
 });

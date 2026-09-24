@@ -220,6 +220,7 @@ export function useArchitectChat(
 
   const markAgentWorking = useCallback(() => {
     if (pendingCorrelationRef.current) return;
+    if (optimisticRef.current) return;
 
     const msgId = generateId();
     streamingMessageIdRef.current = msgId;
@@ -233,7 +234,11 @@ export function useArchitectChat(
         isStreaming: true,
       },
     ]);
-    setStreamingState({ isThinking: true, activeTools: [], completedTools: [] });
+    setStreamingState({
+      isThinking: true,
+      activeTools: [],
+      completedTools: [],
+    });
 
     optimisticRef.current = true;
     if (optimisticTimerRef.current) clearTimeout(optimisticTimerRef.current);
