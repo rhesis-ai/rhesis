@@ -147,7 +147,7 @@ class ResponseGenerator:
             # Combine system prompt with user question
             full_prompt = (
                 f"{context_system_prompt}\n\n"
-                f"Generate context fragments for this insurance question: {prompt}"
+                f"Generate context fragments for this {self.use_case} question: {prompt}"
             )
 
             # Get response from SDK model
