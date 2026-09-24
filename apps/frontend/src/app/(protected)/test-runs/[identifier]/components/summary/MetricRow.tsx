@@ -6,7 +6,12 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import VerdictStrip from './VerdictStrip';
 import BandChip from './BandChip';
-import { aggregateMetric, type CellState } from './verdict-model';
+import {
+  aggregateMetric,
+  BUILTIN_HINT,
+  BUILTIN_LABEL,
+  type CellState,
+} from './verdict-model';
 import { cellState, type TestTimingMap } from './verdict-timeline';
 import { describeStrip } from './verdict-strip-render';
 import {
@@ -145,6 +150,18 @@ function MetricRowInner({
             {trimmedName}
           </Typography>
         </Tooltip>
+        {row.builtin && (
+          <Tooltip title={BUILTIN_HINT} placement="top" arrow>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              noWrap
+              sx={{ flexShrink: 0 }}
+            >
+              {BUILTIN_LABEL}
+            </Typography>
+          </Tooltip>
+        )}
         {hasOverride && (
           <Tooltip
             title="Contains human annotation corrections"

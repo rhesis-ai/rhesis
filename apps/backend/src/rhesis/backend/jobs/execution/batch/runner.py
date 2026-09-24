@@ -519,7 +519,10 @@ async def _execute_single_test(
                 )
                 if on_emit and endpoint_failure:
                     on_emit(f"  {endpoint_failure['summary']}, skipping metrics")
-            elif evaluator and ctx.get_metric_configs_for_test(test_id):
+            elif evaluator and (
+                ctx.get_metric_configs_for_test(test_id)
+                or (is_multi_turn and ctx.stored_outputs is not None)
+            ):
                 metrics_results = await evaluate_metrics(
                     ctx,
                     evaluator,

@@ -602,6 +602,7 @@ def get_verdict_matrix(
                     metric_name=name,
                     metric_id=metric.get("id"),
                     ambiguous=metric.get("ambiguous", False),
+                    builtin=metric.get("builtin", False),
                     verdicts="".join(chars),
                     overrides="".join(override_chars),
                     passed=passed,

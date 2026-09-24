@@ -101,6 +101,8 @@ export interface VerdictRow {
   metric_name: string;
   metric_id: string | null;
   ambiguous: boolean;
+  /** Scored on every multi-turn test by the platform, not set on a requirement. */
+  builtin?: boolean;
   verdicts: string;
   overrides: string;
   passed: number;

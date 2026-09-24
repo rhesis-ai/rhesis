@@ -57,6 +57,10 @@ export function rowsForRequirement(
 
 export const NO_METRICS_LABEL = 'No metrics configured';
 
+export const BUILTIN_LABEL = '(Built-in)';
+export const BUILTIN_HINT =
+  'Scored on every multi-turn test, not set on any requirement. A failed goal fails the whole test.';
+
 /**
  * A stand-in row for a requirement with no metrics, built from its tests' own
  * outcomes -- without it those tests have no cell anywhere in the grid, and a

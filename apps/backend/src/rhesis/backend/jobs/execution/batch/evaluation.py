@@ -12,7 +12,11 @@ from rhesis.backend.app.utils.response_extractor import (
 )
 from rhesis.backend.jobs.execution.batch.context import ExecutionContext
 from rhesis.backend.jobs.execution.constants import PENELOPE_EVALUATED_METRICS, MetricScope
-from rhesis.backend.jobs.execution.evaluation import filter_configs_by_scope
+from rhesis.backend.jobs.execution.evaluation import (
+    filter_configs_by_scope,
+    stored_contract_for_rescore,
+    with_default_goal_metric,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +80,7 @@ async def evaluate_metrics(
 
 
 async def _evaluate_multi_turn_metrics(
-    _ctx: ExecutionContext,
+    ctx: ExecutionContext,
     evaluator: Any,
     test: Test,
     output: Dict[str, Any],
@@ -103,9 +107,19 @@ async def _evaluate_multi_turn_metrics(
     filtered_configs = filter_configs_by_scope(
         metric_configs, MetricScope.MULTI_TURN, str(getattr(test, "id", "?"))
     )
-    filtered_configs = [
-        mc for mc in filtered_configs if mc.class_name not in PENELOPE_EVALUATED_METRICS
-    ]
+    instructions: Optional[str] = None
+    contract: Optional[Dict[str, Any]] = None
+    if ctx.stored_outputs is None:
+        filtered_configs = [
+            mc for mc in filtered_configs if mc.class_name not in PENELOPE_EVALUATED_METRICS
+        ]
+    else:
+        # A re-score: Penelope is not running, so score the goal as it would.
+        usable, contract = stored_contract_for_rescore(test, output)
+        if not usable:
+            return {}
+        filtered_configs = with_default_goal_metric(filtered_configs)
+        instructions = test_config_data.get("instructions") or ""
 
     if not filtered_configs:
         return {}
@@ -123,6 +137,8 @@ async def _evaluate_multi_turn_metrics(
         context=_collect_conversation_context(conversation_summary),
         metrics=filtered_configs,
         conversation_history=conversation_history,
+        instructions=instructions,
+        contract=contract,
         on_metric_complete=on_metric_complete,
     )
 

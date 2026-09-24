@@ -65,6 +65,8 @@ class ExecutionContext:
     per_test_timeout: int = DEFAULT_PER_TEST_TIMEOUT
     connector_metric_sender: Any = None
     reference_test_run_id: Optional[str] = None
+    # A re-score's stored test_output per test, replayed instead of calling the endpoint.
+    stored_outputs: Optional[Dict[str, Dict[str, Any]]] = None
     trace_id: Optional[str] = None
     invoke_max_attempts: int = DEFAULT_INVOKE_MAX_ATTEMPTS
     invoke_retry_min_wait: float = DEFAULT_INVOKE_RETRY_MIN_WAIT
@@ -398,6 +400,12 @@ def prefetch_execution_context(
     except Exception as e:
         logger.warning(f"Failed to batch-check existing results: {e}")
 
+    stored_outputs = None
+    if reference_test_run_id:
+        from rhesis.backend.app.crud.test_result import get_stored_outputs_for_run
+
+        stored_outputs = get_stored_outputs_for_run(session, reference_test_run_id, organization_id)
+
     # Build connector metric sender
     connector_metric_sender = None
     try:
@@ -458,6 +466,7 @@ def prefetch_execution_context(
         per_test_timeout=per_test_timeout,
         connector_metric_sender=connector_metric_sender,
         reference_test_run_id=reference_test_run_id,
+        stored_outputs=stored_outputs,
         trace_id=trace_id,
         invoke_max_attempts=invoke_max_attempts,
         invoke_retry_min_wait=invoke_retry_min_wait,

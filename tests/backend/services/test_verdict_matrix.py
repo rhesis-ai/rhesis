@@ -17,11 +17,12 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.constants import TestResultStatus
+from rhesis.backend.app.constants import TestResultStatus, TestType
 from rhesis.backend.app.outcomes import classify_metrics
 from rhesis.backend.app.services.test_run import get_verdict_matrix
 from rhesis.backend.app.services.verdict_matrix_cache import get_verdict_matrix_cache
 from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
+from rhesis.backend.jobs.execution.constants import BUILTIN_GOAL_ROW_KEY
 from rhesis.backend.jobs.execution.metric_plan import build_metric_plan
 
 
@@ -1337,3 +1338,224 @@ class TestVerdictMatrixCaching:
         assert matrix.test_run_id == test_run.id
         # The bad entry is replaced, so the next read is a normal hit.
         assert get_verdict_matrix_cache().get(str(test_run.id), None) != '{"obsolete_shape": true}'
+
+
+class TestPenelopeGoalAchievement:
+    """Penelope scores Goal Achievement on every live multi-turn test, whether
+    or not a requirement lists it. The grid must show that verdict under the
+    test's own requirement, or a failed goal fails the test with no red cell
+    anywhere in the grid.
+    """
+
+    @pytest.fixture
+    def goal_setup(self, test_db: Session, test_organization, db_user, db_endpoint, db_status):
+        org_id = test_organization.id
+        user_id = db_user.id
+
+        test_config = models.TestConfiguration(
+            endpoint_id=db_endpoint.id, organization_id=org_id, user_id=user_id
+        )
+        test_db.add(test_config)
+        test_db.flush()
+        test_set = models.TestSet(
+            name="Goal Test Set", user_id=user_id, organization_id=org_id, status_id=db_status.id
+        )
+        test_db.add(test_set)
+        test_db.flush()
+        test_config.test_set_id = test_set.id
+
+        requirement = models.Requirement(
+            name="Handle Booking", organization_id=org_id, user_id=user_id
+        )
+        test_db.add(requirement)
+        test_db.flush()
+        accuracy = _metric(
+            test_db, org_id, user_id, name="Accuracy", scope=["Single-Turn", "Multi-Turn"]
+        )
+        _link_metric(test_db, requirement, accuracy, org_id, user_id)
+
+        multi_turn_type = get_or_create_type_lookup(
+            test_db, "TestType", TestType.MULTI_TURN.value, str(org_id), str(user_id)
+        )
+        multi_turn_test = models.Test(
+            user_id=user_id,
+            organization_id=org_id,
+            requirement_id=requirement.id,
+            test_type_id=multi_turn_type.id,
+        )
+        single_turn_test = models.Test(
+            user_id=user_id, organization_id=org_id, requirement_id=requirement.id
+        )
+        test_db.add_all([multi_turn_test, single_turn_test])
+        test_db.flush()
+        for test in (multi_turn_test, single_turn_test):
+            _add_to_set(test_db, test, test_set, org_id, user_id)
+        test_db.commit()
+
+        return {
+            "org_id": org_id,
+            "user_id": user_id,
+            "db_status": db_status,
+            "test_config": test_config,
+            "test_set": test_set,
+            "requirement": requirement,
+            "multi_turn_test": multi_turn_test,
+            "single_turn_test": single_turn_test,
+        }
+
+    def _run_with_result(self, test_db, setup, plan, metrics):
+        test_run = models.TestRun(
+            name="Goal Run",
+            user_id=setup["user_id"],
+            organization_id=setup["org_id"],
+            status_id=setup["db_status"].id,
+            test_configuration_id=setup["test_config"].id,
+            attributes={"metric_plan": plan},
+        )
+        test_db.add(test_run)
+        test_db.flush()
+        execution_verdict = _execution_verdict(metrics)
+        status = get_or_create_status(
+            test_db,
+            TestResultStatus.PASS.value
+            if execution_verdict["verdict"] == "pass"
+            else TestResultStatus.FAIL.value,
+            "TestResult",
+            organization_id=str(setup["org_id"]),
+        )
+        test_db.add(
+            models.TestResult(
+                test_run_id=test_run.id,
+                test_configuration_id=setup["test_config"].id,
+                test_id=setup["multi_turn_test"].id,
+                organization_id=setup["org_id"],
+                user_id=setup["user_id"],
+                status_id=status.id,
+                test_metrics={"metrics": metrics},
+                **execution_verdict,
+            )
+        )
+        test_db.commit()
+        return get_verdict_matrix(test_db, test_run)
+
+    def _plan(self, test_db, setup):
+        return build_metric_plan(
+            test_db,
+            setup["test_config"],
+            setup["test_set"],
+            organization_id=str(setup["org_id"]),
+        )
+
+    def test_failed_goal_gets_one_builtin_row_outside_any_requirement(
+        self, test_db: Session, goal_setup
+    ):
+        plan = self._plan(test_db, goal_setup)
+
+        mt_id = str(goal_setup["multi_turn_test"].id)
+        st_id = str(goal_setup["single_turn_test"].id)
+        goal_group, requirement_group = plan["requirements"]
+        assert goal_group["id"] is None
+        assert goal_group["test_ids"] == [mt_id]
+        assert goal_group["metrics"] == [
+            {
+                "key": BUILTIN_GOAL_ROW_KEY,
+                "name": "Goal Achievement",
+                "id": None,
+                "ambiguous": False,
+                "builtin": True,
+            }
+        ]
+        assert [m["key"] for m in requirement_group["metrics"]] == ["Accuracy"]
+        assert plan["cell_keys"][mt_id][BUILTIN_GOAL_ROW_KEY] == "Goal Achievement"
+        assert BUILTIN_GOAL_ROW_KEY not in plan["cell_keys"][st_id]
+
+        matrix = self._run_with_result(
+            test_db,
+            goal_setup,
+            plan,
+            {
+                "Goal Achievement": {"is_successful": False, "score": 0.2},
+                "Accuracy": {"is_successful": True, "score": 0.9},
+            },
+        )
+
+        mt_col = plan["test_order"].index(mt_id)
+        st_col = plan["test_order"].index(st_id)
+        goal_row = next(r for r in matrix.rows if r.builtin)
+        assert goal_row.requirement_id is None
+        assert goal_row.metric_name == "Goal Achievement"
+        assert goal_row.verdicts[mt_col] == "F"
+        assert goal_row.verdicts[st_col] == "X"
+        assert goal_row.failed == 1
+        # The requirement's own metric still passed; the goal failed the test.
+        accuracy_row = next(r for r in matrix.rows if r.metric_key == "Accuracy")
+        assert accuracy_row.verdicts[mt_col] == "P"
+        assert matrix.kpis.failures == 1
+
+    def test_run_without_multi_turn_tests_has_no_goal_row(self, test_db: Session, goal_setup):
+        test_db.execute(
+            models.test_test_set_association.delete().where(
+                models.test_test_set_association.c.test_id == goal_setup["multi_turn_test"].id
+            )
+        )
+        test_db.commit()
+
+        plan = self._plan(test_db, goal_setup)
+
+        assert [g["id"] for g in plan["requirements"]] == [str(goal_setup["requirement"].id)]
+
+    def test_attached_goal_metric_is_not_applicable_on_multi_turn_tests(
+        self, test_db: Session, goal_setup
+    ):
+        # Penelope ignores an attached Goal Achievement metric and the
+        # post-run pass skips it, so the built-in row is where its verdict is.
+        goal_metric = _metric(
+            test_db,
+            goal_setup["org_id"],
+            goal_setup["user_id"],
+            name="Booking Goal",
+            scope=["Multi-Turn"],
+            class_name="GoalAchievementJudge",
+        )
+        _link_metric(
+            test_db,
+            goal_setup["requirement"],
+            goal_metric,
+            goal_setup["org_id"],
+            goal_setup["user_id"],
+        )
+        test_db.commit()
+
+        plan = self._plan(test_db, goal_setup)
+
+        mt_id = str(goal_setup["multi_turn_test"].id)
+        assert str(goal_metric.id) not in plan["cell_keys"][mt_id]
+
+        matrix = self._run_with_result(
+            test_db,
+            goal_setup,
+            plan,
+            {
+                "Goal Achievement": {"is_successful": False, "score": 0.2},
+                "Accuracy": {"is_successful": True, "score": 0.9},
+            },
+        )
+
+        mt_col = plan["test_order"].index(mt_id)
+        attached_row = next(r for r in matrix.rows if r.metric_id == goal_metric.id)
+        assert attached_row.verdicts[mt_col] == "X"
+        assert next(r for r in matrix.rows if r.builtin).verdicts[mt_col] == "F"
+
+    def test_rescore_run_gets_the_builtin_row_too(self, test_db: Session, goal_setup):
+        # A re-score scores the goal with Penelope's own judge, under the same key.
+        goal_setup["test_config"].attributes = {
+            "reference_test_run_id": str(uuid.uuid4()),
+            "is_rescore": True,
+        }
+        test_db.commit()
+
+        plan = self._plan(test_db, goal_setup)
+
+        assert plan["requirements"][0]["metrics"][0]["key"] == BUILTIN_GOAL_ROW_KEY
+        mt_id = str(goal_setup["multi_turn_test"].id)
+        assert plan["cell_keys"][mt_id][BUILTIN_GOAL_ROW_KEY] == "Goal Achievement"

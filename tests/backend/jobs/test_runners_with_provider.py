@@ -371,6 +371,8 @@ class TestMultiTurnRunnerWithProvider:
             CONVERSATION_SUMMARY_KEY: [{PENELOPE_MESSAGE_KEY: "Q", TARGET_RESPONSE_KEY: "A"}]
         }
         assert eval_kwargs["model"] == "gpt-4"
+        # Penelope isn't running, so the re-score scores the goal itself.
+        assert eval_kwargs["score_goal"] is True
         assert metrics == {"relevance": {"score": 0.7}}
 
 

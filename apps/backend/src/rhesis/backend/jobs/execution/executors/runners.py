@@ -478,6 +478,7 @@ class MultiTurnRunner(BaseRunner):
                 test_configuration=test_configuration,
                 project_id=ep_project_id,
                 environment=ep_environment,
+                score_goal=output.source == "test_result",
             )
 
         if output.source == "live":
