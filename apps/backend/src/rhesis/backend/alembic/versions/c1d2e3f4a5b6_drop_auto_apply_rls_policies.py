@@ -43,7 +43,7 @@ BEGIN
         RETURN;
     END IF;
     DROP FUNCTION public.auto_apply_rls_policies();
-END
+END;
 $$;
 """
 

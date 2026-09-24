@@ -85,7 +85,7 @@ spec:
         - CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
         - CREATE EXTENSION IF NOT EXISTS vector;
         - CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
-        - DO $$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO "rhesis-user", "grafana-viewer"', current_database()); END $$;
+        - DO $$ BEGIN EXECUTE format('GRANT CONNECT ON DATABASE %I TO "rhesis-user", "grafana-viewer"', current_database()); END; $$;
         - GRANT USAGE ON SCHEMA public TO "rhesis-user";
         - GRANT SELECT, INSERT, UPDATE, DELETE, REFERENCES ON ALL TABLES IN SCHEMA public TO "rhesis-user";
         - GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "rhesis-user";
