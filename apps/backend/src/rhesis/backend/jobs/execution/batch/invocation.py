@@ -3,6 +3,7 @@ Test invocation for batch tests (single-turn and multi-turn).
 """
 
 import asyncio
+import copy
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -110,6 +111,8 @@ async def run_test(
     penelope_agent: Any = None,
 ) -> Dict[str, Any]:
     """Run a single test (endpoint invocation or Penelope conversation)."""
+    if ctx.stored_outputs is not None:
+        return _replay_stored_output(ctx, test_id, deferred_traces)
     if is_multi_turn:
         return await _run_multi_turn(
             ctx,
@@ -126,6 +129,22 @@ async def run_test(
         test_execution_context,
         deferred_traces,
     )
+
+
+def _replay_stored_output(
+    ctx: ExecutionContext, test_id: str, deferred_traces: list
+) -> Dict[str, Any]:
+    """A re-score's output: the reference run's stored one, with no endpoint call."""
+    stored = ctx.stored_outputs.get(test_id) if ctx.stored_outputs else None
+    if stored is None:
+        raise ValueError(f"No stored output for test {test_id} in run {ctx.reference_test_run_id}")
+    # Copied: scoring may record a discard reason on it, and a recovery round must
+    # replay the original.
+    return {
+        "output": copy.deepcopy(stored),
+        "penelope_metrics": {},
+        "deferred_traces": deferred_traces,
+    }
 
 
 async def _run_multi_turn(

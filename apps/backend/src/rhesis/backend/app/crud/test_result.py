@@ -22,7 +22,7 @@ avoids both problems.
 """
 
 import uuid
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -191,3 +191,21 @@ def get_first_reported_version_info(
     row = query.first()
     value = row[0] if row else None
     return value if isinstance(value, dict) and value else None
+
+
+def get_stored_outputs_for_run(
+    db: Session, test_run_id: uuid.UUID | str, organization_id: str | None = None
+) -> Dict[str, Dict[str, Any]]:
+    """Each test's stored ``test_output`` in a run, for a re-score to replay.
+
+    A test can hold more than one result in a run; the newest wins.
+    """
+    query = db.query(models.TestResult.test_id, models.TestResult.test_output).filter(
+        models.TestResult.test_run_id == uuid.UUID(str(test_run_id)),
+        models.TestResult.deleted_at.is_(None),
+        models.TestResult.test_output.isnot(None),
+    )
+    if organization_id:
+        query = query.filter(models.TestResult.organization_id == uuid.UUID(str(organization_id)))
+    rows = query.order_by(models.TestResult.created_at).all()
+    return {str(test_id): output for test_id, output in rows}
