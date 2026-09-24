@@ -43,9 +43,8 @@ gets one built-in row of its own, first in the plan and outside any
 requirement, spanning every multi-turn test -- a failed goal fails the whole
 test, so it must be visible even when every requirement's metrics passed. A
 Goal Achievement metric a requirement does list is never scored separately on
-a multi-turn test, so its cells there are not-applicable. A re-score run
-replays stored conversations without Penelope and scores every metric itself,
-so it gets no built-in row.
+a multi-turn test, so its cells there are not-applicable. A re-score scores
+the goal the same way, with Penelope's own judge, so it gets the row too.
 """
 
 import uuid
@@ -145,20 +144,16 @@ def _cell_keys_for_test(
     keyed: List[Tuple[str, models.Metric, bool]],
     multi_turn: bool,
     test_id: str,
-    penelope_scores_goal: bool,
 ) -> Dict[str, str]:
     row_key_by_metric = {id(m): key for key, m, _ in keyed}
     metrics = [m for _, m, _ in keyed]
     if not multi_turn:
         kept = filter_configs_by_scope(metrics, MetricScope.SINGLE_TURN, test_id)
         return _runtime_keys(kept, row_key_by_metric)
-    if not penelope_scores_goal:
-        kept = filter_configs_by_scope(metrics, MetricScope.MULTI_TURN, test_id)
-        return _runtime_keys(kept, row_key_by_metric)
 
-    # The post-run pass skips what Penelope already scored, so the other
-    # metrics are keyed without it; the goal itself reads through the
-    # built-in row, under Penelope's own key.
+    # A listed Goal Achievement metric is never scored on a multi-turn test --
+    # Penelope's own judge is, live or re-scored -- so the other metrics are
+    # keyed without it, and the goal reads through the built-in row.
     others = filter_configs_by_scope(
         [m for m in metrics if not _is_penelope_metric(m)], MetricScope.MULTI_TURN, test_id
     )
@@ -246,9 +241,6 @@ def _build_metric_plan(
     # "requirement" and "none" both keep their own entry, since neither is a
     # metric shared across groups -- "requirement" is genuinely specific to
     # its own requirement, and "none" is nothing resolved at all.
-    # Same signal the jobs use to replay stored outputs instead of running Penelope.
-    penelope_scores_goal = not (test_config.attributes or {}).get("reference_test_run_id")
-
     pooled_test_ids: List[str] = []
     pooled_metrics: Dict[uuid.UUID, models.Metric] = {}
 
@@ -304,9 +296,7 @@ def _build_metric_plan(
                     pooled_metrics[metric.id] = metric
 
         for test_id in group_test_ids:
-            per_test = _cell_keys_for_test(
-                keyed, bool(is_multi_turn_by_test.get(test_id)), test_id, penelope_scores_goal
-            )
+            per_test = _cell_keys_for_test(keyed, bool(is_multi_turn_by_test.get(test_id)), test_id)
             if per_test:
                 cell_keys[test_id] = per_test
 
@@ -330,7 +320,7 @@ def _build_metric_plan(
         )
 
     multi_turn_test_ids = [t for t in test_order if is_multi_turn_by_test.get(t)]
-    if penelope_scores_goal and multi_turn_test_ids:
+    if multi_turn_test_ids:
         requirements_payload.insert(0, _goal_group(multi_turn_test_ids))
 
     return {

@@ -186,7 +186,7 @@ class TestMultiTurnEvaluatorAppliesScopeFilter:
         test.test_configuration = {"goal": "check in for a flight"}
 
         await _evaluate_multi_turn_metrics(
-            MagicMock(), evaluator, test, self._conversation_output(), configs
+            MagicMock(stored_outputs=None), evaluator, test, self._conversation_output(), configs
         )
 
         passed = evaluator.a_evaluate.call_args.kwargs["metrics"]
@@ -209,7 +209,7 @@ class TestMultiTurnEvaluatorAppliesScopeFilter:
         test.test_configuration = {"goal": "check in for a flight"}
 
         result = await _evaluate_multi_turn_metrics(
-            MagicMock(), evaluator, test, self._conversation_output(), configs
+            MagicMock(stored_outputs=None), evaluator, test, self._conversation_output(), configs
         )
 
         assert result == {}

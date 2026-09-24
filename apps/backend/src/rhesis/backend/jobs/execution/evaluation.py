@@ -13,7 +13,7 @@ Functions:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union
 
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,8 @@ from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.response_extractor import extract_response_with_fallback
 from rhesis.backend.jobs.execution.constants import (
     CONVERSATION_SUMMARY_KEY,
+    PENELOPE_EVALUATED_METRICS,
+    PENELOPE_GOAL_METRIC_KEY,
     PENELOPE_MESSAGE_KEY,
     TARGET_RESPONSE_KEY,
     TURN_CONTEXT_KEY,
@@ -241,59 +243,22 @@ def evaluate_single_turn_metrics(
 evaluate_prompt_response = evaluate_single_turn_metrics
 
 
-def evaluate_multi_turn_metrics(
-    stored_output: Dict[str, Any],
-    test: Test,
-    db: Session,
-    organization_id: str,
-    user_id: Optional[str],
-    model: Any,
-    test_set: Any = None,
-    test_configuration: Any = None,
-    exclude_class_names: Optional[Set[str]] = None,
-    project_id: Optional[str] = None,
-    environment: Optional[str] = None,
-) -> Dict[str, Any]:
-    """Evaluate conversational metrics on a stored Penelope trace or conversation.
+def stored_contract_for_rescore(
+    test: Test, stored_output: Dict[str, Any]
+) -> Tuple[bool, Optional[Dict[str, Any]]]:
+    """The test's stored evaluation contract for scoring a stored conversation.
 
-    The multi-turn counterpart to evaluate_single_turn_metrics().
-    Used when re-scoring (TestResultOutput) or evaluating traces (TraceOutput)
-    where Penelope is not running and metrics need standalone evaluation.
-
-    Args:
-        stored_output: The stored Penelope trace or conversation data
-        test: Test model instance
-        db: Database session
-        organization_id: Organization ID for multi-tenant safety
-        user_id: User ID (optional)
-        model: LLM model for metric evaluation
-        test_set: Optional TestSet model for metric override
-        test_configuration: Optional TestConfiguration for execution-time override
-        exclude_class_names: Optional set of metric class names to exclude
-            (e.g., {"GoalAchievementJudge"} when Penelope already evaluated it)
-
-    Returns:
-        Dictionary of metric evaluation results
+    ``(False, None)`` when it is stale or unusable -- the reason is recorded on
+    ``stored_output`` and nothing should be scored. ``(True, None)`` when the test
+    has no contract, which falls back to legacy goal-based scoring.
     """
     from rhesis.backend.app.schemas.evaluation_contract import read_contract
     from rhesis.backend.app.services.test_interpretation import contract_usability
-    from rhesis.backend.jobs.execution.executors.data import (
-        get_test_metrics,
-    )
-    from rhesis.backend.jobs.execution.executors.metrics import (
-        prepare_metric_configs,
-    )
 
     test_config = test.test_configuration or {}
-    goal = test_config.get("goal", "")
-    # GoalAchievementJudge's prompt has a mandatory-instructions block a live run always
-    # includes; omitting it here would let a re-score score the same conversation
-    # differently from the live run that originally produced it.
-    instructions = test_config.get("instructions") or ""
-
     # Re-scoring reuses whatever contract is currently stored -- it must not re-interpret here,
     # or two back-to-back re-scores with no intervening change could disagree for no reason.
-    # Like `goal`/`instructions` two lines up, this reads the test's CURRENT definition rather
+    # Like `goal`/`instructions` in the caller, this reads the test's CURRENT definition rather
     # than a snapshot from when the trace was produced: a trace's own point-in-time
     # understanding isn't preserved anywhere today, and re-score has always meant "score this
     # trace against the test as it reads today" for those two fields, so the contract follows
@@ -327,7 +292,7 @@ def evaluate_multi_turn_metrics(
                 test.id,
             )
             _record_discard_reason(stored_output, reason)
-            return {}
+            return False, None
         usable, reason = contract_usability(stored_contract)
         if not usable:
             logger.warning(
@@ -337,8 +302,96 @@ def evaluate_multi_turn_metrics(
                 reason,
             )
             _record_discard_reason(stored_output, reason)
-            return {}
+            return False, None
         contract_dict = stored_contract.model_dump(mode="json", exclude_none=True)
+    return True, contract_dict
+
+
+def default_goal_metric_config() -> MetricConfig:
+    """The judge Penelope builds for itself on a live run, keyed the way it stores it."""
+    from rhesis.sdk.metrics import MetricConfig
+    from rhesis.sdk.metrics.providers.native.goal_achievement_judge import (
+        DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD,
+    )
+
+    return MetricConfig(
+        class_name="GoalAchievementJudge",
+        backend="rhesis",
+        name=PENELOPE_GOAL_METRIC_KEY,
+        score_type="numeric",
+        metric_type="conversational",
+        metric_scope=[MetricScope.MULTI_TURN.value],
+        threshold=DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD,
+    )
+
+
+def with_default_goal_metric(metric_configs: List[Any]) -> List[Any]:
+    """Score the goal the way a live run does when Penelope is not running.
+
+    A live run ignores any Goal Achievement metric a requirement lists and uses
+    Penelope's own judge, so a re-score of the same conversation does the same.
+    """
+    return [
+        mc
+        for mc in metric_configs
+        if getattr(mc, "class_name", None) not in PENELOPE_EVALUATED_METRICS
+    ] + [default_goal_metric_config()]
+
+
+def evaluate_multi_turn_metrics(
+    stored_output: Dict[str, Any],
+    test: Test,
+    db: Session,
+    organization_id: str,
+    user_id: Optional[str],
+    model: Any,
+    test_set: Any = None,
+    test_configuration: Any = None,
+    exclude_class_names: Optional[Set[str]] = None,
+    project_id: Optional[str] = None,
+    environment: Optional[str] = None,
+    score_goal: bool = False,
+) -> Dict[str, Any]:
+    """Evaluate conversational metrics on a stored Penelope trace or conversation.
+
+    The multi-turn counterpart to evaluate_single_turn_metrics().
+    Used when re-scoring (TestResultOutput) or evaluating traces (TraceOutput)
+    where Penelope is not running and metrics need standalone evaluation.
+
+    Args:
+        stored_output: The stored Penelope trace or conversation data
+        test: Test model instance
+        db: Database session
+        organization_id: Organization ID for multi-tenant safety
+        user_id: User ID (optional)
+        model: LLM model for metric evaluation
+        test_set: Optional TestSet model for metric override
+        test_configuration: Optional TestConfiguration for execution-time override
+        exclude_class_names: Optional set of metric class names to exclude
+            (e.g., {"GoalAchievementJudge"} when Penelope already evaluated it)
+        score_goal: Add Penelope's own Goal Achievement judge, for a re-score of a
+            test run, where Penelope is not running
+
+    Returns:
+        Dictionary of metric evaluation results
+    """
+    from rhesis.backend.jobs.execution.executors.data import (
+        get_test_metrics,
+    )
+    from rhesis.backend.jobs.execution.executors.metrics import (
+        prepare_metric_configs,
+    )
+
+    test_config = test.test_configuration or {}
+    goal = test_config.get("goal", "")
+    # GoalAchievementJudge's prompt has a mandatory-instructions block a live run always
+    # includes; omitting it here would let a re-score score the same conversation
+    # differently from the live run that originally produced it.
+    instructions = test_config.get("instructions") or ""
+
+    usable, contract_dict = stored_contract_for_rescore(test, stored_output)
+    if not usable:
+        return {}
 
     # Resolve metrics (execution-time > test set > requirement)
     metrics = get_test_metrics(
@@ -355,6 +408,8 @@ def evaluate_multi_turn_metrics(
         metrics = [m for m in metrics if m.class_name not in exclude_class_names]
 
     metric_configs = prepare_metric_configs(metrics, str(test.id), scope=MetricScope.MULTI_TURN)
+    if score_goal:
+        metric_configs = with_default_goal_metric(metric_configs)
 
     if not metric_configs:
         return {}

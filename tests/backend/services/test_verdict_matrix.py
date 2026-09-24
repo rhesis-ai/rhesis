@@ -1546,26 +1546,8 @@ class TestPenelopeGoalAchievement:
         assert attached_row.verdicts[mt_col] == "X"
         assert next(r for r in matrix.rows if r.builtin).verdicts[mt_col] == "F"
 
-    def test_rescore_run_has_no_builtin_row_and_scores_attached_goal_itself(
-        self, test_db: Session, goal_setup
-    ):
-        # A re-score replays stored conversations without Penelope, and scores
-        # an attached Goal Achievement metric under its own name.
-        goal_metric = _metric(
-            test_db,
-            goal_setup["org_id"],
-            goal_setup["user_id"],
-            name="Booking Goal",
-            scope=["Multi-Turn"],
-            class_name="GoalAchievementJudge",
-        )
-        _link_metric(
-            test_db,
-            goal_setup["requirement"],
-            goal_metric,
-            goal_setup["org_id"],
-            goal_setup["user_id"],
-        )
+    def test_rescore_run_gets_the_builtin_row_too(self, test_db: Session, goal_setup):
+        # A re-score scores the goal with Penelope's own judge, under the same key.
         goal_setup["test_config"].attributes = {
             "reference_test_run_id": str(uuid.uuid4()),
             "is_rescore": True,
@@ -1574,7 +1556,6 @@ class TestPenelopeGoalAchievement:
 
         plan = self._plan(test_db, goal_setup)
 
-        assert all(g["id"] is not None for g in plan["requirements"])
+        assert plan["requirements"][0]["metrics"][0]["key"] == BUILTIN_GOAL_ROW_KEY
         mt_id = str(goal_setup["multi_turn_test"].id)
-        assert plan["cell_keys"][mt_id][str(goal_metric.id)] == "Booking Goal"
-        assert BUILTIN_GOAL_ROW_KEY not in plan["cell_keys"][mt_id]
+        assert plan["cell_keys"][mt_id][BUILTIN_GOAL_ROW_KEY] == "Goal Achievement"
