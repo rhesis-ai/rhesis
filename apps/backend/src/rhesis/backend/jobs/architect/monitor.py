@@ -134,11 +134,13 @@ def _store_early_completion(
     if not test_run_id and not test_set_id:
         return []
 
-    data = json.dumps({
-        "task_id": task_id,
-        "state": state,
-        "result": _serialise_retval(retval),
-    })
+    data = json.dumps(
+        {
+            "task_id": task_id,
+            "state": state,
+            "result": _serialise_retval(retval),
+        }
+    )
 
     keys: List[str] = []
     pipe = r.pipeline()
@@ -147,7 +149,12 @@ def _store_early_completion(
     pipe.set(key, data, ex=_EARLY_TTL)
     keys.append(key)
 
-    if test_run_id and str(test_run_id) != str(task_id):
+    # Only store the test_run_id alt key for *final* execution results
+    # (same guard as _resolve_awaiting_key) — execute_test_configuration
+    # also carries test_run_id but without execution_status/tests_passed,
+    # and matching it would resume the architect with incomplete data.
+    is_final = "execution_status" in retval or "tests_passed" in retval
+    if test_run_id and is_final and str(test_run_id) != str(task_id):
         key = f"arch:early:{test_run_id}"
         pipe.set(key, data, ex=_EARLY_TTL)
         keys.append(key)
