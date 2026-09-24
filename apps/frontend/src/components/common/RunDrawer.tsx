@@ -583,7 +583,9 @@ export default function RunDrawer(props: RunDrawerProps) {
     };
   }, [open, executeTestSetId, rerunConfig?.testSetId, mode, apiFactory]);
 
-  // Rerun: pre-fill metrics & models from original attributes
+  // Rerun: pre-fill metrics from original attributes. Models are NOT
+  // carried forward so the rerun picks up the user's current defaults
+  // instead of the model that happened to be active on the original run.
   useEffect(() => {
     if (!open || mode !== 'rerunTestRun' || !rerunConfig) return;
     const orig = rerunConfig.originalAttributes;
@@ -598,8 +600,8 @@ export default function RunDrawer(props: RunDrawerProps) {
         }))
       );
     }
-    setSelectedExecutionModelId((orig?.execution_model_id as string) || '');
-    setSelectedEvaluationModelId((orig?.evaluation_model_id as string) || '');
+    setSelectedExecutionModelId('');
+    setSelectedEvaluationModelId('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode]);
 
