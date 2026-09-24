@@ -1345,4 +1345,234 @@ describe('useArchitectChat', () => {
       expect(result.current.visiblePlan).toBe(COMPLETE_PLAN);
     });
   });
+
+  describe('markAgentWorking (optimistic thinking indicator)', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('creates a streaming bubble and sets isThinking', () => {
+      const { result } = renderHook(() =>
+        useArchitectChat({ sessionId: 'sess-1' })
+      );
+
+      act(() => {
+        result.current.markAgentWorking();
+      });
+
+      expect(result.current.streamingState.isThinking).toBe(true);
+      const streamingMsg = result.current.messages.find(m => m.isStreaming);
+      expect(streamingMsg).toBeDefined();
+      expect(streamingMsg?.role).toBe('assistant');
+      expect(streamingMsg?.content).toBe('');
+    });
+
+    it('does not disable the input (isLoading stays false)', () => {
+      const { result } = renderHook(() =>
+        useArchitectChat({ sessionId: 'sess-1' })
+      );
+
+      act(() => {
+        result.current.markAgentWorking();
+      });
+
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    it('is superseded by a real ARCHITECT_THINKING event', () => {
+      const { result } = renderHook(() =>
+        useArchitectChat({ sessionId: 'sess-1' })
+      );
+
+      act(() => {
+        result.current.markAgentWorking();
+      });
+
+      const streamingBefore = result.current.messages.find(m => m.isStreaming);
+
+      act(() => {
+        subscriptionHandlers[EventType.ARCHITECT_THINKING]({
+          type: EventType.ARCHITECT_THINKING,
+          payload: { status: 'thinking', iteration: 1 },
+        });
+      });
+
+      // The streaming bubble still exists (reused by ensureStreamingMessage)
+      expect(result.current.streamingState.isThinking).toBe(true);
+      expect(result.current.streamingState.currentIteration).toBe(1);
+      const streamingAfter = result.current.messages.find(m => m.isStreaming);
+      expect(streamingAfter?.id).toBe(streamingBefore?.id);
+    });
+
+    it('is cleared by ARCHITECT_RESPONSE', () => {
+      const { result } = renderHook(() =>
+        useArchitectChat({ sessionId: 'sess-1' })
+      );
+
+      act(() => {
+        result.current.markAgentWorking();
+      });
+
+      act(() => {
+        subscriptionHandlers[EventType.ARCHITECT_RESPONSE]({
+          type: EventType.ARCHITECT_RESPONSE,
+          payload: {
+            session_id: 'sess-1',
+            content: 'Done!',
+            awaiting_task: false,
+          },
+        });
+      });
+
+      expect(result.current.streamingState.isThinking).toBe(false);
+      const streamingMsg = result.current.messages.find(m => m.isStreaming);
+      expect(streamingMsg).toBeUndefined();
+    });
+
+    it('is cleared by ARCHITECT_ERROR', () => {
+      const { result } = renderHook(() =>
+        useArchitectChat({ sessionId: 'sess-1' })
+      );
+
+      act(() => {
+        result.current.markAgentWorking();
+      });
+
+      act(() => {
+        subscriptionHandlers[EventType.ARCHITECT_ERROR]({
+          type: EventType.ARCHITECT_ERROR,
+          payload: { session_id: 'sess-1', error: 'boom' },
+        });
+      });
+
+      expect(result.current.streamingState.isThinking).toBe(false);
+    });
+
+    it('times out after 30 seconds with no events', () => {
+      const { result } = renderHook(() =>
+        useArchitectChat({ sessionId: 'sess-1' })
+      );
+
+      act(() => {
+        result.current.markAgentWorking();
+      });
+      expect(result.current.streamingState.isThinking).toBe(true);
+
+      act(() => {
+        jest.advanceTimersByTime(30_000);
+      });
+
+      expect(result.current.streamingState.isThinking).toBe(false);
+      const streamingMsg = result.current.messages.find(m => m.isStreaming);
+      expect(streamingMsg).toBeUndefined();
+    });
+
+    it('does not time out when a real event arrived', () => {
+      const { result } = renderHook(() =>
+        useArchitectChat({ sessionId: 'sess-1' })
+      );
+
+      act(() => {
+        result.current.markAgentWorking();
+      });
+
+      act(() => {
+        subscriptionHandlers[EventType.ARCHITECT_THINKING]({
+          type: EventType.ARCHITECT_THINKING,
+          payload: { status: 'thinking', iteration: 1 },
+        });
+      });
+
+      act(() => {
+        jest.advanceTimersByTime(30_000);
+      });
+
+      // Still thinking because real events took over
+      expect(result.current.streamingState.isThinking).toBe(true);
+    });
+
+    it('is cleared on session change', () => {
+      const { result, rerender } = renderHook(
+        ({ sessionId }) => useArchitectChat({ sessionId }),
+        { initialProps: { sessionId: 'sess-1' as string | null } }
+      );
+
+      act(() => {
+        result.current.markAgentWorking();
+      });
+      expect(result.current.streamingState.isThinking).toBe(true);
+
+      rerender({ sessionId: 'sess-2' });
+      expect(result.current.streamingState.isThinking).toBe(false);
+      expect(result.current.messages.find(m => m.isStreaming)).toBeUndefined();
+    });
+
+    it('is cleaned up when sendMessage is called', () => {
+      const { result } = renderHook(() =>
+        useArchitectChat({ sessionId: 'sess-1' })
+      );
+
+      act(() => {
+        result.current.markAgentWorking();
+      });
+
+      const optimisticId = result.current.messages.find(m => m.isStreaming)?.id;
+      expect(optimisticId).toBeDefined();
+
+      act(() => {
+        result.current.sendMessage('hello');
+      });
+
+      // The empty optimistic bubble is removed
+      expect(
+        result.current.messages.find(m => m.id === optimisticId)
+      ).toBeUndefined();
+      // The user message was added
+      expect(result.current.messages.some(m => m.content === 'hello')).toBe(
+        true
+      );
+      expect(result.current.isLoading).toBe(true);
+    });
+
+    it('does not fire if a real send is already in progress', () => {
+      const { result } = renderHook(() =>
+        useArchitectChat({ sessionId: 'sess-1' })
+      );
+
+      act(() => {
+        result.current.sendMessage('hello');
+      });
+      expect(result.current.isLoading).toBe(true);
+      const msgCountBefore = result.current.messages.length;
+
+      act(() => {
+        result.current.markAgentWorking();
+      });
+
+      // No additional streaming bubble created
+      expect(result.current.messages.length).toBe(msgCountBefore);
+    });
+
+    it('does not create duplicate bubbles on rapid calls', () => {
+      const { result } = renderHook(() =>
+        useArchitectChat({ sessionId: 'sess-1' })
+      );
+
+      act(() => {
+        result.current.markAgentWorking();
+      });
+      const msgCountAfterFirst = result.current.messages.length;
+
+      act(() => {
+        result.current.markAgentWorking();
+      });
+
+      // Second call is a no-op — no duplicate bubble
+      expect(result.current.messages.length).toBe(msgCountAfterFirst);
+    });
+  });
 });

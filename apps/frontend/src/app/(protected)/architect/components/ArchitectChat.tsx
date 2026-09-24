@@ -152,6 +152,7 @@ export default function ArchitectChat({
     setCurrentPlan,
     sendMessage,
     setMessages,
+    markAgentWorking,
   } = useArchitectChat({
     sessionId,
     initialUserMessage: initialMessage,
@@ -221,6 +222,11 @@ export default function ArchitectChat({
               };
             });
           setMessages(loaded);
+
+          const lastMsg = loaded[loaded.length - 1];
+          if (lastMsg?.role === 'user') {
+            markAgentWorking();
+          }
         } else {
           setMessages([]);
         }
@@ -236,6 +242,7 @@ export default function ArchitectChat({
     setAutoApproveAll,
     setCurrentMode,
     setCurrentPlan,
+    markAgentWorking,
     status,
   ]);
 
