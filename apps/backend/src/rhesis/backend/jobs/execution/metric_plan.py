@@ -36,6 +36,16 @@ scope filtering (``batch/evaluation.py`` filters, then
 two same-named metrics of differing scope the survivor takes the bare name
 whichever one it is. A missing entry means the metric does not apply to that
 test at all.
+
+Every live multi-turn test also carries a Goal Achievement verdict that
+Penelope scores itself, whether or not any requirement lists that metric. It
+gets one built-in row of its own, first in the plan and outside any
+requirement, spanning every multi-turn test -- a failed goal fails the whole
+test, so it must be visible even when every requirement's metrics passed. A
+Goal Achievement metric a requirement does list is never scored separately on
+a multi-turn test, so its cells there are not-applicable. A re-score run
+replays stored conversations without Penelope and scores every metric itself,
+so it gets no built-in row.
 """
 
 import uuid
@@ -48,6 +58,11 @@ from rhesis.backend.app.crud.test_run import get_ordered_tests_for_test_set
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas.metric import MetricScope
+from rhesis.backend.jobs.execution.constants import (
+    BUILTIN_GOAL_ROW_KEY,
+    PENELOPE_EVALUATED_METRICS,
+    PENELOPE_GOAL_METRIC_KEY,
+)
 from rhesis.backend.jobs.execution.evaluation import filter_configs_by_scope
 from rhesis.backend.jobs.execution.executors.data import get_test_metrics
 
@@ -94,6 +109,62 @@ def _assign_metric_keys(metrics: List[models.Metric]) -> List[Tuple[str, models.
 def _metric_ref(metric: models.Metric, key: str) -> str:
     """Stable per-row identity for cell_keys, independent of the display key."""
     return str(metric.id) if metric.id else key
+
+
+def _is_penelope_metric(metric: models.Metric) -> bool:
+    return metric.class_name in PENELOPE_EVALUATED_METRICS
+
+
+def _goal_group(multi_turn_test_ids: List[str]) -> Dict[str, Any]:
+    return {
+        "id": None,
+        "name": PENELOPE_GOAL_METRIC_KEY,
+        "metrics": [
+            {
+                "key": BUILTIN_GOAL_ROW_KEY,
+                "name": PENELOPE_GOAL_METRIC_KEY,
+                "id": None,
+                "ambiguous": False,
+                "builtin": True,
+            }
+        ],
+        "test_ids": multi_turn_test_ids,
+    }
+
+
+def _runtime_keys(
+    metrics: List[models.Metric], row_key_by_metric: Dict[int, str]
+) -> Dict[str, str]:
+    """Key the metrics the way the runtime will, so a suffix that only exists
+    because of a filtered-out sibling doesn't end up in the lookup."""
+    runtime_key_by_metric = {id(m): key for key, m, _ in _assign_metric_keys(metrics)}
+    return {_metric_ref(m, row_key_by_metric[id(m)]): runtime_key_by_metric[id(m)] for m in metrics}
+
+
+def _cell_keys_for_test(
+    keyed: List[Tuple[str, models.Metric, bool]],
+    multi_turn: bool,
+    test_id: str,
+    penelope_scores_goal: bool,
+) -> Dict[str, str]:
+    row_key_by_metric = {id(m): key for key, m, _ in keyed}
+    metrics = [m for _, m, _ in keyed]
+    if not multi_turn:
+        kept = filter_configs_by_scope(metrics, MetricScope.SINGLE_TURN, test_id)
+        return _runtime_keys(kept, row_key_by_metric)
+    if not penelope_scores_goal:
+        kept = filter_configs_by_scope(metrics, MetricScope.MULTI_TURN, test_id)
+        return _runtime_keys(kept, row_key_by_metric)
+
+    # The post-run pass skips what Penelope already scored, so the other
+    # metrics are keyed without it; the goal itself reads through the
+    # built-in row, under Penelope's own key.
+    others = filter_configs_by_scope(
+        [m for m in metrics if not _is_penelope_metric(m)], MetricScope.MULTI_TURN, test_id
+    )
+    per_test = _runtime_keys(others, row_key_by_metric)
+    per_test[BUILTIN_GOAL_ROW_KEY] = PENELOPE_GOAL_METRIC_KEY
+    return per_test
 
 
 def _requirement_names(
@@ -175,6 +246,9 @@ def _build_metric_plan(
     # "requirement" and "none" both keep their own entry, since neither is a
     # metric shared across groups -- "requirement" is genuinely specific to
     # its own requirement, and "none" is nothing resolved at all.
+    # Same signal the jobs use to replay stored outputs instead of running Penelope.
+    penelope_scores_goal = not (test_config.attributes or {}).get("reference_test_run_id")
+
     pooled_test_ids: List[str] = []
     pooled_metrics: Dict[uuid.UUID, models.Metric] = {}
 
@@ -230,20 +304,9 @@ def _build_metric_plan(
                     pooled_metrics[metric.id] = metric
 
         for test_id in group_test_ids:
-            scope = (
-                MetricScope.MULTI_TURN
-                if is_multi_turn_by_test.get(test_id)
-                else MetricScope.SINGLE_TURN
+            per_test = _cell_keys_for_test(
+                keyed, bool(is_multi_turn_by_test.get(test_id)), test_id, penelope_scores_goal
             )
-            kept = filter_configs_by_scope([metric for _, metric, _ in keyed], scope, test_id)
-            # Re-key the survivors the way the runtime will, so a suffix that
-            # only exists because of a filtered-out sibling doesn't end up in
-            # the lookup. Identical to the row key whenever no name collides.
-            runtime_key_by_metric = {id(m): key for key, m, _ in _assign_metric_keys(kept)}
-            row_key_by_metric = {id(m): key for key, m, _ in keyed}
-            per_test = {
-                _metric_ref(m, row_key_by_metric[id(m)]): runtime_key_by_metric[id(m)] for m in kept
-            }
             if per_test:
                 cell_keys[test_id] = per_test
 
@@ -265,6 +328,10 @@ def _build_metric_plan(
                 "test_ids": pooled_test_ids,
             }
         )
+
+    multi_turn_test_ids = [t for t in test_order if is_multi_turn_by_test.get(t)]
+    if penelope_scores_goal and multi_turn_test_ids:
+        requirements_payload.insert(0, _goal_group(multi_turn_test_ids))
 
     return {
         "source": sources.pop() if len(sources) == 1 else "mixed",

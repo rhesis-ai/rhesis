@@ -39,6 +39,8 @@ class VerdictRow(BaseModel):
     metric_name: str
     metric_id: Optional[UUID4] = None
     ambiguous: bool = False
+    # Scored on every multi-turn test by the platform, not set on a requirement.
+    builtin: bool = False
     verdicts: str
     overrides: str
     passed: int = 0

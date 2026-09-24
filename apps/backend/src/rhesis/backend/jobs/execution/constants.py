@@ -16,6 +16,15 @@ TURN_TOOL_CALLS_KEY = "tool_calls"
 # double-counting.
 PENELOPE_EVALUATED_METRICS = frozenset({"GoalAchievementJudge"})
 
+# The test_metrics key Penelope stores its goal verdict under on every live
+# multi-turn test: its default judge's name, "goal_achievement", title-cased
+# by rhesis.penelope.context. Present whether or not any requirement has one.
+PENELOPE_GOAL_METRIC_KEY = "Goal Achievement"
+
+# Row key of the metric plan's built-in Goal Achievement row. Not a metric
+# name, so it can't collide with a real metric keyed "Goal Achievement".
+BUILTIN_GOAL_ROW_KEY = "builtin:goal_achievement"
+
 # Canonical definition lives in schemas.metric; re-export for convenience.
 from rhesis.backend.app.schemas.metric import MetricScope  # noqa: E402
 
@@ -27,5 +36,7 @@ __all__ = [
     "TURN_METADATA_KEY",
     "TURN_TOOL_CALLS_KEY",
     "PENELOPE_EVALUATED_METRICS",
+    "PENELOPE_GOAL_METRIC_KEY",
+    "BUILTIN_GOAL_ROW_KEY",
     "MetricScope",
 ]
