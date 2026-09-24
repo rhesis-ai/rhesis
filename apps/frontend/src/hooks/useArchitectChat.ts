@@ -112,6 +112,7 @@ interface UseArchitectChatResult {
   /** Returns true when the message was handed to the WebSocket, false otherwise. */
   sendMessage: (message: string, attachments?: ChatAttachments) => boolean;
   setMessages: React.Dispatch<React.SetStateAction<ArchitectChatMessage[]>>;
+  markAgentWorking: () => void;
 }
 
 function generateId(): string {
@@ -190,6 +191,8 @@ export function useArchitectChat(
 
   const pendingCorrelationRef = useRef<string | null>(null);
   const streamingMessageIdRef = useRef<string | null>(null);
+  const optimisticRef = useRef(false);
+  const optimisticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Holds the id of the assistant bubble that owns the current "Working…"
   // spinner. Captured the moment isAwaitingTask flips true and read again
   // when it flips false so we know which bubble should be marked as
@@ -206,6 +209,45 @@ export function useArchitectChat(
   // when sessionProjectId resolves, so a transient empty-project denial may be
   // followed by a successful subscribe.
   const subscriptionDeniedRef = useRef(false);
+
+  const clearOptimisticTimer = useCallback(() => {
+    optimisticRef.current = false;
+    if (optimisticTimerRef.current) {
+      clearTimeout(optimisticTimerRef.current);
+      optimisticTimerRef.current = null;
+    }
+  }, []);
+
+  const markAgentWorking = useCallback(() => {
+    if (pendingCorrelationRef.current) return;
+
+    const msgId = generateId();
+    streamingMessageIdRef.current = msgId;
+    setMessages(prev => [
+      ...prev,
+      {
+        id: msgId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+        isStreaming: true,
+      },
+    ]);
+    setStreamingState({ isThinking: true, activeTools: [], completedTools: [] });
+
+    optimisticRef.current = true;
+    if (optimisticTimerRef.current) clearTimeout(optimisticTimerRef.current);
+    optimisticTimerRef.current = setTimeout(() => {
+      optimisticTimerRef.current = null;
+      if (!optimisticRef.current || pendingCorrelationRef.current) return;
+      optimisticRef.current = false;
+      setStreamingState(initialStreamingState);
+      streamingMessageIdRef.current = null;
+      setMessages(prev =>
+        prev.filter(m => m.id !== msgId || m.content.trim().length > 0)
+      );
+    }, 30_000);
+  }, []);
 
   // Reset state when switching sessions. Seed the initial user message
   // immediately so it is visible before the WebSocket connection is ready.
@@ -233,6 +275,7 @@ export function useArchitectChat(
     waitingMessageIdRef.current = null;
     prevAwaitingRef.current = false;
     subscriptionDeniedRef.current = false;
+    clearOptimisticTimer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
@@ -321,6 +364,7 @@ export function useArchitectChat(
       subscribe(EventType.ARCHITECT_THINKING, (msg: WebSocketMessage) => {
         const payload = msg.payload as unknown as ArchitectThinkingPayload;
         if (payload?.session_id && payload.session_id !== sessionId) return;
+        clearOptimisticTimer();
 
         // If we were awaiting a background task, close out the waiting
         // bubble on the *first* THINKING of the resumed turn only.
@@ -416,6 +460,7 @@ export function useArchitectChat(
       subscribe(EventType.ARCHITECT_RESPONSE, (msg: WebSocketMessage) => {
         const payload = msg.payload as unknown as ArchitectResponsePayload;
         if (payload?.session_id !== sessionId) return;
+        clearOptimisticTimer();
 
         setIsLoading(false);
         setError(null);
@@ -630,6 +675,7 @@ export function useArchitectChat(
       subscribe(EventType.ARCHITECT_ERROR, (msg: WebSocketMessage) => {
         const payload = msg.payload as unknown as ArchitectErrorPayload;
         if (payload?.session_id && payload.session_id !== sessionId) return;
+        clearOptimisticTimer();
 
         setIsLoading(false);
         setStreamingState(initialStreamingState);
@@ -687,7 +733,7 @@ export function useArchitectChat(
     );
 
     return () => unsubs.forEach(fn => fn());
-  }, [reconcileDismissedPlan, subscribe, sessionId]);
+  }, [reconcileDismissedPlan, subscribe, sessionId, clearOptimisticTimer]);
 
   const sendMessage = useCallback(
     (message: string, attachments?: ChatAttachments): boolean => {
@@ -695,6 +741,17 @@ export function useArchitectChat(
 
       const trimmed = message.trim();
       if (!trimmed) return false;
+
+      if (optimisticRef.current) {
+        const optId = streamingMessageIdRef.current;
+        clearOptimisticTimer();
+        streamingMessageIdRef.current = null;
+        if (optId) {
+          setMessages(prev =>
+            prev.filter(m => m.id !== optId || m.content.trim().length > 0)
+          );
+        }
+      }
 
       setError(null);
       setIsAwaitingTask(false);
@@ -766,6 +823,7 @@ export function useArchitectChat(
       }
       return true;
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- clearOptimisticTimer is stable (only touches refs)
     [sessionId, sessionProjectId, isConnected, isLoading, send]
   );
 
@@ -790,5 +848,6 @@ export function useArchitectChat(
     setCurrentPlan,
     sendMessage,
     setMessages,
+    markAgentWorking,
   };
 }
