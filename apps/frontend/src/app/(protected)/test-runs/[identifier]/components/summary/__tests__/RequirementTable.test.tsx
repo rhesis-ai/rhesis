@@ -245,6 +245,48 @@ describe('RequirementTable', () => {
     expect(screen.queryByText('Unassigned')).not.toBeInTheDocument();
   });
 
+  it('shows the built-in goal row on its own, marked built-in', () => {
+    renderWithClock(
+      <RequirementTable
+        matrix={makeMatrix({
+          requirements: [
+            {
+              id: null,
+              name: 'Goal Achievement',
+              metric_keys: ['builtin:goal_achievement'],
+              test_status: '',
+            },
+            ...makeMatrix().requirements,
+          ],
+          rows: [
+            {
+              requirement_id: null,
+              metric_key: 'builtin:goal_achievement',
+              metric_name: 'Goal Achievement',
+              metric_id: null,
+              ambiguous: false,
+              builtin: true,
+              verdicts: 'FPX',
+              overrides: '000',
+              passed: 1,
+              failed: 1,
+              pending: 0,
+            },
+            ...makeMatrix().rows,
+          ],
+        })}
+        density="shape"
+        onDensityChange={jest.fn()}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+
+    expect(screen.getByText('Goal Achievement')).toBeInTheDocument();
+    expect(screen.getAllByText('(Built-in)')).toHaveLength(1);
+    // Only the real requirement gets a collapsible header.
+    expect(screen.getAllByRole('button', { expanded: true })).toHaveLength(1);
+  });
+
   it('shows a shared metric key only under the requirement that owns the row', () => {
     // Two requirements both carry 'relevance', each with its own row scoped
     // to its own tests. Matching on the key alone rendered both rows under
