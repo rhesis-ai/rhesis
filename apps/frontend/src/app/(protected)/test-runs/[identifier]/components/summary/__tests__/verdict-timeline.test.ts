@@ -289,6 +289,21 @@ describe('computeGroupRollup and aggregateGroupByTest', () => {
     expect(agg.rollup).toEqual(['passed', 'failed', 'passed']);
   });
 
+  it("counts only the requirement's own tests as applicable", () => {
+    // One test per requirement: the other two columns are N/A for every row.
+    const ownRows = [
+      makeRow({ verdicts: 'XPX' }),
+      makeRow({ metric_key: 'm2', verdicts: 'XXX' }),
+    ];
+    const agg = aggregateGroupByTest(ownRows, testIds, settled, 100);
+    expect(agg).toMatchObject({
+      total: 3,
+      applicable: 1,
+      passed: 1,
+      failed: 0,
+    });
+  });
+
   it('counts in-flight tests as neither passed nor failed', () => {
     const live = buildTimingMap(testIds, [0, 0, 0], [50, 50, 50], null);
     const agg = aggregateGroupByTest(rows, testIds, live, 2);

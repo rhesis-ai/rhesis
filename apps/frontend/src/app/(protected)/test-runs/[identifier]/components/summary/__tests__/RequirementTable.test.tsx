@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@/test-utils';
+import { render, screen, fireEvent, within } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import lightTheme from '@/styles/theme';
@@ -164,7 +164,7 @@ describe('RequirementTable', () => {
     );
 
     expect(screen.getByText('Requirement / Metric')).toBeInTheDocument();
-    expect(screen.getByText('Total')).toBeInTheDocument();
+    expect(screen.getByText('Tests')).toBeInTheDocument();
     expect(screen.getByText('Pass rate')).toBeInTheDocument();
     expect(screen.getByText('Review status')).toBeInTheDocument();
     // "Passed"/"Failed" also appear in the legend, so there are 2 of each.
@@ -329,13 +329,13 @@ describe('RequirementTable', () => {
     );
 
     expect(screen.getAllByText('Recommendation Relevance')).toHaveLength(2);
-    // Each header rolls up only its own test (Total 3, Passed 1, Failed 0);
-    // with the leak, each would also count the other requirement's pass.
+    // Each header rolls up only its own test (Total 1, Passed 1, Failed 0);
+    // with the leak, each would also count the other requirement's test.
     const [core, preference] = screen.getAllByRole('button', {
       expanded: true,
     });
-    expect(core).toHaveTextContent(/^Core310100%/);
-    expect(preference).toHaveTextContent(/^Preference310100%/);
+    expect(core).toHaveTextContent(/^Core110100%/);
+    expect(preference).toHaveTextContent(/^Preference110100%/);
   });
 
   it('shows the tests of a requirement with no metrics, errored ones as failed', () => {
@@ -362,8 +362,8 @@ describe('RequirementTable', () => {
 
     expect(screen.getByText('No metrics configured')).toBeInTheDocument();
     const [header] = screen.getAllByRole('button', { expanded: true });
-    // Total 3, Passed 0, Failed 1.
-    expect(header).toHaveTextContent(/^Destination Planning301/);
+    // Total 1, Passed 0, Failed 1.
+    expect(header).toHaveTextContent(/^Destination Planning101/);
   });
 
   it('shows unscored tests of a requirement with no metrics as no verdict', () => {
@@ -389,7 +389,7 @@ describe('RequirementTable', () => {
     expect(screen.getByText('No metrics configured')).toBeInTheDocument();
     const [header] = screen.getAllByRole('button', { expanded: true });
     // Neither passed nor failed, so no pass rate either.
-    expect(header).toHaveTextContent(/^Destination Planning300--/);
+    expect(header).toHaveTextContent(/^Destination Planning100--/);
   });
 
   it('derives group header Total/Passed/Failed from the per-test rollup', () => {
@@ -408,6 +408,23 @@ describe('RequirementTable', () => {
     expect(groupHeader).toHaveTextContent('3'); // total
     expect(groupHeader).toHaveTextContent('1'); // passed and failed both 1
     expect(groupHeader).toHaveTextContent('50%'); // 1 passed / (1 passed + 1 failed)
+  });
+
+  it('explains that the requirement header counts tests', async () => {
+    renderWithClock(
+      <RequirementTable
+        matrix={makeMatrix()}
+        density="numbers"
+        onDensityChange={jest.fn()}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+
+    const header = screen.getByRole('button', { expanded: true });
+    await userEvent.hover(within(header).getByText('3'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'Per test: passed only if every metric on it passed'
+    );
   });
 
   it('toggles aria-expanded on group header click', () => {

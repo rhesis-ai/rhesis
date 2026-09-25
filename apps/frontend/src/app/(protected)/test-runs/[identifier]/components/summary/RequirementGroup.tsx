@@ -16,7 +16,11 @@ import {
   computeGroupRollup,
   type TestTimingMap,
 } from './verdict-timeline';
-import { metriclessRow, rowsForRequirement } from './verdict-model';
+import {
+  metriclessRow,
+  REQUIREMENT_ROLLUP_HINT,
+  rowsForRequirement,
+} from './verdict-model';
 import { describeStrip } from './verdict-strip-render';
 import { trimSharedPrefix } from './shared-prefix';
 import MetricRow from './MetricRow';
@@ -264,48 +268,55 @@ function RequirementGroupHeader({
         )}
       </Box>
 
-      {/* Total: 0-width outside Numbers mode -- kept mounted and in the
+      {/* Tests: 0-width outside Numbers mode -- kept mounted and in the
           a11y tree deliberately (density is a visual affordance, not a
-          reason to hide numbers from screen reader users). */}
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        noWrap
-        sx={{
-          textAlign: 'right',
-          fontVariantNumeric: 'tabular-nums',
-          overflow: 'hidden',
-        }}
-      >
-        {agg.total}
-      </Typography>
+          reason to hide numbers from screen reader users). Only this
+          requirement's own tests; the others are N/A here. */}
+      <Tooltip title={REQUIREMENT_ROLLUP_HINT} placement="top">
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          noWrap
+          sx={{
+            textAlign: 'right',
+            fontVariantNumeric: 'tabular-nums',
+            overflow: 'hidden',
+          }}
+        >
+          {agg.applicable}
+        </Typography>
+      </Tooltip>
 
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        noWrap
-        sx={{
-          textAlign: 'right',
-          fontVariantNumeric: 'tabular-nums',
-          overflow: 'hidden',
-        }}
-      >
-        {agg.passed}
-      </Typography>
+      <Tooltip title={REQUIREMENT_ROLLUP_HINT} placement="top">
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          noWrap
+          sx={{
+            textAlign: 'right',
+            fontVariantNumeric: 'tabular-nums',
+            overflow: 'hidden',
+          }}
+        >
+          {agg.passed}
+        </Typography>
+      </Tooltip>
 
-      <Typography
-        variant="body2"
-        fontWeight={600}
-        noWrap
-        sx={{
-          textAlign: 'right',
-          fontVariantNumeric: 'tabular-nums',
-          overflow: 'hidden',
-          color: agg.failed > 0 ? 'error.main' : 'text.secondary',
-        }}
-      >
-        {agg.failed}
-      </Typography>
+      <Tooltip title={REQUIREMENT_ROLLUP_HINT} placement="top">
+        <Typography
+          variant="body2"
+          fontWeight={600}
+          noWrap
+          sx={{
+            textAlign: 'right',
+            fontVariantNumeric: 'tabular-nums',
+            overflow: 'hidden',
+            color: agg.failed > 0 ? 'error.main' : 'text.secondary',
+          }}
+        >
+          {agg.failed}
+        </Typography>
+      </Tooltip>
 
       <Typography
         variant="body2"

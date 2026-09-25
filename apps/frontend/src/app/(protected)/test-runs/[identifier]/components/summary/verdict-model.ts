@@ -32,6 +32,8 @@ export const CHAR_TO_STATE: Record<string, CellState> = {
 
 export interface GroupTestAggregate {
   total: number;
+  /** Tests with at least one cell that applies -- excludes columns N/A for every row. */
+  applicable: number;
   passed: number;
   failed: number;
   rollup: CellState[];
@@ -56,6 +58,9 @@ export function rowsForRequirement(
 }
 
 export const NO_METRICS_LABEL = 'No metrics configured';
+
+export const REQUIREMENT_ROLLUP_HINT =
+  'Per test: passed only if every metric on it passed, failed if any metric failed.';
 
 export const BUILTIN_LABEL = '(Built-in)';
 export const BUILTIN_HINT =
@@ -97,42 +102,4 @@ export function withMetriclessRows(
     .map(metriclessRow)
     .filter((row): row is VerdictRow => row !== null);
   return placeholders.length > 0 ? [...rows, ...placeholders] : rows;
-}
-
-export interface VerdictBlock {
-  tests: number;
-  metrics: number;
-}
-
-// Per-requirement (tests x metrics) shape behind verdicts_planned -- the
-// total isn't simply (all tests) x (all metrics) since different
-// requirements can scope to different test subsets. Only rows and columns
-// with at least one applicable cell count: a metric scoped out of every test
-// (a multi-turn metric on single-turn tests) adds no verdicts. Assumes the
-// applicable metrics within one requirement share one test subset (true today).
-export function computeVerdictBlocks(
-  requirements: VerdictRequirement[],
-  rows: VerdictRow[]
-): VerdictBlock[] {
-  return requirements.map(req => {
-    const applicable = rowsForRequirement(req, rows).filter(r =>
-      /[^X]/.test(r.verdicts)
-    );
-    const columns = new Set<number>();
-    for (const row of applicable) {
-      [...row.verdicts].forEach((c, i) => {
-        if (c !== NOT_APPLICABLE) columns.add(i);
-      });
-    }
-    return { tests: columns.size, metrics: applicable.length };
-  });
-}
-
-export function formatVerdictBlocks(blocks: VerdictBlock[]): string {
-  const parts = blocks
-    .filter(b => b.tests > 0 && b.metrics > 0)
-    .map(b => `${b.tests}×${b.metrics}`);
-  if (parts.length === 0) return '';
-  if (parts.length === 1) return `blocks: ${parts[0]}`;
-  return `blocks: ${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
 }

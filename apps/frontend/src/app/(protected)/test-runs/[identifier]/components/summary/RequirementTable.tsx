@@ -156,7 +156,7 @@ export default function RequirementTable({
             noWrap
             sx={{ textAlign: 'right', overflow: 'hidden' }}
           >
-            Total
+            Tests
           </Typography>
           <Typography
             variant="caption"

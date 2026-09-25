@@ -7,12 +7,7 @@ import CostCard from './CostCard';
 import VerdictStrip from './VerdictStrip';
 import { deriveRunStatus } from './run-status';
 import { formatDuration } from './run-meta';
-import {
-  ERROR_CHAR,
-  computeVerdictBlocks,
-  formatVerdictBlocks,
-  withMetriclessRows,
-} from './verdict-model';
+import { ERROR_CHAR, withMetriclessRows } from './verdict-model';
 import {
   aggregateGroupByTest,
   computeGroupRollup,
@@ -85,11 +80,6 @@ export default function KpiRow({
   const testsProgress =
     kpis.tests_total > 0 ? (kpis.tests_executed / kpis.tests_total) * 100 : 0;
 
-  const verdictBlocksSubtitle = useMemo(() => {
-    const blocks = computeVerdictBlocks(matrix.requirements, matrix.rows);
-    return formatVerdictBlocks(blocks) || undefined;
-  }, [matrix.requirements, matrix.rows]);
-
   // Failures used to be its own card; folded in here so failing runs don't
   // need two cards to tell "how many verdicts" and "how many of them failed".
   // A failure is the more urgent fact, so it takes over the card's headline
@@ -119,7 +109,7 @@ export default function KpiRow({
       (erroredTestCount > 0
         ? ` · ${erroredTestCount} error${erroredTestCount === 1 ? '' : 's'}`
         : '')
-    : verdictBlocksSubtitle;
+    : undefined;
 
   return (
     <Box sx={{ mb: 4 }}>

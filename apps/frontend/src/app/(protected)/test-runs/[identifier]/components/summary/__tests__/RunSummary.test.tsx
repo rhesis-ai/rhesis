@@ -135,7 +135,7 @@ describe('RunSummary', () => {
     expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
     // Numbers mode shows the Total column; forcing it doesn't touch the
     // persisted preference, only what's rendered.
-    expect(screen.getByText('Total')).toBeInTheDocument();
+    expect(screen.getByText('Tests')).toBeInTheDocument();
   });
 
   it('forces Detail view via ?density=, overriding a stored preference', () => {
