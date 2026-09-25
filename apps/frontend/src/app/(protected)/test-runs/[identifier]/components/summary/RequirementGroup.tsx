@@ -277,7 +277,8 @@ function RequirementGroupHeader({
           overflow: 'hidden',
         }}
       >
-        {agg.total}
+        {/* Only this requirement's own tests; the others are N/A here. */}
+        {agg.applicable}
       </Typography>
 
       <Typography

@@ -227,11 +227,13 @@ export function aggregateGroupByTest(
   const rollup = computeGroupRollup(groupRows, testIds, timings, t);
   let passed = 0;
   let failed = 0;
+  let applicable = 0;
   for (const state of rollup) {
+    if (state !== 'na') applicable++;
     if (state === 'passed') passed++;
     else if (state === 'failed' || state === 'error') failed++;
   }
-  return { total: rollup.length, passed, failed, rollup };
+  return { total: rollup.length, applicable, passed, failed, rollup };
 }
 
 /**

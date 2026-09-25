@@ -32,6 +32,8 @@ export const CHAR_TO_STATE: Record<string, CellState> = {
 
 export interface GroupTestAggregate {
   total: number;
+  /** Tests with at least one cell that applies -- excludes columns N/A for every row. */
+  applicable: number;
   passed: number;
   failed: number;
   rollup: CellState[];

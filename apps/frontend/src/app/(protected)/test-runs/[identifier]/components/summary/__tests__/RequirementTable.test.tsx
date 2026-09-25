@@ -329,13 +329,13 @@ describe('RequirementTable', () => {
     );
 
     expect(screen.getAllByText('Recommendation Relevance')).toHaveLength(2);
-    // Each header rolls up only its own test (Total 3, Passed 1, Failed 0);
-    // with the leak, each would also count the other requirement's pass.
+    // Each header rolls up only its own test (Total 1, Passed 1, Failed 0);
+    // with the leak, each would also count the other requirement's test.
     const [core, preference] = screen.getAllByRole('button', {
       expanded: true,
     });
-    expect(core).toHaveTextContent(/^Core310100%/);
-    expect(preference).toHaveTextContent(/^Preference310100%/);
+    expect(core).toHaveTextContent(/^Core110100%/);
+    expect(preference).toHaveTextContent(/^Preference110100%/);
   });
 
   it('shows the tests of a requirement with no metrics, errored ones as failed', () => {
@@ -362,8 +362,8 @@ describe('RequirementTable', () => {
 
     expect(screen.getByText('No metrics configured')).toBeInTheDocument();
     const [header] = screen.getAllByRole('button', { expanded: true });
-    // Total 3, Passed 0, Failed 1.
-    expect(header).toHaveTextContent(/^Destination Planning301/);
+    // Total 1, Passed 0, Failed 1.
+    expect(header).toHaveTextContent(/^Destination Planning101/);
   });
 
   it('shows unscored tests of a requirement with no metrics as no verdict', () => {
@@ -389,7 +389,7 @@ describe('RequirementTable', () => {
     expect(screen.getByText('No metrics configured')).toBeInTheDocument();
     const [header] = screen.getAllByRole('button', { expanded: true });
     // Neither passed nor failed, so no pass rate either.
-    expect(header).toHaveTextContent(/^Destination Planning300--/);
+    expect(header).toHaveTextContent(/^Destination Planning100--/);
   });
 
   it('derives group header Total/Passed/Failed from the per-test rollup', () => {
