@@ -33,12 +33,14 @@ HISTORY_STATE_SCHEMA = {
 }
 
 
-def create_history_agent(generator: ChatGenerator) -> Agent:
+def create_history_agent(
+    generator: ChatGenerator, system_prompt: str = HISTORY_SYSTEM_PROMPT
+) -> Agent:
     """Build the history specialist that extracts slots and asks one follow-up."""
     return Agent(
         chat_generator=generator,
         tools=[build_record_slots_tool()],
-        system_prompt=HISTORY_SYSTEM_PROMPT,
+        system_prompt=system_prompt,
         state_schema=HISTORY_STATE_SCHEMA,
         exit_conditions=["text"],
         max_agent_steps=6,

@@ -9,6 +9,7 @@ from typing import Any
 
 from haystack import Pipeline
 
+from visit_prep.config import VisitPrepConfig
 from visit_prep.pipeline import build_coordinator_pipeline, run_turn, run_turn_async
 from visit_prep.state import VisitPrepState
 
@@ -84,17 +85,20 @@ class StateStore:
 
 default_store = StateStore()
 
-_default_pipeline: Pipeline | None = None
+# One pipeline per distinct config. Experiments are few, but bound it anyway: every entry holds
+# its own generator and HTTP client.
+MAX_CACHED_PIPELINES = 8
+_pipelines: dict[VisitPrepConfig, Pipeline] = {}
 _pipeline_init_lock = Lock()
 
 
-def get_default_pipeline() -> Pipeline:
-    """Return the process-wide coordinator pipeline, building it once on first use.
+def get_pipeline(config: VisitPrepConfig | None = None) -> Pipeline:
+    """Return the shared pipeline for ``config``, building it on first use.
 
-    Concurrent turns share this one instance, which the previous design serialized behind a
-    global run lock. Dropping that lock rests on all three shared objects holding no per-run
-    state: ``Pipeline.run`` keeps its bookkeeping in locals, the Agent builds a fresh
-    ``State`` per run and otherwise only flips idempotent warm-up flags, and
+    Concurrent turns with the same config share one instance, which the previous design
+    serialized behind a global run lock. Dropping that lock rests on all three shared objects
+    holding no per-run state: ``Pipeline.run`` keeps its bookkeeping in locals, the Agent builds
+    a fresh ``State`` per run and otherwise only flips idempotent warm-up flags, and
     ``GoogleGenAIChatGenerator`` assigns to ``self`` in ``__init__`` alone — its ``run``
     reads configuration and calls the client. That client is ``google-genai``'s, built on
     ``httpx.Client``, which is safe to share across threads.
@@ -105,12 +109,19 @@ def get_default_pipeline() -> Pipeline:
     loop itself stays free: ``Agent.run_async`` prefers the generator's ``run_async``, which
     awaits ``client.aio`` on an ``httpx.AsyncClient``.
     """
-    global _default_pipeline
-    if _default_pipeline is None:
-        with _pipeline_init_lock:
-            if _default_pipeline is None:
-                _default_pipeline = build_coordinator_pipeline()
-    return _default_pipeline
+    key = config or VisitPrepConfig()
+    with _pipeline_init_lock:
+        pipe = _pipelines.get(key)
+        if pipe is None:
+            while len(_pipelines) >= MAX_CACHED_PIPELINES:
+                del _pipelines[next(iter(_pipelines))]
+            pipe = _pipelines[key] = build_coordinator_pipeline(config=key)
+        return pipe
+
+
+def get_default_pipeline() -> Pipeline:
+    """Return the shared pipeline for the default config."""
+    return get_pipeline()
 
 
 def run_chat_turn(
@@ -159,6 +170,7 @@ __all__ = [
     "StateStore",
     "default_store",
     "get_default_pipeline",
+    "get_pipeline",
     "run_chat_turn",
     "run_chat_turn_async",
 ]

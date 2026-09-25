@@ -88,7 +88,8 @@ def test_chat_main_feeds_the_turn_hook(turn_hook, monkeypatch):
 
     from visit_prep import session as session_mod
 
-    monkeypatch.setattr(session_mod, "_default_pipeline", make_pipeline(greeting_script()))
+    pipe = make_pipeline(greeting_script())
+    monkeypatch.setattr(session_mod, "get_default_pipeline", lambda: pipe)
     replies = iter(["Hello!", "quit"])
     monkeypatch.setattr("builtins.input", lambda *_: next(replies))
 

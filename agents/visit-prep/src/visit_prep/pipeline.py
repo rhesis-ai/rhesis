@@ -10,21 +10,29 @@ from haystack.dataclasses import ChatMessage, ChatRole
 
 from visit_prep.agents.coordinator import create_coordinator_agent, is_internal_status
 from visit_prep.client import build_chat_generator
+from visit_prep.config import VisitPrepConfig
 from visit_prep.state import Phase, Slots, VisitPrepState, describe_slots
 from visit_prep.utils import as_text, tool_result_text
 
 COORDINATOR = "coordinator"
 
 
-def build_coordinator_agent(generator=None) -> Agent:
+def build_coordinator_agent(generator=None, config: VisitPrepConfig | None = None) -> Agent:
     """Build the coordinator Agent, sharing one chat generator with its specialists."""
-    return create_coordinator_agent(generator or build_chat_generator())
+    cfg = config or VisitPrepConfig()
+    return create_coordinator_agent(
+        generator or build_chat_generator(cfg.model, cfg.temperature),
+        coordinator_prompt=cfg.coordinator_prompt,
+        history_prompt=cfg.history_prompt,
+        summary_prompt=cfg.summary_prompt,
+        critic_prompt=cfg.critic_prompt,
+    )
 
 
-def build_coordinator_pipeline(generator=None) -> Pipeline:
+def build_coordinator_pipeline(generator=None, config: VisitPrepConfig | None = None) -> Pipeline:
     """Wrap the coordinator in a one-component pipeline, for the root tracing spans."""
     pipe = Pipeline()
-    pipe.add_component(COORDINATOR, build_coordinator_agent(generator))
+    pipe.add_component(COORDINATOR, build_coordinator_agent(generator, config))
     return pipe
 
 
