@@ -23,12 +23,14 @@ CRITIC_STATE_SCHEMA = {
 }
 
 
-def create_critic_agent(generator: ChatGenerator) -> Agent:
+def create_critic_agent(
+    generator: ChatGenerator, system_prompt: str = CRITIC_SYSTEM_PROMPT
+) -> Agent:
     """Build the adversarial reviewer with veto power over the summary."""
     return Agent(
         chat_generator=generator,
         tools=[build_submit_verdict_tool()],
-        system_prompt=CRITIC_SYSTEM_PROMPT,
+        system_prompt=system_prompt,
         state_schema=CRITIC_STATE_SCHEMA,
         exit_conditions=["submit_verdict"],
         max_agent_steps=3,

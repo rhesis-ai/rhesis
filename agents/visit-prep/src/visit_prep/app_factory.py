@@ -21,7 +21,8 @@ from pydantic import BaseModel, Field
 
 from rhesis.sdk import RhesisClient, endpoint
 from rhesis.sdk.clients import DisabledClient
-from visit_prep.session import default_store, run_chat_turn_async
+from visit_prep.config import resolve_config
+from visit_prep.session import default_store, get_pipeline, run_chat_turn_async
 from visit_prep.state import Phase
 
 logging.basicConfig(
@@ -167,7 +168,10 @@ def create_app(tracing_cls: TracingFactory) -> FastAPI:
         conv_id = conversation_id or str(uuid.uuid4())
         tracing.start_conversation(conv_id)
         logger.info("Visit-Prep chat turn (conversation=%s)", conv_id)
-        result = await run_chat_turn_async(message, conversation_id=conv_id)
+        # A connector test run carries its experiment's parameters; resolve them per turn so
+        # one app can serve several experiments side by side.
+        pipeline = get_pipeline(resolve_config())
+        result = await run_chat_turn_async(message, conversation_id=conv_id, pipeline=pipeline)
         return _chat_response_from_result(result)
 
     @app.post("/chat", response_model=ChatResponse)

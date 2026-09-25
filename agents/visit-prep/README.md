@@ -111,6 +111,29 @@ Scripted conversations covering each route (requires API key):
 uv run python examples/run_scenarios.py
 ```
 
+## Experiment Parameters
+
+A Rhesis experiment on the project can change these per turn, without a redeploy:
+
+| Parameter | Type | Default |
+|---|---|---|
+| `model` | string | `VISIT_PREP_MODEL`, else `gemini-3.1-flash-lite` |
+| `temperature` | number | Gemini's default |
+| `coordinator_prompt`, `history_prompt` | text | The prompt in code. Must keep `{{ slot_status }}` and add no other `{{ }}` variable |
+| `summary_prompt`, `critic_prompt` | text | The prompt in code. Must use no `{{ }}` variable |
+
+Create the slots on the project's Experiments page, with today's values as defaults:
+
+```bash
+uv run python examples/push_parameter_schema.py --dry-run  # show what would be pushed
+uv run python examples/push_parameter_schema.py            # overwrites the project's schema
+```
+
+A connector test run uses the experiment it was started with. Outside test runs the app uses its
+defaults, unless `RHESIS_PARAMETERS_ENVIRONMENT` names an environment to read from (one API call
+per turn, cached for 60 s). A value that is blank, the wrong type, or a prompt with the wrong
+template variables is skipped with a warning, and the default is used instead.
+
 ## Tests
 
 ```bash
@@ -127,6 +150,7 @@ Unit tests use mocked generators and do not require an API key.
 | `VISIT_PREP_MODEL` | No | Model id (default: `gemini-3.1-flash-lite`) |
 | `RHESIS_API_KEY` | For tracing only | Rhesis tracing (set with `RHESIS_PROJECT_ID`) |
 | `RHESIS_PROJECT_ID` | For tracing only | Rhesis project id |
+| `RHESIS_PARAMETERS_ENVIRONMENT` | No | Read [experiment parameters](#experiment-parameters) from this environment outside test runs |
 | `RHESIS_BASE_URL` | No | Backend spans are shipped to (default: `http://localhost:8080`) |
 | `RHESIS_FRONTEND_URL` | No | Frontend origin used to build clickable trace links |
 | `HAYSTACK_CONTENT_TRACING_ENABLED` | For span content | Must be `true` **before** `haystack` is imported, or spans carry no prompts or completions. The traced entry points set it for you |

@@ -9,8 +9,13 @@ from haystack.dataclasses import ChatMessage
 from haystack.hooks import hook
 from haystack.tools import Tool
 
-from visit_prep.agents.history import create_history_agent
-from visit_prep.agents.summary import create_summary_agent, run_summary_with_fallback
+from visit_prep.agents.critic import CRITIC_SYSTEM_PROMPT
+from visit_prep.agents.history import HISTORY_SYSTEM_PROMPT, create_history_agent
+from visit_prep.agents.summary import (
+    SUMMARY_SYSTEM_PROMPT,
+    create_summary_agent,
+    run_summary_with_fallback,
+)
 from visit_prep.safety import first_red_flag_text
 from visit_prep.state import describe_slots, missing_core_slots, state_from_slots
 from visit_prep.tools import build_red_flag_tool, build_terminal_tools
@@ -98,10 +103,17 @@ def red_flag_guard(state: State) -> None:
     state.set("messages", [ChatMessage.from_system(RED_FLAG_OVERRIDE.format(flagged=flagged))])
 
 
-def create_coordinator_agent(generator: ChatGenerator) -> Agent:
+def create_coordinator_agent(
+    generator: ChatGenerator,
+    *,
+    coordinator_prompt: str = COORDINATOR_SYSTEM_PROMPT,
+    history_prompt: str = HISTORY_SYSTEM_PROMPT,
+    summary_prompt: str = SUMMARY_SYSTEM_PROMPT,
+    critic_prompt: str = CRITIC_SYSTEM_PROMPT,
+) -> Agent:
     """Build the coordinator with terminal tools and specialist handoffs."""
-    history_agent = create_history_agent(generator)
-    summary_agent = create_summary_agent(generator)
+    history_agent = create_history_agent(generator, history_prompt)
+    summary_agent = create_summary_agent(generator, summary_prompt, critic_prompt)
 
     def gather_history(message: str, state: State) -> str:
         """Delegate symptom-history gathering to the history specialist."""
@@ -181,7 +193,7 @@ def create_coordinator_agent(generator: ChatGenerator) -> Agent:
     return Agent(
         chat_generator=generator,
         tools=[build_red_flag_tool(), *build_terminal_tools(), *handoff_tools],
-        system_prompt=COORDINATOR_SYSTEM_PROMPT,
+        system_prompt=coordinator_prompt,
         state_schema=COORDINATOR_STATE_SCHEMA,
         exit_conditions=["text", *TERMINAL_TOOLS],
         max_agent_steps=10,

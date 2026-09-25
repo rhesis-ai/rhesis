@@ -28,7 +28,7 @@ def test_chat_endpoint_awaits_async_run(monkeypatch):
 
     called: dict[str, str] = {}
 
-    async def fake_run_chat_turn_async(message, *, conversation_id=None):
+    async def fake_run_chat_turn_async(message, *, conversation_id=None, pipeline=None):
         called["message"] = message
         called["conversation_id"] = conversation_id or ""
         return {
@@ -41,6 +41,7 @@ def test_chat_endpoint_awaits_async_run(monkeypatch):
     import visit_prep.app_factory as factory
 
     monkeypatch.setattr(factory, "run_chat_turn_async", fake_run_chat_turn_async)
+    monkeypatch.setattr(factory, "get_pipeline", lambda config: None)
 
     chat_endpoint_traced = app_mod.app.state.chat_endpoint_traced
     result = asyncio.run(chat_endpoint_traced(message="hello", conversation_id="c1"))
@@ -48,6 +49,38 @@ def test_chat_endpoint_awaits_async_run(monkeypatch):
     assert result.response == "hi"
     assert called["message"] == "hello"
     assert called["conversation_id"] == "c1"
+
+
+def test_chat_endpoint_runs_the_experiment_pipeline(monkeypatch):
+    """A connector test run's experiment parameters pick the pipeline the turn runs on."""
+    app_mod = _import_app_with_rhesis_disabled(monkeypatch)
+    import visit_prep.app_factory as factory
+    from rhesis.sdk.decorators._state import _parameters_context
+    from tests.test_config import resolved
+
+    experiment_pipeline = object()
+    configs = []
+
+    def fake_get_pipeline(config):
+        configs.append(config)
+        return experiment_pipeline
+
+    async def fake_run_chat_turn_async(message, *, conversation_id=None, pipeline=None):
+        assert pipeline is experiment_pipeline
+        return {"response": "hi", "conversation_id": conversation_id, "state": _FakeState()}
+
+    monkeypatch.setattr(factory, "get_pipeline", fake_get_pipeline)
+    monkeypatch.setattr(factory, "run_chat_turn_async", fake_run_chat_turn_async)
+
+    token = _parameters_context.set(resolved(model="gemini-exp", temperature=0.1))
+    try:
+        chat_endpoint_traced = app_mod.app.state.chat_endpoint_traced
+        asyncio.run(chat_endpoint_traced(message="hello", conversation_id="c1"))
+    finally:
+        _parameters_context.reset(token)
+
+    (config,) = configs
+    assert (config.model, config.temperature) == ("gemini-exp", 0.1)
 
 
 def test_lifespan_starts_the_connector(monkeypatch):
