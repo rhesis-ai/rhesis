@@ -17,11 +17,18 @@ DEFAULT_MODEL: Final[str] = "gemini-3.1-flash-lite"
 API_KEY_ENV_VARS: Final[tuple[str, str]] = ("GOOGLE_API_KEY", "GEMINI_API_KEY")
 
 
-def build_chat_generator() -> GoogleGenAIChatGenerator:
+def default_model() -> str:
+    """Return the model id used when no experiment sets one: ``VISIT_PREP_MODEL`` or the default."""
+    return os.environ.get("VISIT_PREP_MODEL", DEFAULT_MODEL)
+
+
+def build_chat_generator(
+    model: str | None = None, temperature: float | None = None
+) -> GoogleGenAIChatGenerator:
     """Build a :class:`GoogleGenAIChatGenerator` for Gemini.
 
-    Reads ``GOOGLE_API_KEY`` (or ``GEMINI_API_KEY``) from the environment and
-    optionally ``VISIT_PREP_MODEL`` to override the default model id.
+    Reads ``GOOGLE_API_KEY`` (or ``GEMINI_API_KEY``) from the environment. ``model`` falls back
+    to :func:`default_model`; ``temperature`` is left to Gemini's default when ``None``.
 
     Raises:
         RuntimeError: if no Gemini API key is set.
@@ -31,13 +38,13 @@ def build_chat_generator() -> GoogleGenAIChatGenerator:
             "GOOGLE_API_KEY (or GEMINI_API_KEY) is required to run Visit-Prep. "
             "Set one in your environment or .env file."
         )
-    model = os.environ.get("VISIT_PREP_MODEL", DEFAULT_MODEL)
     # Pass the key source explicitly rather than relying on the component's
     # default env lookup, so the resolved credential is unambiguous.
     return GoogleGenAIChatGenerator(
         api_key=Secret.from_env_var(list(API_KEY_ENV_VARS), strict=False),
-        model=model,
+        model=model or default_model(),
+        generation_kwargs={"temperature": temperature} if temperature is not None else None,
     )
 
 
-__all__ = ["API_KEY_ENV_VARS", "DEFAULT_MODEL", "build_chat_generator"]
+__all__ = ["API_KEY_ENV_VARS", "DEFAULT_MODEL", "build_chat_generator", "default_model"]

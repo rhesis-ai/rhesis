@@ -11,7 +11,7 @@ from haystack.components.generators.chat.types import ChatGenerator
 from haystack.dataclasses import ChatMessage
 from haystack.tools import Tool
 
-from visit_prep.agents.critic import create_critic_agent
+from visit_prep.agents.critic import CRITIC_SYSTEM_PROMPT, create_critic_agent
 from visit_prep.state import VisitPrepState
 
 SUMMARY_SYSTEM_PROMPT = """\
@@ -63,9 +63,13 @@ def _fallback_summary(slots: dict[str, str | None], chief_complaint: str | None)
     return "\n".join(lines)
 
 
-def create_summary_agent(generator: ChatGenerator) -> Agent:
+def create_summary_agent(
+    generator: ChatGenerator,
+    system_prompt: str = SUMMARY_SYSTEM_PROMPT,
+    critic_prompt: str = CRITIC_SYSTEM_PROMPT,
+) -> Agent:
     """Build the summary writer that hands off to the critic for review."""
-    critic = create_critic_agent(generator)
+    critic = create_critic_agent(generator, critic_prompt)
 
     def review_summary(summary: str, state: State) -> str:
         """Send a summary draft to the safety critic for approval."""
@@ -103,7 +107,7 @@ def create_summary_agent(generator: ChatGenerator) -> Agent:
     return Agent(
         chat_generator=generator,
         tools=[review_tool],
-        system_prompt=SUMMARY_SYSTEM_PROMPT,
+        system_prompt=system_prompt,
         state_schema=SUMMARY_STATE_SCHEMA,
         exit_conditions=["text"],
         max_agent_steps=8,
