@@ -178,57 +178,6 @@ describe('KpiRow', () => {
     expect(screen.getByText('/ 20')).toBeInTheDocument();
   });
 
-  it('displays a "blocks" subtitle derived from per-requirement test/metric shape', () => {
-    const rows = [
-      makeRow({
-        requirement_id: 'req-1',
-        metric_key: 'm1',
-        verdicts: 'P'.repeat(20) + 'F'.repeat(5) + '..' + 'X'.repeat(11),
-        passed: 20,
-        failed: 5,
-        pending: 2,
-      }),
-      makeRow({
-        requirement_id: 'req-2',
-        metric_key: 'm2',
-        verdicts: 'X'.repeat(27) + 'P'.repeat(8) + 'FF.',
-        passed: 8,
-        failed: 2,
-        pending: 1,
-      }),
-    ];
-    renderWithClock(
-      <KpiRow
-        matrix={makeMatrix(
-          {},
-          {
-            requirements: [
-              {
-                id: 'req-1',
-                name: 'Req1',
-                metric_keys: ['m1'],
-                test_status: '',
-              },
-              {
-                id: 'req-2',
-                name: 'Req2',
-                metric_keys: ['m2'],
-                test_status: '',
-              },
-            ],
-            rows,
-          }
-        )}
-        testRun={makeTestRun()}
-        isRunning={false}
-        testIds={[]}
-        timings={EMPTY_TIMINGS}
-      />
-    );
-    // req-1: 27 tests x 1 metric, req-2: 11 tests x 1 metric
-    expect(screen.getByText('blocks: 27×1 and 11×1')).toBeInTheDocument();
-  });
-
   it('becomes a "Failures" card leading with the failure count when failures exist', () => {
     const rows = [makeRow({ metric_key: 'm1', failed: 3 })];
     renderWithClock(
@@ -291,7 +240,7 @@ describe('KpiRow', () => {
     expect(screen.getByText('10 of 10 verdicts · 1 error')).toBeInTheDocument();
   });
 
-  it('falls back to the blocks subtitle on the Verdicts card when there are no failures', () => {
+  it('shows no subtitle on the Verdicts card when there are no failures', () => {
     const rows = [
       makeRow({
         requirement_id: 'req-1',
@@ -323,7 +272,7 @@ describe('KpiRow', () => {
       />
     );
     expect(screen.queryByText(/failed/)).not.toBeInTheDocument();
-    expect(screen.getByText('blocks: 5×1')).toBeInTheDocument();
+    expect(screen.queryByText(/verdicts|blocks/)).not.toBeInTheDocument();
   });
 
   it("counts a metric-less requirement's tests in the pass rate strip", () => {
