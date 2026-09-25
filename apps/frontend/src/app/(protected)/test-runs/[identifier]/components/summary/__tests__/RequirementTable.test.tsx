@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@/test-utils';
+import { render, screen, fireEvent, within } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import lightTheme from '@/styles/theme';
@@ -164,7 +164,7 @@ describe('RequirementTable', () => {
     );
 
     expect(screen.getByText('Requirement / Metric')).toBeInTheDocument();
-    expect(screen.getByText('Total')).toBeInTheDocument();
+    expect(screen.getByText('Tests')).toBeInTheDocument();
     expect(screen.getByText('Pass rate')).toBeInTheDocument();
     expect(screen.getByText('Review status')).toBeInTheDocument();
     // "Passed"/"Failed" also appear in the legend, so there are 2 of each.
@@ -408,6 +408,23 @@ describe('RequirementTable', () => {
     expect(groupHeader).toHaveTextContent('3'); // total
     expect(groupHeader).toHaveTextContent('1'); // passed and failed both 1
     expect(groupHeader).toHaveTextContent('50%'); // 1 passed / (1 passed + 1 failed)
+  });
+
+  it('explains that the requirement header counts tests', async () => {
+    renderWithClock(
+      <RequirementTable
+        matrix={makeMatrix()}
+        density="numbers"
+        onDensityChange={jest.fn()}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+
+    const header = screen.getByRole('button', { expanded: true });
+    await userEvent.hover(within(header).getByText('3'));
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(
+      'Per test: passed only if every metric on it passed'
+    );
   });
 
   it('toggles aria-expanded on group header click', () => {

@@ -59,6 +59,9 @@ export function rowsForRequirement(
 
 export const NO_METRICS_LABEL = 'No metrics configured';
 
+export const REQUIREMENT_ROLLUP_HINT =
+  'Per test: passed only if every metric on it passed, failed if any metric failed.';
+
 export const BUILTIN_LABEL = '(Built-in)';
 export const BUILTIN_HINT =
   'Scored on every multi-turn test, not set on any requirement. A failed goal fails the whole test.';
