@@ -80,10 +80,17 @@ class RhesisOTLPExporter(OTLPSpanExporter):
         # Construct trace endpoint
         self.endpoint = f"{http_url.rstrip('/')}/telemetry/traces"
 
-        # Initialize parent with custom headers
+        # Own the HTTP session and hand it to the parent. The OTLP HTTP exporter
+        # stopped exposing one: 1.45.0 replaced its private `_session` with a private
+        # `_client` and moved the requests plumbing into a transport, so borrowing it
+        # raised AttributeError here. This exporter posts Rhesis' own JSON through its
+        # own retry loop, so it never needed the parent's session in the first place.
+        self._http_session = requests.Session()
+
         super().__init__(
             endpoint=self.endpoint,
             timeout=timeout,
+            session=self._http_session,
         )
 
         self.api_key = api_key
@@ -96,8 +103,10 @@ class RhesisOTLPExporter(OTLPSpanExporter):
         # Set by shutdown() to abort in-flight retries (checked by stop predicate + sleep).
         self._shutdown_event = threading.Event()
 
-        # Add authentication headers
-        self._session.headers.update(
+        # Add authentication headers. Must stay after super().__init__(): up to 1.44.x
+        # the parent re-applied its own _OTLP_HTTP_HEADERS (Content-Type:
+        # application/x-protobuf) to whatever session it was given.
+        self._http_session.headers.update(
             {
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
@@ -190,7 +199,7 @@ class RhesisOTLPExporter(OTLPSpanExporter):
                     remaining = _deadline - time.monotonic()
                     if remaining <= 0:
                         raise requests.exceptions.Timeout("export wall-time budget exhausted")
-                    return self._session.post(
+                    return self._http_session.post(
                         self.endpoint,
                         json=p,
                         timeout=remaining,
