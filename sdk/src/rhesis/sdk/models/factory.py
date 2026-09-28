@@ -308,6 +308,11 @@ _DEFAULTS_BY_TYPE: Dict[ModelType, tuple[Optional[str], Dict[str, str]]] = {
 }
 
 
+def provider_model_types(provider: str) -> set[str]:
+    """The model kinds *provider* offers ("language", "embedding", "decision"); empty if unknown."""
+    return {model_type.value for model_type in UNIFIED_MODEL_REGISTRY.get(provider, {})}
+
+
 def _offers_only_decision_models(provider: str) -> bool:
     """A provider whose only model kind is decision (Jev): its model names need no guessing."""
     return set(UNIFIED_MODEL_REGISTRY.get(provider, {})) == {ModelType.DECISION}

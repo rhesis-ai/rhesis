@@ -217,6 +217,29 @@ class UsageReporting:
     on_usage: Optional[UsageCallback] = None
     usage_metered: Optional[bool] = None
 
+    def __init__(self, *args, on_usage: Optional[UsageCallback] = None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Optional callback invoked with a normalized :class:`TokenUsage` at
+        # the point a provider parses usage out of its API response --
+        # inline, in the same call, rather than stashed on a shared attribute
+        # for an external caller to poll afterward. That side-channel-attribute
+        # design was tried and dropped: concurrent calls against one instance
+        # (agents, batch executors) would race on it, and wrapping the
+        # instance to intercept generate()/a_generate() broke every
+        # ``isinstance(model, BaseLLM)`` check elsewhere in the stack. A
+        # constructor-supplied callback keeps the returned object a real
+        # provider instance and each call's usage local to its own stack frame.
+        self.on_usage = on_usage
+
+        # Whose credentials paid for this model's calls, for the benefit of a
+        # host application metering tokens. The SDK never sets or reads this
+        # itself -- it cannot know, since the same provider class is billable
+        # or not depending on where its API key came from. ``None`` means
+        # nobody stamped it, which a host should treat as "built outside my
+        # resolution path" rather than as a quiet "no".
+        self.usage_metered: Optional[bool] = None
+
     def _emit_usage(self, usage: Optional[Dict[str, Any]]) -> None:
         """Report normalized token counts for one call to every usage listener.
 
@@ -302,29 +325,9 @@ class BaseLLM(UsageReporting, BaseModel):
         # `**kwargs`) so it never reaches `load_model(*args, **kwargs)` --
         # provider `load_model()` implementations take no such parameter and
         # would raise TypeError if it leaked through.
-        super().__init__(model_name, *args, **kwargs)
+        super().__init__(model_name, *args, on_usage=on_usage, **kwargs)
         self.model = self.load_model(*args, **kwargs)
         self.a_generate = llm_retry(self.a_generate)
-
-        # Optional callback invoked with a normalized :class:`TokenUsage` at
-        # the point a provider parses usage out of its API response --
-        # inline, in the same call, rather than stashed on a shared attribute
-        # for an external caller to poll afterward. That side-channel-attribute
-        # design was tried and dropped: concurrent calls against one instance
-        # (agents, batch executors) would race on it, and wrapping the
-        # instance to intercept generate()/a_generate() broke every
-        # ``isinstance(model, BaseLLM)`` check elsewhere in the stack. A
-        # constructor-supplied callback keeps the returned object a real
-        # provider instance and each call's usage local to its own stack frame.
-        self.on_usage = on_usage
-
-        # Whose credentials paid for this model's calls, for the benefit of a
-        # host application metering tokens. The SDK never sets or reads this
-        # itself -- it cannot know, since the same provider class is billable
-        # or not depending on where its API key came from. ``None`` means
-        # nobody stamped it, which a host should treat as "built outside my
-        # resolution path" rather than as a quiet "no".
-        self.usage_metered: Optional[bool] = None
 
         # # Only wrap generate with sync retry if the subclass overrides it.
         # # The base generate() delegates to a_generate() which already has
@@ -435,9 +438,7 @@ class BaseDecisionModel(UsageReporting, BaseModel):
         on_usage: Optional[UsageCallback] = None,
         **kwargs,
     ):
-        super().__init__(model_name, *args, **kwargs)
-        self.on_usage = on_usage
-        self.usage_metered: Optional[bool] = None
+        super().__init__(model_name, *args, on_usage=on_usage, **kwargs)
         self.a_decide = llm_retry(self.a_decide)
 
     @abstractmethod

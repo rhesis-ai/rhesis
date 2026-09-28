@@ -26,7 +26,7 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
 from pydantic import BaseModel, Field
 
 from rhesis.sdk.models.base import BaseDecisionModel, BaseLLM
-from rhesis.sdk.models.base import BaseModel as BaseModelKind
+from rhesis.sdk.models.base import BaseModel as SdkModel
 from rhesis.sdk.models.factory import get_model
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -176,7 +176,7 @@ def resolve_metric_model(
     """Build the metric's model and refuse a kind of model the metric can't judge with."""
     resolved = get_model(model) if model is None or isinstance(model, str) else model
     # Only real models of the wrong kind are refused; duck-typed stand-ins pass as before.
-    if isinstance(resolved, BaseModelKind) and not isinstance(resolved, supported_model_types):
+    if isinstance(resolved, SdkModel) and not isinstance(resolved, supported_model_types):
         raise UnsupportedModelType(
             f"Metric '{metric_name}' can't judge with {resolved.get_model_name()}, a "
             f"{resolved.MODEL_TYPE} model. Choose a different model for this metric."
@@ -190,7 +190,7 @@ class BaseMetric(ABC):
     # The model kinds this metric can judge with; metrics that can use a decision model add it.
     SUPPORTED_MODEL_TYPES: tuple = (BaseLLM,)
 
-    def __init__(self, config: MetricConfig, model: Optional[Union[BaseLLM, str]] = None):
+    def __init__(self, config: MetricConfig, model: Optional[Union[JudgeModel, str]] = None):
         self.name = config.name
         self.description = config.description
         self.score_type = config.score_type

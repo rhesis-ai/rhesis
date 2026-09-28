@@ -7,6 +7,7 @@ import importlib.util
 from typing import TYPE_CHECKING
 
 from rhesis.sdk.models.base import (
+    BaseDecisionModel,
     BaseEmbedder,
     BaseLLM,
     BaseModel,
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
     from rhesis.sdk.models.providers.azure_openai import AzureOpenAILLM
     from rhesis.sdk.models.providers.gemini import GeminiEmbedder, GeminiLLM
     from rhesis.sdk.models.providers.huggingface import HuggingFaceLLM
+    from rhesis.sdk.models.providers.jev import JevDecisionModel
     from rhesis.sdk.models.providers.litellm import LiteLLM
     from rhesis.sdk.models.providers.litellm_proxy import LiteLLMProxy
     from rhesis.sdk.models.providers.native import RhesisLLM
@@ -66,6 +68,7 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "AzureOpenAILLM": ("rhesis.sdk.models.providers.azure_openai", "AzureOpenAILLM"),
     "GeminiEmbedder": ("rhesis.sdk.models.providers.gemini", "GeminiEmbedder"),
     "GeminiLLM": ("rhesis.sdk.models.providers.gemini", "GeminiLLM"),
+    "JevDecisionModel": ("rhesis.sdk.models.providers.jev", "JevDecisionModel"),
     "LiteLLM": ("rhesis.sdk.models.providers.litellm", "LiteLLM"),
     "LiteLLMProxy": ("rhesis.sdk.models.providers.litellm_proxy", "LiteLLMProxy"),
     "RhesisLLM": ("rhesis.sdk.models.providers.native", "RhesisLLM"),
@@ -102,6 +105,7 @@ def __dir__() -> list[str]:
 __all__ = [
     "AzureAILLM",
     "AzureOpenAILLM",
+    "BaseDecisionModel",
     "BaseEmbedder",
     "BaseLLM",
     "BaseModel",
@@ -109,6 +113,7 @@ __all__ = [
     "GeminiEmbedder",
     "GeminiLLM",
     "HUGGINGFACE_AVAILABLE",
+    "JevDecisionModel",
     "LiteLLM",
     "LiteLLMProxy",
     "OpenAIEmbedder",
