@@ -263,7 +263,7 @@ def _require_purpose_kind(
 
 
 def _row_model_type(model: Model) -> str:
-    # Rows saved before model_type existed have none; they were all language models.
+    # The column is NOT NULL; the fallback only matters for rows built by hand (test doubles).
     model_type = getattr(model, "model_type", None)
     return model_type if isinstance(model_type, str) and model_type else "language"
 

@@ -29,6 +29,7 @@ from rhesis.backend.app.utils.crud_utils import (
     update_item,
 )
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
+from rhesis.sdk.models.factory import provider_model_types
 
 # Relationships serialized by schemas.ModelDetail -- provider_type, status.
 # owner/assignee: unused, excluded. Public (no leading underscore) since
@@ -106,6 +107,36 @@ def _reject_rows_without_own_credentials(db: Session, model: schemas.ModelCreate
     )
 
 
+def _provider_type_value(db: Session, provider_type_id) -> Optional[str]:
+    if provider_type_id is None:
+        return None
+    provider_type = (
+        db.query(models.TypeLookup).filter(models.TypeLookup.id == provider_type_id).first()
+    )
+    return provider_type.type_value if provider_type else None
+
+
+def _fit_model_type_to_provider(
+    provider: Optional[str], model_type: Optional[str], model_type_given: bool
+) -> Optional[str]:
+    """The model_type to save: the provider's only kind when none was given, else checked.
+
+    Purpose checks read the saved kind, so a Jev row saved as "language" (the schema
+    default) would pass as a generation model. Providers the SDK doesn't know are left alone.
+    """
+    offered = provider_model_types(provider) if provider else set()
+    if not offered:
+        return model_type
+    if not model_type_given and len(offered) == 1:
+        return next(iter(offered))
+    if model_type not in offered:
+        raise ValueError(
+            f"Provider '{provider}' has no {model_type} models; it offers: "
+            f"{', '.join(sorted(offered))}."
+        )
+    return model_type
+
+
 def create_model(
     db: Session,
     model: schemas.ModelCreate,
@@ -114,6 +145,11 @@ def create_model(
 ) -> models.Model:
     """Create a new model."""
     _reject_rows_without_own_credentials(db, model)
+    model.model_type = _fit_model_type_to_provider(
+        _provider_type_value(db, model.provider_type_id),
+        model.model_type,
+        "model_type" in model.model_fields_set,
+    )
     return create_item(db, models.Model, model, organization_id, user_id)
 
 
@@ -164,6 +200,13 @@ def update_model(
                 f"Cannot update protected fields ({fields_str}) on system model. "
                 "Only tags, status, owner, and assignee can be modified."
             )
+
+    if existing_model and ({"model_type", "provider_type_id"} & model.model_fields_set):
+        _fit_model_type_to_provider(
+            _provider_type_value(db, model.provider_type_id or existing_model.provider_type_id),
+            model.model_type or existing_model.model_type,
+            model_type_given=True,
+        )
 
     return update_item(db, models.Model, model_id, model, organization_id, user_id)
 
