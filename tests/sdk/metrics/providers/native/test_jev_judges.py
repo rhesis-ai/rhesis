@@ -57,6 +57,14 @@ def test_categorical_judge_asks_one_choice_question(metric):
     assert json.loads(result.details["prompt"])["question"] == questions["score"]
 
 
+def test_categorical_judge_still_sends_an_empty_output(metric):
+    with patch.object(metric.model, "a_decide", new_callable=AsyncMock) as decide:
+        decide.return_value = {"score": {"choice": "rude"}}
+        metric.evaluate(input="hi", output="", expected_output="")
+    state, _ = decide.call_args.args
+    assert state == {"input": "hi", "output_to_evaluate": ""}
+
+
 def test_categorical_judge_fails_a_non_passing_choice(metric):
     with patch.object(metric.model, "a_decide", new_callable=AsyncMock) as decide:
         decide.return_value = {"score": {"choice": "rude"}}

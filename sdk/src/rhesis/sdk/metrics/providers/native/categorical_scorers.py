@@ -92,15 +92,18 @@ class DecisionCategoricalScorer(CategoricalScorer):
     QUESTION_ID = "score"
 
     def prepare(self, evidence: Evidence) -> Request:
-        state = {
-            "input": evidence.input,
+        optional = {
             "context": "\n".join(evidence.context) if evidence.context else None,
             "metadata": evidence.metadata_text,
             "tool_calls": evidence.tool_calls_text,
             "expected_output": evidence.expected_output,
+        }
+        # Input and output are always sent: an empty reply is evidence, not a missing field.
+        state = {
+            "input": evidence.input,
+            **{k: v for k, v in optional.items() if v},
             "output_to_evaluate": evidence.output,
         }
-        state = {k: v for k, v in state.items() if v}
         judge = self.judge
         instructions = "\n\n".join(
             part
