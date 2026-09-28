@@ -15,17 +15,20 @@ fake = Faker()
 SETTINGS = "/users/settings"
 
 
-def _create_model(client, provider, model_name, model_type):
-    response = client.post(
-        APIEndpoints.MODELS.create,
-        json={
-            "name": f"{provider} {uuid.uuid4().hex[:8]}",
-            "model_name": model_name,
-            "model_type": model_type,
-            "key": fake.uuid4(),
-            "provider_type_id": find_or_create_type_lookup_id(client, "ProviderType", provider),
-        },
-    )
+def _post_model(client, provider, model_name, model_type=None):
+    body = {
+        "name": f"{provider} {uuid.uuid4().hex[:8]}",
+        "model_name": model_name,
+        "key": fake.uuid4(),
+        "provider_type_id": find_or_create_type_lookup_id(client, "ProviderType", provider),
+    }
+    if model_type:
+        body["model_type"] = model_type
+    return client.post(APIEndpoints.MODELS.create, json=body)
+
+
+def _create_model(client, provider, model_name, model_type=None):
+    response = _post_model(client, provider, model_name, model_type)
     assert response.status_code == status.HTTP_200_OK, response.text
     return response.json()["id"]
 
@@ -48,6 +51,16 @@ def _metric(score_type, model_id):
 
 @pytest.mark.integration
 class TestJevEvaluationOnly:
+    def test_is_saved_as_a_decision_model_without_being_told(self, authenticated_client):
+        response = _post_model(authenticated_client, "jev", "jev-latest")
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.json()["model_type"] == "decision"
+
+    def test_cannot_be_saved_as_a_language_model(self, authenticated_client):
+        response = _post_model(authenticated_client, "jev", "jev-latest", "language")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "has no language models" in response.json()["detail"]
+
     @pytest.mark.parametrize("purpose", ["generation", "execution"])
     def test_cannot_be_the_default_for_other_purposes(
         self, authenticated_client, jev_model_id, purpose

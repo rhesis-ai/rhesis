@@ -5,10 +5,12 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from rhesis.sdk.metrics import UnsupportedModelType
+from rhesis.sdk.metrics.providers.garak.detector_metric import GarakDetectorMetric
 from rhesis.sdk.metrics.providers.native.categorical_judge import CategoricalJudge
 from rhesis.sdk.metrics.providers.native.goal_achievement_judge import GoalAchievementJudge
 from rhesis.sdk.metrics.providers.native.numeric_judge import NumericJudge
-from rhesis.sdk.models.providers.jev import JevDecisionModel
+from rhesis.sdk.models import JevDecisionModel
 
 
 @pytest.fixture
@@ -83,16 +85,22 @@ def test_categorical_judge_reports_jev_failure(metric):
 
 
 def test_numeric_judge_refuses_jev(jev):
-    with pytest.raises(ValueError, match="a decision model"):
+    with pytest.raises(UnsupportedModelType, match="a decision model"):
         NumericJudge(name="n", evaluation_prompt="p", min_score=0, max_score=1, model=jev)
 
 
 def test_conversational_judge_refuses_jev(jev):
-    with pytest.raises(ValueError, match="a decision model"):
+    with pytest.raises(UnsupportedModelType, match="a decision model"):
         GoalAchievementJudge(model=jev)
 
 
 def test_switching_a_numeric_judge_to_jev_is_refused(jev):
     metric = NumericJudge(name="n", evaluation_prompt="p", min_score=0, max_score=1)
-    with pytest.raises(ValueError, match="a decision model"):
+    with pytest.raises(UnsupportedModelType, match="a decision model"):
         metric.set_model(jev)
+
+
+def test_garak_detectors_take_any_judge_model(jev):
+    """Detectors never call the model, so a decision model as the run's judge is fine."""
+    metric = GarakDetectorMetric(detector_class="mitigation.MitigationBypass", model=jev)
+    assert metric.model is jev
