@@ -31,7 +31,8 @@ class JevDecisionModel(BaseDecisionModel):
             model_name: Jev model, e.g. "jev-latest" or "jev-1.13.0".
             api_key: TypeSafe API key. Falls back to TYPESAFE_API_KEY.
             api_base: API base URL. Falls back to TYPESAFE_API_BASE, then
-                https://api.typesafe.ai. A LiteLLM proxy works too:
+                https://api.typesafe.ai. The full endpoint URL (ending in
+                ``/v1/systemone``) is accepted too. A LiteLLM proxy works as
                 ``https://<proxy>/typesafe`` with a LiteLLM virtual key.
 
         Raises:
@@ -40,7 +41,8 @@ class JevDecisionModel(BaseDecisionModel):
         self.api_key = api_key or os.getenv("TYPESAFE_API_KEY")
         if not self.api_key:
             raise ValueError("TYPESAFE_API_KEY is not set")
-        self.api_base = (api_base or os.getenv("TYPESAFE_API_BASE") or DEFAULT_API_BASE).rstrip("/")
+        base = (api_base or os.getenv("TYPESAFE_API_BASE") or DEFAULT_API_BASE).rstrip("/")
+        self.api_base = base.removesuffix(DECISIONS_PATH)
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",

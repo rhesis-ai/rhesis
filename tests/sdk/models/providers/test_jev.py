@@ -34,6 +34,19 @@ class TestJevDecisionModel:
         assert llm.api_key == "env-key"
         assert llm.api_base == "https://proxy/typesafe"
 
+    @pytest.mark.parametrize(
+        "api_base",
+        [
+            "https://api.beatapi.io",
+            "https://api.beatapi.io/",
+            "https://api.beatapi.io/v1/systemone",
+        ],
+    )
+    def test_accepts_the_base_or_the_full_endpoint_url(self, api_base):
+        assert (
+            JevDecisionModel(api_key="key", api_base=api_base).api_base == "https://api.beatapi.io"
+        )
+
     def test_missing_key_raises(self):
         with patch.dict(os.environ, {}, clear=True):
             with pytest.raises(ValueError, match="TYPESAFE_API_KEY is not set"):
