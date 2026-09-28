@@ -4,10 +4,9 @@ import asyncio
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union
 
-from rhesis.sdk.metrics.base import MetricConfig, MetricResult
+from rhesis.sdk.metrics.base import MetricConfig, MetricResult, resolve_metric_model
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.models.base import BaseLLM
-from rhesis.sdk.models.factory import get_model
 
 
 class ConversationalMetricBase(ABC):
@@ -44,9 +43,7 @@ class ConversationalMetricBase(ABC):
 
     def _set_model(self, model: Optional[Union[BaseLLM, str]]) -> BaseLLM:
         """Set the evaluation model."""
-        if isinstance(model, BaseLLM):
-            return model
-        return get_model(model)
+        return resolve_metric_model(model, self.name)
 
     @property
     def model(self) -> BaseLLM:

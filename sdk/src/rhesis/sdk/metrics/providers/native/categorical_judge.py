@@ -1,15 +1,13 @@
 import json
 from dataclasses import fields
-from typing import Any, Dict, List, Literal, Optional, Union
-
-from pydantic import create_model
+from typing import Any, Dict, List, Optional, Union
 
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
-from rhesis.sdk.metrics.constants import JUDGE_TEMPERATURE
 from rhesis.sdk.metrics.providers.native.base import JudgeBase
+from rhesis.sdk.metrics.providers.native.categorical_scorers import Evidence, scorer_for
 from rhesis.sdk.metrics.providers.native.configs import CategoricalJudgeConfig
-from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.base import BaseDecisionModel, BaseLLM
 
 METRIC_TYPE = MetricType.RAG
 SCORE_TYPE = ScoreType.CATEGORICAL
@@ -19,7 +17,10 @@ class CategoricalJudge(JudgeBase):
     """
     A generic metric that evaluates outputs based on a custom prompt template.
     Uses LLM to perform evaluation based on provided evaluation criteria.
+    Can also judge with a decision model (e.g. Jev), which picks the category directly.
     """
+
+    SUPPORTED_MODEL_TYPES = (BaseLLM, BaseDecisionModel)
 
     def __init__(
         self,
@@ -31,7 +32,7 @@ class CategoricalJudge(JudgeBase):
         evaluation_prompt: Optional[str] = None,
         name: Optional[str] = None,
         description: Optional[str] = None,
-        model: Optional[Union[BaseLLM, str]] = None,
+        model: Optional[Union[BaseLLM, BaseDecisionModel, str]] = None,
         requires_ground_truth: bool = True,
         requires_context: bool = False,
         metric_scope: Optional[List[Union[str, "MetricScope"]]] = None,
@@ -217,18 +218,19 @@ class CategoricalJudge(JudgeBase):
         # Serialize tool_calls for template
         tool_calls_text = json.dumps(tool_calls, indent=2) if tool_calls else None
 
-        # Generate the evaluation prompt
-        prompt = self._get_prompt_template(
-            input,
-            output,
-            expected_output or "",
-            context or [],
-            metadata_text=metadata_text,
-            tool_calls_text=tool_calls_text,
+        scorer = scorer_for(self)
+        request = scorer.prepare(
+            Evidence(
+                input=input,
+                output=output,
+                expected_output=expected_output or "",
+                context=context or [],
+                metadata_text=metadata_text,
+                tool_calls_text=tool_calls_text,
+            )
         )
 
-        # Initialize common details fields
-        details = self._get_base_details(prompt)
+        details = self._get_base_details(request.prompt)
         details.update(
             {
                 "categories": self.categories,
@@ -237,42 +239,19 @@ class CategoricalJudge(JudgeBase):
         )
 
         try:
-            # Run the evaluation with structured response model
-            # Create a proper Literal type from the possible scores
-            if len(self.categories) == 1:
-                score_literal = Literal[self.categories[0]]
-            else:
-                # Create individual string literals - use a more compatible approach
-                score_literal = Literal[tuple(self.categories)]
-
-            ScoreResponseCategorical = create_model(
-                "ScoreResponseCategorical", score=(score_literal, ...), reason=(str, ...)
-            )
-            response = await self.model.a_generate(
-                prompt, schema=ScoreResponseCategorical, temperature=JUDGE_TEMPERATURE
-            )
-            response = ScoreResponseCategorical(**response)  # type: ignore[arg-type]
-
-            # Get the score directly from the response
-            score = response.score  # type: ignore[attr-defined]
-            reason = response.reason  # type: ignore[attr-defined]
-
-            # Check if the evaluation meets the reference score using the base class method
-            is_successful = self._evaluate_score(
-                score=score,
-                passing_categories=self.passing_categories,  # type: ignore[arg-type]§
-            )
-
-            # Update details with success-specific fields
+            verdict = await scorer.a_score(request)
             details.update(
                 {
-                    "score": score,
-                    "reason": reason,
-                    "is_successful": is_successful,
+                    "score": verdict.score,
+                    "reason": verdict.reason,
+                    "is_successful": self._evaluate_score(
+                        score=verdict.score,
+                        passing_categories=self.passing_categories,  # type: ignore[arg-type]
+                    ),
+                    **verdict.details,
                 }
             )
-
-            return MetricResult(score=score, details=details)
+            return MetricResult(score=verdict.score, details=details)
 
         except Exception as e:
             return self._handle_evaluation_error(e, details, "error")
