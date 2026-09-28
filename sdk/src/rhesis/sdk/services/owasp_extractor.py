@@ -102,8 +102,20 @@ def _load_bundled_sections(url: str) -> Optional[list[ReportSection]]:
 
 
 def _fetch_pdf_bytes(url: str) -> bytes:
+    from urllib3.util.retry import Retry
+
+    session = requests.Session()
+    retries = Retry(
+        total=3,
+        backoff_factor=2,
+        status_forcelist=[429, 500, 502, 503, 504],
+        raise_on_status=False,
+    )
+    session.mount("https://", requests.adapters.HTTPAdapter(max_retries=retries))
+    session.mount("http://", requests.adapters.HTTPAdapter(max_retries=retries))
+
     headers = {"User-Agent": "Mozilla/5.0 (compatible; RhesisSDK/1.0)"}
-    response = requests.get(url, timeout=60, headers=headers)
+    response = session.get(url, timeout=60, headers=headers)
     response.raise_for_status()
     return response.content
 
