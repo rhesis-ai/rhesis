@@ -13,7 +13,7 @@ The chart ships one values file, `values-local.yaml`, tuned for Minikube: the fi
 (frontend, backend, worker, chatbot, docs) use `imagePullPolicy: Never` since they're built and
 loaded locally, while Postgres and Redis pull from `mirror.gcr.io` (`IfNotPresent`). There is no
 production values file yet. For a production deployment, use
-[Docker Compose](/deployment/docker-compose).
+[Docker Compose](/self-hosting/docker-compose).
 </Callout>
 
 ## Setup
@@ -84,7 +84,7 @@ to public rate limits without it), and the Enterprise-only `AUDIT_HASH_KEY`/`SSO
 
 To set a real value for anything else — `OPENAI_API_KEY`, `SMTP_*`, `GOOGLE_CLIENT_*`, and the
 other provider/OAuth/email variables described in
-[Environment Configuration](/deployment/docker-compose#environment-configuration) — encode
+[Environment Configuration](/self-hosting/docker-compose#environment-configuration) — encode
 it and paste the result into `rhesis-secrets.yaml` next to the matching key:
 
 <CodeBlock filename="Terminal" language="bash">
@@ -132,5 +132,5 @@ in the repository.
 <Callout type="info">
 **Ready for Production?**
 
-For production deployment, see the [Docker Compose Guide](/deployment/docker-compose).
+For production deployment, see the [Docker Compose Guide](/self-hosting/docker-compose).
 </Callout>

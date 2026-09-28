@@ -4,7 +4,7 @@ This directory contains documentation for the Rhesis platform. The full document
 
 ## Contents
 
-- [Self-Hosting Guide](https://docs.rhesis.ai/deployment/docker-compose): Complete guide for running Rhesis with Docker Compose
+- [Self-Hosting Guide](https://docs.rhesis.ai/self-hosting/docker-compose): Complete guide for running Rhesis with Docker Compose
 - [Environment Setup](https://docs.rhesis.ai/contribute/development-setup): Local development environment setup
 - [Backend](https://docs.rhesis.ai/contribute/backend): Documentation for the backend API and services
 - [Frontend](https://docs.rhesis.ai/contribute/frontend): Documentation for the frontend application
@@ -14,7 +14,7 @@ This directory contains documentation for the Rhesis platform. The full document
 ## Getting Started
 
 ### For Self-Hosted Deployment
-If you want to run Rhesis in production or for evaluation, start with the [Self-Hosting Guide](https://docs.rhesis.ai/deployment/docker-compose).
+If you want to run Rhesis in production or for evaluation, start with the [Self-Hosting Guide](https://docs.rhesis.ai/self-hosting/docker-compose).
 
 ### For Development
 If you're contributing to Rhesis or setting up a local development environment, see the [Environment Setup Guide](https://docs.rhesis.ai/contribute/development-setup).

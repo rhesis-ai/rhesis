@@ -9,14 +9,14 @@ Deploy Rhesis on your own infrastructure with proper security, authentication, a
 <Callout type="warning">
 **Production Deployment**
 
-This guide is for production environments. For quick local testing, see the [Quick Start](/deployment/quick-start) guide.
+This guide is for production environments. For quick local testing, see the [Quick Start](/self-hosting/quick-start) guide.
 </Callout>
 
 
 
 ## Production Setup
 
-The steps below are the recommended path for a production self-hosted deployment: you supply your own secrets, public URLs, and infrastructure, and run the stack directly with Docker Compose. (For a throwaway local instance, use the one-command [Quick Start](/deployment/quick-start) instead.)
+The steps below are the recommended path for a production self-hosted deployment: you supply your own secrets, public URLs, and infrastructure, and run the stack directly with Docker Compose. (For a throwaway local instance, use the one-command [Quick Start](/self-hosting/quick-start) instead.)
 
 The last step gives you two ways to start the stack — pick one:
 
@@ -54,7 +54,7 @@ This starts a self-contained stack with a built-in Postgres and Redis. From here
 
 ## Environment Configuration
 
-This section covers the variables you need to set for a production deployment. For the complete list — every variable, its default, and whether it is required — see the [Environment Variables](/deployment/environment-variables) reference.
+This section covers the variables you need to set for a production deployment. For the complete list — every variable, its default, and whether it is required — see the [Environment Variables](/self-hosting/environment-variables) reference.
 
 ### Required secrets
 
@@ -101,22 +101,22 @@ Rhesis provides the models used for test generation, evaluation, multi-turn exec
 RHESIS_API_KEY=your-actual-rhesis-api-key-here`}
 </CodeBlock>
 
-To run against your own model provider instead, see the [Environment Variables](/deployment/environment-variables#ai-models) reference.
+To run against your own model provider instead, see the [Environment Variables](/self-hosting/environment-variables#ai-models) reference.
 
 ### Optional configuration
 
-The variables above get a deployment running. Everything else is optional — see the [Environment Variables](/deployment/environment-variables) reference for the details:
+The variables above get a deployment running. Everything else is optional — see the [Environment Variables](/self-hosting/environment-variables) reference for the details:
 
-- **Configure an OAuth provider (Google or GitHub)** for social login — [Authentication and OAuth](/deployment/environment-variables#authentication-and-oauth)
-- **Configure email (SMTP)** for notifications and invitations — [SMTP and email](/deployment/environment-variables#smtp-and-email)
-- **Configure object storage for files** (GCS or S3) — [Object storage](/deployment/environment-variables#object-storage)
-- **Tune the Celery worker** for throughput — [Logging and tuning](/deployment/environment-variables#logging-and-tuning)
+- **Configure an OAuth provider (Google or GitHub)** for social login — [Authentication and OAuth](/self-hosting/environment-variables#authentication-and-oauth)
+- **Configure email (SMTP)** for notifications and invitations — [SMTP and email](/self-hosting/environment-variables#smtp-and-email)
+- **Configure object storage for files** (GCS or S3) — [Object storage](/self-hosting/environment-variables#object-storage)
+- **Tune the Celery worker** for throughput — [Logging and tuning](/self-hosting/environment-variables#logging-and-tuning)
 
 ### Enterprise Features
 
 Enterprise Edition features are discovered at runtime through `GET /features`; the frontend hides gated UI until a feature appears there. Without the Enterprise package, Rhesis runs in Community mode and all three are unavailable.
 
-Two features need their own secret — set it in `.env.docker` (see [Enterprise features](/deployment/environment-variables#enterprise-features) for how to generate each). The feature stays disabled until its secret is present and valid.
+Two features need their own secret — set it in `.env.docker` (see [Enterprise features](/self-hosting/environment-variables#enterprise-features) for how to generate each). The feature stays disabled until its secret is present and valid.
 
 | Feature | Feature name | Secret | Docs |
 |---|---|---|---|
