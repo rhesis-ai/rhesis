@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: e6bc068019f548699f3daf3b9f78adfec5c1328e
+    targetRevision: 1b5f20166937136bedeb818353e27db211e967af
     path: kubernetes/clusters/prd/arc
   destination:
     server: https://kubernetes.default.svc
