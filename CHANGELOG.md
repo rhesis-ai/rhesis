@@ -18,6 +18,41 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
   since January 2026 and carried advisories with no upstream fix. Existing Ragas metrics and their
   associations are deleted by a backend migration; recorded test results keep their scores.
 
+## [0.17.1] - 2026-09-28
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.17.1**
+- **Frontend 0.17.1**
+- **SDK 0.17.1**
+
+### Summary of Changes
+
+**Backend v0.17.1:**
+- Resolved a race condition in Architect executions using temporary Redis keys to prevent the system from getting stuck in a "Working" state on fast runs.
+- Improved test rescoring by replaying stored outputs instead of re-running live tests, and ensured Goal Achievement is consistently scored on multi-turn test rescores.
+- Enhanced quota enforcement by blocking runs that exceed the remaining limit and counting in-flight runs across all projects.
+- Classified tests with no configured metrics as "Inconclusive" rather than "Error" to prevent false failure indications in run summaries.
+
+**Frontend v0.17.1:**
+- Improved the run summary grid by accurately counting requirement tests, displaying unscored/inconclusive tests with a new filter, and labeling built-in Goal Achievement rows.
+- Restored the thinking indicator when switching to in-progress Architect sessions and fixed a race condition that caused the UI to get stuck.
+- Prevented reruns from carrying forward stale model overrides, updated quota terminology to "test executions", and blocked runs that exceed remaining quotas.
+- Visually distinguished the Team plan from the Enterprise plan by updating its badge to a silver crown.
+
+**SDK v0.17.1:**
+- Fixed a critical packaging issue where the SDK wheel was published without Python source files.
+- Resolved an issue where `entity_id` was missing from trace annotations and improved error handling by surfacing detailed server-side messages in `RhesisAPIError`.
+- Consolidated workflow intent definitions into a single structured YAML file to prevent configuration drift and improve validation.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.17.0] - 2026-09-22
 
 ### Platform Release

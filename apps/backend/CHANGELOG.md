@@ -24,6 +24,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   anything that referenced them. Recorded metric scores are unaffected: test results and the
   verdict grid read their own JSONB snapshots, not the metric table.
 
+## [0.17.1] - 2026-09-28
+
+### Added
+- Introduced an "Inconclusive" status for tests whose requirements have no metrics of the matching scope, preventing them from incorrectly failing as "Error".
+- Added a built-in Goal Achievement metric row to the metric plan for all live multi-turn tests.
+
+### Changed
+- Enforced strict quota limits by refusing test runs that exceed the remaining quota and counting in-flight runs across all projects.
+- Optimized test re-scoring to replay stored outputs from the reference run instead of re-running tests live.
+- Ensured Goal Achievement is properly scored during re-runs by applying the default judge to re-score paths.
+- Updated test usage tracking to count in-place single-test executions and standardized labeling to "test executions".
+- Updated preflight checks and warnings to accurately reflect unscored tests in the run summary.
+
+### Fixed
+- Fixed a race condition where fast-executing tasks finished before monitor registration, which previously left the Architect stuck in a "Working..." state.
+- Fixed a bug where non-final test configuration results could prematurely resume the Architect with incomplete data.
+
+### Removed
+- Removed the unused `auto_apply_rls_policies` database function.
+
+
 ## [0.17.0] - 2026-09-22
 
 ### Added

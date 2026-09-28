@@ -27,6 +27,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed the Ragas backend from metric icon handling now that the backend no longer serves it.
 
+## [0.17.1] - 2026-09-28
+
+### Added
+
+- Added an "Inconclusive" status filter to the run summary grid, which appears when inconclusive results are present.
+- Added a "(Built-in)" label and explanatory tooltip to the Goal Achievement row in the run grid.
+- Added UI warnings and gated the "Run" button to prevent starting test runs that exceed the remaining execution quota.
+
+### Changed
+
+- Renamed the requirement header "Total" column to "Tests" and added a tooltip explaining the pass criteria.
+- Updated plan badges to display a silver crown for the Team plan, visually distinguishing it from the gold Enterprise crown.
+- Updated quota and usage terminology across the UI from "test usage" to "test executions".
+- Removed the confusing "blocks" subtitle from the verdicts card to simplify the layout.
+
+### Fixed
+
+- Fixed requirement header test counts to only count tests applicable to that specific requirement rather than the entire run.
+- Fixed the run summary grid to display all tests, including showing a "No metrics configured" row for requirements without metrics.
+- Fixed the "Failed" filter in the run summary to correctly match only "Fail" and "Error" statuses, excluding "Inconclusive" results.
+- Fixed an issue where rerunning a test carried forward the original run's model override instead of falling back to current default settings.
+- Restored the "thinking" indicator when switching to an in-progress Architect session, preventing the UI from appearing stuck.
+
 ## [0.17.0] - 2026-09-22
 
 ### Added
