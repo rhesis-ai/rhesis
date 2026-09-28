@@ -105,7 +105,12 @@ def _fetch_pdf_bytes(url: str) -> bytes:
     from urllib3.util.retry import Retry
 
     session = requests.Session()
-    retries = Retry(total=4, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504])
+    retries = Retry(
+        total=3,
+        backoff_factor=2,
+        status_forcelist=[429, 500, 502, 503, 504],
+        raise_on_status=False,
+    )
     session.mount("https://", requests.adapters.HTTPAdapter(max_retries=retries))
     session.mount("http://", requests.adapters.HTTPAdapter(max_retries=retries))
 
