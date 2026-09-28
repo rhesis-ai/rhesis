@@ -216,7 +216,7 @@ git clone https://github.com/rhesis-ai/rhesis.git && cd rhesis && ./rh start
 
 **Commands:** `./rh logs` · `./rh stop` · `./rh restart` · `./rh delete`
 
-> This setup enables auto-login for local testing. For production self-hosting, see [Deployment docs](https://docs.rhesis.ai/docs/deployment).
+> This setup enables auto-login for local testing. For production self-hosting, see [Self-hosting docs](https://docs.rhesis.ai/self-hosting).
 
 Once the platform is running, connect your agent with the SDK:
 
@@ -230,7 +230,7 @@ See [sdk/README.md](sdk/README.md).
 |--------|----------|
 | **[Rhesis Cloud](https://app.rhesis.ai)** | Managed deployment |
 | **Local Docker (`./rh start`)** | Development and trying the platform |
-| **Self-hosted** | Production deployment — [docs](https://docs.rhesis.ai/docs/deployment) |
+| **Self-hosted** | Production deployment — [docs](https://docs.rhesis.ai/self-hosting) |
 
 ---
 

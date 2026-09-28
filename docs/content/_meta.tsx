@@ -16,6 +16,12 @@ const DocsIcon = () => (
   </svg>
 )
 
+const SelfHostingIcon = () => (
+  <svg {...iconProps}>
+    <path d="M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1M7 19c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2M20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1M7 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2" />
+  </svg>
+)
+
 const GuidesIcon = () => (
   <svg {...iconProps}>
     <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7m0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5" />
@@ -46,12 +52,6 @@ const ContributeIcon = () => (
   </svg>
 )
 
-const SdkReferenceIcon = () => (
-  <svg {...iconProps}>
-    <path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3z" />
-  </svg>
-)
-
 const meta: MetaRecord = {
   index: {
     type: 'page',
@@ -64,6 +64,15 @@ const meta: MetaRecord = {
       <span className="sidebar-icon-label">
         <DocsIcon />
         Docs
+      </span>
+    ),
+  },
+  'self-hosting': {
+    type: 'page',
+    title: (
+      <span className="sidebar-icon-label">
+        <SelfHostingIcon />
+        Self-Hosting
       </span>
     ),
   },
@@ -113,16 +122,6 @@ const meta: MetaRecord = {
         Contribute
       </span>
     ),
-  },
-  sdk_reference: {
-    type: 'page',
-    title: (
-      <span className="sidebar-icon-label">
-        <SdkReferenceIcon />
-        SDK Reference
-      </span>
-    ),
-    href: 'https://rhesis-sdk.readthedocs.io/en/latest/',
   },
 }
 

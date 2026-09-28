@@ -12,6 +12,13 @@ const meta: MetaRecord = {
   synthesizers: "Synthesizers",
   metrics: "Metrics",
   connector: "Connector",
+  "---reference": {
+    type: "separator",
+  },
+  "sdk-reference": {
+    title: "SDK Reference",
+    href: "https://rhesis-sdk.readthedocs.io/en/latest/",
+  },
 };
 
 export default meta;

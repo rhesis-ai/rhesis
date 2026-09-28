@@ -1,7 +1,7 @@
 # Environment Variables
 
 Complete reference for configuring a self-hosted Rhesis deployment. For a guided walkthrough of the
-essentials, see the [Docker Compose](/docs/deployment/docker-compose) guide.
+essentials, see the [Docker Compose](/self-hosting/docker-compose) guide.
 
 Set variables in the `.env.docker` file you pass to Docker Compose:
 
@@ -113,12 +113,12 @@ rather than tints of one colour; the sign-in page's background artwork; and the 
 GitHub links in the sign-in header.
 
 On Kubernetes, set these through the chart instead — see
-[Kubernetes (Helm)](/docs/deployment/kubernetes-helm).
+[Kubernetes (Helm)](/self-hosting/kubernetes-helm).
 
 ## Database
 
 Defaults point at the built-in `postgres` container. Set these to use your own database (see
-[Database](/docs/deployment/docker-compose#database)). `DB_NAME` and `APP_DB_USER` are **fixed** and
+[Database](/self-hosting/docker-compose#database)). `DB_NAME` and `APP_DB_USER` are **fixed** and
 cannot be changed — SQL scripts reference them by name, so your database and role must use exactly these
 values.
 
@@ -203,7 +203,7 @@ Email (notifications, invitations) is disabled until `SMTP_HOST` is set.
 ## Enterprise features
 
 Only used when the Enterprise package is installed (see
-[Enterprise Features](/docs/deployment/docker-compose#enterprise-features)). Each feature stays
+[Enterprise Features](/self-hosting/docker-compose#enterprise-features)). Each feature stays
 disabled until its secret is set and valid.
 
 | Variable | Description | Generate with |

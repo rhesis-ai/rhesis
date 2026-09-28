@@ -81,7 +81,6 @@ const meta: MetaRecord = {
   architect: 'Architect',
   'agent-skill': 'Agent Skill',
   organizations: 'Organizations & Team',
-  deployment: 'Deployment',
 
   '---define': {
     type: 'separator',
