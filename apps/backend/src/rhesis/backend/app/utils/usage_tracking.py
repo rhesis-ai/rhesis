@@ -13,7 +13,7 @@ cannot be forgotten because there is nothing to remember.
 
 Two inputs decide what happens to an emission:
 
-**Whether to skip** -- ``BaseLLM.usage_metered``, stamped by the
+**Whether to skip** -- ``UsageReporting.usage_metered``, stamped by the
 model-resolution layer. When ``USAGE_QUOTAS_ENABLED`` is true (Rhesis
 cloud), a ``metered=False`` model is skipped: the org supplied its own API
 key and pays the provider directly. When quotas are off (self-hosted), every
@@ -38,7 +38,7 @@ from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.app.usage_attribution import current_usage_org
-from rhesis.sdk.models.base import BaseLLM, TokenUsage, set_default_usage_callback
+from rhesis.sdk.models.base import TokenUsage, UsageReporting, set_default_usage_callback
 
 logger = logging.getLogger(__name__)
 
@@ -61,14 +61,14 @@ UNSTAMPED_MARKER = "usage.unstamped_model"
 _warned_unstamped: Set[Tuple[str, str]] = set()
 
 
-def _model_identity(model: BaseLLM) -> Tuple[str, str]:
+def _model_identity(model: UsageReporting) -> Tuple[str, str]:
     return (
         getattr(model, "PROVIDER", "") or model.__class__.__name__,
         getattr(model, "model_name", "") or "",
     )
 
 
-def _warn_unstamped(model: BaseLLM) -> None:
+def _warn_unstamped(model: UsageReporting) -> None:
     """Flag a model nobody recorded provenance for, once per provider/model.
 
     Names the provider and model only. Never the key, and never anything
@@ -90,7 +90,7 @@ def _warn_unstamped(model: BaseLLM) -> None:
     )
 
 
-def _record_unattributed(usage: TokenUsage, model: BaseLLM) -> None:
+def _record_unattributed(usage: TokenUsage, model: UsageReporting) -> None:
     """Count billable usage that arrived with no organization bound.
 
     Deliberately not written to the ``usage`` table: it has a FK to
@@ -118,7 +118,7 @@ def _record_unattributed(usage: TokenUsage, model: BaseLLM) -> None:
     )
 
 
-def accrue_model_tokens(usage: TokenUsage, model: BaseLLM) -> None:
+def accrue_model_tokens(usage: TokenUsage, model: UsageReporting) -> None:
     """Accrue one model call's tokens against the ambient organization.
 
     The SDK hands us an already-normalized :class:`TokenUsage`, so there is
@@ -164,6 +164,6 @@ def stamp_usage_provenance(model: object, metered: Optional[bool]) -> object:
     hand back a bare provider string on construction failure) so callers do
     not each need an isinstance check.
     """
-    if isinstance(model, BaseLLM):
+    if isinstance(model, UsageReporting):
         model.usage_metered = metered
     return model

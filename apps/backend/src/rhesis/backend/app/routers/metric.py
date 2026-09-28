@@ -22,7 +22,9 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.odata import apply_select
+from rhesis.backend.app.utils.user_model_utils import check_metric_model_fits
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,18 @@ router = RhesisRouter(
     responses={404: {"description": "Not found"}},
     resource="metric",
 )
+
+
+def _refuse_decision_model_on_metric(db: Session, model_id, organization_id, score_type) -> None:
+    """422 when a decision model (Jev) is set on a metric that isn't categorical."""
+    # score_type is a ScoreType on the way in and a plain string on the stored row.
+    score_type = getattr(score_type, "value", score_type)
+    try:
+        check_metric_model_fits(
+            db, str(model_id) if model_id else None, str(organization_id), score_type
+        )
+    except ModelConfigurationError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @router.post("/", response_model=schemas.Metric)
@@ -47,6 +61,8 @@ def create_metric(
     """Create a new metric."""
 
     organization_id, user_id = tenant_context
+
+    _refuse_decision_model_on_metric(db, metric.model_id, organization_id, metric.score_type)
 
     try:
         # Set the current user as the owner if not specified
@@ -333,6 +349,14 @@ def update_metric(
     db_metric = metric_crud.get_metric(db, metric_id=metric_id, organization_id=organization_id)
     if db_metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")
+
+    # A null model_id doesn't clear it (the update drops nulls), so the stored one stays in force.
+    _refuse_decision_model_on_metric(
+        db,
+        metric.model_id or db_metric.model_id,
+        organization_id,
+        metric.score_type or db_metric.score_type,
+    )
 
     return metric_crud.update_metric(
         db=db, metric_id=metric_id, metric=metric, organization_id=organization_id, user_id=user_id

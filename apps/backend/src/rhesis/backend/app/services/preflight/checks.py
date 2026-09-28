@@ -152,16 +152,20 @@ def _describe_metrics(db: Session, metrics: List[Metric]):
 
 
 def _prepare_metrics(db: Session, metric_configs, model, organization_id: Optional[str]):
+    """Build the metrics; returns the loaded tasks and the metrics refused their model."""
     from rhesis.backend.metrics.strategies.local import prepare_metrics
 
-    return prepare_metrics(
+    refused: dict = {}
+    tasks = prepare_metrics(
         metric_configs,
         "",
         [],
         model=model,
         db=db,
         organization_id=organization_id,
+        refused=refused,
     )
+    return tasks, refused
 
 
 def _resolve_check_metrics(
@@ -464,16 +468,26 @@ async def _validate_metrics_loadable(
 
     load_errors: list[str] = []
     loaded_count = 0
+    refused: dict = {}
 
     if metric_configs:
         model = await db.run(_resolve_purpose_model, user, "evaluation", evaluation_model_id)
         org_id = str(user.organization_id) if user.organization_id else None
 
         try:
-            metric_tasks = await db.run(_prepare_metrics, metric_configs, model, org_id)
+            metric_tasks, refused = await db.run(_prepare_metrics, metric_configs, model, org_id)
             loaded_count = len(metric_tasks)
         except Exception as e:
             load_errors.append(str(e))
+
+    # A metric refused its model would error on every test, so this blocks the run.
+    if refused:
+        return _make_result(
+            check_id,
+            PreflightCheckStatus.FAILED,
+            f"{len(refused)} metric(s) can't be judged by the evaluation model",
+            "; ".join(r["reason"] for r in refused.values()),
+        )
 
     for key, detail in invalid_results.items():
         err = detail.get("error", "unknown") if isinstance(detail, dict) else str(detail)

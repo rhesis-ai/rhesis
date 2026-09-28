@@ -27,7 +27,8 @@ from rhesis.backend.app.quota.enforcement import enforce_quota
 from rhesis.backend.app.services.platform_key import get_platform_api_key
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
-from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
+from rhesis.sdk.models.base import BaseDecisionModel, BaseEmbedder, BaseLLM
+from rhesis.sdk.models.base import BaseModel as SdkModel
 from rhesis.sdk.models.factory import get_model
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,14 @@ logger = logging.getLogger(__name__)
 MODEL_PURPOSES = ("generation", "evaluation", "execution")
 
 ModelPurpose = Literal["generation", "evaluation", "execution"]
+
+# The model kinds each purpose can use. Only evaluation takes decision models (Jev),
+# which answer typed questions and can't generate text.
+PURPOSE_MODEL_TYPES: dict[str, tuple[type, ...]] = {
+    "generation": (BaseLLM,),
+    "execution": (BaseLLM,),
+    "evaluation": (BaseLLM, BaseDecisionModel),
+}
 
 # What a caller can name the person the model is resolved for: the User itself,
 # or just their id when that is all the call site has (a Celery payload, a test
@@ -214,7 +223,9 @@ def _resolve_for_user(
         # user that produces the literal string "None", not an actual null --
         # exactly the bug peqy flagged on #2355 for this same branch.
         org_id = str(user.organization_id) if user.organization_id else None
-        return resolve_default_hosted_model(default_model, db, org_id)
+        return _require_purpose_kind(
+            resolve_default_hosted_model(default_model, db, org_id), purpose
+        )
 
     if embedding:
         return _fetch_and_configure_embedder(
@@ -225,13 +236,73 @@ def _resolve_for_user(
             dimensions=dimensions,
         )
 
-    return _fetch_and_configure_model(
+    model = _fetch_and_configure_model(
         db=db,
         model_id=str(model_id),
         organization_id=str(user.organization_id),
         default_model=default_model,
         user=user,
     )
+    return _require_purpose_kind(model, purpose)
+
+
+def _wrong_kind_error(name: str, model_type: str, purpose: str) -> ModelConfigurationError:
+    return ModelConfigurationError(
+        f"'{name}' is a {model_type} model, which can't be used for {purpose}. "
+        f"Pick a different {purpose} model in the Models settings."
+    )
+
+
+def _require_purpose_kind(
+    model: Union[BaseLLM, BaseDecisionModel], purpose: str
+) -> Union[BaseLLM, BaseDecisionModel]:
+    """Refuse a built model whose kind *purpose* can't use (e.g. Jev for generation)."""
+    if isinstance(model, SdkModel) and not isinstance(model, PURPOSE_MODEL_TYPES[purpose]):
+        raise _wrong_kind_error(model.model_name, model.MODEL_TYPE, purpose)
+    return model
+
+
+def _row_model_type(model: Model) -> str:
+    # Rows saved before model_type existed have none; they were all language models.
+    model_type = getattr(model, "model_type", None)
+    return model_type if isinstance(model_type, str) and model_type else "language"
+
+
+def check_model_fits_purpose(
+    db: Session, model_id: str, organization_id: str, purpose: str
+) -> None:
+    """Refuse saving a model as the default for a purpose that can't use its kind.
+
+    Raises:
+        ModelConfigurationError: The saved model's kind doesn't fit *purpose*.
+    """
+    model = _load_model_row(db, str(model_id), organization_id)
+    if model is None:
+        return
+    allowed = {cls.MODEL_TYPE for cls in PURPOSE_MODEL_TYPES[purpose]}
+    if _row_model_type(model) not in allowed:
+        raise _wrong_kind_error(model.name, _row_model_type(model), purpose)
+
+
+def check_metric_model_fits(
+    db: Session, model_id: Optional[str], organization_id: str, score_type: Optional[str]
+) -> None:
+    """Refuse saving a decision model on a metric that isn't categorical.
+
+    Only categorical judges can use one today; the SDK metric class makes the
+    same call at run time, this just catches it when the metric is saved.
+
+    Raises:
+        ModelConfigurationError: The metric's model is a decision model and it isn't categorical.
+    """
+    if not model_id or score_type == "categorical":
+        return
+    model = _load_model_row(db, str(model_id), organization_id)
+    if model and _row_model_type(model) == BaseDecisionModel.MODEL_TYPE:
+        raise ModelConfigurationError(
+            f"'{model.name}' is a decision model, which can only judge categorical metrics. "
+            "Make the metric categorical or pick a different model."
+        )
 
 
 def _resolve_by_user_id(
@@ -652,8 +723,8 @@ def _build_configured_model(
     provider: str,
     model_name: str,
     api_key: Optional[str],
-    model_type: Literal["language", "embedding"],
-) -> Union[BaseLLM, BaseEmbedder]:
+    model_type: Literal["language", "embedding", "decision"],
+) -> Union[BaseLLM, BaseEmbedder, BaseDecisionModel]:
     """Build the SDK instance for a Model row, or raise a user-facing error.
 
     The SDK reports every configuration problem as a plain ``ValueError``, so
@@ -817,7 +888,7 @@ def _fetch_and_configure_model(
             return _call_polyphemus_with_delegation(user, model_name)
 
     return stamp_usage_provenance(
-        _build_configured_model(model, provider, model_name, api_key, "language"),
+        _build_configured_model(model, provider, model_name, api_key, _row_model_type(model)),
         metered=_is_hosted_model(provider, api_key),
     )
 
