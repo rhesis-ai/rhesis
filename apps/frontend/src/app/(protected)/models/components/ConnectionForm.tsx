@@ -195,12 +195,7 @@ export const ConnectionForm = forwardRef<
       if (isEditMode && model) {
         setName(model.name || '');
         setModelName(model.model_name || '');
-        setModelType(
-          model.model_type ||
-            (isDecisionProvider(model.provider_type?.type_value)
-              ? MODEL_TYPES.DECISION
-              : MODEL_TYPES.LANGUAGE)
-        );
+        setModelType(model.model_type || MODEL_TYPES.LANGUAGE);
         setEndpoint(model.endpoint || '');
         setApiKey('************');
         setProviderName('');
@@ -886,25 +881,25 @@ export const ConnectionForm = forwardRef<
                   label: 'Default for Test Generation',
                   checked: defaultForGeneration,
                   onChange: setDefaultForGeneration,
-                  generatesText: true,
+                  needsTextModel: true,
                 },
                 {
                   label: 'Default for Evaluation (LLM as Judge)',
                   checked: defaultForEvaluation,
                   onChange: setDefaultForEvaluation,
-                  generatesText: false,
+                  needsTextModel: false,
                 },
                 {
                   label: 'Default for Execution (Multi-Turn)',
                   checked: defaultForExecution,
                   onChange: setDefaultForExecution,
-                  generatesText: true,
+                  needsTextModel: true,
                 },
               ]
                 // Decision models can't generate text, so they can only be the evaluation default
                 .filter(
                   toggle =>
-                    modelType !== MODEL_TYPES.DECISION || !toggle.generatesText
+                    modelType !== MODEL_TYPES.DECISION || !toggle.needsTextModel
                 )
                 .map(({ label, checked, onChange }) => (
                   <Box

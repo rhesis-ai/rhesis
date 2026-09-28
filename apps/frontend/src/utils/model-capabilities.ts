@@ -1,17 +1,13 @@
 import type { Model } from '@/utils/api-client/interfaces/model';
 import { MODEL_TYPES } from '@/constants/model-types';
 import { SCORE_TYPES } from '@/constants/score-types';
-import { isDecisionProvider } from '@/config/model-providers';
 
 export function isEmbeddingModel(model: Model): boolean {
   return model.model_type === MODEL_TYPES.EMBEDDING;
 }
 
 export function isDecisionModel(model: Model): boolean {
-  return (
-    model.model_type === MODEL_TYPES.DECISION ||
-    isDecisionProvider(model.provider_type?.type_value)
-  );
+  return model.model_type === MODEL_TYPES.DECISION;
 }
 
 /** True for models that can generate text (test generation, execution, free-form judging). */
