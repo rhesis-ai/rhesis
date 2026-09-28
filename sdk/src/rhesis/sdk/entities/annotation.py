@@ -262,6 +262,8 @@ class Annotation(BaseEntity):
         else:
             response = self._create(data)
             self.id = response["id"]
+            if self.entity_id is None and response.get("entity_id"):
+                self.entity_id = response["entity_id"]
 
         return response
 
