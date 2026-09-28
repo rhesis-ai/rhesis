@@ -42,7 +42,10 @@ import { SCORE_TYPES, ScoreTypeValue } from '@/constants/score-types';
 import { useTypeLookups } from '@/hooks/useLookups';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { validateScore } from '@/utils/validation';
-import { canJudgeScoreType } from '@/utils/model-capabilities';
+import {
+  canJudgeScoreType,
+  isEmbeddingModel,
+} from '@/utils/model-capabilities';
 
 interface MetricFormData {
   name: string;
@@ -113,9 +116,11 @@ export default function NewMetricForm({
     initialModels === undefined
   );
   const [isCreating, setIsCreating] = React.useState(false);
+  // Any model that can judge some score type is listed; picking a decision model
+  // (Jev) moves the score type to categorical, the only one it can judge.
   const judgeModels = React.useMemo(
-    () => models.filter(model => canJudgeScoreType(model, formData.score_type)),
-    [models, formData.score_type]
+    () => models.filter(model => !isEmbeddingModel(model)),
+    [models]
   );
   const [showErrors, setShowErrors] = React.useState(false);
 
@@ -162,6 +167,24 @@ export default function NewMetricForm({
         [field]: value,
       }));
     };
+
+  const handleModelChange = (event: SelectChangeEvent<string>) => {
+    const modelId = event.target.value;
+    const selected = models.find(model => model.id === modelId);
+    const toCategorical =
+      !!selected && !canJudgeScoreType(selected, formData.score_type);
+    setFormData(prev => ({
+      ...prev,
+      model_id: modelId,
+      ...(toCategorical && { score_type: SCORE_TYPES.CATEGORICAL }),
+    }));
+    if (toCategorical && selected) {
+      notifications.show(
+        `${selected.name} can only judge categorical metrics, so the score type was set to Categorical.`,
+        { severity: 'info' }
+      );
+    }
+  };
 
   const handleStepChange =
     (index: number) =>
@@ -430,7 +453,7 @@ export default function NewMetricForm({
           <Select
             value={formData.model_id}
             label="Evaluation Model"
-            onChange={handleChange('model_id')}
+            onChange={handleModelChange}
           >
             {isLoadingModels ? (
               <MenuItem disabled>

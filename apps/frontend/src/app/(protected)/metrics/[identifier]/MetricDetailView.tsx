@@ -54,7 +54,11 @@ import { TEST_TYPES } from '@/constants/test-types';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-import { canJudgeScoreType, isDecisionModel } from '@/utils/model-capabilities';
+import {
+  canJudgeScoreType,
+  isDecisionModel,
+  isEmbeddingModel,
+} from '@/utils/model-capabilities';
 import { SCORE_TYPES } from '@/constants/score-types';
 
 type EditableSectionType = 'general' | 'evaluation' | 'configuration';
@@ -1034,25 +1038,37 @@ export function MetricDetailView({
                     label="Model"
                   >
                     {models
-                      .filter(model =>
-                        canJudgeScoreType(model, metric.score_type)
-                      )
-                      .map(model => (
-                        <MenuItem key={model.id} value={model.id}>
-                          <Box>
-                            <Typography variant="subtitle2">
-                              {model.name}
-                            </Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              display="block"
-                            >
-                              {model.description}
-                            </Typography>
-                          </Box>
-                        </MenuItem>
-                      ))}
+                      .filter(model => !isEmbeddingModel(model))
+                      .map(model => {
+                        // Score type is edited in another section, so a model that can't
+                        // judge it is shown disabled rather than hidden.
+                        const canJudge = canJudgeScoreType(
+                          model,
+                          metric.score_type
+                        );
+                        return (
+                          <MenuItem
+                            key={model.id}
+                            value={model.id}
+                            disabled={!canJudge}
+                          >
+                            <Box>
+                              <Typography variant="subtitle2">
+                                {model.name}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                display="block"
+                              >
+                                {canJudge
+                                  ? model.description
+                                  : 'Categorical metrics only'}
+                              </Typography>
+                            </Box>
+                          </MenuItem>
+                        );
+                      })}
                   </Select>
                 </FormControl>
               ) : (
