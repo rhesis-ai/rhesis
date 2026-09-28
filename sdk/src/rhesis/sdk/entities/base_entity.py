@@ -1,5 +1,6 @@
 import csv
 import functools
+import json
 import logging
 from typing import Any, Callable, ClassVar, Dict, Optional, TypeVar
 
@@ -34,8 +35,15 @@ def handle_http_errors(func: Callable[..., T]) -> Callable[..., T]:
             logger.error(f"Response content: {content}")
             logger.error(f"Request URL: {e.response.request.url}")
             logger.error(f"Request method: {e.response.request.method}")
+            message = str(e)
+            try:
+                detail = json.loads(content).get("detail")
+                if isinstance(detail, str):
+                    message = f"{message}: {detail}"
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                pass
             raise RhesisAPIError(
-                message=str(e),
+                message=message,
                 status_code=e.response.status_code,
                 response_content=content,
             ) from e
