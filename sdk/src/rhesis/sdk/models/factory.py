@@ -10,8 +10,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Callable, Dict, Literal, NamedTuple, Optional, Union, overload
 
-from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
+from rhesis.sdk.models.base import BaseDecisionModel, BaseEmbedder, BaseLLM
 from rhesis.sdk.models.defaults import (
+    DEFAULT_DECISION_MODELS,
     DEFAULT_EMBEDDING_MODEL,
     DEFAULT_EMBEDDING_MODELS,
     DEFAULT_LANGUAGE_MODEL,
@@ -30,6 +31,7 @@ class ModelType(str, Enum):
 
     LANGUAGE = "language"
     EMBEDDING = "embedding"
+    DECISION = "decision"  # Answers typed questions instead of generating text (Jev)
     IMAGE = "image"  # Reserved for future use
 
 
@@ -202,6 +204,9 @@ UNIFIED_MODEL_REGISTRY: Dict[str, Dict[ModelType, Union[_ProviderSpec, Callable]
             f"{_PROVIDERS_MODULE}.huggingface", "HuggingFaceLLM", pass_api_key=False
         ),
     },
+    "jev": {
+        ModelType.DECISION: _ProviderSpec(f"{_PROVIDERS_MODULE}.jev", "JevDecisionModel"),
+    },
     "meta_llama": {
         ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.meta_llama", "MetaLlamaLLM"),
     },
@@ -294,12 +299,56 @@ class EmbeddingModelConfig:
 EmbedderConfig = EmbeddingModelConfig
 
 
+# Per model type: (default full id when nothing is given, per-provider default ids).
+# Decision models have no default provider, so one must always be named.
+_DEFAULTS_BY_TYPE: Dict[ModelType, tuple[Optional[str], Dict[str, str]]] = {
+    ModelType.LANGUAGE: (DEFAULT_LANGUAGE_MODEL, DEFAULT_LANGUAGE_MODELS),
+    ModelType.EMBEDDING: (DEFAULT_EMBEDDING_MODEL, DEFAULT_EMBEDDING_MODELS),
+    ModelType.DECISION: (None, DEFAULT_DECISION_MODELS),
+}
+
+
+def _offers_only_decision_models(provider: str) -> bool:
+    """A provider whose only model kind is decision (Jev): its model names need no guessing."""
+    return set(UNIFIED_MODEL_REGISTRY.get(provider, {})) == {ModelType.DECISION}
+
+
+def _resolve_model_target(
+    provider: Optional[str],
+    model_name: Optional[str],
+    model_type: Optional[Union[ModelType, str]],
+) -> tuple[str, Optional[str], ModelType]:
+    """Fill in the provider, model name and model type that get_model() builds.
+
+    Without an explicit type, a provider offering only decision models gets that
+    type, and anything else is classified from its model name.
+    """
+    explicit = ModelType(model_type) if model_type is not None else None
+    if explicit is None and provider and _offers_only_decision_models(provider):
+        explicit = ModelType.DECISION
+
+    defaults = _DEFAULTS_BY_TYPE.get(explicit or ModelType.LANGUAGE)
+    if defaults is not None:
+        default_id, per_provider = defaults
+        if not provider and default_id is None:
+            raise ValueError(f"A {explicit.value} model needs a provider, e.g. 'jev'")
+        if provider is None and model_name is None:
+            provider, model_name = parse_model_id(default_id)
+        else:
+            provider = provider or parse_model_id(default_id)[0]
+            if model_name is None:
+                full_id = per_provider.get(provider)
+                model_name = model_name_from_id(full_id) if full_id else None
+
+    return provider, model_name, explicit or _classify_model(provider, model_name)
+
+
 # =============================================================================
 # Unified get_model() Function
 # =============================================================================
 
 # Type alias for any model instance
-AnyModel = Union[BaseLLM, BaseEmbedder]
+AnyModel = Union[BaseLLM, BaseEmbedder, BaseDecisionModel]
 
 
 # Overloads for type safety
@@ -329,8 +378,18 @@ def get_model(
     provider: Optional[str] = None,
     model_name: Optional[str] = None,
     api_key: Optional[str] = None,
+    model_type: Literal["decision"] = ...,
     **kwargs,
-) -> Union[BaseLLM, BaseEmbedder]: ...
+) -> BaseDecisionModel: ...
+
+
+@overload
+def get_model(
+    provider: Optional[str] = None,
+    model_name: Optional[str] = None,
+    api_key: Optional[str] = None,
+    **kwargs,
+) -> AnyModel: ...
 
 
 def get_model(
@@ -341,8 +400,8 @@ def get_model(
     dimensions: Optional[int] = None,
     config: Optional[Union[LanguageModelConfig, EmbeddingModelConfig]] = None,
     **kwargs,
-) -> Union[BaseLLM, BaseEmbedder]:
-    """Create any model instance - language or embedding.
+) -> AnyModel:
+    """Create any model instance - language, embedding or decision.
 
     The model type is auto-detected from the model name. You can
     override detection with the `model_type` parameter.
@@ -354,7 +413,9 @@ def get_model(
         provider: Provider name, or "provider/model_name" as first positional
         model_name: Specific model name (omit when using unified format)
         api_key: API key for authentication
-        model_type: Explicit model type ("language" or "embedding"). Auto-detected if not provided.
+        model_type: Explicit model type ("language", "embedding" or "decision").
+            Auto-detected if not provided; a provider offering only decision models
+            (e.g. "jev") always gets "decision".
         dimensions: Optional embedding dimensions (for embedding models only)
         config: Complete configuration object
         **kwargs: Additional parameters passed to the model
@@ -398,36 +459,7 @@ def get_model(
         prov, model = provider.split("/", 1)
         provider, model_name = prov, model
 
-    # Resolve defaults (defaults are stored as full ids: provider/name)
-    if model_type is not None:
-        # Explicit type provided
-        resolved_type = ModelType(model_type)
-        if resolved_type == ModelType.LANGUAGE:
-            if provider is None and model_name is None:
-                provider, model_name = parse_model_id(DEFAULT_LANGUAGE_MODEL)
-            else:
-                provider = provider or DEFAULT_LANGUAGE_MODEL_PROVIDER
-                if model_name is None:
-                    full_id = DEFAULT_LANGUAGE_MODELS.get(provider)
-                    model_name = model_name_from_id(full_id) if full_id else None
-        elif resolved_type == ModelType.EMBEDDING:
-            if provider is None and model_name is None:
-                provider, model_name = parse_model_id(DEFAULT_EMBEDDING_MODEL)
-            else:
-                provider = provider or DEFAULT_EMBEDDING_MODEL_PROVIDER
-                if model_name is None:
-                    full_id = DEFAULT_EMBEDDING_MODELS.get(provider)
-                    model_name = model_name_from_id(full_id) if full_id else None
-    else:
-        # Auto-detect type
-        if provider is None and model_name is None:
-            provider, model_name = parse_model_id(DEFAULT_LANGUAGE_MODEL)
-        else:
-            provider = provider or DEFAULT_LANGUAGE_MODEL_PROVIDER
-            if model_name is None:
-                full_id = DEFAULT_LANGUAGE_MODELS.get(provider)
-                model_name = model_name_from_id(full_id) if full_id else None
-        resolved_type = _classify_model(provider, model_name)
+    provider, model_name, resolved_type = _resolve_model_target(provider, model_name, model_type)
 
     # Validate provider exists
     if provider not in UNIFIED_MODEL_REGISTRY:
@@ -465,7 +497,7 @@ def get_model(
 
     if on_usage is not None:
         # Embedders have no usage to emit, so this only ever matters for
-        # language models; setting it unconditionally keeps the branch out.
+        # language and decision models; setting it unconditionally keeps the branch out.
         model.on_usage = on_usage
 
     return model

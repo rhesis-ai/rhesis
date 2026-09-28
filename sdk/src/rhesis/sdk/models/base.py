@@ -48,7 +48,7 @@ UsageCallback = Callable[[TokenUsage], None]
 #: usage, because a host application deciding whether to bill for those
 #: tokens needs to know which model (and therefore whose credentials) ran
 #: the call. See :attr:`BaseLLM.usage_metered`.
-DefaultUsageCallback = Callable[[TokenUsage, "BaseLLM"], None]
+DefaultUsageCallback = Callable[[TokenUsage, "UsageReporting"], None]
 
 _default_usage_callback: Optional[DefaultUsageCallback] = None
 
@@ -201,67 +201,21 @@ class BaseModel(ABC):
         return model
 
 
-class BaseLLM(BaseModel):
-    MODEL_TYPE = "language"
+class UsageReporting:
+    """Token-usage reporting shared by every model kind that bills per token.
+
+    Language models and decision models both report through this; embedders
+    accrue no usage and don't take it.
+    """
 
     # Class-level defaults so the usage machinery works even on a subclass
     # that never chains to ``BaseLLM.__init__`` -- ``HuggingFaceLLM`` does
     # exactly that, because its lazy ``auto_loading=False`` mode is
     # incompatible with the base constructor eagerly calling ``load_model``.
     # Without these, ``_emit_usage`` raises AttributeError on such a model
-    # instead of reporting its tokens. Instance assignment below shadows them.
+    # instead of reporting its tokens. Instance assignment shadows them.
     on_usage: Optional[UsageCallback] = None
     usage_metered: Optional[bool] = None
-
-    def __init__(
-        self,
-        model_name,
-        *args,
-        on_usage: Optional[UsageCallback] = None,
-        **kwargs,
-    ):
-        # `on_usage` is consumed here (keyword-only, not absorbed into
-        # `**kwargs`) so it never reaches `load_model(*args, **kwargs)` --
-        # provider `load_model()` implementations take no such parameter and
-        # would raise TypeError if it leaked through.
-        super().__init__(model_name, *args, **kwargs)
-        self.model = self.load_model(*args, **kwargs)
-        self.a_generate = llm_retry(self.a_generate)
-
-        # Optional callback invoked with a normalized :class:`TokenUsage` at
-        # the point a provider parses usage out of its API response --
-        # inline, in the same call, rather than stashed on a shared attribute
-        # for an external caller to poll afterward. That side-channel-attribute
-        # design was tried and dropped: concurrent calls against one instance
-        # (agents, batch executors) would race on it, and wrapping the
-        # instance to intercept generate()/a_generate() broke every
-        # ``isinstance(model, BaseLLM)`` check elsewhere in the stack. A
-        # constructor-supplied callback keeps the returned object a real
-        # provider instance and each call's usage local to its own stack frame.
-        self.on_usage = on_usage
-
-        # Whose credentials paid for this model's calls, for the benefit of a
-        # host application metering tokens. The SDK never sets or reads this
-        # itself -- it cannot know, since the same provider class is billable
-        # or not depending on where its API key came from. ``None`` means
-        # nobody stamped it, which a host should treat as "built outside my
-        # resolution path" rather than as a quiet "no".
-        self.usage_metered: Optional[bool] = None
-
-        # # Only wrap generate with sync retry if the subclass overrides it.
-        # # The base generate() delegates to a_generate() which already has
-        # # retry, so wrapping both would cause double retry.
-        # if type(self).generate is not BaseLLM.generate:
-        #     self.generate = llm_retry(self.generate)
-
-    @abstractmethod
-    def load_model(self, *args, **kwargs):
-        """Loads a model
-
-        Returns:
-            A model object
-        """
-        pass
 
     def _emit_usage(self, usage: Optional[Dict[str, Any]]) -> None:
         """Report normalized token counts for one call to every usage listener.
@@ -332,6 +286,60 @@ class BaseLLM(BaseModel):
             callback(usage, self)
         except Exception:
             logger.warning("default usage callback raised; usage not recorded", exc_info=True)
+
+
+class BaseLLM(UsageReporting, BaseModel):
+    MODEL_TYPE = "language"
+
+    def __init__(
+        self,
+        model_name,
+        *args,
+        on_usage: Optional[UsageCallback] = None,
+        **kwargs,
+    ):
+        # `on_usage` is consumed here (keyword-only, not absorbed into
+        # `**kwargs`) so it never reaches `load_model(*args, **kwargs)` --
+        # provider `load_model()` implementations take no such parameter and
+        # would raise TypeError if it leaked through.
+        super().__init__(model_name, *args, **kwargs)
+        self.model = self.load_model(*args, **kwargs)
+        self.a_generate = llm_retry(self.a_generate)
+
+        # Optional callback invoked with a normalized :class:`TokenUsage` at
+        # the point a provider parses usage out of its API response --
+        # inline, in the same call, rather than stashed on a shared attribute
+        # for an external caller to poll afterward. That side-channel-attribute
+        # design was tried and dropped: concurrent calls against one instance
+        # (agents, batch executors) would race on it, and wrapping the
+        # instance to intercept generate()/a_generate() broke every
+        # ``isinstance(model, BaseLLM)`` check elsewhere in the stack. A
+        # constructor-supplied callback keeps the returned object a real
+        # provider instance and each call's usage local to its own stack frame.
+        self.on_usage = on_usage
+
+        # Whose credentials paid for this model's calls, for the benefit of a
+        # host application metering tokens. The SDK never sets or reads this
+        # itself -- it cannot know, since the same provider class is billable
+        # or not depending on where its API key came from. ``None`` means
+        # nobody stamped it, which a host should treat as "built outside my
+        # resolution path" rather than as a quiet "no".
+        self.usage_metered: Optional[bool] = None
+
+        # # Only wrap generate with sync retry if the subclass overrides it.
+        # # The base generate() delegates to a_generate() which already has
+        # # retry, so wrapping both would cause double retry.
+        # if type(self).generate is not BaseLLM.generate:
+        #     self.generate = llm_retry(self.generate)
+
+    @abstractmethod
+    def load_model(self, *args, **kwargs):
+        """Loads a model
+
+        Returns:
+            A model object
+        """
+        pass
 
     def generate(self, *args, **kwargs) -> Union[str, Dict[str, Any]]:
         """Runs the model to output LLM response.
@@ -407,6 +415,44 @@ class BaseLLM(BaseModel):
 
     def get_available_models(self) -> List[str]:
         raise NotImplementedError("Subclasses must implement this method")
+
+
+class BaseDecisionModel(UsageReporting, BaseModel):
+    """Base class for decision models, which answer typed questions instead of generating text.
+
+    A decision model takes a ``state`` and named questions (e.g. ``choice``,
+    ``score``, ``noul``) and returns a typed answer per question. It has no
+    ``generate``: code that needs text takes a :class:`BaseLLM`, so a decision
+    model can't reach it. Jev is the first; others plug in by subclassing this.
+    """
+
+    MODEL_TYPE = "decision"
+
+    def __init__(
+        self,
+        model_name: str,
+        *args,
+        on_usage: Optional[UsageCallback] = None,
+        **kwargs,
+    ):
+        super().__init__(model_name, *args, **kwargs)
+        self.on_usage = on_usage
+        self.usage_metered: Optional[bool] = None
+        self.a_decide = llm_retry(self.a_decide)
+
+    @abstractmethod
+    async def a_decide(self, state: Any, questions: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+        """Answer *questions* about *state*; returns the typed answers keyed by question id."""
+
+    def decide(self, state: Any, questions: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+        """Sync version of :meth:`a_decide`. Never call this from async code."""
+        return run_sync(self.a_decide(state, questions))
+
+    def generate_batch(
+        self, states: List[Any], questions: Dict[str, Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Ask the same *questions* about each of *states*."""
+        return [self.decide(state, questions) for state in states]
 
 
 class BaseEmbedder(BaseModel):
