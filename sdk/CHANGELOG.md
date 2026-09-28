@@ -21,6 +21,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DeepEval or Rhesis providers instead. This also drops `diskcache`, `gitpython`, `scipy` and
   `sqlalchemy` from the SDK's dependency tree.
 
+## [0.17.1] - 2026-09-28
+
+### Changed
+- Consolidated workflow intent definitions into a single structured configuration file (`references/intents.yaml`) to ensure consistency across menus, signals, and documentation.
+- Moved `WorkflowPath` to enable load-time validation of workflow paths, catching malformed or missing paths during initialization rather than mid-conversation.
+
+### Fixed
+- Resolved a critical packaging issue where Python source files were omitted from the `sdist` and built wheels in the 0.17.0 release.
+- Fixed `Annotation.push()` to correctly retain and return the server-resolved `entity_id` in `annotate_trace()`.
+- Enhanced `RhesisAPIError` to expose detailed server error messages in exception strings rather than generic HTTP status messages.
+
+
 ## [0.17.0] - 2026-09-22
 
 ### Breaking Changes
