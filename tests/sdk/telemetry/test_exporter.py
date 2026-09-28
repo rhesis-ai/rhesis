@@ -26,7 +26,28 @@ class TestRhesisOTLPExporter:
         assert exporter.api_key == "test-key"
         assert exporter.project_id == "test-project"
         assert exporter.environment == "test"
-        assert "Bearer test-key" in exporter._session.headers["Authorization"]
+        assert "Bearer test-key" in exporter._http_session.headers["Authorization"]
+
+    def test_exporter_owns_its_http_session(self):
+        """The exporter carries its own session instead of borrowing the parent's.
+
+        opentelemetry-exporter-otlp-proto-http 1.45.0 replaced the base exporter's
+        private ``_session`` with a private ``_client``, so reaching into it raised
+        ``AttributeError`` out of ``RhesisClient.from_environment()``. The exporter has
+        to own a session and pass it to the base, and has to keep its own content type:
+        up to 1.44.x the base re-applied ``_OTLP_HTTP_HEADERS``
+        (``application/x-protobuf``) to any session handed to its ``__init__``.
+        """
+        exporter = RhesisOTLPExporter(
+            api_key="test-key",
+            base_url="http://localhost:8080",
+            project_id="test-project",
+            environment="test",
+        )
+
+        assert isinstance(exporter._http_session, requests.Session)
+        assert exporter._http_session.headers["Authorization"] == "Bearer test-key"
+        assert exporter._http_session.headers["Content-Type"] == "application/json"
 
     def test_exporter_converts_ws_to_http(self):
         """Test exporter converts WebSocket URL to HTTP."""
