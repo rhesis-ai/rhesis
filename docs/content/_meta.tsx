@@ -16,6 +16,12 @@ const DocsIcon = () => (
   </svg>
 )
 
+const DeploymentIcon = () => (
+  <svg {...iconProps}>
+    <path d="M20 13H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1v-6c0-.55-.45-1-1-1M7 19c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2M20 3H4c-.55 0-1 .45-1 1v6c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1M7 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2" />
+  </svg>
+)
+
 const GuidesIcon = () => (
   <svg {...iconProps}>
     <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7m0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5" />
@@ -64,6 +70,15 @@ const meta: MetaRecord = {
       <span className="sidebar-icon-label">
         <DocsIcon />
         Docs
+      </span>
+    ),
+  },
+  deployment: {
+    type: 'page',
+    title: (
+      <span className="sidebar-icon-label">
+        <DeploymentIcon />
+        Deployment
       </span>
     ),
   },

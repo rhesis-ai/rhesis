@@ -11,7 +11,7 @@ own dev/stg/prd environments).
 <Callout type="info">
 **Part 2 of 2**
 
-This guide assumes a working cluster from [GCP (Terraform)](/docs/deployment/gcp-terraform), or
+This guide assumes a working cluster from [GCP (Terraform)](/deployment/gcp-terraform), or
 any GKE cluster with Workload Identity enabled. It deploys the app; it does not provision
 infrastructure.
 </Callout>
@@ -346,7 +346,7 @@ every deployment already loads — nothing to add to Secret Manager, since none 
 </CodeBlock>
 
 Quote the colours — an unquoted `#` starts a YAML comment. See
-[Environment Variables](/docs/deployment/environment-variables) for what each one covers and how
+[Environment Variables](/deployment/environment-variables) for what each one covers and how
 malformed values are handled.
 
 ConfigMap changes don't restart pods on their own:
@@ -489,7 +489,7 @@ flowchart LR
 
 <Callout type="info">
 This is a minimal set. Optional features documented on the
-[Environment Variables](/docs/deployment/environment-variables) page (OAuth sign-in, SMTP,
+[Environment Variables](/deployment/environment-variables) page (OAuth sign-in, SMTP,
 your own AI provider instead of `RHESIS_API_KEY`, SSO) each add their own keys to this same
 `ExternalSecret`. See `kubernetes/clusters/dev/external-secrets/rhesis-app-secrets.yaml` in the
 repo for the full ~50-key reference Rhesis's own environments use.
@@ -617,13 +617,13 @@ replacements:
 The base Application already sets `ingressClassFilters: [external]`, so it only publishes records
 for the ingress class from [Configure public hostnames](#configure-public-hostnames); anything
 on `internal` stays unpublished. `cloudflare-api-token-customer` is the Secret Manager key from
-the [Terraform guide](/docs/deployment/gcp-terraform#optional-automate-public-dns-with-cloudflare).
+the [Terraform guide](/deployment/gcp-terraform#optional-automate-public-dns-with-cloudflare).
 
 ### Add internal DNS
 
 For hostnames on the `internal` ingress class to resolve to anything, you need a DNS server that
 answers for them: Rhesis's BIND9-on-the-WireGuard-VM, covered in the
-[Terraform guide](/docs/deployment/gcp-terraform#optional-gate-control-plane-access-with-a-wireguard-vpn).
+[Terraform guide](/deployment/gcp-terraform#optional-gate-control-plane-access-with-a-wireguard-vpn).
 `kubernetes/base/internal-dns` bundles a second, independent ExternalDNS instance that keeps that
 zone in sync; overlay it the same way as
 `kubernetes/clusters/dev/internal-dns/kustomization.yaml`:
@@ -670,7 +670,7 @@ replacements:
 </CodeBlock>
 
 The TSIG key comes from the Terraform guide's
-[internal DNS module](/docs/deployment/gcp-terraform#optional-add-self-hosted-internal-dns).
+[internal DNS module](/deployment/gcp-terraform#optional-add-self-hosted-internal-dns).
 
 ### Put ArgoCD behind the internal ingress
 

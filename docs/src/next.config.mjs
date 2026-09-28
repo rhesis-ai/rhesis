@@ -66,10 +66,10 @@ export default withNextra({
         permanent,
       },
       { source: '/acknowledgments', destination: '/docs/acknowledgments', permanent },
-      { source: '/deployment', destination: '/docs/deployment', permanent },
+      { source: '/docs/deployment', destination: '/deployment', permanent },
       {
-        source: '/deployment/:path*',
-        destination: '/docs/deployment/:path*',
+        source: '/docs/deployment/:path*',
+        destination: '/deployment/:path*',
         permanent,
       },
       { source: '/tracing', destination: '/docs/tracing', permanent },
