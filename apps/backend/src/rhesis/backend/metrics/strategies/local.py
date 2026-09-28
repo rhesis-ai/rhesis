@@ -123,7 +123,7 @@ class LocalStrategy:
         contract: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """Evaluate all local strategy configs in parallel."""
-        refused: Dict[str, Dict[str, Any]] = {}
+        refused: List[Dict[str, Any]] = []
         metric_tasks = prepare_metrics(
             configs,
             expected_output,
@@ -147,7 +147,7 @@ class LocalStrategy:
             instructions=instructions,
             contract=contract,
         )
-        results.update(refused)
+        _merge_refused(results, refused)
         return results
 
     async def a_evaluate(
@@ -171,7 +171,7 @@ class LocalStrategy:
         Mirrors the sync path's resilience: bounded concurrency via semaphore,
         per-metric retry for transient failures, and an overall timeout.
         """
-        refused: Dict[str, Dict[str, Any]] = {}
+        refused: List[Dict[str, Any]] = []
         metric_tasks = prepare_metrics(
             configs,
             expected_output,
@@ -184,7 +184,7 @@ class LocalStrategy:
         )
         if not metric_tasks:
             logger.warning("No metrics to evaluate (async)")
-            return refused
+            return _merge_refused({}, refused)
 
         metric_keys, results = self._generate_unique_metric_keys(metric_tasks)
         sem = asyncio.Semaphore(max_workers)
@@ -242,7 +242,7 @@ class LocalStrategy:
             results[key] = val
 
         self._handle_incomplete_metrics(results, metric_keys, metric_tasks)
-        results.update(refused)
+        _merge_refused(results, refused)
         self._log_evaluation_summary(results)
         return results
 
@@ -859,6 +859,22 @@ def _select_metric_model(
     return None
 
 
+def _merge_refused(results: Dict[str, Any], refused: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Add refused-metric results under keys no evaluated metric uses.
+
+    Suffixes follow ``_generate_unique_metric_keys``, so duplicate metric names
+    never let a refusal overwrite a real result or another refusal.
+    """
+    for result in refused:
+        base_key = result["name"]
+        key, counter = base_key, 1
+        while key in results:
+            key = f"{base_key}_{counter}"
+            counter += 1
+        results[key] = result
+    return results
+
+
 def prepare_metrics(
     metrics: List[MetricConfig],
     expected_output: Optional[str],
@@ -867,7 +883,7 @@ def prepare_metrics(
     db: Optional[Session] = None,
     organization_id: Optional[str] = None,
     metric_models: Optional[Dict[str, Any]] = None,
-    refused: Optional[Dict[str, Dict[str, Any]]] = None,
+    refused: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Tuple[str, BaseMetric, MetricConfig, str]]:
     """Instantiate metric objects via SDK factory, resolving models from DB.
 
@@ -945,15 +961,17 @@ def prepare_metrics(
             except UnsupportedModelType as refusal:
                 logger.warning(f"[SDK_DIRECT] {refusal}")
                 if refused is not None:
-                    refused[metric_name] = MetricResultBuilder.error(
-                        reason=str(refusal),
-                        backend=backend,
-                        name=metric_name,
-                        class_name=class_name,
-                        description=metric_config.description or "",
-                        error=str(refusal),
-                        error_type=type(refusal).__name__,
-                        threshold=threshold,
+                    refused.append(
+                        MetricResultBuilder.error(
+                            reason=str(refusal),
+                            backend=backend,
+                            name=metric_name,
+                            class_name=class_name,
+                            description=metric_config.description or "",
+                            error=str(refusal),
+                            error_type=type(refusal).__name__,
+                            threshold=threshold,
+                        )
                     )
                 continue
             except Exception as create_error:

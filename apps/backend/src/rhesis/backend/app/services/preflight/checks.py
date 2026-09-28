@@ -155,7 +155,7 @@ def _prepare_metrics(db: Session, metric_configs, model, organization_id: Option
     """Build the metrics; returns the loaded tasks and the metrics refused their model."""
     from rhesis.backend.metrics.strategies.local import prepare_metrics
 
-    refused: dict = {}
+    refused: list = []
     tasks = prepare_metrics(
         metric_configs,
         "",
@@ -468,7 +468,7 @@ async def _validate_metrics_loadable(
 
     load_errors: list[str] = []
     loaded_count = 0
-    refused: dict = {}
+    refused: list = []
 
     if metric_configs:
         model = await db.run(_resolve_purpose_model, user, "evaluation", evaluation_model_id)
@@ -486,7 +486,7 @@ async def _validate_metrics_loadable(
             check_id,
             PreflightCheckStatus.FAILED,
             f"{len(refused)} metric(s) can't be judged by the evaluation model",
-            "; ".join(r["reason"] for r in refused.values()),
+            "; ".join(r["reason"] for r in refused),
         )
 
     for key, detail in invalid_results.items():
