@@ -15,22 +15,24 @@ fake = Faker()
 SETTINGS = "/users/settings"
 
 
-@pytest.fixture
-def jev_model_id(authenticated_client):
-    response = authenticated_client.post(
+def _create_model(client, provider, model_name, model_type):
+    response = client.post(
         APIEndpoints.MODELS.create,
         json={
-            "name": f"Jev {uuid.uuid4().hex[:8]}",
-            "model_name": "jev-latest",
-            "model_type": "decision",
+            "name": f"{provider} {uuid.uuid4().hex[:8]}",
+            "model_name": model_name,
+            "model_type": model_type,
             "key": fake.uuid4(),
-            "provider_type_id": find_or_create_type_lookup_id(
-                authenticated_client, "ProviderType", "jev"
-            ),
+            "provider_type_id": find_or_create_type_lookup_id(client, "ProviderType", provider),
         },
     )
     assert response.status_code == status.HTTP_200_OK, response.text
     return response.json()["id"]
+
+
+@pytest.fixture
+def jev_model_id(authenticated_client):
+    return _create_model(authenticated_client, "jev", "jev-latest", "decision")
 
 
 def _metric(score_type, model_id):
@@ -62,6 +64,17 @@ class TestJevEvaluationOnly:
         )
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["models"]["evaluation"]["model_id"] == jev_model_id
+
+    @pytest.mark.parametrize("purpose", ["generation", "evaluation", "execution"])
+    def test_an_embedding_model_is_no_default_for_any_purpose(self, authenticated_client, purpose):
+        embedder_id = _create_model(
+            authenticated_client, "openai", "text-embedding-3-small", "embedding"
+        )
+        response = authenticated_client.patch(
+            SETTINGS, json={"models": {purpose: {"model_id": embedder_id}}}
+        )
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert f"embedding model, which can't be used for {purpose}" in response.json()["detail"]
 
     def test_cannot_judge_a_numeric_metric(self, authenticated_client, jev_model_id):
         response = authenticated_client.post(
