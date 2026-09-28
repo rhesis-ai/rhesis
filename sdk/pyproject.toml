@@ -233,9 +233,16 @@ include = [
     "src/rhesis/sdk/synthesizers/assets/*.jinja",
 ]
 
+# `include` is a whitelist, not an addition, so this list has to cover the
+# whole package tree. `python -m build` (what publish-pypi.yml runs) builds the
+# wheel from this sdist, so anything missing here is missing from the published
+# wheel too. `hatch_build.py` is the custom build hook and is needed for the
+# second stage; the OWASP JSON, `py.typed`, the garak detectors and the
+# synthesiser templates all live under `src/rhesis` and come along with it.
 [tool.hatch.build.targets.sdist]
 include = [
-    "src/rhesis/sdk/services/data/owasp/*.json",
+    "src/rhesis",
+    "hatch_build.py",
 ]
 
 [tool.hatch.build.hooks.custom]
