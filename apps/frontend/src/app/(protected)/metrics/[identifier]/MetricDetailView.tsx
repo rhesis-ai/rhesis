@@ -15,6 +15,7 @@ import {
   MenuItem,
   IconButton,
   Chip,
+  Alert,
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
@@ -53,6 +54,8 @@ import { TEST_TYPES } from '@/constants/test-types';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { canJudgeScoreType, isDecisionModel } from '@/utils/model-capabilities';
+import { SCORE_TYPES } from '@/constants/score-types';
 
 type EditableSectionType = 'general' | 'evaluation' | 'configuration';
 
@@ -221,6 +224,14 @@ export function MetricDetailView({
     initialMetric?.model ? [initialMetric.model] : []
   );
   const [stepsWithIds, setStepsWithIds] = useState<StepWithId[]>([]);
+  const judgeModel =
+    metric?.model ?? models.find(model => model.id === metric?.model_id);
+  // A decision model (Jev) only judges categorical, so the score type can't move away from it
+  const judgeModelMismatch =
+    isEditing === 'configuration' &&
+    !!judgeModel &&
+    isDecisionModel(judgeModel) &&
+    (editData.score_type || metric?.score_type) !== SCORE_TYPES.CATEGORICAL;
   const [isSaving, setIsSaving] = useState(false);
   const dataFetchedRef = useRef(initialMetric !== undefined);
   // The reset effects below must not fire for the values we mounted with, or
@@ -655,6 +666,14 @@ export function MetricDetailView({
       return;
     }
 
+    if (judgeModelMismatch && judgeModel) {
+      notifications.show(
+        `${judgeModel.name} can only judge categorical metrics. Pick a different evaluation model first.`,
+        { severity: 'error', autoHideDuration: 4000 }
+      );
+      return;
+    }
+
     // Validate categorical metric fields
     const currentScoreType = editData.score_type || metric.score_type;
     if (currentScoreType === 'categorical') {
@@ -746,7 +765,16 @@ export function MetricDetailView({
     } finally {
       setIsSaving(false);
     }
-  }, [metric, collectFieldValues, editData, notifications, onSaved, status]);
+  }, [
+    metric,
+    collectFieldValues,
+    editData,
+    notifications,
+    onSaved,
+    status,
+    judgeModelMismatch,
+    judgeModel,
+  ]);
 
   const addStep = React.useCallback(() => {
     setStepsWithIds(prev => {
@@ -1005,22 +1033,26 @@ export function MetricDetailView({
                     }
                     label="Model"
                   >
-                    {models.map(model => (
-                      <MenuItem key={model.id} value={model.id}>
-                        <Box>
-                          <Typography variant="subtitle2">
-                            {model.name}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            display="block"
-                          >
-                            {model.description}
-                          </Typography>
-                        </Box>
-                      </MenuItem>
-                    ))}
+                    {models
+                      .filter(model =>
+                        canJudgeScoreType(model, metric.score_type)
+                      )
+                      .map(model => (
+                        <MenuItem key={model.id} value={model.id}>
+                          <Box>
+                            <Typography variant="subtitle2">
+                              {model.name}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              display="block"
+                            >
+                              {model.description}
+                            </Typography>
+                          </Box>
+                        </MenuItem>
+                      ))}
                   </Select>
                 </FormControl>
               ) : (
@@ -1233,6 +1265,12 @@ export function MetricDetailView({
                       );
                     })}
                   </Box>
+                  {judgeModelMismatch && judgeModel && (
+                    <Alert severity="warning" sx={{ mt: 2 }}>
+                      {judgeModel.name} can only judge categorical metrics.
+                      Change the evaluation model before switching score type.
+                    </Alert>
+                  )}
                 </Box>
               ) : (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

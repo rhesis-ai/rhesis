@@ -18,6 +18,7 @@ import { Model } from '@/utils/api-client/interfaces/model';
 import { PROVIDER_ICONS } from '@/config/model-providers';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useModels } from '@/hooks/useModels';
+import { generatesText, isEmbeddingModel } from '@/utils/model-capabilities';
 
 type ModelPurpose = 'generation' | 'evaluation' | 'execution' | 'embedding';
 
@@ -112,10 +113,14 @@ export default function ModelSelector({
 
   // If preloaded data is supplied, use it; otherwise fetch internally.
   const allModels = preloadedModels ?? fetchedModels ?? EMPTY_MODELS;
-  const models =
-    purpose === 'embedding'
-      ? allModels
-      : allModels.filter(m => m.model_type !== 'embedding');
+  const models = React.useMemo(() => {
+    if (purpose === 'embedding') return allModels;
+    // Decision models (Jev) can only judge, so they're offered for evaluation alone.
+    if (purpose === 'evaluation') {
+      return allModels.filter(m => !isEmbeddingModel(m));
+    }
+    return allModels.filter(generatesText);
+  }, [allModels, purpose]);
   const isLoading =
     preloadedModels !== undefined ? (isLoadingModelsProp ?? false) : isFetching;
 

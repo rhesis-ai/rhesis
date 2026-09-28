@@ -42,11 +42,15 @@ import {
   DEFAULT_ENDPOINTS,
   LOCAL_PROVIDERS,
   PROVIDERS_WITH_OPTIONAL_API_KEY,
+  PROVIDERS_WITH_OPTIONAL_ENDPOINT,
+  DEFAULT_MODEL_NAMES,
+  isDecisionProvider,
   providerSupportsModelListing,
   getProviderDisplayName,
 } from '@/config/model-providers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { MODEL_TYPES, type ModelType } from '@/constants/model-types';
 
 export interface ConnectionFormHandle {
   submit: () => void;
@@ -57,7 +61,7 @@ interface ConnectionFormProps {
   provider: TypeLookup | null;
   model?: Model | null;
   mode?: 'create' | 'edit';
-  modelType?: 'language' | 'embedding';
+  modelType?: ModelType;
   userSettings?: UserSettings | null;
   onClose: () => void;
   onConnect?: (providerId: string, modelData: ModelCreate) => Promise<Model>;
@@ -76,7 +80,7 @@ export const ConnectionForm = forwardRef<
     provider,
     model,
     mode = 'create',
-    modelType: initialModelType = 'language',
+    modelType: initialModelType = MODEL_TYPES.LANGUAGE,
     userSettings,
     onClose,
     onConnect,
@@ -91,9 +95,7 @@ export const ConnectionForm = forwardRef<
   const [name, setName] = useState('');
   const [providerName, setProviderName] = useState('');
   const [modelName, setModelName] = useState('');
-  const [modelType, setModelType] = useState<'language' | 'embedding'>(
-    'language'
-  );
+  const [modelType, setModelType] = useState<ModelType>(MODEL_TYPES.LANGUAGE);
   const [endpoint, setEndpoint] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [loading, setLoading] = useState(false);
@@ -115,6 +117,10 @@ export const ConnectionForm = forwardRef<
 
   const isEditMode = mode === 'edit';
   const isCustomProvider = provider?.type_value === 'vllm';
+  const currentProviderType =
+    isEditMode && model?.provider_type
+      ? model.provider_type.type_value
+      : provider?.type_value;
 
   const requiresEndpoint =
     isEditMode && model?.provider_type
@@ -122,6 +128,11 @@ export const ConnectionForm = forwardRef<
       : provider
         ? PROVIDERS_REQUIRING_ENDPOINT.includes(provider.type_value)
         : false;
+
+  const hasOptionalEndpoint =
+    !!currentProviderType &&
+    PROVIDERS_WITH_OPTIONAL_ENDPOINT.includes(currentProviderType);
+  const showsEndpoint = requiresEndpoint || hasOptionalEndpoint;
 
   const isLocalProvider =
     isEditMode && model?.provider_type
@@ -184,7 +195,12 @@ export const ConnectionForm = forwardRef<
       if (isEditMode && model) {
         setName(model.name || '');
         setModelName(model.model_name || '');
-        setModelType(model.model_type || 'language');
+        setModelType(
+          model.model_type ||
+            (isDecisionProvider(model.provider_type?.type_value)
+              ? MODEL_TYPES.DECISION
+              : MODEL_TYPES.LANGUAGE)
+        );
         setEndpoint(model.endpoint || '');
         setApiKey('************');
         setProviderName('');
@@ -207,8 +223,12 @@ export const ConnectionForm = forwardRef<
       } else if (provider) {
         setName('');
         setProviderName('');
-        setModelName('');
-        setModelType(initialModelType);
+        setModelName(DEFAULT_MODEL_NAMES[provider.type_value] || '');
+        setModelType(
+          isDecisionProvider(provider.type_value)
+            ? MODEL_TYPES.DECISION
+            : initialModelType
+        );
         setEndpoint(
           PROVIDERS_REQUIRING_ENDPOINT.includes(provider.type_value)
             ? DEFAULT_ENDPOINTS[provider.type_value] || ''
@@ -295,8 +315,10 @@ export const ConnectionForm = forwardRef<
       const updates: { models: Record<string, { model_id: string | null }> } = {
         models: {},
       };
+      // A decision model can't generate, so it is never the generation or execution default.
+      const canGenerate = modelType !== MODEL_TYPES.DECISION;
 
-      if (defaultForGeneration) {
+      if (canGenerate && defaultForGeneration) {
         updates.models.generation = { model_id: modelId };
       } else if (userSettings?.models?.generation?.model_id === modelId) {
         updates.models.generation = { model_id: null };
@@ -308,7 +330,7 @@ export const ConnectionForm = forwardRef<
         updates.models.evaluation = { model_id: null };
       }
 
-      if (defaultForExecution) {
+      if (canGenerate && defaultForExecution) {
         updates.models.execution = { model_id: modelId };
       } else if (userSettings?.models?.execution?.model_id === modelId) {
         updates.models.execution = { model_id: null };
@@ -391,7 +413,7 @@ export const ConnectionForm = forwardRef<
         requestBody.model_id = model.id;
       }
 
-      if (requiresEndpoint && endpoint && endpoint.trim()) {
+      if (showsEndpoint && endpoint && endpoint.trim()) {
         requestBody.endpoint = endpoint.trim();
       }
 
@@ -454,7 +476,7 @@ export const ConnectionForm = forwardRef<
           updates.name = name;
           updates.model_name = modelName;
 
-          if (requiresEndpoint && endpoint && endpoint.trim()) {
+          if (showsEndpoint && endpoint && endpoint.trim()) {
             updates.endpoint = endpoint.trim();
           }
 
@@ -498,7 +520,7 @@ export const ConnectionForm = forwardRef<
             provider_type_id: provider.id,
           };
 
-          if (requiresEndpoint && endpoint && endpoint.trim()) {
+          if (showsEndpoint && endpoint && endpoint.trim()) {
             modelData.endpoint = endpoint.trim();
           }
 
@@ -599,24 +621,30 @@ export const ConnectionForm = forwardRef<
           <FormSectionDivider headline="Connection Details" />
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-            {requiresEndpoint && (
+            {showsEndpoint && (
               <TextField
-                label="API Endpoint"
+                label={
+                  hasOptionalEndpoint
+                    ? 'API Endpoint (optional)'
+                    : 'API Endpoint'
+                }
                 fullWidth
-                required
+                required={requiresEndpoint}
                 value={endpoint}
                 onChange={e => setEndpoint(e.target.value)}
-                placeholder={DEFAULT_ENDPOINTS[provider?.type_value || '']}
+                placeholder={DEFAULT_ENDPOINTS[currentProviderType || '']}
                 helperText={
-                  provider?.type_value === 'ollama'
-                    ? 'When Rhesis runs in Docker, use host.docker.internal instead of localhost to reach Ollama on your machine'
-                    : provider?.type_value === 'litellm_proxy'
-                      ? 'When Rhesis runs in Docker, use host.docker.internal instead of localhost to reach LiteLLM on your machine'
-                      : provider?.type_value === 'azure_ai'
-                        ? 'Your Azure AI inference endpoint URL (e.g. https://your-deployment.inference.ai.azure.com/)'
-                        : provider?.type_value === 'azure'
-                          ? 'Your Azure OpenAI endpoint URL (e.g. https://your-resource.openai.azure.com/)'
-                          : 'The base URL for your self-hosted model endpoint'
+                  currentProviderType === 'jev'
+                    ? `Leave empty to use ${DEFAULT_ENDPOINTS.jev}. To go through a LiteLLM proxy, use https://<your-proxy>/typesafe`
+                    : provider?.type_value === 'ollama'
+                      ? 'When Rhesis runs in Docker, use host.docker.internal instead of localhost to reach Ollama on your machine'
+                      : provider?.type_value === 'litellm_proxy'
+                        ? 'When Rhesis runs in Docker, use host.docker.internal instead of localhost to reach LiteLLM on your machine'
+                        : provider?.type_value === 'azure_ai'
+                          ? 'Your Azure AI inference endpoint URL (e.g. https://your-deployment.inference.ai.azure.com/)'
+                          : provider?.type_value === 'azure'
+                            ? 'Your Azure OpenAI endpoint URL (e.g. https://your-resource.openai.azure.com/)'
+                            : 'The base URL for your self-hosted model endpoint'
                 }
                 sx={drawerOutlinedFieldSx}
               />
@@ -851,56 +879,65 @@ export const ConnectionForm = forwardRef<
         <FormSectionDivider headline="Default Model Settings" />
 
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          {modelType === 'language' && (
+          {modelType !== MODEL_TYPES.EMBEDDING && (
             <>
               {[
                 {
                   label: 'Default for Test Generation',
                   checked: defaultForGeneration,
                   onChange: setDefaultForGeneration,
+                  generatesText: true,
                 },
                 {
                   label: 'Default for Evaluation (LLM as Judge)',
                   checked: defaultForEvaluation,
                   onChange: setDefaultForEvaluation,
+                  generatesText: false,
                 },
                 {
                   label: 'Default for Execution (Multi-Turn)',
                   checked: defaultForExecution,
                   onChange: setDefaultForExecution,
+                  generatesText: true,
                 },
-              ].map(({ label, checked, onChange }) => (
-                <Box
-                  key={label}
-                  sx={{
-                    borderTop: 1,
-                    borderColor: theme => theme.palette.greyscale.border,
-                    pt: '20px',
-                    pb: '20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <Typography
+              ]
+                // Decision models can't generate text, so they can only be the evaluation default
+                .filter(
+                  toggle =>
+                    modelType !== MODEL_TYPES.DECISION || !toggle.generatesText
+                )
+                .map(({ label, checked, onChange }) => (
+                  <Box
+                    key={label}
                     sx={{
-                      fontSize: 16,
-                      lineHeight: '24px',
-                      color: theme => theme.palette.greyscale.title,
+                      borderTop: 1,
+                      borderColor: theme => theme.palette.greyscale.border,
+                      pt: '20px',
+                      pb: '20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
                     }}
                   >
-                    {label}
-                  </Typography>
-                  <Switch
-                    checked={checked}
-                    onChange={e => onChange(e.target.checked)}
-                    size="small"
-                  />
-                </Box>
-              ))}
+                    <Typography
+                      sx={{
+                        fontSize: 16,
+                        lineHeight: '24px',
+                        color: theme => theme.palette.greyscale.title,
+                      }}
+                    >
+                      {label}
+                    </Typography>
+                    <Switch
+                      checked={checked}
+                      onChange={e => onChange(e.target.checked)}
+                      size="small"
+                    />
+                  </Box>
+                ))}
             </>
           )}
-          {modelType === 'embedding' && (
+          {modelType === MODEL_TYPES.EMBEDDING && (
             <Box
               sx={{
                 borderTop: 1,

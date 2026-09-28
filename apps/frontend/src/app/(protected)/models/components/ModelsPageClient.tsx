@@ -39,6 +39,7 @@ import PageLoadingState from '@/components/common/PageLoadingState';
 import type { ValidationStatus } from '../types';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { useRhesisKeyEnabled } from '@/contexts/FeaturesContext';
+import { MODEL_TYPES, type ModelType } from '@/constants/model-types';
 
 type ModelTypeFilter = 'all' | 'language' | 'embedding';
 
@@ -86,9 +87,9 @@ export default function ModelsPageClient({
   const [modelToEdit, setModelToEdit] = useState<Model | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [modelToDelete, setModelToDelete] = useState<Model | null>(null);
-  const [selectedModelType, setSelectedModelType] = useState<
-    'language' | 'embedding'
-  >('language');
+  const [selectedModelType, setSelectedModelType] = useState<ModelType>(
+    MODEL_TYPES.LANGUAGE
+  );
   const [polyphemusModalOpen, setPolyphemusModalOpen] = useState(false);
   const [platformKeyDrawerOpen, setPlatformKeyDrawerOpen] = useState(false);
   const { organization } = useOrganization();
@@ -378,8 +379,9 @@ export default function ModelsPageClient({
   const filteredModels = connectedModels.filter(model => {
     const typeMatch =
       modelTypeFilter === 'all' ||
+      // Decision models (Jev) are added through the language flow, so they list here too
       (modelTypeFilter === 'language'
-        ? !model.model_type || model.model_type === 'language'
+        ? model.model_type !== MODEL_TYPES.EMBEDDING
         : model.model_type === modelTypeFilter);
 
     const q = searchQuery.toLowerCase();

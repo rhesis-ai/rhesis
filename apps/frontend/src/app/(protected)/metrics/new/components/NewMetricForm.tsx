@@ -42,6 +42,7 @@ import { SCORE_TYPES, ScoreTypeValue } from '@/constants/score-types';
 import { useTypeLookups } from '@/hooks/useLookups';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { validateScore } from '@/utils/validation';
+import { canJudgeScoreType } from '@/utils/model-capabilities';
 
 interface MetricFormData {
   name: string;
@@ -112,6 +113,10 @@ export default function NewMetricForm({
     initialModels === undefined
   );
   const [isCreating, setIsCreating] = React.useState(false);
+  const judgeModels = React.useMemo(
+    () => models.filter(model => canJudgeScoreType(model, formData.score_type)),
+    [models, formData.score_type]
+  );
   const [showErrors, setShowErrors] = React.useState(false);
 
   // Fetch models on component mount
@@ -434,12 +439,12 @@ export default function NewMetricForm({
                   <Typography>Loading models...</Typography>
                 </Box>
               </MenuItem>
-            ) : models.length === 0 ? (
+            ) : judgeModels.length === 0 ? (
               <MenuItem disabled>
                 <Typography>No models available</Typography>
               </MenuItem>
             ) : (
-              models.map(model => (
+              judgeModels.map(model => (
                 <MenuItem key={model.id} value={model.id}>
                   <Box>
                     <Typography variant="subtitle2">{model.name}</Typography>
@@ -551,10 +556,23 @@ export default function NewMetricForm({
                     color={isSelected ? 'primary' : 'default'}
                     variant={isSelected ? 'filled' : 'outlined'}
                     onClick={() => {
+                      const selected = models.find(
+                        model => model.id === formData.model_id
+                      );
+                      // A decision model (Jev) can't judge the new score type, so drop it
+                      const dropModel =
+                        !!selected && !canJudgeScoreType(selected, scoreType);
                       setFormData(prev => ({
                         ...prev,
                         score_type: scoreType,
+                        ...(dropModel && { model_id: '' }),
                       }));
+                      if (dropModel && selected) {
+                        notifications.show(
+                          `${selected.name} can only judge categorical metrics, so it was unselected as the evaluation model.`,
+                          { severity: 'info' }
+                        );
+                      }
                     }}
                     sx={{
                       '&:hover': {

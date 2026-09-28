@@ -2,6 +2,7 @@ import { UUID } from 'crypto';
 import { TypeLookup } from './type-lookup';
 import { Status } from './status';
 import { PaginationParams } from './pagination';
+import type { ModelType } from '@/constants/model-types';
 
 export interface Model {
   id: UUID;
@@ -9,7 +10,7 @@ export interface Model {
   description?: string;
   icon?: string;
   model_name: string;
-  model_type?: 'language' | 'embedding';
+  model_type?: ModelType;
   endpoint: string;
   is_protected?: boolean;
 
@@ -36,7 +37,7 @@ export interface ModelCreate {
   description?: string;
   icon?: string;
   model_name: string;
-  model_type?: 'language' | 'embedding';
+  model_type?: ModelType;
   endpoint?: string;
   key: string;
   is_protected?: boolean;
@@ -52,7 +53,7 @@ export interface ModelUpdate {
   description?: string;
   icon?: string;
   model_name?: string;
-  model_type?: 'language' | 'embedding';
+  model_type?: ModelType;
   endpoint?: string;
   key?: string;
   is_protected?: boolean;
@@ -76,7 +77,7 @@ export interface TestModelConnectionRequest {
   api_key?: string;
   model_id?: UUID;
   endpoint?: string;
-  model_type?: 'language' | 'embedding';
+  model_type?: ModelType;
 }
 
 export interface TestModelConnectionResponse {

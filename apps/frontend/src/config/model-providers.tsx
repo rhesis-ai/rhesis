@@ -14,6 +14,7 @@ import CloudIcon from '@mui/icons-material/Cloud';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import HubIcon from '@mui/icons-material/Hub';
 import Image from 'next/image';
+import { MODEL_TYPES, type ModelType } from '@/constants/model-types';
 
 /**
  * Model Provider Configuration
@@ -47,11 +48,20 @@ export const SUPPORTED_PROVIDERS = [
   'litellm_proxy',
   'azure_ai',
   'azure',
+  'jev',
 ];
 
 export const LOCAL_PROVIDERS = ['huggingface', 'lmformatenforcer', 'ollama'];
 
 export const EMBEDDING_PROVIDERS = ['openai', 'gemini', 'vertex_ai'];
+
+// Providers whose models answer typed questions but can't generate text. They are
+// saved with model_type 'decision' and may only judge categorical metrics.
+export const DECISION_PROVIDERS: readonly string[] = ['jev'];
+
+export function isDecisionProvider(provider: string | undefined): boolean {
+  return !!provider && DECISION_PROVIDERS.includes(provider);
+}
 
 // Providers that support GET /models/provider/{name} model listing.
 // Keep aligned with _LISTABLE_LLM_PROVIDERS and _LISTABLE_EMBEDDING_PROVIDERS in
@@ -82,10 +92,11 @@ export const EMBEDDING_MODEL_LISTABLE_PROVIDERS = [
 
 export function providerSupportsModelListing(
   provider: string,
-  modelType: 'language' | 'embedding'
+  modelType: ModelType
 ): boolean {
+  if (modelType === MODEL_TYPES.DECISION) return false;
   const listable =
-    modelType === 'embedding'
+    modelType === MODEL_TYPES.EMBEDDING
       ? EMBEDDING_MODEL_LISTABLE_PROVIDERS
       : LANGUAGE_MODEL_LISTABLE_PROVIDERS;
   return (listable as readonly string[]).includes(provider);
@@ -107,6 +118,15 @@ export const DEFAULT_ENDPOINTS: Record<string, string> = {
   ollama: 'http://host.docker.internal:11434',
   vllm: 'http://host.docker.internal:8000',
   litellm_proxy: 'http://host.docker.internal:4000',
+  jev: 'https://api.typesafe.ai',
+};
+
+// Providers with a default endpoint the SDK falls back to; the field is shown but may be left empty
+export const PROVIDERS_WITH_OPTIONAL_ENDPOINT = ['jev'];
+
+// Model names prefilled for providers that can't list their models
+export const DEFAULT_MODEL_NAMES: Record<string, string> = {
+  jev: 'jev-latest',
 };
 
 // Providers where the API key is optional (proxy servers that may not require auth)
@@ -119,6 +139,7 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   gemini: <SiGoogle className="h-8 w-8" />,
   groq: <SmartToyIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   huggingface: <SiHuggingface className="h-8 w-8" />,
+  jev: <Image src="/logos/jev-logo.png" alt="Jev" width={20} height={20} />,
   lmformatenforcer: <SiHuggingface className="h-8 w-8" />,
   meta_llama: <SiMeta className="h-8 w-8" />,
   mistral: <SiMistralai className="h-8 w-8" />,
@@ -159,6 +180,7 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
 export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   azure_ai: 'Azure AI Foundry',
   azure: 'Azure OpenAI',
+  jev: 'Jev (TypeSafe AI)',
 };
 
 // Resolve the label to show for a provider: display-name override first, then

@@ -6,6 +6,7 @@ import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { Model, ModelCreate } from '@/utils/api-client/interfaces/model';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import { UUID } from 'crypto';
+import type { ModelType } from '@/constants/model-types';
 import { ProviderSelectionPanel } from './ProviderSelectionPanel';
 import { ConnectionForm, type ConnectionFormHandle } from './ConnectionForm';
 
@@ -15,7 +16,7 @@ interface ModelConnectionDrawerProps {
   open: boolean;
   onClose: () => void;
   providers: TypeLookup[];
-  modelType: 'language' | 'embedding';
+  modelType: ModelType;
   model?: Model | null;
   mode?: 'create' | 'edit';
   userSettings?: UserSettings | null;
