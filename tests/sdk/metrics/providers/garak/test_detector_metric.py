@@ -7,6 +7,10 @@ import pytest
 from rhesis.sdk.metrics.base import MetricScope, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.garak import GarakDetectorMetric
 
+# Patch the detector module's own importlib name, not importlib.import_module itself,
+# which would swap it for every importer (LiteLLM caches what its lazy imports return).
+_DETECTOR_METRIC = "rhesis.sdk.metrics.providers.garak.detector_metric"
+
 
 class TestGarakDetectorMetricInitialization:
     """Tests for GarakDetectorMetric initialization."""
@@ -91,9 +95,10 @@ class TestGarakDetectorMetricDetectorLoading:
         # Detector should not be loaded yet
         assert metric._detector is None
 
-    @patch("importlib.import_module")
-    def test_detector_loading_normalizes_relative_path(self, mock_import):
+    @patch(f"{_DETECTOR_METRIC}.importlib")
+    def test_detector_loading_normalizes_relative_path(self, mock_importlib):
         """Test that relative paths are normalized to full Garak paths."""
+        mock_import = mock_importlib.import_module
         mock_module = MagicMock()
         mock_detector_class = MagicMock()
         mock_module.MitigationBypass = mock_detector_class
@@ -108,9 +113,10 @@ class TestGarakDetectorMetricDetectorLoading:
         # Should have normalized the path
         mock_import.assert_called_once_with("garak.detectors.mitigation")
 
-    @patch("importlib.import_module")
-    def test_detector_loading_preserves_full_path(self, mock_import):
+    @patch(f"{_DETECTOR_METRIC}.importlib")
+    def test_detector_loading_preserves_full_path(self, mock_importlib):
         """Test that full paths are preserved during loading."""
+        mock_import = mock_importlib.import_module
         mock_module = MagicMock()
         mock_detector_class = MagicMock()
         mock_module.XSSDetector = mock_detector_class
@@ -123,9 +129,10 @@ class TestGarakDetectorMetricDetectorLoading:
 
         mock_import.assert_called_once_with("garak.detectors.xss")
 
-    @patch("importlib.import_module")
-    def test_detector_loading_passes_kwargs(self, mock_import):
+    @patch(f"{_DETECTOR_METRIC}.importlib")
+    def test_detector_loading_passes_kwargs(self, mock_importlib):
         """Test that additional kwargs are passed to detector constructor."""
+        mock_import = mock_importlib.import_module
         mock_module = MagicMock()
         mock_detector_class = MagicMock()
         mock_module.CustomDetector = mock_detector_class
@@ -141,9 +148,10 @@ class TestGarakDetectorMetricDetectorLoading:
 
         mock_detector_class.assert_called_once_with(custom_param="value", another_param=42)
 
-    @patch("importlib.import_module")
-    def test_detector_loading_overrides_local_model(self, mock_import):
+    @patch(f"{_DETECTOR_METRIC}.importlib")
+    def test_detector_loading_overrides_local_model(self, mock_importlib):
         """ToxicCommentModel should be substituted with PerspectiveToxicity."""
+        mock_import = mock_importlib.import_module
         mock_module = MagicMock()
         mock_detector_class = MagicMock()
         mock_module.Toxicity = mock_detector_class
@@ -166,9 +174,10 @@ class TestGarakDetectorMetricDetectorLoading:
         with pytest.raises(ImportError):
             _ = metric.detector
 
-    @patch("importlib.import_module")
-    def test_missing_detector_class_raises_import_error(self, mock_import):
+    @patch(f"{_DETECTOR_METRIC}.importlib")
+    def test_missing_detector_class_raises_import_error(self, mock_importlib):
         """Test that missing detector class raises ImportError."""
+        mock_import = mock_importlib.import_module
         mock_module = MagicMock()
         mock_module.NonExistent = MagicMock(side_effect=AttributeError)
         del mock_module.NonExistent  # Remove the attribute
