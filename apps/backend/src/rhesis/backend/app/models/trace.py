@@ -15,7 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
-from rhesis.backend.app.constants import AISpanAttributes, AnnotationTarget
+from rhesis.backend.app.constants import AISpanAttributes, AnnotationTarget, SpanType
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
 from rhesis.backend.app.models.mixins import (
@@ -71,6 +71,8 @@ class Trace(
     # Span metadata
     span_name = Column(String(255), nullable=False, index=True)
     span_kind = Column(String(20), nullable=False)
+    # Set at ingest by services/telemetry/span_types.py; never null, "span" when untyped.
+    span_type = Column(String(SpanType.MAX_LENGTH), nullable=False, server_default=SpanType.SPAN)
 
     # Timing
     start_time = Column(DateTime(timezone=True), nullable=False, index=True)
@@ -119,6 +121,7 @@ class Trace(
     # Composite indexes
     __table_args__ = (
         Index("idx_trace_project_time", "project_id", start_time.desc()),
+        Index("idx_trace_project_span_type_time", "project_id", "span_type", start_time.desc()),
         Index("idx_trace_trace_id", "trace_id", "start_time"),
         Index("idx_trace_span_name_time", "span_name", start_time.desc()),
         Index("idx_trace_environment_time", "environment", start_time.desc()),

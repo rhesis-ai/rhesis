@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from rhesis.backend.app.constants import SpanType
+
 # Import canonical schemas from SDK (source of truth)
 from rhesis.telemetry.schemas import (
     AILLMAttributes,
@@ -197,6 +199,7 @@ class SpanNode(BaseModel):
     span_id: str
     span_name: str
     span_kind: str
+    span_type: str = SpanType.SPAN
     start_time: datetime
     end_time: datetime
     duration_ms: float

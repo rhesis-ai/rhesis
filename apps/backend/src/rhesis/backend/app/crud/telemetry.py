@@ -45,6 +45,7 @@ from rhesis.backend.app.services.telemetry.providers import (
     normalize_provider,
     resolve_provider,
 )
+from rhesis.backend.app.services.telemetry.span_types import classify_span_type
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include, resolve_chain
 
 logger = logging.getLogger(__name__)
@@ -260,6 +261,7 @@ def create_trace_spans(
             conversation_id=span.conversation_id,
             span_name=span.span_name,
             span_kind=span.span_kind.value,
+            span_type=classify_span_type(span.attributes),
             start_time=span.start_time,
             end_time=span.end_time,
             duration_ms=duration_ms,
