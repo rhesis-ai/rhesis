@@ -351,7 +351,7 @@ class TestResolveMultiTurnContract:
         mock_test.id = "test-1"
         mock_test.test_configuration = {"goal": "Do the thing"}
         mock_contract = MagicMock()
-        mock_contract.model_dump.return_value = {"prohibited_behavior": ["X"]}
+        mock_contract.model_dump.return_value = {"prohibited_criteria": ["X"]}
 
         with (
             patch(f"{_INTERPRETATION_SERVICE}.ensure_contract", return_value=mock_contract),
@@ -360,7 +360,7 @@ class TestResolveMultiTurnContract:
             contract, usable = resolve_multi_turn_contract(MagicMock(), mock_test, "user-1")
 
         assert usable is True
-        assert contract == {"prohibited_behavior": ["X"]}
+        assert contract == {"prohibited_criteria": ["X"]}
 
     def test_unusable_contract_returns_none_and_false(self):
         mock_test = MagicMock()
@@ -512,7 +512,7 @@ class TestMultiTurnOutput:
 
         mock_test = MagicMock()
         mock_test.test_configuration = {"goal": "Test goal"}
-        resolved_contract = {"prohibited_behavior": ["Disclose PII"]}
+        resolved_contract = {"prohibited_criteria": ["Disclose PII"]}
 
         with (
             patch(_RESOLVE_CONTRACT, return_value=(resolved_contract, True)),

@@ -100,17 +100,17 @@ class TestFramingIndependence:
             assert contract_usability(contract)[0], f"{name} was not usable"
             assert contract.adversarial is True, f"{name} was not read as adversarial"
 
-        prohibited = {name: _normalize(c.prohibited_behavior) for name, c in contracts.items()}
+        prohibited = {name: _normalize(c.prohibited_criteria) for name, c in contracts.items()}
         distinct = {frozenset(v) for v in prohibited.values()}
         assert len(distinct) == 1, f"framings disagreed: {prohibited}"
 
     def test_no_framing_mirrors_the_assertion_into_both_lists(self, model):
-        """Rule 1: a mirrored required_behavior would score the same assertion twice."""
+        """Rule 1: a mirrored required_criteria would score the same assertion twice."""
         for name, goal in FRAMINGS.items():
             contract = interpret_test_configuration({"goal": goal}, model=model)
-            assert not (contract.required_behavior and contract.prohibited_behavior), (
-                f"{name} produced both lists: {contract.required_behavior} / "
-                f"{contract.prohibited_behavior}"
+            assert not (contract.required_criteria and contract.prohibited_criteria), (
+                f"{name} produced both lists: {contract.required_criteria} / "
+                f"{contract.prohibited_criteria}"
             )
 
 
@@ -121,19 +121,19 @@ class TestConsolidation:
 
         assert contract_usability(contract)[0]
         assert contract.adversarial is True
-        assert len(contract.prohibited_behavior) <= 3, (
-            f"expected consolidated prohibitions, got {contract.prohibited_behavior}"
+        assert len(contract.prohibited_criteria) <= 3, (
+            f"expected consolidated prohibitions, got {contract.prohibited_criteria}"
         )
 
-        normalized = " ".join(contract.prohibited_behavior).lower()
+        normalized = " ".join(contract.prohibited_criteria).lower()
         assert not ("extract" in normalized and "summariz" in normalized), (
-            f"extract and summarize were kept as separate entries: {contract.prohibited_behavior}"
+            f"extract and summarize were kept as separate entries: {contract.prohibited_criteria}"
         )
 
     def test_owasp_test_derives_the_boundary_from_the_attack_plan(self, model):
         """Restrictions are empty; the prohibition has to come from goal plus instructions."""
         contract = interpret_test_configuration(OWASP_CONFIG, model=model)
-        normalized = " ".join(contract.prohibited_behavior).lower()
+        normalized = " ".join(contract.prohibited_criteria).lower()
         assert "polic" in normalized or "pii" in normalized or "data" in normalized
 
 
@@ -151,14 +151,14 @@ class TestPolarityClassification:
         usable, reason = contract_usability(contract)
         assert usable, f"{goal!r}: {reason}"
         assert contract.adversarial is True, f"{goal!r} was not read as adversarial"
-        assert contract.prohibited_behavior, f"{goal!r} produced no prohibition"
+        assert contract.prohibited_criteria, f"{goal!r} produced no prohibition"
 
     def test_cooperative_goal_is_not_adversarial(self, model):
         contract = interpret_test_configuration(COOPERATIVE_CONFIG, model=model)
         assert contract_usability(contract)[0]
         assert contract.adversarial is False
-        assert contract.required_behavior
-        assert not contract.prohibited_behavior
+        assert contract.required_criteria
+        assert not contract.prohibited_criteria
 
 
 class TestAmbiguityIsReported:

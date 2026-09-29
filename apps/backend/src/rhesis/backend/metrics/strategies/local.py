@@ -43,42 +43,35 @@ METRIC_MAX_RETRIES = 3
 METRIC_RETRY_MIN_WAIT = 1
 METRIC_RETRY_MAX_WAIT = 10
 
-# GoalAchievementJudge detail fields worth surfacing alongside score/reason/is_successful.
-# Without this, MetricResultBuilder's fixed field list drops them, so a re-scored run loses
-# the per-item breakdown that the live run displayed.
-#
-# Note this does NOT fix the "0/0 criteria" display on a re-scored *legacy* goal-based run.
-# The count fields the metrics card reads for those (`criteria_met`/`criteria_total`) are
-# derived by Penelope in `context.py:_flatten_metric_result`, not returned by the SDK judge,
-# so they are never present in `result.details` and cannot be copied here. Only the
-# contract-based keys below (`behaviors_*`) carry their own counts and therefore survive a
-# re-score.
+# Detail fields worth surfacing alongside score/reason/is_successful. Without this,
+# MetricResultBuilder's fixed field list drops them, so a re-scored run loses the per-criterion
+# breakdown that the live run displayed. The criteria keys, `adversarial` and `contract` come
+# from GoalAchievementJudge; `relevant_turns` from any judge that scored a conversation, and is
+# what marks the turns a metric failed on.
 #
 # Deliberately NOT `**result.details`: `_get_base_details(prompt)` puts the entire rendered
 # evaluation prompt in `details["prompt"]`, and that must not be echoed into stored
 # test_metrics (size, and it discloses internal prompt text). Metric-agnostic on purpose --
 # it simply copies whichever of these keys a result happens to carry, so it costs nothing
 # for metrics that don't have them.
-_GOAL_ACHIEVEMENT_EXTRA_KEYS = (
-    # Legacy goal-based scoring (GoalAchievementScoreResponse)
+_EXTRA_DETAIL_KEYS = (
     "criteria_evaluations",
+    "criteria_total",
+    "criteria_met",
+    "criteria_failed",
+    "failed_criteria",
     "all_criteria_met",
     "confidence",
     "turn_count",
-    # Contract-based scoring (ContractComplianceResponse / _a_evaluate_contract)
-    "behavior_verdicts",
-    "behaviors_total",
-    "behaviors_complied",
-    "behaviors_violated",
-    "violated_behaviors",
     "adversarial",
     "contract",
+    "relevant_turns",
 )
 
 
-def _extract_goal_achievement_extra(details: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+def _extract_extra_details(details: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Curated, size-bounded subset of a result's details worth storing alongside it."""
-    extra = {key: details[key] for key in _GOAL_ACHIEVEMENT_EXTRA_KEYS if key in details}
+    extra = {key: details[key] for key in _EXTRA_DETAIL_KEYS if key in details}
     return extra or None
 
 
@@ -310,7 +303,7 @@ class LocalStrategy:
                     description=description,
                     threshold=metric_config.threshold,
                     reference_score=metric_config.reference_score,
-                    extra=_extract_goal_achievement_extra(result.details),
+                    extra=_extract_extra_details(result.details),
                 )
             except (TimeoutError, ConnectionError, OSError) as e:
                 last_exc = e
@@ -666,7 +659,7 @@ class LocalStrategy:
                 description=description,
                 threshold=metric_config.threshold,
                 reference_score=metric_config.reference_score,
-                extra=_extract_goal_achievement_extra(result.details),
+                extra=_extract_extra_details(result.details),
             )
 
         except Exception as exc:

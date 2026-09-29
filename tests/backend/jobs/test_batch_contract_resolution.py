@@ -50,7 +50,7 @@ class TestResolveContractLazy:
             ) as mock_get_item_detail,
             patch(
                 _RESOLVE_MULTI_TURN_CONTRACT,
-                return_value=({"prohibited_behavior": ["X"]}, True),
+                return_value=({"prohibited_criteria": ["X"]}, True),
             ) as mock_resolve,
         ):
             mock_db = MagicMock()
@@ -63,7 +63,7 @@ class TestResolveContractLazy:
 
         mock_get_item_detail.assert_called_once()
         mock_resolve.assert_called_once_with(mock_db, fresh_test, ctx.user_id)
-        assert contract == {"prohibited_behavior": ["X"]}
+        assert contract == {"prohibited_criteria": ["X"]}
         assert usable is True
 
     @pytest.mark.asyncio
@@ -129,7 +129,7 @@ class TestRunMultiTurnContractThreading:
 
         with (
             patch(
-                _RESOLVE_MULTI_TURN_CONTRACT, return_value=({"prohibited_behavior": ["X"]}, True)
+                _RESOLVE_MULTI_TURN_CONTRACT, return_value=({"prohibited_criteria": ["X"]}, True)
             ),
             patch("rhesis.backend.app.utils.crud_utils.get_item_detail", return_value=test),
             patch("rhesis.backend.app.database.get_db_with_tenant_variables") as mock_get_db,
@@ -142,7 +142,7 @@ class TestRunMultiTurnContractThreading:
                 ctx, test, "3a51f7ae-f7b2-4ff4-8454-9e8f4826afa1", {}, [], agent
             )
 
-        assert agent.a_execute_test.call_args.kwargs["contract"] == {"prohibited_behavior": ["X"]}
+        assert agent.a_execute_test.call_args.kwargs["contract"] == {"prohibited_criteria": ["X"]}
         assert result["contract_usable"] is True
         assert result["penelope_metrics"] == {"goal_achievement": {"is_successful": True}}
 

@@ -15,7 +15,7 @@ from rhesis.backend.app.schemas.evaluation_contract import (
 def _contract(**overrides) -> EvaluationContract:
     """A usable contract; override individual fields per test."""
     defaults = {
-        "prohibited_behavior": ["Produce harmful content"],
+        "prohibited_criteria": ["Produce harmful content"],
         "confidence": 0.9,
         "interpreted_from": "digest",
         "contract_version": CONTRACT_VERSION,
@@ -26,19 +26,19 @@ def _contract(**overrides) -> EvaluationContract:
 class TestStatementNormalization:
     def test_strips_and_drops_empty_statements(self):
         contract = InterpretedContract(
-            required_behavior=["  Answer accurately  ", "", "   "],
-            prohibited_behavior=["Disclose PII\n"],
+            required_criteria=["  Answer accurately  ", "", "   "],
+            prohibited_criteria=["Disclose PII\n"],
         )
-        assert contract.required_behavior == ["Answer accurately"]
-        assert contract.prohibited_behavior == ["Disclose PII"]
+        assert contract.required_criteria == ["Answer accurately"]
+        assert contract.prohibited_criteria == ["Disclose PII"]
 
     def test_non_list_statements_become_empty(self):
-        contract = InterpretedContract(required_behavior="Answer accurately")
-        assert contract.required_behavior == []
+        contract = InterpretedContract(required_criteria="Answer accurately")
+        assert contract.required_criteria == []
 
     def test_non_string_entries_are_dropped(self):
-        contract = InterpretedContract(prohibited_behavior=["Disclose PII", 42, None])
-        assert contract.prohibited_behavior == ["Disclose PII"]
+        contract = InterpretedContract(prohibited_criteria=["Disclose PII", 42, None])
+        assert contract.prohibited_criteria == ["Disclose PII"]
 
     def test_objective_is_stripped(self):
         assert (
@@ -65,10 +65,10 @@ class TestStatementNormalization:
 
 class TestScorability:
     def test_prohibitions_alone_are_scorable(self):
-        assert InterpretedContract(prohibited_behavior=["Disclose PII"]).is_scorable
+        assert InterpretedContract(prohibited_criteria=["Disclose PII"]).is_scorable
 
     def test_requirements_alone_are_scorable(self):
-        assert InterpretedContract(required_behavior=["Answer accurately"]).is_scorable
+        assert InterpretedContract(required_criteria=["Answer accurately"]).is_scorable
 
     def test_empty_contract_is_not_scorable(self):
         """A contract asserting nothing must not be scored -- any transcript would satisfy it."""
@@ -159,17 +159,17 @@ class TestStorage:
         assert "interpreter_model" not in stored
 
     def test_roundtrip(self):
-        contract = _contract(adversarial=True, required_behavior=["Stay in role"])
+        contract = _contract(adversarial=True, required_criteria=["Stay in role"])
         restored = read_contract(store_contract({}, contract))
         assert restored.adversarial is True
-        assert restored.required_behavior == ["Stay in role"]
-        assert restored.prohibited_behavior == ["Produce harmful content"]
+        assert restored.required_criteria == ["Stay in role"]
+        assert restored.prohibited_criteria == ["Produce harmful content"]
         assert restored.is_scorable
 
     def test_overwrites_a_previous_contract(self):
-        metadata = store_contract({}, _contract(prohibited_behavior=["Old"]))
-        metadata = store_contract(metadata, _contract(prohibited_behavior=["New"]))
-        assert read_contract(metadata).prohibited_behavior == ["New"]
+        metadata = store_contract({}, _contract(prohibited_criteria=["Old"]))
+        metadata = store_contract(metadata, _contract(prohibited_criteria=["New"]))
+        assert read_contract(metadata).prohibited_criteria == ["New"]
 
 
 class TestTotalParsing:
@@ -180,8 +180,8 @@ class TestTotalParsing:
             assert contract.interpreted_from == ""
 
     def test_partial_dict_fills_defaults(self):
-        contract = parse_evaluation_contract({"prohibited_behavior": ["Disclose PII"]})
-        assert contract.prohibited_behavior == ["Disclose PII"]
+        contract = parse_evaluation_contract({"prohibited_criteria": ["Disclose PII"]})
+        assert contract.prohibited_criteria == ["Disclose PII"]
         assert contract.confidence == 0.0
         assert contract.adversarial is False
 

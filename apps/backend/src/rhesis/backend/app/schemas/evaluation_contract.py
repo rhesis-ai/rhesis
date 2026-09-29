@@ -8,9 +8,9 @@ failed when achieved, the third means it passed. Scoring the prose directly ther
 adversarial tests backwards in one direction or the other.
 
 The contract is the interpretation step's output: the same intent restated so that direction
-is fixed. ``required_behavior`` and ``prohibited_behavior`` are always statements *about the
-target*, and compliance always means the test passed. Consumers score compliance and never
-invert anything.
+is fixed. ``required_criteria`` and ``prohibited_criteria`` are always statements *about the
+target*, and meeting one always means the test passed. Consumers score whether each was met
+and never invert anything.
 
 ``adversarial`` is an output, not an input -- it drives wording in the UI and tells Penelope
 to press harder. It never selects a scoring rule; if it did, we would be back to needing the
@@ -89,13 +89,13 @@ class InterpretedContract(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     adversarial: bool = False
-    required_behavior: List[str] = Field(default_factory=list)
-    prohibited_behavior: List[str] = Field(default_factory=list)
+    required_criteria: List[str] = Field(default_factory=list)
+    prohibited_criteria: List[str] = Field(default_factory=list)
     simulated_user_objective: str = ""
     source_notes: List[ContractSourceNote] = Field(default_factory=list)
     confidence: float = 0.0
 
-    @field_validator("required_behavior", "prohibited_behavior", mode="before")
+    @field_validator("required_criteria", "prohibited_criteria", mode="before")
     @classmethod
     def _clean_statements(cls, v: Any) -> List[str]:
         if not isinstance(v, list):
@@ -124,7 +124,7 @@ class InterpretedContract(BaseModel):
         ("restriction", "classification") would raise and cost us the entire interpretation --
         leaving the test unusable and reporting Error on every run. Notes are provenance for a
         human reader; none of them affects scoring, so a bad one is worth strictly less than the
-        behaviours it came packaged with.
+        criteria it came packaged with.
         """
         if not isinstance(v, list):
             return []
@@ -143,11 +143,11 @@ class InterpretedContract(BaseModel):
     def is_scorable(self) -> bool:
         """Whether there is anything to score the target against.
 
-        A contract with neither required nor prohibited behavior carries no assertion. Runs
+        A contract with neither required nor prohibited criteria carries no assertion. Runs
         must surface that as an error rather than scoring against an empty list, which any
         transcript would trivially satisfy.
         """
-        return bool(self.required_behavior or self.prohibited_behavior)
+        return bool(self.required_criteria or self.prohibited_criteria)
 
 
 class EvaluationContract(InterpretedContract):
