@@ -146,7 +146,7 @@ uv sync
 
 - **True Multi-Turn Understanding**: Native support for stateful conversations
 - **Provider Agnostic**: Works with OpenAI, Anthropic, Vertex AI, and more
-- **Target Flexible**: Test any conversational system (Rhesis endpoints, LangChain, LangGraph, MAF, custom targets)
+- **Target Flexible**: Test any conversational system (Rhesis endpoints, LangChain, LangGraph, Pydantic AI, Microsoft Agent Framework, Google ADK, Haystack, custom targets)
 - **Smart Defaults**: Just specify a goal, Penelope plans the rest
 - **LLM-Driven Evaluation**: Intelligent goal achievement detection
 - **Transparent Reasoning**: See Penelope's thought process
@@ -159,6 +159,7 @@ See the [examples directory](./examples) for complete working examples:
 - **`basic_example.py`** - Simple getting started examples
 - **`langchain_minimal.py`** - Quick LangChain integration (5 minutes)
 - **`langchain_example.py`** - Comprehensive LangChain examples
+- **`langgraph_minimal.py`**, **`pydantic_ai_minimal.py`**, **`maf_minimal.py`**, **`google_adk_minimal.py`**, **`haystack_minimal.py`** - The same minimal test against each framework target; install the matching extra first (`uv sync --extra langgraph`, `pydantic-ai`, `microsoft-agent-framework`, `google-adk` or `haystack`)
 - **`testing_with_restrictions.py`** - Using restrictions for safe, focused testing
 - **`security_testing.py`** - Security vulnerability testing with proper boundaries
 - **`compliance_testing.py`** - Regulatory compliance verification
@@ -173,7 +174,7 @@ cd penelope/examples
 uv run python basic_example.py --endpoint-id your-endpoint-id
 
 # LangChain integration (uses Gemini)
-uv sync --group langchain
+uv sync --extra langchain
 uv run python langchain_minimal.py
 
 # Testing with restrictions (demonstrates safety boundaries)
