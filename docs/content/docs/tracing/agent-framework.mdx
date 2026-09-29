@@ -31,7 +31,7 @@ Create the `RhesisClient` first (it installs the OpenTelemetry tracer provider a
 <CodeBlock filename="app.py" language="python">
 {`from rhesis.sdk import RhesisClient
 from rhesis.sdk.telemetry import auto_instrument
-from agent_framework import ChatAgent
+from agent_framework import Agent
 from agent_framework.openai import OpenAIChatClient
 
 # 1. Initialize Rhesis (sets up tracing). Required before auto_instrument().
@@ -45,8 +45,8 @@ client = RhesisClient(
 auto_instrument("agent_framework")  # alias: auto_instrument("maf")
 
 # 3. Use MAF normally - every agent, model, and tool call is traced
-agent = ChatAgent(
-    chat_client=OpenAIChatClient(),
+agent = Agent(
+    client=OpenAIChatClient(),
     instructions="You are a helpful travel assistant.",
 )
 
@@ -123,7 +123,7 @@ Accepted truthy values: `1`, `true`, `yes`, `on` (case-insensitive). When disabl
 
 ## Workflow Span Verbosity
 
-To keep traces readable, the integration trims low-value workflow infrastructure spans (`edge_group.*` and `message.send`) by default while keeping the structural `executor.*` spans that parent agent activations.
+To keep traces readable, the integration trims low-value workflow infrastructure spans (`edge_group.*`, `message.send` and `workflow.build`) by default while keeping the structural `executor.*` spans that parent agent activations.
 
 To keep every workflow span (useful when debugging the orchestration layer itself), set:
 
@@ -176,11 +176,11 @@ Two cases stand this down, because there the trace id is already owned and publi
 
 ## Worked Example: Travel Agent
 
-The repository ships a runnable multi-agent MAF demo - a `HandoffBuilder` workflow with a coordinator and three specialists - built specifically to produce agent, LLM, tool, and handoff traces in Rhesis. See [`agents/travel-agent`](https://github.com/rhesis-ai/rhesis/tree/main/agents/travel-agent) and its [architecture notes](https://github.com/rhesis-ai/rhesis/blob/main/agents/travel-agent/docs/architecture.md).
+The repository ships a runnable multi-agent MAF demo - a `HandoffBuilder` workflow with a coordinator and seven specialists - built specifically to produce agent, LLM, tool, and handoff traces in Rhesis. See [`agents/travel-agent`](https://github.com/rhesis-ai/rhesis/tree/main/agents/travel-agent) and its [architecture notes](https://github.com/rhesis-ai/rhesis/blob/main/agents/travel-agent/docs/architecture.md).
 
 ## Migrating from AutoGen
 
-AutoGen 0.2 has been folded into the unified Microsoft Agent Framework. The legacy `auto_instrument("autogen")` path is now a no-op placeholder - use `auto_instrument("agent_framework")` instead, which covers the full `ChatAgent` / tool / workflow surface.
+AutoGen 0.2 has been folded into the unified Microsoft Agent Framework. The legacy `auto_instrument("autogen")` path is now a no-op placeholder - use `auto_instrument("agent_framework")` instead, which covers the full `Agent` / tool / workflow surface.
 
 ## Disabling
 
@@ -196,7 +196,7 @@ disable_auto_instrument()`}
 
 <Callout type="info">
   **Related:**
-  - [Auto-Instrumentation](/docs/tracing/auto-instrumentation) - zero-config tracing for LangChain, LangGraph, and Microsoft Agent Framework
+  - [Auto-Instrumentation](/docs/tracing/auto-instrumentation) - zero-config tracing for LangChain, LangGraph, Microsoft Agent Framework, Pydantic AI, Google ADK and Haystack
   - [Multi-Agent Tracing](/docs/tracing/multi-agent) - agent and handoff spans
   - [Setup](/docs/tracing/setup) - initial configuration
   - [Connector](/sdk/connector) - register functions as endpoints

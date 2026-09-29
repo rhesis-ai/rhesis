@@ -63,7 +63,7 @@ LLM-based evaluation of goal achievement using structured output.
 
 ### Targets
 
-Abstraction for systems under test. Penelope ships with several target adapters — pick the one that matches your system:
+Abstraction for systems under test. Penelope ships with several target adapters — pick the one that matches your system. Framework targets need Penelope's matching extra: `langchain`, `langgraph`, `pydantic-ai`, `microsoft-agent-framework`, `google-adk` or `haystack` (for example `uv sync --extra google-adk`, or `all` for every one):
 
 <CodeBlock filename="endpoint_target.py" language="python">
 {`from rhesis.penelope import EndpointTarget
@@ -108,12 +108,12 @@ target = PydanticAITarget(
 </CodeBlock>
 
 <CodeBlock filename="maf_target.py" language="python">
-{`from agent_framework import ChatAgent
+{`from agent_framework import Agent
 from agent_framework.openai import OpenAIChatClient
 from rhesis.penelope import MAFTarget
 
-maf_agent = ChatAgent(
-    chat_client=OpenAIChatClient(),
+maf_agent = Agent(
+    client=OpenAIChatClient(),
     instructions="You are helpful.",
 )
 target = MAFTarget(maf_agent, target_id="maf-bot")`}
@@ -208,7 +208,8 @@ target tries `replies`, `last_message`, `messages`, `answers`, `answer`, `reply`
 
 Use `a_execute_test()` when Penelope runs inside an event loop. LangChain and
 LangGraph targets call their native `ainvoke()` methods, while Pydantic AI calls
-`Agent.run()`. This avoids blocking the event loop during target execution.
+`Agent.run()` and the Microsoft Agent Framework and Google ADK targets are async throughout. This
+avoids blocking the event loop during target execution.
 
 <CodeBlock filename="async_penelope.py" language="python">
 {`result = await agent.a_execute_test(
@@ -221,7 +222,8 @@ LangGraph targets call their native `ainvoke()` methods, while Pydantic AI calls
 LangChain, LangGraph, and Pydantic AI targets accept file attachments as inline
 dictionaries or object-storage-backed `FileReference` objects. `HaystackTarget` does not: how a
 file reaches a pipeline depends on that pipeline's own converters, so it reports an error rather
-than dropping the attachment silently. Text and PDF
+than dropping the attachment silently. `MAFTarget` and `GoogleADKTarget` accept `files` but ignore
+them, so the agent sees the text only. Text and PDF
 extractions are passed as text; other files become framework-native multimodal
 content blocks. The async path fetches object-storage bytes with `aread_bytes()`.
 

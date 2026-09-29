@@ -53,7 +53,7 @@ An edge from one node to the next is not a handoff. Only an explicit transfer is
 
 ### More Frameworks
 
-LangGraph, Microsoft Agent Framework and Google ADK all produce native `ai.agent.invoke` and `ai.agent.handoff` spans.
+LangGraph, Microsoft Agent Framework, Google ADK and Haystack all produce native `ai.agent.invoke` and `ai.agent.handoff` spans.
 
 - For **MAF**, handoffs in a `HandoffBuilder` workflow are detected and synthesized automatically - see [Microsoft Agent Framework](/docs/tracing/agent-framework).
 - For **Google ADK**, both of its multi-agent mechanisms produce edges: a `transfer_to_agent` call becomes the handoff span directly, and an `AgentTool` delegation gets a synthesized one alongside its tool span - see [Google ADK](/docs/tracing/google-adk#multi-agent-handoffs).
@@ -176,5 +176,6 @@ See [Semantic Conventions](/docs/tracing/semantic-conventions#agent-operations) 
   - [Decorators](/docs/tracing/decorators) — `@observe` and `@endpoint`
   - [Auto-Instrumentation](/docs/tracing/auto-instrumentation) — zero-config tracing for LangChain and LangGraph
   - [Microsoft Agent Framework](/docs/tracing/agent-framework) — native agent and handoff tracing for MAF
+  - [Google ADK](/docs/tracing/google-adk) and [Haystack](/docs/tracing/haystack) — the same for those frameworks
   - [Conversation Tracing](/docs/tracing/conversation-tracing) — visualize full multi-turn sessions
 </Callout>

@@ -232,6 +232,20 @@ target = HaystackTarget(
 )`}
 </CodeBlock>
 
+## Worked Example: Visit-Prep
+
+The repository ships a runnable multi-agent Haystack demo — a coordinator that routes turns to a history specialist and a summary specialist, which hands off to a safety critic — wired to produce agent, LLM, tool and handoff traces in Rhesis. See [`agents/visit-prep`](https://github.com/rhesis-ai/rhesis/tree/main/agents/visit-prep) and its [architecture notes](https://github.com/rhesis-ai/rhesis/blob/main/agents/visit-prep/docs/architecture.md).
+
+As in the ADK example, each entry point has a traced twin that wraps the plain one:
+
+<CodeBlock filename="terminal" language="bash">
+{`uv run python chat_terminal/chat.py                        # interactive REPL
+uv run python chat_terminal/chat_traced_native.py          # the same REPL, traced
+
+uv run python examples/run_scenarios.py                    # scripted scenarios
+uv run python examples/run_scenarios_traced_native.py      # the same scenarios, traced`}
+</CodeBlock>
+
 ## Disabling
 
 <CodeBlock filename="app.py" language="python">
