@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Box, Typography, Collapse, IconButton, Chip } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -88,6 +88,13 @@ function SpanTreeNode({
   const [expanded, setExpanded] = useState(true);
   const hasChildren = span.children && span.children.length > 0;
   const isSelected = selectedSpan?.span_id === span.span_id;
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  // 'nearest' leaves an already visible row alone, so clicks don't jump.
+  // Optional call: jsdom has no scrollIntoView.
+  useEffect(() => {
+    if (isSelected) rowRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [isSelected]);
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -104,7 +111,10 @@ function SpanTreeNode({
   return (
     <Box>
       <Box
+        ref={rowRef}
         onClick={handleClick}
+        data-span-id={span.span_id}
+        data-selected={isSelected || undefined}
         sx={{
           display: 'flex',
           alignItems: 'center',

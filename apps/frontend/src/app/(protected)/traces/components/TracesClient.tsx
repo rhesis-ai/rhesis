@@ -26,6 +26,8 @@ interface TracesClientProps {
   currentUserPicture?: string;
   initialTraceId?: string | null;
   initialProjectId?: string | null;
+  /** Span to select when the drawer opens on `initialTraceId`. */
+  initialSpanId?: string | null;
   fixedTestRunId?: string;
   onUnfilteredEmpty?: (empty: boolean) => void;
   /** Bumped by the wrapper's refresh FAB, to trigger a re-fetch. */
@@ -41,6 +43,7 @@ export default function TracesClient({
   currentUserPicture,
   initialTraceId = null,
   initialProjectId = null,
+  initialSpanId = null,
   fixedTestRunId,
   onUnfilteredEmpty,
   refreshTrigger,
@@ -59,6 +62,9 @@ export default function TracesClient({
   );
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     initialProjectId
+  );
+  const [selectedSpanId, setSelectedSpanId] = useState<string | null>(
+    initialSpanId
   );
   const [drawerOpen, setDrawerOpen] = useState(
     !!(initialTraceId && initialProjectId)
@@ -167,6 +173,7 @@ export default function TracesClient({
   const handleRowClick = (traceId: string, projectId: string) => {
     setSelectedTraceId(traceId);
     setSelectedProjectId(projectId);
+    setSelectedSpanId(null);
     setDrawerOpen(true);
   };
 
@@ -174,6 +181,7 @@ export default function TracesClient({
     setDrawerOpen(false);
     setSelectedTraceId(null);
     setSelectedProjectId(null);
+    setSelectedSpanId(null);
     if (initialTraceId) {
       router.replace(pathname, { scroll: false });
     }
@@ -278,6 +286,7 @@ export default function TracesClient({
         onClose={handleCloseDrawer}
         traceId={selectedTraceId}
         projectId={selectedProjectId || ''}
+        initialSpanId={selectedSpanId ?? undefined}
         currentUserId={currentUserId}
         currentUserName={currentUserName}
         currentUserPicture={currentUserPicture}

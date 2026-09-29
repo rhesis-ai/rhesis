@@ -38,6 +38,7 @@ export default function TracesClientWrapper({
   const searchParams = useSearchParams();
   const initialTraceId = searchParams.get('open_trace');
   const initialProjectId = searchParams.get('project_id');
+  const initialSpanId = searchParams.get('open_span');
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Telemetry.READ
   );
@@ -125,6 +126,7 @@ export default function TracesClientWrapper({
             currentUserPicture={currentUserPicture}
             initialTraceId={initialTraceId}
             initialProjectId={initialProjectId}
+            initialSpanId={initialSpanId}
             onUnfilteredEmpty={handleUnfilteredEmpty}
             refreshTrigger={refreshTrigger}
             initialData={initialData}

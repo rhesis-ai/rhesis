@@ -12,6 +12,7 @@ import SpanGraphView from './SpanGraphView';
 import SpanDetailsPanel from './SpanDetailsPanel';
 import ConversationTraceView from './ConversationTraceView';
 import TraceAnnotationDrawer from './TraceAnnotationDrawer';
+import { findSpanPath, pickInitialSelection, treeTabIndex } from './span-path';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import DetailTabNav from '@/components/common/DetailTabNav';
@@ -36,6 +37,8 @@ interface TraceDrawerProps {
   traceId: string | null;
   projectId: string;
   initialTurnIndex?: number;
+  /** OTel span_id to select on open; takes precedence over initialTurnIndex. */
+  initialSpanId?: string;
   currentUserId?: string;
   currentUserName?: string;
   currentUserPicture?: string;
@@ -103,6 +106,7 @@ export default function TraceDrawer({
   traceId,
   projectId,
   initialTurnIndex,
+  initialSpanId,
   currentUserId = '',
   currentUserName = '',
   currentUserPicture,
@@ -192,16 +196,13 @@ export default function TraceDrawer({
       const data = await client.getTrace(traceId, projectId);
       setTrace(data);
 
-      if (data.root_spans.length > 0) {
-        const spanIndex =
-          initialTurnIndex !== undefined
-            ? Math.min(initialTurnIndex, data.root_spans.length - 1)
-            : 0;
-        setSelectedSpan(data.root_spans[spanIndex]);
-
-        if (initialTurnIndex !== undefined) {
-          setViewTab(data.conversation_id ? 1 : 0);
-        }
+      const { span, openTree } = pickInitialSelection(data, {
+        initialSpanId,
+        initialTurnIndex,
+      });
+      setSelectedSpan(span);
+      if (openTree) {
+        setViewTab(treeTabIndex(!!data.conversation_id));
       }
     } catch (err: unknown) {
       const errorMsg =
@@ -211,7 +212,7 @@ export default function TraceDrawer({
     } finally {
       setLoading(false);
     }
-  }, [traceId, projectId, initialTurnIndex]);
+  }, [traceId, projectId, initialTurnIndex, initialSpanId]);
 
   const refreshTrace = useCallback(async () => {
     if (!traceId || !projectId) return;
@@ -224,15 +225,11 @@ export default function TraceDrawer({
 
       setSelectedSpan(prev => {
         if (!prev) return data.root_spans[0] ?? null;
-        const findSpan = (spans: SpanNode[]): SpanNode | null => {
-          for (const s of spans) {
-            if (s.span_id === prev.span_id) return s;
-            const found = findSpan(s.children);
-            if (found) return found;
-          }
-          return null;
-        };
-        return findSpan(data.root_spans) ?? data.root_spans[0] ?? null;
+        return (
+          findSpanPath(data.root_spans, prev.span_id)?.at(-1) ??
+          data.root_spans[0] ??
+          null
+        );
       });
     } catch (err) {
       console.error('Failed to refresh trace:', err);
