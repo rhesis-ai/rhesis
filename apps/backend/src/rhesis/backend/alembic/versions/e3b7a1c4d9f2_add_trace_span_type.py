@@ -28,6 +28,7 @@ Revises: 2dfc229bb2a8
 Create Date: 2026-09-29
 """
 
+from contextlib import contextmanager
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -42,6 +43,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 _INDEX = "idx_trace_project_span_type_time"
 _BATCH_SIZE = 10_000
+_LOCK_TIMEOUT = "120s"
 
 # Mirrors classify_span_type -- migrations can't import app code. Only a non-empty
 # JSON string counts as set; 64 is SpanType.MAX_LENGTH.
@@ -136,22 +138,36 @@ def _create_index() -> None:
     )
 
 
+@contextmanager
+def _autocommit_with_lock_timeout():
+    # SET LOCAL dies with the transaction autocommit_block() commits, so the
+    # timeout has to be set again, per session, for the work inside it.
+    with op.get_context().autocommit_block():
+        conn = op.get_bind()
+        conn.execute(sa.text(f"SET lock_timeout = '{_LOCK_TIMEOUT}'"))
+        try:
+            yield conn
+        finally:
+            conn.execute(sa.text("RESET lock_timeout"))
+
+
 def upgrade() -> None:
     conn = op.get_bind()
-    conn.execute(sa.text("SET LOCAL lock_timeout = '120s'"))
+    conn.execute(sa.text(f"SET LOCAL lock_timeout = '{_LOCK_TIMEOUT}'"))
     # The auto_rls_on_ddl event trigger's reentry guard: keeps it from touching
     # trace's policies (or its RLS switch) on the ALTER TABLEs below.
     conn.execute(sa.text("SET LOCAL auto_rls.active = 'true'"))
     _add_column(conn)
 
     if _has_bypassrls(conn):
-        with op.get_context().autocommit_block():
-            _backfill(op.get_bind())
+        with _autocommit_with_lock_timeout() as autocommit_conn:
+            _backfill(autocommit_conn)
     else:
         _backfill_under_rls(conn)
         conn.execute(sa.text("SET LOCAL auto_rls.active = 'false'"))
 
-    with op.get_context().autocommit_block():
+    # auto_rls.active isn't needed from here on: the event trigger ignores indexes.
+    with _autocommit_with_lock_timeout():
         _create_index()
 
 
