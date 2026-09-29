@@ -62,7 +62,8 @@ def chat(input: str, conversation_id: str = None) -> dict:
 ### View in Dashboard
 
 Registered endpoints appear under **Projects** > **Your Project** > **Endpoints**
-with connection type `SDK` and status `Active`.
+with connection type `SDK` and status `Active`. Registration does not call your function, so a
+mapping problem shows up on the first invocation rather than as an error status.
 
 </Steps>
 

@@ -96,7 +96,7 @@ asyncio.create_task(connection_manager._listen_for_rpc_requests())`}
 `SDKMessageHandler` (`services/connector/handler.py`) dispatches each WebSocket message to a specialized handler:
 
 - **`handlers/registration.py`**: processes SDK function registration, syncs endpoints and SDK-registered metrics
-- **`handlers/test_result.py`**: handles test execution results; for validation runs, updates endpoint status (Active/Error)
+- **`handlers/test_result.py`**: handles test execution results
 - **`handlers/pong.py`**: keepalive message handling
 - **`handlers/metric_sync.py`**: syncs SDK-registered metrics into the `Metric` table
 
@@ -209,8 +209,12 @@ When SDK registers functions, backend automatically:
 
 1. Creates/updates endpoint records
 2. Generates or applies mappings
-3. Validates mappings via test execution
-4. Updates endpoint status (Active/Error/Inactive)
+3. Marks registered endpoints `Active` and removed ones `Inactive`
+
+Registration does not call the function. The backend closes idle SDK sockets after
+`WS_IDLE_TIMEOUT` and the SDK re-registers on reconnect, so a validation call here would run a real
+turn of the agent every few minutes. A mapping error therefore surfaces on the first real
+invocation, not at registration.
 
 <CodeBlock filename="endpoint-sync.py" language="python">
 {`from rhesis.backend.app.services.endpoint.sdk_sync import sync_sdk_endpoints
