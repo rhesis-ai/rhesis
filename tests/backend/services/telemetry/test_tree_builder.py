@@ -209,3 +209,22 @@ def test_span_metadata_preserved():
     assert tree[0].status_code == "ERROR"
     assert tree[0].status_message == "Test error message"
     assert tree[0].duration_ms == 250.5
+
+
+def test_span_type_comes_from_the_stored_column():
+    spans = [create_mock_span("root", None, "function.root", 0)]
+    spans[0].span_type = "agent.invoke"
+
+    tree = build_span_tree(spans)
+
+    assert tree[0].span_type == "agent.invoke"
+
+
+def test_span_type_is_classified_when_not_stored_yet():
+    """An unflushed span has no server default, so the rule fills it in."""
+    spans = [create_mock_span("root", None, "function.root", 0)]
+    spans[0].attributes = {"ai.model.name": "gpt-4"}
+
+    tree = build_span_tree(spans)
+
+    assert tree[0].span_type == "llm.invoke"

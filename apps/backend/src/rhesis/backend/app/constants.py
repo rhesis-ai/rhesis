@@ -271,6 +271,17 @@ class AISpanAttributes:
     OPERATION_LLM_INVOKE = "llm.invoke"
 
 
+class SpanType:
+    """Values of Trace.span_type. The rule is in services/telemetry/span_types.py.
+
+    Any other ai.operation.type (tool.invoke, agent.invoke, ...) passes through as-is.
+    """
+
+    LLM_INVOKE = AISpanAttributes.OPERATION_LLM_INVOKE
+    SPAN = "span"
+    MAX_LENGTH = 64
+
+
 # Keys inside Trace.enriched_data (JSONB) populated by the enrichment service.
 class EnrichedDataKeys:
     """Top-level and nested keys in Trace.enriched_data."""

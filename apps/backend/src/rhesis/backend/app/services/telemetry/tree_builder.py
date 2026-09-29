@@ -7,6 +7,7 @@ from typing import Dict, List, Optional
 from rhesis.backend.app.constants import EnrichedDataKeys
 from rhesis.backend.app.models.trace import Trace
 from rhesis.backend.app.schemas.telemetry import SpanNode
+from rhesis.backend.app.services.telemetry.span_types import classify_span_type
 
 
 def build_span_tree(
@@ -62,6 +63,8 @@ def build_span_tree(
             span_id=span.span_id,
             span_name=span.span_name,
             span_kind=span.span_kind,
+            # An unflushed span has no server default yet, like execution below.
+            span_type=span.span_type or classify_span_type(span.attributes),
             start_time=span.start_time,
             end_time=span.end_time,
             duration_ms=span.duration_ms or 0.0,

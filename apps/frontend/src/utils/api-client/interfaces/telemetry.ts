@@ -22,6 +22,8 @@ export interface SpanNode {
   span_id: string;
   span_name: string;
   span_kind: string;
+  /** ai.operation.type, else "llm.invoke" when a model is named, else "span". */
+  span_type: string;
   start_time: string;
   end_time: string;
   duration_ms: number;
