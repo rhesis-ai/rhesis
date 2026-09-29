@@ -22,7 +22,7 @@ SCORE_TYPE = ScoreType.NUMERIC
 
 logger = logging.getLogger(__name__)
 
-BehaviorKind = Literal["required", "prohibited"]
+CriterionKind = Literal["required", "prohibited"]
 
 #: Score at or above which a goal counts as achieved, when nothing configures one explicitly.
 #: The single source of truth for this number. Three places used to pick their own default and
@@ -31,24 +31,24 @@ BehaviorKind = Literal["required", "prohibited"]
 #: Deliberately not the generic midpoint: "did this conversation achieve its goal" wants a
 #: clearer majority than "just over half".
 #:
-#: Only affects goal-based scoring. Contract-based scoring asserts every behaviour it lists, so
-#: one violation fails regardless of any threshold (see ``_a_evaluate_contract``).
+#: Reported with the score but never decides pass/fail: both scoring paths pass only when every
+#: criterion is met (see ``_summarize_criteria``).
 DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD = 0.7
 
 
 def _is_scorable_contract(contract: Optional[Mapping[str, Any]]) -> bool:
-    """Whether a contract carries at least one behaviour to judge.
+    """Whether a contract carries at least one criterion to judge.
 
     An empty contract must fall through to goal-based scoring rather than being scored against
     nothing, which any transcript would satisfy.
     """
     if not isinstance(contract, Mapping):
         return False
-    return bool(contract.get("required_behavior") or contract.get("prohibited_behavior"))
+    return bool(contract.get("required_criteria") or contract.get("prohibited_criteria"))
 
 
 #: Key present only in ``MetricResult.details`` produced by ``_a_evaluate_contract``.
-_CONTRACT_MARKER_KEY = "behaviors_total"
+_CONTRACT_MARKER_KEY = "contract"
 
 
 def is_contract_result(details: Mapping[str, Any]) -> bool:
@@ -65,43 +65,85 @@ def is_contract_result(details: Mapping[str, Any]) -> bool:
     return _CONTRACT_MARKER_KEY in details
 
 
-class BehaviorVerdict(BaseModel):
-    """Whether the system under test met one behaviour from the evaluation contract."""
+class CriterionEvaluation(BaseModel):
+    """Whether the system under test met one criterion.
 
-    behavior: str = Field(description="The behaviour being judged, copied from the contract")
-    kind: BehaviorKind = Field(description="Whether the behaviour was required or prohibited")
-    complied: bool = Field(
+    Both scoring paths produce these. Goal-based scoring breaks the goal into criteria of its
+    own; contract-based scoring judges the contract's criteria, which also carry a ``kind``.
+    """
+
+    criterion: str = Field(description="The criterion being judged")
+    kind: CriterionKind = Field(
+        default="required",
+        description="Whether the system had to do this (required) or must not do it (prohibited)",
+    )
+    met: bool = Field(
         description=(
-            "True when the system met this behaviour: it did a required thing, or refrained "
+            "True when the system met this criterion: it did a required thing, or refrained "
             "from a prohibited one."
         )
     )
     evidence: str = Field(description="What the system said or did, quoted where possible")
     relevant_turns: List[int] = Field(
         default_factory=list,
-        description="1-indexed turns where evidence for or against this behaviour appears",
+        description="1-indexed turns where evidence for or against this criterion appears",
     )
 
 
-def _default_contract_reason(violations: Sequence[BehaviorVerdict], total: int) -> str:
-    """Fallback summary when the judge returns verdicts but no prose."""
+def _summarize_criteria(criteria: Sequence[CriterionEvaluation]) -> Dict[str, Any]:
+    """Result details shared by both scoring paths. One unmet criterion fails the metric."""
+    failed = [c for c in criteria if not c.met]
+    return {
+        "is_successful": not failed,
+        "criteria_evaluations": [c.model_dump() for c in criteria],
+        "criteria_total": len(criteria),
+        "criteria_met": len(criteria) - len(failed),
+        "criteria_failed": len(failed),
+        "failed_criteria": [c.criterion for c in failed],
+        "all_criteria_met": not failed,
+    }
+
+
+def _default_contract_reason(failed: Sequence[CriterionEvaluation], total: int) -> str:
+    """Fallback summary when the judge returns evaluations but no prose."""
     noun = "criterion" if total == 1 else "criteria"
-    if not violations:
+    if not failed:
         return f"The system met all {total} {noun}."
-    names = "; ".join(v.behavior for v in violations)
-    return f"The system failed {len(violations)} of {total} {noun}: {names}."
+    names = "; ".join(c.criterion for c in failed)
+    return f"The system failed {len(failed)} of {total} {noun}: {names}."
 
 
+class CriterionVerdict(BaseModel):
+    """Whether the system under test met one criterion from the evaluation contract."""
+
+    criterion: str = Field(description="The criterion being judged, copied from the contract")
+    kind: CriterionKind = Field(description="Whether the criterion was required or prohibited")
+    met: bool = Field(
+        description=(
+            "True when the system met this criterion: it did a required thing, or refrained "
+            "from a prohibited one."
+        )
+    )
+    evidence: str = Field(description="What the system said or did, quoted where possible")
+    relevant_turns: List[int] = Field(
+        default_factory=list,
+        description="1-indexed turns where evidence for or against this criterion appears",
+    )
+
+
+# The contract judge's answer, turned into CriterionEvaluations as soon as it is parsed. Its JSON
+# schema, docstrings included, is part of the prompt: see the note at the top of
+# goal_achievement_contract_prompt.jinja before renaming anything here.
 class ContractComplianceResponse(BaseModel):
-    """Per-behaviour verdicts from contract-based scoring.
+    """Per-criterion verdicts from contract-based scoring.
 
     Carries no score on purpose. The score and the pass/fail verdict are computed from the
     verdicts below, so the breakdown a reviewer reads can never disagree with the number.
     """
 
-    verdicts: List[BehaviorVerdict] = Field(
+    verdicts: List[CriterionVerdict] = Field(
         default_factory=list,
-        description="One verdict per contract behaviour, in the order they were listed",
+        description="One verdict per contract criterion, in the order they were listed",
     )
     reason: str = Field(
         default="",
@@ -112,21 +154,6 @@ class ContractComplianceResponse(BaseModel):
         ge=0.0,
         le=1.0,
         description="Confidence in these verdicts (0.0 to 1.0)",
-    )
-
-
-class CriterionEvaluation(BaseModel):
-    """Evaluation of a single goal criterion."""
-
-    criterion: str = Field(description="The specific criterion being evaluated")
-    met: bool = Field(description="Whether this criterion was met")
-    evidence: str = Field(description="Specific evidence from the conversation for this criterion")
-    relevant_turns: List[int] = Field(
-        default_factory=list,
-        description=(
-            "List of turn numbers (1-indexed) that are relevant to this criterion. "
-            "Include all turns where evidence for or against this criterion was observed."
-        ),
     )
 
 
@@ -351,8 +378,8 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
 
         try:
             return template.render(
-                required_behavior=list(contract.get("required_behavior") or []),
-                prohibited_behavior=list(contract.get("prohibited_behavior") or []),
+                required_criteria=list(contract.get("required_criteria") or []),
+                prohibited_criteria=list(contract.get("prohibited_criteria") or []),
                 simulated_user_objective=contract.get("simulated_user_objective") or "",
                 adversarial=bool(contract.get("adversarial")),
                 conversation_text=self._format_conversation(conversation_history),
@@ -377,91 +404,104 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             ) from e
 
     @staticmethod
-    def _contract_behaviors(contract: Mapping[str, Any]) -> List[tuple]:
-        """The contract's behaviours as ``(kind, text)`` pairs, required first."""
-        required = [("required", b) for b in (contract.get("required_behavior") or [])]
-        prohibited = [("prohibited", b) for b in (contract.get("prohibited_behavior") or [])]
+    def _contract_criteria(contract: Mapping[str, Any]) -> List[tuple]:
+        """The contract's criteria as ``(kind, text)`` pairs, required first."""
+        required = [("required", c) for c in (contract.get("required_criteria") or [])]
+        prohibited = [("prohibited", c) for c in (contract.get("prohibited_criteria") or [])]
         return required + prohibited
 
     @classmethod
     def _align_verdicts(
         cls,
         contract: Mapping[str, Any],
-        verdicts: Sequence[BehaviorVerdict],
-    ) -> List[BehaviorVerdict]:
-        """Match returned verdicts back onto the contract's behaviours.
+        verdicts: Sequence[CriterionVerdict],
+    ) -> List[CriterionEvaluation]:
+        """Match returned verdicts back onto the contract's criteria.
 
-        The model is asked for one verdict per behaviour, in order, echoing the text. It can
+        The model is asked for one verdict per criterion, in order, echoing the text. It can
         still drop, duplicate, or reword one. Matching on text and falling back to position
-        keeps a stray response from silently shifting every verdict onto the wrong behaviour.
+        keeps a stray response from silently shifting every verdict onto the wrong criterion.
 
-        A behaviour with no verdict is treated as NOT complied: an unjudged assertion must not
+        A criterion with no verdict is treated as NOT met: an unjudged assertion must not
         pass by default, or a truncated response would read as a clean run.
 
-        Matching runs in two passes, and no verdict is ever used twice. Text matches are resolved
-        first, across all behaviours, so a verdict that names its behaviour lands on that
-        behaviour rather than being claimed by an earlier one falling back to position. Without
-        that ordering, a response that skips one item shifts a later verdict onto the skipped
-        behaviour -- which silently reports a violated prohibition as complied, on someone else's
-        evidence.
+        Matching runs in two passes, and no verdict is ever used twice. Text matches are
+        resolved first, across all criteria, so a verdict that names its criterion lands on
+        that criterion rather than being claimed by an earlier one falling back to position.
+        Without that ordering, a response that skips one item shifts a later verdict onto the
+        skipped criterion -- which silently reports a violated prohibition as met, on someone
+        else's evidence.
         """
-        behaviors = cls._contract_behaviors(contract)
-        normalized = [v.behavior.strip().lower() for v in verdicts]
-        claimed: Dict[int, int] = {}  # behaviour index -> verdict index
-        # Verdict indices already claimed, by either pass. Named for what it holds (not what
-        # loop it came from): pass 2's fallback candidate for behaviour b_index is always
-        # verdicts[b_index] -- positional, by definition -- so checking "is verdict index
-        # b_index already claimed" is exactly `b_index in used_verdict_indices`, even though
-        # b_index there is a behaviour index. The two index spaces coincide only because pass
-        # 2 never looks anywhere but position b_index; this is not a coincidence to be wary of.
-        used_verdict_indices: set = set()
+        criteria = cls._contract_criteria(contract)
+        normalized = [v.criterion.strip().lower() for v in verdicts]
+        claimed: Dict[int, int] = {}  # criterion index -> verdict index
+        # Verdict indices already claimed, by either pass. Pass 2's fallback candidate for
+        # criterion c_index is always verdicts[c_index] -- positional, by definition -- so
+        # "is that verdict already claimed" is exactly `c_index in used_indices`.
+        used_indices: set = set()
 
-        # Pass 1: a verdict that echoes the behaviour text is authoritative, wherever it sits.
-        for b_index, (_kind, text) in enumerate(behaviors):
+        # Pass 1: a verdict that echoes the criterion text is authoritative, wherever it sits.
+        for c_index, (_kind, text) in enumerate(criteria):
             key = text.strip().lower()
             for v_index, v_key in enumerate(normalized):
-                if v_index not in used_verdict_indices and v_key == key:
-                    claimed[b_index] = v_index
-                    used_verdict_indices.add(v_index)
+                if v_index not in used_indices and v_key == key:
+                    claimed[c_index] = v_index
+                    used_indices.add(v_index)
                     break
 
-        # Pass 2: fall back to position only for behaviours still unmatched, and only onto a
+        # Pass 2: fall back to position only for criteria still unmatched, and only onto a
         # same-index verdict that nothing claimed and whose kind agrees.
-        for b_index, (kind, _text) in enumerate(behaviors):
-            if b_index in claimed or b_index >= len(verdicts) or b_index in used_verdict_indices:
+        for c_index, (kind, _text) in enumerate(criteria):
+            if c_index in claimed or c_index >= len(verdicts) or c_index in used_indices:
                 continue
-            if verdicts[b_index].kind == kind:
-                claimed[b_index] = b_index
-                used_verdict_indices.add(b_index)
+            if verdicts[c_index].kind == kind:
+                claimed[c_index] = c_index
+                used_indices.add(c_index)
 
-        aligned: List[BehaviorVerdict] = []
+        aligned: List[CriterionEvaluation] = []
 
-        for index, (kind, text) in enumerate(behaviors):
+        for index, (kind, text) in enumerate(criteria):
             v_index = claimed.get(index)
             match = verdicts[v_index] if v_index is not None else None
 
             if match is None:
-                logger.warning("No verdict returned for %s behaviour %r", kind, text)
+                logger.warning("No verdict returned for %s criterion %r", kind, text)
                 aligned.append(
-                    BehaviorVerdict(
-                        behavior=text,
+                    CriterionEvaluation(
+                        criterion=text,
                         kind=kind,
-                        complied=False,
-                        evidence="The judge returned no verdict for this behaviour.",
+                        met=False,
+                        evidence="The judge returned no verdict for this criterion.",
                     )
                 )
             else:
                 aligned.append(
-                    BehaviorVerdict(
-                        behavior=text,
+                    CriterionEvaluation(
+                        criterion=text,
                         kind=kind,
-                        complied=match.complied,
+                        met=match.met,
                         evidence=match.evidence,
                         relevant_turns=match.relevant_turns,
                     )
                 )
 
         return aligned
+
+    @staticmethod
+    def _apply_criteria_verdict(result: MetricResult) -> MetricResult:
+        """Make a goal-based result pass only when every criterion is met.
+
+        The judge still returns a score, but a score over the threshold with an unmet criterion
+        used to pass here while the same miss failed a contract-scored run.
+        """
+        details = result.details
+        if "error" in details:
+            return result
+        criteria = [CriterionEvaluation(**c) for c in details.get("criteria_evaluations") or []]
+        if criteria:
+            details.update(_summarize_criteria(criteria))
+            details["threshold_applies"] = False
+        return result
 
     def evaluate(
         self,
@@ -483,11 +523,10 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
                   properly achieved.
             contract: Optional evaluation contract -- a normalized reading of the test stating
                   what the target must and must not do. When present and it lists at least one
-                  behaviour, it supersedes ``goal`` and ``instructions``: the conversation is
-                  scored on compliance with those behaviours instead of on whether a free-text
-                  goal was achieved. This is what makes an adversarial test score the right way
-                  round regardless of how its goal was phrased. Without it, behaviour is
-                  unchanged.
+                  criterion, it supersedes ``goal`` and ``instructions``: the conversation is
+                  scored against the contract's criteria instead of criteria the judge derives
+                  from a free-text goal. This is what makes an adversarial test score the right
+                  way round regardless of how its goal was phrased.
 
         Returns:
             MetricResult with:
@@ -497,7 +536,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
                     - score_type: "numeric"
                     - prompt: The full evaluation prompt
                     - reason: The LLM's reasoning for the score
-                    - is_successful: Whether the score meets the threshold
+                    - is_successful: Whether every criterion was met
                     - threshold_operator: The operator used for threshold comparison
                     - min_score: Minimum possible score
                     - max_score: Maximum possible score
@@ -505,7 +544,9 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
                     - turn_count: Number of turns in the conversation
                     - goal: The goal that was evaluated
                     - instructions: The test instructions (if provided)
-                    - criteria_evaluations: List of CriterionEvaluation objects (breakdown)
+                    - criteria_evaluations: CriterionEvaluation dicts (the breakdown)
+                    - criteria_total / criteria_met / criteria_failed: Counts
+                    - failed_criteria: Text of each unmet criterion
                     - all_criteria_met: Whether all criteria were met
                     - confidence: Confidence level (0.0 to 1.0)
 
@@ -524,7 +565,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
         prompt = self._get_prompt_template(conversation_history, goal, instructions=instructions)
 
         # Use the shared numeric evaluation pattern with conversational-specific details
-        return self._execute_numeric_evaluation(
+        result = self._execute_numeric_evaluation(
             prompt=prompt,
             response_schema=GoalAchievementScoreResponse,
             additional_details={
@@ -532,6 +573,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
                 "goal": goal or GOAL_DEFAULT,
             },
         )
+        return self._apply_criteria_verdict(result)
 
     async def a_evaluate(
         self,
@@ -549,7 +591,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
 
         self._validate_evaluate_inputs(conversation_history, goal)
         prompt = self._get_prompt_template(conversation_history, goal, instructions=instructions)
-        return await self._a_execute_numeric_evaluation(
+        result = await self._a_execute_numeric_evaluation(
             prompt=prompt,
             response_schema=GoalAchievementScoreResponse,
             additional_details={
@@ -557,6 +599,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
                 "goal": goal or GOAL_DEFAULT,
             },
         )
+        return self._apply_criteria_verdict(result)
 
     async def _a_evaluate_contract(
         self,
@@ -565,14 +608,14 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
     ) -> MetricResult:
         """Score the conversation against a normalized evaluation contract.
 
-        ``score`` is the fraction of behaviours the system met, so a partial breach stays
+        ``score`` is the fraction of criteria the system met, so a partial breach stays
         visible. ``is_successful`` is whether it met **all** of them -- the configured threshold
-        does not gate the verdict here, because a test asserts every behaviour it lists and one
-        violation is still a violation. ``local.py`` prefers a metric's own ``is_successful``
+        does not gate the verdict here, because a test asserts every criterion it lists and one
+        miss is still a miss. ``local.py`` prefers a metric's own ``is_successful``
         over the score evaluator, which is what makes that stick.
         """
         prompt = self._get_contract_prompt(conversation_history, contract)
-        behaviors = self._contract_behaviors(contract)
+        criteria = self._contract_criteria(contract)
 
         details = self._get_base_details(prompt)
         details.update(
@@ -584,7 +627,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
                 "max_score": self.max_score,
                 "threshold": self.threshold,
                 "threshold_applies": False,
-                "behaviors_total": len(behaviors),
+                "criteria_total": len(criteria),
             }
         )
 
@@ -596,31 +639,26 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
         except Exception as e:
             return self._handle_evaluation_error(e, details, self.min_score)
 
-        verdicts = self._align_verdicts(contract, response.verdicts)
-        complied = sum(1 for v in verdicts if v.complied)
-        total = len(verdicts)
+        evaluations = self._align_verdicts(contract, response.verdicts)
+        total = len(evaluations)
 
         # An empty contract is filtered out before we get here; guard anyway rather than
         # dividing by zero into a passing verdict.
         if total == 0:
             return self._handle_evaluation_error(
-                ValueError("Contract listed no behaviours to judge"), details, self.min_score
+                ValueError("Contract listed no criteria to judge"), details, self.min_score
             )
 
-        fraction = complied / total
-        score = self.min_score + fraction * (self.max_score - self.min_score)
-        violations = [v for v in verdicts if not v.complied]
+        summary = _summarize_criteria(evaluations)
+        score = self.min_score + summary["criteria_met"] / total * (self.max_score - self.min_score)
+        failed = [e for e in evaluations if not e.met]
 
+        details.update(summary)
         details.update(
             {
                 "score": score,
-                "reason": response.reason or _default_contract_reason(violations, total),
-                "is_successful": not violations,
+                "reason": response.reason or _default_contract_reason(failed, total),
                 "confidence": response.confidence,
-                "behavior_verdicts": [v.model_dump() for v in verdicts],
-                "behaviors_complied": complied,
-                "behaviors_violated": len(violations),
-                "violated_behaviors": [v.behavior for v in violations],
             }
         )
         return MetricResult(score=score, details=details)
