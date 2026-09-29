@@ -35,7 +35,7 @@ They are not interchangeable, and confusing them is the one thing that silently 
 | `conversation_id` | `str` | Set when the trace is one turn of a conversation |
 | `conversation_input` | `str` | The request that started it |
 | `total_tokens` | `int` | Tokens across the trace, also split input and output |
-| `total_cost_usd`, `total_cost_eur` | `float \| None` | Cost, also split input and output. `None` when nothing was priced — see below |
+| `total_cost_usd`, `total_cost_eur` | `float \| None` | Cost, also split input and output. `None` when nothing was priced — see below. The EUR figure is fixed at the rate on the day the trace was priced |
 | `models`, `providers` | `list[str]` | What served the priced calls |
 | `trace_metrics_status` | `str` | Automated trace evaluation verdict |
 | `verdict`, `last_annotation`, `matches_annotation` | | The human verdict, where someone left one |
@@ -46,7 +46,7 @@ A `Span` carries `id` (its row id), `span_id` (the OpenTelemetry hex), `span_nam
 
 ### Unpriced is not free
 
-A cost of `None` means the call was not priced: the platform holds no price for that model, or the span reported no model name at all. `0.0` means it was priced and the model really is free. The two never share a figure, so the distinction is readable rather than guessed at.
+A cost of `None` means the call was not priced: the platform holds no price for that model, the span reported no model name, or it reported no tokens to price. `0.0` means it was priced and the model really is free. The two never share a figure, so the distinction is readable rather than guessed at.
 
 This matters when adding costs up. Treating `None` as zero under-reports a total, and `cost == 0` reads a model nobody has a price for as one that costs nothing:
 

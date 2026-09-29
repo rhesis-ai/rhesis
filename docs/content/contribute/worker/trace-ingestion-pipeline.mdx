@@ -101,7 +101,7 @@ def enrich_trace_async(self, trace_id, project_id, organization_id):
 
 Enrichment calculates three things from the trace's spans:
 
-- **Token costs**: Uses LiteLLM's pricing database to calculate USD and EUR costs for each LLM invocation span. Looks for spans with `ai.operation.type = "ai.llm.invoke"` and reads token counts from `ai.llm.tokens.input` / `ai.llm.tokens.output`.
+- **Token costs**: Uses LiteLLM's pricing database to calculate USD and EUR costs for each LLM invocation span. Looks for spans with `ai.operation.type = "llm.invoke"` and reads token counts from `ai.llm.tokens.input` / `ai.llm.tokens.output` plus the cached counts `ai.llm.tokens.cache_write` / `ai.llm.tokens.cache_read`. A span with no model, an unknown model or no tokens gets no cost rather than zero. See [Token Costs](/docs/tracing/costs).
 
 - **Anomaly detection**: Flags slow spans (greater than 10 seconds), high token usage (greater than 10,000 tokens), and error spans.
 
