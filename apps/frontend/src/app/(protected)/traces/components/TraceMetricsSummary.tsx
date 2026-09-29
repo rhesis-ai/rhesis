@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Box, Grid, Link, Tooltip, Typography } from '@mui/material';
+import { Box, Grid, Link, Typography } from '@mui/material';
 import KpiCard from '../../test-runs/[identifier]/components/summary/KpiCard';
 import CostTooltip from '../../test-runs/[identifier]/components/summary/CostTooltip';
 import ModelLabel from '@/components/common/ModelLabel';
+import { spanTypeLabel } from '@/constants/span-types';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemetry';
@@ -114,13 +115,12 @@ export default function TraceMetricsSummary({
 
   // Busiest first, which is the order a reader wants, and stable: the endpoint
   // groups without an ORDER BY, so the keys arrive in whatever order the
-  // database produced them and the hover would otherwise reshuffle itself.
-  const spanTypes = Object.entries(metrics.operation_breakdown ?? {})
-    .sort(
-      ([aName, aCount], [bName, bCount]) =>
-        bCount - aCount || aName.localeCompare(bName)
-    )
-    .map(([name]) => name);
+  // database produced them and the tooltip would otherwise reshuffle itself.
+  const spanTypes: SpanTypeCount[] = Object.entries(
+    metrics.operation_breakdown ?? {}
+  )
+    .map(([type, count]) => ({ type, label: spanTypeLabel(type), count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
   const errorSpans = metrics.error_spans;
   // From the counts rather than the rounded rate, and capped below 100 while
   // any span failed: rounding alone put "1 error · 100% ok" on screen for
@@ -145,16 +145,16 @@ export default function TraceMetricsSummary({
             title="Traces"
             value={metrics.total_traces.toLocaleString()}
             subtitle={
-              spanTypes.length > 0 ? (
-                <HoverList
-                  label={`${spanTypes.length} ${
+              spanTypes.length > 0
+                ? `${spanTypes.length} ${
                     spanTypes.length === 1 ? 'span type' : 'span types'
-                  }`}
-                  items={spanTypes}
-                />
-              ) : (
-                scope
-              )
+                  }`
+                : scope
+            }
+            infoTooltip={
+              spanTypes.length > 0 ? (
+                <SpanTypesTooltip items={spanTypes} />
+              ) : undefined
             }
           />
         </Grid>
@@ -209,14 +209,36 @@ export default function TraceMetricsSummary({
   );
 }
 
-/** A count that names what it counted, on hover. */
-function HoverList({ label, items }: { label: string; items: string[] }) {
+interface SpanTypeCount {
+  type: string;
+  label: string;
+  count: number;
+}
+
+/** The Traces tile's (i): span counts per type, laid out like CostTooltip. */
+function SpanTypesTooltip({ items }: { items: SpanTypeCount[] }) {
   return (
-    <Tooltip title={items.join(', ')}>
-      <Box component="span" sx={{ borderBottom: '1px dotted', cursor: 'help' }}>
-        {label}
+    <>
+      <Box component="span" sx={{ display: 'block', mb: 0.5 }}>
+        Spans in this scope, by type.
       </Box>
-    </Tooltip>
+      {items.map(({ type, label, count }) => (
+        <Box
+          key={type}
+          component="span"
+          data-testid="span-type-row"
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: 2,
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
+          <span>{label}</span>
+          <span>{count.toLocaleString()}</span>
+        </Box>
+      ))}
+    </>
   );
 }
 

@@ -397,9 +397,9 @@ export default function SpanSequenceView({
             const span = flattenedSpans.find(
               f => f.span.span_id === participant.id
             )?.span;
-            const SpanIcon = span ? getSpanIcon(span.span_name) : null;
+            const SpanIcon = span ? getSpanIcon(span) : null;
             const colorPath = span
-              ? getSpanColor(span.span_name, span.status_code)
+              ? getSpanColor(span, span.status_code)
               : 'text.secondary';
             const headerX = participantPositions.get(participant.id) || 0;
 
@@ -475,8 +475,8 @@ export default function SpanSequenceView({
           const parentX = parentId
             ? participantPositions.get(parentId)
             : undefined;
-          const SpanIcon = getSpanIcon(span.span_name);
-          const colorPath = getSpanColor(span.span_name, span.status_code);
+          const SpanIcon = getSpanIcon(span);
+          const colorPath = getSpanColor(span, span.status_code);
 
           // Get color from theme
           const getColor = () => {

@@ -37,9 +37,9 @@ function metrics(
     operation_breakdown: {
       'llm.invoke': 1800,
       'agent.invoke': 900,
-      'function.invoke': 300,
+      span: 300,
       'tool.invoke': 60,
-      'embedding.invoke': 29,
+      'embedding.create': 29,
     },
     ...overrides,
   };
@@ -49,12 +49,26 @@ function renderTiles(props: Record<string, unknown> = {}) {
   return render(<TraceMetricsSummary projectId="project-1" {...props} />);
 }
 
-/** Hovers the (i) next to the Cost title and returns the tooltip it opens. */
-async function openCostTooltip() {
-  const card = (await screen.findByText('Cost')).closest('.MuiCard-root');
-  if (!(card instanceof HTMLElement)) throw new Error('Cost card not found');
+/** Hovers the (i) next to a tile's title and returns the tooltip it opens. */
+async function openInfoTooltip(title: string) {
+  const card = (await screen.findByText(title)).closest('.MuiCard-root');
+  if (!(card instanceof HTMLElement))
+    throw new Error(`${title} card not found`);
   fireEvent.mouseOver(within(card).getByTestId('InfoOutlinedIcon'));
   return screen.findByRole('tooltip');
+}
+
+const openCostTooltip = () => openInfoTooltip('Cost');
+
+/** The span-type rows in the Traces tooltip, as "label count", in order. */
+function spanTypeRows(tooltip: HTMLElement) {
+  return within(tooltip)
+    .getAllByTestId('span-type-row')
+    .map(row =>
+      Array.from(row.children)
+        .map(cell => cell.textContent)
+        .join(' ')
+    );
 }
 
 describe('TraceMetricsSummary', () => {
@@ -83,14 +97,53 @@ describe('TraceMetricsSummary', () => {
     expect(screen.getByText('5 span types')).toBeInTheDocument();
   });
 
-  it('lists the span types on hover rather than in the tile', async () => {
+  it('keeps the span-type caption plain text, with no hover of its own', async () => {
     renderTiles();
 
     fireEvent.mouseOver(await screen.findByText('5 span types'));
 
-    await waitFor(() =>
-      expect(screen.getByRole('tooltip')).toHaveTextContent('llm.invoke')
+    // Give a tooltip the chance to open before asserting it did not.
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 150));
+    });
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('lists each span type with its count in the Traces (i)', async () => {
+    renderTiles();
+
+    const tooltip = await openInfoTooltip('Traces');
+
+    expect(spanTypeRows(tooltip)).toEqual([
+      'LLM call 1,800',
+      'Agent 900',
+      'Span 300',
+      'Tool 60',
+      'Embedding 29',
+    ]);
+  });
+
+  it('shows a span type it has no label for by its raw key', async () => {
+    getMetrics.mockResolvedValue(
+      metrics({ operation_breakdown: { 'llm.invoke': 5, chain: 2 } })
     );
+    renderTiles();
+
+    const tooltip = await openInfoTooltip('Traces');
+
+    expect(spanTypeRows(tooltip)).toEqual(['LLM call 5', 'chain 2']);
+  });
+
+  it('drops the Traces (i) when there are no span types to list', async () => {
+    getMetrics.mockResolvedValue(metrics({ operation_breakdown: {} }));
+    renderTiles();
+
+    const card = (await screen.findByText('Traces')).closest('.MuiCard-root');
+    if (!(card instanceof HTMLElement))
+      throw new Error('Traces card not found');
+    expect(
+      within(card).queryByTestId('InfoOutlinedIcon')
+    ).not.toBeInTheDocument();
   });
 
   it('counts spans, with how many failed', async () => {
@@ -126,13 +179,14 @@ describe('TraceMetricsSummary', () => {
     ).toBeInTheDocument();
   });
 
-  it('lists the span types busiest first, so the hover does not reshuffle', async () => {
+  it('lists the span types busiest first, so the tooltip does not reshuffle', async () => {
     // The endpoint groups without an ORDER BY, so the keys arrive in whatever
-    // order the database produced them.
+    // order the database produced them. Ties fall back to the label.
     getMetrics.mockResolvedValue(
       metrics({
         operation_breakdown: {
           'tool.invoke': 60,
+          retrieval: 60,
           'llm.invoke': 1800,
           'agent.invoke': 900,
         },
@@ -140,13 +194,14 @@ describe('TraceMetricsSummary', () => {
     );
     renderTiles();
 
-    fireEvent.mouseOver(await screen.findByText('3 span types'));
+    const tooltip = await openInfoTooltip('Traces');
 
-    await waitFor(() =>
-      expect(screen.getByRole('tooltip')).toHaveTextContent(
-        'llm.invoke, agent.invoke, tool.invoke'
-      )
-    );
+    expect(spanTypeRows(tooltip)).toEqual([
+      'LLM call 1,800',
+      'Agent 900',
+      'Retrieval 60',
+      'Tool 60',
+    ]);
   });
 
   it('says one error rather than one errors', async () => {

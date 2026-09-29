@@ -194,19 +194,6 @@ export function tokenSplitLabel(
 }
 
 /**
- * Get span type from span name
- * Returns human-readable type label
- */
-export function getSpanType(spanName: string): string {
-  if (!spanName) return 'Other';
-  if (spanName.includes('ai.llm.invoke')) return 'LLM';
-  if (spanName.includes('function.')) return 'Function';
-  if (spanName.includes('db.')) return 'Database';
-  if (spanName.includes('http.')) return 'HTTP';
-  return 'Other';
-}
-
-/**
  * Extract operation name from full span name
  * Example: "function.chat" -> "chat"
  */

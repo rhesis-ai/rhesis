@@ -98,8 +98,8 @@ function SpanTreeNode({
     onSpanSelect(span);
   };
 
-  const colorPath = getSpanColor(span.span_name, span.status_code);
-  const SpanIcon = getSpanIcon(span.span_name);
+  const colorPath = getSpanColor(span, span.status_code);
+  const SpanIcon = getSpanIcon(span);
 
   return (
     <Box>
