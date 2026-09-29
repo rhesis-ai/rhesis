@@ -34,6 +34,7 @@ Every test execution produces a `TestResult` object that contains:
     "criteria_evaluations": [
       {
         "criterion": "Information accuracy",
+        "kind": "required",
         "met": true,
         "evidence": "Turn 2: User confirmed coverage details",
         "relevant_turns": [2]
@@ -119,13 +120,16 @@ Complete goal evaluation with detailed criteria analysis. This field contains th
   "criteria_evaluations": [
     {
       "criterion": "Information accuracy",
+      "kind": "required",
       "met": true,
       "evidence": "Evidence for this criterion",
       "relevant_turns": [1, 2]
     }
   ],
-  "criteria_met": 1,
   "criteria_total": 1,
+  "criteria_met": 1,
+  "criteria_failed": 0,
+  "failed_criteria": [],
   "is_successful": true
 }`}
 </CodeBlock>
