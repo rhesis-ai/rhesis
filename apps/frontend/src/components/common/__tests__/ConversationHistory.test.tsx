@@ -145,12 +145,12 @@ describe('ConversationHistory', () => {
     const turnStatuses = () =>
       screen.getAllByTestId('status-chip').map(chip => chip.textContent);
 
-    it('fails turns cited by a violated contract behaviour', () => {
+    it('fails turns cited by a failed contract criterion', () => {
       renderConversation({
         conversationSummary: [makeTurn(1), makeTurn(2), makeTurn(3)],
         goalEvaluation: {
           all_criteria_met: false,
-          reason: 'The system failed 1 of 1 criteria.',
+          reason: 'The system failed 1 of 1 criterion.',
           evidence: [],
           criteria_evaluations: [],
           behavior_verdicts: [
@@ -186,6 +186,35 @@ describe('ConversationHistory', () => {
         },
       });
       expect(turnStatuses()).toEqual(['Pass', 'Fail']);
+    });
+
+    it('passes the shown turn status to the annotate handler', async () => {
+      const user = userEvent.setup();
+      const onAnnotateTurn = jest.fn();
+      renderConversation({
+        conversationSummary: [makeTurn(1)],
+        onAnnotateTurn,
+        goalEvaluation: {
+          all_criteria_met: false,
+          reason: '',
+          evidence: [],
+          criteria_evaluations: [],
+          behavior_verdicts: [
+            {
+              behavior: 'Recommend immediate medical consultation',
+              kind: 'required',
+              complied: false,
+              evidence: '',
+              relevant_turns: [1],
+            },
+          ],
+        },
+      });
+
+      await user.click(
+        screen.getByRole('button', { name: /annotate this turn/i })
+      );
+      expect(onAnnotateTurn).toHaveBeenCalledWith(1, false);
     });
   });
 });

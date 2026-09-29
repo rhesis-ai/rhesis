@@ -367,7 +367,7 @@ export default function ConversationHistory({
                 <Tooltip title="Annotate this turn">
                   <IconButton
                     size="small"
-                    onClick={() => onAnnotateTurn(turn.turn, turn.success)}
+                    onClick={() => onAnnotateTurn(turn.turn, turnPassed)}
                     sx={{
                       padding: 0.5,
                       color: theme.palette.text.secondary,

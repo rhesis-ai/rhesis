@@ -849,8 +849,7 @@ export default function TestDetailMetricsTab({
                           color="text.secondary"
                           fontWeight={600}
                         >
-                          Criteria Breakdown (
-                          {goalAchievementData.breakdownItems.length})
+                          {`Criteria Breakdown (${goalAchievementData.breakdownItems.length})`}
                         </Typography>
                         <IconButton
                           size="small"
