@@ -60,7 +60,7 @@ async def sync_sdk_endpoints(
         logger.error(f"User {user_id} not found for mapping generation")
         return {"created": 0, "updated": 0, "marked_inactive": 0, "errors": ["User not found"]}
 
-    # Get project name for endpoint naming - with organization validation for security
+    # Check the project exists in this organization before creating endpoints in it
     project = (
         db.query(models.Project)
         .filter(
@@ -198,7 +198,7 @@ async def sync_sdk_endpoints(
 
                 # Create endpoint with metadata first
                 endpoint_data = schemas.EndpointCreate(
-                    name=f"{project_name} ({function_name})",
+                    name=function_name,
                     description=func_data.get("metadata", {}).get("description", ""),
                     connection_type=EndpointConnectionType.SDK,
                     url="",  # Empty for SDK
