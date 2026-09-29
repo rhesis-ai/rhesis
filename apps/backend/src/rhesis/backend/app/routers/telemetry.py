@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime
-from typing import List, Optional
+from typing import Callable, List, Optional, TypeVar
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Query, Request, status
@@ -20,6 +20,7 @@ from rhesis.backend.app.crud.telemetry import (
     get_trace_metrics_aggregated,
     list_trace_providers,
     query_traces,
+    validate_uuid_param,
 )
 from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.dependencies import (
@@ -33,6 +34,9 @@ from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.telemetry import (
     OTELTraceBatch,
+    SpanFacetsResponse,
+    SpanFilters,
+    SpanListResponse,
     StatusCode,
     TraceDetailResponse,
     TraceIngestResponse,
@@ -44,6 +48,7 @@ from rhesis.backend.app.schemas.telemetry import (
 )
 from rhesis.backend.app.services.async_service import BROKER_ERRORS
 from rhesis.backend.app.services.project_membership import list_other_member_projects
+from rhesis.backend.app.services.telemetry.span_list import get_span_facets, list_spans
 from rhesis.backend.app.services.telemetry.token_totals import (
     trace_cost_usd,
     trace_summary_usage,
@@ -60,6 +65,8 @@ router = RhesisRouter(
     resource="telemetry",
 )
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 @router.post("/traces", response_model=TraceResponse)
@@ -498,6 +505,196 @@ def list_traces(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve traces. Check server logs for details.",
         )
+
+
+def span_filter_params(
+    span_type: Optional[List[str]] = Query(
+        None, description="Span type, repeatable (llm.invoke, tool.invoke, span, ...)"
+    ),
+    span_name: Optional[List[str]] = Query(None, description="Exact span name, repeatable"),
+    search: Optional[str] = Query(
+        None, description="Case-insensitive substring of span name, span ID or trace ID"
+    ),
+    is_root: Optional[bool] = Query(None, description="true: root spans only; false: children"),
+    status_code: Optional[str] = Query(None, description="Status code filter (OK, ERROR)"),
+    environment: Optional[str] = Query(None, description="Environment filter"),
+    start_time_after: Optional[datetime] = Query(None, description="Start time >= (ISO 8601)"),
+    start_time_before: Optional[datetime] = Query(None, description="Start time <= (ISO 8601)"),
+    duration_min_ms: Optional[float] = Query(None, description="Minimum duration in milliseconds"),
+    duration_max_ms: Optional[float] = Query(None, description="Maximum duration in milliseconds"),
+    test_run_id: Optional[str] = Query(
+        None, description="Spans of traces from this test run (children included)"
+    ),
+    test_result_id: Optional[str] = Query(
+        None, description="Spans of traces from this test result (children included)"
+    ),
+    test_id: Optional[str] = Query(
+        None, description="Spans of traces from this test (children included)"
+    ),
+    trace_type: TraceType = Query(
+        TraceType.ALL,
+        description="'Multi-Turn': spans of traces with a conversation; 'Single-Turn': without",
+    ),
+    trace_source: TraceSource = Query(
+        TraceSource.ALL, description="'test' or 'operation' traces; 'all' by default"
+    ),
+    model: Optional[List[str]] = Query(None, description="Model name, repeatable"),
+    provider: Optional[List[str]] = Query(
+        None, description="LLM provider, repeatable; values from GET /telemetry/providers"
+    ),
+) -> SpanFilters:
+    """Filters shared by the spans list and its facets."""
+    for value, name in (
+        (test_run_id, "test_run_id"),
+        (test_result_id, "test_result_id"),
+        (test_id, "test_id"),
+    ):
+        validate_uuid_param(value, name)
+    return SpanFilters(
+        span_types=span_type,
+        span_names=span_name,
+        search=search,
+        is_root=is_root,
+        status_code=status_code,
+        environment=environment,
+        start_time_after=start_time_after,
+        start_time_before=start_time_before,
+        duration_min_ms=duration_min_ms,
+        duration_max_ms=duration_max_ms,
+        test_run_id=test_run_id,
+        test_result_id=test_result_id,
+        test_id=test_id,
+        trace_type=trace_type,
+        trace_source=trace_source,
+        models=model,
+        providers=provider,
+    )
+
+
+def _in_requested_project(
+    request: Request,
+    current_user: User,
+    db: Session,
+    tenant_context,
+    project_id: Optional[str],
+    scope_project_id: Optional[str],
+    run: Callable[[str, Optional[str]], T],
+) -> T:
+    """Run *run(organization_id, project_id)* scoped like ``list_traces``.
+
+    A ``project_id`` other than the session's is access-checked, then read under a
+    temporary rebind so the ORM filter and RLS let its rows through.
+    """
+    organization_id, user_id = tenant_context
+    if project_id is not None:
+        assert_project_access(request, current_user, project_id, db=db)
+    effective_project_id = project_id or scope_project_id
+
+    try:
+        if effective_project_id and effective_project_id != scope_project_id:
+            with temporary_project_scope(db, organization_id, user_id, effective_project_id):
+                return run(organization_id, effective_project_id)
+        return run(organization_id, effective_project_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "permission denied" in error_msg or "insufficient privilege" in error_msg:
+            logger.error(f"Database permission error reading spans: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Database access denied. Please contact support to resolve permission issues."
+                ),
+            )
+        logger.error(f"Failed to read spans for org {organization_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve spans. Check server logs for details.",
+        )
+
+
+@router.get("/spans", response_model=SpanListResponse)
+def list_spans_endpoint(
+    request: Request,
+    current_user: User = Depends(require_current_user_or_token),
+    project_id: Optional[str] = Query(
+        None,
+        description=(
+            "Project ID filter. Defaults to the session project from X-Project-Id. "
+            "Must be a project the caller is a member of."
+        ),
+    ),
+    filters: SpanFilters = Depends(span_filter_params),
+    sort_by: Optional[str] = Query(
+        None,
+        description=(
+            "Field to sort by. One of: start_time, duration_ms, span_name, total_tokens, "
+            "cost_usd. Nulls sort last either way."
+        ),
+    ),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$", description="Sort direction"),
+    limit: int = Query(100, ge=1, le=1000, description="Results per page"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    scope_project_id: Optional[str] = Depends(get_project_context),
+) -> SpanListResponse:
+    """List spans, one row per span, with filters, sorting and pagination.
+
+    Test ids, ``trace_source`` and ``trace_type`` describe the trace: they match every
+    span of a matching trace, not only its root. ``cost_usd`` is set only for LLM calls
+    enrichment has priced.
+    """
+    return _in_requested_project(
+        request,
+        current_user,
+        db,
+        tenant_context,
+        project_id,
+        scope_project_id,
+        lambda organization_id, effective_project_id: list_spans(
+            db,
+            organization_id,
+            effective_project_id,
+            filters,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            limit=limit,
+            offset=offset,
+        ),
+    )
+
+
+@router.get("/spans/facets", response_model=SpanFacetsResponse)
+def get_span_facets_endpoint(
+    request: Request,
+    current_user: User = Depends(require_current_user_or_token),
+    project_id: Optional[str] = Query(
+        None, description="Project ID. Defaults to the session project from X-Project-Id."
+    ),
+    filters: SpanFilters = Depends(span_filter_params),
+    name_limit: int = Query(100, ge=1, le=500, description="Most span names to return"),
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+    scope_project_id: Optional[str] = Depends(get_project_context),
+) -> SpanFacetsResponse:
+    """Span types, span names and models with counts, for the span filters.
+
+    Takes the same filters as ``GET /telemetry/spans``. Each facet ignores its own
+    filter, so with one type selected the type facet still lists the others.
+    """
+    return _in_requested_project(
+        request,
+        current_user,
+        db,
+        tenant_context,
+        project_id,
+        scope_project_id,
+        lambda organization_id, effective_project_id: get_span_facets(
+            db, organization_id, effective_project_id, filters, name_limit=name_limit
+        ),
+    )
 
 
 @router.get("/spans/{span_db_id}/lookup")

@@ -9,7 +9,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Dict, List, NamedTuple, Optional, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 from uuid import UUID
 
 from sqlalchemy import and_, asc, desc, false, func, or_, select
@@ -20,6 +20,20 @@ from rhesis.backend.app.constants import (
     AISpanAttributes,
     EnrichedDataKeys,
     TestExecutionContext,
+)
+from rhesis.backend.app.crud.span_sql import (
+    SKIP_MODEL,
+    SKIP_SPAN_NAME,
+    SKIP_SPAN_TYPE,
+    provider_clause,
+    span_breakdown_entry,
+    span_cost_expr,
+    span_filter_clauses,
+    span_model_expr,
+    span_recorded_provider_expr,
+    span_scope,
+    span_sort_clauses,
+    span_token_columns,
 )
 from rhesis.backend.app.crud.usage_sql import (
     coalesced_input_tokens,
@@ -37,6 +51,7 @@ from rhesis.backend.app.crud.usage_sql import (
 )
 from rhesis.backend.app.schemas.telemetry import (
     OTELSpanCreate,
+    SpanFilters,
     StatusCode,
     TraceSource,
     TraceType,
@@ -787,6 +802,214 @@ def query_traces(
         )
         for r in results
     ]
+
+
+# ============================================================================
+# Spans list (one row per span)
+# ============================================================================
+
+
+class TraceContext(NamedTuple):
+    """Trace-level fields shown on each span row, read off the trace's roots."""
+
+    trace_name: Optional[str]
+    conversation_id: Optional[str]
+    test_run_id: Optional[UUID]
+    test_result_id: Optional[UUID]
+    test_id: Optional[UUID]
+
+
+class SpanFacetCounts(NamedTuple):
+    span_types: list
+    span_names: list
+    span_names_truncated: bool
+    models: list
+
+
+def _span_provider_clause(db: Session, org_uuid, project_id: Optional[str], providers: List[str]):
+    """Keep spans served by one of *providers*, resolved the way the row's column is.
+
+    Same approach as ``_provider_filter``: the scope's distinct (model, recorded
+    provider) pairs are resolved in Python, then turned back into a clause.
+    """
+    wanted = {normalize_provider(name) for name in providers}
+    wanted.discard(None)
+    if not wanted:
+        return false()
+
+    entry = span_breakdown_entry()
+    model = span_model_expr(entry)
+    recorded_col = span_recorded_provider_expr(entry)
+    pairs = (
+        db.query(model.label("model_name"), recorded_col.label("recorded"))
+        .filter(*span_scope(models.Trace, org_uuid, project_id), model.isnot(None))
+        .distinct()
+        .all()
+    )
+
+    recorded, model_names = set(), set()
+    for row in pairs:
+        resolved = resolve_provider({AISpanAttributes.MODEL_PROVIDER: row.recorded}, row.model_name)
+        if resolved not in wanted:
+            continue
+        if row.recorded:
+            recorded.add(row.recorded)
+        else:
+            model_names.add(row.model_name)
+    return provider_clause(recorded, model_names)
+
+
+def _span_clauses(db: Session, org_uuid, project_id: Optional[str], filters: SpanFilters) -> list:
+    clauses = span_filter_clauses(org_uuid, project_id, filters)
+    if filters.providers:
+        clauses.append(_span_provider_clause(db, org_uuid, project_id, filters.providers))
+    return clauses
+
+
+def query_spans(
+    db: Session,
+    organization_id: str,
+    project_id: Optional[str],
+    filters: SpanFilters,
+    sort_by: Optional[str] = None,
+    sort_order: str = "desc",
+    limit: int = 100,
+    offset: int = 0,
+) -> Tuple[list, int]:
+    """One page of spans matching *filters*, and the total before paging.
+
+    Two steps: sort and page on ids, then read the display columns for that page only.
+    The model/provider/cost columns unpack the enrichment blob per span, and doing that
+    for every matching row just to throw most of them away is the expensive part.
+    """
+    org_uuid = UUID(organization_id)
+    trace = models.Trace
+    clauses = _span_clauses(db, org_uuid, project_id, filters)
+
+    page = (
+        db.query(trace.id, func.count().over().label("total"))
+        .filter(*clauses)
+        .order_by(*span_sort_clauses(sort_by, sort_order))
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )
+    if not page:
+        total = db.query(func.count(trace.id)).filter(*clauses).scalar() if offset else 0
+        return [], total
+
+    entry = span_breakdown_entry()
+    input_tokens, output_tokens, total_tokens = span_token_columns()
+    ids = [row.id for row in page]
+    rows = (
+        db.query(
+            trace.id,
+            trace.span_id,
+            trace.trace_id,
+            trace.parent_span_id,
+            trace.project_id,
+            trace.span_name,
+            trace.span_type,
+            trace.start_time,
+            trace.duration_ms,
+            trace.status_code,
+            trace.environment,
+            trace.conversation_id,
+            span_model_expr(entry).label("model"),
+            span_recorded_provider_expr(entry).label("recorded_provider"),
+            input_tokens.label("input_tokens"),
+            output_tokens.label("output_tokens"),
+            total_tokens.label("total_tokens"),
+            span_cost_expr(entry).label("cost_usd"),
+        )
+        .filter(trace.id.in_(ids))
+        .all()
+    )
+    by_id = {row.id: row for row in rows}
+    return [by_id[span_id] for span_id in ids if span_id in by_id], page[0].total
+
+
+def trace_context_for(
+    db: Session, organization_id: str, project_id: Optional[str], trace_ids: List[str]
+) -> Dict[str, TraceContext]:
+    """Name, conversation and test ids for each trace, from its roots.
+
+    A multi-turn trace has one root per turn; the first one names it. Its
+    conversation_id can be missing on some roots, so take whichever row has one.
+    """
+    if not trace_ids:
+        return {}
+    trace = models.Trace
+    scope = span_scope(trace, UUID(organization_id), project_id) + [trace.trace_id.in_(trace_ids)]
+
+    first_roots = (
+        db.query(
+            trace.trace_id,
+            trace.span_name,
+            trace.test_run_id,
+            trace.test_result_id,
+            trace.test_id,
+        )
+        .filter(*scope, trace.parent_span_id.is_(None))
+        .distinct(trace.trace_id)
+        .order_by(trace.trace_id, trace.start_time)
+        .all()
+    )
+    conversations = dict(
+        db.query(trace.trace_id, func.max(trace.conversation_id))
+        .filter(*scope, trace.conversation_id.isnot(None))
+        .group_by(trace.trace_id)
+        .all()
+    )
+    return {
+        root.trace_id: TraceContext(
+            trace_name=root.span_name,
+            conversation_id=conversations.get(root.trace_id),
+            test_run_id=root.test_run_id,
+            test_result_id=root.test_result_id,
+            test_id=root.test_id,
+        )
+        for root in first_roots
+    }
+
+
+def span_facets(
+    db: Session,
+    organization_id: str,
+    project_id: Optional[str],
+    filters: SpanFilters,
+    name_limit: int = 100,
+) -> SpanFacetCounts:
+    """Span types, names and models with counts, busiest first.
+
+    Each facet applies every filter but its own, so picking one type still lists the
+    others to add.
+    """
+    org_uuid = UUID(organization_id)
+    by_provider = (
+        [_span_provider_clause(db, org_uuid, project_id, filters.providers)]
+        if filters.providers
+        else []
+    )
+
+    def counts(expression, skip: str, limit: Optional[int] = None) -> list:
+        clauses = span_filter_clauses(org_uuid, project_id, filters, skip={skip})
+        values = db.query(expression.label("value")).filter(*clauses, *by_provider).subquery()
+        query = (
+            db.query(values.c.value, func.count().label("count"))
+            .filter(values.c.value.isnot(None))
+            .group_by(values.c.value)
+            .order_by(desc("count"), values.c.value)
+        )
+        return query.limit(limit).all() if limit else query.all()
+
+    names = counts(models.Trace.span_name, SKIP_SPAN_NAME, name_limit + 1)
+    return SpanFacetCounts(
+        span_types=counts(models.Trace.span_type, SKIP_SPAN_TYPE),
+        span_names=names[:name_limit],
+        span_names_truncated=len(names) > name_limit,
+        models=counts(span_model_expr(span_breakdown_entry()), SKIP_MODEL),
+    )
 
 
 def get_unprocessed_traces(

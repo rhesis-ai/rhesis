@@ -1,5 +1,6 @@
 """Backend telemetry schemas - imports from SDK."""
 
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -76,6 +77,11 @@ __all__ = [
     "TraceMetricsResponse",
     "TraceSource",
     "TraceType",
+    "SpanFilters",
+    "SpanSummary",
+    "SpanListResponse",
+    "SpanFacetValue",
+    "SpanFacetsResponse",
 ]
 
 # Alias for consistency with existing backend code
@@ -190,6 +196,95 @@ class TraceListResponse(BaseModel):
     total: int = Field(..., description="Total traces matching filters")
     limit: int = Field(..., description="Results per page")
     offset: int = Field(..., description="Pagination offset")
+
+
+@dataclass(frozen=True)
+class SpanFilters:
+    """Filters for the spans list and its facets.
+
+    Test ids, trace_source and trace_type describe the trace, not the span: the test
+    ids sit on root spans only, so they match every span of a trace whose root has them.
+    """
+
+    span_types: Optional[List[str]] = None
+    span_names: Optional[List[str]] = None
+    search: Optional[str] = None
+    is_root: Optional[bool] = None
+    status_code: Optional[str] = None
+    environment: Optional[str] = None
+    start_time_after: Optional[datetime] = None
+    start_time_before: Optional[datetime] = None
+    duration_min_ms: Optional[float] = None
+    duration_max_ms: Optional[float] = None
+    test_run_id: Optional[str] = None
+    test_result_id: Optional[str] = None
+    test_id: Optional[str] = None
+    trace_type: TraceType = TraceType.ALL
+    trace_source: TraceSource = TraceSource.ALL
+    models: Optional[List[str]] = None
+    providers: Optional[List[str]] = None
+
+
+class SpanSummary(BaseModel):
+    """One span for the spans list."""
+
+    id: str
+    span_id: str
+    trace_id: str
+    parent_span_id: Optional[str] = None
+    is_root: bool
+    project_id: str
+    span_name: str
+    span_type: str
+    trace_name: Optional[str] = Field(
+        default=None, description="Name of the trace's first root span"
+    )
+    start_time: datetime
+    duration_ms: float
+    status_code: str
+    environment: str
+    conversation_id: Optional[str] = None
+    test_run_id: Optional[str] = None
+    test_result_id: Optional[str] = None
+    test_id: Optional[str] = None
+    model: Optional[str] = None
+    provider: Optional[str] = Field(
+        default=None, description="Set only when the span names a model"
+    )
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    total_tokens: Optional[int] = Field(
+        default=None, description="Null when the span reported no tokens at all"
+    )
+    cost_usd: Optional[float] = Field(
+        default=None,
+        description="Null when enrichment has not priced this span; only LLM calls are priced",
+    )
+
+
+class SpanListResponse(BaseModel):
+    """Response for the list spans endpoint."""
+
+    spans: List[SpanSummary]
+    total: int = Field(..., description="Total spans matching filters")
+    limit: int = Field(..., description="Results per page")
+    offset: int = Field(..., description="Pagination offset")
+
+
+class SpanFacetValue(BaseModel):
+    value: str
+    count: int
+
+
+class SpanFacetsResponse(BaseModel):
+    """Values the span filters can take, with counts. Each facet ignores its own filter."""
+
+    span_types: List[SpanFacetValue]
+    span_names: List[SpanFacetValue]
+    span_names_truncated: bool = Field(
+        default=False, description="More names exist than name_limit returned"
+    )
+    models: List[SpanFacetValue]
 
 
 class SpanNode(BaseModel):
