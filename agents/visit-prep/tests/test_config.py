@@ -157,8 +157,22 @@ def test_resolve_config_uses_the_pinned_environment(monkeypatch):
     assert calls == [{"project_id": "p1"}]
 
 
+def test_resolve_config_needs_a_project_to_read_the_environment(monkeypatch, caplog):
+    monkeypatch.setenv("RHESIS_PARAMETERS_ENVIRONMENT", "staging")
+    monkeypatch.delenv("RHESIS_PROJECT_ID", raising=False)
+
+    def fail(**_kwargs):
+        raise AssertionError("Parameters.get must not be called")
+
+    monkeypatch.setattr(config_mod.Parameters, "get", fail)
+
+    assert resolve_config() == VisitPrepConfig()
+    assert "RHESIS_PROJECT_ID is not" in caplog.text
+
+
 def test_resolve_config_falls_back_when_the_api_fails(monkeypatch):
     monkeypatch.setenv("RHESIS_PARAMETERS_ENVIRONMENT", "staging")
+    monkeypatch.setenv("RHESIS_PROJECT_ID", "p1")
 
     def boom(**_kwargs):
         raise RuntimeError("404 no experiment")

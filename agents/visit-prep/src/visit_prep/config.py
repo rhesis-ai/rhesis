@@ -109,6 +109,11 @@ def resolve_config() -> VisitPrepConfig:
     params = get_experiment_parameters()
     if params is None and os.getenv("RHESIS_PARAMETERS_ENVIRONMENT"):
         project_id = os.getenv("RHESIS_PROJECT_ID")
+        if not project_id:
+            logger.warning(
+                "RHESIS_PARAMETERS_ENVIRONMENT is set but RHESIS_PROJECT_ID is not; using defaults"
+            )
+            return VisitPrepConfig()
         try:
             # Parameters.get reads the environment from RHESIS_PARAMETERS_ENVIRONMENT itself
             # and caches the answer for 60 s.
