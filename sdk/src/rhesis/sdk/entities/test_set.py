@@ -932,12 +932,15 @@ class TestSet(BaseEntity):
 
         If the test set has an ID, updates metadata via PUT.
         Otherwise, creates a new test set with tests via the bulk POST endpoint.
+        On creation, a missing ``test_set_type`` is inferred from the tests.
 
         Returns:
             Dict containing the response from the API.
 
         Raises:
-            ValueError: If required fields are missing (creation only).
+            ValueError: If required fields are missing, or ``test_set_type`` is
+                missing and cannot be inferred because there are no tests or
+                the tests mix types (creation only).
             RhesisAPIError: If the API request fails.
 
         Example:
@@ -971,12 +974,19 @@ class TestSet(BaseEntity):
 
     def _push_create(self) -> Optional[Dict[str, Any]]:
         """Create a new test set via the bulk endpoint, with or without tests."""
-        # Validate required fields
+        if self.test_set_type is None and self.tests:
+            self.test_set_type = self._infer_test_set_type(self.tests)
+
         missing_fields = [
             field for field in self._push_required_fields if getattr(self, field, None) is None
         ]
         if missing_fields:
-            raise ValueError(f"Required fields for push: {', '.join(missing_fields)}")
+            message = f"Required fields for push: {', '.join(missing_fields)}"
+            if "test_set_type" in missing_fields:
+                message += (
+                    ". Set test_set_type explicitly or add tests so it can be inferred from them."
+                )
+            raise ValueError(message)
 
         # Validate that each test has required fields set
         if self.tests:
@@ -1166,9 +1176,15 @@ class TestSet(BaseEntity):
 
         A test set must be uniformly Single-Turn or Multi-Turn. Mixed
         collections fail here instead of building a payload the API will
-        reject.
+        reject. A test without ``test_type`` counts as Multi-Turn when it
+        has a goal, matching how imports classify entries.
         """
-        inferred_types = {test.test_type for test in tests if test.test_type is not None}
+        inferred_types = set()
+        for test in tests:
+            if test.test_type is not None:
+                inferred_types.add(test.test_type)
+            elif test.test_configuration and test.test_configuration.goal:
+                inferred_types.add(TestType.MULTI_TURN)
         if len(inferred_types) > 1:
             raise ValueError(
                 "Cannot create a TestSet with mixed test types: "
