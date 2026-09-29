@@ -5970,7 +5970,6 @@ dependencies = [
     { name = "rhesis", extra = ["telemetry"] },
     { name = "tenacity" },
     { name = "tiktoken" },
-    { name = "torch" },
     { name = "tqdm" },
     { name = "websockets" },
 ]
@@ -6140,7 +6139,6 @@ requires-dist = [
     { name = "rhesis", extras = ["telemetry"], editable = "../packages/rhesis" },
     { name = "tenacity", specifier = ">=8.2.3" },
     { name = "tiktoken", specifier = ">=0.9.0" },
-    { name = "torch" },
     { name = "torch", marker = "extra == 'all'", specifier = ">=2.8.0" },
     { name = "torch", marker = "extra == 'huggingface'", specifier = ">=2.8.0" },
     { name = "tqdm", specifier = ">=4.67.1" },

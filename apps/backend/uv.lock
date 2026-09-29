@@ -6513,10 +6513,6 @@ dependencies = [
     { name = "rhesis", extra = ["telemetry"] },
     { name = "tenacity" },
     { name = "tiktoken" },
-    { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-cpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "torch", version = "2.13.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu') or (sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-14-rhesis-backend-cpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "torch", version = "2.13.0+cu129", source = { registry = "https://download.pytorch.org/whl/cu129" }, marker = "(sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "tqdm" },
     { name = "websockets" },
 ]
@@ -6586,7 +6582,6 @@ requires-dist = [
     { name = "rhesis", extras = ["telemetry"], editable = "../../packages/rhesis" },
     { name = "tenacity", specifier = ">=8.2.3" },
     { name = "tiktoken", specifier = ">=0.9.0" },
-    { name = "torch" },
     { name = "torch", marker = "extra == 'all'", specifier = ">=2.8.0" },
     { name = "torch", marker = "extra == 'huggingface'", specifier = ">=2.8.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
