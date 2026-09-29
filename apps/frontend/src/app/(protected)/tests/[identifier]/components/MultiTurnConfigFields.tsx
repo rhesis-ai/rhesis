@@ -40,8 +40,7 @@ const OPTIONAL_TEXT_FIELDS: OptionalFieldConfig[] = [
   {
     key: 'restrictions',
     label: 'Restrictions',
-    helperText:
-      'What the target must not do — forbidden behaviors or boundaries',
+    helperText: 'What the target must not do — forbidden actions or boundaries',
     placeholder: 'What must not happen',
     maxLength: 10000,
   },

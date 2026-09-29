@@ -285,9 +285,9 @@ export default function TestDetailMetricsTab({
     const behaviorVerdicts = goalEvaluation?.behavior_verdicts || [];
     const criteriaEvaluations = goalEvaluation?.criteria_evaluations || [];
 
-    // Behaviour verdicts (see schemas/evaluation_contract.py) are what every test is scored
+    // Contract verdicts (see schemas/evaluation_contract.py) are what every test is scored
     // against going forward. Older stored results only have free-text criteria evaluations --
-    // shown the same way, just without the required/prohibited distinction. The index is part
+    // shown the same way, just without the must/must-not distinction. The index is part
     // of the key because two entries can carry identical text, which would collide otherwise.
     const usesBehaviors = behaviorVerdicts.length > 0;
     const breakdownItems = usesBehaviors
@@ -312,9 +312,6 @@ export default function TestDetailMetricsTab({
       reason: goalMetric.reason || '',
       override: goalMetric.override,
       adversarial: Boolean(goalMetric.adversarial),
-      // Label follows the data actually being shown -- an older result's criteria must not be
-      // counted out as "behaviours".
-      usesBehaviors,
       progressMet:
         goalMetric.behaviors_complied ?? goalMetric.criteria_met ?? 0,
       progressTotal:
@@ -647,14 +644,8 @@ export default function TestDetailMetricsTab({
           const goalIsOverruled = !!goalAchievementData.override;
           const goalIsConfirmed = !!goalAnnotation && !goalIsOverruled;
 
-          const progressLabel = goalAchievementData.usesBehaviors
-            ? 'Behaviour Compliance'
-            : 'Criteria Progress';
           const progressMet = goalAchievementData.progressMet;
           const progressTotal = goalAchievementData.progressTotal;
-          const progressNoun = goalAchievementData.usesBehaviors
-            ? 'behaviours'
-            : 'criteria';
 
           return (
             <Card
@@ -723,7 +714,7 @@ export default function TestDetailMetricsTab({
                 </Box>
 
                 <Grid container spacing={2}>
-                  {/* Criteria Progress / Behaviour Compliance */}
+                  {/* Criteria Progress */}
                   <Grid
                     size={{
                       xs: 12,
@@ -739,7 +730,7 @@ export default function TestDetailMetricsTab({
                         fontWeight: 600,
                       }}
                     >
-                      {progressLabel}
+                      Criteria Progress
                     </Typography>
                     <Box
                       sx={{
@@ -776,8 +767,8 @@ export default function TestDetailMetricsTab({
                     </Box>
                     <Typography variant="caption" color="text.secondary">
                       {progressTotal > 0
-                        ? `${((progressMet / progressTotal) * 100).toFixed(0)}% of ${progressNoun} met`
-                        : `No ${progressNoun}`}
+                        ? `${((progressMet / progressTotal) * 100).toFixed(0)}% of criteria met`
+                        : 'No criteria'}
                     </Typography>
                   </Grid>
 
@@ -840,7 +831,7 @@ export default function TestDetailMetricsTab({
                     </Typography>
                   </Grid>
 
-                  {/* Behaviour Breakdown */}
+                  {/* Criteria Breakdown */}
                   {goalAchievementData.breakdownItems.length > 0 && (
                     <Grid size={12}>
                       <Divider sx={{ my: 2 }} />
@@ -858,10 +849,8 @@ export default function TestDetailMetricsTab({
                           color="text.secondary"
                           fontWeight={600}
                         >
-                          {goalAchievementData.usesBehaviors
-                            ? 'Behaviour Breakdown'
-                            : 'Criteria Breakdown'}{' '}
-                          ({goalAchievementData.breakdownItems.length})
+                          Criteria Breakdown (
+                          {goalAchievementData.breakdownItems.length})
                         </Typography>
                         <IconButton
                           size="small"

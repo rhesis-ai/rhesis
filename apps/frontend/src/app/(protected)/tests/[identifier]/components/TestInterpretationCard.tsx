@@ -42,7 +42,7 @@ interface TestInterpretationCardProps {
   test: TestDetail;
 }
 
-function BehaviourList({
+function CriteriaList({
   label,
   items,
   emptyHint,
@@ -106,15 +106,15 @@ function ContractBody({ contract }: { contract: EvaluationContract }) {
         />
       </Box>
 
-      <BehaviourList
+      <CriteriaList
         label="The target must"
         items={contract.required_behavior}
-        emptyHint="Nothing required — this test only checks for prohibited behaviour."
+        emptyHint="No must-do criteria — this test only checks what the target must not do."
       />
-      <BehaviourList
+      <CriteriaList
         label="The target must not"
         items={contract.prohibited_behavior}
-        emptyHint="Nothing prohibited — this test only checks for required behaviour."
+        emptyHint="No must-not-do criteria — this test only checks what the target must do."
       />
 
       <Box>

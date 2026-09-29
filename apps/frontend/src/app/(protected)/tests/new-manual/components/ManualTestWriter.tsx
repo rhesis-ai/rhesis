@@ -1032,7 +1032,7 @@ export default function ManualTestWriter({
                                   e.target.value
                                 )
                               }
-                              placeholder="What the target must not do - forbidden behaviors or boundaries"
+                              placeholder="What the target must not do - forbidden actions or boundaries"
                               size="small"
                               disabled={loading}
                             />
