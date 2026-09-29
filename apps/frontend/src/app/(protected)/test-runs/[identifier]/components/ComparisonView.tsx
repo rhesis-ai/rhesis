@@ -1312,6 +1312,9 @@ export default function ComparisonView({
                             goalEvaluation={
                               selectedTest.baseline.test_output.goal_evaluation
                             }
+                            metrics={
+                              selectedTest.baseline.test_metrics?.metrics
+                            }
                             project={project}
                             projectName={projectName}
                             hasExistingAnnotation={
@@ -1421,6 +1424,7 @@ export default function ComparisonView({
                             goalEvaluation={
                               selectedTest.current.test_output.goal_evaluation
                             }
+                            metrics={selectedTest.current.test_metrics?.metrics}
                             project={project}
                             projectName={projectName}
                             hasExistingAnnotation={

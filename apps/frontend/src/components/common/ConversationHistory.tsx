@@ -22,10 +22,12 @@ import AttachFileIcon from '@mui/icons-material/AttachFile';
 import {
   ConversationTurn,
   GoalEvaluation,
+  MetricResult,
 } from '@/utils/api-client/interfaces/test-results';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import MarkdownContent from '@/components/common/MarkdownContent';
 import StatusChip from '@/components/common/StatusChip';
+import { STATUS_LABEL } from '@/constants/outcomes';
 import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
 import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
 import { looksLikeMarkdown, parseJsonString } from '@/utils/message-content';
@@ -33,6 +35,13 @@ import { getProjectIconComponent } from '@/components/common/ProjectIcons';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import {
+  buildTurnFindings,
+  findingsForTurn,
+  turnStatus,
+  uncitedFailures,
+  type TurnFinding,
+} from '@/utils/turn-findings';
 
 // Superhero (female) emoji built from code points to avoid linter emoji detection.
 // U+1F9B8 (superhero) + U+200D (ZWJ) + U+2640 (female sign) + U+FE0F (variation selector)
@@ -64,20 +73,16 @@ function renderMessageContent(content: string) {
   );
 }
 
-interface TurnVerdict {
-  criterion: string;
-  met: boolean;
-  evidence: string;
-  relevant_turns: number[];
-}
-
 interface ConversationHistoryProps {
   conversationSummary: ConversationTurn[];
   goalEvaluation?: GoalEvaluation;
+  /** The test's metric results, so turns they cite show the metric's verdict. */
+  metrics?: Record<string, MetricResult>;
   project?: Project | { icon?: string; useCase?: string; name?: string };
   projectName?: string;
   onResponseClick?: (turnNumber: number) => void;
-  onAnnotateTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  /** `turnPassed` is the status shown on the turn, or undefined when it shows none. */
+  onAnnotateTurn?: (turnNumber: number, turnPassed?: boolean) => void;
   onConfirmAutomatedAnnotation?: () => void;
   hasExistingAnnotation?: boolean;
   annotationMatchesAutomated?: boolean;
@@ -95,6 +100,7 @@ interface ConversationHistoryProps {
 export default function ConversationHistory({
   conversationSummary,
   goalEvaluation,
+  metrics,
   project,
   projectName,
   onResponseClick,
@@ -190,23 +196,15 @@ export default function ConversationHistory({
     }));
   };
 
-  // Contract-scored runs report behavior_verdicts instead of criteria_evaluations.
-  const turnVerdicts: TurnVerdict[] = goalEvaluation?.behavior_verdicts?.length
-    ? goalEvaluation.behavior_verdicts.map(v => ({
-        criterion: v.behavior,
-        met: v.complied,
-        evidence: v.evidence,
-        relevant_turns: v.relevant_turns ?? [],
-      }))
-    : (goalEvaluation?.criteria_evaluations ?? []).map(c => ({
-        criterion: c.criterion,
-        met: c.met,
-        evidence: c.evidence,
-        relevant_turns: c.relevant_turns ?? [],
-      }));
+  const findings = buildTurnFindings(goalEvaluation, metrics);
+  const conversationFailures = uncitedFailures(findings);
 
-  const getCriteriaForTurn = (turnNumber: number) =>
-    turnVerdicts.filter(v => v.relevant_turns.includes(turnNumber));
+  // Findings on one turn, grouped by the metric that made them.
+  const groupByMetric = (turnFindings: TurnFinding[]) =>
+    turnFindings.reduce<Record<string, TurnFinding[]>>((groups, f) => {
+      (groups[f.metric] ??= []).push(f);
+      return groups;
+    }, {});
 
   // Filter out turns that don't have actual conversation content
   // (e.g., internal analysis-only turns where Penelope used analyze_response tool)
@@ -257,22 +255,56 @@ export default function ConversationHistory({
         },
       }}
     >
+      {conversationFailures.length > 0 && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            mb: 3,
+            bgcolor: alpha(
+              theme.palette.error.main,
+              theme.palette.mode === 'light' ? 0.06 : 0.16
+            ),
+            border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+            Failed on the conversation as a whole
+          </Typography>
+          {conversationFailures.map(f => (
+            <Typography
+              key={`${f.metric}-${f.label}`}
+              variant="body2"
+              color="text.secondary"
+              sx={{ mb: 0.5 }}
+            >
+              <strong>
+                {f.label === f.metric ? f.metric : `${f.metric}: ${f.label}`}
+              </strong>
+              {f.evidence ? ` — ${f.evidence}` : ''}
+            </Typography>
+          ))}
+        </Paper>
+      )}
+
       {actualConversationTurns.map((turn, index) => {
-        const criteriaForTurn = getCriteriaForTurn(turn.turn);
+        const turnFindings = findingsForTurn(findings, turn.turn);
+        const findingGroups = Object.entries(groupByMetric(turnFindings));
 
-        const turnHasCriteria = criteriaForTurn.length > 0;
-        const turnCriteriaMet =
-          turnHasCriteria && criteriaForTurn.every(c => c.met);
-
-        // Priority: human override > criteria evaluation > raw tool-call success.
-        // Turns not referenced by any criterion still show a status based on
-        // whether the target call itself succeeded (turn.success).
-        const turnPassed = turn.override
+        // A human override wins. Otherwise a turn shows the verdict of the findings that cite
+        // it, and no verdict at all when none do, unless the call to the target itself failed.
+        const shownStatus = turn.override
           ? turn.success
-          : turnHasCriteria
-            ? turnCriteriaMet
-            : turn.success;
-        const showTurnStatus = true;
+            ? 'Pass'
+            : 'Fail'
+          : (turnStatus(findings, turn.turn) ??
+            (turn.success ? undefined : 'Error'));
+        const turnPassed =
+          shownStatus === 'Pass'
+            ? true
+            : shownStatus === 'Fail'
+              ? false
+              : undefined;
 
         const turnAnnotation = turnAnnotationMap.get(turn.turn);
         const turnIsOverruled = !!turn.override;
@@ -316,17 +348,17 @@ export default function ConversationHistory({
                 />
               </Tooltip>
 
-              {showTurnStatus && (
+              {shownStatus && (
                 <StatusChip
-                  status={turnPassed ? 'Pass' : 'Fail'}
-                  label={turnPassed ? 'Passed' : 'Failed'}
+                  status={shownStatus}
+                  label={STATUS_LABEL[shownStatus]}
                   size="small"
                   variant="filled"
                 />
               )}
 
               {/* Collapsible Evaluation Toggle */}
-              {criteriaForTurn.length > 0 && (
+              {turnFindings.length > 0 && (
                 <Box
                   sx={{
                     display: 'flex',
@@ -384,7 +416,7 @@ export default function ConversationHistory({
             </Box>
 
             {/* Evaluation (collapsible) */}
-            {criteriaForTurn.length > 0 && (
+            {turnFindings.length > 0 && (
               <Collapse
                 in={expandedEvaluationTurns[turn.turn]}
                 timeout="auto"
@@ -402,43 +434,46 @@ export default function ConversationHistory({
                     border: `1px solid ${alpha(theme.palette.warning.main, theme.palette.mode === 'light' ? 0.3 : 0.4)}`,
                   }}
                 >
-                  <Typography
-                    variant="body2"
-                    sx={{ fontWeight: 600, display: 'block', mb: 1.5 }}
-                  >
-                    Criteria
-                  </Typography>
-                  {criteriaForTurn.map((criterion, idx) => {
-                    // Create stable key from criterion name
-                    const criterionKey = `criterion-${turn.turn}-${criterion.criterion.substring(0, 30).replace(/\s+/g, '-')}`;
-                    return (
-                      <Box
-                        key={criterionKey}
-                        sx={{ mb: idx < criteriaForTurn.length - 1 ? 2 : 0 }}
+                  {findingGroups.map(([metric, group], groupIdx) => (
+                    <Box
+                      key={`${turn.turn}-${metric}`}
+                      sx={{ mb: groupIdx < findingGroups.length - 1 ? 2 : 0 }}
+                    >
+                      <Typography
+                        variant="body2"
+                        sx={{ fontWeight: 600, display: 'block', mb: 1 }}
                       >
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: 600,
-                            mb: 0.5,
-                          }}
+                        {metric}
+                      </Typography>
+                      {group.map(finding => (
+                        <Box
+                          key={`${turn.turn}-${metric}-${finding.label}`}
+                          sx={{ pl: 2, mb: 1 }}
                         >
-                          {criterion.criterion}
-                        </Typography>
-                        <Box sx={{ pl: 2 }}>
+                          {finding.label !== metric && (
+                            <Typography variant="body2" sx={{ mb: 0.5 }}>
+                              {finding.label}
+                            </Typography>
+                          )}
                           <Typography
-                            variant="body2"
-                            sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}
+                            variant="caption"
+                            sx={{
+                              display: 'block',
+                              fontWeight: 600,
+                              color: finding.met
+                                ? 'success.main'
+                                : 'error.main',
+                            }}
                           >
-                            Evidence:
+                            {finding.met ? 'Met' : 'Not met'}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {criterion.evidence}
+                            {finding.evidence}
                           </Typography>
                         </Box>
-                      </Box>
-                    );
-                  })}
+                      ))}
+                    </Box>
+                  ))}
                 </Paper>
               </Collapse>
             )}

@@ -4,7 +4,7 @@
  * A test's goal is free text, and the same intent gets written in opposite directions
  * ("convince the target to produce harmful content" vs "the target refuses to produce harmful
  * content"). The backend normalizes whatever was written into statements about the target, so
- * required and prohibited behaviour always read the same way round and compliance always means
+ * required and prohibited criteria always read the same way round and meeting one always means
  * the test passed.
  *
  * Mirrors `apps/backend/src/rhesis/backend/app/schemas/evaluation_contract.py`.
@@ -28,9 +28,9 @@ export interface EvaluationContract {
   /** Whether the simulated user is trying to make the target misbehave. Derived, not authored. */
   adversarial: boolean;
   /** What the target must actively do. */
-  required_behavior: string[];
+  required_criteria: string[];
   /** What the target must not do, named without a negation word. */
-  prohibited_behavior: string[];
+  prohibited_criteria: string[];
   /** What the simulated user pushes for. Drives the agent; never scored. */
   simulated_user_objective: string;
   /** One entry per authored field whose direction or placement was changed. */

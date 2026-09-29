@@ -26,7 +26,7 @@ interface TestDetailConversationTabProps {
   testSetType?: string;
   project?: { icon?: string; useCase?: string; name?: string };
   projectName?: string;
-  onAnnotateTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  onAnnotateTurn?: (turnNumber: number, turnPassed?: boolean) => void;
   onConfirmAutomatedAnnotation?: () => void;
   isConfirmingAnnotation?: boolean;
 }
@@ -181,6 +181,7 @@ export default function TestDetailConversationTab({
         <ConversationHistory
           conversationSummary={singleTurnSummary}
           goalEvaluation={test.test_output?.goal_evaluation}
+          metrics={test.test_metrics?.metrics}
           project={project}
           projectName={projectName}
           onConfirmAutomatedAnnotation={onConfirmAutomatedAnnotation}
@@ -234,6 +235,7 @@ export default function TestDetailConversationTab({
       <ConversationHistory
         conversationSummary={conversationSummary}
         goalEvaluation={test.test_output?.goal_evaluation}
+        metrics={test.test_metrics?.metrics}
         project={project}
         projectName={projectName}
         onResponseClick={traces.length > 0 ? handleResponseClick : undefined}

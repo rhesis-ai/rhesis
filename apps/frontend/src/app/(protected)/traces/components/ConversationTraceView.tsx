@@ -13,7 +13,10 @@ import {
   GoalEvaluation,
   OverrideMarker,
 } from '@/utils/api-client/interfaces/test-results';
-import { reconstructConversationFromSpans } from '@/utils/conversation-from-spans';
+import {
+  reconstructConversationFromSpans,
+  traceMetricsFromSpans,
+} from '@/utils/conversation-from-spans';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import ConversationHistory from '@/components/common/ConversationHistory';
@@ -30,7 +33,7 @@ interface ConversationTraceViewProps {
   trace: TraceDetailResponse;
   onSpanSelect?: (span: SpanNode) => void;
   rootSpans?: SpanNode[];
-  onAnnotateTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  onAnnotateTurn?: (turnNumber: number, turnPassed?: boolean) => void;
 }
 
 interface TurnOverrideEntry {
@@ -270,6 +273,11 @@ export default function ConversationTraceView({
           conversationSummary={turns}
           goalEvaluation={
             conversationSummary.length > 0 ? goalEvaluation : undefined
+          }
+          metrics={
+            conversationSummary.length > 0
+              ? testResult?.test_metrics?.metrics
+              : rootSpans && traceMetricsFromSpans(rootSpans)
           }
           project={trace.project}
           onResponseClick={

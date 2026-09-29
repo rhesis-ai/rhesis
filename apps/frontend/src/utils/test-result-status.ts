@@ -188,7 +188,7 @@ export function hasConflictingAnnotation(test: TestResultDetail): boolean {
   return !!test.last_annotation && test.matches_annotation === false;
 }
 
-function isGoalMetricName(name: string): boolean {
+export function isGoalMetricName(name: string): boolean {
   const lower = name.toLowerCase();
   return (
     lower.includes('goal') &&
@@ -215,14 +215,6 @@ export function getTestEvaluationSummary(test: TestResultDetail): string {
   const goalMetricReason = goalMetric?.reason?.trim();
   if (goalMetricReason) {
     return goalMetricReason;
-  }
-
-  const criteriaReasons =
-    goalEvaluation?.criteria_evaluations
-      ?.map(criterion => criterion.reasoning?.trim())
-      .filter(Boolean) ?? [];
-  if (criteriaReasons.length > 0) {
-    return criteriaReasons.join(' · ');
   }
 
   const failedMetricReasons = Object.values(metrics)

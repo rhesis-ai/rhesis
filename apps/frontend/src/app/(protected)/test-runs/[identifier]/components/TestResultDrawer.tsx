@@ -181,9 +181,11 @@ export default function TestResultDrawer({
     setActiveTab(newValue);
   };
 
-  const handleAnnotateTurn = (turnNumber: number, turnSuccess: boolean) => {
+  const handleAnnotateTurn = (turnNumber: number, turnPassed?: boolean) => {
     setAnnotationInitialComment(`@[Turn ${turnNumber}](turn:${turnNumber}) `);
-    setAnnotationInitialStatus(turnSuccess ? 'failed' : 'passed');
+    setAnnotationInitialStatus(
+      turnPassed === undefined ? undefined : turnPassed ? 'failed' : 'passed'
+    );
     // Opens the annotation drawer as an overlay via TestDetailAnnotationsTab's own
     // effect — the Conversation tab stays active so context isn't lost.
   };

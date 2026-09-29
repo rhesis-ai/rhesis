@@ -141,80 +141,88 @@ describe('ConversationHistory', () => {
     ).toBeInTheDocument();
   });
 
-  describe('turn status from goal evaluation', () => {
+  describe('turn status from metric findings', () => {
     const turnStatuses = () =>
       screen.getAllByTestId('status-chip').map(chip => chip.textContent);
 
-    it('fails turns cited by a failed contract criterion', () => {
-      renderConversation({
-        conversationSummary: [makeTurn(1), makeTurn(2), makeTurn(3)],
-        goalEvaluation: {
-          all_criteria_met: false,
-          reason: 'The system failed 1 of 1 criterion.',
-          evidence: [],
-          criteria_evaluations: [],
-          behavior_verdicts: [
-            {
-              behavior: 'Recommend immediate medical consultation',
-              kind: 'required',
-              complied: false,
-              evidence: 'Repeated a canned response.',
-              relevant_turns: [1, 2],
-            },
-          ],
+    const goalEvaluation = (met: boolean, relevant_turns: number[]) => ({
+      all_criteria_met: met,
+      reason: '',
+      evidence: [],
+      criteria_evaluations: [
+        {
+          criterion: 'Recommend immediate medical consultation',
+          kind: 'required' as const,
+          met,
+          evidence: 'Repeated a canned response.',
+          relevant_turns,
         },
-      });
-      expect(turnStatuses()).toEqual(['Fail', 'Fail', 'Pass']);
+      ],
     });
 
-    it('fails turns cited by an unmet criterion', () => {
+    const redFlag = (is_successful: boolean, relevant_turns?: number[]) => ({
+      'Red Flag Escalation': {
+        score: is_successful ? 'Escalated' : 'Ignored',
+        reason: 'Did not escalate chest pain.',
+        backend: 'rhesis',
+        description: '',
+        is_successful,
+        relevant_turns,
+      },
+    });
+
+    it('fails cited turns and shows no status on uncited ones', () => {
+      renderConversation({
+        conversationSummary: [makeTurn(1), makeTurn(2), makeTurn(3)],
+        goalEvaluation: goalEvaluation(false, [1, 2]),
+      });
+      expect(turnStatuses()).toEqual(['Fail', 'Fail']);
+    });
+
+    it('shows Error on an uncited turn whose endpoint call failed', () => {
+      renderConversation({
+        conversationSummary: [{ ...makeTurn(1), success: false }],
+      });
+      expect(turnStatuses()).toEqual(['Error']);
+    });
+
+    it('a failed metric fails a turn a passed criterion also cites', () => {
       renderConversation({
         conversationSummary: [makeTurn(1), makeTurn(2)],
-        goalEvaluation: {
-          all_criteria_met: false,
-          reason: '',
-          evidence: [],
-          criteria_evaluations: [
-            {
-              criterion: 'Escalates chest pain',
-              met: false,
-              evidence: 'Did not escalate.',
-              reasoning: '',
-              relevant_turns: [2],
-            },
-          ],
-        },
+        goalEvaluation: goalEvaluation(true, [1, 2]),
+        metrics: redFlag(false, [2]),
       });
       expect(turnStatuses()).toEqual(['Pass', 'Fail']);
+    });
+
+    it('shows a failure that cites no turn above the conversation', () => {
+      renderConversation({
+        conversationSummary: [makeTurn(1)],
+        metrics: redFlag(false),
+      });
+      expect(
+        screen.getByText(/failed on the conversation as a whole/i)
+      ).toBeInTheDocument();
+      expect(screen.getByText('Red Flag Escalation')).toBeInTheDocument();
+      expect(screen.queryByTestId('status-chip')).not.toBeInTheDocument();
     });
 
     it('passes the shown turn status to the annotate handler', async () => {
       const user = userEvent.setup();
       const onAnnotateTurn = jest.fn();
       renderConversation({
-        conversationSummary: [makeTurn(1)],
+        conversationSummary: [makeTurn(1), makeTurn(2)],
         onAnnotateTurn,
-        goalEvaluation: {
-          all_criteria_met: false,
-          reason: '',
-          evidence: [],
-          criteria_evaluations: [],
-          behavior_verdicts: [
-            {
-              behavior: 'Recommend immediate medical consultation',
-              kind: 'required',
-              complied: false,
-              evidence: '',
-              relevant_turns: [1],
-            },
-          ],
-        },
+        goalEvaluation: goalEvaluation(false, [1]),
       });
 
-      await user.click(
-        screen.getByRole('button', { name: /annotate this turn/i })
-      );
-      expect(onAnnotateTurn).toHaveBeenCalledWith(1, false);
+      const [cited, uncited] = screen.getAllByRole('button', {
+        name: /annotate this turn/i,
+      });
+      await user.click(cited);
+      await user.click(uncited);
+      expect(onAnnotateTurn).toHaveBeenNthCalledWith(1, 1, false);
+      expect(onAnnotateTurn).toHaveBeenNthCalledWith(2, 2, undefined);
     });
   });
 });

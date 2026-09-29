@@ -20,6 +20,12 @@ export interface MetricResult {
   description: string;
   is_successful: boolean;
   override?: OverrideMarker;
+  /** Set when the metric could not be evaluated. */
+  error?: string;
+  /** Turns of a multi-turn conversation the judge based its verdict on. */
+  relevant_turns?: number[];
+  /** Goal Achievement's breakdown, when this result came from a re-score. */
+  criteria_evaluations?: CriterionEvaluation[];
 }
 
 export interface TestMetrics {
@@ -52,23 +58,15 @@ export interface ConversationTurn {
   sent_files?: SentFile[] | null;
 }
 
+/**
+ * One Goal Achievement criterion and whether the target met it. Contract-scored runs judge the
+ * contract's criteria (see schemas/evaluation_contract.py); goal-only runs judge criteria the
+ * judge derived from the goal, which are always `required`.
+ */
 export interface CriterionEvaluation {
   criterion: string;
-  met: boolean;
-  evidence: string;
-  reasoning: string;
-  relevant_turns: number[];
-}
-
-/**
- * One required/prohibited behaviour from a test's evaluation contract, and whether the
- * target complied with it. Present only when the goal metric used contract-based scoring
- * (see schemas/evaluation_contract.py) rather than scoring the raw goal text directly.
- */
-export interface BehaviorVerdict {
-  behavior: string;
   kind: 'required' | 'prohibited';
-  complied: boolean;
+  met: boolean;
   evidence: string;
   relevant_turns: number[];
 }
@@ -78,22 +76,20 @@ export interface GoalEvaluation {
   reason: string;
   evidence: string[];
   criteria_evaluations: CriterionEvaluation[];
+  criteria_total?: number;
+  criteria_met?: number;
+  criteria_failed?: number;
+  failed_criteria?: string[];
   /** Whether the interpreted contract read this test as adversarial. Contract-scored only. */
   adversarial?: boolean;
-  /** Per-behaviour verdicts. Present only for contract-based scoring. */
-  behavior_verdicts?: BehaviorVerdict[];
-  behaviors_total?: number;
-  behaviors_complied?: number;
-  behaviors_violated?: number;
-  violated_behaviors?: string[];
   /**
-   * The evaluation contract used to score this run, echoed alongside the verdicts (see
+   * The evaluation contract used to score this run, echoed alongside the criteria (see
    * schemas/evaluation_contract.py). Present only for contract-based scoring.
    */
   contract?: {
     adversarial: boolean;
-    required_behavior: string[];
-    prohibited_behavior: string[];
+    required_criteria: string[];
+    prohibited_criteria: string[];
     simulated_user_objective: string;
   };
 }
