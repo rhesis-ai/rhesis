@@ -119,14 +119,17 @@ prompt_port() {
     local port=""
 
     if port_busy "$default" || [[ " $skip " == *" $default "* ]]; then
-        port=$(next_free_port "$default" "$skip")
-        if [ ! -t 0 ]; then
+        if ! port=$(next_free_port "$default" "$skip"); then
+            # Keep it, so the check before start reports it with its holder.
+            warn "Port ${default} is in use, and none of the next 100 ports is free" >&2
+        elif [ ! -t 0 ]; then
             warn "Port ${default} is in use, so the ${label} will use port ${port}" >&2
             echo "$port"
             return 0
+        else
+            warn "Port ${default} is in use, suggesting ${port} instead" >&2
+            default="$port"
         fi
-        warn "Port ${default} is in use, suggesting ${port} instead" >&2
-        default="$port"
     fi
     [ -t 0 ] || { echo "$default"; return 0; }
 
@@ -142,7 +145,7 @@ prompt_port() {
             echo "$port"
             return 0
         fi
-        default=$(next_free_port "$port" "$skip")
+        default=$(next_free_port "$port" "$skip") || default="$port"
     done
 }
 
@@ -259,6 +262,13 @@ quickstart_own_ports() {
         --format '{{.Ports}}' 2>/dev/null | tr ',' '\n' | sed -nE 's/.*:([0-9]+)->.*/\1/p'
 }
 
+# Running container that publishes host port $1. docker ps's publish filter
+# matches the container-side port, so read the Ports column instead.
+quickstart_container_on_port() {
+    docker ps --format '{{.Names}}	{{.Ports}}' 2>/dev/null |
+        awk -F'\t' -v p=":$1->" 'index($2, p) { print $1; exit }'
+}
+
 # Run before compose so a taken port fails fast with its holder named, instead
 # of a bare "Failed to start services" after the pull.
 quickstart_check_ports() {
@@ -273,8 +283,8 @@ quickstart_check_ports() {
         [[ "$own" == *" $port "* ]] && continue
         port_busy "$port" || continue
 
-        # Docker Desktop's proxy owns published ports, so name the container.
-        container=$(docker ps --filter "publish=${port}" --format '{{.Names}}' 2>/dev/null | head -n1)
+        # Docker's proxy owns published ports, so name the container instead.
+        container=$(quickstart_container_on_port "$port")
         if [ -n "$container" ]; then
             holder="Docker container ${container}"
         else
@@ -287,16 +297,21 @@ quickstart_check_ports() {
         fi
         taken="${taken} ${port}"
 
-        free=$(next_free_port "$port" "$chosen")
-        chosen="${chosen} ${free}"
-        suggestions="${suggestions}      ${var}=${free}\n      ${url_var}=http://localhost:${free}\n"
+        if free=$(next_free_port "$port" "$chosen"); then
+            chosen="${chosen} ${free}"
+            suggestions="${suggestions}      ${var}=${free}\n      ${url_var}=http://localhost:${free}\n"
+        fi
     done
 
     [ -n "$taken" ] || return 0
     local noun="port" free_one="a free one"
     [[ "${taken# }" == *" "* ]] && noun="ports" free_one="free ones"
-    echo -e "${YELLOW}   Free the ${noun}, or switch to ${free_one} by setting these in ${QUICKSTART_ENV_FILE}:${NC}"
-    printf '%b' "${WHITE}${suggestions}${NC}"
+    if [ -n "$suggestions" ]; then
+        echo -e "${YELLOW}   Free the ${noun}, or switch to ${free_one} by setting these in ${QUICKSTART_ENV_FILE}:${NC}"
+        printf '%b' "${WHITE}${suggestions}${NC}"
+    else
+        echo -e "${YELLOW}   Free the ${noun}. No free port was found nearby to suggest.${NC}"
+    fi
     echo -e "${YELLOW}   Then run ${GREEN}./rh start${YELLOW} again.${NC}"
     exit 1
 }

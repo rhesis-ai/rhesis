@@ -18,8 +18,8 @@ port_busy() {
     return 1
 }
 
-# First port above $1 that is free and not in the space-separated $2.
-# Echoes $1 back when nothing within 100 ports is free.
+# First port above $1 that is free and not in the space-separated $2. Prints
+# nothing and fails when none of the next 100 is free.
 next_free_port() {
     local start="$1" skip="${2:-}"
     local port="$start" tries=0
@@ -29,7 +29,7 @@ next_free_port() {
         case " $skip " in *" $port "*) continue ;; esac
         port_busy "$port" || { echo "$port"; return 0; }
     done
-    echo "$start"
+    return 1
 }
 
 # "name (PID n)" for whatever listens on the port, or nothing when lsof is
