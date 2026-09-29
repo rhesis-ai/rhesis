@@ -24,9 +24,23 @@ TRACE_COST_USD = 0.05
 TRACE_TOKENS = 420
 
 
-def span(trace_id, span_id, project_id, *, parent=None, operation, tokens=None, error=False):
+def span(
+    trace_id,
+    span_id,
+    project_id,
+    *,
+    parent=None,
+    operation,
+    tokens=None,
+    error=False,
+    name=None,
+    model=None,
+):
+    """``operation=None`` leaves ai.operation.type unset, as untyped function spans do."""
     now = datetime.now(timezone.utc)
-    attributes = {AIAttributes.OPERATION_TYPE: operation}
+    attributes = {} if operation is None else {AIAttributes.OPERATION_TYPE: operation}
+    if model is not None:
+        attributes[AIAttributes.MODEL_NAME] = model
     if tokens is not None:
         attributes[AIAttributes.MODEL_NAME] = "gpt-4"
         attributes[AIAttributes.LLM_TOKENS_INPUT] = tokens[0]
@@ -38,7 +52,7 @@ def span(trace_id, span_id, project_id, *, parent=None, operation, tokens=None, 
         parent_span_id=parent,
         project_id=project_id,
         environment="development",
-        span_name="ai.llm.invoke" if operation == "llm.invoke" else "ai.agent.invoke",
+        span_name=name or ("ai.llm.invoke" if operation == "llm.invoke" else "ai.agent.invoke"),
         span_kind=SpanKind.CLIENT,
         start_time=now,
         end_time=now + timedelta(seconds=1),
@@ -1022,3 +1036,63 @@ class TestErrorCountIsSentNotDerived:
 
         assert metrics["error_spans"] == 0
         assert metrics["error_rate"] == 0
+
+
+@pytest.mark.integration
+class TestOperationBreakdown:
+    """operation_breakdown counts span_type, which every span has (Langfuse's rule)."""
+
+    def breakdown(self, test_db, db_project, test_org_id, spans):
+        create_trace_spans(test_db, spans, organization_id=test_org_id)
+        return get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=str(db_project.id)
+        )["operation_breakdown"]
+
+    def test_untyped_function_span_counts_as_span(self, test_db, db_project, test_org_id):
+        trace_id = uuid.uuid4().hex
+        project_id = str(db_project.id)
+        spans = [
+            span(
+                trace_id,
+                uuid.uuid4().hex[:16],
+                project_id,
+                operation=None,
+                name="function.haystack.agent.step",
+            ),
+            span(trace_id, uuid.uuid4().hex[:16], project_id, operation="tool.invoke"),
+        ]
+
+        breakdown = self.breakdown(test_db, db_project, test_org_id, spans)
+
+        assert breakdown == {"span": 1, "tool.invoke": 1}
+
+    def test_model_without_type_counts_as_llm_invoke(self, test_db, db_project, test_org_id):
+        spans = [
+            span(
+                uuid.uuid4().hex,
+                uuid.uuid4().hex[:16],
+                str(db_project.id),
+                operation=None,
+                name="function.call_model",
+                model="gpt-4",
+            )
+        ]
+
+        breakdown = self.breakdown(test_db, db_project, test_org_id, spans)
+
+        assert breakdown == {"llm.invoke": 1}
+
+    def test_explicit_type_wins_over_model(self, test_db, db_project, test_org_id):
+        spans = [
+            span(
+                uuid.uuid4().hex,
+                uuid.uuid4().hex[:16],
+                str(db_project.id),
+                operation="agent.invoke",
+                model="gpt-4",
+            )
+        ]
+
+        breakdown = self.breakdown(test_db, db_project, test_org_id, spans)
+
+        assert breakdown == {"agent.invoke": 1}

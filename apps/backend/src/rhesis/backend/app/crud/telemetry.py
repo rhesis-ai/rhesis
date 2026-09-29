@@ -1127,7 +1127,7 @@ def get_trace_metrics_aggregated(
     """
     from uuid import UUID
 
-    from sqlalchemy import case, literal_column
+    from sqlalchemy import case
     from sqlalchemy.sql import functions as sqlfunc
 
     T = models.Trace
@@ -1189,17 +1189,12 @@ def get_trace_metrics_aggregated(
     total_spans = agg.total_spans or 0
     error_count = agg.error_count or 0
 
-    # Operation breakdown as a separate grouped query
-    op_type_expr = func.coalesce(
-        base.c.attributes[AISpanAttributes.OPERATION_TYPE].as_string(),
-        literal_column("'unknown'"),
-    )
     op_rows = (
         db.query(
-            op_type_expr.label("op_type"),
+            base.c.span_type.label("op_type"),
             func.count(base.c.id).label("cnt"),
         )
-        .group_by(op_type_expr)
+        .group_by(base.c.span_type)
         .all()
     )
 
