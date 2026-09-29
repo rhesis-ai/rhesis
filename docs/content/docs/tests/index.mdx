@@ -41,7 +41,7 @@ Goal-based conversations that test your LLM application across multiple turns. P
 |-------|-------------|
 | **Goal** | What the target should do - the success criteria for this test |
 | **Instructions** | (Optional) How to conduct the test - if not provided, the agent plans its own approach |
-| **Restrictions** | (Optional) What the target must not do - forbidden behaviors or boundaries |
+| **Restrictions** | (Optional) What the target must not do - forbidden actions or boundaries |
 | **Scenario** | (Optional) Context and persona for the test - narrative setup or user role |
 | **Files** | (Optional) File attachments (images, PDFs, or audio) included with the test. Files are available on each conversation turn via the `files` variable in the endpoint request template. See [Multi-modal Testing](/docs/tests/multimodal-testing) for supported types and size limits. |
 | **Test Parameters** | (Optional) Freeform JSON object with per-test data. Available in request templates as `test_parameters`, e.g. `\{\{ test_parameters.customer_id \}\}`. See [Request Mapping](/docs/endpoints/request-mapping#test-parameters). |
