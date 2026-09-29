@@ -9,7 +9,7 @@ both.
 Downgrade restores the lookup row but not the scopes removed here.
 
 Revision ID: 7c3e9a1b5d20
-Revises: 2dfc229bb2a8
+Revises: e3b7a1c4d9f2
 Create Date: 2026-09-29 10:00:00
 
 """
@@ -25,7 +25,7 @@ from rhesis.backend.alembic.utils.template_loader import (
 
 # revision identifiers, used by Alembic.
 revision: str = "7c3e9a1b5d20"
-down_revision: Union[str, None] = "2dfc229bb2a8"
+down_revision: Union[str, None] = "e3b7a1c4d9f2"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
