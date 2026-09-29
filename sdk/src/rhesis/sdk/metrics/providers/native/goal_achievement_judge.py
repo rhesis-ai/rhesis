@@ -85,10 +85,11 @@ class BehaviorVerdict(BaseModel):
 
 def _default_contract_reason(violations: Sequence[BehaviorVerdict], total: int) -> str:
     """Fallback summary when the judge returns verdicts but no prose."""
+    noun = "criterion" if total == 1 else "criteria"
     if not violations:
-        return f"The system met all {total} criteria."
+        return f"The system met all {total} {noun}."
     names = "; ".join(v.behavior for v in violations)
-    return f"The system failed {len(violations)} of {total} criteria: {names}."
+    return f"The system failed {len(violations)} of {total} {noun}: {names}."
 
 
 class ContractComplianceResponse(BaseModel):
