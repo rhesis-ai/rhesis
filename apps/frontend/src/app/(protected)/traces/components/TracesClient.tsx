@@ -65,7 +65,6 @@ export default function TracesClient({
   );
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
   const [drawerFilters, setDrawerFilters] = useState<TraceDrawerFilters>(() =>
     fixedTestRunId
       ? sanitizeTraceDrawerFiltersForTestRunScope(
@@ -88,7 +87,6 @@ export default function TracesClient({
   const filters = useMemo(
     () => ({
       search: searchQuery,
-      typeFilter,
       projectId: drawerFilters.projectId ?? '',
       endpointId: drawerFilters.endpointId ?? '',
       environment: drawerFilters.environment ?? '',
@@ -101,8 +99,9 @@ export default function TracesClient({
       testRunId: drawerFilters.testRunId ?? '',
       testResultId: drawerFilters.testResultId ?? '',
       testId: drawerFilters.testId ?? '',
+      traceType: drawerFilters.traceType ?? '',
     }),
-    [searchQuery, typeFilter, drawerFilters]
+    [searchQuery, drawerFilters]
   );
 
   const {
@@ -147,7 +146,6 @@ export default function TracesClient({
 
   useEffect(() => {
     const unfiltered =
-      typeFilter === 'all' &&
       !searchQuery.trim() &&
       !hasActiveTraceDrawerFilters(drawerFilters, {
         testRunScope: Boolean(fixedTestRunId),
@@ -160,7 +158,6 @@ export default function TracesClient({
     listLoading,
     scopedProjectId,
     totalCount,
-    typeFilter,
     searchQuery,
     drawerFilters,
     fixedTestRunId,
@@ -206,7 +203,7 @@ export default function TracesClient({
     fixedTestRunId ?? drawerFilters.testRunId ?? undefined;
   const hasUnsupportedRollupFilters = Boolean(
     searchQuery.trim() ||
-    (typeFilter && typeFilter !== 'all') ||
+    drawerFilters.traceType ||
     drawerFilters.endpointId ||
     drawerFilters.traceSource ||
     drawerFilters.traceMetricsStatus ||
@@ -217,7 +214,7 @@ export default function TracesClient({
     drawerFilters.testId
   );
   const rollupTimeParams = useMemo(
-    () => buildTraceQueryParams(drawerFilters, '', 'all'),
+    () => buildTraceQueryParams(drawerFilters, ''),
     [drawerFilters]
   );
 
@@ -253,8 +250,6 @@ export default function TracesClient({
           onPageSizeChange={onRowsPerPageChange}
           searchQuery={searchQuery}
           onSearchQueryChange={setSearchQuery}
-          typeFilter={typeFilter}
-          onTypeFilterChange={setTypeFilter}
           drawerFilters={drawerFilters}
           onApplyDrawerFilters={handleApplyDrawerFilters}
           filterDrawerOpen={filterDrawerOpen}

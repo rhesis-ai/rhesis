@@ -21,6 +21,8 @@ export interface TraceDrawerFilters {
   testRunId?: string;
   testResultId?: string;
   testId?: string;
+  /** Unset means both; 'all' is never stored here. */
+  traceType?: Exclude<TraceType, 'all'>;
 }
 
 export const EMPTY_TRACE_DRAWER_FILTERS: TraceDrawerFilters = {
@@ -48,6 +50,7 @@ export function countActiveTraceDrawerFilters(
     filters.environment,
     filters.traceSource,
     filters.traceMetricsStatus,
+    filters.traceType,
     // One active filter however many providers are ticked, matching the drawer's
     // single Provider section.
     filters.providers?.length ? true : undefined,
@@ -84,6 +87,7 @@ export function hasActiveTraceDrawerFilters(
     filters.environment ||
     filters.traceSource ||
     filters.traceMetricsStatus ||
+    filters.traceType ||
     filters.providers?.length ||
     filters.testRunId ||
     filters.testResultId ||
@@ -149,8 +153,7 @@ export function inferTimeRange(
 /** Filter params only -- pagination (`limit`/`offset`) is the list hook's job. */
 export function buildTraceQueryParams(
   drawer: TraceDrawerFilters,
-  searchQuery: string,
-  typeFilter: string
+  searchQuery: string
 ): Omit<TraceQueryParams, 'limit' | 'offset'> {
   const params: Omit<TraceQueryParams, 'limit' | 'offset'> = {};
 
@@ -178,11 +181,9 @@ export function buildTraceQueryParams(
   if (drawer.testRunId) params.test_run_id = drawer.testRunId;
   if (drawer.testResultId) params.test_result_id = drawer.testResultId;
   if (drawer.testId) params.test_id = drawer.testId;
+  if (drawer.traceType) params.trace_type = drawer.traceType;
 
   if (searchQuery.trim()) params.search = searchQuery.trim();
-  if (typeFilter && typeFilter !== 'all') {
-    params.trace_type = typeFilter as TraceType;
-  }
 
   return params;
 }

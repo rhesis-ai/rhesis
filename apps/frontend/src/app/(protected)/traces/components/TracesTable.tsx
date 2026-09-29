@@ -19,13 +19,12 @@ import { useCurrency } from '@/contexts/CurrencyContext';
 import ForumIcon from '@mui/icons-material/Forum';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
-import GridToolbar, { ToolbarPillTabs } from '@/components/common/GridToolbar';
+import GridToolbar from '@/components/common/GridToolbar';
 import { isPassedStatusName } from '@/utils/test-result-status';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
 import { formatTokenCount, tokenSplitLabel } from '@/utils/trace-utils';
 import { formatDate } from '@/utils/date';
-import { TEST_TYPE_PILL_TABS } from '@/constants/test-types';
 import ModelLabel from '@/components/common/ModelLabel';
 import UsageCell from '@/components/common/UsageCell';
 import TraceFilterDrawer, {
@@ -35,8 +34,6 @@ import {
   hasActiveTraceDrawerFilters,
   countActiveTraceDrawerFilters,
 } from './trace-filter-params';
-
-const PILL_TABS = TEST_TYPE_PILL_TABS;
 
 /**
  * Hidden until the user asks for them. The four split figures are for reconciling a
@@ -53,8 +50,6 @@ const USAGE_COLUMNS_HIDDEN_BY_DEFAULT = {
 interface TracesToolbarState {
   searchQuery: string;
   setSearchQuery: (v: string) => void;
-  typeFilter: string;
-  setTypeFilter: (v: string) => void;
   openFilterDrawer: () => void;
   hasActiveDrawerFilters: boolean;
   activeFilterCount: number;
@@ -63,23 +58,15 @@ interface TracesToolbarState {
 const TracesToolbarContext = React.createContext<TracesToolbarState>({
   searchQuery: '',
   setSearchQuery: () => {},
-  typeFilter: 'all',
-  setTypeFilter: () => {},
   openFilterDrawer: () => {},
   hasActiveDrawerFilters: false,
   activeFilterCount: 0,
 });
 
-function TracesUnifiedToolbar({
-  hideTypeFilter,
-}: {
-  hideTypeFilter?: boolean;
-}) {
+function TracesUnifiedToolbar() {
   const {
     searchQuery,
     setSearchQuery,
-    typeFilter,
-    setTypeFilter,
     openFilterDrawer,
     hasActiveDrawerFilters,
     activeFilterCount,
@@ -93,15 +80,6 @@ function TracesUnifiedToolbar({
       onFilterClick={openFilterDrawer}
       hasActiveFilters={hasActiveDrawerFilters}
       activeFilterCount={activeFilterCount}
-      middleContent={
-        hideTypeFilter ? undefined : (
-          <ToolbarPillTabs
-            tabs={PILL_TABS}
-            activeValue={typeFilter}
-            onChange={setTypeFilter}
-          />
-        )
-      }
       rightContent={
         <>
           <GridToolbarColumnsButton />
@@ -124,8 +102,6 @@ interface TracesTableProps {
   onPageSizeChange: (pageSize: number) => void;
   searchQuery: string;
   onSearchQueryChange: (value: string) => void;
-  typeFilter: string;
-  onTypeFilterChange: (value: string) => void;
   drawerFilters: TraceDrawerFilters;
   onApplyDrawerFilters: (filters: TraceDrawerFilters) => void;
   filterDrawerOpen: boolean;
@@ -147,8 +123,6 @@ export default function TracesTable({
   onPageSizeChange,
   searchQuery,
   onSearchQueryChange,
-  typeFilter,
-  onTypeFilterChange,
   drawerFilters,
   onApplyDrawerFilters,
   filterDrawerOpen,
@@ -504,8 +478,6 @@ export default function TracesTable({
     () => ({
       searchQuery,
       setSearchQuery: onSearchQueryChange,
-      typeFilter,
-      setTypeFilter: onTypeFilterChange,
       openFilterDrawer: onFilterDrawerOpen,
       hasActiveDrawerFilters,
       activeFilterCount,
@@ -513,8 +485,6 @@ export default function TracesTable({
     [
       searchQuery,
       onSearchQueryChange,
-      typeFilter,
-      onTypeFilterChange,
       onFilterDrawerOpen,
       hasActiveDrawerFilters,
       activeFilterCount,
@@ -545,9 +515,7 @@ export default function TracesTable({
         sortingMode="server"
         sortModel={sortModel}
         onSortModelChange={onSortModelChange}
-        toolbarSlot={() => (
-          <TracesUnifiedToolbar hideTypeFilter={Boolean(fixedTestRunId)} />
-        )}
+        toolbarSlot={() => <TracesUnifiedToolbar />}
         persistState
         storageKey="traces-grid-v2"
         initialState={{
