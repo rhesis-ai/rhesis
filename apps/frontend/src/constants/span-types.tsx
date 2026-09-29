@@ -77,7 +77,8 @@ export function getSpanTypeInfo(type: string | null | undefined): SpanTypeInfo {
   if (!type) {
     return SPAN_TYPES[GENERIC_SPAN_TYPE];
   }
-  if (Object.hasOwn(SPAN_TYPES, type)) {
+  // Not Object.hasOwn: ES2022, and tsconfig targets ES2017.
+  if (Object.prototype.hasOwnProperty.call(SPAN_TYPES, type)) {
     return SPAN_TYPES[type];
   }
   return {
