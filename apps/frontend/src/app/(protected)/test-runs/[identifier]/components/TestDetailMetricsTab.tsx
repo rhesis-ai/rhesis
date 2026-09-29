@@ -41,7 +41,6 @@ import {
   TestResultDetail,
   MetricResult,
   CriterionEvaluation,
-  BehaviorVerdict,
 } from '@/utils/api-client/interfaces/test-results';
 import StatusChip from '@/components/common/StatusChip';
 import AnnotationIndicator from '@/components/annotations/AnnotationIndicator';
@@ -151,7 +150,7 @@ export default function TestDetailMetricsTab({
             allMetrics.push({
               name: metric.name,
               description: metric.description,
-              passed: metricResult.is_successful,
+              passed: metricResult.is_successful === true,
               fullMetricData: metricResult,
               requirementName: requirement.name,
             });
@@ -196,7 +195,7 @@ export default function TestDetailMetricsTab({
             allMetrics.push({
               name: metricName,
               description: metricResult.description || undefined,
-              passed: metricResult.is_successful,
+              passed: metricResult.is_successful === true,
               fullMetricData: metricResult,
               requirementName: categoryName,
             });
@@ -276,35 +275,21 @@ export default function TestDetailMetricsTab({
       criteria_total?: number;
       confidence?: number;
       adversarial?: boolean;
-      behaviors_total?: number;
-      behaviors_complied?: number;
-      behaviors_violated?: number;
     };
 
-    const goalEvaluation = test.test_output?.goal_evaluation;
-    const behaviorVerdicts = goalEvaluation?.behavior_verdicts || [];
-    const criteriaEvaluations = goalEvaluation?.criteria_evaluations || [];
-
-    // Contract verdicts (see schemas/evaluation_contract.py) are what every test is scored
-    // against going forward. Older stored results only have free-text criteria evaluations --
-    // shown the same way, just without the must/must-not distinction. The index is part
-    // of the key because two entries can carry identical text, which would collide otherwise.
-    const usesBehaviors = behaviorVerdicts.length > 0;
-    const breakdownItems = usesBehaviors
-      ? behaviorVerdicts.map((v: BehaviorVerdict, index: number) => ({
-          key: `${index}-${v.behavior}`,
-          text: v.behavior,
-          complied: v.complied,
-          kind: v.kind,
-          evidence: v.evidence,
-        }))
-      : criteriaEvaluations.map((c: CriterionEvaluation, index: number) => ({
-          key: `${index}-${c.criterion}`,
-          text: c.criterion,
-          complied: c.met,
-          kind: undefined,
-          evidence: c.evidence,
-        }));
+    // The index is part of the key because two criteria can carry identical text.
+    // A re-score stores fresh criteria on the metric; goal_evaluation keeps the live run's.
+    const breakdownItems = (
+      goalMetric.criteria_evaluations ??
+      test.test_output?.goal_evaluation?.criteria_evaluations ??
+      []
+    ).map((c: CriterionEvaluation, index: number) => ({
+      key: `${index}-${c.criterion}`,
+      text: c.criterion,
+      met: c.met,
+      kind: c.kind,
+      evidence: c.evidence,
+    }));
 
     return {
       confidence: goalMetric.confidence || 0,
@@ -312,10 +297,8 @@ export default function TestDetailMetricsTab({
       reason: goalMetric.reason || '',
       override: goalMetric.override,
       adversarial: Boolean(goalMetric.adversarial),
-      progressMet:
-        goalMetric.behaviors_complied ?? goalMetric.criteria_met ?? 0,
-      progressTotal:
-        goalMetric.behaviors_total ?? goalMetric.criteria_total ?? 0,
+      progressMet: goalMetric.criteria_met ?? 0,
+      progressTotal: goalMetric.criteria_total ?? 0,
       breakdownItems,
     };
   }, [test, goalAchievementMetric]);
@@ -886,7 +869,7 @@ export default function TestDetailMetricsTab({
                                   width: theme.spacing(0.75),
                                   height: theme.spacing(0.75),
                                   borderRadius: theme.shape.circular,
-                                  backgroundColor: item.complied
+                                  backgroundColor: item.met
                                     ? 'success.main'
                                     : 'error.main',
                                   mt: 0.75,

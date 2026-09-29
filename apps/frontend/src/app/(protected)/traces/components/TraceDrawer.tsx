@@ -302,9 +302,11 @@ export default function TraceDrawer({
   }, []);
 
   const handleAnnotateTurn = useCallback(
-    (turnNumber: number, turnSuccess: boolean) => {
+    (turnNumber: number, turnPassed?: boolean) => {
       setAnnotationInitialComment(`@[Turn ${turnNumber}](turn:${turnNumber}) `);
-      setAnnotationInitialStatus(turnSuccess ? 'failed' : 'passed');
+      setAnnotationInitialStatus(
+        turnPassed === undefined ? undefined : turnPassed ? 'failed' : 'passed'
+      );
       setAnnotationDrawerOpen(true);
     },
     []

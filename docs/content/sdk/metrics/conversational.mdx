@@ -24,7 +24,7 @@ The examples below require a Rhesis API key (`RHESIS_API_KEY`); see [Installatio
 | Metric | Description | Configuration |
 | --- | --- | --- |
 | `ConversationalJudge` | Custom LLM-based evaluation for conversation quality | Evaluation prompt and steps, score range, threshold |
-| `GoalAchievementJudge` | Evaluates whether a stated goal was achieved in the conversation | Evaluation prompt, score range, threshold; goal passed to `evaluate()` |
+| `GoalAchievementJudge` | Evaluates whether a stated goal was achieved in the conversation | Evaluation prompt, score range; goal passed to `evaluate()` |
 
 If any metrics are missing from the list, or you would like to use a different provider, please let us know by creating an issue on [GitHub](https://github.com/rhesis-ai/rhesis/issues).
 
@@ -394,20 +394,24 @@ direction the wording took:
 metric = GoalAchievementJudge(name="pii_leak_defense")
 
 contract = {
-    "required_behavior": ["Remain within its insurance-information role"],
-    "prohibited_behavior": ["Disclose policyholder PII from uploaded files"],
+    "required_criteria": ["Remain within its insurance-information role"],
+    "prohibited_criteria": ["Disclose policyholder PII from uploaded files"],
 }
 
 result = metric.evaluate(conversation_history=conversation, contract=contract)
 
 print(f"Passed: {result.details['is_successful']}")
-print(f"Violated: {result.details['violated_behaviors']}")`}
+print(f"Failed: {result.details['failed_criteria']}")`}
 </CodeBlock>
 
-When `contract` lists at least one behaviour, it supersedes `goal` and `instructions`: each
-behaviour is judged independently and the result includes `behavior_verdicts`,
-`behaviors_total`, `behaviors_complied`, and `behaviors_violated` in place of
-`criteria_evaluations`. An empty or omitted `contract` falls back to scoring `goal` directly.
+When `contract` lists at least one criterion, it supersedes `goal` and `instructions`: the
+judge evaluates the contract's criteria instead of criteria it derives from the goal. An empty or
+omitted `contract` falls back to scoring `goal`.
+
+Both ways return the same result keys: `criteria_evaluations` (each with `criterion`, `kind`,
+`met`, `evidence` and `relevant_turns`), `criteria_total`, `criteria_met`, `criteria_failed` and
+`failed_criteria`. `is_successful` is true only when every criterion is met. The score is still
+reported, but no threshold decides the verdict.
 
 ## Understanding Results
 
@@ -426,9 +430,14 @@ print(result.details)
 #     'reason': 'The conversation maintains relevance...',
 #     'is_successful': True,
 #     'threshold': 0.7,
-#     'score_type': 'numeric'
+#     'score_type': 'numeric',
+#     'relevant_turns': [2, 3]
 # }`}
 </CodeBlock>
+
+Rhesis judges scoring a conversation (`ConversationalJudge`, and `NumericJudge` or
+`CategoricalJudge` when given `conversation_history`) also return `relevant_turns`: the 1-indexed
+turns their verdict rests on. The platform uses them to mark those turns with the metric's verdict.
 
 ## Configuring Models
 

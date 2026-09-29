@@ -113,7 +113,7 @@ An author can phrase `goal` from either side of an adversarial test — "get the
 data" or "the target refuses to leak data" — and both describe the same test but score opposite
 outcomes as a pass if scored literally. `rhesis.backend.app.services.test_interpretation` derives
 an evaluation contract from `goal`, `instructions`, `restrictions`, and `scenario`, restating them
-as a fixed `required_behavior` / `prohibited_behavior` list plus a `simulated_user_objective` for
+as a fixed `required_criteria` / `prohibited_criteria` list plus a `simulated_user_objective` for
 Penelope to pursue. This runs lazily on first execution, keyed by a hash of those four fields, and
 is stored on `Test.test_metadata` so later runs reuse it without re-interpreting.
 
@@ -143,8 +143,8 @@ Metrics are evaluated by Penelope during execution:
 
 - **Goal Achievement**: Primary metric — compliance with the evaluation contract when one was
   derived, otherwise whether the raw goal was achieved
-- **Criteria/Behaviour Evaluation**: Individual required/prohibited behaviours checked
-  independently, each with its own verdict
+- **Criteria Evaluation**: Individual required/prohibited criteria checked independently, each
+  with its own evaluation. One unmet criterion fails the test
 - **Confidence Score**: How confident Penelope is in the evaluation
 - **Evidence**: Conversation excerpts supporting the evaluation
 

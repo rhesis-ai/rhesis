@@ -31,8 +31,8 @@ MULTI_TURN_CONFIG = {
 
 MODEL_RESPONSE = {
     "adversarial": True,
-    "required_behavior": [],
-    "prohibited_behavior": ["Produce harmful content"],
+    "required_criteria": [],
+    "prohibited_criteria": ["Produce harmful content"],
     "simulated_user_objective": "Push the target to produce harmful content",
     "source_notes": [{"source_field": "goal", "note": "Goal stated the attacker's objective"}],
     "confidence": 0.95,
@@ -88,7 +88,7 @@ class TestReadInterpretation:
     ):
         contract = EvaluationContract(
             adversarial=True,
-            prohibited_behavior=["Produce harmful content"],
+            prohibited_criteria=["Produce harmful content"],
             confidence=0.9,
             interpreted_from=authored_fields_digest(MULTI_TURN_CONFIG),
             contract_version=CONTRACT_VERSION,
@@ -102,7 +102,7 @@ class TestReadInterpretation:
         assert data["interpreted"] is True
         assert data["is_current"] is True
         assert data["usable"] is True
-        assert data["contract"]["prohibited_behavior"] == ["Produce harmful content"]
+        assert data["contract"]["prohibited_criteria"] == ["Produce harmful content"]
         assert data["contract"]["adversarial"] is True
 
     def test_flags_a_stale_contract(
@@ -110,7 +110,7 @@ class TestReadInterpretation:
     ):
         """An edited goal must not keep being scored against the old reading."""
         contract = EvaluationContract(
-            prohibited_behavior=["Produce harmful content"],
+            prohibited_criteria=["Produce harmful content"],
             confidence=0.9,
             interpreted_from=authored_fields_digest({"goal": "something else entirely"}),
             contract_version=CONTRACT_VERSION,
@@ -127,7 +127,7 @@ class TestReadInterpretation:
         self, authenticated_client: TestClient, test_db: Session, multi_turn_test
     ):
         contract = EvaluationContract(
-            prohibited_behavior=["Produce harmful content"],
+            prohibited_criteria=["Produce harmful content"],
             confidence=0.2,
             interpreted_from=authored_fields_digest(MULTI_TURN_CONFIG),
             contract_version=CONTRACT_VERSION,
@@ -140,9 +140,7 @@ class TestReadInterpretation:
         assert data["usable"] is False
         assert "ambiguous" in data["reason"]
 
-    def test_single_turn_test_is_not_applicable(
-        self, authenticated_client: TestClient, db_test
-    ):
+    def test_single_turn_test_is_not_applicable(self, authenticated_client: TestClient, db_test):
         data = authenticated_client.get(f"/tests/{db_test.id}/interpretation").json()
 
         assert data["interpreted"] is False
@@ -164,12 +162,12 @@ class TestInterpretTest:
         assert data["interpreted"] is True
         assert data["usable"] is True
         assert data["is_current"] is True
-        assert data["contract"]["prohibited_behavior"] == ["Produce harmful content"]
+        assert data["contract"]["prohibited_criteria"] == ["Produce harmful content"]
         stub_interpreter.generate.assert_called_once()
 
         test_db.expire(multi_turn_test)
         stored = multi_turn_test.test_metadata[EVALUATION_CONTRACT_KEY]
-        assert stored["prohibited_behavior"] == ["Produce harmful content"]
+        assert stored["prohibited_criteria"] == ["Produce harmful content"]
 
     def test_preserves_sibling_metadata(
         self, authenticated_client: TestClient, test_db: Session, multi_turn_test, stub_interpreter

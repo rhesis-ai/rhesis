@@ -55,7 +55,7 @@ interface SpanDetailsPanelProps {
   onTraceUpdated?: () => void;
   onAnnotateMetric?: (metricName: string) => void;
   onAnnotateTrace?: () => void;
-  onAnnotateTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  onAnnotateTurn?: (turnNumber: number, turnPassed?: boolean) => void;
   mentionableMetrics?: MentionOption[];
   mentionableTurns?: MentionOption[];
   traceMetricsStatus?: TraceMetricsStatus | null;

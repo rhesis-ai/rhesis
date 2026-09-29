@@ -65,7 +65,7 @@ interface TraceMetricsTabProps {
   isConversationTrace: boolean;
   onAnnotateMetric?: (metricName: string) => void;
   onAnnotateTrace?: () => void;
-  onAnnotateTurn?: (turnNumber: number, turnSuccess: boolean) => void;
+  onAnnotateTurn?: (turnNumber: number, turnPassed?: boolean) => void;
   traceMetricsStatus?: TraceMetricsStatus | null;
   selectedTurnNumber?: number | null;
 }

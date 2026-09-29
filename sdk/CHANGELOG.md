@@ -13,6 +13,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `ConversationalJudge` results include `relevant_turns`, the turns the verdict rests on.
+  `NumericJudge` and `CategoricalJudge` return them too when passed `conversation_history`;
+  without it their prompt and output are unchanged.
+
+### Changed
+- **BREAKING:** `GoalAchievementJudge` returns the same result keys whether it scores a goal or
+  an evaluation contract: `criteria_evaluations` (each with `criterion`, `kind`, `met`,
+  `evidence`, `relevant_turns`), `criteria_total`, `criteria_met`, `criteria_failed` and
+  `failed_criteria`. The contract-only `behavior_verdicts`, `behaviors_total`,
+  `behaviors_complied`, `behaviors_violated` and `violated_behaviors` keys are gone.
+  `CriterionEvaluation` gains a `kind` field (`required` or `prohibited`).
+- **BREAKING:** Goal-based `GoalAchievementJudge` results now pass only when every criterion is
+  met, the same rule contract-based results use. The score threshold no longer decides the
+  verdict when the judge returns criteria.
+
 ### Removed
 - **BREAKING:** Removed the Ragas metric provider. `RagasMetricBase`, `RagasAnswerAccuracy`,
   `RagasAspectCritic`, `RagasContextRelevance`, `RagasFaithfulness` and `RagasMetricFactory` are

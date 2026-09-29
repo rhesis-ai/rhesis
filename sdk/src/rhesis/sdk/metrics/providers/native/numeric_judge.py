@@ -7,9 +7,14 @@ from pydantic import BaseModel, Field
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
+from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.providers.native.base import JudgeBase
 from rhesis.sdk.metrics.providers.native.configs import NumericJudgeConfig
 from rhesis.sdk.metrics.providers.native.evaluation_patterns import NumericEvaluationMixin
+from rhesis.sdk.metrics.providers.native.turn_references import (
+    TURN_REFERENCE_INSTRUCTION,
+    TurnReferences,
+)
 from rhesis.sdk.models.base import BaseLLM
 
 SCORE_TYPE = ScoreType.NUMERIC
@@ -20,6 +25,10 @@ class NumericScoreResponse(BaseModel):
 
     score: float = Field(description="Evaluation score")
     reason: str = Field(description="Explanation for the score", default="")
+
+
+class NumericTurnScoreResponse(NumericScoreResponse, TurnReferences):
+    """``NumericScoreResponse`` plus the turns cited, for scoring a conversation."""
 
 
 class NumericJudge(JudgeBase, NumericEvaluationMixin):
@@ -148,6 +157,7 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
         context: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         tool_calls: Optional[List[Dict[str, Any]]] = None,
+        conversation_history: Optional[ConversationHistory] = None,
     ) -> MetricResult:
         return run_sync(
             self.a_evaluate(
@@ -157,6 +167,7 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
                 context=context,
                 metadata=metadata,
                 tool_calls=tool_calls,
+                conversation_history=conversation_history,
             )
         )
 
@@ -168,6 +179,7 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
         context: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         tool_calls: Optional[List[Dict[str, Any]]] = None,
+        conversation_history: Optional[ConversationHistory] = None,
     ) -> MetricResult:
         """
         Evaluate the output using the LLM with the custom prompt template.
@@ -183,6 +195,8 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
                 Required for this metric as it requires ground truth for evaluation.
             context (Optional[List[str]], optional): List of context chunks used for the response.
                 Defaults to None.
+            conversation_history: Set when ``output`` is a multi-turn transcript. The judge
+                then also returns ``relevant_turns``.
 
         Returns:
             MetricResult: The evaluation result containing:
@@ -235,9 +249,12 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
             tool_calls_text=tool_calls_text,
         )
 
+        if conversation_history is None:
+            return await self._a_execute_numeric_evaluation(
+                prompt=prompt, response_schema=NumericScoreResponse
+            )
         return await self._a_execute_numeric_evaluation(
-            prompt=prompt,
-            response_schema=NumericScoreResponse,
+            prompt=prompt + TURN_REFERENCE_INSTRUCTION, response_schema=NumericTurnScoreResponse
         )
 
     def _evaluate_score(self, score: float) -> bool:

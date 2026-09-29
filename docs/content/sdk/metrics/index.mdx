@@ -31,7 +31,7 @@ A metric can have any combination of these scopes. Scopes are additive: includin
 
 <Callout type="info">
 
-**How single-turn metrics work in multi-turn tests**: When a `NumericJudge` or `CategoricalJudge` is used in a multi-turn evaluation, the full conversation is serialized to plain text and passed as the `output` parameter. The metric does not receive a structured `ConversationHistory` object -- it evaluates the conversation as a single text blob. This means the evaluation quality depends entirely on the `evaluation_prompt` you write. For turn-aware evaluation (e.g., analyzing coherence between specific turns), use a `ConversationalJudge` instead, which receives the full structured conversation with individual turns.
+**How single-turn metrics work in multi-turn tests**: When a `NumericJudge` or `CategoricalJudge` is used in a multi-turn evaluation, the full conversation is serialized to plain text and passed as the `output` parameter. The metric evaluates the conversation as a single text blob. It is also passed the `conversation_history`, but only to return `relevant_turns`, the turns its verdict rests on. This means the evaluation quality depends entirely on the `evaluation_prompt` you write. For turn-aware evaluation (e.g., analyzing coherence between specific turns), use a `ConversationalJudge` instead, which receives the full structured conversation with individual turns.
 
 </Callout>
 

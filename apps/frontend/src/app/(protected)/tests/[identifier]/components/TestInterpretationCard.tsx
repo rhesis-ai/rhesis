@@ -108,12 +108,12 @@ function ContractBody({ contract }: { contract: EvaluationContract }) {
 
       <CriteriaList
         label="The target must"
-        items={contract.required_behavior}
+        items={contract.required_criteria}
         emptyHint="No must-do criteria — this test only checks what the target must not do."
       />
       <CriteriaList
         label="The target must not"
-        items={contract.prohibited_behavior}
+        items={contract.prohibited_criteria}
         emptyHint="No must-not-do criteria — this test only checks what the target must do."
       />
 

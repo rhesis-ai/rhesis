@@ -39,8 +39,8 @@ def get_system_prompt(
     min_turns: int | None = None,
     max_turns: int | None = None,
     simulated_user_objective: Optional[str] = None,
-    contract_required_behavior: Optional[List[str]] = None,
-    contract_prohibited_behavior: Optional[List[str]] = None,
+    contract_required_criteria: Optional[List[str]] = None,
+    contract_prohibited_criteria: Optional[List[str]] = None,
 ) -> str:
     """
     Construct the complete system prompt using Jinja2 templates.
@@ -62,10 +62,10 @@ def get_system_prompt(
             scored against, not necessarily something Penelope should try to
             achieve (an adversarial goal reads "the target must not leak PII",
             which is nonsense as Penelope's own objective).
-        contract_required_behavior: What the contract says the target must do,
+        contract_required_criteria: What the contract says the target must do,
             shown to Penelope as context. Ignored unless
             ``simulated_user_objective`` is also set.
-        contract_prohibited_behavior: What the contract says the target must
+        contract_prohibited_criteria: What the contract says the target must
             not do, shown to Penelope as context. Ignored unless
             ``simulated_user_objective`` is also set.
 
@@ -106,8 +106,8 @@ def get_system_prompt(
         min_turns=min_turns,
         max_turns=max_turns,
         simulated_user_objective=simulated_user_objective if simulated_user_objective else None,
-        contract_required_behavior=contract_required_behavior or None,
-        contract_prohibited_behavior=contract_prohibited_behavior or None,
+        contract_required_criteria=contract_required_criteria or None,
+        contract_prohibited_criteria=contract_prohibited_criteria or None,
     )
 
     logger.info("=== RENDERED PROMPT PREVIEW ===")

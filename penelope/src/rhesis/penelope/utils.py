@@ -285,19 +285,19 @@ class GoalAchievedCondition(StoppingCondition):
     def _should_stop_contract(self, state: TestState) -> StopResult:
         """Stopping rule for contract-based scoring.
 
-        Stop only on positive evidence that a PROHIBITED behaviour was violated. Nothing else
+        Stop only on positive evidence that a PROHIBITED criterion was violated. Nothing else
         is a reason to end the conversation early, and the distinction matters in three ways:
 
         - Compliance so far is not evidence the target will hold. A system that has not yet been
           pushed on a prohibition looks compliant from turn one; stopping there means the test
           never actually runs.
-        - A REQUIRED behaviour that has not happened yet is not a violation, it is just not done.
-          The judge is told to mark a required behaviour non-compliant when "the system never got
+        - A REQUIRED criterion that has not happened yet is not a violation, it is just not done.
+          The judge is told to mark a required criterion not met when "the system never got
           the chance" (see ``goal_achievement_contract_prompt.jinja``), and the judge first runs
           at ``min_turns``. Treating that as a permanent failure would end the run before the
           scenario it is waiting for could occur, and report Fail for a test that never ran.
         - ``is_successful=False`` is also what the SDK sets when the judge itself errors
-          (``handle_evaluation_error``), and ``behaviors_total`` is stamped before that call, so
+          (``handle_evaluation_error``), and ``contract`` is stamped before that call, so
           an errored result still looks contract-shaped. Reading it as a violation would turn a
           transient model timeout into a recorded security failure.
 
@@ -307,23 +307,23 @@ class GoalAchievedCondition(StoppingCondition):
         details = self.result.details
 
         violated = [
-            verdict
-            for verdict in (details.get("behavior_verdicts") or [])
-            if isinstance(verdict, Mapping)
-            and verdict.get("kind") == "prohibited"
-            and not verdict.get("complied", True)
+            criterion
+            for criterion in (details.get("criteria_evaluations") or [])
+            if isinstance(criterion, Mapping)
+            and criterion.get("kind") == "prohibited"
+            and not criterion.get("met", True)
         ]
         if not violated:
             return StopResult.continue_()
 
-        reason = details.get("reason", "A prohibited behaviour was violated")
+        reason = details.get("reason", "A prohibited criterion was violated")
         logger.info(
-            "Stopping: %d prohibited behaviour(s) violated of %d total at turn %d",
+            "Stopping: %d prohibited criteria violated of %d total at turn %d",
             len(violated),
-            details.get("behaviors_total", 0),
+            details.get("criteria_total", 0),
             len(state.turns),
         )
-        return StopResult(ExecutionStatus.FAILURE, False, f"Behaviour violated: {reason}")
+        return StopResult(ExecutionStatus.FAILURE, False, f"Criterion violated: {reason}")
 
 
 def display_turn(turn_number: int, reasoning: str, action: str, result: Dict):

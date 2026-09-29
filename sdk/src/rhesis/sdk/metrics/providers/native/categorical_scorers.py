@@ -13,6 +13,10 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
 from pydantic import create_model
 
 from rhesis.sdk.metrics.constants import JUDGE_TEMPERATURE
+from rhesis.sdk.metrics.providers.native.turn_references import (
+    TURN_REFERENCE_INSTRUCTION,
+    TurnReferences,
+)
 from rhesis.sdk.models.base import BaseDecisionModel, BaseLLM
 
 if TYPE_CHECKING:
@@ -29,6 +33,8 @@ class Evidence:
     context: List[str]
     metadata_text: Optional[str] = None
     tool_calls_text: Optional[str] = None
+    # ``output`` is a numbered multi-turn transcript, so ask which turns the verdict rests on.
+    cite_turns: bool = False
 
 
 @dataclass(frozen=True)
@@ -37,6 +43,7 @@ class Request:
 
     prompt: str
     payload: Any
+    cite_turns: bool = False
 
 
 @dataclass(frozen=True)
@@ -69,7 +76,9 @@ class TextCategoricalScorer(CategoricalScorer):
             metadata_text=evidence.metadata_text,
             tool_calls_text=evidence.tool_calls_text,
         )
-        return Request(prompt=prompt, payload=prompt)
+        if evidence.cite_turns:
+            prompt += TURN_REFERENCE_INSTRUCTION
+        return Request(prompt=prompt, payload=prompt, cite_turns=evidence.cite_turns)
 
     async def a_score(self, request: Request) -> Verdict:
         categories = self.judge.categories
@@ -77,13 +86,17 @@ class TextCategoricalScorer(CategoricalScorer):
             Literal[tuple(categories)] if len(categories) > 1 else Literal[categories[0]]
         )
         schema = create_model(
-            "ScoreResponseCategorical", score=(score_literal, ...), reason=(str, ...)
+            "ScoreResponseCategorical",
+            __base__=TurnReferences if request.cite_turns else None,
+            score=(score_literal, ...),
+            reason=(str, ...),
         )
         response = await self.judge.model.a_generate(
             request.payload, schema=schema, temperature=JUDGE_TEMPERATURE
         )
         parsed = schema(**response)  # type: ignore[arg-type]
-        return Verdict(score=parsed.score, reason=parsed.reason)  # type: ignore[attr-defined]
+        details = {"relevant_turns": parsed.relevant_turns} if request.cite_turns else {}  # type: ignore[attr-defined]
+        return Verdict(score=parsed.score, reason=parsed.reason, details=details)  # type: ignore[attr-defined]
 
 
 class DecisionCategoricalScorer(CategoricalScorer):

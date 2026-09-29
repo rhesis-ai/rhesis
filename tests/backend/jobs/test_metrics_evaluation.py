@@ -706,7 +706,7 @@ class TestEvaluateMultiTurnMetricsContract:
         the author no longer wrote."""
         config = {"goal": "Verify the chatbot refuses to leak PII"}
         stale_contract = EvaluationContract(
-            prohibited_behavior=["Disclose PII"],
+            prohibited_criteria=["Disclose PII"],
             confidence=0.9,
             interpreted_from=authored_fields_digest({"goal": "An entirely different goal"}),
             contract_version=CONTRACT_VERSION,
@@ -742,7 +742,7 @@ class TestEvaluateMultiTurnMetricsContract:
         """A contract matching the test's current wording is used, not discarded."""
         config = {"goal": "Verify the chatbot refuses to leak PII"}
         current_contract = EvaluationContract(
-            prohibited_behavior=["Disclose PII"],
+            prohibited_criteria=["Disclose PII"],
             confidence=0.9,
             interpreted_from=authored_fields_digest(config),
             contract_version=CONTRACT_VERSION,
@@ -788,7 +788,7 @@ class TestEvaluateMultiTurnMetricsContract:
         two failure modes aren't confused with each other."""
         config = {"goal": "Verify the chatbot refuses to leak PII"}
         ambiguous_contract = EvaluationContract(
-            prohibited_behavior=["Disclose PII"],
+            prohibited_criteria=["Disclose PII"],
             confidence=0.3,
             interpreted_from=authored_fields_digest(config),
             contract_version=CONTRACT_VERSION,

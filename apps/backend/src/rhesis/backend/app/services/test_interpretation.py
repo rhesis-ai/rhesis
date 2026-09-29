@@ -130,7 +130,7 @@ def contract_usability(contract: EvaluationContract) -> Tuple[bool, str]:
         return False, "This test could not be interpreted, so it has nothing to be scored against."
     if not contract.is_scorable:
         return False, (
-            "No required or prohibited behaviour could be identified for the target. "
+            "No required or prohibited criteria could be identified for the target. "
             "State what the target must or must not do in the goal or restrictions."
         )
     # <=, not <: the interpreter prompt tells the model to set confidence "at or below 0.5"
@@ -228,8 +228,8 @@ def ensure_contract(
         "Interpreted test %s: adversarial=%s required=%d prohibited=%d confidence=%.2f",
         test.id,
         contract.adversarial,
-        len(contract.required_behavior),
-        len(contract.prohibited_behavior),
+        len(contract.required_criteria),
+        len(contract.prohibited_criteria),
         contract.confidence,
     )
     return contract

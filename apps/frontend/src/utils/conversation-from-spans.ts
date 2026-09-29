@@ -2,30 +2,24 @@ import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import type { SpanNode } from '@/utils/api-client/interfaces/telemetry';
 import type {
   ConversationTurn,
+  MetricResult,
   TestResultDetail,
 } from '@/utils/api-client/interfaces/test-results';
-import { allMetricsPassed } from '@/constants/outcomes';
 
-function getAutomatedTurnSuccess(rootSpans: SpanNode[]): boolean | undefined {
+/**
+ * A trace's turn and conversation metrics in one map, as ConversationHistory takes them. The
+ * conversation ones win on a name clash, as in the trace metrics tab.
+ */
+export function traceMetricsFromSpans(
+  rootSpans: SpanNode[]
+): Record<string, MetricResult> {
   const traceMetrics = rootSpans.find(s => s.trace_metrics)?.trace_metrics as
-    | Record<string, unknown>
+    | Record<string, { metrics?: Record<string, MetricResult> } | undefined>
     | undefined;
-  if (!traceMetrics) return undefined;
-
-  const turnSection = traceMetrics.turn_metrics as
-    | Record<string, unknown>
-    | undefined;
-  if (!turnSection) return undefined;
-
-  const metrics = turnSection.metrics as
-    | Record<string, { is_successful?: boolean }>
-    | undefined;
-  if (metrics && Object.keys(metrics).length > 0) {
-    // Per-turn: finer than anything the backend stores an outcome for.
-    return allMetricsPassed(Object.values(metrics));
-  }
-
-  return undefined;
+  return {
+    ...(traceMetrics?.turn_metrics?.metrics ?? {}),
+    ...(traceMetrics?.conversation_metrics?.metrics ?? {}),
+  };
 }
 
 /**
@@ -50,8 +44,6 @@ export function isMultiTurnTestResult(
 export function reconstructConversationFromSpans(
   rootSpans: SpanNode[]
 ): ConversationTurn[] {
-  const automatedSuccess = getAutomatedTurnSuccess(rootSpans);
-
   return rootSpans
     .filter(
       span =>
@@ -69,7 +61,8 @@ export function reconstructConversationFromSpans(
       ),
       penelope_reasoning: '',
       session_id: span.span_id,
-      success: automatedSuccess ?? span.status_code !== 'ERROR',
+      // Whether the call itself went through; metric verdicts reach the turns as findings.
+      success: span.status_code !== 'ERROR',
     }));
 }
 

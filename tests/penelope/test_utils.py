@@ -194,27 +194,28 @@ def test_goal_achieved_condition_update_result():
 
 
 class TestGoalAchievedConditionContractMode:
-    """Contract-based results (marked by ``behaviors_total`` in details, see
+    """Contract-based results (marked by ``contract`` in details, see
     ``GoalAchievementJudge.is_contract_result``) use a different stopping rule: compliance so
     far must never be read as final, because nothing has necessarily tried to break it yet.
     """
 
     @staticmethod
-    def _verdict(kind: str, complied: bool, behavior: str = "Some behaviour") -> dict:
-        return {"behavior": behavior, "kind": kind, "complied": complied, "evidence": ""}
+    def _evaluation(kind: str, met: bool, criterion: str = "Some criterion") -> dict:
+        return {"criterion": criterion, "kind": kind, "met": met, "evidence": ""}
 
     @classmethod
     def _contract_result(cls, is_successful: bool, verdicts=None, **extra_details) -> Mock:
         """A contract-shaped result. ``verdicts`` defaults to matching ``is_successful`` via a
-        single prohibited behaviour, which is the case that legitimately stops a run.
+        single prohibited criterion, which is the case that legitimately stops a run.
         """
         if verdicts is None:
-            verdicts = [cls._verdict("prohibited", complied=is_successful)]
+            verdicts = [cls._evaluation("prohibited", met=is_successful)]
         result = Mock()
         result.score = 1.0 if is_successful else 0.0
         result.details = {
-            "behaviors_total": len(verdicts),
-            "behavior_verdicts": verdicts,
+            "contract": {"prohibited_criteria": ["Some criterion"]},
+            "criteria_total": len(verdicts),
+            "criteria_evaluations": verdicts,
             "is_successful": is_successful,
             "reason": "Contract reason",
             **extra_details,
@@ -242,7 +243,7 @@ class TestGoalAchievedConditionContractMode:
         condition = GoalAchievedCondition(
             result=self._contract_result(
                 False,
-                verdicts=[self._verdict("prohibited", False, "Disclose PII")],
+                verdicts=[self._evaluation("prohibited", False, "Disclose PII")],
             )
         )
         add_turns_to_state(sample_test_state, 1)
@@ -264,17 +265,17 @@ class TestGoalAchievedConditionContractMode:
 
         assert result.should_stop is True
 
-    def test_does_not_stop_on_a_required_behaviour_not_yet_done(self, sample_test_state):
-        """A required behaviour that hasn't happened yet is not a violation, it's just not done.
+    def test_does_not_stop_on_a_required_criterion_not_yet_done(self, sample_test_state):
+        """A required criterion that hasn't happened yet is not a violation, it's just not done.
 
-        The judge marks a required behaviour non-compliant when the system "never got the
+        The judge marks a required criterion non-compliant when the system "never got the
         chance", and it first runs at ``min_turns``. Stopping there would end the run before the
         scenario it is waiting for could occur, and report Fail for a test that never ran.
         """
         condition = GoalAchievedCondition(
             result=self._contract_result(
                 False,
-                verdicts=[self._verdict("required", False, "Escalate to a human operator")],
+                verdicts=[self._evaluation("required", False, "Escalate to a human operator")],
             ),
             min_turns=1,
             max_turns=10,
@@ -291,8 +292,8 @@ class TestGoalAchievedConditionContractMode:
             result=self._contract_result(
                 False,
                 verdicts=[
-                    self._verdict("required", False, "Escalate to a human operator"),
-                    self._verdict("prohibited", False, "Disclose PII"),
+                    self._evaluation("required", False, "Escalate to a human operator"),
+                    self._evaluation("prohibited", False, "Disclose PII"),
                 ],
             )
         )
@@ -306,7 +307,7 @@ class TestGoalAchievedConditionContractMode:
     def test_does_not_stop_when_the_judge_itself_errored(self, sample_test_state):
         """An errored judge is contract-shaped but carries no verdicts.
 
-        ``behaviors_total`` is stamped before the model call and ``handle_evaluation_error`` sets
+        ``contract`` is stamped before the model call and ``handle_evaluation_error`` sets
         ``is_successful=False``, so an error looks like a failed contract run. Reading it as a
         breach would turn a transient model timeout into a recorded security failure.
         """
@@ -335,7 +336,7 @@ class TestGoalAchievedConditionContractMode:
         assert result.should_stop is False
 
     def test_goal_based_result_is_unaffected(self, sample_test_state):
-        """A result with no behaviors_total key must take the legacy goal-based path."""
+        """A result with no contract key must take the goal-based path."""
         mock_result = Mock()
         mock_result.score = 0.9
         mock_result.details = {"is_successful": True, "reason": "Goal achieved"}
