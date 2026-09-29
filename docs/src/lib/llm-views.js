@@ -69,7 +69,7 @@ export function renderLlmsTxt() {
   lines.push('## Agent reference')
   lines.push('')
   lines.push(
-    '> Read this section first if you are an LLM agent (Cursor, Claude Code, Telemachus, MCP).'
+    '> Read this section first if you are an LLM agent (Cursor, Claude Code, Architect, MCP).'
   )
   lines.push(
     '> Fetch linked `.md` URLs — do not scrape HTML. One concept per fetch; do not load llms-full.txt unless you need the full corpus.'
