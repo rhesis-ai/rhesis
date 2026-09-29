@@ -523,8 +523,8 @@ class PenelopeAgent:
             min_turns=min_turns,
             max_turns=max_turns if max_turns is not None else self.max_turns,
             simulated_user_objective=contract.get("simulated_user_objective") or None,
-            contract_required_behavior=contract.get("required_behavior") or None,
-            contract_prohibited_behavior=contract.get("prohibited_behavior") or None,
+            contract_required_criteria=contract.get("required_criteria") or None,
+            contract_prohibited_criteria=contract.get("prohibited_criteria") or None,
         )
 
     def _compute_goal_eval_floor(

@@ -453,6 +453,8 @@ def test_generate_metrics_with_criteria_evaluations():
                 {"criterion": "C2", "met": False, "evidence": "E2", "relevant_turns": [2]},
                 {"criterion": "C3", "met": True, "evidence": "E3", "relevant_turns": [1, 2]},
             ],
+            "criteria_total": 3,
+            "criteria_met": 2,
             "all_criteria_met": False,
             "confidence": 0.85,
         },
@@ -461,7 +463,7 @@ def test_generate_metrics_with_criteria_evaluations():
 
     metrics = state._generate_metrics(goal_achieved=True)
 
-    # Verify criteria counts were added
+    # Verify the judge's criteria counts are carried through
     goal_metric = metrics["Goal Achievement"]
     assert goal_metric["criteria_met"] == 2
     assert goal_metric["criteria_total"] == 3
@@ -469,11 +471,9 @@ def test_generate_metrics_with_criteria_evaluations():
 
 
 def test_generate_metrics_summary_includes_contract_based_counts():
-    """The goal-metric summary whitelist must carry contract-based scoring's own count
-    fields (behaviors_total/complied/violated, adversarial) the same way it already carries
-    criteria_met/criteria_total for legacy scoring -- otherwise the summary panel used by
-    the metrics overview grid silently loses them for a live Penelope run, even though the
-    full test_output.goal_evaluation dict still has them."""
+    """The goal-metric summary whitelist must carry the criteria counts and ``adversarial``,
+    otherwise the summary panel used by the metrics overview grid silently loses them for a
+    live Penelope run, even though the full test_output.goal_evaluation dict still has them."""
     from rhesis.sdk.metrics.base import MetricResult
 
     test_context = TestContext(
@@ -488,12 +488,12 @@ def test_generate_metrics_summary_includes_contract_based_counts():
             "is_goal_achievement_metric": True,
             "is_successful": False,
             "adversarial": True,
-            "behaviors_total": 3,
-            "behaviors_complied": 2,
-            "behaviors_violated": 1,
-            "violated_behaviors": ["Disclose policyholder PII"],
-            "behavior_verdicts": [{"behavior": "Disclose policyholder PII", "complied": False}],
-            "contract": {"prohibited_behavior": ["Disclose policyholder PII"]},
+            "criteria_total": 3,
+            "criteria_met": 2,
+            "criteria_failed": 1,
+            "failed_criteria": ["Disclose policyholder PII"],
+            "criteria_evaluations": [{"criterion": "Disclose policyholder PII", "met": False}],
+            "contract": {"prohibited_criteria": ["Disclose policyholder PII"]},
             "confidence": 0.9,
         },
     )
@@ -502,13 +502,13 @@ def test_generate_metrics_summary_includes_contract_based_counts():
     summary = state._generate_metrics(goal_achieved=False)["Goal Achievement"]
 
     assert summary["adversarial"] is True
-    assert summary["behaviors_total"] == 3
-    assert summary["behaviors_complied"] == 2
-    assert summary["behaviors_violated"] == 1
+    assert summary["criteria_total"] == 3
+    assert summary["criteria_met"] == 2
+    assert summary["criteria_failed"] == 1
     # Per-item detail and the raw contract stay in test_output.goal_evaluation only --
     # summarized here would duplicate what's already there and bloat every metrics response.
-    assert "behavior_verdicts" not in summary
-    assert "violated_behaviors" not in summary
+    assert "criteria_evaluations" not in summary
+    assert "failed_criteria" not in summary
     assert "contract" not in summary
 
 

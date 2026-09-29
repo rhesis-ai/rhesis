@@ -796,13 +796,6 @@ class TestState:
             **dumped["details"],  # Spread all details fields
         }
 
-        # Add convenience fields for criteria-based metrics
-        criteria_evals = metric_dict.get("criteria_evaluations", [])
-        if criteria_evals:
-            met_count = sum(1 for c in criteria_evals if c.get("met", False))
-            metric_dict["criteria_met"] = met_count
-            metric_dict["criteria_total"] = len(criteria_evals)
-
         return metric_dict
 
     def _generate_metrics(self, goal_achieved: bool) -> Dict[str, Dict[str, Any]]:
@@ -857,17 +850,15 @@ class TestState:
         Returns:
             Simplified metric dictionary with summary fields only
         """
-        # Essential fields for metrics overview. Mirrors criteria_met/criteria_total for
-        # contract-based scoring: the SDK judge already computes these three as top-level
-        # detail keys (unlike criteria_met/criteria_total, which Penelope derives itself
-        # below), so they only need whitelisting here. The full per-behaviour breakdown
-        # (behavior_verdicts, violated_behaviors, contract) stays out of the summary and is
-        # read from test_output.goal_evaluation instead, same as criteria_evaluations is.
+        # Essential fields for metrics overview. The full breakdown (criteria_evaluations,
+        # failed_criteria, contract) stays out of the summary and is read from
+        # test_output.goal_evaluation instead.
         summary_fields = {
             "score",
             "confidence",
             "criteria_met",
             "criteria_total",
+            "criteria_failed",
             "is_successful",
             "reason",
             "name",
@@ -877,9 +868,6 @@ class TestState:
             "threshold_operator",
             "score_type",
             "adversarial",
-            "behaviors_total",
-            "behaviors_complied",
-            "behaviors_violated",
         }
 
         # Create summary by including only essential fields

@@ -418,11 +418,11 @@ class TestGoalMetricEvalKwargs:
         assert "contract" not in kwargs
 
     def test_includes_contract_when_the_test_has_one(self, sample_test_state):
-        sample_test_state.context.contract = {"prohibited_behavior": ["X"]}
+        sample_test_state.context.contract = {"prohibited_criteria": ["X"]}
 
         kwargs = PenelopeAgent._goal_metric_eval_kwargs(sample_test_state, "goal", "instr")
 
-        assert kwargs["contract"] == {"prohibited_behavior": ["X"]}
+        assert kwargs["contract"] == {"prohibited_criteria": ["X"]}
 
     def test_missing_instructions_becomes_empty_string(self, sample_test_state):
         kwargs = PenelopeAgent._goal_metric_eval_kwargs(sample_test_state, "goal", None)
@@ -469,7 +469,7 @@ class TestResolveGoalAchieved:
                 score=1.0,
                 details={
                     "is_goal_achievement_metric": True,
-                    "behaviors_total": 2,
+                    "contract": {"prohibited_criteria": ["Leak data"]},
                     "is_successful": True,
                 },
             )
@@ -484,7 +484,7 @@ class TestResolveGoalAchieved:
                 score=0.0,
                 details={
                     "is_goal_achievement_metric": True,
-                    "behaviors_total": 2,
+                    "contract": {"prohibited_criteria": ["Leak data"]},
                     "is_successful": False,
                 },
             )
@@ -494,7 +494,7 @@ class TestResolveGoalAchieved:
         assert PenelopeAgent._resolve_goal_achieved(sample_test_state, maxturns_stop) is False
 
     def test_goal_based_scoring_falls_back_to_the_stop_result(self, sample_test_state):
-        """No behaviors_total marker -> legacy path, unaffected by this change."""
+        """No contract marker -> goal-based path, unaffected by this change."""
         sample_test_state.metric_results.append(
             MetricResult(
                 score=1.0, details={"is_goal_achievement_metric": True, "is_successful": True}
@@ -535,8 +535,8 @@ class TestContractThreadedIntoSystemPrompt:
         agent = PenelopeAgent(model=mock_model)
         contract = {
             "simulated_user_objective": "Push the target to leak PII",
-            "required_behavior": ["Stay in role"],
-            "prohibited_behavior": ["Disclose PII"],
+            "required_criteria": ["Stay in role"],
+            "prohibited_criteria": ["Disclose PII"],
         }
         prompt = agent._build_system_prompt(
             instructions="i",
