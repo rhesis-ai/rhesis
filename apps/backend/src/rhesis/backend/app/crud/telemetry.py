@@ -12,7 +12,7 @@ from enum import Enum
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Union
 from uuid import UUID
 
-from sqlalchemy import and_, asc, desc, false, func, or_, select
+from sqlalchemy import String, and_, asc, cast, desc, false, func, or_, select
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
@@ -814,9 +814,9 @@ class TraceContext(NamedTuple):
 
     trace_name: Optional[str]
     conversation_id: Optional[str]
-    test_run_id: Optional[UUID]
-    test_result_id: Optional[UUID]
-    test_id: Optional[UUID]
+    test_run_id: Optional[str]
+    test_result_id: Optional[str]
+    test_id: Optional[str]
 
 
 class SpanFacetCounts(NamedTuple):
@@ -932,44 +932,50 @@ def query_spans(
 def trace_context_for(
     db: Session, organization_id: str, project_id: Optional[str], trace_ids: List[str]
 ) -> Dict[str, TraceContext]:
-    """Name, conversation and test ids for each trace, from its roots.
+    """Name, conversation and test ids for each trace.
 
-    A multi-turn trace has one root per turn; the first one names it. Its
-    conversation_id can be missing on some roots, so take whichever row has one.
+    A multi-turn trace has one root per turn; the first one names it. The ids can be
+    missing on some rows of a trace, so each comes from whichever row has one -- the
+    same rows the trace-level filters match on.
     """
     if not trace_ids:
         return {}
     trace = models.Trace
     scope = span_scope(trace, UUID(organization_id), project_id) + [trace.trace_id.in_(trace_ids)]
 
-    first_roots = (
-        db.query(
-            trace.trace_id,
-            trace.span_name,
-            trace.test_run_id,
-            trace.test_result_id,
-            trace.test_id,
-        )
+    names = dict(
+        db.query(trace.trace_id, trace.span_name)
         .filter(*scope, trace.parent_span_id.is_(None))
         .distinct(trace.trace_id)
         .order_by(trace.trace_id, trace.start_time)
         .all()
     )
-    conversations = dict(
-        db.query(trace.trace_id, func.max(trace.conversation_id))
-        .filter(*scope, trace.conversation_id.isnot(None))
+
+    # Postgres has no max() for uuid; as text it picks the one non-null value.
+    def any_value(column):
+        return func.max(cast(column, String))
+
+    ids = (
+        db.query(
+            trace.trace_id,
+            any_value(trace.conversation_id).label("conversation_id"),
+            any_value(trace.test_run_id).label("test_run_id"),
+            any_value(trace.test_result_id).label("test_result_id"),
+            any_value(trace.test_id).label("test_id"),
+        )
+        .filter(*scope)
         .group_by(trace.trace_id)
         .all()
     )
     return {
-        root.trace_id: TraceContext(
-            trace_name=root.span_name,
-            conversation_id=conversations.get(root.trace_id),
-            test_run_id=root.test_run_id,
-            test_result_id=root.test_result_id,
-            test_id=root.test_id,
+        row.trace_id: TraceContext(
+            trace_name=names.get(row.trace_id),
+            conversation_id=row.conversation_id,
+            test_run_id=row.test_run_id,
+            test_result_id=row.test_result_id,
+            test_id=row.test_id,
         )
-        for root in first_roots
+        for row in ids
     }
 
 

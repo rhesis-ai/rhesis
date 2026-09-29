@@ -405,6 +405,37 @@ class TestTraceLevelFilters:
 
         assert [s.trace_name for s in response.spans] == ["function.chat_turn"]
 
+    def test_row_ids_agree_with_the_filter_when_the_first_root_has_none(
+        self, test_db, db_project, test_org_id, db_test_run
+    ):
+        """Only the later root carries the run: the filter matches the whole trace, so
+        every row must report the run too, not the first root's null."""
+        project_id = str(db_project.id)
+        trace_id, first, later = uuid.uuid4().hex, uuid.uuid4().hex[:16], uuid.uuid4().hex[:16]
+        create_trace_spans(
+            test_db,
+            [
+                make_span(trace_id, project_id, name="function.first_turn", span_id=first),
+                make_span(
+                    trace_id,
+                    project_id,
+                    name="function.later_turn",
+                    span_id=later,
+                    offset_s=10,
+                    test_run_id=db_test_run.id,
+                ),
+            ],
+            organization_id=test_org_id,
+        )
+
+        response = spans(
+            test_db, test_org_id, project_id, SpanFilters(test_run_id=str(db_test_run.id))
+        )
+
+        assert ids(response) == {first, later}
+        assert {s.test_run_id for s in response.spans} == {str(db_test_run.id)}
+        assert {s.trace_name for s in response.spans} == {"function.first_turn"}
+
 
 @pytest.mark.integration
 class TestSorting:
