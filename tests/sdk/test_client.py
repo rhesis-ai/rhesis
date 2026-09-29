@@ -413,3 +413,19 @@ def test_disabled_client_connect_returns_immediately():
     # Should return immediately (no-op)
     result = client.connect()
     assert result is None
+
+
+def test_telemetry_setup_error_does_not_blame_connectivity():
+    """Setup sends no request, so its error must point at the dependency, not the network."""
+    from rhesis.sdk.clients.rhesis import RhesisClient
+
+    cause = AttributeError("'OTLPSpanExporter' object has no attribute '_session'")
+    with patch("rhesis.telemetry.provider.get_tracer_provider", side_effect=cause):
+        with pytest.raises(RuntimeError) as exc_info:
+            RhesisClient(api_key="test_key", base_url="http://localhost:8080", project_id="p")
+
+    message = str(exc_info.value).lower()
+    assert "connectivity" not in message
+    assert "network" not in message
+    assert "opentelemetry" in message
+    assert exc_info.value.__cause__ is cause

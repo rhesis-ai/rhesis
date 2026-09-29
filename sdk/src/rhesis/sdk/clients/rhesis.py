@@ -289,9 +289,13 @@ class RhesisClient:
                 f"   Base URL: {self._base_url}\n"
                 f"   Project ID: {self.project_id or 'NOT SET'}"
             )
+            # Setup builds the provider and exporter locally and sends no request,
+            # so a failure here is a bug or a dependency mismatch, not the network.
             raise RuntimeError(
-                f"Telemetry initialization failed: {e}. "
-                f"Check your API key, base URL, and backend connectivity."
+                f"Telemetry setup failed: {e}. This is likely a bug in the Rhesis SDK "
+                f"or an incompatible opentelemetry version (opentelemetry-sdk, "
+                f"opentelemetry-exporter-otlp-proto-http). See the chained exception "
+                f"for the cause."
             ) from e
 
     def _init_tracer(self) -> None:
