@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, within } from '@/test-utils';
+import { render, screen, fireEvent, waitFor, within } from '@/test-utils';
 import '@testing-library/jest-dom';
 import lightTheme from '@/styles/theme';
 import KpiRow from '../KpiRow';
@@ -24,6 +24,14 @@ import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemet
 
 function mockUsage(usage: Partial<TraceMetricsResponse> | null) {
   (useTestRunUsage as jest.Mock).mockReturnValue(usage);
+}
+
+/** Hovers the (i) next to the Cost title (the Verdicts card has one too). */
+async function openCostTooltip() {
+  const card = screen.getByText('Cost').closest('.MuiCard-root');
+  if (!(card instanceof HTMLElement)) throw new Error('Cost card not found');
+  fireEvent.mouseOver(within(card).getByTestId('InfoOutlinedIcon'));
+  return screen.findByRole('tooltip');
 }
 
 beforeEach(() => {
@@ -469,6 +477,8 @@ describe('KpiRow', () => {
       priced_traces: 12,
       total_spans: 190,
       total_tokens: 45735,
+      total_input_tokens: 40000,
+      total_output_tokens: 5735,
       total_cost_usd: 0.012695,
       models_used: ['gpt-4o'],
       providers_used: ['openai'],
@@ -489,6 +499,69 @@ describe('KpiRow', () => {
     expect(screen.getByText('45,735 tokens')).toBeInTheDocument();
     expect(screen.getByText('openai/gpt-4o')).toBeInTheDocument();
     expect(screen.queryByText('No cost data')).not.toBeInTheDocument();
+    expect(screen.queryByText(/40,000 input/)).not.toBeInTheDocument();
+  });
+
+  it('puts input and output tokens in the Cost tooltip', async () => {
+    // Two separate figures rather than parts of the total: ADK counts cached
+    // tokens in the total, so 40,000 + 3,000 need not add up to 45,735.
+    mockUsage({
+      total_traces: 12,
+      enriched_traces: 12,
+      priced_traces: 12,
+      total_spans: 190,
+      total_tokens: 45735,
+      total_input_tokens: 40000,
+      total_output_tokens: 3000,
+      total_cost_usd: 0.012695,
+    });
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix({})}
+        testRun={makeTestRun()}
+        isRunning={false}
+        testIds={[]}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    const tooltip = await openCostTooltip();
+    expect(
+      await within(tooltip).findByText('40,000 input tokens')
+    ).toBeInTheDocument();
+    expect(
+      within(tooltip).getByText('3,000 output tokens')
+    ).toBeInTheDocument();
+    expect(tooltip).toHaveTextContent("What this run's traced LLM calls cost");
+  });
+
+  it('leaves the token lines out of the Cost tooltip when both are zero', async () => {
+    mockUsage({
+      total_traces: 1,
+      enriched_traces: 1,
+      priced_traces: 1,
+      total_spans: 2,
+      total_tokens: 10,
+      total_input_tokens: 0,
+      total_output_tokens: 0,
+      total_cost_usd: 0.001,
+    });
+    renderWithClock(
+      <KpiRow
+        matrix={makeMatrix({})}
+        testRun={makeTestRun()}
+        isRunning={false}
+        testIds={[]}
+        timings={EMPTY_TIMINGS}
+      />
+    );
+    const tooltip = await openCostTooltip();
+    await waitFor(() => {
+      expect(tooltip).toHaveTextContent(
+        "What this run's traced LLM calls cost"
+      );
+    });
+    expect(tooltip).not.toHaveTextContent('input tokens');
+    expect(tooltip).not.toHaveTextContent('output tokens');
   });
 
   it('holds the card back entirely for a run that traced nothing', () => {
@@ -590,7 +663,7 @@ describe('KpiRow', () => {
     expect(screen.queryByText('·')).not.toBeInTheDocument();
   });
 
-  it('says there is no cost data, and why, when nothing could be priced', () => {
+  it('says there is no cost data, and why, when nothing could be priced', async () => {
     // Tokens come off the spans immediately; cost waits for enrichment, and
     // never arrives for a model with no published price. A $0.00 here would
     // claim the run was free, which is the one reading that is certainly wrong.
@@ -600,6 +673,8 @@ describe('KpiRow', () => {
       priced_traces: 0,
       total_spans: 40,
       total_tokens: 9120,
+      total_input_tokens: 8000,
+      total_output_tokens: 1120,
       total_cost_usd: 0,
     });
     renderWithClock(
@@ -614,9 +689,18 @@ describe('KpiRow', () => {
     expect(screen.getByText('No cost data')).toBeInTheDocument();
     expect(screen.getByText(/9,120 tokens/)).toBeInTheDocument();
     expect(screen.queryByText('$0.00')).not.toBeInTheDocument();
+
+    const tooltip = await openCostTooltip();
+    expect(
+      await within(tooltip).findByText('8,000 input tokens')
+    ).toBeInTheDocument();
+    expect(
+      within(tooltip).getByText('1,120 output tokens')
+    ).toBeInTheDocument();
+    expect(tooltip).toHaveTextContent('Rhesis prices a run from the tokens');
   });
 
-  it('says it is still working while enrichment has traces left', () => {
+  it('says it is still working while enrichment has traces left', async () => {
     // Distinct from "nothing here can be priced": that one is final and gets
     // an explanation, this one just needs a moment.
     mockUsage({
@@ -625,6 +709,8 @@ describe('KpiRow', () => {
       priced_traces: 0,
       total_spans: 30,
       total_tokens: 2200,
+      total_input_tokens: 1800,
+      total_output_tokens: 400,
       total_cost_usd: 0,
     });
     renderWithClock(
@@ -638,6 +724,12 @@ describe('KpiRow', () => {
     );
     expect(screen.getByText('Working out what this cost')).toBeInTheDocument();
     expect(screen.queryByText('No cost data')).not.toBeInTheDocument();
+
+    const tooltip = await openCostTooltip();
+    expect(
+      await within(tooltip).findByText('1,800 input tokens')
+    ).toBeInTheDocument();
+    expect(within(tooltip).getByText('400 output tokens')).toBeInTheDocument();
   });
 
   it('links the unpriced explanation to the costs documentation', () => {

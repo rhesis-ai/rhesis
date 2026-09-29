@@ -29,8 +29,9 @@ interface KpiCardProps {
   /** Rendered between the value and the subtitle -- a progress bar or a
    *  compact sparkline strip. */
   visual?: React.ReactNode;
-  /** Explains the metric in a hover tooltip via a small info icon next to the title. */
-  infoTooltip?: string;
+  /** Explains the metric in a hover tooltip via a small info icon next to the
+   *  title. A node when the explanation needs more than one line. */
+  infoTooltip?: React.ReactNode;
   /** A second metric of equal standing, shown beside `value`. Both drop a size so
    *  the pair still fits the card width. Used by the Usage card, where tokens and
    *  cost answer the same question and neither is the subtitle of the other. */

@@ -3,6 +3,7 @@
 import React from 'react';
 import { Box, Link } from '@mui/material';
 import KpiCard from './KpiCard';
+import CostTooltip from './CostTooltip';
 import ModelLabel from '@/components/common/ModelLabel';
 import {
   COST_TOOLTIP,
@@ -30,6 +31,13 @@ export default function CostCard({ usage }: { usage: TraceMetricsResponse }) {
   const { format: money } = useCurrency();
   const tokens = `${formatTokenCount(usage.total_tokens)} tokens`;
   const models = usage.models_used ?? [];
+  const tooltip = (text: string) => (
+    <CostTooltip
+      text={text}
+      inputTokens={usage.total_input_tokens}
+      outputTokens={usage.total_output_tokens}
+    />
+  );
 
   if (!isCostKnown(usage)) {
     // Two different silences, and the run can tell them apart: enrichment still
@@ -42,7 +50,7 @@ export default function CostCard({ usage }: { usage: TraceMetricsResponse }) {
           value={formatTokenCount(usage.total_tokens)}
           valueSuffix="tokens"
           subtitle={PRICING_IN_PROGRESS}
-          infoTooltip={COST_TOOLTIP}
+          infoTooltip={tooltip(COST_TOOLTIP)}
         />
       );
     }
@@ -66,7 +74,7 @@ export default function CostCard({ usage }: { usage: TraceMetricsResponse }) {
             </Link>
           </>
         }
-        infoTooltip={NO_COST_DATA_TOOLTIP}
+        infoTooltip={tooltip(NO_COST_DATA_TOOLTIP)}
       />
     );
   }
@@ -101,7 +109,7 @@ export default function CostCard({ usage }: { usage: TraceMetricsResponse }) {
           )}
         </Box>
       }
-      infoTooltip={COST_TOOLTIP}
+      infoTooltip={tooltip(COST_TOOLTIP)}
     />
   );
 }
