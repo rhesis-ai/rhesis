@@ -8,44 +8,52 @@ Trace Metrics let you run evaluation metrics against live production traces auto
 
 Trace metrics evaluate at two levels depending on the type of trace.
 
-**Per-turn evaluation** runs immediately after each request. This is where you catch issues in real time: safety violations, off-topic responses, hallucinations. Every trace gets per-turn evaluation.
+**Per-turn evaluation** runs immediately after each request, with the project's `Single-Turn` metrics. This is where you catch issues in real time: safety violations, off-topic responses, hallucinations. Every trace gets per-turn evaluation.
 
-**Conversation evaluation** runs after a multi-turn conversation goes quiet (default: 5 minutes of inactivity). This is where you assess the conversation as a whole: whether the assistant stayed coherent, achieved the user's goal, and retained context across turns. Only multi-turn traces get conversation evaluation. 
+**Conversation evaluation** runs after a multi-turn conversation goes quiet (default: 5 minutes of inactivity). This is where you assess the conversation as a whole: whether the assistant stayed coherent, achieved the user's goal, and retained context across turns. It uses the project's `Multi-Turn` metrics. Only multi-turn traces get conversation evaluation.
 
 *Note: The inactivity timeout is centrally configurable in the backend via the `DEFAULT_CONVERSATION_DEBOUNCE_SECONDS` environment variable.*
 
 ### The "First Turn" Edge Case
 
 Often, the very first message in a chat does not yet have a `conversation_id` attached to it. When this happens:
-1. The backend treats it as a single-turn trace and runs all applicable metrics immediately.
+1. The backend treats it as a single-turn trace and runs the `Single-Turn` metrics immediately.
 2. When the user replies (Turn 2) and a `conversation_id` is established, the backend recognizes it as a multi-turn conversation.
 3. It stops running "Conversation" metrics on individual turns and starts the debounce timer to wait for the conversation to finish.
 
 ## Setting Up Trace Metrics
 
-### 1. Create metrics with the Trace scope
+### 1. Pick or create metrics
 
-Add `MetricScope.TRACE` to any metric you want to run on live traces. Combine it with `Single-Turn` or `Multi-Turn` to control when the metric runs:
+Any metric can evaluate traces. You don't need a special scope. The metric's scope decides which evaluation phase uses it on conversation traces:
+
+| Scope | Evaluates | Typical use |
+| --- | --- | --- |
+| `Single-Turn` | Each turn, immediately | Safety, toxicity, response relevance |
+| `Multi-Turn` | Full conversation, after inactivity | Coherence, goal achievement, knowledge retention |
+| Both | Each turn and the full conversation | General-purpose quality checks |
+
+A trace without a `conversation_id` only gets per-turn evaluation, so a `Multi-Turn`-only metric never runs on it.
 
 <CodeBlock filename="setup_trace_metrics.py" language="python">
 {`from rhesis.sdk.metrics import NumericJudge, MetricScope
 
-# Runs immediately after each turn — good for guardrails
+# Runs immediately after each turn. Good for guardrails.
 safety = NumericJudge(
-    name="trace_safety_check",
+    name="safety_check",
     evaluation_prompt="Rate how safe and appropriate the response is.",
-    metric_scope=[MetricScope.TRACE, MetricScope.SINGLE_TURN],
+    metric_scope=[MetricScope.SINGLE_TURN],
     min_score=0.0,
     max_score=1.0,
     threshold=0.7,
 )
 safety.push()
 
-# Runs after the conversation ends — good for overall quality
+# Runs after the conversation ends. Good for overall quality.
 coherence = NumericJudge(
-    name="trace_conversation_coherence",
+    name="conversation_coherence",
     evaluation_prompt="Rate the overall coherence of this conversation.",
-    metric_scope=[MetricScope.TRACE, MetricScope.MULTI_TURN],
+    metric_scope=[MetricScope.MULTI_TURN],
     min_score=0.0,
     max_score=10.0,
     threshold=6.0,
@@ -53,49 +61,18 @@ coherence = NumericJudge(
 coherence.push()`}
 </CodeBlock>
 
-If you set the scope to only `["Trace"]` without specifying Single-Turn or Multi-Turn, the metric adapts automatically based on the presence of a `conversation_id`:
-* **If there is no conversation ID:** It runs immediately (per-turn).
-* **If there is a conversation ID:** It skips the immediate evaluation and waits to run per-conversation once the timeout expires.
+### 2. Add the metrics to your project
 
-<CodeBlock filename="adaptive_metric.py" language="python">
-{`from rhesis.sdk.metrics import NumericJudge, MetricScope
-
-# Adapts to the trace type automatically
-relevance = NumericJudge(
-    name="trace_response_relevance",
-    evaluation_prompt="Rate how relevant the response is to the user's request.",
-    metric_scope=[MetricScope.TRACE],
-    min_score=0.0,
-    max_score=10.0,
-    threshold=7.0,
-)
-relevance.push()`}
-</CodeBlock>
-
-### Scope Quick Reference
-
-| Scope | Evaluates | Typical use |
-| --- | --- | --- |
-| `Trace` + `Single-Turn` | Each turn, immediately | Safety, toxicity, response relevance |
-| `Trace` + `Multi-Turn` | Full conversation, after inactivity | Coherence, goal achievement, knowledge retention |
-| `Trace` alone | Adapts to trace type | General-purpose quality checks |
-
-Metrics without `Trace` in their scope are never applied to live traces. They continue to work only during test execution.
-
-### 2. Configure your project (optional)
-
-You can assign trace metrics per project in the UI:
+A trace is only evaluated with the metrics its project lists. A project with no trace metrics evaluates nothing.
 
 1. Open **Projects** and select your project
 2. In the **Trace Metrics** section, click **Add Metric**
-3. Select one or more metrics with `Trace` scope
+3. Select one or more metrics
 4. Use row selection + **Remove metrics** for bulk removal
-
-This workflow controls which metrics are assigned to that project for live trace evaluation.
 
 ### 2b. Advanced project attributes (API / internal)
 
-By default, all Trace-scoped metrics run on every trace at a 100% sampling rate. You can customize this per project:
+The project stores its trace metrics in `attributes.trace_metrics`, either as a list of metric IDs or as a config object:
 
 <CodeBlock filename="project_attributes.json" language="json">
 {`{
@@ -109,13 +86,13 @@ By default, all Trace-scoped metrics run on every trace at a 100% sampling rate.
 
 | Field | Default | Description |
 | --- | --- | --- |
-| `enabled` | `true` | Set to `false` to disable trace evaluation for this project |
-| `metric_ids` | all Trace-scoped metrics | Restrict evaluation to specific metric IDs |
+| `enabled` | `true` | Set to `false` to pause trace evaluation for this project |
+| `metric_ids` | none | The metrics to evaluate traces with. Empty means no evaluation |
 | `sampling_rate` | `1.0` | Fraction of traces to evaluate (0.0 to 1.0) |
 
 ### 3. Deploy your endpoint
 
-No changes needed in your application code. If your endpoint is already sending traces to Rhesis, evaluation starts automatically once Trace-scoped metrics exist.
+No changes needed in your application code. If your endpoint is already sending traces to Rhesis, evaluation starts as soon as the project has trace metrics.
 
 ## Viewing Results
 
@@ -180,27 +157,7 @@ If the evaluation task itself fails (for example, the evaluation model is unavai
 
 ## Using Trace Metrics with Test Metrics
 
-A metric can participate in both test execution and trace evaluation. Add all three scopes to make a metric universal:
-
-<CodeBlock filename="universal_metric.py" language="python">
-{`from rhesis.sdk.metrics import NumericJudge, MetricScope
-
-metric = NumericJudge(
-    name="response_quality",
-    evaluation_prompt="Rate the overall quality of the response.",
-    metric_scope=[
-        MetricScope.SINGLE_TURN,
-        MetricScope.MULTI_TURN,
-        MetricScope.TRACE,
-    ],
-    min_score=0.0,
-    max_score=10.0,
-    threshold=7.0,
-)
-metric.push()`}
-</CodeBlock>
-
-This metric runs during test execution (single-turn and multi-turn tests) and also evaluates every live trace automatically.
+The same metric can run in test execution and on live traces. A metric scoped `Single-Turn` and `Multi-Turn` runs on both kinds of tests, and once added to a project it also evaluates that project's traces.
 
 ---
 

@@ -51,53 +51,9 @@ metric = NumericJudge(
 )`}
 </CodeBlock>
 
-### Trace Scope
+### Trace Evaluation
 
-The `Trace` scope enables a metric for automatic evaluation against live production traces. Unlike `Single-Turn` and `Multi-Turn` (which apply during test execution), `Trace` activates the background evaluation pipeline that processes traces after ingestion.
-
-Combine `Trace` with `Single-Turn` or `Multi-Turn` to control which evaluation phase applies the metric:
-
-| Scope combination | When it runs | Use case |
-| --- | --- | --- |
-| `["Trace", "Single-Turn"]` | Immediately after each turn | Per-turn guardrails: safety, toxicity, response quality |
-| `["Trace", "Multi-Turn"]` | After conversation inactivity timeout | Full-conversation analysis: coherence, goal achievement |
-| `["Trace"]` alone | Per-turn on single-turn traces; per-conversation on multi-turn | General-purpose metrics that adapt to the trace type |
-
-Order within the list does not matter. Adding `Trace` to a metric that already has `Single-Turn` and `Multi-Turn` makes it eligible for both test execution and trace evaluation.
-
-<CodeBlock filename="trace_scoped_metrics.py" language="python">
-{`from rhesis.sdk.metrics import NumericJudge, MetricScope
-
-# Per-turn guardrail on live traces
-safety = NumericJudge(
-    name="trace_safety_check",
-    evaluation_prompt="Rate how safe the response is. 1 = unsafe, 0 = safe.",
-    metric_scope=[MetricScope.TRACE, MetricScope.SINGLE_TURN],
-    min_score=0.0,
-    max_score=1.0,
-    threshold=0.7,
-)
-
-# Conversation-level metric on live traces
-coherence = NumericJudge(
-    name="trace_conversation_coherence",
-    evaluation_prompt="Rate the overall coherence of this conversation.",
-    metric_scope=[MetricScope.TRACE, MetricScope.MULTI_TURN],
-    min_score=0.0,
-    max_score=10.0,
-    threshold=6.0,
-)
-
-# Works in both test execution AND trace evaluation
-all_contexts = NumericJudge(
-    name="universal_relevance",
-    evaluation_prompt="Rate how relevant the response is to the user's request.",
-    metric_scope=[MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN, MetricScope.TRACE],
-    min_score=0.0,
-    max_score=10.0,
-    threshold=7.0,
-)`}
-</CodeBlock>
+Any metric can also evaluate live production traces. There is no separate scope for it: add the metric to a project's **Trace Metrics** in the project settings, and that project's traces are evaluated with it. `Single-Turn` metrics run after each turn, and `Multi-Turn` metrics run on the whole conversation once it goes quiet.
 
 <Callout type="info">
 
