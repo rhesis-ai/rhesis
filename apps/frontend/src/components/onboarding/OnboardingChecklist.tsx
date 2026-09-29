@@ -136,9 +136,11 @@ export default function OnboardingChecklist() {
   );
 
   const handleToggleExpanded = useCallback(() => {
-    setExpanded(!expanded);
-    saveStoredExpanded(!expanded);
-  }, [expanded]);
+    setExpanded(prev => {
+      saveStoredExpanded(!prev);
+      return !prev;
+    });
+  }, []);
 
   const handleDismissClick = useCallback(() => {
     setConfirmDialogOpen(true);
