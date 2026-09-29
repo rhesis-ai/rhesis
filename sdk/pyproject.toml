@@ -50,7 +50,6 @@ dependencies = [
     "pillow>=12.3.0",
     "marshmallow>=3.26.2",
     "mammoth>=1.11.0",
-    "torch",
     "jsonfinder>=0.4.2",
     "chonkie>=1.6.1",
     "pdfminer.six>=20231228",
