@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen, waitFor, fireEvent } from '@/test-utils';
+import { act, render, screen, waitFor, fireEvent, within } from '@/test-utils';
 import '@testing-library/jest-dom';
 import TraceMetricsSummary from '../TraceMetricsSummary';
 import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemetry';
@@ -47,6 +47,14 @@ function metrics(
 
 function renderTiles(props: Record<string, unknown> = {}) {
   return render(<TraceMetricsSummary projectId="project-1" {...props} />);
+}
+
+/** Hovers the (i) next to the Cost title and returns the tooltip it opens. */
+async function openCostTooltip() {
+  const card = (await screen.findByText('Cost')).closest('.MuiCard-root');
+  if (!(card instanceof HTMLElement)) throw new Error('Cost card not found');
+  fireEvent.mouseOver(within(card).getByTestId('InfoOutlinedIcon'));
+  return screen.findByRole('tooltip');
 }
 
 describe('TraceMetricsSummary', () => {
@@ -157,18 +165,45 @@ describe('TraceMetricsSummary', () => {
     expect(await screen.findByText('No errors')).toBeInTheDocument();
   });
 
-  it('leads usage with cost, and explains it with the token split', async () => {
+  it('leads usage with cost, and captions it with total tokens only', async () => {
     renderTiles();
 
     expect(await screen.findByText('$0.19')).toBeInTheDocument();
-    // Asserted as one string rather than piece by piece: the separators
-    // between the pieces are part of the sentence, and checking the pieces
-    // alone once let a literal "\u00b7" reach the screen.
+    expect(screen.getByText('571,062 tokens')).toBeInTheDocument();
+    expect(screen.queryByText(/412,000 input/)).not.toBeInTheDocument();
+  });
+
+  it('puts input and output tokens in the cost tooltip', async () => {
+    renderTiles();
+
+    const tooltip = await openCostTooltip();
+    await waitFor(() => {
+      expect(tooltip).toHaveTextContent(
+        "What this run's traced LLM calls cost"
+      );
+    });
     expect(
-      screen.getByText(
-        '571,062 tokens \u00b7 412,000 input \u00b7 159,062 output'
-      )
+      within(tooltip).getByText('412,000 input tokens')
     ).toBeInTheDocument();
+    expect(
+      within(tooltip).getByText('159,062 output tokens')
+    ).toBeInTheDocument();
+  });
+
+  it('leaves the token lines out of the tooltip when both are zero', async () => {
+    getMetrics.mockResolvedValue(
+      metrics({ total_input_tokens: 0, total_output_tokens: 0 })
+    );
+    renderTiles();
+
+    const tooltip = await openCostTooltip();
+    await waitFor(() => {
+      expect(tooltip).toHaveTextContent(
+        "What this run's traced LLM calls cost"
+      );
+    });
+    expect(tooltip).not.toHaveTextContent('input tokens');
+    expect(tooltip).not.toHaveTextContent('output tokens');
   });
 
   it('renders separators as characters, not as escape sequences', async () => {
@@ -199,6 +234,14 @@ describe('TraceMetricsSummary', () => {
       await screen.findByText('Working out what this cost')
     ).toBeInTheDocument();
     expect(screen.queryByText('$0.00')).not.toBeInTheDocument();
+
+    const tooltip = await openCostTooltip();
+    expect(
+      await within(tooltip).findByText('412,000 input tokens')
+    ).toBeInTheDocument();
+    expect(
+      within(tooltip).getByText('159,062 output tokens')
+    ).toBeInTheDocument();
   });
 
   it('says there is no cost data once enrichment has finished', async () => {
@@ -213,6 +256,17 @@ describe('TraceMetricsSummary', () => {
       'href',
       expect.stringContaining('tracing/costs')
     );
+
+    const tooltip = await openCostTooltip();
+    await waitFor(() => {
+      expect(tooltip).toHaveTextContent('Rhesis prices a run from the tokens');
+    });
+    expect(
+      within(tooltip).getByText('412,000 input tokens')
+    ).toBeInTheDocument();
+    expect(
+      within(tooltip).getByText('159,062 output tokens')
+    ).toBeInTheDocument();
   });
 
   it('shows a real $0.00 for a scope that was priced and free', async () => {

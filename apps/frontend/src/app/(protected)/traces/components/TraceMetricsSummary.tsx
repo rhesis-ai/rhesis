@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Box, Grid, Link, Tooltip, Typography } from '@mui/material';
 import KpiCard from '../../test-runs/[identifier]/components/summary/KpiCard';
+import CostTooltip from '../../test-runs/[identifier]/components/summary/CostTooltip';
 import ModelLabel from '@/components/common/ModelLabel';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -17,7 +18,6 @@ import {
   NO_COST_DATA,
   NO_COST_DATA_TOOLTIP,
   PRICING_IN_PROGRESS,
-  tokenSplitLabel,
 } from '@/utils/trace-utils';
 
 interface TraceMetricsSummaryProps {
@@ -136,10 +136,6 @@ export default function TraceMetricsSummary({
     : 100;
   const models = metrics.models_used ?? [];
   const providers = metrics.providers_used ?? [];
-  const split = tokenSplitLabel(
-    metrics.total_input_tokens,
-    metrics.total_output_tokens
-  );
 
   return (
     <Box sx={{ mb: 3 }}>
@@ -176,7 +172,7 @@ export default function TraceMetricsSummary({
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <CostTile metrics={metrics} split={split} />
+          <CostTile metrics={metrics} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <KpiCard
@@ -230,17 +226,16 @@ function HoverList({ label, items }: { label: string; items: string[] }) {
  * same words as the test run summary card, which reads its copy from the same
  * constants in trace-utils, so the two cannot describe one run differently.
  */
-function CostTile({
-  metrics,
-  split,
-}: {
-  metrics: TraceMetricsResponse;
-  split?: string;
-}) {
+function CostTile({ metrics }: { metrics: TraceMetricsResponse }) {
   const { format: money } = useCurrency();
-  const tokens = [`${formatTokenCount(metrics.total_tokens)} tokens`, split]
-    .filter(Boolean)
-    .join(' · ');
+  const tokens = `${formatTokenCount(metrics.total_tokens)} tokens`;
+  const tooltip = (text: string) => (
+    <CostTooltip
+      text={text}
+      inputTokens={metrics.total_input_tokens}
+      outputTokens={metrics.total_output_tokens}
+    />
+  );
 
   if (!isCostKnown(metrics)) {
     if (isPricingInProgress(metrics)) {
@@ -250,7 +245,7 @@ function CostTile({
           value={formatTokenCount(metrics.total_tokens)}
           valueSuffix="tokens"
           subtitle={PRICING_IN_PROGRESS}
-          infoTooltip={COST_TOOLTIP}
+          infoTooltip={tooltip(COST_TOOLTIP)}
         />
       );
     }
@@ -261,11 +256,9 @@ function CostTile({
         value={NO_COST_DATA}
         valueVariant="h6"
         valueColor="text.secondary"
-        // The token count without its input/output split: the split plus the
-        // link wraps onto a third line and strands "Why?" on its own.
         subtitle={
           <>
-            {formatTokenCount(metrics.total_tokens)} tokens &middot;{' '}
+            {tokens} &middot;{' '}
             <Link
               href={COSTS_DOC_URL}
               target="_blank"
@@ -276,7 +269,7 @@ function CostTile({
             </Link>
           </>
         }
-        infoTooltip={NO_COST_DATA_TOOLTIP}
+        infoTooltip={tooltip(NO_COST_DATA_TOOLTIP)}
       />
     );
   }
@@ -285,11 +278,8 @@ function CostTile({
     <KpiCard
       title="Cost"
       value={money(metrics.total_cost_usd)}
-      // One string rather than flex children: both halves are plain text, so
-      // the separator can be part of the sentence and wrap with it, instead of
-      // being an element whose spacing lives in CSS and is lost on copy.
       subtitle={tokens}
-      infoTooltip={COST_TOOLTIP}
+      infoTooltip={tooltip(COST_TOOLTIP)}
     />
   );
 }
