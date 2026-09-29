@@ -56,7 +56,11 @@ def backend_config_to_sdk_config(config: Dict[str, Any]) -> Dict[str, Any]:
     if config.get("metric_scope"):
         from rhesis.sdk.metrics.base import MetricScope
 
-        config["metric_scope"] = [MetricScope(scope) for scope in config["metric_scope"]]
+        # An older server can still return a retired scope such as "Trace"; skip it.
+        known = {scope.value for scope in MetricScope}
+        config["metric_scope"] = [
+            MetricScope(scope) for scope in config["metric_scope"] if scope in known
+        ]
 
     # Convert backend_type back to backend enum for SDK
     if config.get("backend_type"):

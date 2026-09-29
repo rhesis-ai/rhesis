@@ -13,7 +13,6 @@ from rhesis.backend.app.schemas.type_lookup import TypeLookup
 class MetricScope(str, Enum):
     SINGLE_TURN = "Single-Turn"
     MULTI_TURN = "Multi-Turn"
-    TRACE = "Trace"
 
 
 class MetricBase(Base):

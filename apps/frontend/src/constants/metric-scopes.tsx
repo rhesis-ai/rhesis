@@ -2,7 +2,6 @@ import React from 'react';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import MessageIcon from '@mui/icons-material/Message';
 import TurnedInIcon from '@mui/icons-material/TurnedIn';
-import TimelineIcon from '@mui/icons-material/Timeline';
 
 /**
  * Supported metric scope values — single source of truth for the frontend.
@@ -11,7 +10,6 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 export const METRIC_SCOPES = {
   SINGLE_TURN: 'Single-Turn',
   MULTI_TURN: 'Multi-Turn',
-  TRACE: 'Trace',
 } as const;
 
 export type MetricScopeValue =
@@ -27,8 +25,6 @@ export function getMetricScopeIcon(scope: string): React.ReactElement {
       return <ChatBubbleOutlineIcon fontSize="small" />;
     case METRIC_SCOPES.MULTI_TURN:
       return <MessageIcon fontSize="small" />;
-    case METRIC_SCOPES.TRACE:
-      return <TimelineIcon fontSize="small" />;
     default:
       return <TurnedInIcon fontSize="small" />;
   }

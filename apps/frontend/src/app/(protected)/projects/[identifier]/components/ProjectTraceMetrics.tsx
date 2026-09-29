@@ -399,9 +399,7 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
             onSelect={handleAddMetric}
             excludeMetricIds={excludeMetricIds}
             title="Add Trace Metric"
-            subtitle="Select a trace metric to evaluate all traces in this project"
-            scopeFilter="Trace"
-            strictScope={true}
+            subtitle="Select a metric to evaluate all traces in this project"
             variant="drawer"
           />
 

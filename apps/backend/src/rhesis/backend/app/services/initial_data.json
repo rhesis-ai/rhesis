@@ -563,11 +563,6 @@
             "description": "Metric applies to multi-turn tests only"
         },
         {
-            "type_name": "MetricScope",
-            "type_value": "Trace",
-            "description": "Metric applies to execution traces"
-        },
-        {
             "type_name": "ToolProviderType",
             "type_value": "notion",
             "description": "Notion integration"

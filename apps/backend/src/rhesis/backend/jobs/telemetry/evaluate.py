@@ -48,8 +48,8 @@ def _get_trace_metrics_config(project: models.Project) -> Dict[str, Any]:
 
 
 def _should_evaluate(config: Dict[str, Any]) -> bool:
-    """Check if trace metrics evaluation is enabled and passes sampling."""
-    if config.get("enabled") is False:
+    """Check if the project assigned trace metrics, has evaluation on, and passes sampling."""
+    if not config.get("metric_ids") or config.get("enabled") is False:
         return False
 
     sampling_rate = config.get("sampling_rate", 1.0)
@@ -59,45 +59,33 @@ def _should_evaluate(config: Dict[str, Any]) -> bool:
     return True
 
 
-def _load_trace_scoped_metrics(
+def _load_project_trace_metrics(
     db: Session,
     organization_id: str,
     config: Dict[str, Any],
-    phase: str = "all",
+    phase: str,
 ) -> List[models.Metric]:
-    """Load metrics that have 'Trace' in their metric_scope.
+    """Load the metrics a project has explicitly assigned to its traces.
+
+    Only ``config["metric_ids"]`` counts; a project with none assigned
+    evaluates nothing.
 
     Args:
-        phase: Controls adaptive scoping based on documentation rules:
-            - "all": Return all Trace-scoped metrics (used for single-turn traces)
-            - "turn": Return only metrics explicitly scoped to Single-Turn
-            - "conversation": Return metrics scoped to Multi-Turn OR
-                              "adaptive" metrics (only scoped to Trace)
-        config: Project trace_metrics config. If metric_ids is set,
-            filter to those specific metrics only.
+        phase: "turn" loads the Single-Turn metrics (every turn, conversation or
+            not), "conversation" the Multi-Turn ones (the whole conversation).
     """
-    from sqlalchemy import and_, not_, or_
+    metric_ids = config.get("metric_ids")
+    if not metric_ids:
+        return []
 
     query = db.query(models.Metric).filter(
         models.Metric.organization_id == organization_id,
         models.Metric.deleted_at.is_(None),
-        models.Metric.metric_scope.contains([MetricScope.TRACE.value]),
+        models.Metric.id.in_(metric_ids),
     )
 
-    metric_ids = config.get("metric_ids")
-    if metric_ids:
-        query = query.filter(models.Metric.id.in_(metric_ids))
-
-    if phase == "turn":
-        query = query.filter(models.Metric.metric_scope.contains([MetricScope.SINGLE_TURN.value]))
-    elif phase == "conversation":
-        # Multi-Turn explicitly, OR Adaptive (Trace only, neither Single-Turn nor Multi-Turn)
-        is_multi = models.Metric.metric_scope.contains([MetricScope.MULTI_TURN.value])
-        is_adaptive = and_(
-            not_(models.Metric.metric_scope.contains([MetricScope.SINGLE_TURN.value])),
-            not_(models.Metric.metric_scope.contains([MetricScope.MULTI_TURN.value])),
-        )
-        query = query.filter(or_(is_multi, is_adaptive))
+    scope = MetricScope.SINGLE_TURN if phase == "turn" else MetricScope.MULTI_TURN
+    query = query.filter(models.Metric.metric_scope.contains([scope.value]))
 
     return query.all()
 
@@ -291,11 +279,10 @@ def evaluate_turn_trace_metrics(
             return {"status": "no_io", "trace_id": trace_id}
 
         has_conversation = bool(root_span.conversation_id)
-        phase = "turn" if has_conversation else "all"
-        metrics = _load_trace_scoped_metrics(db, organization_id, config, phase=phase)
+        metrics = _load_project_trace_metrics(db, organization_id, config, phase="turn")
 
         if not metrics:
-            logger.info(f"No Trace-scoped metrics found for trace {trace_id}")
+            logger.info(f"No project trace metrics apply to trace {trace_id}")
             if has_conversation:
                 _schedule_debounced_conversation_eval(trace_id, project_id, organization_id)
             return {"status": "no_metrics", "trace_id": trace_id}
@@ -377,9 +364,9 @@ def evaluate_conversation_trace_metrics(
             return {"status": "skipped", "trace_id": trace_id}
         project, config, evaluator = prepared
 
-        metrics = _load_trace_scoped_metrics(db, organization_id, config, phase="conversation")
+        metrics = _load_project_trace_metrics(db, organization_id, config, phase="conversation")
         if not metrics:
-            logger.info(f"No Multi-Turn Trace metrics found for trace {trace_id}")
+            logger.info(f"No Multi-Turn project trace metrics for trace {trace_id}")
             return {"status": "no_metrics", "trace_id": trace_id}
 
         root_spans = (

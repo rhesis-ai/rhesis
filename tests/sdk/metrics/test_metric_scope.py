@@ -82,6 +82,14 @@ class TestMetricScopeUtils:
         assert result["metric_scope"][0] == MetricScope.SINGLE_TURN
         assert result["metric_scope"][1] == MetricScope.MULTI_TURN
 
+    def test_backend_config_to_sdk_config_skips_retired_trace_scope(self):
+        """An unmigrated server may still send "Trace"; pulling must not fail on it."""
+        config = {"name": "test_metric", "metric_scope": ["Trace", "Single-Turn"]}
+
+        result = backend_config_to_sdk_config(config)
+
+        assert result["metric_scope"] == [MetricScope.SINGLE_TURN]
+
     def test_backend_config_to_sdk_config_without_metric_scope(self):
         """Test conversion from backend config to SDK config without metric_scope."""
         config = {"name": "test_metric"}

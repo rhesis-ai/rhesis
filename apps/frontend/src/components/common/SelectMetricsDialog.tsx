@@ -96,10 +96,8 @@ interface SelectMetricsDialogProps {
   excludeMetricIds?: UUID[];
   title?: string;
   subtitle?: string;
-  /** Filter metrics by scope value (e.g. Single-Turn, Multi-Turn, Trace, …) */
+  /** Filter metrics by scope value (Single-Turn or Multi-Turn) */
   scopeFilter?: string;
-  /** If true, strictly requires the scope to match (ignores metrics with no scope defined) */
-  strictScope?: boolean;
   /** Presentation shell — drawer is used on project detail configuration sections. */
   variant?: 'dialog' | 'drawer';
 }
@@ -112,7 +110,6 @@ export default function SelectMetricsDialog({
   title = 'Add Metric',
   subtitle = 'Select a metric to add',
   scopeFilter,
-  strictScope = false,
   variant = 'dialog',
 }: SelectMetricsDialogProps) {
   const searchRef = React.useRef<HTMLInputElement>(null);
@@ -142,9 +139,9 @@ export default function SelectMetricsDialog({
         if (excludeMetricIds.includes(metric.id)) return false;
         // No scope filter requested — show everything
         if (!scopeFilter) return true;
-        // Metrics with no defined scope are compatible with any test type, UNLESS strictScope is true
+        // Metrics with no defined scope are compatible with any test type
         if (!metric.metric_scope || metric.metric_scope.length === 0)
-          return !strictScope;
+          return true;
         // Metric scope is an array — show the metric if it supports the requested scope
         return metric.metric_scope.some(
           scope => scope.toLowerCase() === scopeFilter.toLowerCase()
@@ -158,7 +155,7 @@ export default function SelectMetricsDialog({
     } finally {
       setIsLoading(false);
     }
-  }, [excludeMetricIds, scopeFilter, strictScope]);
+  }, [excludeMetricIds, scopeFilter]);
 
   // Fetch metrics when dialog opens
   React.useEffect(() => {

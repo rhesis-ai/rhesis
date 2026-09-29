@@ -301,6 +301,14 @@ class TestMetricValidation(MetricTestMixin, BaseEntityTests):
         response = metric_factory.client.post(self.endpoints.create, json=data)
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
+    def test_create_metric_rejects_trace_scope(self, metric_factory):
+        """Trace is no longer a scope: a project picks its trace metrics in its settings."""
+        data = self.get_minimal_data()
+        data["metric_scope"] = ["Single-Turn", "Trace"]
+
+        response = metric_factory.client.post(self.endpoints.create, json=data)
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
     def test_create_metric_threshold_validation(self, metric_factory):
         """📊 Test metric creation with threshold operators"""
         threshold_operators = ["=", "<", ">", "<=", ">=", "!="]

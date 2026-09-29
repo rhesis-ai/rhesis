@@ -121,7 +121,7 @@ Evaluation requires all of the following:
 
 2. **Trace metrics enabled on the project** -- the project's `attributes.trace_metrics.enabled` must not be `false`.
 
-3. **Trace-scoped metrics configured** -- at least one metric with `Trace` in its `metric_scope` must exist for the organization.
+3. **Trace metrics assigned to the project** -- `attributes.trace_metrics` must list at least one metric ID. Nothing is evaluated by default.
 
 4. **Input/output attributes on the root span** -- the root span (a span with no `parent_span_id`) must include:
    - `rhesis.conversation.input` -- the user's input text
@@ -134,14 +134,12 @@ If any of these conditions are missing, evaluation is skipped silently with a lo
 <Mermaid chart={`flowchart TD
     START["evaluate_turn_trace_metrics"]
     CONFIG["Load project + trace_metrics config"]
-    SAMPLE{"Passes sampling rate?"}
+    SAMPLE{"Project has trace metrics<br/>and passes sampling rate?"}
     ROOT["Find root span<br/>(parent_span_id = NULL)"]
     IO["Extract input/output<br/>rhesis.conversation.input<br/>rhesis.conversation.output"]
     HASIO{"Has input or output?"}
     NOIO["Return: no_io"]
-    CONV{"Has conversation_id?"}
-    TURN["Load Single-Turn<br/>scoped metrics"]
-    ALL["Load all Trace-scoped<br/>metrics"]
+    TURN["Load the project's<br/>Single-Turn metrics"]
     RUN["Run MetricEvaluator<br/>against input/output"]
     STATUS["Derive Pass/Fail status"]
     SAVE["Store results in<br/>trace_metrics column"]
@@ -157,11 +155,8 @@ If any of these conditions are missing, evaluation is skipped silently with a lo
     ROOT --> IO
     IO --> HASIO
     HASIO -->|NO| NOIO
-    HASIO -->|YES| CONV
-    CONV -->|YES| TURN
-    CONV -->|NO| ALL
+    HASIO -->|YES| TURN
     TURN --> RUN
-    ALL --> RUN
     RUN --> STATUS
     STATUS --> SAVE
     SAVE --> CONV2
@@ -175,7 +170,7 @@ For traces with a `conversation_id`, a second evaluation phase runs on a debounc
 
 1. Loads all root spans sharing the same `trace_id`, ordered by `start_time`.
 2. Reconstructs the full conversation from `rhesis.conversation.input` / `rhesis.conversation.output` attributes across all turns.
-3. Evaluates Multi-Turn scoped metrics against the full conversation history.
+3. Evaluates the project's Multi-Turn metrics against the full conversation history.
 4. Derives a combined Pass/Fail status from both turn-level and conversation-level results.
 
 ## External Trace Ingestion

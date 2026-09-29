@@ -40,6 +40,5 @@ export async function fetchProjectTraceMetrics(
     .filter(
       (r): r is PromiseFulfilledResult<MetricDetail> => r.status === 'fulfilled'
     )
-    .map(r => r.value)
-    .filter(m => m.metric_scope?.includes('Trace'));
+    .map(r => r.value);
 }
