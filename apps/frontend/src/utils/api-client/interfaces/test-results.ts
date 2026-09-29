@@ -18,7 +18,8 @@ export interface MetricResult {
   backend: string;
   threshold?: number;
   description: string;
-  is_successful: boolean;
+  /** null when the metric could not reach a verdict (inconclusive). */
+  is_successful: boolean | null;
   override?: OverrideMarker;
   /** Set when the metric could not be evaluated. */
   error?: string;

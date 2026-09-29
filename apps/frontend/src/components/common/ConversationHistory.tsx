@@ -273,7 +273,7 @@ export default function ConversationHistory({
           </Typography>
           {conversationFailures.map(f => (
             <Typography
-              key={`${f.metric}-${f.label}`}
+              key={f.key}
               variant="body2"
               color="text.secondary"
               sx={{ mb: 0.5 }}
@@ -447,7 +447,7 @@ export default function ConversationHistory({
                       </Typography>
                       {group.map(finding => (
                         <Box
-                          key={`${turn.turn}-${metric}-${finding.label}`}
+                          key={`${turn.turn}-${finding.key}`}
                           sx={{ pl: 2, mb: 1 }}
                         >
                           {finding.label !== metric && (

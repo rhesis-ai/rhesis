@@ -42,8 +42,8 @@ _BIND_ORG = sa.text("""
 # Read before any org is bound: the organization table's policy tolerates an unset tenant GUC.
 _ORGANIZATIONS = sa.text("SELECT id FROM organization WHERE deleted_at IS NULL")
 
-# (table, JSONB columns). A cheap text match narrows the rows before the Python walk; it also
-# matches ordinary conversation text, so only rows the walk actually changed are written.
+# (table, JSONB columns). A text match on the JSON keys the walk renames narrows the rows before
+# it; only rows the walk actually changed are written.
 _TARGETS = (
     ("test_result", ("test_output", "test_metrics")),
     ("trace", ("trace_metrics",)),
@@ -117,7 +117,7 @@ def _walk(value: Any, visit: Callable[[Dict[str, Any]], None]) -> Any:
     return value
 
 
-def _rewrite(visit: Callable[[Dict[str, Any]], None], marker: str) -> None:
+def _rewrite(visit: Callable[[Dict[str, Any]], None], keys: Sequence[str]) -> None:
     conn = op.get_bind()
     org_ids = [row[0] for row in conn.execute(_ORGANIZATIONS)]
 
@@ -127,13 +127,15 @@ def _rewrite(visit: Callable[[Dict[str, Any]], None], marker: str) -> None:
         conn.execute(_BIND_ORG, params)
 
         for table, columns in _TARGETS:
-            match = " OR ".join(f"CAST({c} AS text) LIKE :marker" for c in columns)
+            match = " OR ".join(
+                f"CAST({c} AS text) LIKE :key{i}" for c in columns for i in range(len(keys))
+            )
             rows = conn.execute(
                 sa.text(
                     f"SELECT id, {', '.join(columns)} FROM {table} "
                     f"WHERE organization_id = CAST(:org_id AS uuid) AND ({match})"
                 ),
-                {**params, "marker": f"%{marker}%"},
+                {**params, **{f"key{i}": f'%"{key}"%' for i, key in enumerate(keys)}},
             ).fetchall()
 
             for row in rows:
@@ -155,8 +157,8 @@ def _rewrite(visit: Callable[[Dict[str, Any]], None], marker: str) -> None:
 
 
 def upgrade() -> None:
-    _rewrite(_upgrade_node, "behavior")
+    _rewrite(_upgrade_node, ["behavior_verdicts", *_CONTRACT_KEYS, *_COUNT_KEYS])
 
 
 def downgrade() -> None:
-    _rewrite(_downgrade_node, "criteri")
+    _rewrite(_downgrade_node, [*_CONTRACT_KEYS.values(), *_COUNT_KEYS.values()])

@@ -150,7 +150,7 @@ export default function TestDetailMetricsTab({
             allMetrics.push({
               name: metric.name,
               description: metric.description,
-              passed: metricResult.is_successful,
+              passed: metricResult.is_successful === true,
               fullMetricData: metricResult,
               requirementName: requirement.name,
             });
@@ -195,7 +195,7 @@ export default function TestDetailMetricsTab({
             allMetrics.push({
               name: metricName,
               description: metricResult.description || undefined,
-              passed: metricResult.is_successful,
+              passed: metricResult.is_successful === true,
               fullMetricData: metricResult,
               requirementName: categoryName,
             });

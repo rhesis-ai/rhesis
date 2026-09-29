@@ -9,6 +9,8 @@ import { isGoalMetricName } from '@/utils/test-result-status';
  * metric's verdict. `relevant_turns` are the turns it rests on.
  */
 export interface TurnFinding {
+  /** Unique across a conversation's findings, for React keys. */
+  key: string;
   metric: string;
   /** The criterion text, or the metric name for a metric without criteria. */
   label: string;
@@ -40,7 +42,9 @@ export function buildTurnFindings(
     goalResult?.criteria_evaluations ??
     goalEvaluation?.criteria_evaluations ??
     []
-  ).map(c => ({
+  ).map((c, i) => ({
+    // The index is part of the key because two criteria can carry identical text.
+    key: `${goalMetric}-${i}`,
     metric: goalMetric,
     label: c.criterion,
     met: c.met,
@@ -57,9 +61,10 @@ export function buildTurnFindings(
         !m.error
     )
     .map(([name, m]) => ({
+      key: name,
       metric: name,
       label: name,
-      met: m.is_successful,
+      met: m.is_successful === true,
       evidence: m.reason,
       relevant_turns: m.relevant_turns ?? [],
     }));

@@ -35,10 +35,7 @@ describe('turn findings', () => {
       'Red Flag Escalation': metric({ relevant_turns: [2, 3] }),
       Tone: metric({}),
       Crashed: metric({ error: 'timeout', relevant_turns: [1] }),
-      Unsure: metric({
-        is_successful: null as unknown as boolean,
-        relevant_turns: [1],
-      }),
+      Unsure: metric({ is_successful: null, relevant_turns: [1] }),
     }
   );
 
