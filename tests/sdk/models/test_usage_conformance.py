@@ -13,7 +13,6 @@ adding a provider whose emission nobody has covered fails here.
 
 from __future__ import annotations
 
-import importlib.util
 import inspect
 
 import pytest
@@ -141,7 +140,12 @@ def test_provider_does_not_bypass_emission_by_overriding_generate(provider, fact
 def test_the_covered_roots_all_actually_emit():
     """Guards the allowlist itself: a name in COVERED_EMISSION_ROOTS whose
     module no longer calls _emit_usage means the allowlist went stale."""
-    has_torch = importlib.util.find_spec("torch") is not None
+    try:
+        import torch  # noqa: F401
+
+        has_torch = True
+    except Exception:
+        has_torch = False
     roots = {
         _emission_root(_provider_class(f))
         for provider, f in _language_providers()
