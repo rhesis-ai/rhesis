@@ -40,6 +40,28 @@ import {
   ONBOARDING_COLLAPSE_PATH,
 } from '@/config/onboarding-tours';
 
+export const CHECKLIST_EXPANDED_STORAGE_KEY =
+  'rhesis_onboarding_checklist_expanded';
+
+function loadStoredExpanded(): boolean | null {
+  try {
+    const raw = localStorage.getItem(CHECKLIST_EXPANDED_STORAGE_KEY);
+    if (raw === 'true') return true;
+    if (raw === 'false') return false;
+  } catch {
+    // Storage unavailable (private mode); fall back to the default.
+  }
+  return null;
+}
+
+function saveStoredExpanded(expanded: boolean): void {
+  try {
+    localStorage.setItem(CHECKLIST_EXPANDED_STORAGE_KEY, String(expanded));
+  } catch {
+    // Storage unavailable; the choice only lasts for this page load.
+  }
+}
+
 export default function OnboardingChecklist() {
   const router = useRouter();
   const pathname = usePathname();
@@ -52,17 +74,21 @@ export default function OnboardingChecklist() {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  // Handle client-side mounting to avoid hydration mismatch
+  // Read storage after mount so server and first client render match
   useEffect(() => {
+    const stored = loadStoredExpanded();
+    if (stored !== null) setExpanded(stored);
     setMounted(true);
   }, []);
 
-  // Auto-collapse on dashboard page or when in an onboarding tour (avoid hydration issues)
+  // Collapse on the architect page or during a tour. Never expand here, so a
+  // user's collapse survives navigation.
   useEffect(() => {
     const tourParam = searchParams.get('tour');
     const isInTour = tourParam !== null && tourParam.length > 0;
-    const shouldCollapse = pathname === ONBOARDING_COLLAPSE_PATH || isInTour;
-    setExpanded(!shouldCollapse);
+    if (pathname === ONBOARDING_COLLAPSE_PATH || isInTour) {
+      setExpanded(false);
+    }
   }, [pathname, searchParams]);
 
   // Memoize computed values for performance
@@ -77,6 +103,7 @@ export default function OnboardingChecklist() {
       try {
         // Minimize the box when starting a task
         setExpanded(false);
+        saveStoredExpanded(false);
 
         // For steps that require projects (like endpoint setup),
         // fetch the first project and navigate to its detail page
@@ -109,7 +136,10 @@ export default function OnboardingChecklist() {
   );
 
   const handleToggleExpanded = useCallback(() => {
-    setExpanded(prev => !prev);
+    setExpanded(prev => {
+      saveStoredExpanded(!prev);
+      return !prev;
+    });
   }, []);
 
   const handleDismissClick = useCallback(() => {
@@ -138,7 +168,8 @@ export default function OnboardingChecklist() {
           position: 'fixed',
           bottom: 16,
           right: 16,
-          zIndex: 1300,
+          // Below drawers so their footer buttons stay clickable
+          zIndex: theme => theme.zIndex.drawer - 1,
           maxWidth: 380,
           width: '100%',
         }}
