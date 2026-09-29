@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import threading
 import uuid
 from collections.abc import Callable, Coroutine
 from typing import Any
@@ -29,6 +30,9 @@ logger = logging.getLogger(__name__)
 
 class ConnectorManager:
     """Manages WebSocket connection and function registry for remote endpoint testing."""
+
+    # Sync scripts decorate first and call connect() last, so give them time before warning.
+    NOT_CONNECTED_GRACE_SECONDS = 10.0
 
     def __init__(
         self,
@@ -97,6 +101,10 @@ class ConnectorManager:
         # The event loop only holds a weak reference to a running task, so a task
         # nothing else refers to can be collected mid-flight. Hold them here.
         self._background_tasks: set[asyncio.Task] = set()
+        # Registration can happen at import time on any thread, so guard the timer.
+        self._warning_lock = threading.Lock()
+        self._warning_timer: threading.Timer | None = None
+        self._connect_started = False
 
     def _spawn(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task:
         """Start a background task, keeping a reference until it finishes."""
@@ -126,25 +134,58 @@ class ConnectorManager:
             on_connect=self._handle_connect,
         )
 
-        try:
-            asyncio.get_running_loop()
-            self._spawn(self._connection.connect())
-        except RuntimeError:
-            # Nothing re-checks this later, so the connector stays offline until someone starts
-            # it from inside a loop. Warn rather than debug: a web server registers endpoints at
-            # import time, which uvicorn does before asyncio.run(), and a silent miss here looks
-            # exactly like success -- the endpoint never reaches the platform.
-            logger.warning(
-                "Connector registered with no running event loop, so it is not connected. "
-                "Web apps: call client.start_connector() from a startup hook "
-                "(FastAPI lifespan). Sync scripts: call client.connect()."
-            )
+        if not self._start_connection():
+            self._start_not_connected_warning()
 
         self._initialized = True
         msg = "Connector initialized"
         if self.project_id:
             msg += f" for project {self.project_id}"
         logger.info(msg)
+
+    def _start_connection(self) -> bool:
+        """Dial the socket if a loop is running. Returns False when there is none."""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return False
+        self._spawn(self._connection.connect())
+        self._cancel_not_connected_warning()
+        return True
+
+    def _start_not_connected_warning(self) -> None:
+        """Warn after a grace period if nothing has started the connection by then."""
+        with self._warning_lock:
+            if self._connect_started or self._warning_timer is not None:
+                return
+            timer = threading.Timer(self.NOT_CONNECTED_GRACE_SECONDS, self._warn_not_connected)
+            # Daemon, so a script that exits without connecting is not held open by the timer.
+            timer.daemon = True
+            timer.name = "rhesis-connector-warning"
+            self._warning_timer = timer
+            timer.start()
+
+    def _cancel_not_connected_warning(self, *, connect_started: bool = True) -> None:
+        with self._warning_lock:
+            self._connect_started = connect_started
+            if self._warning_timer is not None:
+                self._warning_timer.cancel()
+                self._warning_timer = None
+
+    def _warn_not_connected(self) -> None:
+        with self._warning_lock:
+            # A connect can land between the timer firing and taking the lock.
+            if self._connect_started:
+                return
+            self._warning_timer = None
+        # Nothing re-checks this later, so the connector stays offline until someone starts
+        # it from inside a loop. A web server registers endpoints at import time, which uvicorn
+        # does before asyncio.run(), and a silent miss looks exactly like success.
+        logger.warning(
+            "Connector registered with no running event loop, so it is not connected. "
+            "Web apps: call client.start_connector() from a startup hook "
+            "(FastAPI lifespan). Sync scripts: call client.connect()."
+        )
 
     @property
     def connection_id(self) -> str | None:
@@ -179,11 +220,8 @@ class ConnectorManager:
 
         # Check if connection exists but isn't started
         if self._connection and self._connection.state == ConnectionState.DISCONNECTED:
-            try:
-                self._spawn(self._connection.connect())
-            except RuntimeError:
-                # No event loop, connection will start when available
-                pass
+            # No event loop means the connection starts later, from connect() or start_connector().
+            self._start_connection()
 
     def register_function(self, name: str, func: Callable, metadata: dict[str, Any]) -> None:
         """
@@ -583,6 +621,8 @@ class ConnectorManager:
 
     async def shutdown(self) -> None:
         """Shutdown connector and close connection."""
+        # Reset rather than mark started, so a later initialize() can warn again.
+        self._cancel_not_connected_warning(connect_started=False)
         for task in list(self._background_tasks):
             task.cancel()
         self._background_tasks.clear()

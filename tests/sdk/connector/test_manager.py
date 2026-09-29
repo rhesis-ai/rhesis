@@ -1,13 +1,15 @@
 """Tests for ConnectorManager."""
 
+import asyncio
 import inspect
 import logging
+import threading
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
 from rhesis.sdk.connector.manager import ConnectorManager
-from rhesis.sdk.connector.types import MessageType
+from rhesis.sdk.connector.types import ConnectionState, MessageType
 from rhesis.sdk.telemetry import Tracer
 
 
@@ -140,34 +142,124 @@ def test_initialize(mock_get_loop, mock_ws_class, manager):
     mock_create_task.assert_called_once()
 
 
-@patch("rhesis.sdk.connector.manager.WebSocketConnection")
-@patch("asyncio.get_running_loop", side_effect=RuntimeError("no running event loop"))
-def test_initialize_without_event_loop_warns(mock_get_loop, mock_ws_class, manager, caplog):
-    """No loop at registration time leaves the connector offline, and says so.
+GRACE = 0.05
+_WARNING_LOGGER = "rhesis.sdk.connector.manager"
+
+
+@pytest.fixture
+def short_grace(monkeypatch):
+    monkeypatch.setattr(ConnectorManager, "NOT_CONNECTED_GRACE_SECONDS", GRACE)
+
+
+@pytest.fixture
+def mock_ws():
+    """Patch WebSocketConnection with a disconnected mock socket."""
+    with patch("rhesis.sdk.connector.manager.WebSocketConnection") as mock_ws_class:
+        mock_ws_instance = Mock()
+        mock_ws_instance.connect = AsyncMock()
+        mock_ws_instance.websocket = None
+        mock_ws_instance.state = ConnectionState.DISCONNECTED
+        mock_ws_class.return_value = mock_ws_instance
+        yield mock_ws_instance
+
+
+def _not_connected_warnings(caplog):
+    return [
+        r
+        for r in caplog.records
+        if r.levelno == logging.WARNING and "not connected" in r.getMessage()
+    ]
+
+
+def test_register_without_loop_warns_after_grace_period(
+    short_grace, mock_ws, manager, sample_function, caplog
+):
+    """Registering with no loop and never connecting warns, but only once the grace period ends.
 
     This is the web-server case: uvicorn imports the app module from ``uvicorn.main.run``, before
     ``asyncio.run``, so ``@endpoint`` registers with no loop. Nothing re-checks afterwards, so a
     quiet log here is indistinguishable from a working connector.
     """
-    mock_ws_instance = Mock()
-    mock_ws_instance.connect = AsyncMock()
-    mock_ws_class.return_value = mock_ws_instance
+    with caplog.at_level(logging.WARNING, logger=_WARNING_LOGGER):
+        manager.register_function("sample_func", sample_function, {})
+        timer = manager._warning_timer
+        assert timer is not None
+        assert _not_connected_warnings(caplog) == [], "must not warn before the grace period"
 
-    mock_create_task, _mock_task = _make_create_task_mock()
+        timer.join(timeout=2)
 
-    with caplog.at_level(logging.WARNING, logger="rhesis.sdk.connector.manager"):
-        with patch("asyncio.create_task", mock_create_task):
-            manager.initialize()
-
-    mock_create_task.assert_not_called()
-    assert manager._initialized
-    assert manager._connection is not None
-
-    warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+    mock_ws.connect.assert_not_called()
+    warnings = _not_connected_warnings(caplog)
     assert len(warnings) == 1, "the deferred connection must warn exactly once"
     message = warnings[0].getMessage()
     assert "start_connector()" in message
     assert "connect()" in message
+
+
+def test_register_then_connect_does_not_warn(
+    short_grace, mock_ws, manager, sample_function, caplog
+):
+    """The sync-script pattern: decorate first, call connect() last. No warning."""
+    with caplog.at_level(logging.WARNING, logger=_WARNING_LOGGER):
+        manager.register_function("sample_func", sample_function, {})
+        timer = manager._warning_timer
+        assert timer is not None
+
+        async def _connect():
+            # What client.connect() and client.start_connector() both call.
+            manager._ensure_connection()
+            await asyncio.gather(*manager._background_tasks)
+
+        asyncio.run(_connect())
+
+        assert manager._warning_timer is None
+        timer.join(timeout=2)
+
+    mock_ws.connect.assert_awaited_once()
+    assert _not_connected_warnings(caplog) == []
+
+
+def test_not_connected_timer_is_daemon(mock_ws, manager, sample_function):
+    """The timer must never keep a process alive that would otherwise exit."""
+    manager.register_function("sample_func", sample_function, {})
+    try:
+        assert manager._warning_timer.daemon
+    finally:
+        manager._cancel_not_connected_warning()
+
+
+def test_repeated_registrations_start_one_timer(mock_ws, manager, sample_function):
+    """Many registrations, from many threads, start a single timer."""
+    with patch(
+        "rhesis.sdk.connector.manager.threading.Timer", wraps=threading.Timer
+    ) as timer_class:
+        manager.register_function("sample_func", sample_function, {})
+        manager.register_metric("sample_metric", sample_function, {})
+        threads = [threading.Thread(target=manager._start_not_connected_warning) for _ in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    try:
+        assert timer_class.call_count == 1
+    finally:
+        manager._cancel_not_connected_warning()
+        manager._cancel_not_connected_warning()  # cancelling twice is safe
+
+
+def test_no_timer_when_loop_is_running(mock_ws, manager, sample_function):
+    """Registering inside a running loop connects right away, so there is nothing to warn about."""
+
+    async def _register():
+        manager.register_function("sample_func", sample_function, {})
+        await asyncio.gather(*manager._background_tasks)
+
+    with patch("rhesis.sdk.connector.manager.threading.Timer") as timer_class:
+        asyncio.run(_register())
+
+    timer_class.assert_not_called()
+    assert manager._warning_timer is None
+    mock_ws.connect.assert_awaited_once()
 
 
 @patch("asyncio.get_running_loop")
