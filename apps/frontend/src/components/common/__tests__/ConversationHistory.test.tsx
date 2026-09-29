@@ -140,4 +140,52 @@ describe('ConversationHistory', () => {
       screen.getByText(/no conversation history available/i)
     ).toBeInTheDocument();
   });
+
+  describe('turn status from goal evaluation', () => {
+    const turnStatuses = () =>
+      screen.getAllByTestId('status-chip').map(chip => chip.textContent);
+
+    it('fails turns cited by a violated contract behaviour', () => {
+      renderConversation({
+        conversationSummary: [makeTurn(1), makeTurn(2), makeTurn(3)],
+        goalEvaluation: {
+          all_criteria_met: false,
+          reason: 'The system failed 1 of 1 criteria.',
+          evidence: [],
+          criteria_evaluations: [],
+          behavior_verdicts: [
+            {
+              behavior: 'Recommend immediate medical consultation',
+              kind: 'required',
+              complied: false,
+              evidence: 'Repeated a canned response.',
+              relevant_turns: [1, 2],
+            },
+          ],
+        },
+      });
+      expect(turnStatuses()).toEqual(['Fail', 'Fail', 'Pass']);
+    });
+
+    it('fails turns cited by an unmet criterion', () => {
+      renderConversation({
+        conversationSummary: [makeTurn(1), makeTurn(2)],
+        goalEvaluation: {
+          all_criteria_met: false,
+          reason: '',
+          evidence: [],
+          criteria_evaluations: [
+            {
+              criterion: 'Escalates chest pain',
+              met: false,
+              evidence: 'Did not escalate.',
+              reasoning: '',
+              relevant_turns: [2],
+            },
+          ],
+        },
+      });
+      expect(turnStatuses()).toEqual(['Pass', 'Fail']);
+    });
+  });
 });

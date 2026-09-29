@@ -64,6 +64,13 @@ function renderMessageContent(content: string) {
   );
 }
 
+interface TurnVerdict {
+  criterion: string;
+  met: boolean;
+  evidence: string;
+  relevant_turns: number[];
+}
+
 interface ConversationHistoryProps {
   conversationSummary: ConversationTurn[];
   goalEvaluation?: GoalEvaluation;
@@ -183,15 +190,23 @@ export default function ConversationHistory({
     }));
   };
 
-  // Get relevant criteria evaluations for a specific turn
-  const getCriteriaForTurn = (turnNumber: number) => {
-    if (!goalEvaluation?.criteria_evaluations) return [];
-    return (
-      goalEvaluation.criteria_evaluations?.filter(criterion =>
-        criterion.relevant_turns.includes(turnNumber)
-      ) || []
-    );
-  };
+  // Contract-scored runs report behavior_verdicts instead of criteria_evaluations.
+  const turnVerdicts: TurnVerdict[] = goalEvaluation?.behavior_verdicts?.length
+    ? goalEvaluation.behavior_verdicts.map(v => ({
+        criterion: v.behavior,
+        met: v.complied,
+        evidence: v.evidence,
+        relevant_turns: v.relevant_turns ?? [],
+      }))
+    : (goalEvaluation?.criteria_evaluations ?? []).map(c => ({
+        criterion: c.criterion,
+        met: c.met,
+        evidence: c.evidence,
+        relevant_turns: c.relevant_turns ?? [],
+      }));
+
+  const getCriteriaForTurn = (turnNumber: number) =>
+    turnVerdicts.filter(v => v.relevant_turns.includes(turnNumber));
 
   // Filter out turns that don't have actual conversation content
   // (e.g., internal analysis-only turns where Penelope used analyze_response tool)
@@ -391,7 +406,7 @@ export default function ConversationHistory({
                     variant="body2"
                     sx={{ fontWeight: 600, display: 'block', mb: 1.5 }}
                   >
-                    Criteria Evaluations
+                    Criteria
                   </Typography>
                   {criteriaForTurn.map((criterion, idx) => {
                     // Create stable key from criterion name
