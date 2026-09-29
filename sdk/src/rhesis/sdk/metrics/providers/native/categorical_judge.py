@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
+from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.providers.native.base import JudgeBase
 from rhesis.sdk.metrics.providers.native.categorical_scorers import Evidence, scorer_for
 from rhesis.sdk.metrics.providers.native.configs import CategoricalJudgeConfig
@@ -139,6 +140,7 @@ class CategoricalJudge(JudgeBase):
         context: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         tool_calls: Optional[List[Dict[str, Any]]] = None,
+        conversation_history: Optional[ConversationHistory] = None,
     ) -> MetricResult:
         return run_sync(
             self.a_evaluate(
@@ -148,6 +150,7 @@ class CategoricalJudge(JudgeBase):
                 context=context,
                 metadata=metadata,
                 tool_calls=tool_calls,
+                conversation_history=conversation_history,
             )
         )
 
@@ -159,6 +162,7 @@ class CategoricalJudge(JudgeBase):
         context: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
         tool_calls: Optional[List[Dict[str, Any]]] = None,
+        conversation_history: Optional[ConversationHistory] = None,
     ) -> MetricResult:
         """
         Evaluate the output using the LLM with the custom prompt template.
@@ -174,6 +178,8 @@ class CategoricalJudge(JudgeBase):
                 Required for this metric as it requires ground truth for evaluation.
             context (Optional[List[str]], optional): List of context chunks used for the response.
                 Defaults to None.
+            conversation_history: Set when ``output`` is a multi-turn transcript. A text judge
+                then also returns ``relevant_turns``.
 
         Returns:
             MetricResult: The evaluation result containing:
@@ -227,6 +233,7 @@ class CategoricalJudge(JudgeBase):
                 context=context or [],
                 metadata_text=metadata_text,
                 tool_calls_text=tool_calls_text,
+                cite_turns=conversation_history is not None,
             )
         )
 

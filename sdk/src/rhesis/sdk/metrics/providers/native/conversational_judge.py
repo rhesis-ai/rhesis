@@ -4,7 +4,7 @@ from dataclasses import fields
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TypeVar, Union
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
@@ -18,6 +18,10 @@ from rhesis.sdk.metrics.providers.native.shared_utils import (
     handle_evaluation_error,
     setup_jinja_environment,
 )
+from rhesis.sdk.metrics.providers.native.turn_references import (
+    TURN_REFERENCE_INSTRUCTION,
+    TurnReferences,
+)
 from rhesis.sdk.models.base import BaseLLM
 
 # Default value when goal is not specified
@@ -27,7 +31,7 @@ GOAL_DEFAULT = "Infer from conversation"
 T = TypeVar("T", bound="ConversationalJudge")
 
 
-class ConversationalScoreResponse(BaseModel):
+class ConversationalScoreResponse(TurnReferences):
     """Response schema for conversational judge evaluation."""
 
     score: float = Field(
@@ -284,7 +288,7 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
     ) -> MetricResult:
         """Native async evaluate — calls _a_execute_numeric_evaluation directly."""
         self._validate_evaluate_inputs(conversation_history, goal)
-        prompt = self._get_prompt_template(conversation_history, goal)
+        prompt = self._get_prompt_template(conversation_history, goal) + TURN_REFERENCE_INSTRUCTION
         return await self._a_execute_numeric_evaluation(
             prompt=prompt,
             response_schema=ConversationalScoreResponse,
@@ -313,7 +317,7 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
         self._validate_evaluate_inputs(conversation_history, goal)
 
         # Generate the evaluation prompt
-        prompt = self._get_prompt_template(conversation_history, goal)
+        prompt = self._get_prompt_template(conversation_history, goal) + TURN_REFERENCE_INSTRUCTION
 
         # Use the shared numeric evaluation pattern
         return self._execute_numeric_evaluation(
