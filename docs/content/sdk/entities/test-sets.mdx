@@ -21,7 +21,7 @@ A `TestSet` groups related tests together. Test sets can be created programmatic
 | `categories` | `list[str]` | Category names in this set |
 | `topics` | `list[str]` | Topic names in this set |
 | `requirements` | `list[str]` | Requirement names in this set |
-| `test_set_type` | `TestType` | Single-turn or multi-turn |
+| `test_set_type` | `TestType` | Single-turn or multi-turn. If not set, `push()` infers it from `tests` |
 | `metadata` | `dict` | Custom key-value data |
 
 ### Creating Test Sets

@@ -1394,23 +1394,6 @@ class TestTestSetValidation:
 
         assert "index 1" in str(exc_info.value)
 
-    def test_push_raises_error_when_test_set_type_missing(self):
-        """push() should raise ValueError when test_set_type is missing."""
-        test = Test(
-            category="Test category",
-            requirement="Test requirement",
-            prompt=Prompt(content="Test prompt"),
-        )
-        test_set = TestSet(
-            name="Test Set",
-            tests=[test],
-        )
-
-        with pytest.raises(ValueError) as exc_info:
-            test_set.push()
-
-        assert "test_set_type" in str(exc_info.value)
-
     def test_push_raises_error_when_name_missing(self):
         """push() should raise ValueError when name is missing."""
         test = Test(
@@ -1437,6 +1420,82 @@ class TestTestSetValidation:
             test_set.push()
 
         assert "test_set_type" in str(exc_info.value)
+
+
+class TestPushInfersTestSetType:
+    """push() fills in a missing test_set_type from the tests."""
+
+    @staticmethod
+    def _push(test_set):
+        with patch("rhesis.sdk.entities.test_set.APIClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.send_request.return_value = {"id": "new-id"}
+            mock_client_cls.return_value = mock_client
+            test_set.push()
+        return mock_client.send_request.call_args.kwargs["data"]
+
+    def test_infers_single_turn_from_untyped_prompt_tests(self):
+        test_set = TestSet(
+            name="Safety",
+            tests=[
+                Test(category="c", requirement="r", prompt=Prompt(content="p1")),
+                Test(category="c", requirement="r", prompt=Prompt(content="p2")),
+            ],
+        )
+        payload = self._push(test_set)
+        assert payload["test_set_type"] == TestType.SINGLE_TURN.value
+        assert test_set.test_set_type == TestType.SINGLE_TURN
+
+    def test_infers_multi_turn_from_typed_tests(self):
+        test_set = TestSet(
+            name="Conversations",
+            tests=[
+                Test(
+                    category="c",
+                    requirement="r",
+                    test_type=TestType.MULTI_TURN,
+                    test_configuration=TestConfiguration(goal="g"),
+                )
+            ],
+        )
+        payload = self._push(test_set)
+        assert payload["test_set_type"] == TestType.MULTI_TURN.value
+
+    def test_infers_multi_turn_from_goal_without_test_type(self):
+        test_set = TestSet(
+            name="Conversations",
+            tests=[Test(category="c", requirement="r", goal="Get a refund")],
+        )
+        payload = self._push(test_set)
+        assert payload["test_set_type"] == TestType.MULTI_TURN.value
+
+    def test_explicit_type_is_not_overridden(self):
+        test_set = TestSet(
+            name="Explicit",
+            test_set_type=TestType.MULTI_TURN,
+            tests=[Test(category="c", requirement="r", prompt=Prompt(content="p"))],
+        )
+        payload = self._push(test_set)
+        assert payload["test_set_type"] == TestType.MULTI_TURN.value
+
+    def test_no_tests_still_raises(self):
+        for tests in (None, []):
+            with pytest.raises(ValueError, match="test_set_type"):
+                TestSet(name="Empty", tests=tests).push()
+
+    def test_mixed_types_raise(self):
+        test_set = TestSet(
+            name="Mixed",
+            tests=[
+                Test(category="c", requirement="r", prompt=Prompt(content="p")),
+                Test(category="c", requirement="r", goal="g"),
+                Test(category="c", requirement="r", test_type=TestType.SINGLE_TURN),
+            ],
+        )
+        with patch("rhesis.sdk.entities.test_set.APIClient") as mock_client_cls:
+            with pytest.raises(ValueError, match="mixed test types"):
+                test_set.push()
+            mock_client_cls.assert_not_called()
 
 
 class TestTestSetPushUpdate:
