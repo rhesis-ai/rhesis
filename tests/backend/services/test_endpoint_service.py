@@ -487,8 +487,7 @@ class TestSDKEndpointSync:
 
         # Verify endpoint names and metadata
         endpoint_names = {ep.name for ep in endpoints}
-        assert f"{sdk_project_context['project_name']} (calculate_sum)" in endpoint_names
-        assert f"{sdk_project_context['project_name']} (get_user_info)" in endpoint_names
+        assert endpoint_names == {"calculate_sum", "get_user_info"}
 
         # Verify metadata structure
         for endpoint in endpoints:
@@ -572,6 +571,48 @@ class TestSDKEndpointSync:
         assert updated_endpoint is not None
         assert "Updated description" in updated_endpoint.description
         assert "c" in updated_endpoint.endpoint_metadata["function_schema"]["parameters"]
+
+    @pytest.mark.asyncio
+    async def test_sync_sdk_endpoints_keeps_legacy_name(
+        self, test_db: Session, sdk_project_context, sample_functions_data
+    ):
+        """An endpoint created under the old naming is matched by metadata and not renamed"""
+        service = EndpointService()
+
+        await service.sync_sdk_endpoints(
+            db=test_db,
+            project_id=sdk_project_context["project_id"],
+            environment=sdk_project_context["environment"],
+            functions_data=sample_functions_data,
+            organization_id=sdk_project_context["organization_id"],
+            user_id=sdk_project_context["user_id"],
+        )
+
+        legacy_name = f"{sdk_project_context['project_name']} (calculate_sum)"
+        endpoint = (
+            test_db.query(Endpoint)
+            .filter(
+                Endpoint.project_id == sdk_project_context["project_id"],
+                Endpoint.name == "calculate_sum",
+            )
+            .one()
+        )
+        endpoint.name = legacy_name
+        test_db.commit()
+
+        result = await service.sync_sdk_endpoints(
+            db=test_db,
+            project_id=sdk_project_context["project_id"],
+            environment=sdk_project_context["environment"],
+            functions_data=sample_functions_data,
+            organization_id=sdk_project_context["organization_id"],
+            user_id=sdk_project_context["user_id"],
+        )
+
+        assert result["created"] == 0
+        assert result["updated"] == 2
+        test_db.refresh(endpoint)
+        assert endpoint.name == legacy_name
 
     @pytest.mark.asyncio
     async def test_sync_sdk_endpoints_mark_removed_inactive(
