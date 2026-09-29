@@ -34,6 +34,7 @@ interface EndpointOption {
   name: string;
   environment?: 'development' | 'staging' | 'production' | 'local';
   project_id?: string;
+  project_name?: string;
 }
 
 interface TrialDrawerProps {
@@ -69,6 +70,7 @@ export default function TrialDrawer({
           name: e.name,
           environment: e.environment,
           project_id: e.project_id,
+          project_name: e.project?.name,
         })),
     [rawEndpoints]
   );
@@ -176,6 +178,12 @@ export default function TrialDrawer({
 
     setSelectedEndpoint(null);
   }, [activeProject?.id, endpoints]);
+
+  // Without an active project the list spans projects, so name the project too
+  const getEndpointLabel = (option: EndpointOption) =>
+    !activeProject?.id && option.project_name
+      ? `${option.project_name} › ${option.name}`
+      : option.name;
 
   const handleEndpointChange = (value: EndpointOption | null) => {
     if (!value) {
@@ -306,7 +314,7 @@ export default function TrialDrawer({
               filteredEndpoints.find(e => e.id === selectedEndpoint) || null
             }
             onChange={(_, newValue) => handleEndpointChange(newValue)}
-            getOptionLabel={option => option.name}
+            getOptionLabel={getEndpointLabel}
             renderInput={params => (
               <TextField
                 {...params}
@@ -328,7 +336,7 @@ export default function TrialDrawer({
                     alignItems: 'center',
                   }}
                 >
-                  <span>{option.name}</span>
+                  <span>{getEndpointLabel(option)}</span>
                   {option.environment && (
                     <Chip
                       label={option.environment}
