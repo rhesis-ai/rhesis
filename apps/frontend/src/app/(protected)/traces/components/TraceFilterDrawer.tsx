@@ -29,7 +29,9 @@ import {
   sanitizeTraceDrawerFiltersForTestRunScope,
   type TraceDrawerFilters,
   type TraceTimeRange,
+  type TraceView,
 } from './trace-filter-params';
+import SpanFilterSections from './SpanFilterSections';
 
 export type { TraceDrawerFilters };
 export {
@@ -79,6 +81,8 @@ interface TraceFilterDrawerProps {
   filters: TraceDrawerFilters;
   onApply: (filters: TraceDrawerFilters) => void;
   fixedTestRunId?: string;
+  /** Spans view drops Endpoint and Evaluation (no spans equivalent) and adds span filters. */
+  view?: TraceView;
 }
 
 export default function TraceFilterDrawer({
@@ -87,9 +91,11 @@ export default function TraceFilterDrawer({
   filters,
   onApply,
   fixedTestRunId,
+  view = 'traces',
 }: TraceFilterDrawerProps) {
   const { status } = useSession();
   const isTestRunScope = Boolean(fixedTestRunId);
+  const isSpansView = view === 'spans';
 
   const resetFilters = React.useMemo(
     () =>
@@ -116,7 +122,7 @@ export default function TraceFilterDrawer({
   const [providersLoading, setProvidersLoading] = React.useState(false);
   const { data: endpoints = [] } = useEndpoints(
     { limit: 100 },
-    open && !isTestRunScope
+    open && !isTestRunScope && !isSpansView
   );
 
   // Use a ref so the effect can read the current projectId without re-running
@@ -211,6 +217,10 @@ export default function TraceFilterDrawer({
       onApply={handleApply}
       title="Filter"
     >
+      {isSpansView && (
+        <SpanFilterSections open={open} draft={draft} setDraft={setDraft} />
+      )}
+
       {!isTestRunScope && (
         <>
           <FilterSection title="Project">
@@ -243,36 +253,38 @@ export default function TraceFilterDrawer({
             </FormControl>
           </FilterSection>
 
-          <FilterSection title="Endpoint">
-            <FormControl
-              fullWidth
-              size="small"
-              disabled={filteredEndpoints.length === 0 && !!draft.projectId}
-            >
-              <InputLabel>Endpoint</InputLabel>
-              <Select
-                value={draft.endpointId || ''}
-                label="Endpoint"
-                onChange={e =>
-                  setDraft(prev => ({
-                    ...prev,
-                    endpointId: e.target.value || undefined,
-                  }))
-                }
+          {!isSpansView && (
+            <FilterSection title="Endpoint">
+              <FormControl
+                fullWidth
+                size="small"
+                disabled={filteredEndpoints.length === 0 && !!draft.projectId}
               >
-                <MenuItem value="">
-                  {draft.projectId && filteredEndpoints.length === 0
-                    ? 'No endpoints in project'
-                    : 'All endpoints'}
-                </MenuItem>
-                {filteredEndpoints.map(endpoint => (
-                  <MenuItem key={endpoint.id} value={endpoint.id}>
-                    {endpoint.name}
+                <InputLabel>Endpoint</InputLabel>
+                <Select
+                  value={draft.endpointId || ''}
+                  label="Endpoint"
+                  onChange={e =>
+                    setDraft(prev => ({
+                      ...prev,
+                      endpointId: e.target.value || undefined,
+                    }))
+                  }
+                >
+                  <MenuItem value="">
+                    {draft.projectId && filteredEndpoints.length === 0
+                      ? 'No endpoints in project'
+                      : 'All endpoints'}
                   </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </FilterSection>
+                  {filteredEndpoints.map(endpoint => (
+                    <MenuItem key={endpoint.id} value={endpoint.id}>
+                      {endpoint.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </FilterSection>
+          )}
 
           <FilterSection title="Environment">
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -416,29 +428,31 @@ export default function TraceFilterDrawer({
         </>
       )}
 
-      <FilterSection title="Evaluation">
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {EVAL_OPTIONS.map(opt => (
-            <Box
-              key={opt.value}
-              component="button"
-              type="button"
-              onClick={() =>
-                setDraft(prev => ({
-                  ...prev,
-                  traceMetricsStatus:
-                    prev.traceMetricsStatus === opt.value
-                      ? undefined
-                      : opt.value,
-                }))
-              }
-              sx={filterChipSx(draft.traceMetricsStatus === opt.value)}
-            >
-              {opt.label}
-            </Box>
-          ))}
-        </Box>
-      </FilterSection>
+      {!isSpansView && (
+        <FilterSection title="Evaluation">
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {EVAL_OPTIONS.map(opt => (
+              <Box
+                key={opt.value}
+                component="button"
+                type="button"
+                onClick={() =>
+                  setDraft(prev => ({
+                    ...prev,
+                    traceMetricsStatus:
+                      prev.traceMetricsStatus === opt.value
+                        ? undefined
+                        : opt.value,
+                  }))
+                }
+                sx={filterChipSx(draft.traceMetricsStatus === opt.value)}
+              >
+                {opt.label}
+              </Box>
+            ))}
+          </Box>
+        </FilterSection>
+      )}
 
       <FilterSection title="Provider">
         {providers.length === 0 ? (

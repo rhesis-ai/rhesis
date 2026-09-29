@@ -6,6 +6,10 @@ import { prefetchList } from '@/utils/server-prefetch';
 import { emptyFilters, listParams } from '@/utils/list';
 import TracesClientWrapper from './components/TracesClientWrapper';
 import { tracesList } from './components/list';
+import {
+  hasTraceUrlFilters,
+  viewFromSearchParams,
+} from './components/trace-url-state';
 import { requireSession } from '@/utils/require-session';
 
 interface TracesPageProps {
@@ -29,10 +33,18 @@ export default async function TracesPage({ searchParams }: TracesPageProps) {
   ]);
   const urlProjectId =
     typeof params.project_id === 'string' ? params.project_id : '';
+  const urlParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) =>
+    [value ?? []].flat().forEach(v => urlParams.append(key, v))
+  );
+  // An unfiltered traces page wouldn't match what the client shows; let it fetch.
+  const prefetchMatches =
+    viewFromSearchParams(urlParams) === 'traces' &&
+    !hasTraceUrlFilters(urlParams);
 
   let initialData;
   let initialTotalCount = 0;
-  if (scopedProjectId) {
+  if (scopedProjectId && prefetchMatches) {
     const factory = await createServerApiFactory();
     const descriptor = tracesList(scopedProjectId, factory);
     ({ initialData, initialTotalCount } = await prefetchList(

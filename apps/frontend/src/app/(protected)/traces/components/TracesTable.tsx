@@ -1,13 +1,7 @@
 'use client';
 
-import React, { useContext, useMemo } from 'react';
-import {
-  GridColDef,
-  GridSortModel,
-  GridToolbarColumnsButton,
-  GridToolbarDensitySelector,
-  GridToolbarExport,
-} from '@mui/x-data-grid';
+import React, { useMemo } from 'react';
+import { GridColDef, GridSortModel } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import {
   TraceSummary,
@@ -19,7 +13,6 @@ import { useCurrency } from '@/contexts/CurrencyContext';
 import ForumIcon from '@mui/icons-material/Forum';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined';
-import GridToolbar from '@/components/common/GridToolbar';
 import { isPassedStatusName } from '@/utils/test-result-status';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { formatDuration } from '@/utils/format-duration';
@@ -27,13 +20,7 @@ import { formatTokenCount, tokenSplitLabel } from '@/utils/trace-utils';
 import { formatDate } from '@/utils/date';
 import ModelLabel from '@/components/common/ModelLabel';
 import UsageCell from '@/components/common/UsageCell';
-import TraceFilterDrawer, {
-  type TraceDrawerFilters,
-} from './TraceFilterDrawer';
-import {
-  hasActiveTraceDrawerFilters,
-  countActiveTraceDrawerFilters,
-} from './trace-filter-params';
+import TracesToolbar from './TracesToolbar';
 
 /**
  * Hidden until the user asks for them. The four split figures are for reconciling a
@@ -47,50 +34,6 @@ const USAGE_COLUMNS_HIDDEN_BY_DEFAULT = {
   total_output_cost_usd: false,
 } as const;
 
-interface TracesToolbarState {
-  searchQuery: string;
-  setSearchQuery: (v: string) => void;
-  openFilterDrawer: () => void;
-  hasActiveDrawerFilters: boolean;
-  activeFilterCount: number;
-}
-
-const TracesToolbarContext = React.createContext<TracesToolbarState>({
-  searchQuery: '',
-  setSearchQuery: () => {},
-  openFilterDrawer: () => {},
-  hasActiveDrawerFilters: false,
-  activeFilterCount: 0,
-});
-
-function TracesUnifiedToolbar() {
-  const {
-    searchQuery,
-    setSearchQuery,
-    openFilterDrawer,
-    hasActiveDrawerFilters,
-    activeFilterCount,
-  } = useContext(TracesToolbarContext);
-
-  return (
-    <GridToolbar
-      searchQuery={searchQuery}
-      onSearchChange={setSearchQuery}
-      searchPlaceholder="Search operations…"
-      onFilterClick={openFilterDrawer}
-      hasActiveFilters={hasActiveDrawerFilters}
-      activeFilterCount={activeFilterCount}
-      rightContent={
-        <>
-          <GridToolbarColumnsButton />
-          <GridToolbarDensitySelector />
-          <GridToolbarExport />
-        </>
-      }
-    />
-  );
-}
-
 interface TracesTableProps {
   traces: TraceSummary[];
   loading: boolean;
@@ -100,18 +43,11 @@ interface TracesTableProps {
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
-  searchQuery: string;
-  onSearchQueryChange: (value: string) => void;
-  drawerFilters: TraceDrawerFilters;
-  onApplyDrawerFilters: (filters: TraceDrawerFilters) => void;
-  filterDrawerOpen: boolean;
-  onFilterDrawerOpen: () => void;
-  onFilterDrawerClose: () => void;
-  fixedTestRunId?: string;
   sortModel?: GridSortModel;
   onSortModelChange?: (model: GridSortModel) => void;
 }
 
+/** Toolbar state comes from `TracesToolbarContext`, provided by `TracesClient`. */
 export default function TracesTable({
   traces,
   loading,
@@ -121,26 +57,9 @@ export default function TracesTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
-  searchQuery,
-  onSearchQueryChange,
-  drawerFilters,
-  onApplyDrawerFilters,
-  filterDrawerOpen,
-  onFilterDrawerOpen,
-  onFilterDrawerClose,
-  fixedTestRunId,
   sortModel,
   onSortModelChange,
 }: TracesTableProps) {
-  const hasActiveDrawerFilters = hasActiveTraceDrawerFilters(drawerFilters, {
-    testRunScope: Boolean(fixedTestRunId),
-    excludeTestRunId: Boolean(fixedTestRunId),
-  });
-  const activeFilterCount = countActiveTraceDrawerFilters(drawerFilters, {
-    testRunScope: Boolean(fixedTestRunId),
-    excludeTestRunId: Boolean(fixedTestRunId),
-  });
-
   const { format: money, alternativesTitle } = useCurrency();
 
   const columns: GridColDef[] = useMemo(
@@ -474,73 +393,46 @@ export default function TracesTable({
     onRowClick(params.row.trace_id, params.row.project_id);
   };
 
-  const toolbarContextValue = useMemo(
-    () => ({
-      searchQuery,
-      setSearchQuery: onSearchQueryChange,
-      openFilterDrawer: onFilterDrawerOpen,
-      hasActiveDrawerFilters,
-      activeFilterCount,
-    }),
-    [
-      searchQuery,
-      onSearchQueryChange,
-      onFilterDrawerOpen,
-      hasActiveDrawerFilters,
-      activeFilterCount,
-    ]
-  );
-
   return (
-    <TracesToolbarContext.Provider value={toolbarContextValue}>
-      <BaseDataGrid
-        rows={traces}
-        columns={columns}
-        loading={loading}
-        getRowId={row => row.trace_id}
-        onRowClick={handleRowClick}
-        serverSidePagination
-        totalRows={totalCount}
-        paginationModel={{ page, pageSize }}
-        onPaginationModelChange={model => {
-          if (model.page !== page) {
-            onPageChange(model.page);
-          }
-          if (model.pageSize !== pageSize) {
-            onPageSizeChange(model.pageSize);
-          }
-        }}
-        pageSizeOptions={[25, 50, 100]}
-        disablePaperWrapper
-        sortingMode="server"
-        sortModel={sortModel}
-        onSortModelChange={onSortModelChange}
-        toolbarSlot={() => <TracesUnifiedToolbar />}
-        persistState
-        storageKey="traces-grid-v2"
-        initialState={{
-          columns: {
-            columnVisibilityModel: { ...USAGE_COLUMNS_HIDDEN_BY_DEFAULT },
-          },
-        }}
-        sx={{
-          '& .MuiDataGrid-row': {
-            cursor: 'pointer',
-          },
-          '& .MuiDataGrid-cell': {
-            borderBottom: 1,
-            borderColor: 'divider',
-          },
-        }}
-      />
-
-      <TraceFilterDrawer
-        open={filterDrawerOpen}
-        onClose={onFilterDrawerClose}
-        filters={drawerFilters}
-        onApply={onApplyDrawerFilters}
-        fixedTestRunId={fixedTestRunId}
-      />
-    </TracesToolbarContext.Provider>
+    <BaseDataGrid
+      rows={traces}
+      columns={columns}
+      loading={loading}
+      getRowId={row => row.trace_id}
+      onRowClick={handleRowClick}
+      serverSidePagination
+      totalRows={totalCount}
+      paginationModel={{ page, pageSize }}
+      onPaginationModelChange={model => {
+        if (model.page !== page) {
+          onPageChange(model.page);
+        }
+        if (model.pageSize !== pageSize) {
+          onPageSizeChange(model.pageSize);
+        }
+      }}
+      pageSizeOptions={[25, 50, 100]}
+      disablePaperWrapper
+      sortingMode="server"
+      sortModel={sortModel}
+      onSortModelChange={onSortModelChange}
+      toolbarSlot={TracesToolbar}
+      persistState
+      storageKey="traces-grid-v2"
+      initialState={{
+        columns: {
+          columnVisibilityModel: { ...USAGE_COLUMNS_HIDDEN_BY_DEFAULT },
+        },
+      }}
+      sx={{
+        '& .MuiDataGrid-row': {
+          cursor: 'pointer',
+        },
+        '& .MuiDataGrid-cell': {
+          borderBottom: 1,
+          borderColor: 'divider',
+        },
+      }}
+    />
   );
 }
