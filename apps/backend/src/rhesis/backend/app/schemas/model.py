@@ -23,9 +23,12 @@ class ModelBaseFields(Base):
     description: Optional[str] = None
     icon: Optional[str] = None
     model_name: str
-    model_type: Optional[Literal["language", "embedding"]] = Field(
+    model_type: Optional[Literal["language", "embedding", "decision"]] = Field(
         default="language",
-        description="Type of model: 'language' or 'embedding'",
+        description=(
+            "Type of model: 'language', 'embedding', or 'decision' (answers typed "
+            "questions instead of generating text, e.g. Jev; evaluation only)"
+        ),
     )
     endpoint: Optional[str] = Field(
         default=None, description="API endpoint URL (optional for cloud providers)"
@@ -131,9 +134,12 @@ class TestModelConnectionRequest(BaseModel):
     endpoint: Optional[str] = Field(
         default=None, description="Optional endpoint URL for self-hosted providers"
     )
-    model_type: Optional[Literal["language", "embedding"]] = Field(
+    model_type: Optional[Literal["language", "embedding", "decision"]] = Field(
         default="language",
-        description="Type of model: 'language' or 'embedding'",
+        description=(
+            "Type of model: 'language', 'embedding', or 'decision' (answers typed "
+            "questions instead of generating text, e.g. Jev; evaluation only)"
+        ),
     )
 
     @field_validator("endpoint")

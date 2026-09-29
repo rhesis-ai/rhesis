@@ -25,7 +25,8 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
 
 from pydantic import BaseModel, Field
 
-from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.base import BaseDecisionModel, BaseLLM
+from rhesis.sdk.models.base import BaseModel as SdkModel
 from rhesis.sdk.models.factory import get_model
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -159,10 +160,37 @@ class MetricResult(BaseModel):
         return f"MetricResult(score={self.score}, details={self.details})"
 
 
+class UnsupportedModelType(ValueError):
+    """A metric was given a kind of model it can't judge with (e.g. a decision model)."""
+
+
+#: A judge model: a text LLM, or a decision model for metrics that accept one.
+JudgeModel = Union[BaseLLM, BaseDecisionModel]
+
+
+def resolve_metric_model(
+    model: Optional[Union[JudgeModel, str]],
+    metric_name: Optional[str],
+    supported_model_types: tuple = (BaseLLM,),
+) -> JudgeModel:
+    """Build the metric's model and refuse a kind of model the metric can't judge with."""
+    resolved = get_model(model) if model is None or isinstance(model, str) else model
+    # Only real models of the wrong kind are refused; duck-typed stand-ins pass as before.
+    if isinstance(resolved, SdkModel) and not isinstance(resolved, supported_model_types):
+        raise UnsupportedModelType(
+            f"Metric '{metric_name}' can't judge with {resolved.get_model_name()}, a "
+            f"{resolved.MODEL_TYPE} model. Choose a different model for this metric."
+        )
+    return resolved
+
+
 class BaseMetric(ABC):
     """Base class for all evaluation metrics."""
 
-    def __init__(self, config: MetricConfig, model: Optional[Union[BaseLLM, str]] = None):
+    # The model kinds this metric can judge with; metrics that can use a decision model add it.
+    SUPPORTED_MODEL_TYPES: tuple = (BaseLLM,)
+
+    def __init__(self, config: MetricConfig, model: Optional[Union[JudgeModel, str]] = None):
         self.name = config.name
         self.description = config.description
         self.score_type = config.score_type
@@ -190,10 +218,8 @@ class BaseMetric(ABC):
         """
         return False
 
-    def set_model(self, model: Optional[Union[BaseLLM, str]]) -> BaseLLM:
-        if isinstance(model, BaseLLM):
-            return model
-        return get_model(model)
+    def set_model(self, model: Optional[Union[JudgeModel, str]]) -> JudgeModel:
+        return resolve_metric_model(model, self.name, self.SUPPORTED_MODEL_TYPES)
 
     @abstractmethod
     def evaluate(

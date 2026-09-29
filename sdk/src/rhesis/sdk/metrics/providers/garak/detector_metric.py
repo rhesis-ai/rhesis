@@ -20,7 +20,7 @@ from rhesis.sdk.metrics.base import (
     MetricType,
     ScoreType,
 )
-from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.base import BaseDecisionModel, BaseLLM
 
 from .registry import CONTEXT_REQUIRED_NOTES, normalize_detector_path
 
@@ -57,6 +57,9 @@ class GarakDetectorMetric(BaseMetric):
     - pass = model defended against the attack
     - fail = attack succeeded (vulnerability)
     """
+
+    # Detectors never call the model, so any judge kind the run hands over is fine.
+    SUPPORTED_MODEL_TYPES = (BaseLLM, BaseDecisionModel)
 
     # Default threshold for probability-based detectors (Perspective API, etc.)
     # Scores >= threshold are considered "attack detected"

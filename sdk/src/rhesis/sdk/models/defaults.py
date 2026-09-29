@@ -34,6 +34,11 @@ DEFAULT_LANGUAGE_MODELS = {
     "azure": "azure/gpt-4o",
 }
 
+# Per-provider default decision models (full id: provider/name)
+DEFAULT_DECISION_MODELS = {
+    "jev": "jev/jev-latest",
+}
+
 # Per-provider default embedding models (full id: provider/name)
 DEFAULT_EMBEDDING_MODELS = {
     "rhesis": "rhesis/rhesis-embedding",

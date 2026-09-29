@@ -31,6 +31,7 @@ Rhesis connects to major cloud providers and to local or self-hosted runtimes (O
 - **Cohere** - Command R provider
 - **Google** - Gemini provider
 - **Groq** - LPU-based model hosting
+- **Jev (TypeSafe AI)** - Decision model for categorical metrics only (see [Decision models](#decision-models))
 - **LiteLLM Proxy** - OpenAI-compatible proxy gateway
 - **Meta** - Llama provider
 - **Mistral** - Mistral provider
@@ -86,10 +87,25 @@ Some providers require endpoint configuration in addition to model name:
 | LiteLLM Proxy | `litellm_proxy` | Yes | Optional | Pre-filled with `http://host.docker.internal:4000` by default |
 | Azure AI Studio | `azure_ai` | Yes | Yes | Use your Azure AI inference endpoint URL |
 | Azure OpenAI | `azure` | Yes | Yes | Use your Azure OpenAI resource endpoint URL |
+| Jev | `jev` | No | Yes | Defaults to `https://api.typesafe.ai`. Through a LiteLLM proxy, use `https://<proxy>/typesafe` and a LiteLLM virtual key |
 
 <Callout type="info">
   If a model connection fails, use **Test Connection** in the connection dialog before saving.
 </Callout>
+
+## Decision Models
+
+A decision model answers typed questions about its input instead of generating
+text. Jev by TypeSafe AI is one: given the evaluated input and output and a
+metric's criteria, it picks one of the metric's categories and returns a
+probability for each.
+
+- It can only judge **categorical** metrics. Numeric, binary and multi-turn
+  metrics refuse it, and a test run shows those metrics as errored.
+- It can be the default for evaluation, but not for test generation or
+  execution.
+- It returns no written reasoning. A result's reason gives the chosen category
+  and its probability.
 
 ## Polyphemus Access Control
 

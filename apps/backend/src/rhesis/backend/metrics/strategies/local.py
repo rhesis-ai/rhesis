@@ -28,6 +28,7 @@ from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.strategies.base import OnMetricComplete
 from rhesis.sdk.metrics import BaseMetric, MetricConfig, MetricResult
+from rhesis.sdk.metrics.base import UnsupportedModelType
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
 logger = logging.getLogger(__name__)
@@ -122,6 +123,7 @@ class LocalStrategy:
         contract: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """Evaluate all local strategy configs in parallel."""
+        refused: List[Dict[str, Any]] = []
         metric_tasks = prepare_metrics(
             configs,
             expected_output,
@@ -130,8 +132,9 @@ class LocalStrategy:
             db=self._db,
             organization_id=self._organization_id,
             metric_models=self._metric_models,
+            refused=refused,
         )
-        return self._execute_metrics_in_parallel(
+        results = self._execute_metrics_in_parallel(
             metric_tasks,
             input_text,
             output_text,
@@ -144,6 +147,8 @@ class LocalStrategy:
             instructions=instructions,
             contract=contract,
         )
+        _merge_refused(results, refused)
+        return results
 
     async def a_evaluate(
         self,
@@ -166,6 +171,7 @@ class LocalStrategy:
         Mirrors the sync path's resilience: bounded concurrency via semaphore,
         per-metric retry for transient failures, and an overall timeout.
         """
+        refused: List[Dict[str, Any]] = []
         metric_tasks = prepare_metrics(
             configs,
             expected_output,
@@ -174,10 +180,11 @@ class LocalStrategy:
             db=self._db,
             organization_id=self._organization_id,
             metric_models=self._metric_models,
+            refused=refused,
         )
         if not metric_tasks:
             logger.warning("No metrics to evaluate (async)")
-            return {}
+            return _merge_refused({}, refused)
 
         metric_keys, results = self._generate_unique_metric_keys(metric_tasks)
         sem = asyncio.Semaphore(max_workers)
@@ -235,6 +242,7 @@ class LocalStrategy:
             results[key] = val
 
         self._handle_incomplete_metrics(results, metric_keys, metric_tasks)
+        _merge_refused(results, refused)
         self._log_evaluation_summary(results)
         return results
 
@@ -851,6 +859,22 @@ def _select_metric_model(
     return None
 
 
+def _merge_refused(results: Dict[str, Any], refused: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Add refused-metric results under keys no evaluated metric uses.
+
+    Suffixes follow ``_generate_unique_metric_keys``, so duplicate metric names
+    never let a refusal overwrite a real result or another refusal.
+    """
+    for result in refused:
+        base_key = result["name"]
+        key, counter = base_key, 1
+        while key in results:
+            key = f"{base_key}_{counter}"
+            counter += 1
+        results[key] = result
+    return results
+
+
 def prepare_metrics(
     metrics: List[MetricConfig],
     expected_output: Optional[str],
@@ -859,6 +883,7 @@ def prepare_metrics(
     db: Optional[Session] = None,
     organization_id: Optional[str] = None,
     metric_models: Optional[Dict[str, Any]] = None,
+    refused: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Tuple[str, BaseMetric, MetricConfig, str]]:
     """Instantiate metric objects via SDK factory, resolving models from DB.
 
@@ -873,6 +898,9 @@ def prepare_metrics(
             session (the batch path). Key present with a value means resolved; key
             present with `None` means resolution was attempted and failed; key absent
             means not attempted, so fall back to resolving against `db`.
+        refused: Filled with an error result per metric whose model it can't judge
+            with (a decision model on a non-categorical metric), so the run shows
+            the metric as errored instead of silently leaving it out.
 
     Returns:
         List of tuples containing (class_name, metric_instance, metric_config, backend).
@@ -930,6 +958,22 @@ def prepare_metrics(
 
             try:
                 metric = MetricFactory.create(backend, class_name, **factory_params)
+            except UnsupportedModelType as refusal:
+                logger.warning(f"[SDK_DIRECT] {refusal}")
+                if refused is not None:
+                    refused.append(
+                        MetricResultBuilder.error(
+                            reason=str(refusal),
+                            backend=backend,
+                            name=metric_name,
+                            class_name=class_name,
+                            description=metric_config.description or "",
+                            error=str(refusal),
+                            error_type=type(refusal).__name__,
+                            threshold=threshold,
+                        )
+                    )
+                continue
             except Exception as create_error:
                 logger.error(
                     f"[SDK_DIRECT] Failed to create metric "

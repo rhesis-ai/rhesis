@@ -17,9 +17,11 @@ import {
   LOCAL_PROVIDERS,
   EMBEDDING_PROVIDERS,
   PROVIDER_ICONS,
+  isDecisionProvider,
   getProviderDisplayName,
 } from '@/config/model-providers';
 import { useIsLocalMode } from '@/contexts/FeaturesContext';
+import { MODEL_TYPES, type ModelType } from '@/constants/model-types';
 
 interface ProviderItem {
   provider: TypeLookup;
@@ -31,7 +33,7 @@ interface ProviderItem {
 
 function buildModelProviderItems(
   providers: TypeLookup[],
-  modelType: 'language' | 'embedding',
+  modelType: ModelType,
   isLocalMode: boolean
 ): ProviderItem[] {
   const selectable = providers.filter(provider => {
@@ -41,7 +43,7 @@ function buildModelProviderItems(
     ) {
       return false;
     }
-    if (modelType === 'embedding') {
+    if (modelType === MODEL_TYPES.EMBEDDING) {
       return EMBEDDING_PROVIDERS.includes(provider.type_value);
     }
     return true;
@@ -70,6 +72,9 @@ function buildModelProviderItems(
     const isEnabled = isSupported && (!isLocal || isLocalMode);
     const chips: { label: string }[] = [];
     if (isLocal) chips.push({ label: 'Local deployment' });
+    if (isDecisionProvider(provider.type_value)) {
+      chips.push({ label: 'Evaluation only' });
+    }
     if (!isSupported && !isLocal) chips.push({ label: 'Coming Soon' });
 
     return {
@@ -86,7 +91,7 @@ function buildModelProviderItems(
 
 interface ProviderSelectionPanelProps {
   providers: TypeLookup[];
-  modelType: 'language' | 'embedding';
+  modelType: ModelType;
   onSelectProvider: (provider: TypeLookup) => void;
 }
 

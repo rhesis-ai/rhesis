@@ -448,6 +448,11 @@
             "description": "Azure OpenAI model provider"
         },
         {
+            "type_name": "ProviderType",
+            "type_value": "jev",
+            "description": "Jev by TypeSafe AI"
+        },
+        {
             "type_name": "MetricType",
             "type_value": "grading",
             "description": "LLM-based grading using rubrics or classification prompts"

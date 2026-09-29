@@ -8,7 +8,13 @@ from __future__ import annotations
 import importlib
 from typing import TYPE_CHECKING
 
-from rhesis.sdk.metrics.base import BaseMetric, MetricConfig, MetricResult, MetricScope
+from rhesis.sdk.metrics.base import (
+    BaseMetric,
+    MetricConfig,
+    MetricResult,
+    MetricScope,
+    UnsupportedModelType,
+)
 from rhesis.sdk.metrics.config.loader import MetricConfigLoader
 from rhesis.sdk.metrics.constants import (
     OPERATOR_MAP,
@@ -119,6 +125,7 @@ __all__ = [
     "BaseMetric",
     "MetricConfig",
     "MetricResult",
+    "UnsupportedModelType",
     "MetricScope",
     "MetricConfigLoader",
     "MetricFactory",

@@ -39,7 +39,9 @@ from rhesis.backend.app.services import polyphemus as polyphemus_service
 from rhesis.backend.app.services.usage_notifications import notify_stock_crossing
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.rate_limit import INVITATION_RATE_LIMIT, user_limiter
+from rhesis.backend.app.utils.user_model_utils import MODEL_PURPOSES, check_model_fits_purpose
 from rhesis.backend.app.utils.validation import validate_and_normalize_email
 from rhesis.backend.notifications import email_service
 
@@ -56,6 +58,23 @@ def _settings_patch_forbids_embedding_update(settings_dict: dict) -> bool:
     """True if the client explicitly tried to update models.embedding (PATCH must reject)."""
     models = settings_dict.get("models")
     return isinstance(models, dict) and "embedding" in models
+
+
+def _refuse_unfit_model_defaults(db: Session, settings_dict: dict, organization_id: str) -> None:
+    """422 when a default is set to a model kind its purpose can't use (e.g. Jev for generation)."""
+    models_patch = settings_dict.get("models")
+    if not isinstance(models_patch, dict):
+        return
+    for purpose in MODEL_PURPOSES:
+        model_id = (models_patch.get(purpose) or {}).get("model_id")
+        if not model_id:
+            continue
+        try:
+            check_model_fits_purpose(db, model_id, organization_id, purpose)
+        except ModelConfigurationError as e:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e)
+            ) from e
 
 
 def _org_sso_enabled(organization) -> bool:
@@ -371,6 +390,8 @@ def update_user_settings(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="The default embedding model cannot be changed via user settings.",
         )
+
+    _refuse_unfit_model_defaults(db, settings_dict, str(db_user.organization_id))
 
     # Get the settings manager instance (property creates new instance each time!)
     settings_manager = db_user.settings

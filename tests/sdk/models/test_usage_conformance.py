@@ -17,8 +17,12 @@ import inspect
 
 import pytest
 
-from rhesis.sdk.models.base import BaseLLM
+from rhesis.sdk.models.base import BaseDecisionModel, BaseLLM
 from rhesis.sdk.models.factory import UNIFIED_MODEL_REGISTRY, ModelType, _ProviderSpec
+
+# The model kinds that bill per token; embedders accrue no usage.
+BILLABLE_BASES = (BaseLLM, BaseDecisionModel)
+BILLABLE_TYPES = (ModelType.LANGUAGE, ModelType.DECISION)
 
 #: Direct ``BaseLLM`` subclasses whose emission is covered by a real test.
 #: Everything else in the registry inherits its generate methods from one of
@@ -33,6 +37,7 @@ COVERED_EMISSION_ROOTS = {
     "PolyphemusLLM",  # covered by tests/sdk/models/providers/test_polyphemus.py
     "LiteLLMProxy",  # covered by tests/sdk/models/providers/test_litellm_proxy.py
     "HuggingFaceLLM",  # covered by tests/sdk/models/providers/test_hugginface.py
+    "JevDecisionModel",  # covered by tests/sdk/models/providers/test_jev.py
 }
 
 #: Providers whose class cannot be imported without optional heavy deps.
@@ -41,9 +46,10 @@ _OPTIONAL_DEPS = {"huggingface"}
 
 def _language_providers():
     for provider, by_type in UNIFIED_MODEL_REGISTRY.items():
-        factory = by_type.get(ModelType.LANGUAGE)
-        if factory is not None:
-            yield provider, factory
+        for model_type in BILLABLE_TYPES:
+            factory = by_type.get(model_type)
+            if factory is not None:
+                yield provider, factory
 
 
 def _provider_class(factory):
@@ -78,9 +84,9 @@ def _provider_class(factory):
 def _emission_root(cls):
     """The direct ``BaseLLM`` subclass *cls* inherits its behaviour from."""
     for base in cls.__mro__:
-        if BaseLLM in base.__bases__:
+        if any(billable in base.__bases__ for billable in BILLABLE_BASES):
             return base
-    raise AssertionError(f"{cls.__name__} does not descend from BaseLLM")
+    raise AssertionError(f"{cls.__name__} does not descend from a billable model base")
 
 
 @pytest.mark.parametrize("provider,factory", list(_language_providers()))
@@ -115,11 +121,11 @@ def test_provider_does_not_bypass_emission_by_overriding_generate(provider, fact
     cls = _provider_class(factory)
     root = _emission_root(cls)
 
-    for name in ("generate", "a_generate", "generate_batch"):
+    for name in ("generate", "a_generate", "generate_batch", "a_decide"):
         for klass in cls.__mro__:
             if name not in klass.__dict__:
                 continue
-            if klass is BaseLLM or klass is root:
+            if klass in BILLABLE_BASES or klass is root:
                 break  # base or already-covered root implementation
             source = inspect.getsource(klass.__dict__[name])
             delegates = "super()" in source or "self.generate" in source

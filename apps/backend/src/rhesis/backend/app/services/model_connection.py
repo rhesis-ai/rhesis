@@ -30,7 +30,7 @@ class ModelConnectionService:
         model_name: str,
         api_key: str,
         endpoint: str | None = None,
-        model_type: Literal["language", "embedding"] = "language",
+        model_type: Literal["language", "embedding", "decision"] = "language",
     ) -> ModelConnectionTestResult:
         """
         Test a model connection by attempting to initialize and use the model.
@@ -46,7 +46,7 @@ class ModelConnectionService:
             model_name: The specific model name
             api_key: The API key for authentication
             endpoint: Optional endpoint URL for self-hosted providers
-            model_type: Type of model - "language" or "embedding"
+            model_type: Type of model - "language", "embedding" or "decision"
 
         Returns:
             ModelConnectionTestResult: Result of the connection test
@@ -107,10 +107,17 @@ class ModelConnectionService:
                 return ModelConnectionService._test_embedding_connection(
                     provider, model_name, api_key, endpoint
                 )
+            elif model_type == "decision":
+                return await ModelConnectionService._test_decision_connection(
+                    provider, model_name, api_key, endpoint
+                )
             else:
                 return ModelConnectionTestResult(
                     success=False,
-                    message=f"Invalid model type: {model_type}. Must be 'language' or 'embedding'",
+                    message=(
+                        f"Invalid model type: {model_type}. "
+                        "Must be 'language', 'embedding' or 'decision'"
+                    ),
                     provider=provider,
                     model_name=model_name,
                 )
@@ -210,6 +217,51 @@ class ModelConnectionService:
                 provider=provider,
                 model_name=model_name,
             )
+
+    @staticmethod
+    async def _test_decision_connection(
+        provider: str, model_name: str, api_key: str, endpoint: str | None = None
+    ) -> ModelConnectionTestResult:
+        """Test a decision model (e.g. Jev) by asking it one choice question."""
+        from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
+        from rhesis.sdk.models.factory import get_model
+
+        def result(success: bool, message: str) -> ModelConnectionTestResult:
+            return ModelConnectionTestResult(
+                success=success, message=message, provider=provider, model_name=model_name
+            )
+
+        try:
+            # Never metered, as for language models: the user's own key pays.
+            model = stamp_usage_provenance(
+                get_model(
+                    provider,
+                    model_name,
+                    api_key,
+                    model_type="decision",
+                    **({"api_base": endpoint} if endpoint else {}),
+                ),
+                metered=False,
+            )
+        except ValueError as e:
+            return result(False, f"Configuration error: {e}")
+
+        try:
+            await model.a_decide(
+                "Connection test.",
+                {
+                    "ok": {
+                        "type": "choice",
+                        "instructions": "Is this a connection test?",
+                        "criteria": {"yes": "It is a connection test", "no": "It is not"},
+                    }
+                },
+            )
+        except Exception as e:
+            # The provider's text goes to the user, not our logs: it can quote their key.
+            logger.warning("Decision model test failed for %s: %s", provider, type(e).__name__)
+            return result(False, str(e))
+        return result(True, f"Successfully connected to {provider}. Model is responding correctly.")
 
     @staticmethod
     def _test_embedding_connection(
