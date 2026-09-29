@@ -94,10 +94,16 @@ function conversationTrace(): TraceDetailResponse {
   } as unknown as TraceDetailResponse;
 }
 
+// jsdom has no scrollIntoView; stub it and restore the original afterwards.
 const scrollIntoView = jest.fn();
+const originalScrollIntoView = Element.prototype.scrollIntoView;
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = scrollIntoView;
+});
+
+afterAll(() => {
+  Element.prototype.scrollIntoView = originalScrollIntoView;
 });
 
 beforeEach(() => {
