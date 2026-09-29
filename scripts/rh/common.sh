@@ -100,20 +100,6 @@ confirm_typed() {
     [[ "$reply" =~ ^[Yy][Ee][Ss]$ ]]
 }
 
-# read -p writes the prompt to stderr, so $(prompt_port ...) captures only the port.
-prompt_port() {
-    local label="$1"
-    local default="$2"
-    local port=""
-    if [ -t 0 ]; then
-        read -r -p "$(echo -e "${YELLOW}Enter ${label} port [default: ${default}]: ${NC}")" port
-    fi
-    if ! [[ "$port" =~ ^[0-9]+$ ]]; then
-        port="$default"
-    fi
-    echo "$port"
-}
-
 # ============================================================================
 # Secrets and env files
 # ============================================================================

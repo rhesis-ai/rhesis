@@ -110,6 +110,42 @@ generate_docker_secrets() {
 # .env.docker.local — the quickstart's generated config
 # ============================================================================
 
+# Everything but the port goes to stderr, so $(prompt_port ...) captures only
+# the port. $3 lists ports already chosen.
+prompt_port() {
+    local label="$1"
+    local default="$2"
+    local skip="${3:-}"
+    local port=""
+
+    if port_busy "$default" || [[ " $skip " == *" $default "* ]]; then
+        port=$(next_free_port "$default" "$skip")
+        if [ ! -t 0 ]; then
+            warn "Port ${default} is in use, so the ${label} will use port ${port}" >&2
+            echo "$port"
+            return 0
+        fi
+        warn "Port ${default} is in use, suggesting ${port} instead" >&2
+        default="$port"
+    fi
+    [ -t 0 ] || { echo "$default"; return 0; }
+
+    while true; do
+        port=""
+        read -r -p "$(echo -e "${YELLOW}Enter ${label} port [default: ${default}]: ${NC}")" port
+        [[ "$port" =~ ^[0-9]+$ ]] || port="$default"
+        if [[ " $skip " == *" $port "* ]]; then
+            warn "Port ${port} is already taken by another Rhesis service" >&2
+        elif port_busy "$port"; then
+            warn "Port ${port} is already in use" >&2
+        else
+            echo "$port"
+            return 0
+        fi
+        default=$(next_free_port "$port" "$skip")
+    done
+}
+
 quickstart_create_env_file() {
     local encryption_key="$1"
 
@@ -119,7 +155,7 @@ quickstart_create_env_file() {
     echo ""
     local backend_port frontend_port
     backend_port=$(prompt_port "backend" 8080)
-    frontend_port=$(prompt_port "frontend" 3000)
+    frontend_port=$(prompt_port "frontend" 3000 "$backend_port")
     ok "Using backend port ${backend_port}, frontend port ${frontend_port}"
 
     # Compose keeps bind ports and public URLs separate, but on localhost the
@@ -208,6 +244,63 @@ quickstart_prepare_env_file() {
 # ./rh start
 # ============================================================================
 
+# Falls back to the compose file's default for env files written before ports
+# were configurable.
+quickstart_env_port() {
+    local var_name="$1" default="$2" value
+    value=$(grep -m1 "^${var_name}=" "$QUICKSTART_ENV_FILE" 2>/dev/null | cut -d= -f2 | tr -d ' "'"'"'\r')
+    echo "${value:-$default}"
+}
+
+# Host ports this stack's own running containers publish, one per line. They
+# are fine to find in use, because compose keeps or recreates the container.
+quickstart_own_ports() {
+    docker ps --filter "label=com.docker.compose.project=${PROJECT_NAME}" \
+        --format '{{.Ports}}' 2>/dev/null | tr ',' '\n' | sed -nE 's/.*:([0-9]+)->.*/\1/p'
+}
+
+# Run before compose so a taken port fails fast with its holder named, instead
+# of a bare "Failed to start services" after the pull.
+quickstart_check_ports() {
+    local own taken="" suggestions="" chosen
+    own=" $(quickstart_own_ports | tr '\n' ' ') "
+    chosen="$(quickstart_env_port BACKEND_PORT 8080) $(quickstart_env_port FRONTEND_PORT 3000)"
+
+    local entry label var url_var port holder container free
+    for entry in backend:BACKEND_PORT:API_BASE_URL:8080 frontend:FRONTEND_PORT:FRONTEND_URL:3000; do
+        IFS=: read -r label var url_var port <<< "$entry"
+        port=$(quickstart_env_port "$var" "$port")
+        [[ "$own" == *" $port "* ]] && continue
+        port_busy "$port" || continue
+
+        # Docker Desktop's proxy owns published ports, so name the container.
+        container=$(docker ps --filter "publish=${port}" --format '{{.Names}}' 2>/dev/null | head -n1)
+        if [ -n "$container" ]; then
+            holder="Docker container ${container}"
+        else
+            holder=$(port_holder "$port")
+        fi
+        if [ -n "$holder" ]; then
+            err "Port ${port} (${label}) is already in use by ${holder}"
+        else
+            err "Port ${port} (${label}) is already in use"
+        fi
+        taken="${taken} ${port}"
+
+        free=$(next_free_port "$port" "$chosen")
+        chosen="${chosen} ${free}"
+        suggestions="${suggestions}      ${var}=${free}\n      ${url_var}=http://localhost:${free}\n"
+    done
+
+    [ -n "$taken" ] || return 0
+    local noun="port" free_one="a free one"
+    [[ "${taken# }" == *" "* ]] && noun="ports" free_one="free ones"
+    echo -e "${YELLOW}   Free the ${noun}, or switch to ${free_one} by setting these in ${QUICKSTART_ENV_FILE}:${NC}"
+    printf '%b' "${WHITE}${suggestions}${NC}"
+    echo -e "${YELLOW}   Then run ${GREEN}./rh start${YELLOW} again.${NC}"
+    exit 1
+}
+
 wants_build() {
     local arg
     for arg in "$@"; do
@@ -240,6 +333,7 @@ start_all() {
     COMPOSE_FLAGS=$(quickstart_compose_flags_for_mode "$quickstart_mode")
 
     quickstart_prepare_env_file
+    quickstart_check_ports
 
     echo ""
     step "Starting services ..."
@@ -269,11 +363,11 @@ start_all() {
     ok "All services started successfully!"
     echo ""
     local backend_port frontend_port
-    backend_port=$(grep -m1 "^BACKEND_PORT=" "$QUICKSTART_ENV_FILE" 2>/dev/null | cut -d= -f2)
-    frontend_port=$(grep -m1 "^FRONTEND_PORT=" "$QUICKSTART_ENV_FILE" 2>/dev/null | cut -d= -f2)
+    backend_port=$(quickstart_env_port BACKEND_PORT 8080)
+    frontend_port=$(quickstart_env_port FRONTEND_PORT 3000)
     head1 "Access the platform:"
-    echo -e "   Frontend:  ${WHITE}http://localhost:${frontend_port:-3000}${NC} (auto-login enabled)"
-    echo -e "   Backend:   ${WHITE}http://localhost:${backend_port:-8080}/docs${NC}"
+    echo -e "   Frontend:  ${WHITE}http://localhost:${frontend_port}${NC} (auto-login enabled)"
+    echo -e "   Backend:   ${WHITE}http://localhost:${backend_port}/docs${NC}"
     echo ""
     step "Useful commands:"
     echo -e "   View logs:    ${GREEN}./rh logs${NC}"
