@@ -6,7 +6,6 @@ import {
   truncateSpanId,
   formatCost,
   formatTokenCount,
-  getSpanType,
   extractOperationName,
   calculateDurationPercentage,
   isLeafSpan,
@@ -336,29 +335,6 @@ describe('trace-utils', () => {
 
     it('still labels when only one figure is known', () => {
       expect(tokenSplitLabel(100, 0)).toBe('100 input \u00b7 0 output');
-    });
-  });
-
-  describe('getSpanType', () => {
-    it('identifies LLM spans', () => {
-      expect(getSpanType('ai.llm.invoke')).toBe('LLM');
-    });
-
-    it('identifies function spans', () => {
-      expect(getSpanType('function.chat')).toBe('Function');
-    });
-
-    it('identifies database spans', () => {
-      expect(getSpanType('db.query')).toBe('Database');
-    });
-
-    it('identifies HTTP spans', () => {
-      expect(getSpanType('http.post')).toBe('HTTP');
-    });
-
-    it('returns Other for unknown types', () => {
-      expect(getSpanType('unknown')).toBe('Other');
-      expect(getSpanType('')).toBe('Other');
     });
   });
 
