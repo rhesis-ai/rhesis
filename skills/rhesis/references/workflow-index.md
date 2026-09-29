@@ -88,7 +88,7 @@ Skip the menu when intent is already clear. Spec and run/analyze paths skip expl
 | `phases/direct-requests.md` | One-off commands |
 | `odata-patterns.md` | `$filter`, `$select`, batch lookups |
 | `result-analysis.md` | Stats modes and presentation |
-| `insights-summary.md` | Insights page → Telemachus handoff |
+| `insights-summary.md` | Insights page → Architect handoff |
 | `tool-catalog.md` | MCP tool listing |
 | `intents.yaml` | Canonical intent definitions — menu labels, signals, next references |
 
