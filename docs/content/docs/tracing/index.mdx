@@ -47,7 +47,11 @@ In this example:
 
 ## Traces Dashboard
 
-View all traces from your application in the Rhesis dashboard. Each row shows the operation name, linked endpoint, duration, span count, status, and environment.
+View all traces from your application in the Rhesis dashboard. Each row shows the operation, its input, the linked endpoint, when it started, duration, span count, tokens, cost, model, evaluation status and environment. **Input tokens**, **Output tokens**, **Input cost** and **Output cost** are hidden by default; turn them on from the column menu. Every column except Input, Endpoint and Evaluation sorts, including tokens, cost and model.
+
+Four tiles above the list sum up what it holds: **Traces**, **Spans** (with errors), **Cost** and **Models**. Some filters cannot narrow the tiles; when one of those is active, a caption says the totals cover the whole project for the selected environment and time range.
+
+The filter drawer's **Provider** section narrows the list to traces that used a given LLM provider. A trace not yet priced matches no provider, and `unknown` covers traces whose provider could not be identified. How cost and provider are worked out is on [Token Costs](/docs/tracing/costs).
 
 The dashboard shows traces for the active project. If the list looks empty or
 stale, use the organization menu to switch projects and reload the trace list
@@ -153,4 +157,5 @@ Traces originate from **normal application operation**. They capture live behavi
 - [Decorators](/docs/tracing/decorators) - `@observe` and `@endpoint`
 - [Trace Metrics](/docs/metrics/trace-metrics) - Automatic evaluation on live traces
 - [Traces & Spans](/sdk/entities/traces) - Read traces back from the SDK
+- [Token Costs](/docs/tracing/costs) - Check what a trace or test run cost
 - [Connector](/sdk/connector) - Register functions as testable endpoints
