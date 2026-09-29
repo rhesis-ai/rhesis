@@ -9,16 +9,16 @@ import {
 } from '../trace-filter-params';
 
 describe('trace-filter-params', () => {
-  it('builds query params from drawer, search, and type filter', () => {
+  it('builds query params from drawer filters and search', () => {
     const params = buildTraceQueryParams(
       {
         ...EMPTY_TRACE_DRAWER_FILTERS,
         projectId: 'proj-1',
         traceSource: 'test',
         timeRange: '24h',
+        traceType: 'Single-Turn',
       },
-      'llm.invoke',
-      'Single-Turn'
+      'llm.invoke'
     );
 
     expect(params.project_id).toBe('proj-1');
@@ -28,8 +28,8 @@ describe('trace-filter-params', () => {
     expect(params.start_time_after).toBeDefined();
   });
 
-  it('omits type filter when all', () => {
-    const params = buildTraceQueryParams(EMPTY_TRACE_DRAWER_FILTERS, '', 'all');
+  it('omits trace type when unset', () => {
+    const params = buildTraceQueryParams(EMPTY_TRACE_DRAWER_FILTERS, '');
     expect(params.trace_type).toBeUndefined();
   });
 
@@ -88,17 +88,16 @@ describe('provider filter', () => {
   it('sends every ticked provider as a repeatable param', () => {
     const params = buildTraceQueryParams(
       { ...base, providers: ['openai', 'gemini'] },
-      '',
-      'all'
+      ''
     );
 
     expect(params.provider).toEqual(['openai', 'gemini']);
   });
 
   it('sends nothing when none are ticked', () => {
-    expect(buildTraceQueryParams(base, '', 'all').provider).toBeUndefined();
+    expect(buildTraceQueryParams(base, '').provider).toBeUndefined();
     expect(
-      buildTraceQueryParams({ ...base, providers: [] }, '', 'all').provider
+      buildTraceQueryParams({ ...base, providers: [] }, '').provider
     ).toBeUndefined();
   });
 
@@ -137,6 +136,31 @@ describe('provider filter', () => {
     expect(scoped.projectId).toBeUndefined();
     expect(countActiveTraceDrawerFilters(scoped, { testRunScope: true })).toBe(
       1
+    );
+  });
+});
+
+describe('trace type filter', () => {
+  const base: TraceDrawerFilters = { timeRange: 'all' };
+
+  it('counts as one active filter', () => {
+    expect(
+      countActiveTraceDrawerFilters({ ...base, traceType: 'Multi-Turn' })
+    ).toBe(1);
+    expect(
+      hasActiveTraceDrawerFilters({ ...base, traceType: 'Multi-Turn' })
+    ).toBe(true);
+  });
+
+  it('is dropped when scoped to a test run', () => {
+    const scoped = sanitizeTraceDrawerFiltersForTestRunScope(
+      { ...base, traceType: 'Multi-Turn' },
+      'run-1'
+    );
+
+    expect(scoped.traceType).toBeUndefined();
+    expect(countActiveTraceDrawerFilters(scoped, { testRunScope: true })).toBe(
+      0
     );
   });
 });

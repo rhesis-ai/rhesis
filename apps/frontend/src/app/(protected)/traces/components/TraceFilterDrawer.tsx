@@ -23,6 +23,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useEndpoints } from '@/hooks/useEndpoints';
 import { readActiveProjectId } from '@/utils/active-project';
 import { TRACE_METRICS_STATUS } from '@/utils/api-client/interfaces/telemetry';
+import { TEST_TYPE_FILTER_OPTIONS } from '@/constants/test-types';
 import {
   EMPTY_TRACE_DRAWER_FILTERS,
   sanitizeTraceDrawerFiltersForTestRunScope,
@@ -384,6 +385,28 @@ export default function TraceFilterDrawer({
                     }))
                   }
                   sx={filterChipSx(draft.traceSource === opt.value)}
+                >
+                  {opt.label}
+                </Box>
+              ))}
+            </Box>
+          </FilterSection>
+
+          <FilterSection title="Conversation">
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {TEST_TYPE_FILTER_OPTIONS.map(opt => (
+                <Box
+                  key={opt.value}
+                  component="button"
+                  type="button"
+                  onClick={() =>
+                    setDraft(prev => ({
+                      ...prev,
+                      traceType:
+                        prev.traceType === opt.value ? undefined : opt.value,
+                    }))
+                  }
+                  sx={filterChipSx(draft.traceType === opt.value)}
                 >
                   {opt.label}
                 </Box>

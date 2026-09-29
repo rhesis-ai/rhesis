@@ -14,8 +14,6 @@ import {
  */
 const TRACES_FILTERS = {
   search: { kind: 'raw' },
-  /** Pill value: 'all' or a TraceType. */
-  typeFilter: { kind: 'raw' },
   projectId: { kind: 'raw' },
   endpointId: { kind: 'raw' },
   environment: { kind: 'raw' },
@@ -29,6 +27,7 @@ const TRACES_FILTERS = {
   testRunId: { kind: 'raw' },
   testResultId: { kind: 'raw' },
   testId: { kind: 'raw' },
+  traceType: { kind: 'raw' },
 } as const;
 
 /**
@@ -52,11 +51,10 @@ export function tracesList(
     defaultSort: { by: 'start_time', order: 'desc' },
     filters: TRACES_FILTERS,
     extraParams: f => {
-      const { search, typeFilter, ...drawer } = f;
+      const { search, ...drawer } = f;
       const params = buildTraceQueryParams(
         drawer as unknown as TraceDrawerFilters,
-        search,
-        typeFilter
+        search
       );
       if (scopedProjectId && !drawer.projectId) {
         params.project_id = scopedProjectId;
