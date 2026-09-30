@@ -2,34 +2,42 @@
 
 **Testing and validation platform for LLM applications**
 
-This package is an alias for [`rhesis-sdk`](https://pypi.org/project/rhesis-sdk/). Installing `rhesis` is equivalent to installing `rhesis-sdk` at the same version.
+`rhesis` is the lightweight Rhesis package. It ships `rhesis.telemetry`: the tracing primitives
+(semantic-convention attributes, conversation context, token extraction, the OTLP exporter and
+tracer provider) shared by the SDK and its framework integrations. Pick an extra:
 
-## Installation
+| Install | What you get |
+|---|---|
+| `pip install "rhesis[telemetry]"` | `rhesis.telemetry` with its OpenTelemetry dependencies, for sending traces to Rhesis without the full SDK |
+| `pip install "rhesis[sdk]"` | The full [`rhesis-sdk`](https://pypi.org/project/rhesis-sdk/) |
+| `pip install "rhesis[all]"` | Both |
 
-```bash
-pip install rhesis
-```
-
-This is equivalent to:
-
-```bash
-pip install rhesis-sdk
-```
+`rhesis.telemetry` needs the `telemetry` extra (or the SDK, which brings OpenTelemetry with it) to
+import.
 
 ## Usage
+
+Tracing without the SDK (`rhesis[telemetry]`):
+
+```python
+from rhesis.telemetry import build_tracer_provider
+
+provider = build_tracer_provider(
+    service_name="my-app",
+    api_key="rh-...",
+    base_url="https://api.rhesis.ai",
+    project_id="your-project-id",
+    environment="development",
+)
+```
+
+With the full SDK (`rhesis[sdk]`):
 
 ```python
 from rhesis.sdk import RhesisClient
 
 client = RhesisClient()
 ```
-
-## Why Two Package Names?
-
-- **`rhesis`** - Short, memorable name for quick installation
-- **`rhesis-sdk`** - Explicit SDK package name
-
-Both packages are always released together with the same version number. Use whichever you prefer.
 
 ## Documentation
 

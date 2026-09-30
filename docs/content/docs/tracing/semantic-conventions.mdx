@@ -164,7 +164,7 @@ span.set_attribute(AIAttributes.LLM_TOKENS_OUTPUT, 200)`}
 ## Supported Providers
 
 Every provider reports its token counts under different key names. Rhesis reads all of
-them onto the three `ai.llm.tokens.*` attributes above, so a trace looks the same
+them onto the `ai.llm.tokens.*` attributes above, so a trace looks the same
 whichever provider produced it.
 
 | Provider | Input key | Output key | Cached prompt tokens |

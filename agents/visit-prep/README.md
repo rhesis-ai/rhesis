@@ -169,7 +169,8 @@ Unit tests use mocked generators and do not require an API key.
 ```
 agents/visit-prep/
   src/visit_prep/       # Core package
-  examples/             # CLI, scenarios, playground stub
+  chat_terminal/        # Interactive chat, plain and traced
+  examples/             # Batch scenarios, plain and traced
   tests/                # Unit + adversarial tests
   docs/architecture.md
 ```

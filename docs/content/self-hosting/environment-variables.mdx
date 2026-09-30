@@ -168,6 +168,12 @@ Supported model-provider prefixes: `openai`, `gemini`, `azure`, `anthropic`, `gr
 `together_ai`, `perplexity`, `replicate`, `openrouter`, `cohere`, `ollama`. Supported embedding prefixes:
 `rhesis`, `openai`, `gemini`, `vertex_ai`.
 
+## Costs
+
+| Variable | Description | Default |
+|---|---|---|
+| `USD_TO_EUR_RATE` | EUR rate used when the backend has never reached the exchange-rate provider, for example with no outbound network access. See [Token Costs](/docs/tracing/costs#currencies) | `0.92` |
+
 ## Authentication and OAuth
 
 Without OAuth credentials, only email/password authentication is available.

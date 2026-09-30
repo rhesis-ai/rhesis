@@ -49,17 +49,21 @@ data** for that case, and a trace with no cost shows a dash in the list rather t
 | Provider shown as `unknown` | The span reported no provider and its model name could not be placed |
 
 A span that cannot be priced still contributes its tokens. Dropping it would make a trace that
-mixes priced and unpriced models undercount what it actually used.
+mixes priced and unpriced models undercount what it actually used. The cost of such a trace covers
+the priced spans only.
 
 ## Cached prompts
 
 Providers that cache prompts bill those tokens at their own rates: writing a cache costs more than
 an ordinary input token, reading one costs far less. Rhesis records the two counts separately, as
-`ai.llm.tokens.cache_write` and `ai.llm.tokens.cache_read`, and prices each at its own rate.
+`ai.llm.tokens.cache_write` and `ai.llm.tokens.cache_read`, and prices each at its own rate where
+LiteLLM publishes one. Where it does not, those tokens are charged at the ordinary input rate.
 
-`ai.llm.tokens.input` is the uncached part alone, which is why a trace's total is the input plus the
-output plus the cached tokens. A call that read 4,000 tokens from cache beside 50 fresh ones
-therefore reports 4,070 tokens and a cost covering all of them.
+Where cached counts are recorded, `ai.llm.tokens.input` is the uncached part alone, which is why a
+trace's total is the input plus the output plus the cached tokens. A call that read 4,000 tokens from
+cache beside 50 fresh ones and wrote 20 output tokens therefore reports 4,070 tokens and a cost
+covering all of them. Which providers report cached counts is listed under [Supported
+Providers](/docs/tracing/semantic-conventions#supported-providers).
 
 Traces recorded before Rhesis kept these counts report no cached tokens and price exactly as they
 did before, since there is nothing to charge them for.
@@ -88,13 +92,17 @@ reference rates. The ECB sets those once per working day, so the rates are daily
 real-time, and Rhesis caches them for a day. Hovering a cost shows the same figure in the other
 currencies and the day the rates are from.
 
-Pick the currency in two places. An organization sets the default under **Settings →
-Preferences**, which everyone sees unless they choose otherwise. An individual overrides it under
-their own **Settings → Preferences**, or chooses to follow the organization.
+Pick the currency in two places, each on a **Currency** card:
 
-Set `USD_TO_EUR_RATE` to pin a fallback rate for an instance with no outbound network access. It
-covers EUR only, which is all it has ever covered — with no rates available, the other currencies
-are not offered and costs show as stored rather than being converted at a guess.
+- **Org Settings → Preferences** sets the organization default, which everyone sees unless they
+  choose otherwise. Changing it needs permission to update the organization.
+- **Settings → Preferences** overrides it for you alone. Pick **Use the organization's currency**
+  to follow the default again.
+
+When the rate provider cannot be reached, Rhesis keeps showing the last rates it fetched, however
+old. An instance that has never reached it falls back to `USD_TO_EUR_RATE` (default `0.92`), which
+covers EUR only; the other currencies are not offered and costs show as stored rather than being
+converted at a guess.
 
 ## Accuracy
 

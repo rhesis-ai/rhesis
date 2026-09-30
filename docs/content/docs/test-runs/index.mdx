@@ -18,6 +18,12 @@ human verdict changed the automated result.
 Open the filter drawer and set **Annotations** to **With** or **Without** to
 include only runs that have annotations or only runs that do not.
 
+The **Tokens**, **Cost** and **Model** columns total what each run's traces used. **Input tokens**,
+**Output tokens**, **Input cost** and **Output cost** are hidden by default; turn them on from the
+column menu. Sort by any of these, or by **Annotations** to find the runs with the most or least
+review coverage. A run with no cost shows a dash; see [Token Costs](/docs/tracing/costs) for why a
+figure can be missing.
+
 By clicking on a test run, you'll see the overview of how the test run went. From here you can:
 
 - **Annotate**: Record a human verdict over the automated test evaluation
@@ -31,7 +37,17 @@ By clicking on a test run, you'll see the overview of how the test run went. Fro
   alt="Test run summary — pass rate, tests executed, failures and cost, with a verdict grid of every test broken down by requirement and metric"
 />
 
+## Cost
+
+The **Cost** card on the Summary tab shows what the run spent, the tokens behind it, and the model
+that produced them. Hover the (i) icon for the input and output tokens. While the run executes, the
+card updates as traces arrive and are priced. A run that produced no traces has no Cost card.
+
 ## Test Run Detail View
+
+The tabs across a run are **Summary**, **Configuration**, **Tests**, **Traces** and
+**Annotations**. The badge on **Annotations** counts the annotations recorded across the run, and
+the tab lists them with a link to each result.
 
 The test run detail page includes an expanded **Overview** and **Conversation** workflow for debugging failures faster:
 
@@ -139,6 +155,10 @@ Compare test runs to identify regressions and improvements between executions.
   darkSrc="/screenshots/rhesis-ai-test-run-compare-dark.webp"
   alt="Test run comparison — baseline and current run side by side with pass rate, cost, tokens and model, the cost and token differences, and a test-by-test comparison below"
 />
+
+Above the test-by-test comparison, each run shows its **Cost**, **Tokens** and **Model**. The
+current run shows its difference from the baseline beside cost and tokens, green when it used less.
+The cost difference appears only when both runs have a cost.
 
 **Comparison Filters:**
 

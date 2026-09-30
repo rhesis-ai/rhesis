@@ -87,7 +87,7 @@ uv run python examples/run_scenarios_traced.py # the same scenarios, traced
 The traced variants exit with a message if the Rhesis credentials are missing, rather than
 running untraced and looking like they worked.
 
-The integration is enabled in exactly one place, `src/reg_advisor/app.py`:
+The dev server enables the integration in `src/reg_advisor/app.py`; the traced twins `chat_terminal/chat_traced.py` and `examples/run_scenarios_traced.py` do the same for their own runs:
 
 ```python
 auto_instrument("google_adk")

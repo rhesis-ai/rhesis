@@ -40,7 +40,7 @@ uv sync
 ## Run
 
 ```bash
-# FastAPI dev server on :8890
+# FastAPI dev server on :8890; with Rhesis credentials it also connects to the Playground
 uv run python -m travel_agent
 
 # Multi-turn behavioural check against the real model and real APIs
@@ -52,7 +52,7 @@ TRAVEL_AGENT_FAULTS=weather:timeout,transit:error uv run python examples/run_sce
 # Same scenarios, with traces shipped to Rhesis
 uv run python examples/run_scenarios_traced.py
 
-# Long-lived connector so the Rhesis playground can chat live
+# Connector only, without the HTTP server, so the Rhesis playground can chat live
 uv run python examples/serve_playground.py
 ```
 
@@ -108,7 +108,7 @@ These are public, best-effort endpoints. Overpass in particular is slow and does
 | `GOOGLE_API_KEY` | yes | Gemini key (`GEMINI_API_KEY` also accepted) |
 | `TRAVEL_AGENT_MODEL` | no | Model id, default `gemini-3.1-flash-lite` |
 | `TRAVEL_AGENT_FAULTS` | no | Force service failures, e.g. `weather:timeout,sights:empty` |
-| `RHESIS_API_KEY` | no | Ship traces to Rhesis |
-| `RHESIS_PROJECT_ID` | no | Ship traces to Rhesis |
+| `RHESIS_API_KEY` | no | Ship traces to Rhesis and connect to the Playground |
+| `RHESIS_PROJECT_ID` | no | Ship traces to Rhesis and connect to the Playground |
 
 Without Rhesis credentials the agent runs normally and the SDK falls back to a `DisabledClient`, so no spans are exported.
