@@ -13,11 +13,13 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+import sqlalchemy as sa
 
 from rhesis.backend.app import models
 from rhesis.backend.app.crud.model import get_rhesis_system_models
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.models.organization import Organization
+from rhesis.backend.app.services import model_setup
 from rhesis.backend.app.services.embedding import services as embedding_services
 from rhesis.backend.app.services.embedding.services import EmbeddingService
 from rhesis.backend.app.services.model_setup import (
@@ -262,6 +264,10 @@ class TestCheckModelReadiness:
 
         assert readiness_for_request(test_db, user).ready
 
+    def test_readiness_for_request_fails_open(self, test_db, user):
+        with patch.object(model_setup, "check_model_readiness", side_effect=RuntimeError("boom")):
+            assert readiness_for_request(test_db, user).ready
+
     def test_problem_carries_the_error_code_and_the_env_var_for_logs(
         self, test_db, user, deployment
     ):
@@ -327,6 +333,17 @@ class TestAdoptUsableDefaults:
         assert user.settings.models.generation.model_id == own_model.id
         assert check_model_readiness(test_db, user).ready
 
+    def test_db_error_does_not_break_the_outer_transaction(
+        self, test_db, test_org_id, user, own_model
+    ):
+        def fail(db, *_):
+            db.execute(sa.text("SELECT 1/0"))
+
+        with patch.object(model_setup, "_adopt_for_user", side_effect=fail):
+            adopt_usable_defaults(test_db, test_org_id, [own_model])
+
+        assert test_db.execute(sa.text("SELECT 1")).scalar() == 1
+
     def test_usable_default_is_never_replaced(
         self, test_db, test_org_id, user, own_model, rhesis_models, deployment
     ):
@@ -390,7 +407,7 @@ class TestBackgroundEmbeddingSkip:
     ):
         deployment(platform_key_feature=True)
         apply_default_model_ids(user, {"embedding": rhesis_models["embedding_model_id"]})
-        embedding_services._warned_orgs.discard(str(test_org_id))
+        embedding_services._last_warned.pop(str(test_org_id), None)
         service = EmbeddingService(test_db)
 
         with patch.object(EmbeddingService, "execute_with_fallback") as run:

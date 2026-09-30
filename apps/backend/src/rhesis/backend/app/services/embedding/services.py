@@ -1,6 +1,7 @@
 """Embedding generation service with async/sync orchestration."""
 
 import logging
+import time
 from types import SimpleNamespace
 from uuid import UUID
 
@@ -14,19 +15,25 @@ from rhesis.backend.jobs.embedding import generate_embedding_task
 
 logger = logging.getLogger(__name__)
 
-#: Orgs already warned about in this process, so a missing model is one warning
+#: When each org was last warned about, so a missing model is one warning an hour
 #: rather than one per saved entity.
-_warned_orgs: set[str] = set()
+_WARN_EVERY_SECONDS = 3600
+_last_warned: dict[str, float] = {}
 
 
 def _skip_embedding(organization_id: str, reason: str) -> None:
-    if organization_id in _warned_orgs:
+    now = time.monotonic()
+    if now - _last_warned.get(organization_id, -_WARN_EVERY_SECONDS) < _WARN_EVERY_SECONDS:
         logger.debug("Skipping embedding for org_id=%s: %s", organization_id, reason)
         return
-    _warned_orgs.add(organization_id)
+    # Drop expired entries so the map can't grow without bound.
+    for org_id, at in list(_last_warned.items()):
+        if now - at >= _WARN_EVERY_SECONDS:
+            del _last_warned[org_id]
+    _last_warned[organization_id] = now
     logger.warning(
         "Skipping embeddings for org_id=%s until a usable embedding model is set up "
-        "(logged once): %s",
+        "(logged at most hourly): %s",
         organization_id,
         reason,
     )

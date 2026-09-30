@@ -44,10 +44,9 @@ def readiness_for_request(db: Session, user: User) -> Optional[ModelReadiness]:
         set_session_variables(db, str(user.organization_id), str(user.id))
         return check_model_readiness(db, user)
     except Exception:
-        # A readiness read must never take /features down with it.
+        # Fail open: a bug here must not put every user behind the model setup step.
         logger.exception("Could not compute model readiness for user_id=%s", user.id)
-        reason = "The model setup could not be checked."
-        return ModelReadiness(generation=reason, evaluation=reason, embedding=reason)
+        return ModelReadiness()
 
 
 def onboarding_default_model_ids(
@@ -96,10 +95,10 @@ def adopt_usable_defaults(db: Session, organization_id: str, candidates: list[Mo
     the write that made a model usable, and failing here must not undo that write.
     """
     try:
-        users = user_crud.get_organization_users(db, organization_id)
-        for user in users:
-            _adopt_for_user(db, user, candidates)
-        db.flush()
+        # A savepoint, so a failure here can't poison the transaction of that write.
+        with db.begin_nested():
+            for user in user_crud.get_organization_users(db, organization_id):
+                _adopt_for_user(db, user, candidates)
     except Exception:
         logger.exception("Could not update default models for org_id=%s", organization_id)
 
