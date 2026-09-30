@@ -28,6 +28,27 @@ function descriptorId(descriptor: object): number {
   return id;
 }
 
+/**
+ * The grid clears its sort on the third header click, but a list always keeps
+ * one. Clearing the default column flips it: re-applying the default there
+ * would be a no-op, so a list that starts on `start_time desc` could never
+ * reach asc.
+ */
+export function nextSortModel(
+  prev: GridSortModel,
+  model: GridSortModel,
+  defaultSort: ListSort
+): GridSortModel {
+  if (model.length > 0) return model;
+  const current = prev[0];
+  if (current?.field === defaultSort.by && current.sort) {
+    return [
+      { field: current.field, sort: current.sort === 'asc' ? 'desc' : 'asc' },
+    ];
+  }
+  return [{ field: defaultSort.by, sort: defaultSort.order }];
+}
+
 interface UseListOptions<T, S extends FilterSpecMap> {
   filters: FiltersOf<S>;
   /**
@@ -125,15 +146,6 @@ export function useList<T, S extends FilterSpecMap>(
     /** Spread onto a sortable `<BaseDataGrid>`; omit for grids with fixed sort. */
     sortModel,
     onSortModelChange: (model: GridSortModel) =>
-      setSortModel(
-        model.length > 0
-          ? model
-          : [
-              {
-                field: descriptor.defaultSort.by,
-                sort: descriptor.defaultSort.order,
-              },
-            ]
-      ),
+      setSortModel(prev => nextSortModel(prev, model, descriptor.defaultSort)),
   };
 }
