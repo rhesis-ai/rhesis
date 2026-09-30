@@ -11,14 +11,9 @@ on:
   workflow_call:
 
 jobs:
-  # Blocks both publish jobs. #2834 shipped a wheel with no code in it and
-  # #2835 borrowed the OTLP exporter's session, both of which a build alone
-  # cannot catch.
-  #
-  # The publish jobs rebuild instead of downloading these wheels, which only
-  # holds because hatchling pins every zip entry to the same timestamp, so the
-  # two builds come out byte-identical regardless of the builder's Python. If
-  # that ever stops holding, publish these artifacts instead of rebuilding.
+  # Blocks both publish jobs, and the publish jobs upload exactly the files
+  # tested here. #2834 shipped a wheel with no code in it and #2835 borrowed
+  # the OTLP exporter's session, both of which a build alone cannot catch.
   smoke-test-wheels:
     runs-on: ubuntu-latest
     permissions:
@@ -33,6 +28,20 @@ jobs:
     - name: Smoke test the built wheels
       uses: ./.github/actions/sdk-wheel-smoke-test
 
+    - name: Upload rhesis dists
+      uses: actions/upload-artifact@v7
+      with:
+        name: pypi-dist-rhesis
+        path: packages/rhesis/dist/
+        if-no-files-found: error
+
+    - name: Upload rhesis-sdk dists
+      uses: actions/upload-artifact@v7
+      with:
+        name: pypi-dist-rhesis-sdk
+        path: sdk/dist/
+        if-no-files-found: error
+
   publish-rhesis:
     needs: smoke-test-wheels
     runs-on: ubuntu-latest
@@ -40,26 +49,19 @@ jobs:
       name: pypi
       url: https://pypi.org/p/rhesis
     permissions:
-      contents: read   # Required for actions/checkout
       id-token: write  # Required for trusted publishing
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+    - name: Download rhesis dists
+      uses: actions/download-artifact@v8
       with:
-        persist-credentials: false
-
-    - name: Setup Python build environment
-      uses: ./.github/actions/setup-python-build
-
-    - name: Build rhesis
-      working-directory: ./packages/rhesis
-      run: python -m build
+        name: pypi-dist-rhesis
+        path: dist/
 
     - name: Publish rhesis to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        packages-dir: ./packages/rhesis/dist/
+        packages-dir: dist/
         skip-existing: true
 
   publish-sdk:
@@ -69,24 +71,17 @@ jobs:
       name: pypi
       url: https://pypi.org/p/rhesis-sdk
     permissions:
-      contents: read   # Required for actions/checkout
       id-token: write  # Required for trusted publishing
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+    - name: Download rhesis-sdk dists
+      uses: actions/download-artifact@v8
       with:
-        persist-credentials: false
-
-    - name: Setup Python build environment
-      uses: ./.github/actions/setup-python-build
-
-    - name: Build SDK
-      working-directory: ./sdk
-      run: python -m build
+        name: pypi-dist-rhesis-sdk
+        path: dist/
 
     - name: Publish rhesis-sdk to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        packages-dir: ./sdk/dist/
+        packages-dir: dist/
         skip-existing: true
