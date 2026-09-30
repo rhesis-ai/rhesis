@@ -124,7 +124,7 @@ def resolve_model(
     principal: Principal,
     purpose: ModelPurpose,
     override: Optional[str] = None,
-) -> BaseLLM:
+) -> Union[BaseLLM, BaseDecisionModel]:
     """
     Resolve the language model to use for *purpose*, for *principal*.
 
@@ -146,7 +146,8 @@ def resolve_model(
             for per-request model selection.
 
     Returns:
-        A ready ``BaseLLM``, already stamped for usage accrual. Never a bare
+        A ready ``BaseLLM``, already stamped for usage accrual; for evaluation it can also be
+        a decision model, which can't write text (see :func:`text_model_for`). Never a bare
         provider string: a caller that cannot get a working model gets an
         exception, not a value it has to finish building itself.
 
@@ -507,6 +508,28 @@ def ensure_language_model(model_or_provider: Union[str, BaseLLM]) -> BaseLLM:
             metered=True,
         )
     return model_or_provider
+
+
+def text_model_for(
+    db: Session,
+    principal: Optional[Principal],
+    model: Union[BaseLLM, BaseDecisionModel, None],
+) -> Optional[BaseLLM]:
+    """The model evaluation work that has to write text should use, given the evaluation model.
+
+    A decision model (Jev) is a valid evaluation default but can't generate text, so the test
+    interpreter and every non-categorical judge fall back to *principal*'s generation model.
+    Any other model is returned as is.
+    """
+    if not isinstance(model, BaseDecisionModel):
+        return model
+    if principal is None:
+        return None
+    logger.info(
+        "Evaluation model %s is a decision model; using the generation model for text",
+        model.model_name,
+    )
+    return resolve_model(db, principal, "generation")
 
 
 def _ensure_embedder(
