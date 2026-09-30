@@ -188,11 +188,25 @@ describe('ConversationHistory', () => {
 
     it('a failed metric fails a turn a passed criterion also cites', () => {
       renderConversation({
+        conversationSummary: [makeTurn(1), makeTurn(2), makeTurn(3)],
+        goalEvaluation: goalEvaluation(true, [1, 2]),
+        metrics: redFlag(false, [2]),
+      });
+      // Goal criterion cites [1,2] out of 3 turns → stays per-turn.
+      // Turn 1: Pass (only the passing goal criterion), Turn 2: Fail (criterion + failed metric).
+      expect(turnStatuses()).toEqual(['Pass', 'Fail']);
+    });
+
+    it('promotes a finding citing all turns to conversation-level', () => {
+      renderConversation({
         conversationSummary: [makeTurn(1), makeTurn(2)],
         goalEvaluation: goalEvaluation(true, [1, 2]),
         metrics: redFlag(false, [2]),
       });
-      expect(turnStatuses()).toEqual(['Pass', 'Fail']);
+      // Goal criterion cites all 2 turns → promoted to conversation-level.
+      // Turn 1: no per-turn verdict → soft "Evaluated" chip. Turn 2: failed metric → Fail.
+      expect(turnStatuses()).toEqual(['Fail']);
+      expect(screen.getByText('Evaluated')).toBeInTheDocument();
     });
 
     it('shows a failure that cites no turn above the conversation', () => {

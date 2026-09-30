@@ -39,6 +39,7 @@ import {
   buildTurnFindings,
   findingsForTurn,
   turnStatus,
+  turnHasConversationFindings,
   uncitedFailures,
   type TurnFinding,
 } from '@/utils/turn-findings';
@@ -196,7 +197,11 @@ export default function ConversationHistory({
     }));
   };
 
-  const findings = buildTurnFindings(goalEvaluation, metrics);
+  const findings = buildTurnFindings(
+    goalEvaluation,
+    metrics,
+    conversationSummary?.length
+  );
   const conversationFailures = uncitedFailures(findings);
 
   // Findings on one turn, grouped by the metric that made them.
@@ -306,6 +311,11 @@ export default function ConversationHistory({
               ? false
               : undefined;
 
+        // Soft indicator: no per-turn verdict, but a conversation-level finding cites this turn.
+        const isEvaluated =
+          !shownStatus &&
+          turnHasConversationFindings(findings, turn.turn);
+
         const turnAnnotation = turnAnnotationMap.get(turn.turn);
         const turnIsOverruled = !!turn.override;
         const turnIsConfirmed = !!turnAnnotation && !turnIsOverruled;
@@ -354,6 +364,19 @@ export default function ConversationHistory({
                   label={STATUS_LABEL[shownStatus]}
                   size="small"
                   variant="filled"
+                />
+              )}
+
+              {isEvaluated && (
+                <Chip
+                  label="Evaluated"
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    color: 'text.secondary',
+                    borderColor: theme.palette.divider,
+                    fontSize: theme.typography.caption.fontSize,
+                  }}
                 />
               )}
 

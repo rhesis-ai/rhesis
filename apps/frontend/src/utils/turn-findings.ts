@@ -18,6 +18,8 @@ export interface TurnFinding {
   evidence: string;
   kind?: 'required' | 'prohibited';
   relevant_turns: number[];
+  /** True when the finding cited every turn and was promoted to conversation-level. */
+  conversationLevel?: boolean;
 }
 
 export type TurnStatus = 'Pass' | 'Fail';
@@ -30,7 +32,8 @@ const DEFAULT_GOAL_METRIC = 'Goal Achievement';
  */
 export function buildTurnFindings(
   goalEvaluation?: GoalEvaluation,
-  metrics: Record<string, MetricResult> = {}
+  metrics: Record<string, MetricResult> = {},
+  turnCount?: number
 ): TurnFinding[] {
   const entries = Object.entries(metrics);
   const [goalMetric, goalResult] = entries.find(([name]) =>
@@ -69,14 +72,27 @@ export function buildTurnFindings(
       relevant_turns: m.relevant_turns ?? [],
     }));
 
-  return [...criteria, ...others];
+  const all = [...criteria, ...others];
+
+  // A finding that cites every turn is a conversation-level verdict, not a per-turn one.
+  // Mark it so per-turn queries skip it, while keeping relevant_turns for the soft indicator.
+  if (turnCount && turnCount > 1) {
+    return all.map(f =>
+      f.relevant_turns.length >= turnCount
+        ? { ...f, conversationLevel: true }
+        : f
+    );
+  }
+  return all;
 }
 
 export function findingsForTurn(
   findings: TurnFinding[],
   turn: number
 ): TurnFinding[] {
-  return findings.filter(f => f.relevant_turns.includes(turn));
+  return findings.filter(
+    f => !f.conversationLevel && f.relevant_turns.includes(turn)
+  );
 }
 
 /** Failed if any finding citing the turn failed, passed if only passing ones cite it. */
@@ -91,5 +107,17 @@ export function turnStatus(
 
 /** Failures no turn carries, e.g. a judgment about the conversation as a whole. */
 export function uncitedFailures(findings: TurnFinding[]): TurnFinding[] {
-  return findings.filter(f => !f.met && f.relevant_turns.length === 0);
+  return findings.filter(
+    f => !f.met && (f.relevant_turns.length === 0 || f.conversationLevel)
+  );
+}
+
+/** Whether any conversation-level finding cites this turn. */
+export function turnHasConversationFindings(
+  findings: TurnFinding[],
+  turn: number
+): boolean {
+  return findings.some(
+    f => f.conversationLevel && f.relevant_turns.includes(turn)
+  );
 }
