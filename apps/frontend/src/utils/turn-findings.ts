@@ -78,7 +78,7 @@ export function buildTurnFindings(
   // Mark it so per-turn queries skip it, while keeping relevant_turns for the soft indicator.
   if (turnCount && turnCount > 1) {
     return all.map(f =>
-      f.relevant_turns.length >= turnCount
+      new Set(f.relevant_turns).size >= turnCount
         ? { ...f, conversationLevel: true }
         : f
     );
