@@ -17,6 +17,10 @@ import PageLoadingState from '@/components/common/PageLoadingState';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import {
+  filtersFromSearchParams,
+  viewFromSearchParams,
+} from './trace-url-state';
 
 interface TracesClientWrapperProps {
   currentUserId?: string;
@@ -39,6 +43,13 @@ export default function TracesClientWrapper({
   const initialTraceId = searchParams.get('open_trace');
   const initialProjectId = searchParams.get('project_id');
   const initialSpanId = searchParams.get('open_span');
+  // Read once: TracesClient owns this state after mount and writes it back.
+  const [initialView] = useState(() =>
+    viewFromSearchParams(new URLSearchParams(searchParams.toString()))
+  );
+  const [initialFilters] = useState(() =>
+    filtersFromSearchParams(new URLSearchParams(searchParams.toString()))
+  );
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Telemetry.READ
   );
@@ -127,6 +138,8 @@ export default function TracesClientWrapper({
             initialTraceId={initialTraceId}
             initialProjectId={initialProjectId}
             initialSpanId={initialSpanId}
+            initialView={initialView}
+            initialFilters={initialFilters}
             onUnfilteredEmpty={handleUnfilteredEmpty}
             refreshTrigger={refreshTrigger}
             initialData={initialData}

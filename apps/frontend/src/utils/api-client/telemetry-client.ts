@@ -1,10 +1,37 @@
 import { BaseApiClient } from './base-client';
 import {
+  SpanFacetsResponse,
+  SpanFilterParams,
+  SpanListResponse,
+  SpanQueryParams,
   TraceListResponse,
   TraceDetailResponse,
   TraceQueryParams,
   TraceMetricsResponse,
 } from './interfaces/telemetry';
+
+/**
+ * `path?query` with empty values left out. Arrays are appended one entry at a time:
+ * FastAPI reads a repeatable filter as `?provider=a&provider=b`, and the default
+ * toString() would send the single value "a,b" instead.
+ */
+function withQuery(path: string, params: object): string {
+  const queryParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    if (Array.isArray(value)) {
+      value.forEach(entry => {
+        if (entry !== undefined && entry !== null && entry !== '') {
+          queryParams.append(key, String(entry));
+        }
+      });
+      return;
+    }
+    queryParams.append(key, String(value));
+  });
+  const queryString = queryParams.toString();
+  return queryString ? `${path}?${queryString}` : path;
+}
 
 /**
  * API client for telemetry/tracing endpoints
@@ -14,32 +41,36 @@ export class TelemetryClient extends BaseApiClient {
    * List traces with filters and pagination
    */
   async listTraces(params: TraceQueryParams): Promise<TraceListResponse> {
-    const queryParams = new URLSearchParams();
+    return this.fetch<TraceListResponse>(
+      withQuery('/telemetry/traces', params),
+      { cache: 'no-store' }
+    );
+  }
 
-    // Add all defined parameters to query string. Arrays are appended one entry at a
-    // time: FastAPI reads a repeatable filter as `?provider=a&provider=b`, and the
-    // default toString() would send the single value "a,b" instead.
-    Object.entries(params).forEach(([key, value]) => {
-      if (value === undefined || value === null || value === '') return;
-      if (Array.isArray(value)) {
-        value.forEach(entry => {
-          if (entry !== undefined && entry !== null && entry !== '') {
-            queryParams.append(key, String(entry));
-          }
-        });
-        return;
-      }
-      queryParams.append(key, value.toString());
-    });
-
-    const queryString = queryParams.toString();
-    const endpoint = queryString
-      ? `/telemetry/traces?${queryString}`
-      : '/telemetry/traces';
-
-    return this.fetch<TraceListResponse>(endpoint, {
+  /**
+   * List spans, one row per span, with filters, sorting and pagination.
+   */
+  async listSpans(params: SpanQueryParams): Promise<SpanListResponse> {
+    return this.fetch<SpanListResponse>(withQuery('/telemetry/spans', params), {
       cache: 'no-store',
     });
+  }
+
+  /**
+   * Span types, names and models with counts under the given filters, for the
+   * span filter drawer. Each facet ignores its own filter.
+   */
+  async getSpanFacets(
+    params: SpanFilterParams,
+    nameLimit?: number
+  ): Promise<SpanFacetsResponse> {
+    return this.fetch<SpanFacetsResponse>(
+      withQuery('/telemetry/spans/facets', {
+        ...params,
+        name_limit: nameLimit,
+      }),
+      { cache: 'no-store' }
+    );
   }
 
   /**

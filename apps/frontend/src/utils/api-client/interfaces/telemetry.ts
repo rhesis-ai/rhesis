@@ -200,6 +200,93 @@ export interface TraceQueryParams {
 }
 
 /**
+ * One span in the spans list (GET /telemetry/spans).
+ */
+export interface SpanSummary {
+  id: string;
+  span_id: string;
+  trace_id: string;
+  parent_span_id?: string | null;
+  is_root: boolean;
+  project_id: string;
+  span_name: string;
+  span_type: string;
+  /** Name of the trace's first root span. */
+  trace_name?: string | null;
+  start_time: string;
+  duration_ms: number;
+  status_code: string;
+  environment: string;
+  conversation_id?: string | null;
+  test_run_id?: string | null;
+  test_result_id?: string | null;
+  test_id?: string | null;
+  model?: string | null;
+  /** Set only when the span names a model. */
+  provider?: string | null;
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  /** Null when the span reported no tokens at all. */
+  total_tokens?: number | null;
+  /** Null until enrichment prices the span; only LLM calls are priced. */
+  cost_usd?: number | null;
+}
+
+export interface SpanListResponse {
+  spans: SpanSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+/**
+ * Filters shared by GET /telemetry/spans and GET /telemetry/spans/facets.
+ * Test ids, trace_source and trace_type match every span of a matching trace.
+ */
+export interface SpanFilterParams {
+  project_id?: string;
+  span_type?: string[];
+  span_name?: string[];
+  /** Case-insensitive substring of span name, span ID or trace ID. */
+  search?: string;
+  is_root?: boolean;
+  status_code?: string;
+  environment?: string;
+  start_time_after?: string;
+  start_time_before?: string;
+  duration_min_ms?: number;
+  duration_max_ms?: number;
+  test_run_id?: string;
+  test_result_id?: string;
+  test_id?: string;
+  trace_type?: TraceType;
+  trace_source?: TraceSource;
+  model?: string[];
+  provider?: string[];
+}
+
+export interface SpanQueryParams extends SpanFilterParams {
+  limit?: number;
+  offset?: number;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+}
+
+export interface SpanFacetValue {
+  value: string;
+  count: number;
+}
+
+/** Each facet ignores its own filter, so a selected type still lists the others. */
+export interface SpanFacetsResponse {
+  span_types: SpanFacetValue[];
+  span_names: SpanFacetValue[];
+  /** More names exist than name_limit returned. */
+  span_names_truncated: boolean;
+  models: SpanFacetValue[];
+}
+
+/**
  * Aggregated metrics response
  */
 export interface TraceMetricsResponse {

@@ -1,4 +1,5 @@
 import {
+  buildSpanQueryParams,
   buildTraceQueryParams,
   countActiveTraceDrawerFilters,
   EMPTY_TRACE_DRAWER_FILTERS,
@@ -162,5 +163,128 @@ describe('trace type filter', () => {
     expect(countActiveTraceDrawerFilters(scoped, { testRunScope: true })).toBe(
       0
     );
+  });
+});
+
+describe('span filters', () => {
+  const base: TraceDrawerFilters = { timeRange: 'all' };
+  const spanOnly: TraceDrawerFilters = {
+    ...base,
+    spanTypes: ['tool.invoke', 'llm.invoke'],
+    spanNames: ['function.visit_prep_chat'],
+    isRoot: false,
+  };
+
+  it('maps span filters to repeatable span params', () => {
+    const params = buildSpanQueryParams(spanOnly, ' prep ');
+
+    expect(params.span_type).toEqual(['tool.invoke', 'llm.invoke']);
+    expect(params.span_name).toEqual(['function.visit_prep_chat']);
+    expect(params.is_root).toBe(false);
+    expect(params.search).toBe('prep');
+  });
+
+  it('sends shared filters and the time range to the spans list', () => {
+    const params = buildSpanQueryParams(
+      {
+        timeRange: '24h',
+        projectId: 'proj-1',
+        environment: 'production',
+        traceSource: 'test',
+        traceType: 'Multi-Turn',
+        providers: ['openai'],
+        testRunId: 'run-1',
+      },
+      ''
+    );
+
+    expect(params).toEqual(
+      expect.objectContaining({
+        project_id: 'proj-1',
+        environment: 'production',
+        trace_source: 'test',
+        trace_type: 'Multi-Turn',
+        provider: ['openai'],
+        test_run_id: 'run-1',
+      })
+    );
+    expect(params.start_time_after).toBeDefined();
+  });
+
+  it('leaves endpoint and evaluation out of span params', () => {
+    const params = buildSpanQueryParams(
+      { ...base, endpointId: 'ep-1', traceMetricsStatus: 'Fail' },
+      ''
+    ) as Record<string, unknown>;
+
+    expect(params.endpoint_id).toBeUndefined();
+    expect(params.trace_metrics_status).toBeUndefined();
+  });
+
+  it('sends custom time bounds', () => {
+    const params = buildSpanQueryParams(
+      {
+        timeRange: 'custom',
+        startTimeAfter: '2026-01-01T00:00:00.000Z',
+        startTimeBefore: '2026-02-01T00:00:00.000Z',
+      },
+      ''
+    );
+
+    expect(params.start_time_after).toBe('2026-01-01T00:00:00.000Z');
+    expect(params.start_time_before).toBe('2026-02-01T00:00:00.000Z');
+  });
+
+  it('leaves span filters out of trace params', () => {
+    const params = buildTraceQueryParams(spanOnly, '') as Record<
+      string,
+      unknown
+    >;
+
+    expect(params.span_type).toBeUndefined();
+    expect(params.is_root).toBeUndefined();
+  });
+
+  it('counts each span section once, in the spans view only', () => {
+    expect(countActiveTraceDrawerFilters(spanOnly, { view: 'spans' })).toBe(3);
+    expect(countActiveTraceDrawerFilters(spanOnly)).toBe(0);
+    expect(hasActiveTraceDrawerFilters(spanOnly)).toBe(false);
+  });
+
+  it('counts root=true as active', () => {
+    expect(
+      hasActiveTraceDrawerFilters({ ...base, isRoot: true }, { view: 'spans' })
+    ).toBe(true);
+  });
+
+  it('does not count trace-only filters in the spans view', () => {
+    const traceOnly = {
+      ...base,
+      endpointId: 'ep-1',
+      traceMetricsStatus: 'Fail',
+    };
+
+    expect(countActiveTraceDrawerFilters(traceOnly)).toBe(2);
+    expect(countActiveTraceDrawerFilters(traceOnly, { view: 'spans' })).toBe(0);
+    expect(
+      countActiveTraceDrawerFilters(traceOnly, {
+        view: 'spans',
+        testRunScope: true,
+      })
+    ).toBe(0);
+  });
+
+  it('survives being scoped to a test run', () => {
+    const scoped = sanitizeTraceDrawerFiltersForTestRunScope(spanOnly, 'run-1');
+
+    expect(scoped.spanTypes).toEqual(spanOnly.spanTypes);
+    expect(scoped.spanNames).toEqual(spanOnly.spanNames);
+    expect(scoped.isRoot).toBe(false);
+    expect(
+      countActiveTraceDrawerFilters(scoped, {
+        testRunScope: true,
+        view: 'spans',
+      })
+    ).toBe(3);
   });
 });
