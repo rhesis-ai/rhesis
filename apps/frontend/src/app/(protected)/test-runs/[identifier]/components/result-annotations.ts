@@ -5,7 +5,7 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
  * Reading the annotations a test result carries on its own payload.
  *
  * Only two questions are asked of this: has anyone annotated this result at
- * all, and which metric annotation is the latest. Both are answered from
+ * all, and which metric or turn annotation is the latest. Both are answered from
  * `annotation_summary` without a request, which is what lets the results grid
  * and the tests table render an indicator per row synchronously. Anything
  * needing full rows (comments, `permitted_actions`, resolve state) fetches them
@@ -115,17 +115,19 @@ function isExplicitTestLevelAnnotation(
   return !commentMentionsAnyMetric(result, annotation.comments ?? '');
 }
 
-/** Latest metric-targeted annotation on a test result, if any. */
-export function getLatestMetricAnnotationForResult(
+/** Latest annotation on a metric or a turn of a test result, if any. */
+export function getLatestPartAnnotationForResult(
   result: TestResultDetail
 ): ResultAnnotation | undefined {
   let latest: ResultAnnotation | undefined;
   let latestTime = -1;
 
   for (const annotation of getResultAnnotations(result)) {
-    const onMetric = annotation.target_type === ANNOTATION_TARGET_TYPES.METRIC;
+    const onPart =
+      annotation.target_type === ANNOTATION_TARGET_TYPES.METRIC ||
+      annotation.target_type === ANNOTATION_TARGET_TYPES.TURN;
     if (
-      !onMetric &&
+      !onPart &&
       !commentMentionsAnyMetric(result, annotation.comments ?? '')
     ) {
       continue;
@@ -146,7 +148,5 @@ export function resultHasAnyHumanAnnotation(result: TestResultDetail): boolean {
   const hasTestLevel = getResultAnnotations(result).some(annotation =>
     isExplicitTestLevelAnnotation(result, annotation)
   );
-  return (
-    hasTestLevel || getLatestMetricAnnotationForResult(result) !== undefined
-  );
+  return hasTestLevel || getLatestPartAnnotationForResult(result) !== undefined;
 }

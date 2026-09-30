@@ -31,6 +31,7 @@ import {
   useEntityAnnotations,
 } from '@/hooks/useAnnotations';
 import {
+  ANNOTATION_TARGET_LABELS,
   ENTITY_LEVEL_TARGETS,
   type Annotation,
   type AnnotationEntityType,
@@ -53,8 +54,6 @@ export interface AnnotationsPanelProps {
   currentUserId: string;
   /** From the parent's `matches_annotation`: the human verdict disagrees. */
   hasConflict?: boolean;
-  /** Shown when nothing annotates the entity itself but a metric is annotated. */
-  metricVerdictLabel?: string | null;
   /** Opens the create surface. Rendered by the caller, which owns the drawer. */
   onCreate?: () => void;
   /** Called after any write, for parents that live outside react-query. */
@@ -97,7 +96,6 @@ export default function AnnotationsPanel({
   automatedStatus,
   currentUserId,
   hasConflict = false,
-  metricVerdictLabel = null,
   onCreate,
   onChanged,
 }: AnnotationsPanelProps) {
@@ -138,6 +136,18 @@ export default function AnnotationsPanel({
   const entityLevel = useMemo(
     () => sorted.find(a => a.target_type === ENTITY_LEVEL_TARGETS[entityType]),
     [sorted, entityType]
+  );
+  // Stands in for the human verdict when only a metric or a turn is annotated.
+  const partLevel = useMemo(
+    () =>
+      entityLevel
+        ? undefined
+        : sorted.find(
+            a =>
+              a.target_type !== ENTITY_LEVEL_TARGETS[entityType] &&
+              a.status?.name
+          ),
+    [sorted, entityType, entityLevel]
   );
 
   const handleToggleResolved = async (annotation: Annotation) => {
@@ -211,10 +221,10 @@ export default function AnnotationsPanel({
                 />
               )}
             </Box>
-          ) : metricVerdictLabel ? (
+          ) : partLevel?.status?.name ? (
             <StatusChip
-              passed={isPassedStatusName(metricVerdictLabel)}
-              label={`${verdictDisplay(metricVerdictLabel).label} (metric)`}
+              passed={isPassedStatusName(partLevel.status.name)}
+              label={`${verdictDisplay(partLevel.status.name).label} (${ANNOTATION_TARGET_LABELS[partLevel.target_type].toLowerCase()})`}
               size="small"
               variant="outlined"
             />

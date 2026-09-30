@@ -9,7 +9,7 @@ import {
   isPassedStatusName,
 } from '@/utils/test-result-status';
 import { getEndpointFailure } from '@/utils/endpoint-failure';
-import { getLatestMetricAnnotationForResult } from './result-annotations';
+import { getLatestPartAnnotationForResult } from './result-annotations';
 
 export type TestResultDisplayStatus = {
   passed: boolean;
@@ -123,11 +123,11 @@ export function getTestResultDisplayStatus(
       };
     }
 
-    // No entity-level annotation, but a metric-targeted one may still exist.
-    const latestMetricAnnotation = getLatestMetricAnnotationForResult(test);
-    if (latestMetricAnnotation?.status?.name) {
+    // No entity-level annotation, but a metric or turn one may still exist.
+    const latestPartAnnotation = getLatestPartAnnotationForResult(test);
+    if (latestPartAnnotation?.status?.name) {
       const annotationPassed = isPassedStatusName(
-        latestMetricAnnotation.status.name
+        latestPartAnnotation.status.name
       );
 
       return {
@@ -139,9 +139,9 @@ export function getTestResultDisplayStatus(
         automatedPassed: originalPassed,
         hasExecutionError: false,
         annotationData: {
-          annotator: latestMetricAnnotation.user?.name || 'Unknown',
-          comments: latestMetricAnnotation.comments ?? '',
-          updated_at: latestMetricAnnotation.updated_at,
+          annotator: latestPartAnnotation.user?.name || 'Unknown',
+          comments: latestPartAnnotation.comments ?? '',
+          updated_at: latestPartAnnotation.updated_at,
           newStatus: annotationPassed ? 'passed' : 'failed',
         },
       };
@@ -206,14 +206,14 @@ export function getTestResultDisplayStatus(
     };
   }
 
-  // No entity-level annotation, but a metric-targeted one may still exist
+  // No entity-level annotation, but a metric or turn one may still exist
   // (e.g. an @mention annotation left on a specific metric). last_annotation only
   // tracks entity-level annotations, so without this the "Annotation" column
   // would read as unannotated even though the test has been annotated.
-  const latestMetricAnnotation = getLatestMetricAnnotationForResult(test);
-  if (latestMetricAnnotation?.status?.name) {
+  const latestPartAnnotation = getLatestPartAnnotationForResult(test);
+  if (latestPartAnnotation?.status?.name) {
     const annotationPassed = isPassedStatusName(
-      latestMetricAnnotation.status.name
+      latestPartAnnotation.status.name
     );
 
     return {
@@ -225,9 +225,9 @@ export function getTestResultDisplayStatus(
       automatedPassed: originalPassed,
       hasExecutionError: false,
       annotationData: {
-        annotator: latestMetricAnnotation.user?.name || 'Unknown',
-        comments: latestMetricAnnotation.comments ?? '',
-        updated_at: latestMetricAnnotation.updated_at,
+        annotator: latestPartAnnotation.user?.name || 'Unknown',
+        comments: latestPartAnnotation.comments ?? '',
+        updated_at: latestPartAnnotation.updated_at,
         newStatus: annotationPassed ? 'passed' : 'failed',
       },
     };
