@@ -14,6 +14,11 @@ jobs:
   # Blocks both publish jobs. #2834 shipped a wheel with no code in it and
   # #2835 borrowed the OTLP exporter's session, both of which a build alone
   # cannot catch.
+  #
+  # The publish jobs rebuild instead of downloading these wheels, which only
+  # holds because hatchling pins every zip entry to the same timestamp, so the
+  # two builds come out byte-identical regardless of the builder's Python. If
+  # that ever stops holding, publish these artifacts instead of rebuilding.
   smoke-test-wheels:
     runs-on: ubuntu-latest
     permissions:
