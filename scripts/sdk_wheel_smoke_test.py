@@ -14,6 +14,7 @@ import sys
 import zipfile
 from importlib.metadata import PackageNotFoundError, distribution
 from pathlib import Path
+from urllib.parse import urlparse
 
 # What each distribution has to ship. The rhesis wheel is the runtime the SDK
 # imports; the SDK wheel is the code users import by name.
@@ -65,7 +66,7 @@ def check_installed_from(wheel: Path) -> None:
             f"{name} has no direct_url.json, so we cannot tell which wheel was "
             f"installed. Install {wheel.name} by path for this check to mean anything."
         )
-    installed_from = Path(json.loads(provenance)["url"]).name
+    installed_from = Path(urlparse(json.loads(provenance)["url"]).path).name
     if installed_from != wheel.name:
         sys.exit(f"{name} was installed from {installed_from}, not the {wheel.name} we built")
 
