@@ -9,7 +9,6 @@ import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { hasConflictingAnnotation } from '@/utils/test-result-status';
 import type { MentionOption } from '@/components/common/MentionTextInput';
-import { getLatestMetricAnnotationForResult } from './result-annotations';
 import AnnotationDrawer from '@/components/annotations/AnnotationDrawer';
 
 interface TestDetailAnnotationsTabProps {
@@ -75,9 +74,6 @@ export default function TestDetailAnnotationsTab({
     };
   }, [test]);
 
-  const metricVerdictLabel =
-    getLatestMetricAnnotationForResult(test)?.status?.name ?? null;
-
   const refreshParent = async () => {
     const updated = await new ApiClientFactory()
       .getTestResultsClient()
@@ -93,7 +89,6 @@ export default function TestDetailAnnotationsTab({
         automatedStatus={automatedStatus}
         currentUserId={currentUserId}
         hasConflict={hasConflictingAnnotation(test)}
-        metricVerdictLabel={metricVerdictLabel}
         onCreate={canCreate ? () => setCreateOpen(true) : undefined}
         onChanged={() => void refreshParent()}
       />

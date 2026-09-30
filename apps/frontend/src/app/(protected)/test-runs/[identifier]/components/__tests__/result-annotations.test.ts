@@ -1,5 +1,5 @@
 import {
-  getLatestMetricAnnotationForResult,
+  getLatestPartAnnotationForResult,
   resultHasAnyHumanAnnotation,
 } from '../result-annotations';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
@@ -65,7 +65,7 @@ function makeResult(
   } as unknown as TestResultDetail;
 }
 
-describe('getLatestMetricAnnotationForResult', () => {
+describe('getLatestPartAnnotationForResult', () => {
   it('finds an annotation targeted at the metric', () => {
     const result = makeResult({
       metrics: { 'Bias Detection': { is_successful: true } },
@@ -78,9 +78,7 @@ describe('getLatestMetricAnnotationForResult', () => {
       ),
     });
 
-    expect(getLatestMetricAnnotationForResult(result)?.status?.name).toBe(
-      'Fail'
-    );
+    expect(getLatestPartAnnotationForResult(result)?.status?.name).toBe('Fail');
   });
 
   it('matches a reference stored as a slug', () => {
@@ -95,7 +93,7 @@ describe('getLatestMetricAnnotationForResult', () => {
       ),
     });
 
-    expect(getLatestMetricAnnotationForResult(result)).toBeDefined();
+    expect(getLatestPartAnnotationForResult(result)).toBeDefined();
   });
 
   it('finds an @[Metric](metric:slug) mention on a result-level annotation', () => {
@@ -109,9 +107,7 @@ describe('getLatestMetricAnnotationForResult', () => {
       ),
     });
 
-    expect(getLatestMetricAnnotationForResult(result)?.status?.name).toBe(
-      'Fail'
-    );
+    expect(getLatestPartAnnotationForResult(result)?.status?.name).toBe('Fail');
   });
 
   it('finds a plain @Metric Name mention without markup', () => {
@@ -122,7 +118,7 @@ describe('getLatestMetricAnnotationForResult', () => {
       ),
     });
 
-    expect(getLatestMetricAnnotationForResult(result)).toBeDefined();
+    expect(getLatestPartAnnotationForResult(result)).toBeDefined();
   });
 
   it('ignores an annotation that names no metric', () => {
@@ -133,7 +129,7 @@ describe('getLatestMetricAnnotationForResult', () => {
       ),
     });
 
-    expect(getLatestMetricAnnotationForResult(result)).toBeUndefined();
+    expect(getLatestPartAnnotationForResult(result)).toBeUndefined();
   });
 
   it('returns the newest when two metrics are annotated', () => {
@@ -158,9 +154,7 @@ describe('getLatestMetricAnnotationForResult', () => {
       ),
     });
 
-    expect(getLatestMetricAnnotationForResult(result)?.reference).toBe(
-      'Fluency'
-    );
+    expect(getLatestPartAnnotationForResult(result)?.reference).toBe('Fluency');
   });
 });
 
@@ -174,6 +168,16 @@ describe('resultHasAnyHumanAnnotation', () => {
       metrics: { 'Bias Detection': { is_successful: true } },
       annotation_summary: summaryOf(
         makeAnnotation({ target_type: 'metric', reference: 'Bias Detection' })
+      ),
+    });
+
+    expect(resultHasAnyHumanAnnotation(result)).toBe(true);
+  });
+
+  it('is true when only a turn is annotated', () => {
+    const result = makeResult({
+      annotation_summary: summaryOf(
+        makeAnnotation({ target_type: 'turn', reference: '1' })
       ),
     });
 
