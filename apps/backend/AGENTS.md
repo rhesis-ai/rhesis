@@ -49,6 +49,10 @@ Nothing warns you until the statement runs. Guarded by
 need superuser, which the migration role doesn't have on CNPG. `tests/backend/security/test_rls_coverage.py`
 fails when one is missing; a table that is exempt on purpose goes in its `EXEMPT_*` sets with a reason.
 
+**A data migration over a table with `project_id` walks projects, not just orgs.** With the org bound
+and `app.current_project` blank, `project_isolation` hides every project row from a non-BYPASSRLS
+role. Loop over `iter_tenant_scopes(conn)` from `alembic/utils/tenant_scope.py` instead.
+
 ## Ambient Request Scope (Tenant Filtering & Stamping)
 
 All tenant context (`organization_id`, `user_id`, `project_id`) is stored **once per request** on
