@@ -111,8 +111,11 @@ def get_pipeline(config: VisitPrepConfig | None = None) -> Pipeline:
     """
     key = config or VisitPrepConfig()
     with _pipeline_init_lock:
-        pipe = _pipelines.get(key)
-        if pipe is None:
+        pipe = _pipelines.pop(key, None)
+        if pipe is not None:
+            # Re-insert so the dict's order is least recently used first.
+            _pipelines[key] = pipe
+        else:
             while len(_pipelines) >= MAX_CACHED_PIPELINES:
                 del _pipelines[next(iter(_pipelines))]
             pipe = _pipelines[key] = build_coordinator_pipeline(config=key)

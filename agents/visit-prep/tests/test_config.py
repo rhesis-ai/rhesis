@@ -216,3 +216,18 @@ def test_pipelines_are_cached_per_config(monkeypatch):
     session_mod.get_pipeline(VisitPrepConfig(temperature=1.0))
     assert len(session_mod._pipelines) == 2
     assert session_mod.get_pipeline() is not default, "oldest entry should have been evicted"
+
+
+def test_pipeline_cache_evicts_the_least_recently_used(monkeypatch):
+    monkeypatch.setattr(session_mod, "_pipelines", {})
+    monkeypatch.setattr(session_mod, "build_coordinator_pipeline", lambda config: object())
+    monkeypatch.setattr(session_mod, "MAX_CACHED_PIPELINES", 2)
+    busy, idle = VisitPrepConfig(temperature=0.0), VisitPrepConfig(temperature=1.0)
+
+    busy_pipe = session_mod.get_pipeline(busy)
+    session_mod.get_pipeline(idle)
+    assert session_mod.get_pipeline(busy) is busy_pipe
+    session_mod.get_pipeline(VisitPrepConfig(temperature=0.5))
+
+    assert idle not in session_mod._pipelines
+    assert session_mod._pipelines[busy] is busy_pipe
