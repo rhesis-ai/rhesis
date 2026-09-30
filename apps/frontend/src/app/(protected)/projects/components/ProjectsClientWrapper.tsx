@@ -80,7 +80,7 @@ export default function ProjectsClientWrapper({
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
 
-  const { markStepComplete, progress, activeTour } = useOnboarding();
+  const { activeTour } = useOnboarding();
   const { activeProject, refresh: refreshActiveProjects } = useActiveProject();
   const notifications = useNotifications();
   const activeProjectId = activeProject ? String(activeProject.id) : null;
@@ -157,13 +157,6 @@ export default function ProjectsClientWrapper({
     refreshActiveProjects,
     notifications,
   ]);
-
-  // Mark onboarding step complete when projects are loaded
-  useEffect(() => {
-    if (projects.length > 0 && !progress.projectCreated) {
-      markStepComplete('projectCreated');
-    }
-  }, [projects.length, progress.projectCreated, markStepComplete]);
 
   // Apply filters
   const filteredProjects = projects.filter(project => {

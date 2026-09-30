@@ -1,7 +1,10 @@
 import { QueryClient } from '@tanstack/react-query';
 import { OnboardingProgress } from '@/types/onboarding';
 import { ApiClientFactory } from './api-client/client-factory';
-import { OnboardingProgress as BackendOnboardingProgress } from './api-client/interfaces/user';
+import type {
+  OnboardingProgress as BackendOnboardingProgress,
+  OnboardingStatus,
+} from './api-client/interfaces/user';
 import {
   fetchUserSettings,
   writeUserSettingsCache,
@@ -65,7 +68,8 @@ export function saveProgress(progress: OnboardingProgress): void {
 }
 
 /**
- * Calculate completion percentage
+ * Calculate completion percentage over the required steps. Inviting users is
+ * optional, so it never moves the bar.
  */
 export function calculateCompletionPercentage(
   progress: OnboardingProgress
@@ -73,12 +77,29 @@ export function calculateCompletionPercentage(
   const steps = [
     progress.projectCreated,
     progress.endpointSetup,
-    progress.usersInvited,
     progress.testCasesCreated,
   ];
 
   const completed = steps.filter(Boolean).length;
   return Math.round((completed / steps.length) * 100);
+}
+
+/**
+ * OR the backend's data-derived status into local progress. A step the user
+ * already completed locally is never turned back off.
+ */
+export function applyServerStatus(
+  progress: OnboardingProgress,
+  status: OnboardingStatus | undefined
+): OnboardingProgress {
+  if (!status) return progress;
+  return {
+    ...progress,
+    projectCreated: progress.projectCreated || status.project_created,
+    endpointSetup: progress.endpointSetup || status.endpoint_setup,
+    usersInvited: progress.usersInvited || status.users_invited,
+    testCasesCreated: progress.testCasesCreated || status.test_cases_created,
+  };
 }
 
 /**

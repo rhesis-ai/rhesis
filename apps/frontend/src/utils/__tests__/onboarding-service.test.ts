@@ -6,8 +6,56 @@ import {
   loadProgress,
   saveProgress,
   clearProgress,
+  applyServerStatus,
 } from '../onboarding-service';
 import type { OnboardingProgress } from '@/types/onboarding';
+
+describe('applyServerStatus', () => {
+  const noneDone = {
+    project_created: false,
+    endpoint_setup: false,
+    users_invited: false,
+    test_cases_created: false,
+  };
+
+  it('returns local progress unchanged when there is no server status yet', () => {
+    const progress = getDefaultProgress();
+    expect(applyServerStatus(progress, undefined)).toBe(progress);
+  });
+
+  it('marks steps the server found in real data', () => {
+    const result = applyServerStatus(getDefaultProgress(), {
+      ...noneDone,
+      endpoint_setup: true,
+      test_cases_created: true,
+    });
+    expect(result.endpointSetup).toBe(true);
+    expect(result.testCasesCreated).toBe(true);
+    expect(result.projectCreated).toBe(false);
+  });
+
+  it('never turns off a step completed locally', () => {
+    const progress: OnboardingProgress = {
+      ...getDefaultProgress(),
+      projectCreated: true,
+      usersInvited: true,
+    };
+    const result = applyServerStatus(progress, noneDone);
+    expect(result.projectCreated).toBe(true);
+    expect(result.usersInvited).toBe(true);
+  });
+
+  it('keeps dismissed and lastUpdated from local progress', () => {
+    const progress: OnboardingProgress = {
+      ...getDefaultProgress(),
+      dismissed: true,
+      lastUpdated: 42,
+    };
+    const result = applyServerStatus(progress, noneDone);
+    expect(result.dismissed).toBe(true);
+    expect(result.lastUpdated).toBe(42);
+  });
+});
 
 describe('getDefaultProgress', () => {
   it('returns all steps as false', () => {
@@ -31,32 +79,39 @@ describe('calculateCompletionPercentage', () => {
     expect(calculateCompletionPercentage(getDefaultProgress())).toBe(0);
   });
 
-  it('returns 25 for one step completed', () => {
+  it('returns 33 for one required step completed', () => {
     const progress: OnboardingProgress = {
       ...getDefaultProgress(),
       projectCreated: true,
     };
-    expect(calculateCompletionPercentage(progress)).toBe(25);
+    expect(calculateCompletionPercentage(progress)).toBe(33);
   });
 
-  it('returns 50 for two steps completed', () => {
+  it('returns 67 for two required steps completed', () => {
     const progress: OnboardingProgress = {
       ...getDefaultProgress(),
       projectCreated: true,
       endpointSetup: true,
     };
-    expect(calculateCompletionPercentage(progress)).toBe(50);
+    expect(calculateCompletionPercentage(progress)).toBe(67);
   });
 
-  it('returns 100 for all four steps completed', () => {
+  it('returns 100 once the three required steps are done', () => {
     const progress: OnboardingProgress = {
       ...getDefaultProgress(),
       projectCreated: true,
       endpointSetup: true,
-      usersInvited: true,
       testCasesCreated: true,
     };
     expect(calculateCompletionPercentage(progress)).toBe(100);
+  });
+
+  it('does not count the optional invite step', () => {
+    const progress: OnboardingProgress = {
+      ...getDefaultProgress(),
+      usersInvited: true,
+    };
+    expect(calculateCompletionPercentage(progress)).toBe(0);
   });
 
   it('does not count dismissed in completion', () => {

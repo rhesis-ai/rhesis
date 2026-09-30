@@ -1,6 +1,7 @@
 import { BaseApiClient } from './base-client';
 import { API_ENDPOINTS } from './config';
 import {
+  OnboardingStatus,
   User,
   UserCreate,
   UserUpdate,
@@ -98,5 +99,13 @@ export class UsersClient extends BaseApiClient {
       method: 'PATCH',
       body: JSON.stringify(settings),
     });
+  }
+
+  /** Onboarding steps the organization has really done, ignoring the seeded example. */
+  async getOnboardingStatus(): Promise<OnboardingStatus> {
+    return this.fetch<OnboardingStatus>(
+      `${API_ENDPOINTS.users}/onboarding-status`,
+      { cache: 'no-store' }
+    );
   }
 }

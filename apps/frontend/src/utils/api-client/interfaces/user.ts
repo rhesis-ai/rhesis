@@ -22,6 +22,17 @@ export interface OnboardingProgress {
   last_updated?: string;
 }
 
+/**
+ * Onboarding steps computed by the backend from real data (GET
+ * /users/onboarding-status). Rows seeded as the example project never count.
+ */
+export interface OnboardingStatus {
+  project_created: boolean;
+  endpoint_setup: boolean;
+  users_invited: boolean;
+  test_cases_created: boolean;
+}
+
 import type { WithPermittedActions } from '@/types/affordances';
 
 /**

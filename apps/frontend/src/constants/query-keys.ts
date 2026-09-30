@@ -104,6 +104,10 @@ export const userSettingsKeys = {
   all: (userScope: string) => ['user-settings', userScope] as const,
 };
 
+export const onboardingStatusKeys = {
+  all: (userScope: string) => ['onboarding-status', userScope] as const,
+};
+
 export const architectSessionKeys = {
   list: (userScope: string, projectId: string) =>
     ['architect-sessions', userScope, projectId] as const,

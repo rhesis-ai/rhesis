@@ -27,14 +27,6 @@ export interface OnboardingStep {
 }
 
 /**
- * Type for marking step completion in tour steps
- */
-export type OnboardingStepId = keyof Omit<
-  OnboardingProgress,
-  'dismissed' | 'lastUpdated'
->;
-
-/**
  * Tour configuration for driver.js
  */
 export interface TourConfig {

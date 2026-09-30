@@ -22,7 +22,9 @@ import {
   loadProgressFromDatabase,
   syncProgressToDatabase,
   mergeProgress,
+  applyServerStatus,
 } from '@/utils/onboarding-service';
+import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
 import { getTourSteps, driverConfig } from '@/config/onboarding-tours';
 import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
@@ -243,32 +245,13 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
         // Enhance steps with tour-specific behavior
         const enhancedSteps = steps.map((step, index) => {
-          // Add completion tracking to steps marked with __markComplete
-          const stepWithCompletion = {
+          // Tours only guide; completion comes from real data (useOnboardingStatus).
+          const baseStep = {
             ...step,
             onHighlighted: (
               element: Element | undefined,
               stepObj: DriveStep
             ) => {
-              // Mark step complete if it has __markComplete property
-              const stepWithMark = stepObj as DriveStep & {
-                __markComplete?: keyof Omit<
-                  OnboardingProgress,
-                  'dismissed' | 'lastUpdated'
-                >;
-              };
-              if (stepWithMark.__markComplete) {
-                const stepId = stepWithMark.__markComplete;
-                setProgress(prev => {
-                  const updated = {
-                    ...prev,
-                    [stepId]: true,
-                    lastUpdated: Date.now(),
-                  };
-                  saveProgress(updated);
-                  return updated;
-                });
-              }
               // Call original onHighlighted if it exists
               if (step.onHighlighted) {
                 step.onHighlighted(element, stepObj, {
@@ -285,9 +268,9 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
             if (index === 0) {
               // Step 0: When "Next" is clicked, open the modal via custom event AND advance to next step
               return {
-                ...stepWithCompletion,
+                ...baseStep,
                 popover: {
-                  ...stepWithCompletion.popover,
+                  ...baseStep.popover,
                   onNextClick: (_element: Element | undefined) => {
                     // Dispatch custom event to open modal (more reliable than clicking disabled button)
                     window.dispatchEvent(new Event('tour-open-test-modal'));
@@ -303,8 +286,8 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
                   // Disable scrolling during first step
                   document.body.style.overflow = 'hidden';
                   // Call original onHighlighted if it exists
-                  if (stepWithCompletion.onHighlighted) {
-                    stepWithCompletion.onHighlighted(element, stepObj);
+                  if (baseStep.onHighlighted) {
+                    baseStep.onHighlighted(element, stepObj);
                   }
                 },
                 onDeselected: () => {
@@ -317,9 +300,9 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
             if (index === 1) {
               // Step 1: Handle back button to close modal
               return {
-                ...stepWithCompletion,
+                ...baseStep,
                 popover: {
-                  ...stepWithCompletion.popover,
+                  ...baseStep.popover,
                   onPrevClick: () => {
                     const dialog = document.querySelector(
                       '[data-tour="test-generation-modal"]'
@@ -360,7 +343,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
             }
           }
 
-          return stepWithCompletion;
+          return baseStep;
         });
 
         driverInstance.setSteps(enhancedSteps);
@@ -405,15 +388,21 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     status,
   ]);
 
-  // A stored `projectCreated` can outlive the project — another member deletes it,
-  // or the API does — leaving the checklist claiming a step with no project behind
-  // it. Derive the flag from the live list instead of trusting the stored bit.
-  // Deliberately never written back: mergeProgress ORs local with remote, so an
-  // unset would be resurrected on the next load.
+  // Real data (SDK endpoints, tests made anywhere) completes steps without a
+  // tour marking them. ORed in, never written back, so local progress stays as is.
+  const { data: serverStatus } = useOnboardingStatus(
+    !progress.dismissed && !isOnboardingComplete(progress)
+  );
+  const withServerStatus = applyServerStatus(progress, serverStatus);
+
+  // `projectCreated` (stored or from the server status) can outlive the project if
+  // another member or the API deletes it, so the live project list has the last
+  // word. Deliberately never written back: mergeProgress ORs local with remote, so
+  // an unset would be resurrected on the next load.
   const effectiveProgress: OnboardingProgress =
-    projectsLoading || projects.length > 0 || !progress.projectCreated
-      ? progress
-      : { ...progress, projectCreated: false };
+    projectsLoading || projects.length > 0 || !withServerStatus.projectCreated
+      ? withServerStatus
+      : { ...withServerStatus, projectCreated: false };
 
   const isComplete = isOnboardingComplete(effectiveProgress);
   const completionPercentage = calculateCompletionPercentage(effectiveProgress);
