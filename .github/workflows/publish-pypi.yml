@@ -11,7 +11,25 @@ on:
   workflow_call:
 
 jobs:
+  # Blocks both publish jobs. #2834 shipped a wheel with no code in it and
+  # #2835 borrowed the OTLP exporter's session, both of which a build alone
+  # cannot catch.
+  smoke-test-wheels:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read   # Required for actions/checkout
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+
+    - name: Smoke test the built wheels
+      uses: ./.github/actions/sdk-wheel-smoke-test
+
   publish-rhesis:
+    needs: smoke-test-wheels
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -40,7 +58,7 @@ jobs:
         skip-existing: true
 
   publish-sdk:
-    needs: publish-rhesis
+    needs: [smoke-test-wheels, publish-rhesis]
     runs-on: ubuntu-latest
     environment:
       name: pypi
