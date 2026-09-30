@@ -2,19 +2,18 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, String, Tex
 from sqlalchemy.dialects.postgresql import ARRAY, JSON, JSONB
 from sqlalchemy.orm import relationship
 
-from rhesis.backend.app.utils.encryption import EncryptedString
-
-from .base import Base
-from .enums import (
+from rhesis.backend.app.models.base import Base
+from rhesis.backend.app.models.enums import (
     EndpointConfigSource,
     EndpointEnvironment,
     EndpointResponseFormat,
 )
-from .guid import GUID
-from .mixins import ActivityTrackableMixin, TagsMixin
+from rhesis.backend.app.models.guid import GUID
+from rhesis.backend.app.models.mixins import ActivityTrackableMixin, ExampleDataMixin, TagsMixin
+from rhesis.backend.app.utils.encryption import EncryptedString
 
 
-class Endpoint(Base, ActivityTrackableMixin, TagsMixin):
+class Endpoint(Base, ActivityTrackableMixin, TagsMixin, ExampleDataMixin):
     __tablename__ = "endpoint"
     __table_args__ = (Index("ix_endpoint_org_created", "organization_id", "created_at"),)
     # Core Fields

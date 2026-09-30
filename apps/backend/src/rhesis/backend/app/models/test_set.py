@@ -13,18 +13,18 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Session, relationship
 
+from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
-
-from .base import Base
-from .mixins import (
+from rhesis.backend.app.models.mixins import (
     ActivityTrackableMixin,
     CommentsMixin,
     CountsMixin,
+    ExampleDataMixin,
     ProjectMixin,
     TagsMixin,
     TasksMixin,
 )
-from .test import test_test_set_association
+from rhesis.backend.app.models.test import test_test_set_association
 
 # Association table for test_set and metric
 test_set_metric_association = Table(
@@ -66,7 +66,14 @@ prompt_test_set_association = Table(
 
 
 class TestSet(
-    Base, ActivityTrackableMixin, ProjectMixin, TagsMixin, CommentsMixin, TasksMixin, CountsMixin
+    Base,
+    ActivityTrackableMixin,
+    ProjectMixin,
+    TagsMixin,
+    CommentsMixin,
+    TasksMixin,
+    CountsMixin,
+    ExampleDataMixin,
 ):
     __tablename__ = "test_set"
     name = Column(String, nullable=False)

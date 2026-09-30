@@ -147,3 +147,14 @@ def bulk_delete_endpoints(
         organization_id=organization_id,
         user_id=user_id,
     )
+
+
+def user_endpoint_exists(db: Session, organization_id: str) -> bool:
+    """True when a live endpoint that isn't seeded example data is visible in the
+    session's current scope."""
+    query = db.query(models.Endpoint.id).filter(
+        models.Endpoint.organization_id == organization_id,
+        models.Endpoint.is_example.is_(False),
+        models.Endpoint.deleted_at.is_(None),
+    )
+    return bool(db.query(query.exists()).scalar())

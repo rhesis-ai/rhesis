@@ -302,3 +302,17 @@ def get_test_facets(
         "topics": _distinct_names(Topic, Test.topic_id),
         "test_types": _distinct_names(TypeLookup, Test.test_type_id, "type_value"),
     }
+
+
+def user_test_exists(db: Session, organization_id: str) -> bool:
+    """True when a live test the user made is visible in the session's current scope.
+
+    Skips seeded example tests and metric-owned tuning tests.
+    """
+    query = db.query(Test.id).filter(
+        Test.organization_id == organization_id,
+        Test.is_example.is_(False),
+        Test.metric_id.is_(None),
+        Test.deleted_at.is_(None),
+    )
+    return bool(db.query(query.exists()).scalar())

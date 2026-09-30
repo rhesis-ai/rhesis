@@ -14,13 +14,14 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import object_session, relationship
 
-from .base import Base
-from .guid import GUID
-from .mixins import (
+from rhesis.backend.app.models.base import Base
+from rhesis.backend.app.models.guid import GUID
+from rhesis.backend.app.models.mixins import (
     ActivityTrackableMixin,
     CommentsMixin,
     CountsMixin,
     EmbeddableMixin,
+    ExampleDataMixin,
     FilesMixin,
     OrganizationMixin,
     ProjectMixin,
@@ -50,6 +51,7 @@ class Test(
     TasksMixin,
     CountsMixin,
     FilesMixin,
+    ExampleDataMixin,
 ):
     __tablename__ = "test"
     __table_args__ = (Index("ix_test_org_created", "organization_id", "created_at"),)

@@ -31,10 +31,12 @@ from rhesis.backend.app.schemas.polyphemus import (
     PolyphemusAccessResponse,
 )
 from rhesis.backend.app.schemas.user import (
+    OnboardingStatus,
     UserSettingsOutput,
     UserSettingsRead,
     UserSettingsUpdate,
 )
+from rhesis.backend.app.services import onboarding as onboarding_service
 from rhesis.backend.app.services import polyphemus as polyphemus_service
 from rhesis.backend.app.services.usage_notifications import notify_stock_crossing
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
@@ -337,6 +339,16 @@ def get_user_settings(
         raise HTTPException(status_code=404, detail="User not found")
 
     return _user_settings_read_payload(db_user, request, current_user, db)
+
+
+@router.get("/onboarding-status", response_model=OnboardingStatus)
+def get_onboarding_status(
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    """Onboarding checklist steps computed from real data, ignoring the seeded example."""
+    organization_id, user_id = tenant_context
+    return onboarding_service.get_onboarding_status(db, organization_id, user_id)
 
 
 @router.patch("/settings", response_model=UserSettingsOutput)
