@@ -197,10 +197,17 @@ export default function ConversationHistory({
     }));
   };
 
+  // Filter out turns that don't have actual conversation content
+  // (e.g., internal analysis-only turns where Penelope used analyze_response tool)
+  const actualConversationTurns =
+    conversationSummary?.filter(
+      turn => turn.penelope_message || turn.target_response
+    ) || [];
+
   const findings = buildTurnFindings(
     goalEvaluation,
     metrics,
-    conversationSummary?.length
+    actualConversationTurns.length
   );
   const conversationFailures = uncitedFailures(findings);
 
@@ -210,13 +217,6 @@ export default function ConversationHistory({
       (groups[f.metric] ??= []).push(f);
       return groups;
     }, {});
-
-  // Filter out turns that don't have actual conversation content
-  // (e.g., internal analysis-only turns where Penelope used analyze_response tool)
-  const actualConversationTurns =
-    conversationSummary?.filter(
-      turn => turn.penelope_message || turn.target_response
-    ) || [];
 
   if (actualConversationTurns.length === 0) {
     return (
@@ -313,8 +313,7 @@ export default function ConversationHistory({
 
         // Soft indicator: no per-turn verdict, but a conversation-level finding cites this turn.
         const isEvaluated =
-          !shownStatus &&
-          turnHasConversationFindings(findings, turn.turn);
+          !shownStatus && turnHasConversationFindings(findings, turn.turn);
 
         const turnAnnotation = turnAnnotationMap.get(turn.turn);
         const turnIsOverruled = !!turn.override;

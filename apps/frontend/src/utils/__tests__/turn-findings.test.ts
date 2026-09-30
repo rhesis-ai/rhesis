@@ -140,10 +140,14 @@ describe('turn findings', () => {
     expect(stayOnTopic?.relevant_turns).toEqual([1, 2, 3]);
 
     // "Be polite" only cites turn 2 → stays per-turn
-    expect(allTurns.find(f => f.label === 'Be polite')?.conversationLevel).toBeUndefined();
+    expect(
+      allTurns.find(f => f.label === 'Be polite')?.conversationLevel
+    ).toBeUndefined();
 
     // OWASP metric cites all 3 turns → promoted
-    expect(allTurns.find(f => f.metric === 'OWASP LLM01')?.conversationLevel).toBe(true);
+    expect(
+      allTurns.find(f => f.metric === 'OWASP LLM01')?.conversationLevel
+    ).toBe(true);
 
     // Per-turn status: turn 1 has no per-turn findings, turn 2 passes from "Be polite"
     expect(turnStatus(allTurns, 1)).toBeUndefined();
