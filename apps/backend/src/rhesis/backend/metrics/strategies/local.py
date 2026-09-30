@@ -91,9 +91,11 @@ class LocalStrategy:
         score_evaluator: Optional[ScoreEvaluator] = None,
         metric_models: Optional[Dict[str, Any]] = None,
         require_model: bool = False,
+        text_model: Optional[Any] = None,
     ) -> None:
         self._require_model = require_model
         self._model = model
+        self._text_model = text_model
         self._db = db
         self._organization_id = organization_id
         self._score_evaluator = score_evaluator or ScoreEvaluator()
@@ -129,6 +131,7 @@ class LocalStrategy:
             metric_models=self._metric_models,
             refused=refused,
             require_model=self._require_model,
+            text_model=self._text_model,
         )
         results = self._execute_metrics_in_parallel(
             metric_tasks,
@@ -178,6 +181,7 @@ class LocalStrategy:
             metric_models=self._metric_models,
             refused=refused,
             require_model=self._require_model,
+            text_model=self._text_model,
         )
         if not metric_tasks:
             logger.warning("No metrics to evaluate (async)")
@@ -891,6 +895,21 @@ def _no_model_result(metric_config: MetricConfig, backend: str) -> Dict[str, Any
     )
 
 
+def create_metric(
+    backend: str, class_name: str, factory_params: Dict[str, Any], text_model: Optional[Any]
+) -> BaseMetric:
+    """Create a metric, retrying with *text_model* if it can't judge with the model it got."""
+    from rhesis.sdk.metrics import MetricFactory
+
+    try:
+        return MetricFactory.create(backend, class_name, **factory_params)
+    except UnsupportedModelType:
+        if text_model is None:
+            raise
+        logger.info(f"[SDK_DIRECT] {class_name} can't use a decision model; using {text_model}")
+        return MetricFactory.create(backend, class_name, **{**factory_params, "model": text_model})
+
+
 def prepare_metrics(
     metrics: List[MetricConfig],
     expected_output: Optional[str],
@@ -901,6 +920,7 @@ def prepare_metrics(
     metric_models: Optional[Dict[str, Any]] = None,
     refused: Optional[List[Dict[str, Any]]] = None,
     require_model: bool = False,
+    text_model: Optional[Any] = None,
 ) -> List[Tuple[str, BaseMetric, MetricConfig, str]]:
     """Instantiate metric objects via SDK factory, resolving models from DB.
 
@@ -920,6 +940,8 @@ def prepare_metrics(
             the metric as errored instead of silently leaving it out.
         require_model: Refuse a metric that has no model to judge with, instead of
             letting the SDK build its own default (wrong model, no usage stamp).
+        text_model: Used instead of the default `model` by a metric that can't judge with
+            it. A model set on the metric itself is never swapped: that was a choice.
 
     Returns:
         List of tuples containing (class_name, metric_instance, metric_config, backend).
@@ -960,8 +982,6 @@ def prepare_metrics(
             if metric_model is not None:
                 metric_params["model"] = metric_model
 
-            from rhesis.sdk.metrics import MetricFactory
-
             metric_name = metric_config.name or class_name
             logger.debug(
                 f"[SDK_DIRECT] Creating metric directly via SDK: {metric_name or class_name}"
@@ -982,7 +1002,12 @@ def prepare_metrics(
             factory_params.pop("parameters", None)
 
             try:
-                metric = MetricFactory.create(backend, class_name, **factory_params)
+                metric = create_metric(
+                    backend,
+                    class_name,
+                    factory_params,
+                    text_model if metric_model is model else None,
+                )
             except UnsupportedModelType as refusal:
                 logger.warning(f"[SDK_DIRECT] {refusal}")
                 if refused is not None:

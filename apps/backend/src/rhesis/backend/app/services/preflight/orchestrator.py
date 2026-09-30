@@ -242,7 +242,15 @@ async def run_preflight_checks_multi(
     tasks.append(
         (
             CHECK_EVALUATION_MODEL,
-            check_evaluation_model(off_loop, user, evaluation_model_id, correlation_id, publish),
+            check_evaluation_model(
+                off_loop,
+                user,
+                evaluation_model_id,
+                correlation_id,
+                publish,
+                # Only a fresh run interprets; a re-score reads the stored contract.
+                probe_interpretation=any_multi_turn and scoring_target == "fresh",
+            ),
         )
     )
 

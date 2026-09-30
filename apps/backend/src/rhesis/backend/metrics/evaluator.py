@@ -41,6 +41,7 @@ class MetricEvaluator:
         extra_strategies: Optional[List[MetricStrategy]] = None,
         metric_models: Optional[Dict[str, Any]] = None,
         require_model: bool = False,
+        text_model: Optional[Any] = None,
     ) -> None:
         """
         Initialize evaluator with optional backend strategy overrides.
@@ -60,6 +61,8 @@ class MetricEvaluator:
                 path, which runs after its session is closed; see `prepare_metrics`.
             require_model: Report a local metric left without a model as an error
                 instead of letting the SDK build its own default. Set by test runs.
+            text_model: What a metric that can't judge with `model` uses instead, when `model`
+                is a decision model; see `user_model_utils.text_model_for`.
         """
         score_evaluator = ScoreEvaluator()
 
@@ -70,6 +73,7 @@ class MetricEvaluator:
             score_evaluator=score_evaluator,
             metric_models=metric_models,
             require_model=require_model,
+            text_model=text_model,
         )
 
         self._connector_strategy: MetricStrategy = ConnectorStrategy(

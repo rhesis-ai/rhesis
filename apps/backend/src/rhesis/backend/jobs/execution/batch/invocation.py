@@ -5,12 +5,15 @@ Test invocation for batch tests (single-turn and multi-turn).
 import asyncio
 import copy
 import logging
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.response_extractor import as_response_dict
 from rhesis.backend.jobs.execution.batch.context import ExecutionContext
 from rhesis.backend.jobs.execution.constants import NO_EXECUTION_MODEL_ERROR
+
+if TYPE_CHECKING:
+    from rhesis.backend.jobs.execution.executors.output_providers import ContractResolution
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +56,7 @@ async def load_input_files_lazy(ctx: ExecutionContext, test_id: str) -> Optional
     return None
 
 
-async def resolve_contract_lazy(
-    ctx: ExecutionContext, test_id: str
-) -> tuple[Optional[Dict[str, Any]], bool]:
+async def resolve_contract_lazy(ctx: ExecutionContext, test_id: str) -> "ContractResolution":
     """Resolve the evaluation contract for a batch multi-turn test.
 
     ``ctx.test_data``'s ``test`` object was loaded in a session that has since closed (see
@@ -66,6 +67,8 @@ async def resolve_contract_lazy(
     ``executors.output_providers.resolve_multi_turn_contract``.
     """
     from uuid import UUID
+
+    from rhesis.backend.jobs.execution.executors.output_providers import ContractResolution
 
     def _resolve():
         from rhesis.backend.app.database import get_db_with_tenant_variables
@@ -91,14 +94,16 @@ async def resolve_contract_lazy(
                 ),
             )
             if test is None:
-                return None, False
-            return resolve_multi_turn_contract(db, test, ctx.user_id)
+                return ContractResolution(None, False, "The test no longer exists.")
+            return resolve_multi_turn_contract(
+                db, test, ctx.user_id, ctx.evaluation_text_model or ctx.evaluation_model
+            )
 
     try:
         return await asyncio.to_thread(_resolve)
     except Exception as e:
         logger.warning(f"[BATCH] Failed to resolve evaluation contract for {test_id}: {e}")
-        return None, False
+        return ContractResolution(None, False, f"Resolving its evaluation contract failed: {e}")
 
 
 async def run_test(
@@ -175,12 +180,16 @@ async def _run_multi_turn(
             "contract_usable": False,
         }
 
-    contract, contract_usable = await resolve_contract_lazy(ctx, test_id)
+    contract, contract_usable, unusable_reason = await resolve_contract_lazy(ctx, test_id)
 
     # Resolved before the conversation, and before loading files, so an unscoreable test costs
     # nothing. Everything this run could produce would be discarded downstream, so running it
     # would only bill the org for target calls and judge tokens on a guaranteed Error.
     if not contract_usable:
+        from rhesis.backend.jobs.execution.executors.output_providers import (
+            unusable_contract_error,
+        )
+
         logger.info(
             "[BATCH] Skipping conversation for test %s: evaluation contract is not usable, "
             "so no verdict from this run could be trusted",
@@ -189,9 +198,7 @@ async def _run_multi_turn(
         return {
             "output": {
                 "status": "error",
-                "error": (
-                    "The test could not be interpreted well enough to score, so it was not run."
-                ),
+                "error": unusable_contract_error(unusable_reason),
             },
             "penelope_metrics": {},
             "deferred_traces": deferred_traces,
