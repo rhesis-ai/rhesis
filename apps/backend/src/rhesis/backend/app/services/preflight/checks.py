@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Set
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -395,6 +395,19 @@ async def check_endpoint_connectivity(
     return result
 
 
+async def _interpretation_verdict(db: PreflightDbGate, user: User, model) -> tuple[bool, str]:
+    """:func:`_probe_interpretation` with its own timeout, reported as the probe's failure."""
+    try:
+        return await asyncio.wait_for(
+            db.run(_probe_interpretation, user, model), timeout=_INTERPRETATION_PROBE_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        return False, (
+            f"Interpreting a test took longer than {_INTERPRETATION_PROBE_TIMEOUT:.0f} seconds. "
+            "Pick a faster evaluation model in the Models settings."
+        )
+
+
 async def check_evaluation_model(
     db: PreflightDbGate,
     user: User,
@@ -412,7 +425,7 @@ async def check_evaluation_model(
         evaluation_model_id,
         correlation_id,
         publish,
-        probe=_probe_interpretation if probe_interpretation else None,
+        probe=_interpretation_verdict if probe_interpretation else None,
     )
 
 
@@ -436,7 +449,7 @@ async def _check_purpose_model(
     model_id: Optional[str],
     correlation_id: Optional[str],
     publish: bool,
-    probe: Optional[Callable[[Session, User, Any], tuple[bool, str]]] = None,
+    probe: Optional[Callable[[PreflightDbGate, User, Any], Awaitable[tuple[bool, str]]]] = None,
 ) -> PreflightCheckResult:
     """Build the *purpose* model, then make one real call to it.
 
@@ -484,19 +497,13 @@ async def _verify_purpose_model(
     purpose: str,
     model,
     model_id: Optional[str],
-    probe: Optional[Callable[[Session, User, Any], tuple[bool, str]]] = None,
+    probe: Optional[Callable[[PreflightDbGate, User, Any], Awaitable[tuple[bool, str]]]] = None,
 ) -> PreflightCheckResult:
     label = purpose.capitalize()
     try:
         await _verify_model_responds(model)
         model_detail = await db.run(_model_detail, model, model_id, user, purpose)
-        usable, reason = (
-            await asyncio.wait_for(
-                db.run(probe, user, model), timeout=_INTERPRETATION_PROBE_TIMEOUT
-            )
-            if probe
-            else (True, "")
-        )
+        usable, reason = await probe(db, user, model) if probe else (True, "")
     except Exception as e:
         return _model_failure_result(check_id, label, e)
     if not usable:
