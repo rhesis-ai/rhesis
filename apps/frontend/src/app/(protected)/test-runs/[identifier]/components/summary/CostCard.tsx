@@ -6,8 +6,8 @@ import KpiCard from './KpiCard';
 import CostTooltip from './CostTooltip';
 import ModelLabel from '@/components/common/ModelLabel';
 import {
-  COST_TOOLTIP,
   COSTS_DOC_URL,
+  costTooltip,
   formatTokenCount,
   isCostKnown,
   isPricingInProgress,
@@ -50,7 +50,7 @@ export default function CostCard({ usage }: { usage: TraceMetricsResponse }) {
           value={formatTokenCount(usage.total_tokens)}
           valueSuffix="tokens"
           subtitle={PRICING_IN_PROGRESS}
-          infoTooltip={tooltip(COST_TOOLTIP)}
+          infoTooltip={tooltip(costTooltip('run'))}
         />
       );
     }
@@ -109,7 +109,7 @@ export default function CostCard({ usage }: { usage: TraceMetricsResponse }) {
           )}
         </Box>
       }
-      infoTooltip={tooltip(COST_TOOLTIP)}
+      infoTooltip={tooltip(costTooltip('run'))}
     />
   );
 }

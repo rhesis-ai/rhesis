@@ -301,26 +301,62 @@ export function getStatusChipProps(statusCode: string): {
 }
 
 /**
- * The words every cost card uses, so the traces page and a test run's summary
- * cannot describe the same silence differently. They already had: one offered
- * the documentation link below and a tooltip, the other neither.
+ * The words the cost cards use, so the traces page and a test run's summary
+ * cannot describe the same silence differently. The explanation in the (i)
+ * tooltip is the one part that depends on the screen: see `costTooltip`.
  */
 export const COSTS_DOC_URL =
   'https://docs.rhesis.ai/docs/tracing/costs#when-a-figure-is-missing';
 
-/** What a cost card shows when nothing on the run could be priced. */
+/** What a cost card shows when nothing in its scope could be priced. */
 export const NO_COST_DATA = 'No cost data';
 
-/** Shown while enrichment still has traces of the scope to get through. */
-export const PRICING_IN_PROGRESS = 'Working out what this cost';
+/**
+ * Shown while enrichment still has traces of the scope to price. Only the cost
+ * is pending: tokens are read straight off the spans, so they are already final.
+ */
+export const PRICING_IN_PROGRESS = 'Working out the cost';
 
 export const NO_COST_DATA_TOOLTIP =
-  'Rhesis prices a run from the tokens its LLM calls reported. A model with no ' +
-  'published price, such as a self-hosted one, has no cost to show.';
+  'Rhesis works out cost from the model name and token counts each LLM call ' +
+  'reports. A call to a model with no published price, such as a self-hosted ' +
+  'one, or a call that reported no model or tokens, has no cost to show.';
 
-export const COST_TOOLTIP =
-  "What this run's traced LLM calls cost, and the tokens behind it. Figures keep " +
-  'climbing while enrichment works through the run traces.';
+/**
+ * What a cost card covers, which decides how its tooltip describes it.
+ *
+ * - `project`: the Traces page, across every trace in view.
+ * - `run`: a test run's Summary tab.
+ * - `run-traces`: a test run's Traces tab, above that run's traces.
+ * - `filtered-run`: the Traces page narrowed to one test run by a filter.
+ */
+export type CostScope = 'project' | 'run' | 'run-traces' | 'filtered-run';
+
+const PROCESSING =
+  'We work out these numbers as each trace arrives until all are processed.';
+
+const RUN_COST_TOOLTIP =
+  'What the LLM calls traced during this run cost, along with total tokens ' +
+  'used by the endpoint. ' +
+  PROCESSING;
+
+const COST_TOOLTIPS: Record<CostScope, string> = {
+  project:
+    'What the LLM calls in these traces cost, along with total tokens used by ' +
+    'your application. ' +
+    PROCESSING,
+  run: RUN_COST_TOOLTIP,
+  'run-traces': RUN_COST_TOOLTIP,
+  'filtered-run':
+    'What the LLM calls traced during the selected test run cost, along with ' +
+    'total tokens used by the endpoint. ' +
+    PROCESSING,
+};
+
+/** The (i) explanation on a Cost card, worded for the screen it sits on. */
+export function costTooltip(scope: CostScope): string {
+  return COST_TOOLTIPS[scope];
+}
 
 /**
  * Whether a scope has any traced LLM calls to report on.

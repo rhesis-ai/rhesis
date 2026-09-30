@@ -29,6 +29,7 @@ import {
   type TraceView,
 } from './trace-filter-params';
 import { withTraceUrlState } from './trace-url-state';
+import type { CostScope } from '@/utils/trace-utils';
 
 interface TracesClientProps {
   currentUserId?: string;
@@ -305,6 +306,11 @@ export default function TracesClient({
   const rollupProjectId = drawerFilters.projectId || scopedProjectId;
   const rollupTestRunId =
     fixedTestRunId ?? drawerFilters.testRunId ?? undefined;
+  const costScope: CostScope = fixedTestRunId
+    ? 'run-traces'
+    : rollupTestRunId
+      ? 'filtered-run'
+      : 'project';
   const viewOnlyFilters =
     view === 'spans'
       ? drawerFilters.spanTypes?.length ||
@@ -339,6 +345,7 @@ export default function TracesClient({
         startTimeBefore={rollupTimeParams.start_time_before}
         hasUnsupportedFilters={hasUnsupportedRollupFilters}
         refreshTrigger={refreshTrigger}
+        costScope={costScope}
       />
 
       <Paper sx={GRID_PAPER_SX}>

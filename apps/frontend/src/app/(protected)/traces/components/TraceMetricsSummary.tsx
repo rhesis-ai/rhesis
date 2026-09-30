@@ -10,8 +10,9 @@ import { useCurrency } from '@/contexts/CurrencyContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemetry';
 import {
-  COST_TOOLTIP,
   COSTS_DOC_URL,
+  costTooltip,
+  type CostScope,
   formatTokenCount,
   hasTracedUsage,
   isCostKnown,
@@ -36,6 +37,8 @@ interface TraceMetricsSummaryProps {
   hasUnsupportedFilters?: boolean;
   /** Bumped by the refresh control, to re-fetch alongside the table. */
   refreshTrigger?: number;
+  /** Which screen the tiles sit on, for how the Cost tooltip words its scope. */
+  costScope?: CostScope;
 }
 
 /**
@@ -53,6 +56,7 @@ export default function TraceMetricsSummary({
   startTimeBefore,
   hasUnsupportedFilters = false,
   refreshTrigger,
+  costScope = 'project',
 }: TraceMetricsSummaryProps) {
   const [metrics, setMetrics] = useState<TraceMetricsResponse | null>(null);
 
@@ -172,7 +176,7 @@ export default function TraceMetricsSummary({
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <CostTile metrics={metrics} />
+          <CostTile metrics={metrics} scope={costScope} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <KpiCard
@@ -246,9 +250,15 @@ function SpanTypesTooltip({ items }: { items: SpanTypeCount[] }) {
  * What the scope spent. Cost leads where it is known; where it is not, tokens
  * lead and the tile says which kind of silence it is -- the same rule and the
  * same words as the test run summary card, which reads its copy from the same
- * constants in trace-utils, so the two cannot describe one run differently.
+ * constants in trace-utils. Only the (i) explanation differs, by `scope`.
  */
-function CostTile({ metrics }: { metrics: TraceMetricsResponse }) {
+function CostTile({
+  metrics,
+  scope,
+}: {
+  metrics: TraceMetricsResponse;
+  scope: CostScope;
+}) {
   const { format: money } = useCurrency();
   const tokens = `${formatTokenCount(metrics.total_tokens)} tokens`;
   const tooltip = (text: string) => (
@@ -267,7 +277,7 @@ function CostTile({ metrics }: { metrics: TraceMetricsResponse }) {
           value={formatTokenCount(metrics.total_tokens)}
           valueSuffix="tokens"
           subtitle={PRICING_IN_PROGRESS}
-          infoTooltip={tooltip(COST_TOOLTIP)}
+          infoTooltip={tooltip(costTooltip(scope))}
         />
       );
     }
@@ -301,7 +311,7 @@ function CostTile({ metrics }: { metrics: TraceMetricsResponse }) {
       title="Cost"
       value={money(metrics.total_cost_usd)}
       subtitle={tokens}
-      infoTooltip={tooltip(COST_TOOLTIP)}
+      infoTooltip={tooltip(costTooltip(scope))}
     />
   );
 }

@@ -5,7 +5,7 @@ import { Box } from '@mui/material';
 import { formatTokenCount } from '@/utils/trace-utils';
 
 interface CostTooltipProps {
-  /** The explanation line, e.g. COST_TOOLTIP or NO_COST_DATA_TOOLTIP. */
+  /** The explanation line, e.g. costTooltip(scope) or NO_COST_DATA_TOOLTIP. */
   text: string;
   inputTokens?: number | null;
   outputTokens?: number | null;
