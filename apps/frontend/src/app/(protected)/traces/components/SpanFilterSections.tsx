@@ -8,6 +8,7 @@ import {
   filterDrawerTextFieldSx,
 } from '@/components/common/FilterDrawer';
 import { getSpanTypeInfo, SPAN_TYPES } from '@/constants/span-types';
+import { readActiveProjectId } from '@/utils/active-project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type {
   SpanFacetsResponse,
@@ -57,19 +58,26 @@ function useSpanFacets(
     if (!enabled) return;
     let cancelled = false;
     const current = JSON.parse(draftKey) as TraceDrawerFilters;
+    const params = buildSpanQueryParams(current, '');
+    // Same fallback as the spans list, so facets and rows share one scope.
+    const scopedProjectId = readActiveProjectId();
+    if (!params.project_id && scopedProjectId) {
+      params.project_id = scopedProjectId;
+    }
 
     new ApiClientFactory()
       .getTelemetryClient()
-      // No project fallback: like the providers list, an unset project means the
-      // session scope, which is what the table uses too.
-      .getSpanFacets(buildSpanQueryParams(current, ''))
+      .getSpanFacets(params)
       .then(result => {
         if (cancelled) return;
         setFacets(result);
         setFailed(false);
       })
       .catch(() => {
-        if (!cancelled) setFailed(true);
+        if (cancelled) return;
+        // Drop the last good facets: they were for other filters.
+        setFacets(null);
+        setFailed(true);
       });
 
     return () => {
