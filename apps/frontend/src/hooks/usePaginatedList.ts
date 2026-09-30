@@ -112,9 +112,14 @@ export function usePaginatedList<T>({
       : null
   );
 
-  React.useEffect(() => {
+  // Reset during render, not in an effect: an effect would let the fetch below
+  // fire once at the old page with the new filters before the reset lands.
+  const [pageFingerprint, setPageFingerprint] =
+    React.useState(filterFingerprint);
+  if (pageFingerprint !== filterFingerprint) {
+    setPageFingerprint(filterFingerprint);
     setPage(0);
-  }, [filterFingerprint]);
+  }
 
   React.useEffect(() => {
     if (!enabled) {

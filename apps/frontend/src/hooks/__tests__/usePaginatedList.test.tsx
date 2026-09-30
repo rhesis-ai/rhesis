@@ -61,4 +61,34 @@ describe('usePaginatedList with server-prefetched data', () => {
     await waitFor(() => expect(result.current.totalCount).toBe(1));
     expect(fetchPage).toHaveBeenCalledTimes(1);
   });
+
+  it('fetches only page 0 when the filters change on a later page', async () => {
+    const fetchPage = jest.fn().mockResolvedValue({
+      data: [{ id: '1' }],
+      pagination: { totalCount: 100 },
+    });
+    mockUseSession.mockReturnValue({ status: 'authenticated' });
+    let fingerprint = 'fp';
+
+    const { result, rerender } = renderHook(() =>
+      usePaginatedList<{ id: string }>({
+        fetchPage,
+        filterFingerprint: fingerprint,
+        initialData: [],
+        initialTotalCount: 100,
+        defaultPageSize: 10,
+      })
+    );
+
+    act(() => result.current.onPageChange(2));
+    await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(1));
+    expect(fetchPage).toHaveBeenLastCalledWith({ skip: 20, limit: 10 });
+
+    fingerprint = 'fp2';
+    rerender();
+
+    await waitFor(() => expect(result.current.page).toBe(0));
+    await act(async () => {});
+    expect(fetchPage.mock.calls.slice(1)).toEqual([[{ skip: 0, limit: 10 }]]);
+  });
 });
