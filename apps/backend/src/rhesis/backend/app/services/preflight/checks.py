@@ -394,6 +394,19 @@ async def check_endpoint_connectivity(
     return result
 
 
+async def _interpretation_verdict(db: PreflightDbGate, user: User, model) -> tuple[bool, str]:
+    """:func:`_probe_interpretation` with its own timeout, reported as the probe's failure."""
+    try:
+        return await asyncio.wait_for(
+            db.run(_probe_interpretation, user, model), timeout=_INTERPRETATION_PROBE_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        return False, (
+            f"Interpreting a test took longer than {_INTERPRETATION_PROBE_TIMEOUT:.0f} seconds. "
+            "Pick a faster evaluation model in the Models settings."
+        )
+
+
 async def check_evaluation_model(
     db: PreflightDbGate,
     user: User,
@@ -417,12 +430,7 @@ async def check_evaluation_model(
         await _verify_model_responds(model)
         model_detail = await db.run(_model_detail, model, evaluation_model_id, user, "evaluation")
         usable, reason = (
-            await asyncio.wait_for(
-                db.run(_probe_interpretation, user, model),
-                timeout=_INTERPRETATION_PROBE_TIMEOUT,
-            )
-            if probe_interpretation
-            else (True, "")
+            await _interpretation_verdict(db, user, model) if probe_interpretation else (True, "")
         )
         result = (
             _make_result(

@@ -385,6 +385,22 @@ class TestCheckEvaluationModel:
         generation.generate.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_a_probe_that_times_out_says_so(self):
+        """Not the 10-second 'did not respond' message: the model answered, just too slowly."""
+        model = self._text_model()
+        model.generate.side_effect = lambda **_: time.sleep(0.5)
+
+        with patch(
+            "rhesis.backend.app.services.preflight.checks._INTERPRETATION_PROBE_TIMEOUT", 0.05
+        ):
+            result = await self._check(model)
+
+        assert result.status == PreflightCheckStatus.FAILED
+        assert "can't interpret multi-turn tests" in result.message
+        assert "took longer than" in result.detail
+        assert "10 seconds" not in result.detail
+
+    @pytest.mark.asyncio
     async def test_the_probe_only_runs_when_asked(self):
         model = self._text_model()
 
