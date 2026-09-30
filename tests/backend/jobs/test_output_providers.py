@@ -357,7 +357,7 @@ class TestResolveMultiTurnContract:
             patch(f"{_INTERPRETATION_SERVICE}.ensure_contract", return_value=mock_contract),
             patch(f"{_INTERPRETATION_SERVICE}.contract_usability", return_value=(True, "")),
         ):
-            contract, usable = resolve_multi_turn_contract(MagicMock(), mock_test, "user-1")
+            contract, usable, reason = resolve_multi_turn_contract(MagicMock(), mock_test, "user-1")
 
         assert usable is True
         assert contract == {"prohibited_criteria": ["X"]}
@@ -374,7 +374,7 @@ class TestResolveMultiTurnContract:
                 return_value=(False, "too ambiguous"),
             ),
         ):
-            contract, usable = resolve_multi_turn_contract(MagicMock(), mock_test, "user-1")
+            contract, usable, reason = resolve_multi_turn_contract(MagicMock(), mock_test, "user-1")
 
         assert contract is None
         assert usable is False
@@ -392,7 +392,7 @@ class TestResolveMultiTurnContract:
         mock_test.test_configuration = config
 
         with patch(f"{_INTERPRETATION_SERVICE}.ensure_contract") as ensure:
-            contract, usable = resolve_multi_turn_contract(MagicMock(), mock_test, "user-1")
+            contract, usable, reason = resolve_multi_turn_contract(MagicMock(), mock_test, "user-1")
 
         assert contract is None
         assert usable is True
@@ -431,7 +431,7 @@ class TestMultiTurnOutput:
 
         # Both imports are lazy (inside get_output); patch at their source modules
         with (
-            patch(_RESOLVE_CONTRACT, return_value=(None, True)),
+            patch(_RESOLVE_CONTRACT, return_value=(None, True, "")),
             patch(
                 "rhesis.penelope.PenelopeAgent",
                 mock_agent_class,
@@ -476,7 +476,7 @@ class TestMultiTurnOutput:
 
         # Both imports are lazy (inside get_output); patch at their source modules
         with (
-            patch(_RESOLVE_CONTRACT, return_value=(None, True)),
+            patch(_RESOLVE_CONTRACT, return_value=(None, True, "")),
             patch(
                 "rhesis.penelope.PenelopeAgent",
                 mock_agent_class,
@@ -515,7 +515,7 @@ class TestMultiTurnOutput:
         resolved_contract = {"prohibited_criteria": ["Disclose PII"]}
 
         with (
-            patch(_RESOLVE_CONTRACT, return_value=(resolved_contract, True)),
+            patch(_RESOLVE_CONTRACT, return_value=(resolved_contract, True, "")),
             patch("rhesis.penelope.PenelopeAgent", mock_agent_class),
             patch(
                 "rhesis.backend.jobs.execution.penelope_target.BackendEndpointTarget",
@@ -547,14 +547,15 @@ class TestMultiTurnOutput:
         mock_test = MagicMock()
         mock_test.test_configuration = {"goal": "Test goal"}
 
+        evaluation_model = MagicMock()
         with (
-            patch(_RESOLVE_CONTRACT, return_value=(None, False)),
+            patch(_RESOLVE_CONTRACT, return_value=(None, False, "too ambiguous")) as resolve,
             patch("rhesis.penelope.PenelopeAgent", mock_agent_class),
             patch(
                 "rhesis.backend.jobs.execution.penelope_target.BackendEndpointTarget",
             ),
         ):
-            provider = MultiTurnOutput(model=MagicMock())
+            provider = MultiTurnOutput(model=MagicMock(), evaluation_model=evaluation_model)
             output = await provider.get_output(
                 db=MagicMock(),
                 test=mock_test,
@@ -565,6 +566,9 @@ class TestMultiTurnOutput:
 
         mock_agent_instance.execute_test.assert_not_called()
         assert output.contract_usable is False
+        # The run's own evaluation model interprets, and the result says why it couldn't.
+        assert resolve.call_args.args[3] is evaluation_model
+        assert "too ambiguous" in output.response["error"]
         assert output.metrics == {}
         assert output.response["status"] == "error"
 
@@ -598,7 +602,7 @@ class TestMultiTurnOutput:
         stamped_model.usage_metered = True
 
         with (
-            patch(_RESOLVE_CONTRACT, return_value=(None, True)),
+            patch(_RESOLVE_CONTRACT, return_value=(None, True, "")),
             patch(
                 "rhesis.backend.app.utils.user_model_utils.ensure_language_model",
                 return_value=stamped_model,

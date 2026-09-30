@@ -1,11 +1,12 @@
 """A metric that can't judge with a decision model (Jev) errors visibly instead of vanishing."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from rhesis.backend.metrics.strategies.local import LocalStrategy, prepare_metrics
 from rhesis.sdk.metrics import MetricConfig
+from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.providers.jev import JevDecisionModel
 
 
@@ -61,3 +62,47 @@ def test_a_refusal_never_overwrites_a_result_with_the_same_name():
     assert set(results) == {"helpfulness", "helpfulness_1", "helpfulness_2"}
     judged = [r for r in results.values() if "a decision model" not in r["reason"]]
     assert len(judged) == 1 and judged[0]["is_successful"] is True
+
+
+def _text_model():
+    model = MagicMock(spec=BaseLLM)
+    model.model_name = "gpt-test"
+    return model
+
+
+@pytest.mark.unit
+def test_a_metric_on_the_default_model_falls_back_to_the_text_model():
+    refused = []
+    text_model = _text_model()
+    tasks = prepare_metrics(
+        [_numeric()],
+        "expected",
+        [],
+        model=JevDecisionModel(api_key="k"),
+        refused=refused,
+        text_model=text_model,
+    )
+
+    assert refused == []
+    [(_class_name, metric, _config, _backend)] = tasks
+    assert metric.model is text_model
+
+
+@pytest.mark.unit
+def test_a_decision_model_set_on_the_metric_itself_is_still_refused():
+    """A model someone picked for this metric is a choice, so it's never swapped."""
+    refused = []
+    config = _numeric()
+    config.parameters = {**config.parameters, "model_id": "jev-model"}
+    tasks = prepare_metrics(
+        [config],
+        "expected",
+        [],
+        model=_text_model(),
+        metric_models={"jev-model": JevDecisionModel(api_key="k")},
+        refused=refused,
+        text_model=_text_model(),
+    )
+
+    assert tasks == []
+    assert "a decision model" in refused[0]["reason"]

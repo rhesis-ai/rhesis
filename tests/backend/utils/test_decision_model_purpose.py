@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
-from rhesis.backend.app.utils.user_model_utils import resolve_model
+from rhesis.backend.app.utils.user_model_utils import resolve_model, text_model_for
+from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.providers.jev import JevDecisionModel
 
 _FETCH = "rhesis.backend.app.utils.user_model_utils._fetch_and_configure_model"
@@ -45,3 +46,29 @@ def test_jev_as_the_system_default_is_refused_for_generation(user):
     with patch(_DEFAULT, return_value=JevDecisionModel(api_key="key")):
         with pytest.raises(ModelConfigurationError, match="can't be used for generation"):
             resolve_model(Mock(spec=Session), user, "generation")
+
+
+_RESOLVE = "rhesis.backend.app.utils.user_model_utils.resolve_model"
+
+
+@pytest.mark.unit
+def test_text_work_falls_back_to_the_generation_model(user):
+    generation = Mock(spec=BaseLLM)
+    with patch(_RESOLVE, return_value=generation) as resolve:
+        assert (
+            text_model_for(Mock(spec=Session), user, JevDecisionModel(api_key="key")) is generation
+        )
+    assert resolve.call_args.args[1:] == (user, "generation")
+
+
+@pytest.mark.unit
+def test_a_language_model_is_used_as_is(user):
+    model = Mock(spec=BaseLLM)
+    with patch(_RESOLVE) as resolve:
+        assert text_model_for(Mock(spec=Session), user, model) is model
+    resolve.assert_not_called()
+
+
+@pytest.mark.unit
+def test_without_a_principal_there_is_nothing_to_fall_back_to():
+    assert text_model_for(Mock(spec=Session), None, JevDecisionModel(api_key="key")) is None
