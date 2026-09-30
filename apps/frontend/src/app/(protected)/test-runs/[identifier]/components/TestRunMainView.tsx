@@ -363,6 +363,13 @@ export default function TestRunMainView({
     [testResults, openedResultId]
   );
 
+  // Results are only fetched for the Tests tab, so the first click here asks for
+  // them too. The drawer opens once they arrive.
+  const handleViewAnnotatedResult = useCallback((testResultId: string) => {
+    needsTestResults.current = true;
+    setOpenedResultId(testResultId);
+  }, []);
+
   const handleTestResultUpdate = useCallback(
     (updatedTest: TestResultDetail) => {
       setTestResultUpdates(prev => {
@@ -660,7 +667,7 @@ export default function TestRunMainView({
       <TabPanel value={activeTab} index={4}>
         <TestRunAnnotationsTab
           testRunId={testRun.id}
-          onViewTestResult={setOpenedResultId}
+          onViewTestResult={handleViewAnnotatedResult}
         />
         <TestResultDrawer
           open={openedResult !== null}
