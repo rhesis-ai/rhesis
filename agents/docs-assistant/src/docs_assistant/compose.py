@@ -9,6 +9,15 @@ from docs_assistant.corpus.parser import split_anchor
 from docs_assistant.schemas import AnswerDraft, Citation, RelatedPage
 
 _MARKER = re.compile(r"\[([\w-]+(?:\s*,\s*[\w-]+)*)\](?!\()")
+_CODE = re.compile(r"```.*?```|~~~.*?~~~|`[^`\n]*`", re.DOTALL)
+
+
+def marker_ids(text: str) -> list[str]:
+    """Ids inside bracket markers such as `[c2]` or `[c1, c3]`, outside code, in order."""
+    ids = []
+    for match in _MARKER.finditer(_CODE.sub("", text)):
+        ids.extend(i.strip() for i in match.group(1).split(","))
+    return ids
 
 
 def citations_for(draft: AnswerDraft, snapshot: Snapshot, ledger: dict) -> list[Citation]:

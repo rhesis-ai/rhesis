@@ -2,19 +2,31 @@
 
 Rules checked here (numbering follows docs/architecture.md):
 1. every citation URL is a page read this turn;
-4. every claim cites at least one citation, and every cited id exists;
+4. every claim cites at least one citation, and every cited id exists, in the claims and in the
+   `[c1]` markers of answer_md;
 5. the route matches the shape of the draft.
 """
 
 from __future__ import annotations
 
+import re
+
+from docs_assistant.compose import marker_ids
 from docs_assistant.corpus.parser import Page, split_anchor
 from docs_assistant.schemas import AnswerDraft
+
+# What a citation id looks like ("c1"); other bracketed words in prose are not markers.
+_ID_LIKE = re.compile(r"^[A-Za-z]{1,3}\d+$")
 
 
 def validate(draft: AnswerDraft, ledger: dict[str, Page]) -> list[str]:
     """Return the problems with a draft; an empty list means it may be shown."""
-    return [*_check_citation_urls(draft, ledger), *_check_claims(draft), *_check_route(draft)]
+    return [
+        *_check_citation_urls(draft, ledger),
+        *_check_claims(draft),
+        *_check_markers(draft),
+        *_check_route(draft),
+    ]
 
 
 def _check_citation_urls(draft: AnswerDraft, ledger: dict[str, Page]) -> list[str]:
@@ -41,6 +53,16 @@ def _check_claims(draft: AnswerDraft) -> list[str]:
         for missing in [i for i in claim.citation_ids if i not in known]:
             problems.append(f"claim {n} cites {missing}, which is not in citations")
     return problems
+
+
+def _check_markers(draft: AnswerDraft) -> list[str]:
+    # An unknown marker would reach the user as a stray "[c9]" with no source behind it.
+    known = {c.id for c in draft.citations}
+    unknown = [i for i in marker_ids(draft.answer_md) if _ID_LIKE.match(i) and i not in known]
+    return [
+        f"answer_md uses [{i}], which is not in citations; add that citation or remove the marker"
+        for i in dict.fromkeys(unknown)
+    ]
 
 
 def _check_route(draft: AnswerDraft) -> list[str]:

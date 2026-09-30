@@ -106,6 +106,8 @@ Enforced in code today (`grounding.py`):
 
 - **Rule 1.** Every citation URL is a page in this turn's ledger.
 - **Rule 4.** Every claim cites at least one citation, and every id exists (ids are unique).
+  The same holds for the `[c1]` markers in `answer_md`: a marker with no matching citation would
+  reach the user as a stray "[c9]", so the draft is sent back.
 - **Rule 5.** The route matches the draft: `answered` has claims and citations and no gaps;
   `partially_answered` has citations and lists gaps; `not_documented` makes no claims;
   `false_premise` has a correction and a citation.

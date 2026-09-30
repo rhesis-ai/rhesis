@@ -114,6 +114,23 @@ def test_changelog_counts_as_reading_its_page(ctx):
     assert get_changelog_impl(ctx, version="99.0.0") == "No matching changelog entries."
 
 
+async def test_changelog_respects_the_page_budget(ctx):
+    ctx = replace(ctx, settings=replace(ctx.settings, max_pages=1))
+    await fetch_page_impl(ctx, SCOPE)
+    assert get_changelog_impl(ctx).startswith(BUDGET_EXHAUSTED)
+    assert "page_budget" in ctx.limits_hit
+    assert list(ctx.ledger) == [SCOPE]
+    assert ctx.budget.pages == 1
+
+
+async def test_rereading_the_changelog_costs_no_page(ctx):
+    ctx = replace(ctx, settings=replace(ctx.settings, max_pages=1))
+    get_changelog_impl(ctx)
+    assert "cite as" in get_changelog_impl(ctx, since="0.1.0")
+    assert ctx.budget.pages == 1
+    assert (await fetch_page_impl(ctx, SCOPE)).startswith(BUDGET_EXHAUSTED)
+
+
 def test_list_sections(ctx):
     assert "sdk (2)" in list_sections_impl(ctx)
     listing = list_sections_impl(ctx, "self_hosting")

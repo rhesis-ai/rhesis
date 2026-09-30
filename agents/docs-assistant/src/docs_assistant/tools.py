@@ -54,6 +54,17 @@ def _over_budget(ctx: TurnContext, kind: str | None = None) -> str | None:
     return None
 
 
+def _page_budget_refusal(ctx: TurnContext, url: str) -> str | None:
+    """Refuse a page not read yet this turn once `max_pages` distinct pages have been read."""
+    if url in ctx.ledger or ctx.budget.pages < ctx.settings.max_pages:
+        return None
+    ctx.hit_limit("page_budget")
+    return (
+        f"{BUDGET_EXHAUSTED}: you have read {ctx.settings.max_pages} pages, the limit. "
+        "Submit with what you have read."
+    )
+
+
 # ── search_docs ──────────────────────────────────────────────────────────────────────────
 
 
@@ -98,12 +109,8 @@ async def fetch_page_impl(
         return message
     url = canonical_url(url_or_path)
     first_read = url not in ctx.ledger
-    if first_read and ctx.budget.pages >= ctx.settings.max_pages:
-        ctx.hit_limit("page_budget")
-        return (
-            f"{BUDGET_EXHAUSTED}: you have read {ctx.settings.max_pages} pages, the limit. "
-            "Submit with what you have read."
-        )
+    if refusal := _page_budget_refusal(ctx, url):
+        return refusal
     page = ctx.ledger.get(url) or await _load_page(ctx, url)
     if page is None:
         return _not_found(ctx, url_or_path)
@@ -227,7 +234,10 @@ def get_changelog_impl(
     entries = select_entries(ctx.snapshot.changelog, version=version, since=since, query=query)
     if page is None or not entries:
         return "No matching changelog entries."
-    # Reading the changelog counts as reading its page, so its versions can be cited.
+    # Reading the changelog counts as reading its page, so its versions can be cited, and it
+    # takes a page from the budget like fetch_page does.
+    if refusal := _page_budget_refusal(ctx, page.url):
+        return refusal
     if page.url not in ctx.ledger:
         ctx.ledger[page.url] = page
         ctx.budget.pages += 1

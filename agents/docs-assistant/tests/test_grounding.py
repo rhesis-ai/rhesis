@@ -75,7 +75,7 @@ def test_not_documented_must_not_make_claims(ledger):
     assert check(ledger, route="not_documented") == [
         "not_documented must not make claims or cite pages; use related_pages"
     ]
-    assert check(ledger, route="not_documented", claims=[], citations=[]) == []
+    assert check(ledger, route="not_documented", claims=[], citations=[], answer_md="No.") == []
 
 
 def test_false_premise_needs_a_correction_and_a_citation(ledger):
@@ -83,6 +83,34 @@ def test_false_premise_needs_a_correction_and_a_citation(ledger):
     assert problems == ["false_premise needs premise_correction"]
     assert check(ledger, route="false_premise", premise_correction="There is no such flag.") == []
     problems = check(
-        ledger, route="false_premise", premise_correction="No.", claims=[], citations=[]
+        ledger,
+        route="false_premise",
+        premise_correction="No.",
+        claims=[],
+        citations=[],
+        answer_md="No such flag.",
     )
     assert problems == ["false_premise needs a citation showing the premise is wrong"]
+
+
+def test_markers_in_the_answer_must_be_known_citations(ledger):
+    problems = check(ledger, answer_md="Scope decides it [c1]. Also true [c9] and [c1, c7].")
+    assert problems == [
+        "answer_md uses [c9], which is not in citations; add that citation or remove the marker",
+        "answer_md uses [c7], which is not in citations; add that citation or remove the marker",
+    ]
+
+
+def test_a_marker_with_no_citations_at_all_is_rejected(ledger):
+    problems = check(ledger, route="not_documented", claims=[], citations=[])
+    assert problems == [
+        "answer_md uses [c1], which is not in citations; add that citation or remove the marker"
+    ]
+
+
+def test_brackets_that_are_not_markers_are_ignored(ledger):
+    answer_md = (
+        "Uses [c1]. See [the guide](https://docs.rhesis.ai/sdk/metrics), version [0.13.0], "
+        "a [Note] box, `list[str]` and `values[c2]` in code, and\n\n```python\nx = y[c3]\n```"
+    )
+    assert check(ledger, answer_md=answer_md) == []
