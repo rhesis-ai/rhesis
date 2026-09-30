@@ -3,7 +3,7 @@
 import asyncio
 import threading
 import time
-from contextlib import asynccontextmanager
+from contextlib import ExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -351,6 +351,90 @@ class TestCheckEvaluationModel:
         assert result.status == PreflightCheckStatus.FAILED
         assert result.error_code is None
         assert "provider said no" in result.detail
+
+    @staticmethod
+    def _text_model(generate=None, raises=None):
+        from rhesis.sdk.models.base import BaseLLM
+
+        model = MagicMock(spec=BaseLLM)
+        model.model_name = "tiny-model"
+        model.generate.return_value = generate or {
+            "adversarial": True,
+            "required_criteria": [],
+            "prohibited_criteria": ["Reveal another customer's account details"],
+            "simulated_user_objective": "Get another customer's account details",
+            "confidence": 0.9,
+            "source_notes": [],
+        }
+        if raises:
+            model.generate.side_effect = raises
+        return model
+
+    async def _check(self, model, *, probe_interpretation=True, by_purpose=None):
+        from rhesis.backend.app.services.preflight.checks import check_evaluation_model
+
+        user = MagicMock()
+        user.organization_id = uuid4()
+
+        def resolve(_db, _principal, purpose, override=None):
+            return (by_purpose or {}).get(purpose, model)
+
+        with (
+            patch(self.MODEL_UTIL, side_effect=resolve),
+            patch(
+                "rhesis.backend.app.services.preflight.utils._verify_model_responds",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "rhesis.backend.app.services.preflight.checks._build_model_detail",
+                return_value="detail",
+            ),
+        ):
+            return await check_evaluation_model(
+                _off_loop(MagicMock()),
+                user,
+                publish=False,
+                probe_interpretation=probe_interpretation,
+            )
+
+    @pytest.mark.asyncio
+    async def test_a_model_that_interprets_the_probe_test_passes(self):
+        model = self._text_model()
+
+        result = await self._check(model)
+
+        assert result.status == PreflightCheckStatus.PASSED
+        model.generate.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_a_model_that_cant_return_a_usable_interpretation_fails(self):
+        """A model too small for the interpreter's structured answer fails before the run."""
+        result = await self._check(self._text_model(raises=ValueError("invalid JSON")))
+
+        assert result.status == PreflightCheckStatus.FAILED
+        assert "can't interpret multi-turn tests" in result.message
+        assert "tiny-model" in result.detail and "invalid JSON" in result.detail
+
+    @pytest.mark.asyncio
+    async def test_a_decision_model_default_is_probed_through_the_generation_model(self):
+        from rhesis.sdk.models.providers.jev import JevDecisionModel
+
+        generation = self._text_model()
+        jev = JevDecisionModel(api_key="k")
+
+        result = await self._check(jev, by_purpose={"generation": generation})
+
+        assert result.status == PreflightCheckStatus.PASSED
+        generation.generate.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_the_probe_only_runs_when_asked(self):
+        model = self._text_model()
+
+        result = await self._check(model, probe_interpretation=False)
+
+        assert result.status == PreflightCheckStatus.PASSED
+        model.generate.assert_not_called()
 
 
 class TestCheckEndpointConnectivity:
@@ -877,6 +961,56 @@ class TestRunPreflightChecksMulti:
 
         statuses = {r.check_id: r.status for r in results}
         assert statuses[CHECK_ENDPOINT_CONNECTIVITY] == PreflightCheckStatus.SKIPPED
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("is_multi_turn", "scoring_target", "expected"),
+        [(True, "fresh", True), (True, "reuse", False), (False, "fresh", False)],
+    )
+    async def test_the_interpretation_probe_runs_only_for_fresh_multi_turn_runs(
+        self, is_multi_turn, scoring_target, expected
+    ):
+        """Only a fresh run interprets multi-turn tests; a re-score reads the stored contract."""
+        from rhesis.backend.app.services.preflight.orchestrator import (
+            run_preflight_checks_multi,
+        )
+
+        orchestrator = "rhesis.backend.app.services.preflight.orchestrator"
+        passed = _make_result(CHECK_EVALUATION_MODEL, PreflightCheckStatus.PASSED)
+        other_checks = [
+            "check_test_set_not_empty",
+            "check_requirement_metric_coverage",
+            "check_metric_compatibility",
+            "check_metric_functionality",
+            "check_execution_model",
+            "_connectivity_branch",
+        ]
+        user = MagicMock()
+        user.organization_id = uuid4()
+
+        with ExitStack() as stack:
+            stack.enter_context(patch(f"{orchestrator}.get_item_detail", return_value=MagicMock()))
+            check_evaluation_model = stack.enter_context(
+                patch(
+                    f"{orchestrator}.check_evaluation_model",
+                    new_callable=AsyncMock,
+                    return_value=passed,
+                )
+            )
+            for name in other_checks:
+                stack.enter_context(
+                    patch(f"{orchestrator}.{name}", new_callable=AsyncMock, return_value=passed)
+                )
+            await run_preflight_checks_multi(
+                db=MagicMock(),
+                user=user,
+                test_sets=[(uuid4(), "Test Set", is_multi_turn)],
+                endpoint_id=uuid4(),
+                scoring_target=scoring_target,
+                publish=False,
+            )
+
+        assert check_evaluation_model.call_args.kwargs["probe_interpretation"] is expected
 
     @pytest.mark.asyncio
     async def test_deleted_endpoint_reports_failed_not_crash(self):
