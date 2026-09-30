@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Union
+from typing import Optional, Union
 
 _DEFAULT_MESSAGE = (
     "Something went wrong while processing your message. "
@@ -12,6 +12,18 @@ _DEFAULT_MESSAGE = (
 )
 
 _MODEL_SETTINGS_HINT = "Check your generation model settings in workspace settings and try again."
+
+#: Stable code for "no usable model is set up". Matches the backend's
+#: ``rhesis.backend.app.utils.model_errors.MODEL_NOT_CONFIGURED``.
+MODEL_NOT_CONFIGURED = "model_not_configured"
+
+_MODEL_NOT_CONFIGURED_MESSAGE = (
+    "No usable AI model is set up. Open the Models page to enter a Rhesis platform "
+    "API key, or add a model from your own provider."
+)
+
+# Fallback for errors that carry no ``error_code``: the native provider's missing key.
+_NOT_CONFIGURED_MARKERS = ("rhesis_api_key is not set",)
 
 # litellm and provider exceptions often stringify with a full traceback.
 _TRACEBACK_SPLIT = re.compile(r"\n\s*Traceback \(most recent call last\):", re.IGNORECASE)
@@ -37,6 +49,19 @@ def _normalize(text: str) -> str:
     return cleaned
 
 
+def model_error_code(error: Union[BaseException, str, None]) -> Optional[str]:
+    """Return ``MODEL_NOT_CONFIGURED`` when *error* means no usable model is set up."""
+    if error is None:
+        return None
+    code = getattr(error, "error_code", None)
+    if code:
+        return code
+    text = _normalize(str(error)).lower()
+    if any(marker in text for marker in _NOT_CONFIGURED_MARKERS):
+        return MODEL_NOT_CONFIGURED
+    return None
+
+
 def format_user_facing_error(error: Union[BaseException, str, None]) -> str:
     """Convert an internal agent/LLM failure into a safe user message.
 
@@ -51,6 +76,12 @@ def format_user_facing_error(error: Union[BaseException, str, None]) -> str:
         return _DEFAULT_MESSAGE
 
     text = _normalize(raw).lower()
+
+    if model_error_code(error) == MODEL_NOT_CONFIGURED:
+        # A coded error is already worded for the user; a bare missing key is not.
+        if getattr(error, "error_code", None) and len(raw) <= 300:
+            return raw
+        return _MODEL_NOT_CONFIGURED_MESSAGE
 
     if "event loop" in text or "different event loop" in text:
         return "The Architect hit a temporary processing issue. Please send your message again."
