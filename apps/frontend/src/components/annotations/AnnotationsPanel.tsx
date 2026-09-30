@@ -140,7 +140,7 @@ export default function AnnotationsPanel({
   // Stands in for the human verdict when only a metric or a turn is annotated.
   const partLevel = useMemo(
     () =>
-      entityLevel
+      entityLevel?.status?.name
         ? undefined
         : sorted.find(
             a =>
