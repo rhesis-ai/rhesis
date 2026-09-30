@@ -20,7 +20,7 @@ from rhesis.backend.app.utils.execution_validation import (
     validate_execution_model,
     validate_generation_model,
 )
-from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+from rhesis.backend.app.utils.model_errors import MODEL_NOT_CONFIGURED, ModelConfigurationError
 
 
 class TestExecutionModelValidation:
@@ -53,6 +53,8 @@ class TestExecutionModelValidation:
                 validate_execution_model(db=test_db, current_user=authenticated_user)
 
             assert exc_info.value.status_code == 400
+            assert exc_info.value.detail["error_code"] == MODEL_NOT_CONFIGURED
+            assert "deployment_hint" not in exc_info.value.detail
             detail = str(exc_info.value.detail).lower()
             assert "configured model" in detail
             assert "api key" in detail
@@ -114,9 +116,13 @@ class TestExecutionModelValidation:
 
             assert exc_info.value.status_code == 500
             assert isinstance(exc_info.value, PublicHTTPException)
-            assert "DEFAULT_EVALUATION_MODEL" in exc_info.value.detail
+            detail = exc_info.value.detail
+            assert detail["error_code"] == MODEL_NOT_CONFIGURED
+            assert "Models page" in detail["message"]
+            # The setting name stays available for whoever runs the deployment.
+            assert "DEFAULT_EVALUATION_MODEL" in detail["deployment_hint"]
             # The exception text is server-side detail and stays in the log.
-            assert str(error) not in exc_info.value.detail
+            assert str(error) not in str(detail)
 
     def test_validate_execution_model_names_the_purpose_that_failed(
         self, test_db, authenticated_user
@@ -130,7 +136,7 @@ class TestExecutionModelValidation:
             with pytest.raises(HTTPException) as exc_info:
                 validate_execution_model(db=test_db, current_user=authenticated_user)
 
-            assert "DEFAULT_EXECUTION_MODEL" in exc_info.value.detail
+            assert "DEFAULT_EXECUTION_MODEL" in exc_info.value.detail["deployment_hint"]
 
     def test_validate_execution_model_quota_error_is_not_swallowed(
         self, test_db, authenticated_user

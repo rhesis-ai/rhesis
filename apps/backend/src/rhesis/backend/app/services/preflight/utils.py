@@ -108,6 +108,7 @@ async def _publish_check_status(
     test_set_id: Optional[str] = None,
     test_set_name: Optional[str] = None,
     composite_key: Optional[str] = None,
+    error_code: Optional[str] = None,
 ) -> None:
     from rhesis.backend.app.services.websocket.publisher import publish_event_async
 
@@ -124,6 +125,7 @@ async def _publish_check_status(
                 "test_set_id": test_set_id,
                 "test_set_name": test_set_name,
                 "composite_key": composite_key or check_id,
+                "error_code": error_code,
             },
         ),
         ChannelTarget(channel=f"preflight:{correlation_id}"),
@@ -159,6 +161,7 @@ async def _publish_result(
             result.test_set_id,
             result.test_set_name,
             result.composite_key,
+            result.error_code,
         )
 
 

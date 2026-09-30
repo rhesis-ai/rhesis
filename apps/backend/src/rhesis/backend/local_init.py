@@ -9,7 +9,6 @@ DO NOT use this in production environments.
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Mapping
 
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
@@ -18,6 +17,10 @@ from rhesis.backend.app import models
 from rhesis.backend.app.auth.terms import record_terms_acceptance
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import set_session_variables
+from rhesis.backend.app.services.model_setup import (
+    apply_default_model_ids,
+    onboarding_default_model_ids,
+)
 from rhesis.backend.app.services.organization import load_initial_data
 from rhesis.backend.app.utils.encryption import hash_password, hash_token
 from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
@@ -97,7 +100,9 @@ def initialize_local_environment(db: Session) -> None:
                 if not example_project:
                     logger.info("📦 Loading initial seed data...")
                     default_model_ids = load_initial_data(db, str(org.id), str(user.id))
-                    _apply_default_model_ids_to_user(user, default_model_ids)
+                    apply_default_model_ids(
+                        user, onboarding_default_model_ids(db, user, default_model_ids)
+                    )
                     db.flush()
                     # Seed data enrolls the admin in projects after the org-role
                     # hook may have already run — re-fire so project roles sync.
@@ -176,7 +181,7 @@ def initialize_local_environment(db: Session) -> None:
         # Load initial seed data (example project, tests, etc.)
         logger.info("📦 Loading initial seed data...")
         default_model_ids = load_initial_data(db, str(org_id), str(user_id))
-        _apply_default_model_ids_to_user(user, default_model_ids)
+        apply_default_model_ids(user, onboarding_default_model_ids(db, user, default_model_ids))
         db.flush()
 
         # enroll_user_in_project runs inside load_initial_data after the org-role
@@ -221,23 +226,6 @@ def _ensure_local_admin_org_role(
 
     on_user_org_assigned(db, user_id, organization_id)
     db.flush()
-
-
-def _apply_default_model_ids_to_user(
-    user: models.User, default_model_ids: Mapping[str, Any] | None
-) -> None:
-    """Match organization onboarding: wire default LLM/embedding IDs into user settings."""
-    if not default_model_ids:
-        return
-    user.settings.update(
-        {
-            "models": {
-                "generation": {"model_id": default_model_ids.get("language_model_id")},
-                "evaluation": {"model_id": default_model_ids.get("language_model_id")},
-                "embedding": {"model_id": default_model_ids.get("embedding_model_id")},
-            }
-        }
-    )
 
 
 def _create_local_token(db: Session, user_id: uuid.UUID, organization_id: uuid.UUID) -> None:

@@ -27,6 +27,10 @@ from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services import organization_branding as branding_service
+from rhesis.backend.app.services.model_setup import (
+    apply_default_model_ids,
+    onboarding_default_model_ids,
+)
 from rhesis.backend.app.services.organization import (
     execute_initial_test_runs,
     load_initial_data,
@@ -474,22 +478,13 @@ def initialize_organization_data(
 
         default_model_ids = load_initial_data(db, str(organization_id), str(current_user.id))
 
-        # Update user settings with the default models for generation, evaluation, and embedding
-        if default_model_ids:
-            # Get the user to update settings
-            user = db.query(models.User).filter(models.User.id == current_user.id).first()
-            if user:
-                # Settings are auto-persisted when using user.settings
-                user.settings.update(
-                    {
-                        "models": {
-                            "generation": {"model_id": default_model_ids.get("language_model_id")},
-                            "evaluation": {"model_id": default_model_ids.get("language_model_id")},
-                            "embedding": {"model_id": default_model_ids.get("embedding_model_id")},
-                        }
-                    }
-                )
-                db.flush()
+        # Point the user at the seeded models, but only the ones that can be built.
+        # Without a platform key they cannot, and a default that looks set but fails
+        # everywhere is worse than none (the Models page asks for one instead).
+        user = db.query(models.User).filter(models.User.id == current_user.id).first()
+        if user:
+            apply_default_model_ids(user, onboarding_default_model_ids(db, user, default_model_ids))
+            db.flush()
 
         # Mark onboarding as completed and commit while session variables are
         # still valid on the original connection. execute_initial_test_runs must

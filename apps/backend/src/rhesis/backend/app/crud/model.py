@@ -81,6 +81,25 @@ def get_models(
     )
 
 
+def get_rhesis_system_models(db: Session, organization_id: str) -> List[models.Model]:
+    """The org's seeded Rhesis-hosted models: provider ``rhesis`` with no key of its own.
+
+    Language models first, so a caller walking the list fills generation before
+    embedding. Polyphemus is left out: it is never a default.
+    """
+    return (
+        db.query(models.Model)
+        .join(models.TypeLookup, models.Model.provider_type_id == models.TypeLookup.id)
+        .filter(
+            models.Model.organization_id == organization_id,
+            models.TypeLookup.type_value == "rhesis",
+            (models.Model.key.is_(None)) | (models.Model.key == ""),
+        )
+        .order_by(models.Model.model_type.desc(), models.Model.created_at)
+        .all()
+    )
+
+
 def _reject_rows_without_own_credentials(db: Session, model: schemas.ModelCreate) -> None:
     """Refuse a row that has neither an API key nor an endpoint of its own.
 

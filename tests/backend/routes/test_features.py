@@ -23,6 +23,8 @@ from rhesis.backend.app.features import (
 from rhesis.backend.app.main import app
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.quota import FREE_TIER_LIMITS, QuotaResource, limits_to_wire
+from rhesis.backend.app.routers.features import get_model_readiness
+from rhesis.backend.app.utils.user_model_utils import ModelReadiness
 
 _TEST_ORG_ID = UUID("00000000-0000-0000-0000-000000000000")
 
@@ -80,6 +82,8 @@ def mock_current_user():
     app.dependency_overrides[get_tenant_db_session] = _override_db_session
     app.dependency_overrides[get_db_session] = _override_db_session
     app.dependency_overrides[require_current_user_or_token] = lambda: user_stub
+    # Readiness builds real models from real rows; its own tests cover that.
+    app.dependency_overrides[get_model_readiness] = lambda: ModelReadiness()
     yield user_stub
     app.dependency_overrides.clear()
 
@@ -164,6 +168,8 @@ class TestFeaturesEndpoint:
             "limits",
             "is_local",
             "rhesis_key_enabled",
+            "models_ready",
+            "embedding_model_ready",
         }
         assert set(body["license"].keys()) == {"edition", "licensed", "is_paid"}
         # `plan` is the client's whole contract for displaying a plan: a label
@@ -182,6 +188,35 @@ class TestFeaturesEndpoint:
         assert isinstance(body["limits"], dict)
         assert isinstance(body["is_local"], bool)
         assert isinstance(body["rhesis_key_enabled"], bool)
+        assert isinstance(body["models_ready"], bool)
+        assert isinstance(body["embedding_model_ready"], bool)
+
+    def test_models_ready_when_generation_and_evaluation_build(
+        self, client: TestClient, registered_sso, mock_current_user
+    ):
+        body = client.get("/features").json()
+        assert body["models_ready"] is True
+        assert body["embedding_model_ready"] is True
+
+    def test_models_not_ready_when_a_default_cannot_be_built(
+        self, client: TestClient, registered_sso, mock_current_user
+    ):
+        app.dependency_overrides[get_model_readiness] = lambda: ModelReadiness(
+            evaluation="No usable evaluation model is set up."
+        )
+        body = client.get("/features").json()
+        assert body["models_ready"] is False
+        assert body["embedding_model_ready"] is True
+
+    def test_embedding_alone_does_not_gate(
+        self, client: TestClient, registered_sso, mock_current_user
+    ):
+        app.dependency_overrides[get_model_readiness] = lambda: ModelReadiness(
+            embedding="No usable embedding model is set up."
+        )
+        body = client.get("/features").json()
+        assert body["models_ready"] is True
+        assert body["embedding_model_ready"] is False
 
     def test_no_org_degrades_to_community(self, client: TestClient, registered_sso):
         """A user without an organization gets the designed no-org state.
@@ -224,6 +259,8 @@ class TestFeaturesEndpoint:
         assert body["enabled"] == []
         assert body["warnings"] == {}
         assert body["limits"] == limits_to_wire(FREE_TIER_LIMITS)
+        # No org yet, so nothing can be built.
+        assert body["models_ready"] is False
 
     def test_license_info_reflects_org(self, client: TestClient, registered_sso, mock_current_user):
         """license_info() must always receive the org object, never None.

@@ -358,6 +358,50 @@ class TestArchitectHandlerErrors:
         assert msg.payload["error_type"] == "RuntimeError"
 
     @pytest.mark.asyncio
+    async def test_model_error_sets_error_code(self, mock_manager, mock_user):
+        from rhesis.backend.app.utils.model_errors import (
+            MODEL_NOT_CONFIGURED,
+            ModelNotConfiguredError,
+        )
+
+        message = WebSocketMessage(
+            type=EventType.ARCHITECT_MESSAGE,
+            correlation_id="corr-1",
+            payload={"session_id": "sess-1", "message": "hi"},
+        )
+        error = ModelNotConfiguredError("generation", ValueError("RHESIS_API_KEY is not set"))
+
+        with patch(
+            "rhesis.backend.app.services.websocket.handlers.architect.get_db_with_tenant_variables"
+        ) as mock_get_db:
+            mock_get_db.return_value.__enter__ = MagicMock(side_effect=error)
+            mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
+
+            await handle_architect_message(mock_manager, "conn-1", mock_user, message)
+
+        msg = mock_manager.broadcast.call_args[0][0]
+        assert msg.payload["error_code"] == MODEL_NOT_CONFIGURED
+        assert "Models page" in msg.payload["error"]
+
+    @pytest.mark.asyncio
+    async def test_other_errors_have_no_error_code(self, mock_manager, mock_user):
+        message = WebSocketMessage(
+            type=EventType.ARCHITECT_MESSAGE,
+            correlation_id="corr-1",
+            payload={"session_id": "sess-1", "message": "hi"},
+        )
+
+        with patch(
+            "rhesis.backend.app.services.websocket.handlers.architect.get_db_with_tenant_variables"
+        ) as mock_get_db:
+            mock_get_db.return_value.__enter__ = MagicMock(side_effect=RuntimeError("DB down"))
+            mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
+
+            await handle_architect_message(mock_manager, "conn-1", mock_user, message)
+
+        assert mock_manager.broadcast.call_args[0][0].payload["error_code"] is None
+
+    @pytest.mark.asyncio
     async def test_correlation_id_preserved_on_error(self, mock_manager, mock_user):
         message = WebSocketMessage(
             type=EventType.ARCHITECT_MESSAGE,

@@ -24,6 +24,7 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.platform import PlatformKeyStatus, PlatformKeyUpdate
+from rhesis.backend.app.services import model_setup as model_setup_service
 from rhesis.backend.app.services import platform_key as platform_key_service
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,7 @@ def set_rhesis_key(
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    model_setup_service.adopt_platform_models(db, current_user)
     return PlatformKeyStatus(**status)
 
 

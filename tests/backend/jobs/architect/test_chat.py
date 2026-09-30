@@ -408,3 +408,33 @@ def test_task_skips_parking_when_no_trace_id():
             register_pending_output(trace_id=trace_id, mapped_output="x")
 
         mock_register.assert_not_called()
+
+
+@pytest.mark.unit
+def test_task_error_payload_carries_model_error_code():
+    """#2851 routes on ``error_code``, so an unbuildable model must set it."""
+    from rhesis.backend.app.utils.model_errors import (
+        MODEL_NOT_CONFIGURED,
+        ModelConfigurationError,
+        ModelNotConfiguredError,
+    )
+    from rhesis.backend.jobs.architect.chat import architect_chat_task
+
+    # The org's own broken model, which carries no marker text of its own.
+    error = ModelNotConfiguredError(
+        "generation", ModelConfigurationError("Your configured model 'Mine' is broken.")
+    )
+    with (
+        patch("rhesis.backend.jobs.architect.chat._load_session_trace_id", return_value=None),
+        patch(
+            "rhesis.backend.app.services.architect.runner.run_architect_turn",
+            side_effect=error,
+        ),
+        patch("rhesis.backend.jobs.architect.chat.publish_event") as mock_publish,
+        pytest.raises(ModelNotConfiguredError),
+    ):
+        architect_chat_task.run(session_id=_VALID_SESSION_ID, user_message="hi")
+
+    payload = mock_publish.call_args[0][0].payload
+    assert payload["error_code"] == MODEL_NOT_CONFIGURED
+    assert payload["error"] == "Your configured model 'Mine' is broken."

@@ -20,7 +20,7 @@ from rhesis.backend.jobs.architect.telemetry import (
 )
 from rhesis.backend.jobs.base import SilentJob, in_app_notification
 from rhesis.backend.worker import app
-from rhesis.sdk.agents.errors import format_user_facing_error
+from rhesis.sdk.agents.errors import format_user_facing_error, model_error_code
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +176,7 @@ def architect_chat_task(
                     "session_id": session_id,
                     "error": format_user_facing_error(e),
                     "error_type": type(e).__name__,
+                    "error_code": model_error_code(e),
                 },
             ),
             target,

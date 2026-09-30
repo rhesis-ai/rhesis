@@ -28,6 +28,7 @@ from rhesis.backend.app.services.preflight.utils import (
     _make_composite_key,
     _make_result,
 )
+from rhesis.backend.app.utils.model_errors import MODEL_NOT_CONFIGURED
 from tests.backend._helpers import records_thread as _records_thread
 
 
@@ -303,11 +304,53 @@ class TestCheckEvaluationModel:
         user = MagicMock()
         user.organization_id = uuid4()
 
-        with patch(self.MODEL_UTIL, side_effect=ValueError("No API key configured")):
+        with patch(self.MODEL_UTIL, side_effect=ValueError("RHESIS_API_KEY is not set")):
+            result = await check_evaluation_model(_off_loop(db), user, publish=False)
+
+        # The deployment default could not be built: the user is sent to the
+        # Models page, and the env-var wording stays out of the result.
+        assert result.status == PreflightCheckStatus.FAILED
+        assert result.error_code == MODEL_NOT_CONFIGURED
+        assert "Models page" in result.detail
+        assert "RHESIS_API_KEY" not in result.detail
+
+    @pytest.mark.asyncio
+    async def test_own_model_config_error_keeps_its_message(self):
+        from rhesis.backend.app.services.preflight.checks import check_evaluation_model
+        from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+
+        db = MagicMock()
+        user = MagicMock()
+        user.organization_id = uuid4()
+
+        error = ModelConfigurationError("Your configured model 'Mine' needs an API key.")
+        with patch(self.MODEL_UTIL, side_effect=error):
+            result = await check_evaluation_model(_off_loop(db), user, publish=False)
+
+        assert result.error_code == MODEL_NOT_CONFIGURED
+        assert result.detail == "Your configured model 'Mine' needs an API key."
+
+    @pytest.mark.asyncio
+    async def test_model_that_builds_but_fails_the_call_has_no_code(self):
+        from rhesis.backend.app.services.preflight.checks import check_evaluation_model
+
+        db = MagicMock()
+        user = MagicMock()
+        user.organization_id = uuid4()
+
+        with (
+            patch(self.MODEL_UTIL, return_value=MagicMock()),
+            patch(
+                "rhesis.backend.app.services.preflight.checks._verify_model_responds",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("provider said no"),
+            ),
+        ):
             result = await check_evaluation_model(_off_loop(db), user, publish=False)
 
         assert result.status == PreflightCheckStatus.FAILED
-        assert "No API key configured" in result.detail
+        assert result.error_code is None
+        assert "provider said no" in result.detail
 
 
 class TestCheckEndpointConnectivity:
@@ -571,7 +614,8 @@ class TestCheckMetricCompatibility:
 
         # missing ground truth count
         missing_count_query = MagicMock()
-        missing_count_query.join.return_value.join.return_value.filter.return_value.filter.return_value.count.return_value = missing_ground_truth
+        missing_filtered = missing_count_query.join.return_value.join.return_value.filter
+        missing_filtered.return_value.filter.return_value.count.return_value = missing_ground_truth
 
         return db
 
@@ -692,7 +736,8 @@ class TestCheckMetricCompatibility:
         # total_tests count (filter().count())
         db.query.return_value.filter.return_value.count.return_value = 10
         # missing ground truth count (join().join().filter().filter().count())
-        db.query.return_value.join.return_value.join.return_value.filter.return_value.filter.return_value.count.return_value = 3
+        joined = db.query.return_value.join.return_value.join.return_value
+        joined.filter.return_value.filter.return_value.count.return_value = 3
 
         endpoint = MagicMock()
         endpoint.response_mapping = {}

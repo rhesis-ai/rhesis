@@ -2,6 +2,16 @@
 
 from typing import Optional
 
+#: The one error code every model check returns when a model cannot be built.
+#: Lowercase like the other codes on the wire (``quota_exceeded``, ``password_not_set``).
+MODEL_NOT_CONFIGURED = "model_not_configured"
+
+#: Where a user fixes it. Shared so every check points at the same place.
+MODELS_PAGE_HINT = (
+    "Open the Models page to enter a Rhesis platform API key, or add a model from your own "
+    "provider."
+)
+
 
 class ModelConfigurationError(ValueError):
     """Raised when a model configuration is invalid or unavailable."""
@@ -10,6 +20,47 @@ class ModelConfigurationError(ValueError):
         self.message = message
         self.original_error = original_error
         super().__init__(self.message)
+
+
+class ModelNotConfiguredError(ValueError):
+    """A model that cannot be built, worded for the user; wraps the org's own broken
+    model or an unbuildable deployment default so every check reports it the same way."""
+
+    error_code = MODEL_NOT_CONFIGURED
+
+    def __init__(self, purpose: str, cause: BaseException):
+        self.purpose = purpose
+        self.cause = cause
+        self.own_model = isinstance(cause, ModelConfigurationError)
+        if self.own_model:
+            self.message = str(cause)
+        else:
+            self.message = f"No usable {purpose} model is set up. {MODELS_PAGE_HINT}"
+        super().__init__(self.message)
+
+    @property
+    def deployment_hint(self) -> Optional[str]:
+        """The env-var wording, for the deployment-default case only."""
+        if self.own_model:
+            return None
+        return (
+            f"This deployment's default {self.purpose} model could not be built. Check the "
+            f"backend's DEFAULT_{self.purpose.upper()}_MODEL setting and the credentials it "
+            f"needs, or set a platform key for the organization."
+        )
+
+    @property
+    def log_message(self) -> str:
+        hint = self.deployment_hint
+        return f"{hint} Cause: {self.cause}" if hint else f"{self.message} Cause: {self.cause}"
+
+    def detail(self, message: Optional[str] = None) -> dict:
+        """The HTTP ``detail`` body. Same ``{message, error_code}`` shape the frontend
+        already reads from structured details (see ``formatApiErrorDetail``)."""
+        body = {"message": message or self.message, "error_code": self.error_code}
+        if self.deployment_hint:
+            body["deployment_hint"] = self.deployment_hint
+        return body
 
 
 class EmbeddingProviderNotConfigured(ModelConfigurationError):

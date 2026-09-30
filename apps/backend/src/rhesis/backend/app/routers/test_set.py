@@ -214,7 +214,9 @@ def generate_test_set(
             attrs["metadata"] = metadata
             db_test_set.attributes = attrs
             db.commit()
-            raise handle_execution_error(launch_err, operation="launch test set generation task")
+            raise handle_execution_error(
+                launch_err, operation="launch test set generation task", purpose="generation"
+            )
 
         logger.info(
             "Test set generation task launched",
@@ -238,7 +240,9 @@ def generate_test_set(
     except HTTPException:
         raise
     except Exception as e:
-        http_exception = handle_execution_error(e, operation="generate test set")
+        http_exception = handle_execution_error(
+            e, operation="generate test set", purpose="generation"
+        )
         raise http_exception
 
 

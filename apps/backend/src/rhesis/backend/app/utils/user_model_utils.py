@@ -7,6 +7,7 @@ for different purposes (generation, evaluation, embedding, etc.)
 
 import logging
 import os
+from dataclasses import dataclass
 from typing import Literal, Optional, Union
 from uuid import UUID
 
@@ -23,9 +24,12 @@ from rhesis.backend.app.models.model import Model
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
-from rhesis.backend.app.quota.enforcement import enforce_quota
+from rhesis.backend.app.quota.enforcement import QuotaExceededError, enforce_quota
 from rhesis.backend.app.services.platform_key import get_platform_api_key
-from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+from rhesis.backend.app.utils.model_errors import (
+    ModelConfigurationError,
+    ModelNotConfiguredError,
+)
 from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
 from rhesis.sdk.models.base import BaseDecisionModel, BaseEmbedder, BaseLLM
 from rhesis.sdk.models.base import BaseModel as SdkModel
@@ -367,6 +371,57 @@ def validate_model(db: Session, user: User, purpose: ModelPurpose) -> None:
     _resolve_for_user(db, user, purpose, override=None)
 
 
+@dataclass(frozen=True)
+class ModelReadiness:
+    """Whether a user's default models can be built. ``None`` means usable;
+    otherwise the problem, in words the user can act on."""
+
+    generation: Optional[str] = None
+    evaluation: Optional[str] = None
+    embedding: Optional[str] = None
+
+    @property
+    def ready(self) -> bool:
+        # Embeddings only degrade search, so they are reported but never gate.
+        return self.generation is None and self.evaluation is None
+
+
+def model_setup_problem(
+    db: Session,
+    user: User,
+    purpose: Literal["generation", "evaluation", "execution", "embedding"],
+    model_id: Optional[str] = None,
+) -> Optional[ModelNotConfiguredError]:
+    """The one place that decides if a model is usable: build it (no call, no network).
+
+    Quota exceeded still counts as usable; it has its own 402 path.
+    """
+    try:
+        _resolve_for_user(db, user, purpose, override=model_id)
+    except QuotaExceededError:
+        return None
+    # Same classes execution_validation splits on: an org's own broken model is a
+    # ModelConfigurationError, a deployment default that cannot be built is a plain
+    # ValueError or ImportError (see _build_configured_model).
+    except (ValueError, ImportError) as e:
+        return ModelNotConfiguredError(purpose, e)
+    return None
+
+
+def check_model_readiness(db: Session, user: User) -> ModelReadiness:
+    """Whether *user*'s default generation and evaluation models can be built.
+
+    Computed on each call and never stored. See :func:`model_setup_problem`.
+    """
+    problems = {}
+    for purpose in ("generation", "evaluation", "embedding"):
+        problem = model_setup_problem(db, user, purpose)
+        if problem is not None:
+            logger.info("Model not ready for user_id=%s: %s", user.id, problem.log_message)
+            problems[purpose] = problem.message
+    return ModelReadiness(**problems)
+
+
 def _is_rhesis_system_model(provider: str, api_key: str) -> bool:
     """
     Check if a model is a Rhesis system model.
@@ -630,7 +685,7 @@ def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):
             ``ValueError`` subclass, so existing handlers still catch it, but
             the specific type is what keeps this off the deployment's back:
             a bare ``ValueError`` reaching
-            ``execution_validation._deployment_model_error`` would report an
+            ``execution_validation.model_setup_http_exception`` would report an
             unverified account as a broken ``DEFAULT_*_MODEL``.
     """
     from rhesis.backend.app.auth.token_utils import create_service_delegation_token
@@ -734,7 +789,7 @@ def _build_configured_model(
     dependency at import time (``huggingface`` needs torch). It carries no
     message this function can classify, so it lands on the generic branch --
     but it has to be caught here all the same. Escaping as itself would reach
-    ``execution_validation._deployment_model_error``, which would report an
+    ``execution_validation.model_setup_http_exception``, which would report an
     organization's own model choice as a broken ``DEFAULT_*_MODEL``.
     """
     embedding = model_type == "embedding"
