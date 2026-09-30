@@ -1,0 +1,161 @@
+/* Deliberately minimal until the response shape settles; tokens only, see styles/tokens.css. */
+
+.launcher {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 60;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--rh-cta-border);
+  border-radius: var(--rh-radius-full);
+  background: var(--rh-cta-gradient);
+  color: var(--rh-cta-text);
+  font-family: var(--rh-font-sans);
+  font-size: 0.875rem;
+  cursor: pointer;
+  box-shadow: var(--rh-shadow-card);
+}
+
+.panel {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 4.5rem;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  width: min(26rem, calc(100vw - 2.5rem));
+  height: min(36rem, calc(100vh - 7rem));
+  border: 1px solid var(--rh-border);
+  border-radius: var(--rh-radius-xl);
+  background: var(--rh-surface);
+  color: var(--rh-text);
+  font-family: var(--rh-font-sans);
+  box-shadow: var(--rh-shadow-card-hover);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--rh-border);
+  color: var(--rh-heading);
+  font-weight: 600;
+}
+
+.close {
+  border: 0;
+  background: none;
+  color: var(--rh-text-secondary);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+}
+
+.hint {
+  color: var(--rh-text-secondary);
+}
+
+.user {
+  margin: 0.5rem 0 0.5rem auto;
+  max-width: 85%;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--rh-radius-lg);
+  background: var(--rh-surface-sunken);
+  white-space: pre-wrap;
+  width: fit-content;
+}
+
+.assistant {
+  margin: 0.75rem 0;
+}
+
+.route {
+  display: inline-block;
+  margin-bottom: 0.25rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--rh-radius-full);
+  background: var(--rh-accent-bg);
+  color: var(--rh-text-secondary);
+  font-family: var(--rh-font-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.markdown a {
+  color: var(--rh-link-hover);
+  text-decoration: underline;
+}
+
+.markdown pre {
+  overflow-x: auto;
+  padding: 0.5rem;
+  border-radius: var(--rh-radius-md);
+  background: var(--rh-code-bg);
+}
+
+.markdown code {
+  font-family: var(--rh-font-mono);
+  font-size: 0.8rem;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol {
+  margin: 0.4rem 0;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.25rem;
+  list-style: revert;
+}
+
+.error {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--rh-border-strong);
+  border-radius: var(--rh-radius-lg);
+  color: var(--rh-text-secondary);
+}
+
+.form {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-top: 1px solid var(--rh-border);
+}
+
+.input {
+  flex: 1;
+  resize: none;
+  padding: 0.5rem;
+  border: 1px solid var(--rh-border-strong);
+  border-radius: var(--rh-radius-md);
+  background: var(--rh-canvas);
+  color: var(--rh-text);
+  font: inherit;
+  font-size: 0.875rem;
+}
+
+.send {
+  padding: 0 1rem;
+  border: 1px solid var(--rh-cta-border);
+  border-radius: var(--rh-radius-md);
+  background: var(--rh-cta-gradient);
+  color: var(--rh-cta-text);
+  cursor: pointer;
+}
+
+.send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

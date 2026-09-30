@@ -1,0 +1,10 @@
+{"id": "metric-scope", "question": "What's the difference between single-turn and multi-turn metrics?", "expected_route": "answered", "expected_pages": ["docs/metrics/metric-scope|sdk/metrics"]}
+{"id": "sdk-install", "question": "How do I install the Rhesis SDK?", "expected_route": "answered", "expected_pages": ["sdk/installation"]}
+{"id": "adk-tracing", "question": "How do I trace a Google ADK agent with Rhesis?", "expected_route": "answered", "expected_pages": ["docs/tracing/google-adk"]}
+{"id": "response-mapping", "question": "How do I pull the answer text out of my API's JSON response when I set up an endpoint?", "expected_route": "answered", "expected_pages": ["docs/endpoints/response-mapping"]}
+{"id": "helm", "question": "How do I deploy Rhesis on Kubernetes with Helm?", "expected_route": "answered", "expected_pages": ["self-hosting/kubernetes-helm"]}
+{"id": "ci", "question": "How do I run Rhesis tests in my CI pipeline?", "expected_route": "answered", "expected_pages": ["guides/ci-cd-integration"]}
+{"id": "tableau", "question": "Can I export Rhesis test results to Tableau?", "expected_route": "not_documented", "expected_pages": []}
+{"id": "quicksort", "question": "Write me a quicksort in Rust.", "expected_route": "out_of_scope", "expected_pages": []}
+{"id": "add-metric", "question": "How do I add a metric?", "expected_route": "needs_clarification", "expected_pages": []}
+{"id": "greeting", "question": "Hi! What can you do?", "expected_route": "smalltalk", "expected_pages": []}
