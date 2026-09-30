@@ -234,7 +234,7 @@ describe('TraceMetricsSummary', () => {
     const tooltip = await openCostTooltip();
     await waitFor(() => {
       expect(tooltip).toHaveTextContent(
-        "What this run's traced LLM calls cost"
+        'What the LLM calls in these traces cost'
       );
     });
     expect(
@@ -243,6 +243,30 @@ describe('TraceMetricsSummary', () => {
     expect(
       within(tooltip).getByText('159,062 output tokens')
     ).toBeInTheDocument();
+  });
+
+  it('does not describe the project-wide page as a single run', async () => {
+    renderTiles();
+
+    const tooltip = await openCostTooltip();
+    await waitFor(() => {
+      expect(tooltip).toHaveTextContent(
+        'total tokens used by your application'
+      );
+    });
+    expect(tooltip).not.toHaveTextContent('this run');
+  });
+
+  it("words the tooltip for a run's Traces tab", async () => {
+    renderTiles({ testRunId: 'run-1', costScope: 'run-traces' });
+
+    const tooltip = await openCostTooltip();
+    await waitFor(() => {
+      expect(tooltip).toHaveTextContent(
+        'What the LLM calls traced during this run cost'
+      );
+    });
+    expect(tooltip).toHaveTextContent('total tokens used by the endpoint');
   });
 
   it('leaves the token lines out of the tooltip when both are zero', async () => {
@@ -254,7 +278,7 @@ describe('TraceMetricsSummary', () => {
     const tooltip = await openCostTooltip();
     await waitFor(() => {
       expect(tooltip).toHaveTextContent(
-        "What this run's traced LLM calls cost"
+        'What the LLM calls in these traces cost'
       );
     });
     expect(tooltip).not.toHaveTextContent('input tokens');
@@ -285,9 +309,7 @@ describe('TraceMetricsSummary', () => {
     );
     renderTiles();
 
-    expect(
-      await screen.findByText('Working out what this cost')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Working out the cost')).toBeInTheDocument();
     expect(screen.queryByText('$0.00')).not.toBeInTheDocument();
 
     const tooltip = await openCostTooltip();
@@ -314,7 +336,9 @@ describe('TraceMetricsSummary', () => {
 
     const tooltip = await openCostTooltip();
     await waitFor(() => {
-      expect(tooltip).toHaveTextContent('Rhesis prices a run from the tokens');
+      expect(tooltip).toHaveTextContent(
+        'Rhesis works out cost from the model name'
+      );
     });
     expect(
       within(tooltip).getByText('412,000 input tokens')

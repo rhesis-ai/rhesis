@@ -11,11 +11,13 @@ itself.
 """
 
 from typing import Any, Optional, Sequence
+from uuid import UUID
 
 from sqlalchemy import and_, case, column, false, func, literal, or_, select, true
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app import models
 from rhesis.backend.app.constants import AISpanAttributes, EnrichedDataKeys
 
 
@@ -233,9 +235,7 @@ def enriched_token_expr(enriched_data, rollup_key: str, breakdown_key: str) -> A
 
     The breakdown step is what keeps this in step with ``trace_usage_totals``, which
     derives the same figures in Python. Without it the two disagree for a blob that has
-    a breakdown but no trace-level token totals -- and they disagree worst exactly where
-    it is hardest to notice, under ``test_run_id`` scope, where the llm.invoke spans the
-    raw fallback sums are not in scope at all because only the root span carries the run.
+    a breakdown but no trace-level token totals.
 
     Stays NULL when neither source knows, so the caller can still fall back to the raw
     span sum for a trace enrichment has not reached.
@@ -248,6 +248,47 @@ def enriched_token_expr(enriched_data, rollup_key: str, breakdown_key: str) -> A
             if breakdown_key == EnrichedDataKeys.TOTAL_TOKENS
             else (lambda entry: entry[breakdown_key].as_float()),
         ),
+    )
+
+
+def run_spans_subquery(db: Session, organization_id=None, run_ids=None) -> Any:
+    """Every span of the traces test runs own, each row carrying its run's ``test_run_id``.
+
+    ``test_run_id`` is stamped on root spans only, so a scan filtered on it misses the
+    llm.invoke children that carry the tokens, and a run reads zero until enrichment
+    copies its totals onto the root. Joining back on ``trace_id`` brings the children in.
+
+    Only the columns the usage rollups read. The tenant filter is explicit on both halves
+    because this is nested as a plain subquery, which the ORM auto-filter does not reach.
+
+    Args:
+        organization_id: narrows to one organization; left out, every organization.
+        run_ids: narrows to these runs; left out, every run.
+    """
+    trace = models.Trace
+    root_filters = [trace.test_run_id.isnot(None), trace.deleted_at.is_(None)]
+    span_filters = [trace.deleted_at.is_(None)]
+    if run_ids is not None:
+        root_filters.append(trace.test_run_id.in_(run_ids))
+    if organization_id:
+        org_filter = trace.organization_id == UUID(str(organization_id))
+        root_filters.append(org_filter)
+        span_filters.append(org_filter)
+
+    # DISTINCT because a multi-turn trace has one root per turn, and each would
+    # otherwise join its spans in again.
+    roots = select(trace.trace_id, trace.test_run_id).where(*root_filters).distinct().subquery()
+
+    return (
+        db.query(
+            roots.c.test_run_id.label("test_run_id"),
+            trace.trace_id,
+            trace.attributes,
+            trace.enriched_data,
+        )
+        .join(roots, roots.c.trace_id == trace.trace_id)
+        .filter(*span_filters)
+        .subquery()
     )
 
 
@@ -339,11 +380,9 @@ def models_used_select(base, *, extra_columns: Sequence = ()) -> Any:
     """Distinct (model, reported provider) pairs over a scanned set of span rows.
 
     Reads the enrichment breakdown *and* raw span attributes, because neither alone
-    covers every case. Scoping by test run is the reason: ``test_run_id`` is stamped on
-    the root span only, so a run's llm.invoke children are not in ``base`` at all and the
-    attribute source finds nothing. The enriched blob is on every span row of the trace,
-    including that root, so it answers where attributes cannot. Attributes in turn answer
-    for a trace enrichment has not reached yet, which has no blob.
+    covers every case. The breakdown names the priced model even where the span
+    attributes disagree with it; attributes answer for a trace enrichment has not
+    reached yet, which has no blob.
 
     The provider comes back as reported and is NULL for anything that stamped none --
     older breakdown entries never carried one. The caller finishes the job with
@@ -419,6 +458,7 @@ __all__ = [
     "models_used_select",
     "per_trace_usage_subquery",
     "provider_breakdown_clause",
+    "run_spans_subquery",
     "span_token_expr",
     "span_total_tokens_expr",
     "trace_first_model_expr",

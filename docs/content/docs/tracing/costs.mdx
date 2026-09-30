@@ -43,7 +43,7 @@ data** for that case, and a trace with no cost shows a dash in the list rather t
 | --- | --- |
 | **No cost data**, tokens present | No model in the run could be priced |
 | **No cost data**, no tokens either | The calls reported no tokens, so there was nothing to price |
-| **Working out what this cost**, tokens present | Enrichment has traces of this run left to price |
+| **Working out the cost**, tokens present | Rhesis still has traces to price. The token count is already final |
 | A cost of zero | The run was priced and came to nothing, for example on a free tier |
 | Cost present, no input/output split | The trace was priced before Rhesis recorded the two halves separately |
 | Provider shown as `unknown` | The span reported no provider and its model name could not be placed |

@@ -12,7 +12,6 @@ The join produces at most one row per run, so it cannot duplicate the rows being
 from __future__ import annotations
 
 from typing import Optional
-from uuid import UUID
 
 from sqlalchemy import asc, desc, func, select
 from sqlalchemy.orm import Query, Session
@@ -73,30 +72,15 @@ def model_supports_usage_sort(model, sort_by: str) -> bool:
     return any(fk.column.table.name == table for fk in Trace.__table__.c.test_run_id.foreign_keys)
 
 
-def _trace_base(db: Session, organization_id: Optional[str]):
-    """Every trace stamped with a test run, within one organization.
-
-    The tenant filter is explicit rather than left to the ORM auto-filter: this becomes a
-    plain subquery nested inside the statement being executed, and ``auto_filter`` adds
-    its criteria to ORM entities in that statement, not to subqueries built beforehand.
-    Getting this wrong would let one organization order its list by another's spending.
-    """
-    from rhesis.backend.app import models as app_models
-
-    filters = [
-        app_models.Trace.test_run_id.isnot(None),
-        app_models.Trace.deleted_at.is_(None),
-    ]
-    if organization_id:
-        filters.append(app_models.Trace.organization_id == UUID(str(organization_id)))
-    return db.query(app_models.Trace).filter(*filters).subquery()
-
-
 def _usage_subquery(db: Session, sort_by: str, organization_id: Optional[str]):
     """One row per test run, carrying just the figure being sorted on."""
-    from rhesis.backend.app.crud.usage_sql import models_used_select, per_trace_usage_subquery
+    from rhesis.backend.app.crud.usage_sql import (
+        models_used_select,
+        per_trace_usage_subquery,
+        run_spans_subquery,
+    )
 
-    base = _trace_base(db, organization_id)
+    base = run_spans_subquery(db, organization_id)
 
     if sort_by == MODEL_SORT_FIELD:
         # Alphabetically first, which is the model the grid cell shows before its "+N".

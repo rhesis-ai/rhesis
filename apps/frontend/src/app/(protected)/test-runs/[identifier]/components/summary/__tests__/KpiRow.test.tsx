@@ -531,7 +531,9 @@ describe('KpiRow', () => {
     expect(
       within(tooltip).getByText('3,000 output tokens')
     ).toBeInTheDocument();
-    expect(tooltip).toHaveTextContent("What this run's traced LLM calls cost");
+    expect(tooltip).toHaveTextContent(
+      'What the LLM calls traced during this run cost'
+    );
   });
 
   it('leaves the token lines out of the Cost tooltip when both are zero', async () => {
@@ -557,7 +559,7 @@ describe('KpiRow', () => {
     const tooltip = await openCostTooltip();
     await waitFor(() => {
       expect(tooltip).toHaveTextContent(
-        "What this run's traced LLM calls cost"
+        'What the LLM calls traced during this run cost'
       );
     });
     expect(tooltip).not.toHaveTextContent('input tokens');
@@ -697,7 +699,9 @@ describe('KpiRow', () => {
     expect(
       within(tooltip).getByText('1,120 output tokens')
     ).toBeInTheDocument();
-    expect(tooltip).toHaveTextContent('Rhesis prices a run from the tokens');
+    expect(tooltip).toHaveTextContent(
+      'Rhesis works out cost from the model name'
+    );
   });
 
   it('says it is still working while enrichment has traces left', async () => {
@@ -722,7 +726,7 @@ describe('KpiRow', () => {
         timings={EMPTY_TIMINGS}
       />
     );
-    expect(screen.getByText('Working out what this cost')).toBeInTheDocument();
+    expect(screen.getByText('Working out the cost')).toBeInTheDocument();
     expect(screen.queryByText('No cost data')).not.toBeInTheDocument();
 
     const tooltip = await openCostTooltip();

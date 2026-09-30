@@ -304,6 +304,99 @@ class TestTestRunScoping:
         assert caught.value.status_code == 400
 
 
+@pytest.mark.integration
+class TestRunScopeCoversChildSpans:
+    """Only the root span carries ``test_run_id``, as real test execution ingests it.
+
+    The run scope has to take every span of the run's traces. Filtering span rows on
+    the run left the llm.invoke children out, so tokens read zero until enrichment
+    copied its totals onto the root, and the span breakdown listed one type.
+    """
+
+    @pytest.fixture
+    def run_trace(self, test_db, db_project, test_org_id, db_test_run):
+        """A root span stamped with the run, plus un-stamped tool and llm.invoke children."""
+        trace_id = uuid.uuid4().hex
+        project_id = str(db_project.id)
+        root = run_span(trace_id, project_id, db_test_run.id, operation="agent.invoke")
+        children = [
+            span(
+                trace_id,
+                uuid.uuid4().hex[:16],
+                project_id,
+                parent=root.span_id,
+                operation="llm.invoke",
+                tokens=(100, 20, 120),
+            ),
+            span(
+                trace_id,
+                uuid.uuid4().hex[:16],
+                project_id,
+                parent=root.span_id,
+                operation="llm.invoke",
+                tokens=(60, 20, 80),
+            ),
+            span(
+                trace_id,
+                uuid.uuid4().hex[:16],
+                project_id,
+                parent=root.span_id,
+                operation="tool.invoke",
+                name="ai.tool.invoke",
+                error=True,
+            ),
+        ]
+        create_trace_spans(test_db, [root, *children], organization_id=test_org_id)
+        return trace_id, project_id, str(db_test_run.id)
+
+    def metrics(self, test_db, test_org_id, project_id, run_id):
+        return get_trace_metrics_aggregated(
+            test_db, organization_id=test_org_id, project_id=project_id, test_run_id=run_id
+        )
+
+    def test_tokens_count_before_enrichment(self, test_db, run_trace, test_org_id):
+        _, project_id, run_id = run_trace
+
+        metrics = self.metrics(test_db, test_org_id, project_id, run_id)
+
+        assert metrics["total_tokens"] == 200
+        assert metrics["total_input_tokens"] == 160
+        assert metrics["total_output_tokens"] == 40
+        assert metrics["enriched_traces"] == 0
+
+    def test_every_span_and_span_type_is_counted(self, test_db, run_trace, test_org_id):
+        _, project_id, run_id = run_trace
+
+        metrics = self.metrics(test_db, test_org_id, project_id, run_id)
+
+        assert metrics["total_traces"] == 1
+        assert metrics["total_spans"] == 4
+        assert metrics["error_spans"] == 1
+        assert metrics["operation_breakdown"] == {
+            "agent.invoke": 1,
+            "llm.invoke": 2,
+            "tool.invoke": 1,
+        }
+
+    def test_models_come_off_the_children_before_enrichment(self, test_db, run_trace, test_org_id):
+        _, project_id, run_id = run_trace
+
+        metrics = self.metrics(test_db, test_org_id, project_id, run_id)
+
+        assert metrics["models_used"] == ["gpt-4"]
+
+    def test_tokens_hold_steady_once_enriched(self, test_db, run_trace, test_org_id):
+        """Enrichment prices the trace; it does not add to or double its tokens."""
+        trace_id, project_id, run_id = run_trace
+        mark_trace_processed(test_db, trace_id, enrichment_blob(total_tokens=200))
+
+        metrics = self.metrics(test_db, test_org_id, project_id, run_id)
+
+        assert metrics["total_tokens"] == 200
+        assert metrics["total_cost_usd"] == pytest.approx(TRACE_COST_USD)
+        assert metrics["enriched_traces"] == 1
+
+
 def legacy_enrichment_blob(models):
     """A blob shaped the way every already-enriched trace in the database is.
 
@@ -440,9 +533,9 @@ class TestUsageBreakdown:
     ):
         """The test-run case, and the reason the blob is read at all.
 
-        ``test_run_id`` is stamped on the root span, not on the llm.invoke children, so
-        scoping to a run leaves no span carrying a model name. The enrichment blob is
-        written onto every span row of the trace, including that root, so it still knows.
+        Here the root is the only span stored, so no span carries a model name. The
+        enrichment blob is written onto every span row of the trace, including that
+        root, so it still knows.
         """
         trace_id = uuid.uuid4().hex
         project_id = str(db_project.id)
@@ -518,10 +611,10 @@ def blob_without_token_rollup(models):
 class TestTokensForBlobsWithNoTokenRollup:
     """Tokens have to come off the breakdown when the trace-level totals are absent.
 
-    The raw fallback sums llm.invoke spans, which is fine project-wide but reports zero
-    under test-run scope: test_run_id is stamped on the root span only, so the spans it
-    would sum are not in scope. trace_usage_totals already derives these in Python, so
-    without the same derivation in SQL the two disagree.
+    A trace whose only span in the database is the run's root has no llm.invoke spans
+    for the raw fallback to sum, so its tokens have to come off the blob's breakdown.
+    trace_usage_totals already derives these in Python, so without the same derivation
+    in SQL the two disagree.
     """
 
     def test_derives_tokens_from_the_breakdown_under_run_scope(
