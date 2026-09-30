@@ -29,8 +29,12 @@ from rhesis.backend.app.schemas.evaluation_contract import (
     read_contract,
     store_contract,
 )
-from rhesis.backend.app.utils.user_model_utils import ensure_language_model, resolve_model
-from rhesis.sdk.models.base import BaseLLM
+from rhesis.backend.app.utils.user_model_utils import (
+    ensure_language_model,
+    resolve_model,
+    text_model_for,
+)
+from rhesis.sdk.models.base import BaseDecisionModel, BaseLLM
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +43,8 @@ _TEMPLATE_NAME = "test_interpretation.jinja2"
 #: Interpretation decides which direction a test is scored in, so it is run at temperature 0 --
 #: the same test must not be read one way today and the other way tomorrow.
 _TEMPERATURE = 0.0
+# Enough of a model error to recognise it, without a whole validation dump.
+_MAX_ERROR_DETAIL = 300
 
 #: Below this, the interpreter is signalling that it could plausibly read the test either way.
 #: Scoring anyway would produce a confident verdict from an admitted coin-flip.
@@ -46,7 +52,13 @@ MIN_CONFIDENCE = 0.5
 
 #: Stamped by us, never accepted from the interpreter model. See ``interpret_test_configuration``.
 _PROVENANCE_FIELDS = frozenset(
-    {"interpreted_from", "interpreted_at", "interpreter_model", "contract_version"}
+    {
+        "interpreted_from",
+        "interpreted_at",
+        "interpreter_model",
+        "contract_version",
+        "interpretation_error",
+    }
 )
 
 
@@ -115,9 +127,17 @@ def interpret_test_configuration(
             interpreter_model=getattr(model, "model_name", None) or type(model).__name__,
             contract_version=CONTRACT_VERSION,
         )
-    except Exception:
+    except Exception as e:
         logger.exception("Test interpretation failed; returning an unusable contract")
-        return EvaluationContract()
+        return EvaluationContract(interpretation_error=_describe_failure(model, e))
+
+
+def _describe_failure(model: Any, error: Exception) -> str:
+    name = getattr(model, "model_name", None) or type(model).__name__
+    detail = str(error)
+    if len(detail) > _MAX_ERROR_DETAIL:
+        detail = detail[:_MAX_ERROR_DETAIL] + "..."
+    return f"{name} couldn't produce a usable interpretation ({type(error).__name__}: {detail})."
 
 
 def contract_usability(contract: EvaluationContract) -> Tuple[bool, str]:
@@ -127,7 +147,13 @@ def contract_usability(contract: EvaluationContract) -> Tuple[bool, str]:
     explanation of what to fix, not an internal code.
     """
     if not contract.interpreted_from:
-        return False, "This test could not be interpreted, so it has nothing to be scored against."
+        reason = "This test could not be interpreted, so it has nothing to be scored against."
+        if contract.interpretation_error:
+            reason += (
+                f" {contract.interpretation_error} If the evaluation model is a small model, "
+                "pick a larger one in the Models settings."
+            )
+        return False, reason
     if not contract.is_scorable:
         return False, (
             "No required or prohibited criteria could be identified for the target. "
@@ -179,7 +205,7 @@ def ensure_contract(
     test: Any,
     *,
     user_id: Optional[str] = None,
-    model: Optional[Union[str, BaseLLM]] = None,
+    model: Optional[Union[str, BaseLLM, BaseDecisionModel]] = None,
     force: bool = False,
 ) -> EvaluationContract:
     """Return the test's contract, interpreting and storing it if it is missing or stale.
@@ -203,14 +229,14 @@ def ensure_contract(
     if not force and existing.is_current_for(config):
         return existing
 
-    resolved = model if isinstance(model, BaseLLM) else None
-    if resolved is None:
+    principal = user_id or str(test.user_id)
+    if model is None:
+        model = resolve_model(db, principal, "evaluation")
+    elif isinstance(model, str):
         # A caller-supplied model can still be a bare provider string.
-        resolved = (
-            ensure_language_model(model)
-            if model is not None
-            else resolve_model(db, user_id or str(test.user_id), "evaluation")
-        )
+        model = ensure_language_model(model)
+    # Interpretation writes text, which a decision model (Jev) can't do.
+    resolved = text_model_for(db, principal, model)
 
     contract = interpret_test_configuration(
         config,

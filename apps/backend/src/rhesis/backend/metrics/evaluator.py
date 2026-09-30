@@ -40,6 +40,7 @@ class MetricEvaluator:
         connector_metric_sender: Optional[ConnectorMetricSender] = None,
         extra_strategies: Optional[List[MetricStrategy]] = None,
         metric_models: Optional[Dict[str, Any]] = None,
+        text_model: Optional[Any] = None,
     ) -> None:
         """
         Initialize evaluator with optional backend strategy overrides.
@@ -57,6 +58,8 @@ class MetricEvaluator:
             metric_models: Judge models already resolved by `model_id`, for callers
                 that have no live session to resolve them with. Required in the batch
                 path, which runs after its session is closed; see `prepare_metrics`.
+            text_model: What a metric that can't judge with `model` uses instead, when `model`
+                is a decision model; see `user_model_utils.text_model_for`.
         """
         score_evaluator = ScoreEvaluator()
 
@@ -66,6 +69,7 @@ class MetricEvaluator:
             organization_id=organization_id,
             score_evaluator=score_evaluator,
             metric_models=metric_models,
+            text_model=text_model,
         )
 
         self._connector_strategy: MetricStrategy = ConnectorStrategy(

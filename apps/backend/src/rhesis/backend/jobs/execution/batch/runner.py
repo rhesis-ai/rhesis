@@ -311,6 +311,7 @@ async def run_batch(
 
         evaluator = MetricEvaluator(
             model=ctx.evaluation_model,
+            text_model=ctx.evaluation_text_model,
             connector_metric_sender=ctx.connector_metric_sender,
             # No `db` here on purpose: the session closed before this point. Judge
             # models for per-metric `model_id` overrides were resolved in prefetch.

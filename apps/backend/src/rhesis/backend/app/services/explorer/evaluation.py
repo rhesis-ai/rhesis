@@ -29,9 +29,10 @@ from rhesis.backend.app.services.explorer.utils import (
     _build_eligible_tests,
     _get_test_set_tests_from_db,
 )
-from rhesis.backend.app.utils.user_model_utils import resolve_model
+from rhesis.backend.app.utils.user_model_utils import resolve_model, text_model_for
 from rhesis.backend.metrics.metric_config import metric_model_to_config
-from rhesis.sdk.metrics import MetricConfig, MetricFactory
+from rhesis.backend.metrics.strategies.local import create_metric
+from rhesis.sdk.metrics import MetricConfig
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +171,7 @@ def resolve_sdk_metrics(
         raise ValueError(f"Metric does not exist: {', '.join(missing)}")
 
     model = resolve_model(db, user_id, "evaluation")
+    text_model = text_model_for(db, user_id, model)
 
     sdk_metrics: List[Tuple[Any, MetricConfig]] = []
     for m in resolved:
@@ -185,7 +187,7 @@ def resolve_sdk_metrics(
         if model is not None:
             params["model"] = model
         try:
-            metric = MetricFactory.create(backend, class_name, **params)
+            metric = create_metric(backend, class_name, params, text_model)
             sdk_metrics.append((metric, cfg))
         except Exception as exc:
             logger.warning(f"Failed to create SDK metric {class_name}: {exc}")

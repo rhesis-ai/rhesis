@@ -47,6 +47,9 @@ class ExecutionContext:
     project_id: Optional[str] = None
     execution_model: Any = None
     evaluation_model: Any = None
+    # What evaluation work that writes text uses: the evaluation model, or the generation
+    # model when that is a decision model (see user_model_utils.text_model_for).
+    evaluation_text_model: Any = None
     # SDK MetricConfig objects built while the DB session is open (ORM-safe after close).
     # Shared list used when all tests share the same metrics (Priority 1/2).
     metric_configs: List[MetricConfig] = field(default_factory=list)
@@ -129,6 +132,17 @@ def _resolve_metric_judge_models(
             f"Pre-resolved {len(resolved) - len(failed)}/{len(resolved)} per-metric judge models"
         )
     return resolved
+
+
+def _resolve_text_model(session: Session, user_id: Optional[str], evaluation_model: Any) -> Any:
+    """The evaluation text model, or None when it can't be resolved (metrics then refuse)."""
+    from rhesis.backend.app.utils.user_model_utils import text_model_for
+
+    try:
+        return text_model_for(session, user_id, evaluation_model)
+    except Exception as e:
+        logger.warning(f"Failed to resolve a text model for evaluation: {e}")
+        return None
 
 
 def prefetch_execution_context(
@@ -246,6 +260,8 @@ def prefetch_execution_context(
             evaluation_model = resolve_default_hosted_model(
                 model_settings.evaluation_model, session, organization_id
             )
+
+    evaluation_text_model = _resolve_text_model(session, user_id, evaluation_model)
 
     # Name the model that was actually resolved, so the run's Configuration tab can show it
     # instead of the raw override UUID (or nothing at all when the default was used).
@@ -457,6 +473,7 @@ def prefetch_execution_context(
         project_id=project_id,
         execution_model=execution_model,
         evaluation_model=evaluation_model,
+        evaluation_text_model=evaluation_text_model,
         metric_configs=metric_configs,
         per_test_metric_configs=per_test_metric_configs,
         metric_models=metric_models,
