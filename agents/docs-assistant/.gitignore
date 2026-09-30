@@ -1,0 +1,16 @@
+# Virtual environment
+.venv/
+
+# Ruff cache
+.ruff_cache/
+
+# Python bytecode
+__pycache__/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Eval runner output, compared against on the next run
+evals/last_run.json

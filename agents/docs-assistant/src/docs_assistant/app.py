@@ -1,0 +1,118 @@
+"""Docs Assistant FastAPI application."""
+
+from __future__ import annotations
+
+import logging
+from contextlib import asynccontextmanager
+from typing import Any
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+
+from docs_assistant.config import get_settings
+from docs_assistant.corpus.cache import CorpusCache, DocsUnavailable
+from docs_assistant.corpus.fetcher import DocsFetcher
+from docs_assistant.models import build_model
+from docs_assistant.runner import run_turn
+from docs_assistant.schemas import TurnResponse
+
+logger = logging.getLogger(__name__)
+
+load_dotenv()
+
+
+class _State:
+    cache: CorpusCache | None = None
+    started = False
+    model_ready = False
+
+
+state = _State()
+
+
+def make_cache() -> CorpusCache:
+    settings = get_settings()
+    fetcher = DocsFetcher(settings.docs_base_url, timeout=settings.fetch_timeout)
+    return CorpusCache(fetcher, ttl=settings.cache_ttl)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Load the docs before serving. A failed load or a missing key doesn't stop the server:
+    /health reports it, and /chat answers 503 with the reason."""
+    state.cache = state.cache or make_cache()
+    try:
+        snapshot = await state.cache.get()
+        logger.info("Docs loaded: %d pages", len(snapshot.pages))
+    except DocsUnavailable as exc:
+        logger.warning("Docs not loaded at startup: %s", exc)
+    try:
+        build_model("answer")
+        state.model_ready = True
+    except RuntimeError as exc:
+        logger.warning("Model not ready: %s", exc)
+    state.started = True
+    yield
+    state.started = False
+
+
+app = FastAPI(
+    title="Docs Assistant",
+    description="Answers Rhesis questions from the live docs at docs.rhesis.ai, with citations.",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1)
+    conversation_id: str | None = None
+
+
+@app.get("/")
+async def root() -> dict[str, Any]:
+    return {
+        "name": "Docs Assistant",
+        "description": "Answers Rhesis questions from https://docs.rhesis.ai, with citations.",
+        "endpoints": {"chat": "POST /chat", "health": "GET /health"},
+    }
+
+
+@app.get("/health")
+async def health() -> dict[str, Any]:
+    cache = state.cache
+    snapshot = cache.snapshot if cache else None
+    return {
+        "status": "healthy",
+        "docs": cache.status() if cache else "unavailable",
+        "docs_as_of": snapshot.fetched_at.isoformat() if snapshot else None,
+        "pages": len(snapshot.pages) if snapshot else 0,
+        "model_ready": state.model_ready,
+    }
+
+
+@app.post("/chat", response_model=TurnResponse)
+async def chat(request: ChatRequest) -> TurnResponse:
+    if not state.started or state.cache is None:
+        raise HTTPException(status_code=503, detail="Service starting up")
+    try:
+        return await run_turn(
+            request.message, cache=state.cache, conversation_id=request.conversation_id
+        )
+    except DocsUnavailable as exc:
+        raise HTTPException(
+            status_code=503, detail="docs_unavailable: the docs site can't be reached"
+        ) from exc
+    except RuntimeError as exc:
+        # A missing key is the operator's to fix, so its message travels; anything else stays ours.
+        if "API key" in str(exc):
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.error("Chat turn failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error processing request") from exc
+    except Exception as exc:
+        logger.error("Chat turn failed", exc_info=True)
+        raise HTTPException(status_code=500, detail="Error processing request") from exc
+
+
+__all__ = ["ChatRequest", "app"]

@@ -136,6 +136,13 @@ export default async function RootLayout({ children }) {
 
   const pageMap = await getPageMap()
 
+  // Behind a build-time flag. The import sits inside the check so a build without the flag
+  // doesn't load the widget at all.
+  const AskDocs =
+    process.env.NEXT_PUBLIC_ASK_DOCS === '1'
+      ? (await import('../components/AskDocs/AskDocs')).default
+      : null
+
   return (
     <html lang="en" dir="ltr" suppressHydrationWarning>
       {/*
@@ -189,6 +196,7 @@ export default async function RootLayout({ children }) {
         >
           {children}
         </Layout>
+        {AskDocs && <AskDocs />}
       </body>
     </html>
   )

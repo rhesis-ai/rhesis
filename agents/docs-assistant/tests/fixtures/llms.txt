@@ -1,0 +1,39 @@
+# Rhesis Documentation
+
+> Structured feedback and evals for AI agents. Connect the agent you are building, share it with your team, and turn their feedback into tests and metrics that run on every change.
+
+## Agent reference
+
+> Read this section first if you are an LLM agent (Cursor, Claude Code, Architect, MCP).
+> Fetch linked `.md` URLs — do not scrape HTML. One concept per fetch; do not load llms-full.txt unless you need the full corpus.
+
+- [Metric scope](https://docs.rhesis.ai/docs/metrics/metric-scope.md): Single-Turn vs Multi-Turn alignment (critical)
+
+## Docs
+
+- [API Tokens](https://docs.rhesis.ai/docs/api-tokens.md): API tokens authenticate programmatic access to Rhesis via the REST API or Python SDK. Generate and manage them at app.rhesis.ai/tokens. The token is shown only ...
+- [Docker Compose](https://docs.rhesis.ai/self-hosting/docker-compose.md): Deploy Rhesis on your own infrastructure with proper security, authentication, and production configuration.
+- [Response Mapping](https://docs.rhesis.ai/docs/endpoints/response-mapping.md): Response mappings tell Rhesis how to extract platform variables from your API's response. Each field is evaluated independently using JSONPath, Jinja2, or both.
+- [SDK Endpoints](https://docs.rhesis.ai/docs/endpoints/sdk-endpoints.md): Register Python functions as testable endpoints using the Rhesis SDK. Instead of configuring endpoints manually in the dashboard, you decorate your functions an...
+
+## Guides
+
+## SDK
+
+- [SDK Installation & Setup](https://docs.rhesis.ai/sdk/installation.md): Install the Rhesis Python SDK, configure authentication, and learn the core concepts — models, synthesizers, and metrics — to start testing your LLM application...
+- [Overview](https://docs.rhesis.ai/sdk/metrics.md): The Rhesis SDK evaluates LLM applications with built-in metrics from several frameworks, custom metrics you define, and metrics managed on the platform.
+
+## Contribute
+
+## Optional
+
+### Glossary
+
+- [Hallucination](https://docs.rhesis.ai/glossary/hallucination.md): When an LLM generates false, fabricated, or nonsensical information presented as fact, often with high confidence.
+- [Prompt Injection](https://docs.rhesis.ai/glossary/prompt-injection.md): Malicious inputs that attempt to override system instructions, extract sensitive information, or manipulate AI behavior in unintended ways.
+
+### Changelog
+
+- [Rhesis Changelog](https://docs.rhesis.ai/changelog.md): All notable changes to the Rhesis project are documented in this file.
+
+## Resources
