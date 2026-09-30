@@ -165,6 +165,21 @@ class TestSanitizeUsageData:
             AIAttributes.LLM_TOKENS_TOTAL: 7,
         }
 
+    def test_normalizes_openai_cached_tokens_for_pricing(self):
+        assert _sanitize_usage_data(
+            {
+                "prompt_tokens": 1000,
+                "completion_tokens": 20,
+                "total_tokens": 1020,
+                "prompt_tokens_details": {"cached_tokens": 800},
+            }
+        ) == {
+            AIAttributes.LLM_TOKENS_INPUT: 200,
+            AIAttributes.LLM_TOKENS_OUTPUT: 20,
+            AIAttributes.LLM_TOKENS_TOTAL: 1020,
+            AIAttributes.LLM_TOKENS_CACHE_READ: 800,
+        }
+
     def test_drops_zero_values(self):
         """A zero input count is omitted; the total is still derived from what is known."""
         assert _sanitize_usage_data({"prompt_tokens": 0, "completion_tokens": 5}) == {

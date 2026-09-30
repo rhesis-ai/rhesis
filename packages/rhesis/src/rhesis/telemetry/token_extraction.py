@@ -10,6 +10,10 @@ LLM providers use different key names for the same concepts:
       "candidates_token_count"
     - Total tokens: "total_tokens", "total_token_count"
 
+OpenAI includes cached prompt tokens in ``prompt_tokens``; when its cache details are
+present, input tokens are normalized to exclude them and the cache count is returned
+separately. Anthropic's ``input_tokens`` already excludes cached tokens.
+
 Cohere nests its counts one level down, under "billed_units" and "tokens"; those are
 flattened before the lookup so a caller never has to unwrap them first.
 
@@ -74,6 +78,7 @@ _CACHE_CREATION_KEYS = [
 _CACHE_READ_KEYS = [
     "cache_read_input_tokens",
     "cacheReadInputTokens",  # camelCase variant
+    "cached_tokens",  # OpenAI prompt_tokens_details
 ]
 
 _ALL_KEYS = (
@@ -88,7 +93,14 @@ _ALL_KEYS = (
 # Where a provider hides its counts one level down. Cohere reports both a raw and a
 # billed figure; billed wins, because it is what the invoice charges and cost is what
 # these numbers feed.
-_NESTED_CONTAINERS = ("billed_units", "tokens", "usage", "usage_metadata", "token_usage")
+_NESTED_CONTAINERS = (
+    "billed_units",
+    "tokens",
+    "usage",
+    "usage_metadata",
+    "token_usage",
+    "prompt_tokens_details",
+)
 
 
 def _to_plain_dict(value: Any) -> Dict:
@@ -216,7 +228,7 @@ def extract_token_usage(usage: Union[Dict, Any]) -> Tuple[int, int, int]:
         usage: Dictionary or object containing token usage information
 
     Returns:
-        Tuple of (input_tokens, output_tokens, total_tokens)
+        Tuple of (uncached_input_tokens, output_tokens, total_tokens)
 
     Example:
         >>> # OpenAI format
@@ -241,6 +253,13 @@ def extract_token_usage(usage: Union[Dict, Any]) -> Tuple[int, int, int]:
 
     # Extract input tokens (try all common key names)
     input_tokens = get_first_value(usage, _INPUT_KEYS)
+
+    # OpenAI's prompt count includes cache reads, unlike Anthropic's input count.
+    # Keep cached tokens separate so pricing can apply the provider's cache rate.
+    prompt_details = _as_mapping(usage.get("prompt_tokens_details"))
+    openai_cached_tokens = get_first_value(prompt_details, ["cached_tokens"])
+    if "prompt_tokens" in usage and "input_tokens" not in usage:
+        input_tokens = max(0, input_tokens - openai_cached_tokens)
 
     # Extract output tokens (try all common key names)
     output_tokens = get_first_value(usage, _OUTPUT_KEYS)

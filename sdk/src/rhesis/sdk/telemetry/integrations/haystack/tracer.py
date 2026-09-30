@@ -52,7 +52,7 @@ from rhesis.telemetry.attributes import MAX_CONTENT_LENGTH, AIAttributes, AIEven
 from rhesis.telemetry.constants import ConversationContext
 from rhesis.telemetry.context import get_root_trace_id
 from rhesis.telemetry.schemas import AIOperationType
-from rhesis.telemetry.token_extraction import extract_token_usage
+from rhesis.telemetry.token_extraction import extract_cache_tokens, extract_token_usage
 
 logger = logging.getLogger(__name__)
 
@@ -509,6 +509,7 @@ def _sanitize_usage_data(usage: dict[str, Any]) -> dict[str, int]:
         return {}
 
     input_tokens, output_tokens, total_tokens = extract_token_usage(usage)
+    _, cache_read_tokens = extract_cache_tokens(usage)
     sanitized: dict[str, int] = {}
     if input_tokens:
         sanitized[AIAttributes.LLM_TOKENS_INPUT] = input_tokens
@@ -516,6 +517,8 @@ def _sanitize_usage_data(usage: dict[str, Any]) -> dict[str, int]:
         sanitized[AIAttributes.LLM_TOKENS_OUTPUT] = output_tokens
     if total_tokens:
         sanitized[AIAttributes.LLM_TOKENS_TOTAL] = total_tokens
+    if cache_read_tokens:
+        sanitized[AIAttributes.LLM_TOKENS_CACHE_READ] = cache_read_tokens
     return sanitized
 
 
