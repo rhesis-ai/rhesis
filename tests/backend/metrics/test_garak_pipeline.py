@@ -21,6 +21,10 @@ import pytest
 from rhesis.sdk.metrics import MetricConfig
 from rhesis.sdk.metrics.base import Backend
 
+# Patch the detector module's own importlib name, not importlib.import_module itself,
+# which would swap it for every importer (LiteLLM caches what its lazy imports return).
+_DETECTOR_METRIC = "rhesis.sdk.metrics.providers.garak.detector_metric"
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -297,7 +301,8 @@ class TestProbeNotesFallbackInEvaluate:
         mock_module.Message = mock_message_class
 
         with patch.dict("sys.modules", {"garak.attempt": mock_module}):
-            with patch("importlib.import_module") as mock_import:
+            with patch(f"{_DETECTOR_METRIC}.importlib") as mock_importlib:
+                mock_import = mock_importlib.import_module
                 mock_detector_instance = MagicMock()
                 mock_detector_instance.detect.return_value = [0.3]
                 mock_detector_class = MagicMock(return_value=mock_detector_instance)

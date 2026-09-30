@@ -14,6 +14,10 @@ from rhesis.backend.app.services.garak.probes import (
 )
 from rhesis.backend.app.services.garak.probes.service import _get_enumeration_lock
 
+# Patch the service's own importlib/pkgutil names: patching importlib.import_module itself
+# swaps it for every importer, and LiteLLM caches what its lazy imports get back.
+_SERVICE = "rhesis.backend.app.services.garak.probes.service"
+
 
 @pytest.mark.unit
 class TestGarakProbeInfoDataclass:
@@ -113,7 +117,8 @@ class TestGarakProbeServiceInit:
         service = GarakProbeService()
 
         # Mock the garak.probes package
-        with patch("pkgutil.iter_modules") as mock_iter:
+        with patch(f"{_SERVICE}.pkgutil") as mock_pkgutil:
+            mock_iter = mock_pkgutil.iter_modules
             mock_iter.return_value = [
                 (None, "dan", False),
                 (None, "encoding", False),
@@ -121,7 +126,8 @@ class TestGarakProbeServiceInit:
                 (None, "test", False),  # Should be excluded
             ]
 
-            with patch("importlib.import_module") as mock_import:
+            with patch(f"{_SERVICE}.importlib") as mock_importlib:
+                mock_import = mock_importlib.import_module
                 mock_probes = MagicMock()
                 mock_probes.__path__ = ["/fake/path"]
                 mock_import.return_value = mock_probes
@@ -141,7 +147,8 @@ class TestGarakProbeServiceInit:
         service = GarakProbeService()
 
         with patch.dict("sys.modules", {"garak": MagicMock(__version__="0.9.5")}):
-            with patch("importlib.import_module") as mock_import:
+            with patch(f"{_SERVICE}.importlib") as mock_importlib:
+                mock_import = mock_importlib.import_module
                 mock_garak = MagicMock()
                 mock_garak.__version__ = "0.9.5"
                 mock_import.return_value = mock_garak
@@ -273,7 +280,8 @@ class TestGarakProbeServiceEnumeration:
             total_prompt_count=10,
         )
 
-        with patch("importlib.import_module") as mock_import:
+        with patch(f"{_SERVICE}.importlib") as mock_importlib:
+            mock_import = mock_importlib.import_module
             mock_import.return_value = mock_garak_probes
 
             with patch.object(service, "_get_module_info", return_value=mock_module_info):
@@ -299,7 +307,8 @@ class TestGarakProbeServiceEnumeration:
                 description=f"{module_name} probes",
             )
 
-        with patch("importlib.import_module") as mock_import:
+        with patch(f"{_SERVICE}.importlib") as mock_importlib:
+            mock_import = mock_importlib.import_module
             mock_import.return_value = mock_garak_probes
 
             with patch.object(service, "_get_module_info", side_effect=mock_get_module_info):
@@ -317,7 +326,10 @@ class TestGarakProbeServiceExtraction:
         """Test extraction from non-existent module."""
         service = GarakProbeService()
 
-        with patch("importlib.import_module", side_effect=ImportError("Not found")):
+        with patch(
+            f"{_SERVICE}.importlib",
+            **{"import_module.side_effect": ImportError("Not found")},
+        ):
             probes = service.extract_probes_from_module("nonexistent")
 
             assert probes == []
@@ -341,7 +353,7 @@ class TestGarakProbeServiceExtraction:
         def mock_dir(obj):
             return ["TestProbe", "OtherProbe"]
 
-        with patch("importlib.import_module", return_value=mock_module):
+        with patch(f"{_SERVICE}.importlib", **{"import_module.return_value": mock_module}):
             with patch.object(service, "_is_probe_class", return_value=True):
                 with patch.object(
                     service,
