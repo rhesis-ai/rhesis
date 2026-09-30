@@ -6,16 +6,24 @@ on:
     branches: [ main ]
     paths:
       - 'sdk/**'
+      - 'packages/rhesis/**'
       - 'tests/sdk/**'
       - 'tests/docker-compose.test.yml'
+      - '.github/actions/sdk-wheel-smoke-test/**'
+      - '.github/workflows/publish-pypi.yml'
       - '.github/workflows/sdk-test.yml'
+      - 'scripts/sdk_wheel_smoke_test.py'
   push:
     branches: [ main ]
     paths:
       - 'sdk/**'
+      - 'packages/rhesis/**'
       - 'tests/sdk/**'
       - 'tests/docker-compose.test.yml'
+      - '.github/actions/sdk-wheel-smoke-test/**'
+      - '.github/workflows/publish-pypi.yml'
       - '.github/workflows/sdk-test.yml'
+      - 'scripts/sdk_wheel_smoke_test.py'
   schedule:
     - cron: '0 0 * * *'
 
@@ -59,29 +67,9 @@ jobs:
         make test
       continue-on-error: false
 
-    # The tests run against the source tree, so they never notice what the
-    # published artifact contains. `publish-pypi.yml` runs `python -m build`,
-    # which builds the wheel from the sdist, so a `[tool.hatch.build.targets.sdist]
-    # include` list that is too narrow ships a wheel without the package.
-    - name: Check the built wheel contains the package
-      run: |
-        cd sdk
-        uv build
-        python - <<'PY'
-        import glob
-        import sys
-        import zipfile
-
-        wheel = glob.glob("dist/*.whl")[0]
-        names = zipfile.ZipFile(wheel).namelist()
-        required = ("rhesis/__init__.py", "rhesis/sdk/__init__.py", "rhesis/py.typed")
-        missing = [name for name in required if name not in names]
-        if missing:
-            packaged = sum(name.endswith(".py") for name in names)
-            sys.exit(f"{wheel} is missing {missing} (only {packaged} .py files packaged)")
-        PY
-      continue-on-error: false
-
+    # Note: what the built wheel actually contains is checked in the
+    # `smoke-test-wheels` job below. These tests run against the source tree, so
+    # they cannot see it.
     - name: Clean uv cache
       run: uv cache clean --force
 
@@ -92,3 +80,16 @@ jobs:
         uv sync --extra all
         make test-integration
       continue-on-error: false
+
+  # Same action `publish-pypi.yml` gates the release on, so a packaging
+  # regression is caught on the PR rather than on PyPI.
+  smoke-test-wheels:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+
+    - name: Smoke test the built wheels
+      uses: ./.github/actions/sdk-wheel-smoke-test

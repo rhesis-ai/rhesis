@@ -1,0 +1,53 @@
+name: SDK Wheel Smoke Test
+description: Build both wheels and prove they install, import and work
+
+inputs:
+  python-version:
+    description: Interpreter for the fresh venv. rhesis-sdk requires >= 3.12.
+    required: false
+    default: '3.12'
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      with:
+        version: latest
+        enable-cache: true
+        ignore-nothing-to-cache: true
+
+    # The SDK test suite runs against sdk/src, so it never sees what the built
+    # artifact contains. `python -m build` builds the wheel from the sdist, so a
+    # too-narrow include list ships a wheel without the package (#2834).
+    - name: Build both wheels
+      shell: bash
+      run: |
+        python -m pip install --quiet build
+        rm -rf packages/rhesis/dist sdk/dist
+        (cd packages/rhesis && python -m build)
+        (cd sdk && python -m build)
+
+    # The SDK wheel depends on `rhesis[telemetry]`, so installing it on its own
+    # would pull the published rhesis from PyPI and quietly test that instead of
+    # the wheel built above.
+    - name: Install both wheels into a fresh venv
+      shell: bash
+      run: |
+        venv="$RUNNER_TEMP/smoke-venv"
+        uv venv --python ${{ inputs.python-version }} "$venv"
+        uv pip install --python "$venv/bin/python" \
+          packages/rhesis/dist/*.whl \
+          sdk/dist/*.whl
+
+    - name: Smoke test the installed wheels
+      shell: bash
+      run: |
+        "$RUNNER_TEMP/smoke-venv/bin/python" scripts/sdk_wheel_smoke_test.py \
+          packages/rhesis/dist/*.whl \
+          sdk/dist/*.whl
