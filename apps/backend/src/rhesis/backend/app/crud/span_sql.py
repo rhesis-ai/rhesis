@@ -119,6 +119,11 @@ def _trace_has(org_uuid, project_id, condition: Callable[[Any], Any], *, few=Fal
     return models.Trace.trace_id.in_(trace_ids)
 
 
+def run_trace_clause(org_uuid, project_id, test_run_id) -> Any:
+    """Keep every span of the traces a test run owns, not just the root rows it is stamped on."""
+    return _trace_has(org_uuid, project_id, lambda t: t.test_run_id == test_run_id, few=True)
+
+
 def _trace_lacks(org_uuid, project_id, condition: Callable[[Any], Any]) -> Any:
     """Keep spans of traces where no row matches *condition*."""
     other = aliased(models.Trace)

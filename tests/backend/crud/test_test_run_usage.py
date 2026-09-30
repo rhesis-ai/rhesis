@@ -43,6 +43,42 @@ def run_root_span(trace_id, project_id, test_run_id, *, span_id=None):
     )
 
 
+def llm_child_span(trace_id, project_id, parent_span_id, *, tokens):
+    """An llm.invoke child, which carries the tokens but not test_run_id."""
+    now = datetime.now(timezone.utc)
+    return OTELSpanCreate(
+        trace_id=trace_id,
+        span_id=uuid.uuid4().hex[:16],
+        parent_span_id=parent_span_id,
+        project_id=project_id,
+        environment="development",
+        span_name="ai.llm.invoke",
+        span_kind=SpanKind.CLIENT,
+        start_time=now,
+        end_time=now + timedelta(seconds=1),
+        status_code=StatusCode.OK,
+        attributes={
+            AIAttributes.OPERATION_TYPE: "llm.invoke",
+            AIAttributes.MODEL_NAME: "gpt-4",
+            AIAttributes.LLM_TOKENS_INPUT: tokens[0],
+            AIAttributes.LLM_TOKENS_OUTPUT: tokens[1],
+            AIAttributes.LLM_TOKENS_TOTAL: tokens[0] + tokens[1],
+        },
+    )
+
+
+def unenriched_trace_for_run(db, project_id, run_id, org_id, *, children, roots=1):
+    """A run's trace as ingested, before enrichment: roots plus llm.invoke children."""
+    trace_id = uuid.uuid4().hex
+    root_spans = [run_root_span(trace_id, project_id, run_id) for _ in range(roots)]
+    child_spans = [
+        llm_child_span(trace_id, project_id, root_spans[0].span_id, tokens=tokens)
+        for tokens in children
+    ]
+    create_trace_spans(db, root_spans + child_spans, organization_id=org_id)
+    return trace_id
+
+
 def blob(model, input_tokens, output_tokens, input_cost, output_cost):
     return {
         "costs": {
@@ -205,6 +241,44 @@ class TestUsageStatisticsForRuns:
     def test_no_run_ids_is_not_a_query(self, test_db, test_org_id):
         assert get_usage_statistics_for_runs(test_db, [], organization_id=test_org_id) == {}
 
+    def test_tokens_count_before_enrichment(self, test_db, db_project, test_org_id, db_test_run):
+        """The tokens sit on children that don't carry test_run_id, and must still count."""
+        unenriched_trace_for_run(
+            test_db,
+            str(db_project.id),
+            db_test_run.id,
+            test_org_id,
+            children=[(100, 20), (60, 20)],
+        )
+
+        stats = get_usage_statistics_for_runs(
+            test_db, [db_test_run.id], organization_id=test_org_id
+        )[str(db_test_run.id)]
+
+        assert stats["total_tokens"] == 200
+        assert stats["total_input_tokens"] == 160
+        assert stats["total_output_tokens"] == 40
+        assert stats["models"] == ["gpt-4"]
+
+    def test_a_multi_root_trace_counts_its_children_once(
+        self, test_db, db_project, test_org_id, db_test_run
+    ):
+        """One root per turn must not join the same children in once per root."""
+        unenriched_trace_for_run(
+            test_db,
+            str(db_project.id),
+            db_test_run.id,
+            test_org_id,
+            children=[(100, 50)],
+            roots=3,
+        )
+
+        stats = get_usage_statistics_for_runs(
+            test_db, [db_test_run.id], organization_id=test_org_id
+        )[str(db_test_run.id)]
+
+        assert stats["total_tokens"] == 150
+
 
 @pytest.mark.integration
 class TestSortingByUsage:
@@ -298,6 +372,22 @@ class TestSortingByUsage:
         ordered = self._ordered_ids(test_db, test_org_id, "model", "asc")
 
         assert ordered.index(alpha_run) < ordered.index(gpt_run)
+
+    def test_orders_by_tokens_before_enrichment(
+        self, test_db, db_project, test_org_id, db_test_run, db_test_run_running
+    ):
+        """Unenriched runs still sort by their children's tokens, not all at zero."""
+        project_id = str(db_project.id)
+        fewer, more = db_test_run, db_test_run_running
+        fewer.created_at = datetime.now(timezone.utc)
+        more.created_at = datetime.now(timezone.utc) - timedelta(days=7)
+        test_db.flush()
+        unenriched_trace_for_run(test_db, project_id, fewer.id, test_org_id, children=[(10, 5)])
+        unenriched_trace_for_run(test_db, project_id, more.id, test_org_id, children=[(900, 100)])
+
+        ordered = self._ordered_ids(test_db, test_org_id, "total_tokens", "desc")
+
+        assert ordered.index(str(more.id)) < ordered.index(str(fewer.id))
 
     def test_a_run_with_no_traces_sorts_last_either_way(
         self, test_db, test_org_id, three_priced_runs, db_test_configuration, db_user, db_status

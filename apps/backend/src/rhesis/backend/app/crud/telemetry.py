@@ -26,6 +26,7 @@ from rhesis.backend.app.crud.span_sql import (
     SKIP_SPAN_NAME,
     SKIP_SPAN_TYPE,
     provider_clause,
+    run_trace_clause,
     span_breakdown_entry,
     span_cost_expr,
     span_filter_clauses,
@@ -1348,8 +1349,10 @@ def get_trace_metrics_aggregated(
     Uses PostgreSQL aggregate functions (COUNT, SUM, AVG, percentile_cont)
     to avoid loading large result sets into Python memory.
 
-    ``test_run_id`` narrows every metric to one run. It is a column on every span
-    row, stamped at ingest, so the scoping is exact. Note that ``total_spans``
+    ``test_run_id`` narrows every metric to one run's traces. It is stamped on root
+    spans only, so the scope takes every span of those traces: filtering span rows on
+    it would drop the llm.invoke children that carry the tokens, leaving them at zero
+    until enrichment copies its totals onto the root. Note that ``total_spans``
     counts span rows while the traces list shows one deduped root span per trace;
     ``total_traces`` is a distinct count of trace_id, so that one still lines up
     with the rows on screen.
@@ -1374,7 +1377,7 @@ def get_trace_metrics_aggregated(
         filters.append(T.start_time <= start_time_before)
     test_run_uuid = validate_uuid_param(test_run_id, "test_run_id")
     if test_run_uuid:
-        filters.append(T.test_run_id == test_run_uuid)
+        filters.append(run_trace_clause(UUID(organization_id), project_id, test_run_uuid))
 
     base = db.query(T).filter(*filters).subquery()
 

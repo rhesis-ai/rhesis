@@ -32,6 +32,7 @@ from rhesis.backend.app.crud.usage_sql import (
     coalesced_tokens,
     models_used_rows,
     per_trace_usage_subquery,
+    run_spans_subquery,
 )
 from rhesis.backend.app.outcomes import INCONCLUSIVE_RESULT, Verdict
 from rhesis.backend.app.scope import bypass_tenant_filter
@@ -714,11 +715,10 @@ def get_usage_statistics_for_runs(
     Batched the same way as ``get_test_statistics_for_runs``, for the same reason: the
     test runs grid needs these for a whole page and one query per run would be an N+1.
 
-    Traces are collapsed per trace before being summed per run. Today a run's traces have
-    one row each -- ``test_run_id`` is stamped on the root span only -- but a multi-turn
-    conversation produces one root span per turn under a single ``trace_id``, and 28
-    traces in the database already have that shape. The collapse is what stops such a run
-    counting its enrichment blob once per turn.
+    Covers every span of a run's traces, not just the root rows ``test_run_id`` is stamped
+    on, so tokens count before enrichment reaches a trace (see ``run_spans_subquery``).
+    Spans are collapsed per trace before being summed per run, because the enrichment
+    blob sits on every span row of a trace.
 
     Returns:
         Dict keyed by ``str(test_run_id)``, each holding the six usage figures plus the
@@ -730,7 +730,7 @@ def get_usage_statistics_for_runs(
     if not run_id_strs:
         return stats
 
-    base = _run_trace_base(db, organization_id, run_ids=run_id_strs)
+    base = run_spans_subquery(db, organization_id, run_ids=run_id_strs)
     per_trace = per_trace_usage_subquery(db, base, extra_group_by=(base.c.test_run_id,))
 
     rows = (
@@ -788,18 +788,3 @@ def _attach_models_per_run(db: Session, base, stats: Dict[str, Dict[str, Any]]) 
         bucket = stats.setdefault(run_id, empty_usage())
         bucket["models"] = list(dict.fromkeys(model for model, _ in ordered))
         bucket["providers"] = list(dict.fromkeys(provider for _, provider in ordered))
-
-
-def _run_trace_base(db: Session, organization_id: Optional[str], run_ids=None):
-    """The trace rows in scope for a per-run usage rollup.
-
-    ``run_ids`` narrows to one page of the grid; leaving it out covers every run in the
-    organization, which is what sorting needs -- ordering the whole list by cost cannot
-    be done from the page it is trying to order.
-    """
-    filters = [models.Trace.test_run_id.isnot(None), models.Trace.deleted_at.is_(None)]
-    if run_ids is not None:
-        filters.append(models.Trace.test_run_id.in_(run_ids))
-    if organization_id:
-        filters.append(models.Trace.organization_id == uuid.UUID(str(organization_id)))
-    return db.query(models.Trace).filter(*filters).subquery()
