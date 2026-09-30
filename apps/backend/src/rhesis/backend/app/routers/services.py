@@ -116,7 +116,7 @@ def _handle_generation_error(error: Exception) -> None:
     from rhesis.backend.app.utils.execution_validation import handle_execution_error
 
     # Convert the error to HTTPException and raise it
-    http_exception = handle_execution_error(error, operation="generate tests")
+    http_exception = handle_execution_error(error, operation="generate tests", purpose="generation")
     raise http_exception
 
 
@@ -527,7 +527,9 @@ async def generate_test_config(
         )
 
         logger.warning(f"Invalid request for test config generation: {str(e)}")
-        http_exception = handle_execution_error(e, operation="generate test configuration")
+        http_exception = handle_execution_error(
+            e, operation="generate test configuration", purpose="generation"
+        )
         raise http_exception
     except Exception as e:
         raise internal_error(e, context="generating test configuration") from e

@@ -23,6 +23,7 @@ from rhesis.backend.app.schemas.model import (
     TestModelConnectionResponse,
 )
 from rhesis.backend.app.services.model_connection import ModelConnectionService
+from rhesis.backend.app.services.model_setup import adopt_usable_defaults
 from rhesis.backend.app.services.platform_key import annotate_model_availability
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -52,11 +53,13 @@ def create_model(
     """Create a new model."""
     organization_id, user_id = tenant_context
     try:
-        return model_crud.create_model(
+        db_model = model_crud.create_model(
             db=db, model=model, organization_id=organization_id, user_id=user_id
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    adopt_usable_defaults(db, str(organization_id), [db_model])
+    return db_model
 
 
 def _read_stored_model_credentials(
@@ -195,11 +198,13 @@ def update_model(
         )
         if db_model is None:
             raise HTTPException(status_code=404, detail="Model not found")
-        return db_model
     except ValueError as e:
         if "protected" in str(e).lower():
             raise HTTPException(status_code=403, detail=str(e))
         raise HTTPException(status_code=400, detail=str(e))
+    # An edit can be what makes a model usable, e.g. adding its missing key.
+    adopt_usable_defaults(db, str(organization_id), [db_model])
+    return db_model
 
 
 @router.delete("/{model_id}", response_model=ModelRead)

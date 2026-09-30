@@ -39,6 +39,7 @@ from rhesis.backend.app.services.preflight.utils import (
     _verify_model_responds,
 )
 from rhesis.backend.app.utils.crud_utils import get_item_detail
+from rhesis.backend.app.utils.model_errors import MODEL_NOT_CONFIGURED, ModelNotConfiguredError
 
 logger = logging.getLogger(__name__)
 
@@ -370,43 +371,9 @@ async def check_evaluation_model(
     correlation_id: Optional[str] = None,
     publish: bool = True,
 ) -> PreflightCheckResult:
-    check_id = CHECK_EVALUATION_MODEL
-
-    if publish and correlation_id:
-        await _publish_check_status(
-            correlation_id,
-            check_id,
-            PreflightCheckStatus.RUNNING,
-        )
-
-    try:
-        model = await db.run(_resolve_purpose_model, user, "evaluation", evaluation_model_id)
-        await _verify_model_responds(model)
-        model_detail = await db.run(_model_detail, model, evaluation_model_id, user, "evaluation")
-        result = _make_result(
-            check_id,
-            PreflightCheckStatus.PASSED,
-            "Evaluation model is configured and valid",
-            model_detail,
-        )
-    except asyncio.TimeoutError:
-        result = _make_result(
-            check_id,
-            PreflightCheckStatus.FAILED,
-            "Evaluation model validation timed out",
-            "The model did not respond within 10 seconds.",
-        )
-    except Exception as e:
-        result = _make_result(
-            check_id,
-            PreflightCheckStatus.FAILED,
-            "Evaluation model configuration error",
-            str(e),
-        )
-
-    _apply_test_set_fields(result)
-    await _publish_result(result, correlation_id, publish)
-    return result
+    return await _check_purpose_model(
+        db, user, CHECK_EVALUATION_MODEL, "evaluation", evaluation_model_id, correlation_id, publish
+    )
 
 
 async def check_execution_model(
@@ -416,43 +383,94 @@ async def check_execution_model(
     correlation_id: Optional[str] = None,
     publish: bool = True,
 ) -> PreflightCheckResult:
-    check_id = CHECK_EXECUTION_MODEL
+    return await _check_purpose_model(
+        db, user, CHECK_EXECUTION_MODEL, "execution", execution_model_id, correlation_id, publish
+    )
 
+
+async def _check_purpose_model(
+    db: PreflightDbGate,
+    user: User,
+    check_id: str,
+    purpose: str,
+    model_id: Optional[str],
+    correlation_id: Optional[str],
+    publish: bool,
+) -> PreflightCheckResult:
+    """Build the *purpose* model, then make one real call to it.
+
+    A model that cannot be built fails with ``model_not_configured``, the same
+    code the execute and save-as-test checks return. A model that builds but
+    does not answer is a different problem and keeps its own message.
+    """
+    label = purpose.capitalize()
     if publish and correlation_id:
-        await _publish_check_status(
-            correlation_id,
-            check_id,
-            PreflightCheckStatus.RUNNING,
-        )
+        await _publish_check_status(correlation_id, check_id, PreflightCheckStatus.RUNNING)
 
     try:
-        model = await db.run(_resolve_purpose_model, user, "execution", execution_model_id)
-        await _verify_model_responds(model)
-        model_detail = await db.run(_model_detail, model, execution_model_id, user, "execution")
-        result = _make_result(
-            check_id,
-            PreflightCheckStatus.PASSED,
-            "Execution model is configured and valid",
-            model_detail,
-        )
-    except asyncio.TimeoutError:
-        result = _make_result(
-            check_id,
-            PreflightCheckStatus.FAILED,
-            "Execution model validation timed out",
-            "The model did not respond within 10 seconds.",
-        )
+        model = await db.run(_resolve_purpose_model, user, purpose, model_id)
+    except (ValueError, ImportError) as e:
+        result = _not_configured_result(check_id, purpose, e)
     except Exception as e:
-        result = _make_result(
-            check_id,
-            PreflightCheckStatus.FAILED,
-            "Execution model configuration error",
-            str(e),
-        )
+        # QuotaExceededError and the like: reported, but not a setup problem.
+        result = _model_failure_result(check_id, label, e)
+    else:
+        result = await _verify_purpose_model(db, user, check_id, purpose, model, model_id)
 
     _apply_test_set_fields(result)
     await _publish_result(result, correlation_id, publish)
     return result
+
+
+def _not_configured_result(check_id: str, purpose: str, error: Exception) -> PreflightCheckResult:
+    problem = ModelNotConfiguredError(purpose, error)
+    logger.warning("Preflight %s model not configured: %s", purpose, problem.log_message)
+    result = _make_result(
+        check_id,
+        PreflightCheckStatus.FAILED,
+        f"{purpose.capitalize()} model is not set up",
+        problem.message,
+    )
+    result.error_code = MODEL_NOT_CONFIGURED
+    return result
+
+
+async def _verify_purpose_model(
+    db: PreflightDbGate,
+    user: User,
+    check_id: str,
+    purpose: str,
+    model,
+    model_id: Optional[str],
+) -> PreflightCheckResult:
+    label = purpose.capitalize()
+    try:
+        await _verify_model_responds(model)
+        model_detail = await db.run(_model_detail, model, model_id, user, purpose)
+    except Exception as e:
+        return _model_failure_result(check_id, label, e)
+    return _make_result(
+        check_id,
+        PreflightCheckStatus.PASSED,
+        f"{label} model is configured and valid",
+        model_detail,
+    )
+
+
+def _model_failure_result(check_id: str, label: str, error: Exception) -> PreflightCheckResult:
+    if isinstance(error, asyncio.TimeoutError):
+        return _make_result(
+            check_id,
+            PreflightCheckStatus.FAILED,
+            f"{label} model validation timed out",
+            "The model did not respond within 10 seconds.",
+        )
+    return _make_result(
+        check_id,
+        PreflightCheckStatus.FAILED,
+        f"{label} model configuration error",
+        str(error),
+    )
 
 
 async def _validate_metrics_loadable(

@@ -38,9 +38,11 @@ from rhesis.backend.app.utils.database_exceptions import handle_database_excepti
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import (
     handle_execution_error,
+    model_setup_http_exception,
     validate_execution_model,
 )
 from rhesis.backend.app.utils.hidden_rows import exclude_metric_owned
+from rhesis.backend.app.utils.model_errors import ModelNotConfiguredError
 from rhesis.backend.app.utils.odata import apply_select
 
 logger = logging.getLogger(__name__)
@@ -195,6 +197,9 @@ def extract_test_from_conversation_endpoint(
             user=current_user,
             test_type=request.test_type or "Multi-Turn",
         )
+    except ModelNotConfiguredError as e:
+        # Save-as-test has always answered 400, deployment default included.
+        raise model_setup_http_exception(e, "create a test from this conversation", 400) from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 

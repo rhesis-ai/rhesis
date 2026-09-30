@@ -172,7 +172,7 @@ class TestResolveModelAlwaysReturnsAModel:
     ):
         """huggingface raises ImportError at import time without torch, and
         ``_build_configured_model`` used to catch only ValueError. Escaping as
-        itself, it reached ``_deployment_model_error`` and was reported as a
+        itself, it reached ``model_setup_http_exception`` and was reported as a
         broken DEFAULT_*_MODEL -- blaming the deployment for a model the
         organization picked."""
         _configure(mock_user, "generation", "model-789")

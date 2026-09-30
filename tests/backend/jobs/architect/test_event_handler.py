@@ -173,6 +173,17 @@ class TestWebSocketEventHandlerEvents:
         assert event_type == EventType.ARCHITECT_ERROR
         assert payload["error"] == "something broke"
         assert payload["error_type"] == "ValueError"
+        assert payload["error_code"] is None
+
+    @pytest.mark.asyncio
+    async def test_on_error_model_not_configured_has_code(self, handler):
+        err = ValueError("RHESIS_API_KEY is not set")
+        with patch.object(handler, "publish") as mock_pub:
+            await handler.on_error(error=err)
+
+        payload = mock_pub.call_args[0][1]
+        assert payload["error_code"] == "model_not_configured"
+        assert "Models page" in payload["error"]
 
     @pytest.mark.asyncio
     async def test_on_error_sanitizes_provider_traceback(self, handler):

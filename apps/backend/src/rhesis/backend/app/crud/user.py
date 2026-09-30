@@ -79,6 +79,18 @@ def get_users(
     )
 
 
+def get_organization_users(db: Session, organization_id: str) -> List[models.User]:
+    """Every active user in the organization."""
+    return (
+        db.query(models.User)
+        .filter(
+            models.User.organization_id == organization_id,
+            models.User.is_active.is_(True),
+        )
+        .all()
+    )
+
+
 def create_user(db: Session, user: schemas.UserCreate) -> models.User:
     """Create a new user without RLS checks, because we're creating a new user that has no
     organization_id"""

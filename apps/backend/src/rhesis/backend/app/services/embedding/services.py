@@ -1,16 +1,42 @@
 """Embedding generation service with async/sync orchestration."""
 
 import logging
+import time
 from types import SimpleNamespace
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.async_service import AsyncService
+from rhesis.backend.app.utils.user_model_utils import model_setup_problem
 from rhesis.backend.jobs import launch_job
 from rhesis.backend.jobs.embedding import generate_embedding_task
 
 logger = logging.getLogger(__name__)
+
+#: When each org was last warned about, so a missing model is one warning an hour
+#: rather than one per saved entity.
+_WARN_EVERY_SECONDS = 3600
+_last_warned: dict[str, float] = {}
+
+
+def _skip_embedding(organization_id: str, reason: str) -> None:
+    now = time.monotonic()
+    if now - _last_warned.get(organization_id, -_WARN_EVERY_SECONDS) < _WARN_EVERY_SECONDS:
+        logger.debug("Skipping embedding for org_id=%s: %s", organization_id, reason)
+        return
+    # Drop expired entries so the map can't grow without bound.
+    for org_id, at in list(_last_warned.items()):
+        if now - at >= _WARN_EVERY_SECONDS:
+            del _last_warned[org_id]
+    _last_warned[organization_id] = now
+    logger.warning(
+        "Skipping embeddings for org_id=%s until a usable embedding model is set up "
+        "(logged at most hourly): %s",
+        organization_id,
+        reason,
+    )
 
 
 class EmbeddingService(AsyncService):
@@ -78,6 +104,18 @@ class EmbeddingService(AsyncService):
 
         raise ValueError(f"No embedding model found for user {user_id}")
 
+    def _usable_model_id(self, user_id: str, model_id: str | None) -> tuple[str | None, str]:
+        """The embedding model to use, or ``(None, reason)``. Checked before queuing since
+        this runs on every entity save and would otherwise fail on each one."""
+        try:
+            resolved = self.resolve_model_id(user_id, model_id)
+        except ValueError:
+            return None, "no default embedding model is set"
+        # Identity-map hit after resolve_model_id's query, so no second read.
+        user = self.db.get(User, UUID(user_id))
+        problem = model_setup_problem(self.db, user, "embedding", resolved) if user else None
+        return (None, problem.log_message) if problem else (resolved, "")
+
     def enqueue_embedding(
         self,
         *,
@@ -90,7 +128,10 @@ class EmbeddingService(AsyncService):
     ) -> bool:
         """Enqueue embedding generation using entity identity and precomputed searchable text."""
         try:
-            resolved_model_id = self.resolve_model_id(str(user_id), model_id)
+            resolved_model_id, reason = self._usable_model_id(str(user_id), model_id)
+            if resolved_model_id is None:
+                _skip_embedding(str(organization_id), reason)
+                return False
             was_async, _ = self.execute_with_fallback(
                 resolved_model_id,
                 entity_type=entity_type,

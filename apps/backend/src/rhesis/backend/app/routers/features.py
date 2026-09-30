@@ -16,13 +16,18 @@ from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.config.settings import get_application_settings
-from rhesis.backend.app.dependencies import get_current_organization_optional
+from rhesis.backend.app.dependencies import get_current_organization_optional, get_db_session
 from rhesis.backend.app.features import FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaRegistry, limits_to_wire
+from rhesis.backend.app.services.model_setup import readiness_for_request
 from rhesis.backend.app.services.plan import build_plan
+from rhesis.backend.app.utils.user_model_utils import ModelReadiness
 
 router = APIRouter(prefix="/features", tags=["features"])
 
@@ -92,11 +97,24 @@ class FeaturesResponse(BaseModel):
     #: Whether the Rhesis platform API key option is enabled (ENABLE_RHESIS_KEY=true).
     #: Controls the platform key UI and endpoints independently of deployment type.
     rhesis_key_enabled: bool = False
+    #: Whether the user's default generation and evaluation models can be built (no model call).
+    models_ready: bool = False
+    #: Same for embeddings; kept separate since without it only search quality suffers.
+    embedding_model_ready: bool = False
+
+
+def get_model_readiness(
+    current_user: User = Depends(require_current_user_or_token),
+    db: Session = Depends(get_db_session),
+) -> Optional[ModelReadiness]:
+    """``None`` for a user with no organization yet."""
+    return readiness_for_request(db, current_user)
 
 
 @router.get("", response_model=FeaturesResponse)
 def list_features(
     org: Optional[Organization] = Depends(get_current_organization_optional),
+    readiness: Optional[ModelReadiness] = Depends(get_model_readiness),
 ) -> FeaturesResponse:
     """Return license info and the set of features enabled for the current user's org.
 
@@ -123,4 +141,6 @@ def list_features(
         limits=limits,
         is_local=get_application_settings().is_local,
         rhesis_key_enabled=get_application_settings().enable_rhesis_key,
+        models_ready=bool(readiness and readiness.ready),
+        embedding_model_ready=bool(readiness and readiness.embedding is None),
     )

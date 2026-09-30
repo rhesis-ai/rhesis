@@ -19,7 +19,7 @@ from rhesis.backend.app.schemas.websocket import (
 if TYPE_CHECKING:
     from rhesis.backend.app.services.websocket.manager import WebSocketManager
 
-from rhesis.sdk.agents.errors import format_user_facing_error
+from rhesis.sdk.agents.errors import format_user_facing_error, model_error_code
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +181,7 @@ async def handle_architect_message(
             correlation_id,
             format_user_facing_error(e),
             error_type=type(e).__name__,
+            error_code=model_error_code(e),
         )
 
 
@@ -190,6 +191,7 @@ async def _send_architect_error(
     correlation_id: str | None,
     error_message: str,
     error_type: str = "Error",
+    error_code: str | None = None,
 ) -> None:
     await manager.broadcast(
         WebSocketMessage(
@@ -198,6 +200,7 @@ async def _send_architect_error(
             payload={
                 "error": error_message,
                 "error_type": error_type,
+                "error_code": error_code,
             },
         ),
         ConnectionTarget(connection_id=conn_id),

@@ -68,6 +68,8 @@ class PreflightCheckResult(BaseModel):
     test_set_id: Optional[str] = None
     test_set_name: Optional[str] = None
     composite_key: Optional[str] = None
+    #: Stable code for a failure a client can act on, e.g. ``model_not_configured``.
+    error_code: Optional[str] = None
 
 
 class PreflightCheckResponse(BaseModel):
