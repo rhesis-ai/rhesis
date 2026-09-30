@@ -11,6 +11,7 @@ import React from 'react'
  * - Cohere, Groq, Together AI, LiteLLM logo: BerriAI/litellm UI assets (dashboard `public/assets/logos`)
  * - DeepEval: `deepeval-logo.svg` from confident-ai/deepeval (`docs/static/icons/deepeval-logo.svg`)
  * - Polyphemus: `polyphemus-logo-favicon-transparent.svg` from apps/frontend/public/logos
+ * - Haystack: `logo.svg` from deepset-ai/haystack (`docs-website/static/img/logo.svg`)
  */
 
 /**
@@ -55,6 +56,12 @@ const FRAMEWORK_TRACING_ITEMS = [
     name: 'Google ADK',
     href: '/docs/tracing/google-adk',
     src: '/integrations/providers/google.svg',
+    kind: 'simpleIcon',
+  },
+  {
+    name: 'Haystack',
+    href: '/docs/tracing/haystack',
+    src: '/integrations/haystack.svg',
     kind: 'simpleIcon',
   },
 ]
