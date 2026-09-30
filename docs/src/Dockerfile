@@ -26,7 +26,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copy source files needed for build
-COPY src/package.json src/package-lock.json src/next.config.mjs src/mdx-components.js ./
+COPY src/package.json src/package-lock.json src/next.config.mjs src/mdx-components.js src/middleware.js ./
 COPY src/public ./public
 COPY src/app ./app
 COPY src/components ./components
