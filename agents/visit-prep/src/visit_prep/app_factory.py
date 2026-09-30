@@ -10,6 +10,7 @@ the package ``__init__`` runs before anything here imports Haystack.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import uuid
@@ -169,8 +170,10 @@ def create_app(tracing_cls: TracingFactory) -> FastAPI:
         tracing.start_conversation(conv_id)
         logger.info("Visit-Prep chat turn (conversation=%s)", conv_id)
         # A connector test run carries its experiment's parameters; resolve them per turn so
-        # one app can serve several experiments side by side.
-        pipeline = get_pipeline(resolve_config())
+        # one app can serve several experiments side by side. Off the loop: Parameters.get is a
+        # blocking HTTP call and a new config builds a pipeline. to_thread copies the context, so
+        # the test run's experiment still reaches resolve_config.
+        pipeline = await asyncio.to_thread(lambda: get_pipeline(resolve_config()))
         result = await run_chat_turn_async(message, conversation_id=conv_id, pipeline=pipeline)
         return _chat_response_from_result(result)
 

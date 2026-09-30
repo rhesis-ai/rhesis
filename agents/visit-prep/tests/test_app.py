@@ -83,6 +83,30 @@ def test_chat_endpoint_runs_the_experiment_pipeline(monkeypatch):
     assert (config.model, config.temperature) == ("gemini-exp", 0.1)
 
 
+def test_chat_endpoint_resolves_the_pipeline_off_the_event_loop(monkeypatch):
+    """Parameters.get blocks on HTTP; running it on the loop would stall every other turn."""
+    app_mod = _import_app_with_rhesis_disabled(monkeypatch)
+    import threading
+
+    import visit_prep.app_factory as factory
+
+    threads: dict[str, int] = {}
+
+    def fake_get_pipeline(config):
+        threads["lookup"] = threading.get_ident()
+
+    async def fake_run_chat_turn_async(message, *, conversation_id=None, pipeline=None):
+        threads["loop"] = threading.get_ident()
+        return {"response": "hi", "conversation_id": conversation_id, "state": _FakeState()}
+
+    monkeypatch.setattr(factory, "get_pipeline", fake_get_pipeline)
+    monkeypatch.setattr(factory, "run_chat_turn_async", fake_run_chat_turn_async)
+
+    asyncio.run(app_mod.app.state.chat_endpoint_traced(message="hello", conversation_id="c1"))
+
+    assert threads["lookup"] != threads["loop"]
+
+
 def test_lifespan_starts_the_connector(monkeypatch):
     """The lifespan dials the connector, which is what puts this app in the Playground.
 
