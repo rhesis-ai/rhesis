@@ -150,3 +150,30 @@ def test_submit_rejects_with_numbered_problems(ctx):
     assert "1. citation c1" in result
     assert ctx.accepted is None
     assert ctx.rejections == 1
+
+
+async def test_an_anchor_in_the_url_reads_just_that_section(ctx):
+    result = await fetch_page_impl(
+        ctx, "https://docs.rhesis.ai/self-hosting/docker-compose#database-backup", None
+    )
+    body = result.split("\n---\n", 1)[1]
+    assert "Database Backup" in body
+    assert "Production Setup" not in body
+    assert "https://docs.rhesis.ai/self-hosting/docker-compose" in ctx.ledger
+
+
+async def test_read_tools_refuse_near_the_token_budget(ctx):
+    ctx.tokens.used = int(ctx.settings.token_budget * 0.8)
+    result = await fetch_page_impl(ctx, SCOPE, None)
+    assert result.startswith(BUDGET_EXHAUSTED)
+    assert "token budget" in result
+    assert ctx.limits_hit == ["token_budget"]
+    assert ctx.ledger == {}
+    # Submitting is never refused.
+    assert (
+        submit_answer_impl(
+            ctx,
+            AnswerDraft(**draft(route="not_documented", claims=[], citations=[], answer_md="No.")),
+        )
+        == ACCEPTED
+    )

@@ -17,7 +17,7 @@ from docs_assistant import grounding
 from docs_assistant.context import TurnContext
 from docs_assistant.corpus.changelog import select_entries
 from docs_assistant.corpus.fetcher import DocsFetchError
-from docs_assistant.corpus.parser import Page, canonical_url, parse_page_markdown
+from docs_assistant.corpus.parser import Page, parse_page_markdown, split_anchor
 from docs_assistant.schemas import AnswerDraft
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,9 @@ STOPPED = "STOPPED"
 BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED"
 NOT_FOUND = "NOT_FOUND"
 MAX_SEARCH_RESULTS = 10
+# Past this share of the token budget, read tools refuse so the model submits what it has
+# instead of being cut off at the hard limit with nothing to show.
+SOFT_TOKEN_SHARE = 0.75
 MAX_LISTED_ENTRIES = 80
 CHANGELOG_ENTRY_CHARS = 3000
 _DEPRECATION = re.compile(r"deprecated|legacy|no longer|removed in", re.IGNORECASE)
@@ -40,6 +43,12 @@ _DEPRECATION = re.compile(r"deprecated|legacy|no longer|removed in", re.IGNORECA
 def _over_budget(ctx: TurnContext, kind: str | None = None) -> str | None:
     """Charge one tool call (and one `kind`) to the budget; return a message once it runs out."""
     limits = ctx.settings
+    if ctx.tokens.used >= limits.token_budget * SOFT_TOKEN_SHARE:
+        ctx.hit_limit("token_budget")
+        return (
+            f"{BUDGET_EXHAUSTED}: this question has used most of its token budget. Call "
+            "submit_answer now with what you have read."
+        )
     ctx.budget.tool_calls += 1
     if ctx.budget.tool_calls > limits.max_tool_calls:
         ctx.hit_limit("tool_budget")
@@ -108,7 +117,10 @@ async def fetch_page_impl(
 ) -> str:
     if message := _over_budget(ctx):
         return message
-    url = canonical_url(url_or_path)
+    url, url_anchor = split_anchor(url_or_path)
+    # Search results carry the section in the URL; reading just that section keeps the turn
+    # small, since every later model call resends what was read.
+    section_anchor = section_anchor or url_anchor
     first_read = url not in ctx.ledger
     if refusal := _page_budget_refusal(ctx, url):
         return refusal
@@ -186,7 +198,8 @@ async def fetch_page(
     """Read a docs page as markdown. Only pages read with this tool may be cited.
 
     Args:
-        url_or_path: A docs URL or path, e.g. "https://docs.rhesis.ai/sdk/metrics" or "sdk/metrics".
+        url_or_path: A docs URL or path, e.g. "https://docs.rhesis.ai/sdk/metrics#metric-scopes".
+            An #anchor reads just that section and its neighbours.
         section_anchor: A heading anchor to read just that part of a long page, or null.
     """
     return await fetch_page_impl(ctx.context, url_or_path, section_anchor)

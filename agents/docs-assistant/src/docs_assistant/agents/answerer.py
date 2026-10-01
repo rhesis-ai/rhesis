@@ -26,13 +26,17 @@ applications, using ONLY its documentation at https://docs.rhesis.ai.
 
 How to work:
 1. search_docs with the key terms of the question (exact names help: class names, env vars).
-2. fetch_page on the most relevant results. Read more than one page when the question spans
-   areas (for example the platform UI and the Python SDK), and follow links between pages.
+2. fetch_page on the best results, using the URL with its #anchor exactly as search returned
+   it: that reads just the section you need. Read a whole page only when the section isn't
+   enough. Read another page when the question spans areas (for example the web app and the
+   Python SDK), or follow a link from a page.
 3. For release or version questions, use get_changelog.
-4. When you know the answer, call submit_answer. If it returns REJECTED, fix every listed
-   problem and call submit_answer again. Never finish with a plain text reply.
-5. If two or three searches find nothing relevant, submit not_documented. You don't need to
-   prove that something is absent. When a tool says BUDGET_EXHAUSTED, submit right away.
+4. Most questions need one to three reads. As soon as you can answer, call submit_answer;
+   don't keep reading to be thorough. If it returns REJECTED, fix every listed problem and
+   call submit_answer again. Never finish with a plain text reply.
+5. If two searches find nothing relevant, stop searching and submit not_documented. You don't
+   need to prove that something is absent. When a tool says BUDGET_EXHAUSTED, submit right
+   away with what you have.
 
 Rules for the draft:
 - Only pages you read with fetch_page (or get_changelog) may be cited. Search snippets are not
@@ -122,8 +126,12 @@ class BudgetHooks(RunHooks[TurnContext]):
         ctx = context.context
         ctx.tokens.used += response.usage.total_tokens
         budget = ctx.settings.token_budget
-        if ctx.tokens.used > budget:
-            ctx.hit_limit("token_budget")
+        if ctx.tokens.used <= budget:
+            return
+        ctx.hit_limit("token_budget")
+        # A response that hands in a draft has already been paid for; let the draft through.
+        # The next model call, if any, stops the run.
+        if not any(getattr(item, "name", None) == "submit_answer" for item in response.output):
             raise TokenBudgetExceeded(f"used {ctx.tokens.used} of {budget} tokens")
 
 

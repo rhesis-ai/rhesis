@@ -58,3 +58,12 @@ async def test_no_docs_at_all_raises(cache, site, settings):
     site.down = True
     with pytest.raises(DocsUnavailable):
         await run_turn("q", cache=cache, models=models(), settings=settings)
+
+
+async def test_a_submit_that_crosses_the_token_budget_still_counts(cache, settings):
+    model = ScriptedModel([[fetch(SCOPE)], [submit()]], tokens_per_call=2500)
+    response = await run_turn(
+        "q", cache=cache, models=models(model), settings=replace(settings, token_budget=4000)
+    )
+    assert response.route is Route.ANSWERED
+    assert response.limits_hit == ["token_budget"]
