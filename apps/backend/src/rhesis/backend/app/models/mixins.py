@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import Column, ForeignKey, and_, event
+from sqlalchemy import Boolean, Column, ForeignKey, and_, event
 from sqlalchemy.orm import Session, declared_attr, object_session, relationship
 from sqlalchemy.orm.exc import DetachedInstanceError
 
@@ -241,6 +241,16 @@ class ProjectMixin:
     @declared_attr
     def project(cls):
         return relationship("Project", foreign_keys=[cls.project_id])
+
+
+class ExampleDataMixin:
+    """Marks rows seeded as the example project when an organization is created.
+
+    Onboarding progress skips these rows so the seeded example doesn't count as
+    work the user did themselves.
+    """
+
+    is_example = Column(Boolean, nullable=False, default=False, server_default="false")
 
 
 def annotation_entry(annotation) -> dict:

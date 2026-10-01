@@ -207,3 +207,14 @@ def get_user_by_id(db: Session, user_id: Union[str, UUID]) -> Optional[models.Us
     except ValueError:
         # Handle invalid UUID string
         return None
+
+
+def other_org_member_exists(db: Session, organization_id: str, user_id: str) -> bool:
+    """True when another active member belongs to the organization (invitees start active)."""
+    with bypass_tenant_filter():
+        query = db.query(models.User.id).filter(
+            models.User.organization_id == organization_id,
+            models.User.id != user_id,
+            models.User.is_active.isnot(False),
+        )
+        return bool(db.query(query.exists()).scalar())

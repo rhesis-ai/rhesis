@@ -339,3 +339,17 @@ def bulk_delete_test_sets(
         organization_id=organization_id,
         user_id=user_id,
     )
+
+
+def user_test_set_exists(db: Session, organization_id: str) -> bool:
+    """True when a live test set the user made is visible in the session's current scope.
+
+    Skips the seeded example set and metric-owned tuning sets.
+    """
+    query = db.query(models.TestSet.id).filter(
+        models.TestSet.organization_id == organization_id,
+        models.TestSet.is_example.is_(False),
+        models.TestSet.metric_id.is_(None),
+        models.TestSet.deleted_at.is_(None),
+    )
+    return bool(db.query(query.exists()).scalar())

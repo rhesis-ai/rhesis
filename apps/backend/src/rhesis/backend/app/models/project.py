@@ -2,18 +2,17 @@ from sqlalchemy import Boolean, Column, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.base import Base
+from rhesis.backend.app.models.guid import GUID
+from rhesis.backend.app.models.mixins import ActivityTrackableMixin, ExampleDataMixin, TagsMixin
 from rhesis.backend.app.models.pydantic_column import pydantic_jsonb_column
 from rhesis.backend.app.schemas.parameters import (
     ParameterSchema,
     ProjectEnvironments,
 )
 
-from .base import Base
-from .guid import GUID
-from .mixins import ActivityTrackableMixin, TagsMixin
 
-
-class Project(Base, ActivityTrackableMixin, TagsMixin):
+class Project(Base, ActivityTrackableMixin, TagsMixin, ExampleDataMixin):
     __tablename__ = "project"
 
     # Basic information

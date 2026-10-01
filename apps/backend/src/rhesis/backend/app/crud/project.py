@@ -77,37 +77,46 @@ def get_projects(
     organization_id: str | None = None,
     user_id: str | None = None,
 ) -> List[models.Project]:
-    from rhesis.backend.app.models.project_membership import ProjectMembership
     from rhesis.backend.app.scope import bypass_tenant_filter
+
+    with bypass_tenant_filter():
+        return (
+            _visible_projects(db, organization_id, user_id)
+            .with_related(include(models.Project.owner))
+            .with_default_derived_field_loads()
+            .with_odata_filter(filter)
+            .with_pagination(skip, limit)
+            .with_sorting(sort_by, sort_order)
+            .all()
+        )
+
+
+def _visible_projects(db: Session, organization_id: str | None, user_id: str | None):
+    """QueryBuilder over the projects *user_id* may see: members see their projects,
+    org admins/owners see all. Run it inside ``bypass_tenant_filter()``."""
+    from rhesis.backend.app.models.project_membership import ProjectMembership
     from rhesis.backend.app.utils.query_utils import QueryBuilder
 
+    builder = (
+        QueryBuilder(db, models.Project)
+        .with_organization_filter(organization_id)
+        .with_visibility_filter(user_id)
+    )
     org_access = (
         user_id and organization_id and has_org_wide_project_access(db, user_id, organization_id)
     )
-
-    with bypass_tenant_filter():
-        builder = (
-            QueryBuilder(db, models.Project)
-            .with_related(include(models.Project.owner))
-            .with_default_derived_field_loads()
-            .with_organization_filter(organization_id)
-            .with_visibility_filter(user_id)
-            .with_odata_filter(filter)
-        )
-
-        if user_id and not org_access:
-            exists_subquery = (
-                db.query(ProjectMembership)
-                .filter(
-                    ProjectMembership.project_id == models.Project.id,
-                    ProjectMembership.user_id == user_id,
-                    ProjectMembership.organization_id == organization_id,
-                )
-                .exists()
+    if user_id and not org_access:
+        exists_subquery = (
+            db.query(ProjectMembership)
+            .filter(
+                ProjectMembership.project_id == models.Project.id,
+                ProjectMembership.user_id == user_id,
+                ProjectMembership.organization_id == organization_id,
             )
-            builder = builder.with_custom_filter(lambda q: q.filter(exists_subquery))
-
-        return builder.with_pagination(skip, limit).with_sorting(sort_by, sort_order).all()
+            .exists()
+        )
+        builder = builder.with_custom_filter(lambda q: q.filter(exists_subquery))
+    return builder
 
 
 def list_org_project_ids(db: Session, organization_id: str) -> List[uuid.UUID]:
@@ -134,33 +143,21 @@ def count_projects(
     user_id: str | None = None,
 ) -> int:
     """Count projects visible to the given user (membership-filtered, org admins/owners see all)."""
-    from rhesis.backend.app.models.project_membership import ProjectMembership
     from rhesis.backend.app.scope import bypass_tenant_filter
-    from rhesis.backend.app.utils.query_utils import QueryBuilder
-
-    org_access = (
-        user_id and organization_id and has_org_wide_project_access(db, user_id, organization_id)
-    )
 
     with bypass_tenant_filter():
-        builder = (
-            QueryBuilder(db, models.Project)
-            .with_organization_filter(organization_id)
-            .with_visibility_filter(user_id)
-            .with_odata_filter(filter)
-        )
-        if user_id and not org_access:
-            exists_subquery = (
-                db.query(ProjectMembership)
-                .filter(
-                    ProjectMembership.project_id == models.Project.id,
-                    ProjectMembership.user_id == user_id,
-                    ProjectMembership.organization_id == organization_id,
-                )
-                .exists()
-            )
-            builder = builder.with_custom_filter(lambda q: q.filter(exists_subquery))
-        return builder.count()
+        return _visible_projects(db, organization_id, user_id).with_odata_filter(filter).count()
+
+
+def list_visible_project_example_flags(
+    db: Session, organization_id: str, user_id: str
+) -> List[tuple[uuid.UUID, bool]]:
+    """``(id, is_example)`` for every live project the user can see."""
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    with bypass_tenant_filter():
+        projects = _visible_projects(db, organization_id, user_id).all()
+    return [(project.id, project.is_example) for project in projects]
 
 
 def create_project(

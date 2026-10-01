@@ -161,6 +161,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                 "icon": item.get("icon"),
                 "user_id": user_id,  # Set the creating user
                 "owner_id": user_id,  # Set the owner to the same user
+                "is_example": True,
             }
             if item.get("parameters_schema") is not None:
                 project_data["parameters_schema"] = item["parameters_schema"]
@@ -288,6 +289,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                     "category_id": category.id,
                     "requirement_id": requirement.id,
                     "priority": item.get("priority", 1),
+                    "is_example": True,
                 },
                 organization_id=organization_id,
                 user_id=user_id,
@@ -346,6 +348,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                     "owner_id": uuid.UUID(user_id),  # Set the owner to the same user
                     "assignee_id": uuid.UUID(user_id),  # Set the assignee to the same user
                     "organization_id": uuid.UUID(organization_id),
+                    "is_example": True,
                 },
                 organization_id=organization_id,
                 user_id=user_id,
@@ -496,6 +499,7 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                 "response_mapping": item.get("response_mapping"),
                 "query_params": item.get("query_params"),
                 "validation_rules": item.get("validation_rules"),
+                "is_example": True,
             }
 
             # Add authentication fields if specified

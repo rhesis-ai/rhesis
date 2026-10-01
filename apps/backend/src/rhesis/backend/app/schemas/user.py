@@ -116,6 +116,15 @@ class OnboardingProgress(BaseModel):
     last_updated: Optional[datetime] = None
 
 
+class OnboardingStatus(BaseModel):
+    """Onboarding steps derived from the caller's real data, ignoring the seeded example."""
+
+    project_created: bool
+    endpoint_setup: bool
+    users_invited: bool
+    test_cases_created: bool
+
+
 class PolyphemusAccess(BaseModel):
     """Polyphemus access tracking"""
 

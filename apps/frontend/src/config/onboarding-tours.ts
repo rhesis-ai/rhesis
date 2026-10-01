@@ -1,5 +1,5 @@
 import { DriveStep } from 'driver.js';
-import { OnboardingStep, OnboardingStepId } from '@/types/onboarding';
+import { OnboardingStep } from '@/types/onboarding';
 
 /**
  * Centralized onboarding steps configuration
@@ -42,16 +42,9 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
 export const ONBOARDING_COLLAPSE_PATH = '/architect';
 
 /**
- * Extended DriveStep with completion tracking
- */
-interface DriveStepWithCompletion extends DriveStep {
-  __markComplete?: OnboardingStepId;
-}
-
-/**
  * Tour for creating a project
  */
-export const projectTourSteps: DriveStepWithCompletion[] = [
+export const projectTourSteps: DriveStep[] = [
   {
     element: '[data-tour="create-project-button"]',
     popover: {
@@ -68,7 +61,7 @@ export const projectTourSteps: DriveStepWithCompletion[] = [
 /**
  * Tour for setting up an endpoint
  */
-export const endpointTourSteps: DriveStepWithCompletion[] = [
+export const endpointTourSteps: DriveStep[] = [
   {
     element: '[data-tour="create-endpoint-button"]',
     popover: {
@@ -90,15 +83,13 @@ export const endpointTourSteps: DriveStepWithCompletion[] = [
       align: 'start',
     },
     disableActiveInteraction: true,
-    // Mark complete when this step is highlighted (last step)
-    __markComplete: 'endpointSetup',
   },
 ];
 
 /**
  * Tour for inviting users
  */
-export const inviteUsersTourSteps: DriveStepWithCompletion[] = [
+export const inviteUsersTourSteps: DriveStep[] = [
   {
     element: '[data-tour="invite-email-input"]',
     popover: {
@@ -126,7 +117,7 @@ export const inviteUsersTourSteps: DriveStepWithCompletion[] = [
 /**
  * Tour for creating test cases
  */
-export const testCasesTourSteps: DriveStepWithCompletion[] = [
+export const testCasesTourSteps: DriveStep[] = [
   {
     element: '[data-tour="create-test-button"]',
     popover: {
@@ -151,8 +142,6 @@ export const testCasesTourSteps: DriveStepWithCompletion[] = [
       // Don't specify showButtons - let driver.js automatically show correct buttons for last step
     },
     disableActiveInteraction: true,
-    // Mark complete when this step is highlighted (last step)
-    __markComplete: 'testCasesCreated',
   },
 ];
 
@@ -183,7 +172,7 @@ export const driverConfig = {
 /**
  * Get tour steps by tour ID
  */
-export function getTourSteps(tourId: string): DriveStepWithCompletion[] {
+export function getTourSteps(tourId: string): DriveStep[] {
   switch (tourId) {
     case 'project':
       return projectTourSteps;
