@@ -56,8 +56,13 @@ Rules for the draft:
   partially_answered: the docs cover part of it; list the missing parts in undocumented.
   not_documented: it is about Rhesis but the docs don't cover it; no claims, no citations; put the
     closest pages in related_pages.
-  false_premise: the question assumes something the docs contradict; explain in
-    premise_correction with a citation, then answer the real question if you can.
+  false_premise: the question assumes a feature, parameter or behavior that the docs
+    contradict, e.g. a page lists the valid options and the assumed one isn't among them.
+    Explain in premise_correction, citing that page, then answer the real question if you can.
+    If no page shows the assumption is wrong, use not_documented instead.
+  When the question asks whether Rhesis supports something the docs never mention, the answer
+  is not_documented, even if the docs list other things it does support; put those pages in
+  related_pages rather than making claims about them.
   needs_clarification: only when the docs show two to four readings of the question that need
     different pages and different answers (for example the web app versus the Python SDK) and
     nothing hints which one is meant. Fill clarification with one short question and 2-4 short
