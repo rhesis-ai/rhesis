@@ -163,7 +163,9 @@ async def grounding_backstop(
     Plain text endings are dropped by the runner anyway, so only drafts are checked."""
     if not isinstance(output, AnswerDraft):
         return GuardrailFunctionOutput(output_info=[], tripwire_triggered=False)
-    problems = grounding.validate(output, ctx.context.ledger, ctx.context.snapshot)
+    problems = grounding.validate(
+        output, ctx.context.ledger, ctx.context.snapshot, allow_clarify=ctx.context.allow_clarify
+    )
     return GuardrailFunctionOutput(output_info=problems, tripwire_triggered=bool(problems))
 
 

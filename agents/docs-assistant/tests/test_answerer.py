@@ -157,3 +157,28 @@ async def test_the_backstop_trips_on_an_unchecked_draft(ctx):
     assert result.tripwire_triggered
     passed = await grounding_backstop.guardrail_function(RunContextWrapper(ctx), None, "text")
     assert not passed.tripwire_triggered
+
+
+async def test_the_backstop_enforces_the_clarify_streak(ctx):
+    from agents import RunContextWrapper
+
+    from docs_assistant.agents.answerer import grounding_backstop
+    from docs_assistant.schemas import AnswerDraft
+
+    clarifying = AnswerDraft(
+        **draft(
+            route="needs_clarification",
+            answer_md="",
+            claims=[],
+            citations=[],
+            clarification={"question": "Where?", "options": ["Web app", "Python SDK"]},
+        )
+    )
+    wrapper = RunContextWrapper(ctx)
+    assert not (
+        await grounding_backstop.guardrail_function(wrapper, None, clarifying)
+    ).tripwire_triggered
+    ctx.allow_clarify = False
+    assert (
+        await grounding_backstop.guardrail_function(wrapper, None, clarifying)
+    ).tripwire_triggered
