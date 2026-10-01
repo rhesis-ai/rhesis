@@ -180,6 +180,22 @@ class TestSanitizeUsageData:
             AIAttributes.LLM_TOKENS_CACHE_READ: 800,
         }
 
+    def test_preserves_anthropic_cache_creation_tokens_for_pricing(self):
+        assert _sanitize_usage_data(
+            {
+                "input_tokens": 50,
+                "output_tokens": 20,
+                "cache_creation_input_tokens": 1000,
+                "cache_read_input_tokens": 4000,
+            }
+        ) == {
+            AIAttributes.LLM_TOKENS_INPUT: 50,
+            AIAttributes.LLM_TOKENS_OUTPUT: 20,
+            AIAttributes.LLM_TOKENS_TOTAL: 5070,
+            AIAttributes.LLM_TOKENS_CACHE_WRITE: 1000,
+            AIAttributes.LLM_TOKENS_CACHE_READ: 4000,
+        }
+
     def test_drops_zero_values(self):
         """A zero input count is omitted; the total is still derived from what is known."""
         assert _sanitize_usage_data({"prompt_tokens": 0, "completion_tokens": 5}) == {

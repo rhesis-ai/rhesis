@@ -509,7 +509,7 @@ def _sanitize_usage_data(usage: dict[str, Any]) -> dict[str, int]:
         return {}
 
     input_tokens, output_tokens, total_tokens = extract_token_usage(usage)
-    _, cache_read_tokens = extract_cache_tokens(usage)
+    cache_write_tokens, cache_read_tokens = extract_cache_tokens(usage)
     sanitized: dict[str, int] = {}
     if input_tokens:
         sanitized[AIAttributes.LLM_TOKENS_INPUT] = input_tokens
@@ -517,6 +517,8 @@ def _sanitize_usage_data(usage: dict[str, Any]) -> dict[str, int]:
         sanitized[AIAttributes.LLM_TOKENS_OUTPUT] = output_tokens
     if total_tokens:
         sanitized[AIAttributes.LLM_TOKENS_TOTAL] = total_tokens
+    if cache_write_tokens:
+        sanitized[AIAttributes.LLM_TOKENS_CACHE_WRITE] = cache_write_tokens
     if cache_read_tokens:
         sanitized[AIAttributes.LLM_TOKENS_CACHE_READ] = cache_read_tokens
     return sanitized
