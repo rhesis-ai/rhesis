@@ -198,7 +198,14 @@ class TestSanitizeUsageData:
 
     def test_drops_zero_values(self):
         """A zero input count is omitted; the total is still derived from what is known."""
-        assert _sanitize_usage_data({"prompt_tokens": 0, "completion_tokens": 5}) == {
+        assert _sanitize_usage_data(
+            {
+                "prompt_tokens": 0,
+                "completion_tokens": 5,
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0,
+            }
+        ) == {
             AIAttributes.LLM_TOKENS_OUTPUT: 5,
             AIAttributes.LLM_TOKENS_TOTAL: 5,
         }
