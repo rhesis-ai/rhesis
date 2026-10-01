@@ -292,7 +292,7 @@ The Rhesis SDK's Google ADK integration is enabled in `app.py`, which is the onl
 imports `rhesis.sdk`:
 
 ```python
-rhesis_client = RhesisClient.from_environment()   # or DisabledClient() with no credentials
+rhesis_client = RhesisClient.from_environment()  # or DisabledClient() with no credentials
 auto_instrument("google_adk")
 ```
 
