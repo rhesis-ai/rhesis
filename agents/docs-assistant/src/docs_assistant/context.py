@@ -36,6 +36,8 @@ class TurnContext:
     search_hits: list[SearchHit] = field(default_factory=list)
     accepted: AnswerDraft | None = None
     rejections: int = 0
+    # True once submit_answer ran out of retries with nothing salvageable.
+    gave_up: bool = False
     limits_hit: list[str] = field(default_factory=list)
     # False right after a clarifying question: the next answer must not ask another.
     allow_clarify: bool = True

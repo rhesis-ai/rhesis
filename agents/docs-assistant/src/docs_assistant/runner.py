@@ -13,7 +13,7 @@ import asyncio
 import logging
 import uuid
 
-from agents import MaxTurnsExceeded, Runner
+from agents import MaxTurnsExceeded, OutputGuardrailTripwireTriggered, Runner
 
 from docs_assistant import compose, safety, terminals
 from docs_assistant.agents import answerer, triage
@@ -264,19 +264,23 @@ async def _answer(agent, prompt: str, ctx: TurnContext, timeout: float) -> Answe
         ctx.hit_limit("max_turns")
     except TokenBudgetExceeded:
         pass  # BudgetHooks already recorded the limit.
+    except OutputGuardrailTripwireTriggered:
+        logger.error("Backstop guardrail tripped on an accepted draft; sending the fallback")
+        ctx.hit_limit("backstop")
+        ctx.accepted = None
     return ctx.accepted
 
 
 async def _run_with_nudge(agent, prompt: str, ctx: TurnContext) -> AnswerDraft | None:
     run = {"context": ctx, "max_turns": ctx.settings.max_turns, "hooks": BudgetHooks()}
     result = await Runner.run(agent, prompt, **run)
-    if ctx.accepted is None:
+    if ctx.accepted is None and not ctx.gave_up:
         # The model ended with plain text instead of submitting. That text was never checked,
         # so it is dropped; the model gets one reminder, then the fallback takes over.
         logger.info("Answer agent ended without submit_answer; nudging once")
         follow_up = result.to_input_list() + [{"role": "user", "content": NUDGE}]
         await Runner.run(agent, follow_up, **run)
-    if ctx.accepted is None:
+    if ctx.accepted is None and not ctx.gave_up:
         ctx.hit_limit("no_submit")
     return ctx.accepted
 
@@ -292,6 +296,7 @@ def _fallback(ctx: TurnContext, language: str) -> AnswerDraft:
         premise_correction=None,
         related_pages=_searched_pages(ctx),
         clarification=None,
+        adapted_code=[],
     )
 
 

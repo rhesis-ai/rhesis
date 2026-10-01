@@ -28,6 +28,7 @@ DocsSection = Literal[
 
 ACCEPTED = "ACCEPTED"
 REJECTED = "REJECTED"
+STOPPED = "STOPPED"
 BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED"
 NOT_FOUND = "NOT_FOUND"
 MAX_SEARCH_RESULTS = 10
@@ -270,13 +271,21 @@ def get_changelog(
 
 
 def submit_answer_impl(ctx: TurnContext, draft: AnswerDraft) -> str:
-    problems = grounding.validate(draft, ctx.ledger, allow_clarify=ctx.allow_clarify)
-    if problems:
-        ctx.rejections += 1
-        numbered = "\n".join(f"{n}. {p}" for n, p in enumerate(problems, start=1))
-        return f"{REJECTED}. Fix these and call submit_answer again:\n{numbered}"
-    ctx.accepted = draft
-    return ACCEPTED
+    problems = grounding.validate(draft, ctx.ledger, ctx.snapshot, allow_clarify=ctx.allow_clarify)
+    if not problems:
+        ctx.accepted = draft
+        return ACCEPTED
+    ctx.rejections += 1
+    if ctx.rejections > ctx.settings.max_retries:
+        # Out of retries: keep the claims that are grounded, or give up on this draft.
+        ctx.hit_limit("grounding_retries")
+        if salvaged := grounding.salvage(draft, ctx.ledger, ctx.snapshot):
+            ctx.accepted = salvaged
+            return ACCEPTED
+        ctx.gave_up = True
+        return f"{STOPPED}: the draft still failed the checks, so it won't be shown."
+    numbered = "\n".join(f"{n}. {p}" for n, p in enumerate(problems, start=1))
+    return f"{REJECTED}. Fix these and call submit_answer again:\n{numbered}"
 
 
 @function_tool

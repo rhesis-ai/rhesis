@@ -13,11 +13,13 @@ INSTALL = "https://docs.rhesis.ai/sdk/installation"
 DOCKER = "https://docs.rhesis.ai/self-hosting/docker-compose"
 INSTALL_ANSWER = {
     "answer_md": "Install it with pip [c1].",
-    "citations": [{"id": "c1", "url": INSTALL, "quote": "Install the Rhesis Python SDK"}],
+    "citations": [
+        {"id": "c1", "url": INSTALL, "quote": "The Rhesis Python SDK generates test sets"}
+    ],
 }
 DOCKER_ANSWER = {
     "answer_md": "Use Docker Compose [c1].",
-    "citations": [{"id": "c1", "url": DOCKER, "quote": "Deploy Rhesis on your own"}],
+    "citations": [{"id": "c1", "url": DOCKER, "quote": "Deploy Rhesis on your own infrastructure"}],
 }
 
 

@@ -40,6 +40,11 @@ class DraftClaim(BaseModel):
     citation_ids: list[str] = Field(description="Ids of the citations that support it.")
 
 
+class AdaptedCode(BaseModel):
+    code: str = Field(description="A code block from answer_md that is not copied verbatim.")
+    source_url: str = Field(description="The page you read that it is adapted from.")
+
+
 class Clarification(BaseModel):
     question: str = Field(description="One short clarifying question, in the user's language.")
     options: list[str] = Field(description="2 to 4 short answers the user can pick from.")
@@ -66,6 +71,9 @@ class AnswerDraft(BaseModel):
     )
     clarification: Clarification | None = Field(
         description="For needs_clarification only: the question and its options. Otherwise null."
+    )
+    adapted_code: list[AdaptedCode] = Field(
+        description="Every code block in answer_md that you changed from the docs. Usually empty."
     )
 
 

@@ -5,16 +5,20 @@ from __future__ import annotations
 from agents import (
     Agent,
     FunctionToolResult,
+    GuardrailFunctionOutput,
     Model,
     ModelSettings,
     RunContextWrapper,
     RunHooks,
     ToolsToFinalOutputResult,
+    output_guardrail,
 )
 from agents.items import ModelResponse
 
+from docs_assistant import grounding
 from docs_assistant.context import TurnContext
-from docs_assistant.tools import ACCEPTED, ANSWER_TOOLS
+from docs_assistant.schemas import AnswerDraft
+from docs_assistant.tools import ACCEPTED, ANSWER_TOOLS, STOPPED
 
 INSTRUCTIONS = """\
 You answer questions about Rhesis, an open-source platform for testing and evaluating AI
@@ -37,7 +41,10 @@ Rules for the draft:
   from the page (at least 20 characters), not paraphrased.
 - In answer_md, mark where a citation applies with its id in brackets, e.g. "... per turn [c1]."
 - Code in answer_md must be copied from the docs. Do not invent functions, parameters, env vars
-  or CLI flags.
+  or CLI flags. If you had to change a code block (e.g. fill in a value), list it in
+  adapted_code with the page it came from.
+- Links in answer_md may only point to docs pages, or to links that appear on a page you read.
+- Use only heading anchors that fetch_page listed for that page.
 - Pick the route:
   answered: the docs fully answer the question; undocumented stays empty.
   partially_answered: the docs cover part of it; list the missing parts in undocumented.
@@ -121,11 +128,28 @@ class BudgetHooks(RunHooks[TurnContext]):
 def stop_on_accept(
     ctx: RunContextWrapper[TurnContext], results: list[FunctionToolResult]
 ) -> ToolsToFinalOutputResult:
-    """End the run only when submit_answer accepted a draft; a rejection goes back to the model."""
+    """End the run when submit_answer accepted a draft or ran out of retries; any other
+    rejection goes back to the model."""
     for result in results:
-        if result.tool.name == "submit_answer" and str(result.output) == ACCEPTED:
+        output = str(result.output)
+        if result.tool.name == "submit_answer" and (
+            output == ACCEPTED or output.startswith(STOPPED)
+        ):
             return ToolsToFinalOutputResult(is_final_output=True, final_output=ctx.context.accepted)
     return ToolsToFinalOutputResult(is_final_output=False)
+
+
+@output_guardrail
+async def grounding_backstop(
+    ctx: RunContextWrapper[TurnContext], agent: Agent, output: object
+) -> GuardrailFunctionOutput:
+    """Re-check the final draft. submit_answer already checked it, so this should never trip;
+    it guards against a code path that sets a final output without going through the checks.
+    Plain text endings are dropped by the runner anyway, so only drafts are checked."""
+    if not isinstance(output, AnswerDraft):
+        return GuardrailFunctionOutput(output_info=[], tripwire_triggered=False)
+    problems = grounding.validate(output, ctx.context.ledger, ctx.context.snapshot)
+    return GuardrailFunctionOutput(output_info=problems, tripwire_triggered=bool(problems))
 
 
 def build_answerer(model: Model, settings: ModelSettings) -> Agent[TurnContext]:
@@ -136,4 +160,5 @@ def build_answerer(model: Model, settings: ModelSettings) -> Agent[TurnContext]:
         model_settings=settings,
         tools=ANSWER_TOOLS,
         tool_use_behavior=stop_on_accept,
+        output_guardrails=[grounding_backstop],
     )

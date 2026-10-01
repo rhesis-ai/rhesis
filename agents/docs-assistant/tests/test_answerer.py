@@ -2,7 +2,7 @@ from docs_assistant.agents.answerer import NUDGE
 from docs_assistant.runner import run_turn
 from docs_assistant.schemas import Route
 from docs_assistant.terminals import text as reply
-from tests.mocks import ScriptedModel, fetch, models, search, submit, text
+from tests.mocks import ScriptedModel, draft, fetch, models, search, submit, text
 
 SCOPE = "https://docs.rhesis.ai/docs/metrics/metric-scope"
 
@@ -52,7 +52,9 @@ async def test_answered_with_no_citations_never_reaches_the_user(cache, settings
     response = await turn(model, cache, settings)
     assert response.route is Route.NOT_DOCUMENTED
     assert response.citations == []
-    assert "max_turns" in response.limits_hit
+    # The third rejected draft uses up the retries; nothing is salvageable, so the run stops.
+    assert response.limits_hit == ["grounding_retries"]
+    assert len(model.requests) == 3
 
 
 async def test_a_plain_text_ending_gets_one_nudge(cache, settings):
@@ -78,27 +80,26 @@ async def test_two_plain_text_endings_give_the_fallback(cache, settings):
     assert response.related_pages and response.related_pages[0].url == SCOPE
 
 
-async def test_not_documented_keeps_only_related_pages_the_index_knows(cache, settings):
-    related = [
-        {"title": "Wrong title", "url": "https://docs.rhesis.ai/sdk/installation"},
-        {"title": "Made up", "url": "https://docs.rhesis.ai/docs/made-up"},
-    ]
-    model = ScriptedModel(
-        [
-            [
-                submit(
-                    route="not_documented",
-                    claims=[],
-                    citations=[],
-                    related_pages=related,
-                    answer_md="Not covered.",
-                )
-            ]
-        ]
-    )
+async def test_related_pages_outside_the_index_are_rejected(cache, settings):
+    def not_documented(related):
+        return submit(
+            route="not_documented",
+            claims=[],
+            citations=[],
+            related_pages=related,
+            answer_md="Not covered.",
+        )
+
+    install = {"title": "Wrong title", "url": "https://docs.rhesis.ai/sdk/installation"}
+    made_up = {"title": "Made up", "url": "https://docs.rhesis.ai/docs/made-up"}
+    model = ScriptedModel([[not_documented([install, made_up])], [not_documented([install])]])
     response = await turn(model, cache, settings)
 
+    assert "related page https://docs.rhesis.ai/docs/made-up is not in the docs index" in (
+        model.input_text(1)
+    )
     assert response.route is Route.NOT_DOCUMENTED
+    # Titles come from the index, not from the model.
     assert [(p.title, p.url) for p in response.related_pages] == [
         ("SDK Installation & Setup", "https://docs.rhesis.ai/sdk/installation")
     ]
@@ -123,3 +124,36 @@ async def test_response_carries_docs_freshness(cache, settings):
     assert response.docs_as_of == cache.snapshot.fetched_at
     assert response.docs_stale is False
     assert response.conversation_id and response.answer_id
+
+
+async def test_out_of_retries_keeps_the_grounded_claims(cache, settings):
+    bad_quote = {"id": "c2", "url": SCOPE, "quote": "This sentence is nowhere in the docs."}
+    mixed = submit(
+        answer_md="Good [c1]. Bad [c2].",
+        claims=[
+            {"text": "Multi-turn needs the transcript.", "citation_ids": ["c1"]},
+            {"text": "Invented.", "citation_ids": ["c2"]},
+        ],
+        citations=[draft()["citations"][0], bad_quote],
+    )
+    model = ScriptedModel([[fetch(SCOPE)], [mixed], [mixed], [mixed]])
+    response = await turn(model, cache, settings)
+
+    assert response.route is Route.PARTIALLY_ANSWERED
+    assert response.limits_hit == ["grounding_retries"]
+    assert response.undocumented == ["Invented."]
+    assert [c.url.split("#")[0] for c in response.citations] == [SCOPE]
+    assert len(model.requests) == 4
+
+
+async def test_the_backstop_trips_on_an_unchecked_draft(ctx):
+    from agents import RunContextWrapper
+
+    from docs_assistant.agents.answerer import grounding_backstop
+    from docs_assistant.schemas import AnswerDraft
+
+    unchecked = AnswerDraft(**draft())  # cites a page that was never read
+    result = await grounding_backstop.guardrail_function(RunContextWrapper(ctx), None, unchecked)
+    assert result.tripwire_triggered
+    passed = await grounding_backstop.guardrail_function(RunContextWrapper(ctx), None, "text")
+    assert not passed.tripwire_triggered
