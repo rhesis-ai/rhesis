@@ -15,8 +15,8 @@ import uuid
 
 from agents import MaxTurnsExceeded, OutputGuardrailTripwireTriggered, Runner
 
-from docs_assistant import compose, safety, terminals
-from docs_assistant.agents import answerer, triage
+from docs_assistant import compose, grounding, safety, terminals
+from docs_assistant.agents import answerer, critic, triage
 from docs_assistant.agents.answerer import (
     NUDGE,
     BudgetHooks,
@@ -51,6 +51,8 @@ from docs_assistant.state import (
 logger = logging.getLogger(__name__)
 
 FALLBACK_RELATED = 3
+# Routes whose claims the critic checks; the others make no claims.
+CRITIC_ROUTES = {"answered", "partially_answered", "false_premise"}
 # When kinds clash across parts with no docs part, the most severe fixed reply wins.
 TERMINAL_PRIORITY = ("account_or_support", "out_of_scope", "smalltalk")
 TERMINAL_ROUTES = {
@@ -124,7 +126,7 @@ async def _run(message: str, turn: _Turn, models: AgentModels | None) -> TurnRes
         turn.language = verdict.language
         return _terminal(turn, verdict.kind, text)
 
-    models = models or AgentModels.from_env()
+    models = models or AgentModels.from_env(critic=settings.critic)
     pending = turn.state.pending
     option = match_option(text, pending.clarification.options) if pending else None
     if option:
@@ -249,7 +251,10 @@ async def _answer_part(
         troubleshooting=troubleshooting,
         allow_clarify=ctx.allow_clarify,
     )
-    draft = await _answer(agent, prompt, ctx, turn.remaining()) or _fallback(ctx, turn.language)
+    draft = await _answer(agent, prompt, ctx, turn.remaining())
+    if draft is not None and not troubleshooting:
+        draft = await _review(models, agent, prompt, draft, ctx, turn)
+    draft = draft or _fallback(ctx, turn.language)
     for limit in ctx.limits_hit:
         turn.hit_limit(limit)
     return draft, ctx
@@ -283,6 +288,51 @@ async def _run_with_nudge(agent, prompt: str, ctx: TurnContext) -> AnswerDraft |
     if ctx.accepted is None and not ctx.gave_up:
         ctx.hit_limit("no_submit")
     return ctx.accepted
+
+
+async def _review(
+    models: AgentModels, agent, prompt: str, draft: AnswerDraft, ctx: TurnContext, turn: _Turn
+) -> AnswerDraft | None:
+    """The critic's veto: one re-run of the answer agent with its feedback; if it still finds
+    unsupported claims, Python drops them. None means nothing supported is left."""
+    if models.critic is None or not turn.settings.critic or draft.route not in CRITIC_ROUTES:
+        return draft
+    verdict = await _criticize(models, draft, ctx, turn)
+    if verdict is None:
+        return draft
+    vetoed = critic.unsupported(verdict, len(draft.claims))
+    if not vetoed and verdict.route_ok:
+        return draft
+    ctx.hit_limit("critic_veto")
+    ctx.accepted, ctx.rejections = None, 0
+    note = critic.feedback(draft, vetoed, verdict.route_ok)
+    retry = await _answer(agent, f"{prompt}\n\n{note}", ctx, turn.remaining())
+    if retry is not None:
+        second = await _criticize(models, retry, ctx, turn)
+        retry_vetoed = critic.unsupported(second, len(retry.claims)) if second else {}
+        if retry.route not in CRITIC_ROUTES or not retry_vetoed:
+            return retry
+        draft, vetoed = retry, retry_vetoed
+    if not vetoed:
+        return draft
+    return grounding.drop_claims(draft, set(range(len(draft.claims))) - set(vetoed))
+
+
+async def _criticize(models: AgentModels, draft: AnswerDraft, ctx: TurnContext, turn: _Turn):
+    """The critic's verdict, or None if it failed: the code checks already passed, so a broken
+    critic leaves the draft as it is."""
+    if draft.route not in CRITIC_ROUTES:
+        return None
+    agent = critic.build_critic(models.critic, model_settings("critic"))
+    try:
+        result = await asyncio.wait_for(
+            Runner.run(agent, critic.critic_input(draft, ctx.ledger)), timeout=turn.remaining()
+        )
+        return result.final_output
+    except Exception:
+        logger.warning("Critic failed; keeping the checked draft", exc_info=True)
+        ctx.hit_limit("critic_unavailable")
+        return None
 
 
 def _fallback(ctx: TurnContext, language: str) -> AnswerDraft:

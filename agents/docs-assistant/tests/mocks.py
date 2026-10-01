@@ -178,8 +178,21 @@ class EchoTriage(ScriptedModel):
         return await super().get_response(system_instructions, input, *args, **kwargs)
 
 
-def models(answer: Model | None = None, triage: Model | None = None) -> AgentModels:
-    return AgentModels(triage=triage or EchoTriage(), answer=answer or ScriptedModel([]))
+def models(
+    answer: Model | None = None, triage: Model | None = None, critic: Model | None = None
+) -> AgentModels:
+    return AgentModels(
+        triage=triage or EchoTriage(), answer=answer or ScriptedModel([]), critic=critic
+    )
+
+
+def verdict(*supported: bool, route_ok: bool = True, reason: str = "not in the text"):
+    """A critic verdict as the model's JSON reply, one flag per claim."""
+    claims = [
+        {"index": n, "supported": ok, "reason": "" if ok else reason}
+        for n, ok in enumerate(supported, start=1)
+    ]
+    return text(json.dumps({"claims": claims, "route_ok": route_ok}))
 
 
 def _fresh(item):

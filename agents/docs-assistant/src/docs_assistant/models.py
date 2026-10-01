@@ -143,7 +143,13 @@ class AgentModels:
 
     triage: Model
     answer: Model
+    # None turns the critic off; the code checks still run.
+    critic: Model | None = None
 
     @classmethod
-    def from_env(cls) -> AgentModels:
-        return cls(triage=build_model("triage"), answer=build_model("answer"))
+    def from_env(cls, *, critic: bool = True) -> AgentModels:
+        return cls(
+            triage=build_model("triage"),
+            answer=build_model("answer"),
+            critic=build_model("critic") if critic else None,
+        )

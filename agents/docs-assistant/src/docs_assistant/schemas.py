@@ -109,6 +109,17 @@ class TriageDecision(BaseModel):
     )
 
 
+class ClaimVerdict(BaseModel):
+    index: int = Field(description="The claim number, as given.")
+    supported: bool
+    reason: str = Field(description="Why not, for unsupported claims; may be empty otherwise.")
+
+
+class CriticVerdict(BaseModel):
+    claims: list[ClaimVerdict]
+    route_ok: bool
+
+
 class NextStep(BaseModel):
     label: str
     url: str
