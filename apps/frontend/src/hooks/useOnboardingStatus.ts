@@ -6,18 +6,25 @@ import { onboardingStatusKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { OnboardingStatus } from '@/utils/api-client/interfaces/user';
 import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
+import { OnboardingProgress } from '@/types/onboarding';
+import {
+  applyServerStatus,
+  isOnboardingComplete,
+} from '@/utils/onboarding-service';
 
 /**
  * Onboarding steps computed from real data by GET /users/onboarding-status, so
  * work done through the SDK or any page counts without a tour marking it.
- * Re-read on mount and when the window regains focus.
- *
- * Pass `enabled = false` once the checklist is dismissed or complete; there is
- * nothing left for it to show.
+ * Re-read on mount and window focus until local progress plus the server's
+ * answer completes the checklist, or it is dismissed.
  */
-export function useOnboardingStatus(enabled: boolean) {
+export function useOnboardingStatus(progress: OnboardingProgress) {
   const { data: session, status } = useSession();
   const userScope = useUserScope();
+  const done = (data: OnboardingStatus | undefined) =>
+    isOnboardingComplete(applyServerStatus(progress, data));
+  const refetch = (query: { state: { data?: OnboardingStatus } }) =>
+    done(query.state.data) ? false : ('always' as const);
 
   return useQuery<OnboardingStatus>({
     queryKey: onboardingStatusKeys.all(userScope),
@@ -25,11 +32,12 @@ export function useOnboardingStatus(enabled: boolean) {
       new ApiClientFactory().getUsersClient().getOnboardingStatus(),
     // The route needs an organization; a user mid-onboarding has none yet.
     enabled:
-      enabled &&
+      !progress.dismissed &&
+      !isOnboardingComplete(progress) &&
       isAuthenticated(status) &&
       !!userScope &&
       !!session?.user?.organization_id,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: 'always',
+    refetchOnMount: refetch,
+    refetchOnWindowFocus: refetch,
   });
 }

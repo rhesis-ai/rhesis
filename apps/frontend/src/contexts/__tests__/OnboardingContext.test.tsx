@@ -148,6 +148,8 @@ describe('OnboardingProvider with server status', () => {
 
     renderProvider();
 
-    expect(mockUseOnboardingStatus).toHaveBeenLastCalledWith(false);
+    expect(mockUseOnboardingStatus).toHaveBeenLastCalledWith(
+      expect.objectContaining({ dismissed: true })
+    );
   });
 });

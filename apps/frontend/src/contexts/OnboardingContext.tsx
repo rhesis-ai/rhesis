@@ -390,9 +390,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
 
   // Real data (SDK endpoints, tests made anywhere) completes steps without a
   // tour marking them. ORed in, never written back, so local progress stays as is.
-  const { data: serverStatus } = useOnboardingStatus(
-    !progress.dismissed && !isOnboardingComplete(progress)
-  );
+  const { data: serverStatus } = useOnboardingStatus(progress);
   const withServerStatus = applyServerStatus(progress, serverStatus);
 
   // `projectCreated` (stored or from the server status) can outlive the project if

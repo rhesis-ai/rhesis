@@ -25,6 +25,16 @@ jest.mock('next-auth/react', () => ({
   }),
 }));
 
+const OPEN = {
+  projectCreated: false,
+  endpointSetup: false,
+  usersInvited: false,
+  testCasesCreated: false,
+  dismissed: false,
+  lastUpdated: 0,
+};
+const DISMISSED = { ...OPEN, dismissed: true };
+
 const STATUS = {
   project_created: true,
   endpoint_setup: false,
@@ -52,7 +62,7 @@ describe('useOnboardingStatus', () => {
   });
 
   it('fetches the status when enabled', async () => {
-    const { result } = renderHook(() => useOnboardingStatus(true), {
+    const { result } = renderHook(() => useOnboardingStatus(OPEN), {
       wrapper: wrapperFor(newClient()),
     });
 
@@ -60,8 +70,8 @@ describe('useOnboardingStatus', () => {
     expect(mockGetOnboardingStatus).toHaveBeenCalledTimes(1);
   });
 
-  it('does not fetch when disabled', () => {
-    renderHook(() => useOnboardingStatus(false), {
+  it('does not fetch once dismissed', () => {
+    renderHook(() => useOnboardingStatus(DISMISSED), {
       wrapper: wrapperFor(newClient()),
     });
 
@@ -71,7 +81,7 @@ describe('useOnboardingStatus', () => {
   it('does not fetch for a user without an organization', () => {
     mockOrganizationId = null;
 
-    renderHook(() => useOnboardingStatus(true), {
+    renderHook(() => useOnboardingStatus(OPEN), {
       wrapper: wrapperFor(newClient()),
     });
 
@@ -80,13 +90,13 @@ describe('useOnboardingStatus', () => {
 
   it('refetches on every mount, even with fresh cached data', async () => {
     const client = newClient();
-    const first = renderHook(() => useOnboardingStatus(true), {
+    const first = renderHook(() => useOnboardingStatus(OPEN), {
       wrapper: wrapperFor(client),
     });
     await waitFor(() => expect(first.result.current.data).toEqual(STATUS));
     first.unmount();
 
-    renderHook(() => useOnboardingStatus(true), {
+    renderHook(() => useOnboardingStatus(OPEN), {
       wrapper: wrapperFor(client),
     });
 
@@ -96,7 +106,7 @@ describe('useOnboardingStatus', () => {
   });
 
   it('refetches when the window regains focus', async () => {
-    const { result } = renderHook(() => useOnboardingStatus(true), {
+    const { result } = renderHook(() => useOnboardingStatus(OPEN), {
       wrapper: wrapperFor(newClient()),
     });
     await waitFor(() => expect(result.current.data).toEqual(STATUS));
@@ -109,6 +119,27 @@ describe('useOnboardingStatus', () => {
     await waitFor(() =>
       expect(mockGetOnboardingStatus).toHaveBeenCalledTimes(2)
     );
+    focusManager.setFocused(undefined);
+  });
+
+  it('stops refetching once the server status completes the checklist', async () => {
+    mockGetOnboardingStatus.mockResolvedValue({
+      project_created: true,
+      endpoint_setup: true,
+      users_invited: false,
+      test_cases_created: true,
+    });
+    const { result } = renderHook(() => useOnboardingStatus(OPEN), {
+      wrapper: wrapperFor(newClient()),
+    });
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+
+    expect(mockGetOnboardingStatus).toHaveBeenCalledTimes(1);
     focusManager.setFocused(undefined);
   });
 });
