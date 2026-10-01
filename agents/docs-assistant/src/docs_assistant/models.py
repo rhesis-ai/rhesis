@@ -60,11 +60,21 @@ ROLE_SETTINGS: dict[str, ModelSettings] = {
 }
 
 
+_configured = False
+
+
 def configure_sdk() -> None:
-    """Chat Completions only, and no trace upload to OpenAI (it 401s without an OpenAI key)."""
+    """Chat Completions only, and no trace upload to OpenAI (it 401s without an OpenAI key).
+
+    Runs once: `tracing.install` may route spans to Rhesis afterwards, and a later call must
+    not switch that off again."""
+    global _configured
+    if _configured:
+        return
     set_default_openai_api("chat_completions")
     set_tracing_disabled(True)
     set_trace_processors([])
+    _configured = True
 
 
 def provider_name() -> str:

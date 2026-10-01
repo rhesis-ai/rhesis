@@ -11,7 +11,7 @@ import logging
 import re
 from typing import Literal
 
-from agents import RunContextWrapper, function_tool
+from agents import RunContextWrapper, custom_span, function_tool
 
 from docs_assistant import grounding
 from docs_assistant.context import TurnContext
@@ -284,7 +284,15 @@ def get_changelog(
 
 
 def submit_answer_impl(ctx: TurnContext, draft: AnswerDraft) -> str:
+    # Recorded as an ai.guardrail span in the trace: what the checks decided, and why.
+    outcome = {"route": draft.route}
+    with custom_span("grounding", data=outcome):
+        return _check_submission(ctx, draft, outcome)
+
+
+def _check_submission(ctx: TurnContext, draft: AnswerDraft, outcome: dict) -> str:
     problems = grounding.validate(draft, ctx.ledger, ctx.snapshot, allow_clarify=ctx.allow_clarify)
+    outcome.update(result="accepted", problems=len(problems), attempt=ctx.rejections + 1)
     if not problems:
         ctx.accepted = draft
         return ACCEPTED
@@ -294,9 +302,12 @@ def submit_answer_impl(ctx: TurnContext, draft: AnswerDraft) -> str:
         ctx.hit_limit("grounding_retries")
         if salvaged := grounding.salvage(draft, ctx.ledger, ctx.snapshot):
             ctx.accepted = salvaged
+            outcome["result"] = "salvaged"
             return ACCEPTED
         ctx.gave_up = True
+        outcome["result"] = "stopped"
         return f"{STOPPED}: the draft still failed the checks, so it won't be shown."
+    outcome["result"] = "rejected"
     numbered = "\n".join(f"{n}. {p}" for n, p in enumerate(problems, start=1))
     return f"{REJECTED}. Fix these and call submit_answer again:\n{numbered}"
 

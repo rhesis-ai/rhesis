@@ -11,14 +11,27 @@ import asyncio
 import time
 import uuid
 from collections import OrderedDict
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator, Iterator
+from contextlib import asynccontextmanager, contextmanager
 from typing import Protocol
+
+from rhesis.telemetry.conversation import ConversationTurn, conversation_turn
 
 from docs_assistant.state import ConversationState
 
 MAX_CONVERSATIONS = 256
 IDLE_TTL_SECONDS = 1800
+# Names the turn root in the trace viewer; must stay under function.* or ai.*.
+TURN_SPAN_NAME = "function.docs_assistant_turn"
+
+
+@contextmanager
+def traced_turn(conversation_id: str, message: str) -> Iterator[ConversationTurn]:
+    """The turn root span carrying the conversation id, the message and (set by the caller) the
+    reply. Behind @endpoint, Rhesis already owns the root, so this only binds the id. Without a
+    Rhesis tracer provider it records nothing."""
+    with conversation_turn(conversation_id, input=message, name=TURN_SPAN_NAME) as turn:
+        yield turn
 
 
 class Store(Protocol):

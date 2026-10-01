@@ -115,3 +115,41 @@ async def test_a_follow_up_through_the_api_keeps_the_conversation(client, monkey
     first = client.post("/chat", json={"message": "one"}).json()
     client.post("/chat", json={"message": "two", "conversation_id": first["conversation_id"]})
     assert seen == [0, 1]
+
+
+def test_endpoint_mappings_render_the_turn():
+    import json
+
+    from jinja2 import Environment
+
+    response = _response(
+        route=Route.PARTIALLY_ANSWERED,
+        citations=[
+            {"title": "Metric scope", "url": "https://docs.rhesis.ai/docs/metrics/metric-scope"}
+        ],
+        limits_hit=["page_budget"],
+    )
+    data = response.model_dump(mode="json")
+    env = Environment()
+    rendered = {
+        k: env.from_string(v).render(**data) for k, v in app_module.RESPONSE_MAPPING.items()
+    }
+    assert rendered["output"] == "Answer"
+    assert rendered["session_id"] == "c1"
+    metadata = json.loads(rendered["metadata"])
+    assert metadata["route"] == "partially_answered"
+    assert metadata["citations"] == ["https://docs.rhesis.ai/docs/metrics/metric-scope"]
+    assert metadata["limits_hit"] == ["page_budget"]
+    assert metadata["docs_as_of"].startswith("2026-09-30")
+
+
+async def test_the_endpoint_returns_json_ready_data(monkeypatch):
+    """The SDK's tracer json-dumps whatever @endpoint returns; a datetime would break it."""
+    import json
+
+    async def fake_run_turn(message, *, cache, store, conversation_id):
+        return _response()
+
+    monkeypatch.setattr(app_module, "run_turn", fake_run_turn)
+    result = await app_module.chat_endpoint_traced("hi")
+    assert json.loads(json.dumps(result))["docs_as_of"].startswith("2026-09-30")

@@ -13,6 +13,7 @@ from typing import Any
 
 from agents import Model
 from agents.items import ModelResponse
+from agents.tracing import generation_span
 from agents.usage import Usage
 from openai.types.responses import (
     ResponseFunctionToolCall,
@@ -156,6 +157,15 @@ class ScriptedModel(Model):
             output_tokens=0,
             total_tokens=self.tokens_per_call,
         )
+        # Real models open a generation span per call; so does this one, for the trace tests.
+        with generation_span(
+            model="scripted",
+            input=input if isinstance(input, list) else [{"role": "user", "content": input}],
+            output=[item.model_dump() for item in output],
+            usage={"input_tokens": self.tokens_per_call, "output_tokens": 0},
+            disabled=tracing.is_disabled(),
+        ):
+            pass
         return ModelResponse(output=output, usage=usage, response_id=None)
 
     def stream_response(self, *args, **kwargs):

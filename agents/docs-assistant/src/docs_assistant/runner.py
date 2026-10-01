@@ -13,7 +13,8 @@ import asyncio
 import logging
 import uuid
 
-from agents import MaxTurnsExceeded, OutputGuardrailTripwireTriggered, Runner
+from agents import MaxTurnsExceeded, OutputGuardrailTripwireTriggered, Runner, custom_span
+from agents import trace as agents_trace
 from openai import APIError
 
 from docs_assistant import compose, grounding, safety, terminals
@@ -43,7 +44,7 @@ from docs_assistant.schemas import (
     TriagePart,
     TurnResponse,
 )
-from docs_assistant.session import ConversationStore, Store
+from docs_assistant.session import ConversationStore, Store, traced_turn
 from docs_assistant.state import (
     ConversationState,
     PendingClarification,
@@ -116,16 +117,38 @@ async def run_turn(
     settings = settings or get_settings()
     snapshot = await cache.get()
     async with (store or ConversationStore()).turn(conversation_id) as state:
-        turn = _Turn(snapshot, cache, settings, state)
-        response = await _run(message, turn, models)
+        cid = state.conversation_id
+        # One Agents SDK trace per turn, so every agent run and check nests under the turn root.
+        with traced_turn(cid, message) as root, agents_trace("docs_assistant_turn", group_id=cid):
+            turn = _Turn(snapshot, cache, settings, state)
+            response = await _run(message, turn, models)
+            _route_span(response)
+            root.output = response.response
         _remember(state, response, turn)
         return response
+
+
+def _route_span(response: TurnResponse) -> None:
+    data = {
+        "route": response.route.value,
+        "part_routes": [p.route.value for p in response.parts] or [response.route.value],
+        "surface": response.surface,
+        "language": response.language,
+        "limits_hit": response.limits_hit,
+        "citations": len(response.citations),
+        "turn": response.turn,
+    }
+    with custom_span("route", data=data):
+        pass
 
 
 async def _run(message: str, turn: _Turn, models: AgentModels | None) -> TurnResponse:
     settings = turn.settings
     text, clipped = safety.clip(message, settings.max_input_chars)
-    if verdict := safety.precheck(text):
+    verdict = safety.precheck(text)
+    with custom_span("precheck", data={"result": verdict.kind if verdict else "pass"}):
+        pass
+    if verdict:
         turn.language = verdict.language
         return _terminal(turn, verdict.kind, text)
 
@@ -338,15 +361,25 @@ async def _criticize(models: AgentModels, draft: AnswerDraft, ctx: TurnContext, 
     if draft.route not in CRITIC_ROUTES:
         return None
     agent = critic.build_critic(models.critic, model_settings("critic"))
-    try:
-        result = await asyncio.wait_for(
-            Runner.run(agent, critic.critic_input(draft, ctx.ledger)), timeout=turn.remaining()
+    outcome = {"result": "unavailable", "claims": len(draft.claims)}
+    with custom_span("critic", data=outcome):
+        try:
+            result = await asyncio.wait_for(
+                Runner.run(agent, critic.critic_input(draft, ctx.ledger)),
+                timeout=turn.remaining(),
+            )
+        except Exception:
+            logger.warning("Critic failed; keeping the checked draft", exc_info=True)
+            ctx.hit_limit("critic_unavailable")
+            return None
+        verdict = result.final_output
+        vetoed = critic.unsupported(verdict, len(draft.claims))
+        outcome.update(
+            result="vetoed" if vetoed or not verdict.route_ok else "approved",
+            unsupported=len(vetoed),
+            route_ok=verdict.route_ok,
         )
-        return result.final_output
-    except Exception:
-        logger.warning("Critic failed; keeping the checked draft", exc_info=True)
-        ctx.hit_limit("critic_unavailable")
-        return None
+        return verdict
 
 
 def _fallback(ctx: TurnContext, language: str) -> AnswerDraft:

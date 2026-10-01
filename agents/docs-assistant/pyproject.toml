@@ -21,6 +21,7 @@ dependencies = [
     "uvicorn[standard]>=0.34.0",
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
+    "rhesis-sdk",
 ]
 
 [project.optional-dependencies]
@@ -37,6 +38,9 @@ dev = [
     "ruff>=0.11.6",
 ]
 
+[tool.uv.sources]
+rhesis-sdk = { path = "../../sdk", editable = true }
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -46,6 +50,10 @@ packages = ["src/docs_assistant"]
 
 [tool.uv]
 exclude-newer = "1 week"
+# rhesis-sdk asks for litellm>=1.84, whose releases all pin openai<3, while openai-agents 0.22
+# needs openai>=3. Only the SDK's model providers import litellm (lazily) and this agent never
+# uses them, so it stays on 1.83, the last litellm that works with openai 3.
+override-dependencies = ["litellm>=1.83,<1.84"]
 
 [tool.ruff]
 line-length = 100
