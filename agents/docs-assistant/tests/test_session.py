@@ -78,3 +78,71 @@ async def test_different_conversations_run_side_by_side():
 
     await asyncio.gather(slow_turn("a"), slow_turn("b"))
     assert events[:2] == ["a start", "b start"]
+
+
+async def test_a_lock_with_queued_turns_survives_expiry():
+    # peqy: Lock.locked() reads False between a release and the next waiter waking, so a lock
+    # dropped on that check let a new turn run beside the queued one.
+    clock = FakeClock()
+    store = ConversationStore(idle_ttl=60, clock=clock)
+    events = []
+    release = asyncio.Event()
+    tasks = []
+
+    async def turn(name, wait=None):
+        async with store.turn("c1"):
+            events.append(f"{name} start")
+            if wait:
+                await wait.wait()
+            await asyncio.sleep(0.01)
+            events.append(f"{name} end")
+
+    async def first():
+        await turn("one", release)
+        # Released, but "two" hasn't woken yet: expire c1 and start another turn right now.
+        clock.now += 61
+        store.list()
+        tasks.append(asyncio.create_task(turn("three")))
+
+    one = asyncio.create_task(first())
+    await asyncio.sleep(0)
+    two = asyncio.create_task(turn("two"))
+    await asyncio.sleep(0)
+    release.set()
+    await asyncio.gather(one, two)
+    await asyncio.gather(*tasks)
+    assert events.index("two end") < events.index("three start")
+
+
+async def test_delete_during_a_turn_serializes_later_turns_and_sticks():
+    store = ConversationStore()
+    events = []
+    release = asyncio.Event()
+
+    async def turn(name, wait=None):
+        async with store.turn("c1") as state:
+            events.append(f"{name} start")
+            if wait:
+                await wait.wait()
+            state.turns.append(TurnRecord(name, "answered"))
+            events.append(f"{name} end")
+
+    await add_turn(store, "c1")
+    first = asyncio.create_task(turn("one", release))
+    await asyncio.sleep(0)
+    assert store.delete("c1") is True
+    second = asyncio.create_task(turn("two"))
+    await asyncio.sleep(0)
+    assert events == ["one start"]  # "two" waits on the same lock, not a fresh one
+    release.set()
+    await asyncio.gather(first, second)
+    assert events == ["one start", "one end", "two start", "two end"]
+    assert store.list() == {"c1": 1}  # only "two", which started after the delete
+
+
+async def test_finished_conversations_leave_no_bookkeeping():
+    store = ConversationStore(max_conversations=1)
+    await add_turn(store, "a")
+    await add_turn(store, "b")
+    store.delete("b")
+    assert store._locks == {} and store._users == {} and store._generations == {}

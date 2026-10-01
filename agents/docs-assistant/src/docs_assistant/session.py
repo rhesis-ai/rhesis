@@ -53,18 +53,34 @@ class ConversationStore:
         self._clock = clock
         self._states: OrderedDict[str, tuple[ConversationState, float]] = OrderedDict()
         self._locks: dict[str, asyncio.Lock] = {}
+        # Turns holding or waiting on each lock. ``Lock.locked()`` can read False while waiters
+        # are still queued, so only this count says when a lock is safe to drop.
+        self._users: dict[str, int] = {}
+        # Bumped by delete(), so a turn that loaded state before the delete doesn't save it back.
+        self._generations: dict[str, int] = {}
 
     @asynccontextmanager
     async def turn(self, conversation_id: str | None) -> AsyncIterator[ConversationState]:
         """Hold the conversation's lock for one turn. An unknown or expired id starts fresh."""
         conversation_id = conversation_id or uuid.uuid4().hex
         lock = self._locks.setdefault(conversation_id, asyncio.Lock())
-        async with lock:
-            state = self._get(conversation_id) or ConversationState(conversation_id)
-            try:
-                yield state
-            finally:
-                self._put(state)
+        self._users[conversation_id] = self._users.get(conversation_id, 0) + 1
+        try:
+            async with lock:
+                generation = self._generations.get(conversation_id, 0)
+                state = self._get(conversation_id) or ConversationState(conversation_id)
+                try:
+                    yield state
+                finally:
+                    if self._generations.get(conversation_id, 0) == generation:
+                        self._put(state)
+        finally:
+            self._users[conversation_id] -= 1
+            if not self._users[conversation_id]:
+                del self._users[conversation_id]
+                self._generations.pop(conversation_id, None)
+                if conversation_id not in self._states:
+                    self._locks.pop(conversation_id, None)
 
     def get(self, conversation_id: str) -> ConversationState | None:
         return self._get(conversation_id)
@@ -74,7 +90,9 @@ class ConversationStore:
         return {cid: state.turn for cid, (state, _) in self._states.items()}
 
     def delete(self, conversation_id: str) -> bool:
-        self._locks.pop(conversation_id, None)
+        if conversation_id in self._users:
+            self._generations[conversation_id] = self._generations.get(conversation_id, 0) + 1
+        self._drop_lock(conversation_id)
         return self._states.pop(conversation_id, None) is not None
 
     def _get(self, conversation_id: str) -> ConversationState | None:
@@ -99,7 +117,6 @@ class ConversationStore:
             self._drop_lock(conversation_id)
 
     def _drop_lock(self, conversation_id: str) -> None:
-        # A lock someone is waiting on stays, so their turn still runs one at a time.
-        lock = self._locks.get(conversation_id)
-        if lock is not None and not lock.locked():
-            del self._locks[conversation_id]
+        # A lock with a turn holding or waiting on it stays, so those turns still run one at a time.
+        if conversation_id not in self._users:
+            self._locks.pop(conversation_id, None)
