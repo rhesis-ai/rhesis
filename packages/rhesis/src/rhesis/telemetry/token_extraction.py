@@ -73,12 +73,14 @@ _TOTAL_KEYS = [
 _CACHE_CREATION_KEYS = [
     "cache_creation_input_tokens",
     "cacheCreationInputTokens",  # camelCase variant
+    "cache_write_tokens",  # normalized callback payload
 ]
 
 _CACHE_READ_KEYS = [
     "cache_read_input_tokens",
     "cacheReadInputTokens",  # camelCase variant
     "cached_tokens",  # OpenAI prompt_tokens_details
+    "cache_read_tokens",  # normalized callback payload
 ]
 
 _ALL_KEYS = (
@@ -259,6 +261,9 @@ def extract_token_usage(usage: Union[Dict, Any]) -> Tuple[int, int, int]:
     prompt_details = _as_mapping(usage.get("prompt_tokens_details"))
     openai_cached_tokens = get_first_value(prompt_details, ["cached_tokens"])
     if "prompt_tokens" in usage and "input_tokens" not in usage:
+        # Some integrations flatten prompt_tokens_details before handing usage over.
+        if not openai_cached_tokens:
+            openai_cached_tokens = get_first_value(usage, ["cached_tokens"])
         input_tokens = max(0, input_tokens - openai_cached_tokens)
 
     # Extract output tokens (try all common key names)

@@ -280,3 +280,14 @@ class TestOpenAICachedTokens:
 
         assert extract_token_usage(usage) == (200, 20, 1020)
         assert extract_cache_tokens(usage) == (0, 800)
+
+    def test_openai_flattened_shape_reads_top_level_cached_tokens(self):
+        usage = {
+            "prompt_tokens": 1000,
+            "completion_tokens": 20,
+            "total_tokens": 1020,
+            "cached_tokens": 800,
+        }
+
+        assert extract_token_usage(usage) == (200, 20, 1020)
+        assert extract_cache_tokens(usage) == (0, 800)
