@@ -181,6 +181,7 @@ def drop_claims(draft: AnswerDraft, keep: set[int]) -> AnswerDraft | None:
             "answer_md": "\n".join(lines),
             "claims": kept,
             "citations": [c for c in draft.citations if c.id in ids],
+            "conflicts": [c for c in draft.conflicts if set(c.citation_ids) <= ids],
             "undocumented": [*draft.undocumented, *dropped] or ["Parts of the original answer"],
             "premise_correction": None,
             "clarification": None,
@@ -200,6 +201,11 @@ def _check_claims(draft: AnswerDraft) -> list[str]:
             problems.append(f"claim {n} has no citation")
         for missing in [i for i in claim.citation_ids if i not in known]:
             problems.append(f"claim {n} cites {missing}, which is not in citations")
+    for n, conflict in enumerate(draft.conflicts, start=1):
+        if len(set(conflict.citation_ids)) < 2:
+            problems.append(f"conflict {n} must cite the pages on both sides (two citations)")
+        for missing in [i for i in conflict.citation_ids if i not in known]:
+            problems.append(f"conflict {n} cites {missing}, which is not in citations")
     return problems
 
 

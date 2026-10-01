@@ -29,11 +29,13 @@ from docs_assistant.compose import PartOutcome
 from docs_assistant.config import Settings, get_settings
 from docs_assistant.context import TokenMeter, TurnContext
 from docs_assistant.corpus.cache import CorpusCache, Snapshot
+from docs_assistant.corpus.parser import canonical_url
 from docs_assistant.grounding import MAX_OPTIONS, MIN_OPTIONS
 from docs_assistant.models import AgentModels, configure_sdk, model_settings
 from docs_assistant.schemas import (
     AnswerDraft,
     Clarification,
+    ConflictNote,
     RelatedPage,
     Route,
     TriageDecision,
@@ -347,6 +349,7 @@ def _fallback(ctx: TurnContext, language: str) -> AnswerDraft:
         related_pages=_searched_pages(ctx),
         clarification=None,
         adapted_code=[],
+        conflicts=[],
     )
 
 
@@ -369,12 +372,18 @@ def _docs_outcome(part: TriagePart, draft: AnswerDraft, ctx: TurnContext) -> Par
     screened = _screen(draft)
     if screened is None:
         return PartOutcome(part.standalone_question, Route.UNSAFE_OR_INJECTION)
+    adapted = [
+        RelatedPage(title=page.title, url=page.url)
+        for a in screened.adapted_code
+        if (page := ctx.ledger.get(canonical_url(a.source_url)))
+    ]
     return PartOutcome(
         question=part.standalone_question,
         route=Route(screened.route),
         draft=screened,
         citations=compose.citations_for(screened, ctx.snapshot, ctx.ledger),
         related=compose.related_pages_for(screened, ctx.snapshot),
+        adapted=compose.unique_pages(adapted),
     )
 
 
@@ -402,6 +411,8 @@ def _compose(turn: _Turn, outcomes: list[PartOutcome]) -> TurnResponse:
         language=turn.language,
         next_steps=next_steps if Route.NOT_DOCUMENTED in routes else [],
         notes=turn.notes,
+        docs_as_of=turn.snapshot.fetched_at,
+        stale=turn.cache.stale,
     )
     drafts = [o.draft for o in outcomes if o.draft]
     return _response(
@@ -417,13 +428,25 @@ def _compose(turn: _Turn, outcomes: list[PartOutcome]) -> TurnResponse:
         ),
         related_pages=related,
         parts=[_part_result(o) for o in outcomes],
+        conflicts=[note for o in outcomes for note in _conflicts(o)],
         next_steps=next_steps,
     )
+
+
+def _conflicts(outcome: PartOutcome) -> list[ConflictNote]:
+    draft = outcome.draft
+    if draft is None:
+        return []
+    return [
+        ConflictNote(summary=c.summary, urls=compose.cited_urls(draft, c.citation_ids))
+        for c in draft.conflicts
+    ]
 
 
 def _part_result(outcome: PartOutcome) -> dict:
     draft = outcome.draft
     return {
+        "conflicts": _conflicts(outcome),
         "question": outcome.question,
         "route": outcome.route,
         "answer_md": draft.answer_md if draft else outcome.text,
@@ -463,6 +486,7 @@ async def _support(
     body = [terminals.support(turn.language), terminals.links(terminals.SUPPORT_STEPS)]
     if related:
         body += [terminals.text("support_pages", turn.language), compose.related_list(related)]
+        body.append(compose.footer(turn.snapshot.fetched_at, turn.cache.stale, turn.language))
     return _response(
         turn,
         route=Route.ACCOUNT_OR_SUPPORT,

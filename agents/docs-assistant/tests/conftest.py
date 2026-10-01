@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import re
 from dataclasses import replace
 from pathlib import Path
 
@@ -18,6 +17,7 @@ from docs_assistant.config import Settings  # noqa: E402
 from docs_assistant.context import TurnContext  # noqa: E402
 from docs_assistant.corpus.cache import CorpusCache, build_snapshot  # noqa: E402
 from docs_assistant.corpus.fetcher import DocsFetcher  # noqa: E402
+from docs_assistant.corpus.mirror import page_blocks  # noqa: E402
 
 FIXTURES = Path(__file__).parent / "fixtures"
 LLMS_TXT = (FIXTURES / "llms.txt").read_text()
@@ -32,16 +32,6 @@ EXTRA_PAGES = {
         "presented as fact, often with high confidence.\n"
     )
 }
-
-
-def page_blocks(full: str) -> dict[str, str]:
-    starts = [m.start() for m in re.finditer(r"^---\nurl: ", full, re.MULTILINE)]
-    blocks = {}
-    for i, start in enumerate(starts):
-        block = full[start : starts[i + 1] if i + 1 < len(starts) else len(full)]
-        path = re.match(r"---\nurl: (\S+)", block).group(1).removeprefix(f"{BASE}/")
-        blocks[path] = block
-    return blocks
 
 
 class FakeDocsSite:

@@ -45,6 +45,8 @@ Rules for the draft:
   adapted_code with the page it came from.
 - Links in answer_md may only point to docs pages, or to links that appear on a page you read.
 - Use only heading anchors that fetch_page listed for that page.
+- If two pages you read disagree, or a page you rely on is marked deprecated or outdated, add a
+  conflict that says so and cites both sides.
 - Pick the route:
   answered: the docs fully answer the question; undocumented stays empty.
   partially_answered: the docs cover part of it; list the missing parts in undocumented.

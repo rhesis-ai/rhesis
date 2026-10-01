@@ -192,3 +192,35 @@ async def test_status_words_never_reach_the_user(cache, settings):
 
 def model_input(model: ScriptedModel) -> str:
     return model.input_text(0)
+
+
+async def test_stale_docs_still_answer_with_the_stale_footer(cache, site, clock, settings):
+    await cache.get()
+    clock.now += settings.cache_ttl + 1
+    site.down = True
+    await cache.refresh()
+    answer_model = ScriptedModel([[fetch(SCOPE)], [submit()]])
+    response, _ = await turn("what is metric scope?", cache, settings, answer_model=answer_model)
+    assert response.route is Route.ANSWERED
+    assert response.docs_stale is True
+    assert "the live site didn't respond" in response.response
+
+
+async def test_answers_carry_conflicts(cache, settings):
+    citations = [
+        {
+            "id": "c1",
+            "url": SCOPE,
+            "quote": "Full transcript required — context retention, multi-step threads",
+        },
+        {"id": "c2", "url": SCOPE, "quote": "One `test_type` per test set."},
+    ]
+    conflicts = [{"summary": "Old and new limits differ.", "citation_ids": ["c1", "c2"]}]
+    answer_model = ScriptedModel(
+        [[fetch(SCOPE)], [submit(citations=citations, conflicts=conflicts)]]
+    )
+    response, _ = await turn("what is metric scope?", cache, settings, answer_model=answer_model)
+    assert [(c.summary, len(c.urls)) for c in response.conflicts] == [
+        ("Old and new limits differ.", 2)
+    ]
+    assert "**Heads-up:** Old and new limits differ." in response.response

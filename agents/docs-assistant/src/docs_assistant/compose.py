@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from docs_assistant import terminals
 from docs_assistant.corpus.cache import Snapshot
@@ -46,6 +47,8 @@ class PartOutcome:
     text: str = ""
     citations: list[Citation] = field(default_factory=list)
     related: list[RelatedPage] = field(default_factory=list)
+    # Pages that code in the answer was adapted from (not copied verbatim).
+    adapted: list[RelatedPage] = field(default_factory=list)
 
 
 def turn_route(routes: list[Route]) -> Route:
@@ -112,8 +115,9 @@ def related_pages_for(draft: AnswerDraft, snapshot: Snapshot) -> list[RelatedPag
     return pages
 
 
-def number_markers(draft: AnswerDraft, citations: list[Citation]) -> str:
-    """Replace inline citation ids such as `[c2]` or `[c1, c3]` with numbered source links."""
+def number_markers(draft: AnswerDraft, citations: list[Citation], text: str | None = None) -> str:
+    """Replace inline citation ids such as `[c2]` or `[c1, c3]` with numbered source links, in
+    the draft's answer or in `text`."""
     position = {c.url: n for n, c in enumerate(citations, start=1)}
     by_id = {}
     for cited in draft.citations:
@@ -127,7 +131,17 @@ def number_markers(draft: AnswerDraft, citations: list[Citation]) -> str:
             return match.group(0)
         return "".join(f"[\\[{by_id[i][0]}\\]]({by_id[i][1]})" for i in dict.fromkeys(ids))
 
-    return _MARKER.sub(replace, draft.answer_md)
+    return _MARKER.sub(replace, draft.answer_md if text is None else text)
+
+
+def cited_urls(draft: AnswerDraft, ids: list[str]) -> list[str]:
+    by_id = {c.id: c.url for c in draft.citations}
+    return [canonical(by_id[i]) for i in ids if i in by_id]
+
+
+def canonical(url: str) -> str:
+    base, anchor = split_anchor(url)
+    return f"{base}#{anchor}" if anchor else base
 
 
 def render(
@@ -138,9 +152,11 @@ def render(
     language: str = "en",
     next_steps: Sequence[NextStep] = (),
     notes: Sequence[str] = (),
+    docs_as_of: datetime | None = None,
+    stale: bool = False,
 ) -> str:
     """The reply markdown. Several parts get one section each; sources are numbered across
-    the whole turn and listed once."""
+    the whole turn and listed once. Ends with when the docs were fetched."""
 
     def label(key: str) -> str:
         return terminals.text(key, language)
@@ -156,7 +172,14 @@ def render(
         blocks.append(f"**{label('related')}**\n" + related_list(related))
     if next_steps:
         blocks.append(f"{label('not_documented_help')}\n{terminals.links(list(next_steps))}")
+    if docs_as_of is not None:
+        blocks.append(footer(docs_as_of, stale, language))
     return "\n\n".join(b for b in blocks if b)
+
+
+def footer(docs_as_of: datetime, stale: bool, language: str) -> str:
+    time = docs_as_of.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    return f"_{terminals.text('docs_stale' if stale else 'docs_as_of', language, time=time)}_"
 
 
 def _part_blocks(outcome: PartOutcome, citations: list[Citation], language: str) -> list[str]:
@@ -170,6 +193,13 @@ def _part_blocks(outcome: PartOutcome, citations: list[Citation], language: str)
         correction = terminals.text("correction", language)
         blocks.append(f"> **{correction}** {draft.premise_correction.strip()}")
     blocks.append(number_markers(draft, citations).strip())
+    for page in outcome.adapted:
+        link = f"[{page.title}]({page.url})"
+        blocks.append(f"_{terminals.text('adapted', language, link=link)}_")
+    for conflict in draft.conflicts:
+        sources = number_markers(draft, citations, f"[{', '.join(conflict.citation_ids)}]")
+        heads_up = terminals.text("heads_up", language)
+        blocks.append(f"> **{heads_up}** {conflict.summary.strip()} {sources}")
     if draft.undocumented:
         gaps = "\n".join(f"- {u}" for u in draft.undocumented)
         blocks.append(f"**{terminals.text('not_covered', language)}**\n{gaps}")

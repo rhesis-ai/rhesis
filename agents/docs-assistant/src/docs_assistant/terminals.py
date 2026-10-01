@@ -61,6 +61,12 @@ _TEXT: dict[str, dict[str, str]] = {
         "not_covered": "Not covered in the docs:",
         "correction": "Correction:",
         "clarify_hint": "Reply with a number, or say it in your own words.",
+        "heads_up": "Heads-up:",
+        "adapted": "Adapted from {link}; not copied verbatim.",
+        "docs_as_of": "Docs as of {time}.",
+        "docs_stale": (
+            "Docs as of {time}; the live site didn't respond, so they may be out of date."
+        ),
     },
     "de": {
         "help_topics": (
@@ -110,6 +116,13 @@ _TEXT: dict[str, dict[str, str]] = {
         "not_covered": "Nicht in der Dokumentation:",
         "correction": "Korrektur:",
         "clarify_hint": "Antworte mit einer Nummer oder in deinen eigenen Worten.",
+        "heads_up": "Achtung:",
+        "adapted": "Angepasst aus {link}; nicht wörtlich übernommen.",
+        "docs_as_of": "Stand der Doku: {time}.",
+        "docs_stale": (
+            "Stand der Doku: {time}; die Live-Seite hat nicht geantwortet, sie ist daher "
+            "womöglich veraltet."
+        ),
     },
 }
 

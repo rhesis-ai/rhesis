@@ -40,6 +40,11 @@ class DraftClaim(BaseModel):
     citation_ids: list[str] = Field(description="Ids of the citations that support it.")
 
 
+class Conflict(BaseModel):
+    summary: str = Field(description="What the pages disagree on, or what may be outdated.")
+    citation_ids: list[str] = Field(description="The citations on each side; at least two.")
+
+
 class AdaptedCode(BaseModel):
     code: str = Field(description="A code block from answer_md that is not copied verbatim.")
     source_url: str = Field(description="The page you read that it is adapted from.")
@@ -74,6 +79,9 @@ class AnswerDraft(BaseModel):
     )
     adapted_code: list[AdaptedCode] = Field(
         description="Every code block in answer_md that you changed from the docs. Usually empty."
+    )
+    conflicts: list[Conflict] = Field(
+        description="Where pages you read disagree, or one is marked deprecated. Usually empty."
     )
 
 
@@ -131,6 +139,11 @@ class Citation(BaseModel):
     heading: str | None = None
 
 
+class ConflictNote(BaseModel):
+    summary: str
+    urls: list[str]
+
+
 class PartResult(BaseModel):
     question: str
     route: Route
@@ -139,6 +152,7 @@ class PartResult(BaseModel):
     undocumented: list[str] = []
     premise_correction: str | None = None
     related_pages: list[RelatedPage] = []
+    conflicts: list[ConflictNote] = []
 
 
 class TurnResponse(BaseModel):
@@ -153,6 +167,7 @@ class TurnResponse(BaseModel):
     related_pages: list[RelatedPage] = []
     parts: list[PartResult] = []
     clarification: Clarification | None = None
+    conflicts: list[ConflictNote] = []
     next_steps: list[NextStep] = []
     surface: Surface = "unknown"
     language: str = "en"

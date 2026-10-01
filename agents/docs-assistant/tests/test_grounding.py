@@ -242,3 +242,12 @@ def test_salvage_keeps_only_grounded_claims(ledger):
 def test_salvage_gives_up_when_nothing_is_grounded(ledger):
     bad = cite(quote="This sentence is nowhere in the docs at all.")
     assert salvage(AnswerDraft(**draft(citations=[bad])), ledger) is None
+
+
+def test_a_conflict_must_cite_both_sides(ledger):
+    one_side = [{"summary": "Pages disagree.", "citation_ids": ["c1"]}]
+    assert check(ledger, conflicts=one_side) == [
+        "conflict 1 must cite the pages on both sides (two citations)"
+    ]
+    unknown = [{"summary": "Pages disagree.", "citation_ids": ["c1", "c9"]}]
+    assert check(ledger, conflicts=unknown) == ["conflict 1 cites c9, which is not in citations"]

@@ -72,6 +72,7 @@ def draft(**overrides: Any) -> dict[str, Any]:
         "related_pages": [],
         "clarification": None,
         "adapted_code": [],
+        "conflicts": [],
     }
     return {**base, **overrides}
 

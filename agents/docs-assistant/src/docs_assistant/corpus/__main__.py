@@ -3,6 +3,7 @@
 uv run python -m docs_assistant.corpus stats
 uv run python -m docs_assistant.corpus search "single-turn vs multi-turn metric"
 uv run python -m docs_assistant.corpus changelog --latest
+uv run python -m docs_assistant.corpus mirror --port 8765
 """
 
 from __future__ import annotations
@@ -14,7 +15,8 @@ import sys
 from docs_assistant.config import get_settings
 from docs_assistant.corpus.cache import CorpusCache, DocsUnavailable, Snapshot
 from docs_assistant.corpus.changelog import select_entries
-from docs_assistant.corpus.fetcher import DocsFetcher
+from docs_assistant.corpus.fetcher import DocsFetcher, DocsFetchError
+from docs_assistant.corpus.mirror import serve
 
 
 def _stats(snapshot: Snapshot, _args) -> None:
@@ -38,6 +40,19 @@ def _changelog(snapshot: Snapshot, args) -> None:
         print(f"{entry.version} ({entry.date or 'undated'})  #{entry.anchor}")
 
 
+def _mirror(fetcher: DocsFetcher, port: int) -> int:
+    async def fetch() -> tuple[str, str]:
+        return await asyncio.gather(fetcher.fetch_index(), fetcher.fetch_full())
+
+    try:
+        llms_txt, llms_full = asyncio.run(fetch())
+    except DocsFetchError as exc:
+        print(f"Docs unavailable: {exc}", file=sys.stderr)
+        return 1
+    serve(llms_txt, llms_full, port)
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="python -m docs_assistant.corpus")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -49,10 +64,14 @@ def main() -> int:
     changelog = commands.add_parser("changelog", help="list changelog versions")
     changelog.add_argument("--latest", action="store_true")
     changelog.add_argument("--since")
+    mirror = commands.add_parser("mirror", help="serve a local copy of the docs LLM views")
+    mirror.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
 
     settings = get_settings()
     fetcher = DocsFetcher(settings.docs_base_url, timeout=settings.fetch_timeout)
+    if args.command == "mirror":
+        return _mirror(fetcher, args.port)
     try:
         snapshot = asyncio.run(CorpusCache(fetcher, ttl=settings.cache_ttl).get())
     except DocsUnavailable as exc:
