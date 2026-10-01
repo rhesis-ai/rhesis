@@ -263,7 +263,9 @@ async def _answer_part(
     return draft, ctx
 
 
-async def _answer(agent, prompt: str, ctx: TurnContext, timeout: float) -> AnswerDraft | None:
+async def _answer(
+    agent, prompt: str | list, ctx: TurnContext, timeout: float
+) -> AnswerDraft | None:
     try:
         return await asyncio.wait_for(_run_with_nudge(agent, prompt, ctx), timeout=timeout)
     except TimeoutError:
@@ -284,15 +286,17 @@ async def _answer(agent, prompt: str, ctx: TurnContext, timeout: float) -> Answe
     return ctx.accepted
 
 
-async def _run_with_nudge(agent, prompt: str, ctx: TurnContext) -> AnswerDraft | None:
+async def _run_with_nudge(agent, prompt: str | list, ctx: TurnContext) -> AnswerDraft | None:
     run = {"context": ctx, "max_turns": ctx.settings.max_turns, "hooks": BudgetHooks()}
     result = await Runner.run(agent, prompt, **run)
+    ctx.history = result.to_input_list()
     if ctx.accepted is None and not ctx.gave_up:
         # The model ended with plain text instead of submitting. That text was never checked,
         # so it is dropped; the model gets one reminder, then the fallback takes over.
         logger.info("Answer agent ended without submit_answer; nudging once")
-        follow_up = result.to_input_list() + [{"role": "user", "content": NUDGE}]
-        await Runner.run(agent, follow_up, **run)
+        follow_up = ctx.history + [{"role": "user", "content": NUDGE}]
+        result = await Runner.run(agent, follow_up, **run)
+        ctx.history = result.to_input_list()
     if ctx.accepted is None and not ctx.gave_up:
         ctx.hit_limit("no_submit")
     return ctx.accepted
@@ -314,7 +318,9 @@ async def _review(
     ctx.hit_limit("critic_veto")
     ctx.accepted, ctx.rejections = None, 0
     note = critic.feedback(draft, vetoed, verdict.route_ok)
-    retry = await _answer(agent, f"{prompt}\n\n{note}", ctx, turn.remaining())
+    # Continue the first run, pages and all, so the fix needs no new reads from a spent budget.
+    follow_up = ctx.history + [{"role": "user", "content": note}] if ctx.history else note
+    retry = await _answer(agent, follow_up, ctx, turn.remaining())
     if retry is not None:
         second = await _criticize(models, retry, ctx, turn)
         retry_vetoed = critic.unsupported(second, len(retry.claims)) if second else {}

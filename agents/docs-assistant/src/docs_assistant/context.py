@@ -38,6 +38,8 @@ class TurnContext:
     rejections: int = 0
     # True once submit_answer ran out of retries with nothing salvageable.
     gave_up: bool = False
+    # The last answer run's conversation, pages included, so a re-run can continue from it.
+    history: list = field(default_factory=list)
     limits_hit: list[str] = field(default_factory=list)
     # False right after a clarifying question: the next answer must not ask another.
     allow_clarify: bool = True

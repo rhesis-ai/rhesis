@@ -56,6 +56,8 @@ async def test_a_veto_reruns_the_answer_once_with_feedback(cache, settings):
     assert "critic_veto" in response.limits_hit
     sent = answer_model.input_text(2)
     assert "Each test set allows ten test types." in sent and "not in the text" in sent
+    # The re-run continues the first run, so the page it read is still there to cite.
+    assert "<doc url=" in sent
     assert len(critic_model.requests) == 2
 
 
