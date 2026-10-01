@@ -15,3 +15,7 @@ import os
 # already present in the environment.
 os.environ["RHESIS_API_KEY"] = ""
 os.environ["RHESIS_PROJECT_ID"] = ""
+# The app builds its Gemini client at startup and refuses to without a key. Tests never call
+# Gemini, so a placeholder is enough, and it keeps a real key from .env out of the suite.
+os.environ["GOOGLE_API_KEY"] = "test-placeholder"
+os.environ.pop("GEMINI_API_KEY", None)

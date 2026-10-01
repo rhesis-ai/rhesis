@@ -1,0 +1,112 @@
+name: "[Test] Agents"
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'agents/**'
+      - 'sdk/**'
+      - '.github/workflows/agents-test.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'agents/**'
+      - 'sdk/**'
+      - '.github/workflows/agents-test.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  # Cancel only on PR branches. Two merges landing close together share one group
+  # on main, and cancelling there leaves the earlier commit with no test verdict.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      agents: ${{ steps.resolve.outputs.agents }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Check for file changes
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          list-files: json
+          filters: |
+            sdk:
+              - 'sdk/**'
+              - '.github/workflows/agents-test.yml'
+            agents:
+              - 'agents/**'
+
+      # Every agent installs the SDK from ../../sdk, so an SDK change can break any of them.
+      - name: Resolve agents to test
+        id: resolve
+        env:
+          EVENT: ${{ github.event_name }}
+          SDK_CHANGED: ${{ steps.filter.outputs.sdk }}
+          AGENT_FILES: ${{ steps.filter.outputs.agents_files || '[]' }}
+        run: |
+          set -euo pipefail
+          ALL=$(ls -d agents/*/ | xargs -n1 basename | while read -r a; do
+            [ -f "agents/$a/pyproject.toml" ] && echo "$a"; done | jq -Rnc '[inputs]')
+          if [ "$EVENT" != "pull_request" ] || [ "$SDK_CHANGED" = "true" ]; then
+            AGENTS="$ALL"
+          else
+            AGENTS=$(jq -nc --argjson files "$AGENT_FILES" --argjson all "$ALL" '
+              [$files[] | split("/")[1]] | unique | map(select(. as $a | $all | index($a)))')
+          fi
+          echo "agents=$AGENTS" >> "$GITHUB_OUTPUT"
+          echo "Agents: $AGENTS"
+
+  test:
+    needs: changes
+    if: needs.changes.outputs.agents != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        agent: ${{ fromJSON(needs.changes.outputs.agents) }}
+    defaults:
+      run:
+        working-directory: agents/${{ matrix.agent }}
+    env:
+      # Offline: a placeholder so clients that refuse to build without a key can, and no
+      # Rhesis credentials, so tracing stays on DisabledClient.
+      GOOGLE_API_KEY: ci-placeholder
+      RHESIS_API_KEY: ''
+      RHESIS_PROJECT_ID: ''
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: latest
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format
+        run: uv run ruff format --check .
+
+      - name: Test
+        run: |
+          if [ -d tests ]; then
+            uv run pytest -q
+          else
+            echo "No tests/ folder; lint only."
+          fi
