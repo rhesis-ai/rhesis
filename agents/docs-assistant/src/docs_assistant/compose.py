@@ -1,17 +1,78 @@
-"""Turn an accepted draft into the reply text and the typed citation list."""
+"""Turn the parts of a turn into the reply text, the typed citations and the turn route."""
 
 from __future__ import annotations
 
 import re
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 
 from docs_assistant import terminals
 from docs_assistant.corpus.cache import Snapshot
 from docs_assistant.corpus.parser import split_anchor
-from docs_assistant.schemas import AnswerDraft, Citation, NextStep, RelatedPage
+from docs_assistant.schemas import (
+    AnswerDraft,
+    Citation,
+    Clarification,
+    NextStep,
+    RelatedPage,
+    Route,
+)
 
 _MARKER = re.compile(r"\[([\w-]+(?:\s*,\s*[\w-]+)*)\](?!\()")
 _CODE = re.compile(r"```.*?```|~~~.*?~~~|`[^`\n]*`", re.DOTALL)
+
+# Most severe first. When parts disagree and none was (partly) answered, the turn takes the
+# most severe route among them.
+SEVERITY = [
+    Route.UNSAFE_OR_INJECTION,
+    Route.ACCOUNT_OR_SUPPORT,
+    Route.OUT_OF_SCOPE,
+    Route.SMALLTALK,
+    Route.NEEDS_CLARIFICATION,
+    Route.FALSE_PREMISE,
+    Route.NOT_DOCUMENTED,
+    Route.PARTIALLY_ANSWERED,
+    Route.ANSWERED,
+]
+
+
+@dataclass
+class PartOutcome:
+    """One part of a turn: a checked draft for docs parts, fixed text for the others."""
+
+    question: str
+    route: Route
+    draft: AnswerDraft | None = None
+    text: str = ""
+    citations: list[Citation] = field(default_factory=list)
+    related: list[RelatedPage] = field(default_factory=list)
+
+
+def turn_route(routes: list[Route]) -> Route:
+    """One route for the turn: the shared one; else partial if anything was answered; else the
+    most severe."""
+    if len(set(routes)) == 1:
+        return routes[0]
+    if Route.UNSAFE_OR_INJECTION in routes:
+        return Route.UNSAFE_OR_INJECTION
+    if {Route.ANSWERED, Route.PARTIALLY_ANSWERED} & set(routes):
+        return Route.PARTIALLY_ANSWERED
+    return min(routes, key=SEVERITY.index)
+
+
+def unique_citations(outcomes: list[PartOutcome]) -> list[Citation]:
+    seen: dict[str, Citation] = {}
+    for outcome in outcomes:
+        for citation in outcome.citations:
+            seen.setdefault(citation.url, citation)
+    return list(seen.values())
+
+
+def unique_pages(pages: list[RelatedPage]) -> list[RelatedPage]:
+    unique: dict[str, RelatedPage] = {}
+    for page in pages:
+        unique.setdefault(page.url, page)
+    return list(unique.values())
 
 
 def marker_ids(text: str) -> list[str]:
@@ -70,7 +131,7 @@ def number_markers(draft: AnswerDraft, citations: list[Citation]) -> str:
 
 
 def render(
-    draft: AnswerDraft,
+    outcomes: list[PartOutcome],
     citations: list[Citation],
     related: list[RelatedPage],
     *,
@@ -78,24 +139,47 @@ def render(
     next_steps: Sequence[NextStep] = (),
     notes: Sequence[str] = (),
 ) -> str:
+    """The reply markdown. Several parts get one section each; sources are numbered across
+    the whole turn and listed once."""
+
     def label(key: str) -> str:
         return terminals.text(key, language)
 
-    parts = [f"_{note}_" for note in notes]
-    if draft.premise_correction:
-        parts.append(f"> **{label('correction')}** {draft.premise_correction.strip()}")
-    parts.append(number_markers(draft, citations).strip())
-    if draft.undocumented:
-        parts.append(
-            f"**{label('not_covered')}**\n" + "\n".join(f"- {u}" for u in draft.undocumented)
-        )
+    blocks = [f"_{note}_" for note in notes]
+    for outcome in outcomes:
+        if len(outcomes) > 1:
+            blocks.append(f"### {outcome.question}")
+        blocks += _part_blocks(outcome, citations, language)
     if citations:
-        parts.append(f"**{label('sources')}**\n" + "\n".join(f"- {_link(c)}" for c in citations))
+        blocks.append(f"**{label('sources')}**\n" + "\n".join(f"- {_link(c)}" for c in citations))
     if related:
-        parts.append(f"**{label('related')}**\n" + related_list(related))
+        blocks.append(f"**{label('related')}**\n" + related_list(related))
     if next_steps:
-        parts.append(f"{label('not_documented_help')}\n{terminals.links(list(next_steps))}")
-    return "\n\n".join(p for p in parts if p)
+        blocks.append(f"{label('not_documented_help')}\n{terminals.links(list(next_steps))}")
+    return "\n\n".join(b for b in blocks if b)
+
+
+def _part_blocks(outcome: PartOutcome, citations: list[Citation], language: str) -> list[str]:
+    draft = outcome.draft
+    if draft is None:
+        return [outcome.text]
+    if draft.route == "needs_clarification" and draft.clarification:
+        return [render_clarification(draft.clarification, language)]
+    blocks = []
+    if draft.premise_correction:
+        correction = terminals.text("correction", language)
+        blocks.append(f"> **{correction}** {draft.premise_correction.strip()}")
+    blocks.append(number_markers(draft, citations).strip())
+    if draft.undocumented:
+        gaps = "\n".join(f"- {u}" for u in draft.undocumented)
+        blocks.append(f"**{terminals.text('not_covered', language)}**\n{gaps}")
+    return blocks
+
+
+def render_clarification(clarification: Clarification, language: str) -> str:
+    options = "\n".join(f"{n}. {o}" for n, o in enumerate(clarification.options, start=1))
+    hint = terminals.text("clarify_hint", language)
+    return f"{clarification.question.strip()}\n\n{options}\n\n_{hint}_"
 
 
 def related_list(related: list[RelatedPage]) -> str:

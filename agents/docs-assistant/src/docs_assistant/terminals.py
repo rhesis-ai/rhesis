@@ -60,6 +60,7 @@ _TEXT: dict[str, dict[str, str]] = {
         "related": "Related pages",
         "not_covered": "Not covered in the docs:",
         "correction": "Correction:",
+        "clarify_hint": "Reply with a number, or say it in your own words.",
     },
     "de": {
         "help_topics": (
@@ -108,6 +109,7 @@ _TEXT: dict[str, dict[str, str]] = {
         "related": "Verwandte Seiten",
         "not_covered": "Nicht in der Dokumentation:",
         "correction": "Korrektur:",
+        "clarify_hint": "Antworte mit einer Nummer oder in deinen eigenen Worten.",
     },
 }
 

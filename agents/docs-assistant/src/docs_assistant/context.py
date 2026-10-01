@@ -19,6 +19,13 @@ class Budget:
 
 
 @dataclass
+class TokenMeter:
+    """Tokens used across every part of one turn; the token budget is per turn."""
+
+    used: int = 0
+
+
+@dataclass
 class TurnContext:
     snapshot: Snapshot
     settings: Settings
@@ -30,6 +37,9 @@ class TurnContext:
     accepted: AnswerDraft | None = None
     rejections: int = 0
     limits_hit: list[str] = field(default_factory=list)
+    # False right after a clarifying question: the next answer must not ask another.
+    allow_clarify: bool = True
+    tokens: TokenMeter = field(default_factory=TokenMeter)
 
     def hit_limit(self, name: str) -> None:
         if name not in self.limits_hit:

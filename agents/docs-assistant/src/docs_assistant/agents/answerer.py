@@ -45,6 +45,11 @@ Rules for the draft:
     closest pages in related_pages.
   false_premise: the question assumes something the docs contradict; explain in
     premise_correction with a citation, then answer the real question if you can.
+  needs_clarification: only when the docs show two to four readings of the question that need
+    different pages and different answers (for example the web app versus the Python SDK) and
+    nothing hints which one is meant. Fill clarification with one short question and 2-4 short
+    options; no claims, no citations. If each reading has a short answer, answer all of them
+    instead, each under its own heading, and don't ask.
 - Cite page URLs with the heading anchor when the fact sits under a heading, e.g.
   https://docs.rhesis.ai/docs/metrics/metric-scope#when-to-use-multi-turn
 - Write answer_md in the user's language. Keep quotes, titles and URLs in English.
@@ -72,8 +77,19 @@ SURFACE_HINTS = {
 }
 
 
+FORCE_ANSWER = (
+    "You already asked this user a clarifying question, so don't ask another. If the question "
+    "has several readings, answer the likely ones briefly, each under its own heading."
+)
+
+
 def question_input(
-    question: str, language: str, surface: str = "unknown", *, troubleshooting: bool = False
+    question: str,
+    language: str,
+    surface: str = "unknown",
+    *,
+    troubleshooting: bool = False,
+    allow_clarify: bool = True,
 ) -> str:
     """The user turn the answer agent sees: the question plus what triage learned about it."""
     lines = [f"Question: {question}", f"Reply language: {language}"]
@@ -81,6 +97,8 @@ def question_input(
         lines.append(hint)
     if troubleshooting:
         lines.append(TROUBLESHOOTING)
+    elif not allow_clarify:
+        lines.append(FORCE_ANSWER)
     return "\n".join(lines)
 
 
@@ -92,10 +110,12 @@ class BudgetHooks(RunHooks[TurnContext]):
     async def on_llm_end(
         self, context: RunContextWrapper[TurnContext], agent: Agent, response: ModelResponse
     ) -> None:
-        budget = context.context.settings.token_budget
-        if context.usage.total_tokens > budget:
-            context.context.hit_limit("token_budget")
-            raise TokenBudgetExceeded(f"used {context.usage.total_tokens} of {budget} tokens")
+        ctx = context.context
+        ctx.tokens.used += response.usage.total_tokens
+        budget = ctx.settings.token_budget
+        if ctx.tokens.used > budget:
+            ctx.hit_limit("token_budget")
+            raise TokenBudgetExceeded(f"used {ctx.tokens.used} of {budget} tokens")
 
 
 def stop_on_accept(

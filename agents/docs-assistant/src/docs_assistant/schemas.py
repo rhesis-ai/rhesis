@@ -22,7 +22,9 @@ class Route(StrEnum):
 
 
 # The routes the answer agent may pick. The others come from triage and fixed replies.
-DraftRoute = Literal["answered", "partially_answered", "not_documented", "false_premise"]
+DraftRoute = Literal[
+    "answered", "partially_answered", "not_documented", "false_premise", "needs_clarification"
+]
 
 
 # Draft fields carry no defaults: tool arguments use a strict JSON schema where every field is
@@ -36,6 +38,11 @@ class DraftCitation(BaseModel):
 class DraftClaim(BaseModel):
     text: str = Field(description="One statement made in the answer.")
     citation_ids: list[str] = Field(description="Ids of the citations that support it.")
+
+
+class Clarification(BaseModel):
+    question: str = Field(description="One short clarifying question, in the user's language.")
+    options: list[str] = Field(description="2 to 4 short answers the user can pick from.")
 
 
 class RelatedPage(BaseModel):
@@ -56,6 +63,9 @@ class AnswerDraft(BaseModel):
     )
     related_pages: list[RelatedPage] = Field(
         description="Closest pages to point to, mainly for not_documented. May be empty."
+    )
+    clarification: Clarification | None = Field(
+        description="For needs_clarification only: the question and its options. Otherwise null."
     )
 
 
@@ -85,6 +95,10 @@ class TriageDecision(BaseModel):
     wants_troubleshooting: bool = Field(
         description="For account_or_support: true when docs pages could help the user fix it."
     )
+    clarification: Clarification | None = Field(
+        description="Only when the message has several readings that need different pages and "
+        "different answers, and nothing hints which one is meant. Otherwise null."
+    )
 
 
 class NextStep(BaseModel):
@@ -98,6 +112,16 @@ class Citation(BaseModel):
     heading: str | None = None
 
 
+class PartResult(BaseModel):
+    question: str
+    route: Route
+    answer_md: str
+    citations: list[Citation] = []
+    undocumented: list[str] = []
+    premise_correction: str | None = None
+    related_pages: list[RelatedPage] = []
+
+
 class TurnResponse(BaseModel):
     conversation_id: str
     turn: int
@@ -108,6 +132,8 @@ class TurnResponse(BaseModel):
     undocumented: list[str] = []
     premise_correction: str | None = None
     related_pages: list[RelatedPage] = []
+    parts: list[PartResult] = []
+    clarification: Clarification | None = None
     next_steps: list[NextStep] = []
     surface: Surface = "unknown"
     language: str = "en"

@@ -1,8 +1,10 @@
-"""Run one docs assistant turn: precheck → triage → answer → compose.
+"""Run one docs assistant turn: precheck → triage → answer each part → compose.
 
 Python decides the route; the models only propose. A precheck hit or a non-docs triage verdict
-ends in a fixed reply with no docs read. Whatever happens inside the answer run, the user only
+ends in a fixed reply with no docs read. Whatever happens inside an answer run, the user only
 ever sees a draft that passed the grounding checks, or the fixed fallback reply.
+
+Each turn runs under its conversation's lock, so follow-ups see the turns before them.
 """
 
 from __future__ import annotations
@@ -10,7 +12,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from collections.abc import Sequence
 
 from agents import MaxTurnsExceeded, Runner
 
@@ -23,25 +24,34 @@ from docs_assistant.agents.answerer import (
     build_answerer,
     question_input,
 )
-from docs_assistant.agents.triage import build_triage
+from docs_assistant.agents.triage import build_triage, triage_input
+from docs_assistant.compose import PartOutcome
 from docs_assistant.config import Settings, get_settings
-from docs_assistant.context import TurnContext
+from docs_assistant.context import TokenMeter, TurnContext
 from docs_assistant.corpus.cache import CorpusCache, Snapshot
+from docs_assistant.grounding import MAX_OPTIONS, MIN_OPTIONS
 from docs_assistant.models import AgentModels, configure_sdk, model_settings
 from docs_assistant.schemas import (
     AnswerDraft,
-    NextStep,
+    Clarification,
     RelatedPage,
     Route,
     TriageDecision,
     TriagePart,
     TurnResponse,
 )
+from docs_assistant.session import ConversationStore, Store
+from docs_assistant.state import (
+    ConversationState,
+    PendingClarification,
+    TurnRecord,
+    match_option,
+)
 
 logger = logging.getLogger(__name__)
 
 FALLBACK_RELATED = 3
-# When kinds clash across parts, the most severe fixed reply wins.
+# When kinds clash across parts with no docs part, the most severe fixed reply wins.
 TERMINAL_PRIORITY = ("account_or_support", "out_of_scope", "smalltalk")
 TERMINAL_ROUTES = {
     "unsafe": Route.UNSAFE_OR_INJECTION,
@@ -56,15 +66,26 @@ TERMINAL_ROUTES = {
 class _Turn:
     """What one turn has learned so far, shared by the steps below."""
 
-    def __init__(self, snapshot: Snapshot, cache: CorpusCache, settings: Settings) -> None:
+    def __init__(
+        self,
+        snapshot: Snapshot,
+        cache: CorpusCache,
+        settings: Settings,
+        state: ConversationState,
+    ) -> None:
         self.snapshot = snapshot
         self.cache = cache
         self.settings = settings
+        self.state = state
         self.deadline = asyncio.get_running_loop().time() + settings.turn_timeout
         self.language = "en"
         self.surface = "unknown"
         self.limits_hit: list[str] = []
         self.notes: list[str] = []
+        # What the conversation remembers of this turn: the standalone question(s).
+        self.question = ""
+        self.tokens = TokenMeter()
+        self.allow_clarify = state.clarify_streak < settings.max_clarify_streak
 
     def remaining(self) -> float:
         return max(self.deadline - asyncio.get_running_loop().time(), 0.0)
@@ -81,49 +102,68 @@ async def run_turn(
     models: AgentModels | None = None,
     settings: Settings | None = None,
     conversation_id: str | None = None,
+    store: Store | None = None,
 ) -> TurnResponse:
-    """Answer one message. Raises `DocsUnavailable` when there is no docs snapshot at all."""
+    """Answer one message. Raises `DocsUnavailable` when there is no docs snapshot at all.
+
+    Without a store the turn stands alone, as if it opened a new conversation."""
     configure_sdk()
     settings = settings or get_settings()
-    turn = _Turn(await cache.get(), cache, settings)
+    snapshot = await cache.get()
+    async with (store or ConversationStore()).turn(conversation_id) as state:
+        turn = _Turn(snapshot, cache, settings, state)
+        response = await _run(message, turn, models)
+        _remember(state, response, turn)
+        return response
+
+
+async def _run(message: str, turn: _Turn, models: AgentModels | None) -> TurnResponse:
+    settings = turn.settings
     text, clipped = safety.clip(message, settings.max_input_chars)
     if verdict := safety.precheck(text):
         turn.language = verdict.language
-        return _terminal(turn, verdict.kind, conversation_id)
+        return _terminal(turn, verdict.kind, text)
 
     models = models or AgentModels.from_env()
-    decision = await _triage(models, text, turn)
-    turn.language = decision.language or "en"
+    pending = turn.state.pending
+    option = match_option(text, pending.clarification.options) if pending else None
+    if option:
+        # A reply to our clarifying question: answer the original question with that reading.
+        turn.language = pending.language
+        parts = [_docs_part(f"{pending.question} ({option})", pending.surface)]
+        decision = None
+    else:
+        decision = await _triage(models, text, turn)
+        turn.language = decision.language or "en"
+        parts = decision.parts or [_docs_part(text)]
     if clipped:
         turn.hit_limit("input_clipped")
         turn.notes.append(terminals.text("input_clipped", turn.language, n=len(text)))
-    parts = decision.parts[: settings.max_parts] or [_docs_part(text)]
-    if len(decision.parts) > settings.max_parts:
+    if len(parts) > settings.max_parts:
         turn.hit_limit("parts_capped")
         turn.notes.append(terminals.text("parts_capped", turn.language, n=settings.max_parts))
+        parts = parts[: settings.max_parts]
 
     kinds = [p.kind for p in parts]
     if "unsafe" in kinds:
-        return _terminal(turn, "unsafe", conversation_id)
+        return _terminal(turn, "unsafe", text)
     docs_parts = [p for p in parts if p.kind == "docs"]
     if not docs_parts:
         kind = next(k for k in TERMINAL_PRIORITY if k in kinds)
         if kind == "account_or_support":
-            return await _support(models, parts, decision, turn, conversation_id)
-        return _terminal(turn, kind, conversation_id)
-
-    part = docs_parts[0]
-    turn.surface = part.surface
-    draft, ctx = await _answer_part(models, part, turn)
-    return _answer_response(draft, ctx, turn, conversation_id)
+            return await _support(models, parts, decision, turn)
+        return _terminal(turn, kind, text)
+    if decision and (clarification := _triage_clarification(decision, docs_parts, turn)):
+        return _clarify(turn, docs_parts[0], clarification)
+    return await _answer_parts(models, parts, turn)
 
 
 # ── triage ───────────────────────────────────────────────────────────────────────────────
 
 
-def _docs_part(question: str) -> TriagePart:
+def _docs_part(question: str, surface: str = "unknown") -> TriagePart:
     return TriagePart(
-        standalone_question=question, kind="docs", surface="unknown", in_scope_uncertain=True
+        standalone_question=question, kind="docs", surface=surface, in_scope_uncertain=True
     )
 
 
@@ -131,8 +171,9 @@ async def _triage(models: AgentModels, text: str, turn: _Turn) -> TriageDecision
     """Triage's verdict. If triage fails, the message goes to the answer agent as one part:
     wrongly declining a Rhesis question is worse than checking the docs for nothing."""
     agent = build_triage(models.triage, model_settings("triage"), turn.snapshot)
+    prompt = triage_input(text, turn.state.history())
     try:
-        result = await asyncio.wait_for(Runner.run(agent, text), timeout=turn.remaining())
+        result = await asyncio.wait_for(Runner.run(agent, prompt), timeout=turn.remaining())
         return result.final_output
     except Exception:
         logger.warning("Triage failed; sending the message to the answer agent", exc_info=True)
@@ -140,19 +181,73 @@ async def _triage(models: AgentModels, text: str, turn: _Turn) -> TriageDecision
             parts=[_docs_part(text)],
             language=safety.guess_language(text),
             wants_troubleshooting=False,
+            clarification=None,
         )
+
+
+def _triage_clarification(
+    decision: TriageDecision, docs_parts: list[TriagePart], turn: _Turn
+) -> Clarification | None:
+    """Triage's clarifying question, if one is allowed now: a single docs part, a well-formed
+    question, and no clarification on the turn just before."""
+    clarification = decision.clarification
+    if clarification is None or len(docs_parts) != 1 or len(decision.parts) != 1:
+        return None
+    options = [o.strip() for o in clarification.options if o.strip()]
+    if not (MIN_OPTIONS <= len(options) <= MAX_OPTIONS and clarification.question.strip()):
+        return None
+    if not turn.allow_clarify:
+        turn.hit_limit("clarify_streak")
+        return None
+    return Clarification(question=clarification.question.strip(), options=options)
 
 
 # ── answer ───────────────────────────────────────────────────────────────────────────────
 
 
+async def _answer_parts(models: AgentModels, parts: list[TriagePart], turn: _Turn) -> TurnResponse:
+    """Run every docs part in parallel on the turn's shared time and token budget, then merge.
+    Other parts get their short fixed text; a greeting next to a real question is dropped."""
+    docs_parts = [p for p in parts if p.kind == "docs"]
+    turn.surface = _surface(docs_parts)
+    answered = iter(await asyncio.gather(*(_answer_part(models, p, turn) for p in docs_parts)))
+    outcomes = []
+    for part in parts:
+        if part.kind == "docs":
+            draft, ctx = next(answered)
+            outcomes.append(_docs_outcome(part, draft, ctx))
+        elif part.kind != "smalltalk":
+            outcomes.append(_fixed_outcome(part, turn.language))
+    if any(o.route is Route.UNSAFE_OR_INJECTION for o in outcomes):
+        return _terminal(turn, "unsafe", "")
+    if len(outcomes) == 1 and (draft := outcomes[0].draft) and draft.clarification:
+        if draft.route == "needs_clarification":
+            return _clarify(turn, docs_parts[0], draft.clarification)
+    return _compose(turn, outcomes)
+
+
+def _surface(parts: list[TriagePart]) -> str:
+    surfaces = {p.surface for p in parts} - {"unknown"}
+    return surfaces.pop() if len(surfaces) == 1 else ("both" if surfaces else "unknown")
+
+
 async def _answer_part(
     models: AgentModels, part: TriagePart, turn: _Turn, *, troubleshooting: bool = False
 ) -> tuple[AnswerDraft, TurnContext]:
-    ctx = TurnContext(snapshot=turn.snapshot, settings=turn.settings, cache=turn.cache)
+    ctx = TurnContext(
+        snapshot=turn.snapshot,
+        settings=turn.settings,
+        cache=turn.cache,
+        allow_clarify=turn.allow_clarify and not troubleshooting,
+        tokens=turn.tokens,
+    )
     agent = build_answerer(models.answer, model_settings("answer"))
     prompt = question_input(
-        part.standalone_question, turn.language, part.surface, troubleshooting=troubleshooting
+        part.standalone_question,
+        turn.language,
+        part.surface,
+        troubleshooting=troubleshooting,
+        allow_clarify=ctx.allow_clarify,
     )
     draft = await _answer(agent, prompt, ctx, turn.remaining()) or _fallback(ctx, turn.language)
     for limit in ctx.limits_hit:
@@ -196,20 +291,13 @@ def _fallback(ctx: TurnContext, language: str) -> AnswerDraft:
         undocumented=[],
         premise_correction=None,
         related_pages=_searched_pages(ctx),
+        clarification=None,
     )
 
 
 def _searched_pages(ctx: TurnContext) -> list[RelatedPage]:
-    return _unique_pages([RelatedPage(title=h.title, url=h.url) for h in ctx.search_hits])[
-        :FALLBACK_RELATED
-    ]
-
-
-def _unique_pages(pages: list[RelatedPage]) -> list[RelatedPage]:
-    unique: dict[str, RelatedPage] = {}
-    for page in pages:
-        unique.setdefault(page.url, page)
-    return list(unique.values())
+    pages = [RelatedPage(title=h.title, url=h.url) for h in ctx.search_hits]
+    return compose.unique_pages(pages)[:FALLBACK_RELATED]
 
 
 def _screen(draft: AnswerDraft) -> AnswerDraft | None:
@@ -222,72 +310,115 @@ def _screen(draft: AnswerDraft) -> AnswerDraft | None:
     return draft.model_copy(update={"answer_md": safety.strip_status_lines(draft.answer_md)})
 
 
+def _docs_outcome(part: TriagePart, draft: AnswerDraft, ctx: TurnContext) -> PartOutcome:
+    screened = _screen(draft)
+    if screened is None:
+        return PartOutcome(part.standalone_question, Route.UNSAFE_OR_INJECTION)
+    return PartOutcome(
+        question=part.standalone_question,
+        route=Route(screened.route),
+        draft=screened,
+        citations=compose.citations_for(screened, ctx.snapshot, ctx.ledger),
+        related=compose.related_pages_for(screened, ctx.snapshot),
+    )
+
+
+def _fixed_outcome(part: TriagePart, language: str) -> PartOutcome:
+    if part.kind == "account_or_support":
+        text = f"{terminals.support(language)}\n{terminals.links(terminals.SUPPORT_STEPS)}"
+    else:
+        text = terminals.text("out_of_scope", language)
+    return PartOutcome(part.standalone_question, TERMINAL_ROUTES[part.kind], text=text)
+
+
 # ── responses ────────────────────────────────────────────────────────────────────────────
 
 
-def _answer_response(
-    draft: AnswerDraft, ctx: TurnContext, turn: _Turn, conversation_id: str | None
-) -> TurnResponse:
-    screened = _screen(draft)
-    if screened is None:
-        return _terminal(turn, "unsafe", conversation_id)
-    citations = compose.citations_for(screened, ctx.snapshot, ctx.ledger)
-    related = compose.related_pages_for(screened, ctx.snapshot)
-    next_steps = terminals.SUPPORT_STEPS if screened.route == "not_documented" else []
+def _compose(turn: _Turn, outcomes: list[PartOutcome]) -> TurnResponse:
+    citations = compose.unique_citations(outcomes)
+    related = compose.unique_pages([page for o in outcomes for page in o.related])
+    routes = [o.route for o in outcomes]
+    needs_help = {Route.NOT_DOCUMENTED, Route.ACCOUNT_OR_SUPPORT} & set(routes)
+    next_steps = terminals.SUPPORT_STEPS if needs_help else []
     response = compose.render(
-        screened,
+        outcomes,
         citations,
         related,
         language=turn.language,
-        next_steps=next_steps,
+        next_steps=next_steps if Route.NOT_DOCUMENTED in routes else [],
         notes=turn.notes,
     )
+    drafts = [o.draft for o in outcomes if o.draft]
     return _response(
         turn,
-        conversation_id,
-        route=Route(screened.route),
+        route=compose.turn_route(routes),
         response=response,
-        answer_md=screened.answer_md,
+        question=" / ".join(o.question for o in outcomes),
+        answer_md="\n\n".join(d.answer_md for d in drafts),
         citations=citations,
-        undocumented=screened.undocumented,
-        premise_correction=screened.premise_correction,
+        undocumented=[gap for d in drafts for gap in d.undocumented],
+        premise_correction=next(
+            (d.premise_correction for d in drafts if d.premise_correction), None
+        ),
         related_pages=related,
+        parts=[_part_result(o) for o in outcomes],
         next_steps=next_steps,
+    )
+
+
+def _part_result(outcome: PartOutcome) -> dict:
+    draft = outcome.draft
+    return {
+        "question": outcome.question,
+        "route": outcome.route,
+        "answer_md": draft.answer_md if draft else outcome.text,
+        "citations": outcome.citations,
+        "undocumented": draft.undocumented if draft else [],
+        "premise_correction": draft.premise_correction if draft else None,
+        "related_pages": outcome.related,
+    }
+
+
+def _clarify(turn: _Turn, part: TriagePart, clarification: Clarification) -> TurnResponse:
+    turn.surface = part.surface
+    text = compose.render_clarification(clarification, turn.language)
+    return _response(
+        turn,
+        route=Route.NEEDS_CLARIFICATION,
+        response="\n\n".join([*(f"_{n}_" for n in turn.notes), text]),
+        question=part.standalone_question,
+        clarification=clarification,
     )
 
 
 async def _support(
-    models: AgentModels,
-    parts: list[TriagePart],
-    decision: TriageDecision,
-    turn: _Turn,
-    conversation_id: str | None,
+    models: AgentModels, parts: list[TriagePart], decision: TriageDecision | None, turn: _Turn
 ) -> TurnResponse:
     """Support links always; with `wants_troubleshooting`, also the docs pages that may help.
     The route stays account_or_support either way."""
+    part = next(p for p in parts if p.kind == "account_or_support")
     related: list[RelatedPage] = []
-    if decision.wants_troubleshooting:
-        part = next(p for p in parts if p.kind == "account_or_support")
+    if decision and decision.wants_troubleshooting:
         draft, ctx = await _answer_part(models, part, turn, troubleshooting=True)
         cited = [
             RelatedPage(title=c.title, url=c.url.split("#", 1)[0])
             for c in compose.citations_for(draft, ctx.snapshot, ctx.ledger)
         ]
-        related = _unique_pages(cited + compose.related_pages_for(draft, ctx.snapshot))
+        related = compose.unique_pages(cited + compose.related_pages_for(draft, ctx.snapshot))
     body = [terminals.support(turn.language), terminals.links(terminals.SUPPORT_STEPS)]
     if related:
         body += [terminals.text("support_pages", turn.language), compose.related_list(related)]
     return _response(
         turn,
-        conversation_id,
         route=Route.ACCOUNT_OR_SUPPORT,
         response=_with_notes(turn, "\n\n".join(body)),
+        question=part.standalone_question,
         related_pages=related,
         next_steps=terminals.SUPPORT_STEPS,
     )
 
 
-def _terminal(turn: _Turn, kind: str, conversation_id: str | None) -> TurnResponse:
+def _terminal(turn: _Turn, kind: str, question: str) -> TurnResponse:
     match kind:
         case "unsafe":
             body = terminals.unsafe(turn.language)
@@ -301,31 +432,22 @@ def _terminal(turn: _Turn, kind: str, conversation_id: str | None) -> TurnRespon
             body = terminals.smalltalk(turn.language)
     # An unsafe turn carries no notes: nothing about the attempt is echoed back.
     response = body if kind == "unsafe" else _with_notes(turn, body)
-    return _response(turn, conversation_id, route=TERMINAL_ROUTES[kind], response=response)
+    return _response(turn, route=TERMINAL_ROUTES[kind], response=response, question=question)
 
 
 def _with_notes(turn: _Turn, body: str) -> str:
     return "\n\n".join([*(f"_{n}_" for n in turn.notes), body])
 
 
-def _response(
-    turn: _Turn,
-    conversation_id: str | None,
-    *,
-    route: Route,
-    response: str,
-    answer_md: str | None = None,
-    next_steps: Sequence[NextStep] = (),
-    **fields,
-) -> TurnResponse:
+def _response(turn: _Turn, *, route: Route, response: str, question: str, **fields) -> TurnResponse:
+    turn.question = question
+    fields.setdefault("answer_md", response)
+    fields.setdefault("citations", [])
     return TurnResponse(
-        conversation_id=conversation_id or uuid.uuid4().hex,
-        turn=1,
+        conversation_id=turn.state.conversation_id,
+        turn=turn.state.turn + 1,
         route=route,
         response=response,
-        answer_md=response if answer_md is None else answer_md,
-        citations=fields.pop("citations", []),
-        next_steps=list(next_steps),
         surface=turn.surface,
         language=turn.language,
         docs_as_of=turn.snapshot.fetched_at,
@@ -334,3 +456,27 @@ def _response(
         answer_id=uuid.uuid4().hex,
         **fields,
     )
+
+
+def _remember(state: ConversationState, response: TurnResponse, turn: _Turn) -> None:
+    """Record the turn. An unsafe turn changes nothing, so it can't steer later turns."""
+    if response.route is Route.UNSAFE_OR_INJECTION:
+        return
+    state.turns.append(
+        TurnRecord(
+            question=turn.question,
+            route=response.route.value,
+            cited_urls=[c.url for c in response.citations],
+        )
+    )
+    if response.clarification:
+        state.pending = PendingClarification(
+            question=turn.question,
+            clarification=response.clarification,
+            language=response.language,
+            surface=turn.surface,
+        )
+        state.clarify_streak += 1
+    else:
+        state.pending = None
+        state.clarify_streak = 0

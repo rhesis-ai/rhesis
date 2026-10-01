@@ -35,6 +35,8 @@ class Settings:
     page_window_chars: int
     max_input_chars: int
     max_parts: int
+    max_clarify_streak: int
+    session_ttl: int
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -53,6 +55,8 @@ class Settings:
             page_window_chars=_int("DOCS_ASSISTANT_PAGE_WINDOW_CHARS", 24_000),
             max_input_chars=_int("DOCS_ASSISTANT_MAX_INPUT_CHARS", 2000),
             max_parts=_int("DOCS_ASSISTANT_MAX_PARTS", 3),
+            max_clarify_streak=_int("DOCS_ASSISTANT_MAX_CLARIFY_STREAK", 1),
+            session_ttl=_int("DOCS_ASSISTANT_SESSION_TTL", 1800),
         )
 
 

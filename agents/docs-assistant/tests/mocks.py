@@ -70,6 +70,7 @@ def draft(**overrides: Any) -> dict[str, Any]:
         "undocumented": [],
         "premise_correction": None,
         "related_pages": [],
+        "clarification": None,
     }
     return {**base, **overrides}
 
@@ -92,12 +93,18 @@ def triage_part(
     }
 
 
-def triage(*parts: dict[str, Any], language: str = "en", wants_troubleshooting: bool = False):
+def triage(
+    *parts: dict[str, Any],
+    language: str = "en",
+    wants_troubleshooting: bool = False,
+    clarification: dict[str, Any] | None = None,
+):
     """A triage verdict as the model's JSON reply."""
     decision = {
         "parts": list(parts),
         "language": language,
         "wants_troubleshooting": wants_troubleshooting,
+        "clarification": clarification,
     }
     return text(json.dumps(decision))
 

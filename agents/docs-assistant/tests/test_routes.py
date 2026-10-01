@@ -150,12 +150,14 @@ async def test_german_answers_use_german_labels(cache, settings):
 
 async def test_parts_past_the_cap_are_dropped_with_a_note(cache, settings):
     decision = triage(*[triage_part(f"q{n}") for n in range(4)])
-    answer_model = ScriptedModel([[fetch(SCOPE)], [submit()]])
+    answer_model = ScriptedModel([[submit(**NOT_DOCUMENTED)]], repeat_last=True)
     response, _ = await turn(
         "m", cache, settings, triage_model=ScriptedModel([[decision]]), answer_model=answer_model
     )
     assert "parts_capped" in response.limits_hit
     assert "answered the first 3" in response.response
+    assert [p.question for p in response.parts] == ["q0", "q1", "q2"]
+    assert len(answer_model.requests) == 3
 
 
 async def test_long_input_is_clipped_with_a_note(cache, settings):

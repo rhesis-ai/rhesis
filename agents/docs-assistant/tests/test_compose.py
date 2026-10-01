@@ -1,5 +1,11 @@
-from docs_assistant.compose import citations_for, number_markers, related_pages_for, render
-from docs_assistant.schemas import AnswerDraft
+from docs_assistant.compose import (
+    PartOutcome,
+    citations_for,
+    number_markers,
+    related_pages_for,
+    render,
+)
+from docs_assistant.schemas import AnswerDraft, Route
 from tests.mocks import draft
 
 SCOPE = "https://docs.rhesis.ai/docs/metrics/metric-scope"
@@ -45,7 +51,8 @@ def test_render_lists_gaps_sources_and_related(snapshot):
         )
     )
 
-    text = render(d, citations_for(d, snapshot, {}), related_pages_for(d, snapshot))
+    outcome = PartOutcome("q", Route.PARTIALLY_ANSWERED, draft=d)
+    text = render([outcome], citations_for(d, snapshot, {}), related_pages_for(d, snapshot))
     assert "**Not covered in the docs:**\n- pricing" in text
     assert "**Sources**\n- [Metric scope › When to use" in text
     assert f"**Related pages**\n- [Overview]({METRICS})" in text

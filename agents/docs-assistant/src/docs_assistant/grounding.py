@@ -4,7 +4,8 @@ Rules checked here (numbering follows docs/architecture.md):
 1. every citation URL is a page read this turn;
 4. every claim cites at least one citation, and every cited id exists, in the claims and in the
    `[c1]` markers of answer_md;
-5. the route matches the shape of the draft.
+5. the route matches the shape of the draft, and a clarifying question is only allowed when the
+   conversation hasn't just had one.
 """
 
 from __future__ import annotations
@@ -19,8 +20,18 @@ from docs_assistant.schemas import AnswerDraft
 _ID_LIKE = re.compile(r"^[A-Za-z]{1,3}\d+$")
 
 
-def validate(draft: AnswerDraft, ledger: dict[str, Page]) -> list[str]:
+MIN_OPTIONS, MAX_OPTIONS = 2, 4
+
+
+def validate(
+    draft: AnswerDraft, ledger: dict[str, Page], *, allow_clarify: bool = True
+) -> list[str]:
     """Return the problems with a draft; an empty list means it may be shown."""
+    if draft.route == "needs_clarification" and not allow_clarify:
+        return [
+            "you may not ask a clarifying question now; answer the likely readings briefly, "
+            "each with its own citations"
+        ]
     return [
         *_check_citation_urls(draft, ledger),
         *_check_claims(draft),
@@ -95,4 +106,19 @@ def _check_route(draft: AnswerDraft) -> list[str]:
             if not has_citations:
                 problems.append("false_premise needs a citation showing the premise is wrong")
             return problems
+        case "needs_clarification":
+            return _check_clarification(draft)
     return [f"unknown route {draft.route}"]
+
+
+def _check_clarification(draft: AnswerDraft) -> list[str]:
+    problems = []
+    clarification = draft.clarification
+    if clarification is None or not clarification.question.strip():
+        return ["needs_clarification needs a clarification with a question and options"]
+    options = [o for o in clarification.options if o.strip()]
+    if not MIN_OPTIONS <= len(options) <= MAX_OPTIONS:
+        problems.append(f"needs_clarification needs {MIN_OPTIONS} to {MAX_OPTIONS} options")
+    if draft.claims or draft.citations:
+        problems.append("needs_clarification must not make claims or cite pages")
+    return problems

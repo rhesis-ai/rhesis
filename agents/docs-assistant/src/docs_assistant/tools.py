@@ -270,7 +270,7 @@ def get_changelog(
 
 
 def submit_answer_impl(ctx: TurnContext, draft: AnswerDraft) -> str:
-    problems = grounding.validate(draft, ctx.ledger)
+    problems = grounding.validate(draft, ctx.ledger, allow_clarify=ctx.allow_clarify)
     if problems:
         ctx.rejections += 1
         numbered = "\n".join(f"{n}. {p}" for n, p in enumerate(problems, start=1))

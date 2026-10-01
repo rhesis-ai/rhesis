@@ -16,6 +16,7 @@ from docs_assistant.corpus.fetcher import DocsFetcher
 from docs_assistant.models import build_model
 from docs_assistant.runner import run_turn
 from docs_assistant.schemas import TurnResponse
+from docs_assistant.session import ConversationStore
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +25,16 @@ load_dotenv()
 
 class _State:
     cache: CorpusCache | None = None
+    store: ConversationStore | None = None
     started = False
     model_ready = False
 
 
 state = _State()
+
+
+def make_store() -> ConversationStore:
+    return ConversationStore(idle_ttl=get_settings().session_ttl)
 
 
 def make_cache() -> CorpusCache:
@@ -42,6 +48,7 @@ async def lifespan(_app: FastAPI):
     """Load the docs before serving. A failed load or a missing key doesn't stop the server:
     /health reports it, and /chat answers 503 with the reason."""
     state.cache = state.cache or make_cache()
+    state.store = state.store or make_store()
     try:
         snapshot = await state.cache.get()
         logger.info("Docs loaded: %d pages", len(snapshot.pages))
@@ -75,7 +82,12 @@ async def root() -> dict[str, Any]:
     return {
         "name": "Docs Assistant",
         "description": "Answers Rhesis questions from https://docs.rhesis.ai, with citations.",
-        "endpoints": {"chat": "POST /chat", "health": "GET /health"},
+        "endpoints": {
+            "chat": "POST /chat",
+            "health": "GET /health",
+            "conversations": "GET /conversations",
+            "delete_conversation": "DELETE /conversations/{conversation_id}",
+        },
     }
 
 
@@ -98,7 +110,10 @@ async def chat(request: ChatRequest) -> TurnResponse:
         raise HTTPException(status_code=503, detail="Service starting up")
     try:
         return await run_turn(
-            request.message, cache=state.cache, conversation_id=request.conversation_id
+            request.message,
+            cache=state.cache,
+            store=state.store,
+            conversation_id=request.conversation_id,
         )
     except DocsUnavailable as exc:
         raise HTTPException(
@@ -113,6 +128,20 @@ async def chat(request: ChatRequest) -> TurnResponse:
     except Exception as exc:
         logger.error("Chat turn failed", exc_info=True)
         raise HTTPException(status_code=500, detail="Error processing request") from exc
+
+
+@app.get("/conversations")
+async def list_conversations() -> dict[str, Any]:
+    """Conversation ids held in memory, with their turn counts."""
+    conversations = state.store.list() if state.store else {}
+    return {"conversations": conversations, "count": len(conversations)}
+
+
+@app.delete("/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: str) -> dict[str, str]:
+    if state.store is None or not state.store.delete(conversation_id):
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return {"deleted": conversation_id}
 
 
 __all__ = ["ChatRequest", "app"]

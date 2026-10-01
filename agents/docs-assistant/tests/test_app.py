@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from docs_assistant import app as app_module
 from docs_assistant.corpus.cache import DocsUnavailable
 from docs_assistant.schemas import Route, TurnResponse
+from docs_assistant.state import ConversationState, TurnRecord
 
 
 def _response(**overrides) -> TurnResponse:
@@ -29,6 +30,7 @@ def client(monkeypatch, cache):
     with TestClient(app_module.app) as test_client:
         yield test_client
     app_module.state.cache = None
+    app_module.state.store = None
 
 
 def test_health_reports_docs_and_model(client):
@@ -47,7 +49,7 @@ def test_root_lists_endpoints(client):
 def test_chat_returns_the_turn(client, monkeypatch):
     seen = {}
 
-    async def fake_run_turn(message, *, cache, conversation_id):
+    async def fake_run_turn(message, *, cache, store, conversation_id):
         seen.update(message=message, conversation_id=conversation_id)
         return _response()
 
@@ -89,3 +91,27 @@ def test_docs_down_at_startup_still_serves_health(monkeypatch, cache, site):
         assert client.get("/health").json()["docs"] == "unavailable"
         assert client.post("/chat", json={"message": "hi"}).status_code == 503
     app_module.state.cache = None
+
+
+def test_conversations_can_be_listed_and_deleted(client):
+    store = app_module.state.store
+    store._put(ConversationState("c1", turns=[TurnRecord("q", "answered")]))
+    assert client.get("/conversations").json() == {"conversations": {"c1": 1}, "count": 1}
+    assert client.delete("/conversations/c1").json() == {"deleted": "c1"}
+    assert client.get("/conversations").json()["count"] == 0
+    assert client.delete("/conversations/c1").status_code == 404
+
+
+async def test_a_follow_up_through_the_api_keeps_the_conversation(client, monkeypatch):
+    seen = []
+
+    async def fake_run_turn(message, *, cache, store, conversation_id):
+        async with store.turn(conversation_id) as conversation:
+            seen.append(conversation.turn)
+            conversation.turns.append(TurnRecord(message, "answered"))
+            return _response(conversation_id=conversation.conversation_id)
+
+    monkeypatch.setattr(app_module, "run_turn", fake_run_turn)
+    first = client.post("/chat", json={"message": "one"}).json()
+    client.post("/chat", json={"message": "two", "conversation_id": first["conversation_id"]})
+    assert seen == [0, 1]
