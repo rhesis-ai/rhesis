@@ -177,3 +177,12 @@ async def test_read_tools_refuse_near_the_token_budget(ctx):
         )
         == ACCEPTED
     )
+
+
+async def test_reads_in_one_batch_count_toward_the_soft_budget(ctx):
+    # The model can ask for several pages in one response. Their text reaches the model only
+    # on the next call, so the soft budget counts an estimate of it before that call reports.
+    ctx.pending_tokens = int(ctx.settings.token_budget * 0.8)
+    result = await fetch_page_impl(ctx, SCOPE, None)
+    assert result.startswith(BUDGET_EXHAUSTED)
+    assert ctx.ledger == {}

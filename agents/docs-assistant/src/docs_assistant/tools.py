@@ -43,7 +43,7 @@ _DEPRECATION = re.compile(r"deprecated|legacy|no longer|removed in", re.IGNORECA
 def _over_budget(ctx: TurnContext, kind: str | None = None) -> str | None:
     """Charge one tool call (and one `kind`) to the budget; return a message once it runs out."""
     limits = ctx.settings
-    if ctx.tokens.used >= limits.token_budget * SOFT_TOKEN_SHARE:
+    if ctx.tokens.used + ctx.pending_tokens >= limits.token_budget * SOFT_TOKEN_SHARE:
         ctx.hit_limit("token_budget")
         return (
             f"{BUDGET_EXHAUSTED}: this question has used most of its token budget. Call "

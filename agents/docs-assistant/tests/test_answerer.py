@@ -182,3 +182,23 @@ async def test_the_backstop_enforces_the_clarify_streak(ctx):
     assert (
         await grounding_backstop.guardrail_function(wrapper, None, clarifying)
     ).tripwire_triggered
+
+
+async def test_tool_results_are_estimated_until_the_next_model_call(ctx):
+    from types import SimpleNamespace
+
+    from agents import RunContextWrapper
+
+    from docs_assistant.agents.answerer import CHARS_PER_TOKEN, BudgetHooks
+
+    hooks, wrapper = BudgetHooks(), RunContextWrapper(ctx)
+    page = SimpleNamespace(name="fetch_page")
+    await hooks.on_tool_end(wrapper, None, page, "x" * 400)
+    await hooks.on_tool_end(wrapper, None, page, "x" * 400)
+    assert ctx.pending_tokens == 800 // CHARS_PER_TOKEN
+    await hooks.on_tool_end(wrapper, None, SimpleNamespace(name="submit_answer"), "x" * 400)
+    assert ctx.pending_tokens == 800 // CHARS_PER_TOKEN
+
+    response = SimpleNamespace(usage=SimpleNamespace(total_tokens=300), output=[])
+    await hooks.on_llm_end(wrapper, None, response)
+    assert (ctx.tokens.used, ctx.pending_tokens) == (300, 0)

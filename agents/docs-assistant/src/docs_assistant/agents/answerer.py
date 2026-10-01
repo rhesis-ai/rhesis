@@ -10,6 +10,7 @@ from agents import (
     ModelSettings,
     RunContextWrapper,
     RunHooks,
+    Tool,
     ToolsToFinalOutputResult,
     output_guardrail,
 )
@@ -120,6 +121,10 @@ def question_input(
     return "\n".join(lines)
 
 
+# Rough English average, close enough to project the next call's input from tool results.
+CHARS_PER_TOKEN = 4
+
+
 class TokenBudgetExceeded(RuntimeError):
     """The turn used more tokens than DOCS_ASSISTANT_TOKEN_BUDGET allows."""
 
@@ -130,6 +135,7 @@ class BudgetHooks(RunHooks[TurnContext]):
     ) -> None:
         ctx = context.context
         ctx.tokens.used += response.usage.total_tokens
+        ctx.pending_tokens = 0
         budget = ctx.settings.token_budget
         if ctx.tokens.used <= budget:
             return
@@ -138,6 +144,12 @@ class BudgetHooks(RunHooks[TurnContext]):
         # The next model call, if any, stops the run.
         if not any(getattr(item, "name", None) == "submit_answer" for item in response.output):
             raise TokenBudgetExceeded(f"used {ctx.tokens.used} of {budget} tokens")
+
+    async def on_tool_end(
+        self, context: RunContextWrapper[TurnContext], agent: Agent, tool: Tool, result: object
+    ) -> None:
+        if tool.name != "submit_answer":
+            context.context.pending_tokens += len(str(result)) // CHARS_PER_TOKEN
 
 
 def stop_on_accept(

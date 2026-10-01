@@ -44,6 +44,9 @@ class TurnContext:
     # False right after a clarifying question: the next answer must not ask another.
     allow_clarify: bool = True
     tokens: TokenMeter = field(default_factory=TokenMeter)
+    # Estimated tokens of tool results the next model call will read, so the soft budget sees
+    # a batch of reads before that call reports real usage. Reset after every model call.
+    pending_tokens: int = 0
 
     def hit_limit(self, name: str) -> None:
         if name not in self.limits_hit:
