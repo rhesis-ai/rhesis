@@ -14,6 +14,7 @@ import logging
 import uuid
 
 from agents import MaxTurnsExceeded, OutputGuardrailTripwireTriggered, Runner
+from openai import APIError
 
 from docs_assistant import compose, grounding, safety, terminals
 from docs_assistant.agents import answerer, critic, triage
@@ -275,6 +276,11 @@ async def _answer(agent, prompt: str, ctx: TurnContext, timeout: float) -> Answe
         logger.error("Backstop guardrail tripped on an accepted draft; sending the fallback")
         ctx.hit_limit("backstop")
         ctx.accepted = None
+    except APIError:
+        # The provider failed mid-run (connection, rate limit, 5xx). Keep any accepted draft;
+        # otherwise the fallback says so instead of a 500.
+        logger.warning("Model call failed during the answer run", exc_info=True)
+        ctx.hit_limit("model_error")
     return ctx.accepted
 
 

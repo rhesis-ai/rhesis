@@ -202,12 +202,17 @@ async def run_scenario(scenario: Scenario, cache, store) -> Result:
 
     start = time.perf_counter()
     responses, conversation_id = [], None
-    for message in scenario.turns:
-        response = await run_turn(
-            message, cache=cache, store=store, conversation_id=conversation_id
-        )
-        conversation_id = response.conversation_id
-        responses.append(response)
+    try:
+        for message in scenario.turns:
+            response = await run_turn(
+                message, cache=cache, store=store, conversation_id=conversation_id
+            )
+            conversation_id = response.conversation_id
+            responses.append(response)
+    except Exception as exc:
+        # One broken scenario (e.g. a network error) is a failure, not the end of the run.
+        problem = f"crashed: {type(exc).__name__}: {exc}"
+        return Result(scenario, responses, [problem], time.perf_counter() - start)
     problems = scenario.check(responses) + docs_only(responses)
     return Result(scenario, responses, problems, time.perf_counter() - start)
 

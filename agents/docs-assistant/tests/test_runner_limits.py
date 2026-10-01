@@ -67,3 +67,17 @@ async def test_a_submit_that_crosses_the_token_budget_still_counts(cache, settin
     )
     assert response.route is Route.ANSWERED
     assert response.limits_hit == ["token_budget"]
+
+
+async def test_a_provider_error_ends_in_the_fallback(cache, settings):
+    import httpx
+    from openai import APIConnectionError
+
+    class Failing(ScriptedModel):
+        async def get_response(self, *args, **kwargs):
+            raise APIConnectionError(request=httpx.Request("POST", "https://example.invalid"))
+
+    response = await run_turn("q", cache=cache, models=models(Failing([])), settings=settings)
+    assert response.route is Route.NOT_DOCUMENTED
+    assert response.limits_hit == ["model_error"]
+    assert response.answer_md == reply("fallback")
