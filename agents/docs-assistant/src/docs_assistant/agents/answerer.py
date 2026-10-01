@@ -58,6 +58,32 @@ NUDGE = (
 )
 
 
+TROUBLESHOOTING = (
+    "The user has a problem with their own account or setup, which the Rhesis team will handle. "
+    "Find the docs pages that could help them troubleshoot it themselves, read the best ones, "
+    "and submit. If nothing fits, submit not_documented with the closest related_pages."
+)
+
+SURFACE_HINTS = {
+    "ui": "The user works in the Rhesis web app (docs section: docs).",
+    "sdk": "The user works with the Python SDK (docs section: sdk).",
+    "self_hosting": "The user self-hosts Rhesis (docs section: self_hosting).",
+    "both": "The user asks about more than one surface (web app, SDK, self-hosting); cover each.",
+}
+
+
+def question_input(
+    question: str, language: str, surface: str = "unknown", *, troubleshooting: bool = False
+) -> str:
+    """The user turn the answer agent sees: the question plus what triage learned about it."""
+    lines = [f"Question: {question}", f"Reply language: {language}"]
+    if hint := SURFACE_HINTS.get(surface):
+        lines.append(hint)
+    if troubleshooting:
+        lines.append(TROUBLESHOOTING)
+    return "\n".join(lines)
+
+
 class TokenBudgetExceeded(RuntimeError):
     """The turn used more tokens than DOCS_ASSISTANT_TOKEN_BUDGET allows."""
 

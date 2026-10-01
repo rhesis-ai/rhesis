@@ -33,6 +33,8 @@ class Settings:
     turn_timeout: float
     token_budget: int
     page_window_chars: int
+    max_input_chars: int
+    max_parts: int
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -49,6 +51,8 @@ class Settings:
             token_budget=_int("DOCS_ASSISTANT_TOKEN_BUDGET", 60_000),
             # About 6K tokens of page text per fetch.
             page_window_chars=_int("DOCS_ASSISTANT_PAGE_WINDOW_CHARS", 24_000),
+            max_input_chars=_int("DOCS_ASSISTANT_MAX_INPUT_CHARS", 2000),
+            max_parts=_int("DOCS_ASSISTANT_MAX_PARTS", 3),
         )
 
 

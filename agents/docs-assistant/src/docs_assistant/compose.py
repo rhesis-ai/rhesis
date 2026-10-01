@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 
+from docs_assistant import terminals
 from docs_assistant.corpus.cache import Snapshot
 from docs_assistant.corpus.parser import split_anchor
-from docs_assistant.schemas import AnswerDraft, Citation, RelatedPage
+from docs_assistant.schemas import AnswerDraft, Citation, NextStep, RelatedPage
 
 _MARKER = re.compile(r"\[([\w-]+(?:\s*,\s*[\w-]+)*)\](?!\()")
 _CODE = re.compile(r"```.*?```|~~~.*?~~~|`[^`\n]*`", re.DOTALL)
@@ -67,19 +69,37 @@ def number_markers(draft: AnswerDraft, citations: list[Citation]) -> str:
     return _MARKER.sub(replace, draft.answer_md)
 
 
-def render(draft: AnswerDraft, citations: list[Citation], related: list[RelatedPage]) -> str:
-    parts = [number_markers(draft, citations).strip()]
+def render(
+    draft: AnswerDraft,
+    citations: list[Citation],
+    related: list[RelatedPage],
+    *,
+    language: str = "en",
+    next_steps: Sequence[NextStep] = (),
+    notes: Sequence[str] = (),
+) -> str:
+    def label(key: str) -> str:
+        return terminals.text(key, language)
+
+    parts = [f"_{note}_" for note in notes]
     if draft.premise_correction:
-        parts.insert(0, f"> **Correction:** {draft.premise_correction.strip()}")
+        parts.append(f"> **{label('correction')}** {draft.premise_correction.strip()}")
+    parts.append(number_markers(draft, citations).strip())
     if draft.undocumented:
         parts.append(
-            "**Not covered in the docs:**\n" + "\n".join(f"- {u}" for u in draft.undocumented)
+            f"**{label('not_covered')}**\n" + "\n".join(f"- {u}" for u in draft.undocumented)
         )
     if citations:
-        parts.append("**Sources**\n" + "\n".join(f"- {_link(c)}" for c in citations))
+        parts.append(f"**{label('sources')}**\n" + "\n".join(f"- {_link(c)}" for c in citations))
     if related:
-        parts.append("**Related pages**\n" + "\n".join(f"- [{p.title}]({p.url})" for p in related))
+        parts.append(f"**{label('related')}**\n" + related_list(related))
+    if next_steps:
+        parts.append(f"{label('not_documented_help')}\n{terminals.links(list(next_steps))}")
     return "\n\n".join(p for p in parts if p)
+
+
+def related_list(related: list[RelatedPage]) -> str:
+    return "\n".join(f"- [{p.title}]({p.url})" for p in related)
 
 
 def _link(citation: Citation) -> str:

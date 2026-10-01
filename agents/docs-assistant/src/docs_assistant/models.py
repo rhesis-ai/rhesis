@@ -135,3 +135,15 @@ def _litellm_model(name: str, key: str | None) -> Model:
 
 def model_settings(role: Role) -> ModelSettings:
     return ROLE_SETTINGS[role]
+
+
+@dataclass(frozen=True)
+class AgentModels:
+    """One model per agent role, so tests can script each role on its own."""
+
+    triage: Model
+    answer: Model
+
+    @classmethod
+    def from_env(cls) -> AgentModels:
+        return cls(triage=build_model("triage"), answer=build_model("answer"))

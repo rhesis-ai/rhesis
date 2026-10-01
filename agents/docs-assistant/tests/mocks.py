@@ -20,6 +20,8 @@ from openai.types.responses import (
     ResponseOutputText,
 )
 
+from docs_assistant.models import AgentModels
+
 _ids = itertools.count(1)
 
 
@@ -76,6 +78,30 @@ def submit(**overrides: Any):
     return tool_call("submit_answer", draft=draft(**overrides))
 
 
+def triage_part(
+    question: str,
+    kind: str = "docs",
+    surface: str = "unknown",
+    in_scope_uncertain: bool = False,
+) -> dict[str, Any]:
+    return {
+        "standalone_question": question,
+        "kind": kind,
+        "surface": surface,
+        "in_scope_uncertain": in_scope_uncertain,
+    }
+
+
+def triage(*parts: dict[str, Any], language: str = "en", wants_troubleshooting: bool = False):
+    """A triage verdict as the model's JSON reply."""
+    decision = {
+        "parts": list(parts),
+        "language": language,
+        "wants_troubleshooting": wants_troubleshooting,
+    }
+    return text(json.dumps(decision))
+
+
 class ScriptedModel(Model):
     def __init__(
         self,
@@ -129,6 +155,23 @@ class ScriptedModel(Model):
     def input_text(self, request: int) -> str:
         """Everything the model was sent in one request, for asserting on tool results."""
         return json.dumps(self.requests[request]["input"], default=str)
+
+
+class EchoTriage(ScriptedModel):
+    """Triage that sends every message to the answer agent as one docs part."""
+
+    def __init__(self, language: str = "en") -> None:
+        super().__init__([])
+        self.language = language
+
+    async def get_response(self, system_instructions, input, *args, **kwargs) -> ModelResponse:
+        question = input if isinstance(input, str) else str(input[-1].get("content"))
+        self.script = [[triage(triage_part(question), language=self.language)]]
+        return await super().get_response(system_instructions, input, *args, **kwargs)
+
+
+def models(answer: Model | None = None, triage: Model | None = None) -> AgentModels:
+    return AgentModels(triage=triage or EchoTriage(), answer=answer or ScriptedModel([]))
 
 
 def _fresh(item):

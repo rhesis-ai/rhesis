@@ -1,13 +1,14 @@
 from docs_assistant.agents.answerer import NUDGE
-from docs_assistant.runner import NO_SUBMIT_REPLY, run_turn
+from docs_assistant.runner import run_turn
 from docs_assistant.schemas import Route
-from tests.mocks import ScriptedModel, fetch, search, submit, text
+from docs_assistant.terminals import text as reply
+from tests.mocks import ScriptedModel, fetch, models, search, submit, text
 
 SCOPE = "https://docs.rhesis.ai/docs/metrics/metric-scope"
 
 
 async def turn(model, cache, settings, message="What is metric scope?"):
-    return await run_turn(message, cache=cache, model=model, settings=settings)
+    return await run_turn(message, cache=cache, models=models(model), settings=settings)
 
 
 async def test_search_fetch_submit_gives_a_cited_answer(cache, settings):
@@ -72,7 +73,7 @@ async def test_two_plain_text_endings_give_the_fallback(cache, settings):
 
     assert response.route is Route.NOT_DOCUMENTED
     assert response.limits_hit == ["no_submit"]
-    assert response.answer_md == NO_SUBMIT_REPLY
+    assert response.answer_md == reply("no_submit")
     assert "unchecked" not in response.response
     assert response.related_pages and response.related_pages[0].url == SCOPE
 

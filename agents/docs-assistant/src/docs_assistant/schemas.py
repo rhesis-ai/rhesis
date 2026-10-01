@@ -59,6 +59,39 @@ class AnswerDraft(BaseModel):
     )
 
 
+# What triage decides about one part of a message. "docs" parts go to the answer agent; the
+# others end in a fixed reply.
+TriageKind = Literal["docs", "out_of_scope", "account_or_support", "smalltalk", "unsafe"]
+Surface = Literal["ui", "sdk", "self_hosting", "both", "unknown"]
+
+
+class TriagePart(BaseModel):
+    standalone_question: str = Field(
+        description="The question rewritten to stand on its own, in the user's language."
+    )
+    kind: TriageKind
+    surface: Surface = Field(
+        description="Where the user works: the platform UI, the Python SDK, self-hosting, "
+        "both, or unknown."
+    )
+    in_scope_uncertain: bool = Field(
+        description="True when you can't tell whether this is about Rhesis."
+    )
+
+
+class TriageDecision(BaseModel):
+    parts: list[TriagePart] = Field(description="One entry per separate question, in order.")
+    language: str = Field(description="The user's language as a BCP-47 code, e.g. 'en', 'de'.")
+    wants_troubleshooting: bool = Field(
+        description="For account_or_support: true when docs pages could help the user fix it."
+    )
+
+
+class NextStep(BaseModel):
+    label: str
+    url: str
+
+
 class Citation(BaseModel):
     title: str
     url: str
@@ -75,6 +108,9 @@ class TurnResponse(BaseModel):
     undocumented: list[str] = []
     premise_correction: str | None = None
     related_pages: list[RelatedPage] = []
+    next_steps: list[NextStep] = []
+    surface: Surface = "unknown"
+    language: str = "en"
     docs_as_of: datetime
     docs_stale: bool = False
     limits_hit: list[str] = []
