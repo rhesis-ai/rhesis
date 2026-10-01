@@ -188,6 +188,16 @@ class TestOnboardingStatus:
 
         assert get_onboarding_status(test_db, org_id, user_id).users_invited is True
 
+    def test_inactive_member_does_not_count_as_invited(self, test_db: Session, fresh_org):
+        org_id, user_id = fresh_org
+        member = create_test_user(
+            test_db, uuid.UUID(org_id), f"gone_{uuid.uuid4().hex[:8]}@rhesis-test.com"
+        )
+        member.is_active = False
+        test_db.flush()
+
+        assert get_onboarding_status(test_db, org_id, user_id).users_invited is False
+
     def test_metric_owned_tuning_rows_do_not_count(self, test_db: Session, fresh_org):
         org_id, user_id = fresh_org
         project = _add_project(test_db, org_id, user_id)
