@@ -631,6 +631,27 @@ class TestModelMetadata:
         assert raw.attributes[AIAttributes.LLM_TOKENS_INPUT] == 5
         assert raw.attributes[AIAttributes.LLM_TOKENS_OUTPUT] == 2
 
+    def test_chat_generator_records_anthropic_cache_tokens(self):
+        span, raw = make_span(mapping.COMPONENT_RUN)
+        reply = ChatMessage.from_assistant(
+            "hi",
+            meta={
+                "model": "claude-sonnet-4",
+                "usage": {
+                    "input_tokens": 50,
+                    "output_tokens": 20,
+                    "cache_creation_input_tokens": 1000,
+                    "cache_read_input_tokens": 4000,
+                },
+            },
+        )
+        span.set_tag(mapping.COMPONENT_OUTPUT, {"replies": [reply]})
+
+        DefaultSpanHandler._apply_model_metadata(span, "AnthropicChatGenerator")
+
+        assert raw.attributes[AIAttributes.LLM_TOKENS_CACHE_WRITE] == 1000
+        assert raw.attributes[AIAttributes.LLM_TOKENS_CACHE_READ] == 4000
+
     def test_agent_step_llm_output(self):
         span, raw = make_span(mapping.AGENT_STEP_LLM)
         reply = ChatMessage.from_assistant("hi", meta={"model": "m1"})
