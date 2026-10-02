@@ -36,6 +36,14 @@ export interface RequirementWithMetrics extends RequirementBase {
   user?: User | null;
   metrics: MetricWithRelationships[]; // Full metric objects with type relationships
   tags?: Tag[];
+  /** Linked tests by type. Only the read endpoints fill it. */
+  test_counts?: RequirementTestCounts | null;
+}
+
+export interface RequirementTestCounts {
+  total: number;
+  single_turn: number;
+  multi_turn: number;
 }
 
 export interface MetricWithRelationships {

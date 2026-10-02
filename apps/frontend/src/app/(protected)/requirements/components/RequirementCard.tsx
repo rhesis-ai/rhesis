@@ -5,7 +5,10 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { RequirementClient } from '@/utils/api-client/requirement-client';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
-import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
+import type {
+  RequirementTestCounts,
+  RequirementWithMetrics,
+} from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -20,6 +23,17 @@ interface RequirementCardProps {
   onDuplicate?: () => void;
   /** Retained for backward compatibility — no longer used in the card UI. */
   onViewMetrics?: () => void;
+}
+
+/** One chip per test type that has tests, multi-turn first. */
+export function testCountChips(counts?: RequirementTestCounts | null) {
+  if (!counts) return [];
+  return [
+    { key: 'multi-turn', count: counts.multi_turn, label: 'Multi-turn' },
+    { key: 'single-turn', count: counts.single_turn, label: 'Single-turn' },
+  ]
+    .filter(({ count }) => count > 0)
+    .map(({ key, count, label }) => ({ key, label: `${count} ${label}` }));
 }
 
 export default function RequirementCard({
@@ -77,6 +91,11 @@ export default function RequirementCard({
       emptyText: 'No metrics assigned',
     },
     {
+      label: 'Tests',
+      chips: testCountChips(requirement.test_counts),
+      emptyText: 'No tests linked',
+    },
+    {
       label: 'Tags',
       chips: [
         ...tags.slice(0, MAX_VISIBLE_TAGS).map(tag => ({
@@ -105,6 +124,7 @@ export default function RequirementCard({
         onDelete={canDelete ? () => setDeleteDialogOpen(true) : undefined}
         userName={requirement.user?.name}
         chipSections={chipSections}
+        descriptionLines={2}
       />
 
       <DeleteModal

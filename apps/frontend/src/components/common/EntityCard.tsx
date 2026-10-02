@@ -51,6 +51,8 @@ export interface EntityCardProps {
   borderColor?: string;
   /** Optional content rendered inside the card after chip sections */
   footer?: React.ReactNode;
+  /** Lines the description is clamped to and always reserves. */
+  descriptionLines?: number;
 }
 
 function getStatusChipStyles(
@@ -82,7 +84,6 @@ function getStatusChipStyles(
 const DESCRIPTION_FONT_SIZE = 14;
 const DESCRIPTION_LINE_HEIGHT = 22;
 const DESCRIPTION_MAX_LINES = 3;
-const DESCRIPTION_MIN_HEIGHT = DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES;
 
 /** Status badge on entity cards — pill shape; semantic tint for active/inactive. */
 export function EntityCardStatusBadge({ status }: { status: string }) {
@@ -120,6 +121,7 @@ export default function EntityCard({
   captionText,
   borderColor: borderColorProp,
   footer,
+  descriptionLines = DESCRIPTION_MAX_LINES,
 }: EntityCardProps) {
   const theme = useTheme();
 
@@ -255,17 +257,17 @@ export default function EntityCard({
           </Typography>
         </Box>
 
-        {/* Description — always reserves 3 lines so card footers align */}
+        {/* Description — always reserves its full height so card footers align */}
         <Typography
           data-testid="entity-card-description"
           sx={{
             fontSize: DESCRIPTION_FONT_SIZE,
             fontWeight: 400,
             lineHeight: `${DESCRIPTION_LINE_HEIGHT}px`,
-            minHeight: `${DESCRIPTION_MIN_HEIGHT}px`,
+            minHeight: `${DESCRIPTION_LINE_HEIGHT * descriptionLines}px`,
             color: 'text.secondary',
             display: '-webkit-box',
-            WebkitLineClamp: DESCRIPTION_MAX_LINES,
+            WebkitLineClamp: descriptionLines,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
           }}

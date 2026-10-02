@@ -240,6 +240,46 @@ describe('RequirementCard', () => {
     expect(section).toHaveTextContent('+2 more');
   });
 
+  it('splits the Tests section by type when both types have tests', () => {
+    renderCard({
+      ...DEFAULT_PROPS,
+      requirement: makeRequirement({
+        test_counts: { total: 45, multi_turn: 40, single_turn: 5 },
+      }),
+    });
+
+    const section = screen.getByTestId('chip-section-tests');
+    expect(section).toHaveTextContent('40 Multi-turn');
+    expect(section).toHaveTextContent('5 Single-turn');
+  });
+
+  it('shows only the type that has tests', () => {
+    renderCard({
+      ...DEFAULT_PROPS,
+      requirement: makeRequirement({
+        test_counts: { total: 45, multi_turn: 45, single_turn: 0 },
+      }),
+    });
+
+    const section = screen.getByTestId('chip-section-tests');
+    expect(section).toHaveTextContent('45 Multi-turn');
+    expect(section).not.toHaveTextContent('Single-turn');
+  });
+
+  it.each([
+    ['no tests', { total: 0, multi_turn: 0, single_turn: 0 }],
+    ['no counts', undefined],
+  ])('shows Tests empty text with %s', (_, test_counts) => {
+    renderCard({
+      ...DEFAULT_PROPS,
+      requirement: makeRequirement({ test_counts }),
+    });
+
+    expect(screen.getByTestId('chip-section-tests')).toHaveTextContent(
+      'No tests linked'
+    );
+  });
+
   it('does not render edit, duplicate, view metrics or add metric icons', () => {
     renderCard();
 
