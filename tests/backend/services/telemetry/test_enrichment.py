@@ -7,6 +7,7 @@ import pytest
 
 # Import semantic layer constants
 from rhesis.telemetry.attributes import AIAttributes
+from rhesis.telemetry.token_extraction import extract_cache_tokens, extract_token_usage
 
 from rhesis.backend.app.models.trace import Trace
 from rhesis.backend.app.schemas.enrichment import TokenCosts
@@ -31,6 +32,37 @@ READ_ONLY_CACHE_RATES_MODEL = "gpt-4o"
 
 class TestCalculateTokenCosts:
     """Test token cost calculation."""
+
+    def test_openai_cached_usage_costs_less_than_the_same_uncached_call(self):
+        cached_usage = {
+            "prompt_tokens": 1000,
+            "completion_tokens": 20,
+            "total_tokens": 1020,
+            "prompt_tokens_details": {"cached_tokens": 800},
+        }
+        uncached_usage = {"prompt_tokens": 1000, "completion_tokens": 20, "total_tokens": 1020}
+
+        def price(usage: dict) -> float:
+            input_tokens, output_tokens, total_tokens = extract_token_usage(usage)
+            cache_write, cache_read = extract_cache_tokens(usage)
+            span = Mock(
+                spec=Trace,
+                span_id="openai-cache",
+                attributes={
+                    AIAttributes.OPERATION_TYPE: AIAttributes.OPERATION_LLM_INVOKE,
+                    AIAttributes.MODEL_NAME: READ_ONLY_CACHE_RATES_MODEL,
+                    AIAttributes.LLM_TOKENS_INPUT: input_tokens,
+                    AIAttributes.LLM_TOKENS_OUTPUT: output_tokens,
+                    AIAttributes.LLM_TOKENS_TOTAL: total_tokens,
+                    AIAttributes.LLM_TOKENS_CACHE_WRITE: cache_write,
+                    AIAttributes.LLM_TOKENS_CACHE_READ: cache_read,
+                },
+            )
+            costs = calculate_token_costs([span])
+            assert costs is not None and costs.total_cost_usd is not None
+            return costs.total_cost_usd
+
+        assert price(cached_usage) < price(uncached_usage)
 
     def test_calculate_costs_for_gpt4(self):
         """Test cost calculation for GPT-4 model using LiteLLM pricing in both USD and EUR."""
