@@ -60,11 +60,21 @@ ROLE_SETTINGS: dict[str, ModelSettings] = {
 }
 
 
+_configured = False
+
+
 def configure_sdk() -> None:
-    """Chat Completions only, and no trace upload to OpenAI (it 401s without an OpenAI key)."""
+    """Chat Completions only, and no trace upload to OpenAI (it 401s without an OpenAI key).
+
+    Runs once: `tracing.install` may route spans to Rhesis afterwards, and a later call must
+    not switch that off again."""
+    global _configured
+    if _configured:
+        return
     set_default_openai_api("chat_completions")
     set_tracing_disabled(True)
     set_trace_processors([])
+    _configured = True
 
 
 def provider_name() -> str:
@@ -135,3 +145,21 @@ def _litellm_model(name: str, key: str | None) -> Model:
 
 def model_settings(role: Role) -> ModelSettings:
     return ROLE_SETTINGS[role]
+
+
+@dataclass(frozen=True)
+class AgentModels:
+    """One model per agent role, so tests can script each role on its own."""
+
+    triage: Model
+    answer: Model
+    # None turns the critic off; the code checks still run.
+    critic: Model | None = None
+
+    @classmethod
+    def from_env(cls, *, critic: bool = True) -> AgentModels:
+        return cls(
+            triage=build_model("triage"),
+            answer=build_model("answer"),
+            critic=build_model("critic") if critic else None,
+        )

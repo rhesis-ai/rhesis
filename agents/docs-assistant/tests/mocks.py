@@ -13,12 +13,15 @@ from typing import Any
 
 from agents import Model
 from agents.items import ModelResponse
+from agents.tracing import generation_span
 from agents.usage import Usage
 from openai.types.responses import (
     ResponseFunctionToolCall,
     ResponseOutputMessage,
     ResponseOutputText,
 )
+
+from docs_assistant.models import AgentModels
 
 _ids = itertools.count(1)
 
@@ -68,12 +71,45 @@ def draft(**overrides: Any) -> dict[str, Any]:
         "undocumented": [],
         "premise_correction": None,
         "related_pages": [],
+        "clarification": None,
+        "adapted_code": [],
+        "conflicts": [],
     }
     return {**base, **overrides}
 
 
 def submit(**overrides: Any):
     return tool_call("submit_answer", draft=draft(**overrides))
+
+
+def triage_part(
+    question: str,
+    kind: str = "docs",
+    surface: str = "unknown",
+    in_scope_uncertain: bool = False,
+) -> dict[str, Any]:
+    return {
+        "standalone_question": question,
+        "kind": kind,
+        "surface": surface,
+        "in_scope_uncertain": in_scope_uncertain,
+    }
+
+
+def triage(
+    *parts: dict[str, Any],
+    language: str = "en",
+    wants_troubleshooting: bool = False,
+    clarification: dict[str, Any] | None = None,
+):
+    """A triage verdict as the model's JSON reply."""
+    decision = {
+        "parts": list(parts),
+        "language": language,
+        "wants_troubleshooting": wants_troubleshooting,
+        "clarification": clarification,
+    }
+    return text(json.dumps(decision))
 
 
 class ScriptedModel(Model):
@@ -121,6 +157,15 @@ class ScriptedModel(Model):
             output_tokens=0,
             total_tokens=self.tokens_per_call,
         )
+        # Real models open a generation span per call; so does this one, for the trace tests.
+        with generation_span(
+            model="scripted",
+            input=input if isinstance(input, list) else [{"role": "user", "content": input}],
+            output=[item.model_dump() for item in output],
+            usage={"input_tokens": self.tokens_per_call, "output_tokens": 0},
+            disabled=tracing.is_disabled(),
+        ):
+            pass
         return ModelResponse(output=output, usage=usage, response_id=None)
 
     def stream_response(self, *args, **kwargs):
@@ -129,6 +174,36 @@ class ScriptedModel(Model):
     def input_text(self, request: int) -> str:
         """Everything the model was sent in one request, for asserting on tool results."""
         return json.dumps(self.requests[request]["input"], default=str)
+
+
+class EchoTriage(ScriptedModel):
+    """Triage that sends every message to the answer agent as one docs part."""
+
+    def __init__(self, language: str = "en") -> None:
+        super().__init__([])
+        self.language = language
+
+    async def get_response(self, system_instructions, input, *args, **kwargs) -> ModelResponse:
+        question = input if isinstance(input, str) else str(input[-1].get("content"))
+        self.script = [[triage(triage_part(question), language=self.language)]]
+        return await super().get_response(system_instructions, input, *args, **kwargs)
+
+
+def models(
+    answer: Model | None = None, triage: Model | None = None, critic: Model | None = None
+) -> AgentModels:
+    return AgentModels(
+        triage=triage or EchoTriage(), answer=answer or ScriptedModel([]), critic=critic
+    )
+
+
+def verdict(*supported: bool, route_ok: bool = True, reason: str = "not in the text"):
+    """A critic verdict as the model's JSON reply, one flag per claim."""
+    claims = [
+        {"index": n, "supported": ok, "reason": "" if ok else reason}
+        for n, ok in enumerate(supported, start=1)
+    ]
+    return text(json.dumps({"claims": claims, "route_ok": route_ok}))
 
 
 def _fresh(item):

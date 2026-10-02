@@ -6,8 +6,10 @@ from examples.run_evals import RowResult, load_rows, page_recall, route_ok, summ
 
 def test_eval_rows_are_valid():
     rows = load_rows()
-    assert len(rows) == 10
+    assert len(rows) >= 40
     assert len({r["id"] for r in rows}) == len(rows)
+    # Every route is covered by at least one row.
+    assert {r["expected_route"] for r in rows} == {route.value for route in Route}
     for row in rows:
         assert row["question"].strip()
         Route(row["expected_route"])
@@ -41,3 +43,25 @@ def test_summary_skips_rows_without_pages_for_recall():
     assert summary["route_correct"] == 1
     assert summary["page_recall"] == 1.0
     assert summary["mean_seconds"] == 2.0
+
+
+def test_scenarios_cover_the_planned_fourteen():
+    from examples.run_scenarios import SCENARIOS
+
+    names = [s.name for s in SCENARIOS]
+    assert len(names) == 14 and len(set(names)) == 14
+
+
+def test_scenario_citation_check_accepts_alternatives_and_prefixes():
+    from types import SimpleNamespace
+
+    from examples.run_scenarios import cites
+
+    response = SimpleNamespace(
+        citations=[SimpleNamespace(url="https://docs.rhesis.ai/sdk/metrics/single-turn#x")]
+    )
+    assert cites(response, "sdk/*") == []
+    assert cites(response, "docs/metrics/metric-scope|sdk/metrics/single-turn") == []
+    assert cites(response, "sdk/installation") == [
+        "no citation of sdk/installation (cited: sdk/metrics/single-turn)"
+    ]

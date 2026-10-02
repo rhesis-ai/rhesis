@@ -10,6 +10,9 @@ from functools import cache
 PUBLIC_DOCS_URL = "https://docs.rhesis.ai"
 
 
+OFF = {"off", "0", "false", "no"}
+
+
 def _int(name: str, default: int) -> int:
     value = os.getenv(name)
     return int(value) if value else default
@@ -33,6 +36,12 @@ class Settings:
     turn_timeout: float
     token_budget: int
     page_window_chars: int
+    max_input_chars: int
+    max_parts: int
+    max_clarify_streak: int
+    max_retries: int
+    critic: bool
+    session_ttl: int
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -49,6 +58,12 @@ class Settings:
             token_budget=_int("DOCS_ASSISTANT_TOKEN_BUDGET", 60_000),
             # About 6K tokens of page text per fetch.
             page_window_chars=_int("DOCS_ASSISTANT_PAGE_WINDOW_CHARS", 24_000),
+            max_input_chars=_int("DOCS_ASSISTANT_MAX_INPUT_CHARS", 2000),
+            max_parts=_int("DOCS_ASSISTANT_MAX_PARTS", 3),
+            max_clarify_streak=_int("DOCS_ASSISTANT_MAX_CLARIFY_STREAK", 1),
+            max_retries=_int("DOCS_ASSISTANT_MAX_RETRIES", 2),
+            critic=os.getenv("DOCS_ASSISTANT_CRITIC", "on").strip().lower() not in OFF,
+            session_ttl=_int("DOCS_ASSISTANT_SESSION_TTL", 1800),
         )
 
 
