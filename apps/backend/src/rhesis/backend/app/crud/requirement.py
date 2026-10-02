@@ -14,9 +14,11 @@ eager-loads the relationships, which is why the list endpoint calls the detail v
 import uuid
 from typing import Dict, Iterable, List, Optional
 
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
+from rhesis.backend.app.constants import TestType
 from rhesis.backend.app.utils.crud_utils import (
     create_item,
     delete_item,
@@ -125,6 +127,66 @@ def delete_requirement(
 ) -> Optional[models.Requirement]:
     """Delete requirement."""
     return delete_item(db, models.Requirement, requirement_id, organization_id, user_id)
+
+
+def get_test_counts_by_requirement(
+    db: Session,
+    requirement_ids: Iterable[uuid.UUID],
+    organization_id: str,
+    project_id: uuid.UUID | None = None,
+) -> Dict[str, schemas.RequirementTestCounts]:
+    """Linked-test counts per requirement, split by single-/multi-turn.
+
+    Counts the same tests the ``/tests`` list shows for ``requirement_id eq ...``, so a card
+    matches its detail page's Linked tests tab. The predicates are spelled out because the
+    ambient soft-delete and scope listeners don't reliably cover a column-only grouped select
+    (see ``crud.test.get_test_facets``). Untyped tests count as single-turn, as at run time.
+    """
+    ids = [uuid.UUID(str(r)) for r in requirement_ids]
+    if not ids:
+        return {}
+    Test = models.Test
+    is_multi_turn = models.TypeLookup.type_value == TestType.MULTI_TURN.value
+    query = (
+        db.query(Test.requirement_id, is_multi_turn, func.count(Test.id))
+        .outerjoin(models.TypeLookup, Test.test_type_id == models.TypeLookup.id)
+        .filter(
+            Test.requirement_id.in_(ids),
+            Test.deleted_at.is_(None),
+            Test.explorer_row.is_(False),
+            Test.metric_id.is_(None),
+            Test.organization_id == uuid.UUID(str(organization_id)),
+        )
+        .group_by(Test.requirement_id, is_multi_turn)
+    )
+    if project_id is not None:
+        # Mirrors the ambient project predicate: org-wide rows carry no project.
+        query = query.filter(or_(Test.project_id == project_id, Test.project_id.is_(None)))
+
+    counts = {str(rid): schemas.RequirementTestCounts() for rid in ids}
+    for requirement_id, multi_turn, count in query.all():
+        entry = counts[str(requirement_id)]
+        if multi_turn:
+            entry.multi_turn += count
+        else:
+            entry.single_turn += count
+        entry.total += count
+    return counts
+
+
+def attach_test_counts(
+    db: Session,
+    requirements: List[models.Requirement],
+    organization_id: str,
+    project_id: uuid.UUID | None = None,
+) -> List[models.Requirement]:
+    """Set ``test_counts`` on each requirement for ``RequirementWithMetricsSchema``."""
+    counts = get_test_counts_by_requirement(
+        db, [r.id for r in requirements], organization_id, project_id
+    )
+    for requirement in requirements:
+        requirement.test_counts = counts[str(requirement.id)]
+    return requirements
 
 
 def get_requirement_names(db: Session, requirement_ids: Iterable[str]) -> Dict[str, str]:
