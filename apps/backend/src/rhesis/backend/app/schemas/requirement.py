@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional, Union
 
-from pydantic import UUID4, Field
+from pydantic import UUID4, BaseModel, Field
 
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.tag import Tag, TagRead
@@ -28,6 +28,14 @@ class Requirement(RequirementBase, ServerIdentity):
     tags: List[Tag] = Field(default_factory=list)
     created_at: Optional[Union[datetime, str]] = None
     user: Optional[UserReference] = None
+
+
+class RequirementTestCounts(BaseModel):
+    """How many tests are linked to a requirement, by test type."""
+
+    total: int = 0
+    single_turn: int = 0
+    multi_turn: int = 0
 
 
 # The detailed model with expanded relations.

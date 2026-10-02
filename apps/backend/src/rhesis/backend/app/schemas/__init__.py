@@ -122,6 +122,7 @@ from .requirement import (
     RequirementBase,
     RequirementCreate,
     RequirementDetail,
+    RequirementTestCounts,
     RequirementUpdate,
 )
 from .source import (
@@ -249,6 +250,7 @@ __all__ = [
     "RequirementBase",
     "RequirementCreate",
     "RequirementDetail",
+    "RequirementTestCounts",
     "RequirementUpdate",
     "Category",
     "CategoryBase",

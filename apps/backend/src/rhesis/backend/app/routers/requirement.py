@@ -9,6 +9,7 @@ from pydantic import create_model
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
+from rhesis.backend.app.auth.rbac import project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import (
     REQUIREMENT_RESOURCE_NAME,
@@ -44,12 +45,13 @@ logger = logging.getLogger(__name__)
 # tags is overridden to TagRead (not the base Tag) to match the minimal shape
 # used everywhere else tags are embedded in a read response (e.g. RequirementDetail,
 # TestSetDetail) -- otherwise this endpoint alone leaks organization_id/user_id
-# per tag.
+# per tag. test_counts is only filled by the two read endpoints.
 RequirementWithMetricsSchema = create_model(
     "RequirementWithMetrics",
     __base__=schemas.Requirement,
     metrics=(List[schemas.Metric], []),
     tags=(List[TagRead], []),
+    test_counts=(schemas.RequirementTestCounts | None, None),
 )
 
 router = RhesisRouter(
@@ -113,6 +115,7 @@ def read_requirements(
         organization_id=organization_id,
         user_id=user_id,
     )
+    requirement_crud.attach_test_counts(db, results, organization_id, project_id_from_scope(db))
     if select:
         serialized = jsonable_encoder(results)
         return JSONResponse(content=apply_select(serialized, select))
@@ -133,6 +136,9 @@ def read_requirement(
     )
     if db_requirement is None:
         raise HTTPException(status_code=404, detail="Requirement not found")
+    requirement_crud.attach_test_counts(
+        db, [db_requirement], organization_id, project_id_from_scope(db)
+    )
     return db_requirement
 
 
