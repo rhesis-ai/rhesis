@@ -4,12 +4,15 @@ import Box from '@mui/material/Box';
 import MuiLink from '@mui/material/Link';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import RocketLaunchOutlinedIcon from '@mui/icons-material/RocketLaunchOutlined';
 import type { Theme } from '@mui/material/styles';
+import { GridBadge } from '@/components/common/GridBadge';
 import { PlanBadge, PlanCrownIcon } from '@/components/common/PlanBadge';
 import { UPGRADE_URL } from '@/constants/quota';
 import { planLabel } from '@/utils/plan';
 import { usePlan } from '@/contexts/FeaturesContext';
 import { useCanUpgrade } from '@/hooks/useQuotaGate';
+import { useQuickStart } from '@/contexts/QuickStartContext';
 import {
   NAV_CARD_ICON_GAP,
   collapsedNavItemSx,
@@ -25,15 +28,24 @@ interface SidebarPlanRowProps {
 export function SidebarPlanRow({ collapsed = false }: SidebarPlanRowProps) {
   const plan = usePlan();
   const canUpgrade = useCanUpgrade();
+  const quickStart = useQuickStart();
   const label = planLabel(plan);
   if (label === null) return null;
 
+  const heading = quickStart ? 'Mode' : 'Plan';
+  const badgeLabel = quickStart ? 'Quick Start' : label;
+  const icon = quickStart ? (
+    <RocketLaunchOutlinedIcon aria-hidden="true" />
+  ) : (
+    <PlanCrownIcon plan={plan} />
+  );
+
   if (collapsed) {
     return (
-      <Tooltip title={`Plan: ${label}`} placement="right">
+      <Tooltip title={`${heading}: ${badgeLabel}`} placement="right">
         <Box
           role="group"
-          aria-label={`Plan: ${label}`}
+          aria-label={`${heading}: ${badgeLabel}`}
           sx={{
             ...navCardRowSx({ interactive: false }),
             ...collapsedNavItemSx,
@@ -47,7 +59,7 @@ export function SidebarPlanRow({ collapsed = false }: SidebarPlanRowProps) {
               color: (theme: Theme) => theme.palette.greyscale.body,
             }}
           >
-            <PlanCrownIcon plan={plan} />
+            {icon}
           </Box>
         </Box>
       </Tooltip>
@@ -57,7 +69,7 @@ export function SidebarPlanRow({ collapsed = false }: SidebarPlanRowProps) {
   return (
     <Box
       role="group"
-      aria-label={`Plan: ${label}`}
+      aria-label={`${heading}: ${badgeLabel}`}
       sx={{
         ...navCardRowSx({ interactive: false }),
         flexDirection: 'column',
@@ -70,7 +82,7 @@ export function SidebarPlanRow({ collapsed = false }: SidebarPlanRowProps) {
         variant="caption"
         sx={{ color: (theme: Theme) => theme.palette.greyscale.subtitle }}
       >
-        Plan
+        {heading}
       </Typography>
 
       <Box
@@ -86,12 +98,16 @@ export function SidebarPlanRow({ collapsed = false }: SidebarPlanRowProps) {
             color: (theme: Theme) => theme.palette.greyscale.body,
           }}
         >
-          <PlanCrownIcon plan={plan} />
+          {icon}
         </Box>
 
-        <PlanBadge plan={plan} />
+        {quickStart ? (
+          <GridBadge label="Quick Start" size="grid" />
+        ) : (
+          <PlanBadge plan={plan} />
+        )}
 
-        {canUpgrade && (
+        {canUpgrade && !quickStart && (
           <MuiLink
             href={UPGRADE_URL}
             target="_blank"
