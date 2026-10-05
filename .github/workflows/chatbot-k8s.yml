@@ -5,6 +5,8 @@ on:
     branches: [ main ]
     paths:
       - 'apps/chatbot/**'
+      - 'sdk/**'
+      - 'packages/rhesis/**'
       - '.github/workflows/chatbot-k8s.yml'
   workflow_dispatch:
     inputs:

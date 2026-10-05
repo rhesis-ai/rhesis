@@ -6,10 +6,14 @@ on:
     branches: [ main ]
     paths:
       - 'penelope/**'
+      - 'sdk/**'
+      - 'packages/rhesis/**'
   push:
     branches: [ main ]
     paths:
       - 'penelope/**'
+      - 'sdk/**'
+      - 'packages/rhesis/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}

@@ -7,6 +7,8 @@ on:
       - 'apps/worker/**'
       - 'apps/backend/**'
       - 'sdk/**'
+      - 'packages/rhesis/**'
+      - 'ee/backend/**'
       - 'penelope/**'
       - '.github/workflows/worker-k8s.yml'
   workflow_dispatch:

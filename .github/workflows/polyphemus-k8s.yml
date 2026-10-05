@@ -5,6 +5,8 @@ on:
     branches: [ main ]
     paths:
       - 'apps/polyphemus/**'
+      - 'apps/backend/**'
+      - 'packages/rhesis/**'
       - 'sdk/**'
       - '.github/workflows/polyphemus-k8s.yml'
   workflow_dispatch:
