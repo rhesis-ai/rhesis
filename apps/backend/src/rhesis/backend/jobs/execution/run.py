@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Dict
+from typing import Any, Dict
 
 from sqlalchemy.orm import Session
 
@@ -8,6 +8,8 @@ from rhesis.backend.app import schemas
 from rhesis.backend.app.crud import test_run as test_run_crud
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
+from rhesis.backend.app.models.user import User
+from rhesis.backend.app.services.run_models import check_run_models
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.jobs.enums import RunStatus
 
@@ -20,14 +22,70 @@ class TestExecutionError(Exception):
     pass
 
 
+#: Tells ``create_test_run`` to build the metric plan itself.
+_BUILD_PLAN: Any = object()
+
+
+def snapshot_metric_plan(
+    session: Session, test_config: TestConfiguration, user_id: str | None
+) -> Dict[str, Any] | None:
+    """Build the run's metric plan (jobs/execution/metric_plan.py) before any test runs.
+
+    Best-effort. On failure it returns ``None``, the run still dispatches, and
+    get_verdict_matrix rebuilds a grid from recorded results instead.
+    """
+    if not test_config.test_set_id or test_config.test_set is None:
+        return None
+
+    from rhesis.backend.jobs.execution.metric_plan import build_metric_plan
+
+    # SAVEPOINT, not a bare try: the plan runs several queries, and a DB
+    # error in any of them (statement timeout, serialization failure)
+    # aborts the surrounding transaction. Swallowing that without
+    # rolling back would turn a skippable snapshot into an
+    # InFailedSqlTransaction on the create_test_run that follows.
+    nested = session.begin_nested()
+    try:
+        plan = build_metric_plan(
+            session,
+            test_config,
+            test_config.test_set,
+            organization_id=str(test_config.organization_id),
+            user_id=user_id,
+        )
+        nested.commit()
+        return plan
+    except Exception:
+        nested.rollback()
+        logger.warning(
+            f"Failed to build metric plan for test configuration {test_config.id}",
+            exc_info=True,
+        )
+        return None
+
+
+def plan_run_for_user(
+    session: Session, test_config: TestConfiguration, user: User
+) -> Dict[str, Any] | None:
+    """Build the metric plan for a run *user* is starting, and refuse the run if a
+    model it needs cannot be built. Pass the result to :func:`create_test_run`."""
+    plan = snapshot_metric_plan(session, test_config, str(user.id))
+    check_run_models(session, user, test_config, plan)
+    return plan
+
+
 def create_test_run(
     session: Session,
     test_config: TestConfiguration,
     task_info: Dict | None = None,
     current_user_id: str | None = None,
     initial_status: RunStatus = RunStatus.QUEUED,
+    metric_plan: Dict[str, Any] | None = _BUILD_PLAN,
 ) -> TestRun:
-    """Create a new test run with initial status and metadata."""
+    """Create a new test run with initial status and metadata.
+
+    *metric_plan* is the plan from :func:`plan_run_for_user`. Left out, it is built here.
+    """
     task_info = task_info or {}
     status = get_or_create_status(
         session,
@@ -105,35 +163,12 @@ def create_test_run(
         user_id=str(executor_user_id) if executor_user_id else str(test_config.user_id or ""),
     )
 
-    # Freeze the verdict grid's frame (requirements, metric rows, column
-    # count) before any test runs -- see jobs/execution/metric_plan.py.
-    # Best-effort: a run whose plan could not be built still dispatches, and
-    # get_verdict_matrix rebuilds a grid from recorded results instead.
-    if test_config.test_set_id and test_config.test_set is not None:
-        from rhesis.backend.jobs.execution.metric_plan import build_metric_plan
-
-        # SAVEPOINT, not a bare try: the plan runs several queries, and a DB
-        # error in any of them (statement timeout, serialization failure)
-        # aborts the surrounding transaction. Swallowing that without
-        # rolling back would turn a skippable snapshot into an
-        # InFailedSqlTransaction on the create_test_run below.
-        nested = session.begin_nested()
-        try:
-            snapshot.attributes["metric_plan"] = build_metric_plan(
-                session,
-                test_config,
-                test_config.test_set,
-                organization_id=str(test_config.organization_id),
-                user_id=str(executor_user_id) if executor_user_id else None,
-            )
-            nested.commit()
-        except Exception:
-            nested.rollback()
-            snapshot.attributes.pop("metric_plan", None)
-            logger.warning(
-                f"Failed to build metric plan for test configuration {test_config.id}",
-                exc_info=True,
-            )
+    if metric_plan is _BUILD_PLAN:
+        metric_plan = snapshot_metric_plan(
+            session, test_config, str(executor_user_id) if executor_user_id else None
+        )
+    if metric_plan is not None:
+        snapshot.attributes["metric_plan"] = metric_plan
 
     test_run_data = {
         "test_configuration_id": test_config.id,

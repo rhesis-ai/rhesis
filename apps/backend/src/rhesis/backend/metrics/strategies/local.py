@@ -90,7 +90,9 @@ class LocalStrategy:
         organization_id: Optional[str] = None,
         score_evaluator: Optional[ScoreEvaluator] = None,
         metric_models: Optional[Dict[str, Any]] = None,
+        require_model: bool = False,
     ) -> None:
+        self._require_model = require_model
         self._model = model
         self._db = db
         self._organization_id = organization_id
@@ -126,6 +128,7 @@ class LocalStrategy:
             organization_id=self._organization_id,
             metric_models=self._metric_models,
             refused=refused,
+            require_model=self._require_model,
         )
         results = self._execute_metrics_in_parallel(
             metric_tasks,
@@ -174,6 +177,7 @@ class LocalStrategy:
             organization_id=self._organization_id,
             metric_models=self._metric_models,
             refused=refused,
+            require_model=self._require_model,
         )
         if not metric_tasks:
             logger.warning("No metrics to evaluate (async)")
@@ -868,6 +872,25 @@ def _merge_refused(results: Dict[str, Any], refused: List[Dict[str, Any]]) -> Di
     return results
 
 
+#: Shown on a metric the run had no model to judge with.
+NO_JUDGE_MODEL_REASON = (
+    "This metric was not scored because the run had no evaluation model for it. Run the test again."
+)
+
+
+def _no_model_result(metric_config: MetricConfig, backend: str) -> Dict[str, Any]:
+    return MetricResultBuilder.error(
+        reason=NO_JUDGE_MODEL_REASON,
+        backend=backend,
+        name=metric_config.name or metric_config.class_name,
+        class_name=metric_config.class_name,
+        description=metric_config.description or "",
+        error=NO_JUDGE_MODEL_REASON,
+        error_type="NoJudgeModel",
+        threshold=metric_config.threshold,
+    )
+
+
 def prepare_metrics(
     metrics: List[MetricConfig],
     expected_output: Optional[str],
@@ -877,6 +900,7 @@ def prepare_metrics(
     organization_id: Optional[str] = None,
     metric_models: Optional[Dict[str, Any]] = None,
     refused: Optional[List[Dict[str, Any]]] = None,
+    require_model: bool = False,
 ) -> List[Tuple[str, BaseMetric, MetricConfig, str]]:
     """Instantiate metric objects via SDK factory, resolving models from DB.
 
@@ -894,6 +918,8 @@ def prepare_metrics(
         refused: Filled with an error result per metric whose model it can't judge
             with (a decision model on a non-categorical metric), so the run shows
             the metric as errored instead of silently leaving it out.
+        require_model: Refuse a metric that has no model to judge with, instead of
+            letting the SDK build its own default (wrong model, no usage stamp).
 
     Returns:
         List of tuples containing (class_name, metric_instance, metric_config, backend).
@@ -924,6 +950,12 @@ def prepare_metrics(
                 logger.debug(
                     f"[METRIC_MODEL] Using user's default model for '{metric_name_for_log}'"
                 )
+
+            if metric_model is None and require_model:
+                logger.error(f"[METRIC_MODEL] No model to judge '{metric_name_for_log}' with")
+                if refused is not None:
+                    refused.append(_no_model_result(metric_config, backend))
+                continue
 
             if metric_model is not None:
                 metric_params["model"] = metric_model

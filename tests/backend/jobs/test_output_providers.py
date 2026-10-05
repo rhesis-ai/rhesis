@@ -458,35 +458,18 @@ class TestMultiTurnOutput:
         mock_agent_instance.execute_test.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_default_model_when_none(self):
-        """MultiTurnOutput creates PenelopeAgent without model when model is None."""
-        mock_penelope_result = MagicMock()
-        mock_penelope_result.model_dump.return_value = {
-            CONVERSATION_SUMMARY_KEY: [],
-            "metrics": {},
-        }
-
-        mock_agent_class = MagicMock()
-        mock_agent_instance = MagicMock()
-        mock_agent_instance.execute_test.return_value = mock_penelope_result
-        mock_agent_class.return_value = mock_agent_instance
+    async def test_no_execution_model_does_not_start_penelope(self):
+        """Penelope would build its own default: not the run's model, and unstamped."""
+        from rhesis.backend.jobs.execution.constants import NO_EXECUTION_MODEL_ERROR
 
         mock_test = MagicMock()
         mock_test.test_configuration = {"goal": "Test goal"}
 
-        # Both imports are lazy (inside get_output); patch at their source modules
         with (
-            patch(_RESOLVE_CONTRACT, return_value=(None, True)),
-            patch(
-                "rhesis.penelope.PenelopeAgent",
-                mock_agent_class,
-            ),
-            patch(
-                "rhesis.backend.jobs.execution.penelope_target.BackendEndpointTarget",
-            ),
+            patch(_RESOLVE_CONTRACT, return_value=(None, True)) as resolve_contract,
+            patch("rhesis.penelope.PenelopeAgent") as mock_agent_class,
         ):
-            provider = MultiTurnOutput(model=None)
-            await provider.get_output(
+            output = await MultiTurnOutput(model=None).get_output(
                 db=MagicMock(),
                 test=mock_test,
                 endpoint_id="ep-1",
@@ -494,8 +477,11 @@ class TestMultiTurnOutput:
                 user_id="user-1",
             )
 
-        # When model is None, PenelopeAgent() is called with no args
-        mock_agent_class.assert_called_once_with()
+        mock_agent_class.assert_not_called()
+        resolve_contract.assert_not_called()
+        assert output.response == {"status": "error", "error": NO_EXECUTION_MODEL_ERROR}
+        assert output.contract_usable is False
+        assert output.metrics == {}
 
     @pytest.mark.asyncio
     async def test_resolved_contract_is_passed_to_penelope(self):

@@ -10,9 +10,11 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
-from rhesis.backend.app.quota.enforcement import QuotaExceededError
+from rhesis.backend.app.services.run_models import resolve_run_models
 from rhesis.backend.app.services.test_run_timing import TestPhase
 from rhesis.backend.jobs.enums import ExecutionMode, RunStatus
+from rhesis.backend.jobs.execution.executors.data import get_live_metric_backends
+from rhesis.backend.jobs.execution.modes import is_multi_turn_test
 from rhesis.backend.jobs.execution.run import update_test_run_status
 from rhesis.backend.jobs.execution.shared import (
     create_execution_result,
@@ -111,83 +113,21 @@ def execute_tests_sequentially(
     # Update test run with start information using shared utility
     update_test_run_start(session, test_run, ExecutionMode.SEQUENTIAL, len(tests), start_time)
 
-    # Resolve execution and evaluation models from test_config.attributes
-    # overrides or user defaults (same logic as batch prefetch_execution_context).
-    execution_model = None
-    evaluation_model = None
-    try:
-        from rhesis.backend.app.config.settings import get_model_settings
-        from rhesis.backend.app.crud import user as user_crud
-        from rhesis.backend.app.utils.user_model_utils import (
-            resolve_default_hosted_model,
-            resolve_model,
-        )
-
-        model_settings = get_model_settings()
-        attrs = test_config.attributes or {}
-        override_execution_model_id = attrs.get("execution_model_id")
-        override_evaluation_model_id = attrs.get("evaluation_model_id")
-        seq_user_id = str(test_config.user_id) if test_config.user_id else None
-        seq_org_id = str(test_config.organization_id) if test_config.organization_id else None
-
-        if seq_user_id:
-            user = user_crud.get_user_by_id(session, seq_user_id)
-            if user:
-                execution_model = resolve_model(
-                    session, user, "execution", override=override_execution_model_id
-                )
-                evaluation_model = resolve_model(
-                    session, user, "evaluation", override=override_evaluation_model_id
-                )
-            else:
-                # Resolve rather than passing the bare default string on:
-                # the string is only turned into a model much later, inside
-                # Penelope / the metric judge, and a model built there carries
-                # no provenance stamp. See resolve_default_hosted_model.
-                logger.warning(f"User {seq_user_id} not found, using default models")
-                execution_model = resolve_default_hosted_model(
-                    model_settings.execution_model, session, seq_org_id
-                )
-                evaluation_model = resolve_default_hosted_model(
-                    model_settings.evaluation_model, session, seq_org_id
-                )
-        else:
-            execution_model = resolve_default_hosted_model(
-                model_settings.execution_model, session, seq_org_id
-            )
-            evaluation_model = resolve_default_hosted_model(
-                model_settings.evaluation_model, session, seq_org_id
-            )
-    except QuotaExceededError:
-        # Not a resolution failure -- let it propagate as-is. The broad
-        # except below would otherwise retry the identical call against the
-        # same org and quota state, misreport it as "failed to resolve" in
-        # the log, and only raise the same error a second time anyway.
-        raise
-    except Exception as e:
-        from rhesis.backend.app.config.settings import get_model_settings
-        from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
-
-        logger.warning(f"Failed to resolve execution/evaluation models: {e}")
-        model_settings = get_model_settings()
-        fallback_org_id = str(test_config.organization_id) if test_config.organization_id else None
-        if execution_model is None:
-            execution_model = resolve_default_hosted_model(
-                model_settings.execution_model, session, fallback_org_id
-            )
-        if evaluation_model is None:
-            evaluation_model = resolve_default_hosted_model(
-                model_settings.evaluation_model, session, fallback_org_id
-            )
-
-    # Name the model that was actually resolved, so the run's Configuration tab can show it
-    # instead of the raw override UUID (or nothing at all when the default was used).
-    from rhesis.backend.app.services.run_config import record_resolved_evaluation_model
-
-    record_resolved_evaluation_model(
+    # Builds only the models this run uses (app/services/run_models.py). Tests and metrics
+    # are read again here, so one edited since dispatch still gets its model.
+    run_models = resolve_run_models(
         session,
-        test_run=test_run,
-        model_name=getattr(evaluation_model, "model_name", None),
+        test_config,
+        test_run,
+        replay=bool(reference_test_run_id or trace_id),
+        live_backends=get_live_metric_backends(
+            session,
+            tests,
+            test_config,
+            str(test_config.organization_id) if test_config.organization_id else None,
+            str(test_config.user_id) if test_config.user_id else None,
+        ),
+        live_multi_turn=any(is_multi_turn_test(test) for test in tests),
     )
 
     # Cooperative cancellation: checked once per test, the only safe point in
@@ -234,8 +174,8 @@ def execute_tests_sequentially(
                     if test_config.organization_id
                     else None,
                     user_id=str(test_config.user_id) if test_config.user_id else None,
-                    execution_model=execution_model,
-                    evaluation_model=evaluation_model,
+                    execution_model=run_models.execution,
+                    evaluation_model=run_models.evaluation,
                     reference_test_run_id=reference_test_run_id,
                     trace_id=trace_id,
                     on_test_phase=on_test_phase,

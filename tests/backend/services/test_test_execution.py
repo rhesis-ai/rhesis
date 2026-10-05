@@ -23,6 +23,9 @@ from tests.backend.routes.fixtures.data_factories import (
     TopicDataFactory,
 )
 
+# The service resolves models through services/run_models.py, which calls this at its source.
+_RESOLVE_MODEL = "rhesis.backend.app.utils.user_model_utils.resolve_model"
+
 # Import fixtures
 
 fake = Faker()
@@ -162,7 +165,7 @@ class TestExecuteTestInPlace:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.resolve_model"
+                "rhesis.backend.app.utils.user_model_utils.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.SingleTurnRunner"
@@ -232,7 +235,7 @@ class TestExecuteTestInPlace:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.resolve_model"
+                "rhesis.backend.app.utils.user_model_utils.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.SingleTurnRunner"
@@ -300,7 +303,7 @@ class TestExecuteTestInPlace:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.resolve_model"
+                "rhesis.backend.app.utils.user_model_utils.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.MultiTurnRunner"
@@ -369,7 +372,7 @@ class TestExecuteTestInPlace:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.resolve_model"
+                "rhesis.backend.app.utils.user_model_utils.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.SingleTurnRunner"
@@ -425,7 +428,7 @@ class TestExecuteTestInPlace:
 
         # Mock the evaluation model
         with patch(
-            "rhesis.backend.app.services.test_execution.resolve_model"
+            "rhesis.backend.app.utils.user_model_utils.resolve_model"
         ) as mock_get_model:
             mock_get_model.return_value = "gpt-4"
 
@@ -458,7 +461,7 @@ class TestExecuteTestInPlace:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.resolve_model"
+                "rhesis.backend.app.utils.user_model_utils.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.SingleTurnRunner"
@@ -518,7 +521,7 @@ class TestExecuteTestInPlace:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.resolve_model"
+                "rhesis.backend.app.utils.user_model_utils.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.SingleTurnRunner"
@@ -872,7 +875,7 @@ class TestEdgeCases:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.resolve_model"
+                "rhesis.backend.app.utils.user_model_utils.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.SingleTurnRunner"
@@ -930,7 +933,7 @@ class TestEdgeCases:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.resolve_model"
+                "rhesis.backend.app.utils.user_model_utils.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.SingleTurnRunner"
@@ -994,7 +997,7 @@ class TestEdgeCases:
         # Mock the evaluation model and runner
         with (
             patch(
-                "rhesis.backend.app.services.test_execution.resolve_model"
+                "rhesis.backend.app.utils.user_model_utils.resolve_model"
             ) as mock_get_model,
             patch(
                 "rhesis.backend.app.services.test_execution.MultiTurnRunner"
@@ -1048,16 +1051,17 @@ class TestInPlaceExecutionPrefetchRunsOffTheLoop:
         inline_test = MagicMock()
         inline_test.id = uuid4()
         inline_test.prompt_id = None
-        inline_test.test_type.type_value = "Single-Turn"
+        # Multi-turn, so both models are needed and resolved.
+        inline_test.test_type.type_value = "Multi-Turn"
 
         def _load(*_args, **_kwargs):
             threads.append(threading.get_ident())
             return inline_test, str(inline_test.id), "prompt", "expected"
 
         with (
-            patch.object(test_execution, "resolve_model", _resolve),
+            patch(_RESOLVE_MODEL, _resolve),
             patch.object(test_execution, "_load_test_for_execution", _load),
-            patch.object(test_execution, "SingleTurnRunner") as runner_class,
+            patch.object(test_execution, "MultiTurnRunner") as runner_class,
         ):
             runner_class.return_value.run = AsyncMock(return_value=(1.0, {"out": 1}, {}))
 
@@ -1071,10 +1075,63 @@ class TestInPlaceExecutionPrefetchRunsOffTheLoop:
             )
 
         assert result["test_id"] == str(inline_test.id)
-        # Two resolve_model calls plus the test lookup, all on one worker thread.
+        # The test lookup plus both resolve_model calls, all on one worker thread.
         assert len(threads) == 3
         assert len(set(threads)) == 1
         assert threading.get_ident() not in threads
+
+
+@pytest.mark.unit
+class TestInPlaceExecutionBuildsOnlyNeededModels:
+    """`POST /tests/execute` follows the same rule as a full run (issue #2853)."""
+
+    def _prepare(self, test_type, backends, evaluate_metrics=True, resolve=None):
+        inline_test = MagicMock()
+        inline_test.id = uuid4()
+        inline_test.test_type.type_value = test_type
+
+        with (
+            patch(_RESOLVE_MODEL, resolve or (lambda _db, _who, purpose, override=None: purpose)),
+            patch.object(
+                test_execution,
+                "_load_test_for_execution",
+                return_value=(inline_test, str(inline_test.id), "prompt", "expected"),
+            ),
+            patch.object(test_execution, "get_test_metrics", return_value=[MagicMock()]),
+            patch.object(test_execution, "metric_backends", return_value=backends),
+        ):
+            evaluation, execution, *_ = test_execution._prepare_execution(
+                MagicMock(), {}, str(uuid4()), str(uuid4()), evaluate_metrics, MagicMock()
+            )
+        return evaluation, execution
+
+    def test_sdk_only_single_turn_builds_no_model(self):
+        assert self._prepare("Single-Turn", ["sdk"]) == (None, None)
+
+    def test_llm_metric_builds_only_the_evaluation_model(self):
+        assert self._prepare("Single-Turn", ["rhesis", "sdk"]) == ("evaluation", None)
+
+    def test_single_turn_without_metric_evaluation_builds_no_model(self):
+        assert self._prepare("Single-Turn", ["rhesis"], evaluate_metrics=False) == (None, None)
+
+    def test_multi_turn_builds_both(self):
+        assert self._prepare("Multi-Turn", ["sdk"]) == ("evaluation", "execution")
+
+    def test_an_unbuildable_needed_model_is_reported_as_not_configured(self):
+        from rhesis.backend.app.utils.model_errors import (
+            ModelConfigurationError,
+            ModelNotConfiguredError,
+        )
+
+        def _broken(*_args, **_kwargs):
+            raise ModelConfigurationError("API key not found for provider 'openai'")
+
+        with pytest.raises(ModelNotConfiguredError) as exc_info:
+            self._prepare("Single-Turn", ["rhesis"], resolve=_broken)
+
+        assert exc_info.value.purpose == "evaluation"
+        # The same broken model does not stop a test that never uses it.
+        assert self._prepare("Single-Turn", ["sdk"], resolve=_broken) == (None, None)
 
 
 @pytest.mark.unit
@@ -1096,7 +1153,7 @@ class TestInPlaceExecutionAccruesUsage:
         org_id = str(uuid4())
 
         with (
-            patch.object(test_execution, "resolve_model", return_value="gpt-4"),
+            patch(_RESOLVE_MODEL, return_value="gpt-4"),
             patch.object(
                 test_execution,
                 "_load_test_for_execution",
@@ -1122,7 +1179,7 @@ class TestInPlaceExecutionAccruesUsage:
         inline_test = self._inline_test()
 
         with (
-            patch.object(test_execution, "resolve_model", return_value="gpt-4"),
+            patch(_RESOLVE_MODEL, return_value="gpt-4"),
             patch.object(
                 test_execution,
                 "_load_test_for_execution",

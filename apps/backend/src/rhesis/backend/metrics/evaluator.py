@@ -40,6 +40,7 @@ class MetricEvaluator:
         connector_metric_sender: Optional[ConnectorMetricSender] = None,
         extra_strategies: Optional[List[MetricStrategy]] = None,
         metric_models: Optional[Dict[str, Any]] = None,
+        require_model: bool = False,
     ) -> None:
         """
         Initialize evaluator with optional backend strategy overrides.
@@ -57,6 +58,8 @@ class MetricEvaluator:
             metric_models: Judge models already resolved by `model_id`, for callers
                 that have no live session to resolve them with. Required in the batch
                 path, which runs after its session is closed; see `prepare_metrics`.
+            require_model: Report a local metric left without a model as an error
+                instead of letting the SDK build its own default. Set by test runs.
         """
         score_evaluator = ScoreEvaluator()
 
@@ -66,6 +69,7 @@ class MetricEvaluator:
             organization_id=organization_id,
             score_evaluator=score_evaluator,
             metric_models=metric_models,
+            require_model=require_model,
         )
 
         self._connector_strategy: MetricStrategy = ConnectorStrategy(

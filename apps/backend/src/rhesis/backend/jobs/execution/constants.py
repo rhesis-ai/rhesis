@@ -40,3 +40,10 @@ __all__ = [
     "BUILTIN_GOAL_ROW_KEY",
     "MetricScope",
 ]
+
+#: Reported on a multi-turn test the run had no execution model for. Penelope would
+#: otherwise build its own default, which is not the model the run chose.
+NO_EXECUTION_MODEL_ERROR = (
+    "This multi-turn test was not run because the run had no execution model for it. "
+    "Run the test again."
+)

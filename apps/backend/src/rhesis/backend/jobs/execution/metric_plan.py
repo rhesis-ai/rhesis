@@ -20,6 +20,8 @@ Plan shape::
       ],
       "test_order": [test_id, ...],          # every column, in grid order
       "cell_keys": {test_id: {metric_ref: jsonb_key}},
+      "metric_backends": ["rhesis", "sdk"],  # distinct backends of every resolved metric
+      "has_multi_turn": bool,
     }
 
 ``test_ids`` is what scopes a metric row to its own requirement's columns: a
@@ -27,6 +29,9 @@ row spans every column in ``test_order``, so without it a row would claim
 cells for tests belonging to some other requirement, and (when two
 requirements carry a same-named metric) read that other requirement's
 verdicts as its own.
+
+``metric_backends`` and ``has_multi_turn`` are what
+``app/services/run_models.py`` reads to decide which models the run has to build.
 
 ``cell_keys`` maps a metric row to the ``test_metrics`` JSONB key the runtime
 will actually store that metric's result under, per test. It is not always
@@ -57,6 +62,7 @@ from rhesis.backend.app.crud.test_run import get_ordered_tests_for_test_set
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas.metric import MetricScope
+from rhesis.backend.app.services.run_models import metric_backends
 from rhesis.backend.jobs.execution.constants import (
     BUILTIN_GOAL_ROW_KEY,
     PENELOPE_EVALUATED_METRICS,
@@ -70,6 +76,8 @@ _EMPTY_PLAN: Dict[str, Any] = {
     "requirements": [],
     "test_order": [],
     "cell_keys": {},
+    "metric_backends": [],
+    "has_multi_turn": False,
 }
 
 
@@ -231,6 +239,7 @@ def _build_metric_plan(
     requirements_payload: List[Dict[str, Any]] = []
     cell_keys: Dict[str, Dict[str, str]] = {}
     sources: set = set()
+    resolved_metrics: List[models.Metric] = []
 
     # Execution-time and test-set metrics apply uniformly across the whole
     # run -- resolving them per requirement group (below) still works, since
@@ -262,6 +271,7 @@ def _build_metric_plan(
                 return_source=True,
             )
         sources.add(source)
+        resolved_metrics.extend(metrics)
 
         keyed = _assign_metric_keys(metrics)
 
@@ -328,4 +338,6 @@ def _build_metric_plan(
         "requirements": requirements_payload,
         "test_order": test_order,
         "cell_keys": cell_keys,
+        "metric_backends": metric_backends(db, resolved_metrics),
+        "has_multi_turn": bool(multi_turn_test_ids),
     }

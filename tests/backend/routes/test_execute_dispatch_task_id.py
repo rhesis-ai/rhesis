@@ -36,8 +36,11 @@ class TestExecuteDispatchTaskId:
 
         captured = {}
 
-        def fake_create_test_run(db, config, task_info=None, current_user_id=None):
+        def fake_create_test_run(
+            db, config, task_info=None, current_user_id=None, metric_plan=None
+        ):
             captured["stored_id"] = (task_info or {}).get("id")
+            captured["metric_plan"] = metric_plan
             return test_run
 
         with (
@@ -48,6 +51,11 @@ class TestExecuteDispatchTaskId:
             patch(
                 "rhesis.backend.app.routers.test_configuration.create_test_run",
                 side_effect=fake_create_test_run,
+            ),
+            # The model check; it returns the metric plan the run is created with.
+            patch(
+                "rhesis.backend.app.routers.test_configuration.plan_run_for_user",
+                return_value={"metric_backends": ["sdk"]},
             ),
             patch("rhesis.backend.app.routers.test_configuration.launch_job") as mock_launch,
         ):
@@ -73,3 +81,6 @@ class TestExecuteDispatchTaskId:
             "the id stored on the test run must be the id dispatched under, "
             "or revoking it cannot cancel the queued run"
         )
+
+        # The plan the models were checked against is the one stored on the run.
+        assert captured["metric_plan"] == {"metric_backends": ["sdk"]}

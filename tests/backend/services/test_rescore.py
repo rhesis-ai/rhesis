@@ -17,6 +17,10 @@ from rhesis.backend.app.schemas.test_set import (
     TestRunRescoreRequest,
 )
 
+# The model check, imported locally inside rescore_test_run. Covered against a real
+# database in tests/backend/routes/test_execute_model_needs.py.
+_PLAN_RUN = "rhesis.backend.jobs.execution.run.plan_run_for_user"
+
 # ============================================================================
 # TestRunRescoreRequest schema tests
 # ============================================================================
@@ -167,6 +171,7 @@ class TestRescoreTestRunService:
                 "rhesis.backend.jobs.launch_job",
                 return_value=mock_task_result,
             ) as mock_launcher,
+            patch(_PLAN_RUN) as mock_plan_run,
         ):
             from rhesis.backend.app.services.test_run import (
                 rescore_test_run,
@@ -192,6 +197,9 @@ class TestRescoreTestRunService:
         assert attrs["reference_test_run_id"] == ref_run_id
         assert attrs["is_rescore"] is True
 
+        # The models the re-score needs are checked against the new config, before launch
+        assert mock_plan_run.call_args.args[1:] == (mock_new_config, mock_user)
+
         # Verify task was launched
         mock_launcher.assert_called_once()
 
@@ -199,6 +207,39 @@ class TestRescoreTestRunService:
         assert result["status"] == "submitted"
         assert result["reference_test_run_id"] == ref_run_id
         assert result["task_id"] == "celery-task-123"
+
+    def test_does_not_launch_when_a_needed_model_cannot_be_built(self):
+        from rhesis.backend.app.utils.model_errors import ModelNotConfiguredError
+
+        mock_ref_run = MagicMock()
+        mock_ref_run.test_configuration.endpoint_id = uuid4()
+        mock_ref_run.test_configuration.test_set_id = None
+        mock_user = MagicMock()
+        mock_user.organization_id = uuid4()
+        mock_user.id = uuid4()
+
+        with (
+            patch("rhesis.backend.app.services.test_run.get_test_run", return_value=mock_ref_run),
+            patch(
+                "rhesis.backend.app.services.test_run.test_configuration_crud.create_test_configuration",
+                return_value=MagicMock(id=uuid4()),
+            ),
+            patch("rhesis.backend.jobs.launch_job") as mock_launcher,
+            patch(
+                _PLAN_RUN,
+                side_effect=ModelNotConfiguredError("evaluation", ValueError("no key")),
+            ),
+        ):
+            from rhesis.backend.app.services.test_run import rescore_test_run
+
+            with pytest.raises(ModelNotConfiguredError):
+                rescore_test_run(
+                    db=MagicMock(),
+                    reference_test_run_id=str(uuid4()),
+                    current_user=mock_user,
+                )
+
+        mock_launcher.assert_not_called()
 
     def test_includes_metrics_override(self):
         """When metrics are provided, they are included in config attributes."""
@@ -237,6 +278,7 @@ class TestRescoreTestRunService:
                 "rhesis.backend.jobs.launch_job",
                 return_value=mock_task_result,
             ),
+            patch(_PLAN_RUN),
         ):
             from rhesis.backend.app.services.test_run import (
                 rescore_test_run,

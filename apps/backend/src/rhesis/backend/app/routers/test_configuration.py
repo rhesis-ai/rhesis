@@ -23,14 +23,15 @@ from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services.test_set import enforce_test_run_quota
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.utils.execution_validation import (
-    handle_execution_error,
-    validate_execution_model,
-)
+from rhesis.backend.app.utils.execution_validation import handle_execution_error
 from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.jobs import launch_job
 from rhesis.backend.jobs.enums import RunStatus
-from rhesis.backend.jobs.execution.run import create_test_run, update_test_run_status
+from rhesis.backend.jobs.execution.run import (
+    create_test_run,
+    plan_run_for_user,
+    update_test_run_status,
+)
 from rhesis.backend.jobs.test_configuration import execute_test_configuration
 
 router = RhesisRouter(
@@ -189,7 +190,6 @@ def execute_test_configuration_endpoint(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
-    _validate_model=Depends(validate_execution_model),
     _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_EXECUTIONS)),
 ):
     """
@@ -229,6 +229,9 @@ def execute_test_configuration_endpoint(
                 db_test_configuration.attributes = attrs
                 db.commit()
 
+        # Metrics are resolved here, so this is where the run's models can be checked.
+        metric_plan = plan_run_for_user(db, db_test_configuration, current_user)
+
         # Pre-generate the Celery task ID so it can be stored in the test
         # run record before the task is dispatched.  This guarantees the
         # cancel endpoint always has a task_id to revoke, even if the
@@ -243,6 +246,7 @@ def execute_test_configuration_endpoint(
             db_test_configuration,
             task_info={"id": celery_task_id},
             current_user_id=str(current_user.id) if current_user else None,
+            metric_plan=metric_plan,
         )
         db.commit()
 

@@ -25,6 +25,7 @@ from rhesis.backend.app.crud import test_result as test_result_crud
 from rhesis.backend.app.crud.telemetry import get_trace_by_id
 from rhesis.backend.app.dependencies import get_endpoint_service
 from rhesis.backend.app.services.endpoint.result_processing import process_endpoint_result
+from rhesis.backend.jobs.execution.constants import NO_EXECUTION_MODEL_ERROR
 
 logger = logging.getLogger(__name__)
 
@@ -296,6 +297,15 @@ class MultiTurnOutput(OutputProvider):
         max_turns = test_config.get("max_turns") or 10
         min_turns = test_config.get("min_turns")
 
+        if not self.model:
+            logger.error("[MultiTurn] No execution model for test %s, not running it", test.id)
+            return TestOutput(
+                response={"status": "error", "error": NO_EXECUTION_MODEL_ERROR},
+                execution_time=(datetime.now(timezone.utc) - start_time).total_seconds() * 1000,
+                metrics={},
+                contract_usable=False,
+            )
+
         contract, contract_usable = resolve_multi_turn_contract(db, test, user_id)
 
         # Nothing this run could produce would be scoreable, so don't run it. Every verdict
@@ -334,12 +344,8 @@ class MultiTurnOutput(OutputProvider):
         )
         from rhesis.penelope import PenelopeAgent
 
-        # Both branches stamped -- see the fuller note in batch/runner.py.
-        agent = (
-            PenelopeAgent(model=ensure_language_model(self.model))
-            if self.model
-            else PenelopeAgent()
-        )
+        # See the fuller note in batch/runner.py.
+        agent = PenelopeAgent(model=ensure_language_model(self.model))
         stamp_usage_provenance(agent.model, metered=True)
 
         target = BackendEndpointTarget(
