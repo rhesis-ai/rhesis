@@ -6,10 +6,15 @@ import type { Plan } from '@/utils/api-client/features-client';
 import type { NavigationLinkItem } from '@/types/navigation';
 import { UPGRADE_URL } from '@/constants/quota';
 import { usePlan } from '@/contexts/FeaturesContext';
+import { useQuickStart } from '@/contexts/QuickStartContext';
 import { useCanUpgrade } from '@/hooks/useQuotaGate';
 
 jest.mock('@/contexts/FeaturesContext', () => ({
   usePlan: jest.fn(),
+}));
+
+jest.mock('@/contexts/QuickStartContext', () => ({
+  useQuickStart: jest.fn(),
 }));
 
 jest.mock('@/hooks/useQuotaGate', () => ({
@@ -17,6 +22,9 @@ jest.mock('@/hooks/useQuotaGate', () => ({
 }));
 
 const mockUsePlan = usePlan as jest.MockedFunction<typeof usePlan>;
+const mockUseQuickStart = useQuickStart as jest.MockedFunction<
+  typeof useQuickStart
+>;
 const mockUseCanUpgrade = useCanUpgrade as jest.MockedFunction<
   typeof useCanUpgrade
 >;
@@ -33,18 +41,21 @@ const plan = (over: Partial<Plan> = {}): Plan => ({
  * it present on first paint. */
 function renderRow(
   value: Plan | null | undefined,
-  { canUpgrade = false } = {}
+  { canUpgrade = false, quickStart = false } = {}
 ) {
   // No default for `value`: a default would swallow an explicitly passed
   // `undefined`, which is one of the cases under test.
   mockUsePlan.mockReturnValue(value ?? null);
   mockUseCanUpgrade.mockReturnValue(canUpgrade);
+  mockUseQuickStart.mockReturnValue(quickStart);
   return render(<SidebarPlanRow />);
 }
 
 beforeEach(() => {
   mockUsePlan.mockReset();
+  mockUseQuickStart.mockReset();
   mockUseCanUpgrade.mockReset();
+  mockUseQuickStart.mockReturnValue(false);
   mockUseCanUpgrade.mockReturnValue(false);
 });
 
@@ -59,6 +70,38 @@ describe('SidebarPlanRow', () => {
   it('labels the row', () => {
     renderRow(plan());
     expect(screen.getByText('Plan')).toBeInTheDocument();
+  });
+
+  describe('quick start mode', () => {
+    it('reads "Mode" with a rocket icon and "Quick Start" badge', () => {
+      const { container } = renderRow(plan(), { quickStart: true });
+      expect(screen.getByText('Mode')).toBeInTheDocument();
+      expect(screen.queryByText('Plan')).not.toBeInTheDocument();
+      expect(screen.getByText('Quick Start')).toBeInTheDocument();
+      expect(screen.queryByText('Team')).not.toBeInTheDocument();
+      expect(
+        screen.getByRole('group', { name: 'Mode: Quick Start' })
+      ).toBeInTheDocument();
+      expect(
+        container.querySelector('[data-testid="RocketLaunchOutlinedIcon"]')
+      ).toBeInTheDocument();
+    });
+
+    it('hides the upgrade link', () => {
+      renderRow(plan({ name: 'Community', is_paid: false, is_active: false }), {
+        quickStart: true,
+        canUpgrade: true,
+      });
+      expect(
+        screen.queryByRole('link', { name: /upgrade/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it('still renders when the plan is not yet loaded', () => {
+      renderRow(null, { quickStart: true });
+      expect(screen.getByText('Mode')).toBeInTheDocument();
+      expect(screen.getByText('Quick Start')).toBeInTheDocument();
+    });
   });
 
   it('reads the tier out with what it describes', () => {
@@ -209,7 +252,7 @@ describe('SidebarPlanRow', () => {
       expect(p.flexShrink).toBe('0');
     });
 
-    it('keeps the whole word "Plan" whatever the tier is called', () => {
+    it('keeps the whole heading whatever the tier is called', () => {
       renderRow(plan({ name: 'An Extremely Long Tier Name Indeed' }));
       expect(screen.getByText('Plan')).toBeInTheDocument();
       expect(
