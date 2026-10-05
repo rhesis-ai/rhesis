@@ -71,7 +71,7 @@ The SDK reads two environment variables. `RHESIS_API_KEY` is a token for the dep
 | Deployment | `RHESIS_API_KEY` | `RHESIS_BASE_URL` |
 | --- | --- | --- |
 | Local (`./rh start`) | `rh-local-token`, or a token from **API Tokens** at http://localhost:3000/tokens | `http://localhost:8080` |
-| Rhesis Cloud | A token from [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens) | Leave unset (defaults to `https://api.rhesis.ai`) |
+| Rhesis Cloud | A token from [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens) | Leave unset. The SDK then calls Rhesis Cloud (`https://api.rhesis.ai`), not your local instance. |
 
 `./rh start` creates `rh-local-token` for the local admin user. A token only works on the deployment that issued it, so `rh-local-token` fails against Rhesis Cloud and a cloud token fails against `localhost`.
 
@@ -83,7 +83,7 @@ export RHESIS_BASE_URL="http://localhost:8080"`}
 </CodeBlock>
 
 <Callout type="info">
-The Rhesis API key you may have pasted in **Connect a model** is a different thing. It lets your local backend call the models hosted by Rhesis. The SDK never needs it, because SDK calls go to your local backend, which uses the model you connected.
+The Rhesis API key you may have pasted in **Connect a model** is a different thing. It lets your local backend call the models hosted by Rhesis. In this local setup the SDK doesn't need it, because SDK calls go to your local backend, which uses the model you connected. Against Rhesis Cloud, the SDK uses a Cloud token as `RHESIS_API_KEY`.
 </Callout>
 
 ### Set up your REST endpoint
@@ -217,6 +217,6 @@ graph LR
 
 - **Port already in use**: `lsof -i :3000` to find the process, then `kill -9 <PID>`.
 - **Services not starting**: check `./rh logs`, or `./rh delete && ./rh start` for a clean slate.
-- **Model not working**: open **Models** and use **Test Connection** on the model. For a key set as `RHESIS_API_KEY` in `.env.docker.local`, check the value, then `./rh restart`.
+- **Model not working**: open **Models** and use **Test Connection** on the model. A key pasted in **Connect a model** is stored in the app, so change it on the **Models** page; no restart is needed. Only a key set as `RHESIS_API_KEY` in `.env.docker.local` needs `./rh restart` after you change it.
 
 For self-hosting details beyond this quickstart, see the [Docker Compose deployment guide](/self-hosting/docker-compose).
