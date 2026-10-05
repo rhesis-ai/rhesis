@@ -196,7 +196,8 @@ quickstart_prompt_api_key() {
     local api_key=""
     echo ""
     step "🔑 Rhesis API Key"
-    note "   Test generation requires a Rhesis API key to call the generation service."
+    note "   A Rhesis API key runs every model feature (test generation, evaluation,"
+    note "   multi-turn execution) on the models hosted by Rhesis."
     echo -e "${WHITE}   Get your key at: ${CYAN}https://app.rhesis.ai/tokens${NC}"
     echo ""
 
@@ -206,14 +207,14 @@ quickstart_prompt_api_key() {
     fi
 
     if [ -z "$api_key" ]; then
-        warn "Skipping — test generation will not work without a valid API key"
-        echo -e "${YELLOW}   Add it later: ${WHITE}RHESIS_API_KEY=<your-key>${YELLOW} in ${QUICKSTART_ENV_FILE}${NC}"
+        warn "Skipping. Model features stay off until you connect a model."
+        echo -e "${YELLOW}   The app opens on a ${WHITE}Connect a model${YELLOW} step. Paste a Rhesis API key there later, or add your own model.${NC}"
         return 0
     fi
 
     {
         echo ""
-        echo "# Rhesis API Key (required for test generation)"
+        echo "# Rhesis API Key (runs every model feature on Rhesis-hosted models)"
         echo "RHESIS_API_KEY=$api_key"
     } >> "$QUICKSTART_ENV_FILE"
     chmod 600 "$QUICKSTART_ENV_FILE"

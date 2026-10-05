@@ -78,7 +78,8 @@ key permanently undecryptable. Back it up and keep it stable.
 
 Everything else in the file already has a working local default or is safely disabled —
 `APP_DB_PASS`/`REDIS_PASSWORD` (in-cluster Postgres/Redis), `RHESIS_API_KEY` (placeholder, so
-generation/evaluation calls fail closed until you set a real key), `STORAGE_SERVICE_URI`
+generation/evaluation calls fail closed until you set a real key or connect a model in the app's
+**Connect a model** step), `STORAGE_SERVICE_URI`
 (bind-mounted local storage), `CHATBOT_API_KEY` (optional — the bundled chatbot demo falls back
 to public rate limits without it), and the Enterprise-only `AUDIT_HASH_KEY`/`SSO_ENCRYPTION_KEY`.
 

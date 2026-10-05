@@ -9,7 +9,7 @@ Testing LLM and agentic apps is challenging: outputs are non-deterministic, edge
 ## Prerequisites
 
 - Docker running, and ports 3000, 8080, 8081, 5432, and 6379 free
-- An AI provider API key (Rhesis API, OpenAI, Azure OpenAI, or Google Gemini)
+- A model to connect: a Rhesis API key from [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens), a provider account (OpenAI, Anthropic, Gemini, and others), or a local model
 
 ## Step 1: Clone and Start (5 minutes)
 
@@ -38,49 +38,11 @@ Once services are running:
 />
 
 
-## Step 3: Configure AI Provider (1 minute)
+## Step 3: Connect a Model (1 minute)
 
-Configure an AI provider to enable test generation:
+The first time you open http://localhost:3000, the app shows a **Connect a model** step. Choose **Use a Rhesis API key** to run on the models hosted by Rhesis, or **Add your own model** to connect a provider account or a local model. The step closes as soon as the model works, with no restart.
 
-### Option 1: Use Rhesis API (Recommended)
-
-1. Get your API key from https://app.rhesis.ai/
-2. Edit `.env.docker.local` and add:
-
-<CodeBlock filename=".env.docker.local" language="bash">
-{`RHESIS_API_KEY=your-actual-rhesis-api-key-here`}
-</CodeBlock>
-
-### Option 2: Use Your Own AI Provider
-
-Add your provider's credentials **and set the default models** to use that provider in `.env.docker.local`:
-
-<CodeBlock filename=".env.docker.local" language="bash">
-{`# Google Gemini
-GEMINI_API_KEY=your-gemini-api-key
-GOOGLE_API_KEY=your-google-api-key
-DEFAULT_GENERATION_MODEL=gemini/gemini-2.0-flash-001
-DEFAULT_EVALUATION_MODEL=gemini/gemini-2.0-flash-001
-
-# Or Azure OpenAI
-AZURE_OPENAI_ENDPOINT=your-endpoint
-AZURE_OPENAI_API_KEY=your-key
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
-AZURE_OPENAI_API_VERSION=your-version
-DEFAULT_GENERATION_MODEL=azure/gpt-4o
-DEFAULT_EVALUATION_MODEL=azure/gpt-4o
-
-# Or OpenAI
-OPENAI_API_KEY=your-openai-key
-DEFAULT_GENERATION_MODEL=openai/gpt-4o
-DEFAULT_EVALUATION_MODEL=openai/gpt-4o`}
-</CodeBlock>
-
-After updating, restart services:
-
-<CodeBlock filename="Terminal" language="bash">
-{`./rh restart`}
-</CodeBlock>
+See [Connect a Model](/self-hosting/quick-start#connect-a-model) for both options. To set models through environment variables instead, see [AI models](/self-hosting/environment-variables#ai-models).
 
 ## Step 4: Start Testing Your LLM/Agentic App (3 minutes)
 
@@ -102,34 +64,34 @@ After updating, restart services:
 {`pip install rhesis-sdk`}
 
 </CodeBlock>
-### Obtain an API key
-
-1. Visit http://localhost:3000
-2. Navigate to API Tokens
-3. Generate a new API key
-
-Your API key will be in the format `rh-XXXXXXXXXXXXXXXXXXXX`.
-Keep this key secure and never share it publicly.
-
 ### Configure the SDK
 
-Point the SDK at your local instance with environment variables:
+The SDK reads two environment variables. `RHESIS_API_KEY` is a token for the deployment you call, and `RHESIS_BASE_URL` is that deployment's backend.
+
+| Deployment | `RHESIS_API_KEY` | `RHESIS_BASE_URL` |
+| --- | --- | --- |
+| Local (`./rh start`) | `rh-local-token`, or a token from **API Tokens** at http://localhost:3000/tokens | `http://localhost:8080` |
+| Rhesis Cloud | A token from [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens) | Leave unset. The SDK then calls Rhesis Cloud (`https://api.rhesis.ai`), not your local instance. |
+
+`./rh start` creates `rh-local-token` for the local admin user. A token only works on the deployment that issued it, so `rh-local-token` fails against Rhesis Cloud and a cloud token fails against `localhost`.
+
+For this guide, point the SDK at your local instance:
 
 <CodeBlock filename="terminal" language="bash">
-{`export RHESIS_API_KEY="your-api-key"
+{`export RHESIS_API_KEY="rh-local-token"
 export RHESIS_BASE_URL="http://localhost:8080"`}
 </CodeBlock>
+
+<Callout type="info">
+The Rhesis API key you may have pasted in **Connect a model** is a different thing. It lets your local backend call the models hosted by Rhesis. In this local setup the SDK doesn't need it, because SDK calls go to your local backend, which uses the model you connected. Against Rhesis Cloud, the SDK uses a Cloud token as `RHESIS_API_KEY`.
+</Callout>
 
 ### Set up your REST endpoint
 
 Set up your REST endpoint in the UI, or use the [Rhesis connector](/sdk/connector). Then retrieve the endpoint by ID:
 
 <CodeBlock filename="endpoint.py" language="python">
-{`import os
-from rhesis.sdk.entities import Endpoint
-
-os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from http://localhost:3000
-os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"
+{`from rhesis.sdk.entities import Endpoint
 
 # Retrieve endpoint by ID
 endpoint = Endpoint(id="your-endpoint-id")
@@ -141,12 +103,8 @@ endpoint.pull()`}
 Using the SDK, synthesizer, and then the push method:
 
 <CodeBlock filename="create_test_set.py" language="python">
-{`import os
-from rhesis.sdk.entities import TestSet
+{`from rhesis.sdk.entities import TestSet
 from rhesis.sdk.synthesizers import PromptSynthesizer
-
-os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from http://localhost:3000
-os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"
 
 # Generate custom test scenarios
 synthesizer = PromptSynthesizer(
@@ -164,12 +122,8 @@ print(f"Created test set: {test_set.id}")`}
 Retrieve endpoint by ID, start a test run on the test set and endpoint:
 
 <CodeBlock filename="run_tests.py" language="python">
-{`import os
-from rhesis.sdk.entities import Endpoint, TestSet
+{`from rhesis.sdk.entities import Endpoint, TestSet
 from rhesis.sdk.entities.test_configuration import TestConfiguration
-
-os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from http://localhost:3000
-os.environ["RHESIS_BASE_URL"] = "http://localhost:8080"
 
 # Retrieve endpoint by ID
 endpoint = Endpoint(id="your-endpoint-id")
@@ -263,6 +217,6 @@ graph LR
 
 - **Port already in use**: `lsof -i :3000` to find the process, then `kill -9 <PID>`.
 - **Services not starting**: check `./rh logs`, or `./rh delete && ./rh start` for a clean slate.
-- **AI provider not working**: verify the key in `.env.docker.local`, then `./rh restart`.
+- **Model not working**: open **Models** and use **Test Connection** on the model. A key pasted in **Connect a model** is stored in the app, so change it on the **Models** page; no restart is needed. Only a key set as `RHESIS_API_KEY` in `.env.docker.local` needs `./rh restart` after you change it.
 
 For self-hosting details beyond this quickstart, see the [Docker Compose deployment guide](/self-hosting/docker-compose).

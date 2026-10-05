@@ -94,14 +94,16 @@ To use an external Redis, set `BROKER_URL` and `CELERY_RESULT_BACKEND`.
 
 ### AI Models
 
-Rhesis provides the models used for test generation, evaluation, multi-turn execution, and embeddings. By default the stack uses `rhesis/rhesis-default` for generation, evaluation, and execution, and `rhesis/rhesis-embedding` for embeddings. These models are hosted by Rhesis and require a `RHESIS_API_KEY` — without it, generation, execution, and Explorer embedding workflows will fail.
+Rhesis needs a language model for test generation, evaluation, and multi-turn execution. You don't have to configure one before the first start. While no model works, the app opens on a **Connect a model** step after sign-in, where an admin pastes a Rhesis API key or adds their own model. See [Connect a Model](/self-hosting/quick-start#connect-a-model). The **Use a Rhesis API key** option shows while `ENABLE_RHESIS_KEY` is `true`, which is the Compose default.
+
+To set a Rhesis API key for the whole deployment instead, add it to `.env.docker` and restart:
 
 <CodeBlock filename=".env.docker" language="bash">
-{`# Rhesis API key (get from https://app.rhesis.ai/)
+{`# Rhesis API key (get from https://app.rhesis.ai/tokens)
 RHESIS_API_KEY=your-actual-rhesis-api-key-here`}
 </CodeBlock>
 
-To run against your own model provider instead, see the [Environment Variables](/self-hosting/environment-variables#ai-models) reference.
+To point the defaults at your own provider through environment variables, see the [Environment Variables](/self-hosting/environment-variables#ai-models) reference.
 
 ### Optional configuration
 
