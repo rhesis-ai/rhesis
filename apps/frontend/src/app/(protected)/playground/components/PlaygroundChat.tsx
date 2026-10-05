@@ -35,7 +35,7 @@ import {
 import { FileAttachment } from '@/utils/websocket';
 import MessageBubble, { MessageBubbleSkeleton } from './MessageBubble';
 import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
-import CreateTestFromConversationDrawer from './CreateTestFromConversationDrawer';
+import CreateTestFromConversationDrawer from '@/components/tests/CreateTestFromConversationDrawer';
 import { ConversationMessage } from '@/utils/api-client/interfaces/tests';
 import { stringifyMessageContent } from '@/utils/message-content';
 import { TEST_TYPES, type TestTypeValue } from '@/constants/test-types';
