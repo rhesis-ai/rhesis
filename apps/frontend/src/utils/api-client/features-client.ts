@@ -74,6 +74,11 @@ export interface FeaturesResponse {
    * Optional to tolerate older backends that predate this field.
    */
   rhesis_key_enabled?: boolean;
+  /**
+   * Whether the user's default generation and evaluation models can be built.
+   * Also `false` before the org exists, so never gate on it during onboarding.
+   */
+  models_ready?: boolean;
 }
 
 /**

@@ -12,6 +12,7 @@ import GridToolbar, {
 } from '@/components/common/GridToolbar';
 import { useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
+import { userSettingsKeys } from '@/constants/query-keys';
 import { fetchUserSettings } from '@/hooks/useUserSettings';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useOrganization } from '@/contexts/OrganizationContext';
@@ -36,10 +37,18 @@ import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
-import type { ValidationStatus } from '../types';
+import { type ValidationStatus } from '../types';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
-import { useRhesisKeyEnabled } from '@/contexts/FeaturesContext';
-import { MODEL_TYPES, type ModelType } from '@/constants/model-types';
+import {
+  useRefreshFeatures,
+  useRhesisKeyEnabled,
+} from '@/contexts/FeaturesContext';
+import {
+  MODEL_TYPES,
+  PROVIDER_TYPE_LOOKUP_FILTER,
+  type ModelType,
+} from '@/constants/model-types';
+import { useCreateModel } from '@/hooks/useCreateModel';
 
 type ModelTypeFilter = 'all' | 'language' | 'embedding';
 
@@ -62,6 +71,10 @@ export default function ModelsPageClient({
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
   const rhesisKeyEnabled = useRhesisKeyEnabled();
+  // Model readiness rides on `GET /features`, so every change to the models
+  // or the defaults refetches it.
+  const refreshFeatures = useRefreshFeatures();
+  const createModel = useCreateModel();
   const userScope = session?.user?.id ?? '';
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Model.READ
@@ -128,7 +141,7 @@ export default function ModelsPageClient({
 
         const [types, settings, modelsResponse, statuses] = await Promise.all([
           typeLookupClient.getTypeLookups({
-            $filter: "type_name eq 'ProviderType'",
+            $filter: PROVIDER_TYPE_LOOKUP_FILTER,
             limit: 100,
           }),
           fetchUserSettings(queryClient, userScope).catch(() => null),
@@ -186,6 +199,7 @@ export default function ModelsPageClient({
 
   const refreshUserSettings = async () => {
     if (!isAuthenticated(status)) return;
+    void refreshFeatures();
     try {
       const settings = await fetchUserSettings(queryClient, userScope);
       setUserSettings(settings);
@@ -308,11 +322,9 @@ export default function ModelsPageClient({
     _providerId: string,
     modelData: ModelCreate
   ): Promise<Model> => {
-    if (!isAuthenticated(status)) throw new Error('No session token');
-    const apiFactory = new ApiClientFactory();
-    const modelsClient = apiFactory.getModelsClient();
-    const model = await modelsClient.createModel(modelData);
+    const model = await createModel(modelData);
     setConnectedModels(prev => [...prev, model]);
+    void refreshFeatures();
     return model;
   };
 
@@ -330,6 +342,7 @@ export default function ModelsPageClient({
     setConnectedModels(prev =>
       prev.map(model => (model.id === modelId ? updatedModel : model))
     );
+    void refreshFeatures();
     if (
       userSettings?.models?.generation?.model_id === modelId ||
       userSettings?.models?.evaluation?.model_id === modelId ||
@@ -356,6 +369,12 @@ export default function ModelsPageClient({
       );
       setDeleteDialogOpen(false);
       setModelToDelete(null);
+      // The backend may have moved a default off the deleted model, and the
+      // cached settings would hide that from the "Default for" chips.
+      await queryClient.invalidateQueries({
+        queryKey: userSettingsKeys.all(userScope),
+      });
+      await refreshUserSettings();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete model');
     }

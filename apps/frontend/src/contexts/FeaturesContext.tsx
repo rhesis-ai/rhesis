@@ -25,9 +25,15 @@ import type {
   FeaturesResponse,
   Plan,
 } from '@/utils/api-client/features-client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  type ReactNode,
+} from 'react';
 import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
 
 interface FeaturesState {
@@ -38,6 +44,8 @@ interface FeaturesState {
   limits: Readonly<Record<string, number | null>>;
   isLocalMode: boolean;
   rhesisKeyEnabled: boolean;
+  /** `null` means unknown (loading, fetch error, or an older backend). */
+  modelsReady: boolean | null;
   loading: boolean;
   error: Error | null;
 }
@@ -50,6 +58,7 @@ const DEFAULT_STATE: FeaturesState = {
   limits: {},
   isLocalMode: false,
   rhesisKeyEnabled: false,
+  modelsReady: null,
   loading: true,
   error: null,
 };
@@ -100,6 +109,7 @@ export function FeaturesProvider({
         limits: {},
         isLocalMode: false,
         rhesisKeyEnabled: false,
+        modelsReady: null,
         loading: false,
         error: error instanceof Error ? error : new Error(String(error)),
       };
@@ -115,6 +125,7 @@ export function FeaturesProvider({
       limits: data.limits ?? {},
       isLocalMode: data.is_local ?? false,
       rhesisKeyEnabled: data.rhesis_key_enabled ?? false,
+      modelsReady: data.models_ready ?? null,
       loading: false,
       error: null,
     };
@@ -196,6 +207,32 @@ export function useIsLocalMode(): boolean {
  */
 export function useRhesisKeyEnabled(): boolean {
   return useContext(FeaturesContext).rhesisKeyEnabled;
+}
+
+/**
+ * Whether the user's default generation and evaluation models can be built.
+ * `null` means unknown; treat it as ready, because a wrong `false` locks the
+ * user out of the app.
+ */
+export function useModelsReady(): boolean | null {
+  return useContext(FeaturesContext).modelsReady;
+}
+
+/**
+ * Returns a callback that refetches `GET /features`. Call it after anything
+ * that changes model readiness; the response is otherwise cached for five
+ * minutes.
+ */
+export function useRefreshFeatures(): () => Promise<void> {
+  const queryClient = useQueryClient();
+  const userScope = useUserScope();
+
+  return useCallback(async () => {
+    if (!userScope) return;
+    await queryClient.invalidateQueries({
+      queryKey: featureKeys.all(userScope),
+    });
+  }, [queryClient, userScope]);
 }
 
 /**

@@ -687,18 +687,44 @@ export function useArchitectChat(
         pendingCorrelationRef.current = null;
 
         const errorMsg = payload?.error || 'An error occurred';
-        setError(errorMsg);
 
-        setMessages(prev => [
-          ...prev,
-          {
-            id: generateId(),
-            role: 'assistant',
-            content: errorMsg,
-            timestamp: new Date(),
-            isError: true,
-          },
-        ]);
+        // One bubble per failure: STREAM_END may already have marked the
+        // streaming bubble, so reuse it instead of adding a second one. A
+        // bubble waiting on a background task is left for THINKING to close.
+        const streamId = streamingMessageIdRef.current;
+        const closeStream =
+          !!streamId && streamId !== waitingMessageIdRef.current;
+        if (closeStream) streamingMessageIdRef.current = null;
+
+        setMessages(prev => {
+          const streaming = closeStream
+            ? prev.find(m => m.id === streamId)
+            : undefined;
+          if (streaming && (streaming.isError || !streaming.content.trim())) {
+            return prev.map(m =>
+              m.id === streamId
+                ? {
+                    ...m,
+                    content: m.content.trim() ? m.content : errorMsg,
+                    isError: true,
+                    isStreaming: false,
+                  }
+                : m
+            );
+          }
+          return [
+            ...prev.map(m =>
+              streaming && m.id === streamId ? { ...m, isStreaming: false } : m
+            ),
+            {
+              id: generateId(),
+              role: 'assistant',
+              content: errorMsg,
+              timestamp: new Date(),
+              isError: true,
+            },
+          ];
+        });
       })
     );
 

@@ -69,6 +69,7 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     return getDefaultProgress();
   });
   const [activeTour, setActiveTour] = useState<string | null>(null);
+  const [checklistHidden, setChecklistHidden] = useState(false);
   const [driverInstance, setDriverInstance] = useState<Driver | null>(null);
   const activeTourRef = useRef<string | null>(null);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -417,6 +418,8 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     moveToNextStep,
     closeTour,
     forceSyncToDatabase,
+    checklistHidden,
+    setChecklistHidden,
   };
 
   return (

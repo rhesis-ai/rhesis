@@ -67,8 +67,13 @@ export default function OnboardingChecklist() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
-  const { progress, isComplete, completionPercentage, dismissOnboarding } =
-    useOnboarding();
+  const {
+    progress,
+    isComplete,
+    completionPercentage,
+    dismissOnboarding,
+    checklistHidden,
+  } = useOnboarding();
 
   const [expanded, setExpanded] = useState(true);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -156,8 +161,9 @@ export default function OnboardingChecklist() {
   }, []);
 
   // Don't render until mounted (avoid hydration mismatch)
-  // Don't show if dismissed or completed
-  if (!mounted || progress.dismissed || isComplete) {
+  // Don't show if dismissed or completed, or while a full-screen step is up:
+  // every checklist item leads into the app, which that step is blocking.
+  if (!mounted || checklistHidden || progress.dismissed || isComplete) {
     return null;
   }
 

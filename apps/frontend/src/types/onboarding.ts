@@ -52,4 +52,7 @@ export interface OnboardingContextValue {
   moveToNextStep: () => void;
   closeTour: () => void;
   forceSyncToDatabase: () => Promise<void>;
+  /** True while a full-screen step (e.g. "Connect a model") has taken over the app. */
+  checklistHidden: boolean;
+  setChecklistHidden: (hidden: boolean) => void;
 }

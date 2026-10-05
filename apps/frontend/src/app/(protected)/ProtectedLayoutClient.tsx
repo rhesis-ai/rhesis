@@ -18,6 +18,7 @@ import { WebSocketProvider } from '@/contexts/WebSocketContext';
 import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import NoProjectAccess from '@/components/common/NoProjectAccess';
 import TermsAcceptanceGate from '@/components/auth/TermsAcceptanceGate';
+import ModelSetupGate from '@/components/auth/ModelSetupGate';
 import type { TermsStatus } from '@/utils/api-client/auth-client';
 
 interface ExtendedUser {
@@ -115,10 +116,13 @@ export function ProtectedLayoutClient({
                     initialTermsStatus={initialTermsStatus}
                   />
                 )}
-                {!isOnboarding && !chromeless && <VerificationBanner />}
-                {!isOnboarding && !chromeless && <SetPasswordBanner />}
-                {!isOnboarding && !chromeless && <QuotaBanner />}
-                {content}
+                {/* Hard gate: wraps the banners and chromeless routes too. */}
+                <ModelSetupGate hasOrganization={hasOrganization}>
+                  {!isOnboarding && !chromeless && <VerificationBanner />}
+                  {!isOnboarding && !chromeless && <SetPasswordBanner />}
+                  {!isOnboarding && !chromeless && <QuotaBanner />}
+                  {content}
+                </ModelSetupGate>
               </NotificationsProvider>
             </WebSocketProvider>
           </UsageProvider>
