@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import RateReviewIcon from '@mui/icons-material/RateReview';
+import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import {
@@ -84,6 +85,8 @@ interface ConversationHistoryProps {
   onResponseClick?: (turnNumber: number) => void;
   /** `turnPassed` is the status shown on the turn, or undefined when it shows none. */
   onAnnotateTurn?: (turnNumber: number, turnPassed?: boolean) => void;
+  /** Shows a per-turn button that turns that exchange into a single-turn test. */
+  onCreateTestFromTurn?: (turnNumber: number) => void;
   onConfirmAutomatedAnnotation?: () => void;
   hasExistingAnnotation?: boolean;
   annotationMatchesAutomated?: boolean;
@@ -106,6 +109,7 @@ export default function ConversationHistory({
   projectName,
   onResponseClick,
   onAnnotateTurn,
+  onCreateTestFromTurn,
   onConfirmAutomatedAnnotation,
   hasExistingAnnotation = false,
   annotationMatchesAutomated = true,
@@ -432,6 +436,26 @@ export default function ConversationHistory({
                     }}
                   >
                     <RateReviewIcon sx={{ fontSize: theme.spacing(2) }} />
+                  </IconButton>
+                </Tooltip>
+              )}
+
+              {onCreateTestFromTurn && (
+                <Tooltip title="Create single-turn test from this turn">
+                  <IconButton
+                    size="small"
+                    aria-label={`Create single-turn test from turn ${turn.turn}`}
+                    onClick={() => onCreateTestFromTurn(turn.turn)}
+                    sx={{
+                      padding: 0.5,
+                      color: theme.palette.text.secondary,
+                      '&:hover': {
+                        color: theme.palette.primary.main,
+                        backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                      },
+                    }}
+                  >
+                    <ScienceOutlinedIcon sx={{ fontSize: theme.spacing(2) }} />
                   </IconButton>
                 </Tooltip>
               )}

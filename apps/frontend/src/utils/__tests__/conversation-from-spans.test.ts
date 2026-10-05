@@ -1,6 +1,8 @@
 import {
+  conversationToMessages,
   reconstructConversationFromSpans,
   traceMetricsFromSpans,
+  turnToMessages,
 } from '@/utils/conversation-from-spans';
 import type { SpanNode } from '@/utils/api-client/interfaces/telemetry';
 
@@ -37,5 +39,40 @@ describe('conversation from spans', () => {
       span({ trace_metrics: failedMetric } as Partial<SpanNode>),
     ]);
     expect(Object.keys(metrics)).toEqual(['Tone', 'Red Flag Escalation']);
+  });
+});
+
+describe('conversation to extraction messages', () => {
+  const turns = reconstructConversationFromSpans([
+    span({
+      attributes: {
+        'rhesis.conversation.input': 'Berlin to Paris?',
+        'rhesis.conversation.output': 'Try Air France.',
+      },
+    } as Partial<SpanNode>),
+    span({
+      attributes: { 'rhesis.conversation.input': 'And to New York?' },
+    } as Partial<SpanNode>),
+  ]);
+
+  it('pairs each turn as a user then assistant message', () => {
+    expect(turnToMessages(turns[0])).toEqual([
+      { role: 'user', content: 'Berlin to Paris?' },
+      { role: 'assistant', content: 'Try Air France.' },
+    ]);
+  });
+
+  it('drops the side of a turn that has no text', () => {
+    expect(turnToMessages(turns[1])).toEqual([
+      { role: 'user', content: 'And to New York?' },
+    ]);
+  });
+
+  it('keeps every turn in order for the whole conversation', () => {
+    expect(conversationToMessages(turns).map(m => m.content)).toEqual([
+      'Berlin to Paris?',
+      'Try Air France.',
+      'And to New York?',
+    ]);
   });
 });
