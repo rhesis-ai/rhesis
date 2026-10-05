@@ -44,7 +44,7 @@ function automatedVerdictFor(span: SpanNode) {
     string,
     Record<string, unknown>
   > | null;
-  if (!traceMetrics) return { passed: false, label: 'N/A', count: '0/0' };
+  if (!traceMetrics) return null;
 
   let total = 0;
   let passed = 0;
@@ -59,7 +59,9 @@ function automatedVerdictFor(span: SpanNode) {
     }
   }
 
-  const allPassed = total > 0 && passed === total;
+  // No metric ran, so there is no automated verdict to show or to conflict with.
+  if (total === 0) return null;
+  const allPassed = passed === total;
   return {
     passed: allPassed,
     label: allPassed ? 'Passed' : 'Failed',
@@ -110,6 +112,7 @@ export default function TraceAnnotationsTab({
   // conflict with.
   const last = selectedSpan.last_annotation;
   const hasConflict =
+    !!automatedStatus &&
     !!last?.status?.name &&
     selectedSpan.matches_annotation === false &&
     isPassedStatusName(last.status.name) !== automatedStatus.passed;

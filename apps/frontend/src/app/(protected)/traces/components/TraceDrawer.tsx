@@ -651,9 +651,7 @@ export default function TraceDrawer({
                     trace={trace}
                     onSpanSelect={handleSpanSelect}
                     rootSpans={trace.root_spans}
-                    onAnnotateTurn={
-                      hasTraceMetrics ? handleAnnotateTurn : undefined
-                    }
+                    onAnnotateTurn={handleAnnotateTurn}
                   />
                 )}
                 {activeViewKey === 'tree' && (
@@ -733,7 +731,7 @@ export default function TraceDrawer({
               onTraceUpdated={refreshTrace}
               onAnnotateMetric={handleAnnotateMetric}
               onAnnotateTrace={handleAnnotateTrace}
-              onAnnotateTurn={hasTraceMetrics ? handleAnnotateTurn : undefined}
+              onAnnotateTurn={handleAnnotateTurn}
               mentionableMetrics={mentionableMetrics}
               mentionableTurns={mentionableTurns}
               traceMetricsStatus={traceMetricsStatus}
@@ -795,22 +793,20 @@ export default function TraceDrawer({
         />
         {drawerContent()}
       </Box>
-      {hasTraceMetrics && (
-        <TraceAnnotationDrawer
-          open={annotationDrawerOpen}
-          onClose={() => {
-            setAnnotationDrawerOpen(false);
-            setAnnotationInitialComment(undefined);
-            setAnnotationInitialStatus(undefined);
-          }}
-          selectedSpan={selectedSpan}
-          onSave={handleAnnotationSave}
-          initialComment={annotationInitialComment}
-          initialStatus={annotationInitialStatus}
-          mentionableMetrics={mentionableMetrics}
-          mentionableTurns={mentionableTurns}
-        />
-      )}
+      <TraceAnnotationDrawer
+        open={annotationDrawerOpen}
+        onClose={() => {
+          setAnnotationDrawerOpen(false);
+          setAnnotationInitialComment(undefined);
+          setAnnotationInitialStatus(undefined);
+        }}
+        selectedSpan={selectedSpan}
+        onSave={handleAnnotationSave}
+        initialComment={annotationInitialComment}
+        initialStatus={annotationInitialStatus}
+        mentionableMetrics={mentionableMetrics}
+        mentionableTurns={mentionableTurns}
+      />
     </BaseDrawer>
   );
 }

@@ -146,21 +146,20 @@ export default function SpanDetailsPanel({
       });
     }
     if (hasTraceMetrics) {
-      tabs.push(
-        {
-          key: 'metrics',
-          label: 'Trace Metrics',
-          id: 'span-detail-tab-metrics',
-          'aria-controls': 'span-detail-tabpanel-metrics',
-        },
-        {
-          key: 'annotations',
-          label: 'Annotations',
-          id: 'span-detail-tab-annotations',
-          'aria-controls': 'span-detail-tabpanel-annotations',
-        }
-      );
+      tabs.push({
+        key: 'metrics',
+        label: 'Trace Metrics',
+        id: 'span-detail-tab-metrics',
+        'aria-controls': 'span-detail-tabpanel-metrics',
+      });
     }
+    // Annotations don't need metrics: on a trace without any, a human verdict is its only one.
+    tabs.push({
+      key: 'annotations',
+      label: 'Annotations',
+      id: 'span-detail-tab-annotations',
+      'aria-controls': 'span-detail-tabpanel-annotations',
+    });
     tabs.push({
       key: 'tasks',
       label: 'Tasks & Comments',
@@ -1182,7 +1181,7 @@ export default function SpanDetailsPanel({
           </TabPanel>
         )}
 
-        {hasTraceMetrics && trace && (
+        {trace && (
           <TabPanel value={activeTabKey} index="annotations">
             <TraceAnnotationsTab
               selectedSpan={span}
