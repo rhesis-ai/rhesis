@@ -7,12 +7,16 @@ on:
     paths:
       - 'agents/**'
       - 'sdk/**'
+      - 'packages/rhesis/**'
+      - 'penelope/**'
       - '.github/workflows/agents-test.yml'
   push:
     branches: [main]
     paths:
       - 'agents/**'
       - 'sdk/**'
+      - 'packages/rhesis/**'
+      - 'penelope/**'
       - '.github/workflows/agents-test.yml'
 
 concurrency:
@@ -41,6 +45,8 @@ jobs:
           filters: |
             sdk:
               - 'sdk/**'
+              - 'packages/rhesis/**'
+              - 'penelope/**'
               - '.github/workflows/agents-test.yml'
             agents:
               - 'agents/**'

@@ -7,6 +7,8 @@ on:
     paths:
       - 'sdk/**'
       - 'packages/rhesis/**'
+      - 'penelope/**'
+      - 'skills/rhesis/references/**'
       - 'tests/sdk/**'
       - 'tests/docker-compose.test.yml'
       - '.github/actions/sdk-wheel-smoke-test/**'
@@ -18,6 +20,8 @@ on:
     paths:
       - 'sdk/**'
       - 'packages/rhesis/**'
+      - 'penelope/**'
+      - 'skills/rhesis/references/**'
       - 'tests/sdk/**'
       - 'tests/docker-compose.test.yml'
       - '.github/actions/sdk-wheel-smoke-test/**'
