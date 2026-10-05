@@ -183,6 +183,17 @@ entry point.
 > reads it once at import time, so setting it afterwards has no effect and spans carry no
 > prompts or completions. The example sets it at the top of the file for that reason.
 
+### 11. End-User Feedback as Annotations
+**File**: `annotate_feedback.py`
+
+Demonstrates:
+- Returning the OTEL trace id alongside an answer
+- Recording a user's thumbs-down as an annotation with `annotate_trace`
+- Retrying while the trace is still being ingested
+
+**Use Case**: When users rate answers in your app and you want those ratings to override the
+automated verdict on the trace.
+
 ## Prerequisites
 
 This project uses `uv` for package management. Install it first:
@@ -320,6 +331,9 @@ uv run --extra langgraph langgraph_example.py
 
 # Haystack pipeline + agent + conversation example
 uv run --extra haystack haystack_example.py
+
+# End-user feedback recorded as an annotation
+uv run annotate_feedback.py
 ```
 
 **How it works**: `uv run` automatically:

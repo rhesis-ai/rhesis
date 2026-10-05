@@ -48,6 +48,7 @@ The Rhesis SDK empowers developers to programmatically access curated test sets 
 - [Quick Start](#-quick-start)
   - [Working with Test Sets](#working-with-test-sets-)
   - [Generating Custom Test Sets](#generating-custom-test-sets-%EF%B8%8F)
+  - [Annotating Results](#annotating-results-)
 - [About Rhesis AI](#-about-rhesis-ai)
 - [Community](#-community-)
 - [Hugging Face](#-hugging-face)
@@ -116,6 +117,30 @@ pprint(test_set.tests)
 ### Generating Custom Test Sets 🛠️
 
 If none of the existing test sets fit your needs, you can generate your own. You can check out [app.rhesis.ai](http://app.rhesis.ai). There you can define requirements, scenarios and expected behaviors.
+
+### Annotating Results 📝
+
+An annotation records a person's verdict on a test result or a trace. A pass or fail annotation overrides the automated verdict.
+
+```python
+from rhesis.sdk.entities import TestResults, TestRuns
+from rhesis.sdk.telemetry import annotate_current_trace
+
+# Read what people concluded about a run
+run = TestRuns.pull(id="your-test-run-id")
+for annotation in run.get_annotations():
+    print(annotation.status.name, annotation.user.name, annotation.comments)
+
+# Overrule the automated verdict, for the whole result or one metric
+result = TestResults.pull(id="your-test-result-id")
+result.annotate("fail", "Cites a policy that does not exist.")
+result.annotate("pass", "Relevant after all.", metric="Answer Relevancy")
+
+# From inside an instrumented app, on the trace it is recording
+annotate_current_trace("fail", "Answer failed our own validation check.")
+```
+
+See the [annotations reference](https://docs.rhesis.ai/sdk/entities/annotations) for traces, turns and querying.
 
 ## 🧪 About Rhesis AI
 
