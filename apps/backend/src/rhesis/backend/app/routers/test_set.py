@@ -47,7 +47,6 @@ from rhesis.backend.app.utils.database_exceptions import handle_database_excepti
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import (
     handle_execution_error,
-    validate_execution_model,
     validate_generation_model,
 )
 from rhesis.backend.app.utils.odata import apply_select
@@ -559,7 +558,6 @@ def execute_test_set(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
-    _validate_model=Depends(validate_execution_model),
     _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_EXECUTIONS)),
 ):
     """Submit a test set for execution against an endpoint.

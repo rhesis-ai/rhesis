@@ -7,197 +7,26 @@ This module tests the validation logic introduced for:
 - Error message conversion and handling
 """
 
-from unittest.mock import call, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi import HTTPException
 
 from rhesis.backend.app.error_handlers import PublicHTTPException
-from rhesis.backend.app.quota import QuotaResource
-from rhesis.backend.app.quota.enforcement import QuotaExceededError, QuotaVerdict
 from rhesis.backend.app.utils.execution_validation import (
     handle_execution_error,
-    validate_execution_model,
     validate_generation_model,
 )
-from rhesis.backend.app.utils.model_errors import MODEL_NOT_CONFIGURED, ModelConfigurationError
+from rhesis.backend.app.utils.model_errors import (
+    MODEL_NOT_CONFIGURED,
+    ModelConfigurationError,
+    ModelNotConfiguredError,
+)
 
 
-class TestExecutionModelValidation:
-    """Test evaluation model validation dependency."""
-
-    def test_validate_execution_model_success(self, test_db, authenticated_user):
-        """Test that validation passes with valid evaluation and execution models."""
-        with patch(
-            "rhesis.backend.app.utils.execution_validation.validate_model"
-        ) as mock_validate:
-            mock_validate.return_value = None
-
-            validate_execution_model(db=test_db, current_user=authenticated_user)
-
-            assert mock_validate.call_args_list == [
-                call(test_db, authenticated_user, "evaluation"),
-                call(test_db, authenticated_user, "execution"),
-            ]
-
-    def test_validate_execution_model_missing_api_key(self, test_db, authenticated_user):
-        """Test validation raises 400 with specific message for missing API key."""
-        with patch(
-            "rhesis.backend.app.utils.execution_validation.validate_model"
-        ) as mock_validate:
-            mock_validate.side_effect = ModelConfigurationError(
-                "API key not found for provider 'openai'. Please configure your model settings."
-            )
-
-            with pytest.raises(HTTPException) as exc_info:
-                validate_execution_model(db=test_db, current_user=authenticated_user)
-
-            assert exc_info.value.status_code == 400
-            assert exc_info.value.detail["error_code"] == MODEL_NOT_CONFIGURED
-            assert "deployment_hint" not in exc_info.value.detail
-            detail = str(exc_info.value.detail).lower()
-            assert "configured model" in detail
-            assert "api key" in detail
-
-    def test_validate_execution_model_unsupported_provider(self, test_db, authenticated_user):
-        """Test validation raises 400 with specific message for unsupported provider."""
-        with patch(
-            "rhesis.backend.app.utils.execution_validation.validate_model"
-        ) as mock_validate:
-            mock_validate.side_effect = ModelConfigurationError(
-                "Unsupported LLM provider: custom_provider"
-            )
-
-            with pytest.raises(HTTPException) as exc_info:
-                validate_execution_model(db=test_db, current_user=authenticated_user)
-
-            assert exc_info.value.status_code == 400
-            detail = str(exc_info.value.detail).lower()
-            assert "configured model" in detail
-            assert "provider" in detail
-
-    def test_validate_execution_model_invalid_model_name(self, test_db, authenticated_user):
-        """Test validation raises 400 with specific message for invalid model name."""
-        with patch(
-            "rhesis.backend.app.utils.execution_validation.validate_model"
-        ) as mock_validate:
-            mock_validate.side_effect = ModelConfigurationError(
-                "Model 'gpt-5-ultra' not found in provider 'openai'"
-            )
-
-            with pytest.raises(HTTPException) as exc_info:
-                validate_execution_model(db=test_db, current_user=authenticated_user)
-
-            assert exc_info.value.status_code == 400
-            detail = str(exc_info.value.detail).lower()
-            assert "configured model" in detail
-            assert "model" in detail
-
-    @pytest.mark.parametrize(
-        "error", [ValueError("RHESIS_API_KEY is not set"), ImportError("No module named torch")]
-    )
-    def test_validate_execution_model_deployment_default_unbuildable(
-        self, error, test_db, authenticated_user
-    ):
-        """A failure to build the *deployment's* default is a 500 that says so.
-
-        Used to propagate as a bare ValueError and answer "An unexpected error
-        occurred", leaving the cause in the logs alone (#2671). Still a 500 --
-        the caller cannot fix a server setting -- but the body now names it.
-        ImportError too, because a provider can fail on an optional dependency.
-        """
-        with patch(
-            "rhesis.backend.app.utils.execution_validation.validate_model"
-        ) as mock_validate:
-            mock_validate.side_effect = error
-
-            with pytest.raises(HTTPException) as exc_info:
-                validate_execution_model(db=test_db, current_user=authenticated_user)
-
-            assert exc_info.value.status_code == 500
-            assert isinstance(exc_info.value, PublicHTTPException)
-            detail = exc_info.value.detail
-            assert detail["error_code"] == MODEL_NOT_CONFIGURED
-            assert "Models page" in detail["message"]
-            # The setting name stays available for whoever runs the deployment.
-            assert "DEFAULT_EVALUATION_MODEL" in detail["deployment_hint"]
-            # The exception text is server-side detail and stays in the log.
-            assert str(error) not in str(detail)
-
-    def test_validate_execution_model_names_the_purpose_that_failed(
-        self, test_db, authenticated_user
-    ):
-        """Evaluation passing and execution failing names DEFAULT_EXECUTION_MODEL."""
-        with patch(
-            "rhesis.backend.app.utils.execution_validation.validate_model"
-        ) as mock_validate:
-            mock_validate.side_effect = [None, ValueError("RHESIS_API_KEY is not set")]
-
-            with pytest.raises(HTTPException) as exc_info:
-                validate_execution_model(db=test_db, current_user=authenticated_user)
-
-            assert "DEFAULT_EXECUTION_MODEL" in exc_info.value.detail["deployment_hint"]
-
-    def test_validate_execution_model_quota_error_is_not_swallowed(
-        self, test_db, authenticated_user
-    ):
-        """QuotaExceededError has to reach its own handler to become a 402."""
-        with patch(
-            "rhesis.backend.app.utils.execution_validation.validate_model"
-        ) as mock_validate:
-            mock_validate.side_effect = QuotaExceededError(
-                QuotaVerdict(
-                    resource=QuotaResource.MODEL_TOKENS,
-                    used=2,
-                    limit=1,
-                    allowed=False,
-                    over_limit=True,
-                    kind="flow",
-                    period_end="2026-10-01",
-                )
-            )
-
-            with pytest.raises(QuotaExceededError):
-                validate_execution_model(db=test_db, current_user=authenticated_user)
-
-    def test_validate_execution_model_calls_both_validators(
-        self, test_db, authenticated_user
-    ):
-        """Both evaluation and execution validators are called."""
-        with patch(
-            "rhesis.backend.app.utils.execution_validation.validate_model"
-        ) as mock_validate:
-            mock_validate.return_value = None
-
-            validate_execution_model(db=test_db, current_user=authenticated_user)
-
-            assert mock_validate.call_args_list == [
-                call(test_db, authenticated_user, "evaluation"),
-                call(test_db, authenticated_user, "execution"),
-            ]
-
-    def test_validate_execution_model_execution_model_failure(
-        self, test_db, authenticated_user
-    ):
-        """Execution model validation failure raises HTTPException even when evaluation passes."""
-        with patch(
-            "rhesis.backend.app.utils.execution_validation.validate_model"
-        ) as mock_validate:
-            def fail_on_execution(db, user, purpose):
-                if purpose == "execution":
-                    raise ModelConfigurationError(
-                        "API key not found for provider 'anthropic'."
-                    )
-
-            mock_validate.side_effect = fail_on_execution
-
-            with pytest.raises(HTTPException) as exc_info:
-                validate_execution_model(db=test_db, current_user=authenticated_user)
-
-            assert exc_info.value.status_code == 400
-            detail = str(exc_info.value.detail).lower()
-            assert "configured model" in detail
-            assert "api key" in detail
+def _own_model_broken(message: str) -> ModelNotConfiguredError:
+    """What ``validate_model`` raises for a configured model that cannot be built."""
+    return ModelNotConfiguredError("generation", ModelConfigurationError(message))
 
 
 class TestGenerationModelValidation:
@@ -220,7 +49,7 @@ class TestGenerationModelValidation:
         with patch(
             "rhesis.backend.app.utils.execution_validation.validate_model"
         ) as mock_validate:
-            mock_validate.side_effect = ModelConfigurationError(
+            mock_validate.side_effect = _own_model_broken(
                 "API key not found for provider 'anthropic'. Please configure your model settings."
             )
 
@@ -237,7 +66,7 @@ class TestGenerationModelValidation:
         with patch(
             "rhesis.backend.app.utils.execution_validation.validate_model"
         ) as mock_validate:
-            mock_validate.side_effect = ModelConfigurationError("Unknown provider: fake_llm")
+            mock_validate.side_effect = _own_model_broken("Unknown provider: fake_llm")
 
             with pytest.raises(HTTPException) as exc_info:
                 validate_generation_model(db=test_db, current_user=authenticated_user)
@@ -286,6 +115,31 @@ class TestHandleExecutionError:
         assert "configured model" in detail
         assert "provider" in detail
 
+    def test_handle_model_not_configured_own_model(self):
+        """The run's model check already knows which model failed: 400 for the org's own."""
+        error = ModelNotConfiguredError(
+            "evaluation", ModelConfigurationError("API key not found for provider 'openai'")
+        )
+
+        result = handle_execution_error(error, operation="execute test set")
+
+        assert result.status_code == 400
+        assert result.detail["error_code"] == MODEL_NOT_CONFIGURED
+        assert "deployment_hint" not in result.detail
+        assert "api key" in result.detail["message"].lower()
+
+    def test_handle_model_not_configured_deployment_default(self):
+        """A deployment default that cannot be built stays a 500 naming its own purpose."""
+        error = ModelNotConfiguredError("execution", ValueError("RHESIS_API_KEY is not set"))
+
+        result = handle_execution_error(error, operation="execute test set")
+
+        assert result.status_code == 500
+        assert isinstance(result, PublicHTTPException)
+        assert result.detail["error_code"] == MODEL_NOT_CONFIGURED
+        assert "DEFAULT_EXECUTION_MODEL" in result.detail["deployment_hint"]
+        assert "RHESIS_API_KEY" not in str(result.detail)
+
     def test_handle_value_error_generic(self):
         """Test generic ValueError without model keywords returns original message."""
         error = ValueError("Random validation error")
@@ -325,12 +179,12 @@ class TestErrorMessageContent:
         with patch(
             "rhesis.backend.app.utils.execution_validation.validate_model"
         ) as mock_validate:
-            mock_validate.side_effect = ModelConfigurationError(
+            mock_validate.side_effect = _own_model_broken(
                 "API key not found for provider 'openai'"
             )
 
             with pytest.raises(HTTPException) as exc_info:
-                validate_execution_model(db=test_db, current_user=authenticated_user)
+                validate_generation_model(db=test_db, current_user=authenticated_user)
 
             detail = str(exc_info.value.detail).lower()
             assert "configured model" in detail
@@ -341,7 +195,7 @@ class TestErrorMessageContent:
         with patch(
             "rhesis.backend.app.utils.execution_validation.validate_model"
         ) as mock_validate:
-            mock_validate.side_effect = ModelConfigurationError(
+            mock_validate.side_effect = _own_model_broken(
                 "Unsupported provider: fake_provider"
             )
 
@@ -359,12 +213,12 @@ class TestErrorMessageContent:
         with patch(
             "rhesis.backend.app.utils.execution_validation.validate_model"
         ) as mock_validate:
-            mock_validate.side_effect = ModelConfigurationError(
+            mock_validate.side_effect = _own_model_broken(
                 "Model 'gpt-10' not found in provider 'openai'"
             )
 
             with pytest.raises(HTTPException) as exc_info:
-                validate_execution_model(db=test_db, current_user=authenticated_user)
+                validate_generation_model(db=test_db, current_user=authenticated_user)
 
             detail = str(exc_info.value.detail).lower()
             assert "configured model" in detail

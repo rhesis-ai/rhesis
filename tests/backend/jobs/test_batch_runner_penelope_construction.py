@@ -17,19 +17,6 @@ import pytest
 
 from rhesis.backend.jobs.execution.batch.context import ExecutionContext
 from rhesis.backend.jobs.execution.batch.runner import run_batch
-from rhesis.sdk.models.base import BaseLLM
-
-
-class _StubLLM(BaseLLM):
-    """A real BaseLLM so stamp_usage_provenance's isinstance check passes."""
-
-    PROVIDER = "stub"
-
-    def load_model(self, *args, **kwargs):
-        return None
-
-    def generate_batch(self, *args, **kwargs):
-        return []
 
 
 def _make_execution_context(**overrides) -> ExecutionContext:
@@ -79,18 +66,13 @@ async def test_string_execution_model_is_stamped_before_penelope_receives_it():
 
 
 @pytest.mark.asyncio
-async def test_penelopes_own_default_model_is_stamped_after_construction():
-    """With no model to hand in, Penelope builds its own default. That runs
-    on this deployment's credentials like any other default, so it is stamped
-    on the instance afterwards -- which is what lets accrue_model_tokens
-    treat an unstamped model as a plain bug rather than a category needing an
-    api-key heuristic to disambiguate."""
+async def test_no_execution_model_starts_no_penelope():
+    """Penelope would build its own default: not the model the run chose. Each
+    multi-turn test reports an Error instead (see ``_run_multi_turn``)."""
     ctx = _make_execution_context(
         execution_model=None,
         test_data={"t1": {"test": MagicMock()}},
     )
-    penelopes_own_model = _StubLLM("vertex_ai/gemini-2.5-flash")
-    penelopes_own_model.warmup = AsyncMock()
 
     with (
         patch(
@@ -101,13 +83,31 @@ async def test_penelopes_own_default_model_is_stamped_after_construction():
         patch(
             "rhesis.backend.jobs.execution.batch.runner._run_gather",
             new=AsyncMock(return_value=[]),
-        ),
+        ) as run_gather,
     ):
-        mock_agent_class.return_value.model = penelopes_own_model
         await run_batch(ctx, ["t1"])
 
-    mock_agent_class.assert_called_once_with()
-    assert penelopes_own_model.usage_metered is True
+    mock_agent_class.assert_not_called()
+    assert run_gather.call_args.args[3] is None
+
+
+@pytest.mark.asyncio
+async def test_a_multi_turn_test_without_penelope_reports_an_error():
+    from rhesis.backend.jobs.execution.batch.invocation import _run_multi_turn
+    from rhesis.backend.jobs.execution.constants import NO_EXECUTION_MODEL_ERROR
+
+    test = MagicMock()
+    test.test_configuration = {"goal": "Book a flight"}
+
+    with patch(
+        "rhesis.backend.jobs.execution.batch.invocation.resolve_contract_lazy"
+    ) as resolve_contract:
+        result = await _run_multi_turn(_make_execution_context(), test, "t1", {}, [], None)
+
+    resolve_contract.assert_not_called()
+    assert result["output"] == {"status": "error", "error": NO_EXECUTION_MODEL_ERROR}
+    assert result["contract_usable"] is False
+    assert result["penelope_metrics"] == {}
 
 
 @pytest.mark.asyncio

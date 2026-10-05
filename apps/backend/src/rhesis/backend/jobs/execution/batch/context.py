@@ -18,7 +18,7 @@ from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.models.test_set import TestSet
-from rhesis.backend.app.quota.enforcement import QuotaExceededError
+from rhesis.backend.app.services.run_models import resolve_run_models
 from rhesis.backend.metrics.metric_config import metric_model_to_config
 from rhesis.sdk.metrics import MetricConfig
 
@@ -95,6 +95,13 @@ class ExecutionContext:
         return bool(self.metric_configs) or bool(self.per_test_metric_configs)
 
 
+def _all_configs(
+    metric_configs: List[MetricConfig], per_test_metric_configs: Dict[str, List[MetricConfig]]
+) -> List[MetricConfig]:
+    """Every metric config in the batch, shared and per-test."""
+    return [*metric_configs, *(c for configs in per_test_metric_configs.values() for c in configs)]
+
+
 def _resolve_metric_judge_models(
     session: Session,
     organization_id: Optional[str],
@@ -110,12 +117,8 @@ def _resolve_metric_judge_models(
     """
     from rhesis.backend.metrics.strategies.local import _resolve_metric_model
 
-    all_configs = list(metric_configs)
-    for configs in per_test_metric_configs.values():
-        all_configs.extend(configs)
-
     resolved: Dict[str, Any] = {}
-    for config in all_configs:
+    for config in _all_configs(metric_configs, per_test_metric_configs):
         model_id = (config.parameters or {}).get("model_id")
         if not model_id or model_id in resolved:
             continue
@@ -141,7 +144,6 @@ def prefetch_execution_context(
 ) -> ExecutionContext:
     """Pre-fetch all shared data in a single session before async execution."""
     from rhesis.backend.app.crud import endpoint as endpoint_crud
-    from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.database import bind_scope_to_session
     from rhesis.backend.app.models.requirement import Requirement
     from rhesis.backend.app.services.test_set import get_test_set
@@ -181,81 +183,7 @@ def prefetch_execution_context(
     except Exception as e:
         logger.warning(f"Failed to prime auth token: {e}")
 
-    # Resolve execution model (for Penelope) and evaluation model (for metrics).
-    # Per-run overrides stored in test_config.attributes take precedence over
-    # the user's defaults, which in turn fall back to env-level defaults.
     attrs = test_config.attributes or {}
-    execution_model = None
-    evaluation_model = None
-    try:
-        from rhesis.backend.app.config.settings import get_model_settings
-        from rhesis.backend.app.utils.user_model_utils import (
-            resolve_default_hosted_model,
-            resolve_model,
-        )
-
-        model_settings = get_model_settings()
-        override_execution_model_id = attrs.get("execution_model_id")
-        override_evaluation_model_id = attrs.get("evaluation_model_id")
-
-        if user_id:
-            user = user_crud.get_user_by_id(session, user_id)
-            if user:
-                execution_model = resolve_model(
-                    session, user, "execution", override=override_execution_model_id
-                )
-                evaluation_model = resolve_model(
-                    session, user, "evaluation", override=override_evaluation_model_id
-                )
-            else:
-                # Resolve rather than passing the bare default string on:
-                # the string is only turned into a model much later, inside
-                # Penelope / the metric judge, and a model built there carries
-                # no provenance stamp. See resolve_default_hosted_model.
-                logger.warning(f"User {user_id} not found, using default models")
-                execution_model = resolve_default_hosted_model(
-                    model_settings.execution_model, session, organization_id
-                )
-                evaluation_model = resolve_default_hosted_model(
-                    model_settings.evaluation_model, session, organization_id
-                )
-        else:
-            execution_model = resolve_default_hosted_model(
-                model_settings.execution_model, session, organization_id
-            )
-            evaluation_model = resolve_default_hosted_model(
-                model_settings.evaluation_model, session, organization_id
-            )
-    except QuotaExceededError:
-        # Not a resolution failure -- let it propagate as-is. The broad
-        # except below would otherwise retry the identical call against the
-        # same org and quota state, misreport it as "failed to resolve" in
-        # the log, and only raise the same error a second time anyway.
-        raise
-    except Exception as e:
-        from rhesis.backend.app.config.settings import get_model_settings
-        from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
-
-        logger.warning(f"Failed to resolve execution/evaluation models: {e}")
-        model_settings = get_model_settings()
-        if execution_model is None:
-            execution_model = resolve_default_hosted_model(
-                model_settings.execution_model, session, organization_id
-            )
-        if evaluation_model is None:
-            evaluation_model = resolve_default_hosted_model(
-                model_settings.evaluation_model, session, organization_id
-            )
-
-    # Name the model that was actually resolved, so the run's Configuration tab can show it
-    # instead of the raw override UUID (or nothing at all when the default was used).
-    from rhesis.backend.app.services.run_config import record_resolved_evaluation_model
-
-    record_resolved_evaluation_model(
-        session,
-        test_run=test_run,
-        model_name=getattr(evaluation_model, "model_name", None),
-    )
 
     # Warm the session identity map with prompt/requirement/requirement.metrics eager-loaded
     # for every test in the batch, in one query. get_test_and_prompt/get_test_metrics
@@ -374,6 +302,22 @@ def prefetch_execution_context(
     except Exception as e:
         logger.warning(f"Failed to pre-fetch metrics: {e}")
 
+    # Builds only the models this run uses (app/services/run_models.py). After the tests
+    # and metrics are loaded, so one edited since dispatch still gets its model.
+    from rhesis.backend.jobs.execution.modes import is_multi_turn_test
+
+    run_models = resolve_run_models(
+        session,
+        test_config,
+        test_run,
+        replay=bool(reference_test_run_id),
+        live_backends=[
+            getattr(config.backend, "value", config.backend)
+            for config in _all_configs(metric_configs, per_test_metric_configs)
+        ],
+        live_multi_turn=any(is_multi_turn_test(td["test"]) for td in test_data.values()),
+    )
+
     # Resolve per-metric judge models now, while the session is still open. Metric
     # evaluation happens after session.close(), so a `model_id` left unresolved here
     # cannot be honoured later and the metric would quietly fall back to the default
@@ -455,8 +399,8 @@ def prefetch_execution_context(
         organization_id=organization_id,
         user_id=user_id,
         project_id=project_id,
-        execution_model=execution_model,
-        evaluation_model=evaluation_model,
+        execution_model=run_models.execution,
+        evaluation_model=run_models.evaluation,
         metric_configs=metric_configs,
         per_test_metric_configs=per_test_metric_configs,
         metric_models=metric_models,

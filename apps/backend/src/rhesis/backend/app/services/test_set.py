@@ -832,26 +832,34 @@ def execute_test_set_on_endpoint(
         if experiment_environment is not None:
             parameters_ref["environment"] = experiment_environment
 
-    test_config_id = _create_test_configuration(
-        db,
-        endpoint_id,
-        db_test_set.id,
-        current_user,
-        test_configuration_attributes,
-        organization_id,
-        user_id,
-        metrics,
-        metrics_source,
-        reference_test_run_id=reference_test_run_id,
-        execution_model_id=execution_model_id,
-        evaluation_model_id=evaluation_model_id,
-        parameters_ref=parameters_ref,
-    )
+    # A SAVEPOINT, so a refused run takes its configuration back with it.
+    savepoint = db.begin_nested()
+    try:
+        test_config_id = _create_test_configuration(
+            db,
+            endpoint_id,
+            db_test_set.id,
+            current_user,
+            test_configuration_attributes,
+            organization_id,
+            user_id,
+            metrics,
+            metrics_source,
+            reference_test_run_id=reference_test_run_id,
+            execution_model_id=execution_model_id,
+            evaluation_model_id=evaluation_model_id,
+            parameters_ref=parameters_ref,
+        )
 
-    # Submit for execution (creates test run with Queued status)
-    task_result, test_run_id, test_run_name = _submit_test_configuration_for_execution(
-        db, test_config_id, current_user
-    )
+        # Submit for execution (creates test run with Queued status)
+        task_result, test_run_id, test_run_name = _submit_test_configuration_for_execution(
+            db, test_config_id, current_user
+        )
+    except Exception:
+        # Still active means nothing was committed, so there is no run to keep it for.
+        if savepoint.is_active:
+            savepoint.rollback()
+        raise
 
     # Return success response
     response_data = {
@@ -1114,7 +1122,7 @@ def _submit_test_configuration_for_execution(
     """
     from rhesis.backend.app.crud import test_configuration as test_configuration_crud
     from rhesis.backend.jobs import launch_job
-    from rhesis.backend.jobs.execution.run import create_test_run
+    from rhesis.backend.jobs.execution.run import create_test_run, plan_run_for_user
     from rhesis.backend.jobs.test_configuration import execute_test_configuration
 
     logger.debug(
@@ -1131,11 +1139,15 @@ def _submit_test_configuration_for_execution(
     if not db_test_config:
         raise ValueError(f"Test configuration not found: {test_config_id}")
 
+    # Metrics are resolved here, so this is where the run's models can be checked.
+    metric_plan = plan_run_for_user(db, db_test_config, current_user)
+
     # Create the test run with Queued status so the user sees it immediately
     test_run = create_test_run(
         db,
         db_test_config,
         current_user_id=str(current_user.id),
+        metric_plan=metric_plan,
     )
     db.commit()
 

@@ -7,7 +7,7 @@ from fastapi import status
 
 from rhesis.backend.app.utils.model_errors import MODEL_NOT_CONFIGURED, ModelConfigurationError
 
-_RESOLVE = "rhesis.backend.app.services.test.resolve_model"
+_RESOLVE = "rhesis.backend.app.utils.user_model_utils.resolve_model"
 _BODY = {
     "messages": [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}],
     "test_type": "Single-Turn",

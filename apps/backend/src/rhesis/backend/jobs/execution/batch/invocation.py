@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.utils.response_extractor import as_response_dict
 from rhesis.backend.jobs.execution.batch.context import ExecutionContext
+from rhesis.backend.jobs.execution.constants import NO_EXECUTION_MODEL_ERROR
 
 logger = logging.getLogger(__name__)
 
@@ -165,6 +166,14 @@ async def _run_multi_turn(
     context = test_config_data.get("context")
     max_turns = test_config_data.get("max_turns") or 10
     min_turns = test_config_data.get("min_turns")
+
+    if penelope_agent is None:
+        return {
+            "output": {"status": "error", "error": NO_EXECUTION_MODEL_ERROR},
+            "penelope_metrics": {},
+            "deferred_traces": deferred_traces,
+            "contract_usable": False,
+        }
 
     contract, contract_usable = await resolve_contract_lazy(ctx, test_id)
 

@@ -425,6 +425,7 @@ def evaluate_multi_turn_metrics(
         connector_metric_sender=_build_connector_metric_sender(
             project_id, environment, organization_id
         ),
+        require_model=True,
     )
 
     conversation_summary = stored_output.get(CONVERSATION_SUMMARY_KEY, [])

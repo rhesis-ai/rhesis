@@ -155,23 +155,20 @@ class TestSeatGateOnUserInvite:
 
 @pytest.fixture
 def _bypass_model_validation():
-    """Replace ``validate_execution_model`` and ``validate_generation_model``
-    with no-ops so the quota gate is the first dependency that can block.
+    """Replace ``validate_generation_model`` with a no-op so the quota gate is the
+    first dependency that can block.
 
     Without this, FastAPI resolves model validation before the quota gate
     (signature order), and a missing/invalid model config would return 400
-    before the gate ever fires -- hiding the thing under test.
+    before the gate ever fires -- hiding the thing under test. The execute
+    routes need nothing here: their model check runs in the handler, after
+    the gate.
     """
     from rhesis.backend.app.main import app
-    from rhesis.backend.app.utils.execution_validation import (
-        validate_execution_model,
-        validate_generation_model,
-    )
+    from rhesis.backend.app.utils.execution_validation import validate_generation_model
 
-    app.dependency_overrides[validate_execution_model] = lambda: None
     app.dependency_overrides[validate_generation_model] = lambda: None
     yield
-    app.dependency_overrides.pop(validate_execution_model, None)
     app.dependency_overrides.pop(validate_generation_model, None)
 
 

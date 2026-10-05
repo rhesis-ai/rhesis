@@ -17,9 +17,14 @@ from rhesis.backend.app import models
 from rhesis.backend.app.constants import TestResultStatus
 from rhesis.backend.app.crud import test as test_crud
 from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.services.run_models import (
+    RunModelNeeds,
+    build_models,
+    metric_backends,
+    model_needs,
+)
 from rhesis.backend.app.services.usage import dispatch_accrual
-from rhesis.backend.app.utils.user_model_utils import resolve_model
-from rhesis.backend.jobs.execution.executors.data import get_test_and_prompt
+from rhesis.backend.jobs.execution.executors.data import get_test_and_prompt, get_test_metrics
 from rhesis.backend.jobs.execution.executors.metrics import determine_status_from_metrics
 from rhesis.backend.jobs.execution.executors.runners import MultiTurnRunner, SingleTurnRunner
 
@@ -33,6 +38,7 @@ async def execute_test_in_place(
     organization_id: str,
     user_id: str,
     evaluate_metrics: bool = True,
+    current_user: Optional[models.User] = None,
 ) -> Dict[str, Any]:
     """
     Execute a test in-place without worker infrastructure or database persistence.
@@ -44,6 +50,8 @@ async def execute_test_in_place(
         organization_id: Organization ID
         user_id: User ID
         evaluate_metrics: Whether to evaluate and return test_metrics
+        current_user: The caller. When given, a model the test uses that cannot
+            be built is refused instead of falling back to the default.
 
     Returns:
         Dictionary matching TestExecuteResponse structure:
@@ -59,6 +67,7 @@ async def execute_test_in_place(
 
     Raises:
         ValueError: If test or endpoint not found, or invalid configuration
+        ModelNotConfiguredError: If a model the test uses cannot be built
         Exception: If execution fails
 
     Note:
@@ -70,7 +79,7 @@ async def execute_test_in_place(
     """
     start_time = datetime.now(timezone.utc)
 
-    # Model resolution and the test lookup are the only database work that
+    # The test lookup and model resolution are the only database work that
     # happens before the first await, so they go to a worker thread in one hop.
     (
         evaluation_model,
@@ -80,7 +89,13 @@ async def execute_test_in_place(
         prompt_content,
         expected_response,
     ) = await anyio.to_thread.run_sync(
-        _prepare_execution, db, request_data, organization_id, user_id
+        _prepare_execution,
+        db,
+        request_data,
+        organization_id,
+        user_id,
+        evaluate_metrics,
+        current_user,
     )
 
     # Determine test type
@@ -129,16 +144,12 @@ async def execute_test_in_place(
 
 def _log_resolved_models(user_id: str, evaluation_model: Any, execution_model: Any) -> None:
     """Name the models a run picked, for support when a result looks wrong."""
-    eval_model_name = (
-        type(evaluation_model).__name__
-        if not isinstance(evaluation_model, str)
-        else evaluation_model
-    )
-    logger.info(f"[InPlaceExecution] Using evaluation model for user {user_id}: {eval_model_name}")
-    exec_model_name = (
-        type(execution_model).__name__ if not isinstance(execution_model, str) else execution_model
-    )
-    logger.info(f"[InPlaceExecution] Using execution model for user {user_id}: {exec_model_name}")
+    for purpose, model in (("evaluation", evaluation_model), ("execution", execution_model)):
+        if model is None:
+            name = "not needed"
+        else:
+            name = model if isinstance(model, str) else type(model).__name__
+        logger.info(f"[InPlaceExecution] Using {purpose} model for user {user_id}: {name}")
 
 
 def _load_test_for_execution(
@@ -173,27 +184,51 @@ def _load_test_for_execution(
     return test, str(test.id), prompt_content, expected_response
 
 
+def _model_needs(
+    db: Session, test: Any, organization_id: str, user_id: str, evaluate_metrics: bool
+) -> RunModelNeeds:
+    """Which models this one test uses. Same rule as a full run."""
+    from rhesis.backend.app.constants import TestType
+    from rhesis.backend.jobs.execution.modes import get_test_type
+
+    if get_test_type(test) == TestType.MULTI_TURN:
+        return model_needs([], has_multi_turn=True)
+    if not evaluate_metrics:
+        return model_needs([], has_multi_turn=False)
+    metrics = get_test_metrics(test, db, organization_id, user_id)
+    return model_needs(metric_backends(db, metrics), has_multi_turn=False)
+
+
 def _prepare_execution(
-    db: Session, request_data: Dict[str, Any], organization_id: str, user_id: str
+    db: Session,
+    request_data: Dict[str, Any],
+    organization_id: str,
+    user_id: str,
+    evaluate_metrics: bool = True,
+    current_user: Optional[models.User] = None,
 ) -> Tuple[Any, Any, Any, str, str, str]:
-    """Resolve both models and load the test. Runs in a worker thread.
+    """Load the test and build the models it uses. Runs in a worker thread.
 
     Returns (evaluation_model, execution_model, test, test_id, prompt, expected).
+    A model the test does not use comes back as ``None``.
 
     Everything here is psycopg2 work reached from an ``async def`` handler, so
     it must not run on the event loop. The runner called afterwards still takes
     the same session -- see the note in ``execute_test_in_place``.
     """
-    evaluation_model = resolve_model(db, user_id, "evaluation")
-    execution_model = resolve_model(db, user_id, "execution")
-    _log_resolved_models(user_id, evaluation_model, execution_model)
-
     test, test_id, prompt_content, expected_response = _load_test_for_execution(
         db, request_data, organization_id, user_id
     )
+
+    needs = _model_needs(db, test, organization_id, user_id, evaluate_metrics)
+    # With the User, the org's own broken model is an error. With only an id it
+    # falls back to the deployment default (see resolve_model).
+    run_models = build_models(db, current_user or user_id, needs)
+    _log_resolved_models(user_id, run_models.evaluation, run_models.execution)
+
     return (
-        evaluation_model,
-        execution_model,
+        run_models.evaluation,
+        run_models.execution,
         test,
         test_id,
         prompt_content,

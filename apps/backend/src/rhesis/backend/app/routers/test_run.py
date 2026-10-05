@@ -29,6 +29,8 @@ from rhesis.backend.app.services.test_run import (
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.execution_validation import model_setup_http_exception
+from rhesis.backend.app.utils.model_errors import ModelNotConfiguredError
 from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.jobs.enums import RunStatus
 
@@ -453,6 +455,9 @@ def rescore_test_run_endpoint(
             evaluation_model_id=evaluation_model_id,
         )
         return result
+    # Caught before ValueError, which it subclasses, so it does not become a 404.
+    except ModelNotConfiguredError as e:
+        raise model_setup_http_exception(e, "re-score this test run") from e
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 

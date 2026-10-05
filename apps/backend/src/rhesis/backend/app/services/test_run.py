@@ -222,6 +222,7 @@ def rescore_test_run(
 
     Raises:
         ValueError: If the reference test run is not found
+        ModelNotConfiguredError: If a model the re-score needs cannot be built
     """
     org_id = str(current_user.organization_id)
     uid = str(current_user.id)
@@ -260,7 +261,10 @@ def rescore_test_run(
         attributes["evaluation_model_id"] = str(evaluation_model_id)
         logger.debug(f"Rescore evaluation model override: {evaluation_model_id}")
 
-    # 3. Create new TestConfiguration pointing to same endpoint/test_set
+    # 3. Create new TestConfiguration pointing to same endpoint/test_set, and check the
+    # models the re-score needs. A SAVEPOINT, so a refusal takes the configuration with it.
+    from rhesis.backend.jobs.execution.run import plan_run_for_user
+
     new_config = schemas.TestConfigurationCreate(
         endpoint_id=ref_config.endpoint_id,
         test_set_id=ref_config.test_set_id,
@@ -268,12 +272,14 @@ def rescore_test_run(
         organization_id=current_user.organization_id,
         attributes=attributes,
     )
-    db_new_config = test_configuration_crud.create_test_configuration(
-        db=db,
-        test_configuration=new_config,
-        organization_id=org_id,
-        user_id=uid,
-    )
+    with db.begin_nested():
+        db_new_config = test_configuration_crud.create_test_configuration(
+            db=db,
+            test_configuration=new_config,
+            organization_id=org_id,
+            user_id=uid,
+        )
+        plan_run_for_user(db, db_new_config, current_user)
     new_config_id = str(db_new_config.id)
     logger.info(
         f"Created rescore test configuration {new_config_id} "

@@ -275,29 +275,24 @@ async def run_batch(
     # Create a single PenelopeAgent for the batch (model + metrics are shared;
     # per-test state is created fresh inside a_execute_test).
     penelope_agent = None
-    has_multi_turn = any(
+    # A re-score replays stored conversations, so it starts no Penelope and has no
+    # execution model (see app/services/run_models.py).
+    has_multi_turn = ctx.stored_outputs is None and any(
         is_multi_turn_test(ctx.test_data.get(tid, {}).get("test")) for tid in test_ids
     )
-    if has_multi_turn:
+    if has_multi_turn and not ctx.execution_model:
+        # Each multi-turn test reports this as an Error (see _run_multi_turn).
+        logger.error("[BATCH] No execution model was built, so multi-turn tests will not run")
+    elif has_multi_turn:
         from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
         from rhesis.backend.app.utils.user_model_utils import ensure_language_model
         from rhesis.penelope import PenelopeAgent
 
-        # Penelope is a separate package and cannot stamp usage provenance
-        # itself, so both branches have to be handled from this side:
-        #   - a model we resolved: already stamped by resolve_model, and
-        #     ensure_language_model keeps the guarantee if a bare provider
-        #     string ever reaches here, since PenelopeAgent's own string
-        #     branch is an unstamped get_model.
-        #   - Penelope's own default: stamp the instance it built. It runs on
-        #     this deployment's credentials, exactly like any other default.
-        # Together these mean no model reaches an LLM call unstamped, which
-        # is what lets accrue_model_tokens treat "unstamped" as a plain bug.
-        penelope_agent = (
-            PenelopeAgent(model=ensure_language_model(ctx.execution_model))
-            if ctx.execution_model
-            else PenelopeAgent()
-        )
+        # Penelope is a separate package and cannot stamp usage provenance itself. The
+        # model is already stamped by resolve_model, and ensure_language_model keeps the
+        # guarantee if a bare provider string ever reaches here, since PenelopeAgent's
+        # own string branch is an unstamped get_model.
+        penelope_agent = PenelopeAgent(model=ensure_language_model(ctx.execution_model))
         stamp_usage_provenance(penelope_agent.model, metered=True)
 
         # Fetch credentials / tokens once before the concurrent fan-out so
@@ -315,6 +310,7 @@ async def run_batch(
             # No `db` here on purpose: the session closed before this point. Judge
             # models for per-metric `model_id` overrides were resolved in prefetch.
             metric_models=ctx.metric_models,
+            require_model=True,
         )
 
     # Snapshot test data before the main pass so recovery rounds can restore it

@@ -270,6 +270,7 @@ class SingleTurnRunner(BaseRunner):
                 connector_metric_sender=_build_connector_metric_sender(
                     ep_project_id, ep_environment, organization_id
                 ),
+                require_model=True,
             )
 
             if model:

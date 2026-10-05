@@ -39,7 +39,6 @@ from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import (
     handle_execution_error,
     model_setup_http_exception,
-    validate_execution_model,
 )
 from rhesis.backend.app.utils.hidden_rows import exclude_metric_owned
 from rhesis.backend.app.utils.model_errors import ModelNotConfiguredError
@@ -430,20 +429,14 @@ def delete_test(
 
 def _check_execution_prerequisites(
     db: Session,
-    current_user: User,
     endpoint_id: UUID,
     organization_id: str,
     user_id: str,
 ) -> None:
-    """Validate the caller's evaluation model and the target endpoint.
+    """Check the target endpoint exists. Runs in a worker thread.
 
-    Both reads happen before any await in the handler, so they go to a worker
-    thread together.
+    The models are checked in ``execute_test_in_place``, once the test is loaded.
     """
-    from rhesis.backend.app.utils.user_model_utils import validate_model
-
-    validate_model(db, current_user, "evaluation")
-
     db_endpoint = endpoint_crud.get_endpoint(
         db,
         endpoint_id=endpoint_id,
@@ -464,7 +457,6 @@ async def execute_test_endpoint(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
-    _validate_model=Depends(validate_execution_model),
     _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_EXECUTIONS)),
 ):
     """
@@ -546,11 +538,10 @@ async def execute_test_endpoint(
     organization_id, user_id = tenant_context
 
     try:
-        # Model configuration and endpoint existence, both off the event loop.
+        # Endpoint existence, off the event loop.
         await anyio.to_thread.run_sync(
             _check_execution_prerequisites,
             db,
-            current_user,
             request.endpoint_id,
             organization_id,
             user_id,
@@ -572,6 +563,7 @@ async def execute_test_endpoint(
             organization_id=organization_id,
             user_id=user_id,
             evaluate_metrics=request.evaluate_metrics,
+            current_user=current_user,
         )
 
         return result

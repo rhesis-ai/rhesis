@@ -33,38 +33,6 @@ from rhesis.backend.app.utils.user_model_utils import validate_model
 
 logger = logging.getLogger(__name__)
 
-_ACTIONS = {"execution": "execute tests", "generation": "generate tests"}
-
-
-def validate_execution_model(
-    db: Session = Depends(get_tenant_db_session),
-    current_user: User = Depends(require_current_user_or_token),
-) -> None:
-    """
-    Validate that user's evaluation and execution models are properly configured.
-
-    This is a FastAPI dependency for test execution endpoints that ensures
-    the user has valid evaluation and execution models before running tests.
-
-    Args:
-        db: Database session (injected by FastAPI)
-        current_user: Current authenticated user (injected by FastAPI)
-
-    Raises:
-        HTTPException: 400 if the organization's own model configuration is
-            invalid, 500 if this deployment cannot build its own default model.
-
-    Example:
-        @router.post("/execute", dependencies=[Depends(validate_execution_model)])
-        async def execute_endpoint(...):
-            ...
-    """
-    for purpose in ("evaluation", "execution"):
-        try:
-            validate_model(db, current_user, purpose)
-        except (ValueError, ImportError) as e:
-            raise model_setup_http_exception(ModelNotConfiguredError(purpose, e), "execution")
-
 
 def validate_generation_model(
     db: Session = Depends(get_tenant_db_session),
@@ -91,8 +59,8 @@ def validate_generation_model(
     """
     try:
         validate_model(db, current_user, "generation")
-    except (ValueError, ImportError) as e:
-        raise model_setup_http_exception(ModelNotConfiguredError("generation", e), "generation")
+    except ModelNotConfiguredError as problem:
+        raise model_setup_http_exception(problem, "generate tests") from problem
 
 
 def model_setup_http_exception(
@@ -102,12 +70,10 @@ def model_setup_http_exception(
     model is a 400 (fixable), a deployment default a 500; *status_code* overrides it."""
     if problem.own_model:
         logger.warning("Model configuration error for %s: %s", context, problem.cause)
-        # "execution"/"generation" come from the dependencies above; anything else is a verb phrase.
-        action = _ACTIONS.get(context, context)
         return HTTPException(
             status_code=status_code or 400,
             detail=problem.detail(
-                f"Cannot {action} due to a problem with your configured model: "
+                f"Cannot {context} due to a problem with your configured model: "
                 f"{problem.message}. Please check your model settings in the Models page."
             ),
         )
@@ -145,6 +111,10 @@ def handle_execution_error(
     if isinstance(error, (ItemDeletedException, QuotaExceededError)):
         # Let the app-level handlers turn these into their 410 / 402 responses
         raise error
+
+    # The run's model check already names the model. Before ValueError, which it subclasses.
+    if isinstance(error, ModelNotConfiguredError):
+        return model_setup_http_exception(error, operation)
 
     if isinstance(error, ModelConfigurationError):
         problem = ModelNotConfiguredError(purpose, error)

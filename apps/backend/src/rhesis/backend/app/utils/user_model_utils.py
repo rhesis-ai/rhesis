@@ -354,8 +354,8 @@ def validate_model(db: Session, user: User, purpose: ModelPurpose) -> None:
     the system default.
 
     Raises:
-        ValueError: If the configured model cannot be initialized. The message
-            is user-facing and says what is wrong with the configuration.
+        ModelNotConfiguredError: If the configured model cannot be initialized. The
+            message is user-facing and says what is wrong with the configuration.
     """
     _check_purpose(purpose)
     logger.info(
@@ -368,7 +368,7 @@ def validate_model(db: Session, user: User, purpose: ModelPurpose) -> None:
     if not getattr(user.settings.models, purpose).model_id:
         return
 
-    _resolve_for_user(db, user, purpose, override=None)
+    build_model_or_raise(db, user, purpose)
 
 
 @dataclass(frozen=True)
@@ -386,25 +386,44 @@ class ModelReadiness:
         return self.generation is None and self.evaluation is None
 
 
+def build_model_or_raise(
+    db: Session,
+    principal: Principal,
+    purpose: Literal["generation", "evaluation", "execution", "embedding"],
+    model_id: Optional[str] = None,
+) -> Union[BaseLLM, BaseEmbedder]:
+    """The one place that decides if a model is usable: build it (no call, no network).
+
+    Raises ``ModelNotConfiguredError`` when it cannot be built. ``QuotaExceededError``
+    passes through, so it keeps its own 402.
+    """
+    try:
+        if purpose == "embedding":
+            return resolve_embedder(db, principal, model_id)
+        return resolve_model(db, principal, purpose, override=model_id)
+    # Same classes execution_validation splits on: an org's own broken model is a
+    # ModelConfigurationError, a deployment default that cannot be built is a plain
+    # ValueError or ImportError (see _build_configured_model).
+    except (ValueError, ImportError) as e:
+        raise ModelNotConfiguredError(purpose, e) from e
+
+
 def model_setup_problem(
     db: Session,
     user: User,
     purpose: Literal["generation", "evaluation", "execution", "embedding"],
     model_id: Optional[str] = None,
 ) -> Optional[ModelNotConfiguredError]:
-    """The one place that decides if a model is usable: build it (no call, no network).
+    """Why *user*'s model for *purpose* cannot be built, or ``None`` when it can.
 
     Quota exceeded still counts as usable; it has its own 402 path.
     """
     try:
-        _resolve_for_user(db, user, purpose, override=model_id)
+        build_model_or_raise(db, user, purpose, model_id)
     except QuotaExceededError:
         return None
-    # Same classes execution_validation splits on: an org's own broken model is a
-    # ModelConfigurationError, a deployment default that cannot be built is a plain
-    # ValueError or ImportError (see _build_configured_model).
-    except (ValueError, ImportError) as e:
-        return ModelNotConfiguredError(purpose, e)
+    except ModelNotConfiguredError as problem:
+        return problem
     return None
 
 

@@ -242,3 +242,36 @@ def get_test_metrics(
         return ([], "none") if return_source else []
 
     return (metrics, "requirement") if return_source else metrics
+
+
+def get_live_metric_backends(
+    db: Session,
+    tests: List[Test],
+    test_configuration: Optional["TestConfiguration"],
+    organization_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> List[str]:
+    """Backends of the metrics *tests* resolve to right now, one lookup per requirement."""
+    from rhesis.backend.app.services.run_models import metric_backends
+
+    test_set = getattr(test_configuration, "test_set", None)
+    metrics: List = []
+    seen: set = set()
+    for test in tests:
+        if test.requirement_id in seen:
+            continue
+        seen.add(test.requirement_id)
+        found, source = get_test_metrics(
+            test,
+            db,
+            organization_id,
+            user_id,
+            test_set=test_set,
+            test_configuration=test_configuration,
+            return_source=True,
+        )
+        metrics.extend(found)
+        # Execution-time and test-set metrics are the same for every test.
+        if source in ("execution_time", "test_set"):
+            break
+    return metric_backends(db, metrics)

@@ -23,8 +23,7 @@ from rhesis.backend.app.utils.crud_utils import (
     get_or_create_type_lookup,
 )
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
-from rhesis.backend.app.utils.model_errors import ModelNotConfiguredError
-from rhesis.backend.app.utils.user_model_utils import resolve_model
+from rhesis.backend.app.utils.user_model_utils import build_model_or_raise
 from rhesis.backend.app.utils.uuid_utils import (
     ensure_owner_id,
     sanitize_uuid_field,
@@ -1119,10 +1118,7 @@ def remove_test_set_associations(
 def _get_user_llm(db: Session, user: User):
     """The user's generation model; a build failure becomes ``ModelNotConfiguredError``
     so the route can tell it apart from a bad request."""
-    try:
-        return resolve_model(db, user, "generation")
-    except (ValueError, ImportError) as e:
-        raise ModelNotConfiguredError("generation", e) from e
+    return build_model_or_raise(db, user, "generation")
 
 
 def extract_test_from_conversation(

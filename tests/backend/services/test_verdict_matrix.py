@@ -353,6 +353,10 @@ class TestBuildMetricPlan:
         }
         assert group["test_ids"] == test_order
 
+        # What app/services/run_models.py reads to decide which models the run builds.
+        assert plan["metric_backends"] == ["rhesis"]
+        assert plan["has_multi_turn"] is False
+
     def test_restores_request_scope(self, test_db: Session, verdict_matrix_setup):
         """get_test_metrics calls bind_scope_to_session, and this runs inside
         the FastAPI request that dispatches the run -- a leaked _scope would
