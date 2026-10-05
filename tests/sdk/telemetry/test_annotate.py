@@ -22,7 +22,7 @@ def _stub_verdict_lookup():
     Patched out so these tests are about the annotation being sent, not about
     status resolution, which test_annotation.py already covers.
     """
-    with patch("rhesis.sdk.telemetry.annotate.resolve_verdict", return_value="status-fail"):
+    with patch("rhesis.sdk.entities.annotation.resolve_verdict", return_value="status-fail"):
         yield
 
 

@@ -149,7 +149,7 @@ class Trace(BaseEntity):
 
     A trace has two ids and they are not interchangeable. ``trace_id`` is the
     OpenTelemetry hex id, which reads a trace back. ``db_id`` is the root span's
-    row id, which is what annotations and platform links take. The SDK resolves
+    row id, which is what comments, tasks and platform links take. The SDK resolves
     the second from the first, so a caller never has to know which one a call
     wants.
 
@@ -303,16 +303,17 @@ class Trace(BaseEntity):
     def db_id(self) -> str:
         """The row id of this trace's root span, which is what addresses a trace.
 
-        Annotations, comments, tasks and the platform's own trace URL all take
-        this, not the OpenTelemetry ``trace_id``. A trace that came from a
-        listing does not carry it, so reading this fetches the detail once.
+        Comments, tasks and the platform's own trace URL take this, not the
+        OpenTelemetry ``trace_id``. Annotations are stored against it too, but
+        ``annotate()`` sends the ``trace_id`` and lets the server resolve it. A
+        trace that came from a listing does not carry it, so reading this
+        fetches the detail once.
         """
         self._ensure_detail()
         root = self.root_spans[0] if self.root_spans else None
         if root is None or not root.id:
             raise ValueError(
-                f"Trace {self.trace_id} has no root span row id, so there is nothing "
-                "to annotate or link to."
+                f"Trace {self.trace_id} has no root span row id, so there is nothing to link to."
             )
         return root.id
 
@@ -353,10 +354,14 @@ class Trace(BaseEntity):
         return EndpointCollection.pull(id=self.endpoint_id)
 
     def get_annotations(self) -> List["Annotation"]:
-        """Every annotation on this trace, including those on its spans."""
+        """Every annotation on this trace, including those on its spans, newest first.
+
+        Read by the OTEL ``trace_id``, so a trace from a listing does not fetch
+        its span tree to answer.
+        """
         from rhesis.sdk.entities.annotation import Annotations
 
-        return Annotations.for_trace(self.db_id)
+        return Annotations.for_trace_id(self._require_trace_id())
 
     def annotate(
         self,
@@ -375,17 +380,20 @@ class Trace(BaseEntity):
 
             trace.annotate("fail", "Answered from the wrong document.")
             trace.annotate("pass", "Fine once you read the tool call.", metric="Groundedness")
-        """
-        from rhesis.sdk.entities.annotation import AnnotatableEntity, Annotations
 
-        return Annotations.create(
-            AnnotatableEntity.TRACE,
-            self.db_id,
-            verdict,
-            comment,
-            metric=metric,
-            turn=turn,
+        Sent by the OTEL ``trace_id`` and resolved to the root span server-side,
+        so a trace from a listing does not fetch its span tree first.
+        """
+        from rhesis.sdk.entities.annotation import Annotations
+
+        return Annotations.create_for_trace_id(
+            self._require_trace_id(), verdict, comment, metric=metric, turn=turn
         )
+
+    def _require_trace_id(self) -> str:
+        if not self.trace_id:
+            raise ValueError("Trace has no trace_id, so there is nothing to address it by.")
+        return self.trace_id
 
     def push(self, *args: Any, **kwargs: Any) -> NoReturn:
         raise NotImplementedError(_NOT_WRITABLE)

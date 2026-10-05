@@ -11,6 +11,7 @@ from rhesis.sdk.entities.annotation import (
     turn_reference,
 )
 from rhesis.sdk.entities.endpoint import Endpoint
+from rhesis.sdk.entities.requirement import Requirement
 from rhesis.sdk.entities.status import Status
 from rhesis.sdk.entities.test import Test
 from rhesis.sdk.entities.test_result import TestResult
@@ -309,14 +310,11 @@ class TestVerdictResolution:
         # The name is matched client-side, so nothing is interpolated into OData.
         assert params == {"entity_type": "TestResult", "skip": 0, "limit": 100}
 
-    @patch("rhesis.sdk.entities.annotation.APIClient")
-    def test_tuning_verdicts_resolve_under_their_own_entity_type(self, mock_client):
-        mock_client.return_value.send_request.return_value = [{"id": STATUS_ID, "name": "Rejected"}]
-
-        resolve_verdict("rejected")
-
-        params = mock_client.return_value.send_request.call_args.kwargs["params"]
-        assert params["entity_type"] == "Annotation"
+    @pytest.mark.parametrize("verdict", ["accepted", "rejected"])
+    def test_tuning_decisions_are_not_verdicts(self, verdict):
+        """The backend would store one on a result and read it as a fail."""
+        with pytest.raises(ValueError, match="Unknown verdict"):
+            resolve_verdict(verdict)
 
     @patch("rhesis.sdk.entities.annotation.APIClient")
     def test_is_case_and_whitespace_insensitive(self, mock_client):
@@ -334,7 +332,7 @@ class TestVerdictResolution:
         assert mock_client.return_value.send_request.call_count == 1
 
     def test_an_unknown_verdict_names_the_ones_that_exist(self):
-        with pytest.raises(ValueError, match="pass, fail, accepted, rejected"):
+        with pytest.raises(ValueError, match="Expected one of: pass, fail$"):
             resolve_verdict("looks-fine")
 
     @patch("rhesis.sdk.entities.annotation.APIClient")
@@ -475,6 +473,91 @@ class TestParentAccessors:
 
         params = mock_client.return_value.send_request.call_args.kwargs["params"]
         assert params["endpoint_id"] == "endpoint-1"
+
+    @patch("rhesis.sdk.entities.annotation.APIClient")
+    def test_a_requirement_scopes_server_side(self, mock_client):
+        mock_client.return_value.send_request.return_value = []
+
+        Requirement(id="requirement-1").get_annotations()
+
+        params = mock_client.return_value.send_request.call_args.kwargs["params"]
+        assert params["requirement_id"] == "requirement-1"
+
+    def test_a_requirement_without_an_id_says_so(self):
+        with pytest.raises(ValueError, match="must have an ID"):
+            Requirement().get_annotations()
+
+
+class TestTuningCasesAreRefused:
+    """A tuning judgement also records the verdict it was made against, which only
+    the platform's tuning flow writes. One made here would be read as stale at once."""
+
+    def test_a_test_judged_on_a_metric_is_refused_before_any_request(self):
+        with patch("rhesis.sdk.entities.annotation.APIClient") as client:
+            with pytest.raises(ValueError, match="metric tuning decision"):
+                Annotations.create("Test", ENTITY_ID, "fail", metric="metric-1")
+            client.assert_not_called()
+
+    @patch("rhesis.sdk.entities.annotation.resolve_verdict", return_value=STATUS_ID)
+    @patch("rhesis.sdk.entities.base_entity.APIClient")
+    def test_a_result_judged_on_a_metric_goes_through(self, mock_client, _verdict):
+        mock_client.return_value.send_request.return_value = {"id": "annotation-1"}
+
+        Annotations.create("TestResult", ENTITY_ID, "fail", metric="Answer Relevancy")
+
+        body = mock_client.return_value.send_request.call_args.kwargs["data"]
+        assert body["target"] == {"type": "metric", "reference": "Answer Relevancy"}
+
+
+@patch("rhesis.sdk.entities.annotation.resolve_verdict", return_value=STATUS_ID)
+class TestCreateForTraceId:
+    @patch("rhesis.sdk.entities.base_entity.APIClient")
+    def test_sends_the_hex_and_no_row_id(self, mock_client, _verdict):
+        mock_client.return_value.send_request.return_value = {
+            "id": "annotation-1",
+            "entity_id": ENTITY_ID,
+        }
+
+        annotation = Annotations.create_for_trace_id("a" * 32, "fail", "Wrong.", turn=2)
+
+        body = mock_client.return_value.send_request.call_args.kwargs["data"]
+        assert body["entity_type"] == "Trace"
+        assert body["trace_id"] == "a" * 32
+        assert "entity_id" not in body
+        assert body["target"] == {"type": "turn", "reference": "Turn 2"}
+        # The row the server resolved is kept, so the annotation can be followed back.
+        assert annotation.entity_id == ENTITY_ID
+
+    def test_a_metric_and_a_turn_together_is_refused(self, _verdict):
+        with pytest.raises(ValueError, match="not both"):
+            Annotations.create_for_trace_id("a" * 32, "fail", metric="m", turn=2)
+
+
+class TestGetTrace:
+    def test_an_annotation_not_on_a_trace_has_none(self, annotation_response):
+        assert Annotation(**annotation_response).get_trace() is None
+
+    def test_uses_the_ids_in_context_when_the_response_carried_them(self):
+        annotation = Annotation(
+            id="annotation-1",
+            entity_type="Trace",
+            entity_id=ENTITY_ID,
+            context={"trace_id": "a" * 32, "project_id": "project-1"},
+        )
+
+        with patch("rhesis.sdk.entities.trace.Traces.pull") as pull:
+            assert annotation.get_trace() is pull.return_value
+
+        pull.assert_called_once_with("a" * 32, project_id="project-1")
+
+    def test_resolves_the_span_row_when_there_is_no_context(self):
+        """A plain get carries no context, which is what Spans.trace_for is for."""
+        annotation = Annotation(id="annotation-1", entity_type="Trace", entity_id=ENTITY_ID)
+
+        with patch("rhesis.sdk.entities.trace.Spans.trace_for") as trace_for:
+            assert annotation.get_trace() is trace_for.return_value
+
+        trace_for.assert_called_once_with(ENTITY_ID)
 
 
 class TestVerdictCacheIsolation:

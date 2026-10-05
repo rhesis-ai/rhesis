@@ -414,7 +414,7 @@ class TestSpans:
 class TestAnnotating:
     @patch("rhesis.sdk.entities.annotation.resolve_verdict", return_value=STATUS_ID)
     @patch("rhesis.sdk.entities.base_entity.APIClient")
-    def test_a_trace_is_annotated_by_its_row_id_not_its_hex(
+    def test_a_trace_is_annotated_by_its_hex_for_the_server_to_resolve(
         self, mock_client, _verdict, detail_payload
     ):
         mock_client.return_value.send_request.return_value = {"id": "annotation-1"}
@@ -423,10 +423,30 @@ class TestAnnotating:
 
         body = mock_client.return_value.send_request.call_args.kwargs["data"]
         assert body["entity_type"] == "Trace"
-        assert body["entity_id"] == ROOT_ROW_ID
-        assert body["entity_id"] != TRACE_ID
+        assert body["trace_id"] == TRACE_ID
+        assert "entity_id" not in body
         assert body["comments"] == "Answered from the wrong document."
         assert "target" not in body
+
+    @patch("rhesis.sdk.entities.annotation.resolve_verdict", return_value=STATUS_ID)
+    @patch("rhesis.sdk.entities.base_entity.APIClient")
+    @patch("rhesis.sdk.entities.trace.APIClient")
+    def test_annotating_a_listed_trace_does_not_fetch_its_spans(
+        self, trace_client, mock_client, _verdict, summary_payload
+    ):
+        """The detail response carries every span's prompt and completion, which
+        is a lot to download to learn one row id the server can find itself."""
+        mock_client.return_value.send_request.return_value = {"id": "annotation-1"}
+
+        Trace.model_validate(summary_payload).annotate("fail")
+
+        trace_client.return_value.send_request.assert_not_called()
+        body = mock_client.return_value.send_request.call_args.kwargs["data"]
+        assert body["trace_id"] == TRACE_ID
+
+    def test_a_trace_without_a_trace_id_says_so_before_any_request(self):
+        with pytest.raises(ValueError, match="no trace_id"):
+            Trace(project_id=PROJECT_ID).annotate("fail")
 
     @patch("rhesis.sdk.entities.annotation.resolve_verdict", return_value=STATUS_ID)
     @patch("rhesis.sdk.entities.base_entity.APIClient")
@@ -467,13 +487,20 @@ class TestAnnotating:
             Span(span_name="ai.chat").annotate("fail")
 
     @patch("rhesis.sdk.entities.annotation.APIClient")
-    def test_a_trace_reads_its_annotations_by_row_id(self, mock_client, detail_payload):
+    @patch("rhesis.sdk.entities.trace.APIClient")
+    def test_a_trace_reads_its_annotations_by_hex_spans_included(
+        self, trace_client, mock_client, summary_payload
+    ):
+        """The entity route matches one row, so reading by the root's row id
+        would miss every annotation filed against a child span."""
         mock_client.return_value.send_request.return_value = []
 
-        Trace.model_validate(detail_payload).get_annotations()
+        Trace.model_validate(summary_payload).get_annotations()
 
+        trace_client.return_value.send_request.assert_not_called()
         kwargs = mock_client.return_value.send_request.call_args.kwargs
-        assert kwargs["url_params"] == f"entity/Trace/{ROOT_ROW_ID}"
+        assert kwargs["url_params"] is None
+        assert kwargs["params"]["trace_id"] == TRACE_ID
 
     @patch("rhesis.sdk.entities.annotation.APIClient")
     def test_a_span_reads_its_own_annotations(self, mock_client, detail_payload):

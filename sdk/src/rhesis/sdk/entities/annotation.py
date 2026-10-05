@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 from enum import Enum
-from typing import Any, ClassVar, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
@@ -11,6 +11,9 @@ from rhesis.sdk.clients import APIClient, Endpoints, Methods
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 from rhesis.sdk.entities.status import Status
+
+if TYPE_CHECKING:
+    from rhesis.sdk.entities.trace import Trace
 
 ENDPOINT = Endpoints.ANNOTATIONS
 
@@ -40,21 +43,16 @@ class Verdict(str, Enum):
 
     PASS = "pass"
     FAIL = "fail"
-    ACCEPTED = "accepted"
-    REJECTED = "rejected"
 
     __str__ = str.__str__
 
 
-# Each verdict is a status row, and which one depends on the entity type it is
-# filed under: Pass/Fail are the ones every organization already has for results,
-# while metric tuning has its own pair. Resolving on the name alone would break the
+# Each verdict is a status row of a given entity type: Pass/Fail are the ones every
+# organization already has for results. Resolving on the name alone would break the
 # day a second entity type gets a status called "Fail".
 _VERDICT_STATUS = {
     Verdict.PASS: ("Pass", "TestResult"),
     Verdict.FAIL: ("Fail", "TestResult"),
-    Verdict.ACCEPTED: ("Accepted", "Annotation"),
-    Verdict.REJECTED: ("Rejected", "Annotation"),
 }
 
 # (who we are talking to, verdict) -> status id, filled on first use. Status ids
@@ -71,6 +69,26 @@ def _client_identity(client: APIClient) -> tuple:
     # cache key, and a client handed in by a caller may hold anything.
     digest = hashlib.sha256(str(client.api_key or "").encode("utf-8")).hexdigest()[:16]
     return (str(client.base_url), digest)
+
+
+def _refuse_tuning_case(entity_type: Union[AnnotatableEntity, str], metric: Optional[str]) -> None:
+    # A Test judged on one metric is a tuning judgement, which also records the verdict
+    # it was made against; without that, tuning reads it as stale the moment it lands.
+    if str(entity_type) == AnnotatableEntity.TEST.value and metric is not None:
+        raise ValueError(
+            "A test judged on one metric is a metric tuning decision, made in the "
+            "platform's tuning flow. Annotate the test as a whole, or a test result's metric."
+        )
+
+
+def _target(metric: Optional[str], turn: Optional[Union[int, str]]) -> tuple:
+    if metric and turn is not None:
+        raise ValueError("An annotation targets a metric or a turn, not both")
+    if metric:
+        return "metric", metric
+    if turn is not None:
+        return "turn", turn_reference(turn)
+    return None, None
 
 
 def resolve_verdict(verdict: Union[Verdict, str], client: Optional[APIClient] = None) -> str:
@@ -287,6 +305,23 @@ class Annotation(BaseEntity):
                 f"A {self.entity_type} is addressed by entity_id"
             )
 
+    def get_trace(self) -> Optional["Trace"]:
+        """The trace this annotation sits on, with its span tree, or None if not on one.
+
+        An annotation on a span returns the trace that holds the span. Uses the
+        ids in ``context`` when the response carried them (the list and entity
+        routes do, a plain get does not) and resolves the span row otherwise.
+        """
+        from rhesis.sdk.entities.trace import Spans, Traces
+
+        if self.entity_type != AnnotatableEntity.TRACE.value:
+            return None
+        if self.context is not None and self.context.trace_id:
+            return Traces.pull(self.context.trace_id, project_id=self.context.project_id)
+        if not self.entity_id:
+            raise ValueError(f"Annotation {self.id} is on a trace but carries no entity_id")
+        return Spans.trace_for(self.entity_id)
+
     def resolve(self) -> "Annotation":
         """Close this annotation, the disagreement having been handled."""
         return self._set_resolved(True)
@@ -342,21 +377,61 @@ class Annotations(BaseCollection):
     ) -> Annotation:
         """Record a judgement, naming the verdict rather than resolving a status id.
 
-        The generic form of ``TestResult.annotate`` and ``Test.annotate``, for a
-        parent with no entity class of its own -- a trace, addressed by its span
-        row id (``context.trace_db_id``, not the OTEL hex).
+        The generic form behind every ``annotate()`` method, addressed by the
+        parent's row id. A span's row id addresses that span; to judge a whole
+        trace by its OTEL hex id, use ``create_for_trace_id``.
 
         ``metric`` and ``turn`` are mutually exclusive: an annotation judges one
         thing. Naming neither judges the parent as a whole.
         """
-        if metric and turn is not None:
-            raise ValueError("An annotation targets a metric or a turn, not both")
+        return cls._record(
+            entity_type,
+            verdict,
+            comment,
+            metric=metric,
+            turn=turn,
+            attributes=attributes,
+            entity_id=str(entity_id),
+        )
 
-        target_type = "metric" if metric else "turn" if turn is not None else None
-        reference = metric if metric else (turn_reference(turn) if turn is not None else None)
+    @classmethod
+    def create_for_trace_id(
+        cls,
+        trace_id: str,
+        verdict: Union[Verdict, str],
+        comment: Optional[str] = None,
+        *,
+        metric: Optional[str] = None,
+        turn: Optional[Union[int, str]] = None,
+    ) -> Annotation:
+        """Record a judgement on a whole trace, given its OTEL hex ``trace_id``.
+
+        The server resolves the hex to the trace's root span, so the caller never
+        needs the row id. Raises if the trace has not been ingested yet.
+        """
+        return cls._record(
+            AnnotatableEntity.TRACE, verdict, comment, metric=metric, turn=turn, trace_id=trace_id
+        )
+
+    @classmethod
+    def _record(
+        cls,
+        entity_type: Union[AnnotatableEntity, str],
+        verdict: Union[Verdict, str],
+        comment: Optional[str],
+        *,
+        metric: Optional[str],
+        turn: Optional[Union[int, str]],
+        attributes: Optional[Dict[str, Any]] = None,
+        entity_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
+    ) -> Annotation:
+        target_type, reference = _target(metric, turn)
+        _refuse_tuning_case(entity_type, metric)
         annotation = Annotation(
             entity_type=str(entity_type),
-            entity_id=str(entity_id),
+            entity_id=entity_id,
+            trace_id=trace_id,
             status_id=resolve_verdict(verdict),
             comments=comment,
             target_type=target_type,
