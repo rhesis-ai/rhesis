@@ -9,6 +9,7 @@ on:
       - 'sdk/**'
       - 'packages/rhesis/**'
       - 'ee/backend/**'
+      - 'skills/rhesis/references/**'
       - 'penelope/**'
       - '.github/workflows/worker-k8s.yml'
   workflow_dispatch:

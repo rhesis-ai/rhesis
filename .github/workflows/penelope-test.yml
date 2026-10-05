@@ -8,12 +8,16 @@ on:
       - 'penelope/**'
       - 'sdk/**'
       - 'packages/rhesis/**'
+      - 'tests/penelope/**'
+      - '.github/workflows/penelope-test.yml'
   push:
     branches: [ main ]
     paths:
       - 'penelope/**'
       - 'sdk/**'
       - 'packages/rhesis/**'
+      - 'tests/penelope/**'
+      - '.github/workflows/penelope-test.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
