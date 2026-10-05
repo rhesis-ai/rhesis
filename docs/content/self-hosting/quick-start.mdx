@@ -39,6 +39,21 @@ Once running, access the platform at:
   align={['left', 'left', 'left']}
 />
 
+## Connect a Model
+
+Rhesis needs a language model to generate tests and evaluate results. Until one works, the app opens on a **Connect a model** step instead of the dashboard. Pick one of its two options:
+
+- **Use a Rhesis API key** runs on the models hosted by Rhesis. Get a key at [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens) and paste it in.
+- **Add your own model** connects a provider account (OpenAI, Anthropic, Gemini, and others) or a local model (Ollama, vLLM, LiteLLM proxy). See [Models](/docs/models) for the connection fields.
+
+The step closes as soon as the model works. No restart is needed.
+
+`./rh start` also asks for a Rhesis API key while `.env.docker.local` has none. A key entered there is saved as `RHESIS_API_KEY` in `.env.docker.local`, and the app skips the step. To change that key later, edit the file and run `./rh restart`.
+
+<Callout type="info">
+Evaluating only with [code metrics](/docs/metrics/code-metrics)? A test run started from the SDK or API whose metrics are all SDK code metrics needs no evaluation model.
+</Callout>
+
 ## Optional Configuration
 
 ### Managing Services
@@ -55,20 +70,6 @@ Use the `./rh` CLI to manage services:
 
 `}
 </CodeBlock>
-
-### Enable Test Generation
-
-Test generation needs an AI provider. Quick Start can use Rhesis-hosted models, or you can configure your own provider [in the platform](/docs/models). `./rh start` prompts for a Rhesis API key when one is missing.
-
-1. Get a key from [app.rhesis.ai/tokens](https://app.rhesis.ai/tokens).
-2. Run `./rh start` in an interactive terminal and paste the key when prompted.
-3. If you skipped the prompt, add it to `.env.docker.local`:
-
-<CodeBlock filename=".env.docker.local" language="bash">
-{`RHESIS_API_KEY=your-actual-rhesis-api-key-here`}
-</CodeBlock>
-
-
 
 ### Changing the ports
 
