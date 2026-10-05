@@ -30,6 +30,11 @@ x-frontend-backend-config: &frontend-backend-config
   QUICK_START: true
   RHESIS_CONNECTOR_DISABLED: true
   API_BASE_URL: "http://localhost:14003"
+  # The default models only need a key to be built, so the app opens past the
+  # "Connect a model" step. The dead base URL keeps a stray model call off production
+  # (same setup as tests/docker-compose.test.yml).
+  RHESIS_API_KEY: e2e-placeholder-key # trufflehog:ignore
+  RHESIS_BASE_URL: "http://127.0.0.1:1"
 
 services:
   frontend-test-postgres:

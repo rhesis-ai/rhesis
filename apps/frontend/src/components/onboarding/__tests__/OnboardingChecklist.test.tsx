@@ -19,6 +19,8 @@ jest.mock('next-auth/react', () => ({
   useSession: () => ({ data: null, status: 'authenticated' }),
 }));
 
+let mockChecklistHidden = false;
+
 jest.mock('@/contexts/OnboardingContext', () => ({
   useOnboarding: () => ({
     progress: {
@@ -32,6 +34,7 @@ jest.mock('@/contexts/OnboardingContext', () => ({
     isComplete: false,
     completionPercentage: 0,
     dismissOnboarding: jest.fn(),
+    checklistHidden: mockChecklistHidden,
   }),
 }));
 
@@ -46,6 +49,7 @@ const storage = {
 };
 
 beforeEach(() => {
+  mockChecklistHidden = false;
   store = {};
   mockPathname = '/projects';
   mockSearchParams = new URLSearchParams();
@@ -60,6 +64,14 @@ const header = () =>
   screen.getByRole('button', { name: /(collapse|expand) checklist/i });
 
 describe('OnboardingChecklist', () => {
+  it('renders nothing while a full-screen step has hidden it', () => {
+    mockChecklistHidden = true;
+    render(<OnboardingChecklist />);
+    expect(
+      screen.queryByRole('button', { name: /(collapse|expand) checklist/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('starts expanded when nothing is stored', () => {
     render(<OnboardingChecklist />);
     expect(header()).toHaveAttribute('aria-expanded', 'true');

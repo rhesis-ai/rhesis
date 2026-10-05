@@ -9,6 +9,7 @@ import {
   useFeature,
   useFeaturesState,
   useIsLocalMode,
+  useModelsReady,
   usePlan,
   useRhesisKeyEnabled,
 } from '../FeaturesContext';
@@ -456,5 +457,54 @@ describe('usePlan', () => {
     );
 
     expect(screen.getByTestId('plan')).toHaveTextContent('none');
+  });
+});
+
+describe('model readiness', () => {
+  function ReadinessProbe() {
+    const modelsReady = useModelsReady();
+    return <div data-testid="models-ready">{String(modelsReady)}</div>;
+  }
+
+  it('exposes models_ready from the seeded response', () => {
+    render(
+      <FeaturesProvider
+        initialFeatures={{
+          license: LICENSE,
+          enabled: [],
+          models_ready: false,
+        }}
+      >
+        <ReadinessProbe />
+      </FeaturesProvider>
+    );
+
+    expect(screen.getByTestId('models-ready')).toHaveTextContent('false');
+  });
+
+  it('reports unknown, not false, when the backend predates the fields', () => {
+    render(
+      <FeaturesProvider initialFeatures={{ license: LICENSE, enabled: [] }}>
+        <ReadinessProbe />
+      </FeaturesProvider>
+    );
+
+    expect(screen.getByTestId('models-ready')).toHaveTextContent('null');
+  });
+
+  it('reports unknown on a fetch error', async () => {
+    mockGetFeatures.mockRejectedValue(new Error('boom'));
+
+    render(
+      <FeaturesProvider>
+        <ReadinessProbe />
+        <StateProbe />
+      </FeaturesProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('error')).toHaveTextContent('boom')
+    );
+    expect(screen.getByTestId('models-ready')).toHaveTextContent('null');
   });
 });

@@ -16,7 +16,7 @@ import pytest
 import sqlalchemy as sa
 
 from rhesis.backend.app import models
-from rhesis.backend.app.crud.model import get_rhesis_system_models
+from rhesis.backend.app.crud.model import get_default_candidates, get_rhesis_system_models
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.services import model_setup
@@ -427,3 +427,143 @@ class TestBackgroundEmbeddingSkip:
         warnings = [r for r in caplog.records if "Skipping embeddings" in r.getMessage()]
         assert len(warnings) == 1
         assert not [r for r in caplog.records if r.levelname == "ERROR"]
+
+
+@pytest.fixture
+def second_model(test_db, test_org_id, authenticated_user_id, own_model):
+    """Another usable model of the org's own, next to ``own_model``."""
+    model = models.Model(
+        name="My Second OpenAI",
+        model_name="gpt-4o-mini",
+        model_type=ModelType.LANGUAGE.value,
+        key="sk-second-key",
+        provider_type_id=own_model.provider_type_id,
+        organization_id=test_org_id,
+        user_id=authenticated_user_id,
+        owner_id=authenticated_user_id,
+    )
+    test_db.add(model)
+    test_db.flush()
+    return model
+
+
+def _use_as_default(user, model):
+    apply_default_model_ids(user, {"generation": str(model.id), "evaluation": str(model.id)})
+
+
+def _delete_other_own_models(test_db, client, org_id, keep):
+    """The shared test org may hold own models from earlier tests; remove them."""
+    keep_ids = {m.id for m in keep}
+    for model in get_default_candidates(test_db, org_id):
+        if not model.is_protected and model.id not in keep_ids:
+            assert client.delete(f"/models/{model.id}").status_code == 200
+
+
+@pytest.mark.integration
+class TestDeletingAModel:
+    """Deleting the default must not strand a user who still has a working model."""
+
+    def test_deleting_the_default_falls_back_to_a_remaining_model(
+        self, test_db, test_org_id, authenticated_client, user, own_model, second_model, deployment
+    ):
+        deployment(platform_key_feature=True)
+        _use_as_default(user, own_model)
+        test_db.commit()
+        _delete_other_own_models(
+            test_db, authenticated_client, test_org_id, keep=[own_model, second_model]
+        )
+
+        response = authenticated_client.delete(f"/models/{own_model.id}")
+
+        assert response.status_code == 200, response.text
+        test_db.refresh(user)
+        assert str(user.settings.models.generation.model_id) == str(second_model.id)
+        assert str(user.settings.models.evaluation.model_id) == str(second_model.id)
+        assert check_model_readiness(test_db, user).ready
+
+    def test_deleting_the_last_usable_model_leaves_the_user_not_ready(
+        self, test_db, test_org_id, authenticated_client, user, own_model, deployment
+    ):
+        deployment(platform_key_feature=True)
+        _use_as_default(user, own_model)
+        test_db.commit()
+        _delete_other_own_models(test_db, authenticated_client, test_org_id, keep=[own_model])
+
+        response = authenticated_client.delete(f"/models/{own_model.id}")
+
+        assert response.status_code == 200, response.text
+        test_db.refresh(user)
+        assert not check_model_readiness(test_db, user).ready
+
+    def test_deleting_another_model_leaves_a_working_default_alone(
+        self, test_db, authenticated_client, user, own_model, second_model, deployment
+    ):
+        deployment(platform_key_feature=True)
+        _use_as_default(user, own_model)
+        test_db.commit()
+
+        response = authenticated_client.delete(f"/models/{second_model.id}")
+
+        assert response.status_code == 200, response.text
+        test_db.refresh(user)
+        assert str(user.settings.models.generation.model_id) == str(own_model.id)
+        assert str(user.settings.models.evaluation.model_id) == str(own_model.id)
+        assert check_model_readiness(test_db, user).ready
+
+    def test_delete_with_working_defaults_builds_no_candidate(
+        self, test_db, authenticated_client, user, own_model, second_model, deployment
+    ):
+        # The cloud key makes the deployment's embedding default work too.
+        deployment(cloud_key="rh-cloud-key")
+        _use_as_default(user, own_model)
+        test_db.commit()
+
+        with patch.object(
+            model_setup, "model_setup_problem", wraps=model_setup.model_setup_problem
+        ) as check:
+            response = authenticated_client.delete(f"/models/{second_model.id}")
+
+        assert response.status_code == 200, response.text
+        # (db, user, purpose) checks a current default; a fourth argument builds a candidate.
+        for_user = [c.args for c in check.call_args_list if c.args[1].id == user.id]
+        assert sorted(args[2] for args in for_user) == ["embedding", "evaluation", "generation"]
+        assert all(len(args) == 3 for args in for_user)
+
+    def test_failing_candidate_query_does_not_fail_the_delete(
+        self, test_db, authenticated_client, user, own_model, second_model, deployment
+    ):
+        deployment(platform_key_feature=True)
+        _use_as_default(user, own_model)
+        test_db.commit()
+
+        def fail(db, *_):
+            db.execute(sa.text("SELECT 1/0"))
+
+        with patch.object(model_setup.model_crud, "get_default_candidates", side_effect=fail):
+            response = authenticated_client.delete(f"/models/{own_model.id}")
+
+        assert response.status_code == 200, response.text
+        assert authenticated_client.get(f"/models/{own_model.id}").status_code == 410
+        assert authenticated_client.get(f"/models/{second_model.id}").status_code == 200
+
+    def test_candidates_put_own_language_models_first_and_skip_polyphemus(
+        self, test_db, test_org_id, authenticated_user_id, own_model, jev_model, rhesis_models
+    ):
+        polyphemus = create_default_rhesis_model(
+            db=test_db,
+            provider_value="polyphemus",
+            model_name="default",
+            icon="polyphemus",
+            name="Polyphemus Test",
+            description="",
+            model_type=ModelType.LANGUAGE.value,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+        )
+        test_db.flush()
+
+        ids = [str(m.id) for m in get_default_candidates(test_db, test_org_id)]
+
+        assert ids.index(str(own_model.id)) < ids.index(str(jev_model.id))
+        assert ids.index(str(jev_model.id)) < ids.index(rhesis_models["language_model_id"])
+        assert str(polyphemus.id) not in ids

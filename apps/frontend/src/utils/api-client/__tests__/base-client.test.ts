@@ -1,4 +1,8 @@
 import { BaseApiClient, type ApiErrorData } from '../base-client';
+import {
+  MODEL_NOT_CONFIGURED_ERROR_CODE,
+  onModelNotConfigured,
+} from '../../model-setup';
 
 // Concrete subclass to expose protected methods under test
 class TestableClient extends BaseApiClient {
@@ -333,6 +337,67 @@ describe('BaseApiClient', () => {
           expect.objectContaining({ status: 402 })
         );
         warnSpy.mockRestore();
+      });
+    });
+
+    describe('model_not_configured', () => {
+      const modelError = {
+        detail: {
+          message: 'No usable generation model is set up.',
+          error_code: MODEL_NOT_CONFIGURED_ERROR_CODE,
+          deployment_hint: 'Check DEFAULT_GENERATION_MODEL.',
+        },
+      };
+      let listener: jest.Mock;
+      let unsubscribe: () => void;
+
+      beforeEach(() => {
+        listener = jest.fn();
+        unsubscribe = onModelNotConfigured(listener);
+        jest.spyOn(console, 'warn').mockImplementation(() => {});
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+      });
+
+      afterEach(() => unsubscribe());
+
+      it.each([400, 500])(
+        'reports a %i with the code once and still throws the message',
+        async status => {
+          fetchMock.mockResolvedValue(
+            makeFetchResponse(modelError, status, {
+              'content-type': 'application/json',
+            })
+          );
+
+          await expect(
+            client.fetchPublic('/tests/from-conversation', { method: 'POST' })
+          ).rejects.toThrow(
+            `API error: ${status} - No usable generation model is set up.`
+          );
+          expect(listener).toHaveBeenCalledTimes(1);
+        }
+      );
+
+      it('reports it from a paginated fetch too', async () => {
+        fetchMock.mockResolvedValue(
+          makeFetchResponse(modelError, 400, {
+            'content-type': 'application/json',
+          })
+        );
+
+        await expect(client.fetchPaginatedPublic('/tests')).rejects.toThrow();
+        expect(listener).toHaveBeenCalledTimes(1);
+      });
+
+      it('does not report other errors', async () => {
+        fetchMock.mockResolvedValue(
+          makeFetchResponse({ detail: 'Bad request' }, 400, {
+            'content-type': 'application/json',
+          })
+        );
+
+        await expect(client.fetchPublic('/tests')).rejects.toThrow();
+        expect(listener).not.toHaveBeenCalled();
       });
     });
   });

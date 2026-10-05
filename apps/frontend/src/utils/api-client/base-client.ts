@@ -4,10 +4,13 @@ import { PaginationParams, PaginatedResponse } from './interfaces/pagination';
 import { joinUrl } from '@/utils/url';
 import { clearLocalSessionData } from '../session';
 import { readActiveProjectId } from '../active-project';
+import { isModelNotConfigured, reportModelNotConfigured } from '../model-setup';
 
 /** Structured FastAPI detail payload (e.g. bulk associate failures) */
 export interface StructuredApiErrorDetail {
   message?: string;
+  /** Stable code a client can act on, e.g. `model_not_configured`. */
+  error_code?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -482,6 +485,12 @@ export class BaseApiClient {
           error.status = response.status;
           error.data = errorData;
 
+          // No usable model: the only handling for this code in the app.
+          // The error is still thrown so the caller can stop its spinner.
+          if (isModelNotConfigured(errorData?.detail)) {
+            reportModelNotConfigured();
+          }
+
           // 401 means the session itself is invalid — force a full logout.
           // 403 means the session is valid but lacks permission for this
           // specific action; that's an expected, per-resource outcome (e.g.
@@ -671,6 +680,10 @@ export class BaseApiClient {
       };
       error.status = response.status;
       error.data = errorData;
+
+      if (isModelNotConfigured(errorData?.detail)) {
+        reportModelNotConfigured();
+      }
 
       // 401 means the session itself is invalid; 403 is a permission
       // denial and must not force a logout — see the comment above.

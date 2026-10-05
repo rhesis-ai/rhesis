@@ -23,7 +23,10 @@ from rhesis.backend.app.schemas.model import (
     TestModelConnectionResponse,
 )
 from rhesis.backend.app.services.model_connection import ModelConnectionService
-from rhesis.backend.app.services.model_setup import adopt_usable_defaults
+from rhesis.backend.app.services.model_setup import (
+    adopt_remaining_models,
+    adopt_usable_defaults,
+)
 from rhesis.backend.app.services.platform_key import annotate_model_availability
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -222,11 +225,12 @@ def delete_model(
         )
         if db_model is None:
             raise HTTPException(status_code=404, detail="Model not found")
-        return db_model
     except ValueError as e:
         if "protected" in str(e).lower():
             raise HTTPException(status_code=403, detail=str(e))
         raise HTTPException(status_code=400, detail=str(e))
+    adopt_remaining_models(db, str(organization_id))
+    return db_model
 
 
 class _ModelTestConfig(NamedTuple):

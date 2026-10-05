@@ -16,6 +16,10 @@ import {
   EventHandler,
   ConnectedPayload,
 } from './types';
+import {
+  isModelNotConfigured,
+  reportModelNotConfigured,
+} from '@/utils/model-setup';
 
 /**
  * Default configuration values.
@@ -340,6 +344,12 @@ export class WebSocketClient {
         (message.payload as { error?: string })?.error || 'Unknown error';
       console.error('WebSocket error from server:', errorMsg);
       this.state.lastError = errorMsg;
+    }
+
+    // No usable model (Architect errors, preflight results): same single
+    // handler the API client uses. Subscribers still get the message below.
+    if (isModelNotConfigured(message.payload)) {
+      reportModelNotConfigured();
     }
 
     // Dispatch to registered handlers

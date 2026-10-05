@@ -1,6 +1,7 @@
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { hasServerCapability } from '@/utils/server-permissions';
 import { Capability } from '@/constants/capabilities';
+import { PROVIDER_TYPE_LOOKUP_FILTER } from '@/constants/model-types';
 import ModelsPageClient, {
   type ModelsPageInitialData,
 } from './components/ModelsPageClient';
@@ -22,7 +23,7 @@ export default async function ModelsPage() {
         [
           factory.getModelsClient().getModels(),
           factory.getTypeLookupClient().getTypeLookups({
-            $filter: "type_name eq 'ProviderType'",
+            $filter: PROVIDER_TYPE_LOOKUP_FILTER,
             limit: 100,
           }),
           factory

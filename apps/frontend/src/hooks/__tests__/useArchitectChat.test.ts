@@ -603,11 +603,124 @@ describe('useArchitectChat', () => {
       });
 
       expect(result.current.isLoading).toBe(false);
-      expect(result.current.error).toBe('Something went wrong');
+      // The bubble is the message; the alert above the input stays empty.
+      expect(result.current.error).toBeNull();
       expect(result.current.messages).toHaveLength(2);
       expect(result.current.messages[1].role).toBe('assistant');
       expect(result.current.messages[1].content).toBe('Something went wrong');
       expect(result.current.messages[1].isError).toBe(true);
+    });
+
+    it('shows one error when the stream fails and the error event follows', () => {
+      const modelError =
+        'No usable generation model is set up. Open the Models page to enter a Rhesis platform API key, or add a model from your own provider.';
+      const { result } = renderHook(() =>
+        useArchitectChat({ sessionId: 'sess-1' })
+      );
+
+      act(() => {
+        result.current.sendMessage('Hello');
+      });
+      act(() => {
+        subscriptionHandlers[EventType.ARCHITECT_THINKING]({
+          type: EventType.ARCHITECT_THINKING,
+          payload: { session_id: 'sess-1', iteration: 1 },
+        });
+      });
+      act(() => {
+        subscriptionHandlers[EventType.ARCHITECT_STREAM_END]({
+          type: EventType.ARCHITECT_STREAM_END,
+          payload: {
+            content: modelError,
+            error: modelError,
+            error_code: 'model_not_configured',
+          },
+        });
+      });
+      act(() => {
+        subscriptionHandlers[EventType.ARCHITECT_ERROR]({
+          type: EventType.ARCHITECT_ERROR,
+          payload: {
+            session_id: 'sess-1',
+            error: modelError,
+            error_code: 'model_not_configured',
+          },
+        });
+      });
+
+      const errors = result.current.messages.filter(m => m.isError);
+      expect(errors).toHaveLength(1);
+      expect(errors[0].content).toBe(modelError);
+      expect(errors[0].isStreaming).toBe(false);
+      expect(result.current.messages).toHaveLength(2);
+      expect(result.current.error).toBeNull();
+    });
+
+    it('turns the empty thinking bubble into the error', () => {
+      const { result } = renderHook(() =>
+        useArchitectChat({ sessionId: 'sess-1' })
+      );
+
+      act(() => {
+        result.current.sendMessage('Hello');
+      });
+      act(() => {
+        subscriptionHandlers[EventType.ARCHITECT_THINKING]({
+          type: EventType.ARCHITECT_THINKING,
+          payload: { session_id: 'sess-1', iteration: 1 },
+        });
+      });
+      act(() => {
+        subscriptionHandlers[EventType.ARCHITECT_ERROR]({
+          type: EventType.ARCHITECT_ERROR,
+          payload: { session_id: 'sess-1', error: 'boom' },
+        });
+      });
+
+      expect(result.current.messages).toHaveLength(2);
+      expect(result.current.messages[1]).toMatchObject({
+        content: 'boom',
+        isError: true,
+        isStreaming: false,
+      });
+    });
+
+    it('keeps a partial answer and adds the error after it', () => {
+      const { result } = renderHook(() =>
+        useArchitectChat({ sessionId: 'sess-1' })
+      );
+
+      act(() => {
+        result.current.sendMessage('Hello');
+      });
+      act(() => {
+        subscriptionHandlers[EventType.ARCHITECT_THINKING]({
+          type: EventType.ARCHITECT_THINKING,
+          payload: { session_id: 'sess-1', iteration: 1 },
+        });
+      });
+      act(() => {
+        subscriptionHandlers[EventType.ARCHITECT_TEXT_CHUNK]({
+          type: EventType.ARCHITECT_TEXT_CHUNK,
+          payload: { chunk: 'Here is a start' },
+        });
+      });
+      act(() => {
+        subscriptionHandlers[EventType.ARCHITECT_ERROR]({
+          type: EventType.ARCHITECT_ERROR,
+          payload: { session_id: 'sess-1', error: 'boom' },
+        });
+      });
+
+      expect(result.current.messages).toHaveLength(3);
+      expect(result.current.messages[1]).toMatchObject({
+        content: 'Here is a start',
+        isStreaming: false,
+      });
+      expect(result.current.messages[2]).toMatchObject({
+        content: 'boom',
+        isError: true,
+      });
     });
 
     it('ignores errors for a different session', () => {
@@ -641,7 +754,9 @@ describe('useArchitectChat', () => {
         });
       });
 
-      expect(result.current.error).toBe('An error occurred');
+      expect(result.current.messages).toHaveLength(1);
+      expect(result.current.messages[0].content).toBe('An error occurred');
+      expect(result.current.messages[0].isError).toBe(true);
     });
   });
 

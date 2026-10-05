@@ -155,6 +155,8 @@ export interface ArchitectTextChunkPayload {
 export interface ArchitectStreamEndPayload {
   content: string;
   error?: string | null;
+  /** Stable code for the error, e.g. `model_not_configured`. */
+  error_code?: string | null;
 }
 
 /**
@@ -186,6 +188,8 @@ export interface ArchitectTaskProgressPayload {
 export interface ArchitectErrorPayload {
   error: string;
   error_type?: string;
+  /** Stable code for the error, e.g. `model_not_configured`. */
+  error_code?: string | null;
   session_id?: string;
 }
 
@@ -198,6 +202,8 @@ export interface PreflightCheckUpdatePayload {
   status: 'running' | 'passed' | 'failed' | 'warning' | 'skipped';
   message?: string;
   detail?: string;
+  /** Stable code for a failure a client can act on, e.g. `model_not_configured`. */
+  error_code?: string | null;
   correlation_id: string;
   test_set_id?: string;
   test_set_name?: string;
