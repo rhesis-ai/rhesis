@@ -103,17 +103,42 @@ def adopt_usable_defaults(db: Session, organization_id: str, candidates: list[Mo
         logger.exception("Could not update default models for org_id=%s", organization_id)
 
 
+def _purposes_for(model: Model) -> tuple[str, ...]:
+    return _PURPOSES_BY_MODEL_TYPE.get(model.model_type or "language", ())
+
+
 def _adopt_for_user(db: Session, user: User, candidates: list[Model]) -> None:
+    # Checked once per user, not per candidate: each check builds a model, and
+    # a delete passes every model in the org.
+    fillable = {purpose for model in candidates for purpose in _purposes_for(model)}
+    broken = {p for p in fillable if model_setup_problem(db, user, p) is not None}
+    if not broken:
+        return
+
     updates = {}
     for model in candidates:
-        for purpose in _PURPOSES_BY_MODEL_TYPE.get(model.model_type or "language", ()):
-            if purpose in updates or model_setup_problem(db, user, purpose) is None:
+        for purpose in _purposes_for(model):
+            if purpose not in broken or purpose in updates:
                 continue
             if model_setup_problem(db, user, purpose, str(model.id)) is None:
                 updates[purpose] = str(model.id)
     if updates:
         logger.info("Setting default models for user_id=%s: %s", user.id, updates)
         apply_default_model_ids(user, updates)
+
+
+def adopt_remaining_models(db: Session, organization_id: str) -> None:
+    """After a model is deleted: a default that pointed at it moves to a model the
+    org still has. Without this the user is sent to model setup with a working model
+    in the org and no way to pick it."""
+    try:
+        # Best effort like the adoption itself: this must not fail the delete.
+        with db.begin_nested():
+            candidates = model_crud.get_default_candidates(db, organization_id)
+    except Exception:
+        logger.exception("Could not list default candidates for org_id=%s", organization_id)
+        return
+    adopt_usable_defaults(db, organization_id, candidates)
 
 
 def adopt_platform_models(db: Session, user: User) -> None:

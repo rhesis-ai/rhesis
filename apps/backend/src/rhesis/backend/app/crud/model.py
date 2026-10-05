@@ -100,6 +100,36 @@ def get_rhesis_system_models(db: Session, organization_id: str) -> List[models.M
     )
 
 
+#: Candidate order by type: a model that can generate comes before one that cannot.
+_DEFAULT_CANDIDATE_TYPE_ORDER = {"language": 0, "decision": 1, "embedding": 2}
+
+
+def get_default_candidates(db: Session, organization_id: str) -> List[models.Model]:
+    """The org's models that may become a default, best first.
+
+    Its own models come before the seeded Rhesis rows, language models before the
+    other types, newest first. Polyphemus is left out: it is never a default.
+    """
+    rows = (
+        db.query(models.Model)
+        .outerjoin(models.TypeLookup, models.Model.provider_type_id == models.TypeLookup.id)
+        .filter(
+            models.Model.organization_id == organization_id,
+            (models.TypeLookup.type_value.is_(None))
+            | (models.TypeLookup.type_value != "polyphemus"),
+        )
+        .order_by(models.Model.created_at.desc())
+        .all()
+    )
+    return sorted(
+        rows,
+        key=lambda row: (
+            bool(row.is_protected),
+            _DEFAULT_CANDIDATE_TYPE_ORDER.get(row.model_type or "language", 3),
+        ),
+    )
+
+
 def _reject_rows_without_own_credentials(db: Session, model: schemas.ModelCreate) -> None:
     """Refuse a row that has neither an API key nor an endpoint of its own.
 
