@@ -88,13 +88,19 @@ describe('SidebarPlanRow', () => {
     });
 
     it('hides the upgrade link', () => {
-      renderRow(
-        plan({ name: 'Community', is_paid: false, is_active: false }),
-        { quickStart: true, canUpgrade: true }
-      );
+      renderRow(plan({ name: 'Community', is_paid: false, is_active: false }), {
+        quickStart: true,
+        canUpgrade: true,
+      });
       expect(
         screen.queryByRole('link', { name: /upgrade/i })
       ).not.toBeInTheDocument();
+    });
+
+    it('still renders when the plan is not yet loaded', () => {
+      renderRow(null, { quickStart: true });
+      expect(screen.getByText('Mode')).toBeInTheDocument();
+      expect(screen.getByText('Quick Start')).toBeInTheDocument();
     });
   });
 

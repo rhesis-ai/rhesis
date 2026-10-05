@@ -30,7 +30,7 @@ export function SidebarPlanRow({ collapsed = false }: SidebarPlanRowProps) {
   const canUpgrade = useCanUpgrade();
   const quickStart = useQuickStart();
   const label = planLabel(plan);
-  if (label === null) return null;
+  if (!quickStart && label === null) return null;
 
   const heading = quickStart ? 'Mode' : 'Plan';
   const badgeLabel = quickStart ? 'Quick Start' : label;
