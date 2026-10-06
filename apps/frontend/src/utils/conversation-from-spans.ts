@@ -1,4 +1,5 @@
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
+import type { ConversationMessage } from '@/utils/api-client/interfaces/tests';
 import type { SpanNode } from '@/utils/api-client/interfaces/telemetry';
 import type {
   ConversationTurn,
@@ -89,4 +90,26 @@ export function resolveConversationSummary(
   const base =
     stored.length > 0 ? stored : reconstructConversationFromSpans(rootSpans);
   return mergeSpanFilesIntoConversation(base, spanFiles);
+}
+
+/**
+ * A turn as the user/assistant pair the test-extraction endpoint takes. Empty sides are
+ * dropped, so a turn that errored before the target replied still yields its user message.
+ */
+export function turnToMessages(turn: ConversationTurn): ConversationMessage[] {
+  const messages: ConversationMessage[] = [];
+  if (turn.penelope_message?.trim()) {
+    messages.push({ role: 'user', content: turn.penelope_message });
+  }
+  if (turn.target_response?.trim()) {
+    messages.push({ role: 'assistant', content: turn.target_response });
+  }
+  return messages;
+}
+
+/** Every turn of a conversation, in order, as extraction-endpoint messages. */
+export function conversationToMessages(
+  turns: ConversationTurn[]
+): ConversationMessage[] {
+  return turns.flatMap(turnToMessages);
 }

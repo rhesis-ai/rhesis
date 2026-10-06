@@ -109,6 +109,7 @@ export default function TraceAnnotationDrawer({
 
   const metricValues = Object.values(metrics);
   const passedCount = metricValues.filter(m => m.is_successful).length;
+  const hasMetrics = metricValues.length > 0;
 
   const renderContext = (target: InferredTarget) => {
     const automated = automatedStatusFor(target);
@@ -150,30 +151,36 @@ export default function TraceAnnotationDrawer({
           >
             Current Automated Status
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-            <StatusChip
-              passed={automated === 'passed'}
-              label={automated === 'passed' ? 'Passed' : 'Failed'}
-              size="small"
-              variant="filled"
-            />
-            {target.type === 'trace' && (
-              <Typography variant="body2" color="text.secondary">
-                {passedCount}/{metricValues.length} metrics passed
-              </Typography>
-            )}
-            {target.type === 'metric' && target.reference && (
-              <Typography variant="body2" color="text.secondary">
-                Score: {metrics[target.reference]?.score ?? 'N/A'}
-              </Typography>
-            )}
-            {target.type === 'turn' && (
-              <Typography variant="body2" color="text.secondary">
-                Based on turn metrics ({passedCount}/{metricValues.length}{' '}
-                passed)
-              </Typography>
-            )}
-          </Box>
+          {!hasMetrics ? (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Not evaluated. No metrics ran on this trace.
+            </Typography>
+          ) : (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+              <StatusChip
+                passed={automated === 'passed'}
+                label={automated === 'passed' ? 'Passed' : 'Failed'}
+                size="small"
+                variant="filled"
+              />
+              {target.type === 'trace' && (
+                <Typography variant="body2" color="text.secondary">
+                  {passedCount}/{metricValues.length} metrics passed
+                </Typography>
+              )}
+              {target.type === 'metric' && target.reference && (
+                <Typography variant="body2" color="text.secondary">
+                  Score: {metrics[target.reference]?.score ?? 'N/A'}
+                </Typography>
+              )}
+              {target.type === 'turn' && (
+                <Typography variant="body2" color="text.secondary">
+                  Based on turn metrics ({passedCount}/{metricValues.length}{' '}
+                  passed)
+                </Typography>
+              )}
+            </Box>
+          )}
         </Box>
       </Stack>
     );

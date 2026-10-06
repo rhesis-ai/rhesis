@@ -239,4 +239,29 @@ describe('ConversationHistory', () => {
       expect(onAnnotateTurn).toHaveBeenNthCalledWith(2, 2, undefined);
     });
   });
+
+  describe('create test from turn', () => {
+    it('shows no create-test button unless a handler is given', () => {
+      renderConversation({ conversationSummary: [makeTurn(1)] });
+      expect(
+        screen.queryByRole('button', { name: /create single-turn test/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it('calls the handler with the turn number of the clicked turn', async () => {
+      const user = userEvent.setup();
+      const onCreateTestFromTurn = jest.fn();
+      renderConversation({
+        conversationSummary: [makeTurn(1), makeTurn(2)],
+        onCreateTestFromTurn,
+      });
+
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Create single-turn test from turn 2',
+        })
+      );
+      expect(onCreateTestFromTurn).toHaveBeenCalledWith(2);
+    });
+  });
 });

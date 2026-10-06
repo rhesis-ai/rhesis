@@ -28,7 +28,7 @@ jest.mock('@/app/(protected)/traces/components/TraceDrawer', () => ({
   default: () => <div data-testid="trace-drawer" />,
 }));
 
-jest.mock('../CreateTestFromConversationDrawer', () => ({
+jest.mock('@/components/tests/CreateTestFromConversationDrawer', () => ({
   __esModule: true,
   default: () => <div data-testid="create-test-drawer" />,
 }));

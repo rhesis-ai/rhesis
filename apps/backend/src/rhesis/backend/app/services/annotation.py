@@ -16,6 +16,7 @@ from rhesis.backend.app.constants import ENTITY_LEVEL_TARGETS, EntityType
 from rhesis.backend.app.crud import annotation as annotation_crud
 from rhesis.backend.app.crud.status import get_status_with_entity_type
 from rhesis.backend.app.services.annotation_override import apply_override, revert_override
+from rhesis.backend.app.services.annotation_override.trace import has_metrics
 from rhesis.backend.app.services.metric_tuning.judgement import is_tuning_case, is_tuning_status
 from rhesis.backend.app.services.verdict_matrix_cache import get_verdict_matrix_cache
 
@@ -135,6 +136,9 @@ def _snapshot_original_status(db: Session, parent) -> None:
     the annotation itself just set, and every override would look like agreement.
     """
     if parent.original_status_id is not None:
+        return
+    # Without metrics a trace's status is an earlier human verdict, not an automated one.
+    if isinstance(parent, models.Trace) and not has_metrics(parent):
         return
     current = getattr(parent, "status_id", None) or getattr(parent, "trace_metrics_status_id", None)
     if current is not None:

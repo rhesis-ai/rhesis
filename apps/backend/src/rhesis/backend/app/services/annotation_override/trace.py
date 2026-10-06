@@ -51,6 +51,18 @@ def _set_pass_fail_status(db_trace: models.Trace, passed: bool) -> None:
     _apply_outcome(db_trace, Execution.OK, Verdict.PASS if passed else Verdict.FAIL)
 
 
+def _clear_outcome(db_trace: models.Trace) -> None:
+    """Back to never evaluated: the list shows neither pass nor fail."""
+    db_trace.trace_metrics_status_id = None
+    db_trace.execution = Execution.NOT_RUN.value
+    db_trace.verdict = None
+
+
+def has_metrics(db_trace: models.Trace) -> bool:
+    trace_metrics = db_trace.trace_metrics
+    return isinstance(trace_metrics, dict) and bool(_get_all_trace_metric_values(trace_metrics))
+
+
 def _get_all_trace_metric_values(trace_metrics: Dict[str, Any]) -> Dict[str, Any]:
     merged: Dict[str, Any] = {}
     for section in ("turn_metrics", "conversation_metrics"):
@@ -77,10 +89,10 @@ def apply_override(
 
     if target_type == AnnotationTarget.METRIC and target_reference:
         _apply_metric_override(db_trace, target_reference, passed, annotation_id, user_id, now)
-        recalculate_overall_status(db_trace)
+        _recalculate_if_evaluated(db_trace)
     elif target_type == AnnotationTarget.TURN:
         _apply_turn_override(db_trace, target_reference, passed, annotation_id, user_id, now)
-        recalculate_overall_status(db_trace)
+        _recalculate_if_evaluated(db_trace)
     elif target_type == AnnotationTarget.TRACE:
         _set_pass_fail_status(db_trace, passed)
 
@@ -199,7 +211,7 @@ def revert_override(
 
     if target_type == AnnotationTarget.TURN:
         _revert_turn_override(db, db_trace, target_reference, deleted_annotation_id, replacement)
-        recalculate_overall_status(db_trace)
+        _recalculate_if_evaluated(db_trace)
         return
 
     if not target_reference:
@@ -208,7 +220,7 @@ def revert_override(
     if target_type == AnnotationTarget.METRIC:
         _revert_metric_override(db, db_trace, target_reference, deleted_annotation_id, replacement)
 
-    recalculate_overall_status(db_trace)
+    _recalculate_if_evaluated(db_trace)
 
 
 def _revert_metric_override(
@@ -317,16 +329,21 @@ def _revert_turn_override(
     flag_modified(db_trace, "trace_metrics")
 
 
+def _recalculate_if_evaluated(db_trace: models.Trace) -> None:
+    """Recalculate after a turn or metric annotation, which on a trace without metrics
+    has nothing to change -- and recalculating would wipe a human verdict on the trace."""
+    if has_metrics(db_trace):
+        recalculate_overall_status(db_trace)
+
+
 def recalculate_overall_status(db_trace: models.Trace) -> None:
-    trace_metrics = db_trace.trace_metrics
-    if not trace_metrics or not isinstance(trace_metrics, dict):
-        _apply_outcome(db_trace, Execution.ERROR, None)
+    if not has_metrics(db_trace):
+        # No metric and no remaining human verdict: neither passed nor failed.
+        _clear_outcome(db_trace)
         return
 
+    trace_metrics = db_trace.trace_metrics
     all_metrics = _get_all_trace_metric_values(trace_metrics)
-    if not all_metrics:
-        _apply_outcome(db_trace, Execution.ERROR, None)
-        return
 
     execution, verdict = classify_metrics(all_metrics)
 

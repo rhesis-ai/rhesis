@@ -50,7 +50,8 @@ export interface AnnotationsPanelProps {
   entityType: AnnotationEntityType;
   /** Undefined while the parent is still loading; the panel just shows empty. */
   entityId: string | undefined;
-  automatedStatus: AutomatedVerdict;
+  /** Null when nothing automated ran, e.g. a trace without metrics. */
+  automatedStatus: AutomatedVerdict | null;
   currentUserId: string;
   /** From the parent's `matches_annotation`: the human verdict disagrees. */
   hasConflict?: boolean;
@@ -179,16 +180,22 @@ export default function AnnotationsPanel({
           <Typography variant="body2" color="text.primary">
             Automated:
           </Typography>
-          <StatusChip
-            passed={automatedStatus.passed}
-            label={
-              automatedStatus.count
-                ? `${automatedStatus.label} ${automatedStatus.count}`
-                : automatedStatus.label
-            }
-            size="small"
-            variant="outlined"
-          />
+          {automatedStatus ? (
+            <StatusChip
+              passed={automatedStatus.passed}
+              label={
+                automatedStatus.count
+                  ? `${automatedStatus.label} ${automatedStatus.count}`
+                  : automatedStatus.label
+              }
+              size="small"
+              variant="outlined"
+            />
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              Not evaluated
+            </Typography>
+          )}
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="body2" color="text.primary">

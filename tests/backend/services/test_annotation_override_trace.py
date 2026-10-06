@@ -187,22 +187,27 @@ class TestRecalculateOverallStatus:
         recalculate_overall_status(trace)
         mock_apply.assert_called_once_with(trace, Execution.OK, Verdict.FAIL)
 
+    @pytest.mark.parametrize(
+        "trace_metrics",
+        [
+            None,
+            {"turn_metrics": {"metrics": {}}, "conversation_metrics": {"metrics": {}}},
+        ],
+    )
     @patch("rhesis.backend.app.services.annotation_override.trace._apply_outcome")
-    def test_no_metrics_resets_to_error(self, mock_apply):
+    def test_no_metrics_clears_to_not_evaluated(self, mock_apply, trace_metrics):
+        """Without a metric or a human verdict a trace is neither passed nor failed."""
         trace = MagicMock()
-        trace.trace_metrics = {
-            "turn_metrics": {"metrics": {}},
-            "conversation_metrics": {"metrics": {}},
-        }
-        recalculate_overall_status(trace)
-        mock_apply.assert_called_once_with(trace, Execution.ERROR, None)
+        trace.trace_metrics = trace_metrics
+        trace.trace_metrics_status_id = "fail-status"
+        trace.verdict = "fail"
 
-    @patch("rhesis.backend.app.services.annotation_override.trace._apply_outcome")
-    def test_none_trace_metrics_resets_to_error(self, mock_apply):
-        trace = MagicMock()
-        trace.trace_metrics = None
         recalculate_overall_status(trace)
-        mock_apply.assert_called_once_with(trace, Execution.ERROR, None)
+
+        mock_apply.assert_not_called()
+        assert trace.trace_metrics_status_id is None
+        assert trace.execution == Execution.NOT_RUN.value
+        assert trace.verdict is None
 
     @patch("rhesis.backend.app.services.annotation_override.trace._apply_outcome")
     def test_crashed_metric_sets_error(self, mock_apply):
@@ -254,3 +259,42 @@ class TestRecalculateOverallStatus:
 
         recalculate_overall_status(trace)
         mock_apply.assert_called_once_with(trace, Execution.OK, Verdict.PASS)
+
+
+class TestTraceWithoutMetrics:
+    """Human Pass/Fail is the only verdict a trace without metrics can carry."""
+
+    @pytest.fixture
+    def bare_trace(self):
+        trace = MagicMock()
+        trace.organization_id = "org-123"
+        trace.trace_metrics = None
+        trace.trace_metrics_status_id = "human-pass"
+        return trace
+
+    @patch("rhesis.backend.app.services.annotation_override.trace._set_pass_fail_status")
+    def test_trace_annotation_sets_the_verdict(self, mock_set_status, bare_trace):
+        apply_override(bare_trace, _MockAnnotation(target_type="trace"), {"name": "Fail"})
+        mock_set_status.assert_called_once_with(bare_trace, False)
+
+    @patch("rhesis.backend.app.services.annotation_override.trace.recalculate_overall_status")
+    def test_turn_annotation_keeps_the_human_verdict(self, mock_recalc, bare_trace):
+        annotation = _MockAnnotation(target_type="turn", target_reference="Turn 1")
+        apply_override(bare_trace, annotation, {"name": "Fail"})
+
+        mock_recalc.assert_not_called()
+        assert bare_trace.trace_metrics_status_id == "human-pass"
+
+    @patch("rhesis.backend.app.services.annotation_override.trace.recalculate_overall_status")
+    def test_reverting_a_turn_annotation_keeps_the_human_verdict(self, mock_recalc, bare_trace):
+        revert_override(MagicMock(), bare_trace, "turn", "Turn 1", "ann-del", None)
+
+        mock_recalc.assert_not_called()
+        assert bare_trace.trace_metrics_status_id == "human-pass"
+
+    def test_removing_the_last_trace_annotation_clears_the_verdict(self, bare_trace):
+        revert_override(MagicMock(), bare_trace, "trace", None, "ann-del", None)
+
+        assert bare_trace.trace_metrics_status_id is None
+        assert bare_trace.execution == Execution.NOT_RUN.value
+        assert bare_trace.verdict is None

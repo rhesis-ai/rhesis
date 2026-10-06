@@ -2,7 +2,14 @@
 
 import { annotationsByTurn } from '@/components/annotations/annotation-summary';
 import { useState, useEffect, useMemo } from 'react';
-import { Alert, Box, CircularProgress } from '@mui/material';
+import {
+  Alert,
+  Box,
+  CircularProgress,
+  IconButton,
+  Tooltip,
+} from '@mui/material';
+import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import {
   TraceDetailResponse,
   SpanNode,
@@ -14,9 +21,17 @@ import {
   OverrideMarker,
 } from '@/utils/api-client/interfaces/test-results';
 import {
+  conversationToMessages,
   reconstructConversationFromSpans,
   traceMetricsFromSpans,
+  turnToMessages,
 } from '@/utils/conversation-from-spans';
+import type { ConversationMessage } from '@/utils/api-client/interfaces/tests';
+import { TEST_TYPES, type TestTypeValue } from '@/constants/test-types';
+import CreateTestFromConversationDrawer from '@/components/tests/CreateTestFromConversationDrawer';
+import { useNotifications } from '@/components/common/NotificationContext';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import ConversationHistory from '@/components/common/ConversationHistory';
@@ -92,6 +107,12 @@ export default function ConversationTraceView({
   rootSpans,
   onAnnotateTurn,
 }: ConversationTraceViewProps) {
+  const notifications = useNotifications();
+  const canCreateTest = useCan(Capability.Test.CREATE);
+  const [testDraft, setTestDraft] = useState<{
+    type: TestTypeValue;
+    messages: ConversationMessage[];
+  } | null>(null);
   const [testResult, setTestResult] = useState<TestResultDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -268,6 +289,32 @@ export default function ConversationTraceView({
     >
       {deletedTestWarning}
       {fetchErrorWarning}
+      {canCreateTest && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            px: 2,
+            pt: 1,
+          }}
+        >
+          <Tooltip title="Create multi-turn test from conversation">
+            <IconButton
+              size="small"
+              aria-label="Create multi-turn test from conversation"
+              onClick={() =>
+                setTestDraft({
+                  type: TEST_TYPES.MULTI_TURN,
+                  messages: conversationToMessages(turns),
+                })
+              }
+            >
+              <ScienceOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <ConversationHistory
           conversationSummary={turns}
@@ -284,10 +331,37 @@ export default function ConversationTraceView({
             onSpanSelect && rootSpans ? handleResponseClick : undefined
           }
           onAnnotateTurn={onAnnotateTurn}
+          onCreateTestFromTurn={
+            canCreateTest
+              ? turnNumber => {
+                  const turn = turns.find(t => t.turn === turnNumber);
+                  if (!turn) return;
+                  setTestDraft({
+                    type: TEST_TYPES.SINGLE_TURN,
+                    messages: turnToMessages(turn),
+                  });
+                }
+              : undefined
+          }
           maxHeight="100%"
           turnAnnotationMap={turnAnnotationMap}
         />
       </Box>
+      {testDraft && (
+        <CreateTestFromConversationDrawer
+          open
+          onClose={() => setTestDraft(null)}
+          messages={testDraft.messages}
+          testType={testDraft.type}
+          endpointId={trace.endpoint?.id}
+          onSuccess={() =>
+            notifications.show('Test created successfully', {
+              severity: 'success',
+              autoHideDuration: 4000,
+            })
+          }
+        />
+      )}
     </Box>
   );
 }
