@@ -906,7 +906,10 @@ def create_metric(
     except UnsupportedModelType:
         if text_model is None:
             raise
-        logger.info(f"[SDK_DIRECT] {class_name} can't use a decision model; using {text_model}")
+        logger.info(
+            f"[SDK_DIRECT] {class_name} can't use a decision model; using "
+            f"{getattr(text_model, 'model_name', None) or type(text_model).__name__}"
+        )
         return MetricFactory.create(backend, class_name, **{**factory_params, "model": text_model})
 
 
