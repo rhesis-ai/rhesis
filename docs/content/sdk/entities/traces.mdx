@@ -12,10 +12,10 @@ They are not interchangeable, and confusing them is the one thing that silently 
 
 | Id | Shape | What it addresses |
 |----|-------|-------------------|
-| `trace_id` | 32-character hex | Reading the trace back: `Traces.pull` |
-| `db_id` | UUID | Annotating it, and the `/traces/…` page in the platform |
+| `trace_id` | 32-character hex | Reading the trace back with `Traces.pull`, annotating it, reading its annotations |
+| `db_id` | UUID | The `/traces/…` page in the platform |
 
-`db_id` is the root span's row id. The SDK resolves it from `trace_id` for you, so `annotate` and `get_annotations` take neither — they work it out. You only need the distinction when an id reaches you from somewhere else, such as `annotation.context.trace_db_id`, which is the row id.
+`db_id` is the root span's row id. `annotate` and `get_annotations` use `trace_id`, so you rarely need it. It matters when an id reaches you from somewhere else, such as a platform link or `annotation.context.trace_db_id`, which are row ids.
 
 ## Properties
 
@@ -169,18 +169,16 @@ trace.span("ai.llm.invoke").annotate("fail", "Ignored the retrieved context.")
 trace.get_annotations()`}
 </CodeBlock>
 
-Both take the row id rather than the hex, which is why they resolve it themselves. See [Annotations](/sdk/entities/annotations) for verdicts, targets and resolving.
+`annotate` and `get_annotations` address the trace by `trace_id`, so neither downloads the span tree, and a trace from a listing costs one call. `get_annotations` returns the annotations on the trace and on every span in it. See [Annotations](/sdk/entities/annotations) for verdicts, targets and resolving.
 
 ## Spans on their own
 
-A span's row id is what the platform records against a trace: in an annotation's `context.trace_db_id`, and in a `/traces/…` link. `Spans` is the way back from one:
+A span's row id is what a `/traces/…` link in the platform carries. `Spans` is the way back from one. From an annotation, `annotation.get_trace()` is shorter (see [Annotations](/sdk/entities/annotations#from-an-annotation-back-to-its-trace)).
 
 <CodeBlock filename="spans.py" language="python">
 {`from rhesis.sdk.entities import Spans
 
-# From an annotation back to what it judged
-trace = Spans.trace_for(annotation.context.trace_db_id)
-
+trace = Spans.trace_for(span_row_id) # the trace that holds this span
 span = Spans.pull(span_row_id)       # resolves the trace, picks the span out of its tree
 Spans.lookup(span_row_id)            # {"trace_id": ..., "project_id": ..., "span_id": ...}
 Spans.exists(span_row_id)

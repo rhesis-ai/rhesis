@@ -37,6 +37,8 @@ test.get_annotations()
 test_run.get_annotations()     # everything in the run: its results and its traces
 test_set.get_annotations()
 endpoint.get_annotations()
+requirement.get_annotations()  # on the results of tests linked to it
+trace.get_annotations()        # on the trace and on every span in it
 
 # A metric reaches the judgements people left about it
 metric = NumericJudge.pull(name="Answer Relevancy")
@@ -51,7 +53,8 @@ Or query the collection directly when you have an id rather than an object:
 {`from rhesis.sdk.entities import Annotations
 
 Annotations.for_entity("TestResult", test_result_id)
-Annotations.for_trace(trace_db_id)          # the span row id, not the OTEL hex
+Annotations.for_trace_id(trace_id)          # the OTEL hex; covers every span
+Annotations.for_trace(trace_db_id)          # one span, by its row id
 Annotations.for_test_run(test_run_id)
 Annotations.for_test_set(test_set_id)
 Annotations.for_endpoint(endpoint_id)
@@ -86,7 +89,9 @@ test_result.annotate("fail", "Went off script here.", turn=2)
 test.annotate("fail", "Not a fair question.")`}
 </CodeBlock>
 
-`"pass"` and `"fail"` are resolved to the organization's status rows for you, and cached. Metric tuning uses `"accepted"` and `"rejected"`. `Verdict` and `AnnotatableEntity` hold the same values as constants if you would rather not type strings.
+`"pass"` and `"fail"` are resolved to the organization's status rows for you, and cached. `Verdict` and `AnnotatableEntity` hold the same values as constants if you would rather not type strings.
+
+Metric tuning judgements (accepting or rejecting how a metric scored a test) are made in the platform's tuning flow, which records the verdict each judgement was made against. The SDK refuses to create one, since without that record tuning would treat it as out of date straight away.
 
 A turn is given as its number, from `test_output.conversation_summary`, and stored as the label the platform groups judgements by:
 
@@ -97,27 +102,20 @@ test_result.annotate("fail", "...", turn="Turn 2")    # the same thing`}
 
 Both land on the same target. Passing a bare `"2"` would not: judgements are grouped by that reference, so it would sit beside the turn's other annotations instead of superseding them, which is why the number is normalised here rather than sent as given.
 
-For a parent with no entity class of its own, such as a trace, use the collection:
+A trace is annotated the same way, from the `Trace` object. See [Traces](/sdk/entities/traces#annotating-a-trace).
 
-<CodeBlock filename="annotate_trace.py" language="python">
-{`from rhesis.sdk.entities import Annotations
+When you have an id rather than an object, use the collection. Constants are available where a literal would be easy to mistype:
 
-Annotations.create("Trace", trace_db_id, "fail", "Retrieved the wrong document.")`}
-</CodeBlock>
+<CodeBlock filename="create_annotation.py" language="python">
+{`from rhesis.sdk.entities import AnnotatableEntity, Annotations, Verdict
 
-Constants are available where a literal would be easy to mistype:
-
-<CodeBlock filename="constants.py" language="python">
-{`from rhesis.sdk.entities import AnnotatableEntity, Verdict
-
-Annotations.create(AnnotatableEntity.TRACE, trace_db_id, Verdict.FAIL)`}
+Annotations.create(AnnotatableEntity.TEST_RESULT, test_result_id, Verdict.FAIL, "Off topic.")`}
 </CodeBlock>
 
 ## Annotating a trace from the application that produced it
 
-`trace_db_id` above is the span's row id, which the platform assigns on ingestion. An instrumented
-application never sees it — it knows the OTEL trace id, the 32-character hex its tracer generated.
-`annotate_trace` takes that instead, and the root span of the trace is resolved for you.
+An instrumented application knows a trace by its OTEL trace id, the 32-character hex its tracer
+generated. `annotate_trace` takes that id, and the platform finds the trace for you.
 
 <CodeBlock filename="feedback.py" language="python">
 {`from rhesis.sdk.telemetry import annotate_current_trace, annotate_trace
@@ -141,17 +139,34 @@ than filing the verdict against nothing.
 Spans are ingested asynchronously, so a trace recorded moments ago may not be queryable yet; that
 case raises too, and retrying is the right response. Waiting for the request to finish first leaves
 more time for the spans to arrive but does not guarantee they have, so a call made close to the
-request should be ready to retry. Reading annotations back takes the same hex:
+request should be ready to retry.
 
-<CodeBlock filename="read_back.py" language="python">
+Outside an instrumented app, the collection takes the same hex, for writing and for reading back:
+
+<CodeBlock filename="by_trace_id.py" language="python">
 {`from rhesis.sdk.entities import Annotations
 
-Annotations.for_trace_id(trace_id)   # by the OTEL hex
-Annotations.for_trace(trace_db_id)   # by the span row id`}
+Annotations.create_for_trace_id(trace_id, "fail", "Retrieved the wrong document.")
+Annotations.for_trace_id(trace_id)`}
 </CodeBlock>
 
 `for_trace_id` covers annotations on any span of the trace, not only the root, since the question is
 about the trace rather than one operation inside it.
+
+## From an annotation back to its trace
+
+`get_trace` returns the trace an annotation sits on, whether it judges the whole trace or one span
+in it. It returns `None` for an annotation on a test result or a test.
+
+<CodeBlock filename="annotation_trace.py" language="python">
+{`trace = annotation.get_trace()
+if trace is not None:
+    print(trace.root_operation, trace.duration_ms)
+    trace.span("ai.llm.invoke")`}
+</CodeBlock>
+
+Each call reads the trace with its full span tree, which is the large response described in
+[Traces](/sdk/entities/traces). Avoid calling it for every annotation in a run.
 
 ## Resolving and deleting
 
