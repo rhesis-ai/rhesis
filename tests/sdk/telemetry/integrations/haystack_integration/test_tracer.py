@@ -165,9 +165,47 @@ class TestSanitizeUsageData:
             AIAttributes.LLM_TOKENS_TOTAL: 7,
         }
 
+    def test_normalizes_openai_cached_tokens_for_pricing(self):
+        assert _sanitize_usage_data(
+            {
+                "prompt_tokens": 1000,
+                "completion_tokens": 20,
+                "total_tokens": 1020,
+                "prompt_tokens_details": {"cached_tokens": 800},
+            }
+        ) == {
+            AIAttributes.LLM_TOKENS_INPUT: 200,
+            AIAttributes.LLM_TOKENS_OUTPUT: 20,
+            AIAttributes.LLM_TOKENS_TOTAL: 1020,
+            AIAttributes.LLM_TOKENS_CACHE_READ: 800,
+        }
+
+    def test_preserves_anthropic_cache_creation_tokens_for_pricing(self):
+        assert _sanitize_usage_data(
+            {
+                "input_tokens": 50,
+                "output_tokens": 20,
+                "cache_creation_input_tokens": 1000,
+                "cache_read_input_tokens": 4000,
+            }
+        ) == {
+            AIAttributes.LLM_TOKENS_INPUT: 50,
+            AIAttributes.LLM_TOKENS_OUTPUT: 20,
+            AIAttributes.LLM_TOKENS_TOTAL: 5070,
+            AIAttributes.LLM_TOKENS_CACHE_WRITE: 1000,
+            AIAttributes.LLM_TOKENS_CACHE_READ: 4000,
+        }
+
     def test_drops_zero_values(self):
         """A zero input count is omitted; the total is still derived from what is known."""
-        assert _sanitize_usage_data({"prompt_tokens": 0, "completion_tokens": 5}) == {
+        assert _sanitize_usage_data(
+            {
+                "prompt_tokens": 0,
+                "completion_tokens": 5,
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0,
+            }
+        ) == {
             AIAttributes.LLM_TOKENS_OUTPUT: 5,
             AIAttributes.LLM_TOKENS_TOTAL: 5,
         }
@@ -599,6 +637,27 @@ class TestModelMetadata:
         assert raw.attributes[AIAttributes.MODEL_NAME] == "gpt-4o-mini"
         assert raw.attributes[AIAttributes.LLM_TOKENS_INPUT] == 5
         assert raw.attributes[AIAttributes.LLM_TOKENS_OUTPUT] == 2
+
+    def test_chat_generator_records_anthropic_cache_tokens(self):
+        span, raw = make_span(mapping.COMPONENT_RUN)
+        reply = ChatMessage.from_assistant(
+            "hi",
+            meta={
+                "model": "claude-sonnet-4",
+                "usage": {
+                    "input_tokens": 50,
+                    "output_tokens": 20,
+                    "cache_creation_input_tokens": 1000,
+                    "cache_read_input_tokens": 4000,
+                },
+            },
+        )
+        span.set_tag(mapping.COMPONENT_OUTPUT, {"replies": [reply]})
+
+        DefaultSpanHandler._apply_model_metadata(span, "AnthropicChatGenerator")
+
+        assert raw.attributes[AIAttributes.LLM_TOKENS_CACHE_WRITE] == 1000
+        assert raw.attributes[AIAttributes.LLM_TOKENS_CACHE_READ] == 4000
 
     def test_agent_step_llm_output(self):
         span, raw = make_span(mapping.AGENT_STEP_LLM)

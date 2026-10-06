@@ -58,10 +58,37 @@ class TestNormalizeUsage:
         on the floor."""
         assert _normalize_usage({"prompt_tokens": 7, "completion_tokens": 5})["total_tokens"] == 12
 
+    def test_includes_separately_billable_cache_tokens(self):
+        assert _normalize_usage(
+            {
+                "prompt_tokens": 1000,
+                "completion_tokens": 20,
+                "total_tokens": 1020,
+                "cached_tokens": 800,
+            }
+        ) == TokenUsage(
+            input_tokens=200,
+            output_tokens=20,
+            total_tokens=1020,
+            cache_read_tokens=800,
+        )
+
     def test_is_idempotent(self):
         """Already-normalized input must survive a second pass unchanged --
         _emit_usage_batch relies on this when re-normalizing its own sums."""
         once = _normalize_usage({"prompt_tokens": 10, "completion_tokens": 20})
+
+        assert _normalize_usage(once) == once
+
+    def test_is_idempotent_with_cache_fields(self):
+        once = _normalize_usage(
+            {
+                "prompt_tokens": 100,
+                "completion_tokens": 20,
+                "total_tokens": 120,
+                "cached_tokens": 80,
+            }
+        )
 
         assert _normalize_usage(once) == once
 
@@ -119,6 +146,34 @@ class TestEmitUsageBatch:
         )
 
         assert emitted[0]["total_tokens"] == 40
+
+    def test_sums_cache_tokens_across_items(self, model, emitted):
+        model._emit_usage_batch(
+            [
+                {
+                    "prompt_tokens": 100,
+                    "completion_tokens": 20,
+                    "total_tokens": 120,
+                    "cached_tokens": 80,
+                },
+                {
+                    "input_tokens": 7,
+                    "output_tokens": 3,
+                    "total_tokens": 12,
+                    "cache_creation_input_tokens": 2,
+                },
+            ]
+        )
+
+        assert emitted == [
+            TokenUsage(
+                input_tokens=27,
+                output_tokens=23,
+                total_tokens=132,
+                cache_write_tokens=2,
+                cache_read_tokens=80,
+            )
+        ]
 
     def test_ignores_items_with_no_usage(self, model, emitted):
         model._emit_usage_batch([None, {"total_tokens": 5}, {}])

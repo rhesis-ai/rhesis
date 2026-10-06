@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Normalized cached prompt usage for OpenAI and LiteLLM so separately billed cache reads and
+  writes stay out of `input_tokens`, while provider-reported totals remain unchanged.
+
 ### Added
 - `ConversationalJudge` results include `relevant_turns`, the turns the verdict rests on.
   `NumericJudge` and `CategoricalJudge` return them too when passed `conversation_history`;

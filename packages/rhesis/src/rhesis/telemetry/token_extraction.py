@@ -10,6 +10,10 @@ LLM providers use different key names for the same concepts:
       "candidates_token_count"
     - Total tokens: "total_tokens", "total_token_count"
 
+OpenAI includes cached prompt tokens in ``prompt_tokens``; when its cache details are
+present, input tokens are normalized to exclude them and the cache count is returned
+separately. Anthropic's ``input_tokens`` already excludes cached tokens.
+
 Cohere nests its counts one level down, under "billed_units" and "tokens"; those are
 flattened before the lookup so a caller never has to unwrap them first.
 
@@ -65,15 +69,19 @@ _TOTAL_KEYS = [
     "totalTokenCount",  # camelCase variant
 ]
 
-# Anthropic cache tokens (billed separately but part of actual usage)
+# Prompt-cache tokens, billed at their own rates.
 _CACHE_CREATION_KEYS = [
     "cache_creation_input_tokens",
     "cacheCreationInputTokens",  # camelCase variant
+    "cache_creation_tokens",  # LiteLLM prompt token details
+    "cache_write_tokens",  # normalized callback payload
 ]
 
 _CACHE_READ_KEYS = [
     "cache_read_input_tokens",
     "cacheReadInputTokens",  # camelCase variant
+    "cached_tokens",  # OpenAI prompt_tokens_details
+    "cache_read_tokens",  # normalized callback payload
 ]
 
 _ALL_KEYS = (
@@ -88,7 +96,14 @@ _ALL_KEYS = (
 # Where a provider hides its counts one level down. Cohere reports both a raw and a
 # billed figure; billed wins, because it is what the invoice charges and cost is what
 # these numbers feed.
-_NESTED_CONTAINERS = ("billed_units", "tokens", "usage", "usage_metadata", "token_usage")
+_NESTED_CONTAINERS = (
+    "billed_units",
+    "tokens",
+    "usage",
+    "usage_metadata",
+    "token_usage",
+    "prompt_tokens_details",
+)
 
 
 def _to_plain_dict(value: Any) -> Dict:
@@ -123,9 +138,9 @@ def _as_mapping(usage: Union[Dict, Any]) -> Dict:
     two lists and forgetting one: that is how Anthropic's cache tokens went missing, and
     why the camelCase spellings were unreachable for anything but a dict.
 
-    A nested container is merged in underneath its parent, so a provider that puts its
-    counts one level down (Cohere) resolves without the caller unwrapping first, and a
-    count at the top level still wins.
+    Nested containers are merged in underneath their parents, so providers that wrap
+    usage more than once resolve without the caller unwrapping first, and a count at the
+    top level still wins.
     """
     if usage is None:
         return {}
@@ -152,14 +167,26 @@ def _as_mapping(usage: Union[Dict, Any]) -> Dict:
         return {}
 
     nested: Dict = {}
-    for name in _NESTED_CONTAINERS:
-        child = flat.get(name)
-        if child is None or isinstance(child, (str, bytes, int, float, bool)):
-            continue
-        # Later containers do not overwrite earlier ones: _NESTED_CONTAINERS is in
-        # preference order, so the first one carrying a key keeps it.
-        for key, value in _to_plain_dict(child).items():
-            nested.setdefault(key, value)
+    pending = [flat]
+    seen = {id(usage)}
+    index = 0
+    while index < len(pending):
+        parent = pending[index]
+        index += 1
+        for name in _NESTED_CONTAINERS:
+            child = parent.get(name)
+            if (
+                child is None
+                or isinstance(child, (str, bytes, int, float, bool))
+                or id(child) in seen
+            ):
+                continue
+            seen.add(id(child))
+            child_mapping = _to_plain_dict(child)
+            # Earlier containers have priority; top-level values are merged last.
+            for key, value in child_mapping.items():
+                nested.setdefault(key, value)
+            pending.append(child_mapping)
 
     # The top level wins over anything nested, and a None never displaces a real number.
     merged = {k: v for k, v in nested.items() if v is not None}
@@ -216,7 +243,7 @@ def extract_token_usage(usage: Union[Dict, Any]) -> Tuple[int, int, int]:
         usage: Dictionary or object containing token usage information
 
     Returns:
-        Tuple of (input_tokens, output_tokens, total_tokens)
+        Tuple of (uncached_input_tokens, output_tokens, total_tokens)
 
     Example:
         >>> # OpenAI format
@@ -241,6 +268,15 @@ def extract_token_usage(usage: Union[Dict, Any]) -> Tuple[int, int, int]:
 
     # Extract input tokens (try all common key names)
     input_tokens = get_first_value(usage, _INPUT_KEYS)
+
+    # OpenAI and LiteLLM include their cache counts in prompt_tokens.
+    if "prompt_tokens" in usage and "input_tokens" not in usage:
+        input_tokens = max(
+            0,
+            input_tokens
+            - get_first_value(usage, _CACHE_CREATION_KEYS)
+            - get_first_value(usage, _CACHE_READ_KEYS),
+        )
 
     # Extract output tokens (try all common key names)
     output_tokens = get_first_value(usage, _OUTPUT_KEYS)

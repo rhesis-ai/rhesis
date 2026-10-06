@@ -9,6 +9,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    NotRequired,
     Optional,
     TypedDict,
     Union,
@@ -31,13 +32,16 @@ class TokenUsage(TypedDict):
     (``gen_ai.usage.input_tokens`` / ``gen_ai.usage.output_tokens``).
     Providers report these under a dozen different spellings
     (``prompt_tokens``, ``prompt_token_count``, ``promptTokenCount``, ...);
-    :func:`_normalize_usage` maps all of them onto these three keys so
+    :func:`_normalize_usage` maps all of them onto these three keys and adds
+    cache fields when a provider reports separately billable cache tokens, so
     consumers never have to guess which dialect a provider speaks.
     """
 
     input_tokens: int
     output_tokens: int
     total_tokens: int
+    cache_write_tokens: NotRequired[int]
+    cache_read_tokens: NotRequired[int]
 
 
 UsageCallback = Callable[[TokenUsage], None]
@@ -108,17 +112,23 @@ def _normalize_usage(usage: Any) -> Optional[TokenUsage]:
     if not usage:
         return None
 
-    from rhesis.telemetry.token_extraction import extract_token_usage
+    from rhesis.telemetry.token_extraction import extract_cache_tokens, extract_token_usage
 
     input_tokens, output_tokens, total_tokens = extract_token_usage(usage)
     if not total_tokens:
         return None
 
-    return TokenUsage(
+    cache_write_tokens, cache_read_tokens = extract_cache_tokens(usage)
+    normalized = TokenUsage(
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         total_tokens=total_tokens,
     )
+    if cache_write_tokens:
+        normalized["cache_write_tokens"] = cache_write_tokens
+    if cache_read_tokens:
+        normalized["cache_read_tokens"] = cache_read_tokens
+    return normalized
 
 
 # Type alias for embeddings
@@ -270,8 +280,14 @@ class UsageReporting:
             normalized = _normalize_usage(usage)
             if normalized is None:
                 continue
-            for key in totals:
+            for key in ("input_tokens", "output_tokens", "total_tokens"):
                 totals[key] += normalized[key]  # type: ignore[literal-required]
+            if cache_write_tokens := normalized.get("cache_write_tokens"):
+                totals["cache_write_tokens"] = (
+                    totals.get("cache_write_tokens", 0) + cache_write_tokens
+                )
+            if cache_read_tokens := normalized.get("cache_read_tokens"):
+                totals["cache_read_tokens"] = totals.get("cache_read_tokens", 0) + cache_read_tokens
 
         self._dispatch_usage(totals if totals["total_tokens"] else None)
 

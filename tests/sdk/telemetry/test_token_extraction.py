@@ -242,19 +242,8 @@ class TestExtractCacheTokens:
         assert input_tokens + output_tokens + cache_write + cache_read == total
 
 
-class TestOpenAICachedTokensAreNotReadYet:
-    """Pins a known gap, so the documentation stays true and the fix is deliberate.
-
-    OpenAI reports cached tokens as ``prompt_tokens_details.cached_tokens``, which
-    Rhesis does not read. Adding the key alone would be wrong: the two providers count
-    them opposite ways round. Anthropic's ``input_tokens`` excludes the cached ones, so
-    they are added to reach a total, while OpenAI's ``prompt_tokens`` already includes
-    them, so adding them would count them twice.
-
-    Handling that needs the input count adjusted per provider. Until then a cached
-    OpenAI call is priced as though every prompt token were fresh, which overstates the
-    cost rather than understating it.
-    """
+class TestOpenAICachedTokens:
+    """OpenAI's prompt count includes cached tokens; its input count here does not."""
 
     def usage(self):
         from openai.types import CompletionUsage
@@ -267,10 +256,82 @@ class TestOpenAICachedTokensAreNotReadYet:
             prompt_tokens_details=PromptTokensDetails(cached_tokens=800),
         )
 
-    def test_the_cached_count_is_not_reported(self):
-        assert extract_cache_tokens(self.usage()) == (0, 0)
+    def test_the_cached_count_is_reported_separately(self):
+        assert extract_cache_tokens(self.usage()) == (0, 800)
 
-    def test_the_totals_are_not_double_counted(self):
-        """The important half. Reading the key without adjusting the input would make
-        this 1820 against the 1020 OpenAI itself reported."""
-        assert extract_token_usage(self.usage()) == (1000, 20, 1020)
+    def test_real_openai_usage_normalizes_input_without_changing_total(self):
+        usage = self.usage()
+
+        input_tokens, output_tokens, total_tokens = extract_token_usage(usage)
+        cache_write, cache_read = extract_cache_tokens(usage)
+
+        assert input_tokens == 200
+        assert output_tokens == 20
+        assert total_tokens == 1020
+        assert input_tokens + output_tokens + cache_write + cache_read == total_tokens
+
+    def test_openai_dict_shape_reads_nested_cached_tokens(self):
+        usage = {
+            "prompt_tokens": 1000,
+            "completion_tokens": 20,
+            "total_tokens": 1020,
+            "prompt_tokens_details": {"cached_tokens": 800},
+        }
+
+        assert extract_token_usage(usage) == (200, 20, 1020)
+        assert extract_cache_tokens(usage) == (0, 800)
+
+    def test_openai_flattened_shape_reads_top_level_cached_tokens(self):
+        usage = {
+            "prompt_tokens": 1000,
+            "completion_tokens": 20,
+            "total_tokens": 1020,
+            "cached_tokens": 800,
+        }
+
+        assert extract_token_usage(usage) == (200, 20, 1020)
+        assert extract_cache_tokens(usage) == (0, 800)
+
+    def test_litellm_anthropic_shape_does_not_double_count_cache_writes(self):
+        usage = {
+            "prompt_tokens": 5050,
+            "completion_tokens": 20,
+            "total_tokens": 5070,
+            "cache_creation_input_tokens": 1000,
+            "cache_read_input_tokens": 4000,
+            "prompt_tokens_details": {
+                "cached_tokens": 4000,
+                "cache_creation_tokens": 1000,
+            },
+        }
+
+        input_tokens, output_tokens, total_tokens = extract_token_usage(usage)
+        cache_write, cache_read = extract_cache_tokens(usage)
+
+        assert (input_tokens, cache_write, cache_read) == (50, 1000, 4000)
+        assert input_tokens + output_tokens + cache_write + cache_read == total_tokens
+
+    def test_nested_usage_details_are_shared_by_both_extractors(self):
+        usage = {
+            "usage": {
+                "prompt_tokens": 5050,
+                "completion_tokens": 20,
+                "total_tokens": 5070,
+                "prompt_tokens_details": {
+                    "cached_tokens": 4000,
+                    "cache_creation_tokens": 1000,
+                },
+            }
+        }
+
+        input_tokens, output_tokens, total_tokens = extract_token_usage(usage)
+        cache_write, cache_read = extract_cache_tokens(usage)
+
+        assert (input_tokens, output_tokens, cache_write, cache_read) == (50, 20, 1000, 4000)
+        assert input_tokens + output_tokens + cache_write + cache_read == total_tokens
+
+    def test_cyclic_usage_container_does_not_recurse_forever(self):
+        usage = {"prompt_tokens": 10, "completion_tokens": 5}
+        usage["usage"] = usage
+
+        assert extract_token_usage(usage) == (10, 5, 15)
