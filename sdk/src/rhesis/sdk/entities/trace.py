@@ -382,10 +382,16 @@ class Trace(BaseEntity):
             trace.annotate("pass", "Fine once you read the tool call.", metric="Groundedness")
 
         Sent by the OTEL ``trace_id`` and resolved to the root span server-side,
-        so a trace from a listing does not fetch its span tree first.
+        so a trace from a listing does not fetch its span tree first. A
+        conversation is the exception: its turns share one ``trace_id`` with a
+        root span each, so it is annotated on its first root, as the platform does.
         """
-        from rhesis.sdk.entities.annotation import Annotations
+        from rhesis.sdk.entities.annotation import AnnotatableEntity, Annotations
 
+        if self.conversation_id:
+            return Annotations.create(
+                AnnotatableEntity.TRACE, self.db_id, verdict, comment, metric=metric, turn=turn
+            )
         return Annotations.create_for_trace_id(
             self._require_trace_id(), verdict, comment, metric=metric, turn=turn
         )

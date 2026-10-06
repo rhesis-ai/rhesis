@@ -444,6 +444,20 @@ class TestAnnotating:
         body = mock_client.return_value.send_request.call_args.kwargs["data"]
         assert body["trace_id"] == TRACE_ID
 
+    @patch("rhesis.sdk.entities.annotation.resolve_verdict", return_value=STATUS_ID)
+    @patch("rhesis.sdk.entities.base_entity.APIClient")
+    def test_a_conversation_is_annotated_on_its_first_root(
+        self, mock_client, _verdict, detail_payload
+    ):
+        """Its turns share the trace id with a root span each, so the hex is ambiguous."""
+        mock_client.return_value.send_request.return_value = {"id": "annotation-1"}
+
+        Trace.model_validate({**detail_payload, "conversation_id": "conv-1"}).annotate("fail")
+
+        body = mock_client.return_value.send_request.call_args.kwargs["data"]
+        assert body["entity_id"] == ROOT_ROW_ID
+        assert "trace_id" not in body
+
     def test_a_trace_without_a_trace_id_says_so_before_any_request(self):
         with pytest.raises(ValueError, match="no trace_id"):
             Trace(project_id=PROJECT_ID).annotate("fail")

@@ -23,6 +23,7 @@ def ingest_trace(
     conversation_id=None,
     duration_ms: int = 1200,
     root_status: str = "OK",
+    trace_id=None,
 ) -> str:
     """Record one two-span trace and return its OpenTelemetry trace id.
 
@@ -30,7 +31,7 @@ def ingest_trace(
     shape the span-level assertions need.
     """
     client = APIClient()
-    trace_id = uuid.uuid4().hex
+    trace_id = trace_id or uuid.uuid4().hex
     root_span_id = uuid.uuid4().hex[:16]
     child_span_id = uuid.uuid4().hex[:16]
     start = datetime.now(timezone.utc) - timedelta(seconds=5)
@@ -388,6 +389,19 @@ class TestAnnotating:
 
         assert annotation.get_trace().trace_id == trace_id
         assert by_id.get_trace().trace_id == trace_id
+
+    def test_a_conversation_is_annotated_on_its_first_root(self, unique_name, verdict_statuses):
+        """Every turn shares the trace id with a root span of its own, which the
+        server cannot choose between from the hex alone."""
+        conversation_id = uuid.uuid4().hex
+        trace_id = ingest_trace(root_name=unique_name, conversation_id=conversation_id)
+        ingest_trace(root_name=unique_name, conversation_id=conversation_id, trace_id=trace_id)
+        trace = Traces.pull(trace_id, project_id=TEST_PROJECT_ID)
+        assert len(trace.root_spans) == 2
+
+        annotation = trace.annotate("fail", "Lost the thread in turn 2.")
+
+        assert annotation.entity_id == trace.root_spans[0].id
 
     def test_a_metric_can_be_targeted(self, unique_name, verdict_statuses):
         trace_id = ingest_trace(root_name=unique_name)
