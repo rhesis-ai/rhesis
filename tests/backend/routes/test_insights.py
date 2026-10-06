@@ -93,6 +93,23 @@ class TestInsightsRoute:
         assert body["dimensions"] == []
         assert body["rows"][0]["count"] == 2
 
+    def test_pass_rate_is_computed(self, authenticated_client, two_test_results):
+        """psycopg 3 binds the rate's 100.0 as float8, and Postgres has no
+        round(double precision, int), so the rate must be rounded as numeric."""
+        db_test_run, _ = two_test_results
+
+        response = authenticated_client.get(
+            "/insights/",
+            params={
+                "entity": "test_result",
+                "measures": ["count", "pass_rate"],
+                "test_run_ids": [str(db_test_run.id)],
+            },
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.json()["rows"][0]["pass_rate"] == 0
+
     def test_test_entity_counts_unrun_tests(self, authenticated_client, one_run_and_one_unrun_test):
         run_test, unrun_test = one_run_and_one_unrun_test
 

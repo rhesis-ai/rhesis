@@ -10,7 +10,7 @@ Optional keys used only by GET /insights/ids:
   apply_outcome — (view, 'pass'|'fail') -> SQL expression
 """
 
-from sqlalchemy import Float, case, cast, func
+from sqlalchemy import Float, Numeric, case, cast, func
 
 from rhesis.backend.app.constants import OverallTestResult
 from rhesis.backend.app.models.stats_views import (
@@ -49,7 +49,8 @@ def _rate(passed, failed):
         failed_expr = failed()
         total = passed_expr + failed_expr
         rate = case((total == 0, 0), else_=passed_expr * 100.0 / total)
-        return cast(func.round(rate, 2), Float)
+        # A bound 100.0 is float8, and Postgres has round(numeric, int) only.
+        return cast(func.round(cast(rate, Numeric), 2), Float)
 
     return _measure
 
