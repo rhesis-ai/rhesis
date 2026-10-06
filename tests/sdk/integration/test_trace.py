@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from rhesis.sdk.clients import APIClient, Endpoints, Methods
+from rhesis.sdk.entities.annotation import Annotation
 from rhesis.sdk.entities.trace import Spans, Trace, Traces
 
 TEST_PROJECT_ID = "12340000-0000-4000-8000-000000001234"
@@ -22,6 +23,7 @@ def ingest_trace(
     conversation_id=None,
     duration_ms: int = 1200,
     root_status: str = "OK",
+    trace_id=None,
 ) -> str:
     """Record one two-span trace and return its OpenTelemetry trace id.
 
@@ -29,7 +31,7 @@ def ingest_trace(
     shape the span-level assertions need.
     """
     client = APIClient()
-    trace_id = uuid.uuid4().hex
+    trace_id = trace_id or uuid.uuid4().hex
     root_span_id = uuid.uuid4().hex[:16]
     child_span_id = uuid.uuid4().hex[:16]
     start = datetime.now(timezone.utc) - timedelta(seconds=5)
@@ -339,8 +341,7 @@ class TestAnnotating:
         annotation = trace.annotate("fail", "Answered from the wrong document.")
 
         assert annotation.id is not None
-        # Addressed by the row id: the hex would have been a 404 or, worse, a
-        # different entity entirely.
+        # Sent by the hex, stored against the root span row the server resolved.
         assert annotation.entity_id == trace.db_id
         after = Traces.pull(trace_id, project_id=TEST_PROJECT_ID)
         assert after.verdict == "fail"
@@ -363,6 +364,44 @@ class TestAnnotating:
         span.annotate("fail", "Ignored the retrieved context.")
 
         assert [a.comments for a in span.get_annotations()] == ["Ignored the retrieved context."]
+
+    def test_the_trace_sees_annotations_left_on_its_spans(self, unique_name, verdict_statuses):
+        trace_id = ingest_trace(root_name=unique_name)
+        trace = Traces.pull(trace_id, project_id=TEST_PROJECT_ID)
+        trace.span("ai.llm.invoke").annotate("fail", "Ignored the retrieved context.")
+        trace.annotate("fail", "Wrong document.")
+
+        listed = Traces.query(project_id=TEST_PROJECT_ID, span_name=unique_name, limit=1)[0]
+        found = listed.get_annotations()
+
+        assert sorted(a.comments for a in found) == [
+            "Ignored the retrieved context.",
+            "Wrong document.",
+        ]
+
+    def test_an_annotation_leads_back_to_its_trace(self, unique_name, verdict_statuses):
+        trace_id = ingest_trace(root_name=unique_name)
+        trace = Traces.pull(trace_id, project_id=TEST_PROJECT_ID)
+        trace.span("ai.llm.invoke").annotate("fail", "Ignored the retrieved context.")
+
+        annotation = trace.get_annotations()[0]
+        by_id = Annotation(id=annotation.id, entity_type="Trace", entity_id=annotation.entity_id)
+
+        assert annotation.get_trace().trace_id == trace_id
+        assert by_id.get_trace().trace_id == trace_id
+
+    def test_a_conversation_is_annotated_on_its_first_root(self, unique_name, verdict_statuses):
+        """Every turn shares the trace id with a root span of its own, which the
+        server cannot choose between from the hex alone."""
+        conversation_id = uuid.uuid4().hex
+        trace_id = ingest_trace(root_name=unique_name, conversation_id=conversation_id)
+        ingest_trace(root_name=unique_name, conversation_id=conversation_id, trace_id=trace_id)
+        trace = Traces.pull(trace_id, project_id=TEST_PROJECT_ID)
+        assert len(trace.root_spans) == 2
+
+        annotation = trace.annotate("fail", "Lost the thread in turn 2.")
+
+        assert annotation.entity_id == trace.root_spans[0].id
 
     def test_a_metric_can_be_targeted(self, unique_name, verdict_statuses):
         trace_id = ingest_trace(root_name=unique_name)

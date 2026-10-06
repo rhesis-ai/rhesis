@@ -25,13 +25,7 @@ error says the trace is not ingested yet, and is distinct from a wrong id.
 
 from typing import Optional, Union
 
-from rhesis.sdk.entities.annotation import (
-    AnnotatableEntity,
-    Annotation,
-    Verdict,
-    resolve_verdict,
-    turn_reference,
-)
+from rhesis.sdk.entities.annotation import Annotation, Annotations, Verdict
 from rhesis.telemetry.context import get_root_trace_id
 
 __all__ = ["annotate_trace", "annotate_current_trace"]
@@ -54,19 +48,7 @@ def annotate_trace(
     ``metric`` and ``turn`` are mutually exclusive: an annotation judges one
     thing. Naming neither judges the trace as a whole.
     """
-    if metric and turn is not None:
-        raise ValueError("An annotation targets a metric or a turn, not both")
-
-    annotation = Annotation(
-        entity_type=AnnotatableEntity.TRACE.value,
-        trace_id=trace_id,
-        status_id=resolve_verdict(verdict),
-        comments=comment,
-        target_type="metric" if metric else "turn" if turn is not None else None,
-        target_reference=metric if metric else (turn_reference(turn) if turn is not None else None),
-    )
-    annotation.push()
-    return annotation
+    return Annotations.create_for_trace_id(trace_id, verdict, comment, metric=metric, turn=turn)
 
 
 def annotate_current_trace(

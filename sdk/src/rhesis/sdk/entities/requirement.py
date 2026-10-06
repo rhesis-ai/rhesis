@@ -94,6 +94,14 @@ class Requirement(BaseEntity):
         )
         return response
 
+    def get_annotations(self):
+        """Every annotation on a test result linked to this requirement."""
+        from rhesis.sdk.entities.annotation import Annotations
+
+        if not self.id:
+            raise ValueError("Requirement must have an ID to get annotations")
+        return Annotations.for_requirement(self.id)
+
 
 class Requirements(BaseCollection):
     endpoint = ENDPOINT
