@@ -347,6 +347,34 @@ class TestAnnotating:
         assert after.verdict == "fail"
         assert after.last_annotation["comments"] == "Answered from the wrong document."
 
+    def test_a_turn_verdict_leaves_a_trace_without_metrics_unevaluated(
+        self, unique_name, verdict_statuses
+    ):
+        """Without metrics there is no outcome for a turn to override, so none appears."""
+        trace_id = ingest_trace(root_name=unique_name)
+        trace = Traces.pull(trace_id, project_id=TEST_PROJECT_ID)
+
+        trace.annotate("fail", "Off script.", turn=1)
+
+        after = Traces.pull(trace_id, project_id=TEST_PROJECT_ID)
+        assert after.verdict is None
+        assert after.execution == "not_run"
+
+    def test_deleting_the_last_trace_verdict_returns_it_to_not_evaluated(
+        self, unique_name, verdict_statuses
+    ):
+        """Not Error: a trace nobody set metrics for never failed to evaluate."""
+        trace_id = ingest_trace(root_name=unique_name)
+        trace = Traces.pull(trace_id, project_id=TEST_PROJECT_ID)
+        annotation = trace.annotate("fail", "Wrong document.")
+        assert Traces.pull(trace_id, project_id=TEST_PROJECT_ID).verdict == "fail"
+
+        annotation.delete()
+
+        after = Traces.pull(trace_id, project_id=TEST_PROJECT_ID)
+        assert after.verdict is None
+        assert after.execution == "not_run"
+
     def test_a_trace_reads_back_its_own_annotations(self, unique_name, verdict_statuses):
         trace_id = ingest_trace(root_name=unique_name)
         trace = Traces.pull(trace_id, project_id=TEST_PROJECT_ID)
