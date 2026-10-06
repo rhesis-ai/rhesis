@@ -1,6 +1,7 @@
 """The single missing-feature error for features that need ``rhesis-sdk[all]``."""
 
 import importlib
+import importlib.util
 import sys
 
 import pytest
@@ -24,6 +25,8 @@ def _uninstall(monkeypatch, package: str) -> None:
     for name in [m for m in sys.modules if m.startswith(package + ".")]:
         monkeypatch.setitem(sys.modules, name, None)
     monkeypatch.setitem(sys.modules, package, None)
+    # The guard asks find_spec whether the package exists; a None entry makes it say no.
+    assert importlib.util.find_spec(package) is None
 
 
 def _forget(monkeypatch, prefix: str) -> None:
@@ -73,6 +76,7 @@ class TestHelper:
 
     def test_missing_submodule_of_installed_package_passes_through(self):
         # A version mismatch, not a missing install: the real error is more useful.
+        pytest.importorskip("litellm")
         with pytest.raises(ModuleNotFoundError) as excinfo:
             with requires_full_sdk("Something"):
                 importlib.import_module("litellm.no_such_module")
