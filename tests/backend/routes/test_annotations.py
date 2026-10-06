@@ -8,6 +8,8 @@ import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 
+from rhesis.backend.app.constants import EntityType
+from rhesis.backend.app.crud import annotation as annotation_crud
 from rhesis.backend.app.models.metric import Metric
 from rhesis.backend.app.models.status import Status
 from rhesis.backend.app.models.test import Test
@@ -16,6 +18,7 @@ from rhesis.backend.app.models.test_result import TestResult
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.models.trace import Trace
 from rhesis.backend.app.scope import RequestScope
+from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
 
 @contextmanager
@@ -85,6 +88,33 @@ def _ensure_pass_fail_statuses(test_db, test_organization, test_type_lookup, db_
         test_db.refresh(pass_status)
         test_db.refresh(fail_status)
         return pass_status, fail_status
+    finally:
+        if previous is None:
+            test_db.info.pop("_scope", None)
+        else:
+            test_db.info["_scope"] = previous
+
+
+def _ensure_tuning_statuses(test_db, test_organization, db_user):
+    """The Accepted/Rejected pair metric tuning files its judgements under."""
+    previous = test_db.info.get("_scope")
+    if previous is not None:
+        test_db.info["_scope"] = RequestScope(
+            organization_id=previous.organization_id,
+            user_id=previous.user_id,
+            project_id=None,
+        )
+    try:
+        return tuple(
+            get_or_create_status(
+                test_db,
+                name=name,
+                entity_type=EntityType.ANNOTATION,
+                organization_id=str(test_organization.id),
+                user_id=str(db_user.id),
+            )
+            for name in ("Accepted", "Rejected")
+        )
     finally:
         if previous is None:
             test_db.info.pop("_scope", None)
@@ -486,6 +516,7 @@ class TestListAnnotations:
         pass_status, _ = _ensure_pass_fail_statuses(
             test_db, test_organization, test_type_lookup, db_user
         )
+        accepted, _ = _ensure_tuning_statuses(test_db, test_organization, db_user)
         with _project_scope(test_db, test_organization.id, authenticated_user.id, db_project.id):
             metric = Metric(
                 name=f"Metric Filter {uuid.uuid4().hex[:8]}",
@@ -517,13 +548,24 @@ class TestListAnnotations:
                 pass_status.id,
                 target={"type": "metric", "reference": metric.name},
             )
-            by_id = _create_annotation(
-                authenticated_client,
-                "Test",
-                tuning_case.id,
-                pass_status.id,
-                target={"type": "metric", "reference": str(metric.id)},
-            )
+            # Filed the way the tuning endpoints file one; the generic route refuses it.
+            by_id = {
+                "id": str(
+                    annotation_crud.create_annotation(
+                        test_db,
+                        {
+                            "entity_type": "Test",
+                            "entity_id": tuning_case.id,
+                            "target_type": "metric",
+                            "target_reference": str(metric.id),
+                            "status_id": accepted.id,
+                        },
+                        organization_id=str(test_organization.id),
+                        user_id=str(authenticated_user.id),
+                    ).id
+                )
+            }
+            test_db.commit()
 
             found = authenticated_client.get(f"/annotations/?metric={metric.name}")
             assert found.status_code == status.HTTP_200_OK
@@ -683,3 +725,193 @@ class TestAnnotationScoping:
         assert len(data) >= 1
         assert all(i["entity_type"] == "TestResult" for i in data)
         assert any(i["id"] == annotated_run["result_ann"]["id"] for i in data)
+
+
+@pytest.mark.integration
+class TestStatusFitsTheAnnotation:
+    """The override writers read any status that is not a pass as a fail, and tuning
+    reads only Accepted/Rejected, so a status of the wrong kind would be misread."""
+
+    @pytest.fixture
+    def parents(
+        self,
+        test_db,
+        test_organization,
+        test_type_lookup,
+        db_user,
+        authenticated_user,
+        db_project,
+    ):
+        pass_status, fail_status = _ensure_pass_fail_statuses(
+            test_db, test_organization, test_type_lookup, db_user
+        )
+        accepted, rejected = _ensure_tuning_statuses(test_db, test_organization, db_user)
+        with _project_scope(test_db, test_organization.id, authenticated_user.id, db_project.id):
+            now = datetime.now(timezone.utc)
+            metric = Metric(
+                name=f"Fit {uuid.uuid4().hex[:8]}",
+                evaluation_prompt="Score it.",
+                score_type="binary",
+                metric_scope=["single_turn"],
+                organization_id=test_organization.id,
+                user_id=authenticated_user.id,
+            )
+            result = TestResult(
+                organization_id=test_organization.id,
+                user_id=authenticated_user.id,
+                project_id=db_project.id,
+            )
+            test = Test(
+                organization_id=test_organization.id,
+                user_id=authenticated_user.id,
+                project_id=db_project.id,
+            )
+            trace = Trace(
+                trace_id=uuid.uuid4().hex,
+                span_id=uuid.uuid4().hex[:16],
+                project_id=db_project.id,
+                organization_id=test_organization.id,
+                environment="development",
+                span_name="ai.llm.invoke",
+                span_kind="CLIENT",
+                start_time=now,
+                end_time=now + timedelta(seconds=1),
+                duration_ms=1000.0,
+                status_code="OK",
+                attributes={},
+                events=[],
+                links=[],
+                resource={},
+            )
+            test_db.add_all([metric, result, test, trace])
+            test_db.commit()
+            for row in (metric, result, test, trace):
+                test_db.refresh(row)
+
+            def tuning_judgement(status_row):
+                # Filed the way the tuning endpoints file one, past the generic route.
+                row = annotation_crud.create_annotation(
+                    test_db,
+                    {
+                        "entity_type": "Test",
+                        "entity_id": test.id,
+                        "target_type": "metric",
+                        "target_reference": str(metric.id),
+                        "status_id": status_row.id,
+                    },
+                    organization_id=str(test_organization.id),
+                    user_id=str(authenticated_user.id),
+                )
+                test_db.commit()
+                return str(row.id)
+
+            yield {
+                "tuning_judgement": tuning_judgement,
+                "TestResult": result.id,
+                "Trace": trace.id,
+                "Test": test.id,
+                "metric": metric,
+                "pass": pass_status,
+                "fail": fail_status,
+                "accepted": accepted,
+                "rejected": rejected,
+            }
+
+    @staticmethod
+    def _post(client, entity_type, entity_id, status_id, target=None):
+        body = {
+            "entity_type": entity_type,
+            "entity_id": str(entity_id),
+            "status_id": str(status_id),
+        }
+        if target:
+            body["target"] = target
+        return client.post("/annotations/", json=body)
+
+    @pytest.mark.parametrize("entity_type", ["TestResult", "Trace", "Test"])
+    @pytest.mark.parametrize("decision", ["accepted", "rejected"])
+    def test_a_tuning_status_is_refused_off_a_tuning_case(
+        self, authenticated_client, parents, entity_type, decision
+    ):
+        response = self._post(
+            authenticated_client, entity_type, parents[entity_type], parents[decision].id
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, response.text
+        assert "metric tuning status" in response.json()["detail"]
+
+    def test_a_tuning_status_is_refused_on_a_result_metric(self, authenticated_client, parents):
+        response = self._post(
+            authenticated_client,
+            "TestResult",
+            parents["TestResult"],
+            parents["accepted"].id,
+            target={"type": "metric", "reference": parents["metric"].name},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, response.text
+
+    @pytest.mark.parametrize("verdict", ["pass", "rejected"])
+    def test_a_tuning_case_is_refused_whatever_its_status(
+        self, authenticated_client, parents, verdict
+    ):
+        """Tuning also records the verdict a judgement was made against, which this
+        route cannot, so one filed here would read as stale on arrival."""
+        response = self._post(
+            authenticated_client,
+            "Test",
+            parents["Test"],
+            parents[verdict].id,
+            target={"type": "metric", "reference": str(parents["metric"].id)},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, response.text
+        assert "/tuning/cases/" in response.json()["detail"]
+
+    def test_a_tuning_judgement_can_switch_decision(self, authenticated_client, parents):
+        annotation_id = parents["tuning_judgement"](parents["accepted"])
+        response = authenticated_client.put(
+            f"/annotations/{annotation_id}", json={"status_id": str(parents["rejected"].id)}
+        )
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.json()["status"]["name"] == "Rejected"
+
+    def test_a_tuning_judgement_refuses_pass(self, authenticated_client, parents):
+        annotation_id = parents["tuning_judgement"](parents["accepted"])
+        response = authenticated_client.put(
+            f"/annotations/{annotation_id}", json={"status_id": str(parents["pass"].id)}
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, response.text
+        assert "'Accepted' or 'Rejected'" in response.json()["detail"]
+
+    def test_an_update_to_a_tuning_status_is_refused(self, authenticated_client, parents):
+        created = _create_annotation(
+            authenticated_client, "TestResult", parents["TestResult"], parents["pass"].id
+        )
+        response = authenticated_client.put(
+            f"/annotations/{created['id']}", json={"status_id": str(parents["accepted"].id)}
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, response.text
+        unchanged = authenticated_client.get(f"/annotations/{created['id']}")
+        assert unchanged.json()["status"]["name"] == "Pass"
+
+    def test_retargeting_onto_a_tuning_case_is_checked_against_the_kept_status(
+        self, authenticated_client, parents
+    ):
+        """A Test label moved onto a metric would become a tuning case this route cannot file."""
+        created = _create_annotation(
+            authenticated_client, "Test", parents["Test"], parents["pass"].id
+        )
+        response = authenticated_client.put(
+            f"/annotations/{created['id']}",
+            json={"target": {"type": "metric", "reference": str(parents["metric"].id)}},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, response.text
+
+    def test_an_update_that_leaves_status_and_target_alone_is_not_checked(
+        self, authenticated_client, parents
+    ):
+        created = _create_annotation(
+            authenticated_client, "TestResult", parents["TestResult"], parents["fail"].id
+        )
+        response = authenticated_client.put(
+            f"/annotations/{created['id']}", json={"comments": "Still wrong."}
+        )
+        assert response.status_code == status.HTTP_200_OK, response.text

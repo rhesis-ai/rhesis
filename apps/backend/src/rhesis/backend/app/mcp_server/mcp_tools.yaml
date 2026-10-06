@@ -1620,8 +1620,10 @@ tools:
       status_id:
         description: >
           REQUIRED. UUID of the status carrying the verdict: the Pass or Fail
-          row from list_statuses with entity_type="TestResult". Metric tuning
-          uses Accepted and Rejected under entity_type="Annotation".
+          row from list_statuses with entity_type="TestResult". The Accepted and
+          Rejected statuses belong to metric tuning judgements, which are made in
+          the metric tuning view rather than with this tool; passing them here, or
+          targeting a metric on a Test, is refused with a 400.
       comments:
         description: >
           The human's reasoning in their own words. Strongly recommended:

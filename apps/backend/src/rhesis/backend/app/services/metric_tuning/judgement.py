@@ -17,7 +17,7 @@ import logging
 from typing import List, Optional, Sequence
 
 from rhesis.backend.app import models
-from rhesis.backend.app.constants import AnnotationTarget
+from rhesis.backend.app.constants import AnnotationTarget, EntityType
 from rhesis.backend.app.schemas.metric_tuning import TuningDecision
 
 logger = logging.getLogger(__name__)
@@ -29,6 +29,19 @@ STATUS_NAMES: dict[TuningDecision, str] = {
 }
 
 _DECISIONS = {name.lower(): decision for decision, name in STATUS_NAMES.items()}
+
+
+def is_tuning_case(entity_type: str, target_type: Optional[str]) -> bool:
+    return entity_type == EntityType.TEST.value and target_type == AnnotationTarget.METRIC.value
+
+
+def is_tuning_status(status: models.Status) -> bool:
+    """Whether a status is one of the decisions a tuning judgement is filed as."""
+    entity_type = getattr(status.entity_type, "type_value", None)
+    return (
+        entity_type == EntityType.ANNOTATION.value
+        and (status.name or "").strip().lower() in _DECISIONS
+    )
 
 
 def judgements_for_metric(

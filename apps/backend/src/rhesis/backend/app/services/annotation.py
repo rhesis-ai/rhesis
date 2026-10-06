@@ -14,7 +14,9 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import ENTITY_LEVEL_TARGETS, EntityType
 from rhesis.backend.app.crud import annotation as annotation_crud
+from rhesis.backend.app.crud.status import get_status_with_entity_type
 from rhesis.backend.app.services.annotation_override import apply_override, revert_override
+from rhesis.backend.app.services.metric_tuning.judgement import is_tuning_case, is_tuning_status
 from rhesis.backend.app.services.verdict_matrix_cache import get_verdict_matrix_cache
 
 _PARENT_MODELS = {
@@ -78,9 +80,52 @@ def _resolve_trace_id(db: Session, trace_id: str) -> uuid.UUID:
     return roots[0][0]
 
 
-def _validate_status(db: Session, status_id: uuid.UUID) -> None:
-    if db.query(models.Status).filter(models.Status.id == status_id).first() is None:
+def _validate_status(
+    db: Session,
+    status_id: uuid.UUID,
+    entity_type: str,
+    target_type: str | None,
+) -> None:
+    """The status must exist and be one this kind of annotation is read by.
+
+    The override writers read any status that is not a pass as a fail, so a tuning
+    decision on a result or trace would mark it failed; and tuning reads only its
+    own decisions, so a Pass/Fail on a tuning case would be stored and ignored.
+    """
+    status = get_status_with_entity_type(db, status_id)
+    if status is None:
         raise HTTPException(status_code=404, detail="Status not found")
+
+    tuning_case = is_tuning_case(entity_type, target_type)
+    if tuning_case and not is_tuning_status(status):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"A Test annotation targeting a metric is a metric tuning judgement, which "
+                f"takes the 'Accepted' or 'Rejected' status, not '{status.name}'."
+            ),
+        )
+    if not tuning_case and is_tuning_status(status):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"'{status.name}' is a metric tuning status, which only a Test annotation "
+                f"targeting a metric takes. Use 'Pass' or 'Fail'."
+            ),
+        )
+
+
+def _refuse_new_tuning_case(entity_type: str, target_type: str | None) -> None:
+    # Tuning also records the verdict a judgement was made against, which only its own
+    # endpoints write; one filed here would read as stale the moment it landed.
+    if is_tuning_case(entity_type, target_type):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "A Test annotation targeting a metric is a metric tuning judgement. "
+                "Record it through POST /metrics/{metric_id}/tuning/cases/{case_id}/annotate."
+            ),
+        )
 
 
 def _snapshot_original_status(db: Session, parent) -> None:
@@ -135,15 +180,17 @@ def create_annotation(
     # The schema guarantees exactly one of the two, and the hex is Trace-only.
     entity_id = data.entity_id or _resolve_trace_id(db, data.trace_id)
     parent = _load_parent(db, entity_type, entity_id)
-    _validate_status(db, data.status_id)
-
     target = data.target
+    target_type = target.type if target else ENTITY_LEVEL_TARGETS[entity_type]
+    _refuse_new_tuning_case(entity_type, target_type)
+    _validate_status(db, data.status_id, entity_type, target_type)
+
     annotation = annotation_crud.create_annotation(
         db,
         {
             "entity_type": entity_type,
             "entity_id": entity_id,
-            "target_type": target.type if target else ENTITY_LEVEL_TARGETS[entity_type],
+            "target_type": target_type,
             "target_reference": target.reference if target else None,
             "status_id": data.status_id,
             "comments": data.comments,
@@ -170,11 +217,18 @@ def update_annotation(
     annotation = _require(db, annotation_id, current_user)
     old_target = (annotation.target_type, annotation.target_reference)
 
-    if data.status_id is not None:
-        _validate_status(db, data.status_id)
-
     fields = data.model_dump(exclude_unset=True)
     target = fields.pop("target", None)
+    if target and not is_tuning_case(annotation.entity_type, annotation.target_type):
+        _refuse_new_tuning_case(annotation.entity_type, target["type"])
+    if data.status_id is not None or target:
+        _validate_status(
+            db,
+            data.status_id or annotation.status_id,
+            annotation.entity_type,
+            target["type"] if target else annotation.target_type,
+        )
+
     if target:
         fields["target_type"] = target["type"]
         fields["target_reference"] = target.get("reference")
