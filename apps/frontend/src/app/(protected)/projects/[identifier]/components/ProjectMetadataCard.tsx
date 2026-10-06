@@ -1,22 +1,27 @@
 'use client';
 
 import * as React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Grid from '@mui/material/Grid';
 import {
   Avatar,
   Box,
   FormControl,
+  IconButton,
   InputLabel,
   ListItemAvatar,
   ListItemText,
   MenuItem,
   Select,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
+import CheckIcon from '@mui/icons-material/Check';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import PersonIcon from '@mui/icons-material/Person';
 import EditableField from '@/components/common/EditableField';
+import ViewField from '@/components/common/ViewField';
 import EditableSection from '@/components/common/EditableSection';
 import {
   editableOutlinedFieldSx,
@@ -88,6 +93,18 @@ export default function ProjectMetadataCard({
     [project]
   );
 
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyId = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(project.id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard not available */
+    }
+  }, [project.id]);
+
   // Returning the result keeps the card in edit mode when the update fails.
   const handleSave = (draft: MetadataDraft) =>
     onSave({
@@ -122,6 +139,42 @@ export default function ProjectMetadataCard({
             rowSpacing={SECTION_GRID.rowSpacing}
             alignItems="flex-start"
           >
+            <Grid size={12}>
+              <ViewField
+                label="Project ID"
+                helperText="Used for API integrations and support requests"
+                bgcolor="transparent"
+              >
+                <Box
+                  sx={{
+                    fontFamily: 'monospace',
+                    fontSize: (theme: Theme) => theme.typography.body2.fontSize,
+                    letterSpacing: '0.01em',
+                    color: (theme: Theme) => theme.palette.greyscale.body,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                  }}
+                >
+                  {project.id}
+                  <Tooltip title={copied ? 'Copied' : 'Copy'}>
+                    <IconButton
+                      size="small"
+                      onClick={handleCopyId}
+                      aria-label="Copy project ID"
+                      sx={{ ml: 0.5 }}
+                    >
+                      {copied ? (
+                        <CheckIcon fontSize="inherit" />
+                      ) : (
+                        <ContentCopyIcon fontSize="inherit" />
+                      )}
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </ViewField>
+            </Grid>
+
             <Grid size={{ xs: 12, sm: 6, md: 6 }}>
               <EditableField
                 fullWidth
