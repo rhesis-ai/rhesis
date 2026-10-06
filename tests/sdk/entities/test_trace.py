@@ -7,6 +7,7 @@ import requests
 
 from rhesis.sdk.entities import trace as trace_module
 from rhesis.sdk.entities.trace import Span, Spans, Trace, Traces
+from rhesis.sdk.enums import TestType
 from rhesis.sdk.errors import RhesisAPIError
 
 os.environ["RHESIS_BASE_URL"] = "http://test:8000"
@@ -1118,7 +1119,7 @@ class TestToTest:
             ],
         }
         assert test.id is None
-        assert test.test_type == "Multi-Turn"
+        assert test.test_type == TestType.MULTI_TURN
         assert (test.requirement, test.category, test.topic) == (
             "Answers refund questions",
             "Harmless",
@@ -1152,7 +1153,7 @@ class TestToTest:
                 {"role": "assistant", "content": "Within 14 days."},
             ],
         }
-        assert test.test_type == "Single-Turn"
+        assert test.test_type == TestType.SINGLE_TURN
         assert test.prompt.content == "Exchanges?"
         assert test.prompt.expected_response == "Within 14 days."
         assert test.test_configuration is None
