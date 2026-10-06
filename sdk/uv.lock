@@ -3012,21 +3012,6 @@ wheels = [
 ]
 
 [[package]]
-name = "langchain-google-genai"
-version = "4.3.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "filetype" },
-    { name = "google-genai" },
-    { name = "langchain-core" },
-    { name = "pydantic" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/11/98/39b62fb50236fc582449beb96e0392d108bd7baac7ac6158d656bfac1561/langchain_google_genai-4.3.3.tar.gz", hash = "sha256:f051b98aaf223cf9092fc27c280dfec63070fc0022dc513640b2da138c9fa2f0", size = 286010, upload-time = "2026-08-10T18:34:26.499Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b0/70/b6e29470356cbb2c87db2344df44182dac90d69c0cc4b929a805184a54c3/langchain_google_genai-4.3.3-py3-none-any.whl", hash = "sha256:cb189f6eebe801fda4416525a357d82f033efc36713a7c15a45c25eb1e2ddbff", size = 72859, upload-time = "2026-08-10T18:34:25.283Z" },
-]
-
-[[package]]
 name = "langchain-protocol"
 version = "0.0.17"
 source = { registry = "https://pypi.org/simple" }
@@ -3447,18 +3432,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/fb/df/5bd7a48c256faecd1d36edc13133e51397e41b73bb77e1a69deab746ebac/markupsafe-3.0.3-cp314-cp314t-win32.whl", hash = "sha256:915c04ba3851909ce68ccc2b8e2cd691618c4dc4c4232fb7982bca3f41fd8c3d", size = 14819, upload-time = "2025-09-27T18:37:26.285Z" },
     { url = "https://files.pythonhosted.org/packages/1a/8a/0402ba61a2f16038b48b39bccca271134be00c5c9f0f623208399333c448/markupsafe-3.0.3-cp314-cp314t-win_amd64.whl", hash = "sha256:4faffd047e07c38848ce017e8725090413cd80cbc23d86e55c587bf979e579c9", size = 15426, upload-time = "2025-09-27T18:37:27.316Z" },
     { url = "https://files.pythonhosted.org/packages/70/bc/6f1c2f612465f5fa89b95bead1f44dcb607670fd42891d8fdcd5d039f4f4/markupsafe-3.0.3-cp314-cp314t-win_arm64.whl", hash = "sha256:32001d6a8fc98c8cb5c947787c5d08b0a50663d139f1305bac5885d98d9b40fa", size = 14146, upload-time = "2025-09-27T18:37:28.327Z" },
-]
-
-[[package]]
-name = "marshmallow"
-version = "3.26.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "packaging" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/55/79/de6c16cc902f4fc372236926b0ce2ab7845268dcc30fb2fbb7f71b418631/marshmallow-3.26.2.tar.gz", hash = "sha256:bbe2adb5a03e6e3571b573f42527c6fe926e17467833660bebd11593ab8dfd57", size = 222095, upload-time = "2025-12-22T06:53:53.309Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/be/2f/5108cb3ee4ba6501748c4908b908e55f42a5b66245b4cfe0c99326e1ef6e/marshmallow-3.26.2-py3-none-any.whl", hash = "sha256:013fa8a3c4c276c24d26d84ce934dc964e2aa794345a0f8c7e5a7191482c8a73", size = 50964, upload-time = "2025-12-22T06:53:51.801Z" },
 ]
 
 [[package]]
@@ -4454,18 +4427,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e4/a5/2f6ed612056819de445a433ca1f2821ac3dab7f150d569a59e9cc105de1d/pandas-3.0.2-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:734be7551687c00fbd760dc0522ed974f82ad230d4a10f54bf51b80d44a08702", size = 11815274, upload-time = "2026-03-31T06:48:22.695Z" },
     { url = "https://files.pythonhosted.org/packages/00/2f/b622683e99ec3ce00b0854bac9e80868592c5b051733f2cf3a868e5fea26/pandas-3.0.2-cp314-cp314t-win_amd64.whl", hash = "sha256:57a07209bebcbcf768d2d13c9b78b852f9a15978dac41b9e6421a81ad4cdd276", size = 10888530, upload-time = "2026-03-31T06:48:25.806Z" },
     { url = "https://files.pythonhosted.org/packages/cb/2b/f8434233fab2bd66a02ec014febe4e5adced20e2693e0e90a07d118ed30e/pandas-3.0.2-cp314-cp314t-win_arm64.whl", hash = "sha256:5371b72c2d4d415d08765f32d689217a43227484e81b2305b52076e328f6f482", size = 9455341, upload-time = "2026-03-31T06:48:28.418Z" },
-]
-
-[[package]]
-name = "pandas-stubs"
-version = "3.0.0.260204"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/27/1d/297ff2c7ea50a768a2247621d6451abb2a07c0e9be7ca6d36ebe371658e5/pandas_stubs-3.0.0.260204.tar.gz", hash = "sha256:bf9294b76352effcffa9cb85edf0bed1339a7ec0c30b8e1ac3d66b4228f1fbc3", size = 109383, upload-time = "2026-02-04T15:17:17.247Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7c/2f/f91e4eee21585ff548e83358332d5632ee49f6b2dcd96cb5dca4e0468951/pandas_stubs-3.0.0.260204-py3-none-any.whl", hash = "sha256:5ab9e4d55a6e2752e9720828564af40d48c4f709e6a2c69b743014a6fcb6c241", size = 168540, upload-time = "2026-02-04T15:17:15.615Z" },
 ]
 
 [[package]]
@@ -5884,7 +5845,7 @@ dependencies = [
     { name = "notebook" },
     { name = "pydantic" },
     { name = "python-dotenv" },
-    { name = "rhesis-sdk" },
+    { name = "rhesis-sdk", extra = ["all"] },
     { name = "rich" },
     { name = "tenacity" },
     { name = "tiktoken" },
@@ -5918,7 +5879,7 @@ requires-dist = [
     { name = "pydantic-ai", marker = "extra == 'all'", specifier = ">=0.0.49" },
     { name = "pydantic-ai", marker = "extra == 'pydantic-ai'", specifier = ">=0.0.49" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
-    { name = "rhesis-sdk", editable = "." },
+    { name = "rhesis-sdk", extras = ["all"], editable = "." },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "tenacity", specifier = ">=8.2.3" },
     { name = "tiktoken", specifier = ">=0.9.0" },
@@ -5948,30 +5909,15 @@ version = "0.17.1"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
-    { name = "chonkie" },
-    { name = "cryptography" },
-    { name = "deepeval" },
-    { name = "deepteam" },
     { name = "jinja2" },
     { name = "jsonfinder" },
     { name = "jsonschema" },
-    { name = "langchain-google-genai" },
-    { name = "litellm" },
-    { name = "mammoth" },
-    { name = "markitdown", extra = ["docx", "pdf", "pptx", "xlsx"] },
-    { name = "marshmallow" },
-    { name = "mcp" },
-    { name = "pandas" },
-    { name = "pdfminer-six" },
-    { name = "pillow" },
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "rhesis", extra = ["telemetry"] },
     { name = "tenacity" },
-    { name = "tiktoken" },
-    { name = "tqdm" },
     { name = "websockets" },
 ]
 
@@ -5982,21 +5928,19 @@ agent-framework = [
     { name = "agent-framework-orchestrations" },
 ]
 all = [
-    { name = "accelerate" },
-    { name = "agent-framework-core" },
-    { name = "agent-framework-openai" },
-    { name = "agent-framework-orchestrations" },
-    { name = "bitsandbytes" },
-    { name = "google-adk" },
-    { name = "haystack-ai" },
-    { name = "langchain" },
-    { name = "langchain-core" },
-    { name = "langgraph" },
-    { name = "langgraph-checkpoint" },
-    { name = "pyautogen" },
-    { name = "pydantic-ai" },
-    { name = "torch" },
-    { name = "transformers" },
+    { name = "chonkie" },
+    { name = "cryptography" },
+    { name = "deepeval" },
+    { name = "deepteam" },
+    { name = "google-auth" },
+    { name = "httpx" },
+    { name = "litellm" },
+    { name = "mammoth" },
+    { name = "markitdown", extra = ["docx", "pdf", "pptx", "xlsx"] },
+    { name = "mcp" },
+    { name = "pdfminer-six" },
+    { name = "pillow" },
+    { name = "tiktoken" },
 ]
 all-integrations = [
     { name = "agent-framework-core" },
@@ -6056,7 +6000,6 @@ dev = [
     { name = "haystack-ai" },
     { name = "mistralai" },
     { name = "myst-parser" },
-    { name = "pandas-stubs" },
     { name = "pre-commit" },
     { name = "psycopg2-binary" },
     { name = "pydantic-ai" },
@@ -6064,6 +6007,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "rhesis-penelope" },
+    { name = "rhesis-sdk", extra = ["all"] },
     { name = "ruff" },
     { name = "sphinx" },
     { name = "sphinx-autodoc-typehints" },
@@ -6071,68 +6015,53 @@ dev = [
     { name = "sphinx-rtd-theme" },
     { name = "types-pytz" },
     { name = "types-requests" },
-    { name = "types-tqdm" },
     { name = "virtualenv" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "accelerate", marker = "extra == 'all'", specifier = ">=1.2.0" },
     { name = "accelerate", marker = "extra == 'huggingface'", specifier = ">=1.2.0" },
     { name = "agent-framework-core", marker = "extra == 'agent-framework'", specifier = ">=1.1.0" },
-    { name = "agent-framework-core", marker = "extra == 'all'", specifier = ">=1.1.0" },
     { name = "agent-framework-core", marker = "extra == 'all-integrations'", specifier = ">=1.1.0" },
     { name = "agent-framework-openai", marker = "extra == 'agent-framework'", specifier = ">=1.1.0" },
-    { name = "agent-framework-openai", marker = "extra == 'all'", specifier = ">=1.1.0" },
     { name = "agent-framework-openai", marker = "extra == 'all-integrations'", specifier = ">=1.1.0" },
     { name = "agent-framework-orchestrations", marker = "extra == 'agent-framework'", specifier = ">=1.0.0b260421" },
-    { name = "agent-framework-orchestrations", marker = "extra == 'all'", specifier = ">=1.0.0b260421" },
     { name = "agent-framework-orchestrations", marker = "extra == 'all-integrations'", specifier = ">=1.0.0b260421" },
     { name = "aiohttp", specifier = ">=3.14.1" },
-    { name = "bitsandbytes", marker = "extra == 'all'", specifier = ">=0.45.0" },
     { name = "bitsandbytes", marker = "extra == 'huggingface'", specifier = ">=0.45.0" },
-    { name = "chonkie", specifier = ">=1.6.1" },
-    { name = "cryptography", specifier = ">=48.0.1" },
-    { name = "deepeval", specifier = "==3.7.9" },
-    { name = "deepteam", specifier = ">=0.2.5" },
+    { name = "chonkie", marker = "extra == 'all'", specifier = ">=1.6.1" },
+    { name = "cryptography", marker = "extra == 'all'", specifier = ">=48.0.1" },
+    { name = "deepeval", marker = "extra == 'all'", specifier = "==3.7.9" },
+    { name = "deepteam", marker = "extra == 'all'", specifier = ">=0.2.5" },
     { name = "garak", marker = "extra == 'garak'", specifier = ">=0.14.0" },
-    { name = "google-adk", marker = "extra == 'all'", specifier = ">=2.6,<3" },
     { name = "google-adk", marker = "extra == 'all-integrations'", specifier = ">=2.6,<3" },
     { name = "google-adk", marker = "extra == 'google-adk'", specifier = ">=2.6,<3" },
-    { name = "haystack-ai", marker = "extra == 'all'", specifier = ">=2.22.0" },
+    { name = "google-auth", marker = "extra == 'all'", specifier = ">=2.40.0" },
     { name = "haystack-ai", marker = "extra == 'all-integrations'", specifier = ">=2.22.0" },
     { name = "haystack-ai", marker = "extra == 'haystack'", specifier = ">=2.22.0" },
+    { name = "httpx", marker = "extra == 'all'", specifier = ">=0.27.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "jsonfinder", specifier = ">=0.4.2" },
     { name = "jsonschema", specifier = ">=4.23.0" },
-    { name = "langchain", marker = "extra == 'all'", specifier = ">=1.4.0" },
     { name = "langchain", marker = "extra == 'all-integrations'", specifier = ">=1.4.0" },
     { name = "langchain", marker = "extra == 'langchain'", specifier = ">=1.4.0" },
     { name = "langchain", marker = "extra == 'langgraph'", specifier = ">=1.4.0" },
-    { name = "langchain-core", marker = "extra == 'all'", specifier = ">=1.6.0" },
     { name = "langchain-core", marker = "extra == 'all-integrations'", specifier = ">=1.6.0" },
     { name = "langchain-core", marker = "extra == 'langchain'", specifier = ">=1.6.0" },
     { name = "langchain-core", marker = "extra == 'langgraph'", specifier = ">=1.6.0" },
-    { name = "langchain-google-genai", specifier = ">=4.3.0" },
-    { name = "langgraph", marker = "extra == 'all'", specifier = ">=1.2.0" },
     { name = "langgraph", marker = "extra == 'all-integrations'", specifier = ">=1.2.0" },
     { name = "langgraph", marker = "extra == 'langgraph'", specifier = ">=1.2.0" },
-    { name = "langgraph-checkpoint", marker = "extra == 'all'", specifier = ">=4.1.0" },
     { name = "langgraph-checkpoint", marker = "extra == 'all-integrations'", specifier = ">=4.1.0" },
     { name = "langgraph-checkpoint", marker = "extra == 'langgraph'", specifier = ">=4.1.0" },
-    { name = "litellm", specifier = ">=1.84.0" },
-    { name = "mammoth", specifier = ">=1.11.0" },
-    { name = "markitdown", extras = ["pdf", "docx", "pptx", "xlsx"], specifier = ">=0.1.0" },
-    { name = "marshmallow", specifier = ">=3.26.2" },
-    { name = "mcp", specifier = ">=1.28.1,<2" },
-    { name = "pandas", specifier = ">=2.2.2" },
-    { name = "pdfminer-six", specifier = ">=20231228" },
-    { name = "pillow", specifier = ">=12.3.0" },
-    { name = "pyautogen", marker = "extra == 'all'", specifier = ">=0.2.0" },
+    { name = "litellm", marker = "extra == 'all'", specifier = ">=1.84.0" },
+    { name = "mammoth", marker = "extra == 'all'", specifier = ">=1.11.0" },
+    { name = "markitdown", extras = ["pdf", "docx", "pptx", "xlsx"], marker = "extra == 'all'", specifier = ">=0.1.0" },
+    { name = "mcp", marker = "extra == 'all'", specifier = ">=1.28.1,<2" },
+    { name = "pdfminer-six", marker = "extra == 'all'", specifier = ">=20231228" },
+    { name = "pillow", marker = "extra == 'all'", specifier = ">=12.3.0" },
     { name = "pyautogen", marker = "extra == 'all-integrations'", specifier = ">=0.2.0" },
     { name = "pyautogen", marker = "extra == 'autogen'", specifier = ">=0.2.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
-    { name = "pydantic-ai", marker = "extra == 'all'", specifier = ">=0.0.49" },
     { name = "pydantic-ai", marker = "extra == 'all-integrations'", specifier = ">=0.0.49" },
     { name = "pydantic-ai", marker = "extra == 'pydantic-ai'", specifier = ">=0.0.49" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
@@ -6140,11 +6069,8 @@ requires-dist = [
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rhesis", extras = ["telemetry"], editable = "../packages/rhesis" },
     { name = "tenacity", specifier = ">=8.2.3" },
-    { name = "tiktoken", specifier = ">=0.9.0" },
-    { name = "torch", marker = "extra == 'all'", specifier = ">=2.8.0" },
+    { name = "tiktoken", marker = "extra == 'all'", specifier = ">=0.9.0" },
     { name = "torch", marker = "extra == 'huggingface'", specifier = ">=2.8.0" },
-    { name = "tqdm", specifier = ">=4.67.1" },
-    { name = "transformers", marker = "extra == 'all'", specifier = ">=5.0.0" },
     { name = "transformers", marker = "extra == 'huggingface'", specifier = ">=5.0.0" },
     { name = "websockets", specifier = ">=12.0" },
 ]
@@ -6163,7 +6089,6 @@ dev = [
     { name = "haystack-ai", specifier = ">=2.22.0" },
     { name = "mistralai", specifier = ">=1.2.0" },
     { name = "myst-parser", specifier = ">=4.0.0" },
-    { name = "pandas-stubs", specifier = ">=2.2.3.250308" },
     { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "psycopg2-binary", specifier = "==2.9.9" },
     { name = "pydantic-ai", specifier = ">=0.0.49" },
@@ -6171,6 +6096,7 @@ dev = [
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "rhesis-penelope", editable = "../penelope" },
+    { name = "rhesis-sdk", extras = ["all"] },
     { name = "ruff", specifier = ">=0.11.6" },
     { name = "sphinx", specifier = ">=8.1.3" },
     { name = "sphinx-autodoc-typehints", specifier = ">=3.0.1" },
@@ -6178,7 +6104,6 @@ dev = [
     { name = "sphinx-rtd-theme", specifier = ">=3.0.2" },
     { name = "types-pytz", specifier = ">=2025.2.0.20250326" },
     { name = "types-requests", specifier = ">=2.32.0" },
-    { name = "types-tqdm", specifier = ">=4.67.0.20241221" },
     { name = "virtualenv", specifier = ">=20.36.1" },
 ]
 
@@ -7024,18 +6949,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/69/6a/749dc53a54a3f35842c1f8197b3ca6b54af6d7458a1bfc75f6629b6da666/types_requests-2.33.0.20260408.tar.gz", hash = "sha256:95b9a86376807a216b2fb412b47617b202091c3ea7c078f47cc358d5528ccb7b", size = 23882, upload-time = "2026-04-08T04:34:49.33Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/90/b8/78fd6c037de4788c040fdd323b3369804400351b7827473920f6c1d03c10/types_requests-2.33.0.20260408-py3-none-any.whl", hash = "sha256:81f31d5ea4acb39f03be7bc8bed569ba6d5a9c5d97e89f45ac43d819b68ca50f", size = 20739, upload-time = "2026-04-08T04:34:48.325Z" },
-]
-
-[[package]]
-name = "types-tqdm"
-version = "4.67.3.20260408"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "types-requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/43/42/2e2968e68a694d3dac3a47aa0df06e46be1a6eef498e5bd15f4c54674eb9/types_tqdm-4.67.3.20260408.tar.gz", hash = "sha256:fd849a79891ae7136ed47541aface15c35bd9a13160fa8a93e42e10f60cf4c8d", size = 18119, upload-time = "2026-04-08T04:36:52.488Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/14/5d/7dedddc32ab7bc2344ece772b5e0f03ec63a1d47ad259696689713c1cf50/types_tqdm-4.67.3.20260408-py3-none-any.whl", hash = "sha256:3b9ed74ebef04df8f53d470ffdc84348e93496d8acafa08bf79fafce0f2f5b5d", size = 24561, upload-time = "2026-04-08T04:36:51.538Z" },
 ]
 
 [[package]]

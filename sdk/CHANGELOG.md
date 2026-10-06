@@ -23,6 +23,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   without it their prompt and output are unchanged.
 
 ### Changed
+- **BREAKING:** `pip install rhesis-sdk` now installs a core SDK of about 35 MB, enough to connect
+  an application to Rhesis: the connector, `@endpoint`, `@observe` and tracing, `RhesisClient`
+  and the entities, `@metric`, and the native judges and synthesizers with the Rhesis-hosted
+  model. Other model providers (litellm), DeepEval and DeepTeam metrics, document extraction and
+  chunking, and MCP agents (`rhesis.sdk.agents`) moved to the `[all]` extra. Using one of them
+  without it raises an `ImportError` that names the install command. To keep the 0.17 behaviour,
+  install `rhesis-sdk[all]`. See
+  [What to install](https://docs.rhesis.ai/sdk/installation#what-to-install).
+- **BREAKING:** `[all]` no longer includes the `huggingface` extra or the tracing integrations.
+  Install `rhesis-sdk[all,huggingface]` for local Hugging Face models. The tracing extras
+  (`langchain`, `langgraph`, `autogen`, `pydantic-ai`, `agent-framework`, `google-adk`,
+  `haystack`, `all-integrations`) are unchanged.
 - **BREAKING:** `GoalAchievementJudge` returns the same result keys whether it scores a goal or
   an evaluation contract: `criteria_evaluations` (each with `criterion`, `kind`, `met`,
   `evidence`, `relevant_turns`), `criteria_total`, `criteria_met`, `criteria_failed` and

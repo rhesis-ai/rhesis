@@ -5,8 +5,12 @@ import os
 from typing import Any, Dict, List, Optional, Type, Union
 
 import requests
-from litellm.llms.base_llm.base_utils import type_to_response_format_param
 from pydantic import BaseModel
+
+from rhesis.sdk._extras import requires_full_sdk
+
+with requires_full_sdk("The LiteLLM proxy model provider"):
+    from litellm.llms.base_llm.base_utils import type_to_response_format_param
 
 from rhesis.sdk.config import DEFAULT_LLM_TIMEOUT
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED

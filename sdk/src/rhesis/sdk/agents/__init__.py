@@ -7,33 +7,36 @@ test suite design.
 
 from typing import List, Optional
 
-from rhesis.sdk.agents.architect import (
-    ArchitectAgent,
-    ArchitectConfig,
-    ArchitectPlan,
-    MetricSpec,
-    ProjectSpec,
-    RequirementSpec,
-    TestSetSpec,
-)
-from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
-from rhesis.sdk.agents.events import AgentEventHandler
-from rhesis.sdk.agents.mcp import (
-    MCPAgent,
-    MCPClient,
-    MCPClientFactory,
-    ToolExecutor,
-)
-from rhesis.sdk.agents.schemas import (
-    AgentAction,
-    AgentResult,
-    ExecutionStep,
-    ToolCall,
-    ToolResult,
-)
-from rhesis.sdk.agents.targets import LocalEndpointTarget
-from rhesis.sdk.agents.tools import ExploreEndpointTool
-from rhesis.sdk.agents.tracing import TracingHandler
+from rhesis.sdk._extras import requires_full_sdk
+
+with requires_full_sdk("rhesis.sdk.agents"):
+    from rhesis.sdk.agents.architect import (
+        ArchitectAgent,
+        ArchitectConfig,
+        ArchitectPlan,
+        MetricSpec,
+        ProjectSpec,
+        RequirementSpec,
+        TestSetSpec,
+    )
+    from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
+    from rhesis.sdk.agents.events import AgentEventHandler
+    from rhesis.sdk.agents.mcp import (
+        MCPAgent,
+        MCPClient,
+        MCPClientFactory,
+        ToolExecutor,
+    )
+    from rhesis.sdk.agents.schemas import (
+        AgentAction,
+        AgentResult,
+        ExecutionStep,
+        ToolCall,
+        ToolResult,
+    )
+    from rhesis.sdk.agents.targets import LocalEndpointTarget
+    from rhesis.sdk.agents.tools import ExploreEndpointTool
+    from rhesis.sdk.agents.tracing import TracingHandler
 
 
 def get_rhesis_tools(

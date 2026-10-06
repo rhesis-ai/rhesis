@@ -25,35 +25,17 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "pandas>=2.2.2",
+    "rhesis[telemetry]>=0.17.1",
     "python-dotenv>=1.0.1",
     "requests>=2.31.0",
-    "tiktoken>=0.9.0",
-    "tqdm>=4.67.1",
+    "pydantic>=2.0.0",
+    "tenacity>=8.2.3",
+    "websockets>=12.0",
     "jinja2>=3.1.6",
     "jsonschema>=4.23.0",
-    "markitdown[pdf,docx,pptx,xlsx]>=0.1.0",
-    # Pinned to the 3.7.x tail rather than 3.7.0: deepeval <= 3.7.4 pins
-    # google-genai < 2, which is incompatible with google-adk >= 2.6 (it needs
-    # google-genai >= 2.9). 3.7.5 dropped the google-genai dependency outright.
-    "deepeval==3.7.9",
-    "tenacity>=8.2.3",
     "pyyaml>=6.0",
-    "pydantic>=2.0.0",
-    "litellm>=1.84.0",
-    "deepteam>=0.2.5",
-    "langchain-google-genai>=4.3.0",
-    "mcp>=1.28.1,<2",
-    "websockets>=12.0",
-    "rhesis[telemetry]>=0.17.1",
     "aiohttp>=3.14.1",
-    "cryptography>=48.0.1",
-    "pillow>=12.3.0",
-    "marshmallow>=3.26.2",
-    "mammoth>=1.11.0",
     "jsonfinder>=0.4.2",
-    "chonkie>=1.6.1",
-    "pdfminer.six>=20231228",
 ]
 
 [project.license]
@@ -145,32 +127,40 @@ all-integrations = [
     "haystack-ai>=2.22.0",
 ]
 
+# Every SDK feature beyond connecting an app: litellm model providers, DeepEval
+# and DeepTeam metrics, document extraction and chunking, MCP agents. It leaves
+# out huggingface and the framework integrations so it never pulls torch; add
+# them as e.g. ``rhesis-sdk[all,huggingface]``.
 all = [
-    "torch>=2.8.0",
-    "transformers>=5.0.0",
-    "accelerate>=1.2.0",
-    "bitsandbytes>=0.45.0",
-    "langchain>=1.4.0",
-    "langchain-core>=1.6.0",
-    "langgraph>=1.2.0",
-    "langgraph-checkpoint>=4.1.0",
-    "pyautogen>=0.2.0",
-    "pydantic-ai>=0.0.49",
-    "agent-framework-core>=1.1.0",
-    "agent-framework-openai>=1.1.0",
-    "agent-framework-orchestrations>=1.0.0b260421",
-    "google-adk>=2.6,<3",
-    "haystack-ai>=2.22.0",
+    "litellm>=1.84.0",
+    # litellm imports it for Vertex AI but does not declare it. It used to
+    # arrive through langchain-google-genai.
+    "google-auth>=2.40.0",
+    # Pinned to the 3.7.x tail rather than 3.7.0: deepeval <= 3.7.4 pins
+    # google-genai < 2, which is incompatible with google-adk >= 2.6 (it needs
+    # google-genai >= 2.9). 3.7.5 dropped the google-genai dependency outright.
+    "deepeval==3.7.9",
+    "deepteam>=0.2.5",
+    "markitdown[pdf,docx,pptx,xlsx]>=0.1.0",
+    "chonkie>=1.6.1",
+    "tiktoken>=0.9.0",
+    "pdfminer.six>=20231228",
+    "mcp>=1.28.1,<2",
+    "httpx>=0.27.0",
+    # Security floors for packages the ones above pull in.
+    "pillow>=12.3.0",
+    "mammoth>=1.11.0",
+    "cryptography>=48.0.1",
 ]
 [dependency-groups]
 dev = [
+    # Tests cover every feature, so the dev env installs the full SDK.
+    "rhesis-sdk[all]",
     "pre-commit>=4.3.0",
     "hatch>=1.14.1",
     "pytest>=8.3.4",
     "types-requests>=2.32.0",
-    "pandas-stubs>=2.2.3.250308",
     "types-pytz>=2025.2.0.20250326",
-    "types-tqdm>=4.67.0.20241221",
     "sphinx>=8.1.3",
     "sphinx-autodoc-typehints>=3.0.1",
     "sphinx-rtd-theme>=3.0.2",

@@ -32,6 +32,8 @@ from typing import Callable, Collection, Optional
 
 import requests
 
+from rhesis.sdk._extras import requires_full_sdk
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_OWASP_LLM_PDF_URL = (
@@ -127,8 +129,9 @@ def _extract_pdf(pdf_bytes: bytes) -> str:
     "# " / "## " prefixes for sizes ≥ body×1.8 / body×1.3 respectively.
     Pages are separated by form-feed characters for downstream splitting.
     """
-    from pdfminer.high_level import extract_pages
-    from pdfminer.layout import LTChar, LTTextBox, LTTextLine
+    with requires_full_sdk("Parsing an OWASP PDF"):
+        from pdfminer.high_level import extract_pages
+        from pdfminer.layout import LTChar, LTTextBox, LTTextLine
 
     all_pages = list(extract_pages(io.BytesIO(pdf_bytes)))
 

@@ -5,6 +5,8 @@ from __future__ import annotations
 import importlib
 from typing import TYPE_CHECKING
 
+from rhesis.sdk._extras import requires_full_sdk
+
 if TYPE_CHECKING:
     from rhesis.sdk.services.extractor import DocumentExtractor
 
@@ -18,7 +20,8 @@ def __getattr__(name: str):
     if spec is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
     module_name, attr_name = spec
-    mod = importlib.import_module(module_name)
+    with requires_full_sdk(name):
+        mod = importlib.import_module(module_name)
     return getattr(mod, attr_name)
 
 

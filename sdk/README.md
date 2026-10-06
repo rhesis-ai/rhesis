@@ -73,6 +73,14 @@ Install the Rhesis SDK using pip:
 pip install rhesis-sdk
 ```
 
+The core install connects your application to Rhesis: the connector, `@endpoint`, `@observe` and tracing, `RhesisClient` and the entities, `@metric`, and the native judges and synthesizers with the Rhesis-hosted model. For other model providers, DeepEval and DeepTeam metrics, document extraction and chunking, and MCP agents, install every SDK feature:
+
+```bash
+pip install "rhesis-sdk[all]"
+```
+
+Local Hugging Face models need the `huggingface` extra (`rhesis-sdk[all,huggingface]`). See [What to install](https://docs.rhesis.ai/sdk/installation#what-to-install) for every extra and for upgrading from 0.17.
+
 ## 🐍 Python Requirements
 
 Rhesis SDK requires **Python 3.12** or newer.

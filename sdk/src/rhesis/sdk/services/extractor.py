@@ -8,8 +8,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Optional, Union
 
 import requests
-from markitdown import MarkItDown
 from pydantic import BaseModel
+
+from rhesis.sdk._extras import requires_full_sdk
+
+with requires_full_sdk("Document extraction"):
+    from markitdown import MarkItDown
 
 if TYPE_CHECKING:
     from rhesis.sdk.models.base import BaseLLM

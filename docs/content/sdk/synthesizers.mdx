@@ -195,7 +195,7 @@ test_set = synthesizer.generate(num_tests=20)`}
 
 ## Using Source Documents
 
-Synthesizers can extract content from documents, websites, text snippets, and images to generate contextually relevant tests.
+Synthesizers can extract content from documents, websites, text snippets, and images to generate contextually relevant tests. Extraction and chunking need the full SDK, `pip install "rhesis-sdk[all]"`.
 
 <CodeBlock filename="with_sources.py" language="python">
 {`from rhesis.sdk.services.extractor import SourceSpecification, SourceType

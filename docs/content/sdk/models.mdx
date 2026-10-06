@@ -36,6 +36,8 @@ model = get_model("gemini")`}
 - `ollama`, `huggingface`, `vllm` - local/self-hosted options
 - `jev` - TypeSafe AI's decision model, for categorical metrics only (see below)
 
+The core install includes the `rhesis` and `polyphemus` providers (hosted by Rhesis) and `jev` (TypeSafe AI). Every other provider needs `pip install "rhesis-sdk[all]"`, except `huggingface`, which needs `pip install "rhesis-sdk[huggingface]"`. See [What to install](/sdk/installation#what-to-install).
+
 To use a specific model, provide its name in the format `provider/model_name`:
 
 <CodeBlock filename="specific_model.py" language="python">

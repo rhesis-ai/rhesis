@@ -36,14 +36,6 @@ Command Line Interface
    :undoc-members:
    :show-inheritance:
 
-Utilities
-~~~~~~~~~
-
-.. automodule:: rhesis.sdk.utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 Module Structure
 ---------------
 
