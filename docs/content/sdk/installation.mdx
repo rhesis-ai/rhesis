@@ -71,10 +71,10 @@ export RHESIS_BASE_URL="https://api.rhesis.ai"`}
 **Direct Configuration:**
 
 <CodeBlock filename="config.py" language="python">
-{`import rhesis
+{`import rhesis.sdk
 
-rhesis.api_key = "your-api-key"
-rhesis.base_url = "https://api.rhesis.ai"  # optional`}
+rhesis.sdk.api_key = "your-api-key"
+rhesis.sdk.base_url = "https://api.rhesis.ai"  # optional`}
 
 </CodeBlock>
 
@@ -86,14 +86,14 @@ Once configured, you can start using the SDK to create and manage tests:
 {`import os
 from pprint import pprint
 
-from rhesis.sdk.entities import TestSet
+from rhesis.sdk.entities import TestSets
 from rhesis.sdk.synthesizers import PromptSynthesizer
 
 os.environ["RHESIS_API_KEY"] = "rh-your-api-key"  # Get from app.rhesis.ai settings
 os.environ["RHESIS_BASE_URL"] = "https://api.rhesis.ai"  # optional
 
 # Browse available test sets
-for test_set in TestSet().all():
+for test_set in TestSets.all():
     pprint(test_set)
 
 # Generate custom test scenarios
