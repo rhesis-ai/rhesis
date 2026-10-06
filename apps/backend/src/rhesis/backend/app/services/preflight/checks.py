@@ -39,7 +39,11 @@ from rhesis.backend.app.services.preflight.utils import (
     _verify_model_responds,
 )
 from rhesis.backend.app.utils.crud_utils import get_item_detail
-from rhesis.backend.app.utils.model_errors import MODEL_NOT_CONFIGURED, ModelNotConfiguredError
+from rhesis.backend.app.utils.model_errors import (
+    MODEL_NOT_CONFIGURED,
+    ModelNotConfiguredError,
+    describe_model_error,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -533,7 +537,7 @@ def _model_failure_result(check_id: str, label: str, error: Exception) -> Prefli
         check_id,
         PreflightCheckStatus.FAILED,
         f"{label} model configuration error",
-        str(error),
+        describe_model_error(error),
     )
 
 

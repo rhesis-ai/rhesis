@@ -350,7 +350,7 @@ class TestCheckEvaluationModel:
 
         assert result.status == PreflightCheckStatus.FAILED
         assert result.error_code is None
-        assert "provider said no" in result.detail
+        assert result.detail == "The model call failed (RuntimeError)."
 
     @staticmethod
     def _text_model(generate=None, raises=None):
@@ -413,7 +413,8 @@ class TestCheckEvaluationModel:
 
         assert result.status == PreflightCheckStatus.FAILED
         assert "can't interpret multi-turn tests" in result.message
-        assert "tiny-model" in result.detail and "invalid JSON" in result.detail
+        assert "tiny-model" in result.detail and "expected format" in result.detail
+        assert "invalid JSON" not in result.detail
 
     @pytest.mark.asyncio
     async def test_a_decision_model_default_is_probed_through_the_generation_model(self):

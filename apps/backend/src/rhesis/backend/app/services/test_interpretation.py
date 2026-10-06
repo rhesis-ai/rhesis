@@ -29,6 +29,7 @@ from rhesis.backend.app.schemas.evaluation_contract import (
     read_contract,
     store_contract,
 )
+from rhesis.backend.app.utils.model_errors import describe_model_error
 from rhesis.backend.app.utils.user_model_utils import (
     ensure_language_model,
     resolve_model,
@@ -43,8 +44,6 @@ _TEMPLATE_NAME = "test_interpretation.jinja2"
 #: Interpretation decides which direction a test is scored in, so it is run at temperature 0 --
 #: the same test must not be read one way today and the other way tomorrow.
 _TEMPERATURE = 0.0
-# Enough of a model error to recognise it, without a whole validation dump.
-_MAX_ERROR_DETAIL = 300
 
 #: Below this, the interpreter is signalling that it could plausibly read the test either way.
 #: Scoring anyway would produce a confident verdict from an admitted coin-flip.
@@ -134,10 +133,7 @@ def interpret_test_configuration(
 
 def _describe_failure(model: Any, error: Exception) -> str:
     name = getattr(model, "model_name", None) or type(model).__name__
-    detail = str(error)
-    if len(detail) > _MAX_ERROR_DETAIL:
-        detail = detail[:_MAX_ERROR_DETAIL] + "..."
-    return f"{name} couldn't produce a usable interpretation ({type(error).__name__}: {detail})."
+    return f"{name} couldn't produce a usable interpretation. {describe_model_error(error)}"
 
 
 def contract_usability(contract: EvaluationContract) -> Tuple[bool, str]:

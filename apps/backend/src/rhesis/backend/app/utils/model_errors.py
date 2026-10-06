@@ -1,6 +1,9 @@
-"""Shared model-related exceptions."""
+"""Shared model-related exceptions, and model failures as text that is safe to show."""
 
+import asyncio
 from typing import Optional
+
+from pydantic import ValidationError
 
 #: The one error code every model check returns when a model cannot be built.
 #: Lowercase like the other codes on the wire (``quota_exceeded``, ``password_not_set``).
@@ -105,3 +108,43 @@ def is_permanent_model_error(error: BaseException) -> bool:
         if isinstance(status, int):
             return status in _PERMANENT_PROVIDER_STATUSES
     return False
+
+
+_STATUS_MESSAGES = {
+    401: "The provider rejected the model's credentials. Check its API key in the Models settings.",
+    403: "The provider refused access to the model. Check its API key in the Models settings.",
+    404: "The provider doesn't know this model. Check its name in the Models settings.",
+    429: "The provider is rate-limiting this model. Try again shortly.",
+}
+
+
+def provider_status(error: Exception) -> Optional[int]:
+    """The HTTP status a model provider attached to this failure, if any."""
+    for attribute in _STATUS_ATTRIBUTES:
+        status = getattr(error, attribute, None)
+        if isinstance(status, int) and 400 <= status < 600:
+            return status
+    return None
+
+
+def describe_model_error(error: Exception) -> str:
+    """What went wrong with a model call, for showing or storing.
+
+    Never reads the error's own text: a provider's message can quote the request it
+    rejected, API key included. Only the exception type and the provider's HTTP status
+    are used.
+    """
+    if isinstance(error, (TimeoutError, asyncio.TimeoutError)):
+        return "The model didn't answer in time."
+    status = provider_status(error)
+    if status is None and isinstance(error, ModelConfigurationError):
+        return "The model isn't set up correctly. Check it in the Models settings."
+    if status is None and isinstance(error, (ValidationError, ValueError)):
+        return "The model's answer wasn't in the expected format."
+    if status in _STATUS_MESSAGES:
+        return _STATUS_MESSAGES[status]
+    if status is not None and status >= 500:
+        return f"The provider had an error ({status}). Try again."
+    if status is not None:
+        return f"The provider refused the request ({status})."
+    return f"The model call failed ({type(error).__name__})."

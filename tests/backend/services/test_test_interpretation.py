@@ -366,7 +366,8 @@ class TestEnsureContract:
 
         usable, reason = contract_usability(contract)
         assert not usable
-        assert "tiny" in reason and "invalid JSON" in reason
+        assert "tiny" in reason and "expected format" in reason
+        assert "invalid JSON" not in reason
 
 
 class TestEnsureContractFlagModified:

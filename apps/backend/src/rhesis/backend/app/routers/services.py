@@ -54,6 +54,7 @@ from rhesis.backend.app.utils.execution_validation import validate_generation_mo
 from rhesis.backend.app.utils.model_errors import (
     EmbeddingProviderNotConfigured,
     ModelConfigurationError,
+    provider_status,
 )
 from rhesis.sdk.context import EndpointContext
 from rhesis.sdk.models.providers.native import USAGE_HEADER
@@ -73,18 +74,6 @@ router = RhesisRouter(
 #: covers them: litellm and the OpenAI SDK use ``status_code``, aiohttp (raised
 #: by RhesisEmbedder) uses ``status``, google-api-core uses ``code`` -- last,
 #: because aiohttp also keeps ``code`` as a deprecated alias.
-_PROVIDER_STATUS_ATTRIBUTES = ("status_code", "status", "code")
-
-
-def _provider_status(error: Exception) -> int | None:
-    """The HTTP status a model provider attached to this failure, if any."""
-    for attribute in _PROVIDER_STATUS_ATTRIBUTES:
-        status = getattr(error, attribute, None)
-        if isinstance(status, int) and 400 <= status < 600:
-            return status
-    return None
-
-
 def _model_call_failure(error: Exception, *, context: str, summary: str) -> HTTPException:
     """Split a model failure into "the provider said no" and "we broke".
 
@@ -94,7 +83,7 @@ def _model_call_failure(error: Exception, *, context: str, summary: str) -> HTTP
     no provider status is our own bug: a traceback in the log and a masked 500,
     not a 400 that blames the caller for it.
     """
-    status = _provider_status(error)
+    status = provider_status(error)
     if status is None:
         return internal_error(error, context=context)
     logger.warning("%s: model provider returned %s: %s", context, status, error)
