@@ -4,7 +4,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 An annotation is a person's judgement recorded against a test result, a trace, or a test. It is its own entity, linked to what it judges by `entity_type` and `entity_id`.
 
-A Pass or Fail annotation on a test result or a trace overrides that parent's automated outcome, so creating one changes what the platform reports for the parent, not only what the annotation says.
+A Pass or Fail annotation on a test result or a trace overrides that parent's automated outcome, so creating one changes what the platform reports for the parent, not only what the annotation says. A trace without metrics has no automated outcome; see [Traces](/sdk/entities/traces#annotating-a-trace) for what an annotation does there.
 
 ## Properties
 
@@ -128,9 +128,9 @@ annotate_trace(trace_id, "fail", "User reported the answer was wrong.")`}
 </CodeBlock>
 
 This is how feedback from outside the platform gets recorded: a thumbs-down from an end user, a QA
-harness, an eval script. It lands as an ordinary annotation, so a Pass/Fail verdict overrides the
-trace's automated outcome and appears wherever annotations already do. `metric` and `turn` work the
-same way as above.
+harness, an eval script. It lands as an ordinary annotation and appears wherever annotations
+already do. A Pass/Fail verdict on the whole trace overrides its automated outcome, or becomes its
+verdict when the trace has no metrics. `metric` and `turn` work the same way as above.
 
 `annotate_current_trace` reads the trace id from the tracer, so it works after the span has closed,
 which is when a human verdict usually arrives. It raises if there is no trace in context rather

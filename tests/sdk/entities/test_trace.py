@@ -7,6 +7,7 @@ import requests
 
 from rhesis.sdk.entities import trace as trace_module
 from rhesis.sdk.entities.trace import Span, Spans, Trace, Traces
+from rhesis.sdk.enums import TestType
 from rhesis.sdk.errors import RhesisAPIError
 
 os.environ["RHESIS_BASE_URL"] = "http://test:8000"
@@ -1044,3 +1045,133 @@ class TestParentAccessors:
         endpoint = Trace.model_validate(summary_payload).get_endpoint()
 
         assert endpoint.name == "Support Chatbot"
+
+
+def conversation_trace(turns, test_output=None):
+    """A detail-loaded trace with one root span per conversation turn."""
+    roots = [
+        span_payload(
+            f"row-{index}",
+            "ai.chat",
+            attributes={
+                "rhesis.conversation.input": user,
+                "rhesis.conversation.output": assistant,
+            },
+        )
+        for index, (user, assistant) in enumerate(turns, start=1)
+    ]
+    payload = {"trace_id": TRACE_ID, "project_id": PROJECT_ID, "root_spans": roots}
+    if test_output is not None:
+        payload["test_result"] = {"id": "result-1", "test_output": test_output}
+    return Trace.model_validate(payload)
+
+
+class TestConversation:
+    def test_one_turn_per_root_span_that_carries_a_conversation(self):
+        trace = conversation_trace([("Refund window?", "30 days."), ("And exchanges?", "")])
+        trace.root_spans.append(Span(id="row-x", span_name="ai.background"))
+
+        turns = trace.conversation()
+
+        assert [(t.turn, t.user_message, t.assistant_response) for t in turns] == [
+            (1, "Refund window?", "30 days."),
+            (2, "And exchanges?", ""),
+        ]
+
+    def test_a_test_result_summary_wins_over_the_spans(self):
+        """The summary is what the run recorded per turn, so it is what the platform shows."""
+        summary = [{"turn": 1, "penelope_message": "Hi", "target_response": "Hello"}]
+        trace = conversation_trace([("ignored", "ignored")], {"conversation_summary": summary})
+
+        assert [(t.user_message, t.assistant_response) for t in trace.conversation()] == [
+            ("Hi", "Hello")
+        ]
+
+    def test_a_trace_without_a_conversation_has_no_turns(self, detail_payload):
+        assert Trace.model_validate(detail_payload).conversation() == []
+
+
+EXTRACTION_CLIENT = "rhesis.sdk.entities.trace.APIClient"
+
+
+class TestToTest:
+    @patch(EXTRACTION_CLIENT)
+    def test_the_whole_conversation_drafts_a_multi_turn_test(self, mock_client):
+        mock_client.return_value.send_request.return_value = {
+            "test_type": "Multi-Turn",
+            "requirement": "Answers refund questions",
+            "category": "Harmless",
+            "topic": "Refunds",
+            "test_configuration": {"goal": "Learn the refund window", "scenario": "Shopper"},
+        }
+        trace = conversation_trace([("Refund window?", "30 days."), ("Exchanges?", "")])
+
+        test = trace.to_test()
+
+        kwargs = mock_client.return_value.send_request.call_args.kwargs
+        assert kwargs["url_params"] == "extract-from-conversation"
+        assert kwargs["data"] == {
+            "test_type": "Multi-Turn",
+            "messages": [
+                {"role": "user", "content": "Refund window?"},
+                {"role": "assistant", "content": "30 days."},
+                {"role": "user", "content": "Exchanges?"},
+            ],
+        }
+        assert test.id is None
+        assert test.test_type == TestType.MULTI_TURN
+        assert (test.requirement, test.category, test.topic) == (
+            "Answers refund questions",
+            "Harmless",
+            "Refunds",
+        )
+        assert test.test_configuration.goal == "Learn the refund window"
+        assert test.test_configuration.scenario == "Shopper"
+        assert test.test_configuration.max_turns == 5
+
+    @patch(EXTRACTION_CLIENT)
+    def test_one_turn_drafts_a_single_turn_test(self, mock_client):
+        mock_client.return_value.send_request.return_value = {
+            "test_type": "Single-Turn",
+            "requirement": "Answers refund questions",
+            "category": "Harmless",
+            "topic": "Refunds",
+            "prompt_content": "Exchanges?",
+            "expected_response": "Within 14 days.",
+        }
+        trace = conversation_trace(
+            [("Refund window?", "30 days."), ("Exchanges?", "Within 14 days.")]
+        )
+
+        test = trace.to_test(turn=2)
+
+        data = mock_client.return_value.send_request.call_args.kwargs["data"]
+        assert data == {
+            "test_type": "Single-Turn",
+            "messages": [
+                {"role": "user", "content": "Exchanges?"},
+                {"role": "assistant", "content": "Within 14 days."},
+            ],
+        }
+        assert test.test_type == TestType.SINGLE_TURN
+        assert test.prompt.content == "Exchanges?"
+        assert test.prompt.expected_response == "Within 14 days."
+        assert test.test_configuration is None
+
+    def test_a_trace_without_a_conversation_says_so(self, detail_payload):
+        with patch(EXTRACTION_CLIENT) as client:
+            with pytest.raises(ValueError, match="no conversation"):
+                Trace.model_validate(detail_payload).to_test()
+            client.assert_not_called()
+
+    def test_an_unknown_turn_names_the_ones_that_exist(self):
+        trace = conversation_trace([("Refund window?", "30 days.")])
+
+        with pytest.raises(ValueError, match="no turn 3. Its turns: 1"):
+            trace.to_test(turn=3)
+
+    def test_a_turn_without_a_user_message_is_refused(self):
+        trace = conversation_trace([("", "Unprompted reply.")])
+
+        with pytest.raises(ValueError, match="no user message"):
+            trace.to_test(turn=1)

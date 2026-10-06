@@ -21,9 +21,11 @@ from rhesis.sdk.clients import APIClient, Endpoints, Methods
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 from rhesis.sdk.entities.project import Project
-from rhesis.sdk.entities.test import Test
+from rhesis.sdk.entities.prompt import Prompt
+from rhesis.sdk.entities.test import Test, TestConfiguration
 from rhesis.sdk.entities.test_result import TestResult
 from rhesis.sdk.entities.test_run import TestRun
+from rhesis.sdk.enums import TestType
 from rhesis.sdk.errors import RhesisAPIError
 
 if TYPE_CHECKING:
@@ -55,6 +57,43 @@ _NOT_WRITABLE = (
     "What you can do to an existing trace is annotate it: "
     "trace.annotate('fail', 'The retrieval step returned nothing.')"
 )
+
+
+_CONVERSATION_INPUT = "rhesis.conversation.input"
+_CONVERSATION_OUTPUT = "rhesis.conversation.output"
+
+# The turn budget the platform's create-test drawer offers when the draft names none.
+_DEFAULT_MAX_TURNS = 5
+
+
+def _draft_test(extraction: Dict[str, Any]) -> Test:
+    """An unsaved Test from what the extraction route drafted."""
+    common = {
+        "requirement": extraction.get("requirement"),
+        "category": extraction.get("category"),
+        "topic": extraction.get("topic"),
+    }
+    if extraction.get("test_type") == TestType.SINGLE_TURN.value:
+        return Test(
+            **common,
+            test_type=TestType.SINGLE_TURN,
+            prompt=Prompt(
+                content=extraction.get("prompt_content") or "",
+                expected_response=extraction.get("expected_response") or None,
+            ),
+        )
+    config = extraction.get("test_configuration") or {}
+    return Test(
+        **common,
+        test_type=TestType.MULTI_TURN,
+        test_configuration=TestConfiguration(
+            goal=config.get("goal") or "",
+            instructions=config.get("instructions") or "",
+            restrictions=config.get("restrictions") or "",
+            scenario=config.get("scenario") or "",
+            max_turns=config.get("max_turns") or _DEFAULT_MAX_TURNS,
+        ),
+    )
 
 
 def _as_timestamp(value: Optional[Union[str, datetime]]) -> Optional[str]:
@@ -142,6 +181,24 @@ class Span(BaseModel):
             metric=metric,
             turn=turn,
         )
+
+
+class ConversationTurn(BaseModel):
+    """One exchange in a conversation: what the user sent and what came back."""
+
+    turn: int
+    user_message: str = ""
+    assistant_response: str = ""
+
+    def _messages(self) -> List[Dict[str, str]]:
+        # Empty sides are dropped, so a turn that errored before the reply still
+        # yields its user message.
+        messages = []
+        if self.user_message.strip():
+            messages.append({"role": "user", "content": self.user_message})
+        if self.assistant_response.strip():
+            messages.append({"role": "assistant", "content": self.assistant_response})
+        return messages
 
 
 class Trace(BaseEntity):
@@ -371,7 +428,7 @@ class Trace(BaseEntity):
         metric: Optional[str] = None,
         turn: Optional[Union[int, str]] = None,
     ) -> "Annotation":
-        """Record a human verdict on this trace, overriding the automated one.
+        """Record a human verdict on this trace.
 
         ``verdict`` is named rather than looked up: ``"pass"`` or ``"fail"``.
         Target one trace metric by name or one turn by label to judge just that
@@ -380,6 +437,12 @@ class Trace(BaseEntity):
 
             trace.annotate("fail", "Answered from the wrong document.")
             trace.annotate("pass", "Fine once you read the tool call.", metric="Groundedness")
+
+        On a trace with metrics the verdict overrides the automated one. On a
+        trace without metrics there is none to override: a whole-trace verdict
+        becomes the trace's verdict, and a turn or metric verdict leaves it as it
+        was. Deleting the last whole-trace verdict returns the trace to not
+        evaluated.
 
         Sent by the OTEL ``trace_id`` and resolved to the root span server-side,
         so a trace from a listing does not fetch its span tree first. A
@@ -400,6 +463,79 @@ class Trace(BaseEntity):
         if not self.trace_id:
             raise ValueError("Trace has no trace_id, so there is nothing to address it by.")
         return self.trace_id
+
+    def conversation(self) -> List[ConversationTurn]:
+        """The conversation this trace recorded, one entry per turn.
+
+        Read the way the platform's Conversation tab reads it: from the linked
+        test result's conversation summary when the trace came from a test run,
+        otherwise one turn per root span from its conversation input and output.
+        Empty for a trace that recorded no conversation. Fetches the detail once
+        if the trace came from a listing.
+        """
+        self._ensure_detail()
+        output = self.test_result.test_output if self.test_result else None
+        summary = output.get("conversation_summary") if isinstance(output, dict) else None
+        if summary:
+            return [
+                ConversationTurn(
+                    turn=entry.get("turn") or index,
+                    user_message=entry.get("penelope_message") or "",
+                    assistant_response=entry.get("target_response") or "",
+                )
+                for index, entry in enumerate(summary, start=1)
+            ]
+        spoken = [
+            span
+            for span in self.root_spans
+            if span.attributes.get(_CONVERSATION_INPUT) or span.attributes.get(_CONVERSATION_OUTPUT)
+        ]
+        return [
+            ConversationTurn(
+                turn=index,
+                user_message=str(span.attributes.get(_CONVERSATION_INPUT) or ""),
+                assistant_response=str(span.attributes.get(_CONVERSATION_OUTPUT) or ""),
+            )
+            for index, span in enumerate(spoken, start=1)
+        ]
+
+    def to_test(self, turn: Optional[int] = None) -> Test:
+        """A test drafted from this trace's conversation, not yet saved.
+
+        With no ``turn``, a multi-turn test from the whole conversation; with one,
+        a single-turn test from that exchange. The platform drafts the
+        requirement, category, topic and prompt or goal with your organization's
+        generation model. Review the result, then ``push()`` it.
+
+            test = trace.to_test()
+            test.push()
+        """
+        turns = self.conversation()
+        if not turns:
+            raise ValueError(
+                f"Trace {self.trace_id} recorded no conversation, so there is nothing "
+                "to make a test from."
+            )
+        if turn is None:
+            messages = [message for entry in turns for message in entry._messages()]
+            return _draft_test(self._extract_test(messages, TestType.MULTI_TURN))
+
+        picked = next((entry for entry in turns if entry.turn == turn), None)
+        if picked is None:
+            known = ", ".join(str(entry.turn) for entry in turns)
+            raise ValueError(f"Trace {self.trace_id} has no turn {turn}. Its turns: {known}")
+        if not picked.user_message.strip():
+            raise ValueError(f"Turn {turn} has no user message to make a test from.")
+        return _draft_test(self._extract_test(picked._messages(), TestType.SINGLE_TURN))
+
+    @handle_http_errors
+    def _extract_test(self, messages: List[Dict[str, str]], test_type: TestType) -> Dict[str, Any]:
+        return APIClient().send_request(
+            endpoint=Endpoints.TESTS,
+            method=Methods.POST,
+            url_params="extract-from-conversation",
+            data={"messages": messages, "test_type": test_type.value},
+        )
 
     def push(self, *args: Any, **kwargs: Any) -> NoReturn:
         raise NotImplementedError(_NOT_WRITABLE)
