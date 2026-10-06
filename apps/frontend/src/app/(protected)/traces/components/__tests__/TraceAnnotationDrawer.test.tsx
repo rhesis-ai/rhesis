@@ -37,7 +37,7 @@ describe('TraceAnnotationDrawer', () => {
     renderDrawer({ trace_metrics: undefined });
 
     expect(
-      screen.getByText('Not evaluated - no metrics ran on this trace.')
+      screen.getByText('Not evaluated. No metrics ran on this trace.')
     ).toBeInTheDocument();
     expect(screen.queryByTestId('status-chip')).not.toBeInTheDocument();
   });

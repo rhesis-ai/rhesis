@@ -153,7 +153,7 @@ export default function TraceAnnotationDrawer({
           </Typography>
           {!hasMetrics ? (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Not evaluated - no metrics ran on this trace.
+              Not evaluated. No metrics ran on this trace.
             </Typography>
           ) : (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
