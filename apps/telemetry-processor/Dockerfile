@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM mirror.gcr.io/library/python:3.12.8-slim
 COPY --from=mirror.gcr.io/astral/uv:0.11.19 /uv /uvx /bin/
 
@@ -14,11 +15,17 @@ RUN apt-get update && \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
-COPY pyproject.toml .
+COPY pyproject.toml uv.lock ./
 
-# Install dependencies
-RUN uv pip install --system -e .
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_NO_MANAGED_PYTHON=1 \
+    UV_LINK_MODE=copy \
+    PATH="/app/.venv/bin:$PATH"
+
+# --locked installs exactly the lock's versions and fails if it is stale, rather than
+# resolving the newest release (SQLAlchemy 2.1 changed the default Postgres driver).
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --no-dev --no-install-project
 
 # Copy source code
 COPY src/ /app/src/
