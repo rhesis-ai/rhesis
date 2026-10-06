@@ -15,6 +15,7 @@ from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import ENTITY_LEVEL_TARGETS, EntityType
 from rhesis.backend.app.crud import annotation as annotation_crud
 from rhesis.backend.app.crud.status import get_status_with_entity_type
+from rhesis.backend.app.crud.telemetry import get_first_root_id
 from rhesis.backend.app.services.annotation_override import apply_override, revert_override
 from rhesis.backend.app.services.annotation_override.trace import has_metrics
 from rhesis.backend.app.services.metric_tuning.judgement import is_tuning_case, is_tuning_status
@@ -47,21 +48,16 @@ def _resolve_trace_id(db: Session, trace_id: str) -> uuid.UUID:
     """Find the span row a caller's OTEL trace id refers to.
 
     An instrumented application knows the trace it produced and nothing about
-    how the platform stored it, so the root span is looked up for it here.
+    how the platform stored it, so the root span is looked up for it here. A
+    conversation has one root per turn under a shared trace id; its first root
+    carries the verdict, so that is the one annotated.
+
     Ingestion is asynchronous, so "not found" usually means the spans have not
     arrived yet rather than that the id is wrong, and the message says so --
     retrying is the right response, and a bare 404 reads as a bad id.
     """
-    roots = (
-        db.query(models.Trace.id)
-        .filter(
-            models.Trace.trace_id == trace_id,
-            models.Trace.parent_span_id.is_(None),
-        )
-        .limit(2)
-        .all()
-    )
-    if not roots:
+    root_id = get_first_root_id(db, trace_id)
+    if root_id is None:
         raise HTTPException(
             status_code=404,
             detail=(
@@ -70,15 +66,7 @@ def _resolve_trace_id(db: Session, trace_id: str) -> uuid.UUID:
                 f"queryable yet."
             ),
         )
-    if len(roots) > 1:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                f"Trace {trace_id} has more than one root span, so which one "
-                f"is being annotated is ambiguous. Annotate it by entity_id."
-            ),
-        )
-    return roots[0][0]
+    return root_id
 
 
 def _validate_status(
