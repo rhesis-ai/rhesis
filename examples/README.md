@@ -19,7 +19,7 @@ Jupyter notebooks and scripts demonstrating key Rhesis SDK features and integrat
 ## Setup
 
 **For SDK notebooks:**
-1. Install dependencies: `pip install rhesis-sdk`
+1. Install dependencies: `pip install "rhesis-sdk[all]"` (the notebooks use DeepEval metrics, document extraction and chunking)
 2. Get your API key from [rhesis.ai](https://rhesis.ai)
 3. Set `RHESIS_API_KEY` in your environment or notebook
 

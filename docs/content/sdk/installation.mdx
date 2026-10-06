@@ -21,6 +21,26 @@ The Rhesis Python SDK generates test sets, runs evaluations, and traces LLM appl
 
 </CodeBlock>
 
+This installs the core SDK, which is enough to connect your application to Rhesis. The next section shows when you need more.
+
+## What to install
+
+| Install | Use it for | Command |
+| --- | --- | --- |
+| Core (about 35 MB) | Connecting your application to Rhesis: the [connector](/sdk/connector), `@endpoint`, `@observe` and tracing, `RhesisClient` and the [entities](/sdk/entities) (test sets, endpoints, test runs), `@metric`, and the native judges and synthesizers with the Rhesis-hosted model | `pip install rhesis-sdk` |
+| `[all]` (about 560 MB) | Every other SDK feature: other [model providers](/sdk/models) (OpenAI, Gemini, Anthropic, Vertex AI and the rest), DeepEval and DeepTeam [metrics](/sdk/metrics), document extraction and chunking for [synthesizer sources](/sdk/synthesizers), and [MCP agents](/sdk/agents) | `pip install "rhesis-sdk[all]"` |
+| Add-ons | `huggingface` for local Hugging Face models (installs torch), `garak` for Garak metrics, and the [tracing integrations](/docs/tracing/auto-instrumentation): `langchain`, `langgraph`, `autogen`, `pydantic-ai`, `agent-framework`, `google-adk`, `haystack`, `all-integrations` | `pip install "rhesis-sdk[garak]"` |
+
+Extras combine, so `rhesis-sdk[all,huggingface]` installs every SDK feature plus local Hugging Face models. If you use a feature that needs `[all]` without it, the SDK raises an error that names the feature and the install command.
+
+### Upgrading from 0.17
+
+In 0.18.0 the default install became the core SDK, and `[all]` changed meaning.
+
+- To keep the 0.17 behaviour, install `pip install "rhesis-sdk[all]"`.
+- `[all]` no longer includes the `huggingface` extra. For local Hugging Face models, install `pip install "rhesis-sdk[all,huggingface]"`.
+- `[all]` no longer includes the tracing integrations. Their extras are unchanged, so install the one you use, for example `pip install "rhesis-sdk[langchain]"`.
+
 ## Getting Started
 
 The SDK can be used standalone or integrated with our platform. To communicate with our platform and to use LLMs provided by us you need to obtain an API key.

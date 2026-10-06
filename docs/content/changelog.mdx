@@ -10,6 +10,19 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 
 ## [Unreleased]
 
+### Breaking Changes
+
+**SDK core install and the `[all]` extra**
+
+- `pip install rhesis-sdk` installs a core SDK of about 35 MB for connecting an application to
+  Rhesis: the connector, `@endpoint`, `@observe` and tracing, `RhesisClient` and the entities,
+  `@metric`, and the native judges and synthesizers with the Rhesis-hosted model.
+- Other model providers, DeepEval and DeepTeam metrics, document extraction and chunking, and MCP
+  agents need `pip install "rhesis-sdk[all]"`. That gives the 0.17 behaviour.
+- `[all]` no longer includes the `huggingface` extra or the tracing integrations. Use
+  `rhesis-sdk[all,huggingface]` for local Hugging Face models. The tracing extras are unchanged.
+  See [What to install](/sdk/installation#what-to-install).
+
 ### Added
 
 **Google ADK integration**
