@@ -2,9 +2,13 @@ import json
 import logging
 from typing import AsyncGenerator, List, Optional, Type, Union
 
-import litellm
-from litellm import acompletion, aembedding, batch_completion, embedding
 from pydantic import BaseModel
+
+from rhesis.sdk._extras import requires_full_sdk
+
+with requires_full_sdk("The LiteLLM model provider"):
+    import litellm
+    from litellm import acompletion, aembedding, batch_completion, embedding
 
 from rhesis.sdk.config import DEFAULT_LLM_TIMEOUT
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED

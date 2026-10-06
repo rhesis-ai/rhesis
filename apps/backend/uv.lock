@@ -1726,15 +1726,6 @@ wheels = [
 ]
 
 [[package]]
-name = "filetype"
-version = "1.2.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/bb/29/745f7d30d47fe0f251d3ad3dc2978a23141917661998763bebb6da007eb1/filetype-1.2.0.tar.gz", hash = "sha256:66b56cd6474bf41d8c54660347d37afcc3f7d1970648de365c102ef77548aadb", size = 998020, upload-time = "2022-11-02T17:34:04.141Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/18/79/1b8fa1bb3568781e84c9200f951c735f3f157429f44be0495da55894d620/filetype-1.2.0-py2.py3-none-any.whl", hash = "sha256:7ce71b6880181241cf7ac8697a2f1eb6a8bd9b429f7ad6d27b8db9ba5f1c2d25", size = 19970, upload-time = "2022-11-02T17:34:01.425Z" },
-]
-
-[[package]]
 name = "flatbuffers"
 version = "25.12.19"
 source = { registry = "https://pypi.org/simple" }
@@ -3248,21 +3239,6 @@ wheels = [
 ]
 
 [[package]]
-name = "langchain-google-genai"
-version = "4.3.7"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "filetype" },
-    { name = "google-genai" },
-    { name = "langchain-core" },
-    { name = "pydantic" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/5f/17/dcf759ad83ab3566db1b02c8b21211f43085c66f3b5964f6fe573ffe8664/langchain_google_genai-4.3.7.tar.gz", hash = "sha256:8a57f936b1fbde52776fdde6673fdabd99cfa5cbbb122a926f1cff0ba00f6bc6", size = 373696, upload-time = "2026-08-27T20:44:05.203Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/47/2f/ade5d1a7ecfbc88f7de65c6610ef89d80905b29fa3dd28a764f7028f3d42/langchain_google_genai-4.3.7-py3-none-any.whl", hash = "sha256:8d4b1aa8f2c2e17b8e790d34a7e9a7b8e7d13e9a00175679d17647c235104bf9", size = 79611, upload-time = "2026-08-27T20:44:03.884Z" },
-]
-
-[[package]]
 name = "langchain-protocol"
 version = "0.0.18"
 source = { registry = "https://pypi.org/simple" }
@@ -3688,18 +3664,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/fb/df/5bd7a48c256faecd1d36edc13133e51397e41b73bb77e1a69deab746ebac/markupsafe-3.0.3-cp314-cp314t-win32.whl", hash = "sha256:915c04ba3851909ce68ccc2b8e2cd691618c4dc4c4232fb7982bca3f41fd8c3d", size = 14819, upload-time = "2025-09-27T18:37:26.285Z" },
     { url = "https://files.pythonhosted.org/packages/1a/8a/0402ba61a2f16038b48b39bccca271134be00c5c9f0f623208399333c448/markupsafe-3.0.3-cp314-cp314t-win_amd64.whl", hash = "sha256:4faffd047e07c38848ce017e8725090413cd80cbc23d86e55c587bf979e579c9", size = 15426, upload-time = "2025-09-27T18:37:27.316Z" },
     { url = "https://files.pythonhosted.org/packages/70/bc/6f1c2f612465f5fa89b95bead1f44dcb607670fd42891d8fdcd5d039f4f4/markupsafe-3.0.3-cp314-cp314t-win_arm64.whl", hash = "sha256:32001d6a8fc98c8cb5c947787c5d08b0a50663d139f1305bac5885d98d9b40fa", size = 14146, upload-time = "2025-09-27T18:37:28.327Z" },
-]
-
-[[package]]
-name = "marshmallow"
-version = "3.26.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "packaging" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/55/79/de6c16cc902f4fc372236926b0ce2ab7845268dcc30fb2fbb7f71b418631/marshmallow-3.26.2.tar.gz", hash = "sha256:bbe2adb5a03e6e3571b573f42527c6fe926e17467833660bebd11593ab8dfd57", size = 222095, upload-time = "2025-12-22T06:53:53.309Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/be/2f/5108cb3ee4ba6501748c4908b908e55f42a5b66245b4cfe0c99326e1ef6e/marshmallow-3.26.2-py3-none-any.whl", hash = "sha256:013fa8a3c4c276c24d26d84ce934dc964e2aa794345a0f8c7e5a7191482c8a73", size = 50964, upload-time = "2025-12-22T06:53:51.801Z" },
 ]
 
 [[package]]
@@ -6277,7 +6241,7 @@ all = [
     { name = "mirascope" },
     { name = "numpy" },
     { name = "rhesis-penelope" },
-    { name = "rhesis-sdk" },
+    { name = "rhesis-sdk", extra = ["all"] },
     { name = "sendgrid" },
     { name = "umap-learn" },
 ]
@@ -6368,7 +6332,7 @@ requires-dist = [
     { name = "rhesis", editable = "../../packages/rhesis" },
     { name = "rhesis-backend-ee", marker = "extra == 'ee'", editable = "../../ee/backend" },
     { name = "rhesis-penelope", marker = "extra == 'all'", editable = "../../penelope" },
-    { name = "rhesis-sdk", marker = "extra == 'all'", editable = "../../sdk" },
+    { name = "rhesis-sdk", extras = ["all"], marker = "extra == 'all'", editable = "../../sdk" },
     { name = "sendgrid", specifier = ">=6.12.5" },
     { name = "sendgrid", marker = "extra == 'all'", specifier = ">=6.12.5" },
     { name = "slowapi", specifier = ">=0.1.9" },
@@ -6427,7 +6391,7 @@ dependencies = [
     { name = "notebook" },
     { name = "pydantic" },
     { name = "python-dotenv" },
-    { name = "rhesis-sdk" },
+    { name = "rhesis-sdk", extra = ["all"] },
     { name = "rich" },
     { name = "tenacity" },
     { name = "tiktoken" },
@@ -6461,7 +6425,7 @@ requires-dist = [
     { name = "pydantic-ai", marker = "extra == 'all'", specifier = ">=0.0.49" },
     { name = "pydantic-ai", marker = "extra == 'pydantic-ai'", specifier = ">=0.0.49" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
-    { name = "rhesis-sdk", editable = "../../sdk" },
+    { name = "rhesis-sdk", extras = ["all"], editable = "../../sdk" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "tenacity", specifier = ">=8.2.3" },
     { name = "tiktoken", specifier = ">=0.9.0" },
@@ -6491,91 +6455,79 @@ version = "0.17.1"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },
-    { name = "chonkie" },
-    { name = "cryptography" },
-    { name = "deepeval" },
-    { name = "deepteam" },
     { name = "jinja2" },
     { name = "jsonfinder" },
     { name = "jsonschema" },
-    { name = "langchain-google-genai" },
-    { name = "litellm" },
-    { name = "mammoth" },
-    { name = "markitdown", extra = ["docx", "pdf", "pptx", "xlsx"] },
-    { name = "marshmallow" },
-    { name = "mcp" },
-    { name = "pandas" },
-    { name = "pdfminer-six" },
-    { name = "pillow" },
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "requests" },
     { name = "rhesis", extra = ["telemetry"] },
     { name = "tenacity" },
-    { name = "tiktoken" },
-    { name = "tqdm" },
     { name = "websockets" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "chonkie" },
+    { name = "cryptography" },
+    { name = "deepeval" },
+    { name = "deepteam" },
+    { name = "google-auth" },
+    { name = "httpx" },
+    { name = "litellm" },
+    { name = "mammoth" },
+    { name = "markitdown", extra = ["docx", "pdf", "pptx", "xlsx"] },
+    { name = "mcp" },
+    { name = "pdfminer-six" },
+    { name = "pillow" },
+    { name = "tiktoken" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "accelerate", marker = "extra == 'all'", specifier = ">=1.2.0" },
     { name = "accelerate", marker = "extra == 'huggingface'", specifier = ">=1.2.0" },
     { name = "agent-framework-core", marker = "extra == 'agent-framework'", specifier = ">=1.1.0" },
-    { name = "agent-framework-core", marker = "extra == 'all'", specifier = ">=1.1.0" },
     { name = "agent-framework-core", marker = "extra == 'all-integrations'", specifier = ">=1.1.0" },
     { name = "agent-framework-openai", marker = "extra == 'agent-framework'", specifier = ">=1.1.0" },
-    { name = "agent-framework-openai", marker = "extra == 'all'", specifier = ">=1.1.0" },
     { name = "agent-framework-openai", marker = "extra == 'all-integrations'", specifier = ">=1.1.0" },
     { name = "agent-framework-orchestrations", marker = "extra == 'agent-framework'", specifier = ">=1.0.0b260421" },
-    { name = "agent-framework-orchestrations", marker = "extra == 'all'", specifier = ">=1.0.0b260421" },
     { name = "agent-framework-orchestrations", marker = "extra == 'all-integrations'", specifier = ">=1.0.0b260421" },
     { name = "aiohttp", specifier = ">=3.14.1" },
-    { name = "bitsandbytes", marker = "extra == 'all'", specifier = ">=0.45.0" },
     { name = "bitsandbytes", marker = "extra == 'huggingface'", specifier = ">=0.45.0" },
-    { name = "chonkie", specifier = ">=1.6.1" },
-    { name = "cryptography", specifier = ">=48.0.1" },
-    { name = "deepeval", specifier = "==3.7.9" },
-    { name = "deepteam", specifier = ">=0.2.5" },
+    { name = "chonkie", marker = "extra == 'all'", specifier = ">=1.6.1" },
+    { name = "cryptography", marker = "extra == 'all'", specifier = ">=48.0.1" },
+    { name = "deepeval", marker = "extra == 'all'", specifier = "==3.7.9" },
+    { name = "deepteam", marker = "extra == 'all'", specifier = ">=0.2.5" },
     { name = "garak", marker = "extra == 'garak'", specifier = ">=0.14.0" },
-    { name = "google-adk", marker = "extra == 'all'", specifier = ">=2.6,<3" },
     { name = "google-adk", marker = "extra == 'all-integrations'", specifier = ">=2.6,<3" },
     { name = "google-adk", marker = "extra == 'google-adk'", specifier = ">=2.6,<3" },
-    { name = "haystack-ai", marker = "extra == 'all'", specifier = ">=2.22.0" },
+    { name = "google-auth", marker = "extra == 'all'", specifier = ">=2.40.0" },
     { name = "haystack-ai", marker = "extra == 'all-integrations'", specifier = ">=2.22.0" },
     { name = "haystack-ai", marker = "extra == 'haystack'", specifier = ">=2.22.0" },
+    { name = "httpx", marker = "extra == 'all'", specifier = ">=0.27.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "jsonfinder", specifier = ">=0.4.2" },
     { name = "jsonschema", specifier = ">=4.23.0" },
-    { name = "langchain", marker = "extra == 'all'", specifier = ">=1.4.0" },
     { name = "langchain", marker = "extra == 'all-integrations'", specifier = ">=1.4.0" },
     { name = "langchain", marker = "extra == 'langchain'", specifier = ">=1.4.0" },
     { name = "langchain", marker = "extra == 'langgraph'", specifier = ">=1.4.0" },
-    { name = "langchain-core", marker = "extra == 'all'", specifier = ">=1.6.0" },
     { name = "langchain-core", marker = "extra == 'all-integrations'", specifier = ">=1.6.0" },
     { name = "langchain-core", marker = "extra == 'langchain'", specifier = ">=1.6.0" },
     { name = "langchain-core", marker = "extra == 'langgraph'", specifier = ">=1.6.0" },
-    { name = "langchain-google-genai", specifier = ">=4.3.0" },
-    { name = "langgraph", marker = "extra == 'all'", specifier = ">=1.2.0" },
     { name = "langgraph", marker = "extra == 'all-integrations'", specifier = ">=1.2.0" },
     { name = "langgraph", marker = "extra == 'langgraph'", specifier = ">=1.2.0" },
-    { name = "langgraph-checkpoint", marker = "extra == 'all'", specifier = ">=4.1.0" },
     { name = "langgraph-checkpoint", marker = "extra == 'all-integrations'", specifier = ">=4.1.0" },
     { name = "langgraph-checkpoint", marker = "extra == 'langgraph'", specifier = ">=4.1.0" },
-    { name = "litellm", specifier = ">=1.84.0" },
-    { name = "mammoth", specifier = ">=1.11.0" },
-    { name = "markitdown", extras = ["pdf", "docx", "pptx", "xlsx"], specifier = ">=0.1.0" },
-    { name = "marshmallow", specifier = ">=3.26.2" },
-    { name = "mcp", specifier = ">=1.28.1,<2" },
-    { name = "pandas", specifier = ">=2.2.2" },
-    { name = "pdfminer-six", specifier = ">=20231228" },
-    { name = "pillow", specifier = ">=12.3.0" },
-    { name = "pyautogen", marker = "extra == 'all'", specifier = ">=0.2.0" },
+    { name = "litellm", marker = "extra == 'all'", specifier = ">=1.84.0" },
+    { name = "mammoth", marker = "extra == 'all'", specifier = ">=1.11.0" },
+    { name = "markitdown", extras = ["pdf", "docx", "pptx", "xlsx"], marker = "extra == 'all'", specifier = ">=0.1.0" },
+    { name = "mcp", marker = "extra == 'all'", specifier = ">=1.28.1,<2" },
+    { name = "pdfminer-six", marker = "extra == 'all'", specifier = ">=20231228" },
+    { name = "pillow", marker = "extra == 'all'", specifier = ">=12.3.0" },
     { name = "pyautogen", marker = "extra == 'all-integrations'", specifier = ">=0.2.0" },
     { name = "pyautogen", marker = "extra == 'autogen'", specifier = ">=0.2.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
-    { name = "pydantic-ai", marker = "extra == 'all'", specifier = ">=0.0.49" },
     { name = "pydantic-ai", marker = "extra == 'all-integrations'", specifier = ">=0.0.49" },
     { name = "pydantic-ai", marker = "extra == 'pydantic-ai'", specifier = ">=0.0.49" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
@@ -6583,11 +6535,8 @@ requires-dist = [
     { name = "requests", specifier = ">=2.31.0" },
     { name = "rhesis", extras = ["telemetry"], editable = "../../packages/rhesis" },
     { name = "tenacity", specifier = ">=8.2.3" },
-    { name = "tiktoken", specifier = ">=0.9.0" },
-    { name = "torch", marker = "extra == 'all'", specifier = ">=2.8.0" },
+    { name = "tiktoken", marker = "extra == 'all'", specifier = ">=0.9.0" },
     { name = "torch", marker = "extra == 'huggingface'", specifier = ">=2.8.0" },
-    { name = "tqdm", specifier = ">=4.67.1" },
-    { name = "transformers", marker = "extra == 'all'", specifier = ">=5.0.0" },
     { name = "transformers", marker = "extra == 'huggingface'", specifier = ">=5.0.0" },
     { name = "websockets", specifier = ">=12.0" },
 ]
@@ -6606,7 +6555,6 @@ dev = [
     { name = "haystack-ai", specifier = ">=2.22.0" },
     { name = "mistralai", specifier = ">=1.2.0" },
     { name = "myst-parser", specifier = ">=4.0.0" },
-    { name = "pandas-stubs", specifier = ">=2.2.3.250308" },
     { name = "pre-commit", specifier = ">=4.3.0" },
     { name = "psycopg2-binary", specifier = "==2.9.9" },
     { name = "pydantic-ai", specifier = ">=0.0.49" },
@@ -6614,6 +6562,7 @@ dev = [
     { name = "pytest", specifier = ">=8.3.4" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "rhesis-penelope", editable = "../../penelope" },
+    { name = "rhesis-sdk", extras = ["all"] },
     { name = "ruff", specifier = ">=0.11.6" },
     { name = "sphinx", specifier = ">=8.1.3" },
     { name = "sphinx-autodoc-typehints", specifier = ">=3.0.1" },
@@ -6621,7 +6570,6 @@ dev = [
     { name = "sphinx-rtd-theme", specifier = ">=3.0.2" },
     { name = "types-pytz", specifier = ">=2025.2.0.20250326" },
     { name = "types-requests", specifier = ">=2.32.0" },
-    { name = "types-tqdm", specifier = ">=4.67.0.20241221" },
     { name = "virtualenv", specifier = ">=20.36.1" },
 ]
 

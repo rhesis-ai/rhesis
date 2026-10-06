@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Callable, Dict, Literal, NamedTuple, Optional, Union, overload
 
+from rhesis.sdk._extras import requires_full_sdk
 from rhesis.sdk.models.base import BaseDecisionModel, BaseEmbedder, BaseLLM
 from rhesis.sdk.models.defaults import (
     DEFAULT_DECISION_MODELS,
@@ -493,12 +494,15 @@ def get_model(
     on_usage = kwargs.pop("on_usage", None)
 
     # Dispatch: _ProviderSpec uses generic creator, callables are invoked directly
-    if isinstance(factory, _ProviderSpec):
-        model = _create_from_spec(factory, resolved_type, model_name, api_key, dimensions, **kwargs)
-    elif resolved_type == ModelType.EMBEDDING:
-        model = factory(model_name, api_key, dimensions, **kwargs)
-    else:
-        model = factory(model_name, api_key, **kwargs)
+    with requires_full_sdk(f"The '{provider}' model provider"):
+        if isinstance(factory, _ProviderSpec):
+            model = _create_from_spec(
+                factory, resolved_type, model_name, api_key, dimensions, **kwargs
+            )
+        elif resolved_type == ModelType.EMBEDDING:
+            model = factory(model_name, api_key, dimensions, **kwargs)
+        else:
+            model = factory(model_name, api_key, **kwargs)
 
     if on_usage is not None:
         # Embedders have no usage to emit, so this only ever matters for

@@ -7,9 +7,11 @@ import os
 os.environ.setdefault("DEEPEVAL_DISABLE_DOTENV", "1")
 os.environ.setdefault("DEEPEVAL_TELEMETRY_OPT_OUT", "YES")
 
-# Import base classes that don't trigger deepeval initialization
-from .factory import DeepEvalMetricFactory
-from .metric_base import DeepEvalMetricBase
+from rhesis.sdk._extras import requires_full_sdk
+
+with requires_full_sdk("DeepEval metrics"):
+    from rhesis.sdk.metrics.providers.deepeval.factory import DeepEvalMetricFactory
+    from rhesis.sdk.metrics.providers.deepeval.metric_base import DeepEvalMetricBase
 
 __all__ = [
     "DeepEvalMetricBase",
@@ -56,7 +58,7 @@ def __getattr__(name: str):
             "DeepTeamIllegal",
             "DeepTeamSafety",
         ]:
-            from . import metrics
+            from rhesis.sdk.metrics.providers.deepeval import metrics
 
             return getattr(metrics, name)
 
@@ -69,7 +71,7 @@ def __getattr__(name: str):
             "DeepEvalGoalAccuracy",
             "DeepEvalToolUse",
         ]:
-            from . import conversational_metrics
+            from rhesis.sdk.metrics.providers.deepeval import conversational_metrics
 
             return getattr(conversational_metrics, name)
 

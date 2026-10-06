@@ -15,7 +15,7 @@ dependencies = [
     # which the langchain upgrade in #2711 removed from this resolution, and the
     # chatbot then crashed on boot with ModuleNotFoundError.
     "cachetools>=6.2.1",
-    "rhesis-sdk",
+    "rhesis-sdk[all]",
 ]
 
 [dependency-groups]

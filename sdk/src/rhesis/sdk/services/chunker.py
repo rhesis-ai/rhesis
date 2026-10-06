@@ -4,19 +4,23 @@ import warnings
 from abc import ABC, abstractmethod
 from typing import List, Union
 
-import tiktoken
-from chonkie import (
-    RecursiveChunker as ChonkieRecursiveChunker,
-)
-from chonkie import (
-    SentenceChunker as ChonkieSentenceChunker,
-)
-from chonkie import (
-    TokenChunker as ChonkieTokenChunker,
-)
 from pydantic import BaseModel
 
-from rhesis.sdk.services.extractor import ExtractedSource, SourceSpecification
+from rhesis.sdk._extras import requires_full_sdk
+
+with requires_full_sdk("Document chunking"):
+    import tiktoken
+    from chonkie import (
+        RecursiveChunker as ChonkieRecursiveChunker,
+    )
+    from chonkie import (
+        SentenceChunker as ChonkieSentenceChunker,
+    )
+    from chonkie import (
+        TokenChunker as ChonkieTokenChunker,
+    )
+
+    from rhesis.sdk.services.extractor import ExtractedSource, SourceSpecification
 
 DEFAULT_ENCODING = "cl100k_base"
 

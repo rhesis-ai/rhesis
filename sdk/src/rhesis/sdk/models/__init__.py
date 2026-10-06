@@ -6,6 +6,7 @@ import importlib
 import importlib.util
 from typing import TYPE_CHECKING
 
+from rhesis.sdk._extras import requires_full_sdk
 from rhesis.sdk.models.base import (
     BaseDecisionModel,
     BaseEmbedder,
@@ -93,7 +94,8 @@ def __getattr__(name: str):
     spec = _LAZY_EXPORTS.get(name)
     if spec is not None:
         module_name, attr_name = spec
-        mod = importlib.import_module(module_name)
+        with requires_full_sdk(name):
+            mod = importlib.import_module(module_name)
         return getattr(mod, attr_name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

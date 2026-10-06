@@ -82,7 +82,7 @@ ee = ["rhesis-backend-ee"]
 # Polyphemus auth/crud import chain, so they stay out of the lightweight
 # `migrate` image and out of Polyphemus.
 all = [
-    "rhesis-sdk",
+    "rhesis-sdk[all]",
     "numpy",
     "umap-learn>=0.5.7",
     "hdbscan>=0.8.39",

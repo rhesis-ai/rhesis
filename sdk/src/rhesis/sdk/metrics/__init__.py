@@ -8,6 +8,7 @@ from __future__ import annotations
 import importlib
 from typing import TYPE_CHECKING
 
+from rhesis.sdk._extras import requires_full_sdk
 from rhesis.sdk.metrics.base import (
     BaseMetric,
     MetricConfig,
@@ -110,9 +111,10 @@ def __getattr__(name: str):
         mod = importlib.import_module(module_name)
         return getattr(mod, attr_name)
     if name in _DEEPEVAL_NAMES:
-        from rhesis.sdk.metrics.providers import deepeval
+        with requires_full_sdk(name):
+            from rhesis.sdk.metrics.providers import deepeval
 
-        return getattr(deepeval, name)
+            return getattr(deepeval, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
