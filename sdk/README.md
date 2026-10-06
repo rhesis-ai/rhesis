@@ -75,7 +75,7 @@ pip install rhesis-sdk
 
 ## 🐍 Python Requirements
 
-Rhesis SDK requires **Python 3.10** or newer.
+Rhesis SDK requires **Python 3.12** or newer.
 
 ## 🏁 Getting Started
 

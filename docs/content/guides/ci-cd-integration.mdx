@@ -6,7 +6,7 @@ Run LLM tests on every commit or pull request so regressions get caught before p
 
 ## Prerequisites
 
-- Python 3.10+ in your CI environment
+- Python 3.12+ in your CI environment
 - A Rhesis account at [app.rhesis.ai](https://app.rhesis.ai)
 - An **Endpoint** configured in Rhesis with your LLM application URL
 - A **Test Set** with the scenarios to run
@@ -108,7 +108,7 @@ Create `.github/workflows/rhesis-tests.yml` in your repository. The workflow inc
 {`- name: Set up Python
   uses: actions/setup-python@v6
   with:
-    python-version: '3.11'
+    python-version: '3.12'
 
 - name: Install Rhesis SDK
   run: pip install rhesis-sdk`}
