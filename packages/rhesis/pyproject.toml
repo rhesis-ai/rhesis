@@ -3,9 +3,7 @@ name = "rhesis"
 dynamic = ["version"]
 description = "Rhesis - Testing and validation platform for LLM applications"
 readme = "README.md"
-# Kept below rhesis-sdk's 3.12 on purpose. Third-party integrations such as
-# deepset's rhesis-haystack depend on rhesis[telemetry] and support 3.10+.
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [
     { name = "Engineering Team", email = "engineering@rhesis.ai" },
     { name = "Harry Cruz", email = "harry@rhesis.ai" },
@@ -23,8 +21,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Testing",
     "Topic :: Software Development :: Libraries :: Python Modules",
