@@ -50,12 +50,12 @@ def answer_question(question: str) -> tuple[str, str]:
     return answer, trace_id
 
 
-def record_feedback(trace_id: str, thumbs_up: bool, note: str) -> None:
+def record_feedback(trace_id: str, thumbs_up: bool, comment: str) -> None:
     """Turn a thumbs-up or thumbs-down into an annotation on the trace."""
     verdict = "pass" if thumbs_up else "fail"
     for attempt in range(1, RETRY_ATTEMPTS + 1):
         try:
-            annotation = annotate_trace(trace_id, verdict, note)
+            annotation = annotate_trace(trace_id, verdict, comment)
             print(f"📝 Recorded '{verdict}' as annotation {annotation.id}")
             return
         except RhesisAPIError as error:
@@ -72,7 +72,7 @@ def main() -> None:
 
     # In a real app this arrives later, from the user, carrying the trace id the
     # app sent along with the answer.
-    record_feedback(trace_id, thumbs_up=False, note="The policy is 30 days, not 90.")
+    record_feedback(trace_id, thumbs_up=False, comment="The policy is 30 days, not 90.")
 
     print("📊 View the trace and its annotation: http://localhost:3000/traces")
 
