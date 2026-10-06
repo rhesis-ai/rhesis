@@ -9,7 +9,7 @@
 # =============================================================================
 # build: Python builder with uv and all build dependencies
 # =============================================================================
-FROM mirror.gcr.io/library/python:3.12-slim AS build
+FROM mirror.gcr.io/library/python:3.12.8-slim AS build
 COPY --from=mirror.gcr.io/astral/uv:0.11.19 /uv /uvx /bin/
 
 # Match monorepo layout so [tool.uv.sources] path deps resolve without rewriting.
@@ -54,7 +54,7 @@ COPY apps/chatbot ./
 # =============================================================================
 # runtime: Slim production image with only runtime dependencies
 # =============================================================================
-FROM mirror.gcr.io/library/python:3.12-slim AS runtime
+FROM mirror.gcr.io/library/python:3.12.8-slim AS runtime
 
 WORKDIR /app/apps/chatbot
 

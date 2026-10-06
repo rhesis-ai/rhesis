@@ -1,4 +1,4 @@
-FROM mirror.gcr.io/library/python:3.11-slim
+FROM mirror.gcr.io/library/python:3.12.8-slim
 COPY --from=mirror.gcr.io/astral/uv:0.11.19 /uv /uvx /bin/
 
 WORKDIR /app
