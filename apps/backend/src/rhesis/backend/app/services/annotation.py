@@ -219,7 +219,15 @@ def update_annotation(
 
     fields = data.model_dump(exclude_unset=True)
     target = fields.pop("target", None)
-    if target and not is_tuning_case(annotation.entity_type, annotation.target_type):
+    if target:
+        if is_tuning_case(annotation.entity_type, annotation.target_type):
+            # Its stored judged verdict belongs to the metric it names.
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "A metric tuning judgement cannot be retargeted; change its decision instead."
+                ),
+            )
         _refuse_new_tuning_case(annotation.entity_type, target["type"])
     if data.status_id is not None or target:
         _validate_status(

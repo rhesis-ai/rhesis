@@ -873,6 +873,16 @@ class TestStatusFitsTheAnnotation:
         assert response.status_code == status.HTTP_200_OK, response.text
         assert response.json()["status"]["name"] == "Rejected"
 
+    def test_a_tuning_judgement_cannot_be_retargeted(self, authenticated_client, parents):
+        """Its judged verdict was recorded against the metric it names."""
+        annotation_id = parents["tuning_judgement"](parents["accepted"])
+        response = authenticated_client.put(
+            f"/annotations/{annotation_id}",
+            json={"target": {"type": "metric", "reference": str(uuid.uuid4())}},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, response.text
+        assert "cannot be retargeted" in response.json()["detail"]
+
     def test_a_tuning_judgement_refuses_pass(self, authenticated_client, parents):
         annotation_id = parents["tuning_judgement"](parents["accepted"])
         response = authenticated_client.put(
