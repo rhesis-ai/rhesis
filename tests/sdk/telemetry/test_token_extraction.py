@@ -317,8 +317,10 @@ class TestOpenAICachedTokens:
                 "prompt_tokens": 5050,
                 "completion_tokens": 20,
                 "total_tokens": 5070,
-                "cache_creation_input_tokens": 1000,
-                "prompt_tokens_details": {"cached_tokens": 4000},
+                "prompt_tokens_details": {
+                    "cached_tokens": 4000,
+                    "cache_creation_tokens": 1000,
+                },
             }
         }
 

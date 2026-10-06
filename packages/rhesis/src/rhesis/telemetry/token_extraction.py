@@ -73,6 +73,7 @@ _TOTAL_KEYS = [
 _CACHE_CREATION_KEYS = [
     "cache_creation_input_tokens",
     "cacheCreationInputTokens",  # camelCase variant
+    "cache_creation_tokens",  # LiteLLM prompt token details
     "cache_write_tokens",  # normalized callback payload
 ]
 
