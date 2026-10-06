@@ -152,7 +152,7 @@ Note: the detail response is the large one. Every span carries its full attribut
 
 ## Annotating a trace
 
-A Pass or Fail annotation on a trace overrides its automated outcome, as on a test result:
+A Pass or Fail annotation on a trace with metrics overrides its automated outcome, as on a test result:
 
 <CodeBlock filename="annotate_trace.py" language="python">
 {`trace.annotate("fail", "Answered from the wrong document.")
@@ -170,6 +170,30 @@ trace.get_annotations()`}
 </CodeBlock>
 
 `annotate` and `get_annotations` address the trace by `trace_id`, so neither downloads the span tree, and a trace from a listing costs one call. `get_annotations` returns the annotations on the trace and on every span in it. See [Annotations](/sdk/entities/annotations) for verdicts, targets and resolving.
+
+A trace nobody set metrics for has no automated outcome to override. There, a Pass or Fail on the whole trace becomes its verdict, and a turn or metric annotation leaves the verdict as it was. Deleting the last whole-trace annotation returns the trace to not evaluated (`verdict` is `None`, `execution` is `"not_run"`).
+
+## Creating a test from a trace
+
+A conversation you find in Traces can become a test. `to_test()` drafts a multi-turn test from the whole conversation, and `to_test(turn=2)` a single-turn test from that one exchange. The platform drafts the requirement, category, topic and prompt or goal with your organization's generation model, so check them before saving. Nothing is saved until you call `push()`:
+
+<CodeBlock filename="test_from_trace.py" language="python">
+{`test = trace.to_test()            # multi-turn, from every turn
+print(test.test_configuration.goal)
+test.push()
+
+single = trace.to_test(turn=2)    # single-turn, from turn 2
+single.push()`}
+</CodeBlock>
+
+`conversation()` returns the turns these are drafted from, the same ones the platform's Conversation tab shows. A trace from a test run reads them from the test result; any other trace reads them from its spans:
+
+<CodeBlock filename="conversation.py" language="python">
+{`for turn in trace.conversation():
+    print(turn.turn, turn.user_message, turn.assistant_response)`}
+</CodeBlock>
+
+A trace that recorded no conversation has no turns, and `to_test` raises rather than drafting a test from nothing.
 
 ## Spans on their own
 
