@@ -228,4 +228,7 @@ export default {
   "test-type": {
     display: "hidden",
   },
+  "jev-based-metric": {
+    display: "hidden",
+  },
 };
