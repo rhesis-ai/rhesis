@@ -69,7 +69,7 @@ _TOTAL_KEYS = [
     "totalTokenCount",  # camelCase variant
 ]
 
-# Anthropic cache tokens (billed separately but part of actual usage)
+# Prompt-cache tokens, billed at their own rates.
 _CACHE_CREATION_KEYS = [
     "cache_creation_input_tokens",
     "cacheCreationInputTokens",  # camelCase variant
@@ -137,9 +137,9 @@ def _as_mapping(usage: Union[Dict, Any]) -> Dict:
     two lists and forgetting one: that is how Anthropic's cache tokens went missing, and
     why the camelCase spellings were unreachable for anything but a dict.
 
-    A nested container is merged in underneath its parent, so a provider that puts its
-    counts one level down (Cohere) resolves without the caller unwrapping first, and a
-    count at the top level still wins.
+    Nested containers are merged in underneath their parents, so providers that wrap
+    usage more than once resolve without the caller unwrapping first, and a count at the
+    top level still wins.
     """
     if usage is None:
         return {}
@@ -166,14 +166,26 @@ def _as_mapping(usage: Union[Dict, Any]) -> Dict:
         return {}
 
     nested: Dict = {}
-    for name in _NESTED_CONTAINERS:
-        child = flat.get(name)
-        if child is None or isinstance(child, (str, bytes, int, float, bool)):
-            continue
-        # Later containers do not overwrite earlier ones: _NESTED_CONTAINERS is in
-        # preference order, so the first one carrying a key keeps it.
-        for key, value in _to_plain_dict(child).items():
-            nested.setdefault(key, value)
+    pending = [flat]
+    seen = {id(usage)}
+    index = 0
+    while index < len(pending):
+        parent = pending[index]
+        index += 1
+        for name in _NESTED_CONTAINERS:
+            child = parent.get(name)
+            if (
+                child is None
+                or isinstance(child, (str, bytes, int, float, bool))
+                or id(child) in seen
+            ):
+                continue
+            seen.add(id(child))
+            child_mapping = _to_plain_dict(child)
+            # Earlier containers have priority; top-level values are merged last.
+            for key, value in child_mapping.items():
+                nested.setdefault(key, value)
+            pending.append(child_mapping)
 
     # The top level wins over anything nested, and a None never displaces a real number.
     merged = {k: v for k, v in nested.items() if v is not None}
@@ -256,15 +268,14 @@ def extract_token_usage(usage: Union[Dict, Any]) -> Tuple[int, int, int]:
     # Extract input tokens (try all common key names)
     input_tokens = get_first_value(usage, _INPUT_KEYS)
 
-    # OpenAI's prompt count includes cache reads, unlike Anthropic's input count.
-    # Keep cached tokens separate so pricing can apply the provider's cache rate.
-    prompt_details = _as_mapping(usage.get("prompt_tokens_details"))
-    openai_cached_tokens = get_first_value(prompt_details, ["cached_tokens"])
+    # OpenAI and LiteLLM include their cache counts in prompt_tokens.
     if "prompt_tokens" in usage and "input_tokens" not in usage:
-        # Some integrations flatten prompt_tokens_details before handing usage over.
-        if not openai_cached_tokens:
-            openai_cached_tokens = get_first_value(usage, ["cached_tokens"])
-        input_tokens = max(0, input_tokens - openai_cached_tokens)
+        input_tokens = max(
+            0,
+            input_tokens
+            - get_first_value(usage, _CACHE_CREATION_KEYS)
+            - get_first_value(usage, _CACHE_READ_KEYS),
+        )
 
     # Extract output tokens (try all common key names)
     output_tokens = get_first_value(usage, _OUTPUT_KEYS)

@@ -291,3 +291,45 @@ class TestOpenAICachedTokens:
 
         assert extract_token_usage(usage) == (200, 20, 1020)
         assert extract_cache_tokens(usage) == (0, 800)
+
+    def test_litellm_anthropic_shape_does_not_double_count_cache_writes(self):
+        usage = {
+            "prompt_tokens": 5050,
+            "completion_tokens": 20,
+            "total_tokens": 5070,
+            "cache_creation_input_tokens": 1000,
+            "cache_read_input_tokens": 4000,
+            "prompt_tokens_details": {
+                "cached_tokens": 4000,
+                "cache_creation_tokens": 1000,
+            },
+        }
+
+        input_tokens, output_tokens, total_tokens = extract_token_usage(usage)
+        cache_write, cache_read = extract_cache_tokens(usage)
+
+        assert (input_tokens, cache_write, cache_read) == (50, 1000, 4000)
+        assert input_tokens + output_tokens + cache_write + cache_read == total_tokens
+
+    def test_nested_usage_details_are_shared_by_both_extractors(self):
+        usage = {
+            "usage": {
+                "prompt_tokens": 5050,
+                "completion_tokens": 20,
+                "total_tokens": 5070,
+                "cache_creation_input_tokens": 1000,
+                "prompt_tokens_details": {"cached_tokens": 4000},
+            }
+        }
+
+        input_tokens, output_tokens, total_tokens = extract_token_usage(usage)
+        cache_write, cache_read = extract_cache_tokens(usage)
+
+        assert (input_tokens, output_tokens, cache_write, cache_read) == (50, 20, 1000, 4000)
+        assert input_tokens + output_tokens + cache_write + cache_read == total_tokens
+
+    def test_cyclic_usage_container_does_not_recurse_forever(self):
+        usage = {"prompt_tokens": 10, "completion_tokens": 5}
+        usage["usage"] = usage
+
+        assert extract_token_usage(usage) == (10, 5, 15)
