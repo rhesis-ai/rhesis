@@ -15,7 +15,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, NamedTuple, Optional
 from uuid import UUID
 
 if TYPE_CHECKING:
@@ -210,9 +210,21 @@ class SingleTurnOutput(OutputProvider):
             return []
 
 
+class ContractResolution(NamedTuple):
+    contract: Optional[Dict[str, Any]]
+    usable: bool
+    # Why the contract can't be used, worded for the user; empty when it can.
+    reason: str = ""
+
+
+def unusable_contract_error(reason: str) -> str:
+    """The error an unscoreable multi-turn test reports instead of running."""
+    return f"The test was not run because it could not be scored. {reason}".strip()
+
+
 def resolve_multi_turn_contract(
-    db, test, user_id: Optional[str]
-) -> tuple[Optional[Dict[str, Any]], bool]:
+    db, test, user_id: Optional[str], model: Any = None
+) -> ContractResolution:
     """Resolve and validate the evaluation contract for a multi-turn test.
 
     Interprets lazily (on first call for this test's current wording) and reuses the cached
@@ -231,7 +243,10 @@ def resolve_multi_turn_contract(
     ahead of unrelated pending writes on the same session and break the ordering that
     ``get_db_with_tenant_variables`` is responsible for.
 
-    Returns ``(contract, usable)``:
+    ``model`` is the run's evaluation model (its override included); without one the user's
+    default is resolved.
+
+    Returns ``(contract, usable, reason)``:
       - ``contract`` is a plain dict ready for ``PenelopeAgent.execute_test(contract=...)``,
         or ``None`` when there is nothing usable to pass -- Penelope then falls back to
         scoring the raw ``goal`` exactly as it did before evaluation contracts existed.
@@ -253,14 +268,14 @@ def resolve_multi_turn_contract(
     )
 
     if not is_multi_turn_config(getattr(test, "test_configuration", None) or {}):
-        return None, True
+        return ContractResolution(None, True)
 
-    evaluation_contract = ensure_contract(db, test, user_id=user_id)
+    evaluation_contract = ensure_contract(db, test, user_id=user_id, model=model)
     usable, reason = contract_usability(evaluation_contract)
     if not usable:
         logger.warning("[MultiTurn] Test %s has no usable evaluation contract: %s", test.id, reason)
-        return None, False
-    return evaluation_contract.model_dump(mode="json", exclude_none=True), True
+        return ContractResolution(None, False, reason)
+    return ContractResolution(evaluation_contract.model_dump(mode="json", exclude_none=True), True)
 
 
 class MultiTurnOutput(OutputProvider):
@@ -270,8 +285,9 @@ class MultiTurnOutput(OutputProvider):
     and PenelopeAgent (from rhesis.penelope) for conversation execution.
     """
 
-    def __init__(self, model=None):
+    def __init__(self, model=None, evaluation_model=None):
         self.model = model
+        self.evaluation_model = evaluation_model
 
     async def get_output(
         self,
@@ -306,7 +322,9 @@ class MultiTurnOutput(OutputProvider):
                 contract_usable=False,
             )
 
-        contract, contract_usable = resolve_multi_turn_contract(db, test, user_id)
+        contract, contract_usable, unusable_reason = resolve_multi_turn_contract(
+            db, test, user_id, self.evaluation_model
+        )
 
         # Nothing this run could produce would be scoreable, so don't run it. Every verdict
         # would be discarded downstream anyway; conducting the full conversation first would
@@ -320,9 +338,7 @@ class MultiTurnOutput(OutputProvider):
             return TestOutput(
                 response={
                     "status": "error",
-                    "error": (
-                        "The test could not be interpreted well enough to score, so it was not run."
-                    ),
+                    "error": unusable_contract_error(unusable_reason),
                 },
                 execution_time=(datetime.now(timezone.utc) - start_time).total_seconds() * 1000,
                 metrics={},

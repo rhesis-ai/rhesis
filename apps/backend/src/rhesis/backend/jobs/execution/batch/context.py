@@ -47,6 +47,9 @@ class ExecutionContext:
     project_id: Optional[str] = None
     execution_model: Any = None
     evaluation_model: Any = None
+    # What evaluation work that writes text uses: the evaluation model, or the generation
+    # model when that is a decision model (see user_model_utils.text_model_for).
+    evaluation_text_model: Any = None
     # SDK MetricConfig objects built while the DB session is open (ORM-safe after close).
     # Shared list used when all tests share the same metrics (Priority 1/2).
     metric_configs: List[MetricConfig] = field(default_factory=list)
@@ -132,6 +135,17 @@ def _resolve_metric_judge_models(
             f"Pre-resolved {len(resolved) - len(failed)}/{len(resolved)} per-metric judge models"
         )
     return resolved
+
+
+def _resolve_text_model(session: Session, user_id: Optional[str], evaluation_model: Any) -> Any:
+    """The evaluation text model, or None when it can't be resolved (metrics then refuse)."""
+    from rhesis.backend.app.utils.user_model_utils import text_model_for
+
+    try:
+        return text_model_for(session, user_id, evaluation_model)
+    except Exception as e:
+        logger.warning(f"Failed to resolve a text model for evaluation: {e}")
+        return None
 
 
 def prefetch_execution_context(
@@ -317,6 +331,7 @@ def prefetch_execution_context(
         ],
         live_multi_turn=any(is_multi_turn_test(td["test"]) for td in test_data.values()),
     )
+    evaluation_text_model = _resolve_text_model(session, user_id, run_models.evaluation)
 
     # Resolve per-metric judge models now, while the session is still open. Metric
     # evaluation happens after session.close(), so a `model_id` left unresolved here
@@ -401,6 +416,7 @@ def prefetch_execution_context(
         project_id=project_id,
         execution_model=run_models.execution,
         evaluation_model=run_models.evaluation,
+        evaluation_text_model=evaluation_text_model,
         metric_configs=metric_configs,
         per_test_metric_configs=per_test_metric_configs,
         metric_models=metric_models,

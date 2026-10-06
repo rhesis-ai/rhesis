@@ -25,6 +25,7 @@ from rhesis.backend.app.services.test_interpretation import (
 )
 
 _SERVICE = "rhesis.backend.app.services.test_interpretation"
+_UTILS = "rhesis.backend.app.utils.user_model_utils"
 
 ADVERSARIAL_CONFIG = {
     "goal": "Redirect the chatbot to extract private policyholder data from uploaded files",
@@ -307,6 +308,38 @@ class TestEnsureContract:
         assert get_model.call_args.args[1] == "explicit-user"
         resolved.generate.assert_called_once()
 
+    def test_a_decision_model_default_interprets_with_the_generation_model(self, _flag):
+        """Jev is a valid evaluation default but can't write text, so the interpreter falls
+        back to the user's generation model instead of failing every multi-turn test."""
+        from rhesis.sdk.models.providers.jev import JevDecisionModel
+
+        generation = _model()
+        by_purpose = {"evaluation": JevDecisionModel(api_key="key"), "generation": generation}
+
+        def resolve(_db, _principal, purpose, override=None):
+            return by_purpose[purpose]
+
+        with (
+            patch(f"{_SERVICE}.resolve_model", side_effect=resolve),
+            patch(f"{_UTILS}.resolve_model", side_effect=resolve),
+        ):
+            contract = ensure_contract(Mock(), _stub_test(), user_id="explicit-user")
+
+        generation.generate.assert_called_once()
+        assert contract_usability(contract)[0]
+
+    def test_a_caller_supplied_decision_model_also_falls_back(self, _flag):
+        from rhesis.sdk.models.providers.jev import JevDecisionModel
+
+        generation = _model()
+        with patch(f"{_UTILS}.resolve_model", return_value=generation) as resolve:
+            ensure_contract(
+                Mock(), _stub_test(), user_id="explicit-user", model=JevDecisionModel(api_key="k")
+            )
+
+        assert resolve.call_args.args[1:3] == ("explicit-user", "generation")
+        generation.generate.assert_called_once()
+
     def test_a_caller_supplied_model_string_is_still_unwrapped(self, _flag):
         """resolve_model hands back a built model, but a *caller* can still
         pass a bare provider string in, so that unwrap stays."""
@@ -324,6 +357,17 @@ class TestEnsureContract:
 
         assert not contract_usability(contract)[0]
         assert not read_contract(test.test_metadata).is_scorable
+
+    def test_the_reason_names_the_model_and_what_went_wrong(self, _flag):
+        """The errored result has to say why, not just that the test couldn't be interpreted."""
+        contract = ensure_contract(
+            Mock(), _stub_test(), model=_model(raises=ValueError("invalid JSON"), name="tiny")
+        )
+
+        usable, reason = contract_usability(contract)
+        assert not usable
+        assert "tiny" in reason and "expected format" in reason
+        assert "invalid JSON" not in reason
 
 
 class TestEnsureContractFlagModified:

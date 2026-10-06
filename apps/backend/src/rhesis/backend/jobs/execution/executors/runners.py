@@ -263,8 +263,11 @@ class SingleTurnRunner(BaseRunner):
 
             ep_project_id, ep_environment = _get_endpoint_routing(db, endpoint_id, organization_id)
 
+            from rhesis.backend.app.utils.user_model_utils import text_model_for
+
             metrics_evaluator = MetricEvaluator(
                 model=model,
+                text_model=text_model_for(db, user_id, model),
                 db=db,
                 organization_id=organization_id,
                 connector_metric_sender=_build_connector_metric_sender(
@@ -396,7 +399,9 @@ class MultiTurnRunner(BaseRunner):
 
         # --- Entity 1: Get output ---
         if output_provider is None:
-            output_provider = MultiTurnOutput(model=execution_model)
+            output_provider = MultiTurnOutput(
+                model=execution_model, evaluation_model=evaluation_model
+            )
 
         output = await output_provider.get_output(
             db=db,

@@ -159,6 +159,8 @@ class EvaluationContract(InterpretedContract):
     interpreted_at: Optional[str] = None
     interpreter_model: Optional[str] = None
     contract_version: int = 0
+    # Why interpretation failed, when it did; shown on the errored results it causes.
+    interpretation_error: Optional[str] = None
 
     def is_current_for(self, test_configuration: Optional[Mapping[str, Any]]) -> bool:
         """Whether this contract still describes the given authored fields.

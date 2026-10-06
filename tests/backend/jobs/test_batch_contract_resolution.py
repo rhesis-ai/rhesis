@@ -40,7 +40,8 @@ class TestResolveContractLazy:
 
     @pytest.mark.asyncio
     async def test_re_queries_the_test_fresh_and_resolves_its_contract(self):
-        ctx = _ctx()
+        # The text model, not the (possibly decision) evaluation model, interprets.
+        ctx = _ctx(evaluation_model=MagicMock(), evaluation_text_model=MagicMock())
         fresh_test = MagicMock()
 
         with (
@@ -50,19 +51,21 @@ class TestResolveContractLazy:
             ) as mock_get_item_detail,
             patch(
                 _RESOLVE_MULTI_TURN_CONTRACT,
-                return_value=({"prohibited_criteria": ["X"]}, True),
+                return_value=({"prohibited_criteria": ["X"]}, True, ""),
             ) as mock_resolve,
         ):
             mock_db = MagicMock()
             mock_get_db.return_value.__enter__.return_value = mock_db
             mock_get_db.return_value.__exit__.return_value = False
 
-            contract, usable = await resolve_contract_lazy(
+            contract, usable, reason = await resolve_contract_lazy(
                 ctx, "3a51f7ae-f7b2-4ff4-8454-9e8f4826afa1"
             )
 
         mock_get_item_detail.assert_called_once()
-        mock_resolve.assert_called_once_with(mock_db, fresh_test, ctx.user_id)
+        mock_resolve.assert_called_once_with(
+            mock_db, fresh_test, ctx.user_id, ctx.evaluation_text_model
+        )
         assert contract == {"prohibited_criteria": ["X"]}
         assert usable is True
 
@@ -78,7 +81,7 @@ class TestResolveContractLazy:
             mock_get_db.return_value.__enter__.return_value = MagicMock()
             mock_get_db.return_value.__exit__.return_value = False
 
-            contract, usable = await resolve_contract_lazy(
+            contract, usable, reason = await resolve_contract_lazy(
                 ctx, "3a51f7ae-f7b2-4ff4-8454-9e8f4826afa1"
             )
 
@@ -95,7 +98,7 @@ class TestResolveContractLazy:
             "rhesis.backend.app.database.get_db_with_tenant_variables",
             side_effect=RuntimeError("db unavailable"),
         ):
-            contract, usable = await resolve_contract_lazy(
+            contract, usable, reason = await resolve_contract_lazy(
                 ctx, "3a51f7ae-f7b2-4ff4-8454-9e8f4826afa1"
             )
 
@@ -129,7 +132,8 @@ class TestRunMultiTurnContractThreading:
 
         with (
             patch(
-                _RESOLVE_MULTI_TURN_CONTRACT, return_value=({"prohibited_criteria": ["X"]}, True)
+                _RESOLVE_MULTI_TURN_CONTRACT,
+                return_value=({"prohibited_criteria": ["X"]}, True, ""),
             ),
             patch("rhesis.backend.app.utils.crud_utils.get_item_detail", return_value=test),
             patch("rhesis.backend.app.database.get_db_with_tenant_variables") as mock_get_db,
@@ -160,7 +164,7 @@ class TestRunMultiTurnContractThreading:
         agent = self._agent(metrics={"goal_achievement": {"is_successful": True, "score": 1.0}})
 
         with (
-            patch(_RESOLVE_MULTI_TURN_CONTRACT, return_value=(None, False)),
+            patch(_RESOLVE_MULTI_TURN_CONTRACT, return_value=(None, False, "too ambiguous")),
             patch("rhesis.backend.app.utils.crud_utils.get_item_detail", return_value=test),
             patch("rhesis.backend.app.database.get_db_with_tenant_variables") as mock_get_db,
             patch("rhesis.backend.jobs.execution.penelope_target.BackendEndpointTarget"),
@@ -176,3 +180,4 @@ class TestRunMultiTurnContractThreading:
         assert result["contract_usable"] is False
         assert result["penelope_metrics"] == {}
         assert result["output"]["status"] == "error"
+        assert "too ambiguous" in result["output"]["error"]

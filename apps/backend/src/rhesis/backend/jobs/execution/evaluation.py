@@ -414,12 +414,14 @@ def evaluate_multi_turn_metrics(
     if not metric_configs:
         return {}
 
+    from rhesis.backend.app.utils.user_model_utils import text_model_for
     from rhesis.backend.jobs.execution.executors.runners import (
         _build_connector_metric_sender,
     )
 
     metrics_evaluator = MetricEvaluator(
         model=model,
+        text_model=text_model_for(db, user_id, model),
         db=db,
         organization_id=organization_id,
         connector_metric_sender=_build_connector_metric_sender(

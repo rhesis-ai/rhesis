@@ -323,10 +323,11 @@ class TestMultiTurnRunnerWithProvider:
                 endpoint_id="ep-1",
                 organization_id="org-1",
                 execution_model="gpt-4",
+                evaluation_model="judge",
                 output_provider=None,
             )
 
-        mock_mt_class.assert_called_once_with(model="gpt-4")
+        mock_mt_class.assert_called_once_with(model="gpt-4", evaluation_model="judge")
         assert metrics == {"penelope_metric": 0.9}
 
     @pytest.mark.asyncio
