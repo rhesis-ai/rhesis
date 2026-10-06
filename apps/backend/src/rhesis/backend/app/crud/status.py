@@ -3,7 +3,7 @@
 import uuid
 from typing import List, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.utils.crud_utils import (
@@ -23,6 +23,16 @@ def get_status(
 ) -> Optional[models.Status]:
     """Get a single status by ID."""
     return get_item(db, models.Status, status_id, organization_id, user_id)
+
+
+def get_status_with_entity_type(db: Session, status_id: uuid.UUID) -> Optional[models.Status]:
+    """A status with its entity type loaded, which the relationship will not lazy-load."""
+    return (
+        db.query(models.Status)
+        .options(joinedload(models.Status.entity_type))
+        .filter(models.Status.id == status_id)
+        .first()
+    )
 
 
 def get_statuses(
