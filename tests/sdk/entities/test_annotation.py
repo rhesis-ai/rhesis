@@ -550,6 +550,19 @@ class TestGetTrace:
 
         pull.assert_called_once_with("a" * 32, project_id="project-1")
 
+    def test_resolves_the_span_row_when_context_has_no_project(self):
+        annotation = Annotation(
+            id="annotation-1",
+            entity_type="Trace",
+            entity_id=ENTITY_ID,
+            context={"trace_id": "a" * 32},
+        )
+
+        with patch("rhesis.sdk.entities.trace.Spans.trace_for") as trace_for:
+            assert annotation.get_trace() is trace_for.return_value
+
+        trace_for.assert_called_once_with(ENTITY_ID)
+
     def test_resolves_the_span_row_when_there_is_no_context(self):
         """A plain get carries no context, which is what Spans.trace_for is for."""
         annotation = Annotation(id="annotation-1", entity_type="Trace", entity_id=ENTITY_ID)

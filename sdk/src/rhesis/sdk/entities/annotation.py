@@ -316,7 +316,8 @@ class Annotation(BaseEntity):
 
         if self.entity_type != AnnotatableEntity.TRACE.value:
             return None
-        if self.context is not None and self.context.trace_id:
+        # A trace in no project has no project_id to read it back by.
+        if self.context is not None and self.context.trace_id and self.context.project_id:
             return Traces.pull(self.context.trace_id, project_id=self.context.project_id)
         if not self.entity_id:
             raise ValueError(f"Annotation {self.id} is on a trace but carries no entity_id")
