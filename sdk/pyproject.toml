@@ -20,7 +20,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Testing",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -31,6 +31,7 @@ dependencies = [
     "tiktoken>=0.9.0",
     "tqdm>=4.67.1",
     "jinja2>=3.1.6",
+    "jsonschema>=4.23.0",
     "markitdown[pdf,docx,pptx,xlsx]>=0.1.0",
     # Pinned to the 3.7.x tail rather than 3.7.0: deepeval <= 3.7.4 pins
     # google-genai < 2, which is incompatible with google-adk >= 2.6 (it needs
@@ -42,7 +43,7 @@ dependencies = [
     "litellm>=1.84.0",
     "deepteam>=0.2.5",
     "langchain-google-genai>=4.3.0",
-    "mcp>=1.28.1",
+    "mcp>=1.28.1,<2",
     "websockets>=12.0",
     "rhesis[telemetry]>=0.17.1",
     "aiohttp>=3.14.1",
