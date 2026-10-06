@@ -105,7 +105,7 @@ class TestDatabaseErrorStaysOneTestsOwn:
 
     @staticmethod
     def _session_that_needs_a_rollback():
-        """A session that behaves like psycopg2's after a failed statement."""
+        """A session that behaves like psycopg's after a failed statement."""
         session = MagicMock()
         state = {"broken": False}
 

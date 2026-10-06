@@ -33,7 +33,7 @@ Database URLs are built from component variables. Runtime application sessions u
 
 | Variable | Required | Used for |
 | --- | --- | --- |
-| `DB_DRIVER` | No, defaults to `postgresql` | SQLAlchemy driver |
+| `DB_DRIVER` | No, defaults to `postgresql+psycopg` | SQLAlchemy driver. A bare `postgresql` is read as `postgresql+psycopg` |
 | `DB_HOST` | Yes | Database host or Unix socket path |
 | `DB_PORT` | No, defaults to `5432` | TCP port when `DB_HOST` is not a socket |
 | `DB_NAME` | Yes | Database name |

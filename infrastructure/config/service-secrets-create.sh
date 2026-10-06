@@ -31,7 +31,7 @@ function show_usage() {
   echo -e "${BLUE}Environment-specific Variables:${NC}"
   echo "  Note: All environments (dev, stg, prd, test) use environment-specific secrets"
   echo "  # Backend variables"
-  echo "  DB_DRIVER                     Database driver (e.g. postgresql)"
+  echo "  DB_DRIVER                     Database driver (e.g. postgresql+psycopg)"
   echo "  DB_HOST                       Database host (or Cloud SQL Unix socket path)"
   echo "  DB_PORT                       Database port (default: 5432)"
   echo "  DB_NAME                       Database name"

@@ -15,7 +15,8 @@ load_dotenv()
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
 # Import models
-from processor.models import Base
+from processor.database.connection import database_url as get_database_url  # noqa: E402
+from processor.models import Base  # noqa: E402
 
 # This is the Alembic Config object
 config = context.config
@@ -26,27 +27,6 @@ if config.config_file_name is not None:
 
 # Add your model's MetaData object here for 'autogenerate' support
 target_metadata = Base.metadata
-
-
-def get_database_url() -> str:
-    """
-    Construct database URL from environment variables.
-
-    Uses ANALYTICS_DB_* environment variables for the dedicated analytics database.
-    """
-    # Try to get full URL first
-    db_url = os.getenv("ANALYTICS_DATABASE_URL")
-    if db_url:
-        return db_url
-
-    # Construct from analytics-specific environment variables
-    user = os.getenv("ANALYTICS_DB_USER", "analytics-user")
-    password = os.getenv("ANALYTICS_DB_PASS", "analytics-password")
-    host = os.getenv("ANALYTICS_DB_HOST", "postgres-analytics")
-    port = os.getenv("ANALYTICS_DB_PORT", "5432")
-    db_name = os.getenv("ANALYTICS_DB_NAME", "rhesis-analytics")
-
-    return f"postgresql://{user}:{password}@{host}:{port}/{db_name}"
 
 
 def run_migrations_offline() -> None:

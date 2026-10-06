@@ -10,10 +10,29 @@ import os
 from typing import Optional
 
 from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Engine, make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 logger = logging.getLogger(__name__)
+
+DRIVER = "postgresql+psycopg"
+
+
+def database_url() -> str:
+    """The analytics database URL, from ANALYTICS_DATABASE_URL or the ANALYTICS_DB_* parts.
+
+    The driver is set here whatever the URL names: a bare ``postgresql://`` means
+    psycopg2 to SQLAlchemy 2.0 and psycopg 3 to 2.1, and only psycopg 3 is installed.
+    """
+    url = os.getenv("ANALYTICS_DATABASE_URL")
+    if not url:
+        user = os.getenv("ANALYTICS_DB_USER", "analytics-user")
+        password = os.getenv("ANALYTICS_DB_PASS", "analytics-password")
+        host = os.getenv("ANALYTICS_DB_HOST", "postgres-analytics")
+        port = os.getenv("ANALYTICS_DB_PORT", "5432")
+        db_name = os.getenv("ANALYTICS_DB_NAME", "rhesis-analytics")
+        url = f"postgresql://{user}:{password}@{host}:{port}/{db_name}"
+    return make_url(url).set(drivername=DRIVER).render_as_string(hide_password=False)
 
 
 class DatabaseManager:
@@ -62,27 +81,7 @@ class DatabaseManager:
         logger.info("Database connection initialized successfully")
 
     def _get_database_url(self) -> str:
-        """
-        Construct database URL from environment variables.
-
-        Uses ANALYTICS_DB_* environment variables for the dedicated analytics database.
-
-        Returns:
-            str: PostgreSQL connection URL
-        """
-        # Try to get full URL first
-        db_url = os.getenv("ANALYTICS_DATABASE_URL")
-        if db_url:
-            return db_url
-
-        # Construct from analytics-specific environment variables
-        user = os.getenv("ANALYTICS_DB_USER", "analytics-user")
-        password = os.getenv("ANALYTICS_DB_PASS", "analytics-password")
-        host = os.getenv("ANALYTICS_DB_HOST", "postgres-analytics")
-        port = os.getenv("ANALYTICS_DB_PORT", "5432")
-        db_name = os.getenv("ANALYTICS_DB_NAME", "rhesis-analytics")
-
-        return f"postgresql://{user}:{password}@{host}:{port}/{db_name}"
+        return database_url()
 
     def _mask_url(self, url: str) -> str:
         """Mask password in database URL for logging."""

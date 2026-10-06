@@ -31,7 +31,7 @@ from rhesis.backend.app.dependencies import get_project_context
 
 def _point_session_at_org(db: Session, org_id: uuid.UUID) -> None:
     """Repoint the RLS GUC so rows in *org_id* are visible on this session."""
-    db.execute(text('SET "app.current_organization" = :o'), {"o": str(org_id)})
+    db.execute(text("SELECT set_config('app.current_organization', :o, false)"), {"o": str(org_id)})
 
 
 def _create_org(db: Session) -> uuid.UUID:

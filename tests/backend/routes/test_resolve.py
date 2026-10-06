@@ -96,7 +96,10 @@ class TestResolveEntityEndpoint:
             "other",
         )
 
-        test_db.execute(text('SET "app.current_project" = :pid'), {"pid": str(other_project.id)})
+        test_db.execute(
+            text("SELECT set_config('app.current_project', :pid, false)"),
+            {"pid": str(other_project.id)},
+        )
         test_set = TestSet(
             name="Cross-project test set",
             description="Belongs to another project",
@@ -150,7 +153,10 @@ class TestResolveEntityEndpoint:
         archived_project.is_active = False
         test_db.flush()
 
-        test_db.execute(text('SET "app.current_project" = :pid'), {"pid": str(archived_project.id)})
+        test_db.execute(
+            text("SELECT set_config('app.current_project', :pid, false)"),
+            {"pid": str(archived_project.id)},
+        )
         test_set = TestSet(
             name="Archived-project test set",
             description="Belongs to an archived project",
@@ -203,7 +209,10 @@ class TestResolveEntityEndpoint:
         test_db.add(foreign_project)
         test_db.flush()
 
-        test_db.execute(text('SET "app.current_project" = :pid'), {"pid": str(foreign_project.id)})
+        test_db.execute(
+            text("SELECT set_config('app.current_project', :pid, false)"),
+            {"pid": str(foreign_project.id)},
+        )
         test_set = TestSet(
             name="Foreign-project test set",
             description="In a project the caller cannot access",
@@ -339,7 +348,9 @@ class TestResolveUnderEnforcedRLS:
         )
 
         # Scope to project B so the INSERT passes project_isolation RLS.
-        test_db.execute(text("SET LOCAL app.current_project = :p"), {"p": str(project_b.id)})
+        test_db.execute(
+            text("SELECT set_config('app.current_project', :p, true)"), {"p": str(project_b.id)}
+        )
 
         test_set = TestSet(
             name="RLS cross-project test set",
@@ -357,7 +368,9 @@ class TestResolveUnderEnforcedRLS:
         entity_id = str(test_set.id)
 
         # Scoped to the WRONG project: RLS hides the row.
-        test_db.execute(text("SET LOCAL app.current_project = :p"), {"p": str(project_a.id)})
+        test_db.execute(
+            text("SELECT set_config('app.current_project', :p, true)"), {"p": str(project_a.id)}
+        )
         wrong_scope = test_db.execute(
             text("SELECT id FROM test_set WHERE id = :id"), {"id": entity_id}
         ).fetchone()
@@ -367,7 +380,9 @@ class TestResolveUnderEnforcedRLS:
         )
 
         # Scoped to the entity's OWN project: RLS admits the row.
-        test_db.execute(text("SET LOCAL app.current_project = :p"), {"p": str(project_b.id)})
+        test_db.execute(
+            text("SELECT set_config('app.current_project', :p, true)"), {"p": str(project_b.id)}
+        )
         right_scope = test_db.execute(
             text("SELECT id FROM test_set WHERE id = :id"), {"id": entity_id}
         ).fetchone()

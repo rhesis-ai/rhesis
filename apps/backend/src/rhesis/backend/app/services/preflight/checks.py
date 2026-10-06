@@ -122,7 +122,7 @@ def _extract_response_preview(response: dict, max_length: int = 500) -> str:
 
 # --- Off-loop segments -------------------------------------------------------------
 #
-# Every function below takes the Session first and does the psycopg2 work for one
+# Every function below takes the Session first and does the psycopg work for one
 # check. They run through ``PreflightDbGate.run``, which puts them in a worker thread and
 # lets only one in at a time -- see :class:`PreflightDbGate`.
 
@@ -314,7 +314,7 @@ async def check_endpoint_connectivity(
     """Probe the endpoint once, without a session.
 
     The probe is awaited on the event loop, so the invoker gets ``db=None``: every
-    psycopg2 call it would otherwise make there -- the auth-token refresh, a trace
+    psycopg call it would otherwise make there -- the auth-token refresh, a trace
     lookup -- would block the whole worker for as long as the probe runs, up to the
     30-second timeout below. The orchestrator does that work first, in a worker
     thread, on a session of its own (:func:`_load_endpoint_for_probe`).

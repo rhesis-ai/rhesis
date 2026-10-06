@@ -107,7 +107,7 @@ class EmailProvider(AuthProvider):
     ) -> AuthUser:
         """Blocking body of :meth:`authenticate`; must run in a worker thread.
 
-        Both the user lookup (psycopg2) and the bcrypt compare block, so this
+        Both the user lookup (psycopg) and the bcrypt compare block, so this
         never runs on the event loop. Callers that are already in a thread --
         ``/auth/login/email`` -- call this directly rather than paying a second
         thread hop.

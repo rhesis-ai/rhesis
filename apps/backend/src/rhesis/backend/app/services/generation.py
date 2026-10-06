@@ -162,7 +162,7 @@ async def generate_tests(
         HTTPException: If no valid tokens are found for the user
     """
     # One hop off the loop for the model override check, the source content and
-    # the model resolution -- all of it is psycopg2 work behind an async handler.
+    # the model resolution -- all of it is psycopg work behind an async handler.
     model, source_specifications = await anyio.to_thread.run_sync(
         _prepare_test_generation, db, user, sources, model_id
     )

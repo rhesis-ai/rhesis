@@ -91,7 +91,7 @@ class TestReadinessProbe:
     def test_unavailable_when_the_database_hangs(self, probe_client, monkeypatch):
         """A hung connection must not hold the probe open past the timeout.
 
-        psycopg2's own connect_timeout is 10s, five times the probe's budget, so
+        psycopg's own connect_timeout is 10s, five times the probe's budget, so
         the wait_for is what keeps a wedged database from turning every probe
         into a slow 200-or-nothing.
         """

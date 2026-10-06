@@ -32,7 +32,9 @@ def test_database_url_configuration():
     """Test that the database URL is built from component env vars."""
     url = get_database_url()
     assert url, "get_database_url() must return a non-empty URL"
-    assert url.startswith("postgresql://"), f"Expected postgresql:// URL, got: {url}"
+    assert url.startswith("postgresql+psycopg://"), (
+        f"Expected postgresql+psycopg:// URL, got: {url}"
+    )
 
     # Verify the module-level constant matches what get_database_url() returns
     assert DATABASE_URL == url

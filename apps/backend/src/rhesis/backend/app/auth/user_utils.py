@@ -210,7 +210,7 @@ async def get_current_user(request: Request) -> Optional[User]:
     need tenant context should pass organization_id and user_id directly to CRUD operations.
 
     The lookup runs in the threadpool: this dependency sits on every request, and a
-    psycopg2 call here would block the event loop for the whole worker.
+    psycopg call here would block the event loop for the whole worker.
     """
     if "user_id" not in request.session:
         return None

@@ -60,7 +60,7 @@ data:
   # =============================================================================
   # Database connection settings (non-sensitive)
   DB_HOST: "postgres"
-  DB_DRIVER: "postgresql"
+  DB_DRIVER: "postgresql+psycopg"
   DB_PORT: "5432"
   DB_NAME: "rhesis-db"
   APP_DB_USER: "rhesis-user"

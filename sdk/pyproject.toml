@@ -168,7 +168,7 @@ dev = [
     "sphinx-copybutton>=0.5.2",
     "ruff>=0.11.6",
     "pyright>=1.1.407",
-    "psycopg2-binary==2.9.9", # to match the version in the backend
+    "psycopg[binary]==3.3.6", # to match the version in the backend
     "pytest-cov>=7.0.0",
     "garak>=0.14.0",
     "rhesis-penelope",

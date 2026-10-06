@@ -309,7 +309,9 @@ class TestChannelAuthorizerIntegration:
     def _point_session(self, db, org_id: uuid.UUID) -> None:
         from sqlalchemy import text
 
-        db.execute(text('SET "app.current_organization" = :o'), {"o": str(org_id)})
+        db.execute(
+            text("SELECT set_config('app.current_organization', :o, false)"), {"o": str(org_id)}
+        )
 
     def _create_project(self, db, org_id: uuid.UUID, user_id: uuid.UUID) -> uuid.UUID:
         from sqlalchemy import text

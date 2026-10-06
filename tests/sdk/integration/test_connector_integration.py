@@ -8,7 +8,7 @@ import asyncio
 import threading
 import time
 
-import psycopg2
+import psycopg
 import pytest
 import requests
 
@@ -59,9 +59,9 @@ def _trigger_test(base_url: str, api_key: str, function_name: str, inputs: dict)
 
 def _metric_exists(metric_name: str) -> bool:
     """Check whether an SDK metric has been synced to the metric table."""
-    conn = psycopg2.connect(
+    conn = psycopg.connect(
         host=DB_HOST,
-        database=DB_NAME,
+        dbname=DB_NAME,
         user=DB_USER,
         password=DB_PASSWORD,
         port=DB_PORT,

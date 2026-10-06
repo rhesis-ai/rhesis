@@ -295,7 +295,7 @@ def _issue_login_tokens(db: Session, user: User) -> tuple[str, str, dict]:
 def _authenticate_email_user(db: Session, provider, email: str, password: str) -> tuple[User, str]:
     """Verify email/password credentials and resolve the user row.
 
-    Both halves block -- bcrypt on a core, psycopg2 on a socket -- so this is
+    Both halves block -- bcrypt on a core, psycopg on a socket -- so this is
     called through ``run_sync``. The provider's own checks run in their
     original order, so a bad password still costs a full bcrypt compare and a
     missing account still costs none.
