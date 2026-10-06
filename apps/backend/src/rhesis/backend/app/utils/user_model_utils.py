@@ -598,6 +598,11 @@ def text_model_for(
     if not isinstance(model, BaseDecisionModel):
         return model
     if principal is None:
+        logger.warning(
+            "Evaluation model %s is a decision model and there is no user to fall back "
+            "through; metrics that need text will be refused",
+            model.model_name,
+        )
         return None
     logger.info(
         "Evaluation model %s is a decision model; using the generation model for text",
