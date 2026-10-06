@@ -58,7 +58,7 @@ def _clear_outcome(db_trace: models.Trace) -> None:
     db_trace.verdict = None
 
 
-def _has_metrics(db_trace: models.Trace) -> bool:
+def has_metrics(db_trace: models.Trace) -> bool:
     trace_metrics = db_trace.trace_metrics
     return isinstance(trace_metrics, dict) and bool(_get_all_trace_metric_values(trace_metrics))
 
@@ -332,12 +332,12 @@ def _revert_turn_override(
 def _recalculate_if_evaluated(db_trace: models.Trace) -> None:
     """Recalculate after a turn or metric annotation, which on a trace without metrics
     has nothing to change -- and recalculating would wipe a human verdict on the trace."""
-    if _has_metrics(db_trace):
+    if has_metrics(db_trace):
         recalculate_overall_status(db_trace)
 
 
 def recalculate_overall_status(db_trace: models.Trace) -> None:
-    if not _has_metrics(db_trace):
+    if not has_metrics(db_trace):
         # No metric and no remaining human verdict: neither passed nor failed.
         _clear_outcome(db_trace)
         return
