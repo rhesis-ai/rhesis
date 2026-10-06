@@ -6,6 +6,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+import inspect
 import os
 import re
 import sys
@@ -163,8 +164,21 @@ autodoc_default_options = {
     'special-members': '__init__',
     'member-order': 'bysource',
     'private-members': False,
-    'imported-members': True,
+    'imported-members': False,
 }
+
+
+def skip_third_party(app, what, name, obj, skip, options):
+    # Imported pydantic and jinja2 classes crash napoleon on Sphinx 9; document rhesis code only.
+    if what == 'module' and (inspect.isclass(obj) or inspect.isroutine(obj)):
+        if not getattr(obj, '__module__', 'rhesis').startswith('rhesis'):
+            return True
+    return None
+
+
+def setup(app):
+    # Runs before napoleon's handler (priority 500), which is the one that crashes.
+    app.connect('autodoc-skip-member', skip_third_party, priority=400)
 
 # This will prevent duplicate warnings
 suppress_warnings = [
@@ -230,7 +244,6 @@ html_theme_options = {
     'analytics_id': '',
     'analytics_anonymize_ip': False,
     'logo_only': False,
-    'display_version': True,
     'prev_next_buttons_location': 'bottom',
     'style_external_links': True,
     'vcs_pageview_mode': '',

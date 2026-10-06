@@ -1,0 +1,6 @@
+# Sphinx packages for the Read the Docs build. Both ends of the sphinx range are tested.
+sphinx>=8.2,<10
+sphinx-autodoc-typehints>=3.0.1,<4
+sphinx-rtd-theme>=3.0.2,<4
+myst-parser>=4.0.0,<6
+sphinx-copybutton>=0.5.2,<0.6
