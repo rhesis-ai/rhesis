@@ -887,14 +887,22 @@ def _build_configured_model(
                 original_error=e,
             )
         logger.error("Failed to configure %s: %s", subject, error_msg)
+        if isinstance(e, ImportError):
+            raise ModelConfigurationError(
+                f"Your configured {label} '{model.name}' ({provider}) needs a package this "
+                f"deployment doesn't have installed. Pick a different model in the Models "
+                f"settings.",
+                original_error=e,
+            )
         if embedding:
             raise ModelConfigurationError(
-                f"Failed to configure your embedding model '{model.name}': {error_msg}. "
+                f"Failed to configure your embedding model '{model.name}'. "
                 f"Please check your model configuration in the Models settings.",
                 original_error=e,
             )
         raise ModelConfigurationError(
-            f"Failed to initialize your configured model '{model.name}': {error_msg}",
+            f"Failed to initialize your configured model '{model.name}'. "
+            f"Please check your model configuration in the Models settings.",
             original_error=e,
         )
 

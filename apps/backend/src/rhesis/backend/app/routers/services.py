@@ -54,6 +54,7 @@ from rhesis.backend.app.utils.execution_validation import validate_generation_mo
 from rhesis.backend.app.utils.model_errors import (
     EmbeddingProviderNotConfigured,
     ModelConfigurationError,
+    describe_model_error,
     provider_status,
 )
 from rhesis.sdk.context import EndpointContext
@@ -87,7 +88,7 @@ def _model_call_failure(error: Exception, *, context: str, summary: str) -> HTTP
     if status is None:
         return internal_error(error, context=context)
     logger.warning("%s: model provider returned %s: %s", context, status, error)
-    return HTTPException(status_code=400, detail=f"{summary}: {error}")
+    return HTTPException(status_code=400, detail=f"{summary}: {describe_model_error(error)}")
 
 
 def _handle_generation_error(error: Exception) -> None:

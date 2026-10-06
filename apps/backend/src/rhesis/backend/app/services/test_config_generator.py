@@ -18,7 +18,7 @@ from rhesis.backend.app.crud import model as model_crud
 from rhesis.backend.app.crud import requirement as requirement_crud
 from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.schemas.services import TestConfigResponse
-from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+from rhesis.backend.app.utils.model_errors import ModelConfigurationError, model_setup_message
 from rhesis.backend.app.utils.user_model_utils import (
     ensure_language_model,
     resolve_model,
@@ -89,16 +89,14 @@ class TestConfigGeneratorService:
                     return resolve_model(self.db, self.user, "generation")
                 except ValueError as inner:
                     raise ModelConfigurationError(
-                        f"User model initialization failed: {inner}",
-                        original_error=inner,
+                        model_setup_message("generation", inner), original_error=inner
                     ) from inner
 
         try:
             return resolve_model(self.db, self.user, "generation")
         except ValueError as e:
             raise ModelConfigurationError(
-                f"User model initialization failed: {e}",
-                original_error=e,
+                model_setup_message("generation", e), original_error=e
             ) from e
 
     async def generate_config(

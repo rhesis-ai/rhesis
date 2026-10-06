@@ -20,6 +20,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.utils.crud_utils import get_item
 from rhesis.backend.app.utils.model_errors import (
     ModelConfigurationError,
+    describe_model_error,
     is_permanent_model_error,
 )
 from rhesis.backend.app.utils.user_model_utils import resolve_embedder
@@ -262,9 +263,9 @@ class EmbeddingGenerator:
             # fails once instead of autoretrying an unfixable request.
             if is_permanent_model_error(e):
                 raise ModelConfigurationError(
-                    f"Failed to generate embedding: {e}", original_error=e
+                    f"Failed to generate embedding. {describe_model_error(e)}", original_error=e
                 )
-            raise ValueError(f"Failed to generate embedding: {e}")
+            raise ValueError(f"Failed to generate embedding. {describe_model_error(e)}")
 
         vec_dim = len(embedding_vector)
         if vec_dim not in EmbeddingConfig.SUPPORTED_DIMENSIONS:

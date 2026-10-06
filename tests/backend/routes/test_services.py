@@ -64,7 +64,8 @@ class TestGenerateContentEndpoint:
     @pytest.mark.asyncio
     async def test_provider_error_keeps_the_providers_reason(self):
         """A provider that answered with a status told the caller the one thing
-        they can act on -- "invalid api key" -- so it stays a 400 that says so."""
+        they can act on, so it stays a 400 that says so, in our words: the
+        provider's own text can quote the request, key included."""
         mock_request = GenerateContentRequest(
             prompt="Generate a test function",
             schema={"type": "object"},
@@ -82,7 +83,10 @@ class TestGenerateContentEndpoint:
                 )
 
             assert exc_info.value.status_code == 400
-            assert str(exc_info.value.detail) == "Failed to generate content: invalid api key"
+            assert str(exc_info.value.detail) == (
+                "Failed to generate content: The provider rejected the model's credentials. "
+                "Check its API key in the Models settings."
+            )
 
     @pytest.mark.asyncio
     async def test_internal_failure_is_masked(self):
@@ -122,9 +126,9 @@ class TestGenerateEmbeddingEndpoint:
     input change fixes the second one.
     """
 
-    def test_plain_provider_error_returns_400_with_the_reason(self):
-        """A provider-side failure is still a 400 — the request itself is bad —
-        and the provider's reason is what makes it actionable."""
+    def test_plain_provider_error_returns_400_without_the_providers_text(self):
+        """A provider-side failure is still a 400 (the request itself is bad), but
+        the provider's own message can quote the request, key included."""
         mock_request = GenerateEmbeddingRequest(text="some text")
         mock_db = MagicMock()
         mock_user = MagicMock()
@@ -142,7 +146,7 @@ class TestGenerateEmbeddingEndpoint:
             assert exc_info.value.status_code == 400
             assert (
                 str(exc_info.value.detail)
-                == "Failed to generate embedding: context length exceeded"
+                == "Failed to generate embedding: The provider refused the request (400)."
             )
 
     def test_model_configuration_error_keeps_its_message(self):

@@ -25,6 +25,17 @@ class ModelConfigurationError(ValueError):
         super().__init__(self.message)
 
 
+def model_setup_message(purpose: str, cause: BaseException) -> str:
+    """What to tell the user about a *purpose* model that can't be built.
+
+    A ``ModelConfigurationError`` message is always our own wording, so it is passed on.
+    Anything else may quote the provider, so it is replaced.
+    """
+    if isinstance(cause, ModelConfigurationError):
+        return cause.message
+    return f"No usable {purpose} model is set up. {MODELS_PAGE_HINT}"
+
+
 class ModelNotConfiguredError(ValueError):
     """A model that cannot be built, worded for the user; wraps the org's own broken
     model or an unbuildable deployment default so every check reports it the same way."""
@@ -35,10 +46,7 @@ class ModelNotConfiguredError(ValueError):
         self.purpose = purpose
         self.cause = cause
         self.own_model = isinstance(cause, ModelConfigurationError)
-        if self.own_model:
-            self.message = str(cause)
-        else:
-            self.message = f"No usable {purpose} model is set up. {MODELS_PAGE_HINT}"
+        self.message = model_setup_message(purpose, cause)
         super().__init__(self.message)
 
     @property
@@ -137,6 +145,9 @@ def describe_model_error(error: Exception) -> str:
     if isinstance(error, (TimeoutError, asyncio.TimeoutError)):
         return "The model didn't answer in time."
     status = provider_status(error)
+    # By name, so this module needs no litellm import. Its status is a plain 400.
+    if type(error).__name__ == "ContextWindowExceededError":
+        return "The input is too long for this model."
     if status is None and isinstance(error, ModelConfigurationError):
         return "The model isn't set up correctly. Check it in the Models settings."
     if status is None and isinstance(error, (ValidationError, ValueError)):
