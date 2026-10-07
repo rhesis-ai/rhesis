@@ -425,12 +425,14 @@ def list_traces(
                 trace_endpoint_id = str(endpoint.id)
                 trace_endpoint_name = endpoint.name
 
-            # Get trace metrics status if available
+            # Outcome and annotations come from the first root: a conversation lists
+            # its latest turn, but its verdict and human annotations live on the first.
+            first_root = row.first_root
             trace_metrics_status_name = None
-            if hasattr(trace, "trace_metrics_status") and trace.trace_metrics_status:
-                trace_metrics_status_name = trace.trace_metrics_status.name
+            if first_root.trace_metrics_status:
+                trace_metrics_status_name = first_root.trace_metrics_status.name
 
-            has_annotations = bool(trace.annotations)
+            has_annotations = bool(first_root.annotations)
 
             conversation_input = None
             if isinstance(trace.attributes, dict):
@@ -457,11 +459,11 @@ def list_traces(
                 **usage,
                 has_errors=has_errors,
                 trace_metrics_status=trace_metrics_status_name,
-                execution=trace.execution,
-                verdict=trace.verdict,
+                execution=first_root.execution,
+                verdict=first_root.verdict,
                 has_annotations=has_annotations,
-                last_annotation=trace.last_annotation,
-                matches_annotation=trace.matches_annotation,
+                last_annotation=first_root.last_annotation,
+                matches_annotation=first_root.matches_annotation,
                 tags_count=row.tags_count,
                 comments_count=row.comments_count,
             )

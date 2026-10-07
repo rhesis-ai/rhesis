@@ -1614,9 +1614,10 @@ tools:
 
           For a caller that has the hex and not the row id, which is normal for
           an application reporting on a trace it produced itself. The root span
-          of that trace is resolved for you. A trace that has not been ingested
-          yet is a 404 saying so: spans arrive asynchronously, so retry rather
-          than treating it as a wrong id.
+          of that trace is resolved for you; for a multi-turn conversation that
+          is its first turn's root, which carries the verdict. A trace that has
+          not been ingested yet is a 404 saying so: spans arrive asynchronously,
+          so retry rather than treating it as a wrong id.
       status_id:
         description: >
           REQUIRED. UUID of the status carrying the verdict: the Pass or Fail

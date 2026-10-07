@@ -24,14 +24,24 @@ from tests.backend.routes.test_annotations import (
 )
 
 
-def _span(project_id, organization_id, *, trace_id, parent_span_id=None, name="ai.llm.invoke"):
-    now = datetime.now(timezone.utc)
+def _span(
+    project_id,
+    organization_id,
+    *,
+    trace_id,
+    parent_span_id=None,
+    name="ai.llm.invoke",
+    start=None,
+    conversation_id=None,
+):
+    now = start or datetime.now(timezone.utc)
     return Trace(
         trace_id=trace_id,
         span_id=uuid.uuid4().hex[:16],
         parent_span_id=parent_span_id,
         project_id=project_id,
         organization_id=organization_id,
+        conversation_id=conversation_id,
         environment="development",
         span_name=name,
         span_kind="CLIENT",
@@ -121,7 +131,7 @@ class TestAnnotatingATraceByItsOtelId:
             assert response.status_code == status.HTTP_404_NOT_FOUND
             assert "ingested asynchronously" in response.json()["detail"]
 
-    def test_two_root_spans_are_refused_rather_than_guessed(
+    def test_a_conversation_resolves_to_its_first_root(
         self,
         authenticated_client: TestClient,
         test_db,
@@ -131,19 +141,24 @@ class TestAnnotatingATraceByItsOtelId:
         authenticated_user,
         db_project,
     ):
-        """Picking one would attach the verdict to an arbitrary half of the trace."""
+        """Each turn has a root under the shared trace id. The first carries the
+        verdict, and is the one the trace drawer annotates."""
         pass_status, _ = _ensure_pass_fail_statuses(
             test_db, test_organization, test_type_lookup, db_user
         )
         hex_id = uuid.uuid4().hex
+        start = datetime.now(timezone.utc) - timedelta(minutes=5)
         with _project_scope(test_db, test_organization.id, authenticated_user.id, db_project.id):
-            test_db.add_all(
-                [
-                    _span(db_project.id, test_organization.id, trace_id=hex_id),
-                    _span(db_project.id, test_organization.id, trace_id=hex_id),
-                ]
+            later = _span(
+                db_project.id,
+                test_organization.id,
+                trace_id=hex_id,
+                start=start + timedelta(minutes=1),
             )
+            first = _span(db_project.id, test_organization.id, trace_id=hex_id, start=start)
+            test_db.add_all([later, first])
             test_db.commit()
+            test_db.refresh(first)
 
             response = authenticated_client.post(
                 "/annotations/",
@@ -154,8 +169,8 @@ class TestAnnotatingATraceByItsOtelId:
                 },
             )
 
-            assert response.status_code == status.HTTP_409_CONFLICT
-            assert "more than one root span" in response.json()["detail"]
+            assert response.status_code == status.HTTP_200_OK, response.text
+            assert response.json()["entity_id"] == str(first.id)
 
     def test_both_addresses_at_once_is_refused(
         self,
@@ -417,3 +432,121 @@ class TestReadingAnnotationsBackByTraceId:
             listed = authenticated_client.get("/annotations/?trace_id=not-a-trace-id")
 
             assert listed.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+class TestAConversationListsByItsFirstRoot:
+    """The traces list shows a conversation's latest turn, so an active one sorts
+    by its newest activity, but its verdict and annotations live on the first."""
+
+    @staticmethod
+    def _conversation(test_db, project_id, organization_id):
+        hex_id = uuid.uuid4().hex
+        start = datetime.now(timezone.utc) - timedelta(minutes=5)
+        first = _span(
+            project_id, organization_id, trace_id=hex_id, start=start, conversation_id=hex_id
+        )
+        latest = _span(
+            project_id,
+            organization_id,
+            trace_id=hex_id,
+            start=start + timedelta(minutes=1),
+            conversation_id=hex_id,
+        )
+        test_db.add_all([first, latest])
+        test_db.commit()
+        test_db.refresh(first)
+        test_db.refresh(latest)
+        return hex_id, first, latest
+
+    @staticmethod
+    def _listed(client, project_id, hex_id, **params):
+        response = client.get("/telemetry/traces", params={"project_id": project_id, **params})
+        assert response.status_code == status.HTTP_200_OK, response.text
+        rows = [row for row in response.json()["traces"] if row["trace_id"] == hex_id]
+        assert len(rows) <= 1
+        return rows[0] if rows else None
+
+    def test_an_annotation_on_the_first_root_shows_in_the_list(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        test_type_lookup,
+        db_user,
+        authenticated_user,
+        db_project,
+    ):
+        _, fail_status = _ensure_pass_fail_statuses(
+            test_db, test_organization, test_type_lookup, db_user
+        )
+        project_id = str(db_project.id)
+        with _project_scope(test_db, test_organization.id, authenticated_user.id, db_project.id):
+            hex_id, first, latest = self._conversation(test_db, db_project.id, test_organization.id)
+            before = self._listed(authenticated_client, project_id, hex_id)
+            assert before["has_annotations"] is False
+
+            created = authenticated_client.post(
+                "/annotations/",
+                json={
+                    "entity_type": "Trace",
+                    "trace_id": hex_id,
+                    "status_id": str(fail_status.id),
+                    "comments": "Lost the thread in turn 2.",
+                },
+            )
+            assert created.status_code == status.HTTP_200_OK, created.text
+            assert created.json()["entity_id"] == str(first.id)
+
+            row = self._listed(authenticated_client, project_id, hex_id)
+            assert row["verdict"] == "fail"
+            assert row["trace_metrics_status"] == "Fail"
+            assert row["has_annotations"] is True
+            assert row["last_annotation"]["comments"] == "Lost the thread in turn 2."
+            # Still listed as its latest turn, which is what the list sorts by.
+            assert datetime.fromisoformat(row["start_time"]) == latest.start_time
+
+            filtered = self._listed(
+                authenticated_client, project_id, hex_id, trace_metrics_status="Fail"
+            )
+            assert filtered is not None
+
+            deleted = authenticated_client.delete(f"/annotations/{created.json()['id']}")
+            assert deleted.status_code == status.HTTP_200_OK, deleted.text
+
+            after = self._listed(authenticated_client, project_id, hex_id)
+            assert after["has_annotations"] is False
+            assert after["verdict"] != "fail"
+
+    def test_a_single_root_trace_lists_its_own_annotation(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        test_type_lookup,
+        db_user,
+        authenticated_user,
+        db_project,
+    ):
+        _, fail_status = _ensure_pass_fail_statuses(
+            test_db, test_organization, test_type_lookup, db_user
+        )
+        project_id = str(db_project.id)
+        with _project_scope(test_db, test_organization.id, authenticated_user.id, db_project.id):
+            hex_id = uuid.uuid4().hex
+            root = _span(db_project.id, test_organization.id, trace_id=hex_id)
+            test_db.add(root)
+            test_db.commit()
+
+            created = authenticated_client.post(
+                "/annotations/",
+                json={
+                    "entity_type": "Trace",
+                    "trace_id": hex_id,
+                    "status_id": str(fail_status.id),
+                },
+            )
+            assert created.status_code == status.HTTP_200_OK, created.text
+
+            row = self._listed(authenticated_client, project_id, hex_id)
+            assert row["verdict"] == "fail"
+            assert row["has_annotations"] is True

@@ -584,7 +584,7 @@ A Pass/Fail annotation on a test result or trace **overrides that parent's autom
 **Key parameters:**
 - `entity_type` (required) — `"TestResult"`, `"Trace"` or `"Test"`
 - `entity_id` — UUID of that entity. Required unless `trace_id` names a trace instead.
-- `trace_id` — the 32-char hex trace id, as an alternative to `entity_id` when the parent is a `"Trace"`. Send one or the other, never both. The trace's root span is resolved for you, so a caller holding only the hex needs no `get_trace` first. A trace that has not been ingested yet comes back as a 404 saying so, because spans arrive asynchronously; retry rather than treating it as a wrong id.
+- `trace_id` — the 32-char hex trace id, as an alternative to `entity_id` when the parent is a `"Trace"`. Send one or the other, never both. The trace's root span is resolved for you (for a multi-turn conversation, its first turn's root, which carries the verdict), so a caller holding only the hex needs no `get_trace` first. A trace that has not been ingested yet comes back as a 404 saying so, because spans arrive asynchronously; retry rather than treating it as a wrong id.
 - `status_id` (required) — the Pass or Fail status UUID, from `list_statuses(entity_type="TestResult")`. Never guess it.
 - `comments` — the person's reasoning in their words. An annotation with no comment explains nothing later.
 - `target` — optional `{"type": "metric", "reference": "Answer Fluency"}` or `{"type": "turn", "reference": "Turn 2"}`. Omit for a verdict on the whole entity.

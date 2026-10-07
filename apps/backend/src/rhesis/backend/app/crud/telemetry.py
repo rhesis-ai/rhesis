@@ -220,6 +220,35 @@ class TraceRow(NamedTuple):
     # Summed over the trace's llm.invoke spans. Only used when the trace has not
     # been enriched yet -- see services/telemetry/token_totals.py.
     llm_tokens: int
+    # The trace's first root span, which carries its verdict and annotations. The
+    # listed row is the latest turn's root, so a conversation's two differ.
+    first_root: models.Trace
+
+
+def _first_root_per_trace(db: Session, root_filters: list):
+    """One row per trace_id: its first root span, by start_time then id.
+
+    The canonical row of a conversation: the evaluator derives its verdict from
+    it, and annotations on the trace as a whole are filed against it.
+    """
+    return (
+        db.query(models.Trace.id, models.Trace.trace_id, models.Trace.trace_metrics_status_id)
+        .filter(*root_filters)
+        .distinct(models.Trace.trace_id)
+        .order_by(models.Trace.trace_id, asc(models.Trace.start_time), asc(models.Trace.id))
+        .subquery()
+    )
+
+
+def get_first_root_id(db: Session, trace_id: str) -> Optional[UUID]:
+    """The row id of the first root span of the trace with this OTEL id, if ingested."""
+    row = (
+        db.query(models.Trace.id)
+        .filter(models.Trace.trace_id == trace_id, models.Trace.parent_span_id.is_(None))
+        .order_by(asc(models.Trace.start_time), asc(models.Trace.id))
+        .first()
+    )
+    return row[0] if row else None
 
 
 # ============================================================================
@@ -543,24 +572,21 @@ def query_traces(
     """
     Query traces with filters and eager load nested relationships.
 
-    Returns a list of TraceRow named tuples, each containing:
-      - trace:      the Trace ORM object
-      - span_count: number of spans belonging to this trace
-      - total:      total matching rows *before* LIMIT/OFFSET (for pagination)
-
-    The total count is computed via a SQL window function (COUNT(*) OVER())
-    inside the same query, so callers don't need a separate count query.
+    Returns a list of ``TraceRow`` (see its fields above). ``total`` is the
+    matching row count before LIMIT/OFFSET, for pagination, computed with a SQL
+    window function (COUNT(*) OVER()) in the same query.
 
     When root_spans_only=True, conversation traces that share a trace_id
     across multiple turns are deduplicated — only the latest turn's root
-    span is returned.
+    span is returned, with the first turn's root as ``first_root``, which
+    carries the conversation's verdict and annotations.
 
     Raises:
         HTTPException: 400 if any UUID parameter is malformed
     """
     from uuid import UUID
 
-    from sqlalchemy.orm import aliased, joinedload, selectinload
+    from sqlalchemy.orm import aliased, joinedload
 
     # Convert organization_id to UUID
     org_uuid = UUID(organization_id)
@@ -649,7 +675,7 @@ def query_traces(
             .joinedload(models.TestConfiguration.endpoint)
             .load_only(models.Endpoint.id, models.Endpoint.name),
             joinedload(models.Trace.trace_metrics_status),
-            selectinload(models.Trace.annotations),
+            *_annotation_loads(),
         )
     )
 
@@ -686,6 +712,9 @@ def query_traces(
             .subquery()
         )
         query = query.filter(models.Trace.id.in_(select(latest_root_per_trace.c.id)))
+        first_roots = _first_root_per_trace(db, dedup_filters)
+    else:
+        first_roots = None
 
     # Filter by trace source
     if trace_source == TraceSource.TEST:
@@ -777,21 +806,15 @@ def query_traces(
     elif trace_type == TraceType.SINGLE_TURN:
         query = query.filter(models.Trace.conversation_id.is_(None))
 
-    # Trace metrics evaluation status filter (Pass / Fail / Error)
-    # Uses an IN subquery instead of a scalar to handle orgs where the same
-    # status name exists for multiple entity types (e.g. multiple "Error" rows).
     if trace_metrics_status:
-        matching_status_ids = select(models.Status.id).where(
-            models.Status.name == trace_metrics_status,
-            models.Status.organization_id == org_uuid,
-        )
-        query = query.filter(models.Trace.trace_metrics_status_id.in_(matching_status_ids))
+        query = _filter_by_status(query, trace_metrics_status, org_uuid, first_roots)
 
     query = query.order_by(
         *_trace_sort_clauses(sort_by, sort_order, span_count_col, llm_tokens_col)
     )
 
     results = query.limit(limit).offset(offset).all()
+    first_root_by_trace = _load_first_roots(db, first_roots, [r[0] for r in results])
     return [
         TraceRow(
             trace=r[0],
@@ -800,8 +823,70 @@ def query_traces(
             tags_count=r[3],
             comments_count=r[4],
             llm_tokens=int(r[5] or 0),
+            first_root=first_root_by_trace.get(r[0].trace_id, r[0]),
         )
         for r in results
+    ]
+
+
+def _filter_by_status(query, status_name: str, org_uuid, first_roots):
+    """Keep traces whose trace-metrics status (Pass / Fail / Error) has this name.
+
+    An IN subquery rather than a scalar, since an org can hold the same status
+    name for several entity types (e.g. more than one "Error" row).
+    """
+    matching_status_ids = select(models.Status.id).where(
+        models.Status.name == status_name,
+        models.Status.organization_id == org_uuid,
+    )
+    if first_roots is None:
+        return query.filter(models.Trace.trace_metrics_status_id.in_(matching_status_ids))
+    # A conversation's status is its first root's, which an annotation may have
+    # overridden while the listed (latest) root kept the automated one.
+    return query.filter(
+        models.Trace.trace_id.in_(
+            select(first_roots.c.trace_id).where(
+                first_roots.c.trace_metrics_status_id.in_(matching_status_ids)
+            )
+        )
+    )
+
+
+def _load_first_roots(db: Session, first_roots, listed: List[models.Trace]) -> dict:
+    """The first roots of the listed traces whose listed row is a later turn, by trace_id.
+
+    One query per page; a single-root trace is its own first root and is not reloaded.
+    Empty when every span is listed (``first_roots`` is None), since no row then
+    stands in for its trace.
+    """
+    from sqlalchemy.orm import joinedload
+
+    if first_roots is None or not listed:
+        return {}
+    rows = (
+        db.query(models.Trace)
+        .join(first_roots, models.Trace.id == first_roots.c.id)
+        .filter(
+            first_roots.c.trace_id.in_([t.trace_id for t in listed]),
+            models.Trace.id.notin_([t.id for t in listed]),
+        )
+        .options(
+            joinedload(models.Trace.trace_metrics_status),
+            *_annotation_loads(),
+        )
+        .all()
+    )
+    return {row.trace_id: row for row in rows}
+
+
+def _annotation_loads() -> list:
+    # last_annotation reads each annotation's author and status, one query apiece
+    # per annotation unless they are loaded with it.
+    from sqlalchemy.orm import selectinload
+
+    return [
+        selectinload(models.Trace.annotations).selectinload(models.Annotation.user),
+        selectinload(models.Trace.annotations).selectinload(models.Annotation.status),
     ]
 
 
