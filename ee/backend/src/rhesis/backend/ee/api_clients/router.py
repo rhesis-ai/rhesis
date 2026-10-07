@@ -60,6 +60,7 @@ from rhesis.backend.app.dependencies import OffLoopSession, get_off_loop_db_sess
 from rhesis.backend.app.features import FeatureName
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.utils.rate_limit import limiter
+from rhesis.backend.ee.api_clients import crud as api_clients_crud
 from rhesis.backend.ee.api_clients.audit import (
     AuthClientLifecycleEvent,
     auth_client_audit_log,
@@ -206,21 +207,19 @@ def _create_client(
     plaintext_secret = generate_client_secret()
     secret_hash = hash_client_secret(plaintext_secret)
 
-    row = AuthClient(
-        organization_id=org.id,
-        client_id=body.client_id,
-        client_secret_hash=secret_hash,
-        expected_subject_azp=body.expected_subject_azp,
-        expected_subject_audience=body.expected_subject_audience,
-        name=body.name,
-        allowed_scopes=list(body.allowed_scopes),
-        default_scope=body.default_scope,
-    )
-    db.add(row)
     try:
-        db.commit()
+        row = api_clients_crud.create_auth_client(
+            db,
+            organization_id=org.id,
+            client_id=body.client_id,
+            client_secret_hash=secret_hash,
+            expected_subject_azp=body.expected_subject_azp,
+            expected_subject_audience=body.expected_subject_audience,
+            name=body.name,
+            allowed_scopes=list(body.allowed_scopes),
+            default_scope=body.default_scope,
+        )
     except IntegrityError:
-        db.rollback()
         # Same body for both "duplicate client_id" and "duplicate name"
         # so a probe cannot enumerate which constraint fired.
         raise HTTPException(
@@ -229,7 +228,6 @@ def _create_client(
                 "An API client with that identifier or name already exists in this organization."
             ),
         )
-    db.refresh(row)
 
     return AuthClientResponse.model_validate(row), plaintext_secret, secret_hash
 
