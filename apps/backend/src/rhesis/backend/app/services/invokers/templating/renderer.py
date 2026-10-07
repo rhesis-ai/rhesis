@@ -155,9 +155,9 @@ class TemplateRenderer:
         """
         Parse rendered value intelligently to preserve types.
 
-        If the template is a simple variable reference like "{{ field_name }}" and
-        the field value is a complex type (dict, list), preserve it as-is instead
-        of converting to string.
+        If the template is a simple variable reference like "{{ field_name }}",
+        return the source value as-is. Pydantic models become dicts via
+        model_dump. Other templates may still be parsed as JSON.
 
         Args:
             rendered_value: The Jinja2-rendered string value
@@ -198,10 +198,9 @@ class TemplateRenderer:
                     )
                     return value.model_dump(exclude_none=True)
 
-                # If the value is a complex type, return it directly
-                if isinstance(value, (dict, list)):
-                    logger.debug(f"Preserving {type(value).__name__} for template {{ {var_path} }}")
-                    return value
+                # JSON-looking strings ("5", "true") must stay strings.
+                logger.debug(f"Preserving {type(value).__name__} for template {{ {var_path} }}")
+                return value
 
         # For non-simple templates, try to parse as JSON (e.g. filter output)
         filtered = self._filter_omit_markers(rendered_value)

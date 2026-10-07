@@ -2,6 +2,8 @@
 
 import logging
 
+from pydantic import BaseModel
+
 from rhesis.backend.app.services.invokers.templating.renderer import TemplateRenderer
 
 
@@ -543,3 +545,64 @@ class TestTemplateRendererExperimentParameters:
         with caplog.at_level(logging.WARNING):
             renderer.render(template, input_data)
         assert "deprecated" not in caplog.text.lower()
+
+
+class TestSimpleReferenceKeepsSourceType:
+    """A bare {{ var }} keeps the looked-up value instead of reparsing it as JSON."""
+
+    def test_json_looking_strings_stay_strings(self):
+        renderer = TemplateRenderer()
+        template = {"message": "{{ input }}"}
+        for value in ("5", "true", "false", "null", "[1, 2]", '"quoted"'):
+            result = renderer.render(template, {"input": value})
+            assert result["message"] == value
+            assert isinstance(result["message"], str)
+
+    def test_dict_list_and_model_stay_structured(self):
+        renderer = TemplateRenderer()
+
+        payload = {"items": [1, 2]}
+        result = renderer.render({"body": "{{ payload }}"}, {"payload": payload})
+        assert result["body"] is payload
+
+        messages = [{"role": "user", "content": "Hello"}]
+        result = renderer.render({"messages": "{{ messages }}"}, {"messages": messages})
+        assert result["messages"] is messages
+
+        class Item(BaseModel):
+            name: str
+            note: str | None = None
+
+        item = Item(name="ada", note=None)
+        result = renderer.render({"body": "{{ item }}"}, {"item": item})
+        assert result["body"] == {"name": "ada"}
+
+    def test_non_simple_templates_still_parse_json(self):
+        renderer = TemplateRenderer()
+        payload = {"a": 1, "b": [2]}
+        result = renderer.render({"body": "{{ payload | tojson }}"}, {"payload": payload})
+        assert result["body"] == payload
+
+        result = renderer.render(
+            {"temperature": "{{ params.temperature | default(0.7) }}"},
+            {"params": {}},
+        )
+        assert result["temperature"] == 0.7
+
+        result = renderer.render(
+            {"temperature": "{{ params.temperature }}"},
+            {"params": {"temperature": 0.9}},
+        )
+        assert result["temperature"] == 0.9
+
+    def test_composite_text_non_json_filter_and_missing_reference(self):
+        renderer = TemplateRenderer()
+
+        result = renderer.render({"message": "prefix {{ input }}"}, {"input": "5"})
+        assert result["message"] == "prefix 5"
+
+        result = renderer.render({"note": "{{ input | upper }}"}, {"input": "five"})
+        assert result["note"] == "FIVE"
+
+        result = renderer.render({"message": "{{ missing }}"}, {})
+        assert result["message"] == ""
