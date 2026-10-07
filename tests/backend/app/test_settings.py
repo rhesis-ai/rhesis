@@ -301,8 +301,6 @@ def test_database_settings_unix_socket_url(clean_database_env, monkeypatch):
     "configured, expected",
     [
         ("postgresql", "postgresql+psycopg"),
-        ("postgres", "postgresql+psycopg"),
-        ("postgresql+psycopg2", "postgresql+psycopg"),
         ("postgresql+psycopg", "postgresql+psycopg"),
         ("postgresql+asyncpg", "postgresql+asyncpg"),
         ("sqlite", "sqlite"),
@@ -311,7 +309,7 @@ def test_database_settings_unix_socket_url(clean_database_env, monkeypatch):
 def test_database_settings_names_the_installed_postgres_driver(
     clean_database_env, monkeypatch, configured, expected
 ):
-    """A bare postgresql means psycopg2 to SQLAlchemy 2.0, which is not installed."""
+    """A bare postgresql picks a driver by SQLAlchemy version, so it is named."""
     monkeypatch.setenv("DB_DRIVER", configured)
 
     assert DatabaseSettings(_env_file=None).driver == expected

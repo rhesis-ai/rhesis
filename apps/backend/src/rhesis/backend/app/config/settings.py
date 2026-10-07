@@ -34,9 +34,9 @@ class DatabaseSettings(BaseSettings):
     @field_validator("driver")
     @classmethod
     def _name_the_postgres_driver(cls, value: str) -> str:
-        # A bare "postgresql" means psycopg2 to SQLAlchemy 2.0 and psycopg 3 to 2.1,
-        # and only psycopg 3 is installed, so existing env files keep working.
-        if value in ("postgresql", "postgres", "postgresql+psycopg2"):
+        # A bare "postgresql", as existing env files have it, picks a driver by
+        # SQLAlchemy version; name the installed one.
+        if value == "postgresql":
             return POSTGRES_DRIVER
         return value
 
