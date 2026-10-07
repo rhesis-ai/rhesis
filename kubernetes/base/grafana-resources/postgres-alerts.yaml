@@ -42,7 +42,10 @@ spec:
             # so the primary is judged against its own limit. Filtered by
             # namespace: the PodMonitor does not copy cnpg.io/* pod labels onto
             # the series, and the rhesis namespace holds one CNPG cluster.
-            expr: sum by (pod) (cnpg_backends_total{namespace="rhesis"}) / on (pod) group_left () cnpg_pg_settings_setting{namespace="rhesis", name="max_connections"}
+            # `max by (pod)`: after a pod restart with a new IP, the old and new
+            # series overlap for a few minutes, and a bare `on (pod)` join errors
+            # on the duplicate, which pages through execErrState.
+            expr: sum by (pod) (cnpg_backends_total{namespace="rhesis"}) / on (pod) group_left () max by (pod) (cnpg_pg_settings_setting{namespace="rhesis", name="max_connections"})
             instant: true
             refId: A
         - refId: B
