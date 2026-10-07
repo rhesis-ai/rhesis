@@ -33,6 +33,13 @@ spec:
   postgresql:
     parameters:
       max_connections: "300"
+      # Drop backends whose client pod died without closing its socket (node
+      # preemption, OOM). The OS default only probes after 2h of silence.
+      tcp_keepalives_idle: "60"
+      tcp_keepalives_interval: "10"
+      tcp_keepalives_count: "6"
+      # A session left open inside a transaction holds locks and a pool slot.
+      idle_in_transaction_session_timeout: "10min"
   primaryUpdateStrategy: unsupervised
   bootstrap:
     initdb:

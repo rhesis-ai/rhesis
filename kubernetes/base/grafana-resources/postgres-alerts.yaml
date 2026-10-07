@@ -28,7 +28,10 @@ spec:
       condition: B
       for: 2m
       noDataState: OK
-      execErrState: Error
+      # KeepLast, not Error: a GKE node upgrade moves Prometheus, and a few
+      # minutes of failed queries paged under this title as if Postgres were full.
+      # "Prometheus unreachable" in basic-alerts.yaml pages on a real outage.
+      execErrState: KeepLast
       data:
         - refId: A
           datasourceUid: prometheus
@@ -42,7 +45,10 @@ spec:
             # so the primary is judged against its own limit. Filtered by
             # namespace: the PodMonitor does not copy cnpg.io/* pod labels onto
             # the series, and the rhesis namespace holds one CNPG cluster.
-            expr: sum by (pod) (cnpg_backends_total{namespace="rhesis"}) / on (pod) group_left () cnpg_pg_settings_setting{namespace="rhesis", name="max_connections"}
+            # `max by (pod)`: after a pod restart with a new IP, the old and new
+            # series overlap for a few minutes, and a bare `on (pod)` join errors
+            # on the duplicate.
+            expr: sum by (pod) (cnpg_backends_total{namespace="rhesis"}) / on (pod) group_left () max by (pod) (cnpg_pg_settings_setting{namespace="rhesis", name="max_connections"})
             instant: true
             refId: A
         - refId: B
