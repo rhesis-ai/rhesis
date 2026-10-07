@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
+import { Box } from '@mui/material';
 import AuthErrorBoundary from './error-boundary';
 import VerificationBanner from '@/components/auth/VerificationBanner';
 import QuotaBanner from '@/components/auth/QuotaBanner';
@@ -118,9 +119,13 @@ export function ProtectedLayoutClient({
                 )}
                 {/* Hard gate: wraps the banners and chromeless routes too. */}
                 <ModelSetupGate hasOrganization={hasOrganization}>
-                  {!isOnboarding && !chromeless && <VerificationBanner />}
-                  {!isOnboarding && !chromeless && <SetPasswordBanner />}
-                  {!isOnboarding && !chromeless && <QuotaBanner />}
+                  {!isOnboarding && !chromeless && (
+                    <Box sx={{ '& > * + *': { display: 'none' } }}>
+                      <QuotaBanner />
+                      <VerificationBanner />
+                      <SetPasswordBanner />
+                    </Box>
+                  )}
                   {content}
                 </ModelSetupGate>
               </NotificationsProvider>

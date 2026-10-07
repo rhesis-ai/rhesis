@@ -206,7 +206,7 @@ class UserSettingsRead(UserSettingsOutput):
         "(e.g. polyphemus:request).",
     )
     has_password: bool = Field(
-        False,
+        ...,
         description="Whether the user has a password set (vs. OAuth/magic-link/SSO-only login).",
     )
     provider_type: Optional[str] = Field(
