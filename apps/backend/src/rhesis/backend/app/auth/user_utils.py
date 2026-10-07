@@ -21,7 +21,7 @@ from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.crud.token import get_token_by_value
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.provenance import ActorType, record_credential
+from rhesis.backend.app.provenance import ActorType, record_credential, record_delegation
 from rhesis.backend.app.schemas import UserCreate
 
 logger = logging.getLogger(__name__)
@@ -345,6 +345,8 @@ async def get_authenticated_user_with_context(
                 scope_capabilities = capabilities_for_oauth_scope(payload.get("scope"))
                 if scope_capabilities is not None:
                     setattr(request.state, REQUEST_STATE_API_TOKEN_SCOPES, scope_capabilities)
+            if payload.get("type") == "service_delegation":
+                record_delegation(request, payload.get("target_service"))
 
             request.state.user = jwt_user
             return jwt_user

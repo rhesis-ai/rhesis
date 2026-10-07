@@ -10,13 +10,18 @@ and the actor is read when asked rather than when the session opens, because
 some routes open their session before authentication has run. Celery jobs bind
 a fixed provenance instead (``bind_job_provenance``).
 
-The channel is what the client says it is (``X-Rhesis-Client``). It helps people
-read the log; it is not evidence. Actor and credential are the authoritative
-fields.
+The ``web`` and ``sdk`` channels are what the client says it is
+(``X-Rhesis-Client``); they help people read the log but are not evidence. The
+``mcp`` and ``architect`` channels can't be claimed from outside: ``architect``
+comes from the Architect's signed delegation token, and either is accepted from
+the header only on a call that carries this process's in-process secret. Actor
+and credential are the authoritative fields.
 """
 
 from __future__ import annotations
 
+import hmac
+import secrets
 from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import Enum
@@ -28,6 +33,11 @@ from rhesis.backend.app.utils.rate_limit import CLIENT_IP_HEADER, get_real_ip
 from rhesis.backend.app.utils.request_context import request_id_of
 
 CLIENT_HEADER = "X-Rhesis-Client"
+IN_PROCESS_HEADER = "X-Rhesis-In-Process"
+
+# Proves a call came from inside this process (MCP, the Architect's tools). Never
+# leaves the process, so nothing outside it can produce a matching header.
+_IN_PROCESS_SECRET = secrets.token_urlsafe(32)
 
 _REQUEST_KEY = "_provenance_request"
 _PROVENANCE_KEY = "_provenance"
@@ -36,6 +46,7 @@ _PROVENANCE_KEY = "_provenance"
 _STATE_ACTOR_TYPE = "provenance_actor_type"
 _STATE_CREDENTIAL_ID = "provenance_credential_id"
 _STATE_CREDENTIAL_HINT = "provenance_credential_hint"
+_STATE_CHANNEL = "provenance_channel"
 
 _current_request: ContextVar[Optional[HTTPConnection]] = ContextVar(
     "provenance_request", default=None
@@ -65,8 +76,10 @@ class Channel(str, Enum):
         return self.value
 
 
-# What a client may claim in X-Rhesis-Client; anything else counts as plain API.
-_CLAIMABLE_CHANNELS = frozenset({Channel.WEB, Channel.SDK, Channel.MCP, Channel.ARCHITECT})
+# What any client may claim in X-Rhesis-Client; anything else counts as plain API.
+_CLAIMABLE_CHANNELS = frozenset({Channel.WEB, Channel.SDK})
+# Claimable only by an in-process call.
+_IN_PROCESS_CHANNELS = frozenset({Channel.MCP, Channel.ARCHITECT})
 
 
 @dataclass(frozen=True)
@@ -80,6 +93,12 @@ class RequestProvenance:
     user_agent: Optional[str]
     request_id: Optional[str]
     job_id: Optional[str] = None
+
+
+def record_delegation(request: HTTPConnection, target_service: Optional[str]) -> None:
+    """Note a service delegation token. One aimed at the backend is the Architect's."""
+    if target_service == "backend":
+        setattr(request.state, _STATE_CHANNEL, Channel.ARCHITECT)
 
 
 def record_credential(
@@ -114,11 +133,23 @@ def resolve_provenance(request: HTTPConnection) -> RequestProvenance:
 
 
 def client_channel(request: HTTPConnection) -> Channel:
+    derived = getattr(request.state, _STATE_CHANNEL, None)
+    if derived is not None:
+        return derived
     try:
         claimed = Channel(request.headers.get(CLIENT_HEADER, "").strip().lower())
     except ValueError:
         return Channel.API
-    return claimed if claimed in _CLAIMABLE_CHANNELS else Channel.API
+    if claimed in _CLAIMABLE_CHANNELS:
+        return claimed
+    if claimed in _IN_PROCESS_CHANNELS and _is_in_process(request):
+        return claimed
+    return Channel.API
+
+
+def _is_in_process(request: HTTPConnection) -> bool:
+    presented = request.headers.get(IN_PROCESS_HEADER, "")
+    return hmac.compare_digest(presented.encode(), _IN_PROCESS_SECRET.encode())
 
 
 def in_process_headers(channel: Channel, request: Optional[HTTPConnection] = None) -> dict:
@@ -127,7 +158,7 @@ def in_process_headers(channel: Channel, request: Optional[HTTPConnection] = Non
     The inner call is a new request from 127.0.0.1, so the original client's IP,
     user agent and request id are passed on with it.
     """
-    headers = {CLIENT_HEADER: channel.value}
+    headers = {CLIENT_HEADER: channel.value, IN_PROCESS_HEADER: _IN_PROCESS_SECRET}
     if request is not None:
         headers[CLIENT_IP_HEADER] = get_real_ip(request)
         user_agent = request.headers.get("user-agent")

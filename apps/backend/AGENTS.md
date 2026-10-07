@@ -132,7 +132,9 @@ finally:
 credential, client channel (`X-Rhesis-Client`), IP, user agent, request id. Request sessions get it
 from the request (`ProvenanceMiddleware` + `get_db()`); `BaseJob.get_db_session` binds a `system`
 one for jobs. A backend call made in-process on someone's behalf (MCP, the Architect's tools) sends
-`in_process_headers(...)` so the original client is not lost.
+`in_process_headers(...)` so the original client is not lost; it carries a per-process secret,
+which is the only way to claim the `mcp` or `architect` channel. `web` and `sdk` are just what the
+client says.
 
 ### Kill switch
 

@@ -139,6 +139,11 @@ _SENSITIVE_PATTERNS = [
         ),
         r"\1[REDACTED]",
     ),
+    # The in-process secret (app/provenance.py), should a header dict get logged.
+    (
+        re.compile(rf"(x-rhesis-in-process{_SEP})[\w\-]+", re.IGNORECASE),
+        r"\1[REDACTED]",
+    ),
     # A Bearer token with no header name in reach -- rest_invoker logs whole
     # header dicts, and nesting puts the token well away from any name.
     (
