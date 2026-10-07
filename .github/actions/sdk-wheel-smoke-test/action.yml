@@ -1,5 +1,5 @@
 name: SDK Wheel Smoke Test
-description: Build both wheels and prove they install, import and work
+description: Build both wheels once, then prove the core and [all] installs work
 
 inputs:
   python-version:
@@ -33,21 +33,31 @@ runs:
         (cd packages/rhesis && python -m build)
         (cd sdk && python -m build)
 
-    # The SDK wheel depends on `rhesis[telemetry]`, so installing it on its own
-    # would pull the published rhesis from PyPI and quietly test that instead of
-    # the wheel built above.
-    - name: Install both wheels into a fresh venv
+    # Each install gets its own fresh venv and a fresh resolve from PyPI, so an
+    # undeclared core dependency or an unbounded [all] one breaks here first.
+    # The rhesis wheel goes in by path both times: the SDK depends on
+    # `rhesis[telemetry]`, and on its own it would pull the published rhesis.
+    - name: Smoke test the core install
       shell: bash
       run: |
-        venv="$RUNNER_TEMP/smoke-venv"
+        venv="$RUNNER_TEMP/smoke-venv-core"
         uv venv --python ${{ inputs.python-version }} "$venv"
         uv pip install --python "$venv/bin/python" \
           packages/rhesis/dist/*.whl \
           sdk/dist/*.whl
-
-    - name: Smoke test the installed wheels
-      shell: bash
-      run: |
-        "$RUNNER_TEMP/smoke-venv/bin/python" scripts/sdk_wheel_smoke_test.py \
+        "$venv/bin/python" scripts/sdk_wheel_smoke_test.py --profile core \
           packages/rhesis/dist/*.whl \
           sdk/dist/*.whl
+
+    - name: Smoke test the [all] install
+      shell: bash
+      run: |
+        venv="$RUNNER_TEMP/smoke-venv-all"
+        sdk_wheel=$(echo sdk/dist/*.whl)
+        uv venv --python ${{ inputs.python-version }} "$venv"
+        uv pip install --python "$venv/bin/python" \
+          packages/rhesis/dist/*.whl \
+          "${sdk_wheel}[all]"
+        "$venv/bin/python" scripts/sdk_wheel_smoke_test.py --profile all \
+          packages/rhesis/dist/*.whl \
+          "$sdk_wheel"
