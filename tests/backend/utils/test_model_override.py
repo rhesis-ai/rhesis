@@ -191,7 +191,8 @@ class TestResolveModelAlwaysReturnsAModel:
 
         detail = str(exc_info.value)
         assert "my-hf-model" in detail
-        assert "HuggingFace dependencies are not installed" in detail
+        assert "needs a package" in detail
+        assert "HuggingFace dependencies are not installed" not in detail
 
 
 @pytest.mark.unit

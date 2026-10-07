@@ -5,7 +5,11 @@ import asyncio
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from rhesis.backend.app.utils.model_errors import ModelConfigurationError, describe_model_error
+from rhesis.backend.app.utils.model_errors import (
+    ModelConfigurationError,
+    describe_model_error,
+    model_setup_message,
+)
 
 KEY = "sk-live-0123456789abcdefSECRET"
 
@@ -27,6 +31,14 @@ def _validation_error() -> ValidationError:
     raise AssertionError("expected a ValidationError")
 
 
+def _context_window_error() -> Exception:
+    from litellm import ContextWindowExceededError
+
+    return ContextWindowExceededError(
+        message=f"maximum context length exceeded for key {KEY}", model="m", llm_provider="openai"
+    )
+
+
 @pytest.mark.parametrize(
     "error, expected",
     [
@@ -41,6 +53,7 @@ def _validation_error() -> ValidationError:
         (ValueError(f"invalid JSON: {KEY}"), "expected format"),
         (ModelConfigurationError(f"User model initialization failed: {KEY}"), "set up correctly"),
         (RuntimeError(f"Authorization: Bearer {KEY}"), "failed (RuntimeError)"),
+        (_context_window_error(), "too long for this model"),
     ],
 )
 def test_describes_the_failure_without_the_providers_text(error, expected):
@@ -49,3 +62,16 @@ def test_describes_the_failure_without_the_providers_text(error, expected):
     assert expected in description
     assert KEY not in description
     assert "SECRET" not in description
+
+
+def test_setup_message_passes_on_our_own_wording():
+    cause = ModelConfigurationError("Your configured model 'Mine' needs an API key.")
+
+    assert model_setup_message("evaluation", cause) == cause.message
+
+
+def test_setup_message_replaces_anything_else():
+    message = model_setup_message("generation", ValueError(f"RHESIS_API_KEY={KEY}"))
+
+    assert message.startswith("No usable generation model is set up.")
+    assert KEY not in message

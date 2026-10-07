@@ -30,7 +30,7 @@ from rhesis.backend.app.services.generation import (
     generate_tests_stream,
 )
 from rhesis.backend.app.services.streaming_utils import IncrementalConfigParser, ndjson
-from rhesis.backend.app.utils.model_errors import ModelConfigurationError
+from rhesis.backend.app.utils.model_errors import ModelConfigurationError, model_setup_message
 from rhesis.backend.app.utils.user_model_utils import (
     ensure_language_model,
     resolve_model,
@@ -71,10 +71,7 @@ def _resolve_config_llm(db: Session, user: User):
     try:
         return resolve_model(db, user, "generation")
     except ValueError as e:
-        raise ModelConfigurationError(
-            f"User model initialization failed: {e}",
-            original_error=e,
-        ) from e
+        raise ModelConfigurationError(model_setup_message("generation", e), original_error=e) from e
 
 
 def _fetch_db_context(
