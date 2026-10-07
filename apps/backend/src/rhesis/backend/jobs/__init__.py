@@ -109,8 +109,9 @@ def _tenant_headers(current_user, db) -> dict:
     # Lets the job's writes point back at the request that started it.
     from rhesis.backend.app.utils.request_context import get_request_id
 
-    if get_request_id():
-        headers["request_id"] = get_request_id()
+    request_id = get_request_id()
+    if request_id:
+        headers["request_id"] = request_id
 
     return headers
 

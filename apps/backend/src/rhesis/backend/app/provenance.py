@@ -114,11 +114,11 @@ def resolve_provenance(request: HTTPConnection) -> RequestProvenance:
 
 
 def client_channel(request: HTTPConnection) -> Channel:
-    claimed = request.headers.get(CLIENT_HEADER, "").strip().lower()
-    for channel in _CLAIMABLE_CHANNELS:
-        if claimed == channel.value:
-            return channel
-    return Channel.API
+    try:
+        claimed = Channel(request.headers.get(CLIENT_HEADER, "").strip().lower())
+    except ValueError:
+        return Channel.API
+    return claimed if claimed in _CLAIMABLE_CHANNELS else Channel.API
 
 
 def in_process_headers(channel: Channel, request: Optional[HTTPConnection] = None) -> dict:
@@ -137,10 +137,6 @@ def in_process_headers(channel: Channel, request: Optional[HTTPConnection] = Non
         if request_id:
             headers["X-Request-ID"] = request_id
     return headers
-
-
-def current_request() -> Optional[HTTPConnection]:
-    return _current_request.get()
 
 
 def attach_current_request(session) -> None:
