@@ -572,13 +572,9 @@ def query_traces(
     """
     Query traces with filters and eager load nested relationships.
 
-    Returns a list of TraceRow named tuples, each containing:
-      - trace:      the Trace ORM object
-      - span_count: number of spans belonging to this trace
-      - total:      total matching rows *before* LIMIT/OFFSET (for pagination)
-
-    The total count is computed via a SQL window function (COUNT(*) OVER())
-    inside the same query, so callers don't need a separate count query.
+    Returns a list of ``TraceRow`` (see its fields above). ``total`` is the
+    matching row count before LIMIT/OFFSET, for pagination, computed with a SQL
+    window function (COUNT(*) OVER()) in the same query.
 
     When root_spans_only=True, conversation traces that share a trace_id
     across multiple turns are deduplicated — only the latest turn's root
