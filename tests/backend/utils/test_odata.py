@@ -5,8 +5,6 @@ value with its declared type, so a UUID column compared with a literal reached
 Postgres as ``uuid = varchar`` and failed.
 """
 
-import uuid
-
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Query
@@ -14,7 +12,7 @@ from sqlalchemy.orm import Query
 from rhesis.backend.app import models
 from rhesis.backend.app.utils.odata import apply_odata_filter
 
-OTHER = str(uuid.uuid4())
+OTHER = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 
 
 def _compiled(filter_expr: str) -> str:

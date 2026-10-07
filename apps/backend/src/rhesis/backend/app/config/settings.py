@@ -36,7 +36,7 @@ class DatabaseSettings(BaseSettings):
     def _name_the_postgres_driver(cls, value: str) -> str:
         # A bare "postgresql" means psycopg2 to SQLAlchemy 2.0 and psycopg 3 to 2.1,
         # and only psycopg 3 is installed, so existing env files keep working.
-        if value.split("+", 1)[0] in ("postgresql", "postgres"):
+        if value in ("postgresql", "postgres", "postgresql+psycopg2"):
             return POSTGRES_DRIVER
         return value
 

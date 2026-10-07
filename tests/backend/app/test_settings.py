@@ -304,6 +304,7 @@ def test_database_settings_unix_socket_url(clean_database_env, monkeypatch):
         ("postgres", "postgresql+psycopg"),
         ("postgresql+psycopg2", "postgresql+psycopg"),
         ("postgresql+psycopg", "postgresql+psycopg"),
+        ("postgresql+asyncpg", "postgresql+asyncpg"),
         ("sqlite", "sqlite"),
     ],
 )
