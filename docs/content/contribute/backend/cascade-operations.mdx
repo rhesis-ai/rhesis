@@ -36,7 +36,7 @@ Adding a relationship is config-only — no CRUD or service code changes. Set `c
 
 ## How it works
 
-`delete_item` and `restore_item` call the cascade service (`services/cascade.py`), which reads the config and issues a single bulk `UPDATE` per child relationship (`deleted_at = now()` on delete, `deleted_at = NULL` on restore) rather than loading objects. Child updates and the parent change commit together, so a failure rolls back everything.
+`delete_item` and `restore_item` call the cascade module (`crud/cascade.py`), which reads the config and issues a single bulk `UPDATE` per child relationship (`deleted_at = now()` on delete, `deleted_at = NULL` on restore) rather than loading objects. Child updates and the parent change commit together, so a failure rolls back everything.
 
 Organization filtering is applied automatically when the child model has an `organization_id`, preventing cross-org cascades.
 

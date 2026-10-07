@@ -13,6 +13,11 @@ Layering is routers → services → crud, and the same "split, don't grow" rule
 a router means its business logic moves into a service; touching a service means its SQL moves into
 `crud/`. No SQL in routers.
 
+Explicit writes (`add`, `delete`, `merge`, Core `insert`/`update`/`delete`, raw DML) live in the
+CRUD layer, and bulk updates and deletes go through `crud_utils.bulk_update`/`bulk_delete`, which
+return the ids they touched; a legacy `Query.update()`/`.delete()` only returns a count.
+`tests/backend/test_crud_write_boundary.py` enforces both. Its allowlist only shrinks.
+
 Import the function directly — `from rhesis.backend.app.crud.explorer import
 set_explorer_test_outputs`. Reaching through the parent (`from rhesis.backend.app import crud`, then
 `crud.explorer.foo()`) raises `AttributeError` unless some other module happens to have imported the

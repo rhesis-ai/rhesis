@@ -9,12 +9,13 @@ otherwise the same query, except that ``get_source_with_content`` lets the calle
 ``include_deleted`` through to ``_check_and_raise_if_deleted`` while ``get_source`` always
 rejects soft-deleted rows.
 
-``create_chunk`` lives here because a ``Chunk`` only exists as a piece of one source. It is
-the only chunk helper with a caller (``ChunkingService``); the update/delete/get variants
-were never used and were removed rather than carried over in the split.
+The chunk helpers live here because a ``Chunk`` only exists as a piece of one source.
+``ChunkingService`` is their only caller; get/update variants were never used and were
+removed rather than carried over in the split.
 """
 
 import uuid
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
@@ -22,6 +23,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.utils.crud_utils import (
     bulk_delete_by_ids,
+    bulk_update,
     create_item,
     delete_item,
     get_item_detail,
@@ -164,3 +166,14 @@ def create_chunk(
 ) -> models.Chunk:
     """Create chunk."""
     return create_item(db, models.Chunk, chunk, organization_id=organization_id, user_id=user_id)
+
+
+def soft_delete_source_chunks(db: Session, source_id: uuid.UUID) -> List[uuid.UUID]:
+    """Soft delete every live chunk of a source, before it is chunked again."""
+    now = datetime.now(timezone.utc)
+    return bulk_update(
+        db,
+        models.Chunk,
+        [models.Chunk.source_id == source_id, models.Chunk.deleted_at.is_(None)],
+        {"deleted_at": now, "updated_at": now},
+    )

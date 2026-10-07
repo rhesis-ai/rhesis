@@ -4,7 +4,7 @@ import logging
 import uuid
 from typing import Dict, List, Optional
 
-from sqlalchemy import and_
+from sqlalchemy import and_, delete, insert
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
@@ -339,6 +339,47 @@ def bulk_delete_test_sets(
         organization_id=organization_id,
         user_id=user_id,
     )
+
+
+def add_tests_to_test_set(
+    db: Session,
+    test_set_id: uuid.UUID,
+    test_ids: List[uuid.UUID],
+    organization_id: str | uuid.UUID,
+    user_id: str | uuid.UUID,
+) -> List[uuid.UUID]:
+    """Link tests to a test set and return the linked test ids.
+
+    The caller filters out tests that are already linked; a duplicate violates
+    the association's primary key.
+    """
+    if not test_ids:
+        return []
+    association = models.test_test_set_association
+    rows = [
+        {
+            "test_id": test_id,
+            "test_set_id": test_set_id,
+            "organization_id": organization_id,
+            "user_id": user_id,
+        }
+        for test_id in test_ids
+    ]
+    return list(db.scalars(insert(association).returning(association.c.test_id), rows))
+
+
+def remove_tests_from_test_set(
+    db: Session,
+    test_set_id: uuid.UUID,
+    test_ids: List[uuid.UUID],
+    organization_id: str | uuid.UUID | None = None,
+) -> List[uuid.UUID]:
+    """Unlink tests from a test set and return the unlinked test ids."""
+    association = models.test_test_set_association
+    criteria = [association.c.test_set_id == test_set_id, association.c.test_id.in_(test_ids)]
+    if organization_id is not None:
+        criteria.append(association.c.organization_id == organization_id)
+    return list(db.scalars(delete(association).where(*criteria).returning(association.c.test_id)))
 
 
 def user_test_set_exists(db: Session, organization_id: str) -> bool:

@@ -12,6 +12,8 @@ from rhesis.backend.app.constants import (
     ERROR_BULK_CREATE_FAILED,
     EntityType,
 )
+from rhesis.backend.app.crud import test as test_crud
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.validators import resolve_test_type
@@ -337,17 +339,10 @@ def bulk_create_test_set_associations(
     if to_associate:
         for i in range(0, len(to_associate), batch_size):
             batch = list(to_associate)[i : i + batch_size]
-            association_records = [
-                {
-                    "test_id": test_id,
-                    "test_set_id": test_set_id,
-                    "organization_id": organization_id,
-                    "user_id": user_id,
-                }
-                for test_id in batch
-            ]
-            db.execute(test_test_set_association.insert(), association_records)
-            new_associations_count += len(batch)
+            linked = test_set_crud.add_tests_to_test_set(
+                db, test_set_id, batch, organization_id, user_id
+            )
+            new_associations_count += len(linked)
             db.flush()
 
     message = _build_response_message(
@@ -861,9 +856,7 @@ def bulk_create_tests(
                 test_params["test_metadata"] = test_params.pop("metadata")
 
             try:
-                test = models.Test(**test_params)
-                db.add(test)
-                _pending_tests.append(test)
+                _pending_tests.append(test_crud.stage_test(db, test_params))
             except Exception as model_error:
                 logger.error(
                     "bulk_create_tests - Failed to create Test model for test %s: %s",
@@ -1072,16 +1065,9 @@ def remove_test_set_associations(
                 "message": "None of the provided test IDs are associated with this test set",
             }
 
-        # Delete associations
-        result = db.execute(
-            test_test_set_association.delete().where(
-                test_test_set_association.c.test_set_id == test_set_id,
-                test_test_set_association.c.test_id.in_(test_ids),
-                test_test_set_association.c.organization_id == organization_id,
-            )
+        removed_count = len(
+            test_set_crud.remove_tests_from_test_set(db, test_set_id, test_ids, organization_id)
         )
-
-        removed_count = result.rowcount
 
         # Build detailed message
         message = f"Successfully removed {removed_count} test associations"

@@ -232,7 +232,6 @@ def append_version(
     # Python identity stays the same.
     locked.versions = [*versions, new_entry]
     locked.update_count = (locked.update_count or 0) + 1
-    db.add(locked)
     db.commit()
     db.refresh(locked)
     return AppendResult(version=new_entry, created=True)
@@ -337,7 +336,6 @@ def bind_environment(
     new_map = dict(current.environments)
     new_map[environment_name] = pointer
     project.parameter_environments = ProjectEnvironments(environments=new_map)
-    db.add(project)
     db.commit()
     db.refresh(project)
     return _coerce_environments(project)
@@ -392,7 +390,6 @@ def register_environment(
     new_map: dict[str, Any] = dict(current.environments)
     new_map[environment_name] = None
     project.parameter_environments = ProjectEnvironments(environments=new_map)
-    db.add(project)
     db.commit()
     db.refresh(project)
     return _coerce_environments(project)
@@ -409,7 +406,6 @@ def unbind_environment(
     new_map = dict(current.environments)
     new_map.pop(environment_name, None)
     project.parameter_environments = ProjectEnvironments(environments=new_map)
-    db.add(project)
     db.commit()
     db.refresh(project)
     return _coerce_environments(project)

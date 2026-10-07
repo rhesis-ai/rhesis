@@ -16,10 +16,14 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.constants import EntityType, MetricBackendType
+from rhesis.backend.app.constants import MetricBackendType
+from rhesis.backend.app.crud import metric as metric_crud
+from rhesis.backend.app.crud import tag as tag_crud
 from rhesis.backend.app.models.metric import Metric
-from rhesis.backend.app.models.test_set import TestSet, test_set_metric_association
+from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas import test_set as test_set_schemas
+from rhesis.backend.app.schemas.tag import EntityType as TagEntityType
+from rhesis.backend.app.schemas.tag import TagCreate
 from rhesis.backend.app.services.test_set import bulk_create_test_set
 
 from .probes import GarakProbeInfo, GarakProbeService
@@ -401,26 +405,9 @@ class GarakImporter:
         user_id: str,
     ) -> None:
         """Associate a metric with a test set."""
-        org_uuid = UUID(organization_id)
-        user_uuid = UUID(user_id)
-
-        # Check if association already exists
-        existing = self.db.execute(
-            test_set_metric_association.select().where(
-                test_set_metric_association.c.test_set_id == test_set.id,
-                test_set_metric_association.c.metric_id == metric.id,
-            )
-        ).first()
-
-        if not existing:
-            self.db.execute(
-                test_set_metric_association.insert().values(
-                    test_set_id=test_set.id,
-                    metric_id=metric.id,
-                    organization_id=org_uuid,
-                    user_id=user_uuid,
-                )
-            )
+        metric_crud.add_metric_to_test_set(
+            self.db, test_set.id, metric.id, UUID(user_id), UUID(organization_id)
+        )
 
     def _tag_garak_requirements(
         self,
@@ -432,51 +419,26 @@ class GarakImporter:
 
         Requirements are shared across probes/test sets (e.g. many probes resolve to the
         same ``Garak (...)`` requirement), so this can run multiple times against the same
-        requirement within one import call. We check for an existing ``TaggedItem`` by its
-        unique-constraint keys (not the possibly-stale ``requirement.tags`` relationship)
-        and flush immediately after inserting, so a later iteration in the same session
-        sees it and skips re-inserting -- avoiding a ``uq_tagged_item_assignment``
-        violation.
+        requirement within one import call. ``assign_tag`` looks up the ``TaggedItem`` by
+        its unique-constraint keys (not the possibly-stale ``requirement.tags``
+        relationship) and flushes after inserting, so a repeat skips re-inserting and
+        never trips ``uq_tagged_item_assignment``.
         """
-        from rhesis.backend.app.models.tag import Tag, TaggedItem
-
-        tag = self.db.query(Tag).filter_by(name="garak", organization_id=organization_id).first()
-        if not tag:
-            tag = Tag(name="garak", organization_id=organization_id, user_id=user_id)
-            self.db.add(tag)
-            self.db.flush()
-
+        tag = TagCreate(name="garak", organization_id=organization_id, user_id=user_id)
         seen_requirement_ids: set = set()
         for test in test_set.tests:
             if not test.requirement_id or test.requirement_id in seen_requirement_ids:
                 continue
             seen_requirement_ids.add(test.requirement_id)
-
-            already_tagged = (
-                self.db.query(TaggedItem)
-                .filter_by(
-                    tag_id=tag.id,
-                    entity_id=test.requirement_id,
-                    # TaggedItem.entity_type is a plain String column with no
-                    # normalization at this call site -- use .value explicitly, a
-                    # bare enum would write "EntityType.REQUIREMENT" into the column.
-                    entity_type=EntityType.REQUIREMENT.value,
-                    organization_id=organization_id,
-                )
-                .first()
-            )
-            if already_tagged:
-                continue
-
-            tagged_item = TaggedItem(
-                tag_id=tag.id,
-                entity_id=test.requirement_id,
-                entity_type=EntityType.REQUIREMENT.value,
+            # Creates the tag on first use and skips requirements already tagged.
+            tag_crud.assign_tag(
+                self.db,
+                tag,
+                test.requirement_id,
+                TagEntityType.REQUIREMENT,
                 organization_id=organization_id,
                 user_id=user_id,
             )
-            self.db.add(tagged_item)
-            self.db.flush()
 
     def get_import_preview(
         self,

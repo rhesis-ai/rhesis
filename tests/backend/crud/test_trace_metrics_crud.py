@@ -1,7 +1,7 @@
 """Unit tests for trace metrics CRUD helpers."""
 
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -17,28 +17,31 @@ from rhesis.backend.app.crud.telemetry import (
 class TestUpdateTraceTurnMetrics:
     """Tests for update_trace_turn_metrics."""
 
-    def test_updates_single_span(self):
+    @staticmethod
+    def _db_with_span(trace_metrics):
         db = MagicMock(spec=Session)
-        span_id = str(uuid4())
+        span = MagicMock()
+        span.trace_metrics = trace_metrics
+        db.query.return_value.filter.return_value.first.return_value = span
+        return db
+
+    @staticmethod
+    def _patched_bulk_update():
+        return patch(
+            "rhesis.backend.app.crud.telemetry.bulk_update",
+            side_effect=lambda *args, **kwargs: [uuid4()],
+        )
+
+    def test_updates_single_span(self):
+        db = self._db_with_span(None)
         turn_metrics = {"latency_ms": 42}
 
-        span = MagicMock()
-        span.trace_metrics = None
-
-        chain_first = MagicMock()
-        chain_first.first.return_value = span
-        chain_update = MagicMock()
-        chain_update.update.return_value = 1
-
-        mock_query = MagicMock()
-        mock_query.filter.side_effect = [chain_first, chain_update]
-        db.query.return_value = mock_query
-
-        result = update_trace_turn_metrics(db, span_id, turn_metrics)
+        with self._patched_bulk_update() as bulk_update:
+            result = update_trace_turn_metrics(db, str(uuid4()), turn_metrics)
 
         assert result == 1
-        chain_update.update.assert_called_once()
-        update_values = chain_update.update.call_args[0][0]
+        bulk_update.assert_called_once()
+        update_values = bulk_update.call_args.args[3]
         assert update_values["trace_metrics"] == {"turn_metrics": turn_metrics}
         assert "trace_metrics_processed_at" in update_values
         assert "updated_at" in update_values
@@ -46,26 +49,14 @@ class TestUpdateTraceTurnMetrics:
         db.commit.assert_called_once()
 
     def test_preserves_conversation_metrics(self):
-        db = MagicMock(spec=Session)
-        span_id = str(uuid4())
-        turn_metrics = {"new": 1}
         preserved = {"conv": "data"}
+        turn_metrics = {"new": 1}
+        db = self._db_with_span({"conversation_metrics": preserved})
 
-        span = MagicMock()
-        span.trace_metrics = {"conversation_metrics": preserved}
+        with self._patched_bulk_update() as bulk_update:
+            update_trace_turn_metrics(db, str(uuid4()), turn_metrics)
 
-        chain_first = MagicMock()
-        chain_first.first.return_value = span
-        chain_update = MagicMock()
-        chain_update.update.return_value = 1
-
-        mock_query = MagicMock()
-        mock_query.filter.side_effect = [chain_first, chain_update]
-        db.query.return_value = mock_query
-
-        update_trace_turn_metrics(db, span_id, turn_metrics)
-
-        update_values = chain_update.update.call_args[0][0]
+        update_values = bulk_update.call_args.args[3]
         assert update_values["trace_metrics"]["conversation_metrics"] == preserved
         assert update_values["trace_metrics"]["turn_metrics"] == turn_metrics
 
@@ -85,25 +76,13 @@ class TestUpdateTraceTurnMetrics:
         db.commit.assert_not_called()
 
     def test_sets_status_id(self):
-        db = MagicMock(spec=Session)
-        span_id = str(uuid4())
+        db = self._db_with_span(None)
         status_id = str(uuid4())
 
-        span = MagicMock()
-        span.trace_metrics = None
+        with self._patched_bulk_update() as bulk_update:
+            update_trace_turn_metrics(db, str(uuid4()), {"k": "v"}, status_id=status_id)
 
-        chain_first = MagicMock()
-        chain_first.first.return_value = span
-        chain_update = MagicMock()
-        chain_update.update.return_value = 1
-
-        mock_query = MagicMock()
-        mock_query.filter.side_effect = [chain_first, chain_update]
-        db.query.return_value = mock_query
-
-        update_trace_turn_metrics(db, span_id, {"k": "v"}, status_id=status_id)
-
-        update_values = chain_update.update.call_args[0][0]
+        update_values = bulk_update.call_args.args[3]
         assert update_values["trace_metrics_status_id"] == status_id
 
 

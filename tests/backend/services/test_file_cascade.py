@@ -9,14 +9,14 @@ annotations -- so these assert that ``File`` is *among* the children reached and
 derive the row count from the registry, rather than assuming it is the only one.
 """
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 from rhesis.backend.app import models
 from rhesis.backend.app.config.cascade_config import get_cascade_relationships
-from rhesis.backend.app.services.cascade import cascade_restore, cascade_soft_delete
+from rhesis.backend.app.crud.cascade import cascade_restore, cascade_soft_delete
 
-# What the mocked ``update()`` claims to have touched, per child relationship.
+# How many ids the patched ``bulk_update`` reports per child relationship.
 ROWS_PER_CHILD = 2
 
 
@@ -25,86 +25,64 @@ def _children(model, *, for_restore: bool = False) -> list:
     return [rel for rel in get_cascade_relationships(model) if getattr(rel, flag)]
 
 
-def _queried_models(db) -> list:
-    return [call.args[0] for call in db.query.call_args_list]
+def _patched_bulk_update(rows: int = ROWS_PER_CHILD):
+    return patch(
+        "rhesis.backend.app.crud.cascade.bulk_update",
+        side_effect=lambda *args, **kwargs: [uuid4() for _ in range(rows)],
+    )
+
+
+def _updated_models(bulk_update) -> list:
+    return [call.args[1] for call in bulk_update.call_args_list]
 
 
 class TestFileCascade:
     """Test cascade soft-delete and restore for File records."""
 
-    def _create_mock_db(self):
-        """Create a mock database session."""
-        db = MagicMock()
-        query_mock = MagicMock()
-        db.query.return_value = query_mock
-        query_mock.filter.return_value = query_mock
-        query_mock.update.return_value = ROWS_PER_CHILD
-        return db, query_mock
-
     def test_soft_delete_test_cascades_to_files(self):
         """Soft-deleting a Test cascades to its File records."""
-        db, query_mock = self._create_mock_db()
-        test_id = uuid4()
-        org_id = str(uuid4())
-
-        count = cascade_soft_delete(db, models.Test, test_id, org_id)
+        with _patched_bulk_update() as bulk_update:
+            count = cascade_soft_delete(MagicMock(), models.Test, uuid4(), str(uuid4()))
 
         # File is among the children reached, alongside annotations.
-        assert models.File in _queried_models(db)
-        # Should have filtered by entity_id and entity_type
-        assert query_mock.filter.called
+        assert models.File in _updated_models(bulk_update)
+        # Each child is filtered by its foreign key (and entity_type where polymorphic).
+        assert all(call.args[2] for call in bulk_update.call_args_list)
         assert count == ROWS_PER_CHILD * len(_children(models.Test))
 
     def test_restore_test_cascades_to_files(self):
         """Restoring a Test cascades to its File records."""
-        db, query_mock = self._create_mock_db()
-        test_id = uuid4()
-        org_id = str(uuid4())
-
-        count = cascade_restore(db, models.Test, test_id, org_id)
+        with _patched_bulk_update() as bulk_update:
+            count = cascade_restore(MagicMock(), models.Test, uuid4(), str(uuid4()))
 
         children = _children(models.Test, for_restore=True)
-        assert models.File in _queried_models(db)
-        assert query_mock.filter.called
+        assert models.File in _updated_models(bulk_update)
         # Restore sets deleted_at to None, once per child relationship.
-        assert query_mock.update.call_count == len(children)
-        for call in query_mock.update.call_args_list:
-            assert call.args[0]["deleted_at"] is None
+        assert bulk_update.call_count == len(children)
+        for call in bulk_update.call_args_list:
+            assert call.args[3]["deleted_at"] is None
         assert count == ROWS_PER_CHILD * len(children)
 
     def test_soft_delete_test_result_cascades_to_files(self):
         """Soft-deleting a TestResult cascades to its File records."""
-        db, _query_mock = self._create_mock_db()
-        result_id = uuid4()
-        org_id = str(uuid4())
+        with _patched_bulk_update() as bulk_update:
+            count = cascade_soft_delete(MagicMock(), models.TestResult, uuid4(), str(uuid4()))
 
-        count = cascade_soft_delete(db, models.TestResult, result_id, org_id)
-
-        assert models.File in _queried_models(db)
+        assert models.File in _updated_models(bulk_update)
         assert count == ROWS_PER_CHILD * len(_children(models.TestResult))
 
     def test_cascade_respects_entity_type(self):
         """Cascade filters include entity_type to avoid cross-entity effects."""
-        db = MagicMock()
-        query_mock = MagicMock()
-        db.query.return_value = query_mock
-        query_mock.filter.return_value = query_mock
-        query_mock.update.return_value = 0
+        with _patched_bulk_update(rows=0) as bulk_update:
+            cascade_soft_delete(MagicMock(), models.Test, uuid4())
 
-        test_id = uuid4()
-        cascade_soft_delete(db, models.Test, test_id)
-
-        # Verify filter was called - entity_type filter ensures isolation
-        filter_calls = query_mock.filter.call_args_list
-        assert len(filter_calls) >= 1
+        file_call = next(c for c in bulk_update.call_args_list if c.args[1] is models.File)
+        criteria = " ".join(str(c) for c in file_call.args[2])
+        assert "entity_type" in criteria
 
     def test_no_cascade_for_unconfigured_model(self):
         """Models without cascade config don't cascade."""
-        db = MagicMock()
-        model_id = uuid4()
-
-        # Organization has no cascade config for files
-        count = cascade_soft_delete(db, models.Organization, model_id)
+        with _patched_bulk_update() as bulk_update:
+            count = cascade_soft_delete(MagicMock(), models.Organization, uuid4())
         assert count == 0
-        # query should not be called for File
-        assert not db.query.called
+        assert not bulk_update.called

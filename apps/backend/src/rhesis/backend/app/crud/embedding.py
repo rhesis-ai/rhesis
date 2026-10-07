@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.utils.crud_utils import (
+    bulk_update,
     create_item,
     delete_item,
     get_item,
@@ -177,13 +178,15 @@ def mark_embeddings_stale(
     from rhesis.backend.app.scope import bypass_tenant_filter
 
     with bypass_tenant_filter():
-        return (
-            db.query(models.Embedding)
-            .filter(
+        ids = bulk_update(
+            db,
+            models.Embedding,
+            [
                 models.Embedding.entity_id == entity_id,
                 models.Embedding.entity_type == entity_type,
                 models.Embedding.organization_id == organization_id,
                 models.Embedding.status_id == active_status_id,
-            )
-            .update({"status_id": stale_status_id})
+            ],
+            {"status_id": stale_status_id},
         )
+        return len(ids)

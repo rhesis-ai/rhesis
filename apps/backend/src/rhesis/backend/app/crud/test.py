@@ -95,6 +95,13 @@ def create_test(
     return create_item(db, models.Test, test, organization_id, user_id)
 
 
+def stage_test(db: Session, params: Dict) -> models.Test:
+    """Add a test to the session without flushing, for bulk creation that flushes in batches."""
+    test = models.Test(**params)
+    db.add(test)
+    return test
+
+
 def update_test(
     db: Session,
     test_id: uuid.UUID,
@@ -157,7 +164,7 @@ def delete_test(
     The test is marked as deleted but remains in the database to preserve
     referential integrity with test runs, results, and other related data.
     """
-    from rhesis.backend.app.services import cascade as cascade_service
+    from rhesis.backend.app.crud import cascade as cascade_service
     from rhesis.backend.app.services.test_set import update_test_set_attributes
 
     # Get the test to be deleted

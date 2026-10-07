@@ -20,7 +20,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.models.test import Test, test_test_set_association
+from rhesis.backend.app.crud import test_set as test_set_crud
+from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas import test_set as test_set_schemas
 from rhesis.backend.app.services.test import bulk_create_tests
@@ -430,13 +431,7 @@ class GarakSyncService:
 
             probe_id = test.test_metadata.get("garak_probe_id")
             if probe_id and probe_id in probe_ids_to_remove:
-                # Remove test-testset association
-                self.db.execute(
-                    test_test_set_association.delete().where(
-                        test_test_set_association.c.test_id == test.id,
-                        test_test_set_association.c.test_set_id == test_set.id,
-                    )
-                )
+                test_set_crud.remove_tests_from_test_set(self.db, test_set.id, [test.id])
 
                 # Optionally delete the test itself if not associated with other test sets
                 # For now, we just remove the association
