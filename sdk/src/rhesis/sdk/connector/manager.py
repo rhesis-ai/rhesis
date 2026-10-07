@@ -7,6 +7,7 @@ import uuid
 from collections.abc import Callable, Coroutine
 from typing import Any
 
+from rhesis.sdk.config import backend_headers
 from rhesis.sdk.connector.connection import WebSocketConnection
 from rhesis.sdk.connector.executor import TestExecutor
 from rhesis.sdk.connector.registry import (
@@ -121,7 +122,7 @@ class ConnectorManager:
 
         ws_url = self._get_websocket_url()
 
-        headers = {"Authorization": f"Bearer {self.api_key}"}
+        headers = backend_headers(self.api_key)
         # Send project/env headers for backward compat with old backends
         if self.project_id:
             headers["X-Rhesis-Project"] = self.project_id

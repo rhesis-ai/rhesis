@@ -103,15 +103,13 @@ def get_base_url() -> str:
     return _get_config_value("base_url", base_url, "RHESIS_BASE_URL", DEFAULT_BASE_URL)
 
 
-def _sdk_version() -> str:
-    try:
-        return version("rhesis-sdk")
-    except PackageNotFoundError:
-        return "0.0.0"
-
+try:
+    SDK_VERSION = version("rhesis-sdk")
+except PackageNotFoundError:
+    SDK_VERSION = "0.0.0"  # fallback for development
 
 #: Identifies the SDK to the backend, whose audit log shows calls as coming from it.
-USER_AGENT = f"rhesis-sdk/{_sdk_version()}"
+USER_AGENT = f"rhesis-sdk/{SDK_VERSION}"
 
 
 def backend_headers(api_key: Optional[str]) -> Dict[str, str]:
