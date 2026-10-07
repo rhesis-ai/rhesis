@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rhesis.sdk.config import DEFAULT_API_TIMEOUT
+from rhesis.sdk.config import DEFAULT_API_TIMEOUT, backend_headers
 from rhesis.sdk.entities import Insights
 from rhesis.sdk.entities.test_result import TestResults
 from rhesis.sdk.entities.test_run import TestRun, TestRuns
@@ -45,10 +45,7 @@ def test_insights_get_sends_entity_group_by_measures_and_filters(mock_request, i
     mock_request.assert_called_once_with(
         method="GET",
         url="http://test:8000/insights",
-        headers={
-            "Authorization": "Bearer rh-test-token",
-            "Content-Type": "application/json",
-        },
+        headers={**backend_headers("rh-test-token"), "Content-Type": "application/json"},
         json=None,
         params={
             "entity": "test_result",
@@ -86,10 +83,7 @@ def test_insights_ids_hits_ids_endpoint_with_outcome(mock_request, insights_ids_
     mock_request.assert_called_once_with(
         method="GET",
         url="http://test:8000/insights/ids",
-        headers={
-            "Authorization": "Bearer rh-test-token",
-            "Content-Type": "application/json",
-        },
+        headers={**backend_headers("rh-test-token"), "Content-Type": "application/json"},
         json=None,
         params={"entity": "test_result", "test_run_ids": ["run-1"], "outcome": "fail"},
         timeout=DEFAULT_API_TIMEOUT,

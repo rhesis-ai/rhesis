@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rhesis.sdk.config import DEFAULT_API_TIMEOUT
+from rhesis.sdk.config import DEFAULT_API_TIMEOUT, backend_headers
 from rhesis.sdk.entities.test_configuration import TestConfiguration
 
 os.environ["RHESIS_BASE_URL"] = "http://test:8000"
@@ -63,10 +63,7 @@ def test_get_test_runs(mock_request, test_configuration):
     mock_request.assert_called_once_with(
         method="GET",
         url="http://test:8000/test_runs",
-        headers={
-            "Authorization": "Bearer rh-test-token",
-            "Content-Type": "application/json",
-        },
+        headers={**backend_headers("rh-test-token"), "Content-Type": "application/json"},
         json=None,
         params={"$filter": "test_configuration_id eq 'config-567'"},
         timeout=DEFAULT_API_TIMEOUT,
@@ -80,4 +77,3 @@ def test_get_test_runs_without_id(test_configuration_without_id):
     """Test get_test_runs raises ValueError when ID is None."""
     with pytest.raises(ValueError, match="Test configuration ID is required"):
         test_configuration_without_id.get_test_runs()
-

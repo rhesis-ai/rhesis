@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rhesis.sdk.config import DEFAULT_API_TIMEOUT
+from rhesis.sdk.config import DEFAULT_API_TIMEOUT, backend_headers
 from rhesis.sdk.entities.status import Status
 from rhesis.sdk.entities.test_result import TestResult
 
@@ -78,10 +78,7 @@ def test_pull_test_result_with_nested_status(mock_request, test_result_data):
     mock_request.assert_called_once_with(
         method="GET",
         url="http://test:8000/test_results/result-123",
-        headers={
-            "Authorization": "Bearer rh-test-token",
-            "Content-Type": "application/json",
-        },
+        headers={**backend_headers("rh-test-token"), "Content-Type": "application/json"},
         json=None,
         params=None,
         timeout=DEFAULT_API_TIMEOUT,
@@ -101,4 +98,3 @@ def test_test_result_model_dump_includes_status(test_result_with_status):
     assert dumped["status"] is not None
     assert dumped["status"]["name"] == "Passed"
     assert dumped["status"]["id"] == "status-678"
-
