@@ -168,9 +168,11 @@ class RhesisClient:
         try:
             import requests
 
+            from rhesis.sdk.config import backend_headers
+
             resp = requests.get(
                 f"{self._base_url.rstrip('/')}/tokens/current",
-                headers={"Authorization": f"Bearer {self.api_key}"},
+                headers=backend_headers(self.api_key),
                 timeout=2,
             )
             if resp.status_code == 200:
