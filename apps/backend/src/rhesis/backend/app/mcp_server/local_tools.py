@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
+from rhesis.backend.app.provenance import Channel, in_process_headers
 from rhesis.sdk.agents.base import MCPTool
 from rhesis.sdk.agents.constants import ToolMeta
 from rhesis.sdk.agents.schemas import ToolResult
@@ -108,7 +109,8 @@ class LocalToolProvider(MCPTool):
             raise ValueError(f"Tool not found: {tool_name}")
 
         arguments = dict(kwargs)
-        headers = {"Authorization": self._auth_header}
+        # The Architect's tool calls are labelled as such in the audit log.
+        headers = {"Authorization": self._auth_header, **in_process_headers(Channel.ARCHITECT)}
         if self._project_id:
             headers["X-Project-Id"] = self._project_id
 

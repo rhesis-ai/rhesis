@@ -50,6 +50,7 @@ from rhesis.backend.app.error_handlers import (
     log_validation_error,
     unhandled_exception_handler,
 )
+from rhesis.backend.app.provenance import ProvenanceMiddleware
 from rhesis.backend.app.quota.enforcement import QuotaExceededError, quota_exceeded_response_body
 from rhesis.backend.app.routers import routers
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
@@ -801,6 +802,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 # Outermost middleware -- runs first on every response
 app.add_middleware(SecurityHeadersMiddleware)
+
+# Inside RequestIDMiddleware, so the request id is on the scope when it runs.
+app.add_middleware(ProvenanceMiddleware)
 
 # Added last so it ends up outermost: every other middleware's log lines then
 # carry the request id too.

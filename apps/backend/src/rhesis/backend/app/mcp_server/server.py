@@ -22,6 +22,7 @@ from starlette.types import Receive, Scope, Send
 
 from rhesis.backend.app.auth.token_utils import get_secret_key
 from rhesis.backend.app.auth.user_utils import get_authenticated_user_with_context
+from rhesis.backend.app.provenance import Channel, in_process_headers
 
 from .tools import (
     annotate_write_count,
@@ -147,6 +148,7 @@ def _create_mcp_server(fastapi_app: Any) -> MCPServer:
                 )
                 if project_value:
                     headers["X-Project-Id"] = project_value
+                headers.update(in_process_headers(Channel.MCP, request))
         except LookupError:
             pass
 

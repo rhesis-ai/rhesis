@@ -76,6 +76,45 @@ __all__ = [
 ]
 
 
+def _tenant_headers(current_user, db) -> dict:
+    """Celery headers that carry the caller's tenant scope and request id to the worker."""
+    headers = {}
+    if current_user is not None:
+        if hasattr(current_user, "id") and current_user.id is not None:
+            headers["user_id"] = str(current_user.id)
+
+        if hasattr(current_user, "organization_id") and current_user.organization_id is not None:
+            headers["organization_id"] = str(current_user.organization_id)
+
+    # Forward project_id to the Celery worker so it can re-bind the same scope
+    # and stamp / filter by project correctly.
+    #
+    # Prefer Session.info['_scope'] (works for both sync and async route handlers)
+    # over the ContextVar fallback (unreliable across anyio threadpool boundaries).
+    scope_project_id = None
+    if db is not None:
+        session_scope = db.info.get("_scope")
+        if session_scope is not None:
+            scope_project_id = session_scope.project_id
+    if scope_project_id is None:
+        try:
+            from rhesis.backend.app.scope import current_scope
+
+            scope_project_id = current_scope().project_id
+        except Exception:
+            pass
+    if scope_project_id:
+        headers["project_id"] = str(scope_project_id)
+
+    # Lets the job's writes point back at the request that started it.
+    from rhesis.backend.app.utils.request_context import get_request_id
+
+    if get_request_id():
+        headers["request_id"] = get_request_id()
+
+    return headers
+
+
 def launch_job(
     task: T,
     *args: Any,
@@ -115,34 +154,8 @@ def launch_job(
     Returns:
         The AsyncResult from the launched task
     """
-    # Prepare headers for tenant context (these won't interfere with task function signatures)
-    headers = {}
-    if current_user is not None:
-        if hasattr(current_user, "id") and current_user.id is not None:
-            headers["user_id"] = str(current_user.id)
-
-        if hasattr(current_user, "organization_id") and current_user.organization_id is not None:
-            headers["organization_id"] = str(current_user.organization_id)
-
-    # Forward project_id to the Celery worker so it can re-bind the same scope
-    # and stamp / filter by project correctly.
-    #
-    # Prefer Session.info['_scope'] (works for both sync and async route handlers)
-    # over the ContextVar fallback (unreliable across anyio threadpool boundaries).
-    scope_project_id = None
-    if db is not None:
-        session_scope = db.info.get("_scope")
-        if session_scope is not None:
-            scope_project_id = session_scope.project_id
-    if scope_project_id is None:
-        try:
-            from rhesis.backend.app.scope import current_scope
-
-            scope_project_id = current_scope().project_id
-        except Exception:
-            pass
-    if scope_project_id:
-        headers["project_id"] = str(scope_project_id)
+    # Headers rather than kwargs, so they don't interfere with task signatures.
+    headers = _tenant_headers(current_user, db)
 
     # A job row needs an id before dispatch, so mint one when the caller did
     # not supply it rather than letting Celery generate it after the fact.

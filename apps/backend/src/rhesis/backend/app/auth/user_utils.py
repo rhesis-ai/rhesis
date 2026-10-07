@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Optional, Tuple
+from typing import TYPE_CHECKING, NamedTuple, Optional, Tuple
 
 import anyio
 from fastapi import Depends, HTTPException, Request, WebSocket, status
@@ -21,6 +21,7 @@ from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.crud.token import get_token_by_value
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.provenance import ActorType, record_credential
 from rhesis.backend.app.schemas import UserCreate
 
 logger = logging.getLogger(__name__)
@@ -166,13 +167,19 @@ def _load_user_by_id(user_id) -> Optional[User]:
         return user_crud.get_user_by_id(db, user_id)
 
 
-def _load_user_for_api_token(
-    token_value: str,
-) -> Optional[tuple[User, Optional[str], Optional[frozenset]]]:
+class _ApiTokenAuth(NamedTuple):
+    user: User
+    project_id: Optional[str]
+    scopes: Optional[frozenset]
+    token_id: str
+    token_hint: Optional[str]
+
+
+def _load_user_for_api_token(token_value: str) -> Optional[_ApiTokenAuth]:
     """Validate an ``rh-*`` token and load its owner. Runs in a worker thread.
 
-    Returns ``(user, token_project_id, token_scopes)``. The token's fields are
-    read here, inside the session, so nothing lazy-loads after it closes.
+    The token's fields are read here, inside the session, so nothing lazy-loads
+    after it closes.
     """
     with get_db() as db:
         is_valid, _ = validate_token(token_value, db=db)
@@ -186,7 +193,13 @@ def _load_user_for_api_token(
             return None
         project_id = str(token.project_id) if token.project_id is not None else None
         scopes = getattr(token, "scopes", None)
-        return user, project_id, None if scopes is None else frozenset(scopes)
+        return _ApiTokenAuth(
+            user=user,
+            project_id=project_id,
+            scopes=None if scopes is None else frozenset(scopes),
+            token_id=str(token.id),
+            token_hint=token.token_obfuscated,
+        )
 
 
 def _store_api_token_state(request, project_id: Optional[str], scopes: Optional[frozenset]):
@@ -278,8 +291,9 @@ async def get_authenticated_user_with_context(
     if credentials.credentials.startswith("rh-"):
         resolved = await anyio.to_thread.run_sync(_load_user_for_api_token, credentials.credentials)
         if resolved:
-            user, token_project_id, token_scopes = resolved
-            _store_api_token_state(request, token_project_id, token_scopes)
+            user = resolved.user
+            _store_api_token_state(request, resolved.project_id, resolved.scopes)
+            record_credential(request, ActorType.API_TOKEN, resolved.token_id, resolved.token_hint)
             if not without_context and not user.organization_id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -320,6 +334,8 @@ async def get_authenticated_user_with_context(
                 payload = {}
             if payload.get("azp"):
                 setattr(request.state, REQUEST_STATE_AUTH_KIND, AuthKind.TOKEN)
+                # azp is the EE API client's client_id.
+                record_credential(request, ActorType.API_CLIENT, str(payload["azp"]))
                 project_claim = payload.get("project")
                 if project_claim:
                     setattr(request.state, REQUEST_STATE_API_TOKEN_PROJECT_ID, str(project_claim))
