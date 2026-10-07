@@ -8,7 +8,7 @@ import pytest
 from requests.exceptions import HTTPError
 
 from rhesis.sdk.clients import HTTPStatus
-from rhesis.sdk.config import DEFAULT_API_TIMEOUT
+from rhesis.sdk.config import DEFAULT_API_TIMEOUT, backend_headers
 from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 from rhesis.sdk.errors import RhesisAPIError
 
@@ -47,10 +47,7 @@ def test_delete_by_id(mock_request, test_entity):
     mock_request.assert_called_once_with(
         method="DELETE",
         url="http://test:8000/test/1",
-        headers={
-            "Authorization": "Bearer rh-test-token",
-            "Content-Type": "application/json",
-        },
+        headers={**backend_headers("rh-test-token"), "Content-Type": "application/json"},
         json=None,
         params=None,
         timeout=DEFAULT_API_TIMEOUT,
@@ -77,10 +74,7 @@ def test_push_with_id(mock_request, test_entity):
     mock_request.assert_called_once_with(
         method="PUT",
         url="http://test:8000/test/1",
-        headers={
-            "Authorization": "Bearer rh-test-token",
-            "Content-Type": "application/json",
-        },
+        headers={**backend_headers("rh-test-token"), "Content-Type": "application/json"},
         json={"name": "Test", "description": "Test"},
         params=None,
         timeout=DEFAULT_API_TIMEOUT,
@@ -93,10 +87,7 @@ def test_push_without_id(mock_request, test_entity_without_id):
     mock_request.assert_called_once_with(
         method="POST",
         url="http://test:8000/test",
-        headers={
-            "Authorization": "Bearer rh-test-token",
-            "Content-Type": "application/json",
-        },
+        headers={**backend_headers("rh-test-token"), "Content-Type": "application/json"},
         json={"name": "Test", "description": "Test"},
         params=None,
         timeout=DEFAULT_API_TIMEOUT,
@@ -114,10 +105,7 @@ def test_pull_by_id(mock_request, test_entity):
     mock_request.assert_called_once_with(
         method="GET",
         url="http://test:8000/test/1",
-        headers={
-            "Authorization": "Bearer rh-test-token",
-            "Content-Type": "application/json",
-        },
+        headers={**backend_headers("rh-test-token"), "Content-Type": "application/json"},
         json=None,
         params=None,
         timeout=DEFAULT_API_TIMEOUT,
@@ -137,7 +125,7 @@ class TestHandleHttpErrorsSecurity:
         mock_response.request.url = "http://test:8000/test/1"
         mock_response.request.method = "POST"
         mock_response.request.headers = {
-            "Authorization": f"Bearer {self.API_KEY}",
+            **backend_headers(f"{self.API_KEY}"),
             "Content-Type": "application/json",
         }
         mock_response.request.body = b'{"auth_token": "secret-token-value"}'

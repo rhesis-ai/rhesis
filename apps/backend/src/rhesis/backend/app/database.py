@@ -8,6 +8,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from rhesis.backend.app.config.settings import get_database_settings
+from rhesis.backend.app.provenance import attach_current_request
 
 logger = logging.getLogger(__name__)
 
@@ -466,6 +467,7 @@ def get_db() -> Generator[Session, None, None]:
     token validation, and other non-tenant-specific queries.
     """
     db = SessionLocal()
+    attach_current_request(db)
     try:
         yield db
         if db.in_transaction():

@@ -1,8 +1,5 @@
-import importlib.metadata
-from importlib.metadata import PackageNotFoundError, version
-
 from rhesis.sdk.clients import CONNECTOR_DISABLED, DisabledClient, RhesisClient
-from rhesis.sdk.config import api_key, base_url
+from rhesis.sdk.config import SDK_VERSION, api_key, base_url
 from rhesis.sdk.context import EndpointContext
 from rhesis.sdk.decorators import (
     ObserverBuilder,
@@ -22,10 +19,7 @@ from rhesis.sdk.enums import ExecutionMode, TestType
 from rhesis.sdk.errors import RhesisAPIError
 from rhesis.sdk.parameters import Parameters
 
-try:
-    __version__ = version("rhesis-sdk")
-except PackageNotFoundError:
-    __version__ = "0.0.0"  # fallback for development
+__version__ = SDK_VERSION
 
 # Make these variables available at the module level
 __all__ = [

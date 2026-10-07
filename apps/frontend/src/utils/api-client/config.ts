@@ -1,9 +1,11 @@
+import { CLIENT_HEADER, WEB_CLIENT } from '../provenance';
 import { getBaseUrl } from '../url-resolver';
 
 export const API_CONFIG = {
   baseUrl: getBaseUrl(),
   defaultHeaders: {
     'Content-Type': 'application/json',
+    [CLIENT_HEADER]: WEB_CLIENT,
   },
 } as const;
 

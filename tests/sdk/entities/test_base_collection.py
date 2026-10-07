@@ -6,7 +6,7 @@ import pytest
 from requests.exceptions import HTTPError
 
 from rhesis.sdk.clients import HTTPStatus
-from rhesis.sdk.config import DEFAULT_API_TIMEOUT
+from rhesis.sdk.config import DEFAULT_API_TIMEOUT, backend_headers
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity
 
@@ -37,10 +37,7 @@ def test_all(mock_request):
     mock_request.assert_called_once_with(
         method="GET",
         url="http://test:8000/test",
-        headers={
-            "Authorization": "Bearer rh-test-token",
-            "Content-Type": "application/json",
-        },
+        headers={**backend_headers("rh-test-token"), "Content-Type": "application/json"},
         json=None,
         params=None,
         timeout=DEFAULT_API_TIMEOUT,
@@ -54,10 +51,7 @@ def test_exists(mock_request):
     mock_request.assert_called_once_with(
         method="GET",
         url="http://test:8000/test/10",
-        headers={
-            "Authorization": "Bearer rh-test-token",
-            "Content-Type": "application/json",
-        },
+        headers={**backend_headers("rh-test-token"), "Content-Type": "application/json"},
         json=None,
         params=None,
         timeout=DEFAULT_API_TIMEOUT,
@@ -96,10 +90,7 @@ def test_pull_with_name(mock_request):
     mock_request.assert_called_once_with(
         method="GET",
         url="http://test:8000/test",
-        headers={
-            "Authorization": "Bearer rh-test-token",
-            "Content-Type": "application/json",
-        },
+        headers={**backend_headers("rh-test-token"), "Content-Type": "application/json"},
         json=None,
         params={"$filter": "tolower(name) eq 'test-entity'"},
         timeout=DEFAULT_API_TIMEOUT,

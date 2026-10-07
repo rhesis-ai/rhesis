@@ -4,7 +4,7 @@ import pytest
 import requests
 
 from rhesis.sdk.clients import APIClient, Endpoints, Methods
-from rhesis.sdk.config import DEFAULT_API_TIMEOUT
+from rhesis.sdk.config import DEFAULT_API_TIMEOUT, backend_headers
 
 
 @pytest.fixture
@@ -16,10 +16,7 @@ def test_client_init():
     client = APIClient(api_key="test_api_key", base_url="https://test.example.com")
     assert client.api_key == "test_api_key"
     assert client.base_url == "https://test.example.com"
-    assert client.headers == {
-        "Authorization": "Bearer test_api_key",
-        "Content-Type": "application/json",
-    }
+    assert client.headers == {**backend_headers("test_api_key"), "Content-Type": "application/json"}
 
 
 def test_client_uses_env_api_key(monkeypatch):
@@ -34,10 +31,7 @@ def test_client_uses_env_api_key(monkeypatch):
     # Should use the environment variable
     assert client.api_key == "env_test_key"
     assert client.base_url == "https://test.example.com"
-    assert client.headers == {
-        "Authorization": "Bearer env_test_key",
-        "Content-Type": "application/json",
-    }
+    assert client.headers == {**backend_headers("env_test_key"), "Content-Type": "application/json"}
 
 
 def test_base_url():

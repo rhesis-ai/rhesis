@@ -14,7 +14,7 @@ from typing import Any
 
 import requests
 
-from rhesis.sdk.config import DEFAULT_API_TIMEOUT, get_api_key, get_base_url
+from rhesis.sdk.config import DEFAULT_API_TIMEOUT, backend_headers, get_api_key, get_base_url
 from rhesis.sdk.models.parameters import (
     ParameterSchema,
     ProjectEnvironments,
@@ -141,7 +141,7 @@ class Parameters:
         url = f"{base}/projects/{pid}/parameters/schema"
         resp = requests.get(
             url,
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers=backend_headers(api_key),
             timeout=DEFAULT_API_TIMEOUT,
         )
         resp.raise_for_status()
@@ -161,7 +161,7 @@ class Parameters:
         url = f"{base}/projects/{pid}/parameters/environments"
         resp = requests.get(
             url,
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers=backend_headers(api_key),
             timeout=DEFAULT_API_TIMEOUT,
         )
         resp.raise_for_status()
@@ -187,7 +187,7 @@ class Parameters:
         url = f"{base}/projects/{pid}/parameters/schema"
         resp = requests.put(
             url,
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers=backend_headers(api_key),
             json=schema.model_dump(mode="json"),
             timeout=DEFAULT_API_TIMEOUT,
         )
@@ -212,7 +212,7 @@ class Parameters:
         url = f"{base}/projects/{pid}/parameters/environments/{environment}"
         resp = requests.put(
             url,
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers=backend_headers(api_key),
             json={
                 "experiment_id": str(experiment_id),
                 "version": version,
@@ -253,7 +253,7 @@ class Parameters:
 
         resp = requests.get(
             url,
-            headers={"Authorization": f"Bearer {api_key}"},
+            headers=backend_headers(api_key),
             params=params,
             timeout=DEFAULT_API_TIMEOUT,
         )

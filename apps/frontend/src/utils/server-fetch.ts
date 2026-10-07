@@ -1,3 +1,4 @@
+import { CLIENT_HEADER, WEB_CLIENT } from './provenance';
 import { getServerBackendUrl } from './url-resolver';
 
 type ServerFetchOptions = RequestInit & {
@@ -19,6 +20,7 @@ export function serverFetch(
 ): Promise<Response> {
   const { accessToken, headers: initHeaders, cache, ...init } = options;
   const headers = new Headers(initHeaders);
+  headers.set(CLIENT_HEADER, WEB_CLIENT);
   if (accessToken) {
     headers.set('Authorization', `Bearer ${accessToken}`);
   }

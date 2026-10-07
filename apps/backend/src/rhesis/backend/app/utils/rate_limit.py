@@ -2,7 +2,9 @@
 Rate limiting utilities for the application.
 """
 
+import ipaddress
 import os
+from typing import Optional
 
 from fastapi import HTTPException, Request, status
 from limits import parse as parse_rate_limit
@@ -10,6 +12,30 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "1"))
+
+#: The browser's IP, passed on by in-cluster callers (the Next.js server, the MCP server).
+CLIENT_IP_HEADER = "X-Rhesis-Client-IP"
+
+
+def _in_cluster_client_ip(request: Request) -> Optional[str]:
+    """The IP an in-cluster caller passed on for the browser it is serving.
+
+    The UI's server reaches the backend inside the cluster, not through the
+    ingress, so the peer is the frontend pod. The header is trusted only from a
+    private or loopback peer, and only when there is no X-Forwarded-For: the
+    ingress always adds that, so a public caller cannot use the header.
+    """
+    claimed = request.headers.get(CLIENT_IP_HEADER)
+    if not claimed or "x-forwarded-for" in request.headers or not request.client:
+        return None
+    try:
+        peer = ipaddress.ip_address(request.client.host)
+        client_ip = ipaddress.ip_address(claimed.strip())
+    except ValueError:
+        return None
+    if not (peer.is_private or peer.is_loopback):
+        return None
+    return str(client_ip)
 
 
 def get_real_ip(request: Request) -> str:
@@ -19,7 +45,12 @@ def get_real_ip(request: Request) -> str:
     With TRUSTED_PROXY_COUNT=1 (single load balancer) we strip the rightmost
     entry (added by our proxy) and return the entry just before it.
     If TRUSTED_PROXY_COUNT=0, use the socket address directly.
+    An in-cluster caller's ``X-Rhesis-Client-IP`` comes first.
     """
+    in_cluster = _in_cluster_client_ip(request)
+    if in_cluster:
+        return in_cluster
+
     if TRUSTED_PROXY_COUNT == 0:
         return request.client.host if request.client else "unknown"
 

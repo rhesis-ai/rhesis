@@ -3,7 +3,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
-from rhesis.sdk.config import DEFAULT_API_TIMEOUT, get_api_key, get_base_url
+from rhesis.sdk.config import (
+    DEFAULT_API_TIMEOUT,
+    backend_headers,
+    get_api_key,
+    get_base_url,
+)
 
 
 class HTTPStatus:
@@ -78,10 +83,7 @@ class APIClient:
         """
         self.api_key = api_key if api_key is not None else get_api_key()
         self._base_url = base_url if base_url is not None else get_base_url()
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
+        self.headers = {**backend_headers(self.api_key), "Content-Type": "application/json"}
 
     @property
     def base_url(self) -> str:
@@ -157,8 +159,8 @@ class APIClient:
             List of file metadata dicts from the API response.
         """
         url = self.get_url(endpoint.value)
-        # Auth-only headers; Content-Type is set by requests for multipart
-        headers = {"Authorization": f"Bearer {self.api_key}"}
+        # No Content-Type: requests sets it for multipart
+        headers = backend_headers(self.api_key)
         response = requests.post(
             url=url, headers=headers, files=files, params=params, timeout=DEFAULT_API_TIMEOUT
         )
@@ -184,7 +186,7 @@ class APIClient:
         url = self.get_url(endpoint.value)
         if url_params is not None:
             url = f"{url}/{url_params}"
-        headers = {"Authorization": f"Bearer {self.api_key}"}
+        headers = backend_headers(self.api_key)
         response = requests.request(
             method=method.value, url=url, headers=headers, timeout=DEFAULT_API_TIMEOUT
         )

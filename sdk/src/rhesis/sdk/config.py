@@ -1,5 +1,6 @@
 import os
-from typing import Optional, TypeVar
+from importlib.metadata import PackageNotFoundError, version
+from typing import Dict, Optional, TypeVar
 
 # Default values
 DEFAULT_BASE_URL = "https://api.rhesis.ai"
@@ -100,3 +101,21 @@ def get_base_url() -> str:
     Falls back to default if neither is set.
     """
     return _get_config_value("base_url", base_url, "RHESIS_BASE_URL", DEFAULT_BASE_URL)
+
+
+try:
+    SDK_VERSION = version("rhesis-sdk")
+except PackageNotFoundError:
+    SDK_VERSION = "0.0.0"  # fallback for development
+
+#: Identifies the SDK to the backend, whose audit log shows calls as coming from it.
+USER_AGENT = f"rhesis-sdk/{SDK_VERSION}"
+
+
+def backend_headers(api_key: Optional[str]) -> Dict[str, str]:
+    """Authorization plus the headers that identify the SDK to the Rhesis backend."""
+    return {
+        "Authorization": f"Bearer {api_key}",
+        "User-Agent": USER_AGENT,
+        "X-Rhesis-Client": "sdk",
+    }

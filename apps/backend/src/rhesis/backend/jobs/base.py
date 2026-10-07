@@ -181,11 +181,21 @@ class BaseJob(Task):
         stored on the session rather than a ContextVar so it is visible regardless
         of which thread issues the queries.)
         """
+        from rhesis.backend.app.provenance import bind_job_provenance
+
         organization_id, user_id, project_id = self.get_tenant_context()
 
         with get_db_with_tenant_variables(
             organization_id or "", user_id or "", project_id or ""
         ) as db:
+            headers = getattr(getattr(self, "request", None), "headers", None) or {}
+            job_id = self._resolve_job_id()
+            bind_job_provenance(
+                db,
+                user_id=user_id,
+                job_id=str(job_id) if job_id else None,
+                request_id=headers.get("request_id") if hasattr(headers, "get") else None,
+            )
             yield db
 
     def validate_params(self, args, kwargs):
