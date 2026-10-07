@@ -32,20 +32,17 @@ class TestTokenOrganizationSecurity:
         user_id = uuid.uuid4()
         org_id = str(uuid.uuid4())
 
-        # Mock the query to test the function works with organization filtering
-        with patch.object(test_db, "query") as mock_query:
-            mock_query.return_value.filter.return_value.filter.return_value.delete.return_value = 2
-            mock_query.return_value.filter.return_value.delete.return_value = 3
-
+        # Patch the bulk delete to check the organization filter reaches the WHERE clause.
+        with patch.object(
+            token_crud, "bulk_delete", side_effect=lambda _db, _model, criteria: criteria
+        ):
             # Test with organization filtering
-            result_with_org = token_crud.revoke_user_tokens(
-                test_db, user_id, organization_id=org_id
-            )
-            assert result_with_org == 2
+            with_org = token_crud.revoke_user_tokens(test_db, user_id, organization_id=org_id)
+            assert with_org == 2
 
             # Test without organization filtering (should work but may revoke more tokens)
-            result_without_org = token_crud.revoke_user_tokens(test_db, user_id)
-            assert result_without_org == 3
+            without_org = token_crud.revoke_user_tokens(test_db, user_id)
+            assert without_org == 1
 
     def test_get_token_by_value_organization_filtering(
         self, test_db: Session, test_organization, db_user
