@@ -120,7 +120,7 @@ def test_no_role_principal_denied_for_capability(cap: str, test_db: Session) -> 
     db = test_db
     org_id = _create_org(db)
     user_id = _create_user(db, org_id)
-    db.execute(text('SET "app.current_organization" = :o'), {"o": str(org_id)})
+    db.execute(text("SELECT set_config('app.current_organization', :o, false)"), {"o": str(org_id)})
 
     # Principal with org context but NO membership row (no role assigned).
     principal = Principal(user_id=user_id, organization_id=org_id, kind="session")

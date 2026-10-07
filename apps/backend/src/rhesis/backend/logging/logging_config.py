@@ -116,7 +116,7 @@ _SENSITIVE_PATTERNS = [
         r"AKIA[REDACTED]",
     ),
     # Any scheme's userinfo password. Enumerating schemes missed both of ours:
-    # SQLAlchemy writes "postgresql+psycopg2://" and the Celery broker "redis://".
+    # SQLAlchemy writes "postgresql+psycopg://" and the Celery broker "redis://".
     (
         re.compile(r"\b([a-z][a-z0-9+.\-]*://[^:/\s@]*:)([^@\s/]+)(@)", re.IGNORECASE),
         r"\1[REDACTED]\3",

@@ -3,6 +3,9 @@ from typing import Any, Dict, List, Type, Union
 from fastapi import HTTPException
 from odata_query.sqlalchemy import apply_odata_query
 from sqlalchemy.orm import Query
+from sqlalchemy.sql import visitors
+from sqlalchemy.sql.elements import BinaryExpression, BindParameter
+from sqlalchemy.types import NullType, String
 
 
 def apply_odata_filter(query: Query, model: Type, filter_expr: str | None) -> Query:
@@ -14,10 +17,33 @@ def apply_odata_filter(query: Query, model: Type, filter_expr: str | None) -> Qu
     """
     if filter_expr:
         try:
-            return apply_odata_query(query, filter_expr)
+            query = apply_odata_query(query, filter_expr)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Error processing filter: {str(e)}") from e
+        if query.whereclause is not None:
+            _type_literals_as_their_columns(query.whereclause)
     return query
+
+
+def _type_literals_as_their_columns(clause) -> None:
+    """Give each string literal the type of the column it is compared with.
+
+    odata_query types every literal it parses as a string, and psycopg 3 sends
+    a bound value with its declared type, so ``test_id eq <uuid>`` would reach
+    Postgres as ``uuid = varchar`` and fail.
+    """
+
+    def retype(binary: BinaryExpression) -> None:
+        for side, other in ((binary.right, binary.left), (binary.left, binary.right)):
+            if isinstance(other.type, NullType):
+                continue
+            for element in visitors.iterate(side):
+                if isinstance(element, BindParameter) and isinstance(
+                    element.type, (String, NullType)
+                ):
+                    element.type = other.type
+
+    visitors.traverse(clause, {}, {"binary": retype})
 
 
 def apply_select(

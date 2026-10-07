@@ -59,12 +59,12 @@ def scope_session_to_org(db: Session, organization_id: Optional[Any]) -> None:
     transaction-local GUC is gone after its first commit. A plain ``SET``
     persists for the connection instead.
     """
-    _apply_session(db, '"app.current_organization"', organization_id)
+    _apply_session(db, "app.current_organization", organization_id)
 
 
 def scope_session_to_project(db: Session, project_id: Optional[Any]) -> None:
     """Session-level project scope. See ``scope_session_to_org``."""
-    _apply_session(db, '"app.current_project"', project_id)
+    _apply_session(db, "app.current_project", project_id)
 
 
 @contextmanager
@@ -104,8 +104,8 @@ def _apply(db: Session, guc: str, info_key: str, value: Optional[Any]) -> None:
         db.info[_TENANT_VARS_KEY][info_key] = value
 
 
-def _apply_session(db: Session, quoted_guc: str, value: Optional[Any]) -> None:
-    # SET takes the setting name as syntax, not a bind parameter, so the name
-    # is interpolated. Callers pass only the two literals above, never input.
+def _apply_session(db: Session, guc: str, value: Optional[Any]) -> None:
+    # set_config rather than SET: psycopg binds parameters server-side, and SET
+    # cannot take one. is_local=false keeps it for the connection, like SET.
     value = "" if value is None else str(value)
-    db.execute(text(f"SET {quoted_guc} = :value"), {"value": value})
+    db.execute(text("SELECT set_config(:guc, :value, false)"), {"guc": guc, "value": value})

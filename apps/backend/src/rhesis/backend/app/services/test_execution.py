@@ -212,7 +212,7 @@ def _prepare_execution(
     Returns (evaluation_model, execution_model, test, test_id, prompt, expected).
     A model the test does not use comes back as ``None``.
 
-    Everything here is psycopg2 work reached from an ``async def`` handler, so
+    Everything here is psycopg work reached from an ``async def`` handler, so
     it must not run on the event loop. The runner called afterwards still takes
     the same session -- see the note in ``execute_test_in_place``.
     """

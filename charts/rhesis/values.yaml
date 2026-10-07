@@ -59,7 +59,7 @@ config:
   # keep the same strings as kubernetes/clusters/*/cnpg-cluster/cnpg-cluster.yaml bootstrap.initdb.database.
   dbName: "rhesis-db"
   dbUser: "rhesis-user"
-  dbDriver: "postgresql"
+  dbDriver: "postgresql+psycopg"
 
   # Redis/Valkey (host is computed from subchart or externalValkey)
   redisPort: "6379"

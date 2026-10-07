@@ -7,6 +7,8 @@ from urllib.parse import quote_plus, urlparse
 from pydantic import AnyHttpUrl, Field, TypeAdapter, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+POSTGRES_DRIVER = "postgresql+psycopg"
+
 
 class DatabaseSettings(BaseSettings):
     """Database configuration built from component environment variables.
@@ -19,7 +21,7 @@ class DatabaseSettings(BaseSettings):
 
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
-    driver: str = Field(default="postgresql", alias="DB_DRIVER")
+    driver: str = Field(default=POSTGRES_DRIVER, alias="DB_DRIVER")
     host: str = Field(default="localhost", alias="DB_HOST")
     port: int = Field(default=5432, alias="DB_PORT")
     name: str = Field(default="rhesis-db", alias="DB_NAME")
@@ -28,6 +30,15 @@ class DatabaseSettings(BaseSettings):
     app_password: str | None = Field(default=None, alias="APP_DB_PASS")
     admin_user: str | None = Field(default=None, alias="ADMIN_DB_USER")
     admin_password: str | None = Field(default=None, alias="ADMIN_DB_PASS")
+
+    @field_validator("driver")
+    @classmethod
+    def _name_the_postgres_driver(cls, value: str) -> str:
+        # A bare "postgresql", as existing env files have it, picks a driver by
+        # SQLAlchemy version; name the installed one.
+        if value == "postgresql":
+            return POSTGRES_DRIVER
+        return value
 
     @model_validator(mode="after")
     def _validate_credentials(self) -> "DatabaseSettings":

@@ -1032,7 +1032,7 @@ class TestEdgeCases:
 class TestInPlaceExecutionPrefetchRunsOffTheLoop:
     """Model resolution and the test lookup happen before the first await.
 
-    They are psycopg2 calls reached from an ``async def`` handler, so they must
+    They are psycopg calls reached from an ``async def`` handler, so they must
     run in a worker thread. The runners this service calls afterwards still
     query on the loop -- that is why ``POST /tests/execute`` is still in
     ``tests/backend/test_no_sync_db_on_loop.py``'s allowlist.

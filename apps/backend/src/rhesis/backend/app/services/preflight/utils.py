@@ -17,7 +17,7 @@ class PreflightDbGate:
     """The database access for one preflight run, kept off the event loop.
 
     Preflight fans its checks out with ``asyncio.gather``, and every check queries.
-    Two rules have to hold at once: a psycopg2 call must not run on the event loop
+    Two rules have to hold at once: a psycopg call must not run on the event loop
     (it blocks every other request in the worker), and one ``Session`` must not be
     used from two threads at once. So each segment runs in a worker thread, under a
     lock that lets only one in at a time -- which serialises the queries exactly as
@@ -60,7 +60,7 @@ async def open_tenant_session_off_loop(
     """A tenant-scoped session whose open and close both happen in a worker thread.
 
     Opening one runs ``set_config`` and closing it commits or rolls back, so both ends
-    are psycopg2 calls that would otherwise block the event loop.
+    are psycopg calls that would otherwise block the event loop.
     """
     from rhesis.backend.app.database import get_db_with_tenant_variables
 

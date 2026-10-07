@@ -426,7 +426,7 @@ def get_off_loop_tenant_session(
 ) -> OffLoopSession:
     """Tenant session for an ``async def`` handler that only uses it in a worker thread.
 
-    An ``async def`` handler runs on the event loop, where one psycopg2 call blocks
+    An ``async def`` handler runs on the event loop, where one psycopg call blocks
     every other request in the worker process. A handler that has to stay async (it
     awaits an LLM, an outbound HTTP call or a stream) and still needs the database
     declares this instead of ``get_tenant_db_session`` and does every session

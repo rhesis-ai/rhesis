@@ -3,11 +3,11 @@ import os
 import time
 from typing import Generator
 
-import psycopg2
+import psycopg
 import pytest
 import requests
 from cryptography.fernet import Fernet
-from psycopg2.extras import RealDictCursor
+from psycopg.rows import dict_row
 
 # ANSI color codes
 BLUE = "\033[0;34m"
@@ -50,9 +50,9 @@ def clear_all_tables() -> None:
 
     conn = None
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(
             host="localhost",
-            database="rhesis-db",
+            dbname="rhesis-db",
             user="rhesis-user",
             password="your-secured-password",
             port=DATABASE_PORT,
@@ -71,7 +71,7 @@ def clear_all_tables() -> None:
         conn.close()
         print(f"{GREEN}✅ Database cleared{NC}. Cleared tables: token, user, organization, metric")
 
-    except psycopg2.Error as e:
+    except psycopg.Error as e:
         if conn:
             conn.close()
         print(f"⚠️  Warning: Could not clear database: {e}")
@@ -83,9 +83,9 @@ def populate_type_lookups(organization_id: str, user_id: str) -> None:
 
     conn = None
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(
             host="localhost",
-            database="rhesis-db",
+            dbname="rhesis-db",
             user="rhesis-user",
             password="your-secured-password",
             port=DATABASE_PORT,
@@ -122,7 +122,7 @@ def populate_type_lookups(organization_id: str, user_id: str) -> None:
         conn.close()
         print(f"{GREEN}✅ Populated {len(PROVIDER_TYPE_LOOKUPS)} provider types{NC}")
 
-    except psycopg2.Error as e:
+    except psycopg.Error as e:
         if conn is not None:
             conn.rollback()
             conn.close()
@@ -154,15 +154,15 @@ def setup_test_data() -> None:
     try:
         # Connect to the database
         print(f"{BLUE}Creating organization, user, and token...{NC}")
-        conn = psycopg2.connect(
+        conn = psycopg.connect(
             host="localhost",
-            database="rhesis-db",
+            dbname="rhesis-db",
             user="rhesis-user",
             password="your-secured-password",
             port=DATABASE_PORT,
         )
         conn.autocommit = False
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = conn.cursor(row_factory=dict_row)
 
         # Execute the SQL query to create organization, user, token, and project
         # and return the organization_id and user_id for populating type_lookups
@@ -259,7 +259,7 @@ def setup_test_data() -> None:
 
         print(f"{GREEN}✅ Test data setup completed{NC}")
 
-    except psycopg2.Error as e:
+    except psycopg.Error as e:
         if conn is not None:
             conn.rollback()
             conn.close()
@@ -324,9 +324,9 @@ def db_cleanup(docker_compose_test_env):
     # 🧼 Cleanup at START (before test runs)
     conn = None
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(
             host="localhost",
-            database="rhesis-db",
+            dbname="rhesis-db",
             user="rhesis-user",
             password="your-secured-password",
             port=DATABASE_PORT,
@@ -347,9 +347,9 @@ def db_cleanup(docker_compose_test_env):
     print("🔄 Cleaning database after test...")
     conn = None
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(
             host="localhost",
-            database="rhesis-db",
+            dbname="rhesis-db",
             user="rhesis-user",
             password="your-secured-password",
             port=DATABASE_PORT,

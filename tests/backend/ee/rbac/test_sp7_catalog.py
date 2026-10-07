@@ -216,7 +216,9 @@ class TestBuiltInRoleRLSPolicy:
 
         probe_names = "SELECT name FROM role WHERE name IN ('Owner','ProbeCustom')"
 
-        test_db.execute(text("SET LOCAL app.current_organization = :o"), {"o": other_org})
+        test_db.execute(
+            text("SELECT set_config('app.current_organization', :o, true)"), {"o": other_org}
+        )
         visible = {r[0] for r in test_db.execute(text(probe_names)).fetchall()}
         assert "Owner" in visible, (
             "built-in role hidden under RLS — the tenant_isolation policy is "
@@ -224,7 +226,9 @@ class TestBuiltInRoleRLSPolicy:
         )
         assert "ProbeCustom" not in visible, "a custom role from another org leaked under RLS"
 
-        test_db.execute(text("SET LOCAL app.current_organization = :o"), {"o": test_org_id})
+        test_db.execute(
+            text("SELECT set_config('app.current_organization', :o, true)"), {"o": test_org_id}
+        )
         visible_owner = {r[0] for r in test_db.execute(text(probe_names)).fetchall()}
         assert visible_owner == {"Owner", "ProbeCustom"}
 
@@ -240,7 +244,9 @@ class TestBuiltInRoleRLSPolicy:
 
         other_org = str(uuid.uuid4())
 
-        test_db.execute(text("SET LOCAL app.current_organization = :o"), {"o": test_org_id})
+        test_db.execute(
+            text("SELECT set_config('app.current_organization', :o, true)"), {"o": test_org_id}
+        )
 
         # Own-org custom role: permitted by WITH CHECK.
         with test_db.begin_nested():

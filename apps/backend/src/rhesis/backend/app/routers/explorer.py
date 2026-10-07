@@ -107,7 +107,7 @@ def _resolve_endpoint_for_test_set(
 ) -> str:
     """Resolve the test set and the endpoint to invoke against it.
 
-    Runs in a worker thread: both steps are psycopg2 work, and the test set is an
+    Runs in a worker thread: both steps are psycopg work, and the test set is an
     ORM object that must not escape onto the event loop.
     """
     db_test_set = _resolve_test_set_or_raise(identifier, db, organization_id)

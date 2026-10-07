@@ -213,7 +213,7 @@ def test_database_settings_builds_app_url(clean_database_env, monkeypatch):
     settings = DatabaseSettings(_env_file=None)
 
     assert (
-        settings.app_url == "postgresql://app-user:app-pass@localhost:5432/testdb"
+        settings.app_url == "postgresql+psycopg://app-user:app-pass@localhost:5432/testdb"
     )  # trufflehog:ignore
 
 
@@ -237,10 +237,10 @@ def test_database_settings_uses_admin_credentials_when_set(clean_database_env, m
     settings = DatabaseSettings(_env_file=None)
 
     assert (
-        settings.admin_url == "postgresql://admin-user:admin-pass@localhost:5432/testdb"
+        settings.admin_url == "postgresql+psycopg://admin-user:admin-pass@localhost:5432/testdb"
     )  # trufflehog:ignore
     assert (
-        settings.app_url == "postgresql://app-user:app-pass@localhost:5432/testdb"
+        settings.app_url == "postgresql+psycopg://app-user:app-pass@localhost:5432/testdb"
     )  # trufflehog:ignore
 
 
@@ -264,7 +264,7 @@ def test_database_settings_admin_only_for_migration(clean_database_env, monkeypa
     settings = DatabaseSettings(_env_file=None)
 
     assert (
-        settings.admin_url == "postgresql://admin-user:admin-pass@localhost:5432/testdb"
+        settings.admin_url == "postgresql+psycopg://admin-user:admin-pass@localhost:5432/testdb"
     )  # trufflehog:ignore
     with pytest.raises(ValueError, match="APP_DB_USER"):
         _ = settings.app_url
@@ -290,10 +290,29 @@ def test_database_settings_unix_socket_url(clean_database_env, monkeypatch):
     settings = DatabaseSettings(_env_file=None)
 
     expected = (
-        "postgresql://app-user:app-pass@/mydb"
+        "postgresql+psycopg://app-user:app-pass@/mydb"
         "?host=/cloudsql/project:region:instance"  # trufflehog:ignore
     )
     assert settings.app_url == expected
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "configured, expected",
+    [
+        ("postgresql", "postgresql+psycopg"),
+        ("postgresql+psycopg", "postgresql+psycopg"),
+        ("postgresql+asyncpg", "postgresql+asyncpg"),
+        ("sqlite", "sqlite"),
+    ],
+)
+def test_database_settings_names_the_installed_postgres_driver(
+    clean_database_env, monkeypatch, configured, expected
+):
+    """A bare postgresql picks a driver by SQLAlchemy version, so it is named."""
+    monkeypatch.setenv("DB_DRIVER", configured)
+
+    assert DatabaseSettings(_env_file=None).driver == expected
 
 
 @pytest.mark.unit
@@ -328,10 +347,11 @@ def test_get_database_url_returns_configured_url(clean_database_env, monkeypatch
     settings = DatabaseSettings(_env_file=None)
     monkeypatch.setattr(database, "get_database_settings", lambda: settings)
 
-    assert (
-        database.get_database_url()
-        == "postgresql://direct-user:direct-pass@db.example.com:5432/direct-db"  # trufflehog:ignore
+    expected = (
+        "postgresql+psycopg://direct-user:direct-pass"  # trufflehog:ignore
+        "@db.example.com:5432/direct-db"
     )
+    assert database.get_database_url() == expected
 
 
 @pytest.mark.unit
@@ -346,7 +366,7 @@ def test_database_url_comes_from_component_env_vars(clean_database_env, monkeypa
 
     assert (
         database.get_database_url()
-        == "postgresql://test-user:test-pass@localhost:5432/test-db"  # trufflehog:ignore
+        == "postgresql+psycopg://test-user:test-pass@localhost:5432/test-db"  # trufflehog:ignore
     )
 
 

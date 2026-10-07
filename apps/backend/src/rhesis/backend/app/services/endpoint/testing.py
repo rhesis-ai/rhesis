@@ -11,7 +11,7 @@ Neither entry point takes a database session. Both invoke a transient
 one to refresh a client-credentials token (a write to the *stored* row) or to
 resume a conversation trace (needs ``project_id``, which a transient endpoint
 has not got). Both callers here are coroutines on the event loop, so a session
-they could reach for would be a psycopg2 call on it -- see
+they could reach for would be a psycopg call on it -- see
 ``tests/backend/test_no_sync_db_on_loop.py``.
 """
 

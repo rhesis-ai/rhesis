@@ -82,7 +82,7 @@ def _set_owner(db: Session, org_id: uuid.UUID, user_id: uuid.UUID) -> None:
 
 
 def _point_session_at_org(db: Session, org_id: uuid.UUID) -> None:
-    db.execute(text('SET "app.current_organization" = :o'), {"o": str(org_id)})
+    db.execute(text("SELECT set_config('app.current_organization', :o, false)"), {"o": str(org_id)})
 
 
 @contextmanager

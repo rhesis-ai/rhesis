@@ -71,7 +71,7 @@ _LICENSE_TEST_TOKEN = jwt.encode(
 _TEST_DB_HOST = _containers["db_host"]
 _TEST_DB_PORT = str(_containers["db_port"])
 _TEST_DB_NAME = f"rhesis-test-{_XDIST_WORKER}"
-_TEST_DB_DRIVER = "postgresql"
+_TEST_DB_DRIVER = "postgresql+psycopg"
 
 _TEST_ENV_VARS = {
     "LOG_LEVEL": "WARNING",

@@ -82,7 +82,7 @@ test code.
 1. Polls `http://localhost:10003/health` for up to 60s.
 2. Truncates `token`, `user`, `organization`, `metric`.
 3. Inserts an organization, user, API token and a fixed project (`1234…`) with a membership row,
-   straight over psycopg2 — not through the API.
+   straight over psycopg — not through the API.
 
 Two constraints that break things silently if missed:
 

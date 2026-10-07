@@ -64,7 +64,7 @@ ALEMBIC_DIR = Path(__file__).resolve().parents[1] / "src" / "rhesis" / "backend"
 
 
 def _url(user: str, pw: str, db: str) -> str:
-    return f"postgresql://{user}:{pw}@{DB_HOST}:{DB_PORT}/{db}"
+    return f"postgresql+psycopg://{user}:{pw}@{DB_HOST}:{DB_PORT}/{db}"
 
 
 def _superengine(db: str):
@@ -75,7 +75,7 @@ def _alembic_env(user: str, pw: str) -> dict[str, str]:
     env = dict(os.environ)
     # These take precedence over apps/backend/.env (load_dotenv does not override
     # variables already present in the environment).
-    env["DB_DRIVER"] = "postgresql"
+    env["DB_DRIVER"] = "postgresql+psycopg"
     env["DB_HOST"] = DB_HOST
     env["DB_PORT"] = DB_PORT
     env["DB_NAME"] = SIM_DB

@@ -70,6 +70,7 @@ def patch_auth_get_db(monkeypatch, db):
 
     monkeypatch.setattr(user_utils, "get_db", lambda: _yield_fresh_session(db))
 
+
 # Test database configuration uses the same URL resolution as production.
 DATABASE_URL = get_database_url()
 
@@ -194,13 +195,15 @@ def test_db(test_org_id, authenticated_user_id, monkeypatch):
         if test_org_id:
             _validate_uuid(test_org_id, "test_org_id")
             connection.execute(
-                text('SET "app.current_organization" = :org_id'), {"org_id": test_org_id}
+                text("SELECT set_config('app.current_organization', :org_id, false)"),
+                {"org_id": test_org_id},
             )
 
         if authenticated_user_id:
             _validate_uuid(authenticated_user_id, "authenticated_user_id")
             connection.execute(
-                text('SET "app.current_user" = :user_id'), {"user_id": authenticated_user_id}
+                text("SELECT set_config('app.current_user', :user_id, false)"),
+                {"user_id": authenticated_user_id},
             )
 
         _current_tenant_organization_id.set(test_org_id)
@@ -228,6 +231,7 @@ def test_db(test_org_id, authenticated_user_id, monkeypatch):
         # leaves them blank — subsequent queries on tables with strict
         # tenant_isolation crash on ''::uuid.
         from rhesis.backend.app.crud import organization as _org_crud_mod
+
         _original_create = _org_crud_mod.create_organization
 
         _fixture_db = db
@@ -302,13 +306,15 @@ def admin_test_db(test_org_id, authenticated_user_id, monkeypatch):
         if test_org_id:
             _validate_uuid(test_org_id, "test_org_id")
             connection.execute(
-                text('SET "app.current_organization" = :org_id'), {"org_id": test_org_id}
+                text("SELECT set_config('app.current_organization', :org_id, false)"),
+                {"org_id": test_org_id},
             )
 
         if authenticated_user_id:
             _validate_uuid(authenticated_user_id, "authenticated_user_id")
             connection.execute(
-                text('SET "app.current_user" = :user_id'), {"user_id": authenticated_user_id}
+                text("SELECT set_config('app.current_user', :user_id, false)"),
+                {"user_id": authenticated_user_id},
             )
 
         _current_tenant_organization_id.set(test_org_id)
@@ -392,8 +398,7 @@ def _hard_delete_organization(db, organization_id: str) -> None:
             row[0]
             for row in db.execute(
                 text(
-                    "SELECT table_name FROM information_schema.tables "
-                    "WHERE table_schema = 'public'"
+                    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
                 )
             )
         }
@@ -500,12 +505,14 @@ def real_commit_test_db(test_org_id, authenticated_user_id, monkeypatch):
         if test_org_id:
             _validate_uuid(test_org_id, "test_org_id")
             db.execute(
-                text('SET "app.current_organization" = :org_id'), {"org_id": test_org_id}
+                text("SELECT set_config('app.current_organization', :org_id, false)"),
+                {"org_id": test_org_id},
             )
         if authenticated_user_id:
             _validate_uuid(authenticated_user_id, "authenticated_user_id")
             db.execute(
-                text('SET "app.current_user" = :user_id'), {"user_id": authenticated_user_id}
+                text("SELECT set_config('app.current_user', :user_id, false)"),
+                {"user_id": authenticated_user_id},
             )
 
         _current_tenant_organization_id.set(test_org_id)

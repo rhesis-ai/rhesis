@@ -1,6 +1,6 @@
 """Event-loop-safe invocation for the endpoint HTTP routes.
 
-:meth:`EndpointService.invoke_endpoint` interleaves psycopg2 calls -- the
+:meth:`EndpointService.invoke_endpoint` interleaves psycopg calls -- the
 endpoint lookup, the conversation trace lookup, the span write -- with the
 awaits it makes on the target endpoint. A coroutine route handler that passed
 it a live ``Session`` would run every one of those queries on the event loop,

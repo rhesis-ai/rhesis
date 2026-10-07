@@ -270,7 +270,7 @@ Rarely changed; the defaults are correct for most deployments.
 | `JWT_ALGORITHM` | JWT signing algorithm | `HS256` |
 | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | Access-token lifetime (minutes); refreshed automatically, and the window in which a deactivated user's token stays valid | `15` |
 | `RHESIS_BASE_URL` | Base URL for Rhesis-hosted models | `https://api.rhesis.ai` |
-| `DB_DRIVER` | SQLAlchemy database driver | `postgresql` |
+| `DB_DRIVER` | SQLAlchemy database driver. A bare `postgresql` is read as `postgresql+psycopg` | `postgresql+psycopg` |
 | `BROKER_READ_URL` | Optional read-replica broker URL | *(unset)* |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint for telemetry export | `https://telemetry.rhesis.ai` |
 | `OTEL_SERVICE_NAME` | Reported service name | `rhesis` |

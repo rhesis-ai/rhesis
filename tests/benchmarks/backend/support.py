@@ -146,12 +146,14 @@ class ConnectionSampler:
         self.samples: list[int] = []
 
     async def _run(self) -> None:
-        import psycopg2
+        import psycopg
+        from sqlalchemy.engine import make_url
 
         from rhesis.backend.app.config.settings import get_database_settings
 
-        conn = psycopg2.connect(get_database_settings().app_url)
-        conn.autocommit = True
+        # libpq takes a plain postgresql:// URL, without SQLAlchemy's "+psycopg".
+        url = make_url(get_database_settings().app_url).set(drivername="postgresql")
+        conn = psycopg.connect(url.render_as_string(hide_password=False), autocommit=True)
         try:
             while True:
                 with conn.cursor() as cur:

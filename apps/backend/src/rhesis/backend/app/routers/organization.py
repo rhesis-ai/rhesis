@@ -135,7 +135,7 @@ def _persist_settings(db: Session, org: models.Organization, updates: dict) -> d
 
 # The branding handlers below are ``async`` because they await file reads and,
 # for a Google font, an outbound HTTP check. That puts them on the event loop,
-# where a psycopg2 call would block every other request in the worker — so they
+# where a psycopg call would block every other request in the worker — so they
 # take an ``OffLoopSession`` and reach it only through these helpers, which hop
 # to the threadpool. Each helper does all its DB work in a single
 # ``run_sync`` call so the Session never crosses thread boundaries.

@@ -41,17 +41,16 @@ _ENV_REDIS_PORT = "RHESIS_TEST_REDIS_PORT"
 
 
 def _connect(host: str, port: str, dbname: str):
-    import psycopg2
+    import psycopg
 
-    conn = psycopg2.connect(
+    return psycopg.connect(
         host=host,
         port=int(port),
         dbname=dbname,
         user=ADMIN_USER,
         password=ADMIN_PASS,
+        autocommit=True,
     )
-    conn.autocommit = True
-    return conn
 
 
 def _create_app_role(host: str, port: str, dbname: str) -> None:
@@ -66,12 +65,17 @@ def _create_app_role(host: str, port: str, dbname: str) -> None:
     database and are applied to the template, which means every clone inherits
     them without repeating the work.
     """
+    from psycopg import sql
+
     conn = _connect(host, port, dbname)
     try:
         with conn.cursor() as cur:
+            # A literal, not a parameter: psycopg binds parameters server-side,
+            # and a utility statement like CREATE ROLE cannot take one.
             cur.execute(
-                'CREATE ROLE "rhesis-app" LOGIN PASSWORD %s NOBYPASSRLS',
-                (APP_PASS,),
+                sql.SQL('CREATE ROLE "rhesis-app" LOGIN PASSWORD {} NOBYPASSRLS').format(
+                    sql.Literal(APP_PASS)
+                )
             )
             cur.execute('GRANT USAGE ON SCHEMA public TO "rhesis-app"')
             cur.execute(
@@ -123,7 +127,7 @@ def clone_template_database(host: str, port: str, target: str) -> None:
     the target name is built from ``PYTEST_XDIST_WORKER``, so it comes from the
     environment rather than from this file.
     """
-    from psycopg2 import sql
+    from psycopg import sql
 
     conn = _connect(host, port, "postgres")
     try:
@@ -163,7 +167,7 @@ def _template_is_ready(conn) -> bool:
 
 
 def _mark_template_ready(conn) -> None:
-    from psycopg2 import sql
+    from psycopg import sql
 
     with conn.cursor() as cur:
         cur.execute(

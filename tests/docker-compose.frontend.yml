@@ -12,7 +12,7 @@ x-frontend-database-config: &frontend-database-config
   APP_DB_USER: rhesis-user
   APP_DB_PASS: rhesis-password # trufflehog:ignore
   DB_PORT: 5432
-  DB_DRIVER: postgresql
+  DB_DRIVER: postgresql+psycopg
   DB_HOST: frontend-test-postgres
   DB_ENCRYPTION_KEY: Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac= # trufflehog:ignore
 x-frontend-redis-config: &frontend-redis-config

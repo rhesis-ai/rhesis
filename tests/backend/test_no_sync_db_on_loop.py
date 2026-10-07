@@ -1,7 +1,7 @@
 """Guard: a coroutine route handler must never be handed a synchronous Session.
 
 FastAPI runs ``async def`` handlers and dependencies on the event loop. A
-SQLAlchemy ``Session`` there means every psycopg2 call blocks the loop, and one
+SQLAlchemy ``Session`` there means every psycopg call blocks the loop, and one
 slow query stalls every other request, WebSocket frame and ``/health`` probe in
 the worker process. ``def`` handlers run in the anyio threadpool, where the
 same call only blocks its own thread.
