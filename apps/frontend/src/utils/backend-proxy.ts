@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { webClientHeaders } from '@/utils/provenance';
 import { getServerBackendUrl } from '@/utils/url-resolver';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -162,7 +163,7 @@ export async function proxyToBackend(
     const value = request.headers.get(name);
     if (value) headers[name] = value;
   }
-  Object.assign(headers, overrideHeaders);
+  Object.assign(headers, webClientHeaders(request.headers), overrideHeaders);
 
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
   // Buffer the body once so it can be replayed if we follow a 307/308 (which,
