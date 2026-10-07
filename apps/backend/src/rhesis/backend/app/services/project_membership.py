@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import models
+from rhesis.backend.app.crud import project_membership as membership_crud
 from rhesis.backend.app.scope import bypass_tenant_filter
 
 _logger = logging.getLogger(__name__)
@@ -182,20 +183,8 @@ def enroll_user_in_project(
     Busts the permission cache for *user_id* so the next ``authorize()`` call
     re-evaluates against the database (plan §1.6 / §8b revocation requirement).
     """
-    from sqlalchemy.dialects.postgresql import insert as pg_insert
-
     # role_id is nullable; passing None inserts a binary (no-role) membership.
-    stmt = (
-        pg_insert(models.ProjectMembership)
-        .values(
-            project_id=project_id,
-            user_id=user_id,
-            organization_id=organization_id,
-            role_id=role_id,
-        )
-        .on_conflict_do_nothing(constraint="uq_project_membership_project_user")
-    )
-    db.execute(stmt)
+    membership_crud.add_membership(db, project_id, user_id, organization_id, role_id)
 
     # _set_default_project_if_empty does db.query() calls; bypass the ambient
     # project/org filter so the user and project are always found.
@@ -235,21 +224,8 @@ def unenroll_user_from_project(
         if project and project.owner_id and str(project.owner_id) == str(user_id):
             raise ProjectOwnerRemovalError("The project owner cannot be removed from a project")
 
-        membership = (
-            db.query(models.ProjectMembership)
-            .filter_by(
-                project_id=project_id,
-                user_id=user_id,
-                organization_id=organization_id,
-            )
-            .first()
-        )
-        if membership is None:
+        if not membership_crud.delete_membership(db, project_id, user_id, organization_id):
             return False
-
-        # Hard delete (not soft delete): the uq_project_membership_project_user
-        # unique constraint would otherwise block re-enrolling the same user.
-        db.delete(membership)
         _reassign_default_project_if_removed(db, user_id, project_id, organization_id)
 
     _bust_permission_cache(user_id, organization_id)
@@ -272,17 +248,9 @@ def unenroll_all_project_members(
     Busts the permission cache for every removed member (plan §8b).
     """
     with bypass_tenant_filter():
-        memberships = (
-            db.query(models.ProjectMembership)
-            .filter_by(project_id=project_id, organization_id=organization_id)
-            .all()
-        )
-        user_ids = [m.user_id for m in memberships]
-        for membership in memberships:
-            db.delete(membership)
-        # Flush the deletes so the per-user default repair sees the rows as gone
-        # when it scans for a replacement membership.
-        db.flush()
+        # Flushed, so the per-user default repair sees the rows as gone when it
+        # scans for a replacement membership.
+        user_ids = membership_crud.delete_project_memberships(db, project_id, organization_id)
         for user_id in user_ids:
             _reassign_default_project_if_removed(db, user_id, project_id, organization_id)
 

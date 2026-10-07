@@ -24,17 +24,6 @@ class ChunkingService:
         self.strategy = strategy
         self.encoding = tiktoken.get_encoding("cl100k_base")
 
-    def _soft_delete_existing_chunks(self, source_id: UUID4):
-        from datetime import datetime, timezone
-
-        from rhesis.backend.app.models.chunk import Chunk
-
-        now = datetime.now(timezone.utc)
-        self.db.query(Chunk).filter(
-            Chunk.source_id == source_id,
-            Chunk.deleted_at.is_(None),
-        ).update({"deleted_at": now, "updated_at": now})
-
     def chunk_source(self, source_id: UUID4, organization_id: str, user_id: str):
 
         source = source_crud.get_source_with_content(
@@ -47,7 +36,7 @@ class ChunkingService:
         if not source:
             raise HTTPException(status_code=404, detail=f"Source {source_id} not found")
 
-        self._soft_delete_existing_chunks(source.id)
+        source_crud.soft_delete_source_chunks(self.db, source.id)
 
         if not source.content or not source.content.strip():
             logger.warning(f"Skipping chunking for source {source_id} - no content available")

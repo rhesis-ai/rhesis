@@ -14,9 +14,9 @@ from fastapi import Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import authenticate_websocket, require_current_user_or_token
+from rhesis.backend.app.crud import execution_trace as execution_trace_crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.error_handlers import PublicHTTPException
-from rhesis.backend.app.models.execution_trace import ExecutionTrace as ExecutionTraceModel
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.models.project_membership import ProjectMembership
 from rhesis.backend.app.models.user import User
@@ -370,7 +370,8 @@ def receive_trace(
     with get_db_with_tenant_variables(organization_id, user_id, str(trace.project_id)) as db:
         _assert_project_membership(db, str(trace.project_id), current_user)
 
-        record = ExecutionTraceModel(
+        record = execution_trace_crud.create_execution_trace(
+            db,
             project_id=trace.project_id,
             organization_id=current_user.organization_id,
             environment=trace.environment,
@@ -382,12 +383,6 @@ def receive_trace(
             error=trace.error,
             executed_at=datetime.fromtimestamp(trace.timestamp, tz=timezone.utc),
         )
-        db.add(record)
-        # Flush (not commit): the PK is a server-side default
-        # (gen_random_uuid()), so the id only materializes on flush, while the
-        # commit itself stays owned by get_db_with_tenant_variables at context
-        # exit, where the tenant GUCs are still valid.
-        db.flush()
         trace_id = str(record.id)
 
     logger.info("=" * 80)

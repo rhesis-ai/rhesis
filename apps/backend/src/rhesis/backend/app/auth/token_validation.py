@@ -4,7 +4,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.crud.token import get_token_by_value
+from rhesis.backend.app.crud.token import get_token_by_value, mark_token_used
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +24,7 @@ def update_token_usage(db: Session, token) -> None:
                 last_used = last_used.replace(tzinfo=timezone.utc)
             if now - last_used < TOKEN_USAGE_WRITE_INTERVAL:
                 return
-        token.last_used_at = now
-        db.add(token)
+        mark_token_used(db, token, now)
         # Transaction commit/rollback is handled by the session context manager
     except Exception as e:
         logger.error(f"Failed to update token last_used_at: {str(e)}")

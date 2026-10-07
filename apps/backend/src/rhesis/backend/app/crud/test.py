@@ -95,6 +95,13 @@ def create_test(
     return create_item(db, models.Test, test, organization_id, user_id)
 
 
+def stage_test(db: Session, params: Dict) -> models.Test:
+    """Add a test to the session without flushing, for bulk creation that flushes in batches."""
+    test = models.Test(**params)
+    db.add(test)
+    return test
+
+
 def update_test(
     db: Session,
     test_id: uuid.UUID,

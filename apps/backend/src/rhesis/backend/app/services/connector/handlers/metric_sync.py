@@ -7,7 +7,11 @@ from typing import Any, Dict, List
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.utils.crud_utils import get_or_create_status, get_or_create_type_lookup
+from rhesis.backend.app.utils.crud_utils import (
+    create_item,
+    get_or_create_status,
+    get_or_create_type_lookup,
+)
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.sdk.connector.registry import DEFAULT_METRIC_PARAMS
 
@@ -159,12 +163,20 @@ def _set_sdk_connection(
     accepted_params: List[str],
 ) -> None:
     """Store sdk_connection in metric's evaluation_examples as JSON."""
+    metric.evaluation_examples = _with_sdk_connection(
+        metric.evaluation_examples, metric_name, accepted_params
+    )
+
+
+def _with_sdk_connection(
+    evaluation_examples: str | None, metric_name: str, accepted_params: List[str]
+) -> str:
     import json
 
     data = {}
-    if metric.evaluation_examples:
+    if evaluation_examples:
         try:
-            data = json.loads(metric.evaluation_examples)
+            data = json.loads(evaluation_examples)
         except (json.JSONDecodeError, TypeError):
             data = {}
 
@@ -173,7 +185,7 @@ def _set_sdk_connection(
         "accepted_params": accepted_params,
         "last_registered": datetime.now(timezone.utc).isoformat(),
     }
-    metric.evaluation_examples = json.dumps(data)
+    return json.dumps(data)
 
 
 def _update_existing_metric(
@@ -229,28 +241,26 @@ def _create_new_metric(
         commit=False,
     )
 
-    from uuid import UUID
-
-    metric = models.Metric(
-        name=metric_name,
-        description=description,
-        evaluation_prompt=f"SDK metric executed on client side: {metric_name}",
-        score_type=score_type,
-        class_name=metric_name,
-        backend_type_id=backend_type.id,
-        metric_type_id=metric_type.id if metric_type else None,
-        status_id=active_status.id if active_status else None,
-        ground_truth_required="expected_output" in accepted_params,
-        context_required="context" in accepted_params,
-        metric_scope=["Single-Turn"],
-        organization_id=UUID(organization_id),
-        user_id=UUID(user_id),
+    metric = create_item(
+        db,
+        models.Metric,
+        dict(
+            name=metric_name,
+            description=description,
+            evaluation_prompt=f"SDK metric executed on client side: {metric_name}",
+            score_type=score_type,
+            class_name=metric_name,
+            backend_type_id=backend_type.id,
+            metric_type_id=metric_type.id if metric_type else None,
+            status_id=active_status.id if active_status else None,
+            ground_truth_required="expected_output" in accepted_params,
+            context_required="context" in accepted_params,
+            metric_scope=["Single-Turn"],
+            evaluation_examples=_with_sdk_connection(None, metric_name, accepted_params),
+        ),
+        organization_id=organization_id,
+        user_id=user_id,
     )
-
-    _set_sdk_connection(metric, metric_name, accepted_params)
-
-    db.add(metric)
-    db.flush()
 
     logger.info(f"Created SDK metric: {metric_name} (id={metric.id})")
     return metric

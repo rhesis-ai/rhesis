@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.utils.crud_utils import (
+    bulk_delete,
     bulk_delete_by_ids,
     create_item,
     delete_item,
@@ -198,17 +199,20 @@ def bulk_revoke_tokens(
 
 def revoke_user_tokens(db: Session, user_id: uuid.UUID, organization_id: str | None = None) -> int:
     """Revoke all tokens for a user with organization filtering (SECURITY CRITICAL)"""
-    query = db.query(models.Token).filter(models.Token.user_id == user_id)
+    criteria = [models.Token.user_id == user_id]
 
     # Apply organization filtering (SECURITY CRITICAL)
     if organization_id:
-        from uuid import UUID
+        criteria.append(models.Token.organization_id == uuid.UUID(organization_id))
 
-        query = query.filter(models.Token.organization_id == UUID(organization_id))
-
-    result = query.delete()
     # Transaction commit is handled by the session context manager
-    return result
+    return len(bulk_delete(db, models.Token, criteria))
+
+
+def mark_token_used(db: Session, token: models.Token, when: datetime) -> None:
+    """Stamp ``last_used_at``. ``add`` attaches a token loaded by another session."""
+    token.last_used_at = when
+    db.add(token)
 
 
 def get_token_by_value(db: Session, token_value: str, organization_id: str | None = None):

@@ -12,6 +12,15 @@ from rhesis.backend.app.utils.crud_utils import bulk_delete_by_ids
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 
 
+def create_experiment(db: Session, **fields) -> models.Experiment:
+    """Insert an experiment and return it with server defaults loaded."""
+    experiment = models.Experiment(**fields)
+    db.add(experiment)
+    db.flush()
+    db.refresh(experiment)
+    return experiment
+
+
 def get_experiments(
     db: Session,
     skip: int = 0,

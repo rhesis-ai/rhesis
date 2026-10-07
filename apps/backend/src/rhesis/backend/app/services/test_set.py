@@ -22,6 +22,7 @@ from rhesis.backend.app.constants import (
     TestResultStatus,
     TestSetType,
 )
+from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.models import Prompt, TestSet
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.test import test_test_set_association
@@ -134,35 +135,38 @@ def create_pending_test_set(
         user_id=user_id,
     )
 
-    test_set = models.TestSet(
-        name=name,
-        status_id=test_set_status.id,
-        license_type_id=license_type.id,
-        test_set_type_id=test_set_type_lookup.id,
-        user_id=user_id,
+    test_set = test_set_crud.create_test_set(
+        db,
+        dict(
+            name=name,
+            status_id=test_set_status.id,
+            license_type_id=license_type.id,
+            test_set_type_id=test_set_type_lookup.id,
+            user_id=user_id,
+            organization_id=organization_id,
+            project_id=project_id,
+            owner_id=ensure_owner_id(None, user_id),
+            priority=defaults["test_set"]["priority"],
+            visibility=defaults["test_set"]["visibility"],
+            attributes={
+                "metadata": {
+                    "total_tests": 0,
+                    "categories": [],
+                    REQUIREMENT_LIST_KEY: [],
+                    "topics": [],
+                    "license_type": defaults["test_set"]["license_type"],
+                    "generation": {
+                        "status": "in_progress",
+                        "task_id": task_id,
+                        "requested_tests": requested_tests,
+                    },
+                }
+            },
+        ),
         organization_id=organization_id,
-        project_id=project_id,
-        owner_id=ensure_owner_id(None, user_id),
-        priority=defaults["test_set"]["priority"],
-        visibility=defaults["test_set"]["visibility"],
-        attributes={
-            "metadata": {
-                "total_tests": 0,
-                "categories": [],
-                REQUIREMENT_LIST_KEY: [],
-                "topics": [],
-                "license_type": defaults["test_set"]["license_type"],
-                "generation": {
-                    "status": "in_progress",
-                    "task_id": task_id,
-                    "requested_tests": requested_tests,
-                },
-            }
-        },
+        user_id=user_id,
     )
 
-    db.add(test_set)
-    db.flush()
     return test_set
 
 
@@ -335,24 +339,27 @@ def bulk_create_test_set(
         raw_assignee_id = getattr(test_set_data, "assignee_id", None)
 
         # Create test set with minimal attributes
-        test_set = models.TestSet(
-            name=test_set_data.name,
-            description=test_set_data.description,
-            short_description=test_set_data.short_description,
-            status_id=test_set_status.id,
-            license_type_id=license_type.id,
-            test_set_type_id=test_set_type_lookup.id,
-            user_id=user_id,
+        test_set = test_set_crud.create_test_set(
+            db,
+            dict(
+                name=test_set_data.name,
+                description=test_set_data.description,
+                short_description=test_set_data.short_description,
+                status_id=test_set_status.id,
+                license_type_id=license_type.id,
+                test_set_type_id=test_set_type_lookup.id,
+                user_id=user_id,
+                organization_id=organization_id,
+                owner_id=ensure_owner_id(raw_owner_id, user_id),
+                assignee_id=sanitize_uuid_field(raw_assignee_id),  # Sanitize assignee_id
+                priority=getattr(test_set_data, "priority", None)
+                or defaults["test_set"]["priority"],
+                visibility=defaults["test_set"]["visibility"],
+                attributes={},  # Will be updated after tests are created
+            ),
             organization_id=organization_id,
-            owner_id=ensure_owner_id(raw_owner_id, user_id),
-            assignee_id=sanitize_uuid_field(raw_assignee_id),  # Sanitize assignee_id
-            priority=getattr(test_set_data, "priority", None) or defaults["test_set"]["priority"],
-            visibility=defaults["test_set"]["visibility"],
-            attributes={},  # Will be updated after tests are created
+            user_id=user_id,
         )
-
-        db.add(test_set)
-        db.flush()  # Get the test set ID
 
         # Create tests and associate with test set, using the same type as the test set
         bulk_create_tests(
@@ -519,16 +526,9 @@ def remove_test_set_associations(
                 "message": ERROR_TEST_SET_NOT_FOUND.format(test_set_id=test_set_id),
             }
 
-        # Remove associations
-        result = db.execute(
-            test_test_set_association.delete().where(
-                test_test_set_association.c.test_set_id == test_set_id,
-                test_test_set_association.c.test_id.in_(test_ids),
-                test_test_set_association.c.organization_id == organization_id,
-            )
+        removed_count = len(
+            test_set_crud.remove_tests_from_test_set(db, test_set_id, test_ids, organization_id)
         )
-
-        removed_count = result.rowcount
 
         # Refresh test set to get updated relationships
         db.refresh(test_set)
@@ -635,7 +635,6 @@ def get_last_completed_test_run(
         ItemDeletedException: If test_set_identifier resolves to a
             soft-deleted test set (via test_set_crud.resolve_test_set).
     """
-    from rhesis.backend.app.crud import test_set as test_set_crud
     from rhesis.backend.app.models.status import Status
     from rhesis.backend.app.models.test_configuration import (
         TestConfiguration,
@@ -748,7 +747,6 @@ def execute_test_set_on_endpoint(
         RuntimeError: For execution errors
     """
     from rhesis.backend.app.crud import endpoint as endpoint_crud
-    from rhesis.backend.app.crud import test_set as test_set_crud
 
     logger.info(
         f"Starting test set execution for identifier: {test_set_identifier} "

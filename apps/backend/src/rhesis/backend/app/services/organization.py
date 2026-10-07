@@ -13,13 +13,13 @@ from rhesis.backend.app import models, schemas
 from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.constants import REQUIREMENT_LIST_KEY
 from rhesis.backend.app.crud import endpoint as endpoint_crud
+from rhesis.backend.app.crud import metric as metric_crud
+from rhesis.backend.app.crud import organization as organization_crud
 from rhesis.backend.app.crud import tag as tag_crud
 from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.models.enums import ModelType
-from rhesis.backend.app.models.metric import requirement_metric_association
-from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.schemas.tag import EntityType
 from rhesis.backend.app.scope import bypass_tenant_filter
 from rhesis.backend.app.services.project_membership import enroll_user_in_project
@@ -368,13 +368,13 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                 )
 
                 if db_test:
-                    values = {
-                        "test_id": db_test.id,
-                        "test_set_id": test_set.id,
-                        "organization_id": uuid.UUID(organization_id),
-                        "user_id": uuid.UUID(user_id),
-                    }
-                    db.execute(test_test_set_association.insert().values(**values))
+                    test_set_crud.add_tests_to_test_set(
+                        db,
+                        test_set.id,
+                        [db_test.id],
+                        uuid.UUID(organization_id),
+                        uuid.UUID(user_id),
+                    )
                     db.flush()
 
             # Track test sets to update attributes after associations are complete
@@ -656,24 +656,15 @@ def load_initial_data(db: Session, organization_id: str, user_id: str) -> Dict[s
                     commit=False,
                 )
 
-                # Check if association already exists
-                existing_association = db.execute(
-                    requirement_metric_association.select().where(
-                        requirement_metric_association.c.requirement_id == requirement.id,
-                        requirement_metric_association.c.metric_id == metric.id,
-                    )
-                ).first()
-
-                # Create association if it doesn't exist
-                if not existing_association:
-                    association_values = {
-                        "requirement_id": requirement.id,
-                        "metric_id": metric.id,
-                        "organization_id": uuid.UUID(organization_id),
-                        "user_id": uuid.UUID(user_id),
-                    }
-                    db.execute(requirement_metric_association.insert().values(**association_values))
-                    db.flush()
+                # No-op when the requirement is already linked.
+                metric_crud.add_requirement_to_metric(
+                    db,
+                    metric.id,
+                    requirement.id,
+                    uuid.UUID(user_id),
+                    uuid.UUID(organization_id),
+                )
+                db.flush()
 
         _assign_demo_entities_to_example_project(db, organization_id, user_id, initial_data)
 
@@ -1260,17 +1251,6 @@ def _get_entity_identifier_from_instance(entity) -> str:
     return ""
 
 
-def _delete_entity_associations(db: Session, entity):
-    """Delete all many-to-many associations for an entity."""
-    for rel in inspect(entity.__class__).relationships:
-        if rel.secondary is not None:
-            table = rel.secondary
-            stmt = table.delete().where(
-                getattr(table.c, f"{entity.__class__.__tablename__}_id") == entity.id
-            )
-            db.execute(stmt)
-
-
 def rollback_initial_data(db: Session, organization_id: str, user_id: str | None = None) -> None:
     """
     Remove all data that was inserted by load_initial_data for a specific organization.
@@ -1423,45 +1403,7 @@ def rollback_initial_data(db: Session, organization_id: str, user_id: str | None
                     continue
 
                 try:
-                    # Special handling for Status deletion
-                    # Status entities are referenced by many other entities with
-                    # NOT NULL constraints, so those have to go first.
-                    if entity.__class__.__name__ == "Status":
-                        # Nullify trace_metrics_status_id references before deletion
-                        db.query(models.Trace).filter(
-                            models.Trace.trace_metrics_status_id == entity.id,
-                            models.Trace.organization_id == organization_id,
-                        ).update(
-                            {"trace_metrics_status_id": None},
-                            synchronize_session="fetch",
-                        )
-
-                        # Delete tasks that reference this status
-                        tasks_with_status = (
-                            db.query(models.Task)
-                            .filter(
-                                models.Task.status_id == entity.id,
-                                models.Task.organization_id == organization_id,
-                            )
-                            .all()
-                        )
-
-                        for task in tasks_with_status:
-                            try:
-                                db.delete(task)
-                            except Exception as task_error:
-                                print(f"Error deleting task {task.id}: {task_error}")
-
-                        # Also delete embeddings that reference this status
-                        db.query(models.Embedding).filter(
-                            models.Embedding.status_id == entity.id,
-                            models.Embedding.organization_id == organization_id,
-                        ).delete(synchronize_session="fetch")
-
-                        db.flush()
-
-                    _delete_entity_associations(db, entity)
-                    db.delete(entity)
+                    organization_crud.hard_delete_seeded_entity(db, entity, organization_id)
                     deleted_ids.add(entity.id)
                     db.flush()  # Use flush instead of commit to keep transaction atomic
                 except Exception as e:

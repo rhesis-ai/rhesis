@@ -194,7 +194,6 @@ def _run_embedding_graph(
     )
     graph = build_2d_graph(db, entity_ids, user, embedded_entity=embedded_entity)
     persist_graph(parent, graph)
-    db.add(parent)
     db.commit()
 
 

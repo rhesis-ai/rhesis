@@ -14,15 +14,17 @@ that reset so the debug log shows the GUCs really were cleared.
 
 import logging
 import uuid
-from typing import List, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
-from sqlalchemy import text
+from sqlalchemy import delete, inspect, text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.database import reset_session_context
 from rhesis.backend.app.utils.crud_utils import (
+    bulk_delete,
+    bulk_update,
     delete_item,
     get_item,
     get_items,
@@ -141,3 +143,49 @@ def update_organization(
 def delete_organization(db: Session, organization_id: uuid.UUID) -> Optional[models.Organization]:
     """Delete organization - requires superuser permissions (handled in router)"""
     return delete_item(db, models.Organization, organization_id)
+
+
+def hard_delete_seeded_entity(db: Session, entity: Any, organization_id: str) -> None:
+    """Hard delete one row created by onboarding, with its many-to-many links.
+
+    Used by onboarding rollback. A ``Status`` is referenced by other rows with NOT NULL
+    foreign keys, so those references are cleared or deleted first.
+    """
+    if isinstance(entity, models.Status):
+        bulk_update(
+            db,
+            models.Trace,
+            [
+                models.Trace.trace_metrics_status_id == entity.id,
+                models.Trace.organization_id == organization_id,
+            ],
+            {"trace_metrics_status_id": None},
+            synchronize_session="fetch",
+        )
+        tasks = (
+            db.query(models.Task)
+            .filter(
+                models.Task.status_id == entity.id,
+                models.Task.organization_id == organization_id,
+            )
+            .all()
+        )
+        for task in tasks:
+            db.delete(task)
+        bulk_delete(
+            db,
+            models.Embedding,
+            [
+                models.Embedding.status_id == entity.id,
+                models.Embedding.organization_id == organization_id,
+            ],
+            synchronize_session="fetch",
+        )
+        db.flush()
+
+    for rel in inspect(entity.__class__).relationships:
+        if rel.secondary is not None:
+            table = rel.secondary
+            key = getattr(table.c, f"{entity.__class__.__tablename__}_id")
+            db.execute(delete(table).where(key == entity.id))
+    db.delete(entity)

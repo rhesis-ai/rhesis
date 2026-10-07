@@ -29,6 +29,7 @@ from fastapi import Depends, HTTPException, Path, Query, Request, status
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.crud import experiment as experiment_crud
 from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.database import bind_scope_to_session
 from rhesis.backend.app.dependencies import (
@@ -145,7 +146,6 @@ def put_parameters_schema(
     organization_id, user_id = tenant_context
     project = _load_project(project_id, db, organization_id, user_id)
     project.parameters_schema = payload
-    db.add(project)
     db.commit()
     db.refresh(project)
     return coerce_schema(project)
@@ -391,7 +391,8 @@ def create_project_experiment(
 
     _load_project(project_id, db, organization_id, user_id)
 
-    db_experiment = ExperimentModel(
+    db_experiment = experiment_crud.create_experiment(
+        db,
         project_id=project_id,
         organization_id=uuid.UUID(organization_id),
         owner_user_id=current_user.id,
@@ -400,9 +401,6 @@ def create_project_experiment(
         visibility=payload.visibility,
         versions=[],
     )
-    db.add(db_experiment)
-    db.flush()
-    db.refresh(db_experiment)
     return to_read(db_experiment)
 
 
