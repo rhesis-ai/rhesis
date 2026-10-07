@@ -62,6 +62,7 @@ from rhesis.backend.app.services.telemetry.providers import (
     resolve_provider,
 )
 from rhesis.backend.app.services.telemetry.span_types import classify_span_type
+from rhesis.backend.app.utils.crud_utils import bulk_update
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include, resolve_chain
 
 logger = logging.getLogger(__name__)
@@ -1145,20 +1146,19 @@ def mark_trace_processed(
     Returns:
         Number of spans updated
     """
-    result = (
-        db.query(models.Trace)
-        .filter(models.Trace.trace_id == trace_id)
-        .update(
-            {
-                "processed_at": datetime.now(timezone.utc),
-                "enriched_data": enriched_data,
-                "updated_at": datetime.now(timezone.utc),
-            }
-        )
+    ids = bulk_update(
+        db,
+        models.Trace,
+        [models.Trace.trace_id == trace_id],
+        {
+            "processed_at": datetime.now(timezone.utc),
+            "enriched_data": enriched_data,
+            "updated_at": datetime.now(timezone.utc),
+        },
     )
 
     db.commit()
-    return result
+    return len(ids)
 
 
 def update_traces_with_test_result_id(
@@ -1242,26 +1242,27 @@ def update_traces_with_test_result_id(
                 f"attributes: {all_traces_for_run[0].attributes}"
             )
 
-    result = (
-        db.query(models.Trace)
-        .filter(
-            models.Trace.test_run_id == test_run_uuid,
-            models.Trace.test_id == test_id_uuid,
-            models.Trace.organization_id == org_uuid,
-            # Also check attributes for test_configuration_id since it's stored there
-            models.Trace.attributes[
-                TestExecutionContext.SpanAttributes.TEST_CONFIGURATION_ID
-            ].astext
-            == str(test_config_uuid),
-            # Only update if test_result_id is NULL (idempotent)
-            models.Trace.test_result_id.is_(None),
-        )
-        .update(
+    result = len(
+        bulk_update(
+            db,
+            models.Trace,
+            [
+                models.Trace.test_run_id == test_run_uuid,
+                models.Trace.test_id == test_id_uuid,
+                models.Trace.organization_id == org_uuid,
+                # test_configuration_id is only stored in the span attributes
+                models.Trace.attributes[
+                    TestExecutionContext.SpanAttributes.TEST_CONFIGURATION_ID
+                ].astext
+                == str(test_config_uuid),
+                # Only update if test_result_id is NULL (idempotent)
+                models.Trace.test_result_id.is_(None),
+            ],
             {
                 "test_result_id": test_result_uuid,
                 "updated_at": datetime.now(timezone.utc),
             },
-            synchronize_session=False,  # More efficient for bulk updates
+            synchronize_session=False,
         )
     )
 
@@ -1295,16 +1296,15 @@ def update_conversation_id_for_trace(
     """
     org_uuid = UUID(organization_id)
 
-    count = (
-        db.query(models.Trace)
-        .filter(
-            and_(
+    count = len(
+        bulk_update(
+            db,
+            models.Trace,
+            [
                 models.Trace.trace_id == trace_id,
                 models.Trace.organization_id == org_uuid,
                 models.Trace.conversation_id.is_(None),
-            )
-        )
-        .update(
+            ],
             {
                 models.Trace.conversation_id: conversation_id,
                 models.Trace.updated_at: datetime.now(timezone.utc),
@@ -1369,9 +1369,9 @@ def update_trace_turn_metrics(
         update_values["execution"] = execution
         update_values["verdict"] = verdict
 
-    result = db.query(models.Trace).filter(models.Trace.id == span_id).update(update_values)
+    ids = bulk_update(db, models.Trace, [models.Trace.id == span_id], update_values)
     db.commit()
-    return result
+    return len(ids)
 
 
 def update_trace_conversation_metrics(

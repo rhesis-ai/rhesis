@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.schemas.tag import EntityType
 from rhesis.backend.app.utils.crud_utils import (
+    bulk_delete,
     create_item,
     delete_item,
     get_item,
@@ -205,16 +206,16 @@ def remove_tag(
     if not entity:
         raise ValueError(f"{entity_type.value} with id {entity_id} not found or not accessible")
 
-    result = (
-        db.query(models.TaggedItem)
-        .filter(
+    removed = bulk_delete(
+        db,
+        models.TaggedItem,
+        [
             models.TaggedItem.tag_id == tag_id,
             models.TaggedItem.entity_id == entity_id,
             models.TaggedItem.entity_type == entity_type.value,
-            models.TaggedItem.organization_id == db_tag.organization_id,  # Add organization filter
-        )
-        .delete()
+            models.TaggedItem.organization_id == db_tag.organization_id,
+        ],
     )
 
     # Transaction commit is handled by the session context manager
-    return result > 0
+    return len(removed) > 0

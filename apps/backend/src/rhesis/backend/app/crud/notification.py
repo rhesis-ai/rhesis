@@ -14,6 +14,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.notification import Notification
+from rhesis.backend.app.utils.crud_utils import bulk_update
 
 
 def create_notification(
@@ -143,14 +144,14 @@ def mark_notifications_read(
     if not section and not notification_ids:
         return 0
 
-    query = db.query(Notification).filter(
-        Notification.user_id == user_id, Notification.read_at.is_(None)
-    )
+    criteria = [Notification.user_id == user_id, Notification.read_at.is_(None)]
     if section:
-        query = query.filter(Notification.section == section)
+        criteria.append(Notification.section == section)
     if notification_ids:
-        query = query.filter(Notification.id.in_(notification_ids))
+        criteria.append(Notification.id.in_(notification_ids))
 
-    count = query.update({Notification.read_at: func.now()}, synchronize_session=False)
+    ids = bulk_update(
+        db, Notification, criteria, {Notification.read_at: func.now()}, synchronize_session=False
+    )
     db.commit()
-    return count
+    return len(ids)

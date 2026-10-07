@@ -5,22 +5,20 @@ Two behaviours here are worth knowing about. ``delete_comment`` first strips the
 so deleting a comment does not leave orphaned references behind; that cleanup is committed
 separately and a failure is logged rather than blocking the delete.
 
-The emoji helpers write through a raw ``UPDATE comment SET emojis`` instead of assigning to
-the ORM attribute. ``Comment.emojis`` is a JSON column, so an in-place mutation of the dict
-is not seen by SQLAlchemy's change tracking -- ``add_emoji_reaction`` therefore rebuilds the
-dict before serialising it, and both helpers push the result down as JSON text.
+The emoji helpers build a new dict and call ``flag_modified``. ``Comment.emojis`` is a JSON
+column, so SQLAlchemy's change tracking does not see an in-place mutation of the dict.
 """
 
-import json
 import logging
 import uuid
 from typing import List, Optional, Union
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.utils.crud_utils import (
+    bulk_update,
     create_item,
     delete_item,
     get_item_detail,
@@ -146,10 +144,13 @@ def delete_comment(
     try:
         # Clear comment_id from task_metadata using SQLAlchemy JSONB operators
         # Cast JSON to JSONB to use the '-' operator for key removal
-        db.query(models.Task).filter(
-            models.Task.task_metadata["comment_id"].astext == str(comment_id),
-            models.Task.organization_id == organization_id,
-        ).update(
+        bulk_update(
+            db,
+            models.Task,
+            [
+                models.Task.task_metadata["comment_id"].astext == str(comment_id),
+                models.Task.organization_id == organization_id,
+            ],
             {
                 models.Task.task_metadata: cast(models.Task.task_metadata, JSONB).op("-")(
                     "comment_id"
@@ -185,42 +186,14 @@ def add_emoji_reaction(
     if not comment:
         return None
 
-    # Initialize emojis if None
-    if comment.emojis is None:
-        comment.emojis = {}
-
-    # Initialize emoji list if it doesn't exist
-    if emoji not in comment.emojis:
-        comment.emojis[emoji] = []
-
-    # Check if user already reacted with this emoji
-    existing_reaction = next(
-        (reaction for reaction in comment.emojis[emoji] if reaction["user_id"] == str(user_id)),
-        None,
-    )
-
-    if existing_reaction:
+    reactions = (comment.emojis or {}).get(emoji, [])
+    if any(reaction["user_id"] == str(user_id) for reaction in reactions):
         return comment  # User already reacted, no change needed
 
-    # Add new reaction
     new_reaction = {"user_id": str(user_id), "user_name": user_name}
-
-    # Create a completely new emojis dictionary instead of modifying in-place
-    current_emojis = dict(comment.emojis) if comment.emojis else {}
-    if emoji not in current_emojis:
-        current_emojis[emoji] = []
-    current_emojis[emoji].append(new_reaction)
-
-    # Convert dictionary to JSON string for PostgreSQL
-    emojis_json = json.dumps(current_emojis)
-
-    update_sql = text("UPDATE comment SET emojis = :emojis WHERE id = :comment_id")
-    db.execute(update_sql, {"emojis": emojis_json, "comment_id": comment_id})
-
-    # Transaction commit is handled by the session context manager
-    db.refresh(comment)
-
-    return comment
+    current_emojis = {key: list(value) for key, value in (comment.emojis or {}).items()}
+    current_emojis.setdefault(emoji, []).append(new_reaction)
+    return _set_emojis(db, comment, current_emojis)
 
 
 def remove_emoji_reaction(
@@ -239,22 +212,18 @@ def remove_emoji_reaction(
     if comment.emojis is None or emoji not in comment.emojis:
         return comment  # No reactions to remove
 
-    # Remove user's reaction
-    comment.emojis[emoji] = [
-        reaction for reaction in comment.emojis[emoji] if reaction["user_id"] != str(user_id)
-    ]
+    current_emojis = dict(comment.emojis)
+    remaining = [r for r in current_emojis[emoji] if r["user_id"] != str(user_id)]
+    if remaining:
+        current_emojis[emoji] = remaining
+    else:
+        del current_emojis[emoji]
+    return _set_emojis(db, comment, current_emojis)
 
-    # Remove emoji key if no reactions left
-    if not comment.emojis[emoji]:
-        del comment.emojis[emoji]
 
-    # Convert dictionary to JSON string for PostgreSQL
-    emojis_json = json.dumps(comment.emojis)
-
-    update_sql = text("UPDATE comment SET emojis = :emojis WHERE id = :comment_id")
-    db.execute(update_sql, {"emojis": emojis_json, "comment_id": comment_id})
-
-    # Transaction commit is handled by the session context manager
+def _set_emojis(db: Session, comment: models.Comment, emojis: dict) -> models.Comment:
+    comment.emojis = emojis
+    flag_modified(comment, "emojis")
+    db.flush()
     db.refresh(comment)
-
     return comment

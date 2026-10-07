@@ -157,7 +157,7 @@ def delete_test(
     The test is marked as deleted but remains in the database to preserve
     referential integrity with test runs, results, and other related data.
     """
-    from rhesis.backend.app.services import cascade as cascade_service
+    from rhesis.backend.app.crud import cascade as cascade_service
     from rhesis.backend.app.services.test_set import update_test_set_attributes
 
     # Get the test to be deleted

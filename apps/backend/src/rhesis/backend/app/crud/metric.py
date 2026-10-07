@@ -10,6 +10,7 @@ import uuid
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
@@ -332,18 +333,19 @@ def remove_requirement_from_metric(
     if not requirement:
         raise ValueError(f"Requirement with id {requirement_id} not found or not accessible")
 
-    result = (
-        db.query(models.requirement_metric_association)
-        .filter(
-            models.requirement_metric_association.c.metric_id == metric_id,
-            models.requirement_metric_association.c.requirement_id == requirement_id,
-            models.requirement_metric_association.c.organization_id == organization_id,
+    association = models.requirement_metric_association
+    removed = db.execute(
+        delete(association)
+        .where(
+            association.c.metric_id == metric_id,
+            association.c.requirement_id == requirement_id,
+            association.c.organization_id == organization_id,
         )
-        .delete()
-    )
+        .returning(association.c.requirement_id)
+    ).all()
 
     # Transaction commit is handled by the session context manager
-    return result > 0
+    return len(removed) > 0
 
 
 def get_metric_requirements(

@@ -23,10 +23,10 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.config.cascade_config import get_cascade_relationships
 from rhesis.backend.app.constants import AnnotationTarget, EntityType
+from rhesis.backend.app.crud.cascade import cascade_restore, cascade_soft_delete
 from rhesis.backend.app.crud.test import bulk_delete_tests, delete_test
 from rhesis.backend.app.crud.test_result import delete_test_result
 from rhesis.backend.app.database import without_soft_delete_filter
-from rhesis.backend.app.services.cascade import cascade_restore, cascade_soft_delete
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 
 

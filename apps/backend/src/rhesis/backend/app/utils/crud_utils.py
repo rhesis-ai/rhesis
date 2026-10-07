@@ -8,7 +8,9 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
 
 from pydantic import BaseModel
+from sqlalchemy import delete as sa_delete
 from sqlalchemy import inspect
+from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Query, Session
 
 from rhesis.backend.app.constants import EntityType
@@ -702,7 +704,7 @@ def delete_item(
     Raises:
         ValueError: If organization_id or user_id is required but not provided
     """
-    from rhesis.backend.app.services import cascade as cascade_service
+    from rhesis.backend.app.crud import cascade as cascade_service
 
     item = get_item_detail(db, model, item_id, organization_id, user_id)
 
@@ -765,7 +767,7 @@ def bulk_delete_by_ids(
         Dict with "deleted_ids" and "not_found_ids" (both lists of str ids),
         plus "forbidden_ids" when ``owner_attr`` is given.
     """
-    from rhesis.backend.app.services import cascade as cascade_service
+    from rhesis.backend.app.crud import cascade as cascade_service
 
     if not item_ids:
         result = {"deleted_ids": [], "not_found_ids": []}
@@ -803,14 +805,17 @@ def bulk_delete_by_ids(
         try:
             cascade_service.cascade_soft_delete_bulk(db, model, deleted_ids, organization_id)
 
-            query = db.query(model).filter(model.id.in_(deleted_ids))
+            criteria = [model.id.in_(deleted_ids)]
             if organization_id and hasattr(model, "organization_id"):
-                query = query.filter(model.organization_id == organization_id)
-            # query.update() bypasses the ORM flush path that applies column
-            # onupdate for single-row soft_delete(), so updated_at needs to be
-            # set explicitly here or it stays stale after a bulk delete.
+                criteria.append(model.organization_id == organization_id)
             now = datetime.now(timezone.utc)
-            query.update({"deleted_at": now, "updated_at": now}, synchronize_session=False)
+            bulk_update(
+                db,
+                model,
+                criteria,
+                {"deleted_at": now, "updated_at": now},
+                synchronize_session=False,
+            )
 
             db.commit()
         except Exception:
@@ -827,6 +832,49 @@ def bulk_delete_by_ids(
     if owner_attr:
         result["forbidden_ids"] = [str(i) for i in forbidden_ids]
     return result
+
+
+def bulk_update(
+    db: Session,
+    model: Type[T],
+    criteria: List[Any],
+    values: Dict[Any, Any],
+    synchronize_session: Union[str, bool] = "auto",
+) -> List[uuid.UUID]:
+    """UPDATE every ``model`` row matching ``criteria`` in one statement.
+
+    Returns the ids of the rows it changed, so session hooks see which rows a
+    bulk write touched; a legacy ``Query.update()`` only reports a count.
+    Column ``onupdate`` defaults (``updated_at``) still apply. Does not sync
+    unless asked and does not commit.
+    """
+    stmt = (
+        sa_update(model)
+        .where(*criteria)
+        .values(values)
+        .returning(model.id)
+        .execution_options(synchronize_session=synchronize_session)
+    )
+    return list(db.scalars(stmt))
+
+
+def bulk_delete(
+    db: Session,
+    model: Type[T],
+    criteria: List[Any],
+    synchronize_session: Union[str, bool] = "auto",
+) -> List[uuid.UUID]:
+    """DELETE every ``model`` row matching ``criteria`` in one statement.
+
+    Returns the ids of the deleted rows; see :func:`bulk_update`. Does not commit.
+    """
+    stmt = (
+        sa_delete(model)
+        .where(*criteria)
+        .returning(model.id)
+        .execution_options(synchronize_session=synchronize_session)
+    )
+    return list(db.scalars(stmt))
 
 
 def get_deleted_items(
@@ -889,7 +937,7 @@ def restore_item(
     Returns:
         Restored item or None if not found
     """
-    from rhesis.backend.app.services import cascade as cascade_service
+    from rhesis.backend.app.crud import cascade as cascade_service
 
     # Get the item, including deleted ones
     item = get_item(db, model, item_id, organization_id, user_id, include_deleted=True)
