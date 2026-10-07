@@ -11,6 +11,7 @@ from starlette.requests import HTTPConnection
 
 from rhesis.backend.app.auth.user_utils import get_authenticated_user_with_context
 from rhesis.backend.app.provenance import (
+    IN_PROCESS_HEADER,
     ActorType,
     Channel,
     ProvenanceMiddleware,
@@ -20,6 +21,7 @@ from rhesis.backend.app.provenance import (
     in_process_headers,
     provenance_of,
     record_credential,
+    record_delegation,
     resolve_provenance,
 )
 from rhesis.backend.app.utils.rate_limit import CLIENT_IP_HEADER, get_real_ip
@@ -66,7 +68,7 @@ class TestInClusterClientIp:
 
 
 class TestClientChannel:
-    @pytest.mark.parametrize("claimed", ["web", "sdk", "mcp", "architect", " SDK "])
+    @pytest.mark.parametrize("claimed", ["web", "sdk", " SDK "])
     def test_known_clients(self, claimed):
         assert client_channel(_connection({"X-Rhesis-Client": claimed})).value == (
             claimed.strip().lower()
@@ -76,8 +78,24 @@ class TestClientChannel:
     def test_anything_else_is_plain_api(self, headers):
         assert client_channel(_connection(headers)) is Channel.API
 
-    def test_a_client_cannot_claim_to_be_a_job(self):
-        assert client_channel(_connection({"X-Rhesis-Client": "job"})) is Channel.API
+    @pytest.mark.parametrize("claimed", ["mcp", "architect", "job"])
+    def test_an_outside_client_cannot_claim_an_internal_channel(self, claimed):
+        request = _connection({"X-Rhesis-Client": claimed, IN_PROCESS_HEADER: "guess"})
+        assert client_channel(request) is Channel.API
+
+    @pytest.mark.parametrize("channel", [Channel.MCP, Channel.ARCHITECT])
+    def test_an_in_process_call_can(self, channel):
+        assert client_channel(_connection(in_process_headers(channel))) is channel
+
+    def test_the_architects_delegation_token_sets_the_channel(self):
+        request = _connection({"X-Rhesis-Client": "web"})
+        record_delegation(request, "backend")
+        assert client_channel(request) is Channel.ARCHITECT
+
+    def test_a_delegation_token_for_another_service_does_not(self):
+        request = _connection()
+        record_delegation(request, "polyphemus")
+        assert client_channel(request) is Channel.API
 
 
 class TestResolveProvenance:
@@ -131,6 +149,7 @@ class TestInProcessHeaders:
             {"User-Agent": "Cursor/1.0"}, peer="10.0.0.5", state={"request_id": "r-9"}
         )
         headers = in_process_headers(Channel.MCP, request)
+        assert headers.pop(IN_PROCESS_HEADER)
         assert headers == {
             "X-Rhesis-Client": "mcp",
             CLIENT_IP_HEADER: "10.0.0.5",
@@ -139,7 +158,8 @@ class TestInProcessHeaders:
         }
 
     def test_without_a_request_only_names_the_channel(self):
-        assert in_process_headers(Channel.ARCHITECT) == {"X-Rhesis-Client": "architect"}
+        headers = in_process_headers(Channel.ARCHITECT)
+        assert set(headers) == {"X-Rhesis-Client", IN_PROCESS_HEADER}
 
 
 def test_sessions_opened_during_a_request_see_the_authenticated_actor():
@@ -199,3 +219,41 @@ async def test_api_token_auth_records_the_token(test_db, rhesis_api_key):
     assert provenance.credential_id
     assert provenance.credential_hint.startswith(rhesis_api_key[:3])
     assert provenance.credential_hint.endswith(rhesis_api_key[-4:])
+
+
+def test_the_in_process_secret_is_redacted_from_logs():
+    from rhesis.backend.logging.logging_config import _redact
+
+    headers = in_process_headers(Channel.MCP)
+    logged = _redact(str(headers))
+    assert headers[IN_PROCESS_HEADER] not in logged
+
+
+@pytest.mark.asyncio
+async def test_the_architects_delegation_token_is_labelled_architect(test_db, rhesis_api_key):
+    from rhesis.backend.app.auth.token_utils import (
+        create_service_delegation_token,
+        get_secret_key,
+    )
+
+    request = Mock()
+    request.session = {}
+    request.state = SimpleNamespace()
+    request.headers = {}
+    request.client = None
+    user = await get_authenticated_user_with_context(
+        request,
+        credentials=HTTPAuthorizationCredentials(scheme="Bearer", credentials=rhesis_api_key),
+    )
+
+    request.state = SimpleNamespace()
+    token = create_service_delegation_token(user, "backend")
+    await get_authenticated_user_with_context(
+        request,
+        credentials=HTTPAuthorizationCredentials(scheme="Bearer", credentials=token),
+        secret_key=get_secret_key(),
+    )
+
+    provenance = resolve_provenance(request)
+    assert provenance.channel is Channel.ARCHITECT
+    assert provenance.actor_type is ActorType.USER
