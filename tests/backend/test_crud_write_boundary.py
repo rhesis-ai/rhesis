@@ -57,7 +57,6 @@ DML_CONSTRUCTORS = frozenset({"insert", "update", "delete"})
 TEXT_DML = re.compile(r"\s*(INSERT|UPDATE|DELETE|TRUNCATE)\b", re.IGNORECASE)
 
 _CORE = "apps/backend/src/rhesis/backend"
-_EE = "ee/backend/src/rhesis/backend/ee"
 
 #: Paths relative to the repo root, with the reason each may still write.
 ALLOWED_OFFENDERS: dict[str, str] = {
@@ -69,10 +68,6 @@ ALLOWED_OFFENDERS: dict[str, str] = {
     f"{_CORE}/jobs/trace_retention.py": "trace retention sweep",
     f"{_CORE}/jobs/tracking.py": "job status tracking",
     f"{_CORE}/local_init.py": "local development bootstrap",
-    # EE writes, moved into ee/<feature>/crud.py separately.
-    f"{_EE}/api_clients/router.py": "EE consolidation pending",
-    f"{_EE}/rbac/default_role.py": "EE consolidation pending",
-    f"{_EE}/rbac/router.py": "EE consolidation pending",
 }
 
 

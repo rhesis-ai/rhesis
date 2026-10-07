@@ -44,6 +44,7 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import assert_project_access, get_tenant_db_session
 from rhesis.backend.app.features import FeatureName
 from rhesis.backend.app.models.user import User
+from rhesis.backend.ee.rbac import crud as rbac_crud
 from rhesis.backend.ee.rbac.schemas import (
     OrgMemberRead,
     OrgRoleAssign,
@@ -543,7 +544,7 @@ def create_role(
     The privilege-escalation guard ensures the new role's permission set is
     ⊆ the actor's own effective permissions and its level is ≤ the actor's.
     """
-    from rhesis.backend.ee.rbac.models import Role, RolePermission
+    from rhesis.backend.ee.rbac.models import Role
 
     principal = resolve_principal(current_user)
     actor_permissions = _get_actor_permissions(principal, project_id=None, db=db)
@@ -571,23 +572,16 @@ def create_role(
     if existing is not None:
         raise HTTPException(status_code=409, detail="A role with this name already exists")
 
-    role = Role(
+    role = rbac_crud.create_role(
+        db,
         name=body.name,
         display_name=body.display_name or body.name,
         description=body.description,
         scope=body.scope,
         level=role_level,
-        is_built_in=False,
         organization_id=current_user.organization_id,
+        permission_ids=perm_ids,
     )
-    db.add(role)
-    db.flush()
-
-    for perm_id in perm_ids:
-        db.add(RolePermission(role_id=role.id, permission_id=perm_id))
-    db.flush()
-
-    db.refresh(role)
     return _role_to_read(role, db)
 
 
@@ -604,8 +598,6 @@ def update_role(
     Built-in roles are immutable. The privilege-escalation guard applies to
     any new permissions being added.
     """
-    from rhesis.backend.ee.rbac.models import RolePermission
-
     role = _get_role_or_404(role_id, db)
     if role.is_built_in:
         raise HTTPException(status_code=400, detail="Built-in roles are immutable")
@@ -630,10 +622,7 @@ def update_role(
         # Bust cache for every holder before rewriting permissions.
         _bust_role_holders(role.id, current_user.organization_id, db)
 
-        # Replace role_permission rows.
-        db.query(RolePermission).filter_by(role_id=role.id).delete()
-        for perm_id in perm_ids:
-            db.add(RolePermission(role_id=role.id, permission_id=perm_id))
+        rbac_crud.replace_role_permissions(db, role.id, perm_ids)
 
     db.flush()
     db.refresh(role)
@@ -666,9 +655,8 @@ def delete_role(
       reassigned; this is intentional (deleting a role is meant to revoke,
       not silently downgrade to a default), not an oversight.
     """
-    from rhesis.backend.app.models.project_membership import ProjectMembership
     from rhesis.backend.app.scope import bypass_tenant_filter
-    from rhesis.backend.ee.rbac.models import OrganizationMember, Role
+    from rhesis.backend.ee.rbac.models import Role
 
     role = _get_role_or_404(role_id, db)
     if role.is_built_in:
@@ -696,14 +684,7 @@ def delete_role(
             status_code=500,
             detail="Built-in None role missing; cannot safely unassign role holders",
         )
-    db.query(OrganizationMember).filter_by(role_id=role.id, organization_id=org_id).update(
-        {OrganizationMember.role_id: none_role.id}, synchronize_session=False
-    )
-
-    # Project-tier holders revert to their inherited org role (role_id nullable).
-    db.query(ProjectMembership).filter_by(role_id=role.id, organization_id=org_id).update(
-        {ProjectMembership.role_id: None}, synchronize_session=False
-    )
+    rbac_crud.unassign_role(db, role.id, org_id, none_role.id)
 
     role.soft_delete()
     db.flush()
@@ -946,17 +927,13 @@ def assign_org_role(
                 detail="Cannot demote the last Owner of an organization",
             )
 
-    if member is None:
-        member = OrganizationMember(
-            organization_id=current_user.organization_id,
-            user_id=user_id,
-            role_id=body.role_id,
-        )
-        db.add(member)
-    else:
-        member.role_id = body.role_id
-    db.flush()
-    db.refresh(member)
+    member = rbac_crud.set_org_member_role(
+        db,
+        member,
+        organization_id=current_user.organization_id,
+        user_id=user_id,
+        role_id=body.role_id,
+    )
     _bust(user_id, current_user.organization_id)
     return OrgMemberRead.model_validate(member)
 
@@ -1025,8 +1002,7 @@ def remove_org_member(
         )
 
     _bust(user_id, current_user.organization_id)
-    db.delete(member)
-    db.flush()
+    rbac_crud.delete_org_member(db, member)
 
 
 # ---------------------------------------------------------------------------

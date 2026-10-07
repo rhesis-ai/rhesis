@@ -40,16 +40,9 @@ def _sync_project_roles_from_org_role(
 
     Idempotent — never overwrites an existing ``project_membership.role_id``.
     """
-    from rhesis.backend.app.models.project_membership import ProjectMembership
+    from rhesis.backend.ee.rbac import crud as rbac_crud
 
-    db.query(ProjectMembership).filter_by(
-        organization_id=organization_id,
-        user_id=user_id,
-    ).filter(ProjectMembership.role_id.is_(None)).update(
-        {ProjectMembership.role_id: role_id},
-        synchronize_session=False,
-    )
-    db.flush()
+    rbac_crud.inherit_org_role_in_projects(db, user_id, organization_id, role_id)
 
 
 def assign_default_org_role(db: Session, user_id: UUID, organization_id: UUID) -> None:
@@ -98,14 +91,9 @@ def assign_default_org_role(db: Session, user_id: UUID, organization_id: UUID) -
         )
         return
 
-    db.add(
-        OrganizationMember(
-            organization_id=organization_id,
-            user_id=user_id,
-            role_id=role.id,
-        )
-    )
-    db.flush()
+    from rhesis.backend.ee.rbac import crud as rbac_crud
+
+    rbac_crud.add_org_member(db, organization_id, user_id, role.id)
     _sync_project_roles_from_org_role(db, user_id, organization_id, role.id)
 
     # Revocation/grant must take effect immediately for this user.
