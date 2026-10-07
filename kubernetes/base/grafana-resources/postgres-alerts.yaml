@@ -30,6 +30,7 @@ spec:
       noDataState: OK
       # KeepLast, not Error: a GKE node upgrade moves Prometheus, and a few
       # minutes of failed queries paged under this title as if Postgres were full.
+      # "Prometheus unreachable" in basic-alerts.yaml pages on a real outage.
       execErrState: KeepLast
       data:
         - refId: A

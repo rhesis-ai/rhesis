@@ -7,6 +7,10 @@
 # exporter metrics, ingress-nginx request/error-rate metrics, ArgoCD sync/health drift,
 # External Secrets Operator sync failures. Postgres (CNPG) alerts live in
 # postgres-alerts.yaml.
+#
+# Every rule uses execErrState: KeepLast, so a query that cannot run (Prometheus
+# moved by a GKE node upgrade) keeps the last state instead of paging under that
+# rule's title. "Prometheus unreachable" below is the one rule that pages on it.
 apiVersion: grafana.integreatly.org/v1beta1
 kind: GrafanaAlertRuleGroup
 metadata:
@@ -26,7 +30,7 @@ spec:
       condition: B
       for: 5m
       noDataState: OK
-      execErrState: Error
+      execErrState: KeepLast
       data:
         - refId: A
           datasourceUid: prometheus
@@ -63,7 +67,7 @@ spec:
       condition: B
       for: 10m
       noDataState: OK
-      execErrState: Error
+      execErrState: KeepLast
       data:
         - refId: A
           datasourceUid: prometheus
@@ -103,7 +107,7 @@ spec:
       condition: B
       for: 0m
       noDataState: OK
-      execErrState: Error
+      execErrState: KeepLast
       data:
         - refId: A
           datasourceUid: prometheus
@@ -144,7 +148,7 @@ spec:
       condition: B
       for: 10m
       noDataState: OK
-      execErrState: Error
+      execErrState: KeepLast
       data:
         - refId: A
           datasourceUid: prometheus
@@ -184,7 +188,7 @@ spec:
       condition: B
       for: 1h
       noDataState: OK
-      execErrState: Error
+      execErrState: KeepLast
       data:
         - refId: A
           datasourceUid: prometheus
@@ -221,7 +225,7 @@ spec:
       condition: B
       for: 15m
       noDataState: OK
-      execErrState: Error
+      execErrState: KeepLast
       data:
         - refId: A
           datasourceUid: prometheus
@@ -252,3 +256,43 @@ spec:
         severity: warning
       annotations:
         summary: "PVC {{ $labels.namespace }}/{{ $labels.persistentvolumeclaim }} has less than 10% free space"
+
+    - uid: rhesis-prometheus-unreachable
+      title: Prometheus unreachable
+      condition: B
+      # Longer than a node upgrade moving Prometheus (~1m on 2026-10-05).
+      for: 15m
+      noDataState: OK
+      execErrState: Alerting
+      data:
+        - refId: A
+          datasourceUid: prometheus
+          relativeTimeRange:
+            from: 300
+            to: 0
+          model:
+            datasource: { type: prometheus, uid: prometheus }
+            # The threshold never trips: this rule fires only when the query fails.
+            expr: vector(1)
+            instant: true
+            refId: A
+        - refId: B
+          datasourceUid: __expr__
+          relativeTimeRange:
+            from: 300
+            to: 0
+          model:
+            datasource: { type: __expr__, uid: __expr__ }
+            type: threshold
+            expression: A
+            conditions:
+              - evaluator: { type: lt, params: [0] }
+                operator: { type: and }
+                query: { params: [] }
+                reducer: { type: last, params: [] }
+            refId: B
+      labels:
+        severity: critical
+      annotations:
+        summary: "Grafana cannot query Prometheus"
+        description: "Queries to the prometheus datasource have failed for 15 minutes, so every other alert is holding its last state. Check the prometheus-kube-prometheus-stack-prometheus-0 pod in the monitoring namespace."
