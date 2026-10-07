@@ -99,14 +99,9 @@ class TemplateRenderer:
         if isinstance(template_data, str):
             template = self.env.from_string(template_data)
             rendered = template.render(**render_context)
-
-            # Filter out omit markers from the rendered string
-            rendered = self._filter_omit_markers(rendered)
-
-            try:
-                return json.loads(rendered)
-            except json.JSONDecodeError:
-                return rendered
+            if rendered.strip() == "__OMIT_FIELD__":
+                return None
+            return self._parse_rendered_value(rendered, render_context, template_data)
         elif isinstance(template_data, dict):
             result = {}
             keys_to_remove = []
@@ -198,9 +193,12 @@ class TemplateRenderer:
                     )
                     return value.model_dump(exclude_none=True)
 
-                # JSON-looking strings ("5", "true") must stay strings.
+                # JSON-looking strings ("5", "true") must stay strings. Anything that isn't
+                # a JSON type is sent as text, as before, so the request body still serializes.
                 logger.debug(f"Preserving {type(value).__name__} for template {{ {var_path} }}")
-                return value
+                if value is None or isinstance(value, (str, int, float, bool, dict, list)):
+                    return value
+                return str(value)
 
         # For non-simple templates, try to parse as JSON (e.g. filter output)
         filtered = self._filter_omit_markers(rendered_value)

@@ -1,6 +1,8 @@
 """Tests for template rendering functionality."""
 
 import logging
+import uuid
+from datetime import datetime, timezone
 
 from pydantic import BaseModel
 
@@ -563,11 +565,11 @@ class TestSimpleReferenceKeepsSourceType:
 
         payload = {"items": [1, 2]}
         result = renderer.render({"body": "{{ payload }}"}, {"payload": payload})
-        assert result["body"] is payload
+        assert result["body"] == payload
 
         messages = [{"role": "user", "content": "Hello"}]
         result = renderer.render({"messages": "{{ messages }}"}, {"messages": messages})
-        assert result["messages"] is messages
+        assert result["messages"] == messages
 
         class Item(BaseModel):
             name: str
@@ -606,3 +608,35 @@ class TestSimpleReferenceKeepsSourceType:
 
         result = renderer.render({"message": "{{ missing }}"}, {})
         assert result["message"] == ""
+
+    def test_standalone_string_template_keeps_source_type(self):
+        renderer = TemplateRenderer()
+
+        result = renderer.render({"args": ["{{ input }}"]}, {"input": "5"})
+        assert result == {"args": ["5"]}
+
+        result = renderer.render("{{ input }}", {"input": "5"})
+        assert result == "5"
+        assert isinstance(result, str)
+
+    def test_list_item_reference_spreads_list_value(self):
+        renderer = TemplateRenderer()
+        history = [{"role": "user", "content": "Hi"}, {"role": "assistant", "content": "Hello"}]
+        result = renderer.render(
+            {"messages": ["{{ history }}", {"role": "user", "content": "{{ input }}"}]},
+            {"history": history, "input": "Next"},
+        )
+        assert result["messages"] == [*history, {"role": "user", "content": "Next"}]
+
+    def test_non_json_types_are_sent_as_text(self):
+        renderer = TemplateRenderer()
+
+        value = uuid.uuid4()
+        result = renderer.render({"x": "{{ v }}"}, {"v": value})
+        assert result["x"] == str(value)
+        assert isinstance(result["x"], str)
+
+        moment = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+        result = renderer.render({"x": "{{ v }}"}, {"v": moment})
+        assert result["x"] == str(moment)
+        assert isinstance(result["x"], str)
