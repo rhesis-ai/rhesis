@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
@@ -39,27 +39,27 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-09-29T15:40:05.723968Z"
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
-notebook = false
-mistune = false
-torch = false
-langchain-core = false
-pyarrow = false
-pyjwt = false
-starlette = false
-bleach = false
-litellm = false
 aiohttp = false
+bleach = false
 cryptography = false
-langsmith = false
-python-multipart = false
-pydantic-settings = false
-jupyterlab = false
 jupyter-server = false
+jupyterlab = false
 langchain = false
+langchain-core = false
+langsmith = false
+litellm = false
+mistune = false
+notebook = false
+pyarrow = false
+pydantic-settings = false
+pyjwt = false
+python-multipart = false
+starlette = false
+torch = false
 tornado = false
 
 [manifest]
@@ -6221,7 +6221,7 @@ provides-extras = ["all", "sdk", "telemetry"]
 
 [[package]]
 name = "rhesis-backend"
-version = "0.17.1"
+version = "0.18.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -6500,7 +6500,7 @@ dev = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.17.1"
+version = "0.18.0"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },

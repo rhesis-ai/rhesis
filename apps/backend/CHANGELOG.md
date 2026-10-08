@@ -24,6 +24,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   anything that referenced them. Recorded metric scores are unaffected: test results and the
   verdict grid read their own JSONB snapshots, not the metric table.
 
+## [0.18.0] - 2026-10-08
+
+### Added
+- Integrated **Jev** as an evaluation-only decision model provider, introducing support for decision-based models in categorical metrics.
+- Added telemetry endpoints for listing spans (`GET /telemetry/spans`) and retrieving span facets (`GET /telemetry/spans/facets`) with support for filtering, sorting, and pagination.
+- Added request provenance tracking (actor, credentials, IP, client channel, and user agent) for the audit log, including improved client identification for SDK, UI, and internal services.
+- Added a `span_type` column to traces to categorize spans (e.g., `llm.invoke`, `span`) and updated operation breakdown metrics to group by this type.
+- Added support for creating tests directly from trace conversations and allowed annotating traces without requiring associated metrics.
+- Added linked test counts to requirement entities.
+- Added automatic fallback model adoption when a default model is deleted, ensuring organization defaults transition smoothly to remaining active models.
+- Added automatic fallback to the user's generation model when an evaluation model (such as a decision model) is unable to output text for multi-turn tests or non-categorical metrics.
+
+### Changed
+- Upgraded the database driver to `psycopg 3` with explicit driver naming, improving query parameter binding and compatibility.
+- Upgraded the minimum required Python version to 3.12 across backend services and packages.
+- Transitioned onboarding progress tracking to use real database state queries rather than UI-driven events, ensuring accurate progress reporting across SDK and API interactions.
+- Optimized test execution to only build and validate the specific models required by the active metric plan, preventing unnecessary failures when a model is missing but unused.
+- Standardized model configuration errors under a single `model_not_configured` error code, and added endpoints to check overall model and embedding readiness.
+- Renamed contract fields to "criteria", enabled judges to return specific cited turns, and standardized goal achievement reporting as evaluation criteria.
+- Refactored database write operations to be strictly contained within the CRUD layer, improving transaction safety and enabling ID returns on bulk writes.
+- Simplified SDK endpoint naming to use only the function name, removing redundant project name prefixes.
+- Slimmed down the core SDK package, moving heavy dependencies (like LiteLLM, DeepEval, and MCP agents) to a new `[all]` installation extra.
+
+### Fixed
+- Fixed endpoint template rendering to preserve the original source types (e.g., strings, lists, dicts) of variables instead of forcing stringification or incorrect JSON parsing.
+- Prevented potential credential leaks by stripping raw provider error messages (which may contain API keys or raw request payloads) from user-facing model configuration and endpoint errors.
+- Fixed conversation trace handling to treat the first root span as canonical, ensuring annotations, verdicts, and statuses resolve correctly across multi-turn conversations without conflicts.
+- Fixed run-scoped token counting and cost calculations by ensuring all child spans within a trace are counted rather than only the root span.
+- Restructured annotation status validation to reject incompatible statuses (such as tuning-specific statuses on standard annotations) that previously led to incorrect failure states.
+- Fixed a database migration issue where Row-Level Security (RLS) prevented JSON key renames from applying to all project-scoped rows.
+- Resolved a database migration conflict by merging dual Alembic heads.
+- Promoted conversation-level evaluation findings out of individual per-turn displays, and refined adversarial evaluation prompts to focus on role/boundary adherence.
+- Updated `UserSettingsRead` schema to make `has_password` a required field to prevent silent defaults.
+- Declared missing `jsonschema` dependency and pinned `mcp` below version 2 to prevent import failures.
+
+### Removed
+- Removed the legacy `Trace` metric scope, mapping existing trace-only metrics to `Single-Turn` and `Multi-Turn` scopes, and restricted trace evaluation to project-specific metrics.
+- Removed `torch` from core SDK dependencies, significantly reducing the installation size.
+
+
 ## [0.17.1] - 2026-09-28
 
 ### Added

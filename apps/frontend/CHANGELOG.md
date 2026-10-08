@@ -27,6 +27,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed the Ragas backend from metric icon handling now that the backend no longer serves it.
 
+## [0.18.0] - 2026-10-08
+
+### Added
+
+- **Spans View on Traces Page**: Introduced a new "Spans" view alongside the existing Traces view, featuring dedicated filters, facets, and URL state synchronization.
+- **Jev Model Provider**: Added support for Jev as an evaluation-only decision model provider, complete with custom iconography and targeted visibility in metric editors.
+- **Test Creation from Traces**: Enabled creating tests directly from trace conversations using a shared drawer interface.
+- **Connect-a-Model Onboarding**: Added a "Connect a Model" setup step that guides users to configure a model when none are usable.
+- **Span Details & Visuals**: Added a detailed breakdown of span types in the Traces tile info tooltip, and updated the span tree to use type-specific icons and colors.
+- **Trace Drawer Deep-Linking**: Added the ability to open the trace drawer directly focused on a specific span.
+- **Project ID Copying**: Added a copyable Project ID field to the project metadata card.
+- **Linked Test Counts**: Displayed linked test counts directly on requirement cards.
+- **Metric-Free Trace Annotations**: Enabled annotating traces without requiring metrics.
+
+### Changed
+
+- **Onboarding Checklist**: Improved onboarding progress tracking by syncing with real server-side data and stopping background refetches once complete.
+- **Multi-Turn Evaluations**: Refactored multi-turn conversation displays to promote conversation-level findings to a top-level banner and add "Evaluated" chips to individual turns.
+- **Token & Cost Tooltips**: Simplified cost cards to show total tokens, moving input/output token splits into an interactive tooltip. Customized cost tooltips across different screens.
+- **Metric Selection**: Removed the "Trace" metric scope, allowing any metric to be selected as a project-level trace metric.
+- **UI Layout Adjustments**: Moved the turn filter into a dedicated drawer.
+- **Quick Start Mode**: Updated the sidebar plan row to display a "Quick Start" badge and rocket icon instead of the plan name during quick start.
+- **Audit Log Provenance**: Configured the Next.js server to forward browser client headers (IP and channel) to the backend for improved request provenance.
+
+### Fixed
+
+- **Banner Stacking**: Prevented multiple notification banners (Quota, Verification, SetPassword) from stacking concurrently on signup.
+- **Grid Sorting**: Fixed sorting behavior on default columns in list grids, allowing order flipping and resetting the page before refetching.
+- **Getting Started Widget**: Fixed z-index issues to ensure the "Getting Started" widget remains below active drawers, and improved its collapse/expand persistence.
+- **Turn Annotation Status**: Fixed issues where annotated turns were incorrectly displayed as unannotated, and ensured turns cited by failed criteria are correctly marked.
+- **Trial Drawer Picker**: Updated the picker to display endpoints as "Project › endpoint" to accommodate streamlined endpoint names.
+- **Test Result Navigation**: Fixed opening annotated test results directly from the Annotations tab.
+
 ## [0.17.1] - 2026-09-28
 
 ### Added

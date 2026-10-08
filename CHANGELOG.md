@@ -18,6 +18,40 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
   since January 2026 and carried advisories with no upstream fix. Existing Ragas metrics and their
   associations are deleted by a backend migration; recorded test results keep their scores.
 
+## [0.18.0] - 2026-10-08
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.18.0**
+- **Frontend 0.18.0**
+- **SDK 0.18.0**
+
+### Summary of Changes
+
+**Backend v0.18.0:**
+- Added new telemetry endpoints to list, filter, and analyze individual spans, supported by a new `span_type` column that improves token usage and cost tracking.
+- Introduced support for Jev as an evaluation-only decision model provider, implemented automatic fallback to generation models for text-writing evaluations, and optimized test runs to only build models required by active metrics.
+- Enhanced onboarding and setup with a new "Connect a model" flow, standardized model configuration error codes, and real-time database tracking for onboarding checklist progress.
+
+**Frontend v0.18.0:**
+- Added a new Spans view to the Traces page with dedicated filters, a detailed span table, and the ability to open the trace drawer directly on specific spans.
+- Enabled test creation directly from trace conversations, metric-free trace annotations, and displayed linked test counts on requirement cards.
+- Introduced a "Connect a model" onboarding step for unconfigured setups and added support for Jev as an evaluation-only decision model provider.
+- Improved UI usability with a prioritized notification banner container, a redesigned cost tooltip for token splits, and better multi-turn conversation evaluation displays.
+
+**SDK v0.18.0:**
+- Slimmed down the core SDK installation size by moving heavy dependencies (such as PyTorch and LiteLLM) to a new `[all]` extra, and updated the minimum requirement to Python 3.12.
+- Added support for drafting single- or multi-turn tests directly from trace conversations using `Trace.to_test()`, and updated trace annotations to address traces by OTEL ID.
+- Introduced decision models (including the Jev provider) for categorical evaluation, and added tracking and pricing for OpenAI and LiteLLM cached prompt tokens.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.17.1] - 2026-09-28
 
 ### Platform Release
