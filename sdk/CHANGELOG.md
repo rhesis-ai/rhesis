@@ -53,6 +53,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DeepEval or Rhesis providers instead. This also drops `diskcache`, `gitpython`, `scipy` and
   `sqlalchemy` from the SDK's dependency tree.
 
+## [0.18.0] - 2026-10-08
+
+### Added
+- Added `Trace.conversation()` to retrieve trace turns.
+- Added `Trace.to_test(turn=None)` to draft multi-turn or single-turn tests directly from traces.
+- Added support for Decision Models and the Jev provider, introducing `BaseDecisionModel`, `JevDecisionModel`, and `UnsupportedModelType`.
+- Added `Annotation.get_trace()` and `Requirement.get_annotations()`.
+- Added automatic inference of `test_set_type` from tests when calling `push()`.
+- Added retry with exponential backoff for OWASP PDF downloads to prevent transient rate-limiting failures.
+- Added identification headers (`User-Agent` and `X-Rhesis-Client`) to SDK REST and WebSocket connector calls for request provenance tracking.
+
+### Changed
+- **[BREAKING]** Raised the minimum required Python version to 3.12. Support for Python 3.10 and 3.11 has been dropped.
+- **[BREAKING]** Slimmed down the core `rhesis-sdk` package size from ~610 MB to ~38 MB. Heavy integrations (such as `litellm`, `deepeval`, and MCP agents) are now optional and available via `pip install rhesis-sdk[all]`.
+- **[BREAKING]** Removed the `Trace` metric scope.
+- Updated trace annotations to address traces by OTEL trace ID instead of root span row ID.
+- Updated judges to return cited turns.
+- Reported goal achievement as criteria instead of contracts.
+- Improved telemetry initialization error messages to point to bugs or OpenTelemetry version mismatches instead of generic connectivity issues.
+- Moved SDK dev extras to use `psycopg 3`.
+
+### Fixed
+- Fixed pricing and token usage exposure for OpenAI cached prompt tokens.
+- Fixed LiteLLM cache token normalization and nested cache write tracking for Haystack.
+- Fixed unnecessary "not-connected" connector warnings by introducing a 10-second grace period.
+- Fixed dependency declarations by explicitly adding `jsonschema>=4.23.0` and pinning `mcp>=1.28.1,<2`.
+- Fixed Jev endpoint URL parsing by stripping trailing paths when present.
+
+### Removed
+- **[BREAKING]** Removed `torch` from core dependencies, saving ~526 MB on standard installations. Local Hugging Face models now require `rhesis-sdk[huggingface]`.
+- Removed unused dependencies: `pandas`, `tqdm`, `marshmallow`, and `langchain-google-genai`.
+
+
 ## [0.17.1] - 2026-09-28
 
 ### Changed
