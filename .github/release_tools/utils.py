@@ -128,7 +128,7 @@ def check_prerequisites(repo_root: Path, gemini_api_key: Optional[str] = None) -
     return True, api_key
 
 
-GEMINI_MODEL = "gemini-3.5-flash"
+GEMINI_MODEL = "gemini-3.6-flash"
 
 # Reasoning tokens count against maxOutputTokens, and the model spends 1-4k of them thinking before
 # it writes a word, so a budget sized for the visible text alone comes back empty with

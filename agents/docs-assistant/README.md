@@ -177,7 +177,7 @@ repository's top-level `tests/`.
 |---|---|---|
 | `GOOGLE_API_KEY` / `GEMINI_API_KEY` | — | Gemini key (the default provider) |
 | `DOCS_ASSISTANT_PROVIDER` | `gemini` | `gemini`, `openai`, `anthropic`, `openai_compatible` or `litellm` |
-| `DOCS_ASSISTANT_MODEL` | `gemini-3.5-flash` | Answer model; the default for the other roles |
+| `DOCS_ASSISTANT_MODEL` | `gemini-3.6-flash` | Answer model; the default for the other roles |
 | `DOCS_ASSISTANT_TRIAGE_MODEL` | `gemini-3.5-flash-lite` | Triage model |
 | `DOCS_ASSISTANT_CRITIC_MODEL` | answer model | Critic model |
 | `DOCS_ASSISTANT_BASE_URL`, `DOCS_ASSISTANT_API_KEY` | — | Override the provider preset's endpoint and key |

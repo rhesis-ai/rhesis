@@ -31,11 +31,11 @@ def test_gemini_is_the_default(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "g-key")
     model = models.build_model("answer")
     assert isinstance(model, OpenAIChatCompletionsModel)
-    assert model.model == "gemini-3.5-flash"
+    assert model.model == "gemini-3.6-flash"
     assert _base_url(model) == "https://generativelanguage.googleapis.com/v1beta/openai/"
     assert models.build_model("triage").model == "gemini-3.5-flash-lite"
     # No triage default for critic, so it follows the answer model.
-    assert models.build_model("critic").model == "gemini-3.5-flash"
+    assert models.build_model("critic").model == "gemini-3.6-flash"
 
 
 def test_model_overrides_per_role(monkeypatch):
@@ -88,7 +88,7 @@ def test_unknown_provider(monkeypatch):
 
 def test_litellm_without_the_extra_says_how_to_install(monkeypatch):
     monkeypatch.setenv("DOCS_ASSISTANT_PROVIDER", "litellm")
-    monkeypatch.setenv("DOCS_ASSISTANT_MODEL", "gemini/gemini-3.5-flash")
+    monkeypatch.setenv("DOCS_ASSISTANT_MODEL", "gemini/gemini-3.6-flash")
     try:
         import litellm  # noqa: F401
     except ImportError:
