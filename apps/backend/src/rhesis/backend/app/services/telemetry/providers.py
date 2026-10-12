@@ -50,6 +50,9 @@ def normalize_provider(provider: Optional[str]) -> Optional[str]:
     return _PROVIDER_ALIASES.get(cleaned, cleaned)
 
 
+_GATEWAY_PROVIDERS = frozenset({"vercel_ai_gateway"})
+
+
 @lru_cache(maxsize=2048)
 def provider_for_model(model_name: Optional[str]) -> Optional[str]:
     """Derive a provider from a model name, or ``None`` when it cannot be placed.
@@ -58,6 +61,17 @@ def provider_for_model(model_name: Optional[str]) -> Optional[str]:
     does not recognise -- a self-hosted deployment, or one newer than the installed
     LiteLLM -- so the exception is the normal path here, not an error worth logging on
     every row of a trace list.
+
+    Since litellm 1.105 the unprefixed form (``gemini-2.0-flash``) is no longer resolved
+    by ``get_llm_provider``; only the prefixed form (``gemini/gemini-2.0-flash``) works.
+    When the direct lookup fails we search ``litellm.model_cost`` two ways:
+
+    1. Exact suffix: ``vertex_ai/gemini-2.0-flash`` matches ``gemini-2.0-flash``.
+    2. Date-suffix: ``command-r-08-2024`` matches ``command-r`` because the bare key
+       starts with the model name followed by ``-``.
+
+    Gateway providers (vercel_ai_gateway) are skipped because they accept any model and
+    tell us nothing about the real provider.
 
     Imported lazily and cached because the read path calls this once per list row, and
     ``token_totals`` is imported by routers that have no other reason to pull in LiteLLM.
@@ -70,7 +84,25 @@ def provider_for_model(model_name: Optional[str]) -> Optional[str]:
     try:
         return normalize_provider(litellm.get_llm_provider(model_name)[1])
     except Exception:
-        return None
+        pass
+
+    suffix = f"/{model_name}"
+    date_prefix = f"{model_name}-"
+    for key, info in litellm.model_cost.items():
+        if key == model_name or key.endswith(suffix):
+            provider = info.get("litellm_provider")
+            if provider and provider not in _GATEWAY_PROVIDERS:
+                return normalize_provider(provider)
+
+    for key, info in litellm.model_cost.items():
+        if "/" in key:
+            continue
+        if key.startswith(date_prefix):
+            provider = info.get("litellm_provider")
+            if provider and provider not in _GATEWAY_PROVIDERS:
+                return normalize_provider(provider)
+
+    return None
 
 
 def resolve_provider(attributes: Optional[dict], model_name: Optional[str]) -> str:

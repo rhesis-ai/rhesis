@@ -35,7 +35,7 @@ CANONICAL_MODELS = [
     ("claude-sonnet-4-5", "anthropic"),
     ("gemini/gemini-2.5-flash", "gemini"),
     ("mistral/mistral-large-latest", "mistral"),
-    ("command-r", "cohere"),
+    ("command-r-08-2024", "cohere"),
 ]
 
 # Sanity bounds on the per-million-token rate, not a claim about anybody's pricing. A
