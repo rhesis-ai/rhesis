@@ -60,7 +60,7 @@
     "embedding-atlas": "^0.20.0",
     "emoji-picker-react": "^4.13.3",
     "markdown-to-jsx": "^9.7.1",
-    "next": "^16.3.3",
+    "next": "^16.3.8",
     "next-auth": "5.0.0-beta.32",
     "nextjs-toploader": "^3.9.17",
     "react": "^19.2.1",
@@ -83,7 +83,7 @@
     "json5": ">=2.2.2",
     "path-to-regexp": ">=1.9.0",
     "sanitize-html": ">=2.12.1",
-    "dompurify": ">=3.4.12",
+    "dompurify": ">=3.4.16",
     "@babel/runtime": ">=7.26.10",
     "lodash": ">=4.18.1",
     "lodash-es": ">=4.18.1",
@@ -93,7 +93,7 @@
     "qs": ">=6.16.0",
     "protobufjs": ">=8.6.6",
     "uuid": ">=11.1.1",
-    "sharp": ">=0.35.4",
+    "sharp": ">=0.35.5",
     "handlebars": ">=4.7.9",
     "picomatch@<3": ">=2.3.2",
     "picomatch@>=4": ">=4.0.4",
@@ -109,7 +109,8 @@
     "@babel/core": ">=7.29.6 <8",
     "@humanfs/node": ">=0.16.8",
     "baseline-browser-mapping": ">=2.11.0",
-    "browserslist": ">=4.28.7"
+    "browserslist": ">=4.28.7",
+    "source-map-js": ">=1.2.2"
   },
   "devDependencies": {
     "@eslint/compat": "^1",
