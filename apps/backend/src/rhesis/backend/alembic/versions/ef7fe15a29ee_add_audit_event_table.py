@@ -232,6 +232,9 @@ def _columns() -> list:
 
 
 def upgrade() -> None:
+    # Keep the auto_rls_on_ddl event trigger (d4e5f6a7b8c3) out: it would add its own
+    # tenant_isolation, and a project_isolation this org-wide table must not have.
+    op.execute("SET LOCAL auto_rls.active = 'true'")
     op.execute(_UUID7)
     op.execute(_SET_RECORDED_AT)
     op.execute(_REJECT_CHANGE)
@@ -249,6 +252,8 @@ def upgrade() -> None:
         "FOR EACH STATEMENT EXECUTE FUNCTION public.reject_append_only_change()"
     )
 
+    for policy in ("tenant_isolation", "project_isolation"):
+        op.execute(f"DROP POLICY IF EXISTS {policy} ON {_TABLE}")
     op.execute(_TENANT_ISOLATION)
     op.execute(f"ALTER TABLE {_TABLE} ENABLE ROW LEVEL SECURITY")
     op.execute(f"ALTER TABLE {_TABLE} FORCE ROW LEVEL SECURITY")
