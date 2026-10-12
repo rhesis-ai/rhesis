@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import LinkedTestSetsSection from '../LinkedTestSetsSection';
 
@@ -32,26 +32,36 @@ jest.mock('@/utils/api-client/client-factory', () => ({
   })),
 }));
 
+const mockGetTestSets = jest.fn();
+
 jest.mock('@/utils/api-client/test-sets-client', () => ({
   TestSetsClient: jest.fn().mockImplementation(() => ({
-    getTestSets: jest.fn().mockResolvedValue({ data: [] }),
+    getTestSets: mockGetTestSets,
     associateTestsWithTestSet: jest.fn(),
   })),
 }));
+
+let mockDrawerProps: Record<string, unknown> = {};
 
 // Always render a marker (regardless of `open`) so tests can distinguish
 // "component gated out of the tree entirely" from "mounted but closed".
 jest.mock('@/components/common/AssignEntityDrawer', () => ({
   __esModule: true,
-  default: ({ open }: { open: boolean }) => (
-    <div data-testid="assign-drawer" data-open={String(open)} />
-  ),
+  default: (props: { open: boolean }) => {
+    mockDrawerProps = props;
+    return <div data-testid="assign-drawer" data-open={String(props.open)} />;
+  },
 }));
 
 describe('LinkedTestSetsSection', () => {
   beforeEach(() => {
     mockCanEdit = true;
     mockGetLinkedTestSets.mockReset();
+    mockGetTestSets.mockReset();
+    mockGetTestSets.mockResolvedValue({
+      data: [],
+      pagination: { totalCount: 0 },
+    });
   });
 
   it('hides Assign controls for Viewer (empty state)', async () => {
@@ -127,6 +137,58 @@ describe('LinkedTestSetsSection', () => {
       expect(screen.getByTestId('assign-drawer')).toHaveAttribute(
         'data-open',
         'true'
+      )
+    );
+  });
+
+  it('pages and searches test sets server-side, excluding linked ones', async () => {
+    mockGetLinkedTestSets.mockResolvedValue({
+      data: [],
+      pagination: { totalCount: 0 },
+    });
+
+    render(<LinkedTestSetsSection testId="test-1" />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: /assign to test set/i })
+    );
+
+    await waitFor(() => expect(mockGetTestSets).toHaveBeenCalled());
+    expect(mockGetTestSets).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        skip: 0,
+        limit: 25,
+        $filter: "not tests/any(t: t/id eq 'test-1')",
+      })
+    );
+
+    act(() => {
+      (mockDrawerProps.onSearchQueryChange as (q: string) => void)("O'Brien");
+    });
+
+    await waitFor(() =>
+      expect(mockGetTestSets).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          skip: 0,
+          $filter:
+            "not tests/any(t: t/id eq 'test-1') and " +
+            "(contains(tolower(name), tolower('O''Brien')) or " +
+            "contains(tolower(description), tolower('O''Brien')))",
+        })
+      )
+    );
+
+    act(() => {
+      (
+        mockDrawerProps.onPaginationModelChange as (m: {
+          page: number;
+          pageSize: number;
+        }) => void
+      )({ page: 2, pageSize: 25 });
+    });
+
+    await waitFor(() =>
+      expect(mockGetTestSets).toHaveBeenLastCalledWith(
+        expect.objectContaining({ skip: 50, limit: 25 })
       )
     );
   });
