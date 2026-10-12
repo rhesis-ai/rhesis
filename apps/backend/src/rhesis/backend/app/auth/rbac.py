@@ -704,6 +704,23 @@ def project_id_from_scope(db: Session) -> Optional[UUID]:
         return None
 
 
+def enforced_capability_for_route(route: object) -> Optional[str]:
+    """Return the capability ``apply_authz_backstop`` enforces on *route*, or ``None``.
+
+    ``None`` for public routes, routes exempt from authz, and unmapped routes.
+    """
+    from rhesis.backend.app.auth.capabilities import get_capability_for_route
+    from rhesis.backend.app.auth.public_routes import AUTHZ_EXEMPT_ROUTES, PUBLIC_ROUTES
+
+    path: str = getattr(route, "path", "") or ""
+    if path in PUBLIC_ROUTES:
+        return None
+    methods: set[str] = getattr(route, "methods", None) or set()
+    if any((m, path) in AUTHZ_EXEMPT_ROUTES for m in methods):
+        return None
+    return get_capability_for_route(route)
+
+
 # ---------------------------------------------------------------------------
 # FastAPI dependency factory — for explicit per-route use (before SP4 PEP)
 # ---------------------------------------------------------------------------
@@ -761,6 +778,7 @@ __all__ = [
     "Permission",
     "authorize",
     "authorize_object",
+    "enforced_capability_for_route",
     "get_authorization_provider",
     "project_id_from_scope",
     "require_permission",

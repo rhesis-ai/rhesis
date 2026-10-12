@@ -7,6 +7,8 @@ the ArchitectAgent inside the backend process.
 
 Auth is handled via a delegation token passed as a Bearer header,
 so tenant isolation is preserved without requiring a static API key.
+The tool list is filtered for the token's user, once per provider (one
+Architect turn), so a plan or role change shows on the next turn.
 """
 
 import asyncio
@@ -16,18 +18,19 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
-from rhesis.backend.app.provenance import Channel, in_process_headers
-from rhesis.sdk.agents.base import MCPTool
-from rhesis.sdk.agents.constants import ToolMeta
-from rhesis.sdk.agents.schemas import ToolResult
-
-from .tools import (
+from rhesis.backend.app.auth.principal import Principal
+from rhesis.backend.app.mcp_server.tools import (
     annotate_write_count,
     apply_query_overrides,
     build_tools_and_operations,
     format_list_response,
     load_tool_configs,
+    visible_tools_for,
 )
+from rhesis.backend.app.provenance import Channel, in_process_headers
+from rhesis.sdk.agents.base import MCPTool
+from rhesis.sdk.agents.constants import ToolMeta
+from rhesis.sdk.agents.schemas import ToolResult
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +53,14 @@ class LocalToolProvider(MCPTool):
         self,
         fastapi_app: Any,
         auth_token: str,
+        principal: Principal,
         project_id: str | None = None,
     ):
+        """*principal* must be the user *auth_token* was minted for."""
         # Skip MCPTool.__init__ — we don't have an MCP client.
         self._app = fastapi_app
         self._auth_header = f"Bearer {auth_token}"
+        self._principal = principal
         self._project_id = project_id
         self._tool_defs: List[Dict[str, Any]] = []
         self._operation_map: Dict[str, dict] = {}
@@ -68,9 +74,13 @@ class LocalToolProvider(MCPTool):
             return {ToolMeta.REQUIRES_CONFIRMATION: self._confirmation_map[tool_name]}
         return {}
 
-    def _ensure_initialized(self) -> None:
+    def _initialize(self) -> None:
         if not self._initialized:
-            mcp_tools, self._operation_map = build_tools_and_operations(self._app)
+            mcp_tools, operation_map = build_tools_and_operations(self._app)
+            visible = visible_tools_for(operation_map, self._principal, self._project_id)
+            # A hidden tool is then unknown to execute() as well.
+            self._operation_map = {n: op for n, op in operation_map.items() if n in visible}
+            mcp_tools = [t for t in mcp_tools if t.name in visible]
             self._confirmation_map = {
                 tc["name"]: tc[ToolMeta.REQUIRES_CONFIRMATION]
                 for tc in load_tool_configs()
@@ -88,6 +98,11 @@ class LocalToolProvider(MCPTool):
             ]
             self._initialized = True
 
+    async def _ensure_initialized(self) -> None:
+        if not self._initialized:
+            # Sync DB work for the visibility check; keep it off the loop.
+            await asyncio.to_thread(self._initialize)
+
     async def _ensure_connected(self) -> None:
         """No-op — always connected (in-process)."""
 
@@ -98,15 +113,18 @@ class LocalToolProvider(MCPTool):
         """No-op — no transport to disconnect."""
 
     async def list_tools(self) -> List[Dict[str, Any]]:
-        self._ensure_initialized()
+        await self._ensure_initialized()
         return self._tool_defs
 
     async def execute(self, tool_name: str, **kwargs: Any) -> ToolResult:
-        self._ensure_initialized()
+        await self._ensure_initialized()
 
         op = self._operation_map.get(tool_name)
         if op is None:
-            raise ValueError(f"Tool not found: {tool_name}")
+            raise ValueError(
+                f"Tool not available: {tool_name}. It is not available on this plan or "
+                "for this role, or it does not exist."
+            )
 
         arguments = dict(kwargs)
         # The Architect's tool calls are labelled as such in the audit log.
