@@ -11,6 +11,7 @@ Extracted from conftest.py for better modularity and maintainability.
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.requests import HTTPConnection
 
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_db_session, get_tenant_db_session
@@ -30,10 +31,20 @@ def client(test_db):
     consistently, including under savepoint isolation.
     """
 
-    def override_get_db():
+    def override_get_db(connection: HTTPConnection):
+        # FastAPI caches a dependency by its original callable, so get_db_session and
+        # get_tenant_db_session would each get a session on the one test connection.
+        # Their savepoints nest in first-use order but close in creation order, and
+        # releasing the outer one drops the inner. One session per request avoids that;
+        # whichever dependency opens it is torn down last and owns the commit.
+        shared = getattr(connection.state, "_test_db_session", None)
+        if shared is not None:
+            yield shared
+            return
         session = TestingSessionLocal(
             bind=test_db.get_bind(), join_transaction_mode="create_savepoint"
         )
+        connection.state._test_db_session = session
         # Some tests bind ambient scope by setting test_db.info["_scope"] directly
         # (e.g. _project_scope in test_annotations.py) rather than sending a real
         # X-Project-Id header, since route tests bypass the real get_tenant_db_session
