@@ -21,7 +21,10 @@ export async function updateEndpoint(
     }
 
     const apiFactory = await createServerApiFactory();
-    const endpointsClient = apiFactory.getEndpointsClient();
+    const scopedFactory = data.project_id
+      ? apiFactory.forProject(data.project_id)
+      : apiFactory;
+    const endpointsClient = scopedFactory.getEndpointsClient();
     const updatedEndpoint = await endpointsClient.updateEndpoint(
       endpointId,
       data
