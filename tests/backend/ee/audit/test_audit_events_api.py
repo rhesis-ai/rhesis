@@ -25,7 +25,6 @@ from rhesis.backend.app.auth.capabilities import (
     register_capabilities,
 )
 from rhesis.backend.app.auth.rbac import get_authorization_provider, set_authorization_provider
-from rhesis.backend.app.dependencies import get_db_session
 from rhesis.backend.app.features import Feature, FeatureName, FeatureRegistry
 from rhesis.backend.app.main import app
 from rhesis.backend.app.models.base import Base
@@ -131,15 +130,6 @@ def admin(test_db):
     ids = [_insert(test_db, org.id, action, at) for action, at in events]
     # The id, not the row: creating another org expires this one out of reach.
     return org.id, token, ids
-
-
-@pytest.fixture
-def client(client, test_db):
-    # require_feature asks for get_db_session, the handler for get_tenant_db_session.
-    # The stock override gives each its own savepoint on the one test connection, and
-    # the second request then fails on a released savepoint; one session avoids that.
-    app.dependency_overrides[get_db_session] = lambda: test_db
-    return client
 
 
 def _get(client, token, path: str = URL, **params):
