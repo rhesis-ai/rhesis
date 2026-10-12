@@ -723,6 +723,40 @@ This is the way back. Annotations, comments and tasks on a trace all record the 
 
 ---
 
+## Audit log
+
+Who changed what in Rhesis, when and from where. These tools are listed only when the
+organization's plan includes the audit log and the user's role or API token may read it.
+`audit-log.md` has the questions, filters and answer rules.
+
+### `list_audit_events`
+List audit log entries, newest first. Each carries `occurred_at`, `action`
+(`resource.verb_past`, e.g. `metric.updated`), `outcome`, `actor_label`, `actor_type`, `channel`,
+`resource_id`, `resource_label` and `changes` (`field`, `kind`, `before`, `after`). Fields of kind
+`secret` or `content` show that they changed but carry no values.
+
+**Key parameters:** `filter` (OData, e.g. `resource_id eq '<uuid>'`,
+`startswith(action,'endpoint.')`, `occurred_at ge 2026-10-01T00:00:00Z`,
+`contains(tolower(actor_label), 'alice')`, `channel eq 'architect'`), `select`, `skip`
+
+**CHAIN:** resolve the resource by name with its `list_*` tool → `list_audit_events` with its
+`resource_id`.
+
+---
+
+### `get_audit_event`
+Get one audit log entry by id, with every field.
+
+**Key parameters:** `event_id` (required)
+
+---
+
+### `list_audit_actions`
+List every action name the audit log can hold, with its resource and verb. Look names up here
+before filtering instead of guessing them.
+
+---
+
 ## Inspection (get-by-id)
 
 ### `get_test_set`

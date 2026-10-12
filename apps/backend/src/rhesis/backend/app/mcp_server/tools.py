@@ -74,11 +74,9 @@ def build_tools_and_operations(
 
         path_spec = paths.get(path_template)
         if path_spec is None:
-            logger.warning(
-                "MCP tool %s: path %s not found in OpenAPI — skipping",
-                name,
-                path_template,
-            )
+            # A community build does not mount EE routes, so their tools are expected to be missing.
+            log = logger.debug if tc.get("ee") else logger.warning
+            log("MCP tool %s: path %s not found in OpenAPI — skipping", name, path_template)
             continue
 
         operation = path_spec.get(method.lower())
