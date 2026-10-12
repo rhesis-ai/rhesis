@@ -11,6 +11,7 @@ Contains:
 
 import logging
 import secrets
+from functools import partial
 from typing import List, Optional
 
 import anyio
@@ -35,6 +36,11 @@ from rhesis.backend.app.dependencies import OffLoopSession, get_off_loop_db_sess
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.schemas.organization import SLUG_RE as _SLUG_RE
+from rhesis.backend.app.services.audit_events import (
+    SIGNED_IN,
+    record_failed_sign_in,
+    record_user_event,
+)
 from rhesis.backend.app.utils.rate_limit import limiter
 from rhesis.backend.app.utils.ssrf_http_client import SafeHttpClient, SSRFError
 from rhesis.backend.ee.sso.audit import SSOAuditEvent, audit_log
@@ -199,6 +205,7 @@ def _complete_sso_login(db: Session, auth_user, org, sso_config):
     clear_user_logout(str(user.id))
     session_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
+    record_user_event(SIGNED_IN, user)
     db.commit()
 
     return str(user.id), session_token, refresh_tok
@@ -300,6 +307,9 @@ async def sso_callback(
                 org_id,
                 email=auth_user.email,
                 reason_code=e.reason_code,
+            )
+            await anyio.to_thread.run_sync(
+                partial(record_failed_sign_in, db, auth_user.email, organization_id=org.id)
             )
             return RedirectResponse(url=error_redirect, status_code=302)
 

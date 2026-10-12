@@ -1,7 +1,11 @@
-"""Structured audit logging for SSO events.
+"""Structured log lines for SSO events, for incident forensics.
 
-All SSO security-relevant actions (config changes, login attempts, user provisioning)
-are logged here for SOC 2 compliance and incident forensics.
+The audit log records the same moments for orgs that have it: a sign-in as
+``session.signed_in`` (``record_user_event`` in the SSO router), a rejected
+sign-in by an account in the org as its failure (``record_failed_sign_in``),
+and config changes and provisioning as the ``organization`` and ``member``
+row changes they are. These lines stay because they also cover what the
+audit log does not: initiated logins, IdP errors, and people with no account.
 """
 
 import logging

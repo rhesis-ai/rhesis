@@ -33,8 +33,10 @@ from __future__ import annotations
 import base64
 import binascii
 import logging
+from functools import partial
 from typing import Optional
 
+import anyio
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 
@@ -46,6 +48,7 @@ from rhesis.backend.app.utils.rate_limit import (
 )
 from rhesis.backend.ee.api_clients.audit import (
     TokenExchangeEvent,
+    record_token_exchange,
     token_exchange_audit_log,
 )
 from rhesis.backend.ee.sso.token_exchange.exchange import (
@@ -402,6 +405,15 @@ async def token_exchange(
     try:
         result = await run_token_exchange(db, payload)
     except TokenExchangeError as exc:
+        if exc.org_id is not None:
+            await anyio.to_thread.run_sync(
+                partial(
+                    record_token_exchange,
+                    exc.org_id,
+                    exc.client_id,
+                    status_code=_status_for(exc),
+                )
+            )
         return _error_response(exc.error, _status_for(exc))
 
     # ---- Success --------------------------------------------------------
