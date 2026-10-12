@@ -1,7 +1,8 @@
 """Audit log read API: ``/audit-events``.
 
 Rows are inserted straight into ``audit_event`` on the test session, which the
-fixture rolls back; nothing writes to the table through the app yet.
+fixture rolls back. Self-audit rows are switched off here and tested in
+``test_audit_self_audit.py``.
 
 Run with:
     cd apps/backend
@@ -48,6 +49,14 @@ def _audit_log_registered():
     register_capabilities(app)
     if not FeatureRegistry.is_registered(FeatureName.AUDIT_LOG):
         FeatureRegistry.register(Feature(name=FeatureName.AUDIT_LOG))
+
+
+@pytest.fixture(autouse=True)
+def _no_self_audit():
+    # Each read would add its own audit_log.viewed row to the lists checked here;
+    # test_audit_self_audit.py covers those rows.
+    with patch("rhesis.backend.ee.audit.router.record_view"):
+        yield
 
 
 class _DenyAuditLog:

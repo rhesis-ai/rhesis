@@ -24,3 +24,4 @@ class RedisDatabase:
     OWASP_SECTIONS_CACHE = 6
     TEST_RUN_TIMING = 7  # per-test execution phase offsets, for the verdict grid animation
     VERDICT_MATRIX_CACHE = 8  # encoded verdict grid for a terminal (finished) test run
+    AUDIT_VIEWED = 9  # one audit_log.viewed row a minute per actor and credential (EE)
