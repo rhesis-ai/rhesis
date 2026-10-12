@@ -30,11 +30,13 @@ logger = logging.getLogger(__name__)
 
 
 def bootstrap_ee_providers() -> None:
-    """Install the EE license and quota providers without the full app bootstrap.
+    """Install the EE license and quota providers and the audit log, without the
+    full app bootstrap.
 
     Called from the Celery worker init signal so workers resolve licensed
-    quota limits instead of falling back to free-tier defaults. No-op when
-    the EE package is not installed.
+    quota limits instead of falling back to free-tier defaults, and record
+    audit events for what jobs change. No-op when the EE package is not
+    installed.
     """
     try:
         from rhesis.backend.ee import bootstrap_providers  # type: ignore[import-untyped]

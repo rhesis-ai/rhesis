@@ -55,6 +55,8 @@ class FeatureName(str, Enum):
     API_CLIENTS = "api_clients"
     #: Full RBAC: project-role overrides + custom roles (Phase 2, SP7–SP9).
     RBAC = "rbac"
+    #: Enterprise audit log: recording, and later the Events tab.
+    AUDIT_LOG = "audit_log"
 
 
 # Accept either the enum or its raw string value so dynamic call sites

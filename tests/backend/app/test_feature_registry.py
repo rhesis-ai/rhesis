@@ -366,9 +366,9 @@ class TestEEBootstrap:
         mock_app = MagicMock()
         ee_pkg.bootstrap(mock_app)
         ee_pkg.bootstrap(mock_app)
-        # SSO + API_CLIENTS + RBAC; idempotency means re-running bootstrap
-        # does not double the count.
-        assert len(FeatureRegistry._features) == 3
+        # SSO + API_CLIENTS + RBAC + AUDIT_LOG; idempotency means re-running
+        # bootstrap does not double the count.
+        assert len(FeatureRegistry._features) == 4
 
     def test_route_class_inherits_from_app(self, clean_registry):
         """The EE router must adopt the app's authenticated route class.
