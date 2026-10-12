@@ -219,6 +219,7 @@ def _columns() -> list:
         sa.Column("trace_id", sa.Text(), nullable=False),
         sa.Column("span_id", sa.Text(), nullable=False),
         sa.Column("job_id", uuid, nullable=True),
+        # A list of field changes; for audit_log.purged, an object {count, oldest, before}.
         sa.Column(
             "changes",
             postgresql.JSONB(),
