@@ -140,6 +140,23 @@ class TestSignIn:
         assert row["actor_id"] == member.id
         assert row["channel"] == "web"
 
+    def test_an_internal_error_is_not_a_failed_sign_in(self, client, member, emitted, monkeypatch):
+        from rhesis.backend.app.routers import auth as auth_router
+
+        def _crash(*args, **kwargs):
+            raise RuntimeError("database unavailable")
+
+        monkeypatch.setattr(auth_router, "_authenticate_email_user", _crash)
+
+        response = client.post(
+            "/auth/login/email",
+            json={"email": member.email, "password": PASSWORD},
+            headers=_headers(_request_id()),
+        )
+
+        assert response.status_code == 401
+        assert emitted == []
+
     def test_unknown_email_writes_nothing(self, client, emitted):
         response = client.post(
             "/auth/login/email",
@@ -169,6 +186,23 @@ class TestSignOut:
         assert row["action"] == "session.signed_out"
         assert row["actor_id"] == member.id
         assert row["actor_type"] == "user"
+
+    def test_a_failed_audit_write_does_not_undo_the_logout(self, client, member, monkeypatch):
+        from rhesis.backend.app.auth.token_utils import create_session_token
+        from rhesis.backend.ee.audit import sink
+
+        def _broken(*args, **kwargs):
+            raise RuntimeError("audit store unavailable")
+
+        monkeypatch.setattr(sink, "get_db_with_tenant_variables", _broken)
+
+        response = client.get(
+            "/auth/logout",
+            params={"session_token": create_session_token(member)},
+            headers={**_headers(_request_id()), "Accept": "application/json"},
+        )
+
+        assert response.status_code == 200
 
 
 class TestPasswords:

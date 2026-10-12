@@ -805,8 +805,10 @@ async def login_with_email(
             user, user_id = await anyio.to_thread.run_sync(
                 _authenticate_email_user, db, email_provider, body.email, body.password
             )
-        except Exception:
-            await anyio.to_thread.run_sync(record_failed_sign_in, db, body.email)
+        except HTTPException as exc:
+            # A refused sign-in, not an internal error.
+            if exc.status_code == status.HTTP_401_UNAUTHORIZED:
+                await anyio.to_thread.run_sync(record_failed_sign_in, db, body.email)
             raise
 
         # Set up session and create tokens. The refresh token is wrapped
@@ -1603,16 +1605,17 @@ def logout(
                 invalidate_user_sessions(user_id)
                 revoke_all_for_user(db, user_id)
                 org_id = user_info.get("organization_id")
+                db.commit()
+                # On its own session, after the revocation commits: a failed audit write
+                # must not undo a logout.
                 record_audit_event(
                     SIGNED_OUT,
                     org_id,
-                    db=db,
                     actor_id=user_id,
                     actor_label=user_label(user_info.get("name"), user_info.get("email")),
                     resource_id=user_id,
                     resource_label=user_info.get("email"),
                 )
-                db.commit()
 
                 # Bust the permission cache so a re-login always gets fresh
                 # permissions (role changes take effect immediately after next login).
