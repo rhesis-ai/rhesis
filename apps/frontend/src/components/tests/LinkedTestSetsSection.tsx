@@ -7,17 +7,23 @@ import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
 import Link from 'next/link';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import AssignEntityDrawer from '@/components/common/AssignEntityDrawer';
-import { GridColDef, GridRowModel } from '@mui/x-data-grid';
+import {
+  GridColDef,
+  GridPaginationModel,
+  GridRowModel,
+} from '@mui/x-data-grid';
 import { TestSetsClient } from '@/utils/api-client/test-sets-client';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { formatDate } from '@/utils/date';
+import { escapeODataValue } from '@/utils/odata-filter';
 import { useList } from '@/hooks/useList';
 import { linkedTestSetsList } from './list';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 
 const NO_FILTERS = {};
+const SEARCH_DEBOUNCE_MS = 300;
 
 interface LinkedTestSetsSectionProps {
   testId: string;
@@ -37,7 +43,12 @@ export default function LinkedTestSetsSection({
   // Assign drawer state
   const [assignOpen, setAssignOpen] = useState(false);
   const [available, setAvailable] = useState<TestSet[]>([]);
+  const [availableTotal, setAvailableTotal] = useState(0);
   const [loadingAvailable, setLoadingAvailable] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [availablePagination, setAvailablePagination] =
+    useState<GridPaginationModel>({ page: 0, pageSize: 25 });
 
   const descriptor = useMemo(() => linkedTestSetsList(testId), [testId]);
   const {
@@ -58,41 +69,70 @@ export default function LinkedTestSetsSection({
       }),
   });
 
-  const handleAssignClick = useCallback(async () => {
-    setLoadingAvailable(true);
+  const handleAssignClick = useCallback(() => {
+    setSearchQuery('');
+    setDebouncedSearch('');
+    setAvailablePagination(prev => ({ ...prev, page: 0 }));
     setAssignOpen(true);
-    try {
-      const testSetsClient = new TestSetsClient();
-      const response = await testSetsClient.getTestSets({
-        limit: 100,
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+      setAvailablePagination(prev => ({ ...prev, page: 0 }));
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (!assignOpen) return;
+    // Set on re-run (page/search change), close and unmount, so a late
+    // response never overwrites newer rows or toasts after the drawer closes.
+    let cancelled = false;
+
+    // Already-linked sets are excluded server-side so page counts stay right.
+    const filters = [`not tests/any(t: t/id eq '${escapeODataValue(testId)}')`];
+    if (debouncedSearch) {
+      const q = escapeODataValue(debouncedSearch);
+      filters.push(
+        `(contains(tolower(name), tolower('${q}')) or contains(tolower(description), tolower('${q}')))`
+      );
+    }
+
+    setLoadingAvailable(true);
+    new TestSetsClient()
+      .getTestSets({
+        skip: availablePagination.page * availablePagination.pageSize,
+        limit: availablePagination.pageSize,
         sort_by: 'name',
         sort_order: 'asc',
+        $filter: filters.join(' and '),
+      })
+      .then(response => {
+        if (cancelled) return;
+        setAvailable(response.data);
+        setAvailableTotal(response.pagination.totalCount);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAvailable([]);
+        setAvailableTotal(0);
+        showNotification('Failed to load test sets', { severity: 'error' });
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingAvailable(false);
       });
-      setAvailable(response.data);
-    } catch {
-      setAvailable([]);
-      showNotification('Failed to load test sets', { severity: 'error' });
-    } finally {
-      setLoadingAvailable(false);
-    }
-  }, [showNotification]);
-
-  const linkedIds = useMemo(
-    () => new Set(testSets.map(ts => String(ts.id))),
-    [testSets]
-  );
-
-  // Settles once and stays true -- unlike `loading`, which flips again on
-  // every refetch (pagination, `refresh()` after an assign).
-  const [linkedIdsSettled, setLinkedIdsSettled] = useState(!loading);
-  useEffect(() => {
-    if (!loading) setLinkedIdsSettled(true);
-  }, [loading]);
-
-  const availableFiltered = useMemo<GridRowModel[]>(() => {
-    if (!linkedIdsSettled) return [];
-    return available.filter(ts => !linkedIds.has(String(ts.id)));
-  }, [available, linkedIds, linkedIdsSettled]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    assignOpen,
+    testId,
+    debouncedSearch,
+    availablePagination.page,
+    availablePagination.pageSize,
+    showNotification,
+  ]);
 
   const handleAssign = useCallback(
     async (selectedIds: string[]) => {
@@ -275,12 +315,18 @@ export default function LinkedTestSetsSection({
           open={assignOpen}
           onClose={() => setAssignOpen(false)}
           title="Assign Test Set"
-          rows={availableFiltered}
+          rows={available as GridRowModel[]}
           columns={drawerColumns}
-          loading={loadingAvailable || !linkedIdsSettled}
+          loading={loadingAvailable}
           getRowId={row => String(row.id)}
           onAssign={handleAssign}
           searchPlaceholder="Search test sets…"
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          serverSidePagination
+          totalRows={availableTotal}
+          paginationModel={availablePagination}
+          onPaginationModelChange={setAvailablePagination}
         />
       )}
     </>

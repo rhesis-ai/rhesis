@@ -132,21 +132,16 @@ export default function AssignEntityDrawer({
 
   const hasSelection = Array.isArray(selected) && selected.length > 0;
 
-  const gridContainerSx: SxProps<Theme> = serverSidePagination
-    ? {
-        flex: 1,
-        minHeight: 480,
-        display: 'flex',
-        flexDirection: 'column',
-      }
-    : {
-        flex: 1,
-        minHeight: 400,
-      };
+  // Fill the drawer instead of autoHeight: an auto-sized grid outgrows the
+  // drawer and its last rows and pagination footer get clipped.
+  const gridContainerSx: SxProps<Theme> = {
+    flex: 1,
+    minHeight: 480,
+    display: 'flex',
+    flexDirection: 'column',
+  };
 
-  const gridSx: SxProps<Theme> = serverSidePagination
-    ? { flex: 1, minHeight: 400, height: '100%' }
-    : { flex: 1, minHeight: 400 };
+  const gridSx: SxProps<Theme> = { flex: 1, minHeight: 400, height: '100%' };
 
   return (
     <BaseDrawer
@@ -171,7 +166,7 @@ export default function AssignEntityDrawer({
           border: (theme: Theme) =>
             `1px solid ${theme.palette.greyscale.border}`,
           boxShadow: ELEVATION.xs,
-          overflow: serverSidePagination ? 'visible' : 'hidden',
+          overflow: 'visible',
         }}
       >
         <Box sx={{ px: '30px', pt: '30px', pb: '30px', flexShrink: 0 }}>
@@ -233,7 +228,7 @@ export default function AssignEntityDrawer({
             disableRowSelectionOnClick
             disableMultipleRowSelection={disableMultipleRowSelection}
             disableColumnResize
-            autoHeight={!serverSidePagination}
+            autoHeight={false}
             onRowSelectionModelChange={setSelected}
             rowSelectionModel={selected}
             disablePaperWrapper
