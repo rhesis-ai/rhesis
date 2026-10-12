@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useCallback, useState } from 'react';
-import { Box, Button, Typography, Paper } from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import EndpointsGrid from '@/app/(protected)/endpoints/components/EndpointsGrid';
 import EndpointCreateDrawer from '@/app/(protected)/endpoints/components/EndpointCreateDrawer';
@@ -10,7 +10,6 @@ import { AddIcon } from '@/components/icons';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { sectionEditButtonSx } from '@/components/common/SectionCardActions';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { useInvalidateUsage } from '@/hooks/useInvalidateUsage';
 
@@ -57,22 +56,12 @@ export default function ProjectEndpoints({ projectId }: ProjectEndpointsProps) {
         </Can>
       </Box>
 
-      <Paper
-        sx={{
-          width: '100%',
-          borderRadius: BORDER_RADIUS.md,
-          boxShadow: ELEVATION.xs,
-          border: theme => `1px solid ${theme.palette.greyscale.border}`,
-          overflow: 'hidden',
-        }}
-      >
-        <EndpointsGrid
-          projectId={projectId}
-          canCreate={canCreate}
-          onCreateClick={handleCreate}
-          refreshTrigger={refreshTrigger}
-        />
-      </Paper>
+      <EndpointsGrid
+        projectId={projectId}
+        canCreate={canCreate}
+        onCreateClick={handleCreate}
+        refreshTrigger={refreshTrigger}
+      />
 
       <EndpointCreateDrawer
         open={drawerOpen}
