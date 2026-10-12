@@ -373,6 +373,7 @@ postgresql:
             --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<'EOSQL'
             GRANT CONNECT ON DATABASE :"postgres_db" TO "rhesis-user";
             GRANT USAGE ON SCHEMA public TO "rhesis-user";
+            -- Bootstrap only: re-running this undoes the REVOKE on append-only tables (audit_event).
             GRANT SELECT, INSERT, UPDATE, DELETE, REFERENCES ON ALL TABLES IN SCHEMA public TO "rhesis-user";
             GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "rhesis-user";
             ALTER DEFAULT PRIVILEGES FOR ROLE "rhesis-admin" IN SCHEMA public

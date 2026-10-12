@@ -41,7 +41,9 @@ TENANT_POLICY_EXEMPT_TABLES = frozenset()
 # Tables with project_id that deliberately do NOT get project_isolation.
 # project_membership must stay org-scoped only (it IS the access-control
 # join table used to resolve project context before a project is known).
-PROJECT_POLICY_EXEMPT_TABLES = frozenset({"project_membership"})
+# audit_event is read through the org-scoped audit_log:read, so a reader
+# inside a project must still see the whole org's log.
+PROJECT_POLICY_EXEMPT_TABLES = frozenset({"project_membership", "audit_event"})
 
 
 
