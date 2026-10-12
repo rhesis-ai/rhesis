@@ -18,6 +18,7 @@ build-backend = "hatchling.build"
 [tool.uv]
 constraint-dependencies = [
     "anyio>=4.14.2",
+    "urllib3>=2.8.0",
 ]
 
 [tool.hatch.build.targets.wheel]

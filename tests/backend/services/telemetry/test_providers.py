@@ -5,6 +5,9 @@ model name when it did not. Both halves matter: the filter on the traces list gr
 this, so a provider that resolves two different ways shows up twice.
 """
 
+from collections import OrderedDict
+from unittest.mock import patch
+
 import pytest
 from rhesis.telemetry.attributes import AIAttributes
 
@@ -113,3 +116,100 @@ class TestResolveProvider:
         attributes = {AIAttributes.MODEL_PROVIDER: ""}
 
         assert resolve_provider(attributes, "gpt-4") == "openai"
+
+
+def _make_model_cost(entries):
+    """Build a controlled model_cost dict from (key, provider) pairs."""
+    return OrderedDict({k: {"litellm_provider": p} for k, p in entries})
+
+
+def _force_fallback(model_cost):
+    """Patch get_llm_provider to always fail and model_cost to the given dict.
+
+    Forces provider_for_model through the model_cost fallback path. Clears
+    the lru_cache so prior calls with the same model name don't short-circuit.
+    """
+    provider_for_model.cache_clear()
+    return patch.multiple(
+        "litellm",
+        get_llm_provider=lambda *a, **kw: (_ for _ in ()).throw(Exception("forced")),
+        model_cost=model_cost,
+    )
+
+
+@pytest.mark.unit
+class TestModelCostFallback:
+    """The model_cost search that runs when get_llm_provider cannot place a model.
+
+    Each test patches litellm so get_llm_provider always fails and model_cost
+    contains only the entries the test cares about. This isolates the fallback
+    logic from litellm's live data.
+    """
+
+    def test_suffix_match(self):
+        """vertex_ai/gemini-2.0-flash matches the bare name gemini-2.0-flash."""
+        cost = _make_model_cost([("vertex_ai/gemini-2.0-flash", "vertex_ai")])
+        with _force_fallback(cost):
+            assert provider_for_model("gemini-2.0-flash") == "gemini"
+
+    def test_exact_key_match(self):
+        """A model_cost key equal to the model name is the simplest match."""
+        cost = _make_model_cost([("gpt-4o", "openai")])
+        with _force_fallback(cost):
+            assert provider_for_model("gpt-4o") == "openai"
+
+    def test_date_suffix_match(self):
+        """command-r-08-2024 (bare key) matches the query command-r."""
+        cost = _make_model_cost([("command-r-08-2024", "cohere_chat")])
+        with _force_fallback(cost):
+            assert provider_for_model("command-r") == "cohere"
+
+    def test_date_suffix_skips_prefixed_keys(self):
+        """azure/command-r-plus must not match command-r via date-suffix.
+
+        The date-suffix search only considers bare keys (no /) to avoid
+        false positives from provider-prefixed variants of other models.
+        """
+        cost = _make_model_cost([("azure/command-r-plus", "azure")])
+        with _force_fallback(cost):
+            assert provider_for_model("command-r") is None
+
+    def test_gateway_providers_are_skipped(self):
+        """vercel_ai_gateway accepts any model and tells us nothing."""
+        cost = _make_model_cost([
+            ("vercel_ai_gateway/cohere/command-r", "vercel_ai_gateway"),
+            ("cohere_chat/command-r", "cohere_chat"),
+        ])
+        with _force_fallback(cost):
+            assert provider_for_model("command-r") == "cohere"
+
+    def test_gateway_only_means_no_match(self):
+        """When the only match is a gateway, the model cannot be placed."""
+        cost = _make_model_cost([("vercel_ai_gateway/cohere/command-r", "vercel_ai_gateway")])
+        with _force_fallback(cost):
+            assert provider_for_model("command-r") is None
+
+    def test_suffix_match_beats_date_suffix(self):
+        """An exact suffix hit in the first pass wins over a date-suffix in the second."""
+        cost = _make_model_cost([
+            ("some-model-v2", "provider_a"),
+            ("openai/some-model", "openai"),
+        ])
+        with _force_fallback(cost):
+            assert provider_for_model("some-model") == "openai"
+
+    def test_no_match_returns_none(self):
+        cost = _make_model_cost([("completely-different", "openai")])
+        with _force_fallback(cost):
+            assert provider_for_model("my-custom-model") is None
+
+    def test_missing_litellm_provider_field_is_skipped(self):
+        """A model_cost entry without a litellm_provider field is not a match."""
+        provider_for_model.cache_clear()
+        bad_cost = OrderedDict({"vertex_ai/gemini-2.0-flash": {"max_tokens": 8192}})
+        with patch.multiple(
+            "litellm",
+            get_llm_provider=lambda *a, **kw: (_ for _ in ()).throw(Exception("forced")),
+            model_cost=bad_cost,
+        ):
+            assert provider_for_model("gemini-2.0-flash") is None

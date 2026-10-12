@@ -69,3 +69,10 @@ indent-style = "space"
 testpaths = ["tests"]
 pythonpath = ["src"]
 asyncio_default_fixture_loop_scope = "function"
+
+[tool.uv]
+constraint-dependencies = [
+    "pyjwt>=2.15.0",
+    "urllib3>=2.8.0",
+    "multidict>=6.9.1",
+]
