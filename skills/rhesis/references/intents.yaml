@@ -9,8 +9,8 @@
 #
 # Fields:
 #   key                    stable identifier, safe to return from a classifier
-#   workflow_path          coarse path the agent switches to; two intents share
-#                          `explore` because they read the same references
+#   workflow_path          coarse path the agent switches to; intents may share
+#                          one, as the two exploration intents share `explore`
 #   match_priority         classification order, lowest first
 #   trigger_signals        prose guidance for a classifying model, not for code
 #   keyword_signals        lowercased substrings matched against the user message
@@ -149,6 +149,34 @@ intents:
       - phases/analysis.md
       - result-analysis.md
       - insights-summary.md
+
+  - key: audit_review
+    name: Audit log review
+    workflow_path: direct
+    description: >-
+      Answer who changed, created or deleted something, what changed in a time
+      window, or what a person, API token or the Architect did, from the audit
+      log. Not a workflow, so it never appears in the menu.
+    # Below run_analyze, so "what changed since the last run" stays a run comparison.
+    match_priority: 25
+    menu: null
+    trigger_signals:
+      - user asks who changed, created or deleted something
+      - user asks what changed since a date or in a time window
+      - user asks what a person, an API token or the Architect did
+      - user mentions the audit log or asks who changed access or roles
+    keyword_signals:
+      - audit log
+      - audit trail
+      - who changed
+      - who deleted
+      - who created
+      - who edited
+      - who modified
+      - who removed
+      - what changed since
+    next_references:
+      - audit-log.md
 
   - key: direct
     name: Direct action

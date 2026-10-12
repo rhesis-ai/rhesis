@@ -67,6 +67,15 @@ both `test_run_ids`.
 3. **Unchanged** — a count, not a list.
 4. Links to both runs.
 
+**When the pass rate moved and `list_audit_events` is in your tool list**, check
+what changed between the two runs: one call for the endpoint, the test set and
+the metrics in the comparison, between the two runs' `created_at`. Details in
+`result-analysis.md`. Put each change you find on the delta line, as what
+changed, who changed it and when, such as
+`72% → 85%, +13 points; Refusal Detection threshold 0.5 → 0.8 by Alice, Tuesday`.
+Do not say the change caused the delta. Leave this out when the tool is missing or nothing
+matched.
+
 Operational volume (how many runs, which test sets run most): `get_insights` with
 `entity=test_run`, grouped by `status`, `test_set`, `executor` or `month`.
 

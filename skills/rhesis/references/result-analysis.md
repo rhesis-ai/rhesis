@@ -114,6 +114,17 @@ get_insights
 
 Use when the user wants to understand which evaluation criteria changed. This entity also carries `human_annotation_count`, `automated_passed` and `automated_failed`, which is how you see where people overrode the automation.
 
+### What changed between the runs
+
+Only when `list_audit_events` is in your tool list. A pass rate can move because someone changed the setup rather than the system under test, such as a metric threshold or an endpoint's settings. Take the endpoint and test set ids from `list_test_runs` (`endpoint`, `test_set`, `created_at`) and resolve the metrics in the comparison by name with `list_metrics`. Then one call:
+
+```
+list_audit_events
+  filter=(resource_id eq '<endpoint-uuid>' or resource_id eq '<test-set-uuid>' or resource_id eq '<metric-uuid>') and occurred_at ge <run A created_at> and occurred_at le <run B created_at>
+```
+
+Report what the entries say, as `audit-log.md` describes. No entries means the setup did not change in the log's record; say nothing about it.
+
 ---
 
 ## Finding runs to compare
