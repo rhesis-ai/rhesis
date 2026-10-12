@@ -2,6 +2,7 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, String, Tex
 from sqlalchemy.dialects.postgresql import ARRAY, JSON, JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.enums import (
     EndpointConfigSource,
@@ -15,6 +16,26 @@ from rhesis.backend.app.utils.encryption import EncryptedString
 
 class Endpoint(Base, ActivityTrackableMixin, TagsMixin, ExampleDataMixin):
     __tablename__ = "endpoint"
+    __audit__ = AuditPolicy(
+        # Headers, auth and extra payload can carry credentials.
+        secret=("auth", "request_headers", "extra_payload"),
+        content=("openapi_spec",),
+        plain=(
+            "llm_suggestions",
+            "endpoint_metadata",
+            "version_info",
+            "query_params",
+            "request_mapping",
+            "input_mappings",
+            "response_mapping",
+            "validation_rules",
+            "client_id",
+            "token_url",
+            "audience",
+        ),
+        # The cached OAuth token, refreshed on its own.
+        ignore=("last_token", "last_token_expires_at"),
+    )
     __table_args__ = (Index("ix_endpoint_org_created", "organization_id", "created_at"),)
     # Core Fields
     name = Column(String, nullable=False)

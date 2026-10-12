@@ -1,5 +1,7 @@
 from sqlalchemy import BigInteger, Column, Date, ForeignKey, Index, String, UniqueConstraint, text
 
+from rhesis.backend.app.models.audit_policy import NOT_AUDITED
+
 from .base import Base
 from .guid import GUID
 
@@ -22,6 +24,7 @@ class Usage(Base):
     """
 
     __tablename__ = "usage"
+    __audit__ = NOT_AUDITED  # metering counters
 
     organization_id = Column(
         GUID(), ForeignKey("organization.id", ondelete="CASCADE"), nullable=False

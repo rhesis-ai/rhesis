@@ -1,6 +1,7 @@
 from sqlalchemy import JSON, Boolean, Column, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
 from rhesis.backend.app.models.enums import ModelType
 from rhesis.backend.app.utils.encryption import EncryptedString
 
@@ -28,6 +29,7 @@ class Model(
     CountsMixin,
 ):
     __tablename__ = "model"
+    __audit__ = AuditPolicy(secret=("request_headers",), plain=("description",))
 
     # Basic information
     name = Column(String, nullable=False)

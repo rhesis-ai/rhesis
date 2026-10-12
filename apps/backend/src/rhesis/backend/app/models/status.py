@@ -1,6 +1,8 @@
 from sqlalchemy import Column, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
+
 from .base import Base
 from .guid import GUID
 from .mixins import OrganizationAndUserMixin, ProjectMixin
@@ -8,6 +10,7 @@ from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 class Status(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "status"
+    __audit__ = AuditPolicy(plain=("description",))
     name = Column(String)
     description = Column(Text)
     entity_type_id = Column(GUID(), ForeignKey("type_lookup.id"))

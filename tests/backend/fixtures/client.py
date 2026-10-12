@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from rhesis.backend.app.database import get_db
 from rhesis.backend.app.dependencies import get_db_session, get_tenant_db_session
 from rhesis.backend.app.main import app
+from rhesis.backend.app.provenance import attach_current_request
 
 from .database import TestingSessionLocal
 
@@ -40,6 +41,8 @@ def client(test_db):
         # every request, so it still respects a `with _project_scope(...):` block --
         # keeps that pattern working now that requests get their own session.
         session.info.update(test_db.info)
+        # As get_db() does, so the request's writes are audited like in production.
+        attach_current_request(session)
         try:
             yield session
             if session.in_transaction():

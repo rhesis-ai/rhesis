@@ -18,6 +18,7 @@ on every successful append.
 from sqlalchemy import Column, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
 from rhesis.backend.app.models.guid import GUID
 from rhesis.backend.app.models.pydantic_column import (
     pydantic_list_jsonb_column,
@@ -34,6 +35,7 @@ class Experiment(Base, OrganizationMixin):
     """One named attempt at a configuration for a project."""
 
     __tablename__ = "experiment"
+    __audit__ = AuditPolicy(plain=("description", "versions"))
 
     project_id = Column(
         GUID(),

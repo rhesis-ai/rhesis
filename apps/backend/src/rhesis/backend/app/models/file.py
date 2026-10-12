@@ -1,5 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
+
 from .base import Base
 from .guid import GUID
 from .mixins import OrganizationAndUserMixin, ProjectMixin
@@ -7,6 +9,7 @@ from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 class File(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "file"
+    __audit__ = AuditPolicy(content=("extracted_text",), plain=("description", "content_hash"))
 
     # File metadata
     filename = Column(String(255), nullable=False)

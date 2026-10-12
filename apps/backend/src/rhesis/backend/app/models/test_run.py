@@ -2,6 +2,7 @@ from sqlalchemy import Column, ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
 from rhesis.backend.app.models.guid import GUID
 
 from .base import Base
@@ -27,6 +28,7 @@ class TestRun(
     CountsMixin,
 ):
     __tablename__ = "test_run"
+    __audit__ = AuditPolicy(plain=("attributes",))
     __table_args__ = (Index("ix_test_run_org_created", "organization_id", "created_at"),)
 
     user_id = Column(GUID(), ForeignKey("user.id"), index=True)

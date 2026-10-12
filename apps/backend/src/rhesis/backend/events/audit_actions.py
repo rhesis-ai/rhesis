@@ -33,11 +33,15 @@ PAST_TENSE: dict[str, str] = {
 
 # A permission bundle, not something that happens.
 NOT_ACTIONS: frozenset[str] = frozenset({"manage"})
+# What a ``manage`` bundle covers, so its row changes have names (``role.created``).
+MANAGE_VERBS: tuple[str, ...] = ("create", "update", "delete")
 
 # Moments no capability describes.
 AUDIT_ONLY_ACTIONS: frozenset[str] = frozenset(
     {
         "audit_log.purged",
+        # Superuser only; no capability grants it.
+        "organization.deleted",
         "password.changed",
         "password.reset",
         "session.signed_in",
@@ -73,5 +77,11 @@ def audit_action(capability: str) -> str:
 
 def known_actions(capabilities: Iterable[str]) -> frozenset[str]:
     """Every action the audit log can hold, for this capability catalog."""
-    derived = {audit_action(c) for c in capabilities if capability_verb(c) not in NOT_ACTIONS}
+    derived = set()
+    for capability in capabilities:
+        if capability_verb(capability) in NOT_ACTIONS:
+            resource = capability.split(":", 1)[0]
+            derived |= {audit_action(f"{resource}:{verb}") for verb in MANAGE_VERBS}
+        else:
+            derived.add(audit_action(capability))
     return frozenset(derived) | AUDIT_ONLY_ACTIONS

@@ -1,6 +1,8 @@
 from sqlalchemy import Column, ForeignKey, Index, String, Text
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
+
 from .base import Base
 from .guid import GUID
 from .mixins import OrganizationAndUserMixin, ProjectMixin
@@ -8,6 +10,7 @@ from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 class Topic(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "topic"
+    __audit__ = AuditPolicy(plain=("description",))
     __table_args__ = (Index("ix_topic_org_created", "organization_id", "created_at"),)
     name = Column(String)
     description = Column(Text)

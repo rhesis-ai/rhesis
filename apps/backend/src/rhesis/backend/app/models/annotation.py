@@ -2,6 +2,8 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, String, Tex
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
+
 from .base import Base
 from .guid import GUID
 from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin, ProjectMixin
@@ -9,6 +11,7 @@ from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin, ProjectMix
 
 class Annotation(Base, ActivityTrackableMixin, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "annotation"
+    __audit__ = AuditPolicy(content=("comments",), plain=("attributes",))
 
     entity_type = Column(String, nullable=False)
     entity_id = Column(GUID(), nullable=False)

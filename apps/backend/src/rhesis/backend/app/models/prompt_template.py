@@ -1,6 +1,8 @@
 from sqlalchemy import Boolean, Column, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
+
 from .base import Base
 from .guid import GUID
 from .mixins import OrganizationMixin, ProjectMixin, TagsMixin
@@ -8,6 +10,7 @@ from .mixins import OrganizationMixin, ProjectMixin, TagsMixin
 
 class PromptTemplate(Base, ProjectMixin, TagsMixin, OrganizationMixin):
     __tablename__ = "prompt_template"
+    __audit__ = AuditPolicy(content=("content",))
     content = Column(Text, nullable=False)
     category_id = Column(GUID(), ForeignKey("category.id"))
     topic_id = Column(GUID(), ForeignKey("topic.id"))

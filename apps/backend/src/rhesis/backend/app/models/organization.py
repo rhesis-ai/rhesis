@@ -12,6 +12,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
 from rhesis.backend.app.models.organization_settings import OrganizationSettingsManager
 from rhesis.backend.app.utils.encryption import EncryptedString
 
@@ -22,6 +23,13 @@ from .mixins import TagsMixin
 
 class Organization(Base, TagsMixin):
     __tablename__ = "organization"
+    __audit__ = AuditPolicy(
+        org_column="id",
+        # Holds the SSO client secret's ciphertext.
+        secret=("sso_config",),
+        plain=("description", "address", "organization_settings", "license"),
+        ignore=("rhesis_key_last_checked_at",),
+    )
 
     # Basic information
     name = Column(String, nullable=False)

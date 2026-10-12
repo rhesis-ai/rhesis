@@ -4,6 +4,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
 from rhesis.backend.app.utils.encryption import EncryptedString
 
 from .base import Base
@@ -13,6 +14,12 @@ from .mixins import OrganizationMixin
 
 class Token(Base, OrganizationMixin):
     __tablename__ = "token"
+    __audit__ = AuditPolicy(
+        secret=("token_hash",),
+        plain=("scopes",),
+        # Stamped every few minutes while the token is in use.
+        ignore=("last_used_at",),
+    )
 
     name = Column(String)
 

@@ -58,17 +58,28 @@ TEXT_DML = re.compile(r"\s*(INSERT|UPDATE|DELETE|TRUNCATE)\b", re.IGNORECASE)
 
 _CORE = "apps/backend/src/rhesis/backend"
 
-#: Paths relative to the repo root, with the reason each may still write.
-ALLOWED_OFFENDERS: dict[str, str] = {
+#: Paths relative to the repo root: why each may still write, and the tables it
+#: writes. Every table named must be ``NOT_AUDITED`` (see
+#: ``test_allowed_offenders_write_only_unaudited_tables``).
+ALLOWED_OFFENDERS: dict[str, tuple[str, tuple[str, ...]]] = {
     # Infrastructure on tables that are not audited as user activity.
-    f"{_CORE}/app/auth/refresh_token_utils.py": "refresh token rotation and cleanup",
-    f"{_CORE}/app/services/usage.py": "usage counters, upserted on every metered call",
-    f"{_CORE}/events/sinks/activity_log.py": "the activity log sink itself",
-    f"{_CORE}/jobs/retention.py": "retention sweep",
-    f"{_CORE}/jobs/trace_retention.py": "trace retention sweep",
-    f"{_CORE}/jobs/tracking.py": "job status tracking",
-    f"{_CORE}/local_init.py": "local development bootstrap",
+    f"{_CORE}/app/auth/refresh_token_utils.py": (
+        "refresh token rotation and cleanup",
+        ("refresh_token",),
+    ),
+    f"{_CORE}/app/services/usage.py": (
+        "usage counters, upserted on every metered call",
+        ("usage",),
+    ),
+    f"{_CORE}/events/sinks/activity_log.py": ("the activity log sink itself", ("activity_log",)),
+    f"{_CORE}/jobs/retention.py": ("retention sweep", ("activity_log", "job")),
+    f"{_CORE}/jobs/trace_retention.py": ("trace retention sweep", ("trace",)),
+    f"{_CORE}/jobs/tracking.py": ("job status tracking", ("job",)),
+    # Session adds only, which the audit flush hook records like any other.
+    f"{_CORE}/local_init.py": ("local development bootstrap", ()),
 }
+# Writes the session flush sees, so the audit hook records them wherever they are.
+FLUSH_WRITES = frozenset({"add", "add_all", "delete", "merge"})
 
 
 def _is_crud_layer(path: Path) -> bool:
@@ -211,4 +222,29 @@ def test_allowed_offenders_still_write() -> None:
     stale = sorted(p for p in ALLOWED_OFFENDERS if p not in offenders)
     assert not stale, "No longer write outside the CRUD layer; remove from ALLOWED_OFFENDERS:\n" + (
         "\n".join(stale)
+    )
+
+
+def test_allowed_offenders_write_only_unaudited_tables() -> None:
+    """An allowlisted file writes around the CRUD layer, so keep it off audited tables.
+
+    Each entry names the tables it writes; each must be ``NOT_AUDITED``. An entry
+    that names none may only write through the session flush.
+    """
+    import rhesis.backend.app.models  # noqa: F401
+    from rhesis.backend.app.models.audit_capture import audit_policy_of
+    from rhesis.backend.app.models.audit_policy import NOT_AUDITED
+    from rhesis.backend.app.models.base import Base
+
+    policies = {m.local_table.name: audit_policy_of(m.class_) for m in Base.registry.mappers}
+    problems = []
+    for path, (_, tables) in ALLOWED_OFFENDERS.items():
+        problems += [
+            f"{path}: {t} is audited" for t in tables if policies.get(t, None) != NOT_AUDITED
+        ]
+        if not tables:
+            kinds = {w.split(": ", 1)[1] for w in find_writes(REPO_ROOT / path)}
+            problems += [f"{path}: {k} is not a flush write" for k in kinds - FLUSH_WRITES]
+    assert not problems, "Allowlisted writes on audited tables bypass the audit log:\n" + "\n".join(
+        problems
     )

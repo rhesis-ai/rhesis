@@ -2,6 +2,8 @@ from sqlalchemy import Column, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
+
 from .base import Base
 from .guid import GUID
 from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin, ProjectMixin, TagsMixin
@@ -9,6 +11,7 @@ from .mixins import ActivityTrackableMixin, OrganizationAndUserMixin, ProjectMix
 
 class Task(Base, ActivityTrackableMixin, ProjectMixin, OrganizationAndUserMixin, TagsMixin):
     __tablename__ = "task"
+    __audit__ = AuditPolicy(plain=("description", "task_metadata"))
     __table_args__ = (Index("ix_task_org_created", "organization_id", "created_at"),)
 
     # Core fields

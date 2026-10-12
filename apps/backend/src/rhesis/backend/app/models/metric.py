@@ -12,6 +12,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditLink, AuditPolicy
 from rhesis.backend.app.schemas.metric_types import ThresholdOperator
 
 from .base import Base
@@ -35,6 +36,11 @@ requirement_metric_association = Table(
     Column("metric_id", GUID(), ForeignKey("metric.id"), primary_key=True),
     Column("user_id", GUID(), ForeignKey("user.id"), nullable=False),
     Column("organization_id", GUID(), ForeignKey("organization.id"), nullable=False),
+    info={
+        "audit": AuditLink(
+            owner="metric", owner_id="metric_id", field="requirements", linked_id="requirement_id"
+        )
+    },
 )
 
 # Frozen migration alembic/utils/metric_sync.py imports this name directly
@@ -54,6 +60,18 @@ class Metric(
     CountsMixin,
 ):
     __tablename__ = "metric"
+    __audit__ = AuditPolicy(
+        plain=(
+            "description",
+            "evaluation_prompt",
+            "evaluation_steps",
+            "reasoning",
+            "explanation",
+            "categories",
+            "passing_categories",
+            "metric_scope",
+        )
+    )
     __table_args__ = (
         CheckConstraint(
             "jsonb_typeof(metric_scope) = 'array' AND jsonb_array_length(metric_scope) > 0",

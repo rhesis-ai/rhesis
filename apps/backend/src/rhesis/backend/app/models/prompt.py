@@ -1,6 +1,8 @@
 from sqlalchemy import Column, ForeignKey, Index, String, Text
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
+
 from .base import Base
 from .guid import GUID
 from .mixins import (
@@ -24,6 +26,7 @@ class Prompt(
     CountsMixin,
 ):
     __tablename__ = "prompt"
+    __audit__ = AuditPolicy(content=("content", "expected_response"))
     __table_args__ = (Index("ix_prompt_org_created", "organization_id", "created_at"),)
     content = Column(Text, nullable=False)
     category_id = Column(GUID(), ForeignKey("category.id"))

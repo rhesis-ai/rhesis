@@ -44,20 +44,23 @@ except PackageNotFoundError:
 
 
 def bootstrap_providers() -> None:
-    """Install the EE license and quota providers.
+    """Install the EE license and quota providers, and the audit log.
 
     Idempotent. Called from :func:`bootstrap` (API process) and from
     :func:`~rhesis.backend.app.ee_bootstrap.bootstrap_ee_providers`
     (Celery workers), so every process resolves licensed quota limits
-    rather than falling back to free-tier defaults.
+    rather than falling back to free-tier defaults, and records audit
+    events for the changes it makes.
     """
     from rhesis.backend.app.features import FeatureRegistry
     from rhesis.backend.app.quota import QuotaRegistry
+    from rhesis.backend.ee.audit import register_audit
     from rhesis.backend.ee.licensing.provider import SignedTokenLicenseProvider
     from rhesis.backend.ee.licensing.quota_provider import ConfigQuotaProvider
 
     FeatureRegistry.set_license_provider(SignedTokenLicenseProvider())
     QuotaRegistry.set_quota_provider(ConfigQuotaProvider())
+    register_audit()
 
 
 def bootstrap(app: "FastAPI") -> None:
@@ -259,5 +262,5 @@ def bootstrap(app: "FastAPI") -> None:
 
     logger.info(
         "EE bootstrap complete - license provider installed; "
-        "registered features: [sso, api_clients, rbac]"
+        "registered features: [sso, api_clients, rbac, audit_log]"
     )
