@@ -124,8 +124,9 @@ def _visible_tool_names(request: Request, operation_map: Dict[str, dict]) -> Fro
     try:
         # The project the routes will see: a stale header-only hint drops to org scope.
         project_id = get_project_context(request, user, forwarded or None)
-    except HTTPException:
+    except HTTPException as exc:
         # A token scoped to another project: every call would fail.
+        logger.info("MCP tools hidden for user %s: %s", user.id, exc.detail)
         return frozenset()
     principal = resolve_principal_from_request(user, request)
     return visible_tools_for(operation_map, principal, project_id)
