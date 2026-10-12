@@ -241,8 +241,9 @@ See [Telemetry System Documentation](/contribute/telemetry) for what is collecte
 ## Data retention
 
 Two scheduled sweeps hard-delete rows past a retention window: one for `job` and `activity_log`
-rows, one for trace (span) rows. Both are off by default, and both run from `celery beat` — with no
-beat process against the backend, enabling either has no effect.
+rows, one for trace (span) rows. Both are off by default. They run from `celery beat`, which Docker
+Compose starts as the `beat` service and the Helm chart as the `celery-beat` Deployment. Run exactly
+one beat per deployment, or every scheduled job runs more than once.
 
 <Callout type="warning">
 These deletes are permanent. Keep `TRACE_RETENTION_DRY_RUN` at `true` for the first run: the sweep

@@ -9,6 +9,10 @@ services:
     image: ghcr.io/rhesis-ai/worker:latest
     build: !reset null
 
+  beat:
+    image: ghcr.io/rhesis-ai/worker:latest
+    build: !reset null
+
   frontend:
     image: ghcr.io/rhesis-ai/frontend:latest
     build: !reset null

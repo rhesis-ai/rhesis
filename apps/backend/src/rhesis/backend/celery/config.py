@@ -110,13 +110,21 @@ CELERY_CONFIG = {
         "rhesis.backend.jobs.telemetry.post_ingest",
         "rhesis.backend.jobs.retention",
         "rhesis.backend.jobs.trace_retention",
+        "rhesis.backend.jobs.heartbeat",
     ],
-    # Requires a `celery beat` process actually running against this app --
-    # not deployed anywhere yet (see jobs/retention.py's own docstring for
-    # why the task itself is still a no-op until JOB_RETENTION_ENABLED=true).
-    # Runs at 03:00 UTC, off peak hours for every timezone this platform has
-    # users in today.
+    # Run by the single `celery beat` process (the chart's beat Deployment, the
+    # compose `beat` service). The retention sweeps are no-ops until their
+    # *_ENABLED flag is set (see each job's docstring); they run at 03:00 and
+    # 04:00 UTC, off peak hours for every timezone this platform has users in.
     "beat_schedule": {
+        # Every 5 minutes; the "Celery beat heartbeat missing" alert fires when
+        # its log line stops. Expires so a backlog does not pile up while no
+        # worker is consuming.
+        "beat-heartbeat": {
+            "task": "rhesis.backend.jobs.heartbeat.beat_heartbeat",
+            "schedule": 300.0,
+            "options": {"expires": 240},
+        },
         "job-retention-sweep": {
             "task": "rhesis.backend.jobs.retention.sweep_expired_jobs",
             "schedule": crontab(hour=3, minute=0),
