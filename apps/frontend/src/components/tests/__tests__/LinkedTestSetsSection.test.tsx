@@ -157,7 +157,7 @@ describe('LinkedTestSetsSection', () => {
     expect(mockGetTestSets).toHaveBeenLastCalledWith(
       expect.objectContaining({
         skip: 0,
-        limit: 25,
+        limit: 10,
         $filter: "not tests/any(t: t/id eq 'test-1')",
       })
     );
