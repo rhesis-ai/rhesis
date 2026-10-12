@@ -184,12 +184,12 @@ describe('LinkedTestSetsSection', () => {
           page: number;
           pageSize: number;
         }) => void
-      )({ page: 2, pageSize: 25 });
+      )({ page: 2, pageSize: 10 });
     });
 
     await waitFor(() =>
       expect(mockGetTestSets).toHaveBeenLastCalledWith(
-        expect.objectContaining({ skip: 50, limit: 25 })
+        expect.objectContaining({ skip: 20, limit: 10 })
       )
     );
   });
