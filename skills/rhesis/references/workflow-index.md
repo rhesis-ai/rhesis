@@ -25,6 +25,7 @@ Details: `phases/creation.md`, `entity-model.md`, `metric-scope.md`, `metric-aut
 | Pasted PRD / spec / FRs | `spec-workflow.md` | `use-case-bracketfeld.md` (target shape) → `metric-scope.md` | `explore_endpoint` unless user asks |
 | "Run tests" / "analyze" / "compare runs" / Insights summarize | `phases/execution.md` → `phases/analysis.md` | `result-analysis.md`, `insights-summary.md` (Insights handoff) | New plan |
 | Single action ("list test sets", "fix metric X") | `phases/direct-requests.md` | `tool-catalog.md` if needed | Full phases |
+| "Who changed X?" / "what changed since …" / audit log | `audit-log.md` | `odata-patterns.md` | Full phases, menu |
 | Entity / OData / tool questions | `entity-model.md` | `odata-patterns.md`, `tool-catalog.md` | — |
 | Terminology / "what is X?" | [Glossary](https://docs.rhesis.ai/glossary.md) (`glossary/<id>.md`) | `definitions.md` if concepts are mixed up | — |
 
@@ -37,6 +38,7 @@ Details: `phases/creation.md`, `entity-model.md`, `metric-scope.md`, `metric-aut
 | PRD paste, numbered FRs, "spec doc" | Spec → test foundation |
 | Endpoint name + "test" / "explore" | Exploration (Quick unless they said comprehensive) |
 | Test run id, "compare runs", "last run", "summarize insights" | Run / analyze |
+| "Audit log", "who changed", "who deleted", "what changed since" | Audit log review (`audit-log.md`) |
 | OpenAPI, `AGENTS.md`, agent code in repo | Quick exploration of implied endpoint |
 | None of the above | Four-path menu below |
 
@@ -86,6 +88,7 @@ Skip the menu when intent is already clear. Spec and run/analyze paths skip expl
 | `phases/execution.md` | Running tests |
 | `phases/analysis.md` | Results and comparison |
 | `phases/direct-requests.md` | One-off commands |
+| `audit-log.md` | Who changed what: audit log questions and filters |
 | `odata-patterns.md` | `$filter`, `$select`, batch lookups |
 | `result-analysis.md` | Stats modes and presentation |
 | `insights-summary.md` | Insights page → Architect handoff |

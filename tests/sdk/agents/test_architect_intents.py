@@ -198,6 +198,25 @@ class TestInferIntent:
     def test_ambiguous(self):
         assert infer_intent("hello") is None
 
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "who changed the Refusal Detection metric?",
+            "Who deleted the support bot endpoint",
+            "what changed since Monday",
+            "show me the audit log for last week",
+        ],
+    )
+    def test_audit_questions_route_to_the_audit_log(self, message):
+        intent = infer_intent(message)
+        assert intent.key == "audit_review"
+        assert intent.workflow_path == WorkflowPath.DIRECT
+        assert intent.next_references == ("audit-log.md",)
+
+    def test_a_run_comparison_stays_a_run_comparison(self):
+        """The audit step lives inside run analysis; the run path must still win."""
+        assert infer_intent("what changed since the last run?").key == "run_analyze"
+
 
 @pytest.mark.unit
 class TestLoaderValidation:

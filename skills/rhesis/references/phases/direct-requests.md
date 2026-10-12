@@ -12,6 +12,7 @@ Skip the full workflow when intent is a single action:
 | Ground tests in doc | `create_source` → `generate_test_set` with source id |
 | Show test set contents | `list_test_set_tests` |
 | Compare two runs | `get_insights` `entity=test_result` `group_by=[test_run,test_run_id]` |
+| Who changed X / what changed since a date | resolve X → `list_audit_events`; see `audit-log.md` |
 
 Always resolve entities by name — never ask for raw IDs.
 

@@ -2107,6 +2107,97 @@ tools:
           REQUIRED JSON body field (not a query param). Tag name string,
           e.g. {"name": "safety"}. Reuse names from list_tags when possible.
 
+  # ── Audit log (who changed what) ───────────────────────
+  - name: list_audit_events
+    label: Reading the audit log
+    method: GET
+    path: /audit-events/
+    ee: true
+    page_size: 20
+    description: >
+      List the organization's audit log, newest first: who changed what in
+      Rhesis, when, from where, and what the change was. ENTITY: AuditEvent.
+
+      Each row: occurred_at, action, outcome (success, failure or denied),
+      actor_label (the person's name and email at the time), actor_type
+      (user, api_token, api_client, system or anonymous), channel (web,
+      sdk, mcp, architect, api or job), resource_id and resource_label (the
+      resource's name at the time), and changes. action reads
+      resource.verb_past: endpoint.updated, metric.deleted, test_set.created.
+      changes is a list of {field, kind, before, after}. kind "secret" and
+      kind "content" say the field changed but never carry its values, so
+      report them as changed and do not look for the values. A job that
+      created many rows writes one row whose changes is {count, ids}.
+
+      Filter with filter (OData), for example:
+      - one resource: resource_id eq '<uuid>', the id from list_metrics,
+        list_endpoints or list_test_sets. A deleted resource no longer
+        lists; use contains(tolower(resource_label), 'refusal') instead.
+      - one kind of resource: startswith(action,'metric.')
+      - a time window: occurred_at ge 2026-10-01T00:00:00Z
+      - one person: contains(tolower(actor_label), 'alice')
+      - changes the Architect made: channel eq 'architect'
+      Combine with and/or. list_audit_actions has every action name.
+
+      Report only the rows this returns. Every change you attribute to a
+      person must come from a row you received here: name them from
+      actor_label and give the field, before and after, and occurred_at as
+      the row has them. An empty result means nothing matched in the log,
+      and saying so is the answer. The log holds only what happened while
+      the organization had it, so an empty result for an older period does
+      not prove nothing changed. Do not guess why someone made a change.
+
+      CHAIN: resolve the resource by name with its list_* tool, then call
+      this with its resource_id. After two runs differ, call this for the
+      endpoint, its metrics and the test set between the two run times.
+      NEVER: report a change that is not in the response, or call this
+      in a loop over ids when one filter with or covers them.
+    parameters:
+      filter:
+        description: >
+          OData filter on the row fields, e.g.
+          "startswith(action,'metric.') and occurred_at ge 2026-10-01T00:00:00Z".
+          Pass it as "filter"; the server sends it on as $filter.
+      select:
+        description: >
+          Comma-separated fields to return. Omit for the default set, which
+          already includes changes.
+      cursor:
+        description: "Omit. Page with skip."
+    default_query:
+      $select: "id,occurred_at,action,outcome,status_code,actor_label,actor_type,actor_credential_hint,channel,resource_id,resource_label,project_id,trace_id,changes"
+
+  - name: get_audit_event
+    label: Reading an audit event
+    method: GET
+    path: /audit-events/{event_id}
+    ee: true
+    description: >
+      Get one audit log entry by id, with every field. ENTITY: AuditEvent.
+      PREREQUISITES: event_id from list_audit_events. CHAIN: use when the
+      user points at one entry, or to read fields the list left out
+      (user_agent, request_id, job_id). Rows sharing a trace_id came from
+      the same request; list_audit_events with trace_id eq '<id>' finds
+      them. Report only what this returns. NEVER: loop this over every id
+      list_audit_events returned; that list already carries the changes.
+    parameters:
+      event_id:
+        description: "REQUIRED. UUID of the audit event, from list_audit_events."
+
+  - name: list_audit_actions
+    label: Listing audit actions
+    method: GET
+    path: /audit-events/actions
+    ee: true
+    description: >
+      List every action the audit log can hold, each with its resource and
+      past-tense verb (endpoint.updated is endpoint + updated). Use it to
+      find the exact resource name before filtering list_audit_events, for
+      example member for organization members, project_member, role, token
+      or api_clients. A change of someone's role is member.updated with
+      role_id in its changes. NEVER: guess an action name such as
+      member.role_updated.
+
   # ── Background Jobs ─────────────────────────────────────
   - name: get_job_status
     label: Checking job status
