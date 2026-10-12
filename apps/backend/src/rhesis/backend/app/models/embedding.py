@@ -15,6 +15,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import NOT_AUDITED
+
 from .base import Base
 from .enums import EmbeddingOrigin
 from .guid import GUID
@@ -53,6 +55,7 @@ class EmbeddingConfig:
 
 class Embedding(Base, ActivityTrackableMixin, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "embedding"
+    __audit__ = NOT_AUDITED  # derived from its entity
 
     # Polymorphic entity reference (Test, Source, etc.)
     entity_id = Column(GUID(), nullable=False, index=True)

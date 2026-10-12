@@ -13,6 +13,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Session, relationship
 
+from rhesis.backend.app.models.audit_policy import AuditLink, AuditPolicy
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
 from rhesis.backend.app.models.mixins import (
@@ -34,6 +35,11 @@ test_set_metric_association = Table(
     Column("metric_id", GUID(), ForeignKey("metric.id"), primary_key=True),
     Column("user_id", GUID(), ForeignKey("user.id"), nullable=False),
     Column("organization_id", GUID(), ForeignKey("organization.id"), nullable=False),
+    info={
+        "audit": AuditLink(
+            owner="test_set", owner_id="test_set_id", field="metrics", linked_id="metric_id"
+        )
+    },
 )
 
 """
@@ -62,6 +68,11 @@ prompt_test_set_association = Table(
     Column("test_set_id", GUID, ForeignKey("test_set.id")),
     Column("user_id", GUID, ForeignKey("user.id")),
     Column("organization_id", GUID, ForeignKey("organization.id")),
+    info={
+        "audit": AuditLink(
+            owner="test_set", owner_id="test_set_id", field="prompts", linked_id="prompt_id"
+        )
+    },
 )
 
 
@@ -76,6 +87,7 @@ class TestSet(
     ExampleDataMixin,
 ):
     __tablename__ = "test_set"
+    __audit__ = AuditPolicy(plain=("description", "short_description", "attributes", "visibility"))
     name = Column(String, nullable=False)
     description = Column(Text)
     short_description = Column(Text)

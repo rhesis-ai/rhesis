@@ -4,6 +4,8 @@ from sqlalchemy import Column, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import NOT_AUDITED
+
 from .base import Base
 from .guid import GUID
 from .mixins import OrganizationMixin, ProjectMixin, UserOwnedMixin
@@ -13,6 +15,7 @@ class ArchitectSession(Base, ProjectMixin, OrganizationMixin):
     """A conversation session with the Architect agent."""
 
     __tablename__ = "architect_session"
+    __audit__ = NOT_AUDITED  # chat state
 
     user_id = Column(GUID(), ForeignKey("user.id"), nullable=False)
     title = Column(String(255), nullable=True)
@@ -42,6 +45,7 @@ class ArchitectMessage(Base, OrganizationMixin, UserOwnedMixin):
     """
 
     __tablename__ = "architect_message"
+    __audit__ = NOT_AUDITED  # chat transcript
 
     session_id = Column(
         GUID(),

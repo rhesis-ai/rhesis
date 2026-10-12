@@ -2,6 +2,7 @@ from sqlalchemy import Boolean, Column, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
 from rhesis.backend.app.models.mixins import ActivityTrackableMixin, ExampleDataMixin, TagsMixin
@@ -14,6 +15,9 @@ from rhesis.backend.app.schemas.parameters import (
 
 class Project(Base, ActivityTrackableMixin, TagsMixin, ExampleDataMixin):
     __tablename__ = "project"
+    __audit__ = AuditPolicy(
+        plain=("description", "attributes", "parameters_schema", "parameter_environments")
+    )
 
     # Basic information
     name = Column(String, nullable=False)

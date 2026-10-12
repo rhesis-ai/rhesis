@@ -3,6 +3,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import deferred, relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
+
 from .base import Base
 from .guid import GUID
 from .mixins import (
@@ -25,6 +27,9 @@ class Source(
     CountsMixin,
 ):
     __tablename__ = "source"
+    __audit__ = AuditPolicy(
+        content=("content",), plain=("description", "citation", "source_metadata")
+    )
 
     # Basic information
     title = Column(String, nullable=False)  # Source name or title, required

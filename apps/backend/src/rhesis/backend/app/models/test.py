@@ -14,6 +14,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import object_session, relationship
 
+from rhesis.backend.app.models.audit_policy import AuditLink, AuditPolicy
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
 from rhesis.backend.app.models.mixins import (
@@ -37,6 +38,11 @@ test_test_set_association = Table(
     Column("test_set_id", GUID(), ForeignKey("test_set.id"), primary_key=True),
     Column("user_id", GUID(), ForeignKey("user.id")),
     Column("organization_id", GUID(), ForeignKey("organization.id")),
+    info={
+        "audit": AuditLink(
+            owner="test_set", owner_id="test_set_id", field="tests", linked_id="test_id"
+        )
+    },
 )
 
 
@@ -54,6 +60,7 @@ class Test(
     ExampleDataMixin,
 ):
     __tablename__ = "test"
+    __audit__ = AuditPolicy(plain=("test_configuration", "test_metadata", "test_parameters"))
     __table_args__ = (Index("ix_test_org_created", "organization_id", "created_at"),)
 
     prompt_id = Column(GUID(), ForeignKey("prompt.id"))

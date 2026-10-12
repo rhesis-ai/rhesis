@@ -2,6 +2,8 @@ from sqlalchemy import Column, ForeignKey, Index, Integer, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import NOT_AUDITED
+
 from .base import Base
 from .guid import GUID
 from .mixins import EmbeddableMixin, OrganizationAndUserMixin, ProjectMixin
@@ -14,6 +16,7 @@ class Chunk(
     OrganizationAndUserMixin,
 ):
     __tablename__ = "chunk"
+    __audit__ = NOT_AUDITED  # derived from its source
 
     source_id = Column(GUID(), ForeignKey("source.id"), nullable=False, index=True)
     content = Column(Text, nullable=False)

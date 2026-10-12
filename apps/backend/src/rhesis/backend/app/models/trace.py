@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from rhesis.backend.app.constants import AISpanAttributes, AnnotationTarget, SpanType
+from rhesis.backend.app.models.audit_policy import NOT_AUDITED
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
 from rhesis.backend.app.models.mixins import (
@@ -43,6 +44,7 @@ class Trace(
     """OpenTelemetry trace span model."""
 
     __tablename__ = "trace"
+    __audit__ = NOT_AUDITED  # high-volume telemetry
 
     _annotations_entity_type = AnnotationTarget.TRACE
 

@@ -4,6 +4,7 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, event
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
 from rhesis.backend.app.models.guid import GUID
 from rhesis.backend.app.models.user_settings import UserSettingsManager
 
@@ -15,6 +16,13 @@ if TYPE_CHECKING:
 
 class User(Base):
     __tablename__ = "user"
+    __audit__ = AuditPolicy(
+        resource="member",
+        secret=("password_hash",),
+        plain=("user_settings",),
+        ignore=("last_login_at",),
+        label="email",
+    )
 
     # User-specific columns
     email = Column(String, unique=True, nullable=False, index=True)

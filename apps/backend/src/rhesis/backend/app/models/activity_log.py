@@ -2,6 +2,8 @@ from sqlalchemy import Column, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import NOT_AUDITED
+
 from .base import Base
 from .guid import GUID
 from .mixins import OrganizationMixin, ProjectMixin
@@ -30,6 +32,7 @@ class ActivityLog(Base, OrganizationMixin, ProjectMixin):
     """
 
     __tablename__ = "activity_log"
+    __audit__ = NOT_AUDITED  # job narrative, written by the events layer
 
     # Nullable on purpose: see the class docstring. CASCADE so a purged job
     # takes its narrative with it.

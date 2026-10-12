@@ -2,6 +2,7 @@ from sqlalchemy import Column, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
 from rhesis.backend.app.utils.encryption import EncryptedString
 
 from .base import Base
@@ -11,6 +12,7 @@ from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 class Tool(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "tool"
+    __audit__ = AuditPolicy(plain=("description", "tool_metadata"))
 
     # Basic information
     name = Column(String, nullable=False)

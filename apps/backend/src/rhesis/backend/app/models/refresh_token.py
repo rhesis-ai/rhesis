@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, DateTime, ForeignKey, String
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import NOT_AUDITED
+
 from .base import Base
 from .guid import GUID
 
@@ -33,6 +35,7 @@ class RefreshToken(Base):
     """
 
     __tablename__ = "refresh_token"
+    __audit__ = NOT_AUDITED  # rotated on every refresh; sign-ins are explicit events
 
     user_id = Column(
         GUID(),

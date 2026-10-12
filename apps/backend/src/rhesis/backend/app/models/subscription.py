@@ -3,6 +3,8 @@ import enum
 from sqlalchemy import ARRAY, Boolean, Column, Date, Enum, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import NOT_AUDITED
+
 from .base import Base
 from .guid import GUID
 from .mixins import OrganizationMixin, ProjectMixin, TagsMixin
@@ -16,6 +18,7 @@ class SubscriptionPlan(enum.Enum):
 
 class Subscription(Base, ProjectMixin, TagsMixin, OrganizationMixin):
     __tablename__ = "subscription"
+    __audit__ = NOT_AUDITED  # nothing writes it
 
     name = Column(String, nullable=False)
     description = Column(Text)

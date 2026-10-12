@@ -121,3 +121,8 @@ setup_soft_delete_listener()
 from .scope_events import setup_scope_listeners  # noqa: E402
 
 setup_scope_listeners()
+
+# Audit change capture, after the scope listeners so statements carry the tenant filter
+from rhesis.backend.app.models.audit_capture import setup_audit_listeners  # noqa: E402
+
+setup_audit_listeners()

@@ -3,6 +3,8 @@
 from sqlalchemy import Column, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
+
 from .base import Base
 from .guid import GUID
 
@@ -25,6 +27,7 @@ class ProjectMembership(Base):
     """
 
     __tablename__ = "project_membership"
+    __audit__ = AuditPolicy(resource="project_member")
 
     project_id = Column(
         GUID(),

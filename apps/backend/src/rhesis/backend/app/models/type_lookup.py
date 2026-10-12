@@ -5,12 +5,15 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
+
 from .base import Base
 from .mixins import OrganizationAndUserMixin, ProjectMixin
 
 
 class TypeLookup(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "type_lookup"
+    __audit__ = AuditPolicy(plain=("description",))
     type_name = Column(String)  # 'CategoryType', 'EntityType', etc.
     type_value = Column(String)  # 'TYPE_A', 'TYPE_B', etc.
     description = Column(Text)

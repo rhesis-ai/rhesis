@@ -3,6 +3,7 @@
 from sqlalchemy import Column, DateTime, Float, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 
+from rhesis.backend.app.models.audit_policy import NOT_AUDITED
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
 
@@ -17,6 +18,7 @@ class ExecutionTrace(Base):
     """
 
     __tablename__ = "execution_trace"
+    __audit__ = NOT_AUDITED  # per-invocation trace
 
     project_id = Column(
         GUID(), ForeignKey("project.id", ondelete="CASCADE"), nullable=False, index=True

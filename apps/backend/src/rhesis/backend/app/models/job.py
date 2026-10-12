@@ -2,6 +2,8 @@ from sqlalchemy import Column, DateTime, Index, Integer, String, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import NOT_AUDITED
+
 from .base import Base
 from .guid import GUID
 from .mixins import OrganizationAndUserMixin, ProjectMixin
@@ -28,6 +30,7 @@ class Job(Base, OrganizationAndUserMixin, ProjectMixin):
     """
 
     __tablename__ = "job"
+    __audit__ = NOT_AUDITED  # job tracking
 
     celery_task_id = Column(String(255), nullable=True)
 

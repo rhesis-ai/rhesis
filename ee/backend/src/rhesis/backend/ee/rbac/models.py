@@ -50,17 +50,19 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.auth.capabilities import (
+    SCOPE_ORGANIZATION,
+    SCOPE_PROJECT,
+    capability_scope,
+)
+
 # ---------------------------------------------------------------------------
 # Scope constants — defined in core (``app/auth/capabilities.py``) because
 # authorize()/require_permission() need them too and core code must never
 # import from ``rhesis.backend.ee.*``. Re-exported here unchanged so existing
 # EE/test imports of ``rhesis.backend.ee.rbac.models`` keep working.
 # ---------------------------------------------------------------------------
-from rhesis.backend.app.auth.capabilities import (
-    SCOPE_ORGANIZATION,
-    SCOPE_PROJECT,
-    capability_scope,
-)
+from rhesis.backend.app.models.audit_policy import NOT_AUDITED, AuditLink, AuditPolicy
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
 
@@ -240,6 +242,7 @@ class Permission(Base):
     """
 
     __tablename__ = "permission"
+    __audit__ = NOT_AUDITED  # the capability catalog, seeded at startup
 
     #: Capability string, e.g. ``"test_set:read"``.  Globally unique.
     name = Column(String, nullable=False, unique=True, index=True)
@@ -272,6 +275,7 @@ class Role(Base):
     """
 
     __tablename__ = "role"
+    __audit__ = AuditPolicy(plain=("description",))
 
     #: Short identifier, e.g. ``"Owner"``, ``"Admin"``.
     name = Column(String, nullable=False)
@@ -325,6 +329,9 @@ class RolePermission(Base):
     """Many-to-many join between :class:`Role` and :class:`Permission`."""
 
     __tablename__ = "role_permission"
+    __audit__ = AuditLink(
+        owner="role", owner_id="role_id", field="permissions", linked_id="permission_id"
+    )
 
     role_id = Column(
         GUID(),
@@ -360,6 +367,7 @@ class OrganizationMember(Base):
     """
 
     __tablename__ = "organization_member"
+    __audit__ = AuditPolicy(resource="member")
 
     organization_id = Column(
         GUID(),

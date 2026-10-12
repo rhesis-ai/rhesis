@@ -1,6 +1,8 @@
 from sqlalchemy import Column, ForeignKey, Index, String
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditLink
+
 from .base import Base
 from .guid import GUID
 from .mixins import OrganizationAndUserMixin, ProjectMixin
@@ -37,6 +39,9 @@ class Tag(Base, ProjectMixin, OrganizationAndUserMixin):
 
 class TaggedItem(Base, ProjectMixin, OrganizationAndUserMixin):
     __tablename__ = "tagged_item"
+    __audit__ = AuditLink(
+        owner=None, owner_type="entity_type", owner_id="entity_id", field="tags", linked_id="tag_id"
+    )
 
     tag_id = Column(GUID, ForeignKey("tag.id"), nullable=False)
     entity_id = Column(GUID, nullable=False)  # The ID of the related entity

@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
 from rhesis.backend.app.constants import AnnotationTarget
+from rhesis.backend.app.models.audit_policy import NOT_AUDITED
 
 from .base import Base
 from .guid import GUID
@@ -35,6 +36,7 @@ class TestResult(
     AnnotationsMixin,
 ):
     __tablename__ = "test_result"
+    __audit__ = NOT_AUDITED  # high-volume results
     __table_args__ = (
         CheckConstraint(
             "execution IN ('not_run','running','ok','error','cancelled')",

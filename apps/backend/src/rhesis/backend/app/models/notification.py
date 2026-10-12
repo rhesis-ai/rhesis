@@ -1,6 +1,8 @@
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 
+from rhesis.backend.app.models.audit_policy import NOT_AUDITED
+
 from .base import Base
 from .guid import GUID
 from .mixins import OrganizationAndUserMixin, ProjectMixin
@@ -32,6 +34,7 @@ class Notification(Base, ProjectMixin, OrganizationAndUserMixin):
     """
 
     __tablename__ = "notification"
+    __audit__ = NOT_AUDITED  # system-generated
 
     # Overrides OrganizationAndUserMixin's nullable user_id -- see the docstring.
     user_id = Column(GUID(), ForeignKey("user.id"), nullable=False)

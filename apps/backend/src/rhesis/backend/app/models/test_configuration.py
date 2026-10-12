@@ -2,6 +2,8 @@ from sqlalchemy import Column, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
+
 from .base import Base
 from .guid import GUID
 from .mixins import OrganizationMixin, ProjectMixin
@@ -9,6 +11,7 @@ from .mixins import OrganizationMixin, ProjectMixin
 
 class TestConfiguration(Base, ProjectMixin, OrganizationMixin):
     __tablename__ = "test_configuration"
+    __audit__ = AuditPolicy(plain=("attributes",))
     endpoint_id = Column(GUID(), ForeignKey("endpoint.id"), nullable=False, index=True)
     category_id = Column(GUID(), ForeignKey("category.id"))
     topic_id = Column(GUID(), ForeignKey("topic.id"))

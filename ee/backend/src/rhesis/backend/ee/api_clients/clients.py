@@ -73,6 +73,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session, relationship
 
+from rhesis.backend.app.models.audit_policy import AuditPolicy
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
 from rhesis.backend.app.utils.encryption import EncryptedString
@@ -120,6 +121,7 @@ class AuthClient(Base):
     """
 
     __tablename__ = "auth_client"
+    __audit__ = AuditPolicy(resource="api_clients")
 
     organization_id = Column(
         GUID(),
