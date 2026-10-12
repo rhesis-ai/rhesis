@@ -1,12 +1,6 @@
 'use client';
 
-import React, {
-  useState,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Box, Button, Paper, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
@@ -55,8 +49,6 @@ export default function LinkedTestSetsSection({
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [availablePagination, setAvailablePagination] =
     useState<GridPaginationModel>({ page: 0, pageSize: 25 });
-  // Drops a response that a newer request (page/search change) has superseded.
-  const availableRequestRef = useRef(0);
 
   const descriptor = useMemo(() => linkedTestSetsList(testId), [testId]);
   const {
@@ -94,8 +86,9 @@ export default function LinkedTestSetsSection({
 
   useEffect(() => {
     if (!assignOpen) return;
-    const requestId = ++availableRequestRef.current;
-    const isStale = () => requestId !== availableRequestRef.current;
+    // Set on re-run (page/search change), close and unmount, so a late
+    // response never overwrites newer rows or toasts after the drawer closes.
+    let cancelled = false;
 
     // Already-linked sets are excluded server-side so page counts stay right.
     const filters = [`not tests/any(t: t/id eq '${escapeODataValue(testId)}')`];
@@ -116,19 +109,22 @@ export default function LinkedTestSetsSection({
         $filter: filters.join(' and '),
       })
       .then(response => {
-        if (isStale()) return;
+        if (cancelled) return;
         setAvailable(response.data);
         setAvailableTotal(response.pagination.totalCount);
       })
       .catch(() => {
-        if (isStale()) return;
+        if (cancelled) return;
         setAvailable([]);
         setAvailableTotal(0);
         showNotification('Failed to load test sets', { severity: 'error' });
       })
       .finally(() => {
-        if (!isStale()) setLoadingAvailable(false);
+        if (!cancelled) setLoadingAvailable(false);
       });
+    return () => {
+      cancelled = true;
+    };
   }, [
     assignOpen,
     testId,

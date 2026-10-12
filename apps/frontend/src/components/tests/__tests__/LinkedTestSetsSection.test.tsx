@@ -58,6 +58,7 @@ describe('LinkedTestSetsSection', () => {
     mockCanEdit = true;
     mockGetLinkedTestSets.mockReset();
     mockGetTestSets.mockReset();
+    mockShowNotification.mockReset();
     mockGetTestSets.mockResolvedValue({
       data: [],
       pagination: { totalCount: 0 },
@@ -191,5 +192,40 @@ describe('LinkedTestSetsSection', () => {
         expect.objectContaining({ skip: 50, limit: 25 })
       )
     );
+  });
+
+  it('ignores a test set request that fails after the drawer closes', async () => {
+    mockGetLinkedTestSets.mockResolvedValue({
+      data: [],
+      pagination: { totalCount: 0 },
+    });
+    let rejectRequest: (error: Error) => void = () => {};
+    mockGetTestSets.mockReturnValue(
+      new Promise((_resolve, reject) => {
+        rejectRequest = reject;
+      })
+    );
+
+    render(<LinkedTestSetsSection testId="test-1" />);
+    await userEvent.click(
+      await screen.findByRole('button', { name: /assign to test set/i })
+    );
+    await waitFor(() => expect(mockGetTestSets).toHaveBeenCalled());
+
+    act(() => {
+      (mockDrawerProps.onClose as () => void)();
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('assign-drawer')).toHaveAttribute(
+        'data-open',
+        'false'
+      )
+    );
+
+    await act(async () => {
+      rejectRequest(new Error('network'));
+    });
+
+    expect(mockShowNotification).not.toHaveBeenCalled();
   });
 });
