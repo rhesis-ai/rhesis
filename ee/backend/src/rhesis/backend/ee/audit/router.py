@@ -6,7 +6,8 @@
 - ``GET /audit-events/{event_id}`` -- one event
 
 Gated on ``FeatureName.AUDIT_LOG`` (404 when unavailable) and ``audit_log:read``.
-Nothing here writes: the table is append-only.
+Listing and reading an event record ``audit_log.viewed`` (see ``self_audit``);
+``/actions`` does not, as it returns only action names, never an event.
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.ee.audit import crud as audit_crud
 from rhesis.backend.ee.audit.models import AuditEvent
 from rhesis.backend.ee.audit.schemas import AuditActionRead, AuditEventRead
+from rhesis.backend.ee.audit.self_audit import record_view
 from rhesis.backend.events.audit_actions import known_actions
 
 router = APIRouter(
@@ -80,6 +82,7 @@ def list_audit_events(
         after=after,
     )
     events = [AuditEventRead.model_validate(row) for row in rows]
+    record_view(db, organization_id)
     if select:
         serialized = [event.model_dump(mode="json") for event in events]
         return JSONResponse(content=apply_select(serialized, select))
@@ -113,4 +116,5 @@ def read_audit_event(
     event = audit_crud.get_audit_event(db, event_id, organization_id)
     if event is None:
         raise HTTPException(status_code=404, detail="Audit event not found")
+    record_view(db, organization_id)
     return event
