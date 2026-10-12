@@ -106,6 +106,7 @@ def bootstrap(app: "FastAPI") -> None:
         mint_for_client_bound_refresh,
     )
     from rhesis.backend.ee.api_clients.router import router as api_clients_router
+    from rhesis.backend.ee.audit.router import router as audit_router
     from rhesis.backend.ee.rbac.provider import PermissionAuthorizationProvider
     from rhesis.backend.ee.rbac.router import router as rbac_router
     from rhesis.backend.ee.sso.provider_enricher import sso_provider_enricher
@@ -132,7 +133,6 @@ def bootstrap(app: "FastAPI") -> None:
     # Extracted into bootstrap_providers() so Celery workers can install them
     # without running the full feature/router bootstrap.
     bootstrap_providers()
-
 
     # ---- Feature registry -----------------------------------------------
     FeatureRegistry.register(
@@ -248,7 +248,7 @@ def bootstrap(app: "FastAPI") -> None:
     # so the public/token route lists apply uniformly. Without this, the SSO
     # admin endpoints would silently fall back to vanilla APIRoute and any
     # future EE route relying on path-based auth would break.
-    for r in (sso_router, api_clients_router, token_exchange_router, rbac_router):
+    for r in (sso_router, api_clients_router, token_exchange_router, rbac_router, audit_router):
         r.route_class = app.router.route_class
         app.include_router(r)
 

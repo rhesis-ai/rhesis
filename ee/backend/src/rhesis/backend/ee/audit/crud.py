@@ -1,36 +1,48 @@
-"""Writes to ``audit_event``, the append-only store from migration ``ef7fe15a29ee``.
+"""Reads and writes of ``audit_event``, the append-only store from migration ``ef7fe15a29ee``.
 
-Core, not ORM: the table has no ``nano_id``/``updated_at``/``deleted_at`` for
-``Base`` to map, and a Core insert on the session's connection triggers no
-session events, so writing an audit row never captures itself.
+Writes are Core, not ORM: the table has no ``nano_id``/``updated_at``/``deleted_at`` for
+``Base`` to map, and a Core insert on the session's connection triggers no session
+events, so writing an audit row never captures itself. Reads use the read-only
+``AuditEvent`` model. Nothing here updates or deletes.
 """
 
+from __future__ import annotations
+
+from typing import List, Optional
+from uuid import UUID
+
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
+from sqlalchemy import tuple_
+from sqlalchemy.dialects.postgresql import INET, JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.engine import Connection
+from sqlalchemy.orm import Session
+
+from rhesis.backend.app.utils.query_utils import QueryBuilder
+from rhesis.backend.ee.audit.models import AuditEvent
 
 audit_event = sa.table(
     "audit_event",
-    sa.column("organization_id", UUID(as_uuid=True)),
-    sa.column("project_id", UUID(as_uuid=True)),
+    sa.column("organization_id", PG_UUID(as_uuid=True)),
+    sa.column("project_id", PG_UUID(as_uuid=True)),
     sa.column("occurred_at", sa.DateTime(timezone=True)),
     sa.column("action", sa.Text),
     sa.column("outcome", sa.Text),
     sa.column("status_code", sa.Integer),
     sa.column("actor_type", sa.Text),
-    sa.column("actor_id", UUID(as_uuid=True)),
+    sa.column("actor_id", PG_UUID(as_uuid=True)),
     sa.column("actor_credential_id", sa.Text),
     sa.column("actor_credential_hint", sa.Text),
     sa.column("actor_label", sa.Text),
     sa.column("channel", sa.Text),
     sa.column("ip", INET),
     sa.column("user_agent", sa.Text),
-    sa.column("resource_id", UUID(as_uuid=True)),
+    sa.column("resource_id", PG_UUID(as_uuid=True)),
     sa.column("resource_label", sa.Text),
     sa.column("request_id", sa.Text),
     sa.column("trace_id", sa.Text),
     sa.column("span_id", sa.Text),
-    sa.column("job_id", UUID(as_uuid=True)),
+    sa.column("job_id", PG_UUID(as_uuid=True)),
     sa.column("changes", JSONB),
     sa.column("content_changes", sa.Text),
 )
@@ -50,3 +62,49 @@ def insert_audit_event(conn: Connection, row: dict, *, as_org: bool) -> None:
     # No finally: after a failed insert the transaction is aborted and rolls back anyway.
     conn.execute(sa.insert(audit_event).values(row))
     conn.execute(_SET_ORG, {"org": previous or ""})
+
+
+CURSOR_SORT_FIELD = "occurred_at"
+
+
+def get_audit_event(db: Session, event_id: UUID, organization_id: str) -> Optional[AuditEvent]:
+    return (
+        QueryBuilder(db, AuditEvent)
+        .with_organization_filter(organization_id)
+        .query.filter(AuditEvent.id == event_id)
+        .first()
+    )
+
+
+def list_audit_events(
+    db: Session,
+    organization_id: str,
+    skip: int = 0,
+    limit: int = 10,
+    sort_by: str = CURSOR_SORT_FIELD,
+    sort_order: str = "desc",
+    filter: Optional[str] = None,
+    after: Optional[AuditEvent] = None,
+) -> List[AuditEvent]:
+    """A page of events. ``after`` continues a keyset walk on ``(occurred_at, id)``.
+
+    ``id`` breaks ties in the same direction as ``occurred_at``, so a keyset
+    page and an offset page order rows the same way.
+    """
+    builder = (
+        QueryBuilder(db, AuditEvent)
+        .with_organization_filter(organization_id)
+        .with_odata_filter(filter)
+    )
+    if after is not None:
+        key = tuple_(AuditEvent.occurred_at, AuditEvent.id)
+        bound = tuple_(after.occurred_at, after.id)
+        past = key < bound if sort_order.lower() == "desc" else key > bound
+        builder = builder.with_custom_filter(lambda q: q.filter(past))
+    return (
+        builder.with_sorting(
+            sort_by, sort_order, secondary_sort_by="id", secondary_sort_order=sort_order
+        )
+        .with_pagination(skip, limit)
+        .all()
+    )

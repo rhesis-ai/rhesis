@@ -343,11 +343,11 @@ class TestEEBootstrap:
         assert feature is not None
         assert feature.display_name == "Single Sign-On"
         assert feature.runtime_check is not None
-        # The bootstrap mounts four routers today: SSO admin, API
-        # Clients CRUD, the token-exchange endpoint, and the RBAC router.
+        # The bootstrap mounts five routers today: SSO admin, API
+        # Clients CRUD, the token-exchange endpoint, RBAC and the audit log.
         # Pin the count so a future addition is a deliberate test update
         # rather than silently growing the EE surface area.
-        assert mock_app.include_router.call_count == 4
+        assert mock_app.include_router.call_count == 5
 
     def test_registers_api_clients(self, clean_registry):
         """API_CLIENTS feature is registered alongside SSO."""
