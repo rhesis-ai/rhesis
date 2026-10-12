@@ -12,7 +12,9 @@ automatically -- the thing this guards against is exactly the kind of change
 that is easy to add without remembering to update a list.
 """
 
-from typing import get_type_hints
+from typing import get_args, get_type_hints
+
+from pydantic import BaseModel
 
 from rhesis.backend.events.redaction import redact_metadata
 from rhesis.backend.events.types import PlatformEvent
@@ -20,6 +22,22 @@ from rhesis.backend.events.types import PlatformEvent
 
 def _all_event_classes():
     return [PlatformEvent] + list(PlatformEvent.__subclasses__())
+
+
+def _models_in(annotation) -> set:
+    """Pydantic models inside a field annotation, through Optional and Tuple."""
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return {annotation}
+    return set().union(*(_models_in(arg) for arg in get_args(annotation)))
+
+
+def _nested_models() -> set:
+    """Typed values an event carries, such as ``FieldChange`` on an audit event."""
+    found = set()
+    for cls in _all_event_classes():
+        for field in cls.model_fields.values():
+            found |= _models_in(field.annotation)
+    return found
 
 
 class TestClosedShape:
@@ -36,6 +54,20 @@ class TestClosedShape:
                 f"{cls.__name__} must stay frozen -- a sink must not be able "
                 "to mutate an event another sink will receive"
             )
+
+    def test_nested_models_are_closed_and_frozen(self):
+        """A tuple of typed models is fine; each one must be as closed as the
+        event that carries it, or it becomes the payload bag by another name.
+        """
+        nested = _nested_models()
+        assert nested, "expected at least the audit event's FieldChange"
+        for cls in nested:
+            assert cls.model_config.get("extra") == "forbid", f"{cls.__name__} must forbid extra"
+            assert cls.model_config.get("frozen") is True, f"{cls.__name__} must be frozen"
+            dropped = set(cls.model_fields) - set(
+                redact_metadata(dict.fromkeys(cls.model_fields, "x"))
+            )
+            assert not dropped, f"{cls.__name__} has sensitive-looking fields {dropped}"
 
     def test_no_subclass_declares_an_untyped_dict_field(self):
         """``context`` on the base class is the one deliberate, narrow

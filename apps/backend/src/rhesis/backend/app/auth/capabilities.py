@@ -83,6 +83,7 @@ class Permission:
     - Recycle bin (org-scoped): :class:`Recycle`
     - EE gates (org-scoped, guarded by ``FeatureName.RBAC``): :class:`SSO`,
       :class:`ApiClients`
+    - Audit log (org-scoped, EE): :class:`AuditLog`
     """
 
     # --- Test authoring (project-scoped) ------------------------------------
@@ -372,6 +373,15 @@ class Permission:
 
         MANAGE = "api_clients:manage"
 
+    class AuditLog(_PermissionEnum):
+        """Audit log -- EE only. Owner and Admin in EE, the org owner in
+        community; never part of the Viewer read baseline."""
+
+        READ = "audit_log:read"
+        EXPORT = "audit_log:export"
+        #: Retention, privacy and streaming settings.
+        MANAGE = "audit_log:manage"
+
     class Polyphemus(_PermissionEnum):
         """Polyphemus adversarial model — org-scoped self-service access request."""
 
@@ -430,6 +440,7 @@ _ORG_SCOPED_RESOURCES: frozenset[str] = frozenset(
         "recycle",
         "sso",
         "api_clients",
+        "audit_log",
         "polyphemus",
         "platform",
     }

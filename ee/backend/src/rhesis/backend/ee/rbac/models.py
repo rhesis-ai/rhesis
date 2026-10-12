@@ -134,10 +134,14 @@ def _primary_action(cap: str) -> str:
 # on ``_OWNER_ONLY_CAPABILITIES`` in ``app/auth/rbac.py``, which this mirrors;
 # the two must agree, or community and EE disagree about who may read usage.
 #
+# ``audit_log:read`` shows what everyone in the org did, so it stays with
+# Owner and Admin. ``audit_log:export`` and ``:manage`` are not reads and never
+# reach Viewer or Member anyway.
+#
 # Excluding a read here also keeps it away from **Member**: that set is
-# ``project_actions | viewer_permissions``, and both of these are
+# ``project_actions | viewer_permissions``, and all of these are
 # org-scoped, so they never enter ``project_actions``.
-_VIEWER_EXCLUDED_READS: frozenset[str] = frozenset({"role:read", "token:read"})
+_VIEWER_EXCLUDED_READS: frozenset[str] = frozenset({"role:read", "token:read", "audit_log:read"})
 
 
 def _viewer_permissions(cap_set: set[str]) -> set[str]:
@@ -190,8 +194,9 @@ def permissions_for_built_in_role(role_name: str, capabilities: list[str]) -> se
     - **Member** (level 60): Viewer plus :create/:update/:delete and the special
       project actions (:execute, :generate, :import, :react) on every
       project-scoped resource.
-    - **Viewer** (level 40): every :read except role:read/token:read, plus
-      recycle:view (covers organization:read and member:read for org context).
+    - **Viewer** (level 40): every :read except role:read, token:read and
+      audit_log:read, plus recycle:view (covers organization:read and
+      member:read for org context).
     - **None**   (level 0): no permissions.
 
     The definitions nest (Owner ⊇ Admin ⊇ Member ⊇ Viewer ⊇ None) so a

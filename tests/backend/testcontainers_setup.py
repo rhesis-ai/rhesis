@@ -98,6 +98,8 @@ def grant_app_role_privileges(host: str, port: str, dbname: str) -> None:
     extensions or event triggers that don't fire under the migration role's
     default-privilege scope). Clones inherit the result.
     """
+    from psycopg import sql
+
     conn = _connect(host, port, dbname)
     try:
         with conn.cursor() as cur:
@@ -106,6 +108,20 @@ def grant_app_role_privileges(host: str, port: str, dbname: str) -> None:
                 'ON ALL TABLES IN SCHEMA public TO "rhesis-app"'
             )
             cur.execute('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "rhesis-app"')
+            # The blanket grant above undoes the REVOKE an append-only table's
+            # migration made; take it back so tests see production's grants.
+            cur.execute(
+                "SELECT DISTINCT c.relname FROM pg_trigger t "
+                "JOIN pg_class c ON c.oid = t.tgrelid "
+                "JOIN pg_proc p ON p.oid = t.tgfoid "
+                "WHERE p.proname = 'reject_append_only_change'"
+            )
+            for (table,) in cur.fetchall():
+                cur.execute(
+                    sql.SQL('REVOKE UPDATE, DELETE, TRUNCATE ON {} FROM "rhesis-app"').format(
+                        sql.Identifier(table)
+                    )
+                )
     finally:
         conn.close()
 

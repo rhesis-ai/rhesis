@@ -258,6 +258,11 @@ export const Capability = {
   ApiClients: {
     MANAGE: 'api_clients:manage',
   },
+  AuditLog: {
+    READ: 'audit_log:read',
+    EXPORT: 'audit_log:export',
+    MANAGE: 'audit_log:manage',
+  },
   Polyphemus: {
     REQUEST: 'polyphemus:request',
   },
@@ -422,5 +427,8 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   // EE
   'sso:manage': 'Manage SSO configuration',
   'api_clients:manage': 'Manage API clients',
+  'audit_log:read': 'View audit log',
+  'audit_log:export': 'Export audit log',
+  'audit_log:manage': 'Manage audit log settings',
   'polyphemus:request': 'Request Polyphemus access',
 };

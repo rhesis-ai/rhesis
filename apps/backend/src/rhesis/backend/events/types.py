@@ -19,11 +19,22 @@ a WebSocket sink ships, and an event type with no sink is dead code with no
 test that can prove it works.
 """
 
+import ipaddress
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Tuple
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    IPvAnyAddress,
+    JsonValue,
+    field_validator,
+    model_validator,
+)
+
+from rhesis.backend.app.provenance import ActorType, Channel
 
 _HEX32 = r"^[0-9a-f]{32}$"
 _HEX16 = r"^[0-9a-f]{16}$"
@@ -119,3 +130,89 @@ class TestRunProgressed(PlatformEvent):
     total: int
     generating_test_ids: List[UUID] = Field(default_factory=list)
     evaluating_test_ids: List[UUID] = Field(default_factory=list)
+
+
+# ``resource.verb_past``, e.g. ``endpoint.updated``. See ``audit_actions.py``.
+AUDIT_ACTION_PATTERN = r"^[a-z][a-z_]*\.[a-z][a-z_]*$"
+
+
+class FieldChange(BaseModel):
+    """One column's change on an audited row.
+
+    ``kind`` decides what is kept. ``value`` records before and after.
+    ``secret`` (an ``EncryptedString`` column) records only that the field
+    changed. ``content`` carries the values to the audit sink, which stores
+    them encrypted when the org opted in and drops them otherwise.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    field: str
+    kind: Literal["value", "secret", "content"]
+    before: JsonValue = None
+    after: JsonValue = None
+
+    @model_validator(mode="after")
+    def _secret_has_no_values(self) -> "FieldChange":
+        if self.kind == "secret" and (self.before is not None or self.after is not None):
+            raise ValueError(f"secret field {self.field!r} must not carry values")
+        return self
+
+
+class ChangeSummary(BaseModel):
+    """Creates of one resource type by one job transaction, as a single row."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    count: int = Field(ge=1)
+    # Empty when there are too many to list; ``count`` is always exact.
+    ids: Tuple[UUID, ...] = ()
+
+
+class AuditRecorded(PlatformEvent):
+    """One audit log entry: who did what, to which resource, and what changed.
+
+    ``user_id`` is the actor's user (the token or client owner for
+    credentials) and ``entity_id`` the resource. The resource type is the part
+    of ``action`` before the dot, so ``entity_type`` may only repeat it.
+    """
+
+    event_type: Literal["audit.recorded"] = "audit.recorded"
+
+    action: str = Field(pattern=AUDIT_ACTION_PATTERN)
+    outcome: Literal["success", "failure", "denied"]
+    status_code: Optional[int] = None
+
+    actor_type: ActorType
+    actor_credential_id: Optional[str] = None
+    actor_credential_hint: Optional[str] = None
+    # Name and email at the time, so the entry still reads after a deletion.
+    actor_label: Optional[str] = None
+    channel: Channel
+    ip: Optional[IPvAnyAddress] = None
+    user_agent: Optional[str] = None
+    request_id: Optional[str] = None
+
+    resource_label: Optional[str] = None
+    changes: Tuple[FieldChange, ...] = ()
+    summary: Optional[ChangeSummary] = None
+
+    @field_validator("ip", mode="before")
+    @classmethod
+    def _drop_unparseable_ip(cls, value: Any) -> Any:
+        # Provenance can hold a placeholder ("testclient", "unknown"), not an address.
+        if isinstance(value, str):
+            try:
+                ipaddress.ip_address(value)
+            except ValueError:
+                return None
+        return value
+
+    @model_validator(mode="after")
+    def _consistent(self) -> "AuditRecorded":
+        resource = self.action.split(".", 1)[0]
+        if self.entity_type is not None and self.entity_type != resource:
+            raise ValueError(f"entity_type {self.entity_type!r} does not match {self.action!r}")
+        if self.changes and self.summary is not None:
+            raise ValueError("an audit event has field changes or a summary, not both")
+        return self

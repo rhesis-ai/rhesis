@@ -402,6 +402,18 @@ class TestPermissionsForBuiltInRole:
         assert "role:read" not in viewer
         assert "token:read" not in viewer
 
+    def test_audit_log_is_for_owner_and_admin_only(self):
+        """The audit log shows what everyone did, so it is not in the Viewer
+        read baseline, and so not in Member either."""
+        from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
+
+        audit = {"audit_log:read", "audit_log:export", "audit_log:manage"}
+        caps = ["test_set:read", "organization:read", *sorted(audit)]
+        assert audit <= permissions_for_built_in_role("Owner", caps)
+        assert audit <= permissions_for_built_in_role("Admin", caps)
+        assert not audit & permissions_for_built_in_role("Member", caps)
+        assert not audit & permissions_for_built_in_role("Viewer", caps)
+
     def test_member_covers_all_project_resources(self):
         """Member must hold CRUD on every project-scoped resource, not an allowlist."""
         from rhesis.backend.ee.rbac.models import (
