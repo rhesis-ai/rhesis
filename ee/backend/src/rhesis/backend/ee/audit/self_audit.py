@@ -14,13 +14,11 @@ import logging
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import Permission
-from rhesis.backend.app.models.audit_capture import _Context
 from rhesis.backend.app.provenance import RequestProvenance, provenance_of
+from rhesis.backend.app.services.audit_events import record_audit_event
 from rhesis.backend.app.services.cache import RedisBackedCache
 from rhesis.backend.app.services.redis_constants import RedisDatabase
-from rhesis.backend.events import emit
 from rhesis.backend.events.audit_actions import audit_action
-from rhesis.backend.events.types import AuditRecorded
 
 logger = logging.getLogger(__name__)
 
@@ -65,31 +63,6 @@ def _key(organization_id: str, provenance: RequestProvenance) -> str:
     )
 
 
-def _viewed_event(
-    db: Session, provenance: RequestProvenance, organization_id: str
-) -> AuditRecorded:
-    ctx = _Context(db, provenance)
-    trace_id, span_id = ctx.ids
-    return AuditRecorded(
-        occurred_at=ctx.occurred_at,
-        organization_id=organization_id,
-        user_id=provenance.actor_id,
-        trace_id=trace_id,
-        span_id=span_id,
-        source="audit",
-        action=VIEWED,
-        outcome="success",
-        actor_type=provenance.actor_type,
-        actor_credential_id=provenance.credential_id,
-        actor_credential_hint=provenance.credential_hint,
-        actor_label=ctx.actor_label,
-        channel=provenance.channel,
-        ip=provenance.ip,
-        user_agent=provenance.user_agent,
-        request_id=provenance.request_id,
-    )
-
-
 def record_view(db: Session, organization_id: str) -> None:
     """Record that the request on ``db`` read the org's audit log. Call after the read."""
     provenance = provenance_of(db)
@@ -99,7 +72,7 @@ def record_view(db: Session, organization_id: str) -> None:
     if not _window.claim(key):
         return
     try:
-        emit(_viewed_event(db, provenance, organization_id), db=db)
+        record_audit_event(VIEWED, organization_id, db=db)
     except Exception:
         _window.release(key)
         raise
