@@ -161,7 +161,7 @@ services:
       context: .
       dockerfile: apps/backend/Dockerfile
       target: worker
-    environment:
+    environment: &worker-environment
       <<: [*common-auth,  *common-smtp, *common-jwt, *common-environment, *rhesis-config, *common-storage]
       # DB/Redis default to the built-in postgres/redis services above; set
       # these in your .env file to point at an external database or Redis.
@@ -199,6 +199,29 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+  # Queues the scheduled jobs (retention sweeps, heartbeat). Run exactly one: a
+  # second beat against the same Redis makes every scheduled job run twice.
+  beat:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+      target: worker
+    # Schedule state in /tmp: it only records last run times, and losing it on
+    # restart only delays the next run.
+    command: ["celery", "-A", "rhesis.backend.worker.app", "beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
+    environment:
+      <<: *worker-environment
+      RHESIS_PROCESS_ROLE: rhesis-celery-beat
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - rhesis-network
+    restart: unless-stopped
+    # The worker image's HEALTHCHECK probes the worker's health server, which beat does not run.
+    healthcheck:
+      disable: true
 
   frontend:
     build:

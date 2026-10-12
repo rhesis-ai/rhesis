@@ -52,9 +52,9 @@ qs_compose() {
         -p "$PROJECT_NAME" --env-file "$QUICKSTART_ENV_FILE" "$@"
 }
 
-QUICKSTART_SERVICES="postgres redis backend worker frontend"
+QUICKSTART_SERVICES="postgres redis backend worker beat frontend"
 # postgres and redis are always pulled, never built.
-QUICKSTART_BUILD_SERVICES="backend worker frontend"
+QUICKSTART_BUILD_SERVICES="backend worker beat frontend"
 
 # Kept separate from `up` instead of using `up --build`, which can deadlock:
 # Compose finishes the BuildKit build, then waits forever on the build result

@@ -312,6 +312,24 @@ workers:
     env: []
 
 # ---------------------------------------------------------------------------
+# Celery beat (templates/beat/deployment.yaml). Always one replica: it queues
+# the scheduled jobs (retention sweeps, heartbeat). Runs workers[0]'s image with
+# the shared ConfigMap and secret. Turn off only if another beat already runs
+# against the same broker.
+# ---------------------------------------------------------------------------
+beat:
+  enabled: true
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "25m"
+    limits:
+      memory: "512Mi"
+      cpu: "250m"
+  env: []
+  # disableSecurityContext: false
+
+# ---------------------------------------------------------------------------
 # Chatbot
 # ---------------------------------------------------------------------------
 chatbot:

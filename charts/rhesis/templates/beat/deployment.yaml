@@ -1,0 +1,71 @@
+{{- if .Values.beat.enabled }}
+{{- /* Beat runs the default worker's image, so CI's workers[0].image.tag bump rolls it too. */}}
+{{- $worker := index .Values.workers 0 }}
+---
+# Celery beat: queues the jobs in CELERY_CONFIG["beat_schedule"]. Exactly one may
+# run, or every scheduled job fires once per beat. Hence a fixed single replica,
+# no HPA, and Recreate: a rolling update would briefly run the old and new pod
+# side by side.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-beat
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: celery-beat
+    tier: beat
+    {{- include "rhesis.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: celery-beat
+      tier: beat
+  template:
+    metadata:
+      labels:
+        app: celery-beat
+        tier: beat
+    spec:
+      {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.beat) | nindent 6 }}
+      containers:
+        - name: celery-beat
+          image: {{ include "rhesis.image" (dict "imageValues" $worker "global" .Values.global) | quote }}
+          imagePullPolicy: {{ $worker.image.pullPolicy | default .Values.global.imagePullPolicy }}
+          {{- include "rhesis.containerSecurityContext" (dict "Values" .Values "component" .Values.beat) | nindent 10 }}
+          command:
+            - celery
+            - -A
+            - rhesis.backend.worker.app
+            - beat
+            - --loglevel=INFO
+            # Schedule state goes on the emptyDir so the root filesystem can stay read-only.
+            - --schedule=/var/lib/celery-beat/celerybeat-schedule
+          envFrom:
+            - configMapRef:
+                name: {{ include "rhesis.fullname" . }}-config
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+          env:
+{{- include "rhesis.database.cnpgUserPassEnv" . | nindent 12 }}
+            - name: BROKER_URL
+              value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/0"
+            - name: CELERY_RESULT_BACKEND
+              value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)/1"
+            - name: RHESIS_PROCESS_ROLE
+              value: rhesis-celery-beat
+            {{- range .Values.beat.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.beat.resources | nindent 12 }}
+          volumeMounts:
+            - name: schedule
+              mountPath: /var/lib/celery-beat
+      volumes:
+        - name: schedule
+          emptyDir: {}
+{{- end }}
