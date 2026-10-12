@@ -101,6 +101,7 @@ from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.ee.api_clients.audit import (
     TokenExchangeEvent,
+    record_token_exchange,
     token_exchange_audit_log,
 )
 from rhesis.backend.ee.api_clients.clients import authenticate_client
@@ -202,10 +203,15 @@ class TokenExchangeError(Exception):
         reason_code: str,
         *,
         http_status: int = 400,
+        org_id: Optional[str] = None,
+        client_id: Optional[str] = None,
     ):
         self.error = error
         self.reason_code = reason_code
         self.http_status = http_status
+        # Where the rejection is recorded in the audit log; None before the org is known.
+        self.org_id = org_id
+        self.client_id = client_id
         super().__init__(f"{error}: {reason_code}")
 
 
@@ -310,7 +316,13 @@ async def run_token_exchange(
             ip=audit_ip,
             user_agent=audit_ua,
         )
-        raise TokenExchangeError(error, reason_code, http_status=http)
+        raise TokenExchangeError(
+            error,
+            reason_code,
+            http_status=http,
+            org_id=kwargs.get("org_id"),
+            client_id=kwargs.get("client_id", payload.client_id),
+        )
 
     # ---- Steps 2-5a: org, feature gate, client auth, SSO config ----------
     # All four are blocking (queries plus a bcrypt compare) and strictly
@@ -683,6 +695,10 @@ def _complete_exchange(
         jti=issued_jti,
         epoch=auth_client.token_epoch,
         project=resolved_project_id,
+    )
+
+    record_token_exchange(
+        org_id, auth_client.client_id, user=user, db=db, project_id=resolved_project_id
     )
 
     # ---- Step 11: refresh token (only when offline_access requested) -----

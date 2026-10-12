@@ -1,4 +1,11 @@
-"""Structured audit log for the API Clients feature.
+"""Structured audit log lines for the API Clients feature.
+
+Orgs with the audit log also get the events there. Token exchanges are
+``token.exchanged`` (:func:`record_token_exchange`); client lifecycle changes
+are the ``api_clients`` row changes the audit log captures on its own, with the
+secret recorded only as changed. The log lines below stay for forensics: they
+carry the reason codes, the subject token's ``jti`` and the hashed email,
+and cover rejections before an org is known.
 
 Two event families share this module because they belong to the same
 EE feature surface:
@@ -45,6 +52,9 @@ from enum import Enum
 from typing import Optional
 
 from rhesis.backend.app.config.settings import get_application_settings
+from rhesis.backend.app.models.audit_capture import user_label
+from rhesis.backend.app.provenance import ActorType
+from rhesis.backend.app.services.audit_events import TOKEN_EXCHANGED, record_audit_event
 
 logger = logging.getLogger("rhesis.api_clients.audit")
 
@@ -237,10 +247,48 @@ def token_exchange_audit_log(
     logger.info("TOKEN_EXCHANGE_AUDIT: %s", entry)
 
 
+def record_token_exchange(
+    organization_id,
+    client_id: Optional[str],
+    *,
+    user=None,
+    db=None,
+    status_code: Optional[int] = None,
+    project_id: Optional[str] = None,
+) -> None:
+    """``token.exchanged`` in the org's audit log.
+
+    On success ``user`` is the subject the token was minted for, acting
+    through the client, and the entry joins ``db``'s transaction. A rejection
+    has no ``user``: it records the client id that was presented, on a session
+    of its own. Reads ``user``'s attributes, so call it before a commit.
+    """
+    if user is None:
+        record_audit_event(
+            TOKEN_EXCHANGED,
+            organization_id,
+            outcome="failure",
+            status_code=status_code,
+            credential_id=client_id,
+        )
+        return
+    record_audit_event(
+        TOKEN_EXCHANGED,
+        organization_id,
+        db=db,
+        actor_id=user.id,
+        actor_type=ActorType.API_CLIENT,
+        actor_label=user_label(user.name, user.email),
+        credential_id=client_id,
+        project_id=project_id,
+    )
+
+
 __all__ = [
     "AuthClientLifecycleEvent",
     "TokenExchangeEvent",
     "auth_client_audit_log",
     "hashed_email",
+    "record_token_exchange",
     "token_exchange_audit_log",
 ]

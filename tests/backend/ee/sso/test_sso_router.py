@@ -270,6 +270,8 @@ class TestSSOCallbackTenantContext:
         )
 
         monkeypatch.setattr(sso_router, "audit_log", _record("audit_log"))
+        monkeypatch.setattr(sso_router, "record_user_event", _record("record_user_event"))
+        monkeypatch.setattr(sso_router, "record_failed_sign_in", _record("record_failed_sign_in"))
         monkeypatch.setattr(sso_router, "clear_user_logout", _record("clear_user_logout"))
         monkeypatch.setattr(
             sso_router, "create_session_token", _record("create_session_token", "sess")
@@ -332,3 +334,42 @@ class TestSSOCallbackTenantContext:
         # organization_id against this value.
         assert args[1] == str(callback_env.org.id)
         assert args[1] != self.ORG_SLUG
+
+
+class TestSSOCallbackAudit:
+    """The callback's audit log entries, on top of the harness above."""
+
+    ORG_SLUG = TestSSOCallbackTenantContext.ORG_SLUG
+    callback_env = TestSSOCallbackTenantContext.callback_env
+    _run = TestSSOCallbackTenantContext._run
+
+    @pytest.mark.asyncio
+    async def test_sign_in_is_recorded_on_its_own_session(self, callback_env):
+        # Not in the login transaction, so a failed audit write cannot block the sign-in.
+        await self._run(callback_env)
+
+        (_name, args, kwargs) = next(c for c in callback_env.calls if c[0] == "record_user_event")
+        assert args == ("session.signed_in", callback_env.user)
+        assert "db" not in kwargs
+
+    @pytest.mark.asyncio
+    async def test_rejected_sign_in_is_recorded_against_the_resolved_org(
+        self, callback_env, monkeypatch
+    ):
+        from rhesis.backend.ee.sso import router as sso_router
+        from rhesis.backend.ee.sso.user_utils import SSOLoginError
+
+        def _reject(*args, **kwargs):
+            raise SSOLoginError("domain_not_allowed")
+
+        monkeypatch.setattr(sso_router, "find_or_create_sso_user", _reject)
+
+        await self._run(callback_env)
+
+        (_name, args, kwargs) = next(
+            c for c in callback_env.calls if c[0] == "record_failed_sign_in"
+        )
+        assert args == (callback_env.db, "new.user@example.com")
+        # The org's id, not the slug the signed state carried.
+        assert kwargs == {"organization_id": callback_env.org.id}
+        assert "record_user_event" not in callback_env.names()
