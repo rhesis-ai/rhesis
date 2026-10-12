@@ -1,4 +1,4 @@
-"""Enterprise audit log: the sink that stores ``AuditRecorded`` events.
+"""Enterprise audit log: the sink that stores ``AuditRecorded`` events, and the read API.
 
 Change capture lives in core (``app/models/audit_capture.py``) and stays idle
 until :func:`register_audit` registers ``FeatureName.AUDIT_LOG``.
