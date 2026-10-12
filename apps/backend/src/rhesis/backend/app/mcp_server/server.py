@@ -7,10 +7,12 @@ the FastAPI application via ``StreamableHTTPSessionManager``.
 
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, FrozenSet, Optional
 
+import anyio
 import httpx
 import mcp.types as mcp_types
+from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from mcp.server.lowlevel.server import Server as MCPServer
 from mcp.server.lowlevel.server import request_ctx
@@ -20,16 +22,18 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import Receive, Scope, Send
 
+from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.token_utils import get_secret_key
 from rhesis.backend.app.auth.user_utils import get_authenticated_user_with_context
-from rhesis.backend.app.provenance import Channel, in_process_headers
-
-from .tools import (
+from rhesis.backend.app.dependencies import get_project_context
+from rhesis.backend.app.mcp_server.tools import (
     annotate_write_count,
     apply_query_overrides,
     build_tools_and_operations,
     format_list_response,
+    visible_tools_for,
 )
+from rhesis.backend.app.provenance import Channel, in_process_headers
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +86,52 @@ def format_error(response: httpx.Response) -> str:
     return json.dumps(error, default=str)
 
 
+def format_unavailable(name: str) -> str:
+    """Same answer for an unknown tool and one hidden from this caller."""
+    return json.dumps(
+        {
+            "error": True,
+            "detail": (
+                f"Tool not available: {name}. It is not available on this plan or "
+                "for this role, or it does not exist."
+            ),
+        }
+    )
+
+
+def _current_request() -> Optional[Request]:
+    """The HTTP request that carried the current MCP message, if any."""
+    try:
+        return getattr(request_ctx.get(), "request", None)
+    except LookupError:
+        return None
+
+
+def _forwarded_project_id(request: Request) -> str:
+    """The project scope the call is forwarded with: header first, then the token's."""
+    return request.headers.get("x-project-id", "") or getattr(
+        request.state, "api_token_project_id", ""
+    )
+
+
+def _visible_tool_names(request: Request, operation_map: Dict[str, dict]) -> FrozenSet[str]:
+    """Tools the caller of *request* can use. Sync DB work; run it off the loop."""
+    # Set by _MCPApp, which authenticates every request before it reaches here.
+    user = getattr(request.state, "user", None)
+    if user is None:
+        return frozenset()
+    forwarded = _forwarded_project_id(request)
+    try:
+        # The project the routes will see: a stale header-only hint drops to org scope.
+        project_id = get_project_context(request, user, forwarded or None)
+    except HTTPException as exc:
+        # A token scoped to another project: every call would fail.
+        logger.info("MCP tools hidden for user %s: %s", user.id, exc.detail)
+        return frozenset()
+    principal = resolve_principal_from_request(user, request)
+    return visible_tools_for(operation_map, principal, project_id)
+
+
 # ── MCP server factory ─────────────────────────────────────────────
 
 
@@ -104,53 +154,45 @@ def _create_mcp_server(fastapi_app: Any) -> MCPServer:
         ),
     )
 
+    async def visible_for(request: Optional[Request]) -> FrozenSet[str]:
+        # No HTTP request means no caller to check, and no auth to forward.
+        if request is None:
+            return frozenset()
+        return await anyio.to_thread.run_sync(_visible_tool_names, request, operation_map)
+
+    # MCP clients cache this list, so a plan or role change shows on the next session.
+    # Returned as a ListToolsResult because the SDK then adds to its tool cache
+    # instead of replacing it: that cache is shared by every caller and only
+    # feeds input validation, so one caller's shorter list must not shrink it.
     @server.list_tools()
-    async def handle_list_tools() -> list[mcp_types.Tool]:
-        return tools
+    async def handle_list_tools() -> mcp_types.ListToolsResult:
+        visible = await visible_for(_current_request())
+        return mcp_types.ListToolsResult(tools=[tool for tool in tools if tool.name in visible])
 
     @server.call_tool()
     async def handle_call_tool(name: str, arguments: dict) -> list[mcp_types.TextContent]:
+        request = _current_request()
         op = operation_map.get(name)
-        if op is None:
-            return [
-                mcp_types.TextContent(
-                    type="text",
-                    text=json.dumps(
-                        {
-                            "error": True,
-                            "detail": f"Unknown tool: {name}",
-                        }
-                    ),
-                )
-            ]
+        # A client holding an older list gets a clear answer rather than a raw 403 or 404.
+        if request is None or op is None or name not in await visible_for(request):
+            return [mcp_types.TextContent(type="text", text=format_unavailable(name))]
 
         arguments = dict(arguments)  # copy to pop from
 
-        # Extract auth from MCP request context (the original HTTP
-        # request that carried this MCP message).
+        # Auth and project scope come from the original HTTP request that
+        # carried this MCP message.
         headers: Dict[str, str] = {}
-        try:
-            ctx = request_ctx.get()
-            request: Optional[Request] = getattr(ctx, "request", None)
-            if request is not None:
-                auth_value = request.headers.get("authorization", "")
-                if auth_value:
-                    headers["Authorization"] = auth_value
-                # Forward project scope so project-isolated resources
-                # (endpoints, etc.) resolve under the correct RLS project.
-                # Prefer the explicit header; fall back to the project_id
-                # bound to the API token (set by the auth layer on
-                # request.state).  Without this, MCP clients that
-                # authenticate with a project-scoped token (e.g. Cursor)
-                # would see no project filtering on list endpoints.
-                project_value = request.headers.get("x-project-id", "") or getattr(
-                    request.state, "api_token_project_id", ""
-                )
-                if project_value:
-                    headers["X-Project-Id"] = project_value
-                headers.update(in_process_headers(Channel.MCP, request))
-        except LookupError:
-            pass
+        auth_value = request.headers.get("authorization", "")
+        if auth_value:
+            headers["Authorization"] = auth_value
+        # Forward project scope so project-isolated resources (endpoints,
+        # etc.) resolve under the correct RLS project. Without the token
+        # fallback, MCP clients that authenticate with a project-scoped
+        # token (e.g. Cursor) would see no project filtering on list endpoints.
+        project_value = _forwarded_project_id(request)
+        if project_value:
+            headers["X-Project-Id"] = project_value
+        headers.update(in_process_headers(Channel.MCP, request))
 
         # 1. Path params: pop from arguments, substitute in URL
         path = op["path"]

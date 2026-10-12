@@ -30,6 +30,13 @@ questions without the tools, and **do not authenticate a different MCP server or
 happens to be named after Rhesis** — an OAuth connector of a similar name is not this server, and
 authenticating it does not make these tools appear.
 
+**The tool list depends on plan and role.** The server lists only the tools the organization's plan
+includes and the user's role or API token allows. A read-only role or token, for example, gets no
+`create_*` or `update_*` tools. When one tool is missing but the others are there, or a call answers
+"Tool not available", that action is not available on this plan or for this role. It is not
+broken. Tell the user which action needs a different role or plan, and do not try to reach it
+another way.
+
 ## Shared skeleton
 
 ```text

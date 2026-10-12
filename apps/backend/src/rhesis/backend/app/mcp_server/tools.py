@@ -7,13 +7,23 @@ produces a list of ``mcp.types.Tool`` objects plus a dispatcher map.
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Tuple
+from uuid import UUID
 
 import mcp.types as mcp_types
 import yaml
+from fastapi.routing import APIRoute
 from mcp.types import ToolAnnotations
+from sqlalchemy.orm import Session
 
-from .schema import build_input_schema
+from rhesis.backend.app.auth.feature_gates import feature_for_route
+from rhesis.backend.app.auth.principal import Principal
+from rhesis.backend.app.auth.rbac import effective_permissions, enforced_capability_for_route
+from rhesis.backend.app.crud.organization import get_organization
+from rhesis.backend.app.database import get_db_with_tenant_variables
+from rhesis.backend.app.features import FeatureRegistry
+from rhesis.backend.app.mcp_server.schema import build_input_schema
+from rhesis.backend.app.models.organization import Organization
 
 logger = logging.getLogger(__name__)
 
@@ -26,18 +36,33 @@ def load_tool_configs() -> List[dict]:
     return config.get("tools", [])
 
 
+def _routes_by_operation(fastapi_app: Any) -> Dict[Tuple[str, str], APIRoute]:
+    """Index the app's HTTP routes by ``(METHOD, path)``, the key OpenAPI uses."""
+    index: Dict[Tuple[str, str], APIRoute] = {}
+    for route in fastapi_app.router.routes:
+        if isinstance(route, APIRoute):
+            for method in route.methods or ():
+                index.setdefault((method, route.path_format), route)
+    return index
+
+
 def build_tools_and_operations(
     fastapi_app: Any,
+    tool_configs: Optional[List[dict]] = None,
 ) -> tuple[List[mcp_types.Tool], Dict[str, dict]]:
     """Build MCP Tool objects and an operation map from YAML + OpenAPI.
 
     Returns:
         (tools_list, operation_map) where operation_map is keyed by
-        tool name and contains method, path, and parameters.
+        tool name and contains method, path, and parameters, plus the
+        ``capability`` and ``feature`` its route enforces (read by
+        :func:`visible_tools`).
     """
-    tool_configs = load_tool_configs()
+    if tool_configs is None:
+        tool_configs = load_tool_configs()
     openapi_schema = fastapi_app.openapi()
     paths = openapi_schema.get("paths", {})
+    routes = _routes_by_operation(fastapi_app)
 
     tools: List[mcp_types.Tool] = []
     operation_map: Dict[str, dict] = {}
@@ -101,6 +126,7 @@ def build_tools_and_operations(
         )
 
         # Store operation info for the dispatcher
+        route = routes.get((method, path_template))
         operation_map[name] = {
             "method": method,
             "path": path_template,
@@ -109,9 +135,71 @@ def build_tools_and_operations(
             "default_query": tc.get("default_query", {}),
             "page_size": tc.get("page_size"),
             "count_check": tc.get("count_check"),
+            "capability": enforced_capability_for_route(route) if route else None,
+            "feature": feature_for_route(route) if route else None,
         }
 
     return tools, operation_map
+
+
+# ── Visibility ────────────────────────────────────────────────────
+
+
+def visible_tools(
+    operation_map: Dict[str, dict],
+    principal: Principal,
+    organization: Optional[Organization],
+    *,
+    project_id: Optional[UUID],
+    db: Session,
+) -> FrozenSet[str]:
+    """Return the names of the tools *principal* can use.
+
+    A tool is kept when its route's feature is available for the organization
+    and the caller's effective permissions (the same set ``GET /me/permissions``
+    returns, token scopes included) hold the route's capability.
+
+    This is for usability, not security: every call still goes through the
+    route, which enforces RBAC, RLS and the feature gate itself.
+    """
+    held = set(effective_permissions(principal, project_id=project_id, db=db))
+    feature_available: Dict[str, bool] = {}
+    visible = set()
+    for name, op in operation_map.items():
+        feature = op.get("feature")
+        if feature is not None:
+            if feature not in feature_available:
+                feature_available[feature] = FeatureRegistry.is_available(feature, organization)
+            if not feature_available[feature]:
+                continue
+        capability = op.get("capability")
+        if capability is not None and capability not in held:
+            continue
+        visible.add(name)
+    return frozenset(visible)
+
+
+def visible_tools_for(
+    operation_map: Dict[str, dict],
+    principal: Principal,
+    project_id: Optional[str],
+) -> FrozenSet[str]:
+    """:func:`visible_tools` in a session of its own, scoped to *principal*.
+
+    Runs sync DB queries; call it off the event loop.
+    """
+    if principal.organization_id is None:
+        return frozenset()
+    org_id = str(principal.organization_id)
+    with get_db_with_tenant_variables(org_id, str(principal.user_id), project_id or "") as db:
+        organization = get_organization(db, principal.organization_id)
+        return visible_tools(
+            operation_map,
+            principal,
+            organization,
+            project_id=UUID(project_id) if project_id else None,
+            db=db,
+        )
 
 
 def load_tool_labels() -> Dict[str, str]:

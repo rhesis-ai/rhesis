@@ -9,6 +9,8 @@ that need to branch on availability rather than reject.
 
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -21,6 +23,9 @@ from rhesis.backend.app.features import (
 )
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
+
+# Set on the dependency require_feature returns, so a route's feature can be read back.
+_FEATURE_ATTR = "__rhesis_feature__"
 
 
 def _load_org(user: User, db: Session) -> Organization:
@@ -62,7 +67,29 @@ def require_feature(name: FeatureNameLike):
             )
         return org
 
+    setattr(_dep, _FEATURE_ATTR, str(name))
     return _dep
+
+
+def feature_for_route(route: object) -> Optional[str]:
+    """Return the feature a route is gated on by :func:`require_feature`, or ``None``.
+
+    Walks the whole dependency tree, so a gate declared on the router or on a
+    sub-dependency counts too.
+    """
+    dependant = getattr(route, "dependant", None)
+    stack = list(getattr(dependant, "dependencies", None) or [])
+    seen: set[int] = set()
+    while stack:
+        dep = stack.pop()
+        if id(dep) in seen:
+            continue
+        seen.add(id(dep))
+        feature = getattr(dep.call, _FEATURE_ATTR, None)
+        if feature is not None:
+            return feature
+        stack.extend(dep.dependencies)
+    return None
 
 
 def has_feature(name: FeatureNameLike):
@@ -96,4 +123,9 @@ def require_rhesis_key_enabled() -> None:
     return None
 
 
-__all__ = ["has_feature", "require_feature", "require_rhesis_key_enabled"]
+__all__ = [
+    "feature_for_route",
+    "has_feature",
+    "require_feature",
+    "require_rhesis_key_enabled",
+]

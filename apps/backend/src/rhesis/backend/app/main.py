@@ -99,7 +99,9 @@ def apply_authz_backstop(app: FastAPI) -> None:
     :func:`~rhesis.backend.app.auth.capabilities.register_capabilities` so all
     routes (core + EE) are registered and the capability map is warm.
 
-    For each :class:`~fastapi.routing.APIRoute`:
+    For each :class:`~fastapi.routing.APIRoute` (steps 1-3 are
+    :func:`~rhesis.backend.app.auth.rbac.enforced_capability_for_route`, which the
+    MCP tool list also uses):
 
     1. Skip routes in :data:`~rhesis.backend.app.auth.public_routes.PUBLIC_ROUTES`
        — no auth, so no authz either.
@@ -121,22 +123,14 @@ def apply_authz_backstop(app: FastAPI) -> None:
     WebSocket routes (``APIWebSocketRoute``) and mounts are skipped; they
     authenticate and authorise manually in their handlers.
     """
-    from rhesis.backend.app.auth.capabilities import get_capability_for_route
-    from rhesis.backend.app.auth.public_routes import AUTHZ_EXEMPT_ROUTES, PUBLIC_ROUTES
-    from rhesis.backend.app.auth.rbac import require_permission
+    from rhesis.backend.app.auth.rbac import enforced_capability_for_route, require_permission
 
     for route in app.router.routes:
         if not isinstance(route, APIRoute):
             continue
-        path: str = route.path
-        if path in PUBLIC_ROUTES:
-            continue
-        methods: set[str] = route.methods or set()
-        if any((m, path) in AUTHZ_EXEMPT_ROUTES for m in methods):
-            continue
-        cap = get_capability_for_route(route)
+        cap = enforced_capability_for_route(route)
         if cap is None:
-            # Unmapped route — the drift guard in test_authz_coverage.py will flag this.
+            # Public, exempt or unmapped; the drift guard in test_authz_coverage.py flags unmapped.
             continue
         _inject_route_dependency(route, Depends(require_permission(cap)))
 

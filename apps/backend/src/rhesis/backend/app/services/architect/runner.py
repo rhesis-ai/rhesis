@@ -161,6 +161,7 @@ async def build_agent(
     project_id: Optional[str] = None,
 ) -> tuple[Any, WebSocketEventHandler]:
     """Build the ArchitectAgent with tools and restore saved session state."""
+    from rhesis.backend.app.auth.principal import resolve_principal
     from rhesis.backend.app.auth.token_utils import create_service_delegation_token
     from rhesis.backend.app.crud import user as user_crud
     from rhesis.backend.app.main import app as fastapi_app
@@ -177,6 +178,8 @@ async def build_agent(
         if not user.is_active:
             raise ValueError(f"User {user_id} is inactive")
         delegation_token = create_service_delegation_token(user, "backend")
+        # The token's own identity: a delegation token is a plain session principal.
+        principal = resolve_principal(user)
         model = build_model_or_raise(db, user, "generation")
         project_context = _resolve_project_context(db, project_id, organization_id)
 
@@ -195,7 +198,9 @@ async def build_agent(
         test_set_names_by_id=agent_state.get("test_set_names_by_id") or {},
     )
 
-    tool_provider = LocalToolProvider(fastapi_app, delegation_token, project_id=project_id)
+    tool_provider = LocalToolProvider(
+        fastapi_app, delegation_token, principal=principal, project_id=project_id
+    )
     explore_tool = ExploreEndpointTool(
         target_factory=_make_target_factory(organization_id, user_id, project_id),
         model=model,

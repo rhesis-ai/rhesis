@@ -5,6 +5,11 @@ All tools exposed by the Rhesis MCP server, grouped by workflow phase.
 > This file is hand-maintained. When the MCP server's tool definitions change, update this file
 > to match.
 
+Not every user sees every tool. The server lists only the tools the organization's plan includes
+and the user's role or API token allows. A tool missing from the list, or a call that answers
+"Tool not available", means the action is not available on this plan or for this role, not that
+it is broken.
+
 ---
 
 ## Discovery
