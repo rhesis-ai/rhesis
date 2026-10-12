@@ -68,7 +68,7 @@ def legacy_blob():
             "total_tokens": 420,
             "breakdown": [
                 breakdown_entry("a", "gpt-4", 200, 100, 0.015, 0.008),
-                breakdown_entry("b", "gemini-2.0-flash", 100, 20, 0.005, 0.002),
+                breakdown_entry("b", "gemini/gemini-2.0-flash", 100, 20, 0.005, 0.002),
             ],
         }
     }
@@ -118,7 +118,7 @@ class TestLegacyBlob:
         """
         usage = trace_usage_totals(legacy_blob())
 
-        assert usage.models == ["gemini-2.0-flash", "gpt-4"]
+        assert usage.models == ["gemini/gemini-2.0-flash", "gpt-4"]
 
     def test_derives_providers_from_the_model_names(self):
         """No entry carries a provider, so each is placed from its own model."""
