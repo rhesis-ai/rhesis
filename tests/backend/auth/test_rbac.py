@@ -280,6 +280,15 @@ class TestDefaultAuthorizationProvider:
         db = _mock_db(is_owner=False, is_member=False)
         assert not self.provider.is_authorized(p, "organization:update", project_id=None, db=db)
 
+    def test_audit_log_is_owner_only(self):
+        """Only the org owner holds the audit log capabilities in community."""
+        p = _principal()
+        member = _mock_db(is_owner=False, is_member=True)
+        owner = _mock_db(is_owner=True, is_member=False)
+        for cap in ("audit_log:read", "audit_log:export", "audit_log:manage"):
+            assert not self.provider.is_authorized(p, cap, project_id=None, db=member), cap
+            assert self.provider.is_authorized(p, cap, project_id=None, db=owner), cap
+
     def test_non_owner_standard_capability_allowed(self):
         """Any org member may invoke standard (non-owner-only) capabilities without project scope.
 

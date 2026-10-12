@@ -161,7 +161,7 @@ migration. Their permission sets are computed from code
 | Owner | 100 | Everything |
 | Admin | 80 | Everything except `role:manage`, `sso:manage`, `api_clients:manage`; includes `role:read` for assigning roles |
 | Member | 60 | Viewer + create/update/delete/execute/generate/import/react on every project-scoped resource |
-| Viewer | 40 | Every `:read` except `role:read`/`token:read`, plus `recycle:view` |
+| Viewer | 40 | Every `:read` except `role:read`, `token:read` and `audit_log:read`, plus `recycle:view` |
 | None | 0 | Nothing |
 
 > **Cut-over note.** When RBAC is activated for an existing org, the backfill

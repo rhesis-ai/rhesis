@@ -211,6 +211,10 @@ _OWNER_ONLY_CAPABILITIES: frozenset[str] = frozenset(
         # Local-mode platform key: mutating it affects every member's ability
         # to use Rhesis-hosted models, same rationale as SSO.MANAGE above.
         str(Permission.Platform.MANAGE),
+        # Who did what across the whole org, including other members.
+        str(Permission.AuditLog.READ),
+        str(Permission.AuditLog.EXPORT),
+        str(Permission.AuditLog.MANAGE),
     }
 )
 
