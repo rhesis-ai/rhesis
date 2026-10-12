@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from rhesis.sdk.agents.architect.prompt_loader import (
+    AUDIT_TOOL,
     build_architect_jinja_env,
     phase_include_names,
     render_phase_knowledge,
@@ -121,6 +122,20 @@ class TestPhaseIncludeNames:
         names = phase_include_names(AgentMode.EXECUTING, WorkflowPath.RUN_ANALYZE)
         assert "insights-summary.md" in names
         assert "result-analysis.md" in names
+
+    def test_direct_discovery_carries_the_audit_log_reference_with_its_tools(self):
+        """audit_review shares the direct path, and includes follow the path."""
+        tools = {"list_test_sets", AUDIT_TOOL}
+        names = phase_include_names(AgentMode.DISCOVERY, WorkflowPath.DIRECT, tools)
+        assert names == ["phases/direct-requests.md", "audit-log.md"]
+        env = build_architect_jinja_env(_TEMPLATES_DIR)
+        text = render_phase_knowledge(env, AgentMode.DISCOVERY, WorkflowPath.DIRECT, tools)
+        assert "list_audit_events" in text
+        assert "not available on this plan or for" in text
+
+    def test_direct_discovery_skips_the_audit_log_reference_without_its_tools(self):
+        names = phase_include_names(AgentMode.DISCOVERY, WorkflowPath.DIRECT, {"list_test_sets"})
+        assert names == ["phases/direct-requests.md"]
 
     def test_executing_non_run_analyze_omits_insights_summary(self):
         names = phase_include_names(AgentMode.EXECUTING, WorkflowPath.EXPLORE)

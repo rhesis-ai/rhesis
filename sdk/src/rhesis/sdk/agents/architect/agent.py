@@ -1691,7 +1691,7 @@ class ArchitectAgent(BaseAgent):
 
         template = self._jinja_env.get_template("iteration_prompt.j2")
         phase_knowledge_text = render_phase_knowledge(
-            self._jinja_env, self._mode, self._workflow_path
+            self._jinja_env, self._mode, self._workflow_path, self._tool_schemas.keys()
         )
         return template.render(
             mode=self._mode,
@@ -1871,7 +1871,7 @@ class ArchitectAgent(BaseAgent):
         # it owns the shape of a run summary, and the seed it works from is one
         # or two sentences that cannot carry a table.
         phase_knowledge_text = render_phase_knowledge(
-            self._jinja_env, self._mode, self._workflow_path
+            self._jinja_env, self._mode, self._workflow_path, self._tool_schemas.keys()
         )
         return template.render(
             conversation_history=conv_window,

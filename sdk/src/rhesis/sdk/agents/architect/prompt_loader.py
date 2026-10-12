@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import List, Sequence
+from typing import Collection, List, Sequence
 
 import jinja2
 
@@ -36,7 +36,13 @@ def build_architect_jinja_env(templates_dir: Path) -> jinja2.Environment:
     return env
 
 
-def phase_include_names(mode: AgentMode, workflow_path: WorkflowPath) -> List[str]:
+# Its reference is only worth its tokens to users the tool list lets read the audit log.
+AUDIT_TOOL = "list_audit_events"
+
+
+def phase_include_names(
+    mode: AgentMode, workflow_path: WorkflowPath, tool_names: Collection[str] = ()
+) -> List[str]:
     """Return template/reference names to inject for this turn."""
     includes: List[str] = []
     wp = workflow_path
@@ -63,6 +69,9 @@ def phase_include_names(mode: AgentMode, workflow_path: WorkflowPath) -> List[st
             )
         elif wp == WorkflowPath.DIRECT:
             includes.append("phases/direct-requests.md")
+            # audit_review shares this path, and includes follow the path, not the intent.
+            if AUDIT_TOOL in tool_names:
+                includes.append("audit-log.md")
         # UNSET: routing only (system prompt) — no phase block
 
     elif m == AgentMode.PLANNING:
@@ -124,9 +133,10 @@ def render_phase_knowledge(
     env: jinja2.Environment,
     mode: AgentMode,
     workflow_path: WorkflowPath,
+    tool_names: Collection[str] = (),
 ) -> str:
     """Build phase-specific guidance for the current iteration prompt."""
-    names = phase_include_names(mode, workflow_path)
+    names = phase_include_names(mode, workflow_path, tool_names)
     if not names:
         return ""
     return render_includes(env, names)
