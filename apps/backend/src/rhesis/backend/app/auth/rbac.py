@@ -59,6 +59,7 @@ from rhesis.backend.app.auth.principal import (
 )
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_db_session
+from rhesis.backend.app.services.audit_events import record_denial
 from rhesis.backend.app.services.permission_cache import get_permission_cache
 
 if TYPE_CHECKING:
@@ -765,6 +766,7 @@ def require_permission(capability: "str | Permission"):
         project_id = project_id_from_scope(db)
 
         if not authorize(principal, capability, project_id=project_id, db=db):
+            record_denial(str(capability), request.method, current_user, project_id)
             # SP12: GitHub-style X-Accepted-Permissions header so callers
             # know exactly which capability they are missing.
             raise HTTPException(

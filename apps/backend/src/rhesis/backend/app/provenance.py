@@ -233,6 +233,14 @@ def provenance_of(session) -> Optional[RequestProvenance]:
     return _current_job.get()
 
 
+def current_provenance() -> Optional[RequestProvenance]:
+    """The provenance of the request (or Celery task) being handled, without a session."""
+    request = _current_request.get()
+    if request is not None:
+        return resolve_provenance(request)
+    return _current_job.get()
+
+
 class ProvenanceMiddleware:
     """Make the current request reachable from the sessions it opens.
 

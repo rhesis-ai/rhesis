@@ -68,7 +68,17 @@ from rhesis.backend.app.dependencies import (
     get_off_loop_db_session,
 )
 from rhesis.backend.app.error_handlers import PublicHTTPException, internal_error
+from rhesis.backend.app.models.audit_capture import user_label
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.services.audit_events import (
+    PASSWORD_CHANGED,
+    PASSWORD_RESET,
+    SIGNED_IN,
+    SIGNED_OUT,
+    record_audit_event,
+    record_failed_sign_in,
+    record_user_event,
+)
 from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
 from rhesis.backend.app.utils.rate_limit import (
     AUTH_CHANGE_PASSWORD_LIMIT,
@@ -288,6 +298,7 @@ def _issue_login_tokens(db: Session, user: User) -> tuple[str, str, dict]:
     clear_user_logout(str(user.id))
     access_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
+    record_user_event(SIGNED_IN, user)
     db.commit()
     return access_token, refresh_tok, _user_summary(user)
 
@@ -350,6 +361,7 @@ def _complete_oauth_login(db: Session, auth_user) -> tuple[str, str, str, dict]:
     clear_user_logout(user_id)
     session_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, user_id)
+    record_user_event(SIGNED_IN, user)
     db.commit()
     return user_id, session_token, refresh_tok, _user_summary(user)
 
@@ -370,6 +382,7 @@ def _mark_email_verified(db: Session, email: str) -> Optional[tuple[str, str]]:
 
     access_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
+    record_user_event(SIGNED_IN, user)
     db.commit()
     return access_token, refresh_tok
 
@@ -389,8 +402,11 @@ def _load_user_for_reset(db: Session, email: str) -> tuple[User, str, str]:
     return user, user.email, user.name or ""
 
 
-def _store_new_password(db: Session, user: User, new_password: str) -> str:
-    """Hash and persist a new password, returning the user's email for logging."""
+def _store_new_password(db: Session, user: User, new_password: str, action: str) -> str:
+    """Hash and persist a new password, returning the user's email for logging.
+
+    ``action`` is the audit action: ``password.reset`` or ``password.changed``.
+    """
     from rhesis.backend.app.utils.encryption import hash_password
 
     user.password_hash = hash_password(new_password)
@@ -398,6 +414,7 @@ def _store_new_password(db: Session, user: User, new_password: str) -> str:
     # not a provider migration. Users can log in via either method.
     if not user.provider_type:
         user.provider_type = AuthProviderType.EMAIL
+    record_user_event(action, user, db=db)
     db.commit()
     return user.email
 
@@ -429,7 +446,7 @@ def _load_user_for_password_change(
 
 def _apply_password_change(db: Session, db_user: User, new_password: str) -> str:
     """Store the new password, drop every other session, and mint a fresh token."""
-    email = _store_new_password(db, db_user, new_password)
+    email = _store_new_password(db, db_user, new_password, PASSWORD_CHANGED)
     invalidate_user_sessions(str(db_user.id))
     logger.info("Password changed for user: %s", redact_email(email))
     return create_session_token(db_user)
@@ -784,9 +801,13 @@ async def login_with_email(
     try:
         # Verify the credentials and find/create the user (updates
         # last_login_at). bcrypt and every query run in a worker thread.
-        user, user_id = await anyio.to_thread.run_sync(
-            _authenticate_email_user, db, email_provider, body.email, body.password
-        )
+        try:
+            user, user_id = await anyio.to_thread.run_sync(
+                _authenticate_email_user, db, email_provider, body.email, body.password
+            )
+        except Exception:
+            await anyio.to_thread.run_sync(record_failed_sign_in, db, body.email)
+            raise
 
         # Set up session and create tokens. The refresh token is wrapped
         # in a short-lived, single-use auth code so it never reaches the
@@ -1066,7 +1087,7 @@ async def reset_password(
         body.new_password,
         context={"email": email, "name": name},
     )
-    await anyio.to_thread.run_sync(_store_new_password, db, user, body.new_password)
+    await anyio.to_thread.run_sync(_store_new_password, db, user, body.new_password, PASSWORD_RESET)
 
     logger.info("Password reset for user: %s", redact_email(email))
 
@@ -1581,11 +1602,20 @@ def logout(
                 # Invalidate all sessions and refresh tokens
                 invalidate_user_sessions(user_id)
                 revoke_all_for_user(db, user_id)
+                org_id = user_info.get("organization_id")
+                record_audit_event(
+                    SIGNED_OUT,
+                    org_id,
+                    db=db,
+                    actor_id=user_id,
+                    actor_label=user_label(user_info.get("name"), user_info.get("email")),
+                    resource_id=user_id,
+                    resource_label=user_info.get("email"),
+                )
                 db.commit()
 
                 # Bust the permission cache so a re-login always gets fresh
                 # permissions (role changes take effect immediately after next login).
-                org_id = user_info.get("organization_id")
                 if org_id:
                     from uuid import UUID as _UUID
 

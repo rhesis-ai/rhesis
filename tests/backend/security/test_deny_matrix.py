@@ -161,7 +161,7 @@ class TestAcceptedPermissionsHeader:
 
         dependency = require_permission("test_set:read")
 
-        fake_request = SimpleNamespace(state=SimpleNamespace())
+        fake_request = SimpleNamespace(state=SimpleNamespace(), method="GET")
         fake_db = SimpleNamespace(info={})
         fake_user = SimpleNamespace(id=uuid.uuid4(), organization_id=uuid.uuid4())
 

@@ -165,7 +165,8 @@ def plans() -> _Plans:
 # ---------------------------------------------------------------------------
 
 
-def _feature_registered() -> bool:
+def audit_registered() -> bool:
+    """Whether the audit log is installed at all (the EE package registers it)."""
     from rhesis.backend.app.features import FeatureName, FeatureRegistry
 
     return FeatureRegistry.is_registered(FeatureName.AUDIT_LOG)
@@ -176,7 +177,7 @@ def audit_enabled(session: Session, organization_id) -> bool:
     from rhesis.backend.app.features import FeatureName, FeatureRegistry
     from rhesis.backend.app.models.organization import Organization
 
-    if organization_id is None or not _feature_registered():
+    if organization_id is None or not audit_registered():
         return False
     cache = session.info.setdefault(_ENTITLED_KEY, {})
     key = str(organization_id)
@@ -213,32 +214,35 @@ class _Context:
 
     @cached_property
     def actor_label(self) -> Optional[str]:
-        actor_id = self.provenance.actor_id
-        if not actor_id:
-            return None
-        labels = self.session.info.setdefault(_ACTOR_LABELS_KEY, {})
-        if actor_id not in labels:
-            labels[actor_id] = _user_label(self.session, actor_id)
-        return labels[actor_id]
+        return session_user_label(self.session, self.provenance.actor_id)
 
 
-def _user_label(session: Session, user_id: str) -> Optional[str]:
+def user_label(name: Optional[str], email: Optional[str]) -> Optional[str]:
+    """How an actor is named in the log: ``Name <email>``, or the email alone."""
+    return f"{name} <{email}>" if name else email
+
+
+def session_user_label(session: Session, user_id: Optional[str]) -> Optional[str]:
+    """``user_label`` for ``user_id``, looked up once per session."""
     from rhesis.backend.app.models.user import User
 
-    row = (
-        session.connection()
-        .execute(select(User.name, User.email).where(User.id == UUID(user_id)))
-        .first()
-    )
-    if row is None:
+    if not user_id:
         return None
-    return f"{row.name} <{row.email}>" if row.name else row.email
+    labels = session.info.setdefault(_ACTOR_LABELS_KEY, {})
+    if user_id not in labels:
+        row = (
+            session.connection()
+            .execute(select(User.name, User.email).where(User.id == UUID(user_id)))
+            .first()
+        )
+        labels[user_id] = user_label(row.name, row.email) if row is not None else None
+    return labels[user_id]
 
 
 def _context(session: Session) -> Optional[_Context]:
     from rhesis.backend.app.provenance import provenance_of
 
-    if not _feature_registered():
+    if not audit_registered():
         return None
     provenance = provenance_of(session)
     return _Context(session, provenance) if provenance is not None else None
@@ -416,7 +420,7 @@ def _buffer_job_create(session: Session, resource, org, project, resource_id) ->
 def _write_job_summaries(session: Session) -> None:
     from rhesis.backend.events.types import ChangeSummary
 
-    if not _feature_registered() or not session.info.get(_JOB_CREATES_KEY):
+    if not audit_registered() or not session.info.get(_JOB_CREATES_KEY):
         return
     # Creates still pending would otherwise flush after this hook.
     session.flush()

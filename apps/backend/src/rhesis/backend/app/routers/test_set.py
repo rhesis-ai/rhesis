@@ -32,6 +32,7 @@ from rhesis.backend.app.schemas.embedding import (
     EmbeddingGraphReadyResponse,
     Scatter2DGraph,
 )
+from rhesis.backend.app.services.audit_events import record_audit_event
 from rhesis.backend.app.services.prompt import get_prompts_for_test_set, prompts_to_csv
 from rhesis.backend.app.services.test import (
     create_test_set_associations,
@@ -50,6 +51,7 @@ from rhesis.backend.app.utils.execution_validation import (
     validate_generation_model,
 )
 from rhesis.backend.app.utils.odata import apply_select
+from rhesis.backend.events.audit_actions import audit_action
 from rhesis.backend.jobs import launch_job
 from rhesis.backend.jobs.embedding.graph import compute_test_set_graph_task
 from rhesis.backend.jobs.test_set import generate_and_save_test_set
@@ -510,6 +512,14 @@ def download_test_set_prompts(
         )
 
     csv_data = prompts_to_csv(prompts)
+    record_audit_event(
+        audit_action(Permission.TestSet.EXPORT),
+        organization_id,
+        db=db,
+        resource_id=db_test_set.id,
+        resource_label=db_test_set.name,
+        project_id=db_test_set.project_id,
+    )
 
     response = StreamingResponse(iter([csv_data]), media_type="text/csv")
     response.headers["Content-Disposition"] = (
