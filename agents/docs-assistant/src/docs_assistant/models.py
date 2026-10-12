@@ -43,7 +43,7 @@ PRESETS: dict[str, Preset] = {
     "gemini": Preset(
         base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
         key_envs=("GOOGLE_API_KEY", "GEMINI_API_KEY"),
-        models={"answer": "gemini-3.5-flash", "triage": "gemini-3.5-flash-lite"},
+        models={"answer": "gemini-3.6-flash", "triage": "gemini-3.5-flash-lite"},
     ),
     "openai": Preset(base_url=None, key_envs=("OPENAI_API_KEY",), models={}),
     "anthropic": Preset(
