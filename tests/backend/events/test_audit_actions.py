@@ -83,7 +83,8 @@ class TestAuditAction:
         with pytest.raises(ValueError):
             audit_action(bad)
 
-    def test_known_actions_skips_bundles(self):
+    def test_known_actions_expands_bundles_to_row_changes(self):
         assert known_actions(["member:manage", "member:read"]) == (
-            {"member.viewed"} | AUDIT_ONLY_ACTIONS
+            {"member.viewed", "member.created", "member.updated", "member.deleted"}
+            | AUDIT_ONLY_ACTIONS
         )
