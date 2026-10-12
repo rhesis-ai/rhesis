@@ -23,6 +23,9 @@ _EXECUTE_TEST_CONFIGURATION_TASK = "rhesis.backend.jobs.execute_test_configurati
 # Set in celeryd_init from the worker node name (e.g. main@host → MAIN).
 _worker_role: str | None = None
 
+# Reset tokens from bind_provenance_for_task, keyed by task id like the others.
+_provenance_tokens: dict = {}
+
 # Reset tokens from bind_usage_attribution_for_task, keyed by task id. A dict
 # rather than a single slot because eventlet/gevent pools interleave tasks in
 # one process, so prerun/postrun pairs can overlap.
@@ -93,8 +96,8 @@ def install_worker_usage_sink(**kwargs):
 
     ``bootstrap_ee_providers`` installs the EE license and quota providers so
     workers resolve licensed quota limits instead of falling back to free-tier
-    defaults. It registers no features, so no feature gate can flip in a
-    worker. No-op when the EE package is not installed.
+    defaults, and registers the audit log so changes a job makes are recorded.
+    No-op when the EE package is not installed.
     """
     from rhesis.backend.app.ee_bootstrap import bootstrap_ee_providers
     from rhesis.backend.app.utils.usage_tracking import install_usage_sink
@@ -116,16 +119,52 @@ def _task_organization_id(task, task_kwargs):
     winning over headers, so attribution matches what the task body will see
     a moment later rather than disagreeing with it on retries.
     """
+    return _task_value(task, task_kwargs, "organization_id")
+
+
+def _task_value(task, task_kwargs, key):
+    """``key`` from a starting task's raw message; see :func:`_task_organization_id`."""
     request = getattr(task, "request", None)
     headers = getattr(request, "headers", None) or {}
 
-    organization_id = headers.get("organization_id") if hasattr(headers, "get") else None
-    if (task_kwargs or {}).get("organization_id"):
-        organization_id = task_kwargs["organization_id"]
-    if not organization_id:
+    value = headers.get(key) if hasattr(headers, "get") else None
+    if (task_kwargs or {}).get(key):
+        value = task_kwargs[key]
+    if not value:
         # Anything that set it directly, e.g. a task invoked in-process.
-        organization_id = getattr(request, "organization_id", None)
-    return organization_id
+        value = getattr(request, key, None)
+    return value
+
+
+@task_prerun.connect
+def bind_provenance_for_task(task_id=None, task=None, kwargs=None, **_):
+    """Attribute writes on any session this task opens to the job, for the audit log.
+
+    ``BaseJob.get_db_session`` binds the same thing onto its own sessions; this
+    covers the many tasks that open theirs with ``get_db_with_tenant_variables``.
+    """
+    from rhesis.backend.app.provenance import bind_task_provenance, job_provenance
+
+    if not task_id:
+        return
+    headers = getattr(getattr(task, "request", None), "headers", None) or {}
+    _provenance_tokens[task_id] = bind_task_provenance(
+        job_provenance(
+            user_id=_task_value(task, kwargs, "user_id"),
+            # launch_job's headers only; a task kwarg of the same name is not this.
+            job_id=headers.get("job_id"),
+            request_id=headers.get("request_id"),
+        )
+    )
+
+
+@task_postrun.connect
+def reset_provenance_for_task(task_id=None, **kwargs):
+    from rhesis.backend.app.provenance import reset_task_provenance
+
+    token = _provenance_tokens.pop(task_id, None)
+    if token is not None:
+        reset_task_provenance(token)
 
 
 @task_prerun.connect

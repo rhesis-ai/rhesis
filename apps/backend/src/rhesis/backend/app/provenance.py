@@ -8,7 +8,8 @@ Request sessions get it from the request itself. ``ProvenanceMiddleware`` puts
 the request in a ContextVar, ``get_db()`` attaches it to every session it opens,
 and the actor is read when asked rather than when the session opens, because
 some routes open their session before authentication has run. Celery jobs bind
-a fixed provenance instead (``bind_job_provenance``).
+a fixed provenance instead (``bind_job_provenance``), and any other session a
+task opens falls back to the task's (``bind_task_provenance``).
 
 The ``web`` and ``sdk`` channels are what the client says it is
 (``X-Rhesis-Client``); they help people read the log but are not evidence. The
@@ -51,6 +52,8 @@ _STATE_CHANNEL = "provenance_channel"
 _current_request: ContextVar[Optional[HTTPConnection]] = ContextVar(
     "provenance_request", default=None
 )
+# Bound for the length of a Celery task, for sessions the task opens itself.
+_current_job: ContextVar[Optional["RequestProvenance"]] = ContextVar("provenance_job", default=None)
 
 
 class ActorType(str, Enum):
@@ -177,6 +180,23 @@ def attach_current_request(session) -> None:
         session.info[_REQUEST_KEY] = request
 
 
+def job_provenance(
+    *, user_id: Optional[str], job_id: Optional[str], request_id: Optional[str]
+) -> RequestProvenance:
+    """A job's writes: the system, on behalf of the user who started it."""
+    return RequestProvenance(
+        actor_type=ActorType.SYSTEM,
+        actor_id=user_id or None,
+        credential_id=None,
+        credential_hint=None,
+        channel=Channel.JOB,
+        ip=None,
+        user_agent=None,
+        request_id=request_id or None,
+        job_id=job_id or None,
+    )
+
+
 def bind_job_provenance(
     session,
     *,
@@ -185,17 +205,21 @@ def bind_job_provenance(
     request_id: Optional[str],
 ) -> None:
     """Attribute a job's writes to the system, on behalf of the user who started it."""
-    session.info[_PROVENANCE_KEY] = RequestProvenance(
-        actor_type=ActorType.SYSTEM,
-        actor_id=user_id,
-        credential_id=None,
-        credential_hint=None,
-        channel=Channel.JOB,
-        ip=None,
-        user_agent=None,
-        request_id=request_id,
-        job_id=job_id,
+    session.info[_PROVENANCE_KEY] = job_provenance(
+        user_id=user_id, job_id=job_id, request_id=request_id
     )
+
+
+def bind_task_provenance(provenance: RequestProvenance):
+    """Make ``provenance`` the fallback for sessions a Celery task opens itself.
+
+    Returns a token for :func:`reset_task_provenance`.
+    """
+    return _current_job.set(provenance)
+
+
+def reset_task_provenance(token) -> None:
+    _current_job.reset(token)
 
 
 def provenance_of(session) -> Optional[RequestProvenance]:
@@ -204,7 +228,9 @@ def provenance_of(session) -> Optional[RequestProvenance]:
     if bound is not None:
         return bound
     request = session.info.get(_REQUEST_KEY)
-    return resolve_provenance(request) if request is not None else None
+    if request is not None:
+        return resolve_provenance(request)
+    return _current_job.get()
 
 
 class ProvenanceMiddleware:
