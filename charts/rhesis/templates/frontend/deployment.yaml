@@ -22,6 +22,8 @@ spec:
       labels:
         app: frontend
         tier: frontend
+      annotations:
+        checksum/config: {{ include "rhesis.configChecksum" . }}
     spec:
       {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.frontend) | nindent 6 }}
       containers:

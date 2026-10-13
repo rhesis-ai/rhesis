@@ -22,6 +22,8 @@ spec:
       labels:
         app: backend
         tier: backend
+      annotations:
+        checksum/config: {{ include "rhesis.configChecksum" . }}
     spec:
       {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.backend) | nindent 6 }}
       containers:

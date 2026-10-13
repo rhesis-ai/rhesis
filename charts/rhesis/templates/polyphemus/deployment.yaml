@@ -22,6 +22,8 @@ spec:
       labels:
         app: polyphemus
         tier: polyphemus
+      annotations:
+        checksum/config: {{ include "rhesis.configChecksum" . }}
     spec:
       {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.polyphemus) | nindent 6 }}
       containers:

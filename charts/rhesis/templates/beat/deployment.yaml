@@ -28,6 +28,8 @@ spec:
       labels:
         app: celery-beat
         tier: beat
+      annotations:
+        checksum/config: {{ include "rhesis.configChecksum" . }}
     spec:
       {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.beat) | nindent 6 }}
       containers:

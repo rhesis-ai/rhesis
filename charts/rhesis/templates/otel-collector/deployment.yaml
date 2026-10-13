@@ -20,6 +20,8 @@ spec:
       labels:
         app: otel-collector
         tier: otel-collector
+      annotations:
+        checksum/config: {{ include "rhesis.configChecksum" . }}
     spec:
       {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.otelCollector) | nindent 6 }}
       containers:
