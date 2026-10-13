@@ -745,7 +745,8 @@ List audit log entries, newest first. Each carries `occurred_at`, `action`
 ---
 
 ### `get_audit_event`
-Get one audit log entry by id, with every field.
+Get one audit log entry by id, with every field, and the values of content fields when the
+organization records content.
 
 **Key parameters:** `event_id` (required)
 

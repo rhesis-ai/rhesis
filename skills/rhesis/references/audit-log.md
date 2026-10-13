@@ -29,12 +29,14 @@ changes.
 | `changes` | One item per field: `field`, `kind`, `before`, `after` |
 | `trace_id` | Entries with the same value came from the same request |
 
-A field of kind `secret` (API keys, auth tokens) or `content` (prompts, responses, comments) shows
-that it changed but never carries its values. A job that created many rows writes one entry whose
-`changes` is `{count, ids}`.
+A field of kind `secret` (API keys, auth tokens) shows that it changed but never carries its values.
+A field of kind `content` (prompts, responses, comments) does the same in the list. When the
+organization records content, `get_audit_event` returns its before and after in `content_changes`.
+A job that created many rows writes one entry whose `changes` is `{count, ids}`.
 
-The log holds only what happened while the organization had it. An empty result for an older
-period does not prove nothing changed then.
+The log holds only what happened while the organization had it, and only within its retention
+window (one year unless an admin changed it). An empty result for an older period does not prove
+nothing changed then.
 
 ## Finding the right entries
 
@@ -69,6 +71,7 @@ Combine conditions with `and`. Results come newest first, one page at a time. Wh
   `before → after`.
 - Report only the entries the tool returned. Never describe a change that is not in the response.
   No entries is the answer, so say that nothing in the audit log matched.
-- For a `secret` or `content` field, say it changed and that the value is not recorded. Do not look
-  for the value anywhere else.
+- For a `secret` field, say it changed and that the value is not recorded. For a `content` field,
+  give the values from `content_changes` when `get_audit_event` returned them; otherwise say the
+  value is not recorded. Do not look for a value anywhere else.
 - Do not guess why someone made a change. The log says what happened, not why.
