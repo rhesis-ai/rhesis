@@ -48,6 +48,8 @@ from rhesis.backend.ee.audit.schemas import (
 from rhesis.backend.ee.audit.self_audit import record_view
 from rhesis.backend.events.audit_actions import known_actions
 
+FILE_GONE = "Export file no longer exists"
+
 router = APIRouter(
     prefix="/audit-events",
     tags=["audit-log"],
@@ -181,6 +183,8 @@ def download_audit_export(
         raise HTTPException(status_code=404, detail="Export not found") from e
     except audit_export.ExportNotReady as e:
         raise HTTPException(status_code=409, detail=f"Export is {e}, not completed") from e
+    except audit_export.ExportGone as e:
+        raise HTTPException(status_code=404, detail=FILE_GONE) from e
 
     storage = StorageService()
     disposition = f'attachment; filename="{export.filename}"'
@@ -191,7 +195,7 @@ def download_audit_export(
     except NotSupportedError:
         url = None
     if url is None and not storage.object_exists(export.path):
-        raise HTTPException(status_code=404, detail="Export file no longer exists")
+        raise HTTPException(status_code=404, detail=FILE_GONE)
     audit_export.record_download(db, organization_id, job_id, export)
     if url is not None:
         return RedirectResponse(url=url, status_code=302)

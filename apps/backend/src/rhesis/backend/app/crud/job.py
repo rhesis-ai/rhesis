@@ -1,6 +1,6 @@
 """CRUD operations for background jobs and their activity log.
 
-Reads only, plus the cancel-request write. Jobs are created by
+Reads, the cancel-request write, and markers set on finished jobs. Jobs are created by
 ``rhesis.backend.jobs.launch_job`` and advanced by ``BaseJob``'s lifecycle
 hooks, not through here -- there is no create/update endpoint to back, and the
 row is a record of what happened rather than something a user edits.
@@ -11,13 +11,17 @@ unlike its predecessor it covers every job type rather than only test runs.
 """
 
 import logging
+from datetime import datetime
 from typing import List, Optional
+from uuid import UUID
 
+from sqlalchemy import func, or_, type_coerce
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models
 from rhesis.backend.app.models.enums import JobStatus
-from rhesis.backend.app.utils.crud_utils import get_item_detail, get_items_detail
+from rhesis.backend.app.utils.crud_utils import bulk_update, get_item_detail, get_items_detail
 from rhesis.backend.app.utils.query_utils import include
 
 logger = logging.getLogger(__name__)
@@ -109,6 +113,46 @@ def get_job_activity(
     if after_sequence is not None:
         query = query.filter(models.ActivityLog.sequence > after_sequence)
     return query.limit(limit).all()
+
+
+def get_finished_jobs_without_marker(
+    db: Session,
+    organization_id,
+    job_type: str,
+    finished_before: datetime,
+    marker: str,
+    limit: int,
+) -> List[models.Job]:
+    """The org's ``job_type`` jobs that finished before ``finished_before`` and whose
+    ``job_metadata`` has no ``marker`` key, oldest first."""
+    return (
+        db.query(models.Job)
+        .filter(
+            models.Job.organization_id == organization_id,
+            models.Job.job_type == job_type,
+            models.Job.finished_at < finished_before,
+            or_(models.Job.job_metadata.is_(None), ~models.Job.job_metadata.has_key(marker)),
+        )
+        .order_by(models.Job.finished_at, models.Job.id)
+        .limit(limit)
+        .all()
+    )
+
+
+def mark_jobs(db: Session, organization_id, job_ids: List[UUID], marker: str, value) -> List[UUID]:
+    """Set ``job_metadata[marker] = value`` on the org's ``job_ids``, in one statement."""
+    if not job_ids:
+        return []
+    merged = func.coalesce(models.Job.job_metadata, type_coerce({}, JSONB)).op("||")(
+        type_coerce({marker: value}, JSONB)
+    )
+    return bulk_update(
+        db,
+        models.Job,
+        [models.Job.organization_id == organization_id, models.Job.id.in_(job_ids)],
+        {models.Job.job_metadata: merged},
+        synchronize_session=False,
+    )
 
 
 def request_cancel(db: Session, job: models.Job) -> models.Job:

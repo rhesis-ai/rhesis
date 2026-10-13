@@ -12,11 +12,15 @@ _sink_registered = False
 
 
 def register_audit() -> None:
-    """Register the feature and its sink. Idempotent.
+    """Register the feature, its sink and the export cleanup. Idempotent.
 
     Called from ``bootstrap_providers()``, which both the API process and the
     Celery workers run, so changes a job makes are recorded too.
     """
+    # Here, not at the top: the export package imports this one.
+    from rhesis.backend.app.services.audit_retention import register_export_cleanup
+    from rhesis.backend.ee.audit.export.cleanup import delete_expired_exports
+
     global _sink_registered
     FeatureRegistry.register(
         Feature(
@@ -28,3 +32,4 @@ def register_audit() -> None:
     if not _sink_registered:
         register_sink(AuditSink())
         _sink_registered = True
+    register_export_cleanup(delete_expired_exports)

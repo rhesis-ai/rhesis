@@ -384,6 +384,14 @@ class StorageService:
     def object_exists(self, path: str) -> bool:
         return self.fs.exists(self._full_path(path))
 
+    def remove_object(self, path: str) -> bool:
+        """Delete ``path``, synchronously. False when it was already gone; other errors raise."""
+        try:
+            self.fs.rm(self._full_path(path))
+        except FileNotFoundError:
+            return False
+        return True
+
     async def put_object_bytes_async(
         self,
         content: bytes,
