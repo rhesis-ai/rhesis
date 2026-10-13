@@ -7,7 +7,6 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    event,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
@@ -116,25 +115,12 @@ class Organization(Base, TagsMixin):
         """
         Centralized access to organization settings.
 
-        The manager instance is cached for the lifetime of the Organization
-        object, and updates made through it are persisted automatically.
+        Updates made through the manager are persisted automatically.
 
         Usage:
             colour = organization.settings.branding.primary_color
             organization.settings.update({"branding": {"product_name": "Acme"}})
         """
-        # Cache the manager so repeated access does not build a new one each
-        # time, and pass self so updates write straight back to the column.
-        if not hasattr(self, "_settings_cache") or self._settings_cache is None:
-            self._settings_cache = OrganizationSettingsManager(
-                self.organization_settings, organization_instance=self
-            )
-        return self._settings_cache
-
-
-# Event listener to invalidate the settings cache when organization_settings is modified
-@event.listens_for(Organization.organization_settings, "set", propagate=True)
-def _invalidate_organization_settings_cache(target, value, oldvalue, initiator):
-    """Invalidate the cached settings manager when organization_settings changes."""
-    if hasattr(target, "_settings_cache"):
-        target._settings_cache = None
+        # Built per access, not cached on self: the manager points back at the org, so a
+        # cached one is a cycle that recurses whenever a row holding the org is serialized.
+        return OrganizationSettingsManager(self.organization_settings, organization_instance=self)
