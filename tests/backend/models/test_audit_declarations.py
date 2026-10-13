@@ -12,6 +12,7 @@ from sqlalchemy import JSON, Text
 from sqlalchemy.types import TypeDecorator
 
 import rhesis.backend.ee.api_clients.clients  # maps auth_client
+import rhesis.backend.ee.audit.streaming.models  # maps audit_destination
 import rhesis.backend.ee.rbac.models  # noqa: F401  (maps role, role_permission, ...)
 from rhesis.backend.app.models.audit_capture import audit_policy_of, plans
 from rhesis.backend.app.models.audit_policy import AuditLink, AuditPolicy

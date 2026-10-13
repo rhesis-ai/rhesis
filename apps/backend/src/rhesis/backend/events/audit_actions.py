@@ -40,6 +40,10 @@ MANAGE_VERBS: tuple[str, ...] = ("create", "update", "delete")
 AUDIT_ONLY_ACTIONS: frozenset[str] = frozenset(
     {
         "audit_log.purged",
+        # Streaming destinations (ee/audit/streaming), which have no capability of their own.
+        "audit_destination.created",
+        "audit_destination.deleted",
+        "audit_destination.updated",
         # Superuser only; no capability grants it.
         "organization.deleted",
         "password.changed",
