@@ -65,11 +65,17 @@ describe('actionLabel', () => {
     expect(actionLabel('test_set.executed', 'denied')).toBe(
       'Test Set execute denied'
     );
+    expect(actionLabel('test_set.viewed', 'denied')).toBe(
+      'Test Set view denied'
+    );
   });
 
   it('names the audit-only sign-in actions by hand', () => {
     expect(actionLabel('session.signed_in')).toBe('Signed in');
     expect(actionLabel('session.signed_in', 'failure')).toBe('Sign-in failed');
+    expect(actionLabel('session.refreshed', 'failure')).toBe(
+      'Session refresh failed'
+    );
     expect(actionLabel('token.exchanged', 'failure')).toBe(
       'Token exchange failed'
     );
