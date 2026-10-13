@@ -134,8 +134,7 @@ module "vertex_ai_prd" {
 module "text_moderation_prd" {
   source = "../../modules/text-moderation/gcp"
 
-  project_id  = var.project_id
-  environment = "prd"
+  project_id = var.project_id
 }
 
 module "external_dns_prd" {

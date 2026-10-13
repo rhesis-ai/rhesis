@@ -14,7 +14,13 @@ model, so self-hosted installs don't need any of this.
 ## Key runbook
 
 Terraform does not create the key, because `google_apikeys_key` would put it in state.
-Run once per environment after the Terraform is applied, in the order dev, stg, prd.
+Run once per environment, in the order dev, stg, prd.
+
+**Publish the key before the cluster's ExternalSecret lists it.** External Secrets fails the
+whole `rhesis-app-secrets` sync when one `remoteRef` is missing, so no other secret change
+reaches that cluster until the key exists. The key only needs `apikeys.googleapis.com` to be
+created, and `language.googleapis.com` to be called; enable both first if the Terraform has
+not been applied yet.
 
 ```bash
 ENV=dev

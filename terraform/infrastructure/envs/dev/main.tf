@@ -113,8 +113,7 @@ module "vertex_ai_dev" {
 module "text_moderation_dev" {
   source = "../../modules/text-moderation/gcp"
 
-  project_id  = var.project_id
-  environment = "dev"
+  project_id = var.project_id
 }
 
 module "external_dns_dev" {

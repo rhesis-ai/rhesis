@@ -112,8 +112,7 @@ module "vertex_ai_stg" {
 module "text_moderation_stg" {
   source = "../../modules/text-moderation/gcp"
 
-  project_id  = var.project_id
-  environment = "stg"
+  project_id = var.project_id
 }
 
 module "external_dns_stg" {
