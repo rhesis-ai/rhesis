@@ -126,6 +126,28 @@ describe('AuditExportsSection', () => {
     ).toHaveAttribute('href', '/jobs/j2');
   });
 
+  it('offers no download once the file has been cleaned up', async () => {
+    mockGetJobs.mockResolvedValue({
+      data: [
+        job({
+          job_metadata: {
+            format: 'csv',
+            filter: null,
+            file_deleted_at: '2026-10-20T05:00:00Z',
+          },
+        }),
+      ],
+    });
+    render(<AuditExportsSection />);
+
+    await screen.findByText('CSV');
+    const row = rowOf('CSV');
+    expect(
+      within(row).queryByRole('link', { name: /Download/ })
+    ).not.toBeInTheDocument();
+    expect(within(row).getByRole('button', { name: 'Expired' })).toBeDisabled();
+  });
+
   it('exports the whole log in the chosen format', async () => {
     mockCreateExport.mockResolvedValue({
       job_id: 'j3',
