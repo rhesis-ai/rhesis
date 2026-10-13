@@ -155,10 +155,11 @@ def send_test_event(destination: AuditDestination) -> Optional[str]:
 
 
 def event_payload(row) -> dict:
-    """An event exactly as the read API returns it.
+    """An event exactly as ``GET /audit-events`` lists it.
 
-    PR 9's org settings (IP masking, content opt-in) apply here once the read
-    API applies them; both must go through the same serializer.
+    The IP is already masked when the org masks IPs (the sink stores it that way).
+    Content values are never streamed, even when the org records them: they stay
+    behind ``GET /audit-events/{id}``.
     """
     return AuditEventRead.model_validate(row).model_dump(mode="json")
 

@@ -115,7 +115,7 @@ class TestDelivery:
             _run(test_db, org_id, destination)
         assert received == []
 
-    def test_sends_events_exactly_as_the_read_api_returns_them(self, client, test_db, admin):
+    def test_sends_events_exactly_as_the_read_api_lists_them(self, client, test_db, admin):
         org_id, token = admin
         destination = _destination(test_db, org_id)
         (event_id,) = _events(test_db, org_id, 1)
@@ -124,8 +124,9 @@ class TestDelivery:
             _run(test_db, org_id, destination)
 
         with _ee(), patch("rhesis.backend.ee.audit.router.record_view"):
-            read = client.get(f"/audit-events/{event_id}", headers=_auth(token)).json()
-        assert json.loads(received[0].content)["data"] == [read]
+            listed = client.get("/audit-events/", headers=_auth(token)).json()
+        assert json.loads(received[0].content)["data"] == [e for e in listed if e["id"] == event_id]
+        assert "content_changes" not in json.loads(received[0].content)["data"][0]
 
     def test_failure_keeps_the_cursor_and_retries_the_same_events(self, test_db, admin):
         org_id, _ = admin
