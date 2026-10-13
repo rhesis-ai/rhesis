@@ -13,25 +13,6 @@ from sqlalchemy.orm import Session
 from rhesis.backend.ee.audit.models import AuditEvent
 from rhesis.backend.ee.audit.streaming.models import AuditDestination
 
-# Rows recorded before this are committed or never will be. Read in its own statement, before
-# the events are, so a transaction that commits in between is already visible to that read.
-# - The oldest open writing transaction's start: its audit rows are not visible yet, and every
-#   one of them has a later recorded_at. pg_stat_activity shows the xact_start of sessions of
-#   the same database role only; the app and workers share one.
-# - The lag covers the instant between an insert stamping recorded_at and its transaction
-#   getting an id, and writers under other roles.
-_SAFE_BOUND = sa.text(
-    """
-    SELECT LEAST(
-        clock_timestamp() - make_interval(secs => CAST(:lag AS double precision)),
-        (SELECT min(xact_start) FROM pg_stat_activity
-         WHERE datname = current_database()
-           AND pid <> pg_backend_pid()
-           AND backend_xid IS NOT NULL)
-    )
-    """
-)
-
 
 def list_destinations(db: Session) -> list[AuditDestination]:
     return list(db.scalars(select(AuditDestination).order_by(AuditDestination.created_at)))
@@ -83,12 +64,6 @@ def lock_due_destination(db: Session, destination_id: UUID) -> Optional[AuditDes
     ).first()
 
 
-def safe_bound(db: Session, lag_seconds: float) -> datetime:
-    # pg_stat_activity is cached for the rest of a transaction once read; read it fresh.
-    db.execute(sa.text("SELECT pg_stat_clear_snapshot()"))
-    return db.execute(_SAFE_BOUND, {"lag": lag_seconds}).scalar_one()
-
-
 def events_after(
     db: Session,
     organization_id: UUID,
@@ -98,9 +73,9 @@ def events_after(
 ) -> list[AuditEvent]:
     """The org's next events after ``cursor`` on ``(recorded_at, id)``, recorded before ``before``.
 
-    No index covers this yet: the BRIN on ``recorded_at`` narrows it, and the
-    rows after a cursor are few. Add ``(organization_id, recorded_at, id)`` if
-    measurements say so.
+    No btree covers this yet: the plain ``recorded_at >=`` lets the BRIN narrow
+    it (it can't use the row comparison), and the rows after a cursor are few.
+    Add ``(organization_id, recorded_at, id)`` if measurements say so.
     """
     key = tuple_(AuditEvent.recorded_at, AuditEvent.id)
     return list(
@@ -109,6 +84,7 @@ def events_after(
             .where(
                 AuditEvent.organization_id == organization_id,
                 key > tuple_(*cursor),
+                AuditEvent.recorded_at >= cursor[0],
                 AuditEvent.recorded_at < before,
             )
             .order_by(AuditEvent.recorded_at, AuditEvent.id)

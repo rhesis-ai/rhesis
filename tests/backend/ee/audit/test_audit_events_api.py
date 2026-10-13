@@ -52,6 +52,12 @@ def _audit_log_registered():
 
 
 @pytest.fixture(autouse=True)
+def _no_lag(monkeypatch):
+    # Rows inserted by a test are seconds old at most; the lag has its own test.
+    monkeypatch.setattr(audit_crud, "SAFE_LAG_SECONDS", 0.0)
+
+
+@pytest.fixture(autouse=True)
 def _no_self_audit():
     # Each read would add its own audit_log.viewed row to the lists checked here;
     # test_audit_self_audit.py covers those rows.
@@ -195,12 +201,16 @@ class TestList:
         assert _get(client, token, sort_by="nope").status_code == status.HTTP_400_BAD_REQUEST
 
 
+def _tail(client, token, **params):
+    return _get(client, token, sort_by=audit_crud.CURSOR_SORT_FIELD, **params)
+
+
 class TestCursor:
-    def test_walks_every_row_once_including_ties(self, client, test_db, admin):
+    def test_walks_every_row_once(self, client, test_db, admin):
         org_id, token, ids = admin
-        tied = [_insert(test_db, org_id, "endpoint.updated", T0 + timedelta(days=1))]
-        test_db.flush()
-        expected = {str(i) for i in ids + tied}
+        # Happened earliest, recorded last: the walk follows recorded_at.
+        late = _insert(test_db, org_id, "endpoint.updated", T0 - timedelta(days=1))
+        recorded = [str(i) for i in ids + [late]]
 
         for order in ("desc", "asc"):
             seen, cursor = [], None
@@ -208,33 +218,82 @@ class TestCursor:
                 params = {"limit": 2, "sort_order": order}
                 if cursor:
                     params["cursor"] = cursor
-                page = _get(client, token, **params).json()
+                page = _tail(client, token, **params).json()
                 if not page:
                     break
                 seen += [e["id"] for e in page]
                 cursor = page[-1]["id"]
-            assert len(seen) == len(expected) and set(seen) == expected, order
-            times = [
-                e["occurred_at"] for e in _get(client, token, limit=100, sort_order=order).json()
-            ]
-            assert times == sorted(times, reverse=order == "desc")
+            assert seen == (recorded if order == "asc" else recorded[::-1]), order
 
     def test_cursor_matches_offset_paging(self, client, admin):
         _, token, _ = admin
-        first = _get(client, token, limit=2).json()
-        by_cursor = _get(client, token, limit=2, cursor=first[-1]["id"]).json()
-        by_offset = _get(client, token, limit=2, skip=2).json()
-        assert by_cursor == by_offset
+        for order in ("desc", "asc"):
+            first = _tail(client, token, limit=2, sort_order=order).json()
+            by_cursor = _tail(
+                client, token, limit=2, sort_order=order, cursor=first[-1]["id"]
+            ).json()
+            by_offset = _tail(client, token, limit=2, sort_order=order, skip=2).json()
+            assert by_cursor == by_offset, order
 
-    def test_needs_occurred_at_order(self, client, admin):
+    @pytest.mark.parametrize("sort_by", [None, "occurred_at", "action"])
+    def test_needs_recorded_at_order(self, client, admin, sort_by):
         _, token, ids = admin
-        resp = _get(client, token, cursor=str(ids[0]), sort_by="action")
+        params = {"cursor": str(ids[0])}
+        if sort_by:
+            params["sort_by"] = sort_by
+        resp = _get(client, token, **params)
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert resp.json()["detail"] == "cursor needs sort_by=recorded_at"
 
     def test_unknown_cursor(self, client, admin):
         _, token, _ = admin
-        resp = _get(client, token, cursor=str(uuid.uuid4()))
+        resp = _tail(client, token, cursor=str(uuid.uuid4()))
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
+        assert resp.json()["detail"] == "Unknown cursor"
+
+
+class TestTailBound:
+    def test_lag_holds_back_recent_rows_only_when_tailing(self, client, admin, monkeypatch):
+        monkeypatch.setattr(audit_crud, "SAFE_LAG_SECONDS", 3600.0)
+        _, token, ids = admin
+        assert _tail(client, token, sort_order="asc").json() == []
+        newest = _tail(client, token, sort_order="desc").json()
+        assert [e["id"] for e in newest] == [str(i) for i in reversed(ids)]
+
+    def test_open_transaction_holds_back_rows_recorded_after_it_began(self, client, test_db, admin):
+        """A row recorded earlier but committed later is never skipped by the cursor."""
+        org_id, token, ids = admin
+        cursor = str(ids[-1])
+        engine = test_db.get_bind().engine
+
+        with engine.connect() as other:
+            other.execute(
+                text("SELECT set_config('app.current_organization', :org, true)"),
+                {"org": str(org_id)},
+            )
+            early = _insert_on(other, org_id)
+            late = _insert(test_db, org_id, "endpoint.updated", T0)
+
+            page = _tail(client, token, sort_order="asc", cursor=cursor).json()
+            assert page == [], "the open transaction's start bounds what is safe to read"
+
+            other.commit()
+
+        page = _tail(client, token, sort_order="asc", cursor=cursor).json()
+        assert [e["id"] for e in page] == [str(early), str(late)]
+
+
+def _insert_on(conn, org_id):
+    # Committed for real: audit_event is append-only, so the row stays in the worker DB.
+    return conn.execute(
+        text(
+            "INSERT INTO audit_event (organization_id, occurred_at, action, outcome, "
+            "actor_type, channel, trace_id, span_id, changes) "
+            "VALUES (CAST(:org AS uuid), now(), 'endpoint.created', 'success', 'user', "
+            "'web', 't-late', 's1', CAST('[]' AS jsonb)) RETURNING id"
+        ),
+        {"org": str(org_id)},
+    ).scalar_one()
 
 
 class TestDetail:
@@ -260,7 +319,7 @@ class TestTenantIsolation:
         listed = {e["id"] for e in _get(client, token, limit=100).json()}
         assert listed == {str(i) for i in ids}
         assert _get(client, token, f"{URL}{foreign}").status_code == status.HTTP_404_NOT_FOUND
-        resp = _get(client, token, cursor=str(foreign))
+        resp = _tail(client, token, cursor=str(foreign))
         assert resp.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_rls_hides_rows_even_when_asked_for_another_org(self, test_db, admin):
