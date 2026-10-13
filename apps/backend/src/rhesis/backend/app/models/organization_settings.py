@@ -76,6 +76,11 @@ class OrganizationSettingsManager:
         """Access how figures are shown across the organization."""
         return DisplaySettingsAccessor(self._data.get("display") or {})
 
+    @property
+    def audit_log(self) -> "AuditLogSettingsAccessor":
+        """Audit log retention and privacy, written by the EE audit settings endpoint."""
+        return AuditLogSettingsAccessor(self._data.get("audit_log") or {})
+
     def update(self, updates: dict) -> dict:
         """
         Deep merge updates into settings.
@@ -175,3 +180,30 @@ class DisplaySettingsAccessor:
         fall back to the currency costs are stored in.
         """
         return self._data.get("currency")
+
+
+class AuditLogSettingsAccessor:
+    """Audit log preferences, with their defaults for keys never set."""
+
+    DEFAULT_RETENTION_DAYS = 365
+
+    def __init__(self, audit_log_settings: dict):
+        self._data = audit_log_settings
+
+    @property
+    def retention_days(self) -> int:
+        """The window the org chose, before the plan's cap."""
+        return self._data.get("retention_days") or self.DEFAULT_RETENTION_DAYS
+
+    @property
+    def mask_ip(self) -> bool:
+        return self._data.get("mask_ip", True)
+
+    @property
+    def include_content(self) -> bool:
+        return self._data.get("include_content", False)
+
+    @property
+    def retention_days_at_deletion(self) -> Optional[int]:
+        """The effective window when the org was deleted; the purge keeps using it."""
+        return self._data.get("retention_days_at_deletion")

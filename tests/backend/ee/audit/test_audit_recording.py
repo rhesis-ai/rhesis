@@ -98,7 +98,7 @@ class TestChangesByAPerson:
         assert str(row["actor_id"]) == authenticated_user_id
         assert row["actor_label"]
         assert row["channel"] == "web"
-        assert str(row["ip"]) == "203.0.113.7"
+        assert str(row["ip"]) == "203.0.113.0"  # mask IP is on by default
         assert row["resource_id"] == test_set.id
         assert row["resource_label"] == "Audit set"
         assert {"field": "name", "kind": "value", "before": None, "after": "Audit set"} in (

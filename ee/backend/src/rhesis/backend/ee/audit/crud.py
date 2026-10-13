@@ -18,6 +18,7 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.utils.encryption import EncryptedString
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.ee.audit.models import AuditEvent
 
@@ -44,7 +45,7 @@ audit_event = sa.table(
     sa.column("span_id", sa.Text),
     sa.column("job_id", PG_UUID(as_uuid=True)),
     sa.column("changes", JSONB),
-    sa.column("content_changes", sa.Text),
+    sa.column("content_changes", EncryptedString()),
 )
 
 _CURRENT_ORG = sa.text("SELECT current_setting('app.current_organization', true)")

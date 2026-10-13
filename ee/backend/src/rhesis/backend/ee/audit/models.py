@@ -6,7 +6,7 @@ everything that walks ``Base.registry`` would pick the table up (the recycle
 bin's soft delete and restore, ``/resolve``, the tenant auto-filter, and
 ``metadata.create_all``). The table is append-only at the database anyway.
 
-``content_changes`` is not mapped: it is ciphertext and nothing reads it yet.
+``content_changes`` is deferred: only the detail route loads (and so decrypts) it.
 """
 
 from __future__ import annotations
@@ -18,6 +18,8 @@ from typing import Any, Optional
 from sqlalchemy import Integer, Text
 from sqlalchemy.dialects.postgresql import INET, JSONB, TIMESTAMP, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from rhesis.backend.app.utils.encryption import EncryptedString
 
 
 class AuditBase(DeclarativeBase):
@@ -50,3 +52,4 @@ class AuditEvent(AuditBase):
     span_id: Mapped[str] = mapped_column(Text)
     job_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True))
     changes: Mapped[Any] = mapped_column(JSONB)
+    content_changes: Mapped[Optional[str]] = mapped_column(EncryptedString(), deferred=True)
