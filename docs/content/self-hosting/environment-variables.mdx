@@ -168,6 +168,14 @@ Provider keys, read at runtime when a `DEFAULT_*_MODEL` targets that provider:
 | `GEMINI_API_KEY`, `GOOGLE_API_KEY` | Google Gemini |
 | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT_NAME`, `AZURE_OPENAI_API_VERSION` | Azure OpenAI |
 
+Toxicity detection ([`PerspectiveToxicity`](/sdk/metrics/single-turn)) is scored by the evaluation model
+unless a Google Cloud Natural Language key is set:
+
+| Variable | Description | Default |
+|---|---|---|
+| `GOOGLE_MODERATION_API_KEY` | API key for Natural Language text moderation | *(unset)* |
+| `GOOGLE_MODERATION_ENDPOINT` | Natural Language endpoint, which sets where the text is processed | `eu-language.googleapis.com` |
+
 Supported model-provider prefixes: `openai`, `gemini`, `azure`, `anthropic`, `groq`, `mistral`,
 `together_ai`, `perplexity`, `replicate`, `openrouter`, `cohere`, `ollama`. Supported embedding prefixes:
 `rhesis`, `openai`, `gemini`, `vertex_ai`.
@@ -318,7 +326,6 @@ The empty-state pair exists for each of `TESTS`, `PROJECTS`, `TEST_SETS`, `TEST_
 | `AUTH_SECRET`, `DATABASE_URL` | Hosted frontend auth secret and direct database URL |
 | `VERTEX_AI_LOCATION`, `VERTEX_AI_PROJECT`, `GOOGLE_APPLICATION_CREDENTIALS` | Vertex AI / GCP model access |
 | `CHATBOT_API_KEY` | Hosted third-party API key |
-| `GOOGLE_MODERATION_API_KEY`, `GOOGLE_MODERATION_ENDPOINT` | Google Cloud Natural Language key for toxicity detection, and its endpoint (default `eu-language.googleapis.com`). Optional: without a key, toxicity is scored by the judge model |
 | `DEFAULT_POLYPHEMUS_URL` | Internal Rhesis access-review service |
 | `SKIP_MIGRATIONS` | Hosted runs migrations as a separate job |
 | `RHESIS_CONNECTOR_DISABLED`, `RHESIS_PROJECT_ID` | SDK connector settings |

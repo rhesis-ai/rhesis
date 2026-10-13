@@ -12,7 +12,7 @@ import httpx
 
 DEFAULT_ENDPOINT = "eu-language.googleapis.com"
 
-# moderateText category -> the Perspective attribute name the benchmark plots used.
+# moderateText category -> attribute name, kept as Perspective's where one matches.
 # moderateText has no SEVERE_TOXICITY, and Violent only partly covers THREAT.
 CATEGORY_ATTRIBUTES = {
     "Toxic": "toxicity",

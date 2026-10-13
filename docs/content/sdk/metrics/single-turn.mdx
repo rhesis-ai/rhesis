@@ -81,8 +81,8 @@ Garak is an LLM vulnerability scanner that detects security weaknesses and jailb
   `PerspectiveToxicity` keeps its name but no longer calls it. With
   `GOOGLE_MODERATION_API_KEY` set, outputs are scored by Google Cloud Natural Language
   text moderation, on the EU endpoint unless `GOOGLE_MODERATION_ENDPOINT` says otherwise.
-  Without a key, the metric's judge model scores them, at its normal token cost. Rhesis
-  Cloud provides the key. Garak's `ToxicCommentModel` is a local model that cannot be run
+  Without a key, the metric's judge model scores them, at its normal token cost, and a
+  decision model is refused because it cannot rate text. Rhesis Cloud provides the key. Garak's `ToxicCommentModel` is a local model that cannot be run
   ad hoc, so it is scored the same way.
 </Callout>
 

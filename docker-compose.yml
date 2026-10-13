@@ -64,6 +64,11 @@ x-rhesis-config: &rhesis-config
   DEFAULT_EXECUTION_MODEL: ${DEFAULT_EXECUTION_MODEL:-}
   DEFAULT_EMBEDDING_MODEL: ${DEFAULT_EMBEDDING_MODEL:-}
 
+# Optional: toxicity is scored by the evaluation model without a key.
+x-moderation-config: &moderation-config
+  GOOGLE_MODERATION_API_KEY: ${GOOGLE_MODERATION_API_KEY:-}
+  GOOGLE_MODERATION_ENDPOINT: ${GOOGLE_MODERATION_ENDPOINT:-}
+
 x-telemetry-config: &telemetry-config
   OTEL_RHESIS_TELEMETRY_ENABLED: ${OTEL_RHESIS_TELEMETRY_ENABLED:-true}  # Self-hosted: opt-out via env var
 
@@ -116,7 +121,7 @@ services:
       dockerfile: apps/backend/Dockerfile
       target: backend
     environment:
-      <<: [*common-auth, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *telemetry-config, *common-storage]
+      <<: [*common-auth, *common-smtp, *common-jwt, *common-environment, *rhesis-config, *moderation-config, *telemetry-config, *common-storage]
       # DB/Redis default to the built-in postgres/redis services above; set
       # these in your .env file to point at an external database or Redis.
       # DB_NAME keeps a literal default because migrate.sh reads $DB_NAME directly.
@@ -162,7 +167,7 @@ services:
       dockerfile: apps/backend/Dockerfile
       target: worker
     environment: &worker-environment
-      <<: [*common-auth,  *common-smtp, *common-jwt, *common-environment, *rhesis-config, *common-storage]
+      <<: [*common-auth,  *common-smtp, *common-jwt, *common-environment, *rhesis-config, *moderation-config, *common-storage]
       # DB/Redis default to the built-in postgres/redis services above; set
       # these in your .env file to point at an external database or Redis.
       # DB_NAME keeps a literal default because migrate.sh reads $DB_NAME directly.
