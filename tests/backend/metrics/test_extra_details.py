@@ -18,5 +18,11 @@ def test_keeps_cited_turns_and_the_criteria_breakdown():
     }
 
 
+def test_keeps_which_backend_scored_toxicity():
+    details = {"raw_scores": [0.9], "scoring_backend": "llm_judge"}
+
+    assert _extract_extra_details(details) == {"scoring_backend": "llm_judge"}
+
+
 def test_returns_none_when_nothing_is_worth_keeping():
     assert _extract_extra_details({"prompt": "rendered judge prompt"}) is None

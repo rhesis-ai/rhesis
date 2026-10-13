@@ -22,7 +22,8 @@ down_revision: Union[str, None] = "c5e1a8f3b902"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-DETECTOR_PATH = "garak.detectors.perspective.Toxicity"
+# Stored paths can be full or short; normalize_detector_path accepts both.
+DETECTOR_PATHS = ("garak.detectors.perspective.Toxicity", "perspective.Toxicity")
 NEW_DESCRIPTION = (
     "Detects toxic content in LLM outputs. Scores with Google Cloud Natural Language "
     "text moderation when GOOGLE_MODERATION_API_KEY is set, and with the judge model "
@@ -33,20 +34,25 @@ _UPDATE = sa.text("""
     UPDATE metric
     SET description = :description
     WHERE organization_id = CAST(:org_id AS uuid)
-      AND evaluation_prompt = :path
+      AND project_id IS NOT DISTINCT FROM CAST(:project_id AS uuid)
+      AND evaluation_prompt IN (:full_path, :short_path)
       AND description LIKE '%Perspective API%'
 """)
 
 
 def upgrade() -> None:
     conn = op.get_bind()
-    # metric has no project_id, so each org's own scope reaches all of its rows.
     for org_id, project_id in iter_tenant_scopes(conn):
-        if project_id is None:
-            conn.execute(
-                _UPDATE,
-                {"description": NEW_DESCRIPTION, "org_id": org_id, "path": DETECTOR_PATH},
-            )
+        conn.execute(
+            _UPDATE,
+            {
+                "description": NEW_DESCRIPTION,
+                "org_id": org_id,
+                "project_id": project_id,
+                "full_path": DETECTOR_PATHS[0],
+                "short_path": DETECTOR_PATHS[1],
+            },
+        )
 
 
 def downgrade() -> None:
