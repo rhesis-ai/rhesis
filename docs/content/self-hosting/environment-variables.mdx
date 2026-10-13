@@ -317,7 +317,8 @@ The empty-state pair exists for each of `TESTS`, `PROJECTS`, `TEST_SETS`, `TEST_
 |---|---|
 | `AUTH_SECRET`, `DATABASE_URL` | Hosted frontend auth secret and direct database URL |
 | `VERTEX_AI_LOCATION`, `VERTEX_AI_PROJECT`, `GOOGLE_APPLICATION_CREDENTIALS` | Vertex AI / GCP model access |
-| `PERSPECTIVE_API_KEY`, `CHATBOT_API_KEY` | Hosted third-party API keys |
+| `CHATBOT_API_KEY` | Hosted third-party API key |
+| `GOOGLE_MODERATION_API_KEY`, `GOOGLE_MODERATION_ENDPOINT` | Google Cloud Natural Language key for toxicity detection, and its endpoint (default `eu-language.googleapis.com`). Optional: without a key, toxicity is scored by the judge model |
 | `DEFAULT_POLYPHEMUS_URL` | Internal Rhesis access-review service |
 | `SKIP_MIGRATIONS` | Hosted runs migrations as a separate job |
 | `RHESIS_CONNECTOR_DISABLED`, `RHESIS_PROJECT_ID` | SDK connector settings |
