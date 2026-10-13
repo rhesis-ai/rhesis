@@ -67,12 +67,15 @@ from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.guid import GUID
 
 # Canonical built-in role names (order encodes precedence: highest first).
-BUILT_IN_ROLE_NAMES: tuple[str, ...] = ("Owner", "Admin", "Member", "Viewer", "None")
+BUILT_IN_ROLE_NAMES: tuple[str, ...] = ("Owner", "Admin", "Auditor", "Member", "Viewer", "None")
 
 # Level values for built-in roles (higher = more privileged).
 BUILT_IN_ROLE_LEVELS: dict[str, int] = {
     "Owner": 100,
     "Admin": 80,
+    # Below Admin, so an Admin can grant it and an explicit project Admin role
+    # still raises it; at or above ORG_WIDE_ACCESS_LEVEL, so it sees every project.
+    "Auditor": 70,
     "Member": 60,
     "Viewer": 40,
     "None": 0,
@@ -89,12 +92,27 @@ BUILT_IN_ROLE_DESCRIPTIONS: dict[str, str] = {
         "Manage members, roles, projects, and organization settings. "
         "Cannot delete the organization."
     ),
+    "Auditor": (
+        "Read-only access to every project, and to the audit log: view and export it. "
+        "Cannot make changes."
+    ),
     "Member": (
         "Create, edit, and run evaluations across their projects. Manage their own API tokens."
     ),
     "Viewer": ("Read-only access to project resources. Can browse but cannot make changes."),
     "None": "No access. Explicitly revoke a member while keeping them in the organization.",
 }
+
+
+#: An org role at or above this level sees every project without being enrolled
+#: in it: Owner, Admin and Auditor. Custom roles sit at 50.
+ORG_WIDE_ACCESS_LEVEL: int = BUILT_IN_ROLE_LEVELS["Auditor"]
+#: Built-in roles that only make sense org-wide: Auditor would outrank and
+#: silently replace a Member's write access in a project.
+ORG_ONLY_BUILT_IN_ROLES: frozenset[str] = frozenset({"Auditor"})
+#: The same, for paths that write with no capability check (the SDK connector):
+#: Owner and Admin, so the read-only Auditor cannot act through them.
+ORG_WIDE_ACTING_LEVEL: int = BUILT_IN_ROLE_LEVELS["Admin"]
 
 
 # Actions a **Member** may perform on any project-scoped resource.  Unlike the
@@ -155,6 +173,14 @@ def _viewer_permissions(cap_set: set[str]) -> set[str]:
     return reads
 
 
+def _auditor_permissions(cap_set: set[str]) -> set[str]:
+    """Every ``:read``, ``recycle:view`` and ``audit_log:export``: reads everything,
+    including the audit log and its settings, and changes nothing."""
+    perms = {c for c in cap_set if c.endswith(":read")}
+    perms |= {"recycle:view", "audit_log:export"} & cap_set
+    return perms
+
+
 def _member_permissions(cap_set: set[str]) -> set[str]:
     """Everything a Viewer can do, plus create/update/delete and the special
     project actions on **every** project-scoped resource.
@@ -193,6 +219,9 @@ def permissions_for_built_in_role(role_name: str, capabilities: list[str]) -> se
     - **Owner**  (level 100): all permissions.
     - **Admin**  (level 80): all except EE-only management (role:manage,
       role:read, sso:manage, api_clients:manage).
+    - **Auditor** (level 70): every :read (the audit log included), recycle:view
+      and audit_log:export. No writes. Admin ⊇ Auditor ⊇ Viewer, but Auditor
+      and Member do not nest.
     - **Member** (level 60): Viewer plus :create/:update/:delete and the special
       project actions (:execute, :generate, :import, :react) on every
       project-scoped resource.
@@ -204,6 +233,10 @@ def permissions_for_built_in_role(role_name: str, capabilities: list[str]) -> se
     The definitions nest (Owner ⊇ Admin ⊇ Member ⊇ Viewer ⊇ None) so a
     higher-level built-in role never holds fewer permissions than a lower one;
     the SP7 catalog tests assert this invariant against the live catalog.
+    Auditor is the one exception: it sits above Member by level for org-wide
+    project access, but holds no writes. Only Owner and Admin, which contain
+    it, can manage members at or above its level, so the level checks in the
+    role router stay sound.
 
     Any name not in the built-in set returns an empty set (fail-closed).
     """
@@ -218,6 +251,8 @@ def permissions_for_built_in_role(role_name: str, capabilities: list[str]) -> se
             # custom roles) remains Owner-only.
             excluded = {"role:manage", "sso:manage", "api_clients:manage"}
             return cap_set - excluded
+        case "Auditor":
+            return _auditor_permissions(cap_set)
         case "Member":
             return _member_permissions(cap_set)
         case "Viewer":
@@ -406,6 +441,9 @@ __all__ = [
     "BUILT_IN_ROLE_DESCRIPTIONS",
     "BUILT_IN_ROLE_LEVELS",
     "BUILT_IN_ROLE_NAMES",
+    "ORG_WIDE_ACCESS_LEVEL",
+    "ORG_WIDE_ACTING_LEVEL",
+    "ORG_ONLY_BUILT_IN_ROLES",
     "SCOPE_ORGANIZATION",
     "SCOPE_PROJECT",
     "OrganizationMember",

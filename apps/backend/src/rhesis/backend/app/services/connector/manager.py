@@ -1080,7 +1080,7 @@ class ConnectionManager:
         if not token_scoped:
             from rhesis.backend.app.auth.org_project_access import has_org_wide_project_access
 
-            if not has_org_wide_project_access(db, auth_user_uuid, auth_org_uuid):
+            if not has_org_wide_project_access(db, auth_user_uuid, auth_org_uuid, acting=True):
                 membership = (
                     db.query(ProjectMembership)
                     .filter_by(

@@ -3,7 +3,10 @@
 Plain data, so reading it imports nothing else.
 """
 
-INCLUDE = ["rhesis.backend.ee.audit.streaming.jobs"]
+INCLUDE = [
+    "rhesis.backend.ee.audit.export.jobs",
+    "rhesis.backend.ee.audit.streaming.jobs",
+]
 
 BEAT_SCHEDULE = {
     # Sends new audit events to each org's streaming destinations. Expires so a

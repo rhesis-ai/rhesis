@@ -27,6 +27,8 @@ class RenderedNotification:
     #: right for every renderer so far -- set it only where the count is not
     #: one per id.
     item_count: Optional[int] = None
+    #: Extra keys for Notification.payload, such as a download link.
+    payload: Optional[Dict[str, Any]] = None
 
 
 # A render function receives the Celery task instance (for self.request.kwargs /
@@ -153,6 +155,24 @@ def _render_architect_plan_completed(task, retval, error) -> Optional[RenderedNo
     )
 
 
+def _export_summary(retval) -> str:
+    rows = retval.get("rows", 0)
+    return f"{rows} event{'' if rows == 1 else 's'}, {str(retval.get('format', '')).upper()}"
+
+
+def _render_audit_export_completed(task, retval, error) -> RenderedNotification:
+    job_id = _task_headers(task).get("job_id")
+    if error:
+        return RenderedNotification(
+            title="Audit log export failed", is_failure=True, payload={"job_id": job_id}
+        )
+    return RenderedNotification(
+        title="Audit log export is ready",
+        body=_export_summary(retval),
+        payload={"job_id": job_id, "download_path": retval.get("download_path")},
+    )
+
+
 NOTIFICATION_CATALOG: Dict[str, NotificationKind] = {
     NotificationEventType.TestSet.GENERATION_COMPLETED: NotificationKind(
         event_type=NotificationEventType.TestSet.GENERATION_COMPLETED,
@@ -208,5 +228,12 @@ NOTIFICATION_CATALOG: Dict[str, NotificationKind] = {
         event_type=NotificationEventType.Account.PASSWORD_NOT_SET,
         section=NotificationSection.ACCOUNT,
         entity_type=None,
+    ),
+    NotificationEventType.AuditLog.EXPORT_COMPLETED: NotificationKind(
+        event_type=NotificationEventType.AuditLog.EXPORT_COMPLETED,
+        section=NotificationSection.JOBS,
+        # The job id rides in the payload: EntityType has no job.
+        entity_type=None,
+        render=_render_audit_export_completed,
     ),
 }

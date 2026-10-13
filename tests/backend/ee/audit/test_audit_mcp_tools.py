@@ -45,6 +45,7 @@ from tests.backend.fixtures.test_setup import create_test_organization_and_user
 pytestmark = [pytest.mark.ee, pytest.mark.integration]
 
 AUDIT_TOOLS = {"list_audit_events", "get_audit_event", "list_audit_actions"}
+EXPORT_TOOL = "create_audit_export"
 
 
 @pytest.fixture(autouse=True)
@@ -126,10 +127,19 @@ class TestToolsResolveToTheAuditRoutes:
             assert operations[name]["feature"] == FeatureName.AUDIT_LOG.value, name
             assert operations[name]["capability"] == "audit_log:read", name
 
-    def test_no_tool_reaches_the_export_or_settings_routes(self, operations):
+    def test_the_export_tool_needs_audit_log_export_and_confirmation(self, operations):
+        op = operations[EXPORT_TOOL]
+        assert (op["method"], op["path"]) == ("POST", "/audit-events/exports")
+        assert op["feature"] == FeatureName.AUDIT_LOG.value
+        assert op["capability"] == "audit_log:export"
+        config = {tc["name"]: tc for tc in load_tool_configs()}[EXPORT_TOOL]
+        assert config["requires_confirmation"] is True
+        assert config["ee"] is True
+
+    def test_no_tool_reaches_the_settings_or_download_routes(self, operations):
         audit_ops = [op for op in operations.values() if op["path"].startswith("/audit-events")]
-        assert len(audit_ops) == len(AUDIT_TOOLS)
-        assert all(op["method"] == "GET" for op in audit_ops)
+        assert len(audit_ops) == len(AUDIT_TOOLS) + 1
+        assert not [op for op in audit_ops if "settings" in op["path"] or "download" in op["path"]]
 
     def test_resource_names_the_descriptions_teach_are_real(self):
         """list_audit_actions points at these; a rename would send agents to nothing."""
@@ -149,13 +159,20 @@ class TestToolsResolveToTheAuditRoutes:
 class TestVisibility:
     def test_admin_in_an_entitled_org_sees_the_tools(self, test_db, operations):
         _org, user, _token = _member(test_db, "Admin")
-        assert AUDIT_TOOLS <= _visible(operations, user)
+        assert AUDIT_TOOLS | {EXPORT_TOOL} <= _visible(operations, user)
 
     def test_viewer_does_not(self, test_db, operations):
         _org, user, _token = _member(test_db, "Viewer")
         visible = _visible(operations, user)
         assert "list_metrics" in visible
-        assert not AUDIT_TOOLS & visible
+        assert not (AUDIT_TOOLS | {EXPORT_TOOL}) & visible
+
+    def test_auditor_sees_them_and_the_export_but_no_writes(self, test_db, operations):
+        _org, user, _token = _member(test_db, "Auditor")
+        visible = _visible(operations, user)
+        assert AUDIT_TOOLS | {EXPORT_TOOL} <= visible
+        assert "list_metrics" in visible
+        assert "create_metric" not in visible
 
     def test_admin_in_an_org_without_the_audit_log_does_not(self, test_db, operations):
         _org, user, _token = _member(test_db, "Admin")

@@ -7,7 +7,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator, Iterable, Iterator, Optional
 from urllib.parse import urlparse
 
 import anyio
@@ -342,6 +342,48 @@ class StorageService:
 
         return dest_path, sha256.hexdigest()
 
+    def put_object_chunks(
+        self,
+        chunks: Iterable[bytes],
+        dest_path: str,
+    ) -> tuple:
+        """Synchronously write ``chunks`` to storage; return ``(storage_path, sha256_hex, size)``.
+
+        Synchronous sibling of :meth:`put_object_streaming`, for a sync producer
+        too large to hold in memory (a Celery job writing an export).
+        """
+        full_path = self._full_path(dest_path)
+
+        if self._protocol == "file":
+            Path(full_path).parent.mkdir(parents=True, exist_ok=True)
+
+        sha256 = hashlib.sha256()
+        size = 0
+        try:
+            with self.fs.open(full_path, "wb") as f:
+                for chunk in chunks:
+                    if chunk:
+                        f.write(chunk)
+                        sha256.update(chunk)
+                        size += len(chunk)
+        except Exception:
+            try:
+                self.fs.rm(full_path)
+            except Exception:
+                pass
+            raise
+
+        return dest_path, sha256.hexdigest(), size
+
+    def iter_object(self, path: str) -> Iterator[bytes]:
+        """Yield ``path``'s bytes in chunks, synchronously. Raises ``FileNotFoundError``."""
+        with self.fs.open(self._full_path(path), "rb") as f:
+            while chunk := f.read(CHUNK_SIZE):
+                yield chunk
+
+    def object_exists(self, path: str) -> bool:
+        return self.fs.exists(self._full_path(path))
+
     async def put_object_bytes_async(
         self,
         content: bytes,
@@ -393,13 +435,25 @@ class StorageService:
           - s3   → boto3 presigned_url (stub — raises NotSupportedError)
           - file → raises NotSupportedError (caller falls back to StreamingResponse)
         """
+        # Cloud Storage signing is synchronous; offload to threadpool
+        return await anyio.to_thread.run_sync(
+            lambda: self.presigned_url(path, expires_in, response_disposition)
+        )
+
+    def presigned_url(
+        self,
+        path: str,
+        expires_in: int = 300,
+        response_disposition: Optional[str] = None,
+    ) -> str:
+        """Synchronous :meth:`generate_presigned_url`, for code already off the event loop."""
         if self._protocol == "gcs":
-            return await self._gcs_presigned_url(path, expires_in, response_disposition)
+            return self._gcs_presigned_url(path, expires_in, response_disposition)
         if self._protocol in ("s3", "s3a"):
             raise NotSupportedError("S3 presigned URLs not yet implemented")
         raise NotSupportedError("Local filesystem does not support presigned URLs")
 
-    async def _gcs_presigned_url(
+    def _gcs_presigned_url(
         self,
         path: str,
         expires_in: int,
@@ -428,10 +482,7 @@ class StorageService:
         if response_disposition:
             kwargs["response_disposition"] = response_disposition
 
-        # Cloud Storage signing is synchronous; offload to threadpool
-        loop = asyncio.get_event_loop()
-        url = await loop.run_in_executor(None, lambda: blob.generate_signed_url(**kwargs))
-        return url
+        return blob.generate_signed_url(**kwargs)
 
     async def delete_object(self, path: str) -> bool:
         """Delete an object from storage. Returns True on success."""

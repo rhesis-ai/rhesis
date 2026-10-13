@@ -758,6 +758,20 @@ before filtering instead of guessing them.
 
 ---
 
+### `create_audit_export`
+Start a background export of audit log entries to a JSONL or CSV file. Once the job completes, the
+user downloads it from `GET /audit-events/exports/{job_id}/download`. Rows have the `list_audit_events`
+fields, never content values. Listed only for roles that may export the audit log. Requires
+confirmation.
+
+**Key parameters:** `format` (`jsonl` or `csv`), `filter` (OData, as for `list_audit_events`),
+`sort_order` (`desc` or `asc`)
+
+**CHAIN:** `list_audit_events` with the filter → `create_audit_export` → `get_job_status` with
+`task_id`
+
+---
+
 ## Inspection (get-by-id)
 
 ### `get_test_set`

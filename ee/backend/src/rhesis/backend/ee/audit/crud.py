@@ -8,6 +8,7 @@ events, so writing an audit row never captures itself. Reads use the read-only
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
@@ -77,6 +78,14 @@ def get_audit_event(db: Session, event_id: UUID, organization_id: str) -> Option
     )
 
 
+def _keyset_after(builder: QueryBuilder, key: tuple, sort_order: str) -> QueryBuilder:
+    """Rows past ``key``, an ``(occurred_at, id)`` pair, in ``sort_order``."""
+    column = tuple_(AuditEvent.occurred_at, AuditEvent.id)
+    bound = tuple_(*key)
+    past = column < bound if sort_order.lower() == "desc" else column > bound
+    return builder.with_custom_filter(lambda q: q.filter(past))
+
+
 def list_audit_events(
     db: Session,
     organization_id: str,
@@ -98,10 +107,7 @@ def list_audit_events(
         .with_odata_filter(filter)
     )
     if after is not None:
-        key = tuple_(AuditEvent.occurred_at, AuditEvent.id)
-        bound = tuple_(after.occurred_at, after.id)
-        past = key < bound if sort_order.lower() == "desc" else key > bound
-        builder = builder.with_custom_filter(lambda q: q.filter(past))
+        builder = _keyset_after(builder, (after.occurred_at, after.id), sort_order)
     return (
         builder.with_sorting(
             sort_by, sort_order, secondary_sort_by="id", secondary_sort_order=sort_order
@@ -109,3 +115,41 @@ def list_audit_events(
         .with_pagination(skip, limit)
         .all()
     )
+
+
+def _export_query(
+    db: Session, organization_id: str, filter: Optional[str], until: datetime
+) -> QueryBuilder:
+    return (
+        QueryBuilder(db, AuditEvent)
+        .with_organization_filter(organization_id)
+        .with_odata_filter(filter)
+        .with_custom_filter(lambda q: q.filter(AuditEvent.occurred_at <= until))
+    )
+
+
+def count_export_events(
+    db: Session, organization_id: str, filter: Optional[str], until: datetime
+) -> int:
+    return _export_query(db, organization_id, filter, until).count()
+
+
+def export_page(
+    db: Session,
+    organization_id: str,
+    *,
+    filter: Optional[str],
+    sort_order: str,
+    until: datetime,
+    after: Optional[tuple],
+    limit: int,
+) -> List[AuditEvent]:
+    """Up to ``limit`` events that happened by ``until``, after the ``(occurred_at, id)``
+    key ``after``. Not capped at a page of 100 like the list."""
+    builder = _export_query(db, organization_id, filter, until)
+    if after is not None:
+        builder = _keyset_after(builder, after, sort_order)
+    builder = builder.with_sorting(
+        CURSOR_SORT_FIELD, sort_order, secondary_sort_by="id", secondary_sort_order=sort_order
+    )
+    return builder.build().limit(limit).all()

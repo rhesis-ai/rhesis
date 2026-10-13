@@ -156,7 +156,8 @@ intents:
     description: >-
       Answer who changed, created or deleted something, what changed in a time
       window, or what a person, API token or the Architect did, from the audit
-      log. Not a workflow, so it never appears in the menu.
+      log, or export its entries to a file. Not a workflow, so it never appears
+      in the menu.
     # Below run_analyze, so "what changed since the last run" stays a run comparison.
     match_priority: 25
     menu: null
@@ -165,6 +166,7 @@ intents:
       - user asks what changed since a date or in a time window
       - user asks what a person, an API token or the Architect did
       - user mentions the audit log or asks who changed access or roles
+      - user asks to export or download audit log entries
     keyword_signals:
       - audit log
       - audit trail

@@ -258,6 +258,13 @@ def check_project_role_assignment(
             status_code=422,
             detail="The None role cannot be assigned at the project tier",
         )
+    from rhesis.backend.ee.rbac.models import ORG_ONLY_BUILT_IN_ROLES
+
+    if target_role.is_built_in and target_role.name in ORG_ONLY_BUILT_IN_ROLES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"The {target_role.name} role can only be assigned at the organization tier",
+        )
 
     new_perm_names = _role_permission_names_resolved(target_role, db)
     _check_escalation(new_perm_names, target_role.level, actor_permissions, actor_level)
@@ -356,9 +363,11 @@ def _member_permitted_actions(
        sets. The level check alone would let an actor holding a narrow
        custom role modify or remove someone holding an unrelated custom
        role that happens to sit at the same level but grants far more.
-       Built-in roles skip this: their permission sets form a fixed,
-       strictly-ordered chain keyed by level (``BUILT_IN_ROLE_LEVELS``), so
-       the level check alone is sufficient there. Mirrors
+       Built-in roles skip this: their permission sets form a fixed chain
+       keyed by level (``BUILT_IN_ROLE_LEVELS``), so the level check alone is
+       sufficient there. Auditor (70) does not contain Member (60), but every
+       actor at or above 70 holding ``member:manage`` is Owner or Admin, which
+       contain both. Mirrors
        ``_check_escalation`` and the frontend's ``isWithinActorAuthority``,
        which apply the same extra check on the create/grant paths.
 
