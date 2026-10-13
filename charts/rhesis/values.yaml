@@ -114,6 +114,12 @@ config:
   # limits; Rhesis cloud overrides this to true in its per-env values files.
   usageQuotasEnabled: false
 
+  # Nightly hard-delete of finished job and activity_log rows older than
+  # jobRetentionDays (03:00 UTC, run by celery beat). Off by default: deleting
+  # history is the deployment owner's call.
+  jobRetentionEnabled: false
+  jobRetentionDays: 90
+
   # AI model configuration
   azureOpenAiDeploymentName: "gpt-4o"
   azureOpenAiApiVersion: ""
