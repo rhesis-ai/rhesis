@@ -59,7 +59,8 @@ def _assert_project_membership(db: Session, project_id_str: str, user: User) -> 
             detail=f"User is not a member of project {project_id_str}",
         )
 
-    if has_org_wide_project_access(db, user.id, user.organization_id):
+    # acting: these routes write with no capability check, so read-only roles are out.
+    if has_org_wide_project_access(db, user.id, user.organization_id, acting=True):
         return
 
     membership = (

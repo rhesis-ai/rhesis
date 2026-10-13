@@ -107,6 +107,12 @@ BUILT_IN_ROLE_DESCRIPTIONS: dict[str, str] = {
 #: An org role at or above this level sees every project without being enrolled
 #: in it: Owner, Admin and Auditor. Custom roles sit at 50.
 ORG_WIDE_ACCESS_LEVEL: int = BUILT_IN_ROLE_LEVELS["Auditor"]
+#: Built-in roles that only make sense org-wide: Auditor would outrank and
+#: silently replace a Member's write access in a project.
+ORG_ONLY_BUILT_IN_ROLES: frozenset[str] = frozenset({"Auditor"})
+#: The same, for paths that write with no capability check (the SDK connector):
+#: Owner and Admin, so the read-only Auditor cannot act through them.
+ORG_WIDE_ACTING_LEVEL: int = BUILT_IN_ROLE_LEVELS["Admin"]
 
 
 # Actions a **Member** may perform on any project-scoped resource.  Unlike the
@@ -436,6 +442,8 @@ __all__ = [
     "BUILT_IN_ROLE_LEVELS",
     "BUILT_IN_ROLE_NAMES",
     "ORG_WIDE_ACCESS_LEVEL",
+    "ORG_WIDE_ACTING_LEVEL",
+    "ORG_ONLY_BUILT_IN_ROLES",
     "SCOPE_ORGANIZATION",
     "SCOPE_PROJECT",
     "OrganizationMember",

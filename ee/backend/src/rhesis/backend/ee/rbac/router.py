@@ -258,6 +258,13 @@ def check_project_role_assignment(
             status_code=422,
             detail="The None role cannot be assigned at the project tier",
         )
+    from rhesis.backend.ee.rbac.models import ORG_ONLY_BUILT_IN_ROLES
+
+    if target_role.is_built_in and target_role.name in ORG_ONLY_BUILT_IN_ROLES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"The {target_role.name} role can only be assigned at the organization tier",
+        )
 
     new_perm_names = _role_permission_names_resolved(target_role, db)
     _check_escalation(new_perm_names, target_role.level, actor_permissions, actor_level)

@@ -4,7 +4,9 @@ Determines whether a user has implicit access to *all* projects in an
 organization, bypassing the ``project_membership`` filter.  In the community
 tier this means ``organization.owner_id == user_id``.  EE extends it via
 :func:`register_org_access_checker` to also consult ``organization_member``
-roles, so org admins and owners both qualify.
+roles. ``acting=True`` asks the stricter question for paths that write
+without a capability check (the SDK connector): EE then leaves out read-only
+org-wide roles such as Auditor.
 
 The result is memoized on ``db.info`` for the life of the request (the same
 session-local cache pattern the RBAC layer uses) so repeated calls within a
@@ -22,7 +24,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-OrgAccessChecker = Callable[["Session", "UUID | str", "UUID | str"], bool]
+OrgAccessChecker = Callable[["Session", "UUID | str", "UUID | str", bool], bool]
 
 _extra_checkers: List[OrgAccessChecker] = []
 
@@ -42,24 +44,24 @@ def reset_org_access_checkers() -> None:
 
 
 def has_org_wide_project_access(
-    db: "Session", user_id: UUID | str, organization_id: UUID | str
+    db: "Session", user_id: UUID | str, organization_id: UUID | str, *, acting: bool = False
 ) -> bool:
     """Return True if *user_id* has implicit access to all projects in *organization_id*.
 
-    Community: ``organization.owner_id``.  EE: any role with level >= Admin (80).
-    Memoized on ``db.info`` for the request lifetime.
+    Community: ``organization.owner_id``.  EE: Auditor (70) and above, or Admin
+    (80) and above when ``acting``. Memoized on ``db.info`` for the request lifetime.
     """
     cache = db.info.setdefault("_org_wide_project_access_cache", {})
-    key = (str(user_id), str(organization_id))
+    key = (str(user_id), str(organization_id), acting)
     if key in cache:
         return cache[key]
 
-    result = _check(db, user_id, organization_id)
+    result = _check(db, user_id, organization_id, acting)
     cache[key] = result
     return result
 
 
-def _check(db: "Session", user_id: UUID | str, organization_id: UUID | str) -> bool:
+def _check(db: "Session", user_id: UUID | str, organization_id: UUID | str, acting: bool) -> bool:
     from rhesis.backend.app.models.organization import Organization
     from rhesis.backend.app.scope import bypass_tenant_filter
 
@@ -70,7 +72,7 @@ def _check(db: "Session", user_id: UUID | str, organization_id: UUID | str) -> b
 
     for checker in _extra_checkers:
         try:
-            if checker(db, user_id, organization_id):
+            if checker(db, user_id, organization_id, acting):
                 return True
         except Exception:
             logger.warning(

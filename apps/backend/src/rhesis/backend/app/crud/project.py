@@ -93,7 +93,7 @@ def get_projects(
 
 def _visible_projects(db: Session, organization_id: str | None, user_id: str | None):
     """QueryBuilder over the projects *user_id* may see: members see their projects,
-    org admins/owners see all. Run it inside ``bypass_tenant_filter()``."""
+    org-wide roles see all. Run it inside ``bypass_tenant_filter()``."""
     from rhesis.backend.app.models.project_membership import ProjectMembership
     from rhesis.backend.app.utils.query_utils import QueryBuilder
 
@@ -142,7 +142,7 @@ def count_projects(
     organization_id: str | None = None,
     user_id: str | None = None,
 ) -> int:
-    """Count projects visible to the given user (membership-filtered, org admins/owners see all)."""
+    """Count projects visible to the given user (membership-filtered, org-wide roles see all)."""
     from rhesis.backend.app.scope import bypass_tenant_filter
 
     with bypass_tenant_filter():
@@ -224,7 +224,7 @@ def get_my_projects(db: Session, user_id: uuid.UUID, organization_id: str) -> Li
     """Return all ACTIVE, non-deleted projects visible to the given user.
 
     Regular members see only projects they have a ``project_membership`` row for.
-    Org admins and owners see all active projects in their organization.
+    Org-wide roles (Owner, Admin, Auditor) see all active projects in their organization.
     """
     from rhesis.backend.app.models.project_membership import ProjectMembership
     from rhesis.backend.app.scope import bypass_tenant_filter

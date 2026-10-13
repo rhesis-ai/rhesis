@@ -209,8 +209,8 @@ def bootstrap(app: "FastAPI") -> None:
 
     register_org_membership_handler(assign_default_org_role)
 
-    # Extend the org-wide project access check so admins and owners in EE
-    # (role level >= 80) bypass the membership filter in CRUD and connectors.
+    # Extend the org-wide project access check so EE roles at Auditor level and
+    # above bypass the membership filter (Admin and above on the connector).
     from rhesis.backend.app.auth.org_project_access import register_org_access_checker
     from rhesis.backend.ee.rbac.owner_check import has_ee_org_wide_project_access
 
