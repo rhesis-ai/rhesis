@@ -21,7 +21,13 @@ from rhesis.backend.app.auth.rbac import enforced_capability_for_route
 from rhesis.backend.app.auth.token_utils import create_password_reset_token
 from rhesis.backend.app.crud.test_set import add_tests_to_test_set
 from rhesis.backend.app.features import FeatureName, FeatureRegistry
-from rhesis.backend.app.provenance import ActorType, Channel, RequestProvenance
+from rhesis.backend.app.provenance import (
+    ActorType,
+    Channel,
+    RequestProvenance,
+    bind_task_provenance,
+    reset_task_provenance,
+)
 from rhesis.backend.app.services import audit_events
 from rhesis.backend.app.services.audit_events import denied_action
 from rhesis.backend.app.utils.encryption import hash_password
@@ -366,21 +372,25 @@ class TestTokenExchange:
         assert row["actor_credential_id"] == "brain-prod"
 
     def test_success_is_recorded_for_the_subject_through_the_client(
-        self, test_db, test_org_id, member, monkeypatch
+        self, test_db, test_org_id, member, monkeypatch, request
     ):
         from rhesis.backend.ee.sso.token_exchange import exchange
 
         request_id = _request_id()
-        test_db.info["_provenance"] = RequestProvenance(
-            actor_type=ActorType.ANONYMOUS,
-            actor_id=None,
-            credential_id=None,
-            credential_hint=None,
-            channel=Channel.API,
-            ip=None,
-            user_agent=None,
-            request_id=request_id,
+        # The row goes on the sink's own session, which reads the ambient provenance.
+        token = bind_task_provenance(
+            RequestProvenance(
+                actor_type=ActorType.ANONYMOUS,
+                actor_id=None,
+                credential_id=None,
+                credential_hint=None,
+                channel=Channel.API,
+                ip=None,
+                user_agent=None,
+                request_id=request_id,
+            )
         )
+        request.addfinalizer(lambda: reset_task_provenance(token))
         monkeypatch.setattr(exchange, "_resolve_user", lambda *a, **kw: member)
         monkeypatch.setattr(exchange, "create_session_token", lambda *a, **kw: "jwt")
         resolved = exchange._ResolvedClient(
@@ -408,6 +418,38 @@ class TestTokenExchange:
         assert row["actor_id"] == member.id
         assert row["actor_credential_id"] == "brain-prod"
         assert row["channel"] == "api"
+
+    def test_a_failed_audit_write_does_not_block_the_exchange(
+        self, test_db, test_org_id, member, monkeypatch
+    ):
+        from rhesis.backend.ee.audit import sink
+        from rhesis.backend.ee.sso.token_exchange import exchange
+
+        def _broken(*args, **kwargs):
+            raise RuntimeError("audit store unavailable")
+
+        monkeypatch.setattr(sink, "get_db_with_tenant_variables", _broken)
+        monkeypatch.setattr(exchange, "_resolve_user", lambda *a, **kw: member)
+        monkeypatch.setattr(exchange, "create_session_token", lambda *a, **kw: "jwt")
+        resolved = exchange._ResolvedClient(
+            org=SimpleNamespace(id=uuid.UUID(test_org_id)),
+            auth_client=MagicMock(
+                client_id="brain-prod",
+                allowed_scopes=["openid"],
+                default_scope="openid",
+                token_epoch=datetime.now(timezone.utc),
+            ),
+            sso_config=SimpleNamespace(issuer_url="https://idp.example.com"),
+            org_id=test_org_id,
+            expected_subject_azp="brain",
+            expected_subject_audience="rhesis",
+        )
+
+        outcome = exchange._complete_exchange(
+            test_db, exchange_payload(), resolved, {}, None, None, deny=None
+        )
+
+        assert outcome.access_token == "jwt"
 
 
 class TestApiClientLifecycle:

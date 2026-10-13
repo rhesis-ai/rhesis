@@ -697,10 +697,6 @@ def _complete_exchange(
         project=resolved_project_id,
     )
 
-    record_token_exchange(
-        org_id, auth_client.client_id, user=user, db=db, project_id=resolved_project_id
-    )
-
     # ---- Step 11: refresh token (only when offline_access requested) -----
     refresh_token: Optional[str] = None
     refresh_expires_in: Optional[int] = None
@@ -714,6 +710,9 @@ def _complete_exchange(
         )
         db.commit()
         refresh_expires_in = REFRESH_TOKEN_EXPIRE_DAYS * 24 * 3600
+
+    # On the sink's own session: a failed audit write must not block a client's token.
+    record_token_exchange(org_id, auth_client.client_id, user=user, project_id=resolved_project_id)
 
     return _MintOutcome(
         access_token=access_token,
