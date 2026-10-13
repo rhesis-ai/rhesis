@@ -7,8 +7,8 @@ Each helper documents which version introduced the change.
 
 from typing import Dict, Optional
 
-# Detectors that are local models and cannot be run ad hoc by Rhesis.
-# Map each to an API-based equivalent that provides comparable coverage.
+# Detectors that are local models and cannot be run ad hoc by Rhesis. The Perspective
+# path is only an identifier now: the SDK routes it to its own toxicity detector.
 DETECTOR_OVERRIDES: Dict[str, str] = {
     "garak.detectors.unsafe_content.ToxicCommentModel": ("garak.detectors.perspective.Toxicity"),
 }
@@ -22,7 +22,7 @@ def get_probe_detector(probe_class) -> Optional[str]:
     v0.9.x:   recommended_detector (list[str]) was used.
 
     Applies DETECTOR_OVERRIDES to replace local-model detectors with
-    API-based equivalents that Rhesis can run.
+    equivalents that Rhesis can run.
     """
     detector = None
     if hasattr(probe_class, "primary_detector") and probe_class.primary_detector:
