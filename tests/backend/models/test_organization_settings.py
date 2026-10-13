@@ -7,7 +7,11 @@ clearing, the branding accessor, and auto-persistence back to the column.
 Run with: python -m pytest tests/backend/models/test_organization_settings.py -v
 """
 
+from fastapi.encoders import jsonable_encoder
+
+from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.organization_settings import OrganizationSettingsManager
+from rhesis.backend.app.models.tag import Tag
 
 
 class _FakeOrganization:
@@ -201,3 +205,32 @@ class TestAutoPersistence:
         manager.update({"branding": {"product_name": "Acme"}})
 
         assert manager.branding.product_name == "Acme"
+
+
+class TestOrganizationSettingsProperty:
+    def test_a_row_holding_the_org_serializes_after_settings_is_read(self):
+        """✅ Reading `org.settings` leaves no cycle for `jsonable_encoder` to walk."""
+        org = Organization(name="Acme", organization_settings={"version": 1, "branding": {}})
+        assert org.settings.branding.product_name is None
+        # Tag, not Comment: Comment's backref on Organization is a cycle of its own.
+        tag = Tag(name="urgent", organization=org)
+
+        assert jsonable_encoder(tag)["organization"]["name"] == "Acme"
+
+    def test_update_through_the_property_persists(self):
+        """✅ `org.settings.update` writes back, and the next read sees it."""
+        org = Organization(name="Acme", organization_settings={"version": 1, "branding": {}})
+
+        org.settings.update({"branding": {"product_name": "Acme Corp"}})
+
+        assert org.organization_settings["branding"]["product_name"] == "Acme Corp"
+        assert org.settings.branding.product_name == "Acme Corp"
+
+    def test_reassigning_the_column_shows_in_the_next_read(self):
+        """✅ No stale manager survives a direct write to the column."""
+        org = Organization(name="Acme", organization_settings={"version": 1, "branding": {}})
+        assert org.settings.branding.product_name is None
+
+        org.organization_settings = {"version": 1, "branding": {"product_name": "New"}}
+
+        assert org.settings.branding.product_name == "New"
