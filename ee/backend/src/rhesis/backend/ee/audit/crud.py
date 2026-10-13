@@ -66,7 +66,36 @@ def insert_audit_event(conn: Connection, row: dict, *, as_org: bool) -> None:
     conn.execute(_SET_ORG, {"org": previous or ""})
 
 
-CURSOR_SORT_FIELD = "occurred_at"
+DEFAULT_SORT_FIELD = "occurred_at"
+# The one order a safe upper bound exists for, so the only one the cursor walks.
+CURSOR_SORT_FIELD = "recorded_at"
+SAFE_LAG_SECONDS = 5.0
+
+# Rows recorded before this are committed or never will be. Read in its own statement, before
+# the events are, so a transaction that commits in between is already visible to that read.
+# - The oldest open writing transaction's start: its audit rows are not visible yet, and every
+#   one of them has a later recorded_at. pg_stat_activity shows the xact_start of sessions of
+#   the same database role only; the app and workers share one.
+# - The lag covers the instant between an insert stamping recorded_at and its transaction
+#   getting an id, and writers under other roles.
+_SAFE_BOUND = sa.text(
+    """
+    SELECT LEAST(
+        clock_timestamp() - make_interval(secs => CAST(:lag AS double precision)),
+        (SELECT min(xact_start) FROM pg_stat_activity
+         WHERE datname = current_database()
+           AND pid <> pg_backend_pid()
+           AND backend_xid IS NOT NULL)
+    )
+    """
+)
+
+
+def safe_bound(db: Session, lag_seconds: float) -> datetime:
+    """No row recorded before this can still appear: read ``recorded_at`` up to it."""
+    # pg_stat_activity is cached for the rest of a transaction once read; read it fresh.
+    db.execute(sa.text("SELECT pg_stat_clear_snapshot()"))
+    return db.execute(_SAFE_BOUND, {"lag": lag_seconds}).scalar_one()
 
 
 def get_audit_event(db: Session, event_id: UUID, organization_id: str) -> Optional[AuditEvent]:
@@ -78,12 +107,15 @@ def get_audit_event(db: Session, event_id: UUID, organization_id: str) -> Option
     )
 
 
-def _keyset_after(builder: QueryBuilder, key: tuple, sort_order: str) -> QueryBuilder:
-    """Rows past ``key``, an ``(occurred_at, id)`` pair, in ``sort_order``."""
-    column = tuple_(AuditEvent.occurred_at, AuditEvent.id)
-    bound = tuple_(*key)
-    past = column < bound if sort_order.lower() == "desc" else column > bound
-    return builder.with_custom_filter(lambda q: q.filter(past))
+def _keyset_after(builder: QueryBuilder, column, key: tuple, sort_order: str) -> QueryBuilder:
+    """Rows past ``key``, a ``(column, id)`` pair, in ``sort_order``."""
+    pair, bound = tuple_(column, AuditEvent.id), tuple_(*key)
+    if sort_order.lower() == "desc":
+        past = (pair < bound, column <= key[0])
+    else:
+        past = (pair > bound, column >= key[0])
+    # The plain comparison is redundant, but a BRIN index can use it and not the row one.
+    return builder.with_custom_filter(lambda q: q.filter(*past))
 
 
 def list_audit_events(
@@ -91,15 +123,17 @@ def list_audit_events(
     organization_id: str,
     skip: int = 0,
     limit: int = 10,
-    sort_by: str = CURSOR_SORT_FIELD,
+    sort_by: str = DEFAULT_SORT_FIELD,
     sort_order: str = "desc",
     filter: Optional[str] = None,
     after: Optional[AuditEvent] = None,
 ) -> List[AuditEvent]:
-    """A page of events. ``after`` continues a keyset walk on ``(occurred_at, id)``.
+    """A page of events. ``after`` continues a keyset walk on ``(recorded_at, id)``.
 
-    ``id`` breaks ties in the same direction as ``occurred_at``, so a keyset
-    page and an offset page order rows the same way.
+    ``id`` breaks ties in the sort direction, so a keyset page and an offset page
+    order rows the same way. Ascending on ``recorded_at``, the order a tail reads
+    in, stops at the safe bound, so a row that commits late never lands behind a
+    page already read.
     """
     builder = (
         QueryBuilder(db, AuditEvent)
@@ -107,7 +141,11 @@ def list_audit_events(
         .with_odata_filter(filter)
     )
     if after is not None:
-        builder = _keyset_after(builder, (after.occurred_at, after.id), sort_order)
+        key = (after.recorded_at, after.id)
+        builder = _keyset_after(builder, AuditEvent.recorded_at, key, sort_order)
+    if sort_by == CURSOR_SORT_FIELD and sort_order.lower() == "asc":
+        bound = safe_bound(db, SAFE_LAG_SECONDS)
+        builder = builder.with_custom_filter(lambda q: q.filter(AuditEvent.recorded_at < bound))
     return (
         builder.with_sorting(
             sort_by, sort_order, secondary_sort_by="id", secondary_sort_order=sort_order
@@ -148,8 +186,8 @@ def export_page(
     key ``after``. Not capped at a page of 100 like the list."""
     builder = _export_query(db, organization_id, filter, until)
     if after is not None:
-        builder = _keyset_after(builder, after, sort_order)
+        builder = _keyset_after(builder, AuditEvent.occurred_at, after, sort_order)
     builder = builder.with_sorting(
-        CURSOR_SORT_FIELD, sort_order, secondary_sort_by="id", secondary_sort_order=sort_order
+        DEFAULT_SORT_FIELD, sort_order, secondary_sort_by="id", secondary_sort_order=sort_order
     )
     return builder.build().limit(limit).all()

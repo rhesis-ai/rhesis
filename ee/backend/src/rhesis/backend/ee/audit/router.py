@@ -1,7 +1,7 @@
 """Audit log read API.
 
 - ``GET /audit-events``           -- list, with the usual ``$filter``/``$select``/
-  ``skip``/``limit``/``sort_by`` and an optional keyset ``cursor``
+  ``skip``/``limit``/``sort_by`` and an optional keyset ``cursor`` for tailing
 - ``GET /audit-events/actions``   -- every action the log can hold
 - ``GET /audit-events/{event_id}`` -- one event
 - ``GET``/``PATCH /audit-events/settings`` -- retention and privacy; reading needs
@@ -62,7 +62,7 @@ def list_audit_events(
     response: Response,
     skip: int = 0,
     limit: int = Query(10, ge=1, le=100),
-    sort_by: str = audit_crud.CURSOR_SORT_FIELD,
+    sort_by: str = audit_crud.DEFAULT_SORT_FIELD,
     sort_order: str = "desc",
     filter: Optional[str] = Query(None, alias="$filter", description="OData filter expression"),
     select: Optional[str] = Query(
@@ -71,19 +71,24 @@ def list_audit_events(
     cursor: Optional[UUID] = Query(
         None,
         description=(
-            "Id of the last event already read. Continues after it on (occurred_at, id) "
-            "in sort_order; only with sort_by=occurred_at."
+            "Id of the last event already read. Continues after it on (recorded_at, id) "
+            "in sort_order; only with sort_by=recorded_at."
         ),
     ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
 ):
-    """List the organization's audit events, newest first by default."""
+    """List the organization's audit events, newest first by default.
+
+    To tail the log, page with ``sort_by=recorded_at``, ``sort_order=asc`` and
+    ``cursor``. That order leaves out the last few seconds and any rows an open
+    transaction may still commit, so a later call never finds a row before its cursor.
+    """
     organization_id, _ = tenant_context
     after = None
     if cursor is not None:
         if sort_by != audit_crud.CURSOR_SORT_FIELD:
-            raise HTTPException(status_code=400, detail="cursor needs sort_by=occurred_at")
+            raise HTTPException(status_code=400, detail="cursor needs sort_by=recorded_at")
         after = audit_crud.get_audit_event(db, cursor, organization_id)
         if after is None:
             raise HTTPException(status_code=400, detail="Unknown cursor")

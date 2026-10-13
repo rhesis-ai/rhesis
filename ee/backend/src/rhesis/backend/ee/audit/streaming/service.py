@@ -27,6 +27,7 @@ from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.utils import webhooks
 from rhesis.backend.app.utils.ssrf_http_client import SSRFError
+from rhesis.backend.ee.audit import crud as audit_crud
 from rhesis.backend.ee.audit.schemas import AuditEventRead, event_payload
 from rhesis.backend.ee.audit.streaming import crud
 from rhesis.backend.ee.audit.streaming.adapters import KINDS, TEST_TYPE, Batch, DeliveryError
@@ -41,7 +42,7 @@ logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 100
 MAX_BATCHES_PER_RUN = 10
-LAG_SECONDS = 5.0
+LAG_SECONDS = audit_crud.SAFE_LAG_SECONDS
 BACKOFF_BASE_SECONDS = 30
 BACKOFF_MAX_SECONDS = 3600
 AUTO_PAUSE_AFTER = 20
@@ -177,7 +178,7 @@ def _record_failure(destination: AuditDestination, error: str, now: datetime) ->
 
 def deliver_batch(db: Session, destination: AuditDestination) -> Optional[int]:
     """Send the next batch. How many events went, or None when the send failed."""
-    before = crud.safe_bound(db, LAG_SECONDS)
+    before = audit_crud.safe_bound(db, LAG_SECONDS)
     cursor = (destination.cursor_recorded_at, destination.cursor_id)
     rows = crud.events_after(db, destination.organization_id, cursor, before, BATCH_SIZE)
     if not rows:

@@ -31,7 +31,13 @@ from rhesis.backend.app.utils import webhooks
 from rhesis.backend.ee.audit.streaming import adapters, crud, service
 from rhesis.backend.ee.audit.streaming.adapters import Batch, DeliveryError
 from rhesis.backend.ee.audit.streaming.models import AuditDestination
-from tests.backend.ee.audit.test_audit_events_api import _auth, _ee, _insert, _member
+from tests.backend.ee.audit.test_audit_events_api import (
+    _auth,
+    _ee,
+    _insert,
+    _insert_on,
+    _member,
+)
 from tests.backend.fixtures.rls import as_org, scope_to_org
 from tests.backend.utils.webhook_receiver import fake_receiver
 
@@ -263,18 +269,6 @@ class TestSafeBound:
         with fake_receiver() as received:
             _run(test_db, org_id, destination)
         assert _sent_ids(received) == [str(early), late]
-
-
-def _insert_on(conn, org_id):
-    return conn.execute(
-        text(
-            "INSERT INTO audit_event (organization_id, occurred_at, action, outcome, "
-            "actor_type, channel, trace_id, span_id, changes) "
-            "VALUES (CAST(:org AS uuid), now(), 'endpoint.created', 'success', 'user', "
-            "'web', 't-late', 's1', CAST('[]' AS jsonb)) RETURNING id"
-        ),
-        {"org": str(org_id)},
-    ).scalar_one()
 
 
 class TestBackoffAndPause:
