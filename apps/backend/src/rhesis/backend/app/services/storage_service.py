@@ -346,7 +346,6 @@ class StorageService:
         self,
         chunks: Iterable[bytes],
         dest_path: str,
-        content_type: str,  # noqa: ARG002 — kept for parity with put_object_streaming
     ) -> tuple:
         """Synchronously write ``chunks`` to storage; return ``(storage_path, sha256_hex, size)``.
 

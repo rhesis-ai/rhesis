@@ -192,7 +192,7 @@ def download_audit_export(
         url = None
     if url is None and not storage.object_exists(export.path):
         raise HTTPException(status_code=404, detail="Export file no longer exists")
-    record_view(db, organization_id)
+    audit_export.record_download(db, organization_id, job_id, export)
     if url is not None:
         return RedirectResponse(url=url, status_code=302)
     return StreamingResponse(

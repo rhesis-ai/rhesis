@@ -54,14 +54,17 @@ def get_job(
     job_id,
     organization_id: Optional[str] = None,
     user_id: Optional[str] = None,
+    with_related: bool = True,
 ) -> Optional[models.Job]:
+    """``with_related=False`` loads the row alone, for callers that read no relations."""
     return get_item_detail(
         db,
         models.Job,
         job_id,
-        related_fields=_JOB_RELATED_FIELDS,
+        related_fields=_JOB_RELATED_FIELDS if with_related else (),
         organization_id=organization_id,
         user_id=user_id,
+        derived_fields=with_related,
     )
 
 

@@ -41,6 +41,7 @@ from rhesis.backend.events.audit_actions import audit_action
 from rhesis.backend.events.types import FieldChange
 
 EXPORTED = audit_action(Permission.AuditLog.EXPORT.value)
+VIEWED = audit_action(Permission.AuditLog.READ.value)
 #: The ``job`` row's ``job_type``; the task's name is this under ``rhesis.backend.jobs.``.
 JOB_TYPE = "audit_log.export"
 BATCH_SIZE = 1000
@@ -180,7 +181,7 @@ def run_export(
 
     batches = counted(_batches(db, organization_id, filter, sort_order, until))
     chunks = _jsonl_chunks(batches) if fmt == "jsonl" else _csv_chunks(batches)
-    _, sha256, size = storage.put_object_chunks(chunks, path, CONTENT_TYPES[fmt])
+    _, sha256, size = storage.put_object_chunks(chunks, path)
     return {"rows": written, "bytes": size, "sha256": sha256}
 
 
@@ -249,13 +250,21 @@ def csv_cell(value) -> str:
 # ---------------------------------------------------------------------------
 
 
+def record_download(db: Session, organization_id: str, job_id, export: "ExportFile") -> None:
+    """Every download is its own read of the log, never folded into the
+    once-a-minute ``audit_log.viewed`` of browsing."""
+    record_audit_event(
+        VIEWED, organization_id, db=db, resource_id=job_id, resource_label=export.filename
+    )
+
+
 def finished_export(db: Session, job_id, organization_id: str, user_id: str) -> ExportFile:
     """The file of the org's export job ``job_id``.
 
     Raises ``ExportNotFound`` for another job type or org, ``ExportNotReady``
     until the job has completed.
     """
-    job = get_job(db, job_id, organization_id=organization_id, user_id=user_id)
+    job = get_job(db, job_id, organization_id=organization_id, user_id=user_id, with_related=False)
     if job is None or job.job_type != JOB_TYPE or not job.celery_task_id:
         raise ExportNotFound(job_id)
     if job.status != JobStatus.COMPLETED.value:

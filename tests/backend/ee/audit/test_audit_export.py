@@ -278,7 +278,7 @@ class TestRunExport:
             raise OSError("bucket gone")
 
         with pytest.raises(OSError):
-            storage.put_object_chunks(chunks(), "audit-exports/x.jsonl", "application/x-ndjson")
+            storage.put_object_chunks(chunks(), "audit-exports/x.jsonl")
         assert not storage.object_exists("audit-exports/x.jsonl")
 
 
@@ -405,7 +405,7 @@ class TestDownload:
 
     def _write(self, storage, org_id, job, content=b'{"id":"1"}\n'):
         path = export_service.storage_path(org_id, job.celery_task_id, "jsonl")
-        storage.put_object_chunks([content], path, "application/x-ndjson")
+        storage.put_object_chunks([content], path)
 
     def _get(self, client, token, job_id, licensed=True):
         with _ee(audit_log_licensed=licensed):
@@ -417,13 +417,16 @@ class TestDownload:
         org_id, user_id, token = admin
         job = _finished_job(test_db, org_id, user_id)
         self._write(storage, org_id, job)
-        with patch("rhesis.backend.ee.audit.router.record_view") as record_view:
+        with patch.object(export_service, "record_audit_event") as record:
             resp = self._get(client, token, job.id)
         assert resp.status_code == status.HTTP_200_OK, resp.text
         assert resp.content == b'{"id":"1"}\n'
         assert resp.headers["content-type"].startswith("application/x-ndjson")
         assert 'filename="audit-log-20261001-120000.jsonl"' in resp.headers["content-disposition"]
-        record_view.assert_called_once()
+        # Every download is recorded, with the job it came from.
+        record.assert_called_once()
+        assert record.call_args.args == (export_service.VIEWED, str(org_id))
+        assert str(record.call_args.kwargs["resource_id"]) == str(job.id)
 
     def test_cloud_storage_redirects_to_a_short_link(self, client, test_db, admin, storage):
         org_id, user_id, token = admin
