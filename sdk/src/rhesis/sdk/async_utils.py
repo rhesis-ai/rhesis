@@ -15,6 +15,9 @@ logger = logging.getLogger(__name__)
 
 _background_loop = None
 _background_thread = None
+# Threads making their first run_sync() call at the same moment would otherwise each start
+# a loop, and litellm's Vertex client then mixes state across them and hangs.
+_loop_lock = threading.Lock()
 
 
 def reset_litellm_vertex_async_locks() -> None:
@@ -44,17 +47,18 @@ def reset_litellm_vertex_async_locks() -> None:
 def _get_background_loop():
     """Lazily create a single background thread with its own event loop."""
     global _background_loop, _background_thread
-    if _background_loop is None or _background_loop.is_closed():
-        if _background_loop is not None and _background_loop.is_closed():
-            reset_litellm_vertex_async_locks()
-        _background_loop = asyncio.new_event_loop()
-        _background_thread = Thread(
-            target=_background_loop.run_forever,
-            daemon=True,
-        )
-        _background_thread.start()
-        atexit.register(close_background_loop)
-    return _background_loop
+    with _loop_lock:
+        if _background_loop is None or _background_loop.is_closed():
+            if _background_loop is not None and _background_loop.is_closed():
+                reset_litellm_vertex_async_locks()
+            _background_loop = asyncio.new_event_loop()
+            _background_thread = Thread(
+                target=_background_loop.run_forever,
+                daemon=True,
+            )
+            _background_thread.start()
+            atexit.register(close_background_loop)
+        return _background_loop
 
 
 def close_background_loop():
@@ -64,22 +68,23 @@ def close_background_loop():
     leaks. Also registered as an atexit handler when the loop is first created.
     """
     global _background_loop, _background_thread
-    if _background_loop is None or _background_loop.is_closed():
-        _background_loop = None
-        _background_thread = None
-        return
-    try:
-        atexit.unregister(close_background_loop)
-        _background_loop.call_soon_threadsafe(_background_loop.stop)
-        if _background_thread is not None:
-            _background_thread.join(timeout=5.0)
-    finally:
+    with _loop_lock:
+        if _background_loop is None or _background_loop.is_closed():
+            _background_loop = None
+            _background_thread = None
+            return
         try:
-            _background_loop.close()
-        except Exception:
-            pass
-        _background_loop = None
-        _background_thread = None
+            atexit.unregister(close_background_loop)
+            _background_loop.call_soon_threadsafe(_background_loop.stop)
+            if _background_thread is not None:
+                _background_thread.join(timeout=5.0)
+        finally:
+            try:
+                _background_loop.close()
+            except Exception:
+                pass
+            _background_loop = None
+            _background_thread = None
 
 
 def run_sync(coro, timeout: float | None = None):

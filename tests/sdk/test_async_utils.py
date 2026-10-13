@@ -85,6 +85,44 @@ def test_run_sync_reuses_background_loop_across_calls():
     close_background_loop()
 
 
+def test_concurrent_first_calls_share_one_loop(monkeypatch):
+    """Threads making their first run_sync() call together must not each start a loop."""
+    import rhesis.sdk.async_utils as async_utils
+
+    created = []
+    real_new_event_loop = asyncio.new_event_loop
+
+    def slow_new_event_loop():
+        # Widen the window between the None check and the assignment.
+        threading.Event().wait(0.05)
+        loop = real_new_event_loop()
+        created.append(loop)
+        return loop
+
+    monkeypatch.setattr(async_utils.asyncio, "new_event_loop", slow_new_event_loop)
+
+    async def loop_id():
+        return id(asyncio.get_running_loop())
+
+    close_background_loop()
+    barrier = threading.Barrier(8)
+    ids = []
+
+    def call():
+        barrier.wait()
+        ids.append(run_sync(loop_id(), timeout=10))
+
+    threads = [threading.Thread(target=call) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    close_background_loop()
+
+    assert len(created) == 1
+    assert len(set(ids)) == 1
+
+
 # ---------------------------------------------------------------------------
 # run_sync self-call guard (Fix 2)
 # ---------------------------------------------------------------------------
