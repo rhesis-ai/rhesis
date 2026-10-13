@@ -14,6 +14,7 @@ import {
 } from '@testing-library/react';
 import type { GridColDef } from '@mui/x-data-grid';
 import AuditEventsGrid from '../AuditEventsGrid';
+import { resetProjectNameCache } from '../../list';
 import type { AuditEvent } from '../../types';
 
 jest.mock('next/navigation', () => ({
@@ -40,8 +41,12 @@ jest.mock('@/components/common/Can', () => ({
   can: () => true,
 }));
 
-jest.mock('@/hooks/useEndpoints', () => ({
-  useProjects: () => ({ data: [{ id: 'p1', name: 'Travel Assistant' }] }),
+const mockGetProjects = jest.fn();
+
+jest.mock('@/utils/api-client/client-factory', () => ({
+  ApiClientFactory: jest.fn().mockImplementation(() => ({
+    getProjectsClient: () => ({ getProjects: mockGetProjects }),
+  })),
 }));
 
 const mockListEvents = jest.fn();
@@ -133,7 +138,11 @@ function makeEvent(overrides: Partial<AuditEvent> = {}): AuditEvent {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  resetProjectNameCache();
   mockListEvents.mockResolvedValue(page([makeEvent()], 60));
+  mockGetProjects.mockResolvedValue({
+    data: [{ id: 'p1', name: 'Travel Assistant' }],
+  });
 });
 
 describe('AuditEventsGrid', () => {
@@ -170,6 +179,9 @@ describe('AuditEventsGrid', () => {
     );
     expect(within(row).getByText('Endpoint updated')).toBeInTheDocument();
     expect(within(row).getByText('Harry Cruz')).toBeInTheDocument();
+    expect(mockGetProjects).toHaveBeenCalledWith(
+      expect.objectContaining({ $filter: "id eq 'p1'" })
+    );
     expect(within(row).getByText('Travel Assistant')).toBeInTheDocument();
     expect(within(row).getByText('MCP')).toBeInTheDocument();
     expect(within(row).getByText('temperature: 0.7 → 0.2')).toBeInTheDocument();
@@ -190,6 +202,14 @@ describe('AuditEventsGrid', () => {
 
     expect(await screen.findByText('req-1')).toBeInTheDocument();
     expect(mockGetEvent).toHaveBeenCalledWith('e1');
+    expect(mockListEvents).not.toHaveBeenCalledWith(
+      expect.objectContaining({ $filter: "trace_id eq 'trace-1'" })
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Show events from the same request or job',
+      })
+    );
     await waitFor(() =>
       expect(mockListEvents).toHaveBeenCalledWith(
         expect.objectContaining({ $filter: "trace_id eq 'trace-1'" })

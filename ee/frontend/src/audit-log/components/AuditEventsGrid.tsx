@@ -15,7 +15,6 @@ import EntityGrid, {
   type EntityGridFilterState,
 } from '@/components/common/EntityGrid';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
-import { useProjects } from '@/hooks/useEndpoints';
 import {
   RESOURCE_AREAS,
   resourceDisplayName,
@@ -33,7 +32,12 @@ import {
   splitAction,
 } from '../labels';
 import { auditEventsList, type AuditEventListFilters } from '../list';
-import { AuditOutcome, FieldChangeKind, type AuditEvent } from '../types';
+import {
+  AuditOutcome,
+  FieldChangeKind,
+  type AuditEvent,
+  type AuditEventRow,
+} from '../types';
 import AuditEventDrawer from './AuditEventDrawer';
 import AuditEventFilterDrawer from './AuditEventFilterDrawer';
 import { formatValue, monoSx } from './AuditChanges';
@@ -124,13 +128,6 @@ function TwoLines({
 export default function AuditEventsGrid() {
   const [openEventId, setOpenEventId] = useState<string | null>(null);
 
-  // Org-level events have no project; the rest show the project's name.
-  const { data: projects } = useProjects({ limit: 100 });
-  const projectNames = useMemo(
-    () => new Map((projects ?? []).map(p => [p.id, p.name])),
-    [projects]
-  );
-
   const onRowClick = useCallback(
     (params: GridRowParams) => setOpenEventId(String(params.id)),
     []
@@ -199,11 +196,12 @@ export default function AuditEventsGrid() {
         flex: 1,
         minWidth: 130,
         sortable: false,
-        renderCell: (params: GridRenderCellParams<AuditEvent>) => {
-          const id = params.row.project_id;
+        // Org-level events have no project.
+        renderCell: (params: GridRenderCellParams<AuditEventRow>) => {
+          const { project_id: id, project_name: name } = params.row;
           return (
             <Typography variant="body2" noWrap>
-              {id ? (projectNames.get(id) ?? id) : ORG_LEVEL_LABEL}
+              {id ? (name ?? id) : ORG_LEVEL_LABEL}
             </Typography>
           );
         },
@@ -233,12 +231,16 @@ export default function AuditEventsGrid() {
         ),
       },
     ],
-    [projectNames]
+    []
   );
 
   return (
     <>
-      <EntityGrid<AuditEvent, typeof auditEventsList.filters, AuditEventFilters>
+      <EntityGrid<
+        AuditEventRow,
+        typeof auditEventsList.filters,
+        AuditEventFilters
+      >
         descriptor={auditEventsList}
         columns={columns}
         toFilters={toFilters}
@@ -249,7 +251,7 @@ export default function AuditEventsGrid() {
             description="Changes to access, tests, metrics and configuration show up here as people and jobs make them."
           />
         }
-        searchPlaceholder="Search actor, action, resource…"
+        searchPlaceholder="Search actor, resource or action id (endpoint.updated)…"
         pills={{ tabs: CATEGORY_PILLS, allValue: ALL_PILL }}
         drawer={drawerAdapter}
         onRowClick={onRowClick}

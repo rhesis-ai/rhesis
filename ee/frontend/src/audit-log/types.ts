@@ -88,6 +88,11 @@ export interface AuditEvent {
   changes: AuditChanges;
 }
 
+/** A listed event with its project's name, looked up by the table, not the API. */
+export interface AuditEventRow extends AuditEvent {
+  project_name?: string;
+}
+
 export interface AuditEventDetail extends AuditEvent {
   content_changes?: ContentChange[] | null;
 }

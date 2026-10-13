@@ -38,7 +38,7 @@ import {
 import { AuditOutcome, type AuditEvent, type AuditEventDetail } from '../types';
 import AuditChanges, { monoSx } from './AuditChanges';
 
-export const AUDIT_DRAWER_WIDTH = 720;
+const AUDIT_DRAWER_WIDTH = 720;
 
 function formatTime(iso: string): string {
   const date = new Date(iso);
@@ -179,6 +179,8 @@ function RelatedEvents({
   event: AuditEvent;
   onSelect: (id: string) => void;
 }) {
+  // Loaded on request: most opens never need them, and each list read is audited.
+  const [shown, setShown] = React.useState(false);
   const { data, isLoading, error } = useQuery({
     queryKey: auditLogQueryKeys.related(event.trace_id),
     queryFn: () =>
@@ -187,8 +189,20 @@ function RelatedEvents({
         limit: AUDIT_EVENTS_MAX_LIMIT,
         sort_order: 'asc',
       }),
+    enabled: shown,
   });
   const others = (data?.data ?? []).filter(e => e.id !== event.id);
+  const truncated = (data?.pagination.totalCount ?? 0) > AUDIT_EVENTS_MAX_LIMIT;
+
+  if (!shown) {
+    return (
+      <Box>
+        <Button size="small" onClick={() => setShown(true)}>
+          Show events from the same request or job
+        </Button>
+      </Box>
+    );
+  }
 
   if (isLoading) return <CircularProgress size={20} />;
   if (error) {
@@ -206,25 +220,33 @@ function RelatedEvents({
     );
   }
   return (
-    <List
-      dense
-      disablePadding
-      sx={{
-        border: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
-        borderRadius: BORDER_RADIUS.sm,
-      }}
-    >
-      {others.map(other => (
-        <ListItemButton key={other.id} onClick={() => onSelect(other.id)}>
-          <ListItemText
-            primary={actionLabel(other.action, other.outcome)}
-            secondary={[other.resource_label, formatTime(other.occurred_at)]
-              .filter(Boolean)
-              .join(' · ')}
-          />
-        </ListItemButton>
-      ))}
-    </List>
+    <>
+      <List
+        dense
+        disablePadding
+        sx={{
+          border: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
+          borderRadius: BORDER_RADIUS.sm,
+        }}
+      >
+        {others.map(other => (
+          <ListItemButton key={other.id} onClick={() => onSelect(other.id)}>
+            <ListItemText
+              primary={actionLabel(other.action, other.outcome)}
+              secondary={[other.resource_label, formatTime(other.occurred_at)]
+                .filter(Boolean)
+                .join(' · ')}
+            />
+          </ListItemButton>
+        ))}
+      </List>
+      {truncated && (
+        <Typography variant="caption" color="text.secondary">
+          Showing the first {AUDIT_EVENTS_MAX_LIMIT}. Filter the log by trace ID{' '}
+          {event.trace_id} to see them all.
+        </Typography>
+      )}
+    </>
   );
 }
 
@@ -343,10 +365,13 @@ export default function AuditEventDrawer({
   onClose,
   onSelect,
 }: AuditEventDrawerProps) {
+  // Keep showing the last event while the drawer slides out.
+  const [shownId, setShownId] = React.useState(eventId);
+  if (eventId && eventId !== shownId) setShownId(eventId);
   const { data, isLoading, error } = useQuery({
-    queryKey: auditLogQueryKeys.event(eventId ?? ''),
-    queryFn: () => new AuditLogClient().getEvent(eventId ?? ''),
-    enabled: !!eventId,
+    queryKey: auditLogQueryKeys.event(shownId ?? ''),
+    queryFn: () => new AuditLogClient().getEvent(shownId ?? ''),
+    enabled: !!shownId,
   });
 
   const title = data ? actionLabel(data.action, data.outcome) : 'Event';
