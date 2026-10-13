@@ -124,16 +124,18 @@ def get_finished_jobs_without_marker(
     limit: int,
 ) -> List[models.Job]:
     """The org's ``job_type`` jobs that finished before ``finished_before`` and whose
-    ``job_metadata`` has no ``marker`` key, oldest first."""
+    ``job_metadata`` has no ``marker`` key, oldest first. A job that never recorded
+    a finish (a crashed worker) counts from its creation."""
+    finished = func.coalesce(models.Job.finished_at, models.Job.created_at)
     return (
         db.query(models.Job)
         .filter(
             models.Job.organization_id == organization_id,
             models.Job.job_type == job_type,
-            models.Job.finished_at < finished_before,
+            finished < finished_before,
             or_(models.Job.job_metadata.is_(None), ~models.Job.job_metadata.has_key(marker)),
         )
-        .order_by(models.Job.finished_at, models.Job.id)
+        .order_by(finished, models.Job.id)
         .limit(limit)
         .all()
     )

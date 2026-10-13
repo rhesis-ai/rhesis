@@ -97,6 +97,17 @@ class TestDeleteExpiredExports:
         assert _clean(test_db, org, EXPIRED, storage) == 1
         assert not storage.object_exists(_path(org.id, failed, "csv"))
 
+    def test_a_job_with_no_finish_time_counts_from_creation(self, test_db, storage, admin):
+        org, user, _ = admin
+        export_job = _export(test_db, storage, org, user, job_status="running")
+        with as_org(test_db, org.id):
+            export_job.finished_at = None
+            export_job.created_at = T0
+            test_db.flush()
+
+        assert _clean(test_db, org, EXPIRED, storage) == 1
+        assert not storage.object_exists(_path(org.id, export_job))
+
     def test_a_file_already_gone_is_marked_and_not_looked_at_again(self, test_db, storage, admin):
         org, user, _ = admin
         export_job = _export(test_db, storage, org, user, write=False)
