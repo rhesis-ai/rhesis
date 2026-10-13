@@ -298,8 +298,9 @@ def _issue_login_tokens(db: Session, user: User) -> tuple[str, str, dict]:
     clear_user_logout(str(user.id))
     access_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
-    record_user_event(SIGNED_IN, user)
     db.commit()
+    # After the commit, so a sign-in that failed to commit leaves no row.
+    record_user_event(SIGNED_IN, user)
     return access_token, refresh_tok, _user_summary(user)
 
 
@@ -361,8 +362,9 @@ def _complete_oauth_login(db: Session, auth_user) -> tuple[str, str, str, dict]:
     clear_user_logout(user_id)
     session_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, user_id)
-    record_user_event(SIGNED_IN, user)
     db.commit()
+    # After the commit, so a sign-in that failed to commit leaves no row.
+    record_user_event(SIGNED_IN, user)
     return user_id, session_token, refresh_tok, _user_summary(user)
 
 
@@ -382,8 +384,9 @@ def _mark_email_verified(db: Session, email: str) -> Optional[tuple[str, str]]:
 
     access_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
-    record_user_event(SIGNED_IN, user)
     db.commit()
+    # After the commit, so a sign-in that failed to commit leaves no row.
+    record_user_event(SIGNED_IN, user)
     return access_token, refresh_tok
 
 

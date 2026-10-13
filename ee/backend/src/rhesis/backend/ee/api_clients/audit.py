@@ -252,16 +252,15 @@ def record_token_exchange(
     client_id: Optional[str],
     *,
     user=None,
-    db=None,
     status_code: Optional[int] = None,
     project_id: Optional[str] = None,
 ) -> None:
     """``token.exchanged`` in the org's audit log.
 
     On success ``user`` is the subject the token was minted for, acting
-    through the client, and the entry joins ``db``'s transaction. A rejection
-    has no ``user``: it records the client id that was presented, on a session
-    of its own. Reads ``user``'s attributes, so call it before a commit.
+    through the client. A rejection has no ``user``: it records the client id
+    that was presented. Both go on the sink's own session, so a failed audit
+    write never blocks or fails a token exchange.
     """
     if user is None:
         record_audit_event(
@@ -275,7 +274,6 @@ def record_token_exchange(
     record_audit_event(
         TOKEN_EXCHANGED,
         organization_id,
-        db=db,
         actor_id=user.id,
         actor_type=ActorType.API_CLIENT,
         actor_label=user_label(user.name, user.email),

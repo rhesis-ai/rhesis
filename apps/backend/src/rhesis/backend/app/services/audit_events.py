@@ -113,7 +113,7 @@ def record_user_event(
 ) -> None:
     """``action`` by ``user`` on their own account, in their org.
 
-    Reads the row's attributes, so call it before a commit expires them.
+    Reads the row's attributes: after a commit, while its session is still open.
     """
     record_audit_event(
         action,

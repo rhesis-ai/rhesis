@@ -205,8 +205,9 @@ def _complete_sso_login(db: Session, auth_user, org, sso_config):
     clear_user_logout(str(user.id))
     session_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
-    record_user_event(SIGNED_IN, user)
     db.commit()
+    # After the commit, so a sign-in that failed to commit leaves no row.
+    record_user_event(SIGNED_IN, user)
 
     return str(user.id), session_token, refresh_tok
 
