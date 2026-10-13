@@ -60,6 +60,9 @@ data:
   USAGE_QUOTAS_ENABLED: {{ .Values.config.usageQuotasEnabled | quote }}
   JOB_RETENTION_ENABLED: {{ .Values.config.jobRetentionEnabled | quote }}
   JOB_RETENTION_DAYS: {{ .Values.config.jobRetentionDays | quote }}
+  TRACE_RETENTION_ENABLED: {{ .Values.config.traceRetentionEnabled | quote }}
+  TRACE_RETENTION_DRY_RUN: {{ .Values.config.traceRetentionDryRun | quote }}
+  TRACE_RETENTION_DAYS: {{ .Values.config.traceRetentionDays | quote }}
 
   # -------------------------------------------------------------------------
   # Auth

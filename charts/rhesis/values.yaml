@@ -120,6 +120,14 @@ config:
   jobRetentionEnabled: false
   jobRetentionDays: 90
 
+  # Nightly hard-delete of traces past each org's retention (04:00 UTC, celery
+  # beat). With dry run on, it only logs per-org counts. Retention comes from the
+  # org's plan; traceRetentionDays overrides it for every org (empty = use the
+  # plan). Without usage quotas every plan is unlimited, so set the override.
+  traceRetentionEnabled: false
+  traceRetentionDryRun: true
+  traceRetentionDays: ""
+
   # AI model configuration
   azureOpenAiDeploymentName: "gpt-4o"
   azureOpenAiApiVersion: ""
