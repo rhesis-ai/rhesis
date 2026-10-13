@@ -141,6 +141,8 @@ def list_audit_events(
         .with_odata_filter(filter)
     )
     if after is not None:
+        if sort_by != CURSOR_SORT_FIELD:
+            raise ValueError(f"a cursor walks {CURSOR_SORT_FIELD}, not {sort_by}")
         key = (after.recorded_at, after.id)
         builder = _keyset_after(builder, AuditEvent.recorded_at, key, sort_order)
     if sort_by == CURSOR_SORT_FIELD and sort_order.lower() == "asc":
