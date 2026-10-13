@@ -111,6 +111,7 @@ CELERY_CONFIG = {
         "rhesis.backend.jobs.retention",
         "rhesis.backend.jobs.trace_retention",
         "rhesis.backend.jobs.heartbeat",
+        "rhesis.backend.jobs.audit_retention",
     ],
     # Run by the single `celery beat` process (the chart's beat Deployment, the
     # compose `beat` service). The retention sweeps are no-ops until their
@@ -132,6 +133,11 @@ CELERY_CONFIG = {
         "trace-retention-sweep": {
             "task": "rhesis.backend.jobs.trace_retention.sweep_expired_traces",
             "schedule": crontab(hour=4, minute=0),
+        },
+        # Always on: a no-op unless the EE audit log is installed.
+        "audit-log-purge": {
+            "task": "rhesis.backend.jobs.audit_retention.sweep_expired_audit_events",
+            "schedule": crontab(hour=5, minute=0),
         },
     },
 }

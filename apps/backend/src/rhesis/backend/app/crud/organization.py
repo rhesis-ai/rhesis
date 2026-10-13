@@ -19,9 +19,11 @@ from uuid import UUID
 
 from sqlalchemy import delete, inspect, text
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.database import reset_session_context
+from rhesis.backend.app.services.audit_retention import retention_days
 from rhesis.backend.app.utils.crud_utils import (
     bulk_delete,
     bulk_update,
@@ -140,8 +142,32 @@ def update_organization(
     return update_item(db, models.Organization, organization_id, organization)
 
 
+def merge_organization_settings(db: Session, org: models.Organization, updates: dict) -> dict:
+    """Deep-merge ``updates`` into the org's settings and flag the JSONB column."""
+    manager = org.settings
+    manager.update(updates)
+    org.organization_settings = manager.raw
+    # Without this SQLAlchemy does not see the in-place mutation of the JSONB value.
+    flag_modified(org, "organization_settings")
+    return org.organization_settings
+
+
 def delete_organization(db: Session, organization_id: uuid.UUID) -> Optional[models.Organization]:
-    """Delete organization - requires superuser permissions (handled in router)"""
+    """Soft delete an organization - requires superuser permissions (handled in router).
+
+    Freezes the audit log's retention window first: the org's audit rows stay
+    until it ends, whatever happens to the licence afterwards (plan Q5).
+
+    A hard ``DELETE`` of the organization row (support SQL) skips this, and the
+    purge job can no longer find the org, so its audit rows would stay forever.
+    Support must purge them first: ``SELECT audit_event_purge(org_id,
+    clock_timestamp(), trace_id, span_id)``.
+    """
+    org = db.get(models.Organization, organization_id)
+    if org is not None:
+        merge_organization_settings(
+            db, org, {"audit_log": {"retention_days_at_deletion": retention_days(org)}}
+        )
     return delete_item(db, models.Organization, organization_id)
 
 

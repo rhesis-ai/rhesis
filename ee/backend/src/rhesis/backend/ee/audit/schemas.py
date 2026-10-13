@@ -6,7 +6,9 @@ from datetime import datetime
 from typing import Any, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from rhesis.backend.app.services.audit_retention import MAX_RETENTION_DAYS, MIN_RETENTION_DAYS
 
 
 class AuditEventRead(BaseModel):
@@ -44,9 +46,36 @@ class AuditEventRead(BaseModel):
         return None if value is None else str(value)
 
 
+class AuditEventDetail(AuditEventRead):
+    # [{field, before, after}] for content fields, only while the org includes content.
+    content_changes: Optional[list[dict[str, Any]]] = None
+
+
 class AuditActionRead(BaseModel):
     """One action the log can hold: ``endpoint.updated`` is ``endpoint`` + ``updated``."""
 
     action: str
     resource: str
     verb: str
+
+
+class AuditLogSettingsRead(BaseModel):
+    #: The window in force: the org's choice, capped by its plan.
+    retention_days: int
+    max_retention_days: int
+    #: Shorter than the six months the EU AI Act asks of high-risk systems. A warning only.
+    below_eu_ai_act_minimum: bool
+    mask_ip: bool
+    include_content: bool
+    #: Whether beat's heartbeat is recent, so the purge is actually running; null if unknown.
+    scheduled_jobs_running: Optional[bool]
+
+
+class AuditLogSettingsUpdate(BaseModel):
+    """Partial update; a field left out or null keeps its value."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    retention_days: Optional[int] = Field(None, ge=MIN_RETENTION_DAYS, le=MAX_RETENTION_DAYS)
+    mask_ip: Optional[bool] = None
+    include_content: Optional[bool] = None

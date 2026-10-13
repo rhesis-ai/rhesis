@@ -4,7 +4,6 @@ import uuid
 import anyio
 from fastapi import Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from sqlalchemy.orm import Session
-from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
@@ -123,16 +122,6 @@ def _settings_permitted_actions(request: Request, current_user: User, db: Sessio
     return actions
 
 
-def _persist_settings(db: Session, org: models.Organization, updates: dict) -> dict:
-    """Deep-merge ``updates`` into the org's settings and flag the JSONB column."""
-    manager = org.settings
-    manager.update(updates)
-    org.organization_settings = manager.raw
-    # Without this SQLAlchemy does not see the in-place mutation of the JSONB value.
-    flag_modified(org, "organization_settings")
-    return org.organization_settings
-
-
 # The branding handlers below are ``async`` because they await file reads and,
 # for a Google font, an outbound HTTP check. That puts them on the event loop,
 # where a psycopg call would block every other request in the worker — so they
@@ -165,7 +154,7 @@ async def _read_and_apply_branding(
             previous = branding.get(read_key)
 
         org = _current_organization(db, organization_id)
-        settings = _persist_settings(db, org, updates)
+        settings = organization_crud.merge_organization_settings(db, org, updates)
         db.commit()
         return previous, settings
 

@@ -2125,8 +2125,10 @@ tools:
       resource's name at the time), and changes. action reads
       resource.verb_past: endpoint.updated, metric.deleted, test_set.created.
       changes is a list of {field, kind, before, after}. kind "secret" and
-      kind "content" say the field changed but never carry its values, so
-      report them as changed and do not look for the values. A job that
+      kind "content" say the field changed but carry no values here. A
+      secret's value is never recorded; content values come from
+      get_audit_event, and only when the organization records them. Do not
+      look for the values anywhere else. A job that
       created many rows writes one row whose changes is {count, ids}.
 
       Filter with filter (OData), for example:
@@ -2144,8 +2146,8 @@ tools:
       actor_label and give the field, before and after, and occurred_at as
       the row has them. An empty result means nothing matched in the log,
       and saying so is the answer. The log holds only what happened while
-      the organization had it, so an empty result for an older period does
-      not prove nothing changed. Do not guess why someone made a change.
+      the organization had it and within its retention window, so an empty
+      result for an older period does not prove nothing changed. Do not guess why someone made a change.
 
       CHAIN: resolve the resource by name with its list_* tool, then call
       this with its resource_id. After two runs differ, call this for the
@@ -2173,7 +2175,9 @@ tools:
     path: /audit-events/{event_id}
     ee: true
     description: >
-      Get one audit log entry by id, with every field. ENTITY: AuditEvent.
+      Get one audit log entry by id, with every field, and the before and
+      after of content fields in content_changes when the organization
+      records content. ENTITY: AuditEvent.
       PREREQUISITES: event_id from list_audit_events. CHAIN: use when the
       user points at one entry, or to read fields the list left out
       (user_agent, request_id, job_id). Rows sharing a trace_id came from

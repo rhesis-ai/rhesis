@@ -4,8 +4,10 @@
   ``skip``/``limit``/``sort_by`` and an optional keyset ``cursor``
 - ``GET /audit-events/actions``   -- every action the log can hold
 - ``GET /audit-events/{event_id}`` -- one event
+- ``GET``/``PATCH /audit-events/settings`` -- retention and privacy, behind ``audit_log:manage``
 
 Gated on ``FeatureName.AUDIT_LOG`` (404 when unavailable) and ``audit_log:read``.
+Detail returns stored content only while the org includes content (see ``settings``).
 Listing and reading an event record ``audit_log.viewed`` (see ``self_audit``);
 ``/actions`` does not, as it returns only action names, never an event.
 """
@@ -26,8 +28,15 @@ from rhesis.backend.app.features import FeatureName
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.ee.audit import crud as audit_crud
+from rhesis.backend.ee.audit import settings as audit_settings
 from rhesis.backend.ee.audit.models import AuditEvent
-from rhesis.backend.ee.audit.schemas import AuditActionRead, AuditEventRead
+from rhesis.backend.ee.audit.schemas import (
+    AuditActionRead,
+    AuditEventDetail,
+    AuditEventRead,
+    AuditLogSettingsRead,
+    AuditLogSettingsUpdate,
+)
 from rhesis.backend.ee.audit.self_audit import record_view
 from rhesis.backend.events.audit_actions import known_actions
 
@@ -101,20 +110,46 @@ def list_audit_actions():
     return result
 
 
-@router.get("/{event_id}", response_model=AuditEventRead, **capability(Permission.AuditLog.READ))
+@router.get(
+    "/settings", response_model=AuditLogSettingsRead, **capability(Permission.AuditLog.MANAGE)
+)
+def read_audit_log_settings(
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    """Retention and privacy settings, with defaults for anything never set."""
+    organization_id, _ = tenant_context
+    return audit_settings.read_settings(audit_settings.organization(db, organization_id))
+
+
+@router.patch(
+    "/settings", response_model=AuditLogSettingsRead, **capability(Permission.AuditLog.MANAGE)
+)
+def update_audit_log_settings(
+    update: AuditLogSettingsUpdate,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    """Change the fields sent. Recorded in the log itself as ``organization.updated``."""
+    organization_id, _ = tenant_context
+    org = audit_settings.organization(db, organization_id)
+    try:
+        return audit_settings.update_settings(db, org, update)
+    except audit_settings.RetentionAboveCap as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+
+@router.get("/{event_id}", response_model=AuditEventDetail, **capability(Permission.AuditLog.READ))
 def read_audit_event(
     event_id: UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
 ):
-    """One audit event.
-
-    ``content_changes`` is not returned: decrypting it waits on the org's
-    "include content" setting (PR 9), which does not exist yet.
-    """
+    """One audit event, with ``content_changes`` decrypted while the org includes content."""
     organization_id, _ = tenant_context
     event = audit_crud.get_audit_event(db, event_id, organization_id)
     if event is None:
         raise HTTPException(status_code=404, detail="Audit event not found")
+    detail = audit_settings.event_detail(event, audit_settings.organization(db, organization_id))
     record_view(db, organization_id)
-    return event
+    return detail
