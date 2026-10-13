@@ -58,7 +58,16 @@ describe('ee bootstrap', () => {
     expect(typeof roles?.component).toBe('function');
   });
 
-  it('orders tabs: Roles < SSO < API', () => {
+  it('registers the Audit Log tab', () => {
+    bootstrapEE();
+    const tabs = getOrgSettingsTabs();
+    const auditLog = tabs.find(t => t.id === 'audit-log');
+    expect(auditLog).toBeDefined();
+    expect(auditLog?.title).toBe('Audit Log');
+    expect(typeof auditLog?.component).toBe('function');
+  });
+
+  it('orders tabs: Roles < SSO < API < Audit Log', () => {
     bootstrapEE();
     const tabs = getOrgSettingsTabs();
     const ssoOrder = tabs.find(t => t.id === 'sso')?.order ?? -1;
@@ -66,6 +75,8 @@ describe('ee bootstrap', () => {
     const rolesOrder = tabs.find(t => t.id === 'roles')?.order ?? -1;
     expect(rolesOrder).toBeLessThan(ssoOrder);
     expect(ssoOrder).toBeLessThan(apiOrder);
+    const auditOrder = tabs.find(t => t.id === 'audit-log')?.order ?? -1;
+    expect(apiOrder).toBeLessThan(auditOrder);
   });
 
   it('registers member role extension components', () => {
@@ -93,6 +104,7 @@ describe('ee bootstrap', () => {
     expect(tabs.filter(t => t.id === 'sso')).toHaveLength(1);
     expect(tabs.filter(t => t.id === 'api')).toHaveLength(1);
     expect(tabs.filter(t => t.id === 'roles')).toHaveLength(1);
+    expect(tabs.filter(t => t.id === 'audit-log')).toHaveLength(1);
   });
 
   it('returns a stable reference across reads (no churn between calls)', () => {
