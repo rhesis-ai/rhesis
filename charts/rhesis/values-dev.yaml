@@ -23,6 +23,8 @@ config:
   usageQuotasEnabled: true
   # Dev first; stg and prd follow once dev's nightly sweep counts look right.
   jobRetentionEnabled: true
+  # Dry run first: read the per-org counts in the worker log, then go live.
+  traceRetentionEnabled: true
 
   # App DB name (ConfigMap DB_NAME) and Bitnami PostgreSQL bootstrap database.
   dbName: &rhesis_db_name "rhesis-dev-db"
