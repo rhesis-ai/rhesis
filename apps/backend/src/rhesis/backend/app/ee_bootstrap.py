@@ -46,6 +46,23 @@ def bootstrap_ee_providers() -> None:
     bootstrap_providers()
 
 
+def ee_celery_jobs() -> tuple[list[str], dict]:
+    """EE job modules for Celery's ``include`` and their ``beat_schedule`` entries.
+
+    Read by ``celery/config.py``, so the workers import the EE jobs and the beat
+    process schedules them. Empty when the EE package is not installed.
+    """
+    try:
+        from rhesis.backend.ee.celery_jobs import (  # type: ignore[import-untyped]
+            BEAT_SCHEDULE,
+            INCLUDE,
+        )
+    except ImportError:
+        return [], {}
+
+    return list(INCLUDE), dict(BEAT_SCHEDULE)
+
+
 def bootstrap_ee(app: "FastAPI") -> None:
     """Conditionally load and initialise the EE package.
 

@@ -107,6 +107,7 @@ def bootstrap(app: "FastAPI") -> None:
     )
     from rhesis.backend.ee.api_clients.router import router as api_clients_router
     from rhesis.backend.ee.audit.router import router as audit_router
+    from rhesis.backend.ee.audit.streaming.router import router as audit_destinations_router
     from rhesis.backend.ee.rbac.provider import PermissionAuthorizationProvider
     from rhesis.backend.ee.rbac.router import router as rbac_router
     from rhesis.backend.ee.sso.provider_enricher import sso_provider_enricher
@@ -248,7 +249,14 @@ def bootstrap(app: "FastAPI") -> None:
     # so the public/token route lists apply uniformly. Without this, the SSO
     # admin endpoints would silently fall back to vanilla APIRoute and any
     # future EE route relying on path-based auth would break.
-    for r in (sso_router, api_clients_router, token_exchange_router, rbac_router, audit_router):
+    for r in (
+        sso_router,
+        api_clients_router,
+        token_exchange_router,
+        rbac_router,
+        audit_router,
+        audit_destinations_router,
+    ):
         r.route_class = app.router.route_class
         app.include_router(r)
 
