@@ -128,7 +128,10 @@ class AuditSink:
 def _audit_settings(db: Session, organization_id) -> AuditLogSettingsAccessor:
     with db.no_autoflush:
         org = db.get(Organization, UUID(str(organization_id)))
-    return org.settings.audit_log if org is not None else AuditLogSettingsAccessor({})
+    # Not org.settings: its cached manager points back at the org, and a response that
+    # serializes an ORM row holding that org would then recurse forever.
+    raw = (org.organization_settings or {}) if org is not None else {}
+    return AuditLogSettingsAccessor(raw.get("audit_log") or {})
 
 
 def _write(db: Session, event: AuditRecorded) -> None:
