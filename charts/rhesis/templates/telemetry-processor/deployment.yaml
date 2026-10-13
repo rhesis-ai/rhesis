@@ -20,6 +20,8 @@ spec:
       labels:
         app: telemetry-processor
         tier: telemetry-processor
+      annotations:
+        checksum/config: {{ include "rhesis.configChecksum" . }}
     spec:
       {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.telemetryProcessor) | nindent 6 }}
       containers:

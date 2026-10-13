@@ -133,6 +133,15 @@ Explicit env overrides envFrom and ConfigMap for the same key names.
 {{- end }}
 
 {{/*
+Pod annotation value that changes with the ConfigMap's data, so pods roll on a
+config change (Helm docs, "Automatically Roll Deployments"). Hashes only .data:
+the chart-version labels and template comments would roll pods for nothing.
+*/}}
+{{- define "rhesis.configChecksum" -}}
+{{- (include (print .Template.BasePath "/configmap.yaml") . | fromYaml).data | toYaml | sha256sum -}}
+{{- end }}
+
+{{/*
 Build a full image reference.
 Usage: include "rhesis.image" (dict "imageValues" .Values.backend "global" .Values.global)
 */}}
