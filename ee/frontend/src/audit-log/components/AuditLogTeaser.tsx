@@ -15,10 +15,11 @@ import { resolvePlanStyle, type PlanVariant } from '@/utils/plan';
 
 const LAPSED: PlanVariant = 'lapsed';
 
-// Only what ships today. Streaming and the Auditor role join once they are live.
 const BENEFITS = [
   'Before and after values for every change, from the web app, SDK, API, MCP and the Architect',
   'Append-only: nobody can edit or delete entries',
+  'An Auditor role that reads everything and changes nothing',
+  'Export to JSON Lines or CSV, and stream events to Splunk, Datadog or a webhook within seconds',
   'Ask the Architect who changed a metric or why a test run regressed',
   'Works with SSO and custom roles',
 ] as const;

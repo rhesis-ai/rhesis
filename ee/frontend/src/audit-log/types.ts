@@ -103,3 +103,47 @@ export interface AuditAction {
   resource: string;
   verb: string;
 }
+
+/** `GET /audit-events/settings` (`AuditLogSettingsRead`). */
+export interface AuditLogSettings {
+  /** The window in force: the org's choice, capped by its plan. */
+  retention_days: number;
+  max_retention_days: number;
+  /** A warning only: the backend does not enforce it. */
+  below_eu_ai_act_minimum: boolean;
+  mask_ip: boolean;
+  include_content: boolean;
+  /** Whether the scheduler's heartbeat is recent; null when the backend cannot tell. */
+  scheduled_jobs_running: boolean | null;
+}
+
+/** `PATCH /audit-events/settings`: the fields sent change, the rest keep their value. */
+export type AuditLogSettingsUpdate = Partial<
+  Pick<AuditLogSettings, 'retention_days' | 'mask_ip' | 'include_content'>
+>;
+
+/** Mirrors `AuditExportCreate.format`. */
+export const AuditExportFormat = {
+  JSONL: 'jsonl',
+  CSV: 'csv',
+} as const;
+export type AuditExportFormat =
+  (typeof AuditExportFormat)[keyof typeof AuditExportFormat];
+
+export interface AuditExportCreate {
+  format: AuditExportFormat;
+  /** The list's `$filter`; omitted for the whole log. */
+  filter?: string;
+}
+
+/** `POST /audit-events/exports` (202). */
+export interface AuditExportCreated {
+  /** The job row; null if the backend could not record it. */
+  job_id: string | null;
+  task_id: string;
+  format: AuditExportFormat;
+  message: string;
+}
+
+/** The export job's `job_type` (`export/service.py` `JOB_TYPE`). */
+export const AUDIT_EXPORT_JOB_TYPE = 'audit_log.export';

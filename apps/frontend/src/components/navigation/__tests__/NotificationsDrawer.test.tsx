@@ -150,6 +150,32 @@ describe('NotificationsDrawer', () => {
     expect(mockPush).toHaveBeenCalledWith('/organizations/usage');
   });
 
+  it('sends an audit log export to the Exports section, where it downloads', async () => {
+    mockGetNotifications.mockResolvedValue([
+      notification({
+        section: NotificationSection.JOBS,
+        event_type: 'audit_log.export_completed',
+        title: 'Audit log export is ready',
+        entity_id: null,
+        entity_type: null,
+        payload: { job_id: 'j-1' },
+      }),
+    ]);
+    render(<NotificationsDrawer open onClose={jest.fn()} />);
+
+    expect(await screen.findByText(/View exports/)).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Audit log export is ready'));
+
+    expect(mockMarkOneRead).toHaveBeenCalledWith(
+      NotificationSection.JOBS,
+      'n-1',
+      1
+    );
+    expect(mockPush).toHaveBeenCalledWith(
+      '/organizations/settings?tab=audit-log&section=exports'
+    );
+  });
+
   it('marks every section with unread items read at once', async () => {
     mockUnreadBySection = {
       [NotificationSection.TEST_RUNS]: 2,

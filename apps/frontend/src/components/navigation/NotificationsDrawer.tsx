@@ -22,6 +22,7 @@ import { BORDER_RADIUS } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { Notification } from '@/utils/api-client/notifications-client';
 import {
+  NOTIFICATION_EVENT_ROUTES,
   NotificationSection,
   UsageNotificationEventType,
   isNotificationSection,
@@ -55,6 +56,7 @@ const SECTION_ROUTES: Record<NotificationSection, string> = {
   [NotificationSection.ARCHITECT]: '/architect',
   [NotificationSection.USAGE]: '/organizations/usage',
   [NotificationSection.ACCOUNT]: '/settings?tab=security',
+  [NotificationSection.JOBS]: '/jobs',
 };
 
 /** The recourse link's base label, keyed by `NotificationSection` -- what a
@@ -67,6 +69,7 @@ const SECTION_LINK_LABEL: Record<NotificationSection, string> = {
   [NotificationSection.ARCHITECT]: 'Open architect',
   [NotificationSection.USAGE]: 'Org usage',
   [NotificationSection.ACCOUNT]: 'Go to settings',
+  [NotificationSection.JOBS]: 'View job',
 };
 
 function sectionLinkLabel(
@@ -250,7 +253,9 @@ export default function NotificationsDrawer({
       }
     }
     onClose();
-    if (section) router.push(SECTION_ROUTES[section]);
+    const eventRoute = NOTIFICATION_EVENT_ROUTES[notification.event_type];
+    if (eventRoute) router.push(eventRoute.route);
+    else if (section) router.push(SECTION_ROUTES[section]);
   };
 
   const handleLoadOlder = async () => {
@@ -388,7 +393,9 @@ export default function NotificationsDrawer({
                     : null;
                   const severity = notificationSeverity(n);
                   const Icon = notificationIcon(n);
-                  const link = sectionLinkLabel(section, n.item_count);
+                  const link =
+                    NOTIFICATION_EVENT_ROUTES[n.event_type]?.label ??
+                    sectionLinkLabel(section, n.item_count);
                   return (
                     <ButtonBase
                       key={n.id}

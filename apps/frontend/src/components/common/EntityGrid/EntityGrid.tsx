@@ -69,6 +69,7 @@ export default function EntityGrid<
   pills,
   drawer,
   externalFilters,
+  onFiltersChange,
   toolbarRight,
   showGridButtons = true,
   showExport = true,
@@ -122,6 +123,12 @@ export default function EntityGrid<
       externalFilters,
     ]
   ) as FiltersOf<S>;
+
+  const onFiltersChangeRef = useRef(onFiltersChange);
+  onFiltersChangeRef.current = onFiltersChange;
+  useEffect(() => {
+    onFiltersChangeRef.current?.(filters);
+  }, [filters]);
 
   // ── Data ───────────────────────────────────────────────────────────────────
   const {

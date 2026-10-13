@@ -70,4 +70,37 @@ describe('AuditLogClient', () => {
     await new AuditLogClient().listActions();
     expect(fetchSpy).toHaveBeenCalledWith('/audit-events/actions');
   });
+
+  it('reads and patches the settings', async () => {
+    const client = new AuditLogClient();
+    await client.getSettings();
+    expect(fetchSpy).toHaveBeenCalledWith('/audit-events/settings', {
+      cache: 'no-store',
+    });
+    await client.updateSettings({ retention_days: 1095 });
+    expect(fetchSpy).toHaveBeenCalledWith('/audit-events/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ retention_days: 1095 }),
+    });
+  });
+
+  it('starts an export with the list filter', async () => {
+    await new AuditLogClient().createExport({
+      format: 'csv',
+      filter: "startswith(action,'endpoint.')",
+    });
+    expect(fetchSpy).toHaveBeenCalledWith('/audit-events/exports', {
+      method: 'POST',
+      body: JSON.stringify({
+        format: 'csv',
+        filter: "startswith(action,'endpoint.')",
+      }),
+    });
+  });
+
+  it('downloads through the same-origin proxy', () => {
+    expect(new AuditLogClient().exportDownloadUrl('j-1')).toBe(
+      `${window.location.origin}/api/backend/audit-events/exports/j-1/download`
+    );
+  });
 });
