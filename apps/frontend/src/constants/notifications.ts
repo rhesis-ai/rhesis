@@ -19,6 +19,8 @@ export const NotificationSection = {
   // Account-level notifications (e.g. "set a password"). Badges no nav
   // item; the drawer links to the settings page.
   ACCOUNT: 'account',
+  // Background job results (an audit log export). Badges the Jobs nav item.
+  JOBS: 'jobs',
 } as const;
 
 export type NotificationSection =
@@ -54,3 +56,24 @@ export const UsageNotificationEventType = {
   APPROACHING_LIMIT: 'usage.approaching_limit',
   BLOCKED: 'usage.blocked',
 } as const;
+
+/** Mirrors `NotificationEventType.AuditLog` in `models/enums.py`. */
+export const AuditLogNotificationEventType = {
+  EXPORT_COMPLETED: 'audit_log.export_completed',
+} as const;
+
+/**
+ * Event kinds whose row opens somewhere more specific than their section's
+ * page. An export's row opens the audit log's Exports section, which has the
+ * Download button; the tab and section ids are the EE module's
+ * (`ee/frontend/src/audit-log`).
+ */
+export const NOTIFICATION_EVENT_ROUTES: Record<
+  string,
+  { route: string; label: string }
+> = {
+  [AuditLogNotificationEventType.EXPORT_COMPLETED]: {
+    route: '/organizations/settings?tab=audit-log&section=exports',
+    label: 'View exports',
+  },
+};

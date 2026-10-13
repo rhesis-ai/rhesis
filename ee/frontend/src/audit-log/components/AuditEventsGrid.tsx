@@ -9,12 +9,17 @@ import type {
   GridRenderCellParams,
   GridRowParams,
 } from '@mui/x-data-grid';
+import Button from '@mui/material/Button';
+import DownloadIcon from '@mui/icons-material/Download';
 import HistoryIcon from '@mui/icons-material/History';
+import { Can } from '@/components/common/Can';
 import EntityGrid, {
   type EntityGridDrawerAdapter,
   type EntityGridFilterState,
 } from '@/components/common/EntityGrid';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { Capability } from '@/constants/capabilities';
+import { buildListFilter } from '@/utils/list';
 import {
   RESOURCE_AREAS,
   resourceDisplayName,
@@ -39,6 +44,7 @@ import {
   type AuditEventRow,
 } from '../types';
 import AuditEventDrawer from './AuditEventDrawer';
+import AuditExportDialog from './AuditExportDialog';
 import AuditEventFilterDrawer from './AuditEventFilterDrawer';
 import { formatValue, monoSx } from './AuditChanges';
 
@@ -127,6 +133,14 @@ function TwoLines({
 
 export default function AuditEventsGrid() {
   const [openEventId, setOpenEventId] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  // The $filter of what the list shows, so an export matches it exactly.
+  const [exportFilter, setExportFilter] = useState<string | undefined>();
+  const onFiltersChange = useCallback(
+    (filters: AuditEventListFilters) =>
+      setExportFilter(buildListFilter(auditEventsList, filters)),
+    []
+  );
 
   const onRowClick = useCallback(
     (params: GridRowParams) => setOpenEventId(String(params.id)),
@@ -254,6 +268,18 @@ export default function AuditEventsGrid() {
         searchPlaceholder="Search actor, resource or action id (endpoint.updated)…"
         pills={{ tabs: CATEGORY_PILLS, allValue: ALL_PILL }}
         drawer={drawerAdapter}
+        onFiltersChange={onFiltersChange}
+        toolbarRight={
+          <Can capability={Capability.AuditLog.EXPORT}>
+            <Button
+              size="small"
+              startIcon={<DownloadIcon />}
+              onClick={() => setExportOpen(true)}
+            >
+              Export
+            </Button>
+          </Can>
+        }
         onRowClick={onRowClick}
         editAction={false}
         showGridButtons={false}
@@ -264,6 +290,11 @@ export default function AuditEventsGrid() {
         eventId={openEventId}
         onClose={() => setOpenEventId(null)}
         onSelect={setOpenEventId}
+      />
+      <AuditExportDialog
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        filter={exportFilter}
       />
     </>
   );

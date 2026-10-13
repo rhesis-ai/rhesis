@@ -30,4 +30,9 @@ export const auditLogQueryKeys = {
   event: (id: string) => [...auditLogQueryKeys.all, 'event', id] as const,
   related: (traceId: string) =>
     [...auditLogQueryKeys.all, 'related', traceId] as const,
+  settings: () => [...auditLogQueryKeys.all, 'settings'] as const,
+  roles: () => [...auditLogQueryKeys.all, 'roles'] as const,
+  allExports: () => [...auditLogQueryKeys.all, 'exports'] as const,
+  exports: (userId: string) =>
+    [...auditLogQueryKeys.allExports(), userId] as const,
 };

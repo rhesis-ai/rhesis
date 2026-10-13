@@ -67,6 +67,7 @@ export const JOB_TYPE_OPTIONS: { label: string; value: string }[] = [
     value: 'endpoint.explore.run_exploration_task',
   },
   { label: 'Architect chat', value: 'architect.architect_chat_task' },
+  { label: 'Audit log export', value: 'audit_log.export' },
 ];
 
 /** Activity log level to MUI Chip colour. */

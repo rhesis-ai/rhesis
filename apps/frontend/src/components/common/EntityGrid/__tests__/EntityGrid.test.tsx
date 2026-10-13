@@ -275,6 +275,31 @@ describe('EntityGrid', () => {
     });
   });
 
+  it('reports the filters in force through onFiltersChange', async () => {
+    const onFiltersChange = jest.fn();
+    render(
+      <EntityGrid
+        descriptor={widgetsList}
+        {...baseProps}
+        onFiltersChange={onFiltersChange}
+      />
+    );
+    await screen.findByTestId('row-w-1');
+    expect(onFiltersChange).toHaveBeenLastCalledWith({
+      search: '',
+      status: '',
+    });
+
+    const user = userEvent.setup();
+    await user.type(screen.getByPlaceholderText('Search widgets…'), 'abc');
+    await waitFor(() =>
+      expect(onFiltersChange).toHaveBeenLastCalledWith({
+        search: 'abc',
+        status: '',
+      })
+    );
+  });
+
   it('renders a delete action that opens the confirm modal and calls the bulk endpoint', async () => {
     mockBulkDelete.mockResolvedValue(undefined);
     render(<EntityGrid descriptor={widgetsList} {...baseProps} />);
