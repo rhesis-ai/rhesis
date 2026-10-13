@@ -63,7 +63,8 @@ def _due() -> tuple:
         AuditDestination.paused.is_(False),
         or_(
             AuditDestination.next_attempt_at.is_(None),
-            AuditDestination.next_attempt_at <= sa.func.now(),
+            # The current time: now() is when the transaction started.
+            AuditDestination.next_attempt_at <= sa.func.clock_timestamp(),
         ),
     )
 
