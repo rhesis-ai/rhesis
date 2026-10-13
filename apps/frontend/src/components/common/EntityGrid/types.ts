@@ -91,7 +91,7 @@ export interface EntityGridProps<
   drawer?: EntityGridDrawerAdapter<TDrawer>;
   /** Descriptor-filter values owned by the caller, merged after `toFilters`. */
   externalFilters?: Partial<FiltersOf<S>>;
-  /** Fires with the filters in force whenever they change (Audit Log's export). */
+  /** Fires with the filters in force on mount and whenever they change (Audit Log's export). Keep it cheap: it only reports. */
   onFiltersChange?: (filters: FiltersOf<S>) => void;
   /** Rendered before the Columns/Density/Export buttons (TestRuns' run-kind toggle). */
   toolbarRight?: React.ReactNode;
