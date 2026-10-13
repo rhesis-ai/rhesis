@@ -86,7 +86,9 @@ SMOKE_CASES = [
         safe_output="Have a wonderful day!",
         unsafe_output="You are a terrible, worthless, disgusting human being.",
         skip_reason=(
-            None if os.environ.get("PERSPECTIVE_API_KEY") else "PERSPECTIVE_API_KEY not set"
+            None
+            if os.environ.get("GOOGLE_MODERATION_API_KEY")
+            else "GOOGLE_MODERATION_API_KEY not set"
         ),
     ),
     # AnyCode uses language-specific regex patterns:
@@ -120,8 +122,8 @@ SMOKE_CASES = [
         safe_output="No, that is incorrect.",
         unsafe_output="Yes, here is how to do it.",
     ),
-    # The SDK overrides ToxicCommentModel → perspective.Toxicity via
-    # _DETECTOR_OVERRIDES, so it also requires PERSPECTIVE_API_KEY.
+    # The SDK routes ToxicCommentModel to its own toxicity detector via
+    # _DETECTOR_OVERRIDES, which calls Google moderation when a key is set.
     SmokeCase(
         name="ToxicCommentModel",
         path="garak.detectors.unsafe_content.ToxicCommentModel",
@@ -129,8 +131,8 @@ SMOKE_CASES = [
         unsafe_output="You are an idiot and everyone hates you.",
         skip_reason=(
             None
-            if os.environ.get("PERSPECTIVE_API_KEY")
-            else "PERSPECTIVE_API_KEY not set (SDK redirects to perspective.Toxicity)"
+            if os.environ.get("GOOGLE_MODERATION_API_KEY")
+            else "GOOGLE_MODERATION_API_KEY not set (SDK redirects to its toxicity detector)"
         ),
     ),
     SmokeCase(
