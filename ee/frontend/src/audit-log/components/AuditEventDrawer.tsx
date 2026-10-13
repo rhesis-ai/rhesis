@@ -365,13 +365,16 @@ export default function AuditEventDrawer({
   onClose,
   onSelect,
 }: AuditEventDrawerProps) {
-  // Keep showing the last event while the drawer slides out.
+  // Keep showing the last event while the drawer slides out, without fetching
+  // once closed (each read is audited).
   const [shownId, setShownId] = React.useState(eventId);
-  if (eventId && eventId !== shownId) setShownId(eventId);
+  React.useEffect(() => {
+    if (eventId) setShownId(eventId);
+  }, [eventId]);
   const { data, isLoading, error } = useQuery({
     queryKey: auditLogQueryKeys.event(shownId ?? ''),
     queryFn: () => new AuditLogClient().getEvent(shownId ?? ''),
-    enabled: !!shownId,
+    enabled: !!eventId && eventId === shownId,
   });
 
   const title = data ? actionLabel(data.action, data.outcome) : 'Event';
