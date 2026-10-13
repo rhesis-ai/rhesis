@@ -98,8 +98,9 @@ When the user wants the entries as a file (for an auditor, a spreadsheet or anot
    the user sees what the file will hold.
 2. Call `create_audit_export` with that `filter` and a `format`: `jsonl` (exact, one entry per line)
    or `csv` (for spreadsheets). Leave the filter out only when they want the whole log.
-3. Tell the user the export runs in the background and that they download the file from the Jobs
-   screen, or from the notification that arrives when it is ready. You cannot open the file.
+3. Tell the user the export runs in the background and shows on the Jobs screen. Once it has
+   completed, the file downloads from `GET /audit-events/exports/{job_id}/download`, with the
+   `job_id` from the result. You cannot open the file.
 
 Do not start an export to answer a question; read the entries with `list_audit_events` instead.
 The export itself is recorded in the log as `audit_log.exported`, with its filter.

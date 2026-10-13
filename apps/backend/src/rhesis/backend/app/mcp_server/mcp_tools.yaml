@@ -2211,10 +2211,10 @@ tools:
     description: >
       Start an export of the organization's audit log to a JSONL or CSV file,
       for the user to download. ENTITY: AuditEvent. It runs as a background
-      job: the response has task_id and job_id. The user gets the file from
-      the Jobs screen, or from the notification that follows when it is
-      ready; you cannot download or read the file, so tell them where to find
-      it. Each row has the same fields list_audit_events returns, never
+      job, shown on the Jobs screen: the response has task_id and job_id.
+      Once it completes, the user downloads the file from
+      GET /audit-events/exports/{job_id}/download; you cannot download or read
+      the file, so give them that path. Each row has the same fields list_audit_events returns, never
       content values. The export is itself recorded in the audit log as
       audit_log.exported, with its filter.
       CHAIN: when the user names a resource or a person, build the filter

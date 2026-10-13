@@ -29,8 +29,6 @@ _DESCRIPTION = (
 
 
 def upgrade() -> None:
-    # Keeps a hand-installed auto_rls_on_ddl event trigger out of this migration.
-    op.execute("SET LOCAL auto_rls.active = 'true'")
     op.get_bind().execute(
         sa.text(
             """

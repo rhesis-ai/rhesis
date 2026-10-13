@@ -759,8 +759,8 @@ before filtering instead of guessing them.
 ---
 
 ### `create_audit_export`
-Start a background export of audit log entries to a JSONL or CSV file. The user downloads it from
-the Jobs screen or from the notification when it is ready. Rows have the `list_audit_events`
+Start a background export of audit log entries to a JSONL or CSV file. Once the job completes, the
+user downloads it from `GET /audit-events/exports/{job_id}/download`. Rows have the `list_audit_events`
 fields, never content values. Listed only for roles that may export the audit log. Requires
 confirmation.
 

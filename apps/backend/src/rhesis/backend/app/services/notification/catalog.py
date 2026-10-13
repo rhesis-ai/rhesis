@@ -155,6 +155,11 @@ def _render_architect_plan_completed(task, retval, error) -> Optional[RenderedNo
     )
 
 
+def _export_summary(retval) -> str:
+    rows = retval.get("rows", 0)
+    return f"{rows} event{'' if rows == 1 else 's'}, {str(retval.get('format', '')).upper()}"
+
+
 def _render_audit_export_completed(task, retval, error) -> RenderedNotification:
     job_id = _task_headers(task).get("job_id")
     if error:
@@ -163,7 +168,7 @@ def _render_audit_export_completed(task, retval, error) -> RenderedNotification:
         )
     return RenderedNotification(
         title="Audit log export is ready",
-        body=f"{retval.get('rows', 0)} events, {str(retval.get('format', '')).upper()}",
+        body=_export_summary(retval),
         payload={"job_id": job_id, "download_path": retval.get("download_path")},
     )
 
