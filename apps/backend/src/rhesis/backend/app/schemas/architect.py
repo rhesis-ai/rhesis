@@ -1,6 +1,7 @@
 """Pydantic schemas for Architect sessions and messages."""
 
-from typing import Any, Dict, List, Optional
+import datetime
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import UUID4, ConfigDict
 
@@ -24,6 +25,7 @@ class ArchitectMessageCreate(ArchitectMessageBase):
 
 class ArchitectMessage(ArchitectMessageBase, ServerIdentity):
     session_id: UUID4
+    created_at: Optional[Union[datetime.datetime, str]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
