@@ -7,7 +7,8 @@ purge is running.
 
 Redis trouble never fails the heartbeat or a reader: recording is skipped, and
 reading answers None ("unknown"). No in-memory fallback, which would only
-know about its own process. A failed connect is retried on the next call.
+know about its own process. A failed connect is retried by a later call, at
+most every 30 seconds (``RedisBackedCache.initialize``).
 """
 
 import logging
@@ -31,12 +32,7 @@ class BeatSignal(RedisBackedCache):
         )
 
     def _client(self):
-        if self._redis is None:
-            self._initialized = False
-            try:
-                self.initialize()
-            except Exception as exc:
-                logger.warning(f"{self._cache_name}: Redis unavailable: {exc}")
+        self.initialize()
         return self._redis
 
     def record(self, ran_at: str) -> None:
