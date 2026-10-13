@@ -16,7 +16,7 @@ or for an org that is not entitled (the sink checks).
 
 import logging
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Sequence
 
 from sqlalchemy.orm import Session
 
@@ -30,7 +30,7 @@ from rhesis.backend.app.provenance import ActorType, current_provenance, provena
 from rhesis.backend.events.audit_actions import NOT_ACTIONS, audit_action
 from rhesis.backend.events.correlation import resolve_ids
 from rhesis.backend.events.dispatcher import emit
-from rhesis.backend.events.types import AuditRecorded
+from rhesis.backend.events.types import AuditRecorded, FieldChange
 
 logger = logging.getLogger(__name__)
 
@@ -58,12 +58,14 @@ def record_audit_event(
     resource_id=None,
     resource_label: Optional[str] = None,
     project_id=None,
+    changes: Sequence[FieldChange] = (),
 ) -> None:
     """Record ``action`` in ``organization_id``'s audit log.
 
     The actor is the request's own unless ``actor_id`` names one: a sign-in
     or a token exchange happens before the request is authenticated. The
     credential comes from the arguments when given, else from the request.
+    ``changes`` carries details of the action, such as an export's filter.
     """
     if not organization_id or not audit_registered():
         return
@@ -99,6 +101,7 @@ def record_audit_event(
         user_agent=provenance.user_agent,
         request_id=provenance.request_id,
         resource_label=resource_label,
+        changes=tuple(changes),
     )
     emit(event, db=db)
 

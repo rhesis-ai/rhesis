@@ -124,6 +124,7 @@ def launch_job(
     db=None,
     entity_type: Optional[str] = None,
     entity_id: Optional[str] = None,
+    job_metadata: Optional[Dict[str, Any]] = None,
     **kwargs: Any,
 ):
     """
@@ -150,6 +151,7 @@ def launch_job(
         entity_type: Optional subject of the job (e.g. ``"TestSet"``), so the
             Jobs screen can offer a way back to whatever the job is about.
         entity_id: Optional id of that subject.
+        job_metadata: Optional details stored on the ``job`` row, shown with it.
         **kwargs: Keyword arguments to pass to the task
 
     Returns:
@@ -192,6 +194,7 @@ def launch_job(
                 project_id=headers.get("project_id"),
                 entity_type=entity_type,
                 entity_id=entity_id,
+                job_metadata=job_metadata,
                 trace_id=trace_id,
             )
         except Exception as exc:

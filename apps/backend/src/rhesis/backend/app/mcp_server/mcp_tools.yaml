@@ -2202,6 +2202,44 @@ tools:
       role_id in its changes. NEVER: guess an action name such as
       member.role_updated.
 
+  - name: create_audit_export
+    label: Exporting the audit log
+    method: POST
+    path: /audit-events/exports
+    ee: true
+    requires_confirmation: true
+    description: >
+      Start an export of the organization's audit log to a JSONL or CSV file,
+      for the user to download. ENTITY: AuditEvent. It runs as a background
+      job: the response has task_id and job_id. The user gets the file from
+      the Jobs screen, or from the notification that follows when it is
+      ready; you cannot download or read the file, so tell them where to find
+      it. Each row has the same fields list_audit_events returns, never
+      content values. The export is itself recorded in the audit log as
+      audit_log.exported, with its filter.
+      CHAIN: when the user names a resource or a person, build the filter
+      exactly as for list_audit_events (resolve ids with the list_* tools
+      first), and run list_audit_events with it once to show what will be
+      in the file. Poll get_job_status with task_id if the user wants to
+      know when it is done.
+      NEVER: start an export to answer a question; use list_audit_events.
+      Do not start a second export of the same filter while one is running.
+    parameters:
+      format:
+        description: >
+          "jsonl" (default; one JSON object per line, exact) or "csv" (for
+          spreadsheets; changes is a JSON string in one column, and a cell
+          that would run as a formula starts with a single quote).
+      filter:
+        description: >
+          OData filter, the same expressions list_audit_events takes, e.g.
+          "occurred_at ge 2026-10-01T00:00:00Z and startswith(action,'member.')".
+          Omit to export the whole log.
+      sort_order:
+        description: >
+          "desc" (default, newest first) or "asc". Rows are always ordered by
+          occurred_at.
+
   # ── Background Jobs ─────────────────────────────────────
   - name: get_job_status
     label: Checking job status

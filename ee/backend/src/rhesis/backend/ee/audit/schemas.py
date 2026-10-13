@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -46,6 +46,12 @@ class AuditEventRead(BaseModel):
         return None if value is None else str(value)
 
 
+def event_payload(row) -> dict:
+    """An event exactly as ``GET /audit-events`` lists it: what streaming and
+    export send. Never ``content_changes``: those stay behind the detail route."""
+    return AuditEventRead.model_validate(row).model_dump(mode="json")
+
+
 class AuditEventDetail(AuditEventRead):
     # [{field, before, after}] for content fields, only while the org includes content.
     content_changes: Optional[list[dict[str, Any]]] = None
@@ -79,3 +85,23 @@ class AuditLogSettingsUpdate(BaseModel):
     retention_days: Optional[int] = Field(None, ge=MIN_RETENTION_DAYS, le=MAX_RETENTION_DAYS)
     mask_ip: Optional[bool] = None
     include_content: Optional[bool] = None
+
+
+class AuditExportCreate(BaseModel):
+    """What to export. ``filter`` is the list's OData ``$filter``; rows are
+    ordered by ``occurred_at`` in ``sort_order``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    format: Literal["jsonl", "csv"] = "jsonl"
+    filter: Optional[str] = None
+    sort_order: Literal["asc", "desc"] = "desc"
+
+
+class AuditExportCreated(BaseModel):
+    #: The ``job`` row, as the Jobs screen shows it; null if it could not be recorded.
+    job_id: Optional[UUID] = None
+    #: Poll ``GET /jobs/{task_id}`` for status.
+    task_id: str
+    format: str
+    message: str

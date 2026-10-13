@@ -34,9 +34,22 @@ A field of kind `content` (prompts, responses, comments) does the same in the li
 organization records content, `get_audit_event` returns its before and after in `content_changes`.
 A job that created many rows writes one entry whose `changes` is `{count, ids}`.
 
-The log holds only what happened while the organization had it, and only within its retention
-window (one year unless an admin changed it). An empty result for an older period does not prove
-nothing changed then.
+## What the log keeps
+
+- **Retention.** Entries are deleted once they are older than the organization's retention window:
+  one year unless an admin changed it (from 90 days up to what the plan allows). The log also holds
+  only what happened while the organization had it. So an empty result for an older period does
+  not prove nothing changed then; say that the log does not reach back that far.
+- **Content.** Content values (prompts, responses, comments) are kept only when an admin turned on
+  recording content, and only for changes made after that. Turning it off hides the values already
+  kept. When `get_audit_event` returns no `content_changes`, say the value is not recorded; never
+  rebuild it from the current resource.
+- **IP addresses.** By default only the network is kept (an IPv4 address ends in `.0`), so do not
+  present it as someone's exact address.
+- **Secrets** are never recorded, whatever the settings.
+
+These settings belong to the organization's admins. You cannot read or change them; if the user
+asks to keep entries longer or to record content, point them to the audit log settings.
 
 ## Finding the right entries
 
@@ -75,3 +88,18 @@ Combine conditions with `and`. Results come newest first, one page at a time. Wh
   give the values from `content_changes` when `get_audit_event` returned them; otherwise say the
   value is not recorded. Do not look for a value anywhere else.
 - Do not guess why someone made a change. The log says what happened, not why.
+
+## Exporting
+
+When the user wants the entries as a file (for an auditor, a spreadsheet or another system), use
+`create_audit_export`. It is listed only for roles that may export the audit log.
+
+1. Build the filter exactly as for `list_audit_events`, and run `list_audit_events` with it once so
+   the user sees what the file will hold.
+2. Call `create_audit_export` with that `filter` and a `format`: `jsonl` (exact, one entry per line)
+   or `csv` (for spreadsheets). Leave the filter out only when they want the whole log.
+3. Tell the user the export runs in the background and that they download the file from the Jobs
+   screen, or from the notification that arrives when it is ready. You cannot open the file.
+
+Do not start an export to answer a question; read the entries with `list_audit_events` instead.
+The export itself is recorded in the log as `audit_log.exported`, with its filter.

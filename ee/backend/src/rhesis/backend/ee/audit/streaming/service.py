@@ -27,7 +27,7 @@ from rhesis.backend.app.features import FeatureName, FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.utils import webhooks
 from rhesis.backend.app.utils.ssrf_http_client import SSRFError
-from rhesis.backend.ee.audit.schemas import AuditEventRead
+from rhesis.backend.ee.audit.schemas import AuditEventRead, event_payload
 from rhesis.backend.ee.audit.streaming import crud
 from rhesis.backend.ee.audit.streaming.adapters import KINDS, TEST_TYPE, Batch, DeliveryError
 from rhesis.backend.ee.audit.streaming.models import AuditDestination
@@ -152,16 +152,6 @@ def send_test_event(destination: AuditDestination) -> Optional[str]:
 # ---------------------------------------------------------------------------
 # Delivery
 # ---------------------------------------------------------------------------
-
-
-def event_payload(row) -> dict:
-    """An event exactly as ``GET /audit-events`` lists it.
-
-    The IP is already masked when the org masks IPs (the sink stores it that way).
-    Content values are never streamed, even when the org records them: they stay
-    behind ``GET /audit-events/{id}``.
-    """
-    return AuditEventRead.model_validate(row).model_dump(mode="json")
 
 
 def backoff(failures: int) -> timedelta:

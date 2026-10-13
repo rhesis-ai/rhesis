@@ -181,21 +181,22 @@ class TestScheduledJobs:
 
 
 class TestAccess:
-    @pytest.mark.parametrize("method", ["get", "patch"])
-    def test_viewer_is_denied(self, client, test_db, method):
+    @pytest.mark.parametrize(
+        "method, needs", [("get", "audit_log:read"), ("patch", "audit_log:manage")]
+    )
+    def test_viewer_is_denied(self, client, test_db, method, needs):
         _, _, token = _member(test_db, "Viewer")
         resp = _get(client, token) if method == "get" else _patch(client, token, {})
         assert resp.status_code == status.HTTP_403_FORBIDDEN
-        assert resp.headers.get("X-Accepted-Permissions") == "audit_log:manage"
+        assert resp.headers.get("X-Accepted-Permissions") == needs
 
-    @pytest.mark.parametrize("method", ["get", "patch"])
-    def test_read_without_manage_is_denied(self, client, test_db, admin, method):
+    def test_read_without_manage_can_read_but_not_change(self, client, test_db, admin):
+        # Reading the settings needs only audit_log:read, so an Auditor sees them.
         _, token = admin
         token.scopes = ["audit_log:read"]
         test_db.flush()
-        resp = _get(client, token) if method == "get" else _patch(client, token, {})
-        assert resp.status_code == status.HTTP_403_FORBIDDEN
-        assert _get(client, token, URL).status_code == status.HTTP_200_OK
+        assert _get(client, token).status_code == status.HTTP_200_OK
+        assert _patch(client, token, {}).status_code == status.HTTP_403_FORBIDDEN
 
     def test_unlicensed_org_gets_404(self, client, admin):
         _, token = admin

@@ -108,6 +108,7 @@ class NotificationSection(str, Enum):
     ARCHITECT = "architect"
     USAGE = "usage"
     ACCOUNT = "account"
+    JOBS = "jobs"
 
 
 class NotificationEventType:
@@ -148,6 +149,10 @@ class NotificationEventType:
         #: no password and no external auth provider. Nudges them to
         #: set a password so they can sign in independently.
         PASSWORD_NOT_SET = "account.password_not_set"
+
+    class AuditLog(str, Enum):
+        #: An audit log export job finished, or failed for good.
+        EXPORT_COMPLETED = "audit_log.export_completed"
 
 
 # Notification.entity_type reuses rhesis.backend.app.constants.EntityType

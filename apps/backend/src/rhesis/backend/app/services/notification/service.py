@@ -50,7 +50,9 @@ def notify(
     event_type_value = getattr(event_type, "value", event_type)
 
     kind = NOTIFICATION_CATALOG[event_type_value]
-    payload = {"entity_ids": rendered.entity_ids} if rendered.entity_ids else None
+    payload = dict(rendered.payload or {})
+    if rendered.entity_ids:
+        payload["entity_ids"] = rendered.entity_ids
     # A batch counts as its entities, not as one row -- see item_count on
     # models/notification.py. A failure carries no ids and still counts as one.
     item_count = rendered.item_count or len(rendered.entity_ids or []) or 1
@@ -65,7 +67,7 @@ def notify(
         entity_type=kind.entity_type,
         entity_id=rendered.entity_id,
         item_count=item_count,
-        payload=payload,
+        payload=payload or None,
         user_id=user_id,
         organization_id=organization_id,
         project_id=project_id,
