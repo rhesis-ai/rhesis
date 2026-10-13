@@ -1,8 +1,8 @@
 """Audit events with no row change behind them.
 
-Sign-ins and sign-outs, password resets and changes, token exchanges, denied
-requests and exports. Row changes are recorded on their own by
-``models/audit_capture.py``.
+Sign-ins and sign-outs, failed session refreshes, password resets and changes,
+token exchanges, denied requests and exports. Row changes are recorded on their
+own by ``models/audit_capture.py``.
 
 With ``db`` the entry joins that session's transaction: it commits with the
 work it describes, and a failed write fails the request. Without, the audit
@@ -27,6 +27,8 @@ from rhesis.backend.app.models.audit_capture import (
     user_label,
 )
 from rhesis.backend.app.provenance import ActorType, current_provenance, provenance_of
+from rhesis.backend.app.services.cache import RedisBackedCache
+from rhesis.backend.app.services.redis_constants import RedisDatabase
 from rhesis.backend.events.audit_actions import NOT_ACTIONS, audit_action
 from rhesis.backend.events.correlation import resolve_ids
 from rhesis.backend.events.dispatcher import emit
@@ -36,11 +38,50 @@ logger = logging.getLogger(__name__)
 
 SIGNED_IN = "session.signed_in"
 SIGNED_OUT = "session.signed_out"
+SESSION_REFRESHED = "session.refreshed"
 PASSWORD_RESET = "password.reset"
 PASSWORD_CHANGED = "password.changed"
 TOKEN_EXCHANGED = "token.exchanged"
 
 _MUTATING_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+REPEAT_WINDOW_SECONDS = 60
+
+
+class RepeatWindow(RedisBackedCache):
+    """Which repeated entries already have a row in the current window.
+
+    Rows cannot be updated to merge repeats, so a Redis key (``SET NX EX``)
+    decides which one records. When Redis cannot answer, the entry records
+    anyway: an extra row is better than a missing one.
+    """
+
+    def __init__(self, cache_name: str, ttl: int = REPEAT_WINDOW_SECONDS) -> None:
+        super().__init__(redis_db=RedisDatabase.AUDIT_REPEATS, cache_name=cache_name, ttl=ttl)
+
+    def claim(self, key: str) -> bool:
+        """True when this entry should record: first in the window, or Redis cannot say.
+
+        No in-memory fallback: it would suppress rows per process with nothing shared.
+        """
+        self.initialize()
+        if self._redis is None:
+            return True
+        try:
+            return bool(self._redis.set(key, "1", nx=True, ex=self._ttl))
+        except Exception as exc:
+            logger.warning(f"{self._cache_name}: Redis claim failed, recording anyway: {exc}")
+            return True
+
+    def release(self, key: str) -> None:
+        self._delete(key)
+
+
+_repeats = RepeatWindow("audit-repeats")
+
+
+def _first_in_window(action: str, organization_id, *who) -> bool:
+    """True for the first of identical entries in a minute, so a retrying client writes one row."""
+    return _repeats.claim(f"audit_repeat:v1:{action}:{organization_id}:" + ":".join(map(str, who)))
 
 
 def record_audit_event(
@@ -131,7 +172,9 @@ def record_user_event(
     )
 
 
-def record_failed_sign_in(db: Session, email: str, *, organization_id=None) -> None:
+def record_failed_sign_in(
+    db: Session, email: str, *, organization_id=None, status_code: int = 401
+) -> None:
     """A failed sign-in, in the org of the account ``email`` names.
 
     An email with no account writes nothing: there is no org to put it in, and
@@ -153,7 +196,22 @@ def record_failed_sign_in(db: Session, email: str, *, organization_id=None) -> N
         return
     if organization_id is not None and str(user.organization_id) != str(organization_id):
         return
-    record_user_event(SIGNED_IN, user, outcome="failure", status_code=401)
+    record_user_event(SIGNED_IN, user, outcome="failure", status_code=status_code)
+
+
+def record_failed_refresh(user) -> None:
+    """A refused ``/auth/refresh`` for ``user``'s token, once a minute per user and IP.
+
+    Written on its own session, like a failed sign-in. A token that names no
+    account is left to the Python log.
+    """
+    if user.organization_id is None or not audit_registered():
+        return
+    provenance = current_provenance()
+    ip = provenance.ip if provenance is not None else None
+    if not _first_in_window(SESSION_REFRESHED, user.organization_id, user.id, ip):
+        return
+    record_user_event(SESSION_REFRESHED, user, outcome="failure", status_code=401)
 
 
 def denied_action(capability: str, method: str) -> str:
@@ -161,20 +219,28 @@ def denied_action(capability: str, method: str) -> str:
     resource and verb, or the HTTP verb when the capability is a bundle."""
     resource, verb = capability.split(":")[:2]
     if verb in NOT_ACTIONS:
-        verb = _METHOD_TO_ACTION[method]
+        verb = _METHOD_TO_ACTION.get(method, "read")
     return audit_action(f"{resource}:{verb}")
 
 
 def record_denial(capability: str, method: str, user, project_id=None) -> None:
-    """A 403 from the authorization backstop, on a request that changes something.
+    """A 403 after a permission check, in the backstop or a handler.
 
-    Written on its own session: the request's transaction rolls back. Denied
-    reads are not recorded.
+    Written on its own session: the request's transaction rolls back. A denied
+    read records once a minute per actor and credential, since page loads and
+    polling repeat it; a denied change records every time.
     """
-    if method not in _MUTATING_METHODS:
+    if not audit_registered():
         return
+    action = denied_action(capability, method)
+    if method not in _MUTATING_METHODS:
+        provenance = current_provenance()
+        if provenance is not None and not _first_in_window(
+            action, user.organization_id, provenance.actor_id, provenance.credential_id
+        ):
+            return
     record_audit_event(
-        denied_action(capability, method),
+        action,
         user.organization_id,
         outcome="denied",
         status_code=403,

@@ -10,7 +10,7 @@ from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.quota_gates import require_quota
-from rhesis.backend.app.auth.rbac import authorize
+from rhesis.backend.app.auth.rbac import authorize, denial
 from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
     require_current_user_or_token_without_context,
@@ -535,7 +535,12 @@ def update_user(
     if str(db_user.id) != str(current_user.id):
         principal = resolve_principal_from_request(current_user, request)
         if not authorize(principal, Permission.Member.MANAGE, project_id=None, db=db):
-            raise HTTPException(status_code=403, detail="Not authorized to update this user")
+            raise denial(
+                Permission.Member.MANAGE,
+                request,
+                current_user,
+                "Not authorized to update this user",
+            )
 
     had_no_organization = db_user.organization_id is None
 

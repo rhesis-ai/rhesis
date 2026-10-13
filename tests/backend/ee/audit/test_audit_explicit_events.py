@@ -1,4 +1,4 @@
-"""Explicit audit events: sign-ins, sign-outs, passwords, denials, exports, token exchanges.
+"""Explicit audit events: sessions, passwords, denials, exports, token exchanges.
 
 Rows a request writes in its own transaction ride the test's savepoint. Rows
 written on the sink's own session (denials, failed sign-ins) really commit,
@@ -77,6 +77,46 @@ def emitted(monkeypatch) -> list:
 
     monkeypatch.setattr(audit_events, "emit", _spy)
     return seen
+
+
+class _FakeRedis:
+    """``SET NX`` with no expiry: everything in a test falls inside one window."""
+
+    def __init__(self):
+        self.keys: set[str] = set()
+
+    def set(self, key, value, nx=False, ex=None):
+        if nx and key in self.keys:
+            return None
+        self.keys.add(key)
+        return True
+
+    def delete(self, *keys):
+        self.keys.difference_update(keys)
+
+
+@pytest.fixture
+def fresh_window(monkeypatch):
+    """An empty repeat window, so earlier tests' denials and refreshes don't suppress rows."""
+    monkeypatch.setattr(audit_events._repeats, "_initialized", True)
+    monkeypatch.setattr(audit_events._repeats, "_redis", _FakeRedis())
+
+
+def _bind_provenance(request, request_id: str, actor_id=None) -> None:
+    """The ambient provenance a direct call (no HTTP request) records with."""
+    token = bind_task_provenance(
+        RequestProvenance(
+            actor_type=ActorType.USER if actor_id else ActorType.ANONYMOUS,
+            actor_id=actor_id,
+            credential_id=None,
+            credential_hint=None,
+            channel=Channel.WEB,
+            ip=None,
+            user_agent=None,
+            request_id=request_id,
+        )
+    )
+    request.addfinalizer(lambda: reset_task_provenance(token))
 
 
 @pytest.fixture
@@ -171,6 +211,114 @@ class TestSignIn:
         )
 
         assert response.status_code == 401
+        assert emitted == []
+
+
+class TestRefresh:
+    @pytest.fixture
+    def revoked_token(self, test_db, member) -> str:
+        from rhesis.backend.app.auth.refresh_token_utils import (
+            create_refresh_token,
+            revoke_all_for_user,
+        )
+
+        token = create_refresh_token(test_db, str(member.id))
+        revoke_all_for_user(test_db, str(member.id))
+        test_db.flush()
+        return token
+
+    def test_a_refused_token_is_recorded_once_a_minute(
+        self, client, test_db, test_org_id, member, revoked_token, fresh_window
+    ):
+        first, second = _request_id(), _request_id()
+
+        for request_id in (first, second):
+            response = client.post(
+                "/auth/refresh",
+                json={"refresh_token": revoked_token},
+                headers=_headers(request_id),
+            )
+            assert response.status_code == 401
+
+        (row,) = _rows(test_db, test_org_id, first)
+        assert row["action"] == "session.refreshed"
+        assert row["outcome"] == "failure"
+        assert row["status_code"] == 401
+        assert row["actor_id"] == member.id
+        assert _rows(test_db, test_org_id, second) == []
+
+    def test_an_inactive_account_is_recorded(
+        self, client, test_db, test_org_id, member, fresh_window
+    ):
+        from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
+
+        token = create_refresh_token(test_db, str(member.id))
+        member.is_active = False
+        test_db.flush()
+        request_id = _request_id()
+
+        response = client.post(
+            "/auth/refresh", json={"refresh_token": token}, headers=_headers(request_id)
+        )
+
+        assert response.status_code == 401
+        (row,) = _rows(test_db, test_org_id, request_id)
+        assert row["action"] == "session.refreshed"
+        assert row["outcome"] == "failure"
+
+    def test_an_unknown_token_writes_nothing(self, client, emitted, fresh_window):
+        response = client.post(
+            "/auth/refresh",
+            json={"refresh_token": f"not-a-token-{uuid.uuid4().hex}"},
+            headers=_headers(_request_id()),
+        )
+
+        assert response.status_code == 401
+        assert emitted == []
+
+
+class TestMagicLink:
+    def test_a_replayed_link_is_a_failed_sign_in(self, client, test_db, test_org_id, member):
+        from rhesis.backend.app.auth.token_utils import create_magic_link_token
+
+        request_id = _request_id()
+        with patch(
+            "rhesis.backend.app.routers.auth.claim_token_jti",
+            new_callable=AsyncMock,
+            return_value=False,
+        ):
+            response = client.post(
+                "/auth/magic-link/verify",
+                json={"token": create_magic_link_token(str(member.id), member.email)},
+                headers=_headers(request_id),
+            )
+
+        assert response.status_code == 400
+        (row,) = _rows(test_db, test_org_id, request_id)
+        assert row["action"] == "session.signed_in"
+        assert row["outcome"] == "failure"
+        assert row["status_code"] == 400
+        assert row["actor_id"] == member.id
+
+    def test_a_replayed_link_for_an_unknown_email_writes_nothing(self, client, emitted):
+        from rhesis.backend.app.auth.token_utils import create_magic_link_token
+
+        with patch(
+            "rhesis.backend.app.routers.auth.claim_token_jti",
+            new_callable=AsyncMock,
+            return_value=False,
+        ):
+            response = client.post(
+                "/auth/magic-link/verify",
+                json={
+                    "token": create_magic_link_token(
+                        str(uuid.uuid4()), f"nobody-{uuid.uuid4().hex}@example.com"
+                    )
+                },
+                headers=_headers(_request_id()),
+            )
+
+        assert response.status_code == 400
         assert emitted == []
 
 
@@ -279,11 +427,91 @@ class TestDenials:
         assert row["actor_credential_id"]
         assert row["actor_label"]
 
-    def test_denied_read_writes_nothing(self, authenticated_client, deny_everything, emitted):
-        response = authenticated_client.get("/test_sets/", headers=_headers(_request_id()))
+    def test_denied_read_is_recorded_once_a_minute(
+        self, authenticated_client, deny_everything, fresh_window, test_db, test_org_id
+    ):
+        first, second = _request_id(), _request_id()
 
-        assert response.status_code == 403
-        assert emitted == []
+        assert authenticated_client.get("/test_sets/", headers=_headers(first)).status_code == 403
+        assert authenticated_client.get("/test_sets/", headers=_headers(second)).status_code == 403
+
+        (row,) = _rows(test_db, test_org_id, first)
+        assert row["action"] == "test_set.viewed"
+        assert row["outcome"] == "denied"
+        assert row["status_code"] == 403
+        assert _rows(test_db, test_org_id, second) == []
+
+    def test_denied_changes_are_each_recorded(
+        self, authenticated_client, deny_everything, fresh_window, test_db, test_org_id
+    ):
+        request_ids = [_request_id(), _request_id()]
+        for request_id in request_ids:
+            response = authenticated_client.post(
+                "/test_sets/", json={"name": "Denied"}, headers=_headers(request_id)
+            )
+            assert response.status_code == 403
+
+        for request_id in request_ids:
+            (row,) = _rows(test_db, test_org_id, request_id)
+            assert row["action"] == "test_set.created"
+
+    def test_an_object_level_denial_in_a_handler_is_recorded(
+        self, authenticated_client, test_db, test_org_id, member
+    ):
+        comment = models.Comment(
+            content="Someone else's",
+            entity_id=uuid.uuid4(),
+            entity_type="Test",
+            organization_id=test_org_id,
+            user_id=member.id,
+        )
+        test_db.add(comment)
+        test_db.flush()
+        request_id = _request_id()
+
+        response = authenticated_client.put(
+            f"/comments/{comment.id}", json={"content": "Edited"}, headers=_headers(request_id)
+        )
+
+        assert response.status_code == 403, response.text
+        (row,) = _rows(test_db, test_org_id, request_id)
+        assert row["action"] == "comment.updated"
+        assert row["outcome"] == "denied"
+        assert row["status_code"] == 403
+
+    def test_a_denied_profile_edit_is_recorded(
+        self, authenticated_client, test_db, test_org_id, member, monkeypatch
+    ):
+        monkeypatch.setattr("rhesis.backend.app.routers.user.authorize", lambda *a, **kw: False)
+        request_id = _request_id()
+
+        response = authenticated_client.put(
+            f"/users/{member.id}", json={"name": "Renamed"}, headers=_headers(request_id)
+        )
+
+        assert response.status_code == 403, response.text
+        (row,) = _rows(test_db, test_org_id, request_id)
+        assert row["action"] == "member.updated"
+        assert row["outcome"] == "denied"
+
+    def test_sso_for_another_org_is_recorded_in_the_callers_org(
+        self, test_db, test_org_id, member, request
+    ):
+        from fastapi import HTTPException
+
+        from rhesis.backend.ee.sso.router import _check_org_admin
+
+        request_id = _request_id()
+        _bind_provenance(request, request_id, actor_id=str(member.id))
+
+        with pytest.raises(HTTPException) as denied:
+            _check_org_admin(member, SimpleNamespace(method="PUT"), str(uuid.uuid4()), test_db)
+
+        assert denied.value.status_code == 403
+        (row,) = _rows(test_db, test_org_id, request_id)
+        assert row["action"] == "sso.updated"
+        assert row["outcome"] == "denied"
+        assert row["actor_id"] == member.id
 
     def test_a_bundle_capability_names_the_http_verb(self):
         assert denied_action("sso:manage", "PUT") == "sso.updated"
@@ -302,7 +530,7 @@ class TestDenials:
             capability = enforced_capability_for_route(route)
             if capability is None:
                 continue
-            for method in route.methods & {"POST", "PUT", "PATCH", "DELETE"}:
+            for method in route.methods & {"GET", "POST", "PUT", "PATCH", "DELETE"}:
                 action = denied_action(capability, method)
                 if action not in known:
                     unknown.add(f"{method} {route.path}: {action}")

@@ -8,8 +8,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
-from rhesis.backend.app.auth.principal import resolve_principal_from_request
-from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
+from rhesis.backend.app.auth.rbac import require_object
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import test_run as test_run_crud
 from rhesis.backend.app.crud.telemetry import query_traces
@@ -341,12 +340,14 @@ def delete_test_run(
     if db_test_run is None:
         raise HTTPException(status_code=404, detail="Test run not found")
 
-    principal = resolve_principal_from_request(current_user, request)
-    project_id = project_id_from_scope(db)
-    if not authorize_object(
-        principal, Permission.TestRun.DELETE_OWN, db_test_run, project_id=project_id, db=db
-    ):
-        raise HTTPException(status_code=403, detail="Not authorized to delete this test run")
+    require_object(
+        request,
+        current_user,
+        Permission.TestRun.DELETE_OWN,
+        db_test_run,
+        db=db,
+        detail="Not authorized to delete this test run",
+    )
 
     active_statuses = {RunStatus.QUEUED.value, RunStatus.PROGRESS.value}
     current_status = db_test_run.status.name if db_test_run.status else None

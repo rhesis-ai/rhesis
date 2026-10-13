@@ -20,8 +20,7 @@ from fastapi import Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import Permission
-from rhesis.backend.app.auth.principal import resolve_principal_from_request
-from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
+from rhesis.backend.app.auth.rbac import require_object
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import experiment as experiment_crud
 from rhesis.backend.app.crud.project import get_project
@@ -181,12 +180,14 @@ def update_experiment(
         user_id=user_id,
     )
 
-    principal = resolve_principal_from_request(current_user, request)
-    project_id = project_id_from_scope(db)
-    if not authorize_object(
-        principal, Permission.Experiment.UPDATE_OWN, db_experiment, project_id=project_id, db=db
-    ):
-        raise HTTPException(status_code=403, detail="Not authorized to update this experiment")
+    require_object(
+        request,
+        current_user,
+        Permission.Experiment.UPDATE_OWN,
+        db_experiment,
+        db=db,
+        detail="Not authorized to update this experiment",
+    )
 
     data = payload.model_dump(exclude_unset=True)
 
@@ -238,12 +239,14 @@ def delete_experiment(
         user_id=user_id,
     )
 
-    principal = resolve_principal_from_request(current_user, request)
-    project_id = project_id_from_scope(db)
-    if not authorize_object(
-        principal, Permission.Experiment.DELETE_OWN, db_experiment, project_id=project_id, db=db
-    ):
-        raise HTTPException(status_code=403, detail="Not authorized to delete this experiment")
+    require_object(
+        request,
+        current_user,
+        Permission.Experiment.DELETE_OWN,
+        db_experiment,
+        db=db,
+        detail="Not authorized to delete this experiment",
+    )
 
     project = get_project(
         db,

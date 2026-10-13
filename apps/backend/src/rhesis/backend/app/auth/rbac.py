@@ -31,9 +31,9 @@ Usage in route handlers (before the PEP backstop wires it automatically, SP4)::
         ...
     ): ...
 
-    # Or call authorize() directly from service code:
+    # Or call authorize() directly from a handler, raising a recorded 403:
     if not authorize(principal, Permission.Organization.UPDATE, project_id=None, db=db):
-        raise HTTPException(403, "Permission denied: organization:update")
+        raise denial(Permission.Organization.UPDATE, request, current_user, "Not authorized")
 """
 
 from __future__ import annotations
@@ -618,6 +618,39 @@ def authorize_object(
     return authorize(principal, own_perm_str, project_id=project_id, db=db)
 
 
+def require_object(
+    request: Request,
+    user,
+    own_permission: "str | Permission",
+    obj: object,
+    *,
+    db: Session,
+    detail: str,
+    owner_attr: str = "user_id",
+) -> None:
+    """Raise a recorded 403 unless :func:`authorize_object` lets *user* act on *obj*."""
+    principal = resolve_principal_from_request(user, request)
+    project_id = project_id_from_scope(db)
+    if not authorize_object(
+        principal, own_permission, obj, project_id=project_id, db=db, owner_attr=owner_attr
+    ):
+        raise denial(own_permission, request, user, detail, project_id=project_id)
+
+
+def denial(
+    capability: "str | Permission",
+    request: Request,
+    user,
+    detail: str,
+    *,
+    project_id: Optional[UUID] = None,
+    headers: Optional[dict[str, str]] = None,
+) -> HTTPException:
+    """Record a permission denial in the audit log and return the 403 to raise."""
+    record_denial(str(capability), request.method, user, project_id)
+    return HTTPException(status_code=403, detail=detail, headers=headers)
+
+
 def _get_effective_permissions_safe(
     provider: AuthorizationProvider,
     principal: Principal,
@@ -766,12 +799,14 @@ def require_permission(capability: "str | Permission"):
         project_id = project_id_from_scope(db)
 
         if not authorize(principal, capability, project_id=project_id, db=db):
-            record_denial(str(capability), request.method, current_user, project_id)
             # SP12: GitHub-style X-Accepted-Permissions header so callers
             # know exactly which capability they are missing.
-            raise HTTPException(
-                status_code=403,
-                detail=f"Permission denied: {capability}",
+            raise denial(
+                capability,
+                request,
+                current_user,
+                f"Permission denied: {capability}",
+                project_id=project_id,
                 headers={"X-Accepted-Permissions": str(capability)},
             )
 
@@ -784,9 +819,11 @@ __all__ = [
     "Permission",
     "authorize",
     "authorize_object",
+    "denial",
     "enforced_capability_for_route",
     "get_authorization_provider",
     "project_id_from_scope",
+    "require_object",
     "require_permission",
     "set_authorization_provider",
 ]

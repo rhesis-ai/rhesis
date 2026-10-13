@@ -448,19 +448,14 @@ def _check_org_admin(user, request: Request, org_id: str, db: Session) -> None:
     in the worker process.
     """
     from rhesis.backend.app.auth.principal import resolve_principal_from_request
-    from rhesis.backend.app.auth.rbac import authorize
+    from rhesis.backend.app.auth.rbac import authorize, denial
 
-    if str(user.organization_id) != org_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to manage this organization's SSO",
-        )
-
-    principal = resolve_principal_from_request(user, request)
-    if not authorize(principal, Permission.SSO.MANAGE, project_id=None, db=db):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to manage this organization's SSO",
+    # A request for another org's SSO is recorded in the caller's own org.
+    if str(user.organization_id) != org_id or not authorize(
+        resolve_principal_from_request(user, request), Permission.SSO.MANAGE, project_id=None, db=db
+    ):
+        raise denial(
+            Permission.SSO.MANAGE, request, user, "Not authorized to manage this organization's SSO"
         )
 
 

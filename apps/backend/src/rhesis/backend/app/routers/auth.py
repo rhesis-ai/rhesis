@@ -1,4 +1,5 @@
 import logging
+from functools import partial
 from typing import List, Optional
 from urllib.parse import urlparse
 
@@ -18,6 +19,7 @@ from rhesis.backend.app.auth.provider_hooks import apply_enrichers
 from rhesis.backend.app.auth.providers import ProviderRegistry
 from rhesis.backend.app.auth.refresh_token_utils import (
     create_refresh_token,
+    refresh_token_user_id,
     revoke_all_for_user,
     verify_and_refresh_token,
 )
@@ -76,6 +78,7 @@ from rhesis.backend.app.services.audit_events import (
     SIGNED_IN,
     SIGNED_OUT,
     record_audit_event,
+    record_failed_refresh,
     record_failed_sign_in,
     record_user_event,
 )
@@ -1272,6 +1275,10 @@ async def verify_magic_link(
             detail="Service temporarily unavailable. Please try again later.",
         )
     if not claimed:
+        # A replayed link: recorded against the account it was sent to.
+        await anyio.to_thread.run_sync(
+            partial(record_failed_sign_in, db, payload["email"], status_code=400)
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Link already used or expired",
@@ -1442,6 +1449,25 @@ def _refresh_invalid() -> HTTPException:
     )
 
 
+def _refresh_refused(user: Optional[User]) -> HTTPException:
+    """The uniform 401, recorded in the audit log when the token names an account."""
+    if user is not None:
+        record_failed_refresh(user)
+    return _refresh_invalid()
+
+
+def _refresh_token_owner(db: Session, raw_token: str) -> Optional[User]:
+    """The account a rejected refresh token belongs to. Only for the audit entry, so best effort."""
+    from rhesis.backend.app.crud import user as user_crud
+
+    try:
+        user_id = refresh_token_user_id(db, raw_token)
+        return user_crud.get_user(db, str(user_id)) if user_id else None
+    except Exception:
+        logger.exception("Could not look up the account for a refused refresh")
+        return None
+
+
 @router.post("/refresh")
 def refresh_tokens(
     body: RefreshTokenRequest,
@@ -1505,7 +1531,7 @@ def refresh_tokens(
     except HTTPException as exc:
         # Keep 503 / 5xx as-is (those aren't oracles); collapse 401s.
         if exc.status_code == status.HTTP_401_UNAUTHORIZED:
-            raise _refresh_invalid() from exc
+            raise _refresh_refused(_refresh_token_owner(db, body.refresh_token)) from exc
         raise
 
     user = user_crud.get_user(db, str(token_row.user_id))
@@ -1528,7 +1554,7 @@ def refresh_tokens(
             token_row.user_id,
             token_row.family_id,
         )
-        raise _refresh_invalid()
+        raise _refresh_refused(user)
 
     # Token-exchange-issued tokens carry a client binding that the
     # refresh request MUST re-prove. The check itself lives in EE
@@ -1555,7 +1581,7 @@ def refresh_tokens(
             access_token = minter(db, request, token_row, user)
         except HTTPException as exc:
             if exc.status_code == status.HTTP_401_UNAUTHORIZED:
-                raise _refresh_invalid() from exc
+                raise _refresh_refused(user) from exc
             raise
     else:
         access_token = create_session_token(user)

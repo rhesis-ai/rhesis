@@ -289,6 +289,15 @@ def verify_and_refresh_token(
     return db_token, raw_token
 
 
+def refresh_token_user_id(db: Session, raw_token: str) -> uuid.UUID | None:
+    """The user a refresh token was issued to, revoked or expired, or None if unknown."""
+    return (
+        db.query(RefreshToken.user_id)
+        .filter(RefreshToken.token_hash == _hash_token(raw_token))
+        .scalar()
+    )
+
+
 def revoke_all_for_user(db: Session, user_id: str) -> int:
     """Revoke every refresh token belonging to *user_id*.
 
