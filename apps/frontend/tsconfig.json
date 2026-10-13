@@ -26,6 +26,9 @@
       "@mui/material/*": ["./node_modules/@mui/material/*"],
       "@mui/icons-material": ["./node_modules/@mui/icons-material"],
       "@mui/icons-material/*": ["./node_modules/@mui/icons-material/*"],
+      "@mui/x-data-grid": ["./node_modules/@mui/x-data-grid"],
+      "@tanstack/react-query": ["./node_modules/@tanstack/react-query"],
+      "next/*": ["./node_modules/next/*"],
       "next-auth": ["./node_modules/next-auth"],
       "next-auth/*": ["./node_modules/next-auth/*"]
     },

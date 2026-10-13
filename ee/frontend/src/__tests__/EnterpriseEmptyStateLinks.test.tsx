@@ -5,6 +5,9 @@ import { UPGRADE_URL } from '@/constants/quota';
 import RolesEmptyState from '../rbac/components/RolesEmptyState';
 import SSOEmptyState from '../sso/components/SSOEmptyState';
 import ApiClientsEmptyState from '../api-clients/components/ApiClientsEmptyState';
+import AuditLogTeaser from '../audit-log/components/AuditLogTeaser';
+
+jest.mock('@/contexts/FeaturesContext', () => ({ usePlan: () => null }));
 
 /**
  * Every "Learn about Enterprise" prompt must resolve its destination from the
@@ -20,6 +23,7 @@ const EMPTY_STATES = [
   ['Roles', RolesEmptyState],
   ['SSO', SSOEmptyState],
   ['API Clients', ApiClientsEmptyState],
+  ['Audit Log', AuditLogTeaser],
 ] as const;
 
 describe('Enterprise empty-state upgrade links', () => {

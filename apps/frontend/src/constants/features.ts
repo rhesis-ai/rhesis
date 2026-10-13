@@ -11,6 +11,7 @@ export const FeatureName = {
   SSO: 'sso',
   API_CLIENTS: 'api_clients',
   RBAC: 'rbac',
+  AUDIT_LOG: 'audit_log',
 } as const;
 
 export type FeatureName = (typeof FeatureName)[keyof typeof FeatureName];

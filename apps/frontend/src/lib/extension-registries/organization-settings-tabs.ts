@@ -36,7 +36,7 @@ export interface OrgSettingsTab {
   /**
    * Sort order relative to other tabs. Built-in orders:
    * Information=0, Danger zone=999. Current tabs:
-   * Team=10, Roles=20, SSO=30, API=40.
+   * Team=10, Roles=20, SSO=30, API=40, Audit Log=50.
    */
   order: number;
 }
