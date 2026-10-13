@@ -1,6 +1,7 @@
 from celery.schedules import crontab
 
 from rhesis.backend.app.config.settings import get_redis_settings
+from rhesis.backend.app.ee_bootstrap import ee_celery_jobs
 
 redis_settings = get_redis_settings()
 
@@ -141,6 +142,10 @@ CELERY_CONFIG = {
         },
     },
 }
+
+_ee_include, _ee_beat_schedule = ee_celery_jobs()
+CELERY_CONFIG["include"] += _ee_include
+CELERY_CONFIG["beat_schedule"].update(_ee_beat_schedule)
 
 # Web-context overrides: fail fast instead of blocking HTTP request threads.
 # Applied by apply_web_context_overrides() during FastAPI startup.

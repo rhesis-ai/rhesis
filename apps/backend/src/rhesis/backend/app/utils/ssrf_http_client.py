@@ -299,3 +299,11 @@ class SafeHttpClient:
         request_url, skip_tls = self._prepare(url, kwargs)
         async with httpx.AsyncClient(timeout=self._timeout, verify=not skip_tls) as client:
             return await client.post(request_url, **kwargs)
+
+    def post_sync(self, url: str, **kwargs) -> httpx.Response:
+        """``post`` for sync callers such as Celery jobs. Never follows redirects."""
+        request_url, skip_tls = self._prepare(url, kwargs)
+        with httpx.Client(
+            timeout=self._timeout, verify=not skip_tls, follow_redirects=False
+        ) as client:
+            return client.post(request_url, **kwargs)
