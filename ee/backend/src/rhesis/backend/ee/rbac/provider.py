@@ -14,10 +14,10 @@ Resolution order:
    require an org role. (For project-scoped checks, see step 6 — a pure
    project member with no org role is still governed by their explicit
    project role.)
-4. Org Admin or Owner (level >= 80): implicit access to all projects. Their
-   org role applies as the effective project role. They do not need to be
-   individually enrolled in every project.
-5. Org Member or Viewer (level < 80): explicit project enrollment is
+4. Org Owner, Admin or Auditor (level >= 70, ``ORG_WIDE_ACCESS_LEVEL``):
+   implicit access to all projects. Their org role applies as the effective
+   project role. They do not need to be individually enrolled in every project.
+5. Org Member or Viewer (level < 70): explicit project enrollment is
    required. If a ``project_membership`` row exists (even with
    ``role_id = NULL``), their org role applies to that project. If no
    membership row exists, access is denied for that project.
@@ -54,6 +54,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID
+
+from rhesis.backend.ee.rbac.models import ORG_WIDE_ACCESS_LEVEL
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -134,8 +136,8 @@ class PermissionAuthorizationProvider:
         return rbac_active_for(principal.organization_id, db)
 
     #: Minimum role level that grants implicit access to all projects without
-    #: requiring an explicit project_membership row.  Corresponds to Admin (80).
-    _IMPLICIT_PROJECT_ACCESS_LEVEL = 80
+    #: requiring an explicit project_membership row: Auditor (70) and above.
+    _IMPLICIT_PROJECT_ACCESS_LEVEL = ORG_WIDE_ACCESS_LEVEL
 
     def _resolve_role(self, principal: "Principal", project_id: Optional[UUID], db: "Session"):
         """Return the effective :class:`~rhesis.backend.ee.rbac.models.Role` or None.
@@ -148,8 +150,8 @@ class PermissionAuthorizationProvider:
            directly; there is no org-level floor to compare it against. This
            is the pure project-member case (e.g. a user with no
            ``organization_member`` row at all).
-        2. Org role level >= Admin (80): implicit access to every project.
-        3. Org role level < Admin: explicit enrollment required — a
+        2. Org role level >= Auditor (70): implicit access to every project.
+        3. Org role level < Auditor: explicit enrollment required — a
            ``project_membership`` row (even with ``role_id = NULL``) must
            exist, or access is denied outright.
         4. If an explicit ``project_membership.role_id`` is also set, it is
@@ -184,7 +186,7 @@ class PermissionAuthorizationProvider:
             return explicit_role
 
         if org_role.level >= self._IMPLICIT_PROJECT_ACCESS_LEVEL:
-            # Admin / Owner: implicit access to all projects; an explicit
+            # Owner / Admin / Auditor: implicit access to all projects; an explicit
             # project role can only elevate further.
             if explicit_role is not None and explicit_role.level > org_role.level:
                 return explicit_role

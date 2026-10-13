@@ -356,9 +356,11 @@ def _member_permitted_actions(
        sets. The level check alone would let an actor holding a narrow
        custom role modify or remove someone holding an unrelated custom
        role that happens to sit at the same level but grants far more.
-       Built-in roles skip this: their permission sets form a fixed,
-       strictly-ordered chain keyed by level (``BUILT_IN_ROLE_LEVELS``), so
-       the level check alone is sufficient there. Mirrors
+       Built-in roles skip this: their permission sets form a fixed chain
+       keyed by level (``BUILT_IN_ROLE_LEVELS``), so the level check alone is
+       sufficient there. Auditor (70) does not contain Member (60), but every
+       actor at or above 70 holding ``member:manage`` is Owner or Admin, which
+       contain both. Mirrors
        ``_check_escalation`` and the frontend's ``isWithinActorAuthority``,
        which apply the same extra check on the create/grant paths.
 
