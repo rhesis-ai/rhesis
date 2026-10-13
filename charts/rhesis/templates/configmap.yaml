@@ -58,6 +58,8 @@ data:
   BACKEND_URL: {{ .Values.config.backendUrl | quote }}
   QUICK_START: {{ .Values.config.quickStart | quote }}
   USAGE_QUOTAS_ENABLED: {{ .Values.config.usageQuotasEnabled | quote }}
+  JOB_RETENTION_ENABLED: {{ .Values.config.jobRetentionEnabled | quote }}
+  JOB_RETENTION_DAYS: {{ .Values.config.jobRetentionDays | quote }}
 
   # -------------------------------------------------------------------------
   # Auth
