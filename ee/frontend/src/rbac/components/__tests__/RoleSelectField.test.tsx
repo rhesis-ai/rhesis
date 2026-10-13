@@ -42,6 +42,12 @@ const NONE_ROLE = makeRole({
   display_name: 'None',
   level: 0,
 });
+const AUDITOR_ROLE = makeRole({
+  id: 'role-auditor',
+  name: 'Auditor',
+  display_name: 'Auditor',
+  level: 70,
+});
 
 beforeEach(() => {
   resetRbacMocks();
@@ -71,9 +77,12 @@ describe('RoleSelectField', () => {
   });
 
   it('renders only the default option when no assignable roles come back', async () => {
-    // None (level 0, built-in) is the only role isAssignableProjectRole
-    // excludes — it means "no access", not a useful assignment.
-    rbacClientInstanceMock.getRoles.mockResolvedValue([NONE_ROLE]);
+    // isAssignableProjectRole excludes None ("no access") and Auditor
+    // (org tier only).
+    rbacClientInstanceMock.getRoles.mockResolvedValue([
+      NONE_ROLE,
+      AUDITOR_ROLE,
+    ]);
 
     const user = userEvent.setup();
     render(<RoleSelectField value={null} onChange={jest.fn()} />);
