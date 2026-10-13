@@ -47,6 +47,10 @@ jest.mock('../AuditLogSettingsSection', () => ({
   __esModule: true,
   default: () => <div data-testid="settings" />,
 }));
+jest.mock('../StreamingSection', () => ({
+  __esModule: true,
+  default: () => <div data-testid="streaming" />,
+}));
 jest.mock('../AuditApiAccessSection', () => ({
   __esModule: true,
   default: () => <div data-testid="api" />,
@@ -95,6 +99,20 @@ describe('AuditLogTab', () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByTestId('exports')).not.toBeInTheDocument();
     expect(screen.getByTestId('events')).toBeInTheDocument();
+  });
+
+  it('hides Streaming from those who cannot manage the audit log', () => {
+    render(<AuditLogTab />);
+    expect(
+      screen.queryByRole('tab', { name: 'Streaming' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens Streaming for those who can manage the audit log', () => {
+    allowed = new Set(['audit_log:read', 'audit_log:manage']);
+    search = 'section=streaming';
+    render(<AuditLogTab />);
+    expect(screen.getByTestId('streaming')).toBeInTheDocument();
   });
 
   it('denies access without any audit log capability', () => {
