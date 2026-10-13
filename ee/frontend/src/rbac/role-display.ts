@@ -8,6 +8,7 @@
  * Level reference (from BUILT_IN_ROLE_LEVELS in ee/backend/rbac/models.py):
  *   Owner  = 100  (highest privilege — not assignable to others)
  *   Admin  = 80
+ *   Auditor = 70 (org tier only: read everything plus the audit log)
  *   Member = 60
  *   Viewer = 40
  *   None   = 0   (zero privilege — explicit revocation, not a useful assignment)
@@ -17,6 +18,9 @@
 
 import { alpha, type Theme } from '@mui/material/styles';
 import type { RoleRead } from './types';
+
+/** The built-in Auditor's level. It reads every project, so it is org tier only. */
+const AUDITOR_LEVEL = 70;
 
 /**
  * Returns MUI `sx`-compatible styles for a role chip.
@@ -99,13 +103,14 @@ export function isAssignableOrgRole(role: RoleRead): boolean {
 /**
  * Whether a role can be assigned to a user at the **project** tier.
  *
- * Only None (level 0) is excluded — it means "no access" (explicit revocation)
- * and is not a useful assignment.  Owner (level 100) IS allowed at the project
+ * None (level 0) is excluded — it means "no access" (explicit revocation)
+ * and is not a useful assignment. So is Auditor, which would replace a
+ * Member's write access in that project.  Owner (level 100) IS allowed at the project
  * tier so that a project creator or lead can be designated as the project owner,
  * independent of who holds the org-level Owner role.
  */
 export function isAssignableProjectRole(role: RoleRead): boolean {
-  return !role.is_built_in || role.level > 0;
+  return !role.is_built_in || (role.level > 0 && role.level !== AUDITOR_LEVEL);
 }
 
 /**
