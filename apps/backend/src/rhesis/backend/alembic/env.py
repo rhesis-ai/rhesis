@@ -22,7 +22,7 @@ except ImportError:
     pass
 
 try:
-    import rhesis.backend.ee.rbac.models  # noqa: F401
+    import rhesis.backend.ee.rbac.models
 except ImportError:
     pass
 
