@@ -305,6 +305,7 @@ export function applyFlexColumnSizing(columns: GridColDef[]): GridColDef[] {
 // Create a styled version of DataGrid with Figma-aligned borders and headers
 const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   border: 'none',
+  '--DataGrid-containerBackground': theme.palette.background.paper,
   // Column header: white bg, bold text, bottom divider matching Figma
   '& .MuiDataGrid-columnHeaders': {
     backgroundColor: theme.palette.background.paper,

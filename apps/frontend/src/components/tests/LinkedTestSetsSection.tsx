@@ -48,7 +48,7 @@ export default function LinkedTestSetsSection({
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [availablePagination, setAvailablePagination] =
-    useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+    useState<GridPaginationModel>({ page: 0, pageSize: 10 });
 
   const descriptor = useMemo(() => linkedTestSetsList(testId), [testId]);
   const {
