@@ -513,6 +513,13 @@ class TestDenials:
         assert row["outcome"] == "denied"
         assert row["actor_id"] == member.id
 
+    def test_a_failure_to_record_never_replaces_the_403(self, caplog):
+        # Best effort (S1): a user object missing fields must not turn the 403 into a 500.
+        user = SimpleNamespace(id=uuid.uuid4(), organization_id=uuid.uuid4())
+        with patch.object(audit_events, "audit_registered", return_value=True):
+            audit_events.record_denial("test_set:read", "POST", user)
+        assert "Could not record a denied POST test_set:read" in caplog.text
+
     def test_a_bundle_capability_names_the_http_verb(self):
         assert denied_action("sso:manage", "PUT") == "sso.updated"
         assert denied_action("test_set:execute", "POST") == "test_set.executed"

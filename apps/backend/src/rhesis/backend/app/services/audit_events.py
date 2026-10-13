@@ -228,10 +228,18 @@ def record_denial(capability: str, method: str, user, project_id=None) -> None:
 
     Written on its own session: the request's transaction rolls back. A denied
     read records once a minute per actor and credential, since page loads and
-    polling repeat it; a denied change records every time.
+    polling repeat it; a denied change records every time. Best effort: a
+    failure here is logged and never replaces the 403.
     """
     if not audit_registered():
         return
+    try:
+        _record_denial(capability, method, user, project_id)
+    except Exception:
+        logger.exception("Could not record a denied %s %s", method, capability)
+
+
+def _record_denial(capability: str, method: str, user, project_id) -> None:
     action = denied_action(capability, method)
     if method not in _MUTATING_METHODS:
         provenance = current_provenance()
