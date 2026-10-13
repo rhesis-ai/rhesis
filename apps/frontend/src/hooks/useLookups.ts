@@ -170,10 +170,7 @@ export function useUsers(enabled = true) {
   const isAuthenticated = useIsAuthenticated();
   return useQuery<User[]>({
     queryKey: userKeys.list(),
-    queryFn: async () => {
-      const response = await new ApiClientFactory().getUsersClient().getUsers();
-      return response.data;
-    },
+    queryFn: () => new ApiClientFactory().getUsersClient().getAllUsers(),
     enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,
   });

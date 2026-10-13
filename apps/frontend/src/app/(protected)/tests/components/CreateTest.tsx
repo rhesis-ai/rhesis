@@ -151,7 +151,7 @@ export default function CreateTest({
             sort_order: 'asc',
             entity_type: EntityType.TEST,
           }),
-          usersClient.getUsers(),
+          usersClient.getAllUsers(),
           statusClient.getStatuses({
             sort_by: 'name',
             sort_order: 'asc',
@@ -166,7 +166,7 @@ export default function CreateTest({
         setStatuses(statusesData);
 
         // Transform users into options with display names
-        const transformedUsers = usersData.data.map(user => ({
+        const transformedUsers = usersData.map(user => ({
           ...user,
           displayName:
             user.name ||

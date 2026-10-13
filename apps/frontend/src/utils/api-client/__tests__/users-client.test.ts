@@ -53,6 +53,23 @@ describe('UsersClient', () => {
     expect(calledUrl).toContain('limit=20');
   });
 
+  it('getAllUsers pages through every user at the server cap', async () => {
+    const page1 = Array.from({ length: 100 }, (_, i) => ({ id: `u${i}` }));
+    const page2 = Array.from({ length: 50 }, (_, i) => ({ id: `u${100 + i}` }));
+    fetchMock
+      .mockResolvedValueOnce(makeFetch(page1, 200, { 'x-total-count': '150' }))
+      .mockResolvedValueOnce(makeFetch(page2, 200, { 'x-total-count': '150' }));
+
+    const result = await client.getAllUsers();
+
+    expect(result).toHaveLength(150);
+    const urls = fetchMock.mock.calls.map(([url]) => url as string);
+    expect(urls).toHaveLength(2);
+    expect(urls[0]).toContain('skip=0');
+    expect(urls[0]).toContain('limit=100');
+    expect(urls[1]).toContain('skip=100');
+  });
+
   it('fetches a single user by id', async () => {
     fetchMock.mockResolvedValue(makeFetch({ id: 'u1' }));
     await client.getUser('u1');

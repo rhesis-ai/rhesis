@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Autocomplete,
@@ -19,12 +19,12 @@ import {
   drawerSectionSx,
 } from '@/components/common/drawerFormFieldSx';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { UsersClient } from '@/utils/api-client/users-client';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useFeature } from '@/contexts/FeaturesContext';
 import { FeatureName } from '@/constants/features';
 import { getMemberRoleExtensions } from '@/lib/extension-registries';
+import { useUsers } from '@/hooks/useLookups';
 
 function getUserDisplayName(user: User): string {
   if (user.name) return user.name;
@@ -48,9 +48,14 @@ export default function ProjectAddMemberDrawer({
   onMemberAdded,
 }: ProjectAddMemberDrawerProps) {
   const notifications = useNotifications();
-  const [orgUsers, setOrgUsers] = useState<User[]>([]);
-  const [usersLoading, setUsersLoading] = useState(false);
-  const [usersError, setUsersError] = useState<string | null>(null);
+  const {
+    data: orgUsers = [],
+    isLoading: usersLoading,
+    isError: usersFailed,
+  } = useUsers(open);
+  const usersError = usersFailed
+    ? 'Failed to load organisation members.'
+    : null;
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -60,45 +65,12 @@ export default function ProjectAddMemberDrawer({
     getMemberRoleExtensions();
   const AddMemberRoleField = rbacEnabled ? RawAddMemberRoleField : undefined;
 
-  const resetForm = useCallback(() => {
-    setSelectedUser(null);
-    setSelectedRoleId(null);
-    setUsersError(null);
-  }, []);
-
   useEffect(() => {
     if (!open) {
-      resetForm();
-      return;
+      setSelectedUser(null);
+      setSelectedRoleId(null);
     }
-
-    let cancelled = false;
-
-    async function loadUsers() {
-      setUsersLoading(true);
-      setUsersError(null);
-      try {
-        const usersClient = new UsersClient(undefined, undefined, '');
-        const $filter =
-          memberUserIds.length > 0
-            ? memberUserIds.map(id => `id ne '${id}'`).join(' and ')
-            : undefined;
-        const result = await usersClient.getUsers({ limit: 100, $filter });
-        if (!cancelled) setOrgUsers(result.data);
-      } catch {
-        if (!cancelled) {
-          setUsersError('Failed to load organisation members.');
-        }
-      } finally {
-        if (!cancelled) setUsersLoading(false);
-      }
-    }
-
-    loadUsers();
-    return () => {
-      cancelled = true;
-    };
-  }, [open, memberUserIds, resetForm]);
+  }, [open]);
 
   const memberIdSet = new Set(memberUserIds);
   const addableUsers = orgUsers.filter(u => !memberIdSet.has(u.id));

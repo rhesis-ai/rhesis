@@ -8,12 +8,12 @@ import { format } from 'date-fns';
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
 import { useTasks } from '@/hooks/useTasks';
+import { useUsers } from '@/hooks/useLookups';
 import { Task, TaskUpdate } from '@/types/tasks';
 import { getStatusesForTask, getPrioritiesForTask } from '@/utils/task-lookup';
 import type { Status, Priority } from '@/utils/api-client/interfaces/task';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
-import { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 import CreateJiraIssueButton from '../../components/CreateJiraIssueButton';
 import TaskDetailTabs from './TaskDetailTabs';
@@ -51,7 +51,7 @@ export default function TaskDetailClient({
 
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [priorities, setPriorities] = useState<Priority[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const { data: users = [] } = useUsers();
 
   // The task itself is server-rendered; only the dropdown lookups load here.
   useEffect(() => {
@@ -69,23 +69,6 @@ export default function TaskDetailClient({
       cancelled = true;
     };
   }, [status, task.status_id, task.priority_id]);
-
-  useEffect(() => {
-    if (!isAuthenticated(status)) return;
-    let cancelled = false;
-    new ApiClientFactory()
-      .getUsersClient()
-      .getUsers()
-      .then(response => {
-        if (!cancelled) setUsers(response.data || []);
-      })
-      .catch(() => {
-        // Assignee picker just stays empty; the task itself is unaffected.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [status]);
 
   // Keep the last loaded task visible while reloading so transient failures
   // still show cached data instead of flashing back to a loading state.

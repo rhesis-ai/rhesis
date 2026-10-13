@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Grid from '@mui/material/Grid';
 import {
   Avatar,
@@ -30,7 +30,7 @@ import {
 import { SECTION_GRID } from '@/styles/theme-constants';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { User } from '@/utils/api-client/interfaces/user';
-import { UsersClient } from '@/utils/api-client/users-client';
+import { useUsers } from '@/hooks/useLookups';
 import { AVATAR_SIZES } from '@/constants/avatar-sizes';
 
 const readOnlySelectSx: SxProps<Theme> = [
@@ -62,26 +62,7 @@ export default function ProjectMetadataCard({
   onSave,
   editable,
 }: ProjectMetadataCardProps) {
-  const [users, setUsers] = useState<User[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadUsers() {
-      try {
-        const usersClient = new UsersClient(undefined, undefined, '');
-        const result = await usersClient.getUsers({ limit: 100 });
-        if (!cancelled) setUsers(result.data);
-      } catch {
-        if (!cancelled) setUsers([]);
-      }
-    }
-
-    loadUsers();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: users = [] } = useUsers();
 
   const initialDraft: MetadataDraft = useMemo(
     () => ({
