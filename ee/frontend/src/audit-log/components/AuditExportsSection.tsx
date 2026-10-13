@@ -32,6 +32,9 @@ import AuditExportDialog from './AuditExportDialog';
 
 const COMPLETED: JobStatus = 'completed';
 const FAILED: JobStatus = 'failed';
+/** Set by the backend's daily cleanup once the file is deleted. */
+const FILE_DELETED_KEY = 'file_deleted_at';
+const FILE_LIFETIME_DAYS = 7;
 
 function metadataString(job: Job, key: string): string | undefined {
   const value = job.job_metadata?.[key];
@@ -101,7 +104,8 @@ export default function AuditExportsSection() {
           {jobs.map(job => {
             const filter = metadataString(job, 'filter');
             const format = metadataString(job, 'format');
-            const done = job.status === COMPLETED;
+            const deleted = !!metadataString(job, FILE_DELETED_KEY);
+            const done = job.status === COMPLETED && !deleted;
             return (
               <TableRow key={job.id}>
                 <TableCell>
@@ -139,6 +143,16 @@ export default function AuditExportsSection() {
                       >
                         Download
                       </Button>
+                    ) : deleted ? (
+                      <Tooltip
+                        title={`Files are deleted ${FILE_LIFETIME_DAYS} days after the export finishes.`}
+                      >
+                        <span>
+                          <Button size="small" variant="outlined" disabled>
+                            Expired
+                          </Button>
+                        </span>
+                      </Tooltip>
                     ) : (
                       // No link before the job completes: the backend answers 409.
                       <Button
@@ -164,7 +178,7 @@ export default function AuditExportsSection() {
     <>
       <SectionCard
         title="Exports"
-        subtitle={`Your last ${RECENT_EXPORTS_LIMIT} exports. Each download is recorded in the log.`}
+        subtitle={`Your last ${RECENT_EXPORTS_LIMIT} exports. Files are kept for ${FILE_LIFETIME_DAYS} days, and each download is recorded in the log.`}
         actions={
           <Button
             variant="outlined"

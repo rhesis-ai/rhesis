@@ -8,9 +8,14 @@ licence does afterwards. An org that lost the feature is purged on its stored
 choice, so rows recorded while it had the feature do not stay forever.
 
 The purge cuts on ``recorded_at``, the column later integrity checkpoints seal.
+
+The same daily job deletes old export files, through the cleanup the EE
+package registers with ``register_export_cleanup``: core does not know where
+exports are stored.
 """
 
 from datetime import datetime, timedelta
+from typing import Callable, Optional
 
 from sqlalchemy.orm import Session
 
@@ -25,6 +30,19 @@ MAX_RETENTION_DAYS = 3650
 # EU AI Act Art. 19 and 26 ask deployers of high-risk systems for at least six
 # months of logs. Shown as a warning; not a floor.
 EU_AI_ACT_MIN_DAYS = 183
+
+#: ``(db, org, now) -> files deleted``; ``db`` is scoped to the org.
+ExportCleanup = Callable[[Session, Organization, datetime], int]
+_export_cleanup: Optional[ExportCleanup] = None
+
+
+def register_export_cleanup(cleanup: ExportCleanup) -> None:
+    global _export_cleanup
+    _export_cleanup = cleanup
+
+
+def export_cleanup() -> Optional[ExportCleanup]:
+    return _export_cleanup
 
 
 def max_retention_days(org: Organization) -> int:

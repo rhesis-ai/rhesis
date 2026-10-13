@@ -45,6 +45,8 @@ VIEWED = audit_action(Permission.AuditLog.READ.value)
 #: The ``job`` row's ``job_type``; the task's name is this under ``rhesis.backend.jobs.``.
 JOB_TYPE = "audit_log.export"
 BATCH_SIZE = 1000
+#: Set in ``job_metadata`` once the file is deleted (``cleanup.py``).
+FILE_DELETED_KEY = "file_deleted_at"
 #: How long a download's presigned link works. Each download signs a new one.
 LINK_SECONDS = 300
 
@@ -64,6 +66,10 @@ class ExportNotFound(LookupError):
 
 class ExportNotReady(Exception):
     pass
+
+
+class ExportGone(Exception):
+    """The export completed, but its file has since been deleted."""
 
 
 @dataclass(frozen=True)
@@ -262,16 +268,19 @@ def finished_export(db: Session, job_id, organization_id: str, user_id: str) -> 
     """The file of the org's export job ``job_id``.
 
     Raises ``ExportNotFound`` for another job type or org, ``ExportNotReady``
-    until the job has completed.
+    until the job has completed, ``ExportGone`` once its file is deleted.
     """
     job = get_job(db, job_id, organization_id=organization_id, user_id=user_id, with_related=False)
     if job is None or job.job_type != JOB_TYPE or not job.celery_task_id:
         raise ExportNotFound(job_id)
     if job.status != JobStatus.COMPLETED.value:
         raise ExportNotReady(job.status)
-    fmt = (job.job_metadata or {}).get("format")
+    metadata = job.job_metadata or {}
+    fmt = metadata.get("format")
     if fmt not in CONTENT_TYPES:
         raise ExportNotFound(job_id)
+    if metadata.get(FILE_DELETED_KEY):
+        raise ExportGone(job_id)
     finished = job.finished_at or job.created_at
     return ExportFile(
         path=storage_path(organization_id, job.celery_task_id, fmt),

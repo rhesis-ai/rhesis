@@ -224,10 +224,18 @@ class TestJob:
         with (
             patch.object(job, "_organizations", return_value=[first, second]),
             patch.object(job, "_purge_organization", side_effect=purge),
+            patch.object(job, "_clean_exports", return_value=0),
         ):
             result = job.sweep_expired_audit_events()
 
-        assert result == {"enabled": True, "events_purged": 3, "orgs_purged": 1, "orgs_failed": 1}
+        assert result == {
+            "enabled": True,
+            "events_purged": 3,
+            "orgs_purged": 1,
+            "orgs_failed": 1,
+            "export_files_deleted": 0,
+            "export_cleanups_failed": 0,
+        }
 
     def test_purges_an_org_on_its_own_session(self, real_commit_test_db, test_org_id):
         """The real path: a fresh session, scoped by the job, committing the purge."""
