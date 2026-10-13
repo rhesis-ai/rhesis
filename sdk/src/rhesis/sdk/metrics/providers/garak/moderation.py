@@ -14,10 +14,12 @@ from garak.detectors.base import Detector
 from pydantic import BaseModel, Field
 
 from rhesis.sdk.metrics.constants import JUDGE_TEMPERATURE
-from rhesis.sdk.metrics.providers.garak.detector_metric import ToxicityBackendUnavailable
+from rhesis.sdk.metrics.providers.garak.detector_metric import (
+    MODERATION_API_KEY_ENV,
+    ToxicityBackendUnavailable,
+)
 from rhesis.sdk.models.base import BaseLLM
 
-API_KEY_ENV = "GOOGLE_MODERATION_API_KEY"
 ENDPOINT_ENV = "GOOGLE_MODERATION_ENDPOINT"
 DEFAULT_ENDPOINT = "eu-language.googleapis.com"
 
@@ -61,14 +63,14 @@ class Toxicity(Detector):
     def __init__(self, judge: Optional[BaseLLM] = None, **kwargs):
         super().__init__(**kwargs)
         self.judge = judge
-        self.api_key = os.getenv(API_KEY_ENV) or None
+        self.api_key = os.getenv(MODERATION_API_KEY_ENV) or None
         self.endpoint = os.getenv(ENDPOINT_ENV) or DEFAULT_ENDPOINT
         self.scoring_backend = GOOGLE_BACKEND if self.api_key else JUDGE_BACKEND
 
     def detect(self, attempt) -> Iterable[Optional[float]]:
         if not self.api_key and not isinstance(self.judge, BaseLLM):
             raise ToxicityBackendUnavailable(
-                f"Toxicity scoring needs either {API_KEY_ENV} or an LLM judge model."
+                f"Toxicity scoring needs either {MODERATION_API_KEY_ENV} or an LLM judge model."
             )
         results: List[Optional[float]] = []
         for output in attempt.outputs:
@@ -88,9 +90,15 @@ class Toxicity(Detector):
         body = {"document": {"type": "PLAIN_TEXT", "content": text}}
         headers = {"x-goog-api-key": self.api_key}
         for attempt in range(1, _MAX_ATTEMPTS + 1):
-            response = requests.post(url, json=body, headers=headers, timeout=_TIMEOUT_SECONDS)
-            if response.status_code not in _RETRYABLE_STATUSES or attempt == _MAX_ATTEMPTS:
-                break
+            last = attempt == _MAX_ATTEMPTS
+            try:
+                response = requests.post(url, json=body, headers=headers, timeout=_TIMEOUT_SECONDS)
+            except (requests.ConnectionError, requests.Timeout):
+                if last:
+                    raise
+            else:
+                if response.status_code not in _RETRYABLE_STATUSES or last:
+                    break
             time.sleep(2 ** (attempt - 1))
         response.raise_for_status()
         return toxic_confidence(response.json())
@@ -101,6 +109,8 @@ class Toxicity(Detector):
             schema=ToxicityJudgement,
             temperature=JUDGE_TEMPERATURE,
         )
+        if isinstance(response, dict) and "error" in response:
+            raise RuntimeError(f"Toxicity judge failed: {response['error']}")
         return ToxicityJudgement(**response).score
 
 

@@ -3,11 +3,13 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 pytest.importorskip("garak")
 
 from garak.attempt import Attempt, Message
 
+from rhesis.sdk.metrics.base import UnsupportedModelType
 from rhesis.sdk.metrics.providers.garak import GarakDetectorMetric
 from rhesis.sdk.metrics.providers.garak.detector_metric import (
     ToxicityBackendUnavailable,
@@ -40,6 +42,12 @@ def _response(status_code=200, toxic=0.3):
             {"name": "Toxic", "confidence": toxic},
         ]
     }
+    return response
+
+
+def _error_response(status_code):
+    response = MagicMock(status_code=status_code)
+    response.raise_for_status.side_effect = requests.HTTPError(f"{status_code}")
     return response
 
 
@@ -95,6 +103,14 @@ class TestGoogleModeration:
         assert scores == [0.1]
         assert post.call_count == 2
 
+    def test_retries_connection_errors(self, with_key):
+        responses = [requests.ConnectionError("reset"), _response(toxic=0.2)]
+        with patch(_REQUESTS_POST, side_effect=responses) as post, patch(_SLEEP):
+            scores = Toxicity().detect(_attempt("text"))
+
+        assert scores == [0.2]
+        assert post.call_count == 2
+
     def test_missing_toxic_category_raises(self):
         with pytest.raises(ValueError, match="Toxic"):
             toxic_confidence({"moderationCategories": [{"name": "Insult", "confidence": 1}]})
@@ -111,6 +127,13 @@ class TestJudgeFallback:
         assert detector.scoring_backend == JUDGE_BACKEND
         assert "you idiot" in judge.generate.call_args.args[0]
         post.assert_not_called()
+
+    def test_judge_error_response_raises(self, without_key):
+        judge = MagicMock(spec=BaseLLM)
+        judge.generate.return_value = {"error": "upstream failed"}
+
+        with pytest.raises(RuntimeError, match="upstream failed"):
+            Toxicity(judge=judge).detect(_attempt("text"))
 
     def test_no_key_and_no_judge_is_unavailable(self, without_key):
         with pytest.raises(ToxicityBackendUnavailable):
@@ -140,13 +163,35 @@ class TestMetricIntegration:
         assert result.details["is_successful"] is True
         assert result.details["scoring_backend"] == JUDGE_BACKEND
 
-    def test_decision_model_without_key_is_inconclusive(self, without_key):
+    def test_decision_model_without_key_is_refused(self, without_key):
+        with pytest.raises(UnsupportedModelType):
+            GarakDetectorMetric(
+                detector_class="garak.detectors.perspective.Toxicity",
+                model=MagicMock(spec=BaseDecisionModel),
+            )
+
+    def test_decision_model_with_key_is_accepted(self, with_key):
         metric = GarakDetectorMetric(
             detector_class="garak.detectors.perspective.Toxicity",
             model=MagicMock(spec=BaseDecisionModel),
+        )
+        with patch(_REQUESTS_POST, return_value=_response(toxic=0.1)):
+            assert metric.evaluate(input="hi", output="text").score == 0.1
+
+    def test_model_that_cannot_judge_is_inconclusive(self, without_key):
+        metric = GarakDetectorMetric(
+            detector_class="garak.detectors.perspective.Toxicity", model=object()
         )
         result = metric.evaluate(input="hi", output="text")
 
         assert result.score is None
         assert result.details["inconclusive"] is True
         assert result.details["not_implemented"] is False
+
+    def test_scoring_errors_raise_instead_of_failing_the_test(self, with_key):
+        metric = GarakDetectorMetric(
+            detector_class="garak.detectors.perspective.Toxicity", model=_judge()
+        )
+        with patch(_REQUESTS_POST, return_value=_error_response(400)), patch(_SLEEP):
+            with pytest.raises(requests.HTTPError):
+                metric.evaluate(input="hi", output="text")

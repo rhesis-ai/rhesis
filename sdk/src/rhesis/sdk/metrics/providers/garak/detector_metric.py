@@ -9,6 +9,7 @@ the Rhesis evaluation framework.
 import asyncio
 import importlib
 import logging
+import os
 from typing import List, Optional, Union
 
 from rhesis.sdk.metrics.base import (
@@ -32,6 +33,7 @@ logger = logging.getLogger(__name__)
 # 2026, but stored metrics keep its path as their identifier, so it is redirected here
 # rather than migrated. ToxicCommentModel is a local model that cannot be run ad hoc.
 TOXICITY_DETECTOR = "rhesis.sdk.metrics.providers.garak.moderation.Toxicity"
+MODERATION_API_KEY_ENV = "GOOGLE_MODERATION_API_KEY"
 _DETECTOR_OVERRIDES = {
     "garak.detectors.perspective.Toxicity": TOXICITY_DETECTOR,
     "garak.detectors.unsafe_content.ToxicCommentModel": TOXICITY_DETECTOR,
@@ -92,12 +94,19 @@ class GarakDetectorMetric(BaseMetric):
                            (e.g., "garak.detectors.mitigation.MitigationBypass")
             name: Optional metric name
             description: Optional metric description
-            model: Optional model (not used by Garak detectors, but kept for interface)
+            model: Judge model. Only the toxicity detector uses it, when
+                   GOOGLE_MODERATION_API_KEY is not set.
             threshold: Detection threshold (0-1). Scores >= threshold = attack detected.
                       Default is 0.5.
             **kwargs: Additional arguments passed to the detector
         """
         self.detector_class_path = detector_class
+        normalized = normalize_detector_path(detector_class)
+        self._resolved_path = _DETECTOR_OVERRIDES.get(normalized, normalized)
+        if self._is_toxicity() and not os.getenv(MODERATION_API_KEY_ENV):
+            # The judge scores toxicity, so refuse a decision model; the backend then
+            # retries with the org's text model.
+            self.SUPPORTED_MODEL_TYPES = (BaseLLM,)
         self._detector = None
         self._detector_kwargs = kwargs
         self.threshold = threshold if threshold is not None else self.DEFAULT_THRESHOLD
@@ -128,6 +137,9 @@ class GarakDetectorMetric(BaseMetric):
             self._detector = self._load_detector()
         return self._detector
 
+    def _is_toxicity(self) -> bool:
+        return self._resolved_path == TOXICITY_DETECTOR
+
     def _is_unsupported(self) -> bool:
         """Return True if this detector is on the unsupported list (not run)."""
         # Normalized paths look like "garak.detectors.<module>.<Class>"; match the
@@ -146,8 +158,7 @@ class GarakDetectorMetric(BaseMetric):
             ImportError: If Garak is not installed or detector not found
         """
         try:
-            detector_path = normalize_detector_path(self.detector_class_path)
-            detector_path = _DETECTOR_OVERRIDES.get(detector_path, detector_path)
+            detector_path = self._resolved_path
 
             # Split the class path
             parts = detector_path.rsplit(".", 1)
@@ -162,7 +173,7 @@ class GarakDetectorMetric(BaseMetric):
             # Get the detector class
             detector_class = getattr(module, class_name)
 
-            if detector_path == TOXICITY_DETECTOR:
+            if self._is_toxicity():
                 # Scores with the run's judge when no moderation API key is set.
                 judge = self.model if isinstance(self.model, BaseLLM) else None
                 return detector_class(judge=judge, **self._detector_kwargs)
@@ -332,6 +343,10 @@ class GarakDetectorMetric(BaseMetric):
                 },
             )
         except Exception as e:
+            if self._is_toxicity():
+                # A failed API or judge call is an error, not a toxic output. Raising lets
+                # the caller record it as one and retry transient failures.
+                raise
             logger.error(f"[GARAK] Error running detector: {e}", exc_info=True)
             return MetricResult(
                 score=1.0,  # Max score indicates failure
