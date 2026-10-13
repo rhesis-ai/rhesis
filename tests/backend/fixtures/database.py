@@ -65,10 +65,14 @@ def patch_auth_get_db(monkeypatch, db):
     three call sites. Applied here (not just in ``client``) because several
     tests call these auth functions directly against ``test_db``, without
     ever going through the ``client``/``TestClient`` fixture.
+
+    ``refresh_token_utils`` gets the same patch: reuse detection revokes the
+    token family on a ``get_db()`` session of its own.
     """
-    from rhesis.backend.app.auth import user_utils
+    from rhesis.backend.app.auth import refresh_token_utils, user_utils
 
     monkeypatch.setattr(user_utils, "get_db", lambda: _yield_fresh_session(db))
+    monkeypatch.setattr(refresh_token_utils, "get_db", lambda: _yield_fresh_session(db))
 
 
 # Test database configuration uses the same URL resolution as production.

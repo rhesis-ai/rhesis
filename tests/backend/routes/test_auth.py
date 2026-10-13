@@ -1201,6 +1201,58 @@ class TestAuthRefreshToken:
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
+@pytest.mark.integration
+class TestAuthRefreshTokenReuse:
+    """Reuse detection through the real route and the real ``get_db`` dependency.
+
+    The 401 is thrown back into ``get_db``, which rolls the request back, so
+    this needs real commits and checks them on a separate connection.
+    """
+
+    def test_reuse_revocation_survives_the_401(self, real_commit_test_db, test_org_id):
+        from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.models.refresh_token import RefreshToken
+        from tests.backend.fixtures.database import TestingSessionLocal
+
+        db = real_commit_test_db
+        user = create_test_user(db, test_org_id, _unique_email("reuse"), "Reuse User")
+        db.info["_owned_user_ids"].append(str(user.id))
+        old_token = create_refresh_token(db, str(user.id), client_id="reuse-client", scope="read")
+        family_id = db.query(RefreshToken.family_id).filter_by(user_id=user.id).scalar()
+        db.commit()
+
+        # A stub stands in for the EE minter's client-credential check so the first
+        # rotation goes through. Reuse detection rejects before the minter runs.
+        with (
+            patch(
+                "rhesis.backend.app.auth.refresh_client_hook.get_refresh_client_minter",
+                return_value=lambda *_: "access-token",
+            ),
+            TestClient(app) as client,
+        ):
+            rotated = client.post("/auth/refresh", json={"refresh_token": old_token})
+            assert rotated.status_code == status.HTTP_200_OK
+            new_token = rotated.json()["refresh_token"]
+
+            reused = client.post("/auth/refresh", json={"refresh_token": old_token})
+            assert reused.status_code == status.HTTP_401_UNAUTHORIZED
+
+            fresh = TestingSessionLocal()
+            try:
+                revoked = [
+                    row.revoked_at
+                    for row in fresh.query(RefreshToken).filter_by(family_id=family_id)
+                ]
+            finally:
+                fresh.close()
+            assert len(revoked) == 2
+            assert all(revoked), "reuse detection must revoke the whole family durably"
+
+            refused = client.post("/auth/refresh", json={"refresh_token": new_token})
+            assert refused.status_code == status.HTTP_401_UNAUTHORIZED
+
+
 # =============================================================================
 # get_callback_url() Security Tests
 # =============================================================================

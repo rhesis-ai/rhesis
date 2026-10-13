@@ -21,6 +21,7 @@ from rhesis.backend.app.auth.constants import (
     AUTH_ABSOLUTE_SESSION_MAX_DAYS,
     REFRESH_TOKEN_EXPIRE_DAYS,
 )
+from rhesis.backend.app.database import get_db
 from rhesis.backend.app.models.refresh_token import RefreshToken
 
 logger = logging.getLogger(__name__)
@@ -143,7 +144,7 @@ def verify_and_rotate_refresh_token(
             "Reuse detected for family %s — revoking entire family",
             db_token.family_id,
         )
-        _revoke_family(db, db_token.family_id)
+        _revoke_family(db_token.family_id)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token reuse detected — session revoked",
@@ -307,17 +308,22 @@ def revoke_all_for_user(db: Session, user_id: str) -> int:
     return count
 
 
-def _revoke_family(db: Session, family_id: str) -> int:
-    """Revoke every token in a rotation family."""
+def _revoke_family(family_id: str) -> int:
+    """Revoke every token in a rotation family, committed on a session of its own.
+
+    Reuse detection raises a 401 straight after, which rolls back the caller's
+    session; on that session the revocation would be lost with it.
+    """
     now = datetime.now(timezone.utc)
-    count = (
-        db.query(RefreshToken)
-        .filter(
-            RefreshToken.family_id == family_id,
-            RefreshToken.revoked_at.is_(None),
+    with get_db() as db:
+        count = (
+            db.query(RefreshToken)
+            .filter(
+                RefreshToken.family_id == family_id,
+                RefreshToken.revoked_at.is_(None),
+            )
+            .update({"revoked_at": now})
         )
-        .update({"revoked_at": now})
-    )
     logger.info("Revoked %d tokens in family %s", count, family_id)
     return count
 
