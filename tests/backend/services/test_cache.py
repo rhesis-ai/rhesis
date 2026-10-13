@@ -10,6 +10,7 @@ import redis
 
 from rhesis.backend.app.config.settings import get_redis_settings
 from rhesis.backend.app.services.cache import (
+    _RECONNECT_INTERVAL_SECONDS,
     RedisBackedCache,
     _create_redis_client,
     default_max_connections,
@@ -18,6 +19,14 @@ from rhesis.backend.app.services.cache import (
 
 class _ConcreteCache(RedisBackedCache):
     """Concrete subclass for testing the RedisBackedCache base."""
+
+
+@pytest.fixture(autouse=True)
+def clear_redis_settings_cache():
+    # Settings are cached; a patched BROKER_READ_URL must not outlive its test.
+    get_redis_settings.cache_clear()
+    yield
+    get_redis_settings.cache_clear()
 
 
 @pytest.mark.unit
@@ -34,6 +43,37 @@ class TestRedisBackedCacheInMemory:
 
         assert cache._using_redis is False
         assert cache._initialized is True
+
+    def test_failed_connect_is_retried_after_the_interval(self):
+        mock_client = MagicMock()
+        now = [1000.0]
+        with (
+            patch(
+                "rhesis.backend.app.services.cache._create_redis_client",
+                side_effect=[ConnectionError("unavailable"), mock_client],
+            ) as create_client,
+            patch("rhesis.backend.app.services.cache.time.monotonic", side_effect=lambda: now[0]),
+        ):
+            cache = _ConcreteCache(redis_db=7, cache_name="test", ttl=60)
+            cache.initialize()
+            now[0] += _RECONNECT_INTERVAL_SECONDS - 1
+            cache.initialize()
+            assert create_client.call_count == 1
+
+            now[0] += 1
+            cache.initialize()
+            assert cache._using_redis is True
+            cache.initialize()
+        assert create_client.call_count == 2
+
+    def test_a_connect_in_progress_is_not_repeated(self):
+        cache = _ConcreteCache(redis_db=7, cache_name="test", ttl=60)
+        with (
+            patch("rhesis.backend.app.services.cache._create_redis_client") as create_client,
+            cache._connect_lock,
+        ):
+            cache.initialize()
+        create_client.assert_not_called()
 
     def test_set_and_get(self):
         with patch(
@@ -246,12 +286,6 @@ class TestRedisBackedCacheWithMockRedis:
 @pytest.mark.unit
 class TestRedisBackedCacheReadReplica:
     """Tests for BROKER_READ_URL read replica routing."""
-
-    @pytest.fixture(autouse=True)
-    def clear_redis_settings_cache(self):
-        get_redis_settings.cache_clear()
-        yield
-        get_redis_settings.cache_clear()
 
     def test_separate_read_client_when_broker_read_url_set(self):
         write_client = MagicMock()

@@ -28,6 +28,10 @@ _POOL_TIMEOUT_SECONDS = 5
 
 _SOCKET_TIMEOUT_SECONDS = 5
 
+#: After a failed connect, how long until a caller may try again. Matches the
+#: async client's cooldown in services/connector/redis_client.py.
+_RECONNECT_INTERVAL_SECONDS = 30
+
 
 def default_max_connections() -> int:
     """Pool ceiling for a sync Redis cache: one connection per possible caller.
@@ -84,6 +88,10 @@ class RedisBackedCache:
 
     Subclasses define their own key prefixes and public API methods.
     This base handles connection lifecycle and primitive operations.
+
+    A failed connect is retried by a later ``initialize()`` call, at most once
+    per ``_RECONNECT_INTERVAL_SECONDS``. Only caches that call ``initialize()``
+    on use get that; one initialized once at startup stays in memory.
     """
 
     def __init__(
@@ -105,6 +113,8 @@ class RedisBackedCache:
         self._redis_read: Optional[Any] = None
         self._has_separate_read: bool = False
         self._initialized = False
+        self._retry_at = 0.0
+        self._connect_lock = threading.Lock()
         self._memory: Dict[str, Any] = {}
         self._memory_timestamps: Dict[str, float] = {}
         self._lock = threading.Lock()
@@ -125,9 +135,23 @@ class RedisBackedCache:
 
     def initialize(self) -> None:
         """Try to connect to Redis. Falls back to in-memory if unavailable."""
-        if self._initialized:
+        if not self._connect_due():
             return
+        # Another thread is already connecting; this caller uses the fallback.
+        if not self._connect_lock.acquire(blocking=False):
+            return
+        try:
+            if self._connect_due():
+                self._connect()
+        finally:
+            self._connect_lock.release()
 
+    def _connect_due(self) -> bool:
+        if not self._initialized:
+            return True
+        return self._redis is None and time.monotonic() >= self._retry_at
+
+    def _connect(self) -> None:
         try:
             cache_url = self._build_redis_url()
             self._redis = _create_redis_client(cache_url, max_connections=self._max_connections)
@@ -168,7 +192,7 @@ class RedisBackedCache:
             logger.debug(
                 f"{self._cache_name} cache: Redis not available "
                 f"({type(e).__name__}: {e}). "
-                "Operating in memory-only mode."
+                f"Operating in memory-only mode, retrying in {_RECONNECT_INTERVAL_SECONDS}s."
             )
             if self._redis is not None:
                 try:
@@ -178,6 +202,7 @@ class RedisBackedCache:
             self._redis = None
             self._redis_read = None
             self._has_separate_read = False
+            self._retry_at = time.monotonic() + _RECONNECT_INTERVAL_SECONDS
             self._initialized = True
 
     def close(self) -> None:
