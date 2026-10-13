@@ -16,6 +16,7 @@ import AuditApiAccessSection from './AuditApiAccessSection';
 import AuditEventsGrid from './AuditEventsGrid';
 import AuditExportsSection from './AuditExportsSection';
 import AuditLogSettingsSection from './AuditLogSettingsSection';
+import StreamingSection from './StreamingSection';
 
 /** The query parameter that selects a section; the export notification links to `exports`. */
 export const AUDIT_LOG_SECTION_PARAM = 'section';
@@ -24,6 +25,7 @@ export const AuditLogSectionId = {
   EVENTS: 'events',
   EXPORTS: 'exports',
   SETTINGS: 'settings',
+  STREAMING: 'streaming',
   API: 'api',
 } as const;
 
@@ -46,6 +48,12 @@ const SECTIONS = [
     label: 'Settings',
     capability: Capability.AuditLog.READ,
     component: AuditLogSettingsSection,
+  },
+  {
+    id: AuditLogSectionId.STREAMING,
+    label: 'Streaming',
+    capability: Capability.AuditLog.MANAGE,
+    component: StreamingSection,
   },
   {
     id: AuditLogSectionId.API,
@@ -72,11 +80,13 @@ export default function AuditLogTab() {
   const searchParams = useSearchParams();
   const read = useCanWithStatus(Capability.AuditLog.READ);
   const exportStatus = useCanWithStatus(Capability.AuditLog.EXPORT);
+  const manage = useCanWithStatus(Capability.AuditLog.MANAGE);
   const status: Record<string, { allowed: boolean; loading: boolean }> = {
     [Capability.AuditLog.READ]: read,
     [Capability.AuditLog.EXPORT]: exportStatus,
+    [Capability.AuditLog.MANAGE]: manage,
   };
-  const loading = read.loading || exportStatus.loading;
+  const loading = read.loading || exportStatus.loading || manage.loading;
   // Only the sections the viewer can use get a tab.
   const visible = SECTIONS.filter(s => status[s.capability]?.allowed);
   const requested = searchParams.get(AUDIT_LOG_SECTION_PARAM);
