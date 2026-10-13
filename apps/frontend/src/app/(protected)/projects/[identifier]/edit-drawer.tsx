@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { User } from '@/utils/api-client/interfaces/user';
-import { UsersClient } from '@/utils/api-client/users-client';
+import { useUsers } from '@/hooks/useLookups';
 import PersonIcon from '@mui/icons-material/Person';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { useFormChangeDetection } from '@/hooks/useFormChangeDetection';
@@ -110,6 +110,9 @@ const IconSelector = ({
   );
 };
 
+// Stable fallback so the memoized owner field doesn't rebuild every render.
+const NO_USERS: User[] = [];
+
 interface EditDrawerProps {
   open: boolean;
   onClose: () => void;
@@ -132,7 +135,7 @@ export default function EditDrawer({
   project,
   onSave,
 }: EditDrawerProps) {
-  const [users, setUsers] = React.useState<User[]>([]);
+  const { data: users = NO_USERS } = useUsers(open);
   const [loading, setLoading] = React.useState(false);
   const [errors, setErrors] = React.useState<FormErrors>({});
   const [formData, setFormData] = React.useState({
@@ -167,31 +170,6 @@ export default function EditDrawer({
       setErrors({});
     }
   }, [project, open]);
-
-  // Fetch users only when drawer opens
-  React.useEffect(() => {
-    let isMounted = true;
-
-    const fetchUsers = async () => {
-      try {
-        const usersClient = new UsersClient();
-        const fetchedUsers = await usersClient.getUsers();
-        if (isMounted) {
-          setUsers(fetchedUsers.data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch users for project edit drawer:', error);
-      }
-    };
-
-    if (open) {
-      fetchUsers();
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [open]);
 
   // Memoize event handlers
   const handleTextChange = React.useCallback(

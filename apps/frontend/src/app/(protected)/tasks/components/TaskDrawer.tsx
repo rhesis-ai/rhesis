@@ -75,12 +75,7 @@ export default function TaskDrawer({
           await Promise.all([
             getStatuses(),
             getPriorities(),
-            (async () => {
-              const clientFactory = new ApiClientFactory();
-              const usersClient = clientFactory.getUsersClient();
-              const response = await usersClient.getUsers();
-              return response.data;
-            })(),
+            new ApiClientFactory().getUsersClient().getAllUsers(),
           ]);
 
         setStatuses(fetchedStatuses);

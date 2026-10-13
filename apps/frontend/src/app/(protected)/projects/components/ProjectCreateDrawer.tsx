@@ -16,8 +16,7 @@ import {
 import PersonIcon from '@mui/icons-material/Person';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
-import { User } from '@/utils/api-client/interfaces/user';
-import { UsersClient } from '@/utils/api-client/users-client';
+import { useUsers } from '@/hooks/useLookups';
 import { ProjectCreate } from '@/utils/api-client/interfaces/project';
 
 import SmartToyIcon from '@mui/icons-material/SmartToy';
@@ -88,7 +87,7 @@ export default function ProjectCreateDrawer({
   onClose,
   onCreate,
 }: ProjectCreateDrawerProps) {
-  const [users, setUsers] = React.useState<User[]>([]);
+  const { data: users = [] } = useUsers(open);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<React.ReactNode>('');
   const [formData, setFormData] = React.useState(EMPTY_FORM);
@@ -97,19 +96,6 @@ export default function ProjectCreateDrawer({
     if (!open) return;
     setFormData(EMPTY_FORM);
     setError('');
-    const fetchUsers = async () => {
-      try {
-        const client = new UsersClient();
-        const result = await client.getUsers();
-        setUsers(result.data);
-      } catch (error) {
-        console.error(
-          'Failed to fetch users for project create drawer:',
-          error
-        );
-      }
-    };
-    fetchUsers();
   }, [open]);
 
   const handleText =

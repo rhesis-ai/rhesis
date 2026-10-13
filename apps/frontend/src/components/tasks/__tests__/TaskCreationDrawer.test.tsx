@@ -49,12 +49,10 @@ jest.mock('@/utils/task-lookup', () => ({
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
     getUsersClient: () => ({
-      getUsers: jest.fn().mockResolvedValue({
-        data: [
-          { id: 'u1', name: 'Alice' },
-          { id: 'u2', name: 'Bob' },
-        ],
-      }),
+      getAllUsers: jest.fn().mockResolvedValue([
+        { id: 'u1', name: 'Alice' },
+        { id: 'u2', name: 'Bob' },
+      ]),
     }),
   })),
 }));
