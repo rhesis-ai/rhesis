@@ -12,9 +12,10 @@ import logging
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
+from typing import NoReturn
 
 from fastapi import HTTPException, status
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.constants import (
@@ -140,15 +141,7 @@ def verify_and_rotate_refresh_token(
     # have stolen the old token.  Revoke the entire family.
     # ------------------------------------------------------------------
     if db_token.is_revoked:
-        logger.warning(
-            "Reuse detected for family %s — revoking entire family",
-            db_token.family_id,
-        )
-        _revoke_family(db_token.family_id)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token reuse detected — session revoked",
-        )
+        _reject_reuse(db_token.family_id)
 
     if db_token.is_expired:
         logger.info("Expired refresh token for user %s", db_token.user_id)
@@ -156,6 +149,15 @@ def verify_and_rotate_refresh_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token expired",
         )
+
+    family_id = db_token.family_id
+    _lock_family(db, family_id)
+    db.refresh(db_token)
+    if db_token.is_revoked:
+        # A concurrent request rotated this token while we waited. Rolling back
+        # drops the family lock, which _revoke_family's own session needs.
+        db.rollback()
+        _reject_reuse(family_id)
 
     # Revoke the current token (rotation)
     db_token.revoked_at = datetime.now(timezone.utc)
@@ -317,14 +319,37 @@ def revoke_all_for_user(db: Session, user_id: str) -> int:
     return count
 
 
+def _lock_family(db: Session, family_id: str | uuid.UUID) -> None:
+    """Serialize rotation and revocation of one family until *db*'s transaction ends.
+
+    Without it, a revocation that waits on a rotating row can't see the
+    successor that rotation inserts, and the successor survives.
+    """
+    db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:family_id, 0))"),
+        {"family_id": str(family_id)},
+    )
+
+
+def _reject_reuse(family_id: str | uuid.UUID) -> NoReturn:
+    logger.warning("Reuse detected for family %s — revoking entire family", family_id)
+    _revoke_family(family_id)
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Refresh token reuse detected — session revoked",
+    )
+
+
 def _revoke_family(family_id: str) -> int:
     """Revoke every token in a rotation family, committed on a session of its own.
 
     Reuse detection raises a 401 straight after, which rolls back the caller's
-    session; on that session the revocation would be lost with it.
+    session; on that session the revocation would be lost with it. The caller
+    must not hold the family lock, or this waits on it forever.
     """
     now = datetime.now(timezone.utc)
     with get_db() as db:
+        _lock_family(db, family_id)
         count = (
             db.query(RefreshToken)
             .filter(
