@@ -321,12 +321,23 @@ def _rotate_in_thread(raw_token: str, outcome: dict) -> threading.Thread:
 
 
 def _wait_until_blocked(thread: threading.Thread) -> None:
-    """Return once some backend waits on a lock, so the race really overlapped."""
+    """Return once a backend in this test's database waits on a lock, so the race overlapped.
+
+    Scoped to backends on this database (row and advisory waits alike): xdist workers
+    share one Postgres server, and pg_locks is server-wide. Not to the thread's pid: a
+    reuse waits on its revocation's own session.
+    """
     probe = TestingSessionLocal()
     try:
         deadline = time.monotonic() + 10
         while thread.is_alive() and time.monotonic() < deadline:
-            if probe.execute(text("SELECT count(*) FROM pg_locks WHERE NOT granted")).scalar():
+            waiting = probe.execute(
+                text(
+                    "SELECT count(*) FROM pg_locks WHERE NOT granted AND pid IN "
+                    "(SELECT pid FROM pg_stat_activity WHERE datname = current_database())"
+                )
+            ).scalar()
+            if waiting:
                 return
             probe.rollback()
             time.sleep(0.05)

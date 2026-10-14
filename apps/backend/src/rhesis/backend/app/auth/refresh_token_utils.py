@@ -310,7 +310,7 @@ def revoke_all_for_user(db: Session, user_id: str) -> int:
     return count
 
 
-def _lock_family(db: Session, family_id) -> None:
+def _lock_family(db: Session, family_id: str | uuid.UUID) -> None:
     """Serialize rotation and revocation of one family until *db*'s transaction ends.
 
     Without it, a revocation that waits on a rotating row can't see the
@@ -322,7 +322,7 @@ def _lock_family(db: Session, family_id) -> None:
     )
 
 
-def _reject_reuse(family_id) -> NoReturn:
+def _reject_reuse(family_id: str | uuid.UUID) -> NoReturn:
     logger.warning("Reuse detected for family %s — revoking entire family", family_id)
     _revoke_family(family_id)
     raise HTTPException(
