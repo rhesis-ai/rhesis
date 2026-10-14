@@ -44,3 +44,13 @@ class TestInstallWorkerUsageSink:
 
         mock_providers.assert_called_once()
         mock_sink.assert_called_once()
+
+
+class TestConnectPermissionCache:
+    def test_signal_handler_initializes_permission_cache(self):
+        with patch("rhesis.backend.app.services.permission_cache.initialize_cache") as mock_init:
+            from rhesis.backend.celery.signals import connect_permission_cache
+
+            connect_permission_cache(sender=None)
+
+        mock_init.assert_called_once()

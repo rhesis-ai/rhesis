@@ -106,6 +106,20 @@ def install_worker_usage_sink(**kwargs):
     install_usage_sink()
 
 
+@celeryd_init.connect
+@worker_process_init.connect
+def connect_permission_cache(**kwargs):
+    """Point the worker's permission cache at Redis, as the API does at startup.
+
+    Never initialized, it stays in process memory, so a ``bust_user`` from a task
+    clears only this worker and an API-side bust never reaches it. Same two
+    signals as :func:`install_worker_usage_sink`, for the same reason.
+    """
+    from rhesis.backend.app.services.permission_cache import initialize_cache
+
+    initialize_cache()
+
+
 def _task_organization_id(task, task_kwargs):
     """Resolve the org for a task that is starting, from the raw message.
 
