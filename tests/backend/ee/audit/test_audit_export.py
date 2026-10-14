@@ -489,7 +489,9 @@ class TestAuditorRole:
         reads = {c for c in caps if c.endswith(":read")}
         assert reads <= auditor
         assert {"audit_log:read", "audit_log:export", "recycle:view"} <= auditor
-        assert auditor - reads == {"audit_log:export", "recycle:view"}
+        # Beyond reads: export, the recycle bin view, and their own API tokens.
+        own_tokens = {"token:create", "token:update", "token:delete"}
+        assert auditor - reads == {"audit_log:export", "recycle:view", *own_tokens}
         assert "audit_log:manage" not in auditor
 
     def test_nests_between_viewer_and_admin(self):

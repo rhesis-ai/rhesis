@@ -383,6 +383,19 @@ class TestPermissionsForBuiltInRole:
         assert "recycle:restore" not in result
         assert "role:manage" not in result
 
+    def test_member_manages_own_tokens_but_cannot_delete_projects(self):
+        from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
+
+        tokens = {"token:create", "token:read", "token:update", "token:delete"}
+        caps = ["project:read", "project:update", "project:delete", "token:manage", *tokens]
+        member = permissions_for_built_in_role("Member", caps)
+        assert tokens <= member
+        assert "token:manage" not in member
+        assert "project:update" in member
+        assert "project:delete" not in member
+        assert "project:delete" in permissions_for_built_in_role("Admin", caps)
+        assert not tokens & permissions_for_built_in_role("Viewer", caps)
+
     def test_viewer_excludes_sensitive_org_reads(self):
         """Viewer gets org-context reads but never role:read / token:read."""
         from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
