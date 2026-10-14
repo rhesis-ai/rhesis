@@ -139,8 +139,13 @@ def client_channel(request: HTTPConnection) -> Channel:
     derived = getattr(request.state, _STATE_CHANNEL, None)
     if derived is not None:
         return derived
+    raw = request.headers.get(CLIENT_HEADER, "").strip().lower()
+    if not raw:
+        # Browsers send Sec-Fetch-* on every request (sign-in pages, OAuth
+        # redirects); SDKs and scripts don't.
+        return Channel.WEB if "sec-fetch-mode" in request.headers else Channel.API
     try:
-        claimed = Channel(request.headers.get(CLIENT_HEADER, "").strip().lower())
+        claimed = Channel(raw)
     except ValueError:
         return Channel.API
     if claimed in _CLAIMABLE_CHANNELS:
