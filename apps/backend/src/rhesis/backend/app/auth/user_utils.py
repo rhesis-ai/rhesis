@@ -14,6 +14,8 @@ from rhesis.backend.app.auth.principal import (
     REQUEST_STATE_API_TOKEN_SCOPES,
     REQUEST_STATE_AUTH_KIND,
     AuthKind,
+    Principal,
+    resolve_principal_from_request,
 )
 from rhesis.backend.app.auth.token_utils import get_secret_key, verify_jwt_token
 from rhesis.backend.app.auth.token_validation import validate_token
@@ -413,7 +415,7 @@ async def require_current_user_or_token_without_context(
     return user
 
 
-async def authenticate_websocket(websocket: WebSocket) -> tuple["User", str | None]:
+async def authenticate_websocket(websocket: WebSocket) -> tuple["User", Principal]:
     """
     Authenticate WebSocket connection using Bearer token.
 
@@ -425,13 +427,12 @@ async def authenticate_websocket(websocket: WebSocket) -> tuple["User", str | No
         websocket: The WebSocket connection to authenticate
 
     Returns:
-        Tuple of (User, token_project_id):
-        - User: Authenticated user with organization_id
-        - token_project_id: The project_id scoped to the API token, or None.
-          When present this can be used as an alternate authorization path so
-          that a token explicitly scoped to a project can connect the connector
-          even if the token owner lacks a ProjectMembership row (e.g. tokens
-          created before the membership migration ran).
+        Tuple of (User, Principal). The principal carries the token's scopes
+        and project, so permission checks on the connection honour them.
+        ``principal.token_project_id`` is also an alternate authorization path:
+        a token scoped to a project can connect the connector even if its owner
+        lacks a ProjectMembership row (e.g. tokens created before the
+        membership migration ran).
 
     Raises:
         HTTPException: If authentication fails or user lacks organization
@@ -469,11 +470,6 @@ async def authenticate_websocket(websocket: WebSocket) -> tuple["User", str | No
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed"
         )
 
-    # Harvest the token-scoped project_id that get_authenticated_user_with_context
-    # stored on the mock request state (only set for rh- API tokens that carry a
-    # project_id; None for JWT tokens and unscoped API tokens).
-    token_project_id: str | None = getattr(
-        mock_request.state, REQUEST_STATE_API_TOKEN_PROJECT_ID, None
-    )
-
-    return user, token_project_id
+    # get_authenticated_user_with_context stored the token's scopes and project
+    # on the mock request state.
+    return user, resolve_principal_from_request(user, mock_request)

@@ -5,9 +5,12 @@
 
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, computed_field, model_validator
+
+if TYPE_CHECKING:
+    from rhesis.backend.app.auth.principal import Principal
 
 
 @dataclass(frozen=True)
@@ -30,6 +33,8 @@ class WebSocketConnectionContext:
     user_id: str = ""
     organization_id: str = ""
     token_project_id: Optional[str] = None
+    # Who authenticated, with the token's scopes; register checks its permission.
+    principal: Optional["Principal"] = None
 
 
 class FunctionMetadata(BaseModel):

@@ -13,6 +13,7 @@ from typing import Any, Dict
 from fastapi import Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.auth.principal import Principal
 from rhesis.backend.app.auth.user_utils import authenticate_websocket, require_current_user_or_token
 from rhesis.backend.app.crud import execution_trace as execution_trace_crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
@@ -90,11 +91,11 @@ IDLE_TIMEOUT = int(os.getenv("WS_IDLE_TIMEOUT", "300"))
 RATE_LIMIT_PER_SECOND = int(os.getenv("WS_RATE_LIMIT", "500"))
 
 
-async def require_websocket_user(websocket: WebSocket) -> tuple[User, str | None]:
+async def require_websocket_user(websocket: WebSocket) -> tuple[User, Principal]:
     """FastAPI dependency that authenticates a WebSocket connection.
 
     Extracts the Bearer token, validates it, and returns the authenticated
-    User together with the token's scoped project_id (if any).
+    User with their Principal (the token's scopes and project, if any).
     Closes the WebSocket with code 1008 if authentication fails.
     """
     try:
@@ -107,7 +108,7 @@ async def require_websocket_user(websocket: WebSocket) -> tuple[User, str | None
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    auth: tuple[User, str | None] = Depends(require_websocket_user),
+    auth: tuple[User, Principal] = Depends(require_websocket_user),
 ):
     """WebSocket endpoint for SDK connections.
 
@@ -117,11 +118,13 @@ async def websocket_endpoint(
     operations (endpoint execution, traces) and project-less operations
     (standalone metric evaluation).
     """
-    user, token_project_id = auth
+    user, principal = auth
+    token_project_id = principal.token_project_id
     context = WebSocketConnectionContext(
         user_id=str(user.id),
         organization_id=str(user.organization_id),
-        token_project_id=token_project_id,
+        token_project_id=str(token_project_id) if token_project_id else None,
+        principal=principal,
     )
     logger.info(
         f"WebSocket authenticated: user={user.email}, connection_id={context.connection_id}"
