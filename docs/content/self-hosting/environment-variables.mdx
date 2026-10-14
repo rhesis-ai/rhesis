@@ -264,11 +264,26 @@ then logs the row count it would delete per organization, without deleting anyth
 | `JOB_RETENTION_DAYS` | Age at which those rows are deleted | `90` |
 | `TRACE_RETENTION_ENABLED` | Run the trace sweep, 04:00 UTC | `false` |
 | `TRACE_RETENTION_DRY_RUN` | Count and log instead of deleting | `true` |
-| `TRACE_RETENTION_DAYS` | Retention window for every organization, overriding the per-plan value | *(unset)* |
+| `TRACE_RETENTION_DAYS` | One retention window for every organization, replacing each plan's | *(unset)* |
 
-The trace sweep reads its window from each organization's resolved plan. Self-hosted deployments
-have no usage limits, so every organization resolves to unlimited retention and the sweep deletes
-nothing until `TRACE_RETENTION_DAYS` supplies a window. Set it to put the whole deployment on one.
+Without `TRACE_RETENTION_DAYS`, the trace sweep uses each organization's plan: an organization
+keeps traces for as long as its plan or license allows, and an organization on an unlimited plan is
+skipped. Self-hosted deployments have no usage limits (`USAGE_QUOTAS_ENABLED` is `false`), so every
+organization resolves to unlimited and the sweep deletes nothing until you set the override.
+
+<Callout type="warning">
+`TRACE_RETENTION_DAYS` replaces every organization's window, including licensed organizations and
+those on an unlimited plan. With it set, every organization's traces older than that many days are
+deleted, whatever its license says.
+</Callout>
+
+The Helm chart sets these from `config.jobRetentionEnabled`, `config.jobRetentionDays`,
+`config.traceRetentionEnabled`, `config.traceRetentionDryRun` and `config.traceRetentionDays`.
+
+With the Enterprise Edition, beat also runs the [audit log](/docs/organizations/audit-log)'s daily
+retention purge (05:00 UTC, using each organization's own retention setting) and its
+[streaming](/docs/organizations/audit-log-streaming) delivery every 15 seconds. Neither has an
+environment variable; without beat, events are kept forever and never streamed.
 
 ## Advanced
 

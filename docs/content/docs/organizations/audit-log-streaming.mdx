@@ -1,0 +1,111 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Audit Log Streaming
+
+Streaming sends every new [audit log](/docs/organizations/audit-log) event to a system you run: a signed webhook, Splunk (HTTP Event Collector) or Datadog Logs. Set it up under **Organization Settings → Audit Log → Streaming**; that needs the `audit_log:manage` permission (Owner and Admin by default).
+
+<Callout type="info">
+  Streaming is part of the Enterprise Edition audit log.
+</Callout>
+
+## Add a destination
+
+Choose **Add Destination**, pick a type, and give it a name.
+
+| Type | What you provide | What is sent |
+|---|---|---|
+| Webhook | An HTTPS URL | A signed JSON `POST` per batch (see [Receiving webhooks](#receiving-webhooks)) |
+| Splunk HEC | The HEC event endpoint (ending in `/services/collector/event`) and a HEC token | One HEC event per audit event, with `sourcetype` `rhesis:audit` |
+| Datadog | Your Datadog site and an API key | One log per audit event to the Logs intake, with `ddsource` `rhesis` and service `rhesis-audit-log` |
+
+URLs must use HTTPS and resolve to a public address. Tokens and API keys are stored encrypted and never shown again.
+
+A new destination receives events recorded from the moment it is added; earlier events are not sent. Use [export](/docs/organizations/audit-log#exporting) for history. **Send a test event** delivers one sample event of type `audit_log.test`, which is not recorded in the log.
+
+Adding, pausing and deleting destinations is itself recorded as `audit_destination.created`, `audit_destination.updated` and `audit_destination.deleted`.
+
+## Delivery
+
+Events go out every 15 seconds, up to 100 per request, in the order they were recorded. Each event has the same fields as `GET /audit-events/` returns. Stored content values (from the **Include content** setting) are never streamed.
+
+Delivery is at least once. Each destination remembers how far it got, and moves on only after your endpoint answers with a 2xx status, so a failed batch is sent again and nothing is skipped. Your receiver may see the same events twice and should drop duplicates by event `id` (webhooks also carry a `webhook-id` that stays the same on a retry).
+
+After a failure, the next attempt waits 30 seconds, doubling with each further failure up to one hour. After 20 failures in a row, about 13 hours, the destination pauses itself and the Streaming section shows why. **Resume** continues from where delivery stopped, so events recorded while it was paused are still sent. You can also pause and resume a destination yourself.
+
+## Receiving webhooks
+
+Webhooks follow the [Standard Webhooks](https://www.standardwebhooks.com) specification. The body is:
+
+<CodeBlock filename="webhook-body.json" language="json">
+{`{
+  "type": "audit_log.events",
+  "timestamp": "2026-10-14T09:30:00.123456+00:00",
+  "data": [
+    {
+      "id": "0b6f3d0e-6a1c-4a4e-9d55-2f1e8c7a4b10",
+      "action": "endpoint.updated",
+      "outcome": "success",
+      "occurred_at": "2026-10-14T09:29:58.402113+00:00",
+      "actor_label": "Maria Lopez <maria@acme.example>",
+      "resource_label": "Support bot",
+      "changes": [{"field": "url", "kind": "value", "before": "https://old.acme.example", "after": "https://new.acme.example"}]
+    }
+  ]
+}`}
+</CodeBlock>
+
+Each event in `data` carries every field listed under [Event fields](/docs/organizations/audit-log#event-fields); the example shows a few.
+
+Every request has three headers:
+
+| Header | Value |
+|---|---|
+| `webhook-id` | The message id, the same on every retry of the same events |
+| `webhook-timestamp` | Unix seconds of this attempt |
+| `webhook-signature` | `v1,` followed by the base64 HMAC-SHA256 of `{webhook-id}.{webhook-timestamp}.{raw body}` |
+
+The signing secret starts with `whsec_` and is shown once, when you add the destination. Keep it in your secret store. To verify a request, use a Standard Webhooks library, or check it yourself:
+
+<CodeBlock filename="verify_webhook.py" language="python">
+{`import base64
+import hashlib
+import hmac
+import time
+
+
+def verify(secret: str, headers: dict, body: bytes, tolerance: int = 300) -> None:
+    msg_id = headers["webhook-id"]
+    timestamp = headers["webhook-timestamp"]
+    if abs(time.time() - int(timestamp)) > tolerance:
+        raise ValueError("timestamp too old or too new")
+
+    key = base64.b64decode(secret.removeprefix("whsec_"))
+    signed = f"{msg_id}.{timestamp}.".encode() + body
+    expected = base64.b64encode(hmac.new(key, signed, hashlib.sha256).digest()).decode()
+
+    for signature in headers["webhook-signature"].split():
+        version, _, value = signature.partition(",")
+        if version == "v1" and hmac.compare_digest(value, expected):
+            return
+    raise ValueError("signature does not match")`}
+</CodeBlock>
+
+Verify against the raw request body, before any JSON parsing. Refusing old timestamps stops a captured request from being replayed later.
+
+Answer with a 2xx status once the events are stored. Any other status, a redirect or no answer within 10 seconds counts as a failure, and the batch is sent again.
+
+## Manage destinations via API
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /audit-destinations/` | List destinations with their delivery status |
+| `POST /audit-destinations/` | Add one. For a webhook, the response is the only place the signing secret appears |
+| `GET /audit-destinations/{destination_id}` | One destination |
+| `PATCH /audit-destinations/{destination_id}` | Pause or resume: `{"paused": true}` |
+| `DELETE /audit-destinations/{destination_id}` | Remove it |
+| `POST /audit-destinations/{destination_id}/test` | Send a test event |
+
+## Related pages
+
+- [Audit Log](/docs/organizations/audit-log)
+- [Roles & Permissions](/docs/organizations/roles)

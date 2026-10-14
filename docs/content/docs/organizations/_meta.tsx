@@ -6,6 +6,8 @@ const meta: MetaRecord = {
   branding: 'Branding',
   sso: 'Single Sign-On',
   'api-clients': 'API Clients',
+  'audit-log': 'Audit Log',
+  'audit-log-streaming': 'Audit Log Streaming',
 }
 
 export default meta

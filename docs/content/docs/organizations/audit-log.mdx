@@ -1,0 +1,122 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Audit Log
+
+The audit log is a record of who did what in your organization: every change to a resource, every sign-in and sign-out, every request refused for missing permissions, and every read or export of the log itself. Open it under **Organization Settings → Audit Log**.
+
+<Callout type="info">
+  The audit log is an Enterprise Edition feature. Recording starts when an organization gets the feature; earlier activity is not backfilled.
+</Callout>
+
+## Who can see it
+
+| Role | Read the log and its settings | Export | Change settings and streaming |
+|---|---|---|---|
+| Owner | Yes | Yes | Yes |
+| Admin | Yes | Yes | Yes |
+| [Auditor](/docs/organizations/roles#built-in-roles) | Yes | Yes | No |
+| Member, Viewer | No | No | No |
+
+The permissions behind these are `audit_log:read`, `audit_log:export` and `audit_log:manage`. A custom role or a [scoped API token](/docs/organizations/roles#scoped-api-tokens) can hold them too.
+
+## What is recorded
+
+Each event is named `resource.verb`, in the past tense: `endpoint.updated`, `test_set.deleted`, `member.updated`. The names come from the same catalog as the permissions, so every resource you can be granted access to has matching events. `GET /audit-events/actions` returns the full list.
+
+| Kind | Examples | Notes |
+|---|---|---|
+| Changes | `test_set.created`, `endpoint.updated`, `metric.deleted` | One event per object, with the fields that changed and their before and after values |
+| Changes made by jobs | `test.created` | Objects of one type created by one job step become a single event with a count and the ids |
+| Sign-in and session | `session.signed_in`, `session.signed_out`, `password.reset`, `password.changed`, `token.exchanged` | A failed sign-in is `session.signed_in` with outcome `failure` |
+| Refused requests | `endpoint.updated` with outcome `denied` | A refused read is recorded once a minute per action and person, so a polling client does not flood the log |
+| Reads that matter | `test_set.exported`, `audit_log.viewed`, `audit_log.exported` | Viewing the log is recorded once a minute per person or token |
+| The log itself | `audit_log.purged`, `audit_destination.created` | Retention deletions and streaming changes |
+
+Not recorded: high-volume or derived rows (test results, traces, spans, usage), and failed sign-ins for email addresses that have no account.
+
+Secrets such as API keys and passwords are never recorded, only that they changed. Content fields such as prompts and expected responses record only that they changed, unless **Include content** is on (see [Retention and privacy](#retention-and-privacy)).
+
+### Event fields
+
+| Field | Meaning |
+|---|---|
+| `occurred_at`, `recorded_at` | When it happened, and when the row was written |
+| `action`, `outcome` | What happened, and `success`, `failure` or `denied` |
+| `actor_type` | `user`, `api_token`, `api_client`, `system` or `anonymous` |
+| `actor_label` | The actor's name and email at the time |
+| `actor_credential_hint` | The last characters of the token or client that made the request |
+| `channel` | Where the request came from: `web`, `sdk`, `mcp`, `architect`, `api` or `job`. It is reported by the client, so treat it as a hint, not evidence |
+| `resource_id`, `resource_label`, `project_id` | What was acted on, and its name at the time |
+| `changes` | The changed fields with before and after values, or a summary for job and purge events |
+| `ip`, `user_agent` | Where the request came from. The IP is masked by default |
+| `trace_id`, `request_id`, `job_id` | Correlation ids. Events from one request or job share a `trace_id`; the event drawer lists them as **Related events** |
+
+Names are stored as they were when the event happened, so an entry still reads correctly after the person or resource is deleted or renamed.
+
+## Viewing events
+
+The **Events** section lists events newest first. Search by actor, resource or action, narrow by category, or filter by action, actor, outcome, channel and date range. Open an event to see its changes, its related events and a link to the resource.
+
+The same list is available through the API, with the filtering and paging every list endpoint uses:
+
+<CodeBlock filename="list_audit_events.sh" language="bash">
+{`curl "https://api.example.com/audit-events/?limit=100" \\
+  -H "Authorization: Bearer $RHESIS_API_KEY" \\
+  --data-urlencode "\\$filter=startswith(action,'endpoint.') and occurred_at ge 2026-10-01T00:00:00Z" \\
+  -G`}
+</CodeBlock>
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /audit-events/` | List events. Supports `$filter`, `$select`, `skip`, `limit` (up to 100), `sort_by`, `sort_order` and `cursor`. The total is in the `X-Total-Count` header |
+| `GET /audit-events/{event_id}` | One event |
+| `GET /audit-events/actions` | Every action the log can hold, with its resource and verb |
+| `GET /audit-events/settings` | Retention and privacy settings |
+| `PATCH /audit-events/settings` | Change them (`audit_log:manage`) |
+
+### Pulling events into another system
+
+To copy the log on a schedule, page with `sort_by=recorded_at`, `sort_order=asc` and `cursor` set to the id of the last event you stored. That order holds back the last 5 seconds and any rows a running transaction may still commit, so a later call never returns an event older than your cursor. Each call is itself recorded as `audit_log.viewed`, once a minute. To have events pushed instead, use [Audit Log Streaming](/docs/organizations/audit-log-streaming).
+
+## Exporting
+
+**Export** in the Events toolbar exports every event matching the current search and filters, not only the page shown, as JSON Lines or CSV. The export runs as a background job; you get a notification when it finishes, and the file is listed in the **Exports** section for download. Through the API, `filter` takes the same OData expression as the list:
+
+<CodeBlock filename="export_audit_events.sh" language="bash">
+{`curl -X POST "https://api.example.com/audit-events/exports" \\
+  -H "Authorization: Bearer $RHESIS_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"format": "csv", "sort_order": "asc"}'`}
+</CodeBlock>
+
+The response has a `task_id` to poll at `GET /jobs/{task_id}` and a `job_id` for `GET /audit-events/exports/{job_id}/download`. The download redirects to a link valid for 5 minutes. Export files are deleted 7 days after the export finished.
+
+Starting an export is recorded as `audit_log.exported`, and each download as `audit_log.viewed`. Exports never include stored content values.
+
+## Retention and privacy
+
+The **Settings** section holds these. Anyone who can read the log can see them; changing them needs `audit_log:manage`, and every change is itself recorded as `organization.updated`.
+
+| Setting | Default | Effect |
+|---|---|---|
+| Retention | 1 year | Events older than this are deleted by a daily job at 05:00 UTC. Choose 90 days to 10 years, up to your plan's limit. A deletion is recorded as `audit_log.purged` with the count and date range |
+| Mask IP addresses | On | Stores only the network part of each address (/24 for IPv4, /48 for IPv6) |
+| Include content | Off | Stores the values of content fields, encrypted. Only the event detail shows them, and only while this is on |
+
+<Callout type="warning">
+  Masking and content apply when an event is recorded, so a change affects new events only. An address recorded masked cannot be recovered.
+</Callout>
+
+The settings warn when retention is shorter than six months, the minimum the EU AI Act asks deployers of high-risk AI systems to keep logs for. It is a warning, not a limit.
+
+Names and email addresses in events stay until retention deletes the event; an erasure request does not remove them from the log. When an organization is deleted, its events are kept until the retention it had at deletion ends.
+
+## Integrity
+
+The log is append-only. No one can edit or delete an event through the product or the API: database triggers refuse any update or delete, and the only way rows leave is the retention job. Each organization sees only its own events.
+
+## Related pages
+
+- [Audit Log Streaming](/docs/organizations/audit-log-streaming)
+- [Roles & Permissions](/docs/organizations/roles)
+- [Data retention for self-hosted deployments](/self-hosting/environment-variables#data-retention)

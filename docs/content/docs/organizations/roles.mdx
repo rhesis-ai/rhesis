@@ -14,7 +14,7 @@ Rhesis controls what each member can do through roles, assigned at the organizat
 |---|---|---|
 | Organization owner has full control | Yes | Yes |
 | Any project member can perform any action within their project | Yes | Only if their role grants it |
-| Built-in graded roles (Owner, Admin, Member, Viewer, None) | No | Yes |
+| Built-in graded roles (Owner, Admin, Auditor, Member, Viewer, None) | No | Yes |
 | Custom roles with hand-picked permissions | No | Yes |
 | Per-project role override (different access per project) | No | Yes |
 | API token permission scoping | No | Yes |
@@ -25,11 +25,14 @@ Rhesis controls what each member can do through roles, assigned at the organizat
 |---|---|---|
 | Owner | 100 | Full control, including deletion and ownership transfer |
 | Admin | 80 | Manage members, projects, and org settings, and assign roles. Cannot delete the org or create custom roles |
+| Auditor | 70 | Read-only access to every project, and to the [audit log](/docs/organizations/audit-log): view and export it. Cannot change anything |
 | Member | 60 | Create, edit, and run evaluations across their projects |
 | Viewer | 40 | Read-only access. Can browse and export but not change anything |
 | None | 0 | No access. Used to explicitly revoke a member while keeping them in the org |
 
 Built-in roles are fixed and cannot be edited or deleted.
+
+Auditor is an organization role only: assign it on the Team page, not on a project (the API returns a 422 error). Like Admin and Owner, an Auditor sees every project without being added to it, but only to read. Auditor does not include Member, so an Auditor cannot create, change or run anything.
 
 ## Organization roles vs. project roles
 
@@ -73,7 +76,7 @@ graph TB
 ```
 
 - No organization role at all: the explicit project role (if any) is the whole answer — there's no broader role to compare it against.
-- Org Admin or Owner: implicit access to every project already. An explicit project role only matters if it's *higher*, in which case it elevates further for that one project.
+- Org Admin or Owner: implicit access to every project already. An org Auditor also sees every project, read-only. An explicit project role only matters if it's *higher*, in which case it elevates further for that one project.
 - Org Member or Viewer: must be added to a project (given a project role, or added as a plain member) before they get any access there. Once added, the higher of their org role and any explicit project role applies.
 
 **Examples**
