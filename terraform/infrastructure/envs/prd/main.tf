@@ -130,6 +130,13 @@ module "vertex_ai_prd" {
   environment = "prd"
 }
 
+# Natural Language for toxicity scoring; replaces Perspective API (shuts down 2026-12-31).
+module "text_moderation_prd" {
+  source = "../../modules/text-moderation/gcp"
+
+  project_id = var.project_id
+}
+
 module "external_dns_prd" {
   source = "../../modules/external-dns/gcp"
 
