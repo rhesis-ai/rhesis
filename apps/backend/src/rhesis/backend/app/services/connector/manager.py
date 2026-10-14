@@ -30,6 +30,10 @@ from rhesis.backend.app.services.connector.schemas import (
 )
 from rhesis.backend.app.services.connector.session import DbSessionFactory, resolve_session
 
+# Registering syncs endpoints and metrics into the project: the same permission
+# the connector's HTTP routes need through the route backstop.
+REGISTER_PERMISSION = "connector:create"
+
 logger = logging.getLogger(__name__)
 
 # Routing/connection keys are written with a 30s TTL, so a heartbeat must refresh
@@ -57,6 +61,18 @@ _EXECUTE_TEST_EXTRA_KEYS = frozenset(
 def _extract_execute_test_message_extras(request: Dict[str, Any]) -> Dict[str, Any]:
     """Pull optional ExecuteTestMessage fields from an RPC payload."""
     return {k: request[k] for k in _EXECUTE_TEST_EXTRA_KEYS if k in request}
+
+
+def _may_register(context: WebSocketConnectionContext, project_id, db: Session) -> bool:
+    """Whether the connection's principal holds :data:`REGISTER_PERMISSION` in the project.
+
+    Fails closed when the connection carries no principal.
+    """
+    from rhesis.backend.app.auth.rbac import authorize
+
+    if context.principal is None:
+        return False
+    return authorize(context.principal, REGISTER_PERMISSION, project_id=project_id, db=db)
 
 
 class ConnectionManager:
@@ -1097,6 +1113,13 @@ class ConnectionManager:
                         f"(org {auth_org_id})"
                     )
                     return False
+
+        if not _may_register(context, project_uuid, db):
+            logger.error(
+                f"Project {project_id} access denied: user {auth_user_id} lacks "
+                f"{REGISTER_PERMISSION} (org {auth_org_id})"
+            )
+            return False
 
         logger.info(
             f"Project authorized: {project.name} ({project_id}) for connection "

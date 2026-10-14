@@ -101,8 +101,7 @@ class TestConnectorWebSocket:
             mock_user.id = uuid.uuid4()
             mock_user.organization_id = uuid.uuid4()
             mock_user.email = "test@example.com"
-            # authenticate_websocket now returns (user, token_project_id)
-            mock_auth.return_value = (mock_user, None)
+            mock_auth.return_value = (mock_user, Mock(token_project_id=None))
             yield mock_auth
 
     @pytest.fixture
