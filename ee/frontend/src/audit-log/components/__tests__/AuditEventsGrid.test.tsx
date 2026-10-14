@@ -41,6 +41,16 @@ jest.mock('@/components/common/Can', () => ({
   can: () => true,
 }));
 
+let rbacOn = true;
+jest.mock('@/contexts/FeaturesContext', () => ({
+  useFeature: () => rbacOn,
+}));
+
+const mockFetchOrgMembers = jest.fn();
+jest.mock('../../../rbac/api/org-members-cache', () => ({
+  fetchOrgMembers: () => mockFetchOrgMembers(),
+}));
+
 const mockGetProjects = jest.fn();
 
 jest.mock('@/utils/api-client/client-factory', () => ({
@@ -139,6 +149,8 @@ function makeEvent(overrides: Partial<AuditEvent> = {}): AuditEvent {
 beforeEach(() => {
   jest.clearAllMocks();
   resetProjectNameCache();
+  rbacOn = true;
+  mockFetchOrgMembers.mockResolvedValue([]);
   mockListEvents.mockResolvedValue(page([makeEvent()], 60));
   mockGetProjects.mockResolvedValue({
     data: [{ id: 'p1', name: 'Travel Assistant' }],
@@ -156,6 +168,24 @@ describe('AuditEventsGrid', () => {
     mockListEvents.mockResolvedValue(page([]));
     render(<AuditEventsGrid />);
     expect(await screen.findByText('No events yet')).toBeInTheDocument();
+  });
+
+  it("shows a member's role under their name, and the email without RBAC", async () => {
+    mockFetchOrgMembers.mockResolvedValue([
+      { user_id: 'u1', role: { display_name: 'Admin' } },
+    ]);
+    const { unmount } = render(<AuditEventsGrid />);
+    const row = await screen.findByTestId('row-e1');
+    expect(await within(row).findByText('Admin')).toBeInTheDocument();
+    unmount();
+
+    rbacOn = false;
+    render(<AuditEventsGrid />);
+    expect(
+      await within(await screen.findByTestId('row-e1')).findByText(
+        'harry@example.com'
+      )
+    ).toBeInTheDocument();
   });
 
   it('shows the error when the list fails', async () => {
