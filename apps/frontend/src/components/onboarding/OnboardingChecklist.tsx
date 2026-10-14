@@ -22,7 +22,10 @@ import { useSession } from 'next-auth/react';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { OnboardingStep } from '@/types/onboarding';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { ONBOARDING_STEPS } from '@/config/onboarding-tours';
+import {
+  ONBOARDING_STEPS,
+  REQUIRED_ONBOARDING_STEPS,
+} from '@/config/onboarding-tours';
 
 interface OnboardingChecklistProps {
   /** Called before navigating to a step, so the host can close itself. */
@@ -39,7 +42,9 @@ export default function OnboardingChecklist({
   const { data: session } = useSession();
   const { progress, completionPercentage } = useOnboarding();
 
-  const doneCount = ONBOARDING_STEPS.filter(step => progress[step.id]).length;
+  const doneCount = REQUIRED_ONBOARDING_STEPS.filter(
+    step => progress[step.id]
+  ).length;
 
   const handleStepClick = useCallback(
     async (step: OnboardingStep) => {
@@ -84,7 +89,7 @@ export default function OnboardingChecklist({
           aria-live="polite"
           aria-atomic="true"
         >
-          {doneCount} of {ONBOARDING_STEPS.length} done
+          {doneCount} of {REQUIRED_ONBOARDING_STEPS.length} done
         </Typography>
         <LinearProgress
           variant="determinate"

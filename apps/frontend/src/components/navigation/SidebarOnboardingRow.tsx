@@ -15,7 +15,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import type { Theme } from '@mui/material/styles';
 import { useOnboarding } from '@/contexts/OnboardingContext';
-import { ONBOARDING_STEPS } from '@/config/onboarding-tours';
+import { REQUIRED_ONBOARDING_STEPS } from '@/config/onboarding-tours';
 import OnboardingChecklist from '@/components/onboarding/OnboardingChecklist';
 import {
   POPOVER_PAPER_SX,
@@ -75,8 +75,10 @@ export function SidebarOnboardingRow({
     return null;
   }
 
-  const total = ONBOARDING_STEPS.length;
-  const doneCount = ONBOARDING_STEPS.filter(step => progress[step.id]).length;
+  const total = REQUIRED_ONBOARDING_STEPS.length;
+  const doneCount = REQUIRED_ONBOARDING_STEPS.filter(
+    step => progress[step.id]
+  ).length;
   const label = `Getting started, ${doneCount} of ${total} done`;
 
   const ring = (
