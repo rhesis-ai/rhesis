@@ -232,7 +232,8 @@ def permissions_for_built_in_role(role_name: str, capabilities: list[str]) -> se
     - **Admin**  (level 80): all except EE-only management (role:manage,
       role:read, sso:manage, api_clients:manage).
     - **Auditor** (level 70): every :read (the audit log included), recycle:view,
-      audit_log:export and their own API tokens. No writes. Admin ⊇ Auditor ⊇ Viewer, but Auditor
+      audit_log:export and their own API tokens. No writes to organization or
+      project resources. Admin ⊇ Auditor ⊇ Viewer, but Auditor
       and Member do not nest.
     - **Member** (level 60): Viewer plus :create/:update/:delete and the special
       project actions (:execute, :generate, :import, :react) on every
