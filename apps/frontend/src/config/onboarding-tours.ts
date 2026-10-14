@@ -34,6 +34,11 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
   },
 ];
 
+/** The steps progress is counted over; optional ones never move it. */
+export const REQUIRED_ONBOARDING_STEPS = ONBOARDING_STEPS.filter(
+  step => !step.optional
+);
+
 /**
  * Tour for creating a project
  */

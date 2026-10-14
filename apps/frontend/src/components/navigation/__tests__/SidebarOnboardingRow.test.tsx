@@ -42,14 +42,20 @@ beforeEach(() => {
 });
 
 const row = () =>
-  screen.queryByRole('button', { name: /getting started, 2 of 4 done/i });
+  screen.queryByRole('button', { name: /getting started, 2 of 3 done/i });
 
 describe('SidebarOnboardingRow', () => {
   it('shows the label and done count', () => {
     render(<SidebarOnboardingRow />);
     expect(row()).toBeInTheDocument();
     expect(screen.getByText('Getting started')).toBeInTheDocument();
-    expect(screen.getByText('2 of 4 done')).toBeInTheDocument();
+    expect(screen.getByText('2 of 3 done')).toBeInTheDocument();
+  });
+
+  it('does not count the optional invite step', () => {
+    mockProgress.usersInvited = true;
+    render(<SidebarOnboardingRow />);
+    expect(screen.getByText('2 of 3 done')).toBeInTheDocument();
   });
 
   it.each([
@@ -66,7 +72,7 @@ describe('SidebarOnboardingRow', () => {
     render(<SidebarOnboardingRow collapsed />);
     expect(row()).toBeInTheDocument();
     expect(screen.queryByText('Getting started')).not.toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText('1')).toBeInTheDocument();
   });
 
   it('opens the checklist and closes it when a step is picked', async () => {
