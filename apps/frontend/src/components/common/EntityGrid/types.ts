@@ -108,6 +108,8 @@ export interface EntityGridProps<
   onRowClick?: (params: GridRowParams) => void;
   /** Wire notification-badge row highlighting and clear-on-click. */
   highlightSection?: NotificationSection;
+  /** Extra class for a row, e.g. to tint failures; style it through `sx`. */
+  rowClassName?: (row: T) => string | undefined;
 
   // ── actions column ──
   /**

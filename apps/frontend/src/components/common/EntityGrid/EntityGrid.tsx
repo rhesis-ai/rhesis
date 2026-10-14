@@ -77,6 +77,7 @@ export default function EntityGrid<
   getRowUrl,
   onRowClick,
   highlightSection,
+  rowClassName,
   editAction,
   extraRowActions,
   rowActionsWidth,
@@ -312,8 +313,13 @@ export default function EntityGrid<
 
   const getRowClassName = useCallback(
     (params: GridRowParams) =>
-      highlights.includes(String(params.id)) ? HIGHLIGHTED_ROW_CLASS : '',
-    [highlights]
+      [
+        highlights.includes(String(params.id)) ? HIGHLIGHTED_ROW_CLASS : '',
+        rowClassName?.(params.row as T) ?? '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+    [highlights, rowClassName]
   );
 
   const resolveRowUrl = useCallback(
@@ -483,7 +489,9 @@ export default function EntityGrid<
           onRowClick={
             checkboxSelectionMode || !wantsRowClick ? undefined : handleRowClick
           }
-          getRowClassName={highlightSection ? getRowClassName : undefined}
+          getRowClassName={
+            highlightSection || rowClassName ? getRowClassName : undefined
+          }
           checkboxSelection={checkboxSelectionMode}
           disableRowSelectionOnClick={checkboxSelectionMode || undefined}
           rowSelectionModel={checkboxSelectionMode ? selectedRows : []}
