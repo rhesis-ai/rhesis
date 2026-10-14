@@ -41,7 +41,7 @@ const BENEFITS = [
   'Made and hosted in Europe.',
 ];
 
-const BADGES = ['Open Source', 'Public Preview', 'use it via UI, SDK, MCP'];
+const BADGES = ['Open Source', 'Built for AI teams', 'use it via UI, SDK, MCP'];
 
 const GITHUB_URL = 'https://github.com/rhesis-ai/rhesis';
 
