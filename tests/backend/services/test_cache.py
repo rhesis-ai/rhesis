@@ -66,6 +66,44 @@ class TestRedisBackedCacheInMemory:
             cache.initialize()
         assert create_client.call_count == 2
 
+    def test_on_reconnect_runs_only_when_leaving_memory(self):
+        cache = _ConcreteCache(redis_db=7, cache_name="test", ttl=60)
+        with (
+            patch(
+                "rhesis.backend.app.services.cache._create_redis_client",
+                side_effect=[MagicMock(), ConnectionError("unavailable"), MagicMock()],
+            ),
+            patch.object(cache, "_on_reconnect") as on_reconnect,
+        ):
+            cache.initialize()
+            on_reconnect.assert_not_called()
+
+            cache.close()
+            cache._connect()
+            on_reconnect.assert_not_called()
+
+            cache._connect()
+        on_reconnect.assert_called_once()
+
+    def test_reconnect_if_due_leaves_a_never_initialized_cache_alone(self):
+        cache = _ConcreteCache(redis_db=7, cache_name="test", ttl=60)
+        with patch("rhesis.backend.app.services.cache._create_redis_client") as create_client:
+            cache._reconnect_if_due()
+        create_client.assert_not_called()
+        assert cache._initialized is False
+
+    def test_reconnect_if_due_retries_a_failed_connect(self):
+        cache = _ConcreteCache(redis_db=7, cache_name="test", ttl=60)
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client",
+            side_effect=ConnectionError("unavailable"),
+        ):
+            cache.initialize()
+        cache._retry_at = 0.0
+        with patch("rhesis.backend.app.services.cache._create_redis_client"):
+            cache._reconnect_if_due()
+        assert cache._using_redis is True
+
     def test_a_connect_in_progress_is_not_repeated(self):
         cache = _ConcreteCache(redis_db=7, cache_name="test", ttl=60)
         with (

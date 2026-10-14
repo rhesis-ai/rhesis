@@ -15,7 +15,7 @@ from rhesis.backend.app.services.telemetry.trace_metrics_cache import (
 
 
 @pytest.fixture(autouse=True)
-def clear_trace_metrics_debounce_cache():
+def clear_trace_metrics_debounce_cache(monkeypatch):
     """Clear in-memory state and force in-memory mode for each test."""
     orig_redis = _cache._redis
     orig_redis_read = _cache._redis_read
@@ -25,6 +25,8 @@ def clear_trace_metrics_debounce_cache():
     _cache._redis = None
     _cache._redis_read = None
     _cache._has_separate_read = False
+    # An app lifespan may have connected it; no reconnect mid-test.
+    monkeypatch.setattr(_cache, "_retry_at", float("inf"))
     yield
     _cache._memory.clear()
     _cache._memory_timestamps.clear()
@@ -173,3 +175,34 @@ class TestSignalConversationComplete:
         )
         assert _cache.is_complete("trace-1") is True
         assert _cache.pop_pending_eval("trace-1") is None
+
+
+@pytest.mark.unit
+class TestReconnect:
+    """A failed startup connect is retried on use, and pending state moves to Redis."""
+
+    def test_later_calls_use_redis_once_it_is_back(self, monkeypatch):
+        cache = TraceMetricsDebounceCache()
+        monkeypatch.setattr(
+            "rhesis.backend.app.services.telemetry.trace_metrics_cache._cache", cache
+        )
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client",
+            side_effect=ConnectionError("unavailable"),
+        ):
+            cache.initialize()
+        cache.register_pending_eval("trace-1", "task-a")
+
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = "1"
+        cache._retry_at = 0.0
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client", return_value=mock_redis
+        ):
+            assert is_conversation_complete("trace-1") is True
+
+        mock_redis.pipeline.return_value.set.assert_called_once_with(
+            "tracemetrics:pending:trace-1", "task-a", ex=600
+        )
+        assert cache._memory == {}
+        mock_redis.get.assert_called_once_with("tracemetrics:complete:trace-1")

@@ -118,6 +118,21 @@ class ConversationLinkingCache(RedisBackedCache):
         self._pending_outputs: Dict[str, PendingOutput] = {}
         self._pending_files: Dict[str, PendingFiles] = {}
 
+    def _on_reconnect(self) -> None:
+        # Pops read Redis now, so entries parked here would never be found.
+        with self._lock:
+            for pending in (self._pending_links, self._pending_outputs, self._pending_files):
+                _evict_stale(pending)
+            links, self._pending_links = self._pending_links, {}
+            outputs, self._pending_outputs = self._pending_outputs, {}
+            files, self._pending_files = self._pending_files, {}
+        for trace_id, link in links.items():
+            self.register_link(trace_id, link.conversation_id, link.organization_id)
+        for trace_id, output in outputs.items():
+            self.register_output(trace_id, output.mapped_output)
+        for trace_id, entry in files.items():
+            self.register_files(trace_id, entry.files_json, entry.organization_id)
+
     # -----------------------------------------------------------
     # Conversation link methods
     # -----------------------------------------------------------
@@ -383,6 +398,11 @@ def initialize_cache() -> None:
     _cache.initialize()
 
 
+def _get_cache() -> ConversationLinkingCache:
+    _cache._reconnect_if_due()
+    return _cache
+
+
 # ---------------------------------------------------------------
 # 1. Conversation ID linking (first-turn patching)
 # ---------------------------------------------------------------
@@ -398,7 +418,7 @@ def register_pending_conversation_link(
     Called when ``update_conversation_id_for_trace()`` returns 0
     because the SDK's spans have not been ingested yet.
     """
-    _cache.register_link(trace_id, conversation_id, organization_id)
+    _get_cache().register_link(trace_id, conversation_id, organization_id)
     logger.debug(
         f"[CONVERSATION_LINKING] Parked pending link: "
         f"trace_id={trace_id}, conversation_id={conversation_id}"
@@ -419,7 +439,7 @@ def get_trace_id_from_pending_links(
 
     Returns the trace_id if found, None otherwise.
     """
-    return _cache.get_trace_id_for_conversation(conversation_id)
+    return _get_cache().get_trace_id_for_conversation(conversation_id)
 
 
 def apply_pending_conversation_links(
@@ -439,7 +459,7 @@ def apply_pending_conversation_links(
         return 0
 
     unique_trace_ids = list({span.trace_id for span in stored_spans})
-    matched = _cache.pop_links_for_traces(unique_trace_ids)
+    matched = _get_cache().pop_links_for_traces(unique_trace_ids)
 
     if not matched:
         return 0
@@ -484,7 +504,7 @@ def register_pending_output(
     each root span — only the output needs to be added by the
     backend.
     """
-    _cache.register_output(trace_id, mapped_output)
+    _get_cache().register_output(trace_id, mapped_output)
     logger.debug(f"[CONVERSATION_IO] Parked pending output for trace_id={trace_id}")
 
 
@@ -517,7 +537,7 @@ def inject_pending_output(
     # Collect unique trace_ids from the batch
     trace_ids = list({span.trace_id for span in spans})
 
-    matched = _cache.pop_outputs_for_traces(trace_ids)
+    matched = _get_cache().pop_outputs_for_traces(trace_ids)
 
     if not matched:
         return 0
@@ -568,7 +588,7 @@ def register_pending_files(
         serialisable = files
 
     files_json = json.dumps(serialisable)
-    _cache.register_files(trace_id, files_json, organization_id)
+    _get_cache().register_files(trace_id, files_json, organization_id)
     logger.debug(f"[FILE_LINKING] Parked {len(files)} pending file(s) for trace_id={trace_id}")
 
 
@@ -591,7 +611,7 @@ def apply_pending_files(
         return 0
 
     unique_trace_ids = list({span.trace_id for span in stored_spans})
-    matched = _cache.pop_files_for_traces(unique_trace_ids)
+    matched = _get_cache().pop_files_for_traces(unique_trace_ids)
 
     if not matched:
         return 0
