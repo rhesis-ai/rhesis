@@ -27,6 +27,9 @@ spec:
           ingressClass: external
           service:
             enabled: true
+            # Keep the client's source IP. Cluster SNATs it to a node address, so
+            # the backend's audit log and rate limits saw only 10.x addresses.
+            externalTrafficPolicy: Local
             external:
               enabled: true
               type: LoadBalancer
