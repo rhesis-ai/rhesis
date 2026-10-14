@@ -124,6 +124,11 @@ _MEMBER_ACTIONS: frozenset[str] = frozenset(
 )
 
 
+_SELF_SERVICE_TOKEN_PERMISSIONS: frozenset[str] = frozenset(
+    {"token:create", "token:read", "token:update", "token:delete"}
+)
+
+
 def _primary_action(cap: str) -> str:
     """Return the primary action component of *cap*, stripping any object qualifier.
 
@@ -175,9 +180,11 @@ def _viewer_permissions(cap_set: set[str]) -> set[str]:
 
 def _auditor_permissions(cap_set: set[str]) -> set[str]:
     """Every ``:read``, ``recycle:view`` and ``audit_log:export``: reads everything,
-    including the audit log and its settings, and changes nothing."""
+    including the audit log and its settings, and changes nothing. Plus their own
+    API tokens, so the log can be pulled with a key; the token stays read-only."""
     perms = {c for c in cap_set if c.endswith(":read")}
     perms |= {"recycle:view", "audit_log:export"} & cap_set
+    perms |= _SELF_SERVICE_TOKEN_PERMISSIONS & cap_set
     return perms
 
 
@@ -193,7 +200,12 @@ def _member_permissions(cap_set: set[str]) -> set[str]:
         for c in cap_set
         if capability_scope(c) == SCOPE_PROJECT and _primary_action(c) in _MEMBER_ACTIONS
     }
-    perms = project_actions | _viewer_permissions(cap_set)
+    # Deleting a project removes everyone's work in it: Owner and Admin only.
+    perms = (project_actions - {"project:delete"}) | _viewer_permissions(cap_set)
+    # Org-scoped self-service: Members manage their own API tokens. The token
+    # routes only ever act on the caller's tokens, and token scopes never exceed
+    # the owner's role. token:manage is not self-service and stays out.
+    perms |= _SELF_SERVICE_TOKEN_PERMISSIONS & cap_set
     # Org-scoped self-service: Members may request Polyphemus access; Viewers may not.
     if "polyphemus:request" in cap_set:
         perms.add("polyphemus:request")
@@ -219,12 +231,13 @@ def permissions_for_built_in_role(role_name: str, capabilities: list[str]) -> se
     - **Owner**  (level 100): all permissions.
     - **Admin**  (level 80): all except EE-only management (role:manage,
       role:read, sso:manage, api_clients:manage).
-    - **Auditor** (level 70): every :read (the audit log included), recycle:view
-      and audit_log:export. No writes. Admin ⊇ Auditor ⊇ Viewer, but Auditor
+    - **Auditor** (level 70): every :read (the audit log included), recycle:view,
+      audit_log:export and their own API tokens. No writes. Admin ⊇ Auditor ⊇ Viewer, but Auditor
       and Member do not nest.
     - **Member** (level 60): Viewer plus :create/:update/:delete and the special
       project actions (:execute, :generate, :import, :react) on every
-      project-scoped resource.
+      project-scoped resource except project:delete, plus their own API tokens
+      (token:create/read/update/delete).
     - **Viewer** (level 40): every :read except role:read, token:read and
       audit_log:read, plus recycle:view (covers organization:read and
       member:read for org context).
