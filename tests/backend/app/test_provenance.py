@@ -78,6 +78,14 @@ class TestClientChannel:
     def test_anything_else_is_plain_api(self, headers):
         assert client_channel(_connection(headers)) is Channel.API
 
+    @pytest.mark.parametrize("mode", ["navigate", "cors"])
+    def test_a_browser_without_the_header_is_web(self, mode):
+        assert client_channel(_connection({"Sec-Fetch-Mode": mode})) is Channel.WEB
+
+    def test_an_explicit_header_wins_over_the_browser_hint(self):
+        request = _connection({"X-Rhesis-Client": "sdk", "Sec-Fetch-Mode": "cors"})
+        assert client_channel(request) is Channel.SDK
+
     @pytest.mark.parametrize("claimed", ["mcp", "architect", "job"])
     def test_an_outside_client_cannot_claim_an_internal_channel(self, claimed):
         request = _connection({"X-Rhesis-Client": claimed, IN_PROCESS_HEADER: "guess"})

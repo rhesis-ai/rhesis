@@ -22,12 +22,17 @@
       "@testing-library/react-original": [
         "./node_modules/@testing-library/react"
       ],
-      "@mui/material": ["./node_modules/@mui/material"],
-      "@mui/material/*": ["./node_modules/@mui/material/*"],
-      "@mui/icons-material": ["./node_modules/@mui/icons-material"],
-      "@mui/icons-material/*": ["./node_modules/@mui/icons-material/*"],
+      // Point at the file each package's "exports" resolves to. A bare directory makes
+      // webpack pick "main"/"module" for app files while EE files (reached through
+      // node_modules) get "exports", bundling two copies with two React contexts.
+      "@mui/material": ["./node_modules/@mui/material/esm/index"],
+      "@mui/material/*": ["./node_modules/@mui/material/esm/*"],
+      "@mui/icons-material": ["./node_modules/@mui/icons-material/esm/index"],
+      "@mui/icons-material/*": ["./node_modules/@mui/icons-material/esm/*"],
       "@mui/x-data-grid": ["./node_modules/@mui/x-data-grid"],
-      "@tanstack/react-query": ["./node_modules/@tanstack/react-query"],
+      "@tanstack/react-query": [
+        "./node_modules/@tanstack/react-query/build/modern/index"
+      ],
       "next/*": ["./node_modules/next/*"],
       "next-auth": ["./node_modules/next-auth"],
       "next-auth/*": ["./node_modules/next-auth/*"]
