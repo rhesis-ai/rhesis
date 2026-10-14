@@ -8,7 +8,18 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
-## [Unreleased]
+## [0.18.0] - 2026-10-08
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.18.0**
+- **Frontend 0.18.0**
+- **SDK 0.18.0**
+
+### Summary
+
+The Traces page gets a **Spans view**, and a trace conversation can now become a **test** in one step. **Jev** joins as an evaluation-only decision model provider, and a **Connect a model** onboarding step catches setups with no usable model. The SDK's default install shrinks from about 610 MB to a **core SDK** of about 35 MB, and the minimum Python version is now **3.12**.
 
 ### Breaking Changes
 
@@ -19,16 +30,399 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
   `@metric`, and the native judges and synthesizers with the Rhesis-hosted model.
 - Other model providers, DeepEval and DeepTeam metrics, document extraction and chunking, and MCP
   agents need `pip install "rhesis-sdk[all]"`. That gives the 0.17 behaviour.
-- `[all]` no longer includes the `huggingface` extra or the tracing integrations. Use
+- `[all]` doesn't include the `huggingface` extra or the tracing integrations. Use
   `rhesis-sdk[all,huggingface]` for local Hugging Face models. The tracing extras are unchanged.
   See [What to install](/sdk/installation#what-to-install).
 
-### Added
+**Other breaking changes**
+
+- Python 3.12 is the minimum for the SDK and backend; 3.10 and 3.11 are no longer supported.
+- The `Trace` metric scope is removed. Existing trace-only metrics move to the Single-Turn and Multi-Turn scopes, and any metric can be picked as a project trace metric. See [Metric Scope](/docs/metrics/metric-scope).
+
+### Featured Capabilities
+
+**Spans view**
+
+- **Spans tab** on the Traces page lists individual spans, with their own filters and facets
+- **Span types**: a new `span_type` column groups spans (`llm.invoke`, `span`, and so on) for token and cost breakdowns
+- **Deep links**: open the trace drawer focused on a specific span
+- **API**: `GET /telemetry/spans` and `GET /telemetry/spans/facets` for filtering, sorting, and paging spans
+
+**Tests from traces**
+
+- **From the UI**: create a single-turn or multi-turn test from a trace conversation
+- **From the SDK**: `Trace.conversation()` returns the turns, and `Trace.to_test(turn=None)` drafts a test from them
+- **Annotations without metrics**: traces can be annotated even when no metric is attached
+
+See [Traces](/sdk/entities/traces#creating-a-test-from-a-trace).
+
+**Decision models and Jev**
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/DG949BTHv8I"
+    title="What are Jev evals? How they work and how they compare to LLM-as-a-judge"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+- **Jev provider**: an evaluation-only decision model for categorical metrics
+- **Fallback**: when a decision model can't write text (multi-turn tests, non-categorical metrics), Rhesis uses your generation model instead
+- **Fewer failed runs**: a test run only builds the models its metrics need, so an unused missing model no longer fails the run
+
+See [Models](/docs/models).
+
+### Backend Highlights
+- Span listing and facet endpoints, plus the `span_type` column
+- Audit log provenance: actor, credentials, IP, client channel, and user agent per request
+- Onboarding checklist progress read from real database state
+- Model configuration errors unified under one `model_not_configured` code, with readiness check endpoints
+- Default model falls back to a remaining active model when it is deleted
+- Run-scoped token and cost totals now count every span in a trace, not only the root
+- Provider error messages stripped from user-facing errors so keys and payloads can't leak
+- Database driver upgraded to `psycopg 3`
+
+### Frontend Highlights
+- Spans view on the Traces page, with type-specific icons in the span tree
+- Create a test from a trace conversation
+- "Connect a model" onboarding step
+- Linked test counts on requirement cards
+- Conversation-level findings shown in a banner above the turns; turns marked "Evaluated"
+- Cost cards show total tokens, with the input/output split in a tooltip
+- Copyable project ID on the project card
+
+### SDK Highlights
+- Core install of about 35 MB; heavy dependencies moved to `[all]`, and `torch` to `[huggingface]`
+- `Trace.conversation()` and `Trace.to_test()`
+- `BaseDecisionModel` and `JevDecisionModel`
+- Trace annotations address traces by OTEL trace ID
+- Pricing for OpenAI and LiteLLM cached prompt tokens
+- `test_set_type` inferred from the tests on `push()`
+
+## [0.17.1] - 2026-09-28
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.17.1**
+- **Frontend 0.17.1**
+- **SDK 0.17.1**
+
+### Summary
+
+A fix release. The **SDK 0.17.0 wheel shipped without its Python source files**; 0.17.1 fixes that, so upgrade if you installed 0.17.0. Tests whose requirements have no matching metrics now show as **Inconclusive** instead of Error, and quota checks refuse runs that would exceed the remaining limit.
+
+### Backend Highlights
+- "Inconclusive" status for tests with no metrics of the matching scope
+- Built-in Goal Achievement metric row for every live multi-turn test, also scored on reruns
+- Rescoring replays stored outputs from the reference run instead of calling the endpoint again
+- Runs that exceed the remaining quota are refused; in-flight runs across all projects count toward it
+- Fixed a race condition that left the Architect stuck on "Working..." after fast tasks
+
+### Frontend Highlights
+- Run summary grid shows every test, with an Inconclusive filter and a "No metrics configured" row
+- Requirement header counts only the tests that apply to that requirement
+- Run button blocked when a run would exceed the remaining quota; "test usage" renamed "test executions"
+- Reruns no longer carry over the original run's model override
+- Team plan badge is now a silver crown, set apart from the gold Enterprise crown
+
+### SDK Highlights
+- Fixed packaging: the 0.17.0 wheel and sdist were missing their Python source files
+- `annotate_trace()` returns the server-resolved `entity_id`
+- `RhesisAPIError` messages include the server's error detail
+
+## [0.17.0] - 2026-09-22
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.17.0**
+- **Frontend 0.17.0**
+- **SDK 0.17.0**
+
+### Summary
+
+Reviews, metric tuning judgements, and Explorer labels become one **Annotations** entity, available in the UI, the API, and the SDK. Costs can be shown in **USD, EUR, GBP, or CHF**, with cached prompt tokens priced separately. Organizations can set their own **branding**, and **Trello** joins the tool integrations. Ragas support is removed.
+
+### Breaking Changes
+
+- **Ragas removed**: the Ragas metric provider is gone from the SDK, backend, and frontend, including `RagasMetricBase`, `RagasAnswerAccuracy`, `RagasAspectCritic`, `RagasContextRelevance`, `RagasFaithfulness`, and `RagasMetricFactory`. Use the DeepEval or Rhesis providers instead.
+
+### Featured Capabilities
+
+**Annotations**
+
+- **One entity**: test reviews, trace reviews, metric tuning judgements, and Explorer labels are stored as annotations
+- **UI**: a shared annotation drawer, count badges on test runs, and filters by test set, endpoint, metric, annotator, requirement, and date range
+- **SDK**: `Annotation` entity, `get_annotations()` on tests, test results, and test runs, and an `.annotate(verdict, comment)` helper
+- **From your app**: `annotate_current_trace` and `annotate_trace` record a human verdict, such as a thumbs-up, against the active OpenTelemetry trace ID
+
+See [Annotations](/docs/annotations).
+
+**Costs and currencies**
+
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/WKrWp8bYENs"
+    title="Same quality, lower cost? Cost optimization for AI agents with Rhesis"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
+- **Currencies**: USD, EUR, GBP, or CHF, set per organization with a personal override, converted at daily exchange rates
+- **Cached prompts**: `cache_write` and `cache_read` token counts recorded on LLM spans and priced separately
+- **Unpriced models** show "No cost data" instead of $0.00
+- **Grids**: tokens, input/output tokens, cost, input/output cost, and model columns on Test Runs and Traces, sortable on the server
+- **Run comparison** shows cost and token deltas between two runs
+
+See [Costs](/docs/tracing/costs).
+
+**Organization branding**
+
+Administrators set primary and secondary colours, product name, favicon, and brand font, with a live preview. See [Branding](/docs/organizations/branding).
+
+**Tool integrations**
+
+- **Trello** as a tool provider
+- **Connection drawer** renders its fields from each provider's manifest, with providers shown as a grid of tiles
+- **Trace MCP tools**: `list_traces`, `get_trace`, `get_trace_metrics`, `lookup_span`, and `list_trace_providers` for agents that debug traces
+
+See [Tools](/docs/tools).
+
+### Backend Highlights
+- Annotations stored in one `annotation` table, replacing the JSONB review fields
+- `version_info` records the version of the system under test on test runs and traces
+- Test run configurations snapshotted at execution time, so later edits don't change past runs
+- Explorer embeddings generated by background workers instead of inline
+- Email notification preferences for job completions and task assignments
+- Fixed several RLS bugs, including crashes on a blank organization GUC
+
+### Frontend Highlights
+- Annotations replace Reviews across the app
+- Currency pickers, cost columns, and a live-updating cost card during runs
+- Branding tab in Organization Settings
+- Notifications tab in User Settings
+- Trello integration and the redesigned tool connection drawer
+- Project detail splits "Advanced Configuration" into Experiments and Traces tabs
+
+### SDK Highlights
+- `Trace`, `Span`, and `Annotation` entities
+- Cached prompt token tracking across OpenAI, Anthropic, Mistral, Cohere, and Google
+- Shared conversation anchoring for LangGraph, Haystack, Google ADK, and MAF, so alternating turns no longer split into separate traces
+- OWASP report data bundled with the package instead of downloaded at runtime
+
+## [0.16.0] - 2026-09-16
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.16.0**
+- **Frontend 0.16.0**
+- **SDK 0.16.0**
+
+### Summary
+
+Traces and test runs now show **token usage and cost**, sortable on the server. Endpoints get a configurable **timeout**, and `experiment_parameters` becomes the preferred name for parameter injection. The backend moves blocking work off the event loop, which keeps it responsive under load.
+
+### Featured Capabilities
+
+**Token and cost tracking**
+
+- **Traces list**: Tokens and Cost columns, sortable on the server, with project-level totals above the grid
+- **Trace drawer**: token and cost chips in the header, and a Usage block in span details that rolls up the selected span and everything under it
+- **Test runs**: a run-scoped Usage card, and trace metrics scoped to the run with `test_run_id`
+
+See [Costs](/docs/tracing/costs).
+
+**Endpoint timeouts**
+
+`timeout_seconds` (1–3600) on an endpoint sets how long REST and SDK invokers wait. Set it on the endpoint's Overview tab or on the SDK `Endpoint` entity. See [Endpoint Management](/docs/endpoints/management).
+
+### Backend Highlights
+- Auth lookups, password hashing, route handlers, and preflight checks run in a worker threadpool
+- `organization_id` indexes on tenant tables, and RLS policy lookups hoisted into subselects
+- `experiment_parameters` added as the preferred name; `params` still works
+- `/ready` endpoint for database readiness probes
+- Fixed a database error in one sequential test aborting the whole batch
+
+### Frontend Highlights
+- Token and cost columns, chips, and rollup tiles across traces and test runs
+- Reviews tab on test runs
+- Test parameters editor in the playground chat and test configurations
+- Timeout field on the endpoint Overview tab
+- Request and response mappings validated as JSON before saving, with Jinja syntax allowed
+- Run test drawer sends single-turn and multi-turn runs through the backend execution pipeline
+
+### SDK Highlights
+- `timeout_seconds` on the `Endpoint` entity
+- `get_experiment_parameters()` replaces `get_parameters()`, which is deprecated
+- Shared deferred-release queue for the MAF and Google ADK integrations
+- Fixed sequential graph steps being reported as agent handoffs
+
+## [0.15.2] - 2026-09-10
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.15.2**
+- **Frontend 0.15.2**
+- **SDK 0.15.2**
+
+### Summary
+
+**LangChain and LangGraph tracing** is reworked so spans no longer go missing, and LangGraph turns group into one conversation by `thread_id`. Tests get **`test_parameters`** for per-test values in request mappings. SDK WebSocket throughput goes up, and connector execution traces are now stored in the database.
+
+### Featured Capabilities
+
+**LangChain and LangGraph tracing**
+
+- **No missing spans**: callbacks register through `register_configure_hook`, which fixes tracing on `langchain-core` 1.5 and later
+- **Conversations**: LangGraph turns are grouped by `thread_id` into one conversation
+- **Retrievers**: retriever calls are traced as `ai.retrieval` spans with the query, results, and `top_k`
+- **Full prompts**: one prompt event per message, instead of only the first
+- **Concurrency**: thread-safe under parallel LangGraph nodes, with a cap on in-flight run bookkeeping
+
+Requires `langchain >= 1.4.0`, `langchain-core >= 1.6.0`, and `langgraph >= 1.2.0`. See [Conversation Tracing](/docs/tracing/conversation-tracing).
+
+**Test parameters**
+
+`test_parameters` is a free-form JSON field on a test. Its values are available in request mappings as `{{ test_parameters.<key> }}` and in SDK endpoints through `get_test_parameters()`, separate from experiment parameters. Edit them on the test detail page. See [Request Mapping](/docs/endpoints/request-mapping).
+
+### Backend Highlights
+- SDK WebSocket sessions open a database connection only when needed; default rate limit raised to 500 messages per second
+- `POST /connector/trace` stores execution traces in a new `execution_trace` table and returns a `trace_id`
+- `/features` falls back to free-tier limits instead of a 403 for users without an organization
+- WebSocket registration fails closed when authorization can't be checked
+
+### Frontend Highlights
+- Test Parameters section on the test detail page, with a JSON editor
+
+### SDK Highlights
+- LangChain and LangGraph tracing fixes (see above)
+- LLM calls in background threads (`ThreadPoolExecutor`, `run_in_executor`) are traced
+- `test_parameters` on the `Test` entity and `get_test_parameters()`
+
+## [0.15.1] - 2026-09-04
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.15.1**
+- **Frontend 0.15.1**
+- **SDK 0.15.1**
+
+### Summary
+
+A fix release. Intermittent **loss of SDK responses** during test runs is fixed. Team invitation emails now carry a **magic link** for one-click sign-in, and expired traces are deleted automatically according to the plan's retention window.
+
+### Backend Highlights
+- Fixed SDK responses getting lost in parallel and sequential runs (thread-safe event loop helper, growing Redis connection pool)
+- SDK failure reasons shown in the UI instead of one generic error
+- Invitation emails include a 7-day magic link; invitees without a password are asked to set one
+- Scheduled sweep deletes traces past their retention window; custom windows can be set by license
+- Multi-turn generation honours requested requirements and `batch_size`, and rejects unknown config fields
+- "Community" tier renamed "Free"
+
+### Frontend Highlights
+- Set-password banner and notification for invited users
+- Faster page loads: redirects and data prefetching moved to the server for settings, playground, metrics, and test generation
+- SDK endpoint Mapping tab shows a read-only view instead of a blank panel
+- Clearer validation on metric score fields
+
+### SDK Highlights
+- Default Vertex AI model changed from the retired `gemini-2.0-flash` to `gemini-3.1-flash-lite`
+- Multi-turn generation attributes tests to the requested requirements, not the seeded defaults
+- Short generation batches are topped up by retrying
+
+## [0.15.0] - 2026-09-01
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.15.0**
+- **Frontend 0.15.0**
+- **SDK 0.15.0**
+
+### Summary
+
+When a target endpoint fails, test results now show the **HTTP status, reason, and raw response body** instead of a zero score. **Test run detail pages** load faster. Tier limits now match **published pricing**, and the sidebar shows your current plan.
+
+### Featured Capabilities
+
+**Endpoint failure details**
+
+Single-turn and multi-turn tests capture the target's HTTP status code, failure reason, and raw response body, such as a safeguard rejection. The test run Overview tab shows them in a banner, and failed tests no longer report "0.0%" or "0 of 0 metrics passed".
+
+**Faster test run pages**
+
+N+1 queries on test results and run details are fixed, the verdict grid for finished runs is cached, and multi-turn transcripts load only when opened.
+
+**Plans and limits**
+
+- **Limits** match published pricing: 1M model tokens on Free, and 1M tracing spans and 25M model tokens on Team
+- **Enterprise** licenses can set custom per-organization limits
+- **Sidebar** shows the current plan, its status, and an upgrade link
+
+### Backend Highlights
+- Target failure details stored and returned for single-turn and multi-turn tests
+- `plan` contract on `/features` for plan badges and upgrade links
+- `GET /tests/facets` for filter values present on active tests
+- Default timeouts on all outbound HTTP requests
+- Fixed an expired blanket license overriding an organization's active custom license
+- Terms & Conditions version 2.0, which asks users to accept the commercial SaaS terms
+
+### Frontend Highlights
+- Failure banner on the test run Overview tab
+- Navigation progress bar and page-shaped loading skeletons
+- Plan card and upgrade link in the sidebar footer
+- Detail pages prefetch their data in parallel on the server
+
+### SDK Highlights
+- Default timeouts on REST (`DEFAULT_API_TIMEOUT`) and LLM (`DEFAULT_LLM_TIMEOUT`) calls
+- Fixed a socket leak on shutdown in the REST invoker
+
+## [0.14.0] - 2026-08-27
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.14.0**
+- **Frontend 0.14.0**
+- **SDK 0.14.0**
+- **Polyphemus 0.7.0**
+
+### Summary
+
+The test run Summary tab is rebuilt as a **live verdict grid** that updates while the run executes. Custom metrics get a **Tuning** tab that rewrites the evaluation prompt from reviewer feedback. The SDK adds **Google ADK** and **Haystack** integrations, and multi-turn tests are scored against **evaluation contracts**.
+
+### Featured Capabilities
+
+**Live verdict grid**
+
+- **Live updates**: the Summary tab shows each test × metric verdict as it arrives over WebSocket
+- **Density**: Numbers, Numbers + Shape, and Detail modes, with keyboard navigation
+- **KPI cards**: failures drill-down, elapsed time, sparklines, and a progress bar
+
+See [Test Runs](/docs/test-runs).
+
+**Metric tuning**
+
+A Tuning tab on custom metrics holds labelled cases. Run the metric over them, accept or reject each verdict with a comment, and **Improve** rewrites the evaluation prompt from the rejections, shown as an editable diff before you apply it.
+
+**Evaluation contracts**
+
+A multi-turn test's free-text goal is turned into a contract of required and prohibited behaviours. Penelope plays the simulated user against it and scores each behaviour, and the test detail page shows the verdict and evidence per behaviour. Judging now runs at temperature 0. See [Conversation Simulation](/docs/tests/conversation-simulation/configuration).
 
 **Google ADK integration**
 
 - **Auto-instrumentation**: `auto_instrument("google_adk")` translates the spans Google ADK already
-  emits into Rhesis traces -- agents, model calls with prompts and token counts, tools with their
+  emits into Rhesis traces: agents, model calls with prompts and token counts, tools with their
   I/O, and agent-to-agent handoffs for both of ADK's multi-agent mechanisms. A multi-turn ADK
   conversation arrives as one trace whose roots are the turns, rather than one trace per turn.
   See [Google ADK](/docs/tracing/google-adk).
@@ -46,6 +440,32 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
   the tracer and writes its schema directly. See [Haystack](/docs/tracing/haystack).
 - **Penelope target**: `HaystackTarget` for multi-turn conversation simulation against a Haystack
   pipeline or agent.
+
+### Backend Highlights
+- Outcome model splits Execution (did the test run) from Verdict (did it pass)
+- `job` and `activity_log` tables track background work, with cancellation and live progress over WebSocket
+- Bulk delete for test runs, test sets, endpoints, sources, tokens, and tasks
+- Advisory locks serialize migrations across replicas during rollouts
+- Owners notified when usage crosses 80% and 100% of a quota
+- Fixed a review on a result with no metrics creating a "Passed" status
+
+### Frontend Highlights
+- Live verdict grid and redesigned KPI cards on test runs
+- Metric Tuning tab with prompt improvement
+- `/settings` page for profile and password
+- Quota notices, banners, and an org usage block in the organization menu
+- Bulk delete across list grids
+- Custom brand fonts for self-hosted deployments via `BRAND_FONT_FAMILY` and `BRAND_FONT_BASE_URL`
+
+### SDK Highlights
+- Google ADK and Haystack integrations, and `conversation_turn`
+- `on_progress` callback on synthesizers
+- `start_connector` to start the connector from an app startup hook such as FastAPI lifespan
+- Fixed connector TLS failures on Python installs without a CA bundle, such as default macOS
+
+### Polyphemus Highlights
+- Backend startup probe
+- Fewer queries per organization during OWASP resync
 
 ## [0.13.0] - 2026-08-20
 
