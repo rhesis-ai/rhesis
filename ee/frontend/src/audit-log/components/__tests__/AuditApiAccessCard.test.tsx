@@ -87,23 +87,14 @@ describe('AuditApiAccessCard', () => {
 });
 
 describe('AuditReadAccessCard', () => {
-  it('lists every role, highest first, ticking those that read the log', async () => {
+  it('lists every role, highest first, with who can read the log', async () => {
     render(<AuditReadAccessCard />);
-    const owner = await screen.findByRole('checkbox', {
-      name: 'Owner can read the audit log',
-    });
-    expect(owner).toBeChecked();
-    expect(
-      screen.getByRole('checkbox', { name: 'Auditor can read the audit log' })
-    ).toBeChecked();
-    expect(
-      screen.getByRole('checkbox', { name: 'Member cannot read the audit log' })
-    ).not.toBeChecked();
-    const names = screen
-      .getAllByRole('checkbox')
-      .map(box => box.getAttribute('aria-label'));
-    expect(names[0]).toMatch(/^Owner/);
-    expect(names[2]).toMatch(/^Member/);
+    const rows = await screen.findAllByRole('listitem');
+    expect(rows.map(row => row.textContent)).toEqual([
+      'OwnerCan read',
+      'AuditorCan read',
+      'MemberNo access',
+    ]);
     expect(screen.getByRole('link', { name: 'Edit roles' })).toHaveAttribute(
       'href',
       '/organizations/settings?tab=roles'

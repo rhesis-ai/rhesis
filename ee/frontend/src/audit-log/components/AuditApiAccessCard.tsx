@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import Checkbox from '@mui/material/Checkbox';
+import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
@@ -23,12 +23,14 @@ import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { getApiErrorMessage } from '@/utils/error-utils';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
 import { fetchRoles } from '../../rbac/api/role-cache';
+import { getRoleChipSx } from '../../rbac/role-display';
 import {
   AUDIT_EVENTS_MAX_LIMIT,
   AUDIT_EVENTS_PATH,
 } from '../api/audit-log-client';
 import { auditLogQueryKeys } from '../filters';
 import { monoSx } from './AuditChanges';
+import { StatusPill } from './tones';
 
 const ROLES_TAB_URL = '/organizations/settings?tab=roles';
 const BASE_URL_PLACEHOLDER = 'https://<your-rhesis-api>';
@@ -85,31 +87,27 @@ function RolesWithAccess() {
   const sorted = [...(roles ?? [])].sort((a, b) => b.level - a.level);
 
   return (
-    <Box sx={listSx}>
+    <Box sx={listSx} role="list" aria-label="Roles">
       {sorted.map(role => {
         const reads = role.permissions.some(
           p => p.name === Capability.AuditLog.READ
         );
         return (
-          <Box key={role.id} sx={listRowSx}>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography variant="subtitle2">{role.display_name}</Typography>
-              {role.description && (
-                <Typography variant="caption" color="text.secondary">
-                  {role.description}
-                </Typography>
-              )}
+          <Box key={role.id} role="listitem" sx={{ ...listRowSx, py: 1.5 }}>
+            {/* The chip and colours of the Roles tab. */}
+            <Box sx={{ width: t => t.spacing(11.5), flexShrink: 0 }}>
+              <Chip
+                label={role.display_name}
+                size="small"
+                sx={getRoleChipSx(role)}
+              />
             </Box>
-            {/* Read-only here: access changes in the role editor. */}
-            <Checkbox
-              checked={reads}
-              disabled
-              slotProps={{
-                input: {
-                  'aria-label': `${role.display_name} ${reads ? 'can' : 'cannot'} read the audit log`,
-                },
-              }}
-            />
+            <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
+              {role.description}
+            </Typography>
+            <StatusPill tone={reads ? 'success' : 'default'}>
+              {reads ? 'Can read' : 'No access'}
+            </StatusPill>
           </Box>
         );
       })}
