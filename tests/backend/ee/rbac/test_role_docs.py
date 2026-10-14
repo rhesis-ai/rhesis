@@ -79,13 +79,13 @@ def render_matrix() -> str:
 
 
 def test_role_matrix_matches_the_catalog():
-    doc = ROLES_DOC.read_text()
+    doc = ROLES_DOC.read_text(encoding="utf-8")
     pattern = re.compile(re.escape(START) + r".*?" + re.escape(END), re.DOTALL)
     assert pattern.search(doc), f"role matrix markers missing from {ROLES_DOC}"
     expected = render_matrix()
 
     if os.environ.get("RHESIS_UPDATE_ROLE_DOCS"):
-        ROLES_DOC.write_text(pattern.sub(lambda _: expected, doc))
+        ROLES_DOC.write_text(pattern.sub(lambda _: expected, doc), encoding="utf-8")
         return
 
     assert pattern.search(doc).group(0) == expected, (
