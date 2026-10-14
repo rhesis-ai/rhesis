@@ -27,7 +27,6 @@ import {
 import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
 import { getTourSteps, driverConfig } from '@/config/onboarding-tours';
 import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
-import { useActiveProject } from '@/contexts/ActiveProjectContext';
 
 const OnboardingContext = createContext<OnboardingContextValue | undefined>(
   undefined
@@ -41,10 +40,10 @@ const OnboardingContext = createContext<OnboardingContextValue | undefined>(
  */
 function progressKey(progress: OnboardingProgress): string {
   return JSON.stringify([
-    progress.projectCreated,
     progress.endpointSetup,
+    progress.agentTested,
+    progress.insightsReviewed,
     progress.usersInvited,
-    progress.testCasesCreated,
     progress.dismissed,
   ]);
 }
@@ -57,9 +56,6 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
   const userScope = useUserScope();
-  // Mounted inside ActiveProjectProvider (see LayoutContent), so the live project
-  // list is available here — used to keep `projectCreated` honest below.
-  const { projects, loading: projectsLoading } = useActiveProject();
   // Initialize with localStorage data immediately to avoid flash
   const [progress, setProgress] = useState<OnboardingProgress>(() => {
     // Load synchronously during initialization to prevent flash
@@ -389,19 +385,10 @@ export function OnboardingProvider({ children }: OnboardingProviderProps) {
     status,
   ]);
 
-  // Real data (SDK endpoints, tests made anywhere) completes steps without a
-  // tour marking them. ORed in, never written back, so local progress stays as is.
+  // Real data (SDK endpoints, test runs from anywhere) completes steps without the
+  // checklist marking them. ORed in, never written back, so local progress stays as is.
   const { data: serverStatus } = useOnboardingStatus(progress);
-  const withServerStatus = applyServerStatus(progress, serverStatus);
-
-  // `projectCreated` (stored or from the server status) can outlive the project if
-  // another member or the API deletes it, so the live project list has the last
-  // word. Deliberately never written back: mergeProgress ORs local with remote, so
-  // an unset would be resurrected on the next load.
-  const effectiveProgress: OnboardingProgress =
-    projectsLoading || projects.length > 0 || !withServerStatus.projectCreated
-      ? withServerStatus
-      : { ...withServerStatus, projectCreated: false };
+  const effectiveProgress = applyServerStatus(progress, serverStatus);
 
   const isComplete = isOnboardingComplete(effectiveProgress);
   const completionPercentage = calculateCompletionPercentage(effectiveProgress);

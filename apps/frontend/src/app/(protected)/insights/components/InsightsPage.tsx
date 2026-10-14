@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Alert, Box, Button, CircularProgress } from '@mui/material';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useEndpoints } from '@/hooks/useEndpoints';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -47,6 +48,7 @@ export default function InsightsPage({
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.TestResult.READ
   );
+  const { progress, markStepComplete } = useOnboarding();
   const [filters, setFilters] = useState<InsightsFilters>(() =>
     normalizeInsightsFilters({
       ...DEFAULT_INSIGHTS_FILTERS,
@@ -207,6 +209,19 @@ export default function InsightsPage({
     error,
     noRuns,
   });
+
+  // Counts as reviewed only once real results are on screen, not an empty state
+  const showsResults =
+    pageView === 'content' &&
+    !!filters.endpointId &&
+    !insightsLoading &&
+    !error &&
+    !noRuns;
+  useEffect(() => {
+    if (showsResults && !progress.insightsReviewed) {
+      markStepComplete('insightsReviewed');
+    }
+  }, [showsResults, progress.insightsReviewed, markStepComplete]);
 
   const filterBarProps = {
     filters,

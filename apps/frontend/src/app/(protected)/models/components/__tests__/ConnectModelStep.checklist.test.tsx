@@ -3,10 +3,10 @@ import { render, screen } from '@/test-utils';
 import '@testing-library/jest-dom';
 
 import ConnectModelStep from '../ConnectModelStep';
-import OnboardingChecklist from '@/components/onboarding/OnboardingChecklist';
+import { SidebarOnboardingRow } from '@/components/navigation/SidebarOnboardingRow';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 
-// The real checklist next to the real step, sharing one `checklistHidden`
+// The real sidebar checklist row next to the real step, sharing one `checklistHidden`
 // flag the way the root layout's OnboardingProvider does.
 jest.mock('@/contexts/OnboardingContext', () => {
   const ReactActual = jest.requireActual<typeof import('react')>('react');
@@ -18,10 +18,10 @@ jest.mock('@/contexts/OnboardingContext', () => {
         <Context.Provider
           value={{
             progress: {
-              projectCreated: false,
               endpointSetup: false,
+              agentTested: false,
+              insightsReviewed: false,
               usersInvited: false,
-              testCasesCreated: false,
               dismissed: false,
               lastUpdated: 0,
             },
@@ -88,14 +88,13 @@ function Harness({ gated }: { gated: boolean }) {
   return (
     <OnboardingProvider>
       {gated ? <ConnectModelStep /> : <div>app</div>}
-      <OnboardingChecklist />
+      <SidebarOnboardingRow />
     </OnboardingProvider>
   );
 }
 
 const checklist = () =>
-  screen.queryByRole('complementary', { name: 'Onboarding checklist' }) ??
-  screen.queryByLabelText('Onboarding checklist');
+  screen.queryByRole('button', { name: /getting started/i });
 
 describe('ConnectModelStep and the onboarding checklist', () => {
   it('hides the checklist while the step is mounted and restores it after', () => {

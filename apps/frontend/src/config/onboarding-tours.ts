@@ -7,24 +7,22 @@ import { OnboardingStep } from '@/types/onboarding';
  */
 export const ONBOARDING_STEPS: OnboardingStep[] = [
   {
-    id: 'projectCreated',
-    title: 'Create your first project',
-    description: 'Organize your work by creating a project',
-    targetPath: '/projects?tour=project',
-    tourId: 'project',
-  },
-  {
     id: 'endpointSetup',
-    title: 'Set up an endpoint',
-    description: 'Connect to your AI service endpoint',
+    title: 'Connect your agent',
+    description: 'Point Rhesis at the AI app you want to test',
     targetPath: '/endpoints',
   },
   {
-    id: 'testCasesCreated',
-    title: 'Create your first test cases',
-    description: 'Define what to test in your endpoints',
-    targetPath: '/tests?tour=testCases',
-    tourId: 'testCases',
+    id: 'agentTested',
+    title: 'Test your agent with the Architect',
+    description: 'It sets up requirements, metrics and tests, then runs them',
+    targetPath: '/architect',
+  },
+  {
+    id: 'insightsReviewed',
+    title: 'Review insights',
+    description: 'See where your agent passes and fails',
+    targetPath: '/insights',
   },
   {
     id: 'usersInvited',
@@ -35,11 +33,6 @@ export const ONBOARDING_STEPS: OnboardingStep[] = [
     tourId: 'invite',
   },
 ];
-
-/**
- * Path that triggers collapsed state for onboarding checklist
- */
-export const ONBOARDING_COLLAPSE_PATH = '/architect';
 
 /**
  * Tour for creating a project
