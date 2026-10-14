@@ -75,22 +75,36 @@ def _add_endpoint(db: Session, org_id: str, user_id: str, project_id) -> models.
     return endpoint
 
 
-def _add_test(db: Session, org_id: str, user_id: str, project_id) -> models.Test:
+def _add_test_result(
+    db: Session, org_id: str, user_id: str, project_id, endpoint_id
+) -> models.TestResult:
     with as_project(db, project_id):
-        test = models.Test(organization_id=org_id, user_id=user_id, project_id=project_id)
-        db.add(test)
-        db.flush()
-    return test
-
-
-def _add_test_set(db: Session, org_id: str, user_id: str, project_id) -> models.TestSet:
-    with as_project(db, project_id):
-        test_set = models.TestSet(
-            name="My Test Set", organization_id=org_id, user_id=user_id, project_id=project_id
+        config = models.TestConfiguration(
+            endpoint_id=endpoint_id,
+            organization_id=org_id,
+            user_id=user_id,
+            project_id=project_id,
         )
-        db.add(test_set)
+        db.add(config)
         db.flush()
-    return test_set
+        result = models.TestResult(
+            test_configuration_id=config.id,
+            organization_id=org_id,
+            user_id=user_id,
+            project_id=project_id,
+        )
+        db.add(result)
+        db.flush()
+    return result
+
+
+def _example_endpoint_id(db: Session, org_id: str, project_id):
+    with as_project(db, project_id):
+        return (
+            db.query(models.Endpoint.id)
+            .filter(models.Endpoint.organization_id == org_id, models.Endpoint.is_example.is_(True))
+            .first()[0]
+        )
 
 
 @pytest.mark.unit
@@ -121,21 +135,10 @@ class TestOnboardingStatus:
         status = get_onboarding_status(test_db, org_id, user_id)
 
         assert status.model_dump() == {
-            "project_created": False,
             "endpoint_setup": False,
+            "agent_tested": False,
             "users_invited": False,
-            "test_cases_created": False,
         }
-
-    def test_own_project_counts(self, test_db: Session, fresh_org):
-        org_id, user_id = fresh_org
-        _add_project(test_db, org_id, user_id)
-
-        status = get_onboarding_status(test_db, org_id, user_id)
-
-        assert status.project_created is True
-        assert status.endpoint_setup is False
-        assert status.test_cases_created is False
 
     def test_own_endpoint_in_the_example_project_counts(self, test_db: Session, fresh_org):
         org_id, user_id = fresh_org
@@ -144,26 +147,32 @@ class TestOnboardingStatus:
         status = get_onboarding_status(test_db, org_id, user_id)
 
         assert status.endpoint_setup is True
-        assert status.project_created is False
 
-    def test_endpoint_and_tests_found_across_different_projects(self, test_db: Session, fresh_org):
+    def test_results_against_own_endpoint_count(self, test_db: Session, fresh_org):
         org_id, user_id = fresh_org
-        first = _add_project(test_db, org_id, user_id)
-        second = _add_project(test_db, org_id, user_id)
-        _add_endpoint(test_db, org_id, user_id, first.id)
-        _add_test(test_db, org_id, user_id, second.id)
+        project = _add_project(test_db, org_id, user_id)
+        endpoint = _add_endpoint(test_db, org_id, user_id, project.id)
+        _add_test_result(test_db, org_id, user_id, project.id, endpoint.id)
 
         status = get_onboarding_status(test_db, org_id, user_id)
 
         assert status.endpoint_setup is True
-        assert status.test_cases_created is True
+        assert status.agent_tested is True
 
-    def test_test_set_alone_counts_as_test_cases(self, test_db: Session, fresh_org):
+    def test_endpoint_without_results_is_not_tested(self, test_db: Session, fresh_org):
         org_id, user_id = fresh_org
-        project = _add_project(test_db, org_id, user_id)
-        _add_test_set(test_db, org_id, user_id, project.id)
+        _add_endpoint(test_db, org_id, user_id, _add_project(test_db, org_id, user_id).id)
 
-        assert get_onboarding_status(test_db, org_id, user_id).test_cases_created is True
+        assert get_onboarding_status(test_db, org_id, user_id).agent_tested is False
+
+    def test_results_against_the_example_endpoint_do_not_count(self, test_db: Session, fresh_org):
+        org_id, user_id = fresh_org
+        example = _example_project(test_db, org_id)
+        _add_test_result(
+            test_db, org_id, user_id, example.id, _example_endpoint_id(test_db, org_id, example.id)
+        )
+
+        assert get_onboarding_status(test_db, org_id, user_id).agent_tested is False
 
     def test_soft_deleted_rows_do_not_count(self, test_db: Session, fresh_org):
         org_id, user_id = fresh_org
@@ -175,10 +184,7 @@ class TestOnboardingStatus:
         project.deleted_at = datetime.now(timezone.utc)
         test_db.flush()
 
-        status = get_onboarding_status(test_db, org_id, user_id)
-
-        assert status.project_created is False
-        assert status.endpoint_setup is False
+        assert get_onboarding_status(test_db, org_id, user_id).endpoint_setup is False
 
     def test_second_member_counts_as_invited(self, test_db: Session, fresh_org):
         org_id, user_id = fresh_org
@@ -198,22 +204,6 @@ class TestOnboardingStatus:
 
         assert get_onboarding_status(test_db, org_id, user_id).users_invited is False
 
-    def test_metric_owned_tuning_rows_do_not_count(self, test_db: Session, fresh_org):
-        org_id, user_id = fresh_org
-        project = _add_project(test_db, org_id, user_id)
-        metric = (
-            test_db.query(models.Metric).filter(models.Metric.organization_id == org_id).first()
-        )
-        assert metric is not None, "seeding should have created metrics"
-        test = _add_test(test_db, org_id, user_id, project.id)
-        test_set = _add_test_set(test_db, org_id, user_id, project.id)
-        with as_project(test_db, project.id):
-            test.metric_id = metric.id
-            test_set.metric_id = metric.id
-            test_db.flush()
-
-        assert get_onboarding_status(test_db, org_id, user_id).test_cases_created is False
-
     def test_member_only_sees_projects_they_belong_to(self, test_db: Session, fresh_org):
         org_id, owner_id = fresh_org
         member = create_test_user(
@@ -225,14 +215,12 @@ class TestOnboardingStatus:
         _add_endpoint(test_db, org_id, owner_id, project.id)
 
         before = get_onboarding_status(test_db, org_id, member_id)
-        assert before.project_created is False
         assert before.endpoint_setup is False
 
         enroll_user_in_project(test_db, member.id, project.id, uuid.UUID(org_id))
         test_db.flush()
 
         after = get_onboarding_status(test_db, org_id, member_id)
-        assert after.project_created is True
         assert after.endpoint_setup is True
 
     def test_other_organizations_rows_do_not_count(
@@ -241,11 +229,10 @@ class TestOnboardingStatus:
         org_id, user_id = fresh_org
         with as_org(test_db, test_org_id):
             other = _add_project(test_db, test_org_id, authenticated_user_id)
-            _add_endpoint(test_db, test_org_id, authenticated_user_id, other.id)
-            _add_test(test_db, test_org_id, authenticated_user_id, other.id)
+            endpoint = _add_endpoint(test_db, test_org_id, authenticated_user_id, other.id)
+            _add_test_result(test_db, test_org_id, authenticated_user_id, other.id, endpoint.id)
 
         status = get_onboarding_status(test_db, org_id, user_id)
 
-        assert status.project_created is False
         assert status.endpoint_setup is False
-        assert status.test_cases_created is False
+        assert status.agent_tested is False
