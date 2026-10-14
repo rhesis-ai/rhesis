@@ -1,7 +1,8 @@
 """How long each org keeps its audit log, and the purge that enforces it.
 
 The org picks a window (``audit_log.retention_days`` in its settings, 90 days
-by default, the shortest it can choose). ``QuotaPolicy.retention_days``, the plan's retention, caps it.
+by default, the shortest it can choose). ``QuotaPolicy.retention_days``, the
+plan's retention, caps it.
 A deleted org keeps the window it had when it was deleted
 (``retention_days_at_deletion``), so its rows go when that ends, whatever its
 licence does afterwards. An org that lost the feature is purged on its stored
@@ -25,7 +26,6 @@ from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.quota import QuotaRegistry
 from rhesis.backend.events.correlation import resolve_ids
 
-MIN_RETENTION_DAYS = 90
 MAX_RETENTION_DAYS = 3650
 # EU AI Act Art. 19 and 26 ask deployers of high-risk systems for at least six
 # months of logs. Shown as a warning; not a floor.

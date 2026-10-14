@@ -182,12 +182,16 @@ class DisplaySettingsAccessor:
         return self._data.get("currency")
 
 
+# The shortest audit log retention an org can choose.
+MIN_RETENTION_DAYS = 90
+
+
 class AuditLogSettingsAccessor:
     """Audit log preferences, with their defaults for keys never set."""
 
-    # The shortest window an org can choose (MIN_RETENTION_DAYS), so the default
-    # never keeps more than any Enterprise plan allows.
-    DEFAULT_RETENTION_DAYS = 90
+    # The shortest window an org can choose, so the default never keeps more
+    # than any Enterprise plan allows.
+    DEFAULT_RETENTION_DAYS = MIN_RETENTION_DAYS
 
     def __init__(self, audit_log_settings: dict):
         self._data = audit_log_settings

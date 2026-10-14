@@ -8,7 +8,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from rhesis.backend.app.services.audit_retention import MAX_RETENTION_DAYS, MIN_RETENTION_DAYS
+from rhesis.backend.app.models.organization_settings import MIN_RETENTION_DAYS
+from rhesis.backend.app.services.audit_retention import MAX_RETENTION_DAYS
 
 
 class AuditEventRead(BaseModel):
