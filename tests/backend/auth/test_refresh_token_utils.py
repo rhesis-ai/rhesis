@@ -12,12 +12,17 @@ Unit tests for refresh_token_utils.py covering:
 Run with: python -m pytest tests/backend/auth/test_refresh_token_utils.py -v
 """
 
+import threading
+import time
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import text
 
+from rhesis.backend.app.auth import refresh_token_utils
 from rhesis.backend.app.auth.refresh_token_utils import (
     _hash_token,
     cleanup_expired_tokens,
@@ -27,6 +32,7 @@ from rhesis.backend.app.auth.refresh_token_utils import (
     verify_and_rotate_refresh_token,
 )
 from rhesis.backend.app.models.refresh_token import RefreshToken
+from tests.backend.fixtures.database import TestingSessionLocal
 from tests.backend.fixtures.test_setup import (
     create_test_organization,
     create_test_user,
@@ -283,6 +289,115 @@ class TestVerifyAndRotate:
             .first()
         )
         assert str(new_row.family_id) == original_family
+
+
+@contextmanager
+def _own_session():
+    """Production ``get_db()`` semantics on a connection of its own."""
+    session = TestingSessionLocal()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def _rotate_in_thread(raw_token: str, outcome: dict) -> threading.Thread:
+    """Rotate *raw_token* on its own connection and commit, recording the outcome."""
+
+    def run():
+        try:
+            with _own_session() as session:
+                outcome["result"] = verify_and_rotate_refresh_token(session, raw_token)
+        except Exception as exc:
+            outcome["error"] = exc
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    return thread
+
+
+def _wait_until_blocked(thread: threading.Thread) -> None:
+    """Return once some backend waits on a lock, so the race really overlapped."""
+    probe = TestingSessionLocal()
+    try:
+        deadline = time.monotonic() + 10
+        while thread.is_alive() and time.monotonic() < deadline:
+            if probe.execute(text("SELECT count(*) FROM pg_locks WHERE NOT granted")).scalar():
+                return
+            probe.rollback()
+            time.sleep(0.05)
+    finally:
+        probe.close()
+    pytest.fail("the concurrent request never waited on the open rotation")
+
+
+@pytest.mark.integration
+class TestRotationRace:
+    """Reuse detection racing a rotation of the same family, on real connections.
+
+    One connection holds a rotation open (old token revoked, successor inserted,
+    not committed) while another request runs concurrently on the same family.
+    """
+
+    @pytest.fixture
+    def family(self, real_commit_test_db, test_org_id, monkeypatch):
+        """A committed family of a reused token and its live successor."""
+        db = real_commit_test_db
+        user = create_test_user(db, test_org_id, _unique_email("race"), "Race User")
+        db.info["_owned_user_ids"].append(str(user.id))
+        reused = create_refresh_token(db, str(user.id), client_id="race-client")
+        _, live = verify_and_rotate_refresh_token(db, reused)
+        family_id = db.query(RefreshToken.family_id).filter_by(user_id=user.id).first()[0]
+        db.commit()
+        monkeypatch.setattr(refresh_token_utils, "get_db", _own_session)
+        return family_id, reused, live
+
+    def _race(self, open_rotation_of: str, concurrent: str) -> dict:
+        outcome: dict = {}
+        rotation = TestingSessionLocal()
+        try:
+            verify_and_rotate_refresh_token(rotation, open_rotation_of)
+            thread = _rotate_in_thread(concurrent, outcome)
+            _wait_until_blocked(thread)
+            rotation.commit()
+            thread.join(timeout=10)
+            assert not thread.is_alive(), "concurrent request never finished"
+        finally:
+            rotation.close()
+        return outcome
+
+    @staticmethod
+    def _live_tokens(family_id) -> int:
+        session = TestingSessionLocal()
+        try:
+            return (
+                session.query(RefreshToken)
+                .filter(RefreshToken.family_id == family_id, RefreshToken.revoked_at.is_(None))
+                .count()
+            )
+        finally:
+            session.close()
+
+    def test_reuse_revokes_successor_of_open_rotation(self, family):
+        family_id, reused, live = family
+
+        outcome = self._race(open_rotation_of=live, concurrent=reused)
+
+        assert outcome["error"].status_code == 401
+        assert self._live_tokens(family_id) == 0
+
+    def test_second_rotation_of_same_token_is_reuse(self, family):
+        family_id, _, live = family
+
+        outcome = self._race(open_rotation_of=live, concurrent=live)
+
+        assert "result" not in outcome, "one token must not rotate twice"
+        assert outcome["error"].status_code == 401
+        assert self._live_tokens(family_id) == 0
 
 
 # =============================================================================
