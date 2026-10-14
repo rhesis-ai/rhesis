@@ -95,7 +95,7 @@ async def require_websocket_user(websocket: WebSocket) -> tuple[User, Principal]
     """FastAPI dependency that authenticates a WebSocket connection.
 
     Extracts the Bearer token, validates it, and returns the authenticated
-    User together with the token's scoped project_id (if any).
+    User with their Principal (the token's scopes and project, if any).
     Closes the WebSocket with code 1008 if authentication fails.
     """
     try:

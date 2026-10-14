@@ -63,16 +63,23 @@ def _extract_execute_test_message_extras(request: Dict[str, Any]) -> Dict[str, A
     return {k: request[k] for k in _EXECUTE_TEST_EXTRA_KEYS if k in request}
 
 
-def _may_register(context: WebSocketConnectionContext, project_id, db: Session) -> bool:
+def _may_register(
+    context: WebSocketConnectionContext, project_id, db: Session, *, token_scoped: bool
+) -> bool:
     """Whether the connection's principal holds :data:`REGISTER_PERMISSION` in the project.
 
+    A token scoped to this project may belong to someone never enrolled in it (the
+    legacy path in ``_authorize_and_register``), so its owner's org role decides.
     Fails closed when the connection carries no principal.
     """
     from rhesis.backend.app.auth.rbac import authorize
 
-    if context.principal is None:
+    principal = context.principal
+    if principal is None:
         return False
-    return authorize(context.principal, REGISTER_PERMISSION, project_id=project_id, db=db)
+    if authorize(principal, REGISTER_PERMISSION, project_id=project_id, db=db):
+        return True
+    return token_scoped and authorize(principal, REGISTER_PERMISSION, project_id=None, db=db)
 
 
 class ConnectionManager:
@@ -1114,7 +1121,7 @@ class ConnectionManager:
                     )
                     return False
 
-        if not _may_register(context, project_uuid, db):
+        if not _may_register(context, project_uuid, db, token_scoped=token_scoped):
             logger.error(
                 f"Project {project_id} access denied: user {auth_user_id} lacks "
                 f"{REGISTER_PERMISSION} (org {auth_org_id})"

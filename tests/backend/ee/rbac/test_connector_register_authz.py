@@ -110,3 +110,30 @@ def test_http_writes_need_connector_create(path):
 
     (route,) = [r for r in app.routes if getattr(r, "path", None) == path]
     assert enforced_capability_for_route(route) == "connector:create"
+
+
+@pytest.mark.parametrize(("org_role", "registers"), [("Member", True), ("Viewer", False)])
+def test_project_token_without_membership(test_db, org, org_role, registers):
+    """The legacy path: a token scoped to the project, its owner not enrolled."""
+    org_id, project_id, user_id = org
+    _assign_org_role(test_db, org_id, user_id, org_role)
+    token = Principal(
+        user_id=user_id, organization_id=org_id, kind="token", token_project_id=project_id
+    )
+    manager = ConnectionManager()
+    context = WebSocketConnectionContext(
+        user_id=str(user_id),
+        organization_id=str(org_id),
+        token_project_id=str(project_id),
+        principal=token,
+    )
+    manager._contexts[context.connection_id] = context
+    scope_to_org(test_db, org_id)
+    with _ee_provider_active():
+        registered = asyncio.run(
+            manager._authorize_and_register(
+                context.connection_id, str(project_id), "development", db=test_db
+            )
+        )
+
+    assert registered is registers
