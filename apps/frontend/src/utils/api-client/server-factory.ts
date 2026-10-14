@@ -6,10 +6,12 @@ import { getFreshAccessToken } from '@/auth';
 import { webClientHeaders } from '../provenance';
 import { provideServerRequestHeaders } from './request-headers';
 
-// One object per RSC render: filled from the incoming request below, read by
+// One holder per RSC render: set from the incoming request below, read by
 // every backend call that render makes.
-const requestClientHeaders = cache((): Record<string, string> => ({}));
-provideServerRequestHeaders(requestClientHeaders);
+const requestClientHeaders = cache(() => ({
+  current: {} as Record<string, string>,
+}));
+provideServerRequestHeaders(() => requestClientHeaders().current);
 
 /**
  * Build an ApiClientFactory for server-side use (Server Components, server
@@ -40,7 +42,7 @@ provideServerRequestHeaders(requestClientHeaders);
 export const createServerApiFactory = cache(
   async (): Promise<ApiClientFactory> => {
     const incoming = await headers();
-    Object.assign(requestClientHeaders(), webClientHeaders(incoming));
+    requestClientHeaders().current = webClientHeaders(incoming);
     const [{ accessToken }, projectId] = await Promise.all([
       getFreshAccessToken({ headers: incoming }),
       getServerActiveProjectId(),
