@@ -10,6 +10,7 @@ import type {
   GridRowParams,
 } from '@mui/x-data-grid';
 import Button from '@mui/material/Button';
+import Tooltip from '@mui/material/Tooltip';
 import { alpha, type Theme } from '@mui/material/styles';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -35,7 +36,9 @@ import {
 } from '../filters';
 import { actorDisplay, channelLabel, splitAction } from '../labels';
 import { auditEventsList, type AuditEventListFilters } from '../list';
+import { useMemberRoles } from '../hooks/useMemberRoles';
 import {
+  AuditActorType,
   AuditOutcome,
   FieldChangeKind,
   type AuditEvent,
@@ -175,6 +178,7 @@ export default function AuditEventsGrid() {
   );
 
   const zone = useMemo(timeZoneName, []);
+  const memberRoles = useMemberRoles();
 
   const columns: GridColDef[] = useMemo(
     () => [
@@ -200,7 +204,12 @@ export default function AuditEventsGrid() {
         sortable: false,
         renderCell: (params: GridRenderCellParams<AuditEvent>) => {
           const actor = actorDisplay(params.row);
-          return (
+          // Members show their role, as in the role editor; the email moves to a tooltip.
+          const role =
+            params.row.actor_type === AuditActorType.USER && params.row.actor_id
+              ? memberRoles.get(params.row.actor_id)
+              : undefined;
+          const cell = (
             <Box
               sx={{
                 display: 'flex',
@@ -214,8 +223,13 @@ export default function AuditEventsGrid() {
                 name={actor.name}
                 actorType={params.row.actor_type}
               />
-              <TwoLines primary={actor.name} secondary={actor.detail} />
+              <TwoLines primary={actor.name} secondary={role ?? actor.detail} />
             </Box>
+          );
+          return role && actor.detail ? (
+            <Tooltip title={actor.detail}>{cell}</Tooltip>
+          ) : (
+            cell
           );
         },
       },
@@ -319,7 +333,7 @@ export default function AuditEventsGrid() {
         ),
       },
     ],
-    [zone]
+    [zone, memberRoles]
   );
 
   return (
