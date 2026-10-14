@@ -25,10 +25,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Optional: Perspective API for toxicity evaluation
-toxicity = [
-    "google-api-python-client",
-]
 # Optional: Vertex AI model deployment (for model_deployment/ scripts)
 vertex-ai = [
     "google-cloud-aiplatform>=1.38.0",

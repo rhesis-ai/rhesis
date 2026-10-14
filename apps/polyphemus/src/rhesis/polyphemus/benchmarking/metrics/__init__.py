@@ -1,19 +1,19 @@
 """
 Evaluation metrics for benchmarking.
 
-Uses SDK metrics where possible, adds Perspective API for toxicity.
+Uses SDK metrics where possible, adds Google text moderation for toxicity.
 """
 
 from .context_retention import ContextRetentionJudge
 from .fluency import FluencyJudge
-from .perspective_toxicity import PerspectiveToxicity
+from .google_moderation_toxicity import GoogleModerationToxicity
 from .refusal import RefusalDetection
 from .relevancy import RelevancyJudge
 
 __all__ = [
     "ContextRetentionJudge",
     "FluencyJudge",
-    "PerspectiveToxicity",
+    "GoogleModerationToxicity",
     "RefusalDetection",
     "RelevancyJudge",
 ]

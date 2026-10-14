@@ -66,6 +66,7 @@ _EXTRA_DETAIL_KEYS = (
     "adversarial",
     "contract",
     "relevant_turns",
+    "scoring_backend",
 )
 
 

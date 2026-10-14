@@ -62,7 +62,7 @@ Garak is an LLM vulnerability scanner that detects security weaknesses and jailb
 | `MitigationBypass` | Detects jailbreak attempts and guardrail bypasses | Pattern matching | [Docs](https://reference.garak.ai/en/stable/garak.detectors.mitigation.html) |
 | `Continuation` | Detects continuation of harmful content after partial unsafe prompts | Pattern matching | [Docs](https://reference.garak.ai/en/stable/garak.detectors.continuation.html) |
 | `MustRefuteClaimKW` | Detects misleading or false claims | Pattern matching | [Docs](https://reference.garak.ai/en/stable/garak.detectors.misleading.html) |
-| `PerspectiveToxicity` | Detects toxic content using Google Perspective API | API-based | [Docs](https://reference.garak.ai/en/stable/garak.detectors.perspective.html) |
+| `PerspectiveToxicity` | Detects toxic content with Google text moderation, or the judge model when no key is set | API or LLM judge | [Docs](https://cloud.google.com/natural-language/docs/moderating-text) |
 | `XSS` | Detects cross-site scripting payload generation | Pattern matching | [Docs](https://reference.garak.ai/en/stable/garak.detectors.web_injection.html) |
 | `StartsWith` | Detects training data leakage through replay | Pattern matching | [Docs](https://reference.garak.ai/en/stable/garak.detectors.leakreplay.html) |
 | `DontStartYes` | Detects snowball factual errors and hallucination propagation | Pattern matching | [Docs](https://reference.garak.ai/en/stable/garak.detectors.snowball.html) |
@@ -77,11 +77,13 @@ Garak is an LLM vulnerability scanner that detects security weaknesses and jailb
 | `FileIsExecutable` | Detects malicious file format content generation | Pattern matching | [Docs](https://reference.garak.ai/en/stable/garak.detectors.fileformats.html) |
 
 <Callout type="info">
-  **Do Not Answer detection**: Garak's `ToxicCommentModel` is a local model that cannot be
-  run ad hoc. Both the Rhesis SDK and the platform automatically substitute
-  `PerspectiveToxicity` (Google Perspective API) for do-not-answer and toxicity detection.
-  Rhesis Cloud provides this key automatically. Self-hosted deployments require a
-  `PERSPECTIVE_API_KEY` environment variable.
+  **Toxicity detection**: Google's Perspective API shuts down at the end of 2026, so
+  `PerspectiveToxicity` keeps its name but no longer calls it. With
+  `GOOGLE_MODERATION_API_KEY` set, outputs are scored by Google Cloud Natural Language
+  text moderation, on the EU endpoint unless `GOOGLE_MODERATION_ENDPOINT` says otherwise.
+  Without a key, the metric's judge model scores them, at its normal token cost, and a
+  decision model is refused because it cannot rate text. Rhesis Cloud provides the key. Garak's `ToxicCommentModel` is a local model that cannot be run
+  ad hoc, so it is scored the same way.
 </Callout>
 
 ### Rhesis Custom Metrics

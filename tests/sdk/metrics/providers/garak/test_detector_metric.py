@@ -149,22 +149,27 @@ class TestGarakDetectorMetricDetectorLoading:
         mock_detector_class.assert_called_once_with(custom_param="value", another_param=42)
 
     @patch(f"{_DETECTOR_METRIC}.importlib")
-    def test_detector_loading_overrides_local_model(self, mock_importlib):
-        """ToxicCommentModel should be substituted with PerspectiveToxicity."""
+    @pytest.mark.parametrize(
+        "stored_path",
+        [
+            "garak.detectors.unsafe_content.ToxicCommentModel",
+            "garak.detectors.perspective.Toxicity",
+        ],
+    )
+    def test_detector_loading_overrides_toxicity(self, mock_importlib, stored_path):
+        """Local-model and Perspective toxicity both load the Rhesis toxicity detector."""
         mock_import = mock_importlib.import_module
         mock_module = MagicMock()
         mock_detector_class = MagicMock()
         mock_module.Toxicity = mock_detector_class
         mock_import.return_value = mock_module
 
-        metric = GarakDetectorMetric(
-            detector_class="garak.detectors.unsafe_content.ToxicCommentModel"
-        )
+        metric = GarakDetectorMetric(detector_class=stored_path)
         mock_import.reset_mock()
 
         _ = metric.detector
 
-        mock_import.assert_called_once_with("garak.detectors.perspective")
+        mock_import.assert_called_once_with("rhesis.sdk.metrics.providers.garak.moderation")
         mock_detector_class.assert_called_once()
 
     def test_invalid_detector_path_raises_error(self):

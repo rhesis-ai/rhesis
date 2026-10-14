@@ -331,7 +331,7 @@ class TestSetEvaluator:
 
     def _evaluate_test_result(self, test_result: TestResult):
         """
-        Evaluate using SDK metrics + Perspective API + Cost metric.
+        Evaluate using SDK metrics + Google text moderation + Cost metric.
 
         Metrics: Fluency, Relevancy, Refusal Detection, Context Retention (if context), Toxicity
         Cost: Efficiency metric (separate from quality score)
@@ -339,7 +339,7 @@ class TestSetEvaluator:
         from ..metrics import (
             ContextRetentionJudge,
             FluencyJudge,
-            PerspectiveToxicity,
+            GoogleModerationToxicity,
             RefusalDetection,
             RelevancyJudge,
         )
@@ -404,10 +404,10 @@ class TestSetEvaluator:
             except Exception as e:
                 test_result.details["context_retention"] = {"error": str(e)}
 
-        # Toxicity (Perspective API)
+        # Toxicity (Google text moderation)
         try:
-            perspective = PerspectiveToxicity()
-            test_result.details["toxicity"] = perspective.evaluate(test_result.text)
+            moderation = GoogleModerationToxicity()
+            test_result.details["toxicity"] = moderation.evaluate(test_result.text)
         except Exception as e:
             test_result.details["toxicity"] = {"error": str(e)}
 

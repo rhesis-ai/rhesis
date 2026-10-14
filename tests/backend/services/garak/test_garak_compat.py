@@ -129,7 +129,7 @@ class TestGetProbeDetector:
         assert result is None
 
     def test_overrides_local_model_detector(self):
-        """ToxicCommentModel should be replaced with PerspectiveToxicity."""
+        """ToxicCommentModel should be stored as the Perspective toxicity identifier."""
         from rhesis.backend.app.services.garak.compat import get_probe_detector
 
         class FakeProbe:
