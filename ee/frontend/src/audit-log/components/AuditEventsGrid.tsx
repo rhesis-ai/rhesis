@@ -66,6 +66,8 @@ const TIME_FORMAT: Intl.DateTimeFormatOptions = {
   hour: '2-digit',
   minute: '2-digit',
   second: '2-digit',
+  // 24-hour, as in the design; AM/PM does not fit the column.
+  hourCycle: 'h23',
 };
 
 /** "CEST", so the column says which clock its times are on. */
