@@ -121,6 +121,8 @@ rewrite_frontend_env_ports() {
     set_env_url_port "$file" API_BASE_URL "$(dev_port_for backend "$offset")"
     set_env_url_port "$file" BACKEND_URL "$(dev_port_for backend "$offset")"
     set_env_url_port "$file" FRONTEND_URL "$(dev_port_for frontend "$offset")"
+    set_env_url_port "$file" NEXTAUTH_URL "$(dev_port_for frontend "$offset")"
+    set_env_url_port "$file" NEXT_PUBLIC_APP_URL "$(dev_port_for frontend "$offset")"
 }
 
 # Copied rather than symlinked, then shifted onto this worktree's ports. Copying
