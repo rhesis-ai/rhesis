@@ -70,6 +70,30 @@ describe('UsersClient', () => {
     expect(urls[1]).toContain('skip=100');
   });
 
+  it('getAllUsers stops on a short page even if the total count is higher', async () => {
+    const page1 = Array.from({ length: 40 }, (_, i) => ({ id: `u${i}` }));
+    fetchMock.mockResolvedValueOnce(
+      makeFetch(page1, 200, { 'x-total-count': '500' })
+    );
+
+    const result = await client.getAllUsers();
+
+    expect(result).toHaveLength(40);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('getAllUsers stops once the total count is reached', async () => {
+    const page1 = Array.from({ length: 100 }, (_, i) => ({ id: `u${i}` }));
+    fetchMock.mockResolvedValueOnce(
+      makeFetch(page1, 200, { 'x-total-count': '100' })
+    );
+
+    const result = await client.getAllUsers();
+
+    expect(result).toHaveLength(100);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('fetches a single user by id', async () => {
     fetchMock.mockResolvedValue(makeFetch({ id: 'u1' }));
     await client.getUser('u1');
