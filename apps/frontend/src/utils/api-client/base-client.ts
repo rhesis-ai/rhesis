@@ -5,6 +5,8 @@ import { joinUrl } from '@/utils/url';
 import { clearLocalSessionData } from '../session';
 import { readActiveProjectId } from '../active-project';
 import { isModelNotConfigured, reportModelNotConfigured } from '../model-setup';
+import { CLIENT_HEADER, WEB_CLIENT } from '../provenance';
+import { serverRequestHeaders } from './request-headers';
 
 /** Structured FastAPI detail payload (e.g. bulk associate failures) */
 export interface StructuredApiErrorDetail {
@@ -192,6 +194,15 @@ export class BaseApiClient {
     const activeProject = this.projectId ?? readActiveProjectId();
     if (activeProject) {
       headers['X-Project-Id'] = activeProject;
+    }
+
+    // Server-side calls skip the BFF proxy, which names the client and the browser.
+    if (typeof window === 'undefined') {
+      Object.assign(
+        headers,
+        { [CLIENT_HEADER]: WEB_CLIENT },
+        serverRequestHeaders()
+      );
     }
 
     return headers;

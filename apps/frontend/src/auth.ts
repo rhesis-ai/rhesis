@@ -15,6 +15,7 @@ import {
   getServerBackendUrl,
   shouldUseSecureCookies,
 } from './utils/url-resolver';
+import { webClientHeaders } from './utils/provenance';
 
 if (!process.env.NEXTAUTH_SECRET) {
   throw new Error(
@@ -100,7 +101,8 @@ const recentRefreshes = new Map<
 >();
 
 async function refreshAccessToken(
-  refreshToken: string
+  refreshToken: string,
+  clientHeaders: Record<string, string>
 ): Promise<RefreshResult> {
   const cached = recentRefreshes.get(refreshToken);
   if (cached && Date.now() - cached.cachedAt < REFRESH_RESULT_TTL_MS) {
@@ -113,7 +115,8 @@ async function refreshAccessToken(
   const promise = (async () => {
     const res = await fetch(`${BACKEND_URL}/auth/refresh`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // A refused refresh is audited, so pass on the browser's IP and channel.
+      headers: { 'Content-Type': 'application/json', ...clientHeaders },
       body: JSON.stringify({ refresh_token: refreshToken }),
     });
 
@@ -194,7 +197,8 @@ interface TokenFreshness {
  * a single server-side call, e.g. from the BFF proxy, without persisting).
  */
 async function resolveFreshToken(
-  state: TokenFreshness
+  state: TokenFreshness,
+  clientHeaders: Record<string, string> = webClientHeaders()
 ): Promise<TokenFreshness> {
   const expiresAt = state.access_token_expires ?? 0;
   const nowSeconds = Math.floor(Date.now() / 1000);
@@ -208,7 +212,7 @@ async function resolveFreshToken(
   }
 
   try {
-    const data = await refreshAccessToken(state.refresh_token);
+    const data = await refreshAccessToken(state.refresh_token, clientHeaders);
     return {
       session_token: data.access_token,
       refresh_token: data.refresh_token,
@@ -266,11 +270,14 @@ export async function getFreshAccessToken(req: {
     return { accessToken: null, refreshedCookie: null };
   }
 
-  const refreshed = await resolveFreshToken({
-    session_token: sessionToken,
-    refresh_token: token.refresh_token as string | undefined,
-    access_token_expires: token.access_token_expires as number | undefined,
-  });
+  const refreshed = await resolveFreshToken(
+    {
+      session_token: sessionToken,
+      refresh_token: token.refresh_token as string | undefined,
+      access_token_expires: token.access_token_expires as number | undefined,
+    },
+    webClientHeaders(new Headers(req.headers))
+  );
 
   if (refreshed.error) {
     return { accessToken: null, refreshedCookie: null };
