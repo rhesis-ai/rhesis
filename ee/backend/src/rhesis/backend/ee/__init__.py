@@ -26,6 +26,7 @@ CI job.
 from __future__ import annotations
 
 import logging
+import os
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING
 
@@ -61,6 +62,44 @@ def bootstrap_providers() -> None:
     FeatureRegistry.set_license_provider(SignedTokenLicenseProvider())
     QuotaRegistry.set_quota_provider(ConfigQuotaProvider())
     register_audit()
+    log_license_summary()
+
+
+_license_logged = False
+
+
+def log_license_summary() -> None:
+    """Log the ``RHESIS_LICENSE`` this process runs with, once per process.
+
+    The API and each worker read it at startup, so a worker started before the
+    licence was set refuses licensed jobs the API accepts. This line shows that.
+    """
+    from rhesis.backend.ee.licensing.entitlements import BLANKET_SUBJECT, ENV_LICENSE
+    from rhesis.backend.ee.licensing.verify import verify_token
+
+    global _license_logged
+    if _license_logged:
+        return
+    _license_logged = True
+
+    token = os.environ.get(ENV_LICENSE, "").strip()
+    if not token:
+        logger.info("No %s set; each organization uses its own licence", ENV_LICENSE)
+        return
+    entitlements = verify_token(token)
+    if entitlements is None:
+        logger.warning("%s is set but invalid or expired; it is ignored", ENV_LICENSE)
+        return
+    scope = "all organizations" if entitlements.sub == BLANKET_SUBJECT else entitlements.sub
+    expires = entitlements.expires_at.date().isoformat() if entitlements.expires_at else "never"
+    logger.info(
+        "%s: %s edition, %s, for %s, expires %s",
+        ENV_LICENSE,
+        entitlements.edition.value,
+        entitlements.status.value,
+        scope,
+        expires,
+    )
 
 
 def bootstrap(app: "FastAPI") -> None:
