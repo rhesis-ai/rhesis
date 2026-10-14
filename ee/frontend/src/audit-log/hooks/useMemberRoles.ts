@@ -20,10 +20,13 @@ export function useMemberRoles(): ReadonlyMap<string, string> {
     queryKey: auditLogQueryKeys.members(),
     queryFn: async () => {
       const members = await fetchOrgMembers();
+      // A member without a role name falls back to the email, not a blank line.
       return new Map(
-        members
-          .filter(m => m.role)
-          .map(m => [m.user_id, m.role?.display_name ?? ''])
+        members.flatMap(m =>
+          m.role?.display_name
+            ? [[m.user_id, m.role.display_name] as const]
+            : []
+        )
       );
     },
     enabled,
