@@ -23,9 +23,10 @@ config:
   usageQuotasEnabled: true
   # Dev first; stg and prd follow once dev's nightly sweep counts look right.
   jobRetentionEnabled: true
-  # Live. Each org keeps its plan's window; unlimited plans are skipped.
+  # Live. The override replaces every org's plan window, licensed orgs included.
   traceRetentionEnabled: true
   traceRetentionDryRun: false
+  traceRetentionDays: "14"
 
   # App DB name (ConfigMap DB_NAME) and Bitnami PostgreSQL bootstrap database.
   dbName: &rhesis_db_name "rhesis-dev-db"
