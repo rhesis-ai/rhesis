@@ -209,3 +209,23 @@ def get_stored_outputs_for_run(
         query = query.filter(models.TestResult.organization_id == uuid.UUID(str(organization_id)))
     rows = query.order_by(models.TestResult.created_at).all()
     return {str(test_id): output for test_id, output in rows}
+
+
+def user_agent_test_result_exists(db: Session, organization_id: str) -> bool:
+    """True when a test result against a non-example endpoint is visible in the session's
+    current scope -- i.e. the user's own agent has been tested and there is data to review."""
+    query = (
+        db.query(models.TestResult.id)
+        .join(
+            models.TestConfiguration,
+            models.TestResult.test_configuration_id == models.TestConfiguration.id,
+        )
+        .join(models.Endpoint, models.TestConfiguration.endpoint_id == models.Endpoint.id)
+        .filter(
+            models.TestResult.organization_id == organization_id,
+            models.TestResult.deleted_at.is_(None),
+            models.Endpoint.is_example.is_(False),
+            models.Endpoint.deleted_at.is_(None),
+        )
+    )
+    return bool(db.query(query.exists()).scalar())

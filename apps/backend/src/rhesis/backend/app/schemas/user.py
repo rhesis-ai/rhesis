@@ -108,10 +108,10 @@ class PrivacySettings(BaseModel):
 class OnboardingProgress(BaseModel):
     """Onboarding progress tracking"""
 
-    project_created: bool = False
     endpoint_setup: bool = False
+    agent_tested: bool = False
+    insights_reviewed: bool = False
     users_invited: bool = False
-    test_cases_created: bool = False
     dismissed: bool = False
     last_updated: Optional[datetime] = None
 
@@ -119,10 +119,9 @@ class OnboardingProgress(BaseModel):
 class OnboardingStatus(BaseModel):
     """Onboarding steps derived from the caller's real data, ignoring the seeded example."""
 
-    project_created: bool
     endpoint_setup: bool
+    agent_tested: bool
     users_invited: bool
-    test_cases_created: bool
 
 
 class PolyphemusAccess(BaseModel):
