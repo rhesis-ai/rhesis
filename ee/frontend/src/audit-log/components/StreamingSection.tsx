@@ -9,10 +9,9 @@ import Link from '@mui/material/Link';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import { Add as AddIcon } from '@mui/icons-material';
-import StreamIcon from '@mui/icons-material/Stream';
 import { SectionCard } from '@/components/common/SectionCard';
-import SectionEmptyState from '@/components/common/SectionEmptyState';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { getApiErrorMessage } from '@/utils/error-utils';
 import { AuditDestinationsClient } from '../api/audit-destinations-client';
 import {
@@ -33,8 +32,8 @@ const OK_TOAST = { severity: 'success', autoHideDuration: 3000 } as const;
 const ERROR_TOAST = { severity: 'error', autoHideDuration: 8000 } as const;
 
 const EMPTY_DESCRIPTION =
-  'Send every audit event to a webhook, Splunk or Datadog. A destination ' +
-  'receives the events recorded after you add it.';
+  'Add a webhook, Splunk or Datadog. A destination receives the events ' +
+  'recorded after you add it.';
 
 function loadErrorMessage(err: unknown): string {
   const status = (err as { status?: number } | null)?.status;
@@ -46,12 +45,12 @@ function loadErrorMessage(err: unknown): string {
 function DeliveryNotes() {
   return (
     <Stack spacing={1}>
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="caption" color="text.secondary">
         Events arrive within seconds of being recorded. Delivery is at least
         once, so the same event can arrive twice. Drop duplicates by the
         event&apos;s <code>id</code>.
       </Typography>
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="caption" color="text.secondary">
         Webhooks are signed with{' '}
         <Link href={STANDARD_WEBHOOKS_URL} target="_blank" rel="noopener">
           Standard Webhooks
@@ -197,77 +196,73 @@ export default function StreamingSection() {
     </>
   );
 
+  let body: React.ReactNode;
   if (loading) {
-    return (
-      <SectionCard>
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-          <CircularProgress size={24} />
-        </Box>
-      </SectionCard>
+    body = (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+        <CircularProgress size={24} />
+      </Box>
     );
-  }
-
-  if (loadError) {
-    return (
-      <SectionCard>
-        <Alert
-          severity="error"
-          action={
-            <Button color="inherit" size="small" onClick={load}>
-              Retry
-            </Button>
-          }
-        >
-          {loadError}
-        </Alert>
-      </SectionCard>
+  } else if (loadError) {
+    body = (
+      <Alert
+        severity="error"
+        action={
+          <Button color="inherit" size="small" onClick={load}>
+            Retry
+          </Button>
+        }
+      >
+        {loadError}
+      </Alert>
     );
-  }
-
-  if (destinations.length === 0) {
-    return (
-      <>
-        <SectionCard>
-          <SectionEmptyState
-            icon={StreamIcon}
-            title="No streaming destinations yet"
-            description={EMPTY_DESCRIPTION}
-            actionLabel="Add destination"
-            onAction={openCreate}
-            showAddIcon
-            inset={false}
-          />
-          <DeliveryNotes />
-        </SectionCard>
-        {drawers}
-      </>
+  } else if (destinations.length === 0) {
+    body = (
+      <Box
+        sx={{
+          p: 2,
+          borderRadius: BORDER_RADIUS.sm,
+          bgcolor: theme => theme.palette.greyscale.surface1,
+        }}
+      >
+        <Typography variant="subtitle2">No destinations yet</Typography>
+        <Typography variant="body2" color="text.secondary">
+          {EMPTY_DESCRIPTION}
+        </Typography>
+      </Box>
+    );
+  } else {
+    body = (
+      <DestinationsList
+        destinations={destinations}
+        testing={testing}
+        onTest={handleTest}
+        onSetPaused={handleSetPaused}
+        onDelete={handleDelete}
+      />
     );
   }
 
   return (
     <>
-      <SectionCard title="Streaming">
-        <Stack spacing={2}>
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-            <Box sx={{ flexGrow: 1 }}>
-              <DeliveryNotes />
-            </Box>
+      <SectionCard
+        title="Streaming destinations"
+        subtitle="Send every event to your SIEM as JSON."
+        actions={
+          !loading && !loadError ? (
             <Button
-              variant="contained"
+              variant="outlined"
               startIcon={<AddIcon />}
               onClick={openCreate}
-              sx={{ flexShrink: 0 }}
             >
-              Add
+              Add destination
             </Button>
-          </Box>
-          <DestinationsList
-            destinations={destinations}
-            testing={testing}
-            onTest={handleTest}
-            onSetPaused={handleSetPaused}
-            onDelete={handleDelete}
-          />
+          ) : undefined
+        }
+      >
+        <Stack spacing={2}>
+          {body}
+          <DeliveryNotes />
         </Stack>
       </SectionCard>
       {drawers}

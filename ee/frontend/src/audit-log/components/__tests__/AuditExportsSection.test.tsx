@@ -1,5 +1,5 @@
 /**
- * The Exports section: the signed-in user's export jobs from the Jobs API,
+ * The export card: the signed-in user's export jobs from the Jobs API,
  * Download only once a job has completed, and the format dialog.
  */
 

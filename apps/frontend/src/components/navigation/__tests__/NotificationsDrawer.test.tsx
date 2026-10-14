@@ -150,7 +150,7 @@ describe('NotificationsDrawer', () => {
     expect(mockPush).toHaveBeenCalledWith('/organizations/usage');
   });
 
-  it('sends an audit log export to the Exports section, where it downloads', async () => {
+  it('sends an audit log export to the export card, where it downloads', async () => {
     mockGetNotifications.mockResolvedValue([
       notification({
         section: NotificationSection.JOBS,
@@ -172,7 +172,7 @@ describe('NotificationsDrawer', () => {
       1
     );
     expect(mockPush).toHaveBeenCalledWith(
-      '/organizations/settings?tab=audit-log&section=exports'
+      '/organizations/settings?tab=audit-log&section=settings'
     );
   });
 

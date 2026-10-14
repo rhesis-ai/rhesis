@@ -37,6 +37,7 @@ import {
 } from '../labels';
 import { AuditOutcome, type AuditEvent, type AuditEventDetail } from '../types';
 import AuditChanges, { monoSx } from './AuditChanges';
+import { ActionChip } from './tones';
 
 const AUDIT_DRAWER_WIDTH = 720;
 
@@ -276,10 +277,15 @@ function EventBody({
 
   return (
     <>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        <Typography variant="body2" sx={monoSx} color="text.secondary">
-          {event.action}
-        </Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+          gap: 1,
+        }}
+      >
+        <ActionChip action={event.action} outcome={event.outcome} />
         <Typography variant="h6">
           {resourceDisplayName(resource)}
           {event.resource_label && ` · ${event.resource_label}`}

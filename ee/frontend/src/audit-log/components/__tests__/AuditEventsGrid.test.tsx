@@ -177,7 +177,7 @@ describe('AuditEventsGrid', () => {
         sort_order: 'desc',
       })
     );
-    expect(within(row).getByText('Endpoint updated')).toBeInTheDocument();
+    expect(within(row).getByText('endpoint.updated')).toBeInTheDocument();
     expect(within(row).getByText('Harry Cruz')).toBeInTheDocument();
     expect(mockGetProjects).toHaveBeenCalledWith(
       expect.objectContaining({ $filter: "id eq 'p1'" })

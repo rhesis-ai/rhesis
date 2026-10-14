@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import type { Theme } from '@mui/material/styles';
+import { alpha, type Theme } from '@mui/material/styles';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { resourceDisplayName } from '../../shared/resource-catalog';
 import { splitAction } from '../labels';
@@ -61,21 +61,43 @@ const tableSx = {
   },
 };
 
+type DiffTone = 'error' | 'success';
+
+/** Red for the old value, green for the new one. */
+function diffSx(tone: DiffTone | undefined) {
+  if (!tone) return {};
+  return {
+    bgcolor: (t: Theme) =>
+      alpha(t.palette[tone].main, t.palette.action.selectedOpacity),
+    '& .MuiTypography-root': {
+      color: (t: Theme) =>
+        t.palette.mode === 'light'
+          ? t.palette[tone].dark
+          : t.palette[tone].main,
+    },
+  };
+}
+
 function Cell({
   children,
   header = false,
   muted = false,
   span = 1,
+  tone,
 }: {
   children: React.ReactNode;
   header?: boolean;
   muted?: boolean;
   span?: number;
+  tone?: DiffTone;
 }) {
   return (
     <Box
       className={header ? 'header' : undefined}
-      sx={{ gridColumn: span > 1 ? `span ${span}` : undefined }}
+      sx={{
+        gridColumn: span > 1 ? `span ${span}` : undefined,
+        ...diffSx(tone),
+      }}
     >
       <Typography
         variant={header ? 'caption' : 'body2'}
@@ -119,8 +141,8 @@ function FieldRow({
   return (
     <>
       <Cell>{change.field}</Cell>
-      <Cell>{formatValue(source?.before)}</Cell>
-      <Cell>{formatValue(source?.after)}</Cell>
+      <Cell tone="error">{formatValue(source?.before)}</Cell>
+      <Cell tone="success">{formatValue(source?.after)}</Cell>
     </>
   );
 }

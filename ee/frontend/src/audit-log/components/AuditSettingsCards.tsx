@@ -77,9 +77,11 @@ function optionSx(selected: boolean, disabled: boolean) {
       selected ? t.palette.primary.main : t.palette.greyscale.border,
     borderRadius: BORDER_RADIUS.sm,
     bgcolor: (t: Theme) =>
-      selected ? alpha(t.palette.primary.main, 0.06) : 'transparent',
+      selected
+        ? alpha(t.palette.primary.main, t.palette.action.selectedOpacity)
+        : 'transparent',
     cursor: disabled ? 'default' : 'pointer',
-    opacity: disabled ? 0.6 : 1,
+    opacity: (t: Theme) => (disabled ? t.palette.action.disabledOpacity : 1),
   };
 }
 

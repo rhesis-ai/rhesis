@@ -64,7 +64,7 @@ export const AuditLogNotificationEventType = {
 
 /**
  * Event kinds whose row opens somewhere more specific than their section's
- * page. An export's row opens the audit log's Exports section, which has the
+ * page. An export's row opens the audit log's export card, which has the
  * Download button; the tab and section ids are the EE module's
  * (`ee/frontend/src/audit-log`).
  */
@@ -72,7 +72,7 @@ export const NOTIFICATION_EVENT_ROUTES: Partial<
   Record<string, { route: string; label: string }>
 > = {
   [AuditLogNotificationEventType.EXPORT_COMPLETED]: {
-    route: '/organizations/settings?tab=audit-log&section=exports',
+    route: '/organizations/settings?tab=audit-log&section=settings',
     label: 'View exports',
   },
 };
