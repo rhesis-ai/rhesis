@@ -8,8 +8,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission
-from rhesis.backend.app.auth.principal import resolve_principal_from_request
-from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
+from rhesis.backend.app.auth.rbac import require_object
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import file as file_crud
 from rhesis.backend.app.crud import test_result as test_result_crud
@@ -183,12 +182,14 @@ def update_test_result(
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
 
-    principal = resolve_principal_from_request(current_user, request)
-    project_id = project_id_from_scope(db)
-    if not authorize_object(
-        principal, Permission.TestResult.UPDATE_OWN, db_test_result, project_id=project_id, db=db
-    ):
-        raise HTTPException(status_code=403, detail="Not authorized to update this test result")
+    require_object(
+        request,
+        current_user,
+        Permission.TestResult.UPDATE_OWN,
+        db_test_result,
+        db=db,
+        detail="Not authorized to update this test result",
+    )
 
     # Auto-update status based on test_metrics if status_id is not explicitly provided
     metrics = test_result.test_metrics.get("metrics", {}) if test_result.test_metrics else {}
@@ -248,12 +249,14 @@ def delete_test_result(
     if db_test_result is None:
         raise HTTPException(status_code=404, detail="Test result not found")
 
-    principal = resolve_principal_from_request(current_user, request)
-    project_id = project_id_from_scope(db)
-    if not authorize_object(
-        principal, Permission.TestResult.DELETE_OWN, db_test_result, project_id=project_id, db=db
-    ):
-        raise HTTPException(status_code=403, detail="Not authorized to delete this test result")
+    require_object(
+        request,
+        current_user,
+        Permission.TestResult.DELETE_OWN,
+        db_test_result,
+        db=db,
+        detail="Not authorized to delete this test result",
+    )
 
     return test_result_crud.delete_test_result(
         db=db, test_result_id=test_result_id, organization_id=organization_id, user_id=user_id

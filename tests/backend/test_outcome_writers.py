@@ -297,13 +297,7 @@ class TestTestResultRouterOutcome:
             headers: ClassVar[dict] = {}
             url = type("U", (), {"path": "/test_results/x"})()
 
-        with (
-            patch("rhesis.backend.app.routers.test_result.resolve_principal_from_request"),
-            patch(
-                "rhesis.backend.app.routers.test_result.project_id_from_scope", return_value=None
-            ),
-            patch("rhesis.backend.app.routers.test_result.authorize_object", return_value=True),
-        ):
+        with patch("rhesis.backend.app.routers.test_result.require_object"):
             updated = update_test_result(
                 test_result_id=row.id,
                 test_result=update_payload,

@@ -7,7 +7,11 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
-from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
+from rhesis.backend.app.auth.rbac import (
+    authorize_object,
+    project_id_from_scope,
+    require_object,
+)
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.config.settings import get_frontend_settings, get_telemetry_settings
 from rhesis.backend.app.crud import task as task_crud
@@ -213,21 +217,22 @@ def update_task(
         # base-cap bypass here (which would grant every project member full access
         # in the community tier, where any project membership → any base cap).
         principal = resolve_principal_from_request(current_user, request)
-        project_id = project_id_from_scope(db)
-        if not (
-            authorize_object(
-                principal, Permission.Task.UPDATE_OWN, current_task, project_id=project_id, db=db
-            )
-            or authorize_object(
-                principal,
+        if not authorize_object(
+            principal,
+            Permission.Task.UPDATE_OWN,
+            current_task,
+            project_id=project_id_from_scope(db),
+            db=db,
+        ):
+            require_object(
+                request,
+                current_user,
                 Permission.Task.UPDATE_ASSIGNED,
                 current_task,
-                project_id=project_id,
                 db=db,
+                detail="Not authorized to update this task",
                 owner_attr="assignee_id",
             )
-        ):
-            raise HTTPException(status_code=403, detail="Not authorized to update this task")
 
         # Validate organization-level constraints
         validate_task_organization_constraints(db, task, current_user, current_task)
@@ -324,12 +329,14 @@ def delete_task(
 
         # Only the creator may delete. Unrestricted admin access is an EE concern
         # (same reasoning as update_task above).
-        principal = resolve_principal_from_request(current_user, request)
-        project_id = project_id_from_scope(db)
-        if not authorize_object(
-            principal, Permission.Task.DELETE_OWN, task_obj, project_id=project_id, db=db
-        ):
-            raise HTTPException(status_code=403, detail="Not authorized to delete this task")
+        require_object(
+            request,
+            current_user,
+            Permission.Task.DELETE_OWN,
+            task_obj,
+            db=db,
+            detail="Not authorized to delete this task",
+        )
 
         success = task_crud.delete_task(
             db=db, task_id=task_id, organization_id=organization_id, user_id=user_id

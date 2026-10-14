@@ -6,8 +6,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
-from rhesis.backend.app.auth.principal import resolve_principal_from_request
-from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
+from rhesis.backend.app.auth.rbac import require_object
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.crud import comment as comment_crud
@@ -150,12 +149,14 @@ def update_comment(
         raise HTTPException(status_code=404, detail="Comment not found")
 
     # SP10: object-level ownership check via PDP.
-    principal = resolve_principal_from_request(current_user, request)
-    project_id = project_id_from_scope(db)
-    if not authorize_object(
-        principal, Permission.Comment.UPDATE_OWN, db_comment, project_id=project_id, db=db
-    ):
-        raise HTTPException(status_code=403, detail="Not authorized to update this comment")
+    require_object(
+        request,
+        current_user,
+        Permission.Comment.UPDATE_OWN,
+        db_comment,
+        db=db,
+        detail="Not authorized to update this comment",
+    )
 
     updated = comment_crud.update_comment(
         db=db,
@@ -185,12 +186,14 @@ def delete_comment(
         raise HTTPException(status_code=404, detail="Comment not found")
 
     # SP10: object-level ownership check via PDP.
-    principal = resolve_principal_from_request(current_user, request)
-    project_id = project_id_from_scope(db)
-    if not authorize_object(
-        principal, Permission.Comment.DELETE_OWN, db_comment, project_id=project_id, db=db
-    ):
-        raise HTTPException(status_code=403, detail="Not authorized to delete this comment")
+    require_object(
+        request,
+        current_user,
+        Permission.Comment.DELETE_OWN,
+        db_comment,
+        db=db,
+        detail="Not authorized to delete this comment",
+    )
 
     return comment_crud.delete_comment(
         db=db, comment_id=comment_id, organization_id=organization_id, user_id=user_id

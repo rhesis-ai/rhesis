@@ -17,6 +17,7 @@ from redis.exceptions import ConnectionError as RedisConnectionError
 from sqlalchemy import text
 
 from rhesis.backend.app.services import cache as cache_module
+from rhesis.backend.app.services.audit_events import RepeatWindow
 from rhesis.backend.ee.audit import self_audit
 from rhesis.backend.events.audit_actions import audit_action
 from tests.backend.ee.audit.test_audit_events_api import (
@@ -209,7 +210,7 @@ class TestReconnect:
             yield now
 
     def test_dedupe_resumes_once_redis_comes_back(self, clock):
-        window = self_audit.ViewWindow()
+        window = RepeatWindow("audit-viewed")
         redis = _Reachable()
         with patch(
             "rhesis.backend.app.services.cache._create_redis_client",
@@ -226,7 +227,7 @@ class TestReconnect:
         assert connect.call_count == 2
 
     def test_a_failed_command_records_and_the_next_one_dedupes(self, clock):
-        window = self_audit.ViewWindow()
+        window = RepeatWindow("audit-viewed")
         redis = _Reachable(failures=1)
         with patch(
             "rhesis.backend.app.services.cache._create_redis_client", return_value=redis

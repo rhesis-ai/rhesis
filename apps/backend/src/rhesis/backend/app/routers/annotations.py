@@ -14,8 +14,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import schemas
 from rhesis.backend.app.auth.capabilities import Permission
-from rhesis.backend.app.auth.principal import resolve_principal_from_request
-from rhesis.backend.app.auth.rbac import authorize_object, project_id_from_scope
+from rhesis.backend.app.auth.rbac import require_object
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.crud import annotation as annotation_crud
@@ -54,11 +53,14 @@ def _authorize_own(request: Request, db: Session, current_user: User, annotation
     admin edits someone else's, since ``authorize_object`` has no bypass. Same
     contract as comments and tasks.
     """
-    principal = resolve_principal_from_request(current_user, request)
-    if not authorize_object(
-        principal, permission, annotation, project_id=project_id_from_scope(db), db=db
-    ):
-        raise HTTPException(status_code=403, detail="Not authorized for this annotation")
+    require_object(
+        request,
+        current_user,
+        permission,
+        annotation,
+        db=db,
+        detail="Not authorized for this annotation",
+    )
 
 
 @router.post("/", response_model=schemas.Annotation)

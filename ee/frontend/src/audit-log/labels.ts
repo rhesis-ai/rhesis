@@ -73,6 +73,10 @@ const AUDIT_ONLY_LABELS: Record<
     [AuditOutcome.SUCCESS]: 'Signed in',
     [AuditOutcome.FAILURE]: 'Sign-in failed',
   },
+  'session.refreshed': {
+    [AuditOutcome.SUCCESS]: 'Session refreshed',
+    [AuditOutcome.FAILURE]: 'Session refresh failed',
+  },
   'session.signed_out': { [AuditOutcome.SUCCESS]: 'Signed out' },
   'token.exchanged': {
     [AuditOutcome.SUCCESS]: 'Token exchanged',

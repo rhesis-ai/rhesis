@@ -1,59 +1,24 @@
 """Reading the audit log is itself recorded, as ``audit_log.viewed``.
 
-At most one row per minute for each org, actor and credential. Rows cannot be
-updated to merge repeats, so a Redis key (``SET NX EX``) decides which read
-records. When Redis cannot answer, the read records anyway: an extra row is
-better than a missing one.
+At most one row per minute for each org, actor and credential, decided by a
+``RepeatWindow``.
 
 The row is written in the request's transaction, like a change. A failed write
 fails the read, and the key is released so the next read records.
 """
 
-import logging
-
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.provenance import RequestProvenance, provenance_of
-from rhesis.backend.app.services.audit_events import record_audit_event
-from rhesis.backend.app.services.cache import RedisBackedCache
-from rhesis.backend.app.services.redis_constants import RedisDatabase
+from rhesis.backend.app.services.audit_events import RepeatWindow, record_audit_event
 from rhesis.backend.events.audit_actions import audit_action
-
-logger = logging.getLogger(__name__)
 
 VIEWED = audit_action(Permission.AuditLog.READ.value)
 WINDOW_SECONDS = 60
 _PREFIX = "audit_viewed:v1:"
 
-
-class ViewWindow(RedisBackedCache):
-    """Which reads still fall inside the last recorded view's minute."""
-
-    def __init__(self) -> None:
-        super().__init__(
-            redis_db=RedisDatabase.AUDIT_VIEWED, cache_name="audit-viewed", ttl=WINDOW_SECONDS
-        )
-
-    def claim(self, key: str) -> bool:
-        """True when this read should record: first in the window, or Redis cannot say.
-
-        No in-memory fallback: it would suppress rows per process with nothing shared.
-        """
-        self.initialize()
-        if self._redis is None:
-            return True
-        try:
-            return bool(self._redis.set(key, "1", nx=True, ex=self._ttl))
-        except Exception as exc:
-            logger.warning(f"{self._cache_name}: Redis claim failed, recording anyway: {exc}")
-            return True
-
-    def release(self, key: str) -> None:
-        self._delete(key)
-
-
-_window = ViewWindow()
+_window = RepeatWindow("audit-viewed", WINDOW_SECONDS)
 
 
 def _key(organization_id: str, provenance: RequestProvenance) -> str:

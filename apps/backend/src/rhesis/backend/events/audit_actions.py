@@ -33,8 +33,9 @@ PAST_TENSE: dict[str, str] = {
 
 # A permission bundle, not something that happens.
 NOT_ACTIONS: frozenset[str] = frozenset({"manage"})
-# What a ``manage`` bundle covers, so its row changes have names (``role.created``).
-MANAGE_VERBS: tuple[str, ...] = ("create", "update", "delete")
+# What a ``manage`` bundle covers, so its row changes (``role.created``) and
+# denied reads (``sso.viewed``) have names.
+MANAGE_VERBS: tuple[str, ...] = ("create", "read", "update", "delete")
 
 # Moments no capability describes.
 AUDIT_ONLY_ACTIONS: frozenset[str] = frozenset(
@@ -48,6 +49,8 @@ AUDIT_ONLY_ACTIONS: frozenset[str] = frozenset(
         "organization.deleted",
         "password.changed",
         "password.reset",
+        # Recorded only when refused; a successful refresh is routine.
+        "session.refreshed",
         "session.signed_in",
         "session.signed_out",
         "token.exchanged",
