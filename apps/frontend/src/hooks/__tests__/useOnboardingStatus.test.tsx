@@ -26,20 +26,19 @@ jest.mock('next-auth/react', () => ({
 }));
 
 const OPEN = {
-  projectCreated: false,
   endpointSetup: false,
+  agentTested: false,
+  insightsReviewed: false,
   usersInvited: false,
-  testCasesCreated: false,
   dismissed: false,
   lastUpdated: 0,
 };
 const DISMISSED = { ...OPEN, dismissed: true };
 
 const STATUS = {
-  project_created: true,
-  endpoint_setup: false,
+  endpoint_setup: true,
+  agent_tested: false,
   users_invited: false,
-  test_cases_created: false,
 };
 
 function wrapperFor(client: QueryClient) {
@@ -124,12 +123,13 @@ describe('useOnboardingStatus', () => {
 
   it('stops refetching once the server status completes the checklist', async () => {
     mockGetOnboardingStatus.mockResolvedValue({
-      project_created: true,
       endpoint_setup: true,
+      agent_tested: true,
       users_invited: false,
-      test_cases_created: true,
     });
-    const { result } = renderHook(() => useOnboardingStatus(OPEN), {
+    // Insights is only marked locally, so it has to come from progress.
+    const progress = { ...OPEN, insightsReviewed: true };
+    const { result } = renderHook(() => useOnboardingStatus(progress), {
       wrapper: wrapperFor(newClient()),
     });
     await waitFor(() => expect(result.current.data).toBeDefined());

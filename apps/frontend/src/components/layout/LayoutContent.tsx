@@ -7,13 +7,10 @@ import NextTopLoader from 'nextjs-toploader';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SessionProvider } from 'next-auth/react';
-import { usePathname } from 'next/navigation';
 import { NavigationProvider } from '../navigation/NavigationProvider';
 import { NotificationProvider } from '../common/NotificationContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
-import OnboardingChecklist from '../onboarding/OnboardingChecklist';
-import ProfileSurveyDialog from '../onboarding/ProfileSurveyDialog';
-import { type NavigationItem, type LayoutProps } from '../../types/navigation';
+import { type LayoutProps } from '../../types/navigation';
 import { ActiveProjectProvider } from '@/contexts/ActiveProjectContext';
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
 import { CurrencyProvider } from '@/contexts/CurrencyContext';
@@ -33,18 +30,6 @@ function SessionGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function getAllSegments(items: NavigationItem[]): string[] {
-  return items.reduce<string[]>((acc, item) => {
-    if (item.kind === 'page') {
-      acc.push(item.segment);
-      if (item.children) {
-        acc.push(...getAllSegments(item.children));
-      }
-    }
-    return acc;
-  }, []);
-}
-
 export function LayoutContent({
   children,
   session,
@@ -58,7 +43,6 @@ export function LayoutContent({
   initialQuickStart = false,
 }: Omit<LayoutProps, 'theme'>) {
   const theme = useTheme();
-  const pathname = usePathname();
   const [queryClient] = React.useState(() => {
     const qc = new QueryClient({
       defaultOptions: {
@@ -78,21 +62,6 @@ export function LayoutContent({
     }
     return qc;
   });
-  const protectedSegments = React.useMemo(
-    () => getAllSegments(navigation),
-    [navigation]
-  );
-
-  const isProtectedRoute = React.useMemo(() => {
-    if (!pathname) return false;
-    // Remove leading slash for comparison
-    const currentPath = pathname.startsWith('/') ? pathname.slice(1) : pathname;
-    return protectedSegments.some(
-      segment =>
-        currentPath === segment || currentPath.startsWith(`${segment}/`)
-    );
-  }, [pathname, protectedSegments]);
-
   // Build sx prop conditionally
   const boxSx = React.useMemo(() => {
     const baseStyles = {
@@ -171,12 +140,6 @@ export function LayoutContent({
                               </NavigationProvider>
                             </Box>
                           </Box>
-                          {session && isProtectedRoute && (
-                            <>
-                              <OnboardingChecklist />
-                              <ProfileSurveyDialog />
-                            </>
-                          )}
                         </div>
                       </OnboardingProvider>
                     </NotificationProvider>

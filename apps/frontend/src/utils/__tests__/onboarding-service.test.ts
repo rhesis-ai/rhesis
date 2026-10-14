@@ -12,10 +12,9 @@ import type { OnboardingProgress } from '@/types/onboarding';
 
 describe('applyServerStatus', () => {
   const noneDone = {
-    project_created: false,
     endpoint_setup: false,
+    agent_tested: false,
     users_invited: false,
-    test_cases_created: false,
   };
 
   it('returns local progress unchanged when there is no server status yet', () => {
@@ -27,21 +26,21 @@ describe('applyServerStatus', () => {
     const result = applyServerStatus(getDefaultProgress(), {
       ...noneDone,
       endpoint_setup: true,
-      test_cases_created: true,
+      agent_tested: true,
     });
     expect(result.endpointSetup).toBe(true);
-    expect(result.testCasesCreated).toBe(true);
-    expect(result.projectCreated).toBe(false);
+    expect(result.agentTested).toBe(true);
+    expect(result.insightsReviewed).toBe(false);
   });
 
   it('never turns off a step completed locally', () => {
     const progress: OnboardingProgress = {
       ...getDefaultProgress(),
-      projectCreated: true,
+      agentTested: true,
       usersInvited: true,
     };
     const result = applyServerStatus(progress, noneDone);
-    expect(result.projectCreated).toBe(true);
+    expect(result.agentTested).toBe(true);
     expect(result.usersInvited).toBe(true);
   });
 
@@ -60,10 +59,10 @@ describe('applyServerStatus', () => {
 describe('getDefaultProgress', () => {
   it('returns all steps as false', () => {
     const progress = getDefaultProgress();
-    expect(progress.projectCreated).toBe(false);
     expect(progress.endpointSetup).toBe(false);
+    expect(progress.agentTested).toBe(false);
+    expect(progress.insightsReviewed).toBe(false);
     expect(progress.usersInvited).toBe(false);
-    expect(progress.testCasesCreated).toBe(false);
     expect(progress.dismissed).toBe(false);
   });
 
@@ -82,7 +81,7 @@ describe('calculateCompletionPercentage', () => {
   it('returns 33 for one required step completed', () => {
     const progress: OnboardingProgress = {
       ...getDefaultProgress(),
-      projectCreated: true,
+      agentTested: true,
     };
     expect(calculateCompletionPercentage(progress)).toBe(33);
   });
@@ -90,7 +89,7 @@ describe('calculateCompletionPercentage', () => {
   it('returns 67 for two required steps completed', () => {
     const progress: OnboardingProgress = {
       ...getDefaultProgress(),
-      projectCreated: true,
+      agentTested: true,
       endpointSetup: true,
     };
     expect(calculateCompletionPercentage(progress)).toBe(67);
@@ -99,9 +98,9 @@ describe('calculateCompletionPercentage', () => {
   it('returns 100 once the three required steps are done', () => {
     const progress: OnboardingProgress = {
       ...getDefaultProgress(),
-      projectCreated: true,
+      agentTested: true,
       endpointSetup: true,
-      testCasesCreated: true,
+      insightsReviewed: true,
     };
     expect(calculateCompletionPercentage(progress)).toBe(100);
   });
@@ -131,7 +130,7 @@ describe('isOnboardingComplete', () => {
   it('returns false when only some required steps are done', () => {
     const progress: OnboardingProgress = {
       ...getDefaultProgress(),
-      projectCreated: true,
+      agentTested: true,
       endpointSetup: true,
     };
     expect(isOnboardingComplete(progress)).toBe(false);
@@ -140,9 +139,9 @@ describe('isOnboardingComplete', () => {
   it('returns true when required steps are done (usersInvited is optional)', () => {
     const progress: OnboardingProgress = {
       ...getDefaultProgress(),
-      projectCreated: true,
+      agentTested: true,
       endpointSetup: true,
-      testCasesCreated: true,
+      insightsReviewed: true,
     };
     expect(isOnboardingComplete(progress)).toBe(true);
   });
@@ -150,10 +149,10 @@ describe('isOnboardingComplete', () => {
   it('returns true when all steps are done', () => {
     const progress: OnboardingProgress = {
       ...getDefaultProgress(),
-      projectCreated: true,
+      agentTested: true,
       endpointSetup: true,
       usersInvited: true,
-      testCasesCreated: true,
+      insightsReviewed: true,
     };
     expect(isOnboardingComplete(progress)).toBe(true);
   });
@@ -162,25 +161,25 @@ describe('isOnboardingComplete', () => {
 describe('mergeProgress', () => {
   it('merges with OR logic (completed steps stay completed)', () => {
     const local: OnboardingProgress = {
-      projectCreated: true,
       endpointSetup: false,
+      agentTested: true,
+      insightsReviewed: false,
       usersInvited: false,
-      testCasesCreated: false,
       dismissed: false,
       lastUpdated: 1000,
     };
 
     const remote: OnboardingProgress = {
-      projectCreated: false,
       endpointSetup: true,
+      agentTested: false,
+      insightsReviewed: false,
       usersInvited: false,
-      testCasesCreated: false,
       dismissed: false,
       lastUpdated: 2000,
     };
 
     const merged = mergeProgress(local, remote);
-    expect(merged.projectCreated).toBe(true);
+    expect(merged.agentTested).toBe(true);
     expect(merged.endpointSetup).toBe(true);
     expect(merged.usersInvited).toBe(false);
   });
@@ -229,17 +228,17 @@ describe('loadProgress', () => {
   it('returns default progress when localStorage is empty', () => {
     getItemSpy.mockReturnValue(null);
     const progress = loadProgress();
-    expect(progress.projectCreated).toBe(false);
+    expect(progress.agentTested).toBe(false);
   });
 
   it('parses stored progress from localStorage', () => {
     const stored = JSON.stringify({
-      projectCreated: true,
+      agentTested: true,
       endpointSetup: true,
     });
     getItemSpy.mockReturnValue(stored);
     const progress = loadProgress();
-    expect(progress.projectCreated).toBe(true);
+    expect(progress.agentTested).toBe(true);
     expect(progress.endpointSetup).toBe(true);
     // Unset fields should be filled from defaults
     expect(progress.usersInvited).toBe(false);
@@ -248,7 +247,7 @@ describe('loadProgress', () => {
   it('returns default progress on parse error', () => {
     getItemSpy.mockReturnValue('invalid-json');
     const progress = loadProgress();
-    expect(progress.projectCreated).toBe(false);
+    expect(progress.agentTested).toBe(false);
   });
 });
 
@@ -266,7 +265,7 @@ describe('saveProgress', () => {
   it('saves progress to localStorage', () => {
     const progress: OnboardingProgress = {
       ...getDefaultProgress(),
-      projectCreated: true,
+      agentTested: true,
     };
     saveProgress(progress);
     expect(setItemSpy).toHaveBeenCalledWith(
