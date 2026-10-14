@@ -80,9 +80,10 @@ class TestSettings:
         resp = _get(client, token)
         assert resp.status_code == status.HTTP_200_OK, resp.text
         assert resp.json() == {
-            "retention_days": 365,
+            "retention_days": 90,
             "max_retention_days": 3650,
-            "below_eu_ai_act_minimum": False,
+            # 90 days is under the EU AI Act's six months, so the UI warns until changed.
+            "below_eu_ai_act_minimum": True,
             "mask_ip": True,
             "include_content": False,
             "scheduled_jobs_running": True,

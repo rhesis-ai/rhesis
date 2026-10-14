@@ -1,7 +1,7 @@
 """How long each org keeps its audit log, and the purge that enforces it.
 
-The org picks a window (``audit_log.retention_days`` in its settings, 1 year
-by default). ``QuotaPolicy.retention_days``, the plan's retention, caps it.
+The org picks a window (``audit_log.retention_days`` in its settings, 90 days
+by default, the shortest it can choose). ``QuotaPolicy.retention_days``, the plan's retention, caps it.
 A deleted org keeps the window it had when it was deleted
 (``retention_days_at_deletion``), so its rows go when that ends, whatever its
 licence does afterwards. An org that lost the feature is purged on its stored

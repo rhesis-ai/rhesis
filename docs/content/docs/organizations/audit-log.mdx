@@ -99,7 +99,7 @@ The **Settings** section holds these. Anyone who can read the log can see them; 
 
 | Setting | Default | Effect |
 |---|---|---|
-| Retention | 1 year | Events older than this are deleted by a daily job at 05:00 UTC. Choose 90 days to 10 years, up to your plan's limit. A deletion is recorded as `audit_log.purged` with the count and date range |
+| Retention | 90 days | Events older than this are deleted by a daily job at 05:00 UTC. Choose 90 days to 10 years, up to your plan's limit. A deletion is recorded as `audit_log.purged` with the count and date range |
 | Mask IP addresses | On | Stores only the network part of each address (/24 for IPv4, /48 for IPv6) |
 | Include content | Off | Stores the values of content fields, encrypted. Only the event detail shows them, and only while this is on |
 

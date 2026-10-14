@@ -108,7 +108,7 @@ class TestPurge:
     ):
         org_id, boundary = org_with_old_and_new_row
 
-        assert _purge(test_db, org_id, boundary + timedelta(days=365)) == 1
+        assert _purge(test_db, org_id, boundary + timedelta(days=90)) == 1
 
         assert _actions(test_db, org_id) == ["endpoint.updated", "audit_log.purged"]
         (changes,) = _purged_changes(test_db, org_id)
@@ -118,12 +118,12 @@ class TestPurge:
     def test_nothing_expired_purges_and_records_nothing(self, test_db, org_with_old_and_new_row):
         org_id, boundary = org_with_old_and_new_row
 
-        assert _purge(test_db, org_id, boundary + timedelta(days=364)) == 0
+        assert _purge(test_db, org_id, boundary + timedelta(days=89)) == 0
         assert _actions(test_db, org_id) == ["endpoint.created", "endpoint.updated"]
 
     def test_running_twice_purges_once(self, test_db, org_with_old_and_new_row):
         org_id, boundary = org_with_old_and_new_row
-        now = boundary + timedelta(days=365)
+        now = boundary + timedelta(days=90)
 
         assert _purge(test_db, org_id, now) == 1
         assert _purge(test_db, org_id, now) == 0
@@ -131,10 +131,10 @@ class TestPurge:
 
     def test_uses_the_orgs_retention(self, test_db, org_with_old_and_new_row):
         org_id, boundary = org_with_old_and_new_row
-        _set_retention(test_db, org_id, 90)
+        _set_retention(test_db, org_id, 180)
 
-        assert _purge(test_db, org_id, boundary + timedelta(days=89)) == 0
-        assert _purge(test_db, org_id, boundary + timedelta(days=90)) == 1
+        assert _purge(test_db, org_id, boundary + timedelta(days=179)) == 0
+        assert _purge(test_db, org_id, boundary + timedelta(days=180)) == 1
 
     def test_the_plan_caps_the_orgs_retention(self, test_db, org_with_old_and_new_row):
         org_id, boundary = org_with_old_and_new_row
@@ -154,20 +154,20 @@ class TestPurge:
             assert _purge(test_db, org_id, boundary + timedelta(days=1094), licensed=False) == 0
             assert _purge(test_db, org_id, boundary + timedelta(days=1095), licensed=False) == 1
 
-    def test_an_org_that_lost_the_feature_defaults_to_a_year(
+    def test_an_org_that_lost_the_feature_defaults_to_90_days(
         self, test_db, org_with_old_and_new_row
     ):
         org_id, boundary = org_with_old_and_new_row
 
-        assert _purge(test_db, org_id, boundary + timedelta(days=364), licensed=False) == 0
-        assert _purge(test_db, org_id, boundary + timedelta(days=365), licensed=False) == 1
+        assert _purge(test_db, org_id, boundary + timedelta(days=89), licensed=False) == 0
+        assert _purge(test_db, org_id, boundary + timedelta(days=90), licensed=False) == 1
 
     def test_other_orgs_rows_stay(self, test_db, org_with_old_and_new_row):
         org_id, boundary = org_with_old_and_new_row
         other, _, _ = _member(test_db, "Admin")
         _insert(test_db, other.id, "endpoint.created", T0)
 
-        _purge(test_db, org_id, boundary + timedelta(days=365))
+        _purge(test_db, org_id, boundary + timedelta(days=90))
         assert _actions(test_db, other.id) == ["endpoint.created"]
 
 
@@ -244,14 +244,14 @@ class TestJob:
         db.commit()
         boundary = _clock(db)
         org = _org(db, test_org_id)
-        assert retention_days(org) == 365
+        assert retention_days(org) == 90
 
         real_datetime = job.datetime
 
         class _Later(real_datetime):
             @classmethod
             def now(cls, tz=None):
-                return boundary + timedelta(days=365)
+                return boundary + timedelta(days=90)
 
         with (
             _ee(),
