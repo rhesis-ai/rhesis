@@ -27,24 +27,9 @@ export class ProjectsClient extends BaseApiClient {
   async getAllProjects(
     params?: Omit<ProjectsQueryParams, 'skip' | 'limit'>
   ): Promise<Project[]> {
-    const pageSize = 100;
-    const allData: Project[] = [];
-    let skip = 0;
-    let totalCount = Infinity;
-
-    while (skip < totalCount) {
-      const response = await this.getProjects({
-        ...params,
-        skip,
-        limit: pageSize,
-      });
-      if (response.data.length === 0) break;
-      allData.push(...response.data);
-      totalCount = response.pagination.totalCount;
-      skip += pageSize;
-    }
-
-    return allData;
+    return this.fetchAllPages((skip, limit) =>
+      this.getProjects({ ...params, skip, limit })
+    );
   }
 
   async getProject(id: string): Promise<Project> {

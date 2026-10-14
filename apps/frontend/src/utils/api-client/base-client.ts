@@ -598,6 +598,31 @@ export class BaseApiClient {
   }
 
   /**
+   * Every row of a paged list, fetched at the server's 100-row cap.
+   * Stops on an empty or short page, or once the total count is reached.
+   */
+  protected async fetchAllPages<T>(
+    fetchPage: (
+      skip: number,
+      limit: number
+    ) => Promise<PaginatedResponse<T> | T[]>
+  ): Promise<T[]> {
+    const pageSize = 100;
+    const allData: T[] = [];
+    let totalCount = Infinity;
+
+    while (allData.length < totalCount) {
+      const page = await fetchPage(allData.length, pageSize);
+      const data = Array.isArray(page) ? page : page.data;
+      allData.push(...data);
+      if (data.length < pageSize) break;
+      if (!Array.isArray(page)) totalCount = page.pagination.totalCount;
+    }
+
+    return allData;
+  }
+
+  /**
    * Fetches paginated data from the API
    * @param endpoint The API endpoint to fetch from
    * @param params Pagination parameters

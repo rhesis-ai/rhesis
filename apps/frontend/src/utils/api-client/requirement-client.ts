@@ -81,23 +81,9 @@ export class RequirementClient extends BaseApiClient {
   async getAllRequirements<T = RequirementWithMetrics>(
     params: Omit<RequirementsQueryParams, 'skip' | 'limit'> = {}
   ): Promise<T[]> {
-    const pageSize = 100;
-    const allData: T[] = [];
-    let skip = 0;
-
-    while (true) {
-      const page = await this.getRequirements<T>({
-        ...params,
-        skip,
-        limit: pageSize,
-      });
-      if (page.length === 0) break;
-      allData.push(...page);
-      if (page.length < pageSize) break;
-      skip += pageSize;
-    }
-
-    return allData;
+    return this.fetchAllPages((skip, limit) =>
+      this.getRequirements<T>({ ...params, skip, limit })
+    );
   }
 
   async getRequirement(id: UUID): Promise<Requirement> {
