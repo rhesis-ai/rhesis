@@ -198,7 +198,7 @@ interface TokenFreshness {
  */
 async function resolveFreshToken(
   state: TokenFreshness,
-  clientHeaders: Record<string, string> = webClientHeaders()
+  clientHeaders: () => Promise<Record<string, string>>
 ): Promise<TokenFreshness> {
   const expiresAt = state.access_token_expires ?? 0;
   const nowSeconds = Math.floor(Date.now() / 1000);
@@ -212,7 +212,10 @@ async function resolveFreshToken(
   }
 
   try {
-    const data = await refreshAccessToken(state.refresh_token, clientHeaders);
+    const data = await refreshAccessToken(
+      state.refresh_token,
+      await clientHeaders()
+    );
     return {
       session_token: data.access_token,
       refresh_token: data.refresh_token,
@@ -220,6 +223,20 @@ async function resolveFreshToken(
     };
   } catch {
     return { ...state, error: 'RefreshTokenError' };
+  }
+}
+
+/**
+ * Client headers for the request NextAuth is serving. The `jwt` callback gets
+ * no request, but runs inside one wherever `auth()` is called from.
+ */
+async function incomingClientHeaders(): Promise<Record<string, string>> {
+  try {
+    const { headers } = await import('next/headers');
+    return webClientHeaders(await headers());
+  } catch {
+    // Outside a request scope only the channel is known.
+    return webClientHeaders();
   }
 }
 
@@ -276,7 +293,7 @@ export async function getFreshAccessToken(req: {
       refresh_token: token.refresh_token as string | undefined,
       access_token_expires: token.access_token_expires as number | undefined,
     },
-    webClientHeaders(new Headers(req.headers))
+    async () => webClientHeaders(new Headers(req.headers))
   );
 
   if (refreshed.error) {
@@ -494,11 +511,16 @@ export const authConfig: NextAuthConfig = {
         return token;
       }
 
-      const refreshed = await resolveFreshToken({
-        session_token: token.session_token as string | undefined,
-        refresh_token: token.refresh_token as string | undefined,
-        access_token_expires: token.access_token_expires as number | undefined,
-      });
+      const refreshed = await resolveFreshToken(
+        {
+          session_token: token.session_token as string | undefined,
+          refresh_token: token.refresh_token as string | undefined,
+          access_token_expires: token.access_token_expires as
+            | number
+            | undefined,
+        },
+        incomingClientHeaders
+      );
       token.session_token = refreshed.session_token;
       token.refresh_token = refreshed.refresh_token;
       token.access_token_expires = refreshed.access_token_expires;

@@ -14,6 +14,20 @@ spec:
     helm:
       valuesObject:
         controller:
+          # Two pods on different nodes: with externalTrafficPolicy Local the load
+          # balancer only sends to nodes running one, so a single pod moving
+          # nodes would drop traffic until the health check flips. The chart adds
+          # a PodDisruptionBudget (minAvailable 1) for more than one replica.
+          replicaCount: 2
+          topologySpreadConstraints:
+            - maxSkew: 1
+              topologyKey: kubernetes.io/hostname
+              whenUnsatisfiable: ScheduleAnyway
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: ingress-nginx
+                  app.kubernetes.io/instance: ingress-nginx-external
+                  app.kubernetes.io/component: controller
           config:
             use-gzip: "true"
             gzip-types: "application/json application/javascript text/css text/plain application/xml"
