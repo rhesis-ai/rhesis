@@ -312,6 +312,39 @@ class TestPermissionCacheRedisMode:
             assert key not in cache._memory
 
 
+class TestPermissionCacheReconnect:
+    """A failed startup connect is retried on use, and Redis takes over."""
+
+    def test_later_calls_use_redis_once_it_is_back(self, monkeypatch):
+        cache = PermissionCache()
+        monkeypatch.setattr("rhesis.backend.app.services.permission_cache._permission_cache", cache)
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client",
+            side_effect=ConnectionError("unavailable"),
+        ):
+            cache.initialize()
+        get_permission_cache().set(USER_ID, ORG_ID, PROJECT_ID, "test_set:read", True)
+        assert cache._memory
+
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = None
+        mock_redis.scan.return_value = (0, ["perm:v1:k"])
+        cache._retry_at = 0.0
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client", return_value=mock_redis
+        ):
+            # The in-memory decision is dropped, not served.
+            assert get_permission_cache().get(USER_ID, ORG_ID, PROJECT_ID, "test_set:read") is None
+
+        assert cache._memory == {}
+        mock_redis.get.assert_called_once()
+
+        get_permission_cache().bust_user(USER_ID, ORG_ID)
+        prefix = PermissionCache._make_user_org_prefix(USER_ID, ORG_ID)
+        mock_redis.scan.assert_called_once_with(0, match=f"{prefix}*", count=100)
+        mock_redis.delete.assert_called_once_with("perm:v1:k")
+
+
 # ===========================================================================
 # 3. authorize() + cache integration
 # ===========================================================================

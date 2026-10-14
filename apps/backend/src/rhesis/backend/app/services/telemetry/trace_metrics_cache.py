@@ -55,6 +55,15 @@ class TraceMetricsDebounceCache(RedisBackedCache):
         """Check if a conversation has been marked complete."""
         return self._get(f"{_COMPLETE_PREFIX}{trace_id}") == "1"
 
+    def _on_reconnect(self) -> None:
+        # Reads go to Redis now; pending task IDs left here would never be revoked.
+        with self._lock:
+            self._evict_stale()
+            entries = dict(self._memory)
+            self._memory.clear()
+            self._memory_timestamps.clear()
+        self._pipeline_set(entries)
+
 
 # ---------------------------------------------------------------
 # Module-level singleton and public API
@@ -66,6 +75,11 @@ _cache = TraceMetricsDebounceCache()
 def initialize_cache() -> None:
     """Initialize the trace metrics debounce cache (call at app startup)."""
     _cache.initialize()
+
+
+def _get_cache() -> TraceMetricsDebounceCache:
+    _cache._reconnect_if_due()
+    return _cache
 
 
 def schedule_conversation_eval(
@@ -91,7 +105,7 @@ def schedule_conversation_eval(
     )
 
     # Register and get previous task ID (if any)
-    previous_task_id = _cache.register_pending_eval(trace_id, result.id)
+    previous_task_id = _get_cache().register_pending_eval(trace_id, result.id)
     if previous_task_id:
         celery_app.control.revoke(previous_task_id)
         logger.debug(
@@ -137,10 +151,10 @@ def signal_conversation_complete(
     )
 
     # Mark complete so in-flight turns skip debounce scheduling.
-    _cache.mark_complete(trace_id)
+    _get_cache().mark_complete(trace_id)
 
     # Revoke the pending debounced task (no longer needed).
-    previous_task_id = _cache.pop_pending_eval(trace_id)
+    previous_task_id = _get_cache().pop_pending_eval(trace_id)
     if previous_task_id:
         celery_app.control.revoke(previous_task_id)
         logger.debug(
@@ -152,4 +166,4 @@ def signal_conversation_complete(
 
 def is_conversation_complete(trace_id: str) -> bool:
     """Check whether a conversation has been marked complete."""
-    return _cache.is_complete(trace_id)
+    return _get_cache().is_complete(trace_id)

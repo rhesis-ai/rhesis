@@ -32,7 +32,7 @@ from rhesis.backend.app.services.telemetry.conversation_linking import (
 
 
 @pytest.fixture(autouse=True)
-def clear_caches():
+def clear_caches(monkeypatch):
     """Ensure both in-memory caches are empty before and after each test."""
     get_redis_settings.cache_clear()
     _cache._pending_links.clear()
@@ -40,6 +40,8 @@ def clear_caches():
     # Ensure module-level cache uses in-memory mode for unit tests
     orig_redis = _cache._redis
     _cache._redis = None
+    # An app lifespan may have connected it; no reconnect mid-test.
+    monkeypatch.setattr(_cache, "_retry_at", float("inf"))
     yield
     _cache._pending_links.clear()
     _cache._pending_outputs.clear()
@@ -653,3 +655,39 @@ class TestConversationLinkingCacheRedis:
         cache.close()
 
         cache._redis is None  # noqa: B015
+
+
+@pytest.mark.unit
+class TestConversationLinkingCacheReconnect:
+    """A failed startup connect is retried on use, and parked entries move to Redis."""
+
+    def test_later_calls_use_redis_once_it_is_back(self, monkeypatch):
+        cache = ConversationLinkingCache()
+        monkeypatch.setattr(
+            "rhesis.backend.app.services.telemetry.conversation_linking._cache", cache
+        )
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client",
+            side_effect=ConnectionError("unavailable"),
+        ):
+            cache.initialize()
+        register_pending_conversation_link("trace-1", "conv-1", "org-1")
+        register_pending_output("trace-1", "parked output")
+
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = "trace-1"
+        cache._retry_at = 0.0
+        with patch(
+            "rhesis.backend.app.services.cache._create_redis_client", return_value=mock_redis
+        ):
+            register_pending_output("trace-2", "new output")
+
+        pipe_keys = [c.args[0] for c in mock_redis.pipeline.return_value.set.call_args_list]
+        assert pipe_keys == ["convlink:pending:trace-1", "convlink:reverse:conv-1"]
+        set_keys = [c.args[0] for c in mock_redis.set.call_args_list]
+        assert set_keys == ["convlink:output:trace-1", "convlink:output:trace-2"]
+        assert cache._pending_links == {}
+        assert cache._pending_outputs == {}
+
+        assert get_trace_id_from_pending_links("conv-1") == "trace-1"
+        mock_redis.get.assert_called_once_with("convlink:reverse:conv-1")

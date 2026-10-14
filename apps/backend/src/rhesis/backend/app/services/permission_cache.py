@@ -186,6 +186,13 @@ class PermissionCache(RedisBackedCache):
     # Internals
     # ------------------------------------------------------------------
 
+    def _on_reconnect(self) -> None:
+        # Other processes' busts went to Redis, not here, so these entries may be
+        # stale; a failed Redis read would otherwise fall back to them.
+        with self._lock:
+            self._memory.clear()
+            self._memory_timestamps.clear()
+
     def _delete_by_prefix(self, prefix: str) -> None:
         """Delete all keys matching ``prefix*`` via SCAN or in-memory iteration."""
         if self._using_redis:
@@ -226,5 +233,6 @@ def initialize_cache() -> None:
 
 
 def get_permission_cache() -> PermissionCache:
-    """Return the process-global permission cache instance."""
+    """Return the process-global permission cache, retrying a failed Redis connect."""
+    _permission_cache._reconnect_if_due()
     return _permission_cache

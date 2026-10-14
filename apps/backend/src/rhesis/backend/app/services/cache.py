@@ -91,7 +91,9 @@ class RedisBackedCache:
 
     A failed connect is retried by a later ``initialize()`` call, at most once
     per ``_RECONNECT_INTERVAL_SECONDS``. Only caches that call ``initialize()``
-    on use get that; one initialized once at startup stays in memory.
+    or ``_reconnect_if_due()`` on use get that; one initialized once at startup
+    stays in memory. A subclass that holds state in memory overrides
+    ``_on_reconnect()`` to deal with it when Redis comes back.
     """
 
     def __init__(
@@ -146,12 +148,21 @@ class RedisBackedCache:
         finally:
             self._connect_lock.release()
 
+    def _reconnect_if_due(self) -> None:
+        """Retry a failed connect. A cache never initialized stays in memory."""
+        if self._initialized:
+            self.initialize()
+
+    def _on_reconnect(self) -> None:
+        """Called once Redis is back after running from memory."""
+
     def _connect_due(self) -> bool:
         if not self._initialized:
             return True
         return self._redis is None and time.monotonic() >= self._retry_at
 
     def _connect(self) -> None:
+        reconnecting = self._initialized
         try:
             cache_url = self._build_redis_url()
             self._redis = _create_redis_client(cache_url, max_connections=self._max_connections)
@@ -204,6 +215,9 @@ class RedisBackedCache:
             self._has_separate_read = False
             self._retry_at = time.monotonic() + _RECONNECT_INTERVAL_SECONDS
             self._initialized = True
+            return
+        if reconnecting:
+            self._on_reconnect()
 
     def close(self) -> None:
         """Close the Redis connection(s) if open."""
