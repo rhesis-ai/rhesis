@@ -304,8 +304,18 @@ def refresh_token_user_id(db: Session, raw_token: str) -> uuid.UUID | None:
 def revoke_all_for_user(db: Session, user_id: str) -> int:
     """Revoke every refresh token belonging to *user_id*.
 
-    Returns the number of tokens revoked.
+    Returns the number of tokens revoked. Holds each family's lock until the
+    caller's transaction ends, so a rotation in flight can't leave a live successor.
     """
+    families = (
+        db.query(RefreshToken.family_id)
+        .filter(RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None))
+        .distinct()
+        .all()
+    )
+    # A fixed order, so two logouts of the same user can't deadlock.
+    for family_id in sorted(str(row[0]) for row in families):
+        _lock_family(db, family_id)
     now = datetime.now(timezone.utc)
     count = (
         db.query(RefreshToken)

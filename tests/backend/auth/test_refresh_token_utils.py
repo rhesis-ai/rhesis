@@ -410,6 +410,34 @@ class TestRotationRace:
         assert outcome["error"].status_code == 401
         assert self._live_tokens(family_id) == 0
 
+    def test_logout_revokes_successor_of_open_rotation(self, family):
+        family_id, _, live = family
+        with _own_session() as session:
+            user_id = session.query(RefreshToken.user_id).filter_by(family_id=family_id).first()[0]
+        outcome: dict = {}
+
+        def logout():
+            try:
+                with _own_session() as session:
+                    outcome["count"] = revoke_all_for_user(session, str(user_id))
+            except Exception as exc:
+                outcome["error"] = exc
+
+        rotation = TestingSessionLocal()
+        try:
+            verify_and_rotate_refresh_token(rotation, live)
+            thread = threading.Thread(target=logout)
+            thread.start()
+            _wait_until_blocked(thread)
+            rotation.commit()
+            thread.join(timeout=10)
+            assert not thread.is_alive(), "logout never finished"
+        finally:
+            rotation.close()
+
+        assert "error" not in outcome
+        assert self._live_tokens(family_id) == 0
+
 
 # =============================================================================
 # Verify and refresh (rotation policy dispatch)
