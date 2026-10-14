@@ -94,8 +94,7 @@ export default function AuditExportsSection() {
         <TableHead>
           <TableRow>
             <TableCell>Started</TableCell>
-            <TableCell>Format</TableCell>
-            <TableCell>Events</TableCell>
+            <TableCell>File</TableCell>
             <TableCell>Status</TableCell>
             <TableCell align="right">Actions</TableCell>
           </TableRow>
@@ -111,15 +110,21 @@ export default function AuditExportsSection() {
                 <TableCell>
                   {new Date(job.created_at).toLocaleString()}
                 </TableCell>
-                <TableCell>{format?.toUpperCase() ?? '—'}</TableCell>
                 <TableCell>
-                  {filter ? (
-                    <Tooltip title={<Box sx={monoSx}>{filter}</Box>}>
-                      <span>Filtered</span>
-                    </Tooltip>
-                  ) : (
-                    'All events'
-                  )}
+                  {format?.toUpperCase() ?? '—'}
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    component="div"
+                  >
+                    {filter ? (
+                      <Tooltip title={<Box sx={monoSx}>{filter}</Box>}>
+                        <span>Filtered</span>
+                      </Tooltip>
+                    ) : (
+                      'All events'
+                    )}
+                  </Typography>
                 </TableCell>
                 <TableCell>
                   <StatusCell job={job} />
@@ -177,8 +182,8 @@ export default function AuditExportsSection() {
   return (
     <>
       <SectionCard
-        title="Exports"
-        subtitle={`Your last ${RECENT_EXPORTS_LIMIT} exports. Files are kept for ${FILE_LIFETIME_DAYS} days, and each download is recorded in the log.`}
+        title="Export"
+        subtitle={`For audits and incident reviews. Your last ${RECENT_EXPORTS_LIMIT} exports are below; files are kept for ${FILE_LIFETIME_DAYS} days, and each export and download is recorded in the log.`}
         actions={
           <Button
             variant="outlined"

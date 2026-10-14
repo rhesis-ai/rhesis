@@ -43,18 +43,22 @@ jest.mock('../AuditExportsSection', () => ({
   __esModule: true,
   default: () => <div data-testid="exports" />,
 }));
-jest.mock('../AuditLogSettingsSection', () => ({
-  __esModule: true,
-  default: () => <div data-testid="settings" />,
+jest.mock('../AuditSettingsCards', () => ({
+  AuditRetentionCard: () => <div data-testid="retention" />,
+  AuditPrivacyCard: () => <div data-testid="privacy" />,
+  AuditSettingsNotices: () => null,
 }));
 jest.mock('../StreamingSection', () => ({
   __esModule: true,
   default: () => <div data-testid="streaming" />,
 }));
-jest.mock('../AuditApiAccessSection', () => ({
+jest.mock('../AuditApiAccessCard', () => ({
   __esModule: true,
   default: () => <div data-testid="api" />,
+  AuditReadAccessCard: () => <div data-testid="readers" />,
 }));
+
+const SETTINGS_TAB = 'Retention, export & access';
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -76,41 +80,48 @@ describe('AuditLogTab', () => {
     render(<AuditLogTab />);
     expect(screen.getByTestId('events')).toBeInTheDocument();
     expect(await screen.findByText('Retention: 3 years')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Exports' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
+      'Events',
+      SETTINGS_TAB,
+    ]);
   });
 
   it('opens the section named in the URL, and writes the choice back', () => {
-    search = 'tab=audit-log&section=exports';
+    search = 'tab=audit-log&section=settings';
     render(<AuditLogTab />);
+    expect(screen.getByTestId('retention')).toBeInTheDocument();
     expect(screen.getByTestId('exports')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Settings' }));
-    expect(mockPush).toHaveBeenCalledWith('?tab=audit-log&section=settings', {
+    fireEvent.click(screen.getByRole('tab', { name: 'Events' }));
+    expect(mockPush).toHaveBeenCalledWith('?tab=audit-log&section=events', {
       scroll: false,
     });
   });
 
-  it('hides Exports from a reader who cannot export', () => {
+  it.each(['exports', 'streaming', 'api'])(
+    'opens the settings tab for the old %s section',
+    section => {
+      search = `section=${section}`;
+      render(<AuditLogTab />);
+      expect(screen.getByTestId('api')).toBeInTheDocument();
+    }
+  );
+
+  it('leaves out the export card for a reader who cannot export', () => {
     allowed = new Set(['audit_log:read']);
-    search = 'section=exports';
+    search = 'section=settings';
     render(<AuditLogTab />);
-    expect(
-      screen.queryByRole('tab', { name: 'Exports' })
-    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('retention')).toBeInTheDocument();
     expect(screen.queryByTestId('exports')).not.toBeInTheDocument();
-    expect(screen.getByTestId('events')).toBeInTheDocument();
   });
 
-  it('hides Streaming from those who cannot manage the audit log', () => {
-    render(<AuditLogTab />);
-    expect(
-      screen.queryByRole('tab', { name: 'Streaming' })
-    ).not.toBeInTheDocument();
-  });
+  it('shows streaming only to those who can manage the audit log', () => {
+    search = 'section=settings';
+    const { unmount } = render(<AuditLogTab />);
+    expect(screen.queryByTestId('streaming')).not.toBeInTheDocument();
+    unmount();
 
-  it('opens Streaming for those who can manage the audit log', () => {
     allowed = new Set(['audit_log:read', 'audit_log:manage']);
-    search = 'section=streaming';
     render(<AuditLogTab />);
     expect(screen.getByTestId('streaming')).toBeInTheDocument();
   });
@@ -119,7 +130,7 @@ describe('AuditLogTab', () => {
     allowed = new Set();
     render(<AuditLogTab />);
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
-    expect(screen.getByText(/the audit log/i)).toBeInTheDocument();
+    expect(screen.getByText(/view the audit log/i)).toBeInTheDocument();
     expect(mockGetSettings).not.toHaveBeenCalled();
   });
 

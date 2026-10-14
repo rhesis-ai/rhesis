@@ -138,6 +138,9 @@ export const FAB_SIZE = 56;
  */
 export const GRID_CARD_INSET = '30px';
 
+/** Width of a data grid column that holds a single icon. */
+export const ICON_COLUMN_WIDTH = 56;
+
 /** Minimum height of a grid-card toolbar row (Figma). */
 export const GRID_TOOLBAR_MIN_HEIGHT = 52;
 

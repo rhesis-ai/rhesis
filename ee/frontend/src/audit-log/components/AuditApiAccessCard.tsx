@@ -18,6 +18,7 @@ import { SectionCard } from '@/components/common/SectionCard';
 import { Capability } from '@/constants/capabilities';
 import { FeatureName } from '@/constants/features';
 import { useFeature } from '@/contexts/FeaturesContext';
+import type { Theme } from '@mui/material/styles';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { getApiErrorMessage } from '@/utils/error-utils';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
@@ -29,6 +30,7 @@ import {
 } from '../api/audit-log-client';
 import { auditLogQueryKeys } from '../filters';
 import { monoSx } from './AuditChanges';
+import { StatusPill } from './tones';
 
 const ROLES_TAB_URL = '/organizations/settings?tab=roles';
 const BASE_URL_PLACEHOLDER = 'https://<your-rhesis-api>';
@@ -82,28 +84,58 @@ function RolesWithAccess() {
     );
   }
 
-  const withAccess = (roles ?? [])
-    .filter(role =>
-      role.permissions.some(p => p.name === Capability.AuditLog.READ)
-    )
-    .sort((a, b) => b.level - a.level);
+  const sorted = [...(roles ?? [])].sort((a, b) => b.level - a.level);
 
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-      {withAccess.map(role => (
-        <Chip
-          key={role.id}
-          size="small"
-          label={role.display_name}
-          sx={getRoleChipSx(role)}
-        />
-      ))}
+    <Box sx={listSx} role="list" aria-label="Roles">
+      {sorted.map(role => {
+        const reads = role.permissions.some(
+          p => p.name === Capability.AuditLog.READ
+        );
+        return (
+          <Box key={role.id} role="listitem" sx={{ ...listRowSx, py: 1.5 }}>
+            {/* The chip and colours of the Roles tab. */}
+            <Box sx={{ width: t => t.spacing(11.5), flexShrink: 0 }}>
+              <Chip
+                label={role.display_name}
+                size="small"
+                sx={getRoleChipSx(role)}
+              />
+            </Box>
+            <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }}>
+              {role.description}
+            </Typography>
+            <StatusPill tone={reads ? 'success' : 'default'}>
+              {reads ? 'Can read' : 'No access'}
+            </StatusPill>
+          </Box>
+        );
+      })}
     </Box>
   );
 }
 
-/** How to read the log over the API, and who may. Stores nothing. */
-export default function AuditApiAccessSection() {
+/** A bordered list with a divider between rows, as in the settings cards. */
+export const listSx = {
+  display: 'flex',
+  flexDirection: 'column',
+  border: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
+  borderRadius: BORDER_RADIUS.sm,
+} as const;
+
+export const listRowSx = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 2,
+  px: 2,
+  py: 1,
+  '& + &': {
+    borderTop: (t: Theme) => `1px solid ${t.palette.greyscale.border}`,
+  },
+} as const;
+
+/** How to read the log over the API. Stores nothing. */
+export default function AuditApiAccessCard() {
   const { show } = useNotifications();
   const example = React.useMemo(() => {
     const since = new Date();
@@ -121,59 +153,70 @@ export default function AuditApiAccessSection() {
   };
 
   return (
-    <>
-      <SectionCard
-        title="Read the log over the API"
-        subtitle="GET /audit-events takes the same $filter, skip, limit and sort_by as every other list. Each page is recorded as a read of the log."
+    <SectionCard
+      title="API access"
+      subtitle="GET /audit-events takes the same $filter, skip, limit and sort_by as every other list. Each page is recorded as a read of the log."
+    >
+      <Box
+        sx={{
+          position: 'relative',
+          p: 2,
+          pr: 6,
+          borderRadius: BORDER_RADIUS.sm,
+          bgcolor: theme => theme.palette.greyscale.surface2,
+        }}
       >
-        <Box
-          sx={{
-            position: 'relative',
-            p: 2,
-            pr: 6,
-            borderRadius: BORDER_RADIUS.sm,
-            bgcolor: theme => theme.palette.greyscale.surface2,
-          }}
-        >
-          <Box component="pre" sx={{ ...monoSx, m: 0, whiteSpace: 'pre-wrap' }}>
-            {example}
-          </Box>
-          <Tooltip title="Copy">
-            <IconButton
-              aria-label="Copy example"
-              size="small"
-              onClick={copy}
-              sx={{
-                position: 'absolute',
-                top: theme => theme.spacing(1),
-                right: theme => theme.spacing(1),
-              }}
-            >
-              <ContentCopyIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+        <Box component="pre" sx={{ ...monoSx, m: 0, whiteSpace: 'pre-wrap' }}>
+          {example}
         </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          Use an API token whose owner can read the audit log. A token limited
-          to chosen scopes needs the{' '}
+        <Tooltip title="Copy">
+          <IconButton
+            aria-label="Copy example"
+            size="small"
+            onClick={copy}
+            sx={{
+              position: 'absolute',
+              top: theme => theme.spacing(1),
+              right: theme => theme.spacing(1),
+            }}
+          >
+            <ContentCopyIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+        Use an API token whose owner can read the audit log. A token limited to
+        chosen scopes needs the{' '}
+        <Box component="code" sx={monoSx}>
+          {Capability.AuditLog.READ}
+        </Box>{' '}
+        scope.
+      </Typography>
+    </SectionCard>
+  );
+}
+
+/** The roles that can read the log. Change them in the role editor. */
+export function AuditReadAccessCard() {
+  return (
+    <SectionCard
+      title="Who can read the audit log"
+      subtitle={
+        <>
+          Roles with the{' '}
           <Box component="code" sx={monoSx}>
             {Capability.AuditLog.READ}
           </Box>{' '}
-          scope.
-        </Typography>
-      </SectionCard>
-
-      <SectionCard
-        title="Who can read the log"
-        subtitle="Roles that include reading the audit log. Change them in the role editor."
-        actions={
-          <Button component={Link} href={ROLES_TAB_URL} size="small">
-            Open Roles
-          </Button>
-        }
-      >
-        <RolesWithAccess />
-      </SectionCard>
-    </>
+          permission. Viewing the audit log is itself recorded.
+        </>
+      }
+      actions={
+        <Button component={Link} href={ROLES_TAB_URL} size="small">
+          Edit roles
+        </Button>
+      }
+    >
+      <RolesWithAccess />
+    </SectionCard>
   );
 }

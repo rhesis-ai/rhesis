@@ -1,13 +1,14 @@
 /**
- * The API access section: the example request in the list conventions, and
- * the roles that can read the log, from the RBAC roles API.
+ * The API access card's example request in the list conventions, and the
+ * read access card's roles, from the RBAC roles API.
  */
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import AuditApiAccessSection, {
+import AuditApiAccessCard, {
+  AuditReadAccessCard,
   exampleRequest,
-} from '../AuditApiAccessSection';
+} from '../AuditApiAccessCard';
 
 let rbacOn = true;
 jest.mock('@/contexts/FeaturesContext', () => ({
@@ -77,22 +78,32 @@ describe('exampleRequest', () => {
   });
 });
 
-describe('AuditApiAccessSection', () => {
-  it('lists the roles that can read the log, highest first', async () => {
-    render(<AuditApiAccessSection />);
-    expect(await screen.findByText('Owner')).toBeInTheDocument();
-    expect(screen.getByText('Auditor')).toBeInTheDocument();
-    expect(screen.queryByText('Member')).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open Roles' })).toHaveAttribute(
+describe('AuditApiAccessCard', () => {
+  it('shows the example and the scope it needs', () => {
+    render(<AuditApiAccessCard />);
+    expect(screen.getByText(/curl -G/)).toBeInTheDocument();
+    expect(screen.getByText('audit_log:read')).toBeInTheDocument();
+  });
+});
+
+describe('AuditReadAccessCard', () => {
+  it('lists every role, highest first, with who can read the log', async () => {
+    render(<AuditReadAccessCard />);
+    const rows = await screen.findAllByRole('listitem');
+    expect(rows.map(row => row.textContent)).toEqual([
+      'OwnerCan read',
+      'AuditorCan read',
+      'MemberNo access',
+    ]);
+    expect(screen.getByRole('link', { name: 'Edit roles' })).toHaveAttribute(
       'href',
       '/organizations/settings?tab=roles'
     );
-    expect(screen.getByText('audit_log:read')).toBeInTheDocument();
   });
 
   it('does not call the roles API without RBAC', () => {
     rbacOn = false;
-    render(<AuditApiAccessSection />);
+    render(<AuditReadAccessCard />);
     expect(
       screen.getByText('Owners and Admins can read the audit log.')
     ).toBeInTheDocument();

@@ -82,9 +82,7 @@ describe('StreamingSection', () => {
   it('shows the empty state with "within seconds"', async () => {
     mockList.mockResolvedValue([]);
     render(<StreamingSection />);
-    expect(
-      await screen.findByText('No streaming destinations yet')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('No destinations yet')).toBeInTheDocument();
     expect(screen.getByText(/within seconds/)).toBeInTheDocument();
     expect(screen.queryByText(/real time/i)).not.toBeInTheDocument();
   });
@@ -95,9 +93,7 @@ describe('StreamingSection', () => {
     render(<StreamingSection />);
     expect(await screen.findByText('boom')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    expect(
-      await screen.findByText('No streaming destinations yet')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('No destinations yet')).toBeInTheDocument();
   });
 
   it('says streaming is unavailable when the licence has lapsed (404)', async () => {
@@ -136,9 +132,15 @@ describe('StreamingSection', () => {
     ]);
     render(<StreamingSection />);
 
-    const hook = (await screen.findByText('SIEM hook')).closest('tr');
-    const splunk = screen.getByText('Splunk').closest('tr');
-    const dd = screen.getByText('Datadog EU').closest('tr');
+    const hook = (await screen.findByText('SIEM hook')).closest<HTMLElement>(
+      '[role="listitem"]'
+    );
+    const splunk = screen
+      .getByText('Splunk')
+      .closest<HTMLElement>('[role="listitem"]');
+    const dd = screen
+      .getByText('Datadog EU')
+      .closest<HTMLElement>('[role="listitem"]');
     if (!hook || !splunk || !dd) throw new Error('rows missing');
 
     expect(within(hook).getByText('Active')).toBeInTheDocument();
@@ -346,8 +348,6 @@ describe('StreamingSection', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(mockDelete).toHaveBeenCalledWith('d1'));
-    expect(
-      await screen.findByText('No streaming destinations yet')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('No destinations yet')).toBeInTheDocument();
   });
 });

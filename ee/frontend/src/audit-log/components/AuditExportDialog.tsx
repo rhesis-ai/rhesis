@@ -59,7 +59,7 @@ export default function AuditExportDialog({
       {
         onSuccess: () => {
           show(
-            'Export started. Download it from the Exports section when it is ready.',
+            'Export started. Download it under Retention, export & access when it is ready.',
             { severity: 'success' }
           );
           close();

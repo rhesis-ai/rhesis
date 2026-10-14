@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Box from '@mui/material/Box';
-import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import AccessDenied from '@/components/common/AccessDenied';
@@ -12,66 +11,65 @@ import DetailTabNav from '@/components/common/DetailTabNav';
 import { Capability } from '@/constants/capabilities';
 import { useAuditLogSettings } from '../hooks/useAuditLogSettings';
 import { retentionLabel } from '../retention';
-import AuditApiAccessSection from './AuditApiAccessSection';
 import AuditEventsGrid from './AuditEventsGrid';
-import AuditExportsSection from './AuditExportsSection';
-import AuditLogSettingsSection from './AuditLogSettingsSection';
-import StreamingSection from './StreamingSection';
+import AuditSettingsTab from './AuditSettingsTab';
+import { StatusPill } from './tones';
 
-/** The query parameter that selects a section; the export notification links to `exports`. */
+/** The query parameter that selects a section; the export notification links to `settings`. */
 export const AUDIT_LOG_SECTION_PARAM = 'section';
 
 export const AuditLogSectionId = {
   EVENTS: 'events',
-  EXPORTS: 'exports',
   SETTINGS: 'settings',
-  STREAMING: 'streaming',
-  API: 'api',
 } as const;
 
-/** The audit log's own sections, each with the capability that guards it. */
-const SECTIONS = [
+/** Section ids from before retention, export, streaming and API access shared a tab. */
+const LEGACY_SECTIONS: Record<string, string> = {
+  exports: AuditLogSectionId.SETTINGS,
+  streaming: AuditLogSectionId.SETTINGS,
+  api: AuditLogSectionId.SETTINGS,
+};
+
+type CapabilityName =
+  (typeof Capability.AuditLog)[keyof typeof Capability.AuditLog];
+
+/** The audit log's own sections; any one of a section's capabilities opens it. */
+const SECTIONS: readonly {
+  id: string;
+  label: string;
+  description: string;
+  capabilities: readonly CapabilityName[];
+  component: React.ComponentType;
+}[] = [
   {
     id: AuditLogSectionId.EVENTS,
     label: 'Events',
-    capability: Capability.AuditLog.READ,
+    description:
+      'Every change to access, test assets and configuration across your organization. Entries are append-only and cannot be edited or deleted.',
+    capabilities: [Capability.AuditLog.READ],
     component: AuditEventsGrid,
   },
   {
-    id: AuditLogSectionId.EXPORTS,
-    label: 'Exports',
-    capability: Capability.AuditLog.EXPORT,
-    component: AuditExportsSection,
-  },
-  {
     id: AuditLogSectionId.SETTINGS,
-    label: 'Settings',
-    capability: Capability.AuditLog.READ,
-    component: AuditLogSettingsSection,
+    label: 'Retention, export & access',
+    description:
+      'Control how long events are kept, where they are streamed and who can read them.',
+    capabilities: [
+      Capability.AuditLog.READ,
+      Capability.AuditLog.EXPORT,
+      Capability.AuditLog.MANAGE,
+    ],
+    component: AuditSettingsTab,
   },
-  {
-    id: AuditLogSectionId.STREAMING,
-    label: 'Streaming',
-    capability: Capability.AuditLog.MANAGE,
-    component: StreamingSection,
-  },
-  {
-    id: AuditLogSectionId.API,
-    label: 'API access',
-    capability: Capability.AuditLog.READ,
-    component: AuditApiAccessSection,
-  },
-] as const;
+];
 
 function RetentionBadge() {
   const { data } = useAuditLogSettings();
   if (!data) return null;
   return (
-    <Chip
-      size="small"
-      variant="outlined"
-      label={`Retention: ${retentionLabel(data.retention_days)}`}
-    />
+    <StatusPill tone="default">
+      Retention: {retentionLabel(data.retention_days)}
+    </StatusPill>
   );
 }
 
@@ -88,8 +86,11 @@ export default function AuditLogTab() {
   };
   const loading = read.loading || exportStatus.loading || manage.loading;
   // Only the sections the viewer can use get a tab.
-  const visible = SECTIONS.filter(s => status[s.capability]?.allowed);
-  const requested = searchParams.get(AUDIT_LOG_SECTION_PARAM);
+  const visible = SECTIONS.filter(s =>
+    s.capabilities.some(c => status[c]?.allowed)
+  );
+  const param = searchParams.get(AUDIT_LOG_SECTION_PARAM) ?? '';
+  const requested = LEGACY_SECTIONS[param] ?? param;
   const section = visible.find(s => s.id === requested) ?? visible[0];
   const activeIndex = section ? visible.indexOf(section) : 0;
 
@@ -108,7 +109,7 @@ export default function AuditLogTab() {
         <CircularProgress />
       </Box>
     );
-  } else if (section && status[section.capability]?.allowed) {
+  } else if (section) {
     const Section = section.component;
     content = <Section />;
   } else {
@@ -117,15 +118,24 @@ export default function AuditLogTab() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Typography variant="h6">Audit Log</Typography>
-          <RetentionBadge />
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'flex-end',
+          justifyContent: 'space-between',
+          gap: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Typography variant="h4" component="h2">
+            Audit Log
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {(section ?? SECTIONS[0]).description}
+          </Typography>
         </Box>
-        <Typography variant="body2" color="text.secondary">
-          Every change to access, test assets and configuration across your
-          organization. Entries are append-only and cannot be edited or deleted.
-        </Typography>
+        {read.allowed && <RetentionBadge />}
       </Box>
 
       {!loading && visible.length > 1 && (

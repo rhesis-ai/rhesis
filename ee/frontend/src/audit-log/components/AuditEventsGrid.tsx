@@ -10,6 +10,8 @@ import type {
   GridRowParams,
 } from '@mui/x-data-grid';
 import Button from '@mui/material/Button';
+import { alpha, type Theme } from '@mui/material/styles';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import DownloadIcon from '@mui/icons-material/Download';
 import HistoryIcon from '@mui/icons-material/History';
 import { Can } from '@/components/common/Can';
@@ -19,6 +21,7 @@ import EntityGrid, {
 } from '@/components/common/EntityGrid';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { Capability } from '@/constants/capabilities';
+import { ICON_COLUMN_WIDTH } from '@/styles/theme-constants';
 import { buildListFilter } from '@/utils/list';
 import {
   RESOURCE_AREAS,
@@ -30,12 +33,7 @@ import {
   countActiveAuditEventFilters,
   type AuditEventFilters,
 } from '../filters';
-import {
-  actionLabel,
-  actorDisplay,
-  channelLabel,
-  splitAction,
-} from '../labels';
+import { actorDisplay, channelLabel, splitAction } from '../labels';
 import { auditEventsList, type AuditEventListFilters } from '../list';
 import {
   AuditOutcome,
@@ -47,6 +45,7 @@ import AuditEventDrawer from './AuditEventDrawer';
 import AuditExportDialog from './AuditExportDialog';
 import AuditEventFilterDrawer from './AuditEventFilterDrawer';
 import { formatValue, monoSx } from './AuditChanges';
+import { ActionChip, ActorAvatar, OutlinedTag } from './tones';
 
 const ALL_PILL = 'all';
 const CATEGORY_PILLS = [
@@ -56,6 +55,32 @@ const CATEGORY_PILLS = [
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 const STORAGE_KEY = 'audit-log-events';
 const ORG_LEVEL_LABEL = 'Organization';
+const FAILED_ROW_CLASS = 'audit-row-failed';
+
+const TIME_FORMAT: Intl.DateTimeFormatOptions = {
+  month: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+};
+
+/** "CEST", so the column says which clock its times are on. */
+function timeZoneName(): string | undefined {
+  return new Intl.DateTimeFormat(undefined, { timeZoneName: 'short' })
+    .formatToParts(new Date())
+    .find(part => part.type === 'timeZoneName')?.value;
+}
+
+const failedRow = (row: AuditEventRow) =>
+  row.outcome === AuditOutcome.SUCCESS ? undefined : FAILED_ROW_CLASS;
+
+const gridSx = {
+  [`& .${FAILED_ROW_CLASS}`]: {
+    bgcolor: (t: Theme) =>
+      alpha(t.palette.error.main, t.palette.action.hoverOpacity),
+  },
+};
 
 function toFilters(
   state: EntityGridFilterState<AuditEventFilters>
@@ -99,11 +124,12 @@ export function changeSummary(event: AuditEvent): string {
 function TwoLines({
   primary,
   secondary,
-  error = false,
+  secondaryFirst = false,
 }: {
   primary: React.ReactNode;
   secondary?: React.ReactNode;
-  error?: boolean;
+  /** The secondary line as a small label above, as for a resource's type. */
+  secondaryFirst?: boolean;
 }) {
   return (
     <Box
@@ -115,14 +141,15 @@ function TwoLines({
         minWidth: 0,
       }}
     >
-      <Typography
-        variant="body2"
-        noWrap
-        color={error ? 'error.main' : 'text.primary'}
-      >
+      {secondaryFirst && secondary && (
+        <Typography variant="caption" color="text.secondary" noWrap>
+          {secondary}
+        </Typography>
+      )}
+      <Typography variant="body2" noWrap>
         {primary}
       </Typography>
-      {secondary && (
+      {!secondaryFirst && secondary && (
         <Typography variant="caption" color="text.secondary" noWrap>
           {secondary}
         </Typography>
@@ -147,16 +174,21 @@ export default function AuditEventsGrid() {
     []
   );
 
+  const zone = useMemo(timeZoneName, []);
+
   const columns: GridColDef[] = useMemo(
     () => [
       {
         field: AUDIT_EVENTS_SORT_FIELD,
-        headerName: 'Time',
+        headerName: zone ? `Time (${zone})` : 'Time',
         flex: 1,
-        minWidth: 170,
+        minWidth: 150,
         renderCell: (params: GridRenderCellParams<AuditEvent>) => (
-          <Typography variant="body2">
-            {new Date(params.row.occurred_at).toLocaleString()}
+          <Typography variant="body2" noWrap sx={monoSx}>
+            {new Date(params.row.occurred_at).toLocaleString(
+              undefined,
+              TIME_FORMAT
+            )}
           </Typography>
         ),
       },
@@ -168,7 +200,23 @@ export default function AuditEventsGrid() {
         sortable: false,
         renderCell: (params: GridRenderCellParams<AuditEvent>) => {
           const actor = actorDisplay(params.row);
-          return <TwoLines primary={actor.name} secondary={actor.detail} />;
+          return (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                height: '100%',
+                minWidth: 0,
+              }}
+            >
+              <ActorAvatar
+                name={actor.name}
+                actorType={params.row.actor_type}
+              />
+              <TwoLines primary={actor.name} secondary={actor.detail} />
+            </Box>
+          );
         },
       },
       {
@@ -178,15 +226,12 @@ export default function AuditEventsGrid() {
         minWidth: 180,
         sortable: false,
         renderCell: (params: GridRenderCellParams<AuditEvent>) => (
-          <TwoLines
-            primary={actionLabel(params.row.action, params.row.outcome)}
-            secondary={
-              <Box component="span" sx={monoSx}>
-                {params.row.action}
-              </Box>
-            }
-            error={params.row.outcome !== AuditOutcome.SUCCESS}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+            <ActionChip
+              action={params.row.action}
+              outcome={params.row.outcome}
+            />
+          </Box>
         ),
       },
       {
@@ -201,6 +246,7 @@ export default function AuditEventsGrid() {
             secondary={resourceDisplayName(
               splitAction(params.row.action).resource
             )}
+            secondaryFirst
           />
         ),
       },
@@ -227,9 +273,7 @@ export default function AuditEventsGrid() {
         minWidth: 100,
         sortable: false,
         renderCell: (params: GridRenderCellParams<AuditEvent>) => (
-          <Typography variant="body2">
-            {channelLabel(params.row.channel)}
-          </Typography>
+          <OutlinedTag>{channelLabel(params.row.channel)}</OutlinedTag>
         ),
       },
       {
@@ -239,13 +283,43 @@ export default function AuditEventsGrid() {
         minWidth: 180,
         sortable: false,
         renderCell: (params: GridRenderCellParams<AuditEvent>) => (
-          <Typography variant="body2" color="text.secondary" noWrap>
+          <Typography
+            variant="body2"
+            noWrap
+            color={
+              params.row.outcome === AuditOutcome.SUCCESS
+                ? 'text.secondary'
+                : 'error.main'
+            }
+          >
             {changeSummary(params.row)}
           </Typography>
         ),
       },
+      {
+        field: 'open',
+        headerName: '',
+        width: ICON_COLUMN_WIDTH,
+        sortable: false,
+        disableColumnMenu: true,
+        renderCell: () => (
+          // The row click opens the event; this is the visible cue.
+          <Box
+            aria-hidden
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              color: 'primary.main',
+            }}
+          >
+            <ChevronRightIcon fontSize="small" />
+          </Box>
+        ),
+      },
     ],
-    []
+    [zone]
   );
 
   return (
@@ -276,11 +350,13 @@ export default function AuditEventsGrid() {
               startIcon={<DownloadIcon />}
               onClick={() => setExportOpen(true)}
             >
-              Export
+              Export CSV / JSONL
             </Button>
           </Can>
         }
         onRowClick={onRowClick}
+        rowClassName={failedRow}
+        sx={gridSx}
         editAction={false}
         showGridButtons={false}
         pageSizeOptions={PAGE_SIZE_OPTIONS}
