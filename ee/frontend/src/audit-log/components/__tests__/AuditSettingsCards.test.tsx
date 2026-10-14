@@ -6,7 +6,11 @@
 
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import AuditLogSettingsSection from '../AuditLogSettingsSection';
+import {
+  AuditPrivacyCard,
+  AuditRetentionCard,
+  AuditSettingsNotices,
+} from '../AuditSettingsCards';
 import type { AuditLogSettings } from '../../types';
 
 let canManage = true;
@@ -42,23 +46,33 @@ function settings(overrides: Partial<AuditLogSettings> = {}): AuditLogSettings {
   };
 }
 
+function AuditLogSettingsSection() {
+  return (
+    <>
+      <AuditSettingsNotices />
+      <AuditRetentionCard />
+      <AuditPrivacyCard />
+    </>
+  );
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   canManage = true;
   mockGetSettings.mockResolvedValue(settings());
 });
 
-describe('AuditLogSettingsSection', () => {
+describe('the retention and privacy cards', () => {
   it('shows a spinner while loading', () => {
     mockGetSettings.mockReturnValue(new Promise(() => {}));
     render(<AuditLogSettingsSection />);
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+    expect(screen.getAllByRole('progressbar')).toHaveLength(2);
   });
 
   it('shows the error when the settings cannot load', async () => {
     mockGetSettings.mockRejectedValue(new Error('API error: 500 - Boom'));
     render(<AuditLogSettingsSection />);
-    expect(await screen.findByText('Boom')).toBeInTheDocument();
+    expect(await screen.findAllByText('Boom')).toHaveLength(2);
   });
 
   it('shows the saved values, with secrets always redacted', async () => {
@@ -69,9 +83,7 @@ describe('AuditLogSettingsSection', () => {
     const redact = screen.getByLabelText('Redact secrets');
     expect(redact).toBeChecked();
     expect(redact).toBeDisabled();
-    expect(
-      screen.getByText(/keeps events for up to 1 year/)
-    ).toBeInTheDocument();
+    expect(screen.getByText('Up to 1 year on your plan')).toBeInTheDocument();
   });
 
   it('is read-only without audit_log:manage', async () => {
@@ -86,20 +98,39 @@ describe('AuditLogSettingsSection', () => {
     expect(screen.getByText(/You can view these settings/)).toBeInTheDocument();
   });
 
-  it('saves a preset and shows the 422 above the plan cap', async () => {
+  it('holds back presets above the plan cap', async () => {
+    render(<AuditLogSettingsSection />);
+    expect(await screen.findByLabelText('3 years')).toBeDisabled();
+    expect(screen.getByText('Above your plan')).toBeInTheDocument();
+  });
+
+  it('saves a preset', async () => {
+    mockGetSettings.mockResolvedValue(settings({ max_retention_days: 1095 }));
+    mockUpdateSettings.mockResolvedValue(settings({ retention_days: 1095 }));
+    render(<AuditLogSettingsSection />);
+    fireEvent.click(await screen.findByLabelText('3 years'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save retention' }));
+    await waitFor(() =>
+      expect(mockUpdateSettings).toHaveBeenCalledWith({ retention_days: 1095 })
+    );
+  });
+
+  it('shows the 422 above the plan cap', async () => {
     mockUpdateSettings.mockRejectedValue(
       new Error(
         'API error: 422 - retention_days can be at most 365 on this plan'
       )
     );
     render(<AuditLogSettingsSection />);
-    fireEvent.click(await screen.findByLabelText('3 years'));
+    fireEvent.click(await screen.findByLabelText('Custom'));
+    fireEvent.change(screen.getByLabelText('Days'), {
+      target: { value: '400' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Save retention' }));
 
     expect(
       await screen.findByText('retention_days can be at most 365 on this plan')
     ).toBeInTheDocument();
-    expect(mockUpdateSettings).toHaveBeenCalledWith({ retention_days: 1095 });
   });
 
   it('takes a custom value in range only', async () => {
@@ -136,7 +167,9 @@ describe('AuditLogSettingsSection', () => {
       settings({ retention_days: 90, below_eu_ai_act_minimum: true })
     );
     render(<AuditLogSettingsSection />);
-    expect(await screen.findByText(/EU AI Act/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/90 days is shorter than the six months/)
+    ).toBeInTheDocument();
   });
 
   it('warns when scheduled jobs are not running', async () => {

@@ -119,8 +119,9 @@ export default function OrganizationSettingsTabs({
     'aria-controls': `org-settings-tabpanel-${index}`,
   }));
 
+  // DetailTabPanel spaces its content from the nav, as on every detail page.
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    <Box>
       <DetailTabNav
         tabs={navTabs}
         activeIndex={activeTab}
