@@ -6,8 +6,13 @@ import OnboardingStepHeader from './OnboardingStepHeader';
 import OnboardingNavButtons from './OnboardingNavButtons';
 import ViewField from '@/components/common/ViewField';
 import { ONBOARDING_STEPS } from './onboarding-steps';
+import {
+  labelForJobRole,
+  labelForReferralSource,
+  type ProfileAnswers,
+} from '@/constants/user-profile';
 
-interface FormData {
+interface FormData extends ProfileAnswers {
   firstName: string;
   lastName: string;
   organizationName: string;
@@ -57,6 +62,13 @@ export default function FinishStep({
           label="Your Name"
           value={`${formData.firstName} ${formData.lastName}`}
         />
+        <ViewField label="Your Role" value={labelForJobRole(formData)} />
+        {formData.referralSource && (
+          <ViewField
+            label="How You Heard About Us"
+            value={labelForReferralSource(formData)}
+          />
+        )}
         {formData.website && (
           <ViewField label="Website" value={formData.website} />
         )}

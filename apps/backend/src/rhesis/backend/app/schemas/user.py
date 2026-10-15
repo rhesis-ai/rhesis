@@ -5,6 +5,7 @@ from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model
 
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.constants_currency import Currency
+from rhesis.backend.app.constants_user_profile import JobRole, ReferralSource
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 
@@ -113,6 +114,8 @@ class OnboardingProgress(BaseModel):
     users_invited: bool = False
     test_cases_created: bool = False
     dismissed: bool = False
+    # Set when an invitee joins, so the app asks the profile questions they skipped
+    profile_survey_pending: bool = False
     last_updated: Optional[datetime] = None
 
 
@@ -253,6 +256,10 @@ class UserBase(Base):
         None,
         description="When the user first became an active organization member",
     )
+    job_role: Optional[JobRole] = None
+    job_role_other: Optional[str] = Field(None, max_length=255)
+    referral_source: Optional[ReferralSource] = None
+    referral_source_other: Optional[str] = Field(None, max_length=255)
     user_settings: Optional[UserSettings] = Field(
         default_factory=lambda: UserSettings(version=1), description="User preferences and settings"
     )

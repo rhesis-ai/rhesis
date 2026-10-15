@@ -42,6 +42,12 @@ class User(Base):
         comment="When the user first became an active organization member",
     )
 
+    # Onboarding profile answers; keys from constants_user_profile
+    job_role = Column(String(50), nullable=True)
+    job_role_other = Column(String(255), nullable=True)
+    referral_source = Column(String(50), nullable=True)
+    referral_source_other = Column(String(255), nullable=True)
+
     # Native authentication columns (provider-agnostic)
     provider_type = Column(
         String(50),
