@@ -19,6 +19,11 @@ import { writeActiveProjectId } from '@/utils/active-project';
 import { useCreateProject } from '@/hooks/useEndpoints';
 import { useCreateUser } from '@/hooks/useUsers';
 import { parseQuotaError } from '@/utils/quota';
+import {
+  EMPTY_PROFILE_ANSWERS,
+  toProfileUpdate,
+  type ProfileAnswers,
+} from '@/constants/user-profile';
 
 type OnboardingStatus =
   | 'idle'
@@ -28,7 +33,7 @@ type OnboardingStatus =
   | 'creating_project'
   | 'completed';
 
-interface FormData {
+interface FormData extends ProfileAnswers {
   firstName: string;
   lastName: string;
   organizationName: string;
@@ -58,6 +63,7 @@ export default function OnboardingPageClient({
     organizationName: '',
     projectName: '',
     website: '',
+    ...EMPTY_PROFILE_ANSWERS,
     invites: [{ id: safeRandomUUID(), email: '' }],
   });
 
@@ -122,6 +128,7 @@ export default function OnboardingPageClient({
         family_name: formData.lastName,
         name: `${formData.firstName} ${formData.lastName}`,
         organization_id: organization.id as UUID,
+        ...toProfileUpdate(formData),
       };
 
       let response;
