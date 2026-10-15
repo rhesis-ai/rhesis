@@ -54,7 +54,8 @@ export default function ProfileSurveyDialog() {
       await queryClient.invalidateQueries({
         queryKey: userSettingsKeys.all(userId),
       });
-    } catch {
+    } catch (error) {
+      console.error('Failed to save profile survey:', error);
       notifications.show('Could not save your answers. Please try again.', {
         severity: 'error',
       });

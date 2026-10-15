@@ -47,7 +47,7 @@ class TestMarkProfileSurveyPending:
 
 
 class TestProfileAnswerRoutes:
-    def test_invite_marks_survey_pending(self, authenticated_client):
+    def test_invite_marks_survey_pending(self, authenticated_client, test_db):
         with patch(
             "rhesis.backend.app.routers.user.validate_and_normalize_email",
             side_effect=lambda email, check_deliverability=False: email,
@@ -57,8 +57,10 @@ class TestProfileAnswerRoutes:
             )
 
         assert response.status_code == status.HTTP_200_OK
-        onboarding = response.json()["user_settings"]["onboarding"]
-        assert onboarding["profile_survey_pending"] is True
+        # Read back from the DB: the response is built from the in-memory row
+        test_db.expire_all()
+        invitee = test_db.query(models.User).filter_by(id=response.json()["id"]).one()
+        assert invitee.user_settings["onboarding"]["profile_survey_pending"] is True
 
     def test_self_update_stores_answers(self, authenticated_client, authenticated_user_id):
         response = authenticated_client.put(
