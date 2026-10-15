@@ -14,10 +14,10 @@ export interface ModelsSettings {
 }
 
 export interface OnboardingProgress {
-  project_created?: boolean;
   endpoint_setup?: boolean;
+  agent_tested?: boolean;
+  insights_reviewed?: boolean;
   users_invited?: boolean;
-  test_cases_created?: boolean;
   dismissed?: boolean;
   last_updated?: string;
 }
@@ -27,10 +27,9 @@ export interface OnboardingProgress {
  * /users/onboarding-status). Rows seeded as the example project never count.
  */
 export interface OnboardingStatus {
-  project_created: boolean;
   endpoint_setup: boolean;
+  agent_tested: boolean;
   users_invited: boolean;
-  test_cases_created: boolean;
 }
 
 import type { WithPermittedActions } from '@/types/affordances';

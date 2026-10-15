@@ -122,10 +122,10 @@ export async function buildE2EStorageState(origin = 'http://localhost:3100') {
           {
             name: 'rhesis_onboarding_progress',
             value: JSON.stringify({
-              projectCreated: false,
               endpointSetup: false,
+              agentTested: false,
+              insightsReviewed: false,
               usersInvited: false,
-              testCasesCreated: false,
               dismissed: true,
               lastUpdated: Date.now(),
             }),
