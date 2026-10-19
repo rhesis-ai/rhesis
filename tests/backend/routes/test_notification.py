@@ -13,6 +13,7 @@ per-request scope-binding dependency it would in production.
 """
 
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
@@ -174,3 +175,18 @@ class TestMarkRead:
     def test_requires_section_or_ids(self, authenticated_client: TestClient):
         response = authenticated_client.post("/notifications/read", json={})
         assert response.status_code == 400
+
+
+@pytest.mark.integration
+class TestNotificationTimestamps:
+    def test_created_at_carries_an_offset(
+        self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
+    ):
+        """Without an offset, browsers read the UTC time as local and say "2h ago"."""
+        _make_notification(test_db, user_id=authenticated_user_id, organization_id=test_org_id)
+
+        response = authenticated_client.get("/notifications/")
+        assert response.status_code == 200
+        created_at = datetime.fromisoformat(response.json()[0]["created_at"])
+        assert created_at.utcoffset() is not None
+        assert abs(datetime.now(timezone.utc) - created_at) < timedelta(minutes=5)
