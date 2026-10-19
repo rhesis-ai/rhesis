@@ -44,9 +44,10 @@ export const ONBOARDING_STEPS: OnboardingStepConfig[] = [
   {
     id: 'welcome',
     sidebarTitle: 'Welcome to Rhesis!',
-    sidebarSubtitle: 'How to get started within a few minutes',
+    sidebarSubtitle: 'See how Rhesis works in 5 minutes',
     contentTitle: 'Welcome to Rhesis!',
-    contentDescription: 'Let us show you how to get started.',
+    contentDescription:
+      'A 5-minute look at how engineers and domain experts test AI agents together. Watch it now, or finish setup and dive in.',
     icon: RocketLaunchOutlinedIcon,
   },
 ];
