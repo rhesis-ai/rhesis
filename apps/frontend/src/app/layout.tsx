@@ -298,12 +298,14 @@ async function getNavigationItems(
       icon: <JobsIcon key="jobs-icon" />,
       requiredPermission: Capability.Job.READ,
     },
-    // CONNECT section — tools and infrastructure (collapsible, collapsed by default)
+    // CONNECT section — tools and infrastructure. Open until the org has an
+    // endpoint, so new users see where to set one up; collapsed after that.
     {
       kind: 'header',
       title: 'CONNECT',
       collapsible: true,
       defaultCollapsed: true,
+      openUntilEndpointConfigured: true,
     },
     {
       kind: 'page',

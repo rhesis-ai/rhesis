@@ -21,6 +21,8 @@ export const NotificationSection = {
   ACCOUNT: 'account',
   // Background job results (an audit log export). Badges the Jobs nav item.
   JOBS: 'jobs',
+  // "Set up an endpoint" nudge. Badges the Endpoints nav item.
+  ENDPOINTS: 'endpoints',
 } as const;
 
 export type NotificationSection =
@@ -55,6 +57,12 @@ export const HIGHLIGHTED_ROW_CLASS = 'rhesis-row-notified';
 export const UsageNotificationEventType = {
   APPROACHING_LIMIT: 'usage.approaching_limit',
   BLOCKED: 'usage.blocked',
+} as const;
+
+/** Mirrors `NotificationEventType.Endpoint` in `models/enums.py`. A to-do, not
+ * a result, so the drawer shows it amber rather than as a green success. */
+export const EndpointNotificationEventType = {
+  SETUP_REQUIRED: 'endpoint.setup_required',
 } as const;
 
 /** Mirrors `NotificationEventType.AuditLog` in `models/enums.py`. */

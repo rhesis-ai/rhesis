@@ -15,6 +15,7 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import BarChartOutlinedIcon from '@mui/icons-material/BarChartOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import type SvgIcon from '@mui/material/SvgIcon';
 import { FilterDrawerShell } from '@/components/common/FilterDrawer';
@@ -22,6 +23,7 @@ import { BORDER_RADIUS } from '@/styles/theme';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { Notification } from '@/utils/api-client/notifications-client';
 import {
+  EndpointNotificationEventType,
   NOTIFICATION_EVENT_ROUTES,
   NotificationSection,
   UsageNotificationEventType,
@@ -57,6 +59,7 @@ const SECTION_ROUTES: Record<NotificationSection, string> = {
   [NotificationSection.USAGE]: '/organizations/usage',
   [NotificationSection.ACCOUNT]: '/settings?tab=security',
   [NotificationSection.JOBS]: '/jobs',
+  [NotificationSection.ENDPOINTS]: '/endpoints',
 };
 
 /** The recourse link's base label, keyed by `NotificationSection` -- what a
@@ -70,6 +73,7 @@ const SECTION_LINK_LABEL: Record<NotificationSection, string> = {
   [NotificationSection.USAGE]: 'Org usage',
   [NotificationSection.ACCOUNT]: 'Go to settings',
   [NotificationSection.JOBS]: 'View job',
+  [NotificationSection.ENDPOINTS]: 'Set up endpoint',
 };
 
 function sectionLinkLabel(
@@ -90,7 +94,10 @@ function notificationSeverity(n: Notification): NotificationSeverity {
   if (n.event_type === UsageNotificationEventType.BLOCKED || n.is_failure) {
     return 'error';
   }
-  if (n.event_type === UsageNotificationEventType.APPROACHING_LIMIT) {
+  if (
+    n.event_type === UsageNotificationEventType.APPROACHING_LIMIT ||
+    n.event_type === EndpointNotificationEventType.SETUP_REQUIRED
+  ) {
     return 'warning';
   }
   return 'success';
@@ -106,6 +113,9 @@ function notificationIcon(n: Notification): typeof SvgIcon {
   if (n.is_failure) return WarningAmberOutlinedIcon;
   if (n.event_type === UsageNotificationEventType.APPROACHING_LIMIT) {
     return BarChartOutlinedIcon;
+  }
+  if (n.event_type === EndpointNotificationEventType.SETUP_REQUIRED) {
+    return RouteOutlinedIcon;
   }
   return CheckCircleOutlineIcon;
 }

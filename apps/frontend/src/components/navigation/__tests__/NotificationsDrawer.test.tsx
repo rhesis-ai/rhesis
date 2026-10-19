@@ -332,6 +332,25 @@ describe('NotificationsDrawer', () => {
     expect(screen.getByTestId('CheckCircleOutlineIcon')).toBeInTheDocument();
   });
 
+  it('shows the endpoint-setup nudge as a to-do, not a success', async () => {
+    mockGetNotifications.mockResolvedValue([
+      notification({
+        id: 'n-endpoint',
+        section: NotificationSection.ENDPOINTS,
+        event_type: 'endpoint.setup_required',
+        title: 'Set up an endpoint',
+      }),
+    ]);
+    render(<NotificationsDrawer open onClose={jest.fn()} />);
+
+    await screen.findByText('Set up an endpoint');
+    expect(screen.getByTestId('RouteOutlinedIcon')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('CheckCircleOutlineIcon')
+    ).not.toBeInTheDocument();
+    expect(screen.getByText(/Set up endpoint\b/)).toBeInTheDocument();
+  });
+
   it('labels the recourse link by section and pluralizes it for a batch row', async () => {
     mockGetNotifications.mockResolvedValue([
       notification({
