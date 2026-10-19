@@ -66,11 +66,13 @@ config:
 
   # Frontend
   apiBaseUrl: ""
-  nextPublicAppUrl: ""
   nextTelemetryDisabled: "1"
-  nextPublicQuickStart: "false"
-  nextPublicSupportEmail: "hello@rhesis.ai"
+  supportEmail: "hello@rhesis.ai"
   onboardingVideoUrl: ""
+  # Empty-state media per list page. Keys: projects, tests, test-sets, test-runs,
+  # endpoints, requirements, metrics, experiments. articleUrls is comma-separated.
+  #   tests: { videoUrl: "https://youtu.be/...", articleUrls: "https://docs.rhesis.ai/..." }
+  emptyStates: {}
   architectHelpArticleUrls: "https://docs.rhesis.ai/docs/getting-started/connecting-application,https://docs.rhesis.ai/docs/endpoints,https://docs.rhesis.ai/docs/endpoints/sdk-endpoints,https://docs.rhesis.ai/docs/concepts"
 
   # Branding — all empty means the built-in Rhesis look. Set them to rebrand a

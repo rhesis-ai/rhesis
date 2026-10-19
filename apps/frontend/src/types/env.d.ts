@@ -1,3 +1,5 @@
+import type { RuntimeContentEnv } from '@/config/runtime-env';
+
 export {};
 
 declare global {
@@ -17,6 +19,8 @@ declare global {
         productName?: string;
         fontFamily?: string;
       };
+      /** Support address and empty-state media; see `config/runtime-env.ts`. */
+      content?: RuntimeContentEnv;
     };
   }
 }

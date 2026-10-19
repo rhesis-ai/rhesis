@@ -12,6 +12,7 @@ import { FilterDrawerShell } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 import DiscordIcon from '@/components/DiscordIcon';
 import AppVersion from '@/components/common/AppVersion';
+import { getRuntimeContentEnv } from '@/config/runtime-env';
 
 interface SupportDrawerProps {
   open: boolean;
@@ -173,7 +174,7 @@ export default function SupportDrawer({ open, onClose }: SupportDrawerProps) {
         >
           <Button
             component="a"
-            href={`mailto:${process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'hello@rhesis.ai'}`}
+            href={`mailto:${getRuntimeContentEnv().supportEmail}`}
             variant="outlined"
             startIcon={<EmailOutlinedIcon />}
             fullWidth

@@ -2,11 +2,8 @@ import { NextResponse } from 'next/server';
 import { isAllowedOgMetadataUrl } from '@/app/api/og-metadata/og-metadata-utils';
 import { parseCommaSeparatedUrls } from '@/constants/entity-empty-state-env';
 
-// Read per request so the value comes from the container environment. The
-// NEXT_PUBLIC_* empty-state vars are inlined into the browser bundle at build
-// time, which the GCP Secret Manager → ESO pipeline cannot feed; this one is
-// deliberately unprefixed and served from the server instead, so changing the
-// URLs is a secret update plus a rollout restart rather than a rebuild.
+// Read per request so the value comes from the container environment;
+// changing the URLs is a values change plus a rollout, not a rebuild.
 export const dynamic = 'force-dynamic';
 
 /**

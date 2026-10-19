@@ -61,6 +61,7 @@ import {
   brandFontWeights,
   type BrandFont,
 } from '../config/branding';
+import { readRuntimeContentEnv } from '../config/runtime-env';
 import { BACKGROUND_DEFAULT } from '../styles/theme-background';
 import { Capability } from '../constants/capabilities';
 
@@ -454,6 +455,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
       productName: deploymentBranding.productName,
       fontFamily: deploymentBranding.font?.family,
     },
+    content: readRuntimeContentEnv(),
   }).replace(/</g, '\\u003c')};`;
 
   // Fetch the active project, and the full member-project list for the
