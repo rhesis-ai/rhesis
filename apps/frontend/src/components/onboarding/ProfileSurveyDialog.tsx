@@ -43,12 +43,11 @@ export default function ProfileSurveyDialog() {
   const finish = async (saveAnswers: boolean) => {
     setSaving(true);
     try {
-      const usersClient = new ApiClientFactory().getUsersClient();
-      if (saveAnswers) {
-        await usersClient.updateUser(userId, toProfileUpdate(answers));
-      }
-      await usersClient.updateUserSettings({
-        onboarding: { profile_survey_pending: false },
+      await new ApiClientFactory().getUsersClient().updateUserSettings({
+        onboarding: {
+          profile_survey_pending: false,
+          ...(saveAnswers && { profile: toProfileUpdate(answers) }),
+        },
       });
       setClosed(true);
       await queryClient.invalidateQueries({

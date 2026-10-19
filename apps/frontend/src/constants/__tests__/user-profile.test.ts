@@ -6,12 +6,12 @@ import {
 } from '../user-profile';
 
 describe('toProfileUpdate', () => {
-  it('sends nothing for empty answers', () => {
+  it('sends null for unanswered fields, so a merge clears old answers', () => {
     expect(toProfileUpdate(EMPTY_PROFILE_ANSWERS)).toEqual({
-      job_role: undefined,
-      job_role_other: undefined,
-      referral_source: undefined,
-      referral_source_other: undefined,
+      job_role: null,
+      job_role_other: null,
+      referral_source: null,
+      referral_source_other: null,
     });
   });
 
@@ -22,7 +22,7 @@ describe('toProfileUpdate', () => {
       jobRoleOther: 'leftover',
     });
     expect(update.job_role).toBe('engineer');
-    expect(update.job_role_other).toBeUndefined();
+    expect(update.job_role_other).toBeNull();
   });
 
   it('trims "Other" text', () => {

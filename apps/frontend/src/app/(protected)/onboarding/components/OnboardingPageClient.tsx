@@ -128,7 +128,6 @@ export default function OnboardingPageClient({
         family_name: formData.lastName,
         name: `${formData.firstName} ${formData.lastName}`,
         organization_id: organization.id as UUID,
-        ...toProfileUpdate(formData),
       };
 
       let response;
@@ -161,6 +160,15 @@ export default function OnboardingPageClient({
         const authenticatedUsersClient = authenticatedFactory.getUsersClient();
         const authenticatedOrganizationsClient =
           authenticatedFactory.getOrganizationsClient();
+
+        // Nice to have, so a failure here doesn't block onboarding
+        try {
+          await authenticatedUsersClient.updateUserSettings({
+            onboarding: { profile: toProfileUpdate(formData) },
+          });
+        } catch (profileError: unknown) {
+          console.error('Failed to save profile answers:', profileError);
+        }
 
         try {
           const validEmails = formData.invites

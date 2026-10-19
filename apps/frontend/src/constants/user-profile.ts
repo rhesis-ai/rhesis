@@ -3,6 +3,8 @@
  * `app/constants_user_profile.py` (`JobRole`, `ReferralSource`); keep both in sync.
  */
 
+import type { OnboardingProfile } from '@/utils/api-client/interfaces/user';
+
 export type JobRole =
   | 'engineer'
   | 'data_scientist'
@@ -66,19 +68,20 @@ export const EMPTY_PROFILE_ANSWERS: ProfileAnswers = {
   referralSourceOther: '',
 };
 
-/** The answers as `UserUpdate` fields; "Other" text is only sent with "Other". */
-export function toProfileUpdate(answers: ProfileAnswers) {
+/**
+ * The answers as `onboarding.profile` settings. Unanswered fields are sent as
+ * `null` so a settings merge clears what an earlier answer left behind.
+ */
+export function toProfileUpdate(answers: ProfileAnswers): OnboardingProfile {
   return {
-    job_role: answers.jobRole || undefined,
+    job_role: answers.jobRole || null,
     job_role_other:
-      answers.jobRole === 'other'
-        ? answers.jobRoleOther.trim() || undefined
-        : undefined,
-    referral_source: answers.referralSource || undefined,
+      answers.jobRole === 'other' ? answers.jobRoleOther.trim() || null : null,
+    referral_source: answers.referralSource || null,
     referral_source_other:
       answers.referralSource === 'other'
-        ? answers.referralSourceOther.trim() || undefined
-        : undefined,
+        ? answers.referralSourceOther.trim() || null
+        : null,
   };
 }
 

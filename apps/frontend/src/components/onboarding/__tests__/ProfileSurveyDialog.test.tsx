@@ -3,7 +3,6 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ProfileSurveyDialog from '../ProfileSurveyDialog';
 
-const mockUpdateUser = jest.fn();
 const mockUpdateUserSettings = jest.fn();
 const mockShow = jest.fn();
 let mockSettings: { onboarding?: { profile_survey_pending?: boolean } } = {};
@@ -26,7 +25,6 @@ jest.mock('@/components/common/NotificationContext', () => ({
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
     getUsersClient: () => ({
-      updateUser: mockUpdateUser,
       updateUserSettings: mockUpdateUserSettings,
     }),
   })),
@@ -48,7 +46,6 @@ async function pickOption(label: RegExp, option: string) {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockUpdateUser.mockResolvedValue({});
   mockUpdateUserSettings.mockResolvedValue({});
   mockSettings = { onboarding: { profile_survey_pending: true } };
 });
@@ -69,7 +66,7 @@ describe('ProfileSurveyDialog', () => {
     expect(save).toBeEnabled();
   });
 
-  it('saves answers, including "Other" text, then clears the flag', async () => {
+  it('saves answers, including "Other" text, and clears the flag in one call', async () => {
     renderDialog();
     await pickOption(/your role/i, 'Other');
     fireEvent.change(screen.getByRole('textbox', { name: 'Your role' }), {
@@ -81,15 +78,17 @@ describe('ProfileSurveyDialog', () => {
 
     await waitFor(() =>
       expect(mockUpdateUserSettings).toHaveBeenCalledWith({
-        onboarding: { profile_survey_pending: false },
+        onboarding: {
+          profile_survey_pending: false,
+          profile: {
+            job_role: 'other',
+            job_role_other: 'Prompt engineer',
+            referral_source: 'github',
+            referral_source_other: null,
+          },
+        },
       })
     );
-    expect(mockUpdateUser).toHaveBeenCalledWith('user-1', {
-      job_role: 'other',
-      job_role_other: 'Prompt engineer',
-      referral_source: 'github',
-      referral_source_other: undefined,
-    });
     await waitFor(() =>
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     );
@@ -99,8 +98,11 @@ describe('ProfileSurveyDialog', () => {
     renderDialog();
     fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
 
-    await waitFor(() => expect(mockUpdateUserSettings).toHaveBeenCalled());
-    expect(mockUpdateUser).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(mockUpdateUserSettings).toHaveBeenCalledWith({
+        onboarding: { profile_survey_pending: false },
+      })
+    );
   });
 
   it('stays open and shows an error when saving fails', async () => {

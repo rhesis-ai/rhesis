@@ -22,7 +22,16 @@ export interface OnboardingProgress {
   dismissed?: boolean;
   /** Set for invitees, who skip /onboarding and get the profile questions in a dialog. */
   profile_survey_pending?: boolean;
+  profile?: OnboardingProfile;
   last_updated?: string;
+}
+
+/** Answers to the onboarding profile questions; `null` clears a field. */
+export interface OnboardingProfile {
+  job_role?: JobRole | null;
+  job_role_other?: string | null;
+  referral_source?: ReferralSource | null;
+  referral_source_other?: string | null;
 }
 
 /**
@@ -132,8 +141,4 @@ export interface UserUpdate {
   picture?: string;
   is_active?: boolean;
   organization_id?: UUID;
-  job_role?: JobRole;
-  job_role_other?: string;
-  referral_source?: ReferralSource;
-  referral_source_other?: string;
 }
