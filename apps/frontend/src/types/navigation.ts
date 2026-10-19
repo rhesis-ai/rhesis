@@ -26,7 +26,7 @@ export interface NavigationHeaderItem {
   title: string;
   collapsible?: boolean;
   defaultCollapsed?: boolean;
-  /** Overrides `defaultCollapsed`: start open while the org has no endpoint. */
+  /** Overrides `defaultCollapsed`: start open while the active project has no endpoint. */
   openUntilEndpointConfigured?: boolean;
 }
 

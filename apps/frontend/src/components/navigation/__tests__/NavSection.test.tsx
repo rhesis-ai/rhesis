@@ -188,13 +188,13 @@ describe('NavSection', () => {
       );
     }
 
-    it('is open when the org has no endpoint', () => {
+    it('is open when the project has no endpoint', () => {
       mockEndpointConfigured.mockReturnValue(false);
       renderConnect();
       expect(screen.getByText('endpoints')).toBeVisible();
     });
 
-    it('is collapsed once the org has an endpoint', () => {
+    it('is collapsed once the project has an endpoint', () => {
       mockEndpointConfigured.mockReturnValue(true);
       renderConnect();
       expect(screen.getByText('endpoints')).not.toBeVisible();

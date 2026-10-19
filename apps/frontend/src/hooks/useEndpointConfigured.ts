@@ -1,30 +1,27 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { useSession } from 'next-auth/react';
-import { onboardingStatusKeys } from '@/constants/query-keys';
+import { endpointKeys } from '@/constants/query-keys';
+import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { type OnboardingStatus } from '@/utils/api-client/interfaces/user';
-import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
+import { type EndpointSetupStatus } from '@/utils/api-client/interfaces/endpoint';
+import { useUserScope } from '@/hooks/useIsAuthenticated';
 
 /**
- * Whether the organization has an endpoint of its own (the seeded example
- * doesn't count). `undefined` until known. Shares the onboarding-status cache.
+ * Whether the active project has an endpoint of its own (seeded example ones,
+ * like the example project's or the local mock chatbot, don't count).
+ * `undefined` until known, or when no project is active.
  */
 export function useEndpointConfigured(enabled = true): boolean | undefined {
-  const { data: session, status } = useSession();
+  const { activeProject } = useActiveProject();
   const userScope = useUserScope();
+  const projectId = activeProject?.id ?? '';
 
-  const { data } = useQuery<OnboardingStatus>({
-    queryKey: onboardingStatusKeys.all(userScope),
-    queryFn: () =>
-      new ApiClientFactory().getUsersClient().getOnboardingStatus(),
-    enabled:
-      enabled &&
-      isAuthenticated(status) &&
-      !!userScope &&
-      !!session?.user?.organization_id,
+  const { data } = useQuery<EndpointSetupStatus>({
+    queryKey: endpointKeys.setupStatus(userScope, projectId),
+    queryFn: () => new ApiClientFactory().getEndpointsClient().getSetupStatus(),
+    enabled: enabled && !!userScope && !!projectId,
   });
 
-  return data?.endpoint_setup;
+  return data?.configured ?? undefined;
 }
