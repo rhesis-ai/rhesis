@@ -33,7 +33,7 @@ def get_onboarding_status(db: Session, organization_id: str, user_id: str) -> On
 
 def mark_profile_survey_pending(user: User) -> None:
     """Flag an invitee to be asked the profile questions; invitees never see /onboarding."""
-    if user.job_role is not None:
+    if user.settings.onboarding.profile.get("job_role") is not None:
         return
     user.settings.update({"onboarding": {"profile_survey_pending": True}})
     flag_modified(user, "user_settings")

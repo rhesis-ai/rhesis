@@ -216,8 +216,8 @@ def create_user(
 
         # Create the user (crud function will automatically exclude send_invite)
         created_user = user_crud.create_user(db=db, user=user)
-
-    onboarding_service.mark_profile_survey_pending(created_user)
+        # Only brand-new users; rejoining users are never asked
+        onboarding_service.mark_profile_survey_pending(created_user)
 
     # Note: new users are NOT auto-enrolled in any projects.
     # An admin must explicitly add them via the project Members tab.

@@ -1,4 +1,6 @@
-"""Job role and referral source, asked in onboarding (creators) or a one-time dialog (invitees)."""
+"""Job role and referral source, asked in onboarding (creators) or a one-time dialog (invitees).
+
+Stored in ``user_settings.onboarding.profile``."""
 
 from unittest.mock import patch
 
@@ -7,26 +9,34 @@ from fastapi import status
 from pydantic import ValidationError
 
 from rhesis.backend.app import models
-from rhesis.backend.app.schemas.user import UserUpdate
+from rhesis.backend.app.schemas.user import OnboardingProfile
 from rhesis.backend.app.services.onboarding import mark_profile_survey_pending
+
+
+def _invite(client, email: str):
+    with patch(
+        "rhesis.backend.app.routers.user.validate_and_normalize_email",
+        side_effect=lambda email, check_deliverability=False: email,
+    ):
+        return client.post("/users/", json={"email": email})
 
 
 @pytest.mark.unit
 class TestProfileAnswerSchema:
     def test_accepts_known_keys(self):
-        update = UserUpdate(job_role="data_scientist", referral_source="ai_assistant")
+        profile = OnboardingProfile(job_role="data_scientist", referral_source="ai_assistant")
 
-        assert update.job_role == "data_scientist"
-        assert update.referral_source == "ai_assistant"
+        assert profile.job_role == "data_scientist"
+        assert profile.referral_source == "ai_assistant"
 
     @pytest.mark.parametrize("field", ["job_role", "referral_source"])
     def test_rejects_unknown_keys(self, field):
         with pytest.raises(ValidationError):
-            UserUpdate(**{field: "astronaut"})
+            OnboardingProfile(**{field: "astronaut"})
 
     def test_rejects_overlong_other_text(self):
         with pytest.raises(ValidationError):
-            UserUpdate(job_role="other", job_role_other="x" * 256)
+            OnboardingProfile(job_role="other", job_role_other="x" * 256)
 
 
 @pytest.mark.unit
@@ -39,22 +49,19 @@ class TestMarkProfileSurveyPending:
         assert user.user_settings["onboarding"]["profile_survey_pending"] is True
 
     def test_skips_user_who_already_answered(self):
-        user = models.User(email="rejoin@example.com", user_settings={"version": 1}, job_role="qa")
+        user = models.User(
+            email="answered@example.com",
+            user_settings={"version": 1, "onboarding": {"profile": {"job_role": "qa"}}},
+        )
 
         mark_profile_survey_pending(user)
 
-        assert "onboarding" not in user.user_settings
+        assert "profile_survey_pending" not in user.user_settings["onboarding"]
 
 
 class TestProfileAnswerRoutes:
     def test_invite_marks_survey_pending(self, authenticated_client, test_db):
-        with patch(
-            "rhesis.backend.app.routers.user.validate_and_normalize_email",
-            side_effect=lambda email, check_deliverability=False: email,
-        ):
-            response = authenticated_client.post(
-                "/users/", json={"email": "survey-invitee@example.com"}
-            )
+        response = _invite(authenticated_client, "survey-invitee@example.com")
 
         assert response.status_code == status.HTTP_200_OK
         # Read back from the DB: the response is built from the in-memory row
@@ -62,27 +69,62 @@ class TestProfileAnswerRoutes:
         invitee = test_db.query(models.User).filter_by(id=response.json()["id"]).one()
         assert invitee.user_settings["onboarding"]["profile_survey_pending"] is True
 
-    def test_self_update_stores_answers(self, authenticated_client, authenticated_user_id):
-        response = authenticated_client.put(
-            f"/users/{authenticated_user_id}",
+    def test_reinvite_does_not_mark_survey_pending(self, authenticated_client, test_db):
+        test_db.add(models.User(email="rejoin@example.com", user_settings={"version": 1}))
+        test_db.flush()
+
+        response = _invite(authenticated_client, "rejoin@example.com")
+
+        assert response.status_code == status.HTTP_200_OK
+        test_db.expire_all()
+        rejoined = test_db.query(models.User).filter_by(id=response.json()["id"]).one()
+        assert "onboarding" not in rejoined.user_settings
+
+    def test_saving_answers_clears_the_flag(self, authenticated_client):
+        response = authenticated_client.patch(
+            "/users/settings",
             json={
-                "job_role": "other",
-                "job_role_other": "Prompt engineer",
-                "referral_source": "github",
+                "onboarding": {
+                    "profile_survey_pending": False,
+                    "profile": {
+                        "job_role": "other",
+                        "job_role_other": "Prompt engineer",
+                        "referral_source": "github",
+                        "referral_source_other": None,
+                    },
+                }
             },
         )
 
         assert response.status_code == status.HTTP_200_OK
-        user = response.json()["user"]
-        assert user["job_role"] == "other"
-        assert user["job_role_other"] == "Prompt engineer"
-        assert user["referral_source"] == "github"
-        assert user["referral_source_other"] is None
+        onboarding = response.json()["onboarding"]
+        assert onboarding["profile_survey_pending"] is False
+        assert onboarding["profile"] == {
+            "job_role": "other",
+            "job_role_other": "Prompt engineer",
+            "referral_source": "github",
+            "referral_source_other": None,
+        }
 
-    def test_clearing_the_flag_via_settings(self, authenticated_client):
+    def test_switching_away_from_other_clears_its_text(self, authenticated_client):
+        authenticated_client.patch(
+            "/users/settings",
+            json={"onboarding": {"profile": {"job_role": "other", "job_role_other": "Founder"}}},
+        )
+
         response = authenticated_client.patch(
-            "/users/settings", json={"onboarding": {"profile_survey_pending": False}}
+            "/users/settings",
+            json={"onboarding": {"profile": {"job_role": "engineer", "job_role_other": None}}},
         )
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.json()["onboarding"]["profile_survey_pending"] is False
+        profile = response.json()["onboarding"]["profile"]
+        assert profile["job_role"] == "engineer"
+        assert profile["job_role_other"] is None
+
+    def test_rejects_unknown_role(self, authenticated_client):
+        response = authenticated_client.patch(
+            "/users/settings", json={"onboarding": {"profile": {"job_role": "astronaut"}}}
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
