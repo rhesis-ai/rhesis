@@ -48,6 +48,32 @@ test.describe('Endpoints — CRUD @crud', () => {
     await expect(nameField).toHaveValue(UNIQUE_NAME);
   });
 
+  test('client credentials replaces the API token with OAuth fields', async ({
+    page,
+  }) => {
+    await page.goto('/endpoints?create=1');
+    await expect(page.locator('input[name="name"]')).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await page.getByRole('tab', { name: /connection/i }).click();
+    await expect(page.getByLabel(/api token/i)).toBeVisible();
+
+    await page.getByLabel('Authentication').click();
+    await page.getByRole('option', { name: /client credentials/i }).click();
+
+    await expect(page.getByLabel(/token url/i)).toBeVisible();
+    await expect(page.getByLabel(/client id/i)).toBeVisible();
+    await expect(page.getByLabel(/^client secret/i)).toHaveAttribute(
+      'type',
+      'password'
+    );
+    await expect(page.getByLabel(/api token/i)).toHaveCount(0);
+
+    await page.getByLabel(/token url/i).fill('not a url');
+    await expect(page.getByText('Enter a valid URL')).toBeVisible();
+  });
+
   test('can create an endpoint when a project is available', async ({
     page,
   }) => {
