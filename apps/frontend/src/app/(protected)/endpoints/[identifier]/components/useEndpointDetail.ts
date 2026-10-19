@@ -83,7 +83,7 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
     async (payload: EndpointEditData) => {
       try {
         await patchEndpointFields(endpoint.id, payload);
-        const { auth_token, ...rest } = payload;
+        const { auth_token, client_secret, ...rest } = payload;
         const applyUpdate = (prev: Endpoint) => {
           const next: Endpoint = { ...prev, ...rest };
           // auth_token is write-only; keep the derived has_auth_token flag in
@@ -92,6 +92,10 @@ export function useEndpointDetail(initialEndpoint: Endpoint) {
           if (auth_token !== undefined) {
             next.has_auth_token =
               typeof auth_token === 'string' && auth_token.trim() !== '';
+          }
+          if (client_secret !== undefined) {
+            next.has_client_secret =
+              typeof client_secret === 'string' && client_secret !== '';
           }
           return next;
         };

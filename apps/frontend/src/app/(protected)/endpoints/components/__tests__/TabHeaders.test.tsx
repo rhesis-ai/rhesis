@@ -39,6 +39,8 @@ jest.mock('@monaco-editor/react', () => {
 
 import TabConnection from '../TabConnection';
 import type { FormData } from '../EndpointForm';
+import { ENDPOINT_AUTH_TYPES } from '@/constants/endpoint-auth';
+import { EMPTY_CLIENT_CREDENTIALS } from '../endpointAuth';
 
 const defaultFormData: FormData = {
   name: '',
@@ -52,7 +54,9 @@ const defaultFormData: FormData = {
   endpoint_path: '',
   project_id: '',
   organization_id: '',
+  auth_type: ENDPOINT_AUTH_TYPES.BEARER_TOKEN,
   auth_token: '',
+  client_credentials: EMPTY_CLIENT_CREDENTIALS,
   request_headers: '{}',
   disable_tracing: false,
   timeout_seconds: '',
@@ -108,5 +112,55 @@ describe('TabConnection — auth token fields', () => {
       screen.getByRole('button', { name: /show|toggle|visibility/i })
     );
     expect(screen.getByLabelText(/api token/i)).toHaveValue('sk-my-token');
+  });
+});
+
+describe('TabConnection — client credentials', () => {
+  const clientCredentialsForm: FormData = {
+    ...defaultFormData,
+    auth_type: ENDPOINT_AUTH_TYPES.CLIENT_CREDENTIALS,
+  };
+
+  it('shows the OAuth fields and hides the API token', () => {
+    render(
+      <TabConnection formData={clientCredentialsForm} onChange={jest.fn()} />
+    );
+    expect(screen.getByLabelText(/token url/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/client id/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^client secret/i)).toHaveAttribute(
+      'type',
+      'password'
+    );
+    expect(screen.queryByLabelText(/api token/i)).not.toBeInTheDocument();
+  });
+
+  it('reports a field change as a new client_credentials draft', () => {
+    const onChange = jest.fn();
+    render(
+      <TabConnection formData={clientCredentialsForm} onChange={onChange} />
+    );
+    fireEvent.change(screen.getByLabelText(/client id/i), {
+      target: { value: 'my-client' },
+    });
+    expect(onChange).toHaveBeenCalledWith('client_credentials', {
+      ...EMPTY_CLIENT_CREDENTIALS,
+      client_id: 'my-client',
+    });
+  });
+
+  it('flags an invalid token URL', () => {
+    render(
+      <TabConnection
+        formData={{
+          ...clientCredentialsForm,
+          client_credentials: {
+            ...EMPTY_CLIENT_CREDENTIALS,
+            token_url: 'not a url',
+          },
+        }}
+        onChange={jest.fn()}
+      />
+    );
+    expect(screen.getByText('Enter a valid URL')).toBeInTheDocument();
   });
 });

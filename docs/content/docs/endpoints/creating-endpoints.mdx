@@ -24,13 +24,19 @@ Enter the endpoint **Name**, **URL**, **HTTP method**, **protocol** (REST or Web
 
 ### Set up authentication
 
-In the **Connection** tab, set your API token, OAuth client credentials, and any custom request headers.
+In the **Connection** tab, pick an **Authentication** type, then add any custom request headers.
 
-The token is stored securely and available as `{{ auth_token }}` in your request template. If you set a token without an explicit `Authorization` header, Rhesis adds `Authorization: Bearer <token>` automatically.
+- **Bearer token**: paste your API key or token. Leave it empty for an endpoint that needs no authentication.
+- **OAuth 2.0 client credentials**: enter the **Token URL**, **Client ID** and **Client secret**. The token URL must use `https://`, since the client secret is sent to it; `http://` is accepted only for `localhost`. **Audience**, **Scopes** (separated by spaces) and **Extra payload** (a JSON object of string fields to add to the token request) are optional.
 
-Two authentication types are supported:
-- **Bearer token** — paste your API key or token directly
-- **Client credentials (OAuth)** — provide `client_id`, `client_secret`, `token_url`, and `scopes`; Rhesis fetches and refreshes the token automatically
+For client credentials, Rhesis sends a form-encoded `grant_type=client_credentials` request to the token URL. **Client authentication** sets how the client ID and secret are sent, and must match the setting at your OAuth provider:
+
+- **Basic auth header** (default, `client_secret_basic`): in an `Authorization: Basic` header. Every OAuth server must support this.
+- **In request body** (`client_secret_post`): as `client_id` and `client_secret` form fields.
+
+Rhesis caches the access token until it expires and requests a new one when you change the credentials.
+
+Either way, the token is available as `{{ auth_token }}` in your request headers. If no `Authorization` header is set, Rhesis adds `Authorization: Bearer <token>` automatically. Tokens and client secrets are stored encrypted and are never shown again after saving.
 
 ### Write the request and response mapping
 

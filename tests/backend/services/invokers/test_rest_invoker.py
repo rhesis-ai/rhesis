@@ -1,6 +1,7 @@
 """Tests for REST endpoint invoker."""
 
 from unittest.mock import AsyncMock, Mock, patch
+from urllib.parse import urlparse
 
 import httpx
 import pytest
@@ -160,6 +161,25 @@ class TestRestEndpointInvoker:
         assert result["error"] is True
         assert result["error_type"] == "network_error"
         assert "Connection refused" in result["message"]
+
+    @pytest.mark.asyncio
+    async def test_invoke_timeout_names_host_and_reason(
+        self, mock_db, sample_endpoint_rest, sample_input_data
+    ):
+        """httpx timeouts stringify to "", so the message must not rely on str(e)."""
+        invoker = RestEndpointInvoker()
+
+        with patch.object(
+            invoker,
+            "_async_request",
+            new_callable=AsyncMock,
+            side_effect=httpx.ReadTimeout(""),
+        ):
+            result = await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+
+        host = urlparse(sample_endpoint_rest.url).netloc
+        assert result.error_type == "network_error"
+        assert result.output == (f"Could not reach {host}: it did not respond before the timeout.")
 
     @pytest.mark.asyncio
     async def test_invoke_with_json_parsing_error(

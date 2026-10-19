@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Box, Grid, TextField } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { SectionCard } from '@/components/common/SectionCard';
@@ -28,7 +28,6 @@ export default function TabConnection({
 }: TabConnectionProps) {
   const theme = useTheme();
   const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
-  const [showAuthToken, setShowAuthToken] = useState(false);
 
   return (
     <Box>
@@ -72,17 +71,19 @@ export default function TabConnection({
 
         <FormSectionDivider
           headline="Authentication & headers"
-          descriptiveText="Configure the API token and any custom headers Rhesis should send with each request."
+          descriptiveText="Choose how Rhesis authenticates, and add any custom headers it should send with each request."
         />
 
         <Box sx={{ mt: 2 }}>
           <EndpointHeadersFields
+            authType={formData.auth_type}
+            onAuthTypeChange={v => onChange('auth_type', v)}
+            clientCredentials={formData.client_credentials}
+            onClientCredentialsChange={v => onChange('client_credentials', v)}
             authToken={formData.auth_token}
             requestHeaders={formData.request_headers}
             onAuthTokenChange={v => onChange('auth_token', v)}
             onRequestHeadersChange={v => onChange('request_headers', v)}
-            showAuthToken={showAuthToken}
-            onToggleAuthToken={() => setShowAuthToken(v => !v)}
             editorTheme={editorTheme}
             isEditing
           />

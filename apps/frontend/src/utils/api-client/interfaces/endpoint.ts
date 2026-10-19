@@ -1,3 +1,7 @@
+import type {
+  EndpointAuthType,
+  TokenEndpointAuthMethod,
+} from '@/constants/endpoint-auth';
 import { Status } from './status';
 
 /** Known fields in endpoint_metadata - extensible via index signature */
@@ -80,7 +84,16 @@ export interface Endpoint {
     name?: string;
   };
 
+  auth_type?: EndpointAuthType | null;
   has_auth_token?: boolean;
+  has_client_secret?: boolean;
+  // Client-credentials fields. null clears them on update.
+  token_url?: string | null;
+  token_endpoint_auth_method?: TokenEndpointAuthMethod | null;
+  client_id?: string | null;
+  audience?: string | null;
+  scopes?: string[] | null;
+  extra_payload?: Record<string, unknown> | null;
 
   // Note: auth_token, client_secret, last_token are write-only fields
   // They can be set during create/update but are never returned in responses
@@ -95,7 +108,7 @@ export interface EndpointEditData extends Omit<
 > {
   // null clears the stored token; undefined leaves it untouched
   auth_token?: string | null;
-  client_secret?: string;
+  client_secret?: string | null;
 }
 
 // Type for auto-configure request
@@ -131,8 +144,15 @@ export interface EndpointTestRequest {
   request_headers: Record<string, string>;
   request_mapping: Record<string, unknown>;
   response_mapping: Record<string, string>;
-  auth_type: 'bearer_token' | 'client_credentials';
-  auth_token: string;
+  auth_type: EndpointAuthType;
+  auth_token?: string;
+  client_id?: string;
+  client_secret?: string;
+  token_url?: string;
+  token_endpoint_auth_method?: TokenEndpointAuthMethod;
+  scopes?: string[];
+  audience?: string;
+  extra_payload?: Record<string, string>;
   input_data: Record<string, unknown>;
   endpoint_path?: string;
   query_params?: Record<string, unknown>;

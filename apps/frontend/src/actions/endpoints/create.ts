@@ -12,6 +12,7 @@ export interface CreateEndpointResult {
 
 type CreateEndpointPayload = Omit<Endpoint, 'id'> & {
   auth_token?: string;
+  client_secret?: string;
 };
 
 export async function createEndpoint(

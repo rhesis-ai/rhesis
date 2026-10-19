@@ -10,6 +10,7 @@ Run with: python -m pytest tests/backend/routes/test_endpoint.py -v
 
 import json
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -372,6 +373,129 @@ class TestEndpointConfiguration(EndpointTestMixin, BaseEntityTests):
         assert "input_mappings" in data  # Use correct field name
         assert "response_mapping" in data  # Use correct field name
         assert data["input_mappings"]["user_query"] == "$.input"
+
+
+@pytest.mark.integration
+class TestEndpointAuthFields(EndpointTestMixin, BaseEntityTests):
+    """Auth type and client-credentials fields as the endpoint form reads and writes them."""
+
+    def _oauth_data(self, db_project) -> Dict[str, Any]:
+        return {
+            **self.get_sample_data(db_project),
+            "auth_type": "client_credentials",
+            "client_id": "client-123",
+            "client_secret": "super-secret",
+            "token_url": "https://auth.example.com/oauth/token",
+            "scopes": ["read", "write"],
+            "audience": "https://api.example.com",
+            "extra_payload": {"resource": "https://api.example.com"},
+        }
+
+    def _create_with_cached_token(self, client, db_project, test_db, token: str) -> str:
+        endpoint_id = client.post(self.endpoints.create, json=self._oauth_data(db_project)).json()[
+            "id"
+        ]
+        stored = test_db.query(models.Endpoint).filter(models.Endpoint.id == endpoint_id).one()
+        stored.last_token = token
+        stored.last_token_expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        test_db.commit()
+        return endpoint_id
+
+    def _stored(self, test_db, endpoint_id: str) -> models.Endpoint:
+        test_db.expire_all()
+        return test_db.query(models.Endpoint).filter(models.Endpoint.id == endpoint_id).one()
+
+    def test_client_secret_is_reported_but_never_returned(
+        self, authenticated_client: TestClient, db_project
+    ):
+        response = authenticated_client.post(
+            self.endpoints.create, json=self._oauth_data(db_project)
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        data = response.json()
+        assert data["auth_type"] == "client_credentials"
+        assert data["has_client_secret"] is True
+        assert data["token_url"] == "https://auth.example.com/oauth/token"
+        assert data["scopes"] == ["read", "write"]
+        assert "client_secret" not in data
+        assert "super-secret" not in response.text
+
+    @pytest.mark.parametrize(
+        "token_url",
+        ["http://auth.example.com/oauth/token", "ftp://auth.example.com/token", "not a url"],
+    )
+    def test_token_url_must_use_https(
+        self, authenticated_client: TestClient, db_project, token_url
+    ):
+        response = authenticated_client.post(
+            self.endpoints.create, json={**self._oauth_data(db_project), "token_url": token_url}
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert "https://" in response.text
+
+    def test_plain_http_token_url_is_allowed_on_localhost(
+        self, authenticated_client: TestClient, db_project
+    ):
+        response = authenticated_client.post(
+            self.endpoints.create,
+            json={**self._oauth_data(db_project), "token_url": "http://localhost:8199/token"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+
+    def test_token_endpoint_auth_method_round_trips(
+        self, authenticated_client: TestClient, db_project
+    ):
+        response = authenticated_client.post(
+            self.endpoints.create,
+            json={
+                **self._oauth_data(db_project),
+                "token_endpoint_auth_method": "client_secret_post",
+            },
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.json()["token_endpoint_auth_method"] == "client_secret_post"
+
+    def test_api_key_auth_type_is_rejected(self, authenticated_client: TestClient, db_project):
+        response = authenticated_client.post(
+            self.endpoints.create,
+            json={**self.get_sample_data(db_project), "auth_type": "api_key"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_changing_credentials_drops_the_cached_token(
+        self, authenticated_client: TestClient, db_project, test_db
+    ):
+        endpoint_id = self._create_with_cached_token(
+            authenticated_client, db_project, test_db, "token-for-old-secret"
+        )
+
+        response = authenticated_client.put(
+            self.endpoints.put(endpoint_id), json={"client_secret": "rotated-secret"}
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        stored = self._stored(test_db, endpoint_id)
+        assert stored.last_token is None
+        assert stored.last_token_expires_at is None
+
+    def test_unrelated_update_keeps_the_cached_token(
+        self, authenticated_client: TestClient, db_project, test_db
+    ):
+        endpoint_id = self._create_with_cached_token(
+            authenticated_client, db_project, test_db, "still-good"
+        )
+
+        response = authenticated_client.put(
+            self.endpoints.put(endpoint_id), json={"name": "Renamed"}
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert self._stored(test_db, endpoint_id).last_token == "still-good"
 
 
 @pytest.mark.integration
@@ -763,6 +887,43 @@ class TestEndpointOffLoopRoutes(EndpointTestMixin, BaseEntityTests):
         call_kwargs = http_client.post.call_args.kwargs
         assert call_kwargs["json"] == {"query": "ping"}
         assert call_kwargs["headers"]["Authorization"] == "Bearer test-secret-token"
+
+    def test_test_endpoint_with_client_credentials(self, authenticated_client: TestClient):
+        """POST /endpoints/test fetches an OAuth token and sends it as the bearer."""
+        http_client = _mock_http_client({"answer": "pong"})
+        token_response = Mock()
+        token_response.json.return_value = {"access_token": "oauth-token", "expires_in": 3600}
+        test_config = {
+            "connection_type": "REST",
+            "url": "https://api.example.com/v1/echo",
+            "method": "POST",
+            "request_headers": {"Content-Type": "application/json"},
+            "request_mapping": {"query": "{{input}}"},
+            "response_mapping": {"output": "$.answer"},
+            "auth_type": "client_credentials",
+            "client_id": "client-123",
+            "client_secret": "super-secret",
+            "token_url": "https://auth.example.com/oauth/token",
+            "input_data": {"input": "ping"},
+        }
+
+        with (
+            patch(
+                "rhesis.backend.app.services.invokers.rest_invoker._get_http_client",
+                return_value=http_client,
+            ),
+            patch(
+                "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+                return_value=token_response,
+            ) as token_post,
+        ):
+            response = authenticated_client.post("/endpoints/test", json=test_config)
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.json()["output"] == "pong"
+        assert token_post.call_args.kwargs["headers"]["Authorization"].startswith("Basic ")
+        call_kwargs = http_client.post.call_args.kwargs
+        assert call_kwargs["headers"]["Authorization"] == "Bearer oauth-token"
 
     def test_test_endpoint_mapping_uses_draft_mapping(
         self, authenticated_client: TestClient, working_endpoint

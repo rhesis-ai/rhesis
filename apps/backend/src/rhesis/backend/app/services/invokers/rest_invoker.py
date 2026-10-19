@@ -14,9 +14,12 @@ from tenacity import (
 )
 
 from rhesis.backend.app.models.endpoint import Endpoint
-
-from .base import BaseEndpointInvoker
-from .common.schemas import ErrorResponse
+from rhesis.backend.app.services.invokers.base import BaseEndpointInvoker
+from rhesis.backend.app.services.invokers.common.connection_errors import (
+    describe_connection_error,
+    url_host,
+)
+from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +104,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
     ) -> Union[Dict[str, Any], ErrorResponse]:
         # Backward-compat: callers that pass positional args build a temporary context.
         if db is not None or endpoint is not None:
-            from .context import InvocationContext
+            from rhesis.backend.app.services.invokers.context import InvocationContext
 
             self.context = InvocationContext(
                 db=db,
@@ -154,11 +157,13 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 conversation_id,
             )
 
-        except httpx.HTTPError as e:
+        except (httpx.HTTPError, httpx.InvalidURL) as e:
+            reason = describe_connection_error(e)
+            message = f"Could not reach {url_host(endpoint.url)}: {reason}."
             return self._create_error_response(
                 error_type="network_error",
-                output_message=f"Network/connection error: {str(e)}",
-                message=f"Network/connection error: {str(e)}",
+                output_message=message,
+                message=message,
                 request_details=self._safe_request_details(locals(), "REST"),
             )
         except (ValueError, json.JSONDecodeError) as e:

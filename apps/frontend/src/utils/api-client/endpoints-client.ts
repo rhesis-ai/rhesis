@@ -18,7 +18,10 @@ const DEFAULT_PAGINATION: PaginationParams = {
   sort_order: 'desc',
 };
 
-export type EndpointCreate = Omit<Endpoint, 'id'> & { auth_token?: string };
+export type EndpointCreate = Omit<Endpoint, 'id'> & {
+  auth_token?: string;
+  client_secret?: string;
+};
 
 export class EndpointsClient extends BaseApiClient {
   async getEndpoints(

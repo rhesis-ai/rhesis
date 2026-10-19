@@ -31,8 +31,13 @@ class EndpointEnvironment(str, Enum):
 class EndpointAuthType(str, Enum):
     BEARER_TOKEN = "bearer_token"
     CLIENT_CREDENTIALS = "client_credentials"
-    API_KEY = "api_key"
-    # Add more as needed
+
+
+class TokenEndpointAuthMethod(str, Enum):
+    """How a client-credentials endpoint authenticates to its token URL (RFC 7591 names)."""
+
+    CLIENT_SECRET_BASIC = "client_secret_basic"
+    CLIENT_SECRET_POST = "client_secret_post"
 
 
 class ModelType(str, Enum):

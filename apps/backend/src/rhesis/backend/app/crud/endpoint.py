@@ -92,6 +92,21 @@ def create_endpoint(
     return db_endpoint
 
 
+# Changing any of these makes a cached OAuth token stale.
+_TOKEN_INPUT_FIELDS = frozenset(
+    {
+        "auth_type",
+        "client_id",
+        "client_secret",
+        "token_url",
+        "token_endpoint_auth_method",
+        "scopes",
+        "audience",
+        "extra_payload",
+    }
+)
+
+
 def update_endpoint(
     db: Session,
     endpoint_id: uuid.UUID,
@@ -110,6 +125,10 @@ def update_endpoint(
         endpoint_data = endpoint.model_dump(exclude={"timeout_seconds"}, exclude_unset=True)
     else:
         endpoint_data = {k: v for k, v in endpoint.items() if k != "timeout_seconds"}
+
+    if _TOKEN_INPUT_FIELDS & endpoint_data.keys():
+        endpoint_data["last_token"] = None
+        endpoint_data["last_token_expires_at"] = None
 
     db_endpoint = update_item(
         db, models.Endpoint, endpoint_id, endpoint_data, organization_id, user_id

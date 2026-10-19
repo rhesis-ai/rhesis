@@ -1,9 +1,11 @@
 """Tests for authentication manager functionality."""
 
+import base64
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
 from fastapi import HTTPException
 
 from rhesis.backend.app.error_handlers import UpstreamHTTPException
@@ -34,7 +36,9 @@ class TestAuthenticationManager:
         manager = AuthenticationManager()
 
         # Set expired token
-        sample_endpoint_oauth.last_token_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        sample_endpoint_oauth.last_token_expires_at = datetime.now(timezone.utc) - timedelta(
+            hours=1
+        )
 
         mock_response = Mock()
         mock_response.json.return_value = {
@@ -92,11 +96,16 @@ class TestAuthenticationManager:
             # Verify correct payload was sent
             call_args = mock_post.call_args
             assert call_args[0][0] == "https://auth.example.com/oauth/token"
-            payload = call_args[1]["json"]
-            assert payload["client_id"] == "test-client-id"
-            assert payload["client_secret"] == "test-client-secret"
+            payload = call_args[1]["data"]
             assert payload["audience"] == "https://api.example.com"
             assert payload["grant_type"] == "client_credentials"
+            # client_secret_basic by default: credentials go in the header only
+            assert "client_secret" not in payload
+            assert "client_id" not in payload
+            assert (
+                call_args[1]["headers"]["Authorization"]
+                == "Basic " + base64.b64encode(b"test-client-id:test-client-secret").decode()
+            )
 
         assert token == "oauth-token"
 
@@ -118,7 +127,7 @@ class TestAuthenticationManager:
         ) as mock_post:
             manager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
 
-            payload = mock_post.call_args[1]["json"]
+            payload = mock_post.call_args[1]["data"]
             assert payload["scope"] == "read:data write:data"
 
     def test_get_client_credentials_token_with_extra_payload(self, mock_db, sample_endpoint_oauth):
@@ -139,7 +148,7 @@ class TestAuthenticationManager:
         ) as mock_post:
             manager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
 
-            payload = mock_post.call_args[1]["json"]
+            payload = mock_post.call_args[1]["data"]
             assert payload["resource"] == "api.example.com"
 
     def test_get_client_credentials_token_no_token_url(self, mock_db, sample_endpoint_oauth):
@@ -168,7 +177,8 @@ class TestAuthenticationManager:
             # so the reason reaches them instead of being masked as our error.
             assert exc_info.value.status_code == 502
             assert isinstance(exc_info.value, UpstreamHTTPException)
-            assert "configured token URL" in str(exc_info.value.detail)
+            assert "OAuth 2.0 client credentials" in str(exc_info.value.detail)
+            assert "auth.example.com" in str(exc_info.value.detail)
 
     def test_get_client_credentials_token_http_error(self, mock_db, sample_endpoint_oauth):
         """Test OAuth flow handles HTTP errors."""
@@ -185,6 +195,147 @@ class TestAuthenticationManager:
                 manager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
 
             assert exc_info.value.status_code == 502
+
+    def test_client_secret_post_sends_credentials_in_body(self, mock_db, sample_endpoint_oauth):
+        sample_endpoint_oauth.token_endpoint_auth_method = "client_secret_post"
+        mock_response = Mock()
+        mock_response.json.return_value = {"access_token": "t", "expires_in": 3600}
+
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            return_value=mock_response,
+        ) as mock_post:
+            AuthenticationManager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
+
+        payload = mock_post.call_args[1]["data"]
+        assert payload["client_id"] == "test-client-id"
+        assert payload["client_secret"] == "test-client-secret"
+        assert "Authorization" not in mock_post.call_args[1]["headers"]
+
+    def test_basic_header_form_encodes_credentials(self, mock_db, sample_endpoint_oauth):
+        """RFC 6749 2.3.1: both parts are form-urlencoded before base64."""
+        sample_endpoint_oauth.client_id = "id:with space"
+        sample_endpoint_oauth.client_secret = "s+cr:t/%"
+        mock_response = Mock()
+        mock_response.json.return_value = {"access_token": "t", "expires_in": 3600}
+
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            return_value=mock_response,
+        ) as mock_post:
+            AuthenticationManager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
+
+        header = mock_post.call_args[1]["headers"]["Authorization"]
+        decoded = base64.b64decode(header.removeprefix("Basic ")).decode()
+        assert decoded == "id%3Awith+space:s%2Bcr%3At%2F%25"
+
+    def test_plain_http_token_url_is_refused(self, mock_db, sample_endpoint_oauth):
+        sample_endpoint_oauth.token_url = "http://auth.example.com/oauth/token"
+
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post"
+        ) as mock_post:
+            with pytest.raises(HTTPException) as exc_info:
+                AuthenticationManager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
+
+        assert exc_info.value.status_code == 400
+        assert "https://" in exc_info.value.detail
+        mock_post.assert_not_called()
+
+    def test_token_request_is_form_encoded(self, mock_db, sample_endpoint_oauth):
+        """RFC 6749 4.4.2: sent as form data, never as a JSON body."""
+        mock_response = Mock()
+        mock_response.json.return_value = {"access_token": "t", "expires_in": 3600}
+
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            return_value=mock_response,
+        ) as mock_post:
+            AuthenticationManager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
+
+        assert "json" not in mock_post.call_args[1]
+        assert mock_post.call_args[1]["data"]["grant_type"] == "client_credentials"
+
+    def test_unset_optional_fields_are_left_out(self, mock_db, sample_endpoint_oauth):
+        """A None audience or scope must not be sent as the string "None"."""
+        sample_endpoint_oauth.audience = None
+        sample_endpoint_oauth.scopes = None
+        mock_response = Mock()
+        mock_response.json.return_value = {"access_token": "t", "expires_in": 3600}
+
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            return_value=mock_response,
+        ) as mock_post:
+            AuthenticationManager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
+
+        payload = mock_post.call_args[1]["data"]
+        assert "audience" not in payload
+        assert "scope" not in payload
+
+    def test_http_error_reports_status_and_oauth_error(self, mock_db, sample_endpoint_oauth):
+        """The RFC 6749 5.2 error fields reach the user; the secret does not."""
+        error_response = Mock(status_code=401)
+        error_response.json.return_value = {
+            "error": "invalid_client",
+            "error_description": "Client authentication failed",
+        }
+        mock_response = Mock()
+        mock_response.raise_for_status.side_effect = requests.HTTPError(response=error_response)
+
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            return_value=mock_response,
+        ):
+            with pytest.raises(UpstreamHTTPException) as exc_info:
+                AuthenticationManager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
+
+        detail = str(exc_info.value.detail)
+        assert "HTTP 401 (invalid_client: Client authentication failed)" in detail
+        assert "test-client-secret" not in detail
+
+    def test_http_error_without_json_body_reports_status(self, mock_db, sample_endpoint_oauth):
+        error_response = Mock(status_code=503)
+        error_response.json.side_effect = ValueError("not json")
+        mock_response = Mock()
+        mock_response.raise_for_status.side_effect = requests.HTTPError(response=error_response)
+
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            return_value=mock_response,
+        ):
+            with pytest.raises(UpstreamHTTPException) as exc_info:
+                AuthenticationManager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
+
+        assert str(exc_info.value.detail).endswith("failed: HTTP 503")
+
+    def test_unreachable_token_url_says_why(self, mock_db, sample_endpoint_oauth):
+        refused = requests.ConnectionError("Max retries exceeded")
+        refused.__cause__ = ConnectionRefusedError(61, "Connection refused")
+
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            side_effect=refused,
+        ):
+            with pytest.raises(UpstreamHTTPException) as exc_info:
+                AuthenticationManager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
+
+        assert str(exc_info.value.detail).endswith(
+            "token request to auth.example.com failed: the connection was refused"
+        )
+
+    def test_response_without_access_token(self, mock_db, sample_endpoint_oauth):
+        mock_response = Mock()
+        mock_response.json.return_value = {"token_type": "bearer"}
+
+        with patch(
+            "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
+            return_value=mock_response,
+        ):
+            with pytest.raises(UpstreamHTTPException) as exc_info:
+                AuthenticationManager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
+
+        assert "did not contain an access_token" in str(exc_info.value.detail)
 
     def test_get_client_credentials_token_updates_endpoint_cache(
         self, mock_db, sample_endpoint_oauth

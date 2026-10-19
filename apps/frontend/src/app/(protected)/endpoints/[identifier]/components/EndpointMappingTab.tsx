@@ -181,11 +181,7 @@ export default function EndpointMappingTab() {
       const success = r.success !== false && !r.error;
       setTestResult({ success: Boolean(success), response: r });
     } catch (err) {
-      const msg = (err as Error).message ?? '';
-      const display = msg.includes('500')
-        ? 'The server encountered an error processing the response. Check the backend logs for details.'
-        : msg;
-      setTestResult({ success: false, error: display });
+      setTestResult({ success: false, error: (err as Error).message ?? '' });
     } finally {
       setIsTestingEndpoint(false);
     }

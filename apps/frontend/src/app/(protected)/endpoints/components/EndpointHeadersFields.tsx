@@ -1,61 +1,55 @@
 'use client';
 
-import {
-  Box,
-  Chip,
-  IconButton,
-  InputAdornment,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Box, Chip, Typography } from '@mui/material';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import ViewField from '@/components/common/ViewField';
 import {
-  DeleteIcon,
-  LockIcon,
-  RefreshIcon,
-  VisibilityIcon,
-  VisibilityOffIcon,
-} from '@/components/icons';
+  ENDPOINT_AUTH_TYPES,
+  type EndpointAuthType,
+} from '@/constants/endpoint-auth';
 import HeadersEditor from './HeadersEditor';
 import JsonMonacoField from '../[identifier]/components/JsonMonacoField';
+import EndpointAuthFields from './EndpointAuthFields';
+import SecretField, { STORED_MASK } from './SecretField';
+import type { ClientCredentialsDraft } from './endpointAuth';
 import { variableChipSx } from './endpoint-styles';
 
 export interface EndpointHeadersFieldsProps {
+  authType: EndpointAuthType;
+  onAuthTypeChange: (value: EndpointAuthType) => void;
+  clientCredentials: ClientCredentialsDraft;
+  onClientCredentialsChange: (value: ClientCredentialsDraft) => void;
+  hasExistingClientSecret?: boolean;
   authToken: string;
   requestHeaders: string;
   onAuthTokenChange: (value: string) => void;
   onRequestHeadersChange: (value: string) => void;
-  showAuthToken: boolean;
-  onToggleAuthToken: () => void;
   editorTheme: string;
   isEditing: boolean;
   hasExistingToken?: boolean;
-  tokenFieldFocused?: boolean;
-  onTokenFocus?: () => void;
-  onTokenBlur?: () => void;
   tokenCleared?: boolean;
   onToggleTokenCleared?: () => void;
   editorWrapperStyle?: Record<string, unknown>;
 }
 
 export default function EndpointHeadersFields({
+  authType,
+  onAuthTypeChange,
+  clientCredentials,
+  onClientCredentialsChange,
+  hasExistingClientSecret = false,
   authToken,
   requestHeaders,
   onAuthTokenChange,
   onRequestHeadersChange,
-  showAuthToken,
-  onToggleAuthToken,
   editorTheme,
   isEditing,
   hasExistingToken = false,
-  tokenFieldFocused = false,
-  onTokenFocus,
-  onTokenBlur,
   tokenCleared = false,
   onToggleTokenCleared,
   editorWrapperStyle,
 }: EndpointHeadersFieldsProps) {
+  const isBearer = authType === ENDPOINT_AUTH_TYPES.BEARER_TOKEN;
   const tokenHelper = (
     <Box
       component="span"
@@ -81,86 +75,38 @@ export default function EndpointHeadersFields({
     </Box>
   );
 
+  const bearerTokenField = isEditing ? (
+    <SecretField
+      label="API Token (optional)"
+      noun="token"
+      value={authToken}
+      onChange={onAuthTokenChange}
+      hasStored={hasExistingToken}
+      placeholder="sk-..."
+      helperText={tokenHelper}
+      cleared={tokenCleared}
+      onToggleCleared={onToggleTokenCleared}
+    />
+  ) : (
+    <ViewField
+      label="API Token"
+      value={hasExistingToken ? STORED_MASK : 'No token configured'}
+    />
+  );
+
   return (
     <Box>
-      {isEditing ? (
-        <TextField
-          fullWidth
-          label="API Token (optional)"
-          type={showAuthToken ? 'text' : 'password'}
-          value={
-            tokenCleared
-              ? ''
-              : tokenFieldFocused || authToken !== ''
-                ? authToken
-                : hasExistingToken
-                  ? '••••••••••••••••••••••••'
-                  : ''
-          }
-          onChange={e => onAuthTokenChange(e.target.value)}
-          onFocus={onTokenFocus}
-          onBlur={onTokenBlur}
-          placeholder={
-            tokenCleared
-              ? 'The saved token will be removed on save'
-              : hasExistingToken
-                ? 'Enter new token or leave empty to keep existing'
-                : 'sk-...'
-          }
-          sx={{ mb: 3 }}
-          error={tokenCleared}
-          helperText={
-            tokenCleared
-              ? 'The saved token will be removed when you save. Type a new token or restore to keep it.'
-              : hasExistingToken
-                ? 'Leave empty to keep the existing token, or enter a new one to replace it.'
-                : tokenHelper
-          }
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <LockIcon color="action" />
-              </InputAdornment>
-            ),
-            endAdornment: (
-              <InputAdornment position="end">
-                {hasExistingToken &&
-                  authToken === '' &&
-                  onToggleTokenCleared && (
-                    <IconButton
-                      aria-label={
-                        tokenCleared ? 'restore token' : 'remove token'
-                      }
-                      title={tokenCleared ? 'Restore token' : 'Remove token'}
-                      onClick={onToggleTokenCleared}
-                      edge="end"
-                    >
-                      {tokenCleared ? <RefreshIcon /> : <DeleteIcon />}
-                    </IconButton>
-                  )}
-                <IconButton
-                  aria-label="toggle token visibility"
-                  onClick={onToggleAuthToken}
-                  edge="end"
-                >
-                  {showAuthToken ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-        />
-      ) : (
-        <Box sx={{ mb: 3 }}>
-          <ViewField
-            label="API Token"
-            value={
-              hasExistingToken
-                ? '••••••••••••••••••••••••'
-                : 'No token configured'
-            }
-          />
-        </Box>
-      )}
+      <EndpointAuthFields
+        authType={authType}
+        onAuthTypeChange={onAuthTypeChange}
+        clientCredentials={clientCredentials}
+        onClientCredentialsChange={onClientCredentialsChange}
+        hasStoredClientSecret={hasExistingClientSecret}
+        isEditing={isEditing}
+        editorTheme={editorTheme}
+        editorWrapperStyle={editorWrapperStyle}
+        bearerTokenField={bearerTokenField}
+      />
 
       <Box sx={{ mt: 1, mb: 2 }}>
         <FormSectionDivider
@@ -171,7 +117,9 @@ export default function EndpointHeadersFields({
 
       {isEditing ? (
         <HeadersEditor
-          authToken={authToken}
+          // Only a typed bearer token adds an Authorization header here; the
+          // backend adds one for an OAuth token when no header sets it.
+          authToken={isBearer ? authToken : ''}
           customHeaders={requestHeaders}
           onChange={onRequestHeadersChange}
           editorTheme={editorTheme}
@@ -191,7 +139,8 @@ export default function EndpointHeadersFields({
                 '& .MuiChip-label': { px: 0.75 },
               }}
             />{' '}
-            in header values to reference the API token.
+            in header values to reference the{' '}
+            {isBearer ? 'API token' : 'access token'}.
           </Typography>
           <JsonMonacoField
             editorKey="request-headers-view"
