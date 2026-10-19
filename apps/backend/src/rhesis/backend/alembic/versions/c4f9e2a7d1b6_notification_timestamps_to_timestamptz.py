@@ -23,17 +23,18 @@ depends_on: Union[str, Sequence[str], None] = None
 COLUMNS = ("created_at", "updated_at", "deleted_at")
 
 
+def _alter_all(target_type: str) -> None:
+    # One statement, so the table is rewritten and locked once, not once per column.
+    clauses = ", ".join(
+        f"ALTER COLUMN {column} TYPE {target_type} USING {column} AT TIME ZONE 'UTC'"
+        for column in COLUMNS
+    )
+    op.execute(f"ALTER TABLE notification {clauses}")
+
+
 def upgrade() -> None:
-    for column in COLUMNS:
-        op.execute(
-            f"ALTER TABLE notification ALTER COLUMN {column} "
-            f"TYPE TIMESTAMP WITH TIME ZONE USING {column} AT TIME ZONE 'UTC'"
-        )
+    _alter_all("TIMESTAMP WITH TIME ZONE")
 
 
 def downgrade() -> None:
-    for column in COLUMNS:
-        op.execute(
-            f"ALTER TABLE notification ALTER COLUMN {column} "
-            f"TYPE TIMESTAMP WITHOUT TIME ZONE USING {column} AT TIME ZONE 'UTC'"
-        )
+    _alter_all("TIMESTAMP WITHOUT TIME ZONE")

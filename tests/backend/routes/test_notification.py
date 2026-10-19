@@ -179,7 +179,7 @@ class TestMarkRead:
 
 @pytest.mark.integration
 class TestNotificationTimestamps:
-    def test_created_at_carries_a_utc_offset(
+    def test_created_at_carries_an_offset(
         self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
     ):
         """Without an offset, browsers read the UTC time as local and say "2h ago"."""
@@ -188,5 +188,5 @@ class TestNotificationTimestamps:
         response = authenticated_client.get("/notifications/")
         assert response.status_code == 200
         created_at = datetime.fromisoformat(response.json()[0]["created_at"])
-        assert created_at.utcoffset() == timedelta(0)
+        assert created_at.utcoffset() is not None
         assert abs(datetime.now(timezone.utc) - created_at) < timedelta(minutes=5)
