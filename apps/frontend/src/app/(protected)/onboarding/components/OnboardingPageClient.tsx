@@ -161,15 +161,6 @@ export default function OnboardingPageClient({
         const authenticatedOrganizationsClient =
           authenticatedFactory.getOrganizationsClient();
 
-        // Nice to have, so a failure here doesn't block onboarding
-        try {
-          await authenticatedUsersClient.updateUserSettings({
-            onboarding: { profile: toProfileUpdate(formData) },
-          });
-        } catch (profileError: unknown) {
-          console.error('Failed to save profile answers:', profileError);
-        }
-
         try {
           const validEmails = formData.invites
             .filter(invite => invite.email.trim())
@@ -305,6 +296,7 @@ export default function OnboardingPageClient({
               project_id: createdProject.id as UUID,
               name: createdProject.name,
             },
+            onboarding: { profile: toProfileUpdate(formData) },
           });
 
           setOnboardingStatus('completed');
