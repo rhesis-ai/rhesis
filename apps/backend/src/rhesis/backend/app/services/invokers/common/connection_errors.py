@@ -34,10 +34,15 @@ def _chain(exc: BaseException) -> Iterator[BaseException]:
 
 
 def url_host(url: Optional[str]) -> str:
-    """The host of a URL for messages, or the URL itself when it has none."""
-    if not url:
+    """host[:port] of a URL for messages, never any credentials in it."""
+    parsed = urlparse(url or "")
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+    if not parsed.hostname:
         return "the server"
-    return urlparse(url).netloc or url
+    return f"{parsed.hostname}:{port}" if port else parsed.hostname
 
 
 def describe_connection_error(exc: BaseException) -> str:

@@ -94,4 +94,16 @@ class TestChainedCauses:
 
 def test_url_host():
     assert url_host("https://api.example.com/v1/chat") == "api.example.com"
+    assert url_host("http://127.0.0.1:8080/x") == "127.0.0.1:8080"
     assert url_host(None) == "the server"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://user:s3cret@auth.example.com/token",  # trufflehog:ignore
+        "user:s3cret@auth.example.com/token",  # trufflehog:ignore
+    ],
+)
+def test_url_host_never_echoes_credentials(url):
+    assert "s3cret" not in url_host(url)
