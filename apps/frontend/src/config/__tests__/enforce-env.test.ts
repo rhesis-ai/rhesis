@@ -62,9 +62,9 @@ describe('enforce-env', () => {
       expect(errors).toEqual([]);
       expect(warnings).toEqual([
         'ONBOARDING_VIDEO_URL is not a YouTube or Vimeo link, so no video shows: "https://cdn.example.com/v.mp4"',
-        'ARCHITECT_HELP_ARTICLE_URLS entry is not a docs.rhesis.ai page, so it is dropped: "https://docs.example.com/x"',
         'TESTS_EMPTY_STATE_VIDEO_URL is not a YouTube link, so no video shows: "https://vimeo.com/123"',
-        'TESTS_EMPTY_STATE_ARTICLE_URLS entry is not a docs.rhesis.ai page, so its card shows only the bare link: "docs.rhesis.ai/b"',
+        'TESTS_EMPTY_STATE_ARTICLE_URLS entry is not a docs.rhesis.ai page, so it is dropped: "docs.rhesis.ai/b"',
+        'ARCHITECT_HELP_ARTICLE_URLS entry is not a docs.rhesis.ai page, so it is dropped: "https://docs.example.com/x"',
         'SUPPORT_EMAIL is not an email address: "support"',
       ]);
     });

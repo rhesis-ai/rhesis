@@ -38,6 +38,16 @@ function checkRequired(errors: string[]): void {
   }
 }
 
+function checkArticleUrls(name: string, warnings: string[]): void {
+  for (const url of readList(name)) {
+    if (!isAllowedArticleUrl(url)) {
+      warnings.push(
+        `${name} entry is not a docs.rhesis.ai page, so it is dropped: "${url}"`
+      );
+    }
+  }
+}
+
 // Each warning matches what the UI does with the value, so a check that passes
 // means the content really shows.
 function checkContent(warnings: string[]): void {
@@ -46,14 +56,6 @@ function checkContent(warnings: string[]): void {
     warnings.push(
       `ONBOARDING_VIDEO_URL is not a YouTube or Vimeo link, so no video shows: "${onboardingVideo}"`
     );
-  }
-
-  for (const url of readList('ARCHITECT_HELP_ARTICLE_URLS')) {
-    if (!isAllowedArticleUrl(url)) {
-      warnings.push(
-        `ARCHITECT_HELP_ARTICLE_URLS entry is not a docs.rhesis.ai page, so it is dropped: "${url}"`
-      );
-    }
   }
 
   for (const prefix of Object.values(EMPTY_STATE_ENV_PREFIX)) {
@@ -65,15 +67,9 @@ function checkContent(warnings: string[]): void {
       );
     }
 
-    const articlesName = `${prefix}_EMPTY_STATE_ARTICLE_URLS`;
-    for (const url of readList(articlesName)) {
-      if (!isAllowedArticleUrl(url)) {
-        warnings.push(
-          `${articlesName} entry is not a docs.rhesis.ai page, so its card shows only the bare link: "${url}"`
-        );
-      }
-    }
+    checkArticleUrls(`${prefix}_EMPTY_STATE_ARTICLE_URLS`, warnings);
   }
+  checkArticleUrls('ARCHITECT_HELP_ARTICLE_URLS', warnings);
 
   const supportEmail = read('SUPPORT_EMAIL');
   if (supportEmail && !supportEmail.includes('@')) {

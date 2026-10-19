@@ -49,7 +49,7 @@ describe('config/runtime-config', () => {
     it('reads per-entity empty states', () => {
       process.env.TEST_SETS_EMPTY_STATE_VIDEO_URL = 'https://youtu.be/abc';
       process.env.TEST_SETS_EMPTY_STATE_ARTICLE_URLS =
-        ' https://docs.rhesis.ai/a , https://docs.rhesis.ai/b ';
+        ' https://docs.rhesis.ai/a , docs.rhesis.ai/x, https://docs.rhesis.ai/b ';
 
       expect(readPublicEnv().emptyStates).toEqual({
         'test-sets': {

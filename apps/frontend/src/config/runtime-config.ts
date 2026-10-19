@@ -106,14 +106,15 @@ export function isAllowedArticleUrl(value: string): boolean {
   }
 }
 
+function readArticleUrls(name: string): string[] {
+  return readList(name).filter(isAllowedArticleUrl).slice(0, MAX_ARTICLE_URLS);
+}
+
 function readEmptyStates(): PublicEnv['emptyStates'] {
   const emptyStates: PublicEnv['emptyStates'] = {};
   for (const [key, prefix] of Object.entries(EMPTY_STATE_ENV_PREFIX)) {
     const videoUrl = read(`${prefix}_EMPTY_STATE_VIDEO_URL`);
-    const articleUrls = readList(`${prefix}_EMPTY_STATE_ARTICLE_URLS`).slice(
-      0,
-      MAX_ARTICLE_URLS
-    );
+    const articleUrls = readArticleUrls(`${prefix}_EMPTY_STATE_ARTICLE_URLS`);
     if (videoUrl || articleUrls.length > 0) {
       emptyStates[key as EntityEmptyStateKey] = { videoUrl, articleUrls };
     }
@@ -133,9 +134,7 @@ export function readPublicEnv(): PublicEnv {
     apiBaseUrl: read('API_BASE_URL'),
     environment: read('FRONTEND_ENV'),
     supportEmail: read('SUPPORT_EMAIL') ?? UNSET_PUBLIC_ENV.supportEmail,
-    architectHelpArticleUrls: readList('ARCHITECT_HELP_ARTICLE_URLS')
-      .filter(isAllowedArticleUrl)
-      .slice(0, MAX_ARTICLE_URLS),
+    architectHelpArticleUrls: readArticleUrls('ARCHITECT_HELP_ARTICLE_URLS'),
     emptyStates: readEmptyStates(),
   };
 }
