@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { normalizeBaseUrl, slugifyFont } from '@/config/branding';
+import { serverEnv } from '@/config/runtime-config';
 import { getFreshAccessToken } from '@/auth';
 import { getServerBackendUrl } from '@/utils/url-resolver';
 
@@ -118,8 +119,9 @@ export async function GET(
     return NextResponse.json({ error: 'Not a font file' }, { status: 400 });
   }
 
-  const fontBase = normalizeBaseUrl(process.env.BRAND_FONT_BASE_URL);
-  const fontFamily = process.env.BRAND_FONT_FAMILY?.trim();
+  const { brand } = serverEnv();
+  const fontBase = normalizeBaseUrl(brand.fontBaseUrl);
+  const fontFamily = brand.fontFamily;
 
   const organizationFont = await serveOrganizationFont(
     request,

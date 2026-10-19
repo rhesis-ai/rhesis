@@ -2,24 +2,15 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ArchitectHelpSection from '../ArchitectHelpSection';
-import { useArchitectHelpArticles } from '@/hooks/useArchitectHelpArticles';
 import { useProjectNeedsEndpoint } from '@/hooks/useProjectNeedsEndpoint';
 
 jest.mock('@/hooks/useProjectNeedsEndpoint', () => ({
   useProjectNeedsEndpoint: jest.fn(),
 }));
 
-jest.mock('@/hooks/useArchitectHelpArticles', () => ({
-  useArchitectHelpArticles: jest.fn(),
-}));
-
 const mockUseProjectNeedsEndpoint =
   useProjectNeedsEndpoint as jest.MockedFunction<
     typeof useProjectNeedsEndpoint
-  >;
-const mockUseArchitectHelpArticles =
-  useArchitectHelpArticles as jest.MockedFunction<
-    typeof useArchitectHelpArticles
   >;
 
 const ARTICLE_URLS = [
@@ -32,9 +23,7 @@ function setEndpointState(state: { pending: boolean; needsEndpoint: boolean }) {
 }
 
 function setArticles(urls: string[]) {
-  mockUseArchitectHelpArticles.mockReturnValue({
-    data: urls,
-  } as unknown as ReturnType<typeof useArchitectHelpArticles>);
+  window.__ENV__ = { architectHelpArticleUrls: urls };
 }
 
 describe('ArchitectHelpSection', () => {

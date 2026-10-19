@@ -18,6 +18,7 @@ import {
   parseEntityFromPathname,
   urlSegmentToResolveEntityType,
 } from '@/utils/entity-error-handler';
+import { publicEnv } from '@/config/runtime-config';
 
 interface ErrorProps {
   error: Error & {
@@ -222,7 +223,7 @@ export default function ProtectedError({ error, reset }: ErrorProps) {
               {getErrorMessage(error)}
             </Typography>
 
-            {process.env.FRONTEND_ENV === 'development' && error.digest && (
+            {publicEnv().environment === 'development' && error.digest && (
               <Alert severity="info">
                 <Typography variant="caption" component="div">
                   <strong>Error Digest:</strong> {error.digest}

@@ -12,7 +12,7 @@ import { FilterDrawerShell } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 import DiscordIcon from '@/components/DiscordIcon';
 import AppVersion from '@/components/common/AppVersion';
-import { getRuntimeContentEnv } from '@/config/runtime-env';
+import { publicEnv } from '@/config/runtime-config';
 
 interface SupportDrawerProps {
   open: boolean;
@@ -174,7 +174,7 @@ export default function SupportDrawer({ open, onClose }: SupportDrawerProps) {
         >
           <Button
             component="a"
-            href={`mailto:${getRuntimeContentEnv().supportEmail}`}
+            href={`mailto:${publicEnv().supportEmail}`}
             variant="outlined"
             startIcon={<EmailOutlinedIcon />}
             fullWidth

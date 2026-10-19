@@ -47,7 +47,7 @@ data:
   {{ $prefix }}_EMPTY_STATE_VIDEO_URL: {{ . | quote }}
   {{- end }}
   {{- with $media.articleUrls }}
-  {{ $prefix }}_EMPTY_STATE_ARTICLE_URLS: {{ . | quote }}
+  {{ $prefix }}_EMPTY_STATE_ARTICLE_URLS: {{ if kindIs "slice" . }}{{ join "," . | quote }}{{ else }}{{ . | quote }}{{ end }}
   {{- end }}
   {{- end }}
   BRAND_PRIMARY_COLOR: {{ .Values.config.brandPrimaryColor | quote }}

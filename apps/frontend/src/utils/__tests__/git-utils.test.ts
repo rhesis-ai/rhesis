@@ -1,3 +1,9 @@
+/**
+ * Node environment so `publicEnv()` reads `process.env` (the server path),
+ * which these tests set directly.
+ *
+ * @jest-environment node
+ */
 import {
   shouldShowGitInfo,
   getGitInfo,

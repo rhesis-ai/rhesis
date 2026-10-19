@@ -2,6 +2,8 @@
  * Utility functions for getting git information in the frontend.
  */
 
+import { publicEnv } from '@/config/runtime-config';
+
 export interface GitInfo {
   branch?: string;
   commit?: string;
@@ -18,9 +20,7 @@ export interface VersionInfo {
  * Returns true for all non-production environments (development, staging, etc.).
  */
 export function shouldShowGitInfo(): boolean {
-  const frontendEnv = (
-    process.env.NEXT_PUBLIC_FRONTEND_ENV || process.env.FRONTEND_ENV
-  )?.toLowerCase();
+  const frontendEnv = publicEnv().environment?.toLowerCase();
   const nodeEnv = process.env.NODE_ENV?.toLowerCase();
 
   return frontendEnv !== 'production' || nodeEnv === 'development';

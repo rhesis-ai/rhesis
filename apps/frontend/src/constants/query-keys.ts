@@ -143,11 +143,6 @@ export const platformKeyKeys = {
   all: () => ['platform-rhesis-key'] as const,
 };
 
-// Deployment-wide: docs URLs for the Architect welcome help cards.
-export const architectHelpKeys = {
-  all: () => ['architect-help-articles'] as const,
-};
-
 // Token and cost totals for one test run's traces, scoped by project because
 // the metrics endpoint is.
 export const testRunUsageKeys = {

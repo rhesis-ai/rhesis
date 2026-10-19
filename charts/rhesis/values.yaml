@@ -70,8 +70,9 @@ config:
   supportEmail: "hello@rhesis.ai"
   onboardingVideoUrl: ""
   # Empty-state media per list page. Keys: projects, tests, test-sets, test-runs,
-  # endpoints, requirements, metrics, experiments. articleUrls is comma-separated.
-  #   tests: { videoUrl: "https://youtu.be/...", articleUrls: "https://docs.rhesis.ai/..." }
+  # endpoints, requirements, metrics, experiments. articleUrls is a list or a
+  # comma-separated string of docs.rhesis.ai pages; videoUrl is a YouTube link.
+  #   tests: { videoUrl: "https://youtu.be/...", articleUrls: ["https://docs.rhesis.ai/..."] }
   emptyStates: {}
   architectHelpArticleUrls: "https://docs.rhesis.ai/docs/getting-started/connecting-application,https://docs.rhesis.ai/docs/endpoints,https://docs.rhesis.ai/docs/endpoints/sdk-endpoints,https://docs.rhesis.ai/docs/concepts"
 

@@ -16,6 +16,7 @@ import {
   shouldUseSecureCookies,
 } from './utils/url-resolver';
 import { webClientHeaders } from './utils/provenance';
+import { publicEnv, serverEnv } from '@/config/runtime-config';
 
 if (!process.env.NEXTAUTH_SECRET) {
   throw new Error(
@@ -31,8 +32,9 @@ if (!process.env.NEXTAUTH_SECRET) {
 // NEXTAUTH_URL (e.g. one left in .env.local after a port change or worktree
 // creation). AUTH_URL, the Auth.js-native override, still takes precedence
 // because Auth.js checks it before NEXTAUTH_URL.
-if (process.env.FRONTEND_URL && !process.env.AUTH_URL) {
-  process.env.NEXTAUTH_URL = process.env.FRONTEND_URL;
+const frontendUrl = serverEnv().frontendUrl;
+if (frontendUrl && !process.env.AUTH_URL) {
+  process.env.NEXTAUTH_URL = frontendUrl;
 }
 
 const BACKEND_URL = getServerBackendUrl();
@@ -583,7 +585,7 @@ export const authConfig: NextAuthConfig = {
   pages: {
     signIn: '/',
   },
-  debug: process.env.FRONTEND_ENV === 'development',
+  debug: publicEnv().environment === 'development',
   basePath: '/api/auth',
   cookies: {
     sessionToken: {

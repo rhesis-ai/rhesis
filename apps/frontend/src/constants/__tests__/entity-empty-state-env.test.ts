@@ -6,25 +6,20 @@ describe('entity-empty-state-env', () => {
   });
 
   it('returns undefined when the deployment sets nothing', () => {
-    window.__ENV__ = {
-      apiBaseUrl: '',
-      content: { supportEmail: 'hello@rhesis.ai', emptyStates: {} },
-    };
+    window.__ENV__ = { emptyStates: {} };
 
     expect(getEntityEmptyStateEnrichment('tests')).toBeUndefined();
   });
 
   it('builds enrichment from the runtime env', () => {
     window.__ENV__ = {
-      apiBaseUrl: '',
-      content: {
-        supportEmail: 'hello@rhesis.ai',
-        emptyStates: {
-          tests: {
-            videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-            articleUrls:
-              'https://docs.rhesis.ai/docs/tests,https://docs.rhesis.ai/docs/metrics',
-          },
+      emptyStates: {
+        tests: {
+          videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          articleUrls: [
+            'https://docs.rhesis.ai/docs/tests',
+            'https://docs.rhesis.ai/docs/metrics',
+          ],
         },
       },
     };

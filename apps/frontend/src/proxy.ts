@@ -10,6 +10,7 @@ import {
   isPublicPath,
   ONBOARDING_PATH,
 } from './constants/paths';
+import { publicEnv } from '@/config/runtime-config';
 import {
   getServerBackendUrl,
   shouldUseSecureCookies,
@@ -29,12 +30,11 @@ function decodeBase64Url(value: string): string {
 
 /** Unsigned JWT verification is allowed only for local Playwright (E2E_NO_DOCKER). */
 function isLocalE2EVerificationEnabled(): boolean {
+  const { environment } = publicEnv();
   return (
     process.env.E2E_NO_DOCKER === '1' &&
     process.env.NODE_ENV !== 'production' &&
-    (process.env.FRONTEND_ENV === 'development' ||
-      process.env.FRONTEND_ENV === 'test' ||
-      !process.env.FRONTEND_ENV)
+    (environment === 'development' || environment === 'test' || !environment)
   );
 }
 

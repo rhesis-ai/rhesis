@@ -3,6 +3,7 @@
 import React, { Component, ReactNode } from 'react';
 import { Alert, AlertTitle, Box, Button } from '@mui/material';
 import { RefreshIcon } from '@/components/icons';
+import { publicEnv } from '@/config/runtime-config';
 
 interface Props {
   children: ReactNode;
@@ -54,7 +55,7 @@ export class TaskErrorBoundary extends Component<Props, State> {
             <AlertTitle>Something went wrong</AlertTitle>
             There was an error with the task component. Please try refreshing or
             contact support if the problem persists.
-            {process.env.FRONTEND_ENV === 'development' && this.state.error && (
+            {publicEnv().environment === 'development' && this.state.error && (
               <Box sx={{ mt: 1, fontSize: '0.75rem', fontFamily: 'monospace' }}>
                 {this.state.error.message}
               </Box>

@@ -3,7 +3,7 @@ import type {
   EntityEmptyStateKey,
   EmptyStateLinkCard,
 } from '@/constants/entity-empty-state-types';
-import { getRuntimeContentEnv } from '@/config/runtime-env';
+import { publicEnv } from '@/config/runtime-config';
 import { getYouTubeWatchUrl } from '@/utils/onboarding-video';
 
 export const COMMUNITY_LINK_CARDS: EmptyStateLinkCard[] = [
@@ -26,16 +26,6 @@ export const COMMUNITY_LINK_CARDS: EmptyStateLinkCard[] = [
     href: 'https://github.com/rhesis-ai/rhesis/issues',
   },
 ];
-
-/** Trims, drops empties and caps at 4 — one card row is all any empty state shows. */
-export function parseCommaSeparatedUrls(value: string | undefined): string[] {
-  if (!value?.trim()) return [];
-  return value
-    .split(',')
-    .map(url => url.trim())
-    .filter(Boolean)
-    .slice(0, 4);
-}
 
 function buildEnrichment({
   videoUrl,
@@ -94,9 +84,7 @@ export function hasEnrichmentContent(
 export function getEntityEmptyStateEnrichment(
   key: EntityEmptyStateKey
 ): EntityEmptyStateEnrichment | undefined {
-  const { videoUrl, articleUrls: articleUrlsRaw } =
-    getRuntimeContentEnv().emptyStates[key] ?? {};
-  const articleUrls = parseCommaSeparatedUrls(articleUrlsRaw);
+  const { videoUrl, articleUrls = [] } = publicEnv().emptyStates[key] ?? {};
 
   if (!videoUrl && articleUrls.length === 0) {
     return undefined;
