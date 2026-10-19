@@ -110,6 +110,10 @@ class Endpoint(Base, ActivityTrackableMixin, TagsMixin, ExampleDataMixin):
         return bool(self.auth_token)
 
     @property
+    def has_client_secret(self) -> bool:
+        return bool(self.client_secret)
+
+    @property
     def timeout_seconds(self) -> int | None:
         """Invocation timeout from endpoint_metadata, or None for system default."""
         if self.endpoint_metadata and isinstance(self.endpoint_metadata, dict):

@@ -4,7 +4,7 @@ Provides ``test_endpoint``, which invokes a transient (unsaved) endpoint
 configuration so users can validate connectivity and request/response
 mappings without persisting anything to the database.
 
-Only REST endpoints with BEARER_TOKEN auth are supported for testing.
+Only REST endpoints are supported for testing.
 
 Neither entry point takes a database session. Both invoke a transient
 ``Endpoint`` that is never added to a session, and the invoker only reaches for
@@ -15,6 +15,7 @@ they could reach for would be a psycopg call on it -- see
 ``tests/backend/test_no_sync_db_on_loop.py``.
 """
 
+import asyncio
 import logging
 from typing import Any, Dict
 
@@ -31,6 +32,7 @@ from rhesis.backend.app.models.enums import (
 )
 from rhesis.backend.app.schemas.endpoint import EndpointTestRequest
 from rhesis.backend.app.services.invokers import create_invoker
+from rhesis.backend.app.services.invokers.auth.manager import AuthenticationManager
 from rhesis.backend.app.services.invokers.context import InvocationContext
 from rhesis.backend.app.services.invokers.conversation import ConversationTracker
 
@@ -44,7 +46,7 @@ async def test_endpoint(
 ) -> Dict[str, Any]:
     """Invoke a transient endpoint configuration without persisting it.
 
-    Validates that the configuration is testable (REST + BEARER_TOKEN), builds
+    Validates that the configuration is testable (REST only), builds
     a temporary ``Endpoint`` ORM object, enriches the input with org/user
     context, handles stateless message history for one-shot testing, and
     delegates to the standard invoker pipeline.
@@ -74,14 +76,6 @@ async def test_endpoint(
             detail=(f"Only REST endpoints are supported for testing. Got: {connection_type_str}"),
         )
 
-    if auth_type_str != EndpointAuthType.BEARER_TOKEN.value:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Only BEARER_TOKEN authentication is supported for testing. Got: {auth_type_str}"
-            ),
-        )
-
     logger.debug("Testing endpoint configuration: %s (%s)", test_config.url, connection_type_str)
 
     try:
@@ -98,6 +92,12 @@ async def test_endpoint(
             response_format=response_format_str,
             auth_type=auth_type_str,
             auth_token=test_config.auth_token,
+            client_id=test_config.client_id,
+            client_secret=test_config.client_secret,
+            token_url=test_config.token_url,
+            scopes=test_config.scopes,
+            audience=test_config.audience,
+            extra_payload=test_config.extra_payload,
             environment=EndpointEnvironment.DEVELOPMENT.value,
             config_source=EndpointConfigSource.MANUAL.value,
         )
@@ -123,8 +123,12 @@ async def test_endpoint(
             enriched_input_data["messages"] = messages
             enriched_input_data.pop("conversation_id", None)
 
-        # No session: a REST + BEARER_TOKEN config reads its token off the
-        # transient endpoint above, and nothing here is persisted.
+        # Fetch a client-credentials token in a worker thread, not inside the
+        # awaited invoke() where the OAuth round trip would block the loop. It
+        # caches on the transient endpoint, so the invoker finds it there.
+        await asyncio.to_thread(AuthenticationManager.prefetch_token, None, endpoint)
+
+        # No session: nothing here is persisted.
         context = InvocationContext(
             db=None,
             endpoint=endpoint,

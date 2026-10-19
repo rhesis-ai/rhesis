@@ -160,8 +160,8 @@ def read_endpoint_setup_status(
     return get_endpoint_setup_status(db, organization_id, user_id)
 
 
-# The session is never used below -- a transient REST + BEARER_TOKEN config runs no
-# queries -- but the dependency stays: it is what binds usage attribution and validates
+# The session is never used below -- a transient REST config runs no queries --
+# but the dependency stays: it is what binds usage attribution and validates
 # X-Project-Id against a project-scoped token for this request.
 @router.post("/test", dependencies=[Depends(get_off_loop_tenant_session)])
 async def test_endpoint(
@@ -175,12 +175,12 @@ async def test_endpoint(
     This endpoint allows testing endpoint connectivity, authentication, and response
     handling before creating a persistent endpoint record.
 
-    Currently only supports REST endpoints with BEARER_TOKEN authentication.
+    Currently only supports REST endpoints.
 
     Args:
         test_config: Endpoint test configuration including connection_type, url, method,
-                    request_headers, request_mapping, response_mapping, auth_type,
-                    auth_token, and input_data
+                    request_headers, request_mapping, response_mapping, auth_type, the
+                    bearer token or client-credentials fields, and input_data
         tenant_context: Tenant context for organization and user IDs
         endpoint_service: The endpoint service instance
 

@@ -178,7 +178,7 @@ class EndpointTestRequest(Base):
     """
     Schema for testing endpoint configurations without saving to database.
 
-    Currently only supports REST endpoints with BEARER_TOKEN authentication.
+    Currently only supports REST endpoints.
     """
 
     # Required fields
@@ -189,13 +189,19 @@ class EndpointTestRequest(Base):
     request_mapping: Dict[str, Any]
     response_mapping: Dict[str, str]
     auth_type: EndpointAuthType
-    auth_token: str
     input_data: Dict[str, Any]
 
     # Optional fields
     endpoint_path: Optional[str] = None
     query_params: Optional[Dict[str, Any]] = None
     response_format: EndpointResponseFormat = EndpointResponseFormat.JSON
+    auth_token: Optional[str] = None
+    client_id: Optional[str] = None
+    client_secret: Optional[str] = None
+    token_url: Optional[str] = None
+    scopes: Optional[List[str]] = None
+    audience: Optional[str] = None
+    extra_payload: Optional[Dict[str, Any]] = None
 
     @field_validator("connection_type")
     @classmethod
@@ -203,16 +209,6 @@ class EndpointTestRequest(Base):
         """Validate that connection_type is REST (initial implementation constraint)."""
         if v != EndpointConnectionType.REST:
             raise ValueError(f"Only REST endpoints are supported for testing. Got: {v.value}")
-        return v
-
-    @field_validator("auth_type")
-    @classmethod
-    def validate_auth_type(cls, v):
-        """Validate that auth_type is BEARER_TOKEN (initial implementation constraint)."""
-        if v != EndpointAuthType.BEARER_TOKEN:
-            raise ValueError(
-                f"Only BEARER_TOKEN authentication is supported for testing. Got: {v.value}"
-            )
         return v
 
     @field_validator("input_data")
@@ -289,6 +285,7 @@ class Endpoint(Base, ServerIdentity):
 
     auth_type: Optional[EndpointAuthType] = None
     has_auth_token: bool = False
+    has_client_secret: bool = False
     # Sensitive fields excluded from response:
     # auth_token, client_secret, last_token, last_token_expires_at
     # These can be set via Create/Update but are never returned

@@ -31,8 +31,6 @@ class EndpointEnvironment(str, Enum):
 class EndpointAuthType(str, Enum):
     BEARER_TOKEN = "bearer_token"
     CLIENT_CREDENTIALS = "client_credentials"
-    API_KEY = "api_key"
-    # Add more as needed
 
 
 class ModelType(str, Enum):

@@ -1159,10 +1159,11 @@ tools:
         description: '"json", "xml", or "text". Default: "json".'
       auth_type:
         description: >
-          Authentication scheme: "bearer_token", "client_credentials", or
-          "api_key". Omit for unauthenticated endpoints.
+          Authentication scheme: "bearer_token" (default) or
+          "client_credentials". For an unauthenticated endpoint, leave it as
+          "bearer_token" and send no auth_token.
       auth_token:
-        description: "Bearer token / API key (write-only, stored encrypted)."
+        description: "Bearer token (write-only, stored encrypted)."
       client_id:
         description: "OAuth client id (client_credentials flow)."
       client_secret:
@@ -1173,6 +1174,10 @@ tools:
         description: "List of OAuth scope strings (client_credentials flow)."
       audience:
         description: "OAuth audience (client_credentials flow)."
+      extra_payload:
+        description: >
+          Object of extra string fields added to the OAuth token request
+          (client_credentials flow), e.g. {"resource": "https://api.example.com"}.
 
   - name: update_endpoint
     label: Updating endpoint
@@ -1218,10 +1223,9 @@ tools:
         description: '"json", "xml", or "text".'
       auth_type:
         description: >
-          Authentication scheme: "bearer_token", "client_credentials", or
-          "api_key".
+          Authentication scheme: "bearer_token" or "client_credentials".
       auth_token:
-        description: "Bearer token / API key (write-only, stored encrypted)."
+        description: "Bearer token (write-only, stored encrypted)."
       client_id:
         description: "OAuth client id (client_credentials flow)."
       client_secret:
@@ -1232,6 +1236,10 @@ tools:
         description: "List of OAuth scope strings (client_credentials flow)."
       audience:
         description: "OAuth audience (client_credentials flow)."
+      extra_payload:
+        description: >
+          Object of extra string fields added to the OAuth token request
+          (client_credentials flow), e.g. {"resource": "https://api.example.com"}.
 
   - name: check_endpoint
     label: Checking endpoint connectivity

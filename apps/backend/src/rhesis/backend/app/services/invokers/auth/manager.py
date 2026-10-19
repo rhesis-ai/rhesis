@@ -11,6 +11,10 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.error_handlers import UpstreamHTTPException
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import EndpointAuthType
+from rhesis.backend.app.services.invokers.common.connection_errors import (
+    describe_connection_error,
+    url_host,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +27,32 @@ _token_session = requests.Session()
 # event loop -- is held: an unresponsive token URL would never give it back.
 # Ruff's S113 does not see it: the call goes through a Session, not ``requests.post``.
 TOKEN_REQUEST_TIMEOUT = (5.0, 20.0)
+
+# Cap on the server's error_description we echo back.
+_MAX_ERROR_DESCRIPTION = 300
+
+
+def _token_failure_reason(exc: Exception) -> str:
+    """Say why a token request failed, without echoing anything we sent."""
+    if isinstance(exc, requests.HTTPError) and exc.response is not None:
+        reason = f"HTTP {exc.response.status_code}"
+        try:
+            body = exc.response.json()
+        except ValueError:
+            return reason
+        # RFC 6749 5.2 error response
+        if isinstance(body, dict) and isinstance(body.get("error"), str):
+            reason += f" ({body['error']}"
+            description = body.get("error_description")
+            if isinstance(description, str) and description:
+                reason += f": {description[:_MAX_ERROR_DESCRIPTION]}"
+            reason += ")"
+        return reason
+    if isinstance(exc, requests.RequestException):
+        return describe_connection_error(exc)
+    if isinstance(exc, (KeyError, ValueError, TypeError)):
+        return "the response did not contain an access_token"
+    return type(exc).__name__
 
 
 class AuthenticationManager:
@@ -95,25 +125,22 @@ class AuthenticationManager:
                 status_code=400, detail="Token URL is required for client credentials flow"
             )
 
-        # Prepare token request
+        # RFC 6749 4.4.2: the token request is form-encoded, with the client
+        # authenticating in the body (client_secret_post). Many servers reject JSON.
         payload = {
+            "grant_type": "client_credentials",
             "client_id": endpoint.client_id,
             "client_secret": endpoint.client_secret,
             "audience": endpoint.audience,
-            "grant_type": "client_credentials",
+            "scope": " ".join(endpoint.scopes) if endpoint.scopes else None,
         }
-
-        # Add scopes if configured
-        if endpoint.scopes:
-            payload["scope"] = " ".join(endpoint.scopes)
-
-        # Add extra payload if configured
         if endpoint.extra_payload:
             payload.update(endpoint.extra_payload)
+        payload = {k: v for k, v in payload.items() if v is not None}
 
         try:
             response = _token_session.post(
-                endpoint.token_url, json=payload, timeout=TOKEN_REQUEST_TIMEOUT
+                endpoint.token_url, data=payload, timeout=TOKEN_REQUEST_TIMEOUT
             )
             response.raise_for_status()
             token_data = response.json()
@@ -128,7 +155,11 @@ class AuthenticationManager:
             return endpoint.last_token
         except Exception as e:
             logger.warning("Failed to get client credentials token: %s", type(e).__name__)
+            host = url_host(endpoint.token_url)
             raise UpstreamHTTPException(
                 status_code=502,
-                detail="Failed to get an access token from the configured token URL.",
+                detail=(
+                    "This endpoint uses OAuth 2.0 client credentials, and the token "
+                    f"request to {host} failed: {_token_failure_reason(e)}"
+                ),
             ) from e
