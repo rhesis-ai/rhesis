@@ -3,6 +3,7 @@ import type {
   EntityEmptyStateKey,
   EmptyStateLinkCard,
 } from '@/constants/entity-empty-state-types';
+import { publicEnv } from '@/config/runtime-config';
 import { getYouTubeWatchUrl } from '@/utils/onboarding-video';
 
 export const COMMUNITY_LINK_CARDS: EmptyStateLinkCard[] = [
@@ -25,86 +26,6 @@ export const COMMUNITY_LINK_CARDS: EmptyStateLinkCard[] = [
     href: 'https://github.com/rhesis-ai/rhesis/issues',
   },
 ];
-
-/**
- * Static process.env access per entity so Next.js inlines NEXT_PUBLIC_* at build time.
- * Dynamic/bracket access is not replaced in client bundles.
- */
-function readEntityEnvSources(key: EntityEmptyStateKey): {
-  videoUrl?: string;
-  articleUrls?: string;
-} {
-  switch (key) {
-    case 'projects':
-      return {
-        videoUrl:
-          process.env.NEXT_PUBLIC_PROJECTS_EMPTY_STATE_VIDEO_URL?.trim(),
-        articleUrls:
-          process.env.NEXT_PUBLIC_PROJECTS_EMPTY_STATE_ARTICLE_URLS?.trim(),
-      };
-    case 'tests':
-      return {
-        videoUrl: process.env.NEXT_PUBLIC_TESTS_EMPTY_STATE_VIDEO_URL?.trim(),
-        articleUrls:
-          process.env.NEXT_PUBLIC_TESTS_EMPTY_STATE_ARTICLE_URLS?.trim(),
-      };
-    case 'test-sets':
-      return {
-        videoUrl:
-          process.env.NEXT_PUBLIC_TEST_SETS_EMPTY_STATE_VIDEO_URL?.trim(),
-        articleUrls:
-          process.env.NEXT_PUBLIC_TEST_SETS_EMPTY_STATE_ARTICLE_URLS?.trim(),
-      };
-    case 'test-runs':
-      return {
-        videoUrl:
-          process.env.NEXT_PUBLIC_TEST_RUNS_EMPTY_STATE_VIDEO_URL?.trim(),
-        articleUrls:
-          process.env.NEXT_PUBLIC_TEST_RUNS_EMPTY_STATE_ARTICLE_URLS?.trim(),
-      };
-    case 'endpoints':
-      return {
-        videoUrl:
-          process.env.NEXT_PUBLIC_ENDPOINTS_EMPTY_STATE_VIDEO_URL?.trim(),
-        articleUrls:
-          process.env.NEXT_PUBLIC_ENDPOINTS_EMPTY_STATE_ARTICLE_URLS?.trim(),
-      };
-    case 'requirements':
-      return {
-        videoUrl:
-          process.env.NEXT_PUBLIC_REQUIREMENTS_EMPTY_STATE_VIDEO_URL?.trim(),
-        articleUrls:
-          process.env.NEXT_PUBLIC_REQUIREMENTS_EMPTY_STATE_ARTICLE_URLS?.trim(),
-      };
-    case 'metrics':
-      return {
-        videoUrl: process.env.NEXT_PUBLIC_METRICS_EMPTY_STATE_VIDEO_URL?.trim(),
-        articleUrls:
-          process.env.NEXT_PUBLIC_METRICS_EMPTY_STATE_ARTICLE_URLS?.trim(),
-      };
-    case 'experiments':
-      return {
-        videoUrl:
-          process.env.NEXT_PUBLIC_EXPERIMENTS_EMPTY_STATE_VIDEO_URL?.trim(),
-        articleUrls:
-          process.env.NEXT_PUBLIC_EXPERIMENTS_EMPTY_STATE_ARTICLE_URLS?.trim(),
-      };
-    default: {
-      const _exhaustive: never = key;
-      return _exhaustive;
-    }
-  }
-}
-
-/** Trims, drops empties and caps at 4 — one card row is all any empty state shows. */
-export function parseCommaSeparatedUrls(value: string | undefined): string[] {
-  if (!value?.trim()) return [];
-  return value
-    .split(',')
-    .map(url => url.trim())
-    .filter(Boolean)
-    .slice(0, 4);
-}
 
 function buildEnrichment({
   videoUrl,
@@ -159,12 +80,11 @@ export function hasEnrichmentContent(
   );
 }
 
-/** Cloud-only: returns enrichment when NEXT_PUBLIC_* env vars are set. */
+/** Returns enrichment when the deployment sets this entity's empty-state env vars. */
 export function getEntityEmptyStateEnrichment(
   key: EntityEmptyStateKey
 ): EntityEmptyStateEnrichment | undefined {
-  const { videoUrl, articleUrls: articleUrlsRaw } = readEntityEnvSources(key);
-  const articleUrls = parseCommaSeparatedUrls(articleUrlsRaw);
+  const { videoUrl, articleUrls = [] } = publicEnv().emptyStates[key] ?? {};
 
   if (!videoUrl && articleUrls.length === 0) {
     return undefined;

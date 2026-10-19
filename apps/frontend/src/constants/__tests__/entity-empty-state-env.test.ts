@@ -1,28 +1,28 @@
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 
 describe('entity-empty-state-env', () => {
-  const originalEnv = process.env;
-
-  beforeEach(() => {
-    process.env = { ...originalEnv };
+  afterEach(() => {
+    delete window.__ENV__;
   });
 
-  afterAll(() => {
-    process.env = originalEnv;
-  });
-
-  it('returns undefined when env vars are unset', () => {
-    delete process.env.NEXT_PUBLIC_TESTS_EMPTY_STATE_VIDEO_URL;
-    delete process.env.NEXT_PUBLIC_TESTS_EMPTY_STATE_ARTICLE_URLS;
+  it('returns undefined when the deployment sets nothing', () => {
+    window.__ENV__ = { emptyStates: {} };
 
     expect(getEntityEmptyStateEnrichment('tests')).toBeUndefined();
   });
 
-  it('builds enrichment from cloud env vars', () => {
-    process.env.NEXT_PUBLIC_TESTS_EMPTY_STATE_VIDEO_URL =
-      'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
-    process.env.NEXT_PUBLIC_TESTS_EMPTY_STATE_ARTICLE_URLS =
-      'https://docs.rhesis.ai/docs/tests,https://docs.rhesis.ai/docs/metrics';
+  it('builds enrichment from the runtime env', () => {
+    window.__ENV__ = {
+      emptyStates: {
+        tests: {
+          videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+          articleUrls: [
+            'https://docs.rhesis.ai/docs/tests',
+            'https://docs.rhesis.ai/docs/metrics',
+          ],
+        },
+      },
+    };
 
     const enrichment = getEntityEmptyStateEnrichment('tests');
 

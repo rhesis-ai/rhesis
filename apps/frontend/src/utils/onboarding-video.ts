@@ -1,3 +1,5 @@
+import { serverEnv } from '@/config/runtime-config';
+
 /**
  * Parse a YouTube watch/short/embed URL into an embeddable iframe src.
  * Only allowlisted YouTube/Vimeo hostnames are accepted.
@@ -96,9 +98,5 @@ export function getYouTubeWatchUrl(raw: string): string | null {
 }
 
 export function getOnboardingVideoUrl(): string | undefined {
-  return (
-    process.env.ONBOARDING_VIDEO_URL?.trim() ||
-    process.env.NEXT_PUBLIC_ONBOARDING_VIDEO_URL?.trim() ||
-    undefined
-  );
+  return serverEnv().onboardingVideoUrl;
 }

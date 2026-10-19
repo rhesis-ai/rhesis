@@ -86,6 +86,31 @@ was textually clean but semantically broken: the dangling `sessionToken` referen
 a conflict, just a runtime `ReferenceError`). When adding a feature that needs the backend from a
 client component, follow the pattern above rather than copying an older prop-drilled example.
 
+## Deployment Config — runtime, never `NEXT_PUBLIC_*`
+
+One image serves every environment, so anything that differs per deployment (URLs, branding, support
+address, help videos and articles) must be read at request time. `NEXT_PUBLIC_*` vars are inlined
+into the client bundle at `next build`: setting one on the pod does nothing, and changing it means a
+rebuild. Don't add new ones, and don't pass deployment values as Docker build args.
+
+Every deployment var is declared once, in `src/config/runtime-config.ts`. To add one:
+
+1. Add it to `ServerEnv` (server only) or `PublicEnv` (also sent to the browser, so never a
+   secret), and read it in `serverEnv()` or `readPublicEnv()`. Add a check to
+   `src/config/enforce-env.ts`, which runs at startup from `src/instrumentation.ts`: an error when
+   a bad value breaks the app (it fails the pod in production), a warning when it only hides
+   optional content.
+2. Add it to `charts/rhesis/templates/configmap.yaml` and `values.yaml`, plus the per-env values
+   files if it has a value there. If self-hosters may set it, also add it to the
+   `x-nextjs-frontend` block in `docker-compose.yml` and document it in `.env.example`.
+3. Read it with `serverEnv()` in server code, or `publicEnv()` anywhere, including client
+   components. The root layout already serializes `PublicEnv` into `window.__ENV__`, and
+   `publicEnv()` reads `process.env` during the server render, so hydration agrees. Don't read
+   `process.env` directly, and don't add an API route just to hand config to the client.
+
+The only `NEXT_PUBLIC_*` values left are build facts (`NEXT_PUBLIC_GIT_COMMIT`, `_BRANCH`), which
+really are fixed per image.
+
 ## Feature Gating — frontend side
 
 `src/constants/features.ts` (`FeatureName`) and `src/constants/capabilities.ts` (`Capability`) are

@@ -35,8 +35,7 @@ config:
 
   # Frontend
   apiBaseUrl: "https://dev-api.rhesis.ai"
-  nextPublicAppUrl: "https://dev-app.rhesis.ai"
-  nextPublicSupportEmail: "hello@rhesis.ai"
+  supportEmail: "hello@rhesis.ai"
   onboardingVideoUrl: "https://youtu.be/lLLj6S5T1Ig"
   architectHelpArticleUrls: "https://docs.rhesis.ai/docs/getting-started/connecting-application,https://docs.rhesis.ai/docs/endpoints,https://docs.rhesis.ai/docs/endpoints/sdk-endpoints,https://docs.rhesis.ai/docs/concepts"
   # Backend

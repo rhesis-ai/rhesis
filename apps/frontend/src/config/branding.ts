@@ -14,6 +14,8 @@
  * end up visible in the served HTML — so they do not belong in Secret Manager.
  */
 
+import { serverEnv } from '@/config/runtime-config';
+
 /** Shipped Rhesis favicon, used whenever no override is configured. */
 export const DEFAULT_FAVICON_URL = '/logos/rhesis-logo-favicon.svg';
 
@@ -241,7 +243,7 @@ function buildGoogleFontsHref(family: string): string {
  * deployments that can't reach Google.
  */
 function normalizeBrandFont(): BrandFont | undefined {
-  const family = process.env.BRAND_FONT_FAMILY?.trim();
+  const family = serverEnv().brand.fontFamily;
   if (!family) return undefined;
 
   if (family.length > MAX_FONT_FAMILY_LENGTH) {
@@ -259,7 +261,7 @@ function normalizeBrandFont(): BrandFont | undefined {
   }
 
   const slug = slugifyFont(family);
-  const baseUrl = normalizeBaseUrl(process.env.BRAND_FONT_BASE_URL);
+  const baseUrl = normalizeBaseUrl(serverEnv().brand.fontBaseUrl);
 
   if (baseUrl) {
     return { family, source: 'custom', baseUrl, slug };
@@ -279,15 +281,16 @@ function normalizeBrandFont(): BrandFont | undefined {
  * `undefined` and this would quietly report the defaults.
  */
 export function getServerBranding(): Branding {
-  const productName = normalizeProductName(process.env.BRAND_PRODUCT_NAME);
+  const { brand } = serverEnv();
+  const productName = normalizeProductName(brand.productName);
 
   return {
-    primaryColor: normalizeBrandColor(process.env.BRAND_PRIMARY_COLOR),
+    primaryColor: normalizeBrandColor(brand.primaryColor),
     secondaryColor: normalizeBrandColor(
-      process.env.BRAND_SECONDARY_COLOR,
+      brand.secondaryColor,
       'BRAND_SECONDARY_COLOR'
     ),
-    faviconUrl: normalizeFaviconUrl(process.env.BRAND_FAVICON_URL),
+    faviconUrl: normalizeFaviconUrl(brand.faviconUrl),
     productName,
     isDefaultProductName: productName === DEFAULT_PRODUCT_NAME,
     font: normalizeBrandFont(),

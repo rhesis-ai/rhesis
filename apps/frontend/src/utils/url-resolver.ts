@@ -6,6 +6,8 @@
  * while the backend typically only listens on IPv4 (127.0.0.1).
  */
 
+import { publicEnv, serverEnv } from '@/config/runtime-config';
+
 /**
  * Resolves localhost URLs to use IPv4 (127.0.0.1) instead of hostname 'localhost'
  * This prevents IPv6 resolution issues on macOS while maintaining compatibility
@@ -31,10 +33,7 @@ export function resolveLocalhostUrl(url: string): string {
  * @returns Resolved API base URL
  */
 export function getClientApiBaseUrl(): string {
-  const baseUrl =
-    typeof window === 'undefined'
-      ? process.env.API_BASE_URL
-      : window.__ENV__?.apiBaseUrl;
+  const baseUrl = publicEnv().apiBaseUrl;
   if (!baseUrl) {
     throw new Error(
       'API_BASE_URL is not configured — cannot resolve the backend URL for ' +
@@ -53,7 +52,7 @@ export function getClientApiBaseUrl(): string {
  * @returns Resolved backend URL
  */
 export function getServerBackendUrl(): string {
-  const baseUrl = process.env.BACKEND_URL || 'http://backend:8080';
+  const baseUrl = serverEnv().backendUrl;
   return resolveLocalhostUrl(baseUrl);
 }
 
@@ -82,5 +81,5 @@ export function getBaseUrl(): string {
 }
 
 export function shouldUseSecureCookies(): boolean {
-  return (process.env.FRONTEND_URL || '').startsWith('https://');
+  return (serverEnv().frontendUrl ?? '').startsWith('https://');
 }

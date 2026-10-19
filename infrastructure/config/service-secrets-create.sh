@@ -110,8 +110,6 @@ function show_usage() {
   echo "  # Frontend variables"
   echo "  NEXTAUTH_SECRET               NextAuth secret"
   echo "  API_BASE_URL                  API base URL for frontend"
-  echo "  NEXT_PUBLIC_SUPPORT_EMAIL     Support email for frontend"
-  echo "  NEXT_PUBLIC_ONBOARDING_VIDEO_URL  Onboarding video URL for frontend"
   echo "  BACKEND_URL                   Backend URL for frontend"
   echo "  FRONTEND_ENV                  Frontend environment"
   echo "  BACKEND_ENV                   Backend environment"
@@ -316,8 +314,6 @@ SERVICE_VARS=(
   # Frontend variables
   "NEXTAUTH_SECRET"
   "API_BASE_URL"
-  "NEXT_PUBLIC_SUPPORT_EMAIL"
-  "NEXT_PUBLIC_ONBOARDING_VIDEO_URL"
   "BACKEND_URL"
   "FRONTEND_ENV"
   "AUTH_SECRET"

@@ -75,15 +75,14 @@ const nextConfig = {
   // release resolve past 7.3.5 and hard-fail the install if MUI has touched
   // the patched lines. Bump the pin and re-cut the patch together.
 
-  // Environment variables available to the client
-  // NEXT_PUBLIC_ prefix guarantees availability in client components
+  // Build facts inlined into the client bundle. Deployment config does not
+  // belong here; see src/config/runtime-config.ts.
   env: (() => {
     const gitInfo = getGitInfo();
     return {
       APP_VERSION: JSON.parse(
         readFileSync(path.join(__dirname, 'package.json'), 'utf8')
       ).version,
-      NEXT_PUBLIC_FRONTEND_ENV: process.env.FRONTEND_ENV,
       NEXT_PUBLIC_GIT_BRANCH: gitInfo.branch,
       NEXT_PUBLIC_GIT_COMMIT: gitInfo.commit,
     };

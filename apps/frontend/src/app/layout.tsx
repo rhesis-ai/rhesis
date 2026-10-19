@@ -61,6 +61,7 @@ import {
   brandFontWeights,
   type BrandFont,
 } from '../config/branding';
+import { readPublicEnv } from '../config/runtime-config';
 import { BACKGROUND_DEFAULT } from '../styles/theme-background';
 import { Capability } from '../constants/capabilities';
 
@@ -435,11 +436,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
     fontFamily: branding.font?.family,
     homeUrl: '/architect',
   };
-  // Empty when `API_BASE_URL` is unset or blank — whichever of Helm,
-  // docker-compose or the dev scripts supplies the environment — so
-  // `getClientApiBaseUrl()` throws instead of silently using localhost;
-  // a deployed frontend would otherwise point `/auth/*` at the visitor's
-  // own machine.
+  // The browser's copy of the deployment config; see `config/runtime-config.ts`.
   //
   // The branding here is the *deployment's*, before any organisation override
   // — the opposite of everything else on this page, which uses the resolved
@@ -448,7 +445,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
   // so in a client bundle every read compiles to `undefined`. Env vars do not
   // change at runtime, so this never goes stale.
   const runtimeEnvScript = `window.__ENV__=${JSON.stringify({
-    apiBaseUrl: process.env.API_BASE_URL || '',
+    ...readPublicEnv(),
     deploymentBranding: {
       primaryColor: deploymentBranding.primaryColor,
       secondaryColor: deploymentBranding.secondaryColor,

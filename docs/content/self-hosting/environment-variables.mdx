@@ -321,18 +321,30 @@ for reference only — a self-hosted deployment does not need any of them.
 | `SENDGRID_DAY_1_EMAIL_TEMPLATE_ID`, `SENDGRID_DAY_2_EMAIL_TEMPLATE_ID`, `SENDGRID_DAY_3_EMAIL_TEMPLATE_ID` | Drip-campaign template IDs |
 | `WELCOME_FROM_EMAIL`, `WELCOME_CALENDAR_LINK`, `AGENT_EMAIL_BCC`, `DEMO_USER_EMAIL` | Welcome-email sender, calendar link, BCC, and demo recipient |
 
-**Hosted UI enrichment** — frontend `NEXT_PUBLIC_*` values baked in at build time. When unset the UI simply
-omits the extra media, so self-hosting is unaffected.
+**Hosted UI enrichment** — frontend content, read at request time like the branding variables, so
+changing one needs a restart, not a rebuild. When unset the UI simply omits the extra media, so
+self-hosting is unaffected.
 
 | Variable | Purpose |
 |---|---|
-| `NEXT_PUBLIC_SUPPORT_EMAIL` | Support address in the UI (falls back to `hello@rhesis.ai`) |
-| `ONBOARDING_VIDEO_URL`, `NEXT_PUBLIC_ONBOARDING_VIDEO_URL` | Onboarding welcome video |
-| `NEXT_PUBLIC_<ENTITY>_EMPTY_STATE_VIDEO_URL` | Empty-state demo video per entity |
-| `NEXT_PUBLIC_<ENTITY>_EMPTY_STATE_ARTICLE_URLS` | Empty-state help-article links per entity (comma-separated) |
+| `SUPPORT_EMAIL` | Support address in the UI (falls back to `hello@rhesis.ai`) |
+| `ONBOARDING_VIDEO_URL` | Onboarding welcome video |
+| `ARCHITECT_HELP_ARTICLE_URLS` | Help articles on the Architect welcome screen (comma-separated) |
+| `<ENTITY>_EMPTY_STATE_VIDEO_URL` | Empty-state demo video per entity |
+| `<ENTITY>_EMPTY_STATE_ARTICLE_URLS` | Empty-state help-article links per entity (comma-separated) |
 
 The empty-state pair exists for each of `TESTS`, `PROJECTS`, `TEST_SETS`, `TEST_RUNS`, `ENDPOINTS`,
 `REQUIREMENTS`, `METRICS`, and `EXPERIMENTS`.
+
+The per-entity empty-state variables are wired into the Helm chart (`config.emptyStates`) but not into
+`docker-compose.yml`.
+
+The frontend checks its variables at startup and logs each problem. In production it exits when
+`API_BASE_URL` is missing, or when `API_BASE_URL`, `BACKEND_URL` or `FRONTEND_URL` is not an
+`http(s)` URL, so a bad value fails the rollout instead of breaking sign-in. Problems with the
+content variables in this table, such as a video that is not on YouTube or an article outside
+`docs.rhesis.ai`, are logged as warnings and never stop it. The same goes for branding values: a
+malformed one is logged and the default is used.
 
 **Enterprise and GCP-hosted infrastructure** — specific to Rhesis's managed environment.
 

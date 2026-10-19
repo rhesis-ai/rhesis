@@ -7,6 +7,7 @@ import { readActiveProjectId } from '../active-project';
 import { isModelNotConfigured, reportModelNotConfigured } from '../model-setup';
 import { CLIENT_HEADER, WEB_CLIENT } from '../provenance';
 import { serverRequestHeaders } from './request-headers';
+import { publicEnv } from '@/config/runtime-config';
 
 /** Structured FastAPI detail payload (e.g. bulk associate failures) */
 export interface StructuredApiErrorDetail {
@@ -397,7 +398,7 @@ export class BaseApiClient {
 
           // Don't log 404/410 in development - they're expected states handled by error boundary
           const shouldLog = !(
-            process.env.FRONTEND_ENV === 'development' &&
+            publicEnv().environment === 'development' &&
             [404, 410].includes(response.status)
           );
 
