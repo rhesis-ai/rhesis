@@ -86,6 +86,25 @@ was textually clean but semantically broken: the dangling `sessionToken` referen
 a conflict, just a runtime `ReferenceError`). When adding a feature that needs the backend from a
 client component, follow the pattern above rather than copying an older prop-drilled example.
 
+## Deployment Config — runtime, never `NEXT_PUBLIC_*`
+
+One image serves every environment, so anything that differs per deployment (URLs, branding, support
+address, help videos and articles) must be read at request time. `NEXT_PUBLIC_*` vars are inlined
+into the client bundle at `next build`: setting one on the pod does nothing, and changing it means a
+rebuild. Don't add new ones, and don't pass deployment values as Docker build args.
+
+- Name the var without a prefix, and add it to `charts/rhesis/templates/configmap.yaml` plus
+  `values.yaml` (and the per-env values files if it has a value there).
+- Server components and route handlers read `process.env` directly (`page.tsx` with
+  `force-dynamic`, e.g. the onboarding video).
+- Client components get it from `window.__ENV__`, which the root layout fills. Add the field to
+  `src/types/env.d.ts` and to the object the layout serializes. Read it through a helper that falls
+  back to `process.env` when `typeof window === 'undefined'` (see `getRuntimeContentEnv` in
+  `src/config/runtime-env.ts`), so the server render matches hydration.
+
+The only `NEXT_PUBLIC_*` values left are build facts (`NEXT_PUBLIC_GIT_COMMIT`, `_BRANCH`,
+`_FRONTEND_ENV`), which really are fixed per image.
+
 ## Feature Gating — frontend side
 
 `src/constants/features.ts` (`FeatureName`) and `src/constants/capabilities.ts` (`Capability`) are
