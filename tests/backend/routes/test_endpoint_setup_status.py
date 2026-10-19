@@ -175,24 +175,31 @@ class TestEndpointSetupStatus:
 
 @pytest.mark.unit
 class TestEndpointSetupNotification:
-    def test_sent_once_per_project(self, seeded_owner, test_db: Session):
+    def test_not_sent_in_the_example_project(self, seeded_owner, test_db: Session):
         client, org_id, user_id = seeded_owner
         example = _example_project(test_db, org_id)
 
-        _get(client, test_db, org_id, user_id, example.id)
-        _get(client, test_db, org_id, user_id, example.id)
+        assert _get(client, test_db, org_id, user_id, example.id) == {"configured": False}
+        assert _nudges(test_db, user_id, example.id) == []
 
-        [nudge] = _nudges(test_db, user_id, example.id)
+    def test_sent_once_per_project(self, seeded_owner, test_db: Session):
+        client, org_id, user_id = seeded_owner
+        project = _add_project(test_db, org_id, user_id)
+
+        _get(client, test_db, org_id, user_id, project.id)
+        _get(client, test_db, org_id, user_id, project.id)
+
+        [nudge] = _nudges(test_db, user_id, project.id)
         assert nudge.section == NotificationSection.ENDPOINTS.value
         assert nudge.read_at is None
 
     def test_each_project_gets_its_own(self, seeded_owner, test_db: Session):
         client, org_id, user_id = seeded_owner
-        example = _example_project(test_db, org_id)
-        other = _add_project(test_db, org_id, user_id)
+        first = _add_project(test_db, org_id, user_id)
+        second = _add_project(test_db, org_id, user_id)
 
-        _get(client, test_db, org_id, user_id, example.id)
-        _get(client, test_db, org_id, user_id, other.id)
+        _get(client, test_db, org_id, user_id, first.id)
+        _get(client, test_db, org_id, user_id, second.id)
 
-        assert len(_nudges(test_db, user_id, example.id)) == 1
-        assert len(_nudges(test_db, user_id, other.id)) == 1
+        assert len(_nudges(test_db, user_id, first.id)) == 1
+        assert len(_nudges(test_db, user_id, second.id)) == 1

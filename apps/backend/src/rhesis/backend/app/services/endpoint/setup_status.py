@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.crud.endpoint import user_endpoint_exists
 from rhesis.backend.app.crud.notification import user_notification_exists
+from rhesis.backend.app.crud.project import project_is_example
 from rhesis.backend.app.models.enums import NotificationEventType
 from rhesis.backend.app.schemas.endpoint import EndpointSetupStatus
 from rhesis.backend.app.services.notification import RenderedNotification, notify
@@ -20,12 +21,13 @@ def get_endpoint_setup_status(
     """Check the session's project scope for a non-example endpoint.
 
     Sends the user a one-time "set up an endpoint" notification for this project when
-    there is none.
+    there is none, except in the onboarding example project: it is a demo, so the user
+    isn't nudged to wire it up.
     """
     if not project_id:
         return EndpointSetupStatus(configured=None)
     configured = user_endpoint_exists(db, organization_id)
-    if not configured:
+    if not configured and not project_is_example(db, project_id):
         _maybe_notify(db, organization_id, user_id, project_id)
     return EndpointSetupStatus(configured=configured)
 
