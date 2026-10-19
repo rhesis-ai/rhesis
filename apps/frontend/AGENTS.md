@@ -93,17 +93,23 @@ address, help videos and articles) must be read at request time. `NEXT_PUBLIC_*`
 into the client bundle at `next build`: setting one on the pod does nothing, and changing it means a
 rebuild. Don't add new ones, and don't pass deployment values as Docker build args.
 
-- Name the var without a prefix, and add it to `charts/rhesis/templates/configmap.yaml` plus
-  `values.yaml` (and the per-env values files if it has a value there).
-- Server components and route handlers read `process.env` directly (`page.tsx` with
-  `force-dynamic`, e.g. the onboarding video).
-- Client components get it from `window.__ENV__`, which the root layout fills. Add the field to
-  `src/types/env.d.ts` and to the object the layout serializes. Read it through a helper that falls
-  back to `process.env` when `typeof window === 'undefined'` (see `getRuntimeContentEnv` in
-  `src/config/runtime-env.ts`), so the server render matches hydration.
+Every deployment var is declared once, in `src/config/runtime-config.ts`. To add one:
 
-The only `NEXT_PUBLIC_*` values left are build facts (`NEXT_PUBLIC_GIT_COMMIT`, `_BRANCH`,
-`_FRONTEND_ENV`), which really are fixed per image.
+1. Add it to `ServerEnv` (server only) or `PublicEnv` (also sent to the browser, so never a
+   secret), and read it in `serverEnv()` or `readPublicEnv()`. Add a check to
+   `src/config/enforce-env.ts`, which runs at startup from `src/instrumentation.ts`: an error when
+   a bad value breaks the app (it fails the pod in production), a warning when it only hides
+   optional content.
+2. Add it to `charts/rhesis/templates/configmap.yaml` and `values.yaml`, plus the per-env values
+   files if it has a value there. If self-hosters may set it, also add it to the
+   `x-nextjs-frontend` block in `docker-compose.yml` and document it in `.env.example`.
+3. Read it with `serverEnv()` in server code, or `publicEnv()` anywhere, including client
+   components. The root layout already serializes `PublicEnv` into `window.__ENV__`, and
+   `publicEnv()` reads `process.env` during the server render, so hydration agrees. Don't read
+   `process.env` directly, and don't add an API route just to hand config to the client.
+
+The only `NEXT_PUBLIC_*` values left are build facts (`NEXT_PUBLIC_GIT_COMMIT`, `_BRANCH`), which
+really are fixed per image.
 
 ## Feature Gating — frontend side
 

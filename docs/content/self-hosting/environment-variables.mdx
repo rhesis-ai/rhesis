@@ -336,6 +336,16 @@ self-hosting is unaffected.
 The empty-state pair exists for each of `TESTS`, `PROJECTS`, `TEST_SETS`, `TEST_RUNS`, `ENDPOINTS`,
 `REQUIREMENTS`, `METRICS`, and `EXPERIMENTS`.
 
+The per-entity empty-state variables are wired into the Helm chart (`config.emptyStates`) but not into
+`docker-compose.yml`.
+
+The frontend checks its variables at startup and logs each problem. In production it exits when
+`API_BASE_URL` is missing, or when `API_BASE_URL`, `BACKEND_URL` or `FRONTEND_URL` is not an
+`http(s)` URL, so a bad value fails the rollout instead of breaking sign-in. Problems with the
+content variables in this table, such as a video that is not on YouTube or an article outside
+`docs.rhesis.ai`, are logged as warnings and never stop it. The same goes for branding values: a
+malformed one is logged and the default is used.
+
 **Enterprise and GCP-hosted infrastructure** — specific to Rhesis's managed environment.
 
 | Variable | Purpose |
