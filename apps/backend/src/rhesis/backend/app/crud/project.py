@@ -160,6 +160,13 @@ def list_visible_project_example_flags(
     return [(project.id, project.is_example) for project in projects]
 
 
+def project_is_example(db: Session, project_id: str) -> bool:
+    """Whether the project is the example project seeded at onboarding."""
+    return bool(
+        db.query(models.Project.is_example).filter(models.Project.id == project_id).scalar()
+    )
+
+
 def create_project(
     db: Session,
     project: schemas.ProjectCreate,

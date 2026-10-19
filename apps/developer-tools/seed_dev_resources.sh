@@ -150,10 +150,13 @@ print(items[0]["id"] if items else "")
         if [ -n "$endpoints_json" ] && echo "$endpoints_json" | name_exists "$ENDPOINT_NAME"; then
             ok "Endpoint '${ENDPOINT_NAME}' already exists — skipping."
         else
+            # is_example: a dev fixture, not the user's own endpoint, so the app
+            # still prompts to set one up (CONNECT open, "Set up an endpoint").
             local payload
             payload=$(cat <<EOF
 {
   "name": "${ENDPOINT_NAME}",
+  "is_example": true,
   "description": "Local mock chatbot (apps/developer-tools/mock_chatbot). Development only.",
   "connection_type": "REST",
   "url": "${MOCK_CHATBOT_URL}",

@@ -12,6 +12,7 @@ import {
   type NavigationPageItem,
 } from '@/types/navigation';
 import { useAmbientPermissions } from '@/contexts/PermissionsContext';
+import { useEndpointConfigured } from '@/hooks/useEndpointConfigured';
 import { collapsedNavGroupSx } from './sidebar-utils';
 import { NavItem } from './NavItem';
 
@@ -23,9 +24,17 @@ interface NavSectionProps {
 
 export function NavSection({ header, items, collapsed }: NavSectionProps) {
   const isCollapsible = header.collapsible ?? false;
-  const [sectionOpen, setSectionOpen] = useState(
-    !(header.defaultCollapsed ?? false)
+  const endpointConfigured = useEndpointConfigured(
+    header.openUntilEndpointConfigured ?? false
   );
+  // Collapsed while the endpoint check loads, so orgs that have one don't see
+  // the section flash open then shut.
+  const defaultOpen =
+    !(header.defaultCollapsed ?? false) ||
+    (!!header.openUntilEndpointConfigured && endpointConfigured === false);
+  // null until the user toggles; their choice then wins over the default.
+  const [userOpen, setUserOpen] = useState<boolean | null>(null);
+  const sectionOpen = userOpen ?? defaultOpen;
   // Icon-only sidebar: always show section items (section headers are hidden).
   const showItems = collapsed || !isCollapsible || sectionOpen;
 
@@ -59,7 +68,7 @@ export function NavSection({ header, items, collapsed }: NavSectionProps) {
     >
       {!collapsed && (
         <ButtonBase
-          onClick={isCollapsible ? () => setSectionOpen(o => !o) : undefined}
+          onClick={isCollapsible ? () => setUserOpen(!sectionOpen) : undefined}
           tabIndex={isCollapsible ? 0 : -1}
           disableRipple={!isCollapsible}
           sx={{

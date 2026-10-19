@@ -15,7 +15,12 @@ export const testKeys = {
 };
 export const testSetKeys = createEntityKeys('test-sets');
 export const testRunKeys = createEntityKeys('test-runs');
-export const endpointKeys = createEntityKeys('endpoints');
+export const endpointKeys = {
+  ...createEntityKeys('endpoints'),
+  // Under the 'endpoints' root so invalidating endpoint queries refreshes it too.
+  setupStatus: (userScope: string, projectId: string) =>
+    ['endpoints', 'setup-status', userScope, projectId] as const,
+};
 export const sourceKeys = createEntityKeys('sources');
 export const taskKeys = createEntityKeys('tasks');
 export const jobKeys = {

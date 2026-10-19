@@ -108,6 +108,21 @@ def get_notification_summary(db: Session, user_id: str) -> Dict[str, Dict[str, A
     return summary
 
 
+def user_notification_exists(
+    db: Session, user_id: str, event_type: str, project_id: Optional[str]
+) -> bool:
+    return (
+        db.query(Notification.id)
+        .filter(
+            Notification.user_id == user_id,
+            Notification.event_type == event_type,
+            Notification.project_id == project_id,
+        )
+        .first()
+        is not None
+    )
+
+
 def get_notifications(
     db: Session,
     user_id: str,

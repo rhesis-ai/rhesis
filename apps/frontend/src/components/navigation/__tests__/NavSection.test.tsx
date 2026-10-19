@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { NavSection } from '../NavSection';
 import { type NavigationPageItem } from '@/types/navigation';
@@ -7,6 +7,7 @@ import {
   useAmbientPermissions,
   type AmbientPermissions,
 } from '@/contexts/PermissionsContext';
+import { useEndpointConfigured } from '@/hooks/useEndpointConfigured';
 
 // Mock the ambient subject so we can drive enabled/loading/caps directly,
 // matching the pattern used in components/common/__tests__/Can.test.tsx.
@@ -14,6 +15,15 @@ jest.mock('@/contexts/PermissionsContext', () => ({
   useAmbientPermissions: jest.fn(),
 }));
 const mockAmbient = useAmbientPermissions as unknown as jest.Mock;
+
+jest.mock('@/hooks/useEndpointConfigured', () => ({
+  useEndpointConfigured: jest.fn(),
+}));
+const mockEndpointConfigured = useEndpointConfigured as unknown as jest.Mock;
+
+beforeEach(() => {
+  mockEndpointConfigured.mockReturnValue(undefined);
+});
 
 function setAmbient(partial: Partial<AmbientPermissions>) {
   mockAmbient.mockReturnValue({
@@ -156,5 +166,65 @@ describe('NavSection', () => {
 
     expect(screen.queryByText('CONNECT')).not.toBeInTheDocument();
     expect(screen.queryByText('annotations')).not.toBeInTheDocument();
+  });
+
+  describe('openUntilEndpointConfigured', () => {
+    const connectHeader = {
+      kind: 'header' as const,
+      title: 'CONNECT',
+      collapsible: true,
+      defaultCollapsed: true,
+      openUntilEndpointConfigured: true,
+    };
+
+    function renderConnect() {
+      setAmbient({ enabled: false });
+      render(
+        <NavSection
+          header={connectHeader}
+          items={[makeItem('endpoints')]}
+          collapsed={false}
+        />
+      );
+    }
+
+    it('is open when the project has no endpoint', () => {
+      mockEndpointConfigured.mockReturnValue(false);
+      renderConnect();
+      expect(screen.getByText('endpoints')).toBeVisible();
+    });
+
+    it('is collapsed once the project has an endpoint', () => {
+      mockEndpointConfigured.mockReturnValue(true);
+      renderConnect();
+      expect(screen.getByText('endpoints')).not.toBeVisible();
+    });
+
+    it('stays collapsed while the endpoint check is loading', () => {
+      mockEndpointConfigured.mockReturnValue(undefined);
+      renderConnect();
+      expect(screen.getByText('endpoints')).not.toBeVisible();
+    });
+
+    it("lets the user collapse it even when there's no endpoint", async () => {
+      mockEndpointConfigured.mockReturnValue(false);
+      renderConnect();
+      fireEvent.click(screen.getByText('CONNECT'));
+      await waitFor(() =>
+        expect(screen.getByText('endpoints')).not.toBeVisible()
+      );
+    });
+
+    it('does not check endpoints for other sections', () => {
+      setAmbient({ enabled: false });
+      render(
+        <NavSection
+          header={header}
+          items={[makeItem('knowledge')]}
+          collapsed={false}
+        />
+      );
+      expect(mockEndpointConfigured).toHaveBeenCalledWith(false);
+    });
   });
 });

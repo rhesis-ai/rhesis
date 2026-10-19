@@ -30,10 +30,12 @@ from rhesis.backend.app.schemas.endpoint import (
     AutoConfigureRequest,
     AutoConfigureResult,
     EndpointMappingTestRequest,
+    EndpointSetupStatus,
 )
 from rhesis.backend.app.schemas.services import ExploreEndpointRequest, ExploreEndpointResponse
 from rhesis.backend.app.services.endpoint import EndpointService
 from rhesis.backend.app.services.endpoint.auto_configure import AutoConfigureService
+from rhesis.backend.app.services.endpoint.setup_status import get_endpoint_setup_status
 from rhesis.backend.app.services.endpoint.testing import build_mapping_test_endpoint
 from rhesis.backend.app.services.invokers.auth import AuthenticationManager
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
@@ -143,6 +145,19 @@ def read_endpoints(
         serialized = jsonable_encoder(results)
         return JSONResponse(content=apply_select(serialized, select))
     return results
+
+
+@router.get("/setup-status", response_model=EndpointSetupStatus)
+def read_endpoint_setup_status(
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    """Whether the active project has an endpoint that isn't seeded example data.
+
+    When it doesn't, the caller is sent a one-time "set up an endpoint" notification.
+    """
+    organization_id, user_id = tenant_context
+    return get_endpoint_setup_status(db, organization_id, user_id)
 
 
 # The session is never used below -- a transient REST + BEARER_TOKEN config runs no

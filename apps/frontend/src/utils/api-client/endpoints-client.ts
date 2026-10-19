@@ -5,6 +5,7 @@ import {
   AutoConfigureResult,
   Endpoint,
   EndpointBulkDeleteResponse,
+  EndpointSetupStatus,
   EndpointTestRequest,
 } from './interfaces/endpoint';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
@@ -28,6 +29,14 @@ export class EndpointsClient extends BaseApiClient {
     return this.fetchPaginated<Endpoint>(
       API_ENDPOINTS.endpoints,
       paginationParams,
+      { cache: 'no-store' }
+    );
+  }
+
+  /** Also sends the caller a one-time "set up an endpoint" notification when not configured. */
+  async getSetupStatus(): Promise<EndpointSetupStatus> {
+    return this.fetch<EndpointSetupStatus>(
+      `${API_ENDPOINTS.endpoints}/setup-status`,
       { cache: 'no-store' }
     );
   }
