@@ -50,7 +50,7 @@ export default function OnboardingVideoPlayer({
         <Box
           component="iframe"
           src={embedUrl}
-          title="Onboarding welcome video"
+          title="Rhesis overview video"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
           sx={{
@@ -68,7 +68,7 @@ export default function OnboardingVideoPlayer({
       component="button"
       type="button"
       onClick={() => setIsPlaying(true)}
-      aria-label="Play onboarding video"
+      aria-label="Play overview video"
       sx={{
         ...onboardingVideoShellSx,
         overflow: 'hidden',
