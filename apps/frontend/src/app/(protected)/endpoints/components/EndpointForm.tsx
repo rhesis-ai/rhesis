@@ -37,6 +37,19 @@ import {
   validateMappingJson,
 } from './mappingUtils';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { getEndpointFailure } from '@/utils/endpoint-failure';
+import type { TestOutput } from '@/utils/api-client/interfaces/test-results';
+import {
+  ENDPOINT_AUTH_TYPES,
+  type EndpointAuthType,
+} from '@/constants/endpoint-auth';
+import {
+  EMPTY_CLIENT_CREDENTIALS,
+  authPayload,
+  testAuthFields,
+  validateClientCredentials,
+  type ClientCredentialsDraft,
+} from './endpointAuth';
 
 export interface FormData {
   name: string;
@@ -50,7 +63,9 @@ export interface FormData {
   endpoint_path: string;
   project_id: string;
   organization_id: string;
+  auth_type: EndpointAuthType;
   auth_token: string;
+  client_credentials: ClientCredentialsDraft;
   request_headers: string;
   disable_tracing: boolean;
   timeout_seconds: string;
@@ -153,7 +168,9 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       endpoint_path: '',
       project_id: '',
       organization_id: '',
+      auth_type: ENDPOINT_AUTH_TYPES.BEARER_TOKEN,
       auth_token: '',
+      client_credentials: EMPTY_CLIENT_CREDENTIALS,
       request_headers: '{}',
       disable_tracing: false,
       timeout_seconds: '',
@@ -230,11 +247,20 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       });
     };
 
+    const isClientCredentials =
+      formData.auth_type === ENDPOINT_AUTH_TYPES.CLIENT_CREDENTIALS;
+    const authError = isClientCredentials
+      ? validateClientCredentials(formData.client_credentials, false)
+      : null;
+    // Only a bearer token is a value the test and auto-configure calls can use as is.
+    const bearerToken = isClientCredentials ? '' : formData.auth_token;
+
     const step1Valid =
       Boolean(formData.url) &&
       validateUrl(formData.url) &&
       Boolean(formData.name) &&
-      Boolean(formData.project_id);
+      Boolean(formData.project_id) &&
+      authError === null;
 
     useEffect(() => {
       onSubmitStateChange?.({
@@ -260,6 +286,9 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       try {
         if (!formData.url || !validateUrl(formData.url)) {
           throw new Error('Please enter a valid URL in step 1');
+        }
+        if (authError) {
+          throw new Error(authError);
         }
         if (!isAuthenticated(status)) {
           throw new Error('Session token not available');
@@ -287,8 +316,11 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
               return {};
             }
           })(),
-          auth_type: 'bearer_token',
-          auth_token: formData.auth_token || '',
+          ...testAuthFields(
+            formData.auth_type,
+            formData.auth_token,
+            formData.client_credentials
+          ),
           input_data: inputData,
           endpoint_path: formData.endpoint_path || undefined,
           response_format: (formData.response_format || 'json') as
@@ -298,14 +330,15 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
         });
 
         const r = result as Record<string, unknown>;
-        const success = r.success !== false && !r.error;
-        setResult({ success: Boolean(success), response: r });
+        // A failed call to the target comes back as a 200 with the failure in the body.
+        const failure = getEndpointFailure(r as unknown as TestOutput);
+        setResult({
+          success: !failure && r.success !== false && !r.error,
+          response: r,
+          error: failure ? failure.message || failure.summary : undefined,
+        });
       } catch (err) {
-        const msg = (err as Error).message ?? '';
-        const display = msg.includes('500')
-          ? 'The server encountered an error processing the response. Check the backend logs for details.'
-          : msg;
-        setResult({ success: false, error: display });
+        setResult({ success: false, error: (err as Error).message ?? '' });
       } finally {
         setTesting(false);
       }
@@ -322,6 +355,11 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
 
       if (!formData.url || !validateUrl(formData.url)) {
         setError('Please enter a valid URL');
+        return;
+      }
+
+      if (authError) {
+        setError(authError);
         return;
       }
 
@@ -376,7 +414,11 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
           endpointData.request_headers =
             requestHeaders as unknown as Endpoint['request_headers'];
         }
-        if (formData.auth_token) {
+        Object.assign(
+          endpointData,
+          authPayload(formData.auth_type, formData.client_credentials)
+        );
+        if (!isClientCredentials && formData.auth_token) {
           (endpointData as Record<string, unknown>).auth_token =
             formData.auth_token;
         }
@@ -414,6 +456,8 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       }
     }, [
       formData,
+      authError,
+      isClientCredentials,
       reqBody,
       resBody,
       createEndpoint,
@@ -504,7 +548,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
               reqBody={reqBody}
               resBody={resBody}
               requestHeaders={formData.request_headers}
-              authToken={formData.auth_token}
+              authToken={bearerToken}
               testResult={tabTestResult}
               isTestingEndpoint={isTabTestRunning}
               onRunTest={handleTabRunTest}
@@ -547,7 +591,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
           onClose={() => setAutoConfigureOpen(false)}
           onApply={handleAutoConfigureApply}
           url={formData.url || ''}
-          authToken={formData.auth_token || ''}
+          authToken={bearerToken}
           method={formData.method || 'POST'}
         />
       </Box>

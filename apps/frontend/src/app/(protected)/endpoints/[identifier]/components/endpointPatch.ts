@@ -11,10 +11,13 @@ export async function patchEndpointFields(
   payload: EndpointEditData
 ): Promise<Endpoint> {
   const cleaned = { ...payload };
-  // An empty string means "untouched / keep existing" and must not be sent.
-  // An explicit null means "remove the saved token" and must be sent through.
+  // For secrets, an empty string means "untouched / keep existing" and must not
+  // be sent. An explicit null means "remove the saved value" and is sent through.
   if (cleaned.auth_token === '') {
     delete cleaned.auth_token;
+  }
+  if (cleaned.client_secret === '') {
+    delete cleaned.client_secret;
   }
 
   const result = await updateEndpoint(endpointId, cleaned);

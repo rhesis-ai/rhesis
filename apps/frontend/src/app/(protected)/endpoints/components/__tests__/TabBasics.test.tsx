@@ -3,6 +3,8 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import TabOverview from '../TabOverview';
 import type { FormData } from '../EndpointForm';
+import { ENDPOINT_AUTH_TYPES } from '@/constants/endpoint-auth';
+import { EMPTY_CLIENT_CREDENTIALS } from '../endpointAuth';
 import type { Project } from '@/utils/api-client/interfaces/project';
 
 const defaultFormData: FormData = {
@@ -17,7 +19,9 @@ const defaultFormData: FormData = {
   endpoint_path: '',
   project_id: '',
   organization_id: '',
+  auth_type: ENDPOINT_AUTH_TYPES.BEARER_TOKEN,
   auth_token: '',
+  client_credentials: EMPTY_CLIENT_CREDENTIALS,
   request_headers: '{}',
   disable_tracing: false,
   timeout_seconds: '',

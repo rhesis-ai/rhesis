@@ -107,4 +107,32 @@ describe('useEndpointDetail', () => {
     );
     expect(cached?.name).toBe('Renamed Endpoint');
   });
+
+  it('keeps a saved client secret out of state but flags it as stored', async () => {
+    mockUpdateEndpoint.mockResolvedValue({
+      success: true,
+      data: initialEndpoint,
+    });
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(
+      endpointKeys.detail(initialEndpoint.id),
+      initialEndpoint
+    );
+
+    const { result } = renderHook(() => useEndpointDetail(initialEndpoint), {
+      wrapper: wrapper(queryClient),
+    });
+
+    await result.current.saveFields({
+      auth_type: 'client_credentials',
+      client_secret: 'super-secret',
+    });
+
+    const cached = queryClient.getQueryData<Endpoint>(
+      endpointKeys.detail(initialEndpoint.id)
+    );
+    expect(cached?.auth_type).toBe('client_credentials');
+    expect(cached?.has_client_secret).toBe(true);
+    expect(JSON.stringify(cached)).not.toContain('super-secret');
+  });
 });
