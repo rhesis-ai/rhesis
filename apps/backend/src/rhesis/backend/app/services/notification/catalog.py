@@ -229,6 +229,12 @@ NOTIFICATION_CATALOG: Dict[str, NotificationKind] = {
         section=NotificationSection.ACCOUNT,
         entity_type=None,
     ),
+    NotificationEventType.Endpoint.SETUP_REQUIRED: NotificationKind(
+        event_type=NotificationEventType.Endpoint.SETUP_REQUIRED,
+        section=NotificationSection.ENDPOINTS,
+        entity_type=None,
+        # Emitted directly from services/onboarding.py, not a Celery hook.
+    ),
     NotificationEventType.AuditLog.EXPORT_COMPLETED: NotificationKind(
         event_type=NotificationEventType.AuditLog.EXPORT_COMPLETED,
         section=NotificationSection.JOBS,

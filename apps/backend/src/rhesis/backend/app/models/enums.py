@@ -109,6 +109,7 @@ class NotificationSection(str, Enum):
     USAGE = "usage"
     ACCOUNT = "account"
     JOBS = "jobs"
+    ENDPOINTS = "endpoints"
 
 
 class NotificationEventType:
@@ -130,6 +131,11 @@ class NotificationEventType:
 
     class Task(str, Enum):
         ASSIGNED = "task.assigned"
+
+    class Endpoint(str, Enum):
+        #: The user's organization has no endpoint of its own yet (the seeded
+        #: example doesn't count), so there is nothing real to test.
+        SETUP_REQUIRED = "endpoint.setup_required"
 
     class Architect(str, Enum):
         #: One architect turn concluded a background wait with nothing left
