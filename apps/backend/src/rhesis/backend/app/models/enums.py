@@ -33,6 +33,13 @@ class EndpointAuthType(str, Enum):
     CLIENT_CREDENTIALS = "client_credentials"
 
 
+class TokenEndpointAuthMethod(str, Enum):
+    """How a client-credentials endpoint authenticates to its token URL (RFC 7591 names)."""
+
+    CLIENT_SECRET_BASIC = "client_secret_basic"
+    CLIENT_SECRET_POST = "client_secret_post"
+
+
 class ModelType(str, Enum):
     """Type of AI model configuration."""
 

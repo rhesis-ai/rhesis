@@ -1,8 +1,10 @@
 """Authentication management for endpoint invokers."""
 
+import base64
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from urllib.parse import quote_plus
 
 import requests
 from fastapi import HTTPException
@@ -10,7 +12,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.error_handlers import UpstreamHTTPException
 from rhesis.backend.app.models.endpoint import Endpoint
-from rhesis.backend.app.models.enums import EndpointAuthType
+from rhesis.backend.app.models.enums import EndpointAuthType, TokenEndpointAuthMethod
+from rhesis.backend.app.schemas.endpoint import check_token_url
 from rhesis.backend.app.services.invokers.common.connection_errors import (
     describe_connection_error,
     url_host,
@@ -30,6 +33,16 @@ TOKEN_REQUEST_TIMEOUT = (5.0, 20.0)
 
 # Cap on the server's error_description we echo back.
 _MAX_ERROR_DESCRIPTION = 300
+
+
+def _basic_auth_header(client_id: str, client_secret: str) -> str:
+    """client_secret_basic, which RFC 6749 2.3.1 requires every token server to accept.
+
+    Both parts are form-urlencoded before base64, as that section requires;
+    requests' own HTTPBasicAuth skips that, which breaks secrets with "+" or ":".
+    """
+    raw = f"{quote_plus(client_id)}:{quote_plus(client_secret)}"
+    return "Basic " + base64.b64encode(raw.encode()).decode()
 
 
 def _token_failure_reason(exc: Exception) -> str:
@@ -124,23 +137,32 @@ class AuthenticationManager:
             raise HTTPException(
                 status_code=400, detail="Token URL is required for client credentials flow"
             )
+        try:
+            check_token_url(endpoint.token_url)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
 
-        # RFC 6749 4.4.2: the token request is form-encoded, with the client
-        # authenticating in the body (client_secret_post). Many servers reject JSON.
+        # RFC 6749 4.4.2: the token request is form-encoded. Many servers reject JSON.
         payload = {
             "grant_type": "client_credentials",
-            "client_id": endpoint.client_id,
-            "client_secret": endpoint.client_secret,
             "audience": endpoint.audience,
             "scope": " ".join(endpoint.scopes) if endpoint.scopes else None,
         }
+        headers = {}
+        if endpoint.token_endpoint_auth_method == TokenEndpointAuthMethod.CLIENT_SECRET_POST.value:
+            payload["client_id"] = endpoint.client_id
+            payload["client_secret"] = endpoint.client_secret
+        else:
+            headers["Authorization"] = _basic_auth_header(
+                endpoint.client_id or "", endpoint.client_secret or ""
+            )
         if endpoint.extra_payload:
             payload.update(endpoint.extra_payload)
         payload = {k: v for k, v in payload.items() if v is not None}
 
         try:
             response = _token_session.post(
-                endpoint.token_url, data=payload, timeout=TOKEN_REQUEST_TIMEOUT
+                endpoint.token_url, data=payload, headers=headers, timeout=TOKEN_REQUEST_TIMEOUT
             )
             response.raise_for_status()
             token_data = response.json()

@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
+from urllib.parse import urlparse
 
 from pydantic import (
     UUID4,
@@ -16,6 +17,7 @@ from rhesis.backend.app.models.enums import (
     EndpointConnectionType,
     EndpointEnvironment,
     EndpointResponseFormat,
+    TokenEndpointAuthMethod,
 )
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.references import ProjectReference, StatusReference
@@ -27,6 +29,22 @@ def _check_timeout_seconds(v: int | None) -> int | None:
     if v is not None and (v < 1 or v > 3600):
         raise ValueError("timeout_seconds must be between 1 and 3600")
     return v
+
+
+# Plain http is only accepted for the local machine, where nothing crosses a network.
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def check_token_url(url: str | None) -> str | None:
+    """The client secret is sent to this URL, so it must use TLS (RFC 6749 2.3.1)."""
+    if url is None:
+        return None
+    parsed = urlparse(url)
+    if parsed.scheme == "https" and parsed.hostname:
+        return url
+    if parsed.scheme == "http" and parsed.hostname in _LOOPBACK_HOSTS:
+        return url
+    raise ValueError("token_url must use https://, since the client secret is sent to it")
 
 
 # --- Endpoint metadata sub-models ---
@@ -147,9 +165,16 @@ class EndpointBase(Base):
     client_id: Optional[str] = None
     client_secret: Optional[str] = None
     token_url: Optional[str] = None
+    token_endpoint_auth_method: Optional[TokenEndpointAuthMethod] = None
     scopes: Optional[List[str]] = None
     audience: Optional[str] = None
     extra_payload: Optional[Dict[str, Any]] = None
+
+    @field_validator("token_url")
+    @classmethod
+    def _validate_token_url(cls, v: str | None) -> str | None:
+        return check_token_url(v)
+
     # last_token and last_token_expires_at are intentionally excluded:
     # they are managed internally by the OAuth token-refresh flow and must
     # not be writable by API clients.
@@ -199,9 +224,15 @@ class EndpointTestRequest(Base):
     client_id: Optional[str] = None
     client_secret: Optional[str] = None
     token_url: Optional[str] = None
+    token_endpoint_auth_method: Optional[TokenEndpointAuthMethod] = None
     scopes: Optional[List[str]] = None
     audience: Optional[str] = None
     extra_payload: Optional[Dict[str, Any]] = None
+
+    @field_validator("token_url")
+    @classmethod
+    def _validate_token_url(cls, v: str | None) -> str | None:
+        return check_token_url(v)
 
     @field_validator("connection_type")
     @classmethod
@@ -291,6 +322,7 @@ class Endpoint(Base, ServerIdentity):
     # These can be set via Create/Update but are never returned
     client_id: Optional[str] = None
     token_url: Optional[str] = None
+    token_endpoint_auth_method: Optional[TokenEndpointAuthMethod] = None
     scopes: Optional[List[str]] = None
     audience: Optional[str] = None
     extra_payload: Optional[Dict[str, Any]] = None

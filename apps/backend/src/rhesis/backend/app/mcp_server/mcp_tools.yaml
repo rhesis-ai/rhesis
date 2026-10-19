@@ -1169,7 +1169,14 @@ tools:
       client_secret:
         description: "OAuth client secret (write-only, stored encrypted)."
       token_url:
-        description: "OAuth token endpoint URL (client_credentials flow)."
+        description: >
+          OAuth token endpoint URL (client_credentials flow). Must be https://
+          (http:// is accepted only for localhost).
+      token_endpoint_auth_method:
+        description: >
+          How the client ID and secret are sent to token_url:
+          "client_secret_basic" (Authorization header, the default) or
+          "client_secret_post" (request body). Match the provider's setting.
       scopes:
         description: "List of OAuth scope strings (client_credentials flow)."
       audience:
@@ -1231,7 +1238,14 @@ tools:
       client_secret:
         description: "OAuth client secret (write-only, stored encrypted)."
       token_url:
-        description: "OAuth token endpoint URL (client_credentials flow)."
+        description: >
+          OAuth token endpoint URL (client_credentials flow). Must be https://
+          (http:// is accepted only for localhost).
+      token_endpoint_auth_method:
+        description: >
+          How the client ID and secret are sent to token_url:
+          "client_secret_basic" (Authorization header, the default) or
+          "client_secret_post" (request body). Match the provider's setting.
       scopes:
         description: "List of OAuth scope strings (client_credentials flow)."
       audience:

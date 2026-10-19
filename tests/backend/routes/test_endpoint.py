@@ -421,6 +421,44 @@ class TestEndpointAuthFields(EndpointTestMixin, BaseEntityTests):
         assert "client_secret" not in data
         assert "super-secret" not in response.text
 
+    @pytest.mark.parametrize(
+        "token_url",
+        ["http://auth.example.com/oauth/token", "ftp://auth.example.com/token", "not a url"],
+    )
+    def test_token_url_must_use_https(
+        self, authenticated_client: TestClient, db_project, token_url
+    ):
+        response = authenticated_client.post(
+            self.endpoints.create, json={**self._oauth_data(db_project), "token_url": token_url}
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert "https://" in response.text
+
+    def test_plain_http_token_url_is_allowed_on_localhost(
+        self, authenticated_client: TestClient, db_project
+    ):
+        response = authenticated_client.post(
+            self.endpoints.create,
+            json={**self._oauth_data(db_project), "token_url": "http://localhost:8199/token"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+
+    def test_token_endpoint_auth_method_round_trips(
+        self, authenticated_client: TestClient, db_project
+    ):
+        response = authenticated_client.post(
+            self.endpoints.create,
+            json={
+                **self._oauth_data(db_project),
+                "token_endpoint_auth_method": "client_secret_post",
+            },
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.json()["token_endpoint_auth_method"] == "client_secret_post"
+
     def test_api_key_auth_type_is_rejected(self, authenticated_client: TestClient, db_project):
         response = authenticated_client.post(
             self.endpoints.create,
@@ -883,7 +921,7 @@ class TestEndpointOffLoopRoutes(EndpointTestMixin, BaseEntityTests):
 
         assert response.status_code == status.HTTP_200_OK, response.text
         assert response.json()["output"] == "pong"
-        assert token_post.call_args.kwargs["data"]["client_secret"] == "super-secret"
+        assert token_post.call_args.kwargs["headers"]["Authorization"].startswith("Basic ")
         call_kwargs = http_client.post.call_args.kwargs
         assert call_kwargs["headers"]["Authorization"] == "Bearer oauth-token"
 

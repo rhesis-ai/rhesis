@@ -99,6 +99,8 @@ class Endpoint(Base, ActivityTrackableMixin, TagsMixin, ExampleDataMixin):
     client_id = Column(Text, nullable=True)
     client_secret = Column(EncryptedString(), nullable=True)  # Encrypted for security
     token_url = Column(Text, nullable=True)
+    # NULL means client_secret_basic
+    token_endpoint_auth_method = Column(String, nullable=True)
     scopes = Column(ARRAY(Text), nullable=True)
     audience = Column(Text, nullable=True)
     extra_payload = Column(JSON, nullable=True)

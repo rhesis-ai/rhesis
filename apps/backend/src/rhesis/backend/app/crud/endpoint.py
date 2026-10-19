@@ -99,6 +99,7 @@ _TOKEN_INPUT_FIELDS = frozenset(
         "client_id",
         "client_secret",
         "token_url",
+        "token_endpoint_auth_method",
         "scopes",
         "audience",
         "extra_payload",

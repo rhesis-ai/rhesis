@@ -29,6 +29,7 @@ from rhesis.backend.app.models.enums import (
     EndpointConnectionType,
     EndpointEnvironment,
     EndpointResponseFormat,
+    TokenEndpointAuthMethod,
 )
 from rhesis.backend.app.schemas.endpoint import EndpointTestRequest
 from rhesis.backend.app.services.invokers import create_invoker
@@ -95,6 +96,11 @@ async def test_endpoint(
             client_id=test_config.client_id,
             client_secret=test_config.client_secret,
             token_url=test_config.token_url,
+            token_endpoint_auth_method=_enum_value(
+                test_config.token_endpoint_auth_method, TokenEndpointAuthMethod
+            )
+            if test_config.token_endpoint_auth_method
+            else None,
             scopes=test_config.scopes,
             audience=test_config.audience,
             extra_payload=test_config.extra_payload,
@@ -181,6 +187,7 @@ def build_mapping_test_endpoint(
         client_id=endpoint.client_id,
         client_secret=endpoint.client_secret,
         token_url=endpoint.token_url,
+        token_endpoint_auth_method=endpoint.token_endpoint_auth_method,
         scopes=endpoint.scopes,
         audience=endpoint.audience,
         extra_payload=endpoint.extra_payload,
