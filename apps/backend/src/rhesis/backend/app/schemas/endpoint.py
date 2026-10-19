@@ -156,7 +156,15 @@ class EndpointBase(Base):
 
 
 class EndpointCreate(EndpointBase):
-    pass
+    # Marks seeded demo data (e.g. the local dev mock chatbot) so it doesn't count as
+    # the project's own endpoint. Create-only: an endpoint can't be re-flagged later.
+    is_example: bool = False
+
+
+class EndpointSetupStatus(BaseModel):
+    #: Whether the active project has an endpoint that isn't seeded example data.
+    #: None when the request carries no project, since endpoints only live in one.
+    configured: Optional[bool]
 
 
 class EndpointUpdate(EndpointBase):

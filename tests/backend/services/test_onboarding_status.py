@@ -14,8 +14,6 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.auth.org_project_access import has_org_wide_project_access
-from rhesis.backend.app.models.enums import NotificationEventType, NotificationSection
-from rhesis.backend.app.models.notification import Notification
 from rhesis.backend.app.services.onboarding import get_onboarding_status
 from rhesis.backend.app.services.organization import EXAMPLE_PROJECT_NAME
 from rhesis.backend.app.services.project_membership import enroll_user_in_project
@@ -251,44 +249,3 @@ class TestOnboardingStatus:
         assert status.project_created is False
         assert status.endpoint_setup is False
         assert status.test_cases_created is False
-
-
-def _endpoint_nudges(db: Session, org_id: str, user_id: str) -> list[Notification]:
-    with as_org(db, org_id), as_project(db, None):
-        return (
-            db.query(Notification)
-            .filter(
-                Notification.user_id == user_id,
-                Notification.event_type == NotificationEventType.Endpoint.SETUP_REQUIRED.value,
-            )
-            .all()
-        )
-
-
-@pytest.mark.unit
-class TestEndpointSetupNotification:
-    def test_new_org_gets_an_org_wide_nudge(self, test_db: Session, fresh_org):
-        org_id, user_id = fresh_org
-
-        get_onboarding_status(test_db, org_id, user_id)
-
-        [nudge] = _endpoint_nudges(test_db, org_id, user_id)
-        assert nudge.section == NotificationSection.ENDPOINTS.value
-        assert nudge.project_id is None
-        assert nudge.read_at is None
-
-    def test_nudge_is_sent_once(self, test_db: Session, fresh_org):
-        org_id, user_id = fresh_org
-
-        get_onboarding_status(test_db, org_id, user_id)
-        get_onboarding_status(test_db, org_id, user_id)
-
-        assert len(_endpoint_nudges(test_db, org_id, user_id)) == 1
-
-    def test_no_nudge_once_an_endpoint_exists(self, test_db: Session, fresh_org):
-        org_id, user_id = fresh_org
-        _add_endpoint(test_db, org_id, user_id, _example_project(test_db, org_id).id)
-
-        get_onboarding_status(test_db, org_id, user_id)
-
-        assert _endpoint_nudges(test_db, org_id, user_id) == []

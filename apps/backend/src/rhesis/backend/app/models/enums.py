@@ -133,8 +133,8 @@ class NotificationEventType:
         ASSIGNED = "task.assigned"
 
     class Endpoint(str, Enum):
-        #: The user's organization has no endpoint of its own yet (the seeded
-        #: example doesn't count), so there is nothing real to test.
+        #: The project has no endpoint of its own yet (seeded example ones
+        #: don't count), so there is nothing real to test. One per project.
         SETUP_REQUIRED = "endpoint.setup_required"
 
     class Architect(str, Enum):
