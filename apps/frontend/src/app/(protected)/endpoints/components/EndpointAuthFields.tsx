@@ -4,6 +4,7 @@ import React from 'react';
 import {
   Box,
   FormControl,
+  FormHelperText,
   Grid,
   InputLabel,
   MenuItem,
@@ -15,11 +16,18 @@ import ViewField from '@/components/common/ViewField';
 import {
   ENDPOINT_AUTH_TYPES,
   ENDPOINT_AUTH_TYPE_LABELS,
+  TOKEN_ENDPOINT_AUTH_METHODS,
+  TOKEN_ENDPOINT_AUTH_METHOD_LABELS,
   type EndpointAuthType,
+  type TokenEndpointAuthMethod,
 } from '@/constants/endpoint-auth';
 import JsonMonacoField from '../[identifier]/components/JsonMonacoField';
 import SecretField, { STORED_MASK } from './SecretField';
-import { parseExtraPayload, type ClientCredentialsDraft } from './endpointAuth';
+import {
+  parseExtraPayload,
+  tokenUrlError,
+  type ClientCredentialsDraft,
+} from './endpointAuth';
 
 export interface EndpointAuthFieldsProps {
   authType: EndpointAuthType;
@@ -35,15 +43,7 @@ export interface EndpointAuthFieldsProps {
 }
 
 const AUTH_TYPE_OPTIONS = Object.values(ENDPOINT_AUTH_TYPES);
-
-function isValidUrl(url: string) {
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    return false;
-  }
-}
+const TOKEN_AUTH_METHOD_OPTIONS = Object.values(TOKEN_ENDPOINT_AUTH_METHODS);
 
 export default function EndpointAuthFields({
   authType,
@@ -76,6 +76,16 @@ export default function EndpointAuthFields({
               <ViewField
                 label="Token URL"
                 value={clientCredentials.token_url || '—'}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <ViewField
+                label="Client authentication"
+                value={
+                  TOKEN_ENDPOINT_AUTH_METHOD_LABELS[
+                    clientCredentials.token_endpoint_auth_method
+                  ]
+                }
               />
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
@@ -120,9 +130,7 @@ export default function EndpointAuthFields({
     );
   }
 
-  const tokenUrlInvalid = Boolean(
-    clientCredentials.token_url && !isValidUrl(clientCredentials.token_url)
-  );
+  const urlError = tokenUrlError(clientCredentials.token_url);
   const extraPayload = parseExtraPayload(clientCredentials.extra_payload);
 
   return (
@@ -145,7 +153,7 @@ export default function EndpointAuthFields({
 
       {isClientCredentials ? (
         <Grid container spacing={2}>
-          <Grid size={12}>
+          <Grid size={{ xs: 12, md: 8 }}>
             <TextField
               fullWidth
               required
@@ -153,9 +161,37 @@ export default function EndpointAuthFields({
               value={clientCredentials.token_url}
               onChange={e => set('token_url')(e.target.value)}
               placeholder="https://your-domain.auth0.com/oauth/token"
-              error={tokenUrlInvalid}
-              helperText={tokenUrlInvalid ? 'Enter a valid URL' : undefined}
+              error={Boolean(urlError)}
+              helperText={urlError ?? undefined}
             />
+          </Grid>
+          <Grid size={{ xs: 12, md: 4 }}>
+            <FormControl fullWidth>
+              <InputLabel id="token-endpoint-auth-method-label">
+                Client authentication
+              </InputLabel>
+              <Select
+                labelId="token-endpoint-auth-method-label"
+                label="Client authentication"
+                value={clientCredentials.token_endpoint_auth_method}
+                onChange={e =>
+                  onClientCredentialsChange({
+                    ...clientCredentials,
+                    token_endpoint_auth_method: e.target
+                      .value as TokenEndpointAuthMethod,
+                  })
+                }
+              >
+                {TOKEN_AUTH_METHOD_OPTIONS.map(option => (
+                  <MenuItem key={option} value={option}>
+                    {TOKEN_ENDPOINT_AUTH_METHOD_LABELS[option]}
+                  </MenuItem>
+                ))}
+              </Select>
+              <FormHelperText>
+                Match the setting at your OAuth provider
+              </FormHelperText>
+            </FormControl>
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField

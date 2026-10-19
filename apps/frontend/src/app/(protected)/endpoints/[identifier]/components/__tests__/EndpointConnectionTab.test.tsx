@@ -116,7 +116,9 @@ describe('EndpointConnectionTab — auth type', () => {
     const section = authSection();
     fireEvent.click(section.getByRole('button', { name: /edit/i }));
 
-    fireEvent.mouseDown(section.getByRole('combobox'));
+    fireEvent.mouseDown(
+      section.getByRole('combobox', { name: 'Authentication' })
+    );
     fireEvent.click(
       await screen.findByRole('option', { name: 'Bearer token' })
     );
@@ -143,5 +145,24 @@ describe('EndpointConnectionTab — auth type', () => {
     const payload = mockSaveFields.mock.calls[0][0];
     expect(payload.client_id).toBe('client-456');
     expect(payload).not.toHaveProperty('client_secret');
+  });
+
+  it('saves the chosen client authentication method', async () => {
+    render(<EndpointConnectionTab />);
+    const section = authSection();
+    fireEvent.click(section.getByRole('button', { name: /edit/i }));
+
+    fireEvent.mouseDown(
+      section.getByRole('combobox', { name: 'Client authentication' })
+    );
+    fireEvent.click(
+      await screen.findByRole('option', { name: 'In request body' })
+    );
+    fireEvent.click(section.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => expect(mockSaveFields).toHaveBeenCalled());
+    expect(mockSaveFields.mock.calls[0][0].token_endpoint_auth_method).toBe(
+      'client_secret_post'
+    );
   });
 });

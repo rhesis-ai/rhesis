@@ -1,4 +1,7 @@
-import { ENDPOINT_AUTH_TYPES } from '@/constants/endpoint-auth';
+import {
+  ENDPOINT_AUTH_TYPES,
+  TOKEN_ENDPOINT_AUTH_METHODS,
+} from '@/constants/endpoint-auth';
 import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import {
   EMPTY_CLIENT_CREDENTIALS,
@@ -7,6 +10,7 @@ import {
   clientCredentialsFromEndpoint,
   parseExtraPayload,
   testAuthFields,
+  tokenUrlError,
   validateClientCredentials,
 } from '../endpointAuth';
 
@@ -57,7 +61,13 @@ describe('validateClientCredentials', () => {
     ).toMatch(/token url/i);
     expect(
       validateClientCredentials({ ...filled, token_url: 'nope' }, false)
-    ).toMatch(/valid token url/i);
+    ).toMatch(/valid url/i);
+    expect(
+      validateClientCredentials(
+        { ...filled, token_url: 'http://auth.example.com/token' },
+        false
+      )
+    ).toMatch(/https/);
     expect(
       validateClientCredentials({ ...filled, client_id: ' ' }, false)
     ).toMatch(/client id/i);
@@ -70,6 +80,33 @@ describe('validateClientCredentials', () => {
     expect(
       validateClientCredentials({ ...filled, client_secret: '' }, true)
     ).toBeNull();
+  });
+});
+
+describe('tokenUrlError', () => {
+  it('accepts https and an empty field', () => {
+    expect(tokenUrlError('https://auth.example.com/token')).toBeNull();
+    expect(tokenUrlError('  ')).toBeNull();
+  });
+
+  it('accepts plain http only on the local machine', () => {
+    expect(tokenUrlError('http://localhost:8199/token')).toBeNull();
+    expect(tokenUrlError('http://127.0.0.1/token')).toBeNull();
+    expect(tokenUrlError('http://[::1]:8080/token')).toBeNull();
+    expect(tokenUrlError('http://auth.example.com/token')).toMatch(/https/);
+  });
+
+  it('rejects text that is not a URL', () => {
+    expect(tokenUrlError('not a url')).toBe('Enter a valid URL');
+  });
+});
+
+describe('clientCredentialsFromEndpoint defaults', () => {
+  it('uses the Basic auth header when the row has no method', () => {
+    expect(
+      clientCredentialsFromEndpoint({} as unknown as Endpoint)
+        .token_endpoint_auth_method
+    ).toBe(TOKEN_ENDPOINT_AUTH_METHODS.CLIENT_SECRET_BASIC);
   });
 });
 
@@ -101,6 +138,8 @@ describe('authPayload', () => {
     ).toEqual({
       auth_type: ENDPOINT_AUTH_TYPES.CLIENT_CREDENTIALS,
       token_url: filled.token_url,
+      token_endpoint_auth_method:
+        TOKEN_ENDPOINT_AUTH_METHODS.CLIENT_SECRET_BASIC,
       client_id: filled.client_id,
       client_secret: 'secret',
       audience: null,

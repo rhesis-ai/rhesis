@@ -1,4 +1,7 @@
-import type { EndpointAuthType } from '@/constants/endpoint-auth';
+import type {
+  EndpointAuthType,
+  TokenEndpointAuthMethod,
+} from '@/constants/endpoint-auth';
 import { Status } from './status';
 
 /** Known fields in endpoint_metadata - extensible via index signature */
@@ -86,6 +89,7 @@ export interface Endpoint {
   has_client_secret?: boolean;
   // Client-credentials fields. null clears them on update.
   token_url?: string | null;
+  token_endpoint_auth_method?: TokenEndpointAuthMethod | null;
   client_id?: string | null;
   audience?: string | null;
   scopes?: string[] | null;
@@ -145,6 +149,7 @@ export interface EndpointTestRequest {
   client_id?: string;
   client_secret?: string;
   token_url?: string;
+  token_endpoint_auth_method?: TokenEndpointAuthMethod;
   scopes?: string[];
   audience?: string;
   extra_payload?: Record<string, string>;
