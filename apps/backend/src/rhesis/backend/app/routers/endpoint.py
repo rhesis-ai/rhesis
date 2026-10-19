@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.quota_gates import require_quota
-from rhesis.backend.app.auth.rbac import project_id_from_scope
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import endpoint as endpoint_crud
 from rhesis.backend.app.database import no_project_scope_hint
@@ -158,10 +157,7 @@ def read_endpoint_setup_status(
     When it doesn't, the caller is sent a one-time "set up an endpoint" notification.
     """
     organization_id, user_id = tenant_context
-    project_id = project_id_from_scope(db)
-    return get_endpoint_setup_status(
-        db, organization_id, user_id, str(project_id) if project_id else None
-    )
+    return get_endpoint_setup_status(db, organization_id, user_id)
 
 
 # The session is never used below -- a transient REST + BEARER_TOKEN config runs no

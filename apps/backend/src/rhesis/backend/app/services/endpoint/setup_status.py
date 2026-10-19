@@ -1,10 +1,10 @@
 """Whether the active project has an endpoint of its own, and the nudge when it doesn't."""
 
 import logging
-from typing import Optional
 
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.auth.rbac import project_id_from_scope
 from rhesis.backend.app.crud.endpoint import user_endpoint_exists
 from rhesis.backend.app.crud.notification import user_notification_exists
 from rhesis.backend.app.crud.project import project_is_example
@@ -16,16 +16,21 @@ logger = logging.getLogger(__name__)
 
 
 def get_endpoint_setup_status(
-    db: Session, organization_id: str, user_id: str, project_id: Optional[str]
+    db: Session, organization_id: str, user_id: str
 ) -> EndpointSetupStatus:
     """Check the session's project scope for a non-example endpoint.
+
+    The project comes from the session scope, the same one the endpoint query is
+    filtered by, so the check and the notification can't name different projects.
 
     Sends the user a one-time "set up an endpoint" notification for this project when
     there is none, except in the onboarding example project: it is a demo, so the user
     isn't nudged to wire it up.
     """
-    if not project_id:
+    scoped_project = project_id_from_scope(db)
+    if scoped_project is None:
         return EndpointSetupStatus(configured=None)
+    project_id = str(scoped_project)
     configured = user_endpoint_exists(db, organization_id)
     if not configured and not project_is_example(db, project_id):
         _maybe_notify(db, organization_id, user_id, project_id)
