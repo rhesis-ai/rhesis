@@ -217,11 +217,17 @@ export default function InsightsPage({
     !insightsLoading &&
     !error &&
     !noRuns;
+  // Needs step 2 first: the seeded example endpoint has results of its own
   useEffect(() => {
-    if (showsResults && !progress.insightsReviewed) {
+    if (showsResults && progress.agentTested && !progress.insightsReviewed) {
       markStepComplete('insightsReviewed');
     }
-  }, [showsResults, progress.insightsReviewed, markStepComplete]);
+  }, [
+    showsResults,
+    progress.agentTested,
+    progress.insightsReviewed,
+    markStepComplete,
+  ]);
 
   const filterBarProps = {
     filters,
