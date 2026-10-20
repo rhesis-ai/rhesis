@@ -155,6 +155,19 @@ describe('ProjectsClientWrapper active-project delete guard', () => {
     expect(trashFor('Example Project')).toBeEnabled();
   });
 
+  it('marks only the active project as current', async () => {
+    await renderList();
+
+    const card = (name: string) =>
+      screen.getByText(name).closest('.MuiButtonBase-root') as HTMLElement;
+    expect(
+      within(card('Regulatory Advisor')).getByText('Current')
+    ).toBeInTheDocument();
+    expect(
+      within(card('Example Project')).queryByText('Current')
+    ).not.toBeInTheDocument();
+  });
+
   it('explains why the active project cannot be deleted', async () => {
     await renderList();
 

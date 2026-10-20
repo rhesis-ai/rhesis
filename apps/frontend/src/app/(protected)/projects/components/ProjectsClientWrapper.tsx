@@ -349,6 +349,7 @@ export default function ProjectsClientWrapper({
                 <ProjectCard
                   key={project.id}
                   project={project}
+                  isActive={String(project.id) === activeProjectId}
                   onDelete={
                     canUpdateProject
                       ? () =>

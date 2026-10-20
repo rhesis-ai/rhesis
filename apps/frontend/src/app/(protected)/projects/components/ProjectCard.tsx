@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Box, Skeleton } from '@mui/material';
+import { Box, Skeleton, useTheme } from '@mui/material';
+import GridBadge from '@/components/common/GridBadge';
 import { useRouter } from 'next/navigation';
 import EntityCard, {
   EntityCardStatusBadge,
@@ -9,7 +10,7 @@ import EntityCard, {
 } from '@/components/common/EntityCard';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { BORDER_RADIUS } from '@/styles/theme';
-import type { Theme } from '@mui/material/styles';
+import { alpha, type Theme } from '@mui/material/styles';
 
 // Project icon imports
 import WebIcon from '@mui/icons-material/Web';
@@ -106,6 +107,8 @@ interface ProjectCardProps {
   onDelete?: () => void;
   /** When set, the trash can renders disabled with this as its tooltip. */
   deleteDisabledReason?: string;
+  /** Marks the project currently scoping the app. */
+  isActive?: boolean;
 }
 
 const ProjectCard = React.memo(
@@ -114,8 +117,10 @@ const ProjectCard = React.memo(
     isLoading = false,
     onDelete,
     deleteDisabledReason,
+    isActive = false,
   }: ProjectCardProps) => {
     const router = useRouter();
+    const theme = useTheme();
 
     if (isLoading) {
       return <ProjectCardSkeleton />;
@@ -158,6 +163,21 @@ const ProjectCard = React.memo(
         onDelete={onDelete}
         deleteDisabledReason={deleteDisabledReason}
         deleteLabel="Delete project"
+        topRightActions={
+          isActive ? (
+            <GridBadge
+              size="detail"
+              label="Current"
+              sx={{
+                bgcolor: alpha(theme.palette.primary.main, 0.12),
+                color: 'primary.main',
+              }}
+            />
+          ) : undefined
+        }
+        // EntityCard builds its border from a template string, so it needs a
+        // real colour value, not a palette key.
+        borderColor={isActive ? theme.palette.primary.main : undefined}
         userAvatar={project.owner?.picture}
         userName={project.owner?.name}
         chipSections={chipSections}
