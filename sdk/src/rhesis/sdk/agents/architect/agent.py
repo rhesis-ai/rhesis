@@ -277,6 +277,7 @@ class ArchitectAgent(BaseAgent):
         self,
         message: str,
         attachments: Optional[Dict[str, Any]] = None,
+        approve: Optional[bool] = None,
     ) -> str:
         """Send a message and get a response.
 
@@ -289,16 +290,21 @@ class ArchitectAgent(BaseAgent):
             attachments: Optional dict with ``mentions`` (resolved
                 entity references) and/or ``files`` (extracted text
                 from user-uploaded files).
+            approve: Whether this message approves the actions held back
+                for confirmation last turn. ``None`` treats any reply as
+                approval; a UI with an Accept button passes ``True`` for it
+                and ``False`` for everything else.
 
         Returns:
             The agent's response text.
         """
-        return asyncio.run(self.chat_async(message, attachments=attachments))
+        return asyncio.run(self.chat_async(message, attachments=attachments, approve=approve))
 
     async def chat_async(
         self,
         message: str,
         attachments: Optional[Dict[str, Any]] = None,
+        approve: Optional[bool] = None,
     ) -> str:
         """Async version of chat()."""
         async with self._turn_lock:
@@ -321,7 +327,7 @@ class ArchitectAgent(BaseAgent):
             # If the previous turn asked for confirmation, unlock
             # only the specific tools that were blocked.
             if self._needs_confirmation and self._confirming_tools:
-                self._creation_approved = True
+                self._creation_approved = approve is not False
 
             # When auto-resumed after background tasks, mark the
             # corresponding plan items as completed.

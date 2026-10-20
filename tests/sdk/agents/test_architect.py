@@ -716,6 +716,46 @@ class TestArchitectWriteGuard:
         await agent.chat_async("change the name to Response Tone")
         assert agent._creation_approved is False  # Reset after turn
 
+    async def _block_then_reply(self, mock_model, reply, approve):
+        """Turn 1 holds back create_metric; turn 2 replies and the model tries again."""
+        agent = _make_agent(mock_model, tools=[DummyTool()])
+        agent._mutating_tools = frozenset({"create_metric"})
+
+        async def fake_stream(**kw):
+            yield "Plan"
+
+        create = {
+            "reasoning": "Creating metric",
+            "action": "call_tool",
+            "tool_calls": [{"tool_name": "create_metric", "arguments": json.dumps({"name": "t"})}],
+            "final_answer": None,
+        }
+        mock_model.a_generate = AsyncMock(return_value=create)
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+        await agent.chat_async("create a metric")
+        assert agent._needs_confirmation is True
+
+        mock_model.a_generate = AsyncMock(side_effect=[create, _finish_dict("Done")])
+        await agent.chat_async(reply, approve=approve)
+        return agent
+
+    @pytest.mark.asyncio
+    async def test_a_change_request_does_not_approve_when_the_caller_says_so(self, mock_model):
+        """The app passes approve=False for a typed reply: the create is held back again."""
+        agent = await self._block_then_reply(mock_model, "Change: drop R3", approve=False)
+        assert agent._needs_confirmation is True
+
+    @pytest.mark.asyncio
+    async def test_accept_approves(self, mock_model):
+        agent = await self._block_then_reply(mock_model, "Yes, go ahead.", approve=True)
+        assert agent._needs_confirmation is False
+
+    @pytest.mark.asyncio
+    async def test_without_approve_any_reply_approves(self, mock_model):
+        """SDK callers with no Accept button keep the old behaviour."""
+        agent = await self._block_then_reply(mock_model, "Change: drop R3", approve=None)
+        assert agent._needs_confirmation is False
+
     @pytest.mark.asyncio
     async def test_plan_approval_unlocks_all_mutating_tools(self, mock_model):
         """Approval after any block unlocks ALL mutating tools (plan-level)."""
