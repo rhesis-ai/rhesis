@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { ThemeProvider } from '@mui/material/styles';
@@ -209,6 +209,33 @@ describe('ConversationHistory', () => {
       // The passing criterion only cites turn 1, but the failed metric cites both.
       expect(turnStatuses()).toEqual(['Fail', 'Fail']);
       expect(screen.queryByText('Evaluated')).not.toBeInTheDocument();
+    });
+
+    it("lists a turn's checks in the same cards as the Evaluation tab", async () => {
+      const user = userEvent.setup();
+      renderConversation({
+        conversationSummary: [makeTurn(1), makeTurn(2)],
+        goalEvaluation: goalEvaluation(false, [1]),
+        metrics: redFlag(true, [1, 2]),
+        requirementName: 'Escalates Red Flags',
+        metricsSource: 'requirement',
+      });
+      await user.click(screen.getAllByText('Findings')[0]);
+      expect(
+        screen.getByRole('heading', { name: 'This test' })
+      ).toBeInTheDocument();
+      expect(screen.getByText('Must do')).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', {
+          name: 'Requirement: Escalates Red Flags',
+        })
+      ).toBeInTheDocument();
+      // The turn is already chosen, so checks carry no turn tags here.
+      const card = screen
+        .getByRole('heading', { name: 'This test' })
+        .closest('.MuiPaper-root') as HTMLElement;
+      expect(within(card).queryByText(/^Turns? \d/)).not.toBeInTheDocument();
+      expect(screen.queryByText('Met')).not.toBeInTheDocument();
     });
 
     it('sums up the checks after the conversation, not above it', () => {

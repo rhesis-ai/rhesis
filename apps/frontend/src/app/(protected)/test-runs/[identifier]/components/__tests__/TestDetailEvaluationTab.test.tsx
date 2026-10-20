@@ -116,10 +116,10 @@ describe('TestDetailEvaluationTab', () => {
     expect(screen.getByText('Must not do')).toBeInTheDocument();
   });
 
-  it('tags each check with the turns it rests on', () => {
+  it('tags only checks that cite some turns, not all of them', () => {
     renderTab();
-    expect(screen.getAllByText('All turns')).toHaveLength(2);
     expect(screen.getByText('Turn 3')).toBeInTheDocument();
+    expect(screen.queryByText('All turns')).not.toBeInTheDocument();
   });
 
   it('annotates Goal Achievement from the test group, and a metric from its row', async () => {

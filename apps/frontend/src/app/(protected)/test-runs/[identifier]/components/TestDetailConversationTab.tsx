@@ -30,6 +30,7 @@ interface TestDetailConversationTabProps {
   onConfirmAutomatedAnnotation?: () => void;
   isConfirmingAnnotation?: boolean;
   onShowEvaluation?: () => void;
+  metricsSource?: string;
 }
 
 export default function TestDetailConversationTab({
@@ -41,6 +42,7 @@ export default function TestDetailConversationTab({
   onConfirmAutomatedAnnotation,
   isConfirmingAnnotation = false,
   onShowEvaluation,
+  metricsSource,
 }: TestDetailConversationTabProps) {
   const { status } = useSession();
   const [traces, setTraces] = useState<TraceSummary[]>([]);
@@ -193,6 +195,8 @@ export default function TestDetailConversationTab({
           maxHeight="100%"
           resultStatus={getEffectiveTestResultStatus(test)}
           onShowEvaluation={onShowEvaluation}
+          requirementName={test.test?.requirement?.name}
+          metricsSource={metricsSource}
         />
       </Box>
     );
@@ -252,6 +256,8 @@ export default function TestDetailConversationTab({
         turnAnnotationMap={turnAnnotationMap}
         resultStatus={getEffectiveTestResultStatus(test)}
         onShowEvaluation={onShowEvaluation}
+        requirementName={test.test?.requirement?.name}
+        metricsSource={metricsSource}
       />
       <TraceDrawer
         open={traceDrawerOpen}

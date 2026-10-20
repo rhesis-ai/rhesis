@@ -29,6 +29,7 @@ import {
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import MarkdownContent from '@/components/common/MarkdownContent';
 import StatusChip from '@/components/common/StatusChip';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { STATUS_LABEL, type TestResultStatus } from '@/constants/outcomes';
 import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
 import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
@@ -37,13 +38,14 @@ import { getProjectIconComponent } from '@/components/common/ProjectIcons';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import ResultCheckCard from '@/components/common/ResultCheckCard';
+import type { MetricsSource } from '@/utils/api-client/interfaces/test-configuration';
 import {
-  buildTurnFindings,
-  findingsForTurn,
-  turnStatus,
-  type TurnFinding,
-} from '@/utils/turn-findings';
-import { buildResultChecks, checksSummary } from '@/utils/result-checks';
+  buildResultChecks,
+  checksForTurn,
+  checksSummary,
+  turnVerdict,
+} from '@/utils/result-checks';
 
 // Superhero (female) emoji built from code points to avoid linter emoji detection.
 // U+1F9B8 (superhero) + U+200D (ZWJ) + U+2640 (female sign) + U+FE0F (variation selector)
@@ -97,6 +99,9 @@ interface ConversationHistoryProps {
   resultStatus?: TestResultStatus;
   /** Opens the full evaluation from the closing summary's link. */
   onShowEvaluation?: () => void;
+  /** Names the group of metrics that came from the test's requirement. */
+  requirementName?: string;
+  metricsSource?: MetricsSource | string;
   /** Required when turns carry penelope_files for authenticated downloads. */
 }
 
@@ -122,6 +127,8 @@ export default function ConversationHistory({
   turnAnnotationMap = new Map<number, AnnotationSummaryEntry>(),
   resultStatus,
   onShowEvaluation,
+  requirementName,
+  metricsSource,
 }: ConversationHistoryProps) {
   const theme = useTheme();
   const { status } = useSession();
@@ -214,8 +221,12 @@ export default function ConversationHistory({
       turn => turn.penelope_message || turn.target_response
     ) || [];
 
-  const findings = buildTurnFindings(goalEvaluation, metrics);
-  const checkGroups = buildResultChecks({ metrics, goalEvaluation });
+  const checkGroups = buildResultChecks({
+    metrics,
+    goalEvaluation,
+    requirementName,
+    metricsSource,
+  });
   const checks = checkGroups.flatMap(g => g.checks);
   const shownResultStatus: TestResultStatus =
     resultStatus ??
@@ -224,13 +235,6 @@ export default function ConversationHistory({
       : checks.every(c => c.passed)
         ? 'Pass'
         : 'Inconclusive');
-
-  // Findings on one turn, grouped by the metric that made them.
-  const groupByMetric = (turnFindings: TurnFinding[]) =>
-    turnFindings.reduce<Record<string, TurnFinding[]>>((groups, f) => {
-      (groups[f.metric] ??= []).push(f);
-      return groups;
-    }, {});
 
   if (actualConversationTurns.length === 0) {
     return (
@@ -275,8 +279,7 @@ export default function ConversationHistory({
       }}
     >
       {actualConversationTurns.map((turn, index) => {
-        const turnFindings = findingsForTurn(findings, turn.turn);
-        const findingGroups = Object.entries(groupByMetric(turnFindings));
+        const turnGroups = checksForTurn(checkGroups, turn.turn);
 
         // A human override wins. Otherwise a turn shows the verdict of the findings that cite
         // it, and no verdict at all when none do, unless the call to the target itself failed.
@@ -284,7 +287,7 @@ export default function ConversationHistory({
           ? turn.success
             ? 'Pass'
             : 'Fail'
-          : (turnStatus(findings, turn.turn) ??
+          : (turnVerdict(checkGroups, turn.turn) ??
             (turn.success ? undefined : 'Error'));
         const turnPassed =
           shownStatus === 'Pass'
@@ -345,7 +348,7 @@ export default function ConversationHistory({
               )}
 
               {/* Collapsible Findings Toggle */}
-              {turnFindings.length > 0 && (
+              {turnGroups.length > 0 && (
                 <Box
                   sx={{
                     display: 'flex',
@@ -423,65 +426,33 @@ export default function ConversationHistory({
             </Box>
 
             {/* Findings (collapsible) */}
-            {turnFindings.length > 0 && (
+            {turnGroups.length > 0 && (
               <Collapse
                 in={expandedEvaluationTurns[turn.turn]}
                 timeout="auto"
                 unmountOnExit
               >
-                <Paper
-                  elevation={0}
+                {/* Tinted and indented, so the verdict never reads as part of the chat */}
+                <Box
                   sx={{
-                    p: 2,
-                    mb: 1.5,
-                    bgcolor: alpha(
-                      theme.palette.warning.main,
-                      theme.palette.mode === 'light' ? 0.08 : 0.2
-                    ),
-                    border: `1px solid ${alpha(theme.palette.warning.main, theme.palette.mode === 'light' ? 0.3 : 0.4)}`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1.5,
+                    ml: 4,
+                    mb: 2.5,
+                    p: 1.5,
+                    borderRadius: BORDER_RADIUS.md,
+                    bgcolor: 'action.hover',
                   }}
                 >
-                  {findingGroups.map(([metric, group], groupIdx) => (
-                    <Box
-                      key={`${turn.turn}-${metric}`}
-                      sx={{ mb: groupIdx < findingGroups.length - 1 ? 2 : 0 }}
-                    >
-                      <Typography
-                        variant="body2"
-                        sx={{ fontWeight: 600, display: 'block', mb: 1 }}
-                      >
-                        {metric}
-                      </Typography>
-                      {group.map(finding => (
-                        <Box
-                          key={`${turn.turn}-${finding.key}`}
-                          sx={{ pl: 2, mb: 1 }}
-                        >
-                          {finding.label !== metric && (
-                            <Typography variant="body2" sx={{ mb: 0.5 }}>
-                              {finding.label}
-                            </Typography>
-                          )}
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              display: 'block',
-                              fontWeight: 600,
-                              color: finding.met
-                                ? 'success.main'
-                                : 'error.main',
-                            }}
-                          >
-                            {finding.met ? 'Met' : 'Not met'}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {finding.evidence}
-                          </Typography>
-                        </Box>
-                      ))}
-                    </Box>
+                  {turnGroups.map(group => (
+                    <ResultCheckCard
+                      key={`${turn.turn}-${group.key}`}
+                      group={group}
+                      flat
+                    />
                   ))}
-                </Paper>
+                </Box>
               </Collapse>
             )}
 

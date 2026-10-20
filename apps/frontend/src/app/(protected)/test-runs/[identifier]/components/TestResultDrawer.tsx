@@ -470,6 +470,7 @@ export default function TestResultDrawer({
               onAnnotateTurn={isMultiTurn ? handleAnnotateTurn : undefined}
               onConfirmAutomatedAnnotation={handleConfirmAutomatedAnnotation}
               isConfirmingAnnotation={isConfirmingAnnotation}
+              metricsSource={metricsSource}
               onShowEvaluation={() => setActiveTab(TAB.evaluation)}
             />
           </TabPanel>

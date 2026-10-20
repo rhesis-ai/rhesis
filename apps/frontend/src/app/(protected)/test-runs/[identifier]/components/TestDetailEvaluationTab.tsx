@@ -8,8 +8,6 @@ import {
 import {
   Box,
   Typography,
-  Paper,
-  Chip,
   Collapse,
   IconButton,
   Tooltip,
@@ -17,9 +15,6 @@ import {
   AlertTitle,
   useTheme,
 } from '@mui/material';
-import CheckIcon from '@mui/icons-material/Check';
-import CloseIcon from '@mui/icons-material/Close';
-import RemoveIcon from '@mui/icons-material/Remove';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import RateReviewIcon from '@mui/icons-material/RateReview';
@@ -27,7 +22,6 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import type { MetricsSource } from '@/utils/api-client/interfaces/test-configuration';
 import StatusChip from '@/components/common/StatusChip';
 import AnnotationIndicator from '@/components/annotations/AnnotationIndicator';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 import { STATUS_LABEL } from '@/constants/outcomes';
 import { getEndpointFailure } from '@/utils/endpoint-failure';
 import {
@@ -35,12 +29,10 @@ import {
   hasConflictingAnnotation,
   isPassedStatusName,
 } from '@/utils/test-result-status';
+import ResultCheckCard from '@/components/common/ResultCheckCard';
 import {
   buildResultChecks,
   checksSummary,
-  countChecks,
-  turnScopeLabel,
-  type ResultCheck,
   type ResultCheckGroup,
 } from '@/utils/result-checks';
 
@@ -104,100 +96,6 @@ function MetricActions({
         <AnnotateButton onClick={() => onAnnotateMetric(metric)} />
       )}
     </Box>
-  );
-}
-
-function VerdictIcon({ passed }: { passed: boolean | null }) {
-  const theme = useTheme();
-  const sx = { fontSize: theme.spacing(2.5), mt: 0.25, flexShrink: 0 };
-  if (passed === null) {
-    return <RemoveIcon aria-label="Not scored" color="disabled" sx={sx} />;
-  }
-  return passed ? (
-    <CheckIcon aria-label="Passed" color="success" sx={sx} />
-  ) : (
-    <CloseIcon aria-label="Failed" color="error" sx={sx} />
-  );
-}
-
-function scoreText(check: ResultCheck): string | undefined {
-  const { score, threshold } = check.result ?? {};
-  if (typeof score !== 'number' || typeof threshold !== 'number') {
-    return undefined;
-  }
-  return `Score ${score.toFixed(2)} · threshold ${threshold.toFixed(2)}`;
-}
-
-function CheckRow({
-  check,
-  turnCount,
-  actions,
-}: {
-  check: ResultCheck;
-  turnCount?: number;
-  actions?: React.ReactNode;
-}) {
-  const scope = turnScopeLabel(check.relevantTurns, turnCount);
-  const score = scoreText(check);
-  return (
-    <Box sx={{ display: 'flex', gap: 1.5, px: 2.25, py: 1.5 }}>
-      <VerdictIcon passed={check.passed} />
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 1,
-          }}
-        >
-          <Typography variant="body2" fontWeight={500}>
-            {check.label}
-          </Typography>
-          {scope && <Chip label={scope} size="small" variant="outlined" />}
-          {check.passed === null && (
-            <Chip label="Not scored" size="small" variant="outlined" />
-          )}
-          {score && (
-            <Typography variant="caption" color="text.secondary">
-              {score}
-            </Typography>
-          )}
-          <Box sx={{ flexGrow: 1 }} />
-          {actions}
-        </Box>
-        {check.reason && (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mt: 0.5, wordBreak: 'break-word' }}
-          >
-            {check.reason}
-          </Typography>
-        )}
-      </Box>
-    </Box>
-  );
-}
-
-function SubHeading({ children }: { children: React.ReactNode }) {
-  const theme = useTheme();
-  return (
-    <Typography
-      variant="caption"
-      component="h4"
-      color="text.secondary"
-      sx={{
-        display: 'block',
-        px: 2.25,
-        pt: 1.5,
-        fontWeight: 600,
-        textTransform: 'uppercase',
-        letterSpacing: theme.typography.overline.letterSpacing,
-      }}
-    >
-      {children}
-    </Typography>
   );
 }
 
@@ -272,90 +170,48 @@ function CheckGroupCard({
   annotations,
   onAnnotateMetric,
 }: CheckGroupCardProps) {
-  const { passed, total } = countChecks(group.checks);
   const groupMetric = group.metric
     ? test.test_metrics?.metrics?.[group.metric]
     : undefined;
-  // Criteria split by kind; a group of whole metrics has no kind and stays one list.
-  const hasKinds = group.checks.some(c => c.kind);
-  const mustDo = group.checks.filter(c => c.kind !== 'prohibited');
-  const mustNotDo = group.checks.filter(c => c.kind === 'prohibited');
   const showReasoning =
     !!groupMetric?.reason && group.checks.every(c => !c.result);
 
-  const rowsFor = (checks: ResultCheck[]) =>
-    checks.map(check => (
-      <CheckRow
-        key={check.key}
-        check={check}
-        turnCount={turnCount}
-        actions={
-          group.metric ? undefined : (
-            <MetricActions
-              metric={check.metric}
-              annotation={annotations.get(check.metric)}
-              overruled={!!check.result?.override}
-              onAnnotateMetric={onAnnotateMetric}
-            />
-          )
-        }
-      />
-    ));
-
   return (
-    <Paper
-      variant="outlined"
-      sx={{
-        borderRadius: BORDER_RADIUS.md,
-        borderColor: 'divider',
-        boxShadow: ELEVATION.xs,
-        overflow: 'hidden',
-      }}
-    >
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.25,
-          px: 2.25,
-          py: 1.5,
-          borderBottom: 1,
-          borderColor: 'divider',
-        }}
-      >
-        <Typography variant="subtitle1" component="h3" fontWeight={600}>
-          {group.title}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {`${passed} of ${total} passed`}
-        </Typography>
-        <Box sx={{ flexGrow: 1 }} />
-        {group.metric && (
+    <ResultCheckCard
+      group={group}
+      turnCount={turnCount}
+      headerActions={
+        group.metric && (
           <MetricActions
             metric={group.metric}
             annotation={annotations.get(group.metric)}
             overruled={!!groupMetric?.override}
             onAnnotateMetric={onAnnotateMetric}
           />
-        )}
-      </Box>
-      {hasKinds ? (
-        <>
-          {mustDo.length > 0 && <SubHeading>Must do</SubHeading>}
-          {rowsFor(mustDo)}
-          {mustNotDo.length > 0 && <SubHeading>Must not do</SubHeading>}
-          {rowsFor(mustNotDo)}
-        </>
-      ) : (
-        rowsFor(group.checks)
-      )}
-      {showReasoning && groupMetric && (
-        <Reasoning
-          reason={groupMetric.reason}
-          evidence={test.test_output?.goal_evaluation?.evidence ?? []}
-        />
-      )}
-    </Paper>
+        )
+      }
+      rowActions={
+        group.metric
+          ? undefined
+          : check => (
+              <MetricActions
+                metric={check.metric}
+                annotation={annotations.get(check.metric)}
+                overruled={!!check.result?.override}
+                onAnnotateMetric={onAnnotateMetric}
+              />
+            )
+      }
+      footer={
+        showReasoning &&
+        groupMetric && (
+          <Reasoning
+            reason={groupMetric.reason}
+            evidence={test.test_output?.goal_evaluation?.evidence ?? []}
+          />
+        )
+      }
+    />
   );
 }
 

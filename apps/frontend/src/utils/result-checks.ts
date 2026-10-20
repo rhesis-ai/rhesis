@@ -42,19 +42,21 @@ interface ResultCheckInput {
   metricsSource?: MetricsSource | string;
 }
 
+const DEFAULT_GOAL_METRIC = 'Goal Achievement';
+
 const verdictOf = (m: MetricResult): boolean | null =>
   !m.error && typeof m.is_successful === 'boolean' ? m.is_successful : null;
 
 function goalChecks(
   name: string,
-  result: MetricResult,
+  result: MetricResult | undefined,
   goalEvaluation?: GoalEvaluation
 ): ResultCheck[] {
   // A re-score stores fresh criteria on the metric; goal_evaluation keeps the live run's.
   const criteria =
-    result.criteria_evaluations ?? goalEvaluation?.criteria_evaluations ?? [];
+    result?.criteria_evaluations ?? goalEvaluation?.criteria_evaluations ?? [];
   if (criteria.length === 0) {
-    return [metricCheck(name, result)];
+    return result ? [metricCheck(name, result)] : [];
   }
   // Must-do first, then must-not-do; the index keeps criteria with identical text apart.
   return criteria
@@ -110,14 +112,20 @@ export function buildResultChecks({
   const entries = Object.entries(metrics);
   const goal = entries.find(([name]) => isGoalMetricName(name));
   const others = entries.filter(([name]) => !isGoalMetricName(name));
+  // A live run can carry goal_evaluation criteria without the metric entry.
+  const [goalName, goalResult] =
+    goal ??
+    (goalEvaluation?.criteria_evaluations?.length
+      ? [DEFAULT_GOAL_METRIC, undefined]
+      : []);
 
   const groups: ResultCheckGroup[] = [];
-  if (goal) {
+  if (goalName) {
     groups.push({
       key: 'test',
       title: 'This test',
-      checks: goalChecks(goal[0], goal[1], goalEvaluation),
-      metric: goal[0],
+      checks: goalChecks(goalName, goalResult, goalEvaluation),
+      metric: goalName,
     });
   }
   if (others.length > 0) {
@@ -147,7 +155,10 @@ export function checksSummary(groups: ResultCheckGroup[]): string {
   return `${passed} of ${total} ${total === 1 ? 'check' : 'checks'} passed`;
 }
 
-/** "All turns", "Turn 2" or "Turns 1, 3"; undefined when the check cites no turn. */
+/**
+ * "Turn 2" or "Turns 1, 3". Undefined when the check cites no turn, or every turn, since
+ * pointing at all of them says nothing about where to look.
+ */
 export function turnScopeLabel(
   turns: number[],
   turnCount?: number
@@ -155,9 +166,37 @@ export function turnScopeLabel(
   const unique = [...new Set(turns)].sort((a, b) => a - b);
   if (unique.length === 0) return undefined;
   if (turnCount && turnCount > 1 && unique.length >= turnCount) {
-    return 'All turns';
+    return undefined;
   }
   return unique.length === 1
     ? `Turn ${unique[0]}`
     : `Turns ${unique.join(', ')}`;
+}
+
+/** The groups narrowed to the checks that cite a turn; empty groups are dropped. */
+export function checksForTurn(
+  groups: ResultCheckGroup[],
+  turn: number
+): ResultCheckGroup[] {
+  return groups
+    .map(g => ({
+      ...g,
+      checks: g.checks.filter(c => c.relevantTurns.includes(turn)),
+    }))
+    .filter(g => g.checks.length > 0);
+}
+
+/**
+ * Failed if any check citing the turn failed, passed if only passing ones cite it. A check
+ * that cites every turn counts on each of them, so a failure is never hidden from the turns.
+ */
+export function turnVerdict(
+  groups: ResultCheckGroup[],
+  turn: number
+): 'Pass' | 'Fail' | undefined {
+  const { passed, total } = countChecks(
+    checksForTurn(groups, turn).flatMap(g => g.checks)
+  );
+  if (total === 0) return undefined;
+  return passed < total ? 'Fail' : 'Pass';
 }
