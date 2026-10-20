@@ -17,10 +17,10 @@ const STORAGE_KEY = 'rhesis_onboarding_progress';
  */
 export function getDefaultProgress(): OnboardingProgress {
   return {
-    projectCreated: false,
     endpointSetup: false,
+    agentTested: false,
+    insightsReviewed: false,
     usersInvited: false,
-    testCasesCreated: false,
     dismissed: false,
     lastUpdated: Date.now(),
   };
@@ -75,9 +75,9 @@ export function calculateCompletionPercentage(
   progress: OnboardingProgress
 ): number {
   const steps = [
-    progress.projectCreated,
     progress.endpointSetup,
-    progress.testCasesCreated,
+    progress.agentTested,
+    progress.insightsReviewed,
   ];
 
   const completed = steps.filter(Boolean).length;
@@ -95,10 +95,9 @@ export function applyServerStatus(
   if (!status) return progress;
   return {
     ...progress,
-    projectCreated: progress.projectCreated || status.project_created,
     endpointSetup: progress.endpointSetup || status.endpoint_setup,
+    agentTested: progress.agentTested || status.agent_tested,
     usersInvited: progress.usersInvited || status.users_invited,
-    testCasesCreated: progress.testCasesCreated || status.test_cases_created,
   };
 }
 
@@ -107,9 +106,7 @@ export function applyServerStatus(
  */
 export function isOnboardingComplete(progress: OnboardingProgress): boolean {
   return (
-    progress.projectCreated &&
-    progress.endpointSetup &&
-    progress.testCasesCreated
+    progress.endpointSetup && progress.agentTested && progress.insightsReviewed
   );
 }
 
@@ -133,10 +130,10 @@ function toBackendFormat(
   progress: OnboardingProgress
 ): BackendOnboardingProgress {
   return {
-    project_created: progress.projectCreated,
     endpoint_setup: progress.endpointSetup,
+    agent_tested: progress.agentTested,
+    insights_reviewed: progress.insightsReviewed,
     users_invited: progress.usersInvited,
-    test_cases_created: progress.testCasesCreated,
     dismissed: progress.dismissed,
     last_updated: new Date(progress.lastUpdated).toISOString(),
   };
@@ -149,10 +146,10 @@ function toFrontendFormat(
   backendProgress: BackendOnboardingProgress
 ): OnboardingProgress {
   return {
-    projectCreated: backendProgress.project_created || false,
     endpointSetup: backendProgress.endpoint_setup || false,
+    agentTested: backendProgress.agent_tested || false,
+    insightsReviewed: backendProgress.insights_reviewed || false,
     usersInvited: backendProgress.users_invited || false,
-    testCasesCreated: backendProgress.test_cases_created || false,
     dismissed: backendProgress.dismissed || false,
     lastUpdated: backendProgress.last_updated
       ? new Date(backendProgress.last_updated).getTime()
@@ -214,10 +211,10 @@ export function mergeProgress(
   remote: OnboardingProgress
 ): OnboardingProgress {
   return {
-    projectCreated: local.projectCreated || remote.projectCreated,
     endpointSetup: local.endpointSetup || remote.endpointSetup,
+    agentTested: local.agentTested || remote.agentTested,
+    insightsReviewed: local.insightsReviewed || remote.insightsReviewed,
     usersInvited: local.usersInvited || remote.usersInvited,
-    testCasesCreated: local.testCasesCreated || remote.testCasesCreated,
     dismissed: local.dismissed || remote.dismissed,
     lastUpdated: Math.max(local.lastUpdated, remote.lastUpdated),
   };

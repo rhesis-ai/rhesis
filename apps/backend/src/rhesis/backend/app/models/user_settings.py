@@ -324,11 +324,6 @@ class OnboardingProgressAccessor:
         self._data = onboarding_settings
 
     @property
-    def project_created(self) -> bool:
-        """Get project created status."""
-        return self._data.get("project_created", False)
-
-    @property
     def endpoint_setup(self) -> bool:
         """Get endpoint setup status."""
         return self._data.get("endpoint_setup", False)
@@ -339,9 +334,14 @@ class OnboardingProgressAccessor:
         return self._data.get("users_invited", False)
 
     @property
-    def test_cases_created(self) -> bool:
-        """Get test cases created status."""
-        return self._data.get("test_cases_created", False)
+    def agent_tested(self) -> bool:
+        """Get agent tested status."""
+        return self._data.get("agent_tested", False)
+
+    @property
+    def insights_reviewed(self) -> bool:
+        """Get insights reviewed status."""
+        return self._data.get("insights_reviewed", False)
 
     @property
     def dismissed(self) -> bool:

@@ -13,10 +13,6 @@ jest.mock('next-auth/react', () => ({
   }),
 }));
 
-jest.mock('../ActiveProjectContext', () => ({
-  useActiveProject: () => ({ projects: [{ id: 'project-1' }], loading: false }),
-}));
-
 jest.mock('driver.js', () => ({
   driver: () => ({
     destroy: jest.fn(),
@@ -58,10 +54,9 @@ jest.mock('@/utils/onboarding-service', () => {
 });
 
 const NOTHING_DONE: OnboardingStatus = {
-  project_created: false,
   endpoint_setup: false,
+  agent_tested: false,
   users_invited: false,
-  test_cases_created: false,
 };
 
 function Probe() {
@@ -70,7 +65,7 @@ function Probe() {
     <div>
       <span data-testid="percentage">{completionPercentage}</span>
       <span data-testid="endpoint">{String(progress.endpointSetup)}</span>
-      <span data-testid="project">{String(progress.projectCreated)}</span>
+      <span data-testid="insights">{String(progress.insightsReviewed)}</span>
       <span data-testid="complete">{String(isComplete)}</span>
     </div>
   );
@@ -95,7 +90,7 @@ describe('OnboardingProvider with server status', () => {
     mockServerStatus = {
       ...NOTHING_DONE,
       endpoint_setup: true,
-      test_cases_created: true,
+      agent_tested: true,
     };
 
     renderProvider();
@@ -107,13 +102,13 @@ describe('OnboardingProvider with server status', () => {
   });
 
   it('keeps local progress when the backend reports nothing done', async () => {
-    mockStoredProgress = { projectCreated: true };
+    mockStoredProgress = { insightsReviewed: true };
     mockServerStatus = NOTHING_DONE;
 
     renderProvider();
 
     await waitFor(() =>
-      expect(screen.getByTestId('project')).toHaveTextContent('true')
+      expect(screen.getByTestId('insights')).toHaveTextContent('true')
     );
     expect(screen.getByTestId('percentage')).toHaveTextContent('33');
   });
@@ -128,12 +123,13 @@ describe('OnboardingProvider with server status', () => {
     );
   });
 
-  it('reports completion when the backend covers every required step', async () => {
+  it('reports completion when local progress and the backend cover every required step', async () => {
+    // Reviewing insights is only ever marked locally; there is no data for it.
+    mockStoredProgress = { insightsReviewed: true };
     mockServerStatus = {
-      project_created: true,
       endpoint_setup: true,
+      agent_tested: true,
       users_invited: false,
-      test_cases_created: true,
     };
 
     renderProvider();

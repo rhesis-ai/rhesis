@@ -2,10 +2,14 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Alert, Box, Button, CircularProgress } from '@mui/material';
+import { useQueryClient } from '@tanstack/react-query';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useEndpoints } from '@/hooks/useEndpoints';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { onboardingStatusKeys } from '@/constants/query-keys';
+import { useUserScope } from '@/hooks/useIsAuthenticated';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -47,6 +51,9 @@ export default function InsightsPage({
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.TestResult.READ
   );
+  const { progress, markStepComplete } = useOnboarding();
+  const queryClient = useQueryClient();
+  const userScope = useUserScope();
   const [filters, setFilters] = useState<InsightsFilters>(() =>
     normalizeInsightsFilters({
       ...DEFAULT_INSIGHTS_FILTERS,
@@ -207,6 +214,34 @@ export default function InsightsPage({
     error,
     noRuns,
   });
+
+  // Counts as reviewed only once real results are on screen, not an empty state
+  const showsResults =
+    pageView === 'content' &&
+    !!filters.endpointId &&
+    !insightsLoading &&
+    !error &&
+    !noRuns;
+  // Needs step 2 first: the seeded example endpoint has results of its own
+  useEffect(() => {
+    if (!showsResults || progress.insightsReviewed) return;
+    if (progress.agentTested) {
+      markStepComplete('insightsReviewed');
+    } else {
+      // The status is only re-read on mount and focus, so a run started
+      // since then wouldn't count yet
+      queryClient.invalidateQueries({
+        queryKey: onboardingStatusKeys.all(userScope),
+      });
+    }
+  }, [
+    showsResults,
+    progress.agentTested,
+    progress.insightsReviewed,
+    markStepComplete,
+    queryClient,
+    userScope,
+  ]);
 
   const filterBarProps = {
     filters,

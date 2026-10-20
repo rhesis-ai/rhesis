@@ -90,6 +90,11 @@ jest.mock('@/contexts/FeaturesContext', () => ({
   usePlan: () => mockUsagePlan.current,
 }));
 
+// Covered in its own test; it needs the OnboardingProvider this tree lacks.
+jest.mock('@/components/navigation/SidebarOnboardingRow', () => ({
+  SidebarOnboardingRow: () => null,
+}));
+
 // ── imports (after mocks) ──────────────────────────────────────────────────
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';

@@ -70,6 +70,10 @@ jest.mock('@/components/common/NoProjectAccess', () => ({
   __esModule: true,
   default: () => null,
 }));
+jest.mock('@/components/onboarding/ProfileSurveyDialog', () => ({
+  __esModule: true,
+  default: () => null,
+}));
 jest.mock('@/app/(protected)/models/components/ConnectModelStep', () => ({
   __esModule: true,
   default: () => <div data-testid="connect-model-step" />,

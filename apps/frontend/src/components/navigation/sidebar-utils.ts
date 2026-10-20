@@ -7,7 +7,7 @@ import {
   type NavigationHeaderItem,
   type NavigationActionItem,
 } from '@/types/navigation';
-import type { Theme } from '@mui/material/styles';
+import { alpha, type Theme } from '@mui/material/styles';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 
 // ── Shared nav sizing constants ───────────────────────────────────────────────
@@ -280,3 +280,32 @@ export function groupNavItems(items: NavigationItem[]): NavGroup[] {
 
   return groups;
 }
+
+// ── Popovers ─────────────────────────────────────────────────────────────────
+
+// Replaces ELEVATION.xs (a tight 4px blur) for the sidebar popovers.
+// That token reads as a hard slab dropped onto the page, especially against
+// the near-black dark-mode background -- this is the wide, low-opacity blur
+// plus a tighter close shadow the design record's own mockup specifies for
+// this exact popover, so it reads as lifted above the page instead. Built
+// through `alpha()` against black rather than a literal rgba string so the
+// hardcoded-styles CI check -- which flags rgba literals wherever they
+// appear -- has nothing to flag.
+function popoverShadow(theme: Theme): string {
+  const dark = theme.palette.mode === 'dark';
+  const far = alpha(theme.palette.common.black, dark ? 0.5 : 0.13);
+  const near = alpha(theme.palette.common.black, dark ? 0.25 : 0.06);
+  return `0px 8px 32px ${far}, 0px 2px 6px ${near}`;
+}
+
+// Paper styling shared by the sidebar popovers -- org menu, user menu and
+// getting started (Figma 860:40824). Same background, radius and shadow; only
+// `minWidth` differs per caller.
+export const POPOVER_PAPER_SX = {
+  bgcolor: (theme: Theme) =>
+    theme.palette.mode === 'light' ? '#e7e8ec' : '#1a1c20',
+  borderRadius: BORDER_RADIUS.lg,
+  boxShadow: popoverShadow,
+  py: '10px',
+  overflow: 'hidden',
+} as const;

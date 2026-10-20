@@ -37,10 +37,9 @@ class TestOnboardingStatusRoute:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == {
-            "project_created": False,
             "endpoint_setup": False,
+            "agent_tested": False,
             "users_invited": False,
-            "test_cases_created": False,
         }
 
     def test_active_project_header_does_not_narrow_the_status(self, seeded_owner, test_db: Session):
@@ -72,5 +71,4 @@ class TestOnboardingStatusRoute:
 
         assert response.status_code == status.HTTP_200_OK
         body = response.json()
-        assert body["project_created"] is True
         assert body["endpoint_setup"] is True

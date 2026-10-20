@@ -20,6 +20,7 @@ import { NotificationsProvider } from '@/contexts/NotificationsContext';
 import NoProjectAccess from '@/components/common/NoProjectAccess';
 import TermsAcceptanceGate from '@/components/auth/TermsAcceptanceGate';
 import ModelSetupGate from '@/components/auth/ModelSetupGate';
+import ProfileSurveyDialog from '@/components/onboarding/ProfileSurveyDialog';
 import type { TermsStatus } from '@/utils/api-client/auth-client';
 
 interface ExtendedUser {
@@ -70,7 +71,12 @@ function AppContent({
     );
   }
 
-  return <AppShell sidebar={<Sidebar />}>{children}</AppShell>;
+  return (
+    <AppShell sidebar={<Sidebar />}>
+      {children}
+      <ProfileSurveyDialog />
+    </AppShell>
+  );
 }
 
 export function ProtectedLayoutClient({

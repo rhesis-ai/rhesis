@@ -48,7 +48,7 @@ jest.mock('@/contexts/ActiveProjectContext', () => ({
 jest.mock('@/contexts/OnboardingContext', () => ({
   useOnboarding: () => ({
     markStepComplete: jest.fn(),
-    progress: { projectCreated: true },
+    progress: { endpointSetup: true },
     activeTour: null,
   }),
 }));

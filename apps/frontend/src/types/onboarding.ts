@@ -4,10 +4,10 @@ import { DriveStep } from 'driver.js';
  * Onboarding progress state stored in localStorage
  */
 export interface OnboardingProgress {
-  projectCreated: boolean;
   endpointSetup: boolean;
+  agentTested: boolean;
+  insightsReviewed: boolean;
   usersInvited: boolean;
-  testCasesCreated: boolean;
   dismissed: boolean;
   lastUpdated: number;
 }
