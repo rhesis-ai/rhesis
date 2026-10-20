@@ -171,6 +171,7 @@ def generate_test_set(
             task_id=placeholder_task_id,
             requested_tests=request.num_tests,
             test_type=resolved_type,
+            description=request.description,
         )
         db.commit()
 

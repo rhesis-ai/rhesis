@@ -108,6 +108,8 @@ class GenerateTestsRequest(BaseModel):
     batch_size: int = 20
     sources: Optional[List[SourceData]] = None
     name: Optional[str] = None  # Used only for bulk generation to name the test set
+    # Bulk generation only. Without one, the description written during generation is kept.
+    description: Optional[str] = None
     # Typed as the enum so the allowed values appear in the OpenAPI schema. The
     # before-validator below still accepts snake_case and loose casing.
     test_type: Optional[TestSetType] = TestSetType.SINGLE_TURN

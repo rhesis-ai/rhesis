@@ -286,6 +286,10 @@ tools:
         description: >
           Name for the generated test set (string). Use the test set
           name from your plan.
+      description:
+        description: >
+          What the test set covers (string). Use the test set
+          description from your plan.
       sources:
         description: >
           Optional. List of knowledge source objects to ground the generated

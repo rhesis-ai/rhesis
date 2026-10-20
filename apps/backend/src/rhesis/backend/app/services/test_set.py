@@ -4,7 +4,7 @@ import random
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from pydantic import ValidationError
@@ -81,6 +81,7 @@ def create_pending_test_set(
     task_id: str,
     requested_tests: int,
     test_type: TestSetType = None,
+    description: Optional[str] = None,
 ) -> models.TestSet:
     """Create an empty TestSet row immediately, before background generation begins.
 
@@ -100,6 +101,7 @@ def create_pending_test_set(
         task_id: Celery task ID for tracking
         requested_tests: How many tests were requested
         test_type: Optional TestSetType; defaults to SINGLE_TURN
+        description: Optional description; when absent the job keeps the generated one
 
     Returns:
         Created TestSet model instance (not yet committed)
@@ -139,6 +141,7 @@ def create_pending_test_set(
         db,
         dict(
             name=name,
+            description=description,
             status_id=test_set_status.id,
             license_type_id=license_type.id,
             test_set_type_id=test_set_type_lookup.id,

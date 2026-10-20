@@ -366,6 +366,12 @@ def _attach_tests_to_existing_test_set(
 
         db_test_set.attributes = new_attributes
 
+        # Generation writes a description for every set; keep it unless the caller gave one.
+        if not db_test_set.description and sdk_test_set.description:
+            db_test_set.description = sdk_test_set.description
+        if not db_test_set.short_description and sdk_test_set.short_description:
+            db_test_set.short_description = sdk_test_set.short_description
+
     self.log_with_context(
         "info",
         "Tests attached to existing test set successfully",
