@@ -121,8 +121,8 @@ export default function ProjectsClientWrapper({
   const handleCreate = useCallback(
     async (payload: ProjectCreate) => {
       const created = await createProject(payload);
-      // Same as the /projects/create-new wizard: switch to the new project
-      // and open it. Not setActiveProject, which reloads and stays here.
+      // Switch the same way the /projects/create-new wizard does, then open
+      // the new project. Not setActiveProject, which reloads and stays here.
       writeActiveProjectId(String(created.id));
       await refreshActiveProjects({ listOnly: false });
       router.push(`/projects/${created.id}`);
