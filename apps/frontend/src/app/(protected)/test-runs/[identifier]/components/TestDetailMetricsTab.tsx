@@ -56,6 +56,7 @@ import {
   hasConflictingAnnotation,
   isPassedStatusName,
 } from '@/utils/test-result-status';
+import { buildTurnFindings, uncitedFailures } from '@/utils/turn-findings';
 
 interface TestDetailMetricsTabProps {
   test: TestResultDetail;
@@ -302,6 +303,23 @@ export default function TestDetailMetricsTab({
       breakdownItems,
     };
   }, [test, goalAchievementMetric]);
+
+  const goalEvidence = test.test_output?.goal_evaluation?.evidence ?? [];
+
+  // Same findings, and same turn count, as the conversation view uses for its turn chips.
+  const conversationFailures = useMemo(() => {
+    if (!isMultiTurn) return [];
+    const turnCount = (test.test_output?.conversation_summary ?? []).filter(
+      turn => turn.penelope_message || turn.target_response
+    ).length;
+    return uncitedFailures(
+      buildTurnFindings(
+        test.test_output?.goal_evaluation,
+        test.test_metrics?.metrics,
+        turnCount
+      )
+    );
+  }, [test, isMultiTurn]);
 
   // Compute additional (non-Goal Achievement) metrics for multi-turn tests
   const hasAdditionalMultiTurnMetrics = useMemo(() => {
@@ -959,6 +977,23 @@ export default function TestDetailMetricsTab({
                           <Typography variant="body2" color="text.secondary">
                             {goalAchievementData.reason}
                           </Typography>
+                          {goalEvidence.length > 0 && (
+                            <List dense disablePadding sx={{ mt: 1 }}>
+                              {goalEvidence.map((item, index) => (
+                                <ListItem
+                                  // eslint-disable-next-line react/no-array-index-key -- display-only, never reorders
+                                  key={index}
+                                  disablePadding
+                                  sx={{ py: 0.25 }}
+                                >
+                                  <ListItemText
+                                    secondary={`• ${item}`}
+                                    sx={{ m: 0 }}
+                                  />
+                                </ListItem>
+                              ))}
+                            </List>
+                          )}
                         </Box>
                       </Collapse>
                     </Grid>
@@ -968,6 +1003,62 @@ export default function TestDetailMetricsTab({
             </Card>
           );
         })()}
+      {/* Failures no single turn carries; per-turn ones stay on their turn */}
+      {conversationFailures.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            component="h3"
+            sx={{
+              display: 'block',
+              mb: 1,
+              textTransform: 'uppercase',
+              letterSpacing: theme.typography.overline.letterSpacing,
+              fontWeight: 600,
+            }}
+          >
+            Whole-conversation findings
+          </Typography>
+          <Paper
+            variant="outlined"
+            sx={{
+              borderRadius: BORDER_RADIUS.md,
+              borderColor: 'divider',
+              boxShadow: ELEVATION.xs,
+            }}
+          >
+            <List disablePadding>
+              {conversationFailures.map((f, index) => (
+                <ListItem
+                  key={f.key}
+                  divider={index < conversationFailures.length - 1}
+                  sx={{ alignItems: 'flex-start', gap: 1.5, py: 1.5 }}
+                >
+                  <StatusChip
+                    passed={false}
+                    label="Fail"
+                    size="small"
+                    variant="filled"
+                  />
+                  <ListItemText
+                    primary={
+                      f.label === f.metric
+                        ? f.metric
+                        : `${f.metric} · ${f.label}`
+                    }
+                    secondary={f.evidence || undefined}
+                    slotProps={{
+                      primary: { variant: 'body2', fontWeight: 600 },
+                    }}
+                    sx={{ m: 0 }}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          </Paper>
+        </Box>
+      )}
       {/* Metrics Details Table */}
       {(!isMultiTurn || hasAdditionalMultiTurnMetrics) && (
         <Paper

@@ -37,6 +37,8 @@ import { EntityType } from '@/types/entity-type';
 export const TEST_RESULT_DRAWER_TAB = {
   overview: 0,
   conversation: 1,
+  evaluation: 2,
+  /** Alias, so links shared before the rename still open the evaluation tab. */
   metrics: 2,
   annotations: 3,
   history: 4,
@@ -211,8 +213,11 @@ export default function TestResultDrawer({
   // directly, e.g. after an annotation write already re-fetches via
   // getTestResult), so this never re-fetches data already in hand.
   const [fetchedTest, setFetchedTest] = useState<TestResultDetail | null>(null);
+  // The evaluation tab needs the turn count to tell whole-conversation findings apart.
   const needsTranscript =
-    activeTab === TAB.conversation || activeTab === TAB.annotations;
+    activeTab === TAB.conversation ||
+    activeTab === TAB.evaluation ||
+    activeTab === TAB.annotations;
 
   // Dropped only when the drawer closes or swaps to a different result -- not on
   // every run of the fetch effect below, which also reruns on tab changes and
@@ -408,7 +413,7 @@ export default function TestResultDrawer({
               aria-controls="test-detail-tabpanel-1"
             />
             <Tab
-              label="Metrics"
+              label="Evaluation"
               id="test-detail-tab-2"
               aria-controls="test-detail-tabpanel-2"
             />
@@ -458,6 +463,7 @@ export default function TestResultDrawer({
               prompts={prompts}
               onTestResultUpdate={onTestResultUpdate}
               testSetType={testSetType}
+              onShowEvaluation={() => setActiveTab(TAB.evaluation)}
             />
           </TabPanel>
 
@@ -470,12 +476,13 @@ export default function TestResultDrawer({
               onAnnotateTurn={isMultiTurn ? handleAnnotateTurn : undefined}
               onConfirmAutomatedAnnotation={handleConfirmAutomatedAnnotation}
               isConfirmingAnnotation={isConfirmingAnnotation}
+              onShowConversationFindings={() => setActiveTab(TAB.evaluation)}
             />
           </TabPanel>
 
-          <TabPanel value={activeTab} index={TAB.metrics}>
+          <TabPanel value={activeTab} index={TAB.evaluation}>
             <TestDetailMetricsTab
-              test={test}
+              test={conversationTest ?? test}
               requirements={requirements}
               metricsSource={metricsSource}
               onAnnotateMetric={handleAnnotateMetric}

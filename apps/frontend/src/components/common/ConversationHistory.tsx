@@ -13,9 +13,11 @@ import {
   Collapse,
   IconButton,
   Tooltip,
+  Link,
   alpha,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import CheckIcon from '@mui/icons-material/Check';
@@ -28,6 +30,7 @@ import {
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import MarkdownContent from '@/components/common/MarkdownContent';
 import StatusChip from '@/components/common/StatusChip';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { STATUS_LABEL } from '@/constants/outcomes';
 import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
 import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
@@ -93,6 +96,8 @@ interface ConversationHistoryProps {
   isConfirmingAnnotation?: boolean;
   maxHeight?: number | string;
   turnAnnotationMap?: Map<number, AnnotationSummaryEntry>;
+  /** Opens wherever the whole-conversation failures are listed in full. */
+  onShowConversationFindings?: () => void;
   /** Required when turns carry penelope_files for authenticated downloads. */
 }
 
@@ -116,6 +121,7 @@ export default function ConversationHistory({
   isConfirmingAnnotation = false,
   maxHeight = 600,
   turnAnnotationMap = new Map<number, AnnotationSummaryEntry>(),
+  onShowConversationFindings,
 }: ConversationHistoryProps) {
   const theme = useTheme();
   const { status } = useSession();
@@ -265,35 +271,37 @@ export default function ConversationHistory({
       }}
     >
       {conversationFailures.length > 0 && (
-        <Paper
-          elevation={0}
+        <Box
           sx={{
-            p: 2,
+            display: 'flex',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 1,
+            px: 1.5,
+            py: 1,
             mb: 3,
-            bgcolor: alpha(
-              theme.palette.error.main,
-              theme.palette.mode === 'light' ? 0.06 : 0.16
-            ),
-            border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
+            borderRadius: BORDER_RADIUS.sm,
+            bgcolor: 'action.hover',
           }}
         >
-          <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-            Failed on the conversation as a whole
+          <ErrorOutlineIcon fontSize="small" color="error" />
+          <Typography variant="body2" color="text.secondary">
+            {conversationFailures.length === 1
+              ? '1 failed finding applies to the whole conversation, not a single turn.'
+              : `${conversationFailures.length} failed findings apply to the whole conversation, not a single turn.`}
           </Typography>
-          {conversationFailures.map(f => (
-            <Typography
-              key={f.key}
+          {onShowConversationFindings && (
+            <Link
+              component="button"
               variant="body2"
-              color="text.secondary"
-              sx={{ mb: 0.5 }}
+              underline="hover"
+              onClick={onShowConversationFindings}
+              sx={{ fontWeight: 500 }}
             >
-              <strong>
-                {f.label === f.metric ? f.metric : `${f.metric}: ${f.label}`}
-              </strong>
-              {f.evidence ? ` — ${f.evidence}` : ''}
-            </Typography>
-          ))}
-        </Paper>
+              See Evaluation
+            </Link>
+          )}
+        </Box>
       )}
 
       {actualConversationTurns.map((turn, index) => {
@@ -383,7 +391,7 @@ export default function ConversationHistory({
                 />
               )}
 
-              {/* Collapsible Evaluation Toggle */}
+              {/* Collapsible Findings Toggle */}
               {turnFindings.length > 0 && (
                 <Box
                   sx={{
@@ -402,7 +410,7 @@ export default function ConversationHistory({
                       fontWeight: 500,
                     }}
                   >
-                    Evaluation
+                    Findings
                   </Typography>
                   <IconButton
                     size="small"
@@ -461,7 +469,7 @@ export default function ConversationHistory({
               )}
             </Box>
 
-            {/* Evaluation (collapsible) */}
+            {/* Findings (collapsible) */}
             {turnFindings.length > 0 && (
               <Collapse
                 in={expandedEvaluationTurns[turn.turn]}

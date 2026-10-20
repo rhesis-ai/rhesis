@@ -29,6 +29,7 @@ interface TestDetailConversationTabProps {
   onAnnotateTurn?: (turnNumber: number, turnPassed?: boolean) => void;
   onConfirmAutomatedAnnotation?: () => void;
   isConfirmingAnnotation?: boolean;
+  onShowConversationFindings?: () => void;
 }
 
 export default function TestDetailConversationTab({
@@ -39,6 +40,7 @@ export default function TestDetailConversationTab({
   onAnnotateTurn,
   onConfirmAutomatedAnnotation,
   isConfirmingAnnotation = false,
+  onShowConversationFindings,
 }: TestDetailConversationTabProps) {
   const { status } = useSession();
   const [traces, setTraces] = useState<TraceSummary[]>([]);
@@ -189,6 +191,7 @@ export default function TestDetailConversationTab({
           annotationMatchesAutomated={test.matches_annotation === true}
           isConfirmingAnnotation={isConfirmingAnnotation}
           maxHeight="100%"
+          onShowConversationFindings={onShowConversationFindings}
         />
       </Box>
     );
@@ -246,6 +249,7 @@ export default function TestDetailConversationTab({
         isConfirmingAnnotation={isConfirmingAnnotation}
         maxHeight="100%"
         turnAnnotationMap={turnAnnotationMap}
+        onShowConversationFindings={onShowConversationFindings}
       />
       <TraceDrawer
         open={traceDrawerOpen}

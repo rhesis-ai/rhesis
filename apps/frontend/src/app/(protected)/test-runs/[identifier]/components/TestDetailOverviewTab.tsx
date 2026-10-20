@@ -7,11 +7,11 @@ import {
   Paper,
   Chip,
   useTheme,
-  Divider,
   Collapse,
   IconButton,
   Alert,
   AlertTitle,
+  Link,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckIcon from '@mui/icons-material/Check';
@@ -30,6 +30,7 @@ import { useFiles } from '@/hooks/useFiles';
 import {
   getEffectiveTestResultStatus,
   hasConflictingAnnotation,
+  isGoalMetricName,
 } from '@/utils/test-result-status';
 import { getEndpointFailure } from '@/utils/endpoint-failure';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
@@ -42,6 +43,7 @@ interface TestDetailOverviewTabProps {
   >;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
+  onShowEvaluation?: () => void;
 }
 
 // Helper function to render text with proper list formatting
@@ -102,9 +104,9 @@ export default function TestDetailOverviewTab({
   prompts,
   onTestResultUpdate,
   testSetType,
+  onShowEvaluation,
 }: TestDetailOverviewTabProps) {
   const theme = useTheme();
-  const [evidenceExpanded, setEvidenceExpanded] = useState(false);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
   const [filesExpanded, setFilesExpanded] = useState(false);
   const [outputFilesExpanded, setOutputFilesExpanded] = useState(false);
@@ -205,6 +207,18 @@ export default function TestDetailOverviewTab({
       'No response available'
     );
   }, [isMultiTurn, test, endpointFailure, contractError]);
+
+  // A re-score stores fresh criteria on the metric; goal_evaluation keeps the live run's.
+  const goalCriteria = useMemo(() => {
+    const goalMetric = Object.entries(test.test_metrics?.metrics ?? {}).find(
+      ([name]) => isGoalMetricName(name)
+    )?.[1];
+    return (
+      goalMetric?.criteria_evaluations ??
+      test.test_output?.goal_evaluation?.criteria_evaluations ??
+      []
+    );
+  }, [test]);
 
   const testStatus = useMemo(() => getEffectiveTestResultStatus(test), [test]);
   const testLabel = useMemo(() => {
@@ -551,96 +565,36 @@ export default function TestDetailOverviewTab({
             </ViewField>
           )}
 
-          {/* Reasoning & Evidence */}
-          {test.test_output?.goal_evaluation?.reason && (
-            <Box>
-              <ViewField label="Reasoning" multiline>
-                <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
-                  <Typography
-                    variant="body2"
-                    sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-                  >
-                    {test.test_output.goal_evaluation.reason}
+          {/* Goal verdict -- the reasoning and criteria live on the Evaluation tab */}
+          {(goalCriteria.length > 0 ||
+            test.test_output?.goal_evaluation?.reason) && (
+            <ViewField label="Goal evaluation">
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: 1,
+                }}
+              >
+                {goalCriteria.length > 0 && (
+                  <Typography variant="body2">
+                    {`${goalCriteria.filter(c => c.met).length} of ${goalCriteria.length} criteria met.`}
                   </Typography>
-                </Box>
-              </ViewField>
-
-              {/* Evidence — collapsible */}
-              {test.test_output?.goal_evaluation?.evidence &&
-                test.test_output.goal_evaluation.evidence.length > 0 && (
-                  <Box sx={{ mt: 1.5 }}>
-                    <Divider sx={{ mb: 1.5 }} />
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 0.5,
-                        cursor: 'pointer',
-                        '&:hover': { opacity: 0.7 },
-                      }}
-                      onClick={() => setEvidenceExpanded(!evidenceExpanded)}
-                    >
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: 'text.secondary',
-                          fontWeight: 600,
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.5,
-                        }}
-                      >
-                        {evidenceExpanded ? 'Hide' : 'Show'} Evidence (
-                        {test.test_output.goal_evaluation.evidence.length})
-                      </Typography>
-                      <IconButton
-                        size="small"
-                        sx={{
-                          padding: 0,
-                          transform: evidenceExpanded
-                            ? 'rotate(180deg)'
-                            : 'rotate(0deg)',
-                          transition: 'transform 0.2s',
-                        }}
-                      >
-                        <ExpandMoreIcon sx={{ fontSize: 16 }} />
-                      </IconButton>
-                    </Box>
-
-                    <Collapse
-                      in={evidenceExpanded}
-                      timeout="auto"
-                      unmountOnExit
-                    >
-                      <Box sx={{ mt: 1, pl: 2 }}>
-                        {test.test_output.goal_evaluation.evidence.map(
-                          (item, index) => {
-                            const evidenceKey = `evidence-${index}-${item.substring(0, 30).replace(/\s+/g, '-')}`;
-                            return (
-                              <Box
-                                key={evidenceKey}
-                                sx={{ display: 'flex', gap: 1, mb: 0.5 }}
-                              >
-                                <Typography
-                                  variant="body2"
-                                  sx={{ color: 'text.secondary' }}
-                                >
-                                  •
-                                </Typography>
-                                <Typography
-                                  variant="body2"
-                                  sx={{ color: 'text.secondary', flex: 1 }}
-                                >
-                                  {item}
-                                </Typography>
-                              </Box>
-                            );
-                          }
-                        )}
-                      </Box>
-                    </Collapse>
-                  </Box>
                 )}
-            </Box>
+                {onShowEvaluation && (
+                  <Link
+                    component="button"
+                    variant="body2"
+                    underline="hover"
+                    onClick={onShowEvaluation}
+                    sx={{ fontWeight: 500 }}
+                  >
+                    See reasoning in Evaluation
+                  </Link>
+                )}
+              </Box>
+            </ViewField>
           )}
 
           {/* Tags */}

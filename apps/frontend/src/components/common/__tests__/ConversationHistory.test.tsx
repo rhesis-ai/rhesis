@@ -209,16 +209,31 @@ describe('ConversationHistory', () => {
       expect(screen.getByText('Evaluated')).toBeInTheDocument();
     });
 
-    it('shows a failure that cites no turn above the conversation', () => {
+    it('counts a failure that cites no turn in one line, without listing it', () => {
       renderConversation({
         conversationSummary: [makeTurn(1)],
         metrics: redFlag(false),
       });
       expect(
-        screen.getByText(/failed on the conversation as a whole/i)
+        screen.getByText(/1 failed finding applies to the whole conversation/i)
       ).toBeInTheDocument();
-      expect(screen.getByText('Red Flag Escalation')).toBeInTheDocument();
+      expect(screen.queryByText('Red Flag Escalation')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /see evaluation/i })
+      ).not.toBeInTheDocument();
       expect(screen.queryByTestId('status-chip')).not.toBeInTheDocument();
+    });
+
+    it('links to the full list when a handler is given', async () => {
+      const user = userEvent.setup();
+      const onShowConversationFindings = jest.fn();
+      renderConversation({
+        conversationSummary: [makeTurn(1)],
+        metrics: redFlag(false),
+        onShowConversationFindings,
+      });
+      await user.click(screen.getByRole('button', { name: /see evaluation/i }));
+      expect(onShowConversationFindings).toHaveBeenCalledTimes(1);
     });
 
     it('passes the shown turn status to the annotate handler', async () => {
