@@ -9,17 +9,15 @@ import {
   Typography,
   Chip,
   useTheme,
-  Divider,
   Collapse,
   IconButton,
   Tooltip,
-  Link,
+  Button,
   alpha,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
-import CheckIcon from '@mui/icons-material/Check';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import {
   ConversationTurn,
@@ -39,12 +37,14 @@ import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import ResultCheckCard from '@/components/common/ResultCheckCard';
+import ConversationResult from '@/components/common/ConversationResult';
 import type { MetricsSource } from '@/utils/api-client/interfaces/test-configuration';
 import {
   buildResultChecks,
   checksForTurn,
-  checksSummary,
+  countChecks,
   turnVerdict,
+  type ResultCheckGroup,
 } from '@/utils/result-checks';
 
 // Superhero (female) emoji built from code points to avoid linter emoji detection.
@@ -99,10 +99,25 @@ interface ConversationHistoryProps {
   resultStatus?: TestResultStatus;
   /** Opens the full evaluation from the closing summary's link. */
   onShowEvaluation?: () => void;
+  /** Who annotated the result, shown once it has been reviewed. */
+  reviewerName?: string;
+  /** Opens the annotation flow with the opposite of the automated verdict. */
+  onOverrideVerdict?: () => void;
+  /** Takes the review back; only given when the reviewer may delete it. */
+  onUndoReview?: () => void;
+  isUndoingReview?: boolean;
   /** Names the group of metrics that came from the test's requirement. */
   requirementName?: string;
   metricsSource?: MetricsSource | string;
   /** Required when turns carry penelope_files for authenticated downloads. */
+}
+
+/** "Findings · 1 failed", or how many passed when none failed. */
+function findingsLabel(groups: ResultCheckGroup[]): string {
+  const { passed, total } = countChecks(groups.flatMap(g => g.checks));
+  return total > passed
+    ? `Findings · ${total - passed} failed`
+    : `Findings · ${passed} passed`;
 }
 
 /**
@@ -129,6 +144,10 @@ export default function ConversationHistory({
   onShowEvaluation,
   requirementName,
   metricsSource,
+  reviewerName,
+  onOverrideVerdict,
+  onUndoReview,
+  isUndoingReview = false,
 }: ConversationHistoryProps) {
   const theme = useTheme();
   const { status } = useSession();
@@ -228,13 +247,15 @@ export default function ConversationHistory({
     metricsSource,
   });
   const checks = checkGroups.flatMap(g => g.checks);
-  const shownResultStatus: TestResultStatus =
+  const shownResultStatus: TestResultStatus | undefined =
     resultStatus ??
-    (checks.some(c => c.passed === false)
-      ? 'Fail'
-      : checks.every(c => c.passed)
-        ? 'Pass'
-        : 'Inconclusive');
+    (checks.length === 0
+      ? undefined
+      : checks.some(c => c.passed === false)
+        ? 'Fail'
+        : checks.every(c => c.passed)
+          ? 'Pass'
+          : 'Inconclusive');
 
   if (actualConversationTurns.length === 0) {
     return (
@@ -278,7 +299,7 @@ export default function ConversationHistory({
         },
       }}
     >
-      {actualConversationTurns.map((turn, index) => {
+      {actualConversationTurns.map(turn => {
         const turnGroups = checksForTurn(checkGroups, turn.turn);
 
         // A human override wins. Otherwise a turn shows the verdict of the findings that cite
@@ -302,7 +323,7 @@ export default function ConversationHistory({
 
         return (
           <Box key={turn.turn} sx={{ mb: 4 }}>
-            {/* Turn Header */}
+            {/* Turn header: a section divider, so turns read as sections and not as chat */}
             <Box
               sx={{
                 display: 'flex',
@@ -322,20 +343,23 @@ export default function ConversationHistory({
                 disableHoverListener={!turnAnnotation}
                 arrow
               >
-                <Chip
-                  label={`Turn ${turn.turn}`}
-                  size="small"
-                  color="primary"
-                  variant="outlined"
+                <Typography
+                  variant="caption"
+                  component="h3"
                   sx={{
-                    ...(turnIsOverruled && {
-                      borderColor: theme.palette.warning.main,
-                    }),
-                    ...(turnIsConfirmed && {
-                      borderColor: theme.palette.success.light,
-                    }),
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: theme.typography.overline.letterSpacing,
+                    whiteSpace: 'nowrap',
+                    color: turnIsOverruled
+                      ? 'warning.dark'
+                      : turnIsConfirmed
+                        ? 'success.dark'
+                        : 'text.secondary',
                   }}
-                />
+                >
+                  {`Turn ${turn.turn}`}
+                </Typography>
               </Tooltip>
 
               {shownStatus && (
@@ -347,41 +371,39 @@ export default function ConversationHistory({
                 />
               )}
 
-              {/* Collapsible Findings Toggle */}
+              <Box
+                aria-hidden
+                sx={{ flexGrow: 1, height: '1px', bgcolor: 'divider' }}
+              />
+
               {turnGroups.length > 0 && (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    cursor: 'pointer',
-                    '&:hover': { opacity: 0.7 },
-                  }}
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="inherit"
+                  aria-expanded={!!expandedEvaluationTurns[turn.turn]}
                   onClick={() => toggleEvaluation(turn.turn)}
+                  endIcon={
+                    <ExpandMoreIcon
+                      sx={{
+                        transform: expandedEvaluationTurns[turn.turn]
+                          ? 'rotate(180deg)'
+                          : 'none',
+                        transition: 'transform 0.2s',
+                      }}
+                    />
+                  }
+                  sx={{
+                    borderRadius: BORDER_RADIUS.pill,
+                    borderColor: 'divider',
+                    color: 'text.primary',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    whiteSpace: 'nowrap',
+                  }}
                 >
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: theme.palette.primary.main,
-                      fontWeight: 500,
-                    }}
-                  >
-                    Findings
-                  </Typography>
-                  <IconButton
-                    size="small"
-                    sx={{
-                      padding: 0,
-                      transform: expandedEvaluationTurns[turn.turn]
-                        ? 'rotate(180deg)'
-                        : 'rotate(0deg)',
-                      transition: 'transform 0.2s',
-                      color: theme.palette.primary.main,
-                    }}
-                  >
-                    <ExpandMoreIcon sx={{ fontSize: theme.spacing(2) }} />
-                  </IconButton>
-                </Box>
+                  {findingsLabel(turnGroups)}
+                </Button>
               )}
 
               {/* Annotate Turn Button */}
@@ -901,113 +923,24 @@ export default function ConversationHistory({
                 </Box>
               </Tooltip>
             </Box>
-
-            {/* Divider between turns (except last) */}
-            {index < actualConversationTurns.length - 1 && (
-              <Divider sx={{ mt: 4, mb: 1 }} />
-            )}
           </Box>
         );
       })}
 
-      {/* Conversation Concluded Marker */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          mt: 3,
-          py: 2,
-          gap: 2,
-        }}
-      >
-        <Chip
-          label="Conversation Concluded"
-          size="small"
-          sx={{
-            bgcolor: alpha(
-              theme.palette.primary.main,
-              theme.palette.mode === 'light' ? 0.06 : 0.15
-            ),
-            color: theme.palette.primary.main,
-            fontWeight: 500,
-            border: `1px solid ${theme.palette.primary.main}`,
-          }}
-        />
-
-        {/* Confirmed indicator only when an annotation exists AND matches the automated result; otherwise the Confirm button. */}
-        {hasExistingAnnotation && annotationMatchesAutomated ? (
-          <Chip
-            icon={<CheckIcon sx={{ fontSize: theme.spacing(2) }} />}
-            label="Confirmed"
-            size="medium"
-            color="success"
-            variant="filled"
-            sx={{
-              fontWeight: 600,
-            }}
-          />
-        ) : !hasExistingAnnotation && onConfirmAutomatedAnnotation ? (
-          <Tooltip title="Confirm automated result">
-            <span>
-              <IconButton
-                size="small"
-                onClick={onConfirmAutomatedAnnotation}
-                disabled={isConfirmingAnnotation}
-                sx={{
-                  color: theme.palette.success.main,
-                  border: `1px solid ${theme.palette.success.main}`,
-                  '&:hover': {
-                    backgroundColor: alpha(theme.palette.success.main, 0.1),
-                  },
-                  '&:disabled': {
-                    color: theme.palette.action.disabled,
-                    borderColor: theme.palette.action.disabled,
-                  },
-                }}
-              >
-                <CheckIcon sx={{ fontSize: theme.spacing(2.25) }} />
-              </IconButton>
-            </span>
-          </Tooltip>
-        ) : null}
-      </Box>
-
-      {checks.length > 0 && (
-        <Box
-          data-testid="result-summary"
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexWrap: 'wrap',
-            gap: 1.5,
-            pb: 2,
-          }}
-        >
-          <StatusChip
-            status={shownResultStatus}
-            label={STATUS_LABEL[shownResultStatus]}
-            size="small"
-            variant="filled"
-          />
-          <Typography variant="body2" color="text.secondary">
-            {checksSummary(checkGroups)}
-          </Typography>
-          {onShowEvaluation && (
-            <Link
-              component="button"
-              type="button"
-              variant="body2"
-              underline="hover"
-              onClick={onShowEvaluation}
-              sx={{ fontWeight: 500 }}
-            >
-              See Evaluation
-            </Link>
-          )}
-        </Box>
-      )}
+      <ConversationResult
+        groups={checkGroups}
+        status={shownResultStatus}
+        turnCount={actualConversationTurns.length}
+        onShowEvaluation={onShowEvaluation}
+        reviewed={hasExistingAnnotation}
+        reviewMatches={annotationMatchesAutomated}
+        reviewerName={reviewerName}
+        onConfirm={onConfirmAutomatedAnnotation}
+        onOverride={onOverrideVerdict}
+        onUndo={onUndoReview}
+        isUndoing={isUndoingReview}
+        isConfirming={isConfirmingAnnotation}
+      />
     </Box>
   );
 }

@@ -31,6 +31,9 @@ interface TestDetailConversationTabProps {
   isConfirmingAnnotation?: boolean;
   onShowEvaluation?: () => void;
   metricsSource?: string;
+  onOverrideVerdict?: () => void;
+  onUndoReview?: () => void;
+  isUndoingReview?: boolean;
 }
 
 export default function TestDetailConversationTab({
@@ -43,6 +46,9 @@ export default function TestDetailConversationTab({
   isConfirmingAnnotation = false,
   onShowEvaluation,
   metricsSource,
+  onOverrideVerdict,
+  onUndoReview,
+  isUndoingReview,
 }: TestDetailConversationTabProps) {
   const { status } = useSession();
   const [traces, setTraces] = useState<TraceSummary[]>([]);
@@ -197,6 +203,10 @@ export default function TestDetailConversationTab({
           onShowEvaluation={onShowEvaluation}
           requirementName={test.test?.requirement?.name}
           metricsSource={metricsSource}
+          reviewerName={test.last_annotation?.user?.name}
+          onOverrideVerdict={onOverrideVerdict}
+          onUndoReview={onUndoReview}
+          isUndoingReview={isUndoingReview}
         />
       </Box>
     );
@@ -258,6 +268,10 @@ export default function TestDetailConversationTab({
         onShowEvaluation={onShowEvaluation}
         requirementName={test.test?.requirement?.name}
         metricsSource={metricsSource}
+        reviewerName={test.last_annotation?.user?.name}
+        onOverrideVerdict={onOverrideVerdict}
+        onUndoReview={onUndoReview}
+        isUndoingReview={isUndoingReview}
       />
       <TraceDrawer
         open={traceDrawerOpen}

@@ -6,7 +6,10 @@ import { toMentionId } from '@/components/common/MentionTextInput';
 import {
   ANNOTATION_ENTITY_TYPES,
   ANNOTATION_TARGET_TYPES,
+  type Annotation,
 } from '@/utils/api-client/interfaces/annotation';
+import { can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import {
   Box,
   Tabs,
@@ -198,6 +201,15 @@ export default function TestResultDrawer({
     [test, TAB.annotations]
   );
 
+  // Opens the annotation form set to the opposite of what automation decided.
+  const handleOverrideVerdict = useCallback(() => {
+    if (!test) return;
+    const automatedPassed = getEffectiveTestResultStatus(test) === 'Pass';
+    setAnnotationInitialComment('');
+    setAnnotationInitialStatus(automatedPassed ? 'failed' : 'passed');
+    setActiveTab(TAB.annotations);
+  }, [test, TAB.annotations]);
+
   // `test` comes from a results-grid fetch, which strips
   // test_output.conversation_summary (the full multi-turn transcript --
   // dead weight on a grid that never renders it). Fetch the one result this
@@ -253,8 +265,75 @@ export default function TestResultDrawer({
 
   // Same id check as the fetch guard, so the outgoing result's transcript is never
   // rendered against an incoming one during the render before the reset lands.
+  // Everything else comes from `test`, which callers refresh after each write (a confirm, an
+  // annotation), so the fetched copy only lends its transcript and never goes stale.
+  const fetchedSummary =
+    fetchedTest?.id === test?.id
+      ? fetchedTest?.test_output?.conversation_summary
+      : undefined;
   const conversationTest =
-    fetchedTest?.id === test?.id ? (fetchedTest ?? test) : test;
+    test && fetchedSummary && !test.test_output?.conversation_summary
+      ? {
+          ...test,
+          test_output: {
+            ...fetchedTest?.test_output,
+            ...test.test_output,
+            conversation_summary: fetchedSummary,
+          } as TestResultDetail['test_output'],
+        }
+      : test;
+
+  // The full row behind `last_annotation`, which carries the delete affordance its summary lacks.
+  const lastAnnotationId = test?.last_annotation?.annotation_id;
+  const [reviewAnnotation, setReviewAnnotation] = useState<Annotation | null>(
+    null
+  );
+  const [isUndoingReview, setIsUndoingReview] = useState(false);
+
+  React.useEffect(() => {
+    setReviewAnnotation(null);
+    const testId = test?.id;
+    if (!open || !testId || !lastAnnotationId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await new ApiClientFactory()
+          .getAnnotationsClient()
+          .getByEntity(ANNOTATION_ENTITY_TYPES.TEST_RESULT, testId);
+        if (!cancelled) {
+          setReviewAnnotation(
+            rows.find(a => a.id === lastAnnotationId) ?? null
+          );
+        }
+      } catch {
+        // Without the row there is just no Undo button.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, test?.id, lastAnnotationId]);
+
+  const handleUndoReview = async () => {
+    if (!test || !reviewAnnotation) return;
+    setIsUndoingReview(true);
+    try {
+      const factory = new ApiClientFactory();
+      await factory
+        .getAnnotationsClient()
+        .deleteAnnotation(reviewAnnotation.id);
+      onTestResultUpdate(
+        await factory.getTestResultsClient().getTestResult(test.id)
+      );
+    } catch (error) {
+      console.error('Failed to undo the review:', error);
+    } finally {
+      setIsUndoingReview(false);
+    }
+  };
+
+  const canUndoReview =
+    !!reviewAnnotation && can(reviewAnnotation, Capability.Annotation.DELETE);
 
   const { metrics: mentionableMetrics, turns: mentionableTurns } =
     useTestResultAnnotationTargets(test, conversationTest);
@@ -472,6 +551,9 @@ export default function TestResultDrawer({
               isConfirmingAnnotation={isConfirmingAnnotation}
               metricsSource={metricsSource}
               onShowEvaluation={() => setActiveTab(TAB.evaluation)}
+              onOverrideVerdict={handleOverrideVerdict}
+              onUndoReview={canUndoReview ? handleUndoReview : undefined}
+              isUndoingReview={isUndoingReview}
             />
           </TabPanel>
 
