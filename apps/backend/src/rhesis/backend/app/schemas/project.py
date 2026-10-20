@@ -1,3 +1,4 @@
+import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import UUID4
@@ -30,6 +31,8 @@ class ProjectUpdate(ProjectBase):
 
 class Project(ProjectBase, ServerIdentity):
     id: UUID4
+    created_at: Optional[datetime.datetime] = None
+    updated_at: Optional[datetime.datetime] = None
 
 
 # The detailed model with expanded relations. user/organization/status: unused, excluded.
