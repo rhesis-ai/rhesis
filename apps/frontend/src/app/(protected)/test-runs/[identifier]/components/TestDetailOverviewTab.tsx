@@ -8,6 +8,7 @@ import {
   Chip,
   useTheme,
   Collapse,
+  Divider,
   IconButton,
   Alert,
   AlertTitle,
@@ -104,6 +105,57 @@ const renderFormattedText = (text: string) => {
 
   return <>{elements}</>;
 };
+
+/** A small uppercase label over plain text, lighter than ViewField's filled box. */
+function SectionField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  const theme = useTheme();
+  return (
+    <Box>
+      <Typography
+        variant="caption"
+        component="h4"
+        color="text.secondary"
+        sx={{
+          display: 'block',
+          mb: 0.75,
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          letterSpacing: theme.typography.overline.letterSpacing,
+        }}
+      >
+        {label}
+      </Typography>
+      {children}
+    </Box>
+  );
+}
+
+const ABBREVIATION = /\b(e\.g|i\.e|etc|vs|Dr|Mr|Mrs|Ms|No)\.$/i;
+
+/**
+ * One line of separate sentences ("Must not X. Must not Y.") as "- " lines, so
+ * renderFormattedText lists them. Text that already has lines is left alone.
+ */
+function asSentenceList(text: string): string {
+  if (text.includes('\n')) return text;
+  const sentences = text
+    .trim()
+    .split(/(?<=[.!?])\s+(?=[A-Z])/)
+    .reduce<string[]>((acc, part) => {
+      const prev = acc[acc.length - 1];
+      if (prev && ABBREVIATION.test(prev))
+        acc[acc.length - 1] = `${prev} ${part}`;
+      else acc.push(part);
+      return acc;
+    }, []);
+  return sentences.length > 1 ? sentences.map(x => `- ${x}`).join('\n') : text;
+}
 
 export default function TestDetailOverviewTab({
   test,
@@ -249,17 +301,14 @@ export default function TestDetailOverviewTab({
   // Shared status header used in both branches
   const statusHeader = (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-      <Typography variant="body2" color="text.secondary">
-        Status
-      </Typography>
       <StatusChip
         status={testStatus}
         label={testLabel}
         size="small"
-        variant="outlined"
+        variant="filled"
       />
       {hasChecks && (
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body1" color="text.secondary">
           {checksSummary(checkGroups)}
         </Typography>
       )}
@@ -267,7 +316,7 @@ export default function TestDetailOverviewTab({
         <Link
           component="button"
           type="button"
-          variant="body2"
+          variant="body1"
           underline="hover"
           onClick={onShowEvaluation}
           sx={{ fontWeight: 500 }}
@@ -335,7 +384,7 @@ export default function TestDetailOverviewTab({
 
   // Shared card styling matching Figma "Data Output Textfield" card
   const cardSx = {
-    p: '30px',
+    p: 3,
     borderRadius: BORDER_RADIUS.md,
     boxShadow: ELEVATION.xs,
     mb: 3,
@@ -554,46 +603,42 @@ export default function TestDetailOverviewTab({
       {endpointFailureBanner}
 
       <Paper variant="outlined" sx={cardSx}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <Typography variant="subtitle1" component="h3" fontWeight={600}>
             What&apos;s checked
           </Typography>
 
-          <ViewField label="Goal" multiline>
-            <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
-              <Typography
-                variant="body2"
-                sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
-              >
-                {promptContent}
-              </Typography>
-            </Box>
-          </ViewField>
+          <SectionField label="Goal">
+            <Typography
+              variant="body2"
+              sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+            >
+              {promptContent}
+            </Typography>
+          </SectionField>
 
           {testConfig?.restrictions && (
-            <ViewField label="Restrictions" multiline>
-              <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
-                {renderFormattedText(testConfig.restrictions)}
-              </Box>
-            </ViewField>
+            <SectionField label="Restrictions">
+              {renderFormattedText(asSentenceList(testConfig.restrictions))}
+            </SectionField>
           )}
 
           {checkedRequirement && (
-            <ViewField
-              label={`Requirement: ${checkedRequirement.name}`}
-              multiline
-            >
-              <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                {checkedRequirement.description || checkedRequirement.name}
-              </Typography>
-            </ViewField>
+            <>
+              <Divider />
+              <SectionField label={`Requirement: ${checkedRequirement.name}`}>
+                <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                  {checkedRequirement.description || checkedRequirement.name}
+                </Typography>
+              </SectionField>
+            </>
           )}
         </Box>
       </Paper>
 
       {(testConfig?.scenario || testConfig?.instructions) && (
         <Paper variant="outlined" sx={cardSx}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Box>
               <Typography variant="subtitle1" component="h3" fontWeight={600}>
                 Simulated user
@@ -604,19 +649,15 @@ export default function TestDetailOverviewTab({
             </Box>
 
             {testConfig?.scenario && (
-              <ViewField label="Scenario" multiline>
-                <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
-                  {renderFormattedText(testConfig.scenario)}
-                </Box>
-              </ViewField>
+              <SectionField label="Scenario">
+                {renderFormattedText(testConfig.scenario)}
+              </SectionField>
             )}
 
             {testConfig?.instructions && (
-              <ViewField label="Instructions" multiline>
-                <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
-                  {renderFormattedText(testConfig.instructions)}
-                </Box>
-              </ViewField>
+              <SectionField label="Instructions">
+                {renderFormattedText(testConfig.instructions)}
+              </SectionField>
             )}
           </Box>
         </Paper>
