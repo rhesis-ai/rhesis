@@ -28,6 +28,20 @@ from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
 logger = logging.getLogger(__name__)
 
 
+def _backfill_execution_default(db: Session, user: models.User) -> None:
+    """Copy the generation default to execution when execution is unset.
+
+    Older local setups only seeded generation and evaluation. Without an
+    execution default, multi-turn tests fail with "no model defined".
+    """
+    gen_id = user.settings.models.generation.model_id
+    exec_id = user.settings.models.execution.model_id
+    if gen_id and not exec_id:
+        apply_default_model_ids(user, {"execution": str(gen_id)})
+        db.commit()
+        logger.info("Backfilled execution model default from generation default.")
+
+
 def initialize_local_environment(db: Session) -> None:
     """
     Initialize local environment with default organization and user.
@@ -111,6 +125,7 @@ def initialize_local_environment(db: Session) -> None:
                     logger.info("✅ Initial seed data loaded successfully!")
                 else:
                     logger.info("ℹ️  Initial seed data already loaded.")
+                    _backfill_execution_default(db, user)
 
                 _show_local_info()
                 return

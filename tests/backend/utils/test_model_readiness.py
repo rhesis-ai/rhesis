@@ -294,6 +294,7 @@ class TestOnboardingDefaults:
         assert onboarding_default_model_ids(test_db, user, rhesis_models) == {
             "generation": rhesis_models["language_model_id"],
             "evaluation": rhesis_models["language_model_id"],
+            "execution": rhesis_models["language_model_id"],
             "embedding": rhesis_models["embedding_model_id"],
         }
 
@@ -310,6 +311,7 @@ class TestAdoptUsableDefaults:
         test_db.refresh(user)
         assert user.settings.models.generation.model_id == own_model.id
         assert user.settings.models.evaluation.model_id == own_model.id
+        assert user.settings.models.execution.model_id == own_model.id
         assert check_model_readiness(test_db, user).ready
 
     def test_jev_only_fills_evaluation(self, test_db, test_org_id, user, jev_model, deployment):
@@ -331,6 +333,7 @@ class TestAdoptUsableDefaults:
         test_db.refresh(user)
         assert user.settings.models.evaluation.model_id == jev_model.id
         assert user.settings.models.generation.model_id == own_model.id
+        assert user.settings.models.execution.model_id == own_model.id
         assert check_model_readiness(test_db, user).ready
 
     def test_db_error_does_not_break_the_outer_transaction(
@@ -375,6 +378,7 @@ class TestAdoptUsableDefaults:
         for row in get_rhesis_system_models(test_db, test_org_id):
             seeded[row.model_type].add(str(row.id))
         assert str(user.settings.models.generation.model_id) in seeded["language"]
+        assert str(user.settings.models.execution.model_id) in seeded["language"]
         assert str(user.settings.models.embedding.model_id) in seeded["embedding"]
         assert check_model_readiness(test_db, user).ready
 
@@ -398,6 +402,7 @@ class TestAdoptUsableDefaults:
         test_db.refresh(user)
         assert str(user.settings.models.generation.model_id) == response.json()["id"]
         assert str(user.settings.models.evaluation.model_id) == response.json()["id"]
+        assert str(user.settings.models.execution.model_id) == response.json()["id"]
 
 
 @pytest.mark.integration
@@ -448,7 +453,9 @@ def second_model(test_db, test_org_id, authenticated_user_id, own_model):
 
 
 def _use_as_default(user, model):
-    apply_default_model_ids(user, {"generation": str(model.id), "evaluation": str(model.id)})
+    apply_default_model_ids(
+        user, {"generation": str(model.id), "evaluation": str(model.id), "execution": str(model.id)}
+    )
 
 
 def _delete_other_own_models(test_db, client, org_id, keep):
@@ -479,6 +486,7 @@ class TestDeletingAModel:
         test_db.refresh(user)
         assert str(user.settings.models.generation.model_id) == str(second_model.id)
         assert str(user.settings.models.evaluation.model_id) == str(second_model.id)
+        assert str(user.settings.models.execution.model_id) == str(second_model.id)
         assert check_model_readiness(test_db, user).ready
 
     def test_deleting_the_last_usable_model_leaves_the_user_not_ready(
@@ -508,6 +516,7 @@ class TestDeletingAModel:
         test_db.refresh(user)
         assert str(user.settings.models.generation.model_id) == str(own_model.id)
         assert str(user.settings.models.evaluation.model_id) == str(own_model.id)
+        assert str(user.settings.models.execution.model_id) == str(own_model.id)
         assert check_model_readiness(test_db, user).ready
 
     def test_delete_with_working_defaults_builds_no_candidate(
@@ -526,7 +535,12 @@ class TestDeletingAModel:
         assert response.status_code == 200, response.text
         # (db, user, purpose) checks a current default; a fourth argument builds a candidate.
         for_user = [c.args for c in check.call_args_list if c.args[1].id == user.id]
-        assert sorted(args[2] for args in for_user) == ["embedding", "evaluation", "generation"]
+        assert sorted(args[2] for args in for_user) == [
+            "embedding",
+            "evaluation",
+            "execution",
+            "generation",
+        ]
         assert all(len(args) == 3 for args in for_user)
 
     def test_failing_candidate_query_does_not_fail_the_delete(

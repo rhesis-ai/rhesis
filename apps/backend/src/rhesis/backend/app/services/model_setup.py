@@ -21,11 +21,11 @@ from rhesis.backend.app.utils.user_model_utils import (
 
 logger = logging.getLogger(__name__)
 
-#: Which default each model type fills. A language model serves both
-#: generation and evaluation; execution keeps following the deployment default.
-#: A decision model (Jev) can't generate text, so it only ever fills evaluation.
+#: Which default each model type fills. A language model serves generation,
+#: evaluation and execution. A decision model (Jev) can't generate text, so it
+#: only fills evaluation.
 _PURPOSES_BY_MODEL_TYPE = {
-    "language": ("generation", "evaluation"),
+    "language": ("generation", "evaluation", "execution"),
     "decision": ("evaluation",),
     "embedding": ("embedding",),
 }
@@ -63,6 +63,7 @@ def onboarding_default_model_ids(
     candidates = {
         "generation": default_model_ids.get("language_model_id"),
         "evaluation": default_model_ids.get("language_model_id"),
+        "execution": default_model_ids.get("language_model_id"),
         "embedding": default_model_ids.get("embedding_model_id"),
     }
     usable = {}
