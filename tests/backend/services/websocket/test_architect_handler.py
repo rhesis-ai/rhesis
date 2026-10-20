@@ -280,6 +280,55 @@ class TestArchitectHandlerSuccess:
         assert mock_task.apply_async.call_args[1]["kwargs"]["approve"] is expected
 
     @pytest.mark.asyncio
+    async def test_the_message_stores_file_details_and_the_job_gets_the_upload(
+        self, mock_manager, mock_user
+    ):
+        upload = {
+            "filename": "prd.pdf",
+            "content_type": "application/pdf",
+            "data": "QUJD",
+            "size": 3,
+        }
+        message = WebSocketMessage(
+            type=EventType.ARCHITECT_MESSAGE,
+            correlation_id="corr-1",
+            payload={
+                "session_id": str(uuid4()),
+                "message": "spec",
+                "attachments": {"files": [upload]},
+            },
+        )
+
+        with patch(
+            "rhesis.backend.app.services.websocket.handlers.architect.get_db_with_tenant_variables"
+        ) as mock_get_db:
+            mock_get_db.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
+            mock_crud = MagicMock()
+            mock_crud.get_architect_session.return_value = MagicMock(project_id=None)
+            mock_schemas = MagicMock()
+            mock_task = MagicMock()
+
+            with (
+                patch("rhesis.backend.app.auth.rbac.authorize", return_value=True),
+                patch("rhesis.backend.app.crud.architect", mock_crud),
+                patch("rhesis.backend.app.schemas", mock_schemas),
+                patch("rhesis.backend.jobs.architect.architect_chat_task", mock_task),
+            ):
+                await handle_architect_message(mock_manager, "conn-1", mock_user, message)
+
+        stored = mock_schemas.ArchitectMessageCreate.call_args.kwargs["attachments"]
+        assert stored == {"files": [{k: v for k, v in upload.items() if k != "data"}]}
+        sent = mock_task.apply_async.call_args[1]["kwargs"]["attachments"]
+        assert sent["files"][0]["data"] == "QUJD"
+
+    @pytest.mark.parametrize("attachments", [None, "doc.pdf", {"files": "doc.pdf"}, {"files": []}])
+    def test_payloads_not_shaped_like_an_upload_pass_unchanged(self, attachments):
+        from rhesis.backend.app.services.architect.attachments import without_file_data
+
+        assert without_file_data(attachments) == attachments
+
+    @pytest.mark.asyncio
     async def test_attachments_forwarded(self, mock_manager, mock_user):
         session_id = str(uuid4())
         attachments = {"files": ["doc.pdf"]}

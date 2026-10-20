@@ -18,6 +18,24 @@ from typing import Any, Dict, Iterable, List, Optional
 logger = logging.getLogger(__name__)
 
 
+def without_file_data(attachments: Any) -> Any:
+    """The attachments as stored on a message: each file's details, not its bytes.
+
+    The base64 upload is only needed to extract the text in its own turn. Later
+    turns read ``extracted_text`` and the UI shows the name and size. Anything not
+    shaped like an upload is client JSON this can't judge, so it passes unchanged.
+    """
+    if not isinstance(attachments, dict):
+        return attachments
+    files = attachments.get("files")
+    if not isinstance(files, list):
+        return attachments
+    stored = [
+        {k: v for k, v in f.items() if k != "data"} if isinstance(f, dict) else f for f in files
+    ]
+    return {**attachments, "files": stored}
+
+
 def session_documents(messages: Iterable[Any]) -> List[Dict[str, str]]:
     """Files attached to the session's user messages, as ``{filename, text}``, oldest first.
 

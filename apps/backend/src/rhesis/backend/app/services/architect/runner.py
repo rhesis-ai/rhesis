@@ -19,6 +19,7 @@ from rhesis.backend.app.schemas.websocket import EventType
 from rhesis.backend.app.services.architect.attachments import (
     process_attachments,
     session_documents,
+    without_file_data,
 )
 from rhesis.backend.app.services.architect.event_handler import WebSocketEventHandler
 from rhesis.backend.app.services.tool.mcp.agents import get_agent_event_handlers
@@ -93,7 +94,7 @@ async def prepare_and_load_session(
                     session_id=resolved_session_id,
                     role="user",
                     content=message,
-                    attachments=attachments,
+                    attachments=without_file_data(attachments),
                     project_id=project_id,
                 ),
                 organization_id=organization_id,
@@ -155,7 +156,7 @@ def _extract_and_store(
                 architect_crud.update_architect_message_attachments(
                     db,
                     message_id,
-                    extracted,
+                    without_file_data(extracted),
                     organization_id=organization_id,
                     user_id=user_id,
                 )

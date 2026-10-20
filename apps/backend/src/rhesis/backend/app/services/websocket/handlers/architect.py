@@ -74,6 +74,7 @@ async def handle_architect_message(
 
         from rhesis.backend.app import schemas
         from rhesis.backend.app.crud import architect as architect_crud
+        from rhesis.backend.app.services.architect.attachments import without_file_data
 
         with get_db_with_tenant_variables(
             str(user.organization_id), str(user.id), client_project_id
@@ -135,7 +136,8 @@ async def handle_architect_message(
                     session_id=session_id,
                     role="user",
                     content=user_message,
-                    attachments=payload.get("attachments"),
+                    # The job gets the upload itself; the message keeps its details.
+                    attachments=without_file_data(payload.get("attachments")),
                     project_id=active_project_id,
                 ),
                 organization_id=str(user.organization_id),

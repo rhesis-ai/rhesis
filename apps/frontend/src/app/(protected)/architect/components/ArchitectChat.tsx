@@ -202,7 +202,6 @@ export default function ArchitectChat({
                     files?: Array<{
                       filename: string;
                       content_type: string;
-                      data: string;
                       size: number;
                     }>;
                     mentions?: Array<{
