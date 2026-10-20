@@ -57,15 +57,10 @@ def infer_intent(
             return intent
 
     # A long message with an attachment is a pasted document, whatever it says.
-    # With a file attached, the file is the document, so the keyword length
-    # floor doesn't apply and the file's own text counts too.
     if has_attachments:
-        attached = f"{text}\n{attachment_text.lower()}"
         for intent in load_intents():
             minimum = intent.attachment_min_length
-            if minimum is None:
-                continue
-            if len(message) > minimum or any(s in attached for s in intent.keyword_signals):
+            if minimum is not None and len(message) > minimum:
                 return intent
 
     for intent in load_intents():
@@ -73,6 +68,17 @@ def infer_intent(
             continue
         if any(signal in text for signal in intent.keyword_signals):
             return intent
+
+    # With a file attached, the file is the document: the keyword length floor
+    # doesn't apply and the file's own text counts. Checked last, so a clear
+    # request in the message ("compare my last two runs") still wins.
+    if has_attachments:
+        attached = f"{text}\n{attachment_text.lower()}"
+        for intent in load_intents():
+            if intent.attachment_min_length is None:
+                continue
+            if any(signal in attached for signal in intent.keyword_signals):
+                return intent
 
     return None
 

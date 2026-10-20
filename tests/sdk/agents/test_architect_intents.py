@@ -208,6 +208,17 @@ class TestInferIntent:
         intent = infer_intent("Here's our spec.", has_attachments=True, attachment_text=text)
         assert intent.key == "spec_foundation"
 
+    @pytest.mark.parametrize(
+        "message, key",
+        [
+            ("compare my last two runs", "run_analyze"),
+            ("explore my endpoint", "quick_exploration"),
+        ],
+    )
+    def test_a_clear_request_in_the_message_beats_a_spec_like_file(self, message, key):
+        text = "| ID | Requirement | Acceptance criteria |"
+        assert infer_intent(message, has_attachments=True, attachment_text=text).key == key
+
     def test_an_attached_file_that_is_not_a_spec_is_not(self):
         text = "Quarterly revenue grew 4% on the back of strong renewals."
         assert infer_intent("Thoughts?", has_attachments=True, attachment_text=text) is None
