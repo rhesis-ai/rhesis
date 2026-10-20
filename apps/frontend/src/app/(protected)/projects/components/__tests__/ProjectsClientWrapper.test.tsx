@@ -8,7 +8,10 @@ import type { Project } from '@/utils/api-client/interfaces/project';
 
 const mockGetAllProjects = jest.fn();
 const mockDeleteProject = jest.fn();
+const mockCreateProject = jest.fn();
 const mockRefreshActiveProjects = jest.fn();
+const mockPush = jest.fn();
+const mockWriteActiveProjectId = jest.fn();
 const mockShow = jest.fn();
 let mockActiveProject: Project | null = null;
 
@@ -21,7 +24,7 @@ jest.mock('next-auth/react', () => ({
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
-    push: jest.fn(),
+    push: mockPush,
     replace: jest.fn(),
     refresh: jest.fn(),
   }),
@@ -45,6 +48,10 @@ jest.mock('@/contexts/ActiveProjectContext', () => ({
   }),
 }));
 
+jest.mock('@/utils/active-project', () => ({
+  writeActiveProjectId: (id: string) => mockWriteActiveProjectId(id),
+}));
+
 jest.mock('@/contexts/OnboardingContext', () => ({
   useOnboarding: () => ({
     markStepComplete: jest.fn(),
@@ -66,7 +73,7 @@ jest.mock('@/utils/api-client/client-factory', () => ({
     getProjectsClient: () => ({
       getAllProjects: mockGetAllProjects,
       deleteProject: mockDeleteProject,
-      createProject: jest.fn(),
+      createProject: mockCreateProject,
     }),
   })),
 }));
@@ -79,7 +86,15 @@ jest.mock('@/components/layout/PageLayout', () => ({
 
 jest.mock('../ProjectCreateDrawer', () => ({
   __esModule: true,
-  default: () => null,
+  default: ({
+    onCreate,
+  }: {
+    onCreate: (payload: { name: string }) => Promise<void>;
+  }) => (
+    <button onClick={() => onCreate({ name: 'New Project' })}>
+      Submit create
+    </button>
+  ),
 }));
 
 jest.mock('../ProjectFilterDrawer', () => ({
@@ -212,5 +227,33 @@ describe('ProjectsClientWrapper active-project delete guard', () => {
       )
     );
     expect(screen.getByText('Example Project')).toBeInTheDocument();
+  });
+});
+
+describe('ProjectsClientWrapper create', () => {
+  const CREATED = { id: 'proj-3', name: 'New Project' } as Project;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetAllProjects.mockResolvedValue([ACTIVE, OTHER]);
+    mockCreateProject.mockResolvedValue(CREATED);
+    mockRefreshActiveProjects.mockResolvedValue(undefined);
+    mockActiveProject = ACTIVE;
+  });
+
+  it('switches to the new project and opens it', async () => {
+    await renderList();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Submit create' })
+    );
+
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith('/projects/proj-3')
+    );
+    expect(mockWriteActiveProjectId).toHaveBeenCalledWith('proj-3');
+    expect(mockRefreshActiveProjects).toHaveBeenCalledWith({
+      listOnly: false,
+    });
   });
 });

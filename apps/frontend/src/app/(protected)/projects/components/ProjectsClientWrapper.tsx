@@ -9,6 +9,7 @@ import {
   TablePagination,
 } from '@mui/material';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { Project, ProjectCreate } from '@/utils/api-client/interfaces/project';
@@ -34,6 +35,7 @@ import { useOnboardingTour } from '@/hooks/useOnboardingTour';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { writeActiveProjectId } from '@/utils/active-project';
 import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
@@ -55,6 +57,7 @@ export default function ProjectsClientWrapper({
   initialData,
 }: ProjectsClientWrapperProps) {
   const { status } = useSession();
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>(initialData ?? []);
   const [isLoading, setIsLoading] = useState(initialData === undefined);
   const [error, setError] = useState<string | null>(null);
@@ -117,10 +120,14 @@ export default function ProjectsClientWrapper({
 
   const handleCreate = useCallback(
     async (payload: ProjectCreate) => {
-      await createProject(payload);
-      await Promise.all([fetchProjects(), refreshActiveProjects()]);
+      const created = await createProject(payload);
+      // Same as the /projects/create-new wizard: switch to the new project
+      // and open it. Not setActiveProject, which reloads and stays here.
+      writeActiveProjectId(String(created.id));
+      await refreshActiveProjects({ listOnly: false });
+      router.push(`/projects/${created.id}`);
     },
-    [createProject, fetchProjects, refreshActiveProjects]
+    [createProject, refreshActiveProjects, router]
   );
 
   const confirmDelete = useCallback(async () => {
