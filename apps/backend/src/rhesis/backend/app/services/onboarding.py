@@ -12,6 +12,7 @@ from rhesis.backend.app.crud.user import other_org_member_exists
 from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.user import OnboardingStatus
+from rhesis.backend.app.schemas.user import User as UserSchema
 
 # Empty project id means the org-level scope, where project_id IS NULL rows live.
 _ORG_LEVEL_SCOPE = ""
@@ -37,6 +38,15 @@ def mark_profile_survey_pending(user: User) -> None:
         return
     user.settings.update({"onboarding": {"profile_survey_pending": True}})
     flag_modified(user, "user_settings")
+
+
+def present_user(user: User, viewer_id) -> UserSchema:
+    """Serialize a user, hiding their profile answers from anyone but themselves."""
+    presented = UserSchema.model_validate(user)
+    onboarding = presented.user_settings.onboarding if presented.user_settings else None
+    if str(user.id) != str(viewer_id) and onboarding is not None:
+        onboarding.profile = None
+    return presented
 
 
 def _scan_project_data(

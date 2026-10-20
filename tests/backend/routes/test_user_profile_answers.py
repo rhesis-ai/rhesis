@@ -128,3 +128,46 @@ class TestProfileAnswerRoutes:
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+
+class TestProfileAnswerVisibility:
+    PROFILE = {"job_role": "qa", "referral_source": "github"}
+
+    @pytest.fixture
+    def teammate_id(self, authenticated_client, test_db):
+        response = _invite(authenticated_client, "survey-teammate@example.com")
+        teammate = test_db.query(models.User).filter_by(id=response.json()["id"]).one()
+        teammate.user_settings = {"version": 1, "onboarding": {"profile": self.PROFILE}}
+        test_db.flush()
+        return str(teammate.id)
+
+    def test_list_hides_other_members_answers(
+        self, authenticated_client, authenticated_user_id, teammate_id
+    ):
+        authenticated_client.patch(
+            "/users/settings", json={"onboarding": {"profile": self.PROFILE}}
+        )
+
+        response = authenticated_client.get("/users/", params={"limit": 100})
+
+        assert response.status_code == status.HTTP_200_OK
+        users = {u["id"]: u for u in response.json()}
+        assert users[teammate_id]["user_settings"]["onboarding"]["profile"] is None
+        own_profile = users[authenticated_user_id]["user_settings"]["onboarding"]["profile"]
+        assert own_profile["job_role"] == "qa"
+
+    def test_read_user_hides_other_members_answers(self, authenticated_client, teammate_id):
+        response = authenticated_client.get(f"/users/{teammate_id}")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["user_settings"]["onboarding"]["profile"] is None
+
+    def test_read_user_shows_own_answers(self, authenticated_client, authenticated_user_id):
+        authenticated_client.patch(
+            "/users/settings", json={"onboarding": {"profile": self.PROFILE}}
+        )
+
+        response = authenticated_client.get(f"/users/{authenticated_user_id}")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["user_settings"]["onboarding"]["profile"]["job_role"] == "qa"
