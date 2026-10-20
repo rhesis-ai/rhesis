@@ -321,9 +321,10 @@ async def run_chat(
     agent: Any,
     message: str,
     attachments: Optional[Dict[str, Any]],
+    approve: Optional[bool] = None,
 ) -> str:
     """Run one architect chat turn."""
-    return await agent.chat_async(message, attachments=attachments)
+    return await agent.chat_async(message, attachments=attachments, approve=approve)
 
 
 @observe()
@@ -484,6 +485,7 @@ async def run_architect_turn(
     persist_user_message: bool = True,
     project_id: Optional[str] = None,
     user_message_id: Optional[str] = None,
+    approve: Optional[bool] = None,
 ) -> ArchitectChatResult:
     """Process one architect chat turn.
 
@@ -527,7 +529,7 @@ async def run_architect_turn(
     await _handle_auto_resume(
         session_id, organization_id, user_id, message, ws_handler, project_id=project_id
     )
-    response = await run_chat(agent, message, processed_attachments)
+    response = await run_chat(agent, message, processed_attachments, approve)
     await persist_state(
         agent,
         response,
