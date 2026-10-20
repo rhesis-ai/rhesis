@@ -72,3 +72,54 @@ class TestAttachTestsToExistingTestSetSoftDelete:
                 org_id=test_org_id,
                 user_id=authenticated_user_id,
             )
+
+
+@pytest.mark.unit
+class TestAttachTestsToExistingTestSetDescription:
+    """The description written during generation used to be discarded on this path."""
+
+    def _attach(self, db, test_org_id, user_id, description):
+        from rhesis.backend.jobs.test_set import _attach_tests_to_existing_test_set
+
+        test_set = models.TestSet(
+            name="Pre-created Test Set",
+            description=description,
+            organization_id=test_org_id,
+            user_id=user_id,
+        )
+        db.add(test_set)
+        db.commit()
+        db.refresh(test_set)
+
+        @contextmanager
+        def fake_get_db_session():
+            yield db
+
+        mock_task = MagicMock()
+        mock_task.get_db_session = fake_get_db_session
+        sdk_test_set = _make_sdk_test_set()
+        sdk_test_set.description = "Generated description"
+        sdk_test_set.short_description = "Generated short"
+
+        return _attach_tests_to_existing_test_set(
+            mock_task,
+            sdk_test_set,
+            test_set_id=str(test_set.id),
+            org_id=test_org_id,
+            user_id=user_id,
+        )
+
+    def test_keeps_the_generated_description_when_the_set_has_none(
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str
+    ):
+        result = self._attach(test_db, test_org_id, authenticated_user_id, None)
+
+        assert result.description == "Generated description"
+        assert result.short_description == "Generated short"
+
+    def test_keeps_the_callers_description(
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str
+    ):
+        result = self._attach(test_db, test_org_id, authenticated_user_id, "From the plan")
+
+        assert result.description == "From the plan"

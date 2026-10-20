@@ -9,6 +9,7 @@ tests are the check that the work actually left the loop.
 """
 
 import threading
+from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -94,6 +95,181 @@ class TestGenerateMultiturnTestsRunsDatabaseWorkOffTheLoop:
 
         assert result == {"tests": [{"goal": "x"}]}
         assert threads and threading.get_ident() not in threads
+
+
+def _recording_descriptions(threads: list, found: dict):
+    """A ``get_requirement_descriptions`` stand-in that records the thread it ran on."""
+
+    def _get(_db, names):
+        threads.append(threading.get_ident())
+        return {n: found[n] for n in names if n in found}
+
+    return _get
+
+
+@pytest.mark.unit
+class TestRequirementDescriptions:
+    """Generated tests should check what a requirement says, not just its name."""
+
+    def test_stored_descriptions_are_looked_up_by_name(self):
+        stored = {"R1: Never diagnoses": "No reply names a condition."}
+        with patch.object(generation, "get_requirement_descriptions", lambda _db, _n: stored):
+            result = generation.requirement_descriptions(MagicMock(), ["R1: Never diagnoses"])
+
+        assert result == stored
+
+    def test_nothing_found_is_none(self):
+        with patch.object(generation, "get_requirement_descriptions", lambda _db, _n: {}):
+            assert generation.requirement_descriptions(MagicMock(), ["A"]) is None
+
+    def test_in_project_lookup_reads_under_that_project(self):
+        scopes = []
+
+        @contextmanager
+        def _scope(_db, org, user, project):
+            scopes.append((org, user, project))
+            yield
+
+        with (
+            patch.object(generation, "temporary_project_scope", _scope),
+            patch.object(generation, "get_requirement_descriptions", lambda _db, _n: {"A": "x"}),
+        ):
+            result = generation.requirement_descriptions_in_project(
+                MagicMock(), "org", "user", "project", ["A"]
+            )
+
+        assert result == {"A": "x"}
+        assert scopes == [("org", "user", "project")]
+
+    @pytest.mark.asyncio
+    async def test_single_turn_uses_stored_descriptions_in_the_same_worker_thread(self):
+        model_threads: list = []
+        lookup_threads: list = []
+        # A client-sent value is replaced, and the caller's config is left alone.
+        config = generation.GenerationConfig(
+            requirements=["R1"], requirement_descriptions={"R1": "from the client"}
+        )
+        synthesizer = MagicMock()
+        synthesizer.generate.return_value.to_dict.return_value = {"tests": []}
+
+        with (
+            patch.object(generation, "resolve_model", _recording_resolve_model(model_threads)),
+            patch.object(
+                generation,
+                "get_requirement_descriptions",
+                _recording_descriptions(lookup_threads, {"R1": "AC"}),
+            ),
+            patch.object(generation, "ConfigSynthesizer", return_value=synthesizer) as synth_cls,
+        ):
+            await generation.generate_tests(
+                db=MagicMock(), user=MagicMock(), config=config, num_tests=1
+            )
+
+        assert lookup_threads == model_threads
+        assert threading.get_ident() not in lookup_threads
+        assert synth_cls.call_args.kwargs["config"].requirement_descriptions == {"R1": "AC"}
+        assert config.requirement_descriptions == {"R1": "from the client"}
+
+    @pytest.mark.asyncio
+    async def test_single_turn_stream_looks_up_off_the_loop(self):
+        threads: list = []
+        config = generation.GenerationConfig(requirements=["R1"])
+
+        async def _stream(num_tests):
+            yield {"prompt": "hi"}
+
+        synthesizer = MagicMock()
+        synthesizer.generate_stream = _stream
+
+        with (
+            patch.object(generation, "resolve_model", MagicMock()),
+            patch.object(
+                generation,
+                "get_requirement_descriptions",
+                _recording_descriptions(threads, {"R1": "AC"}),
+            ),
+            patch.object(generation, "ConfigSynthesizer", return_value=synthesizer) as synth_cls,
+        ):
+            tests = [
+                t
+                async for t in generation.generate_tests_stream(
+                    db=MagicMock(), user=MagicMock(), config=config, num_tests=1
+                )
+            ]
+
+        assert tests == [{"prompt": "hi"}]
+        assert threads and threading.get_ident() not in threads
+        assert synth_cls.call_args.kwargs["config"].requirement_descriptions == {"R1": "AC"}
+
+    @pytest.mark.asyncio
+    async def test_multi_turn_uses_stored_descriptions_in_the_same_worker_thread(self):
+        model_threads: list = []
+        lookup_threads: list = []
+        synthesizer = MagicMock()
+        synthesizer.generate.return_value.to_dict.return_value = {"tests": []}
+
+        with (
+            patch.object(generation, "resolve_model", _recording_resolve_model(model_threads)),
+            patch.object(
+                generation,
+                "get_requirement_descriptions",
+                _recording_descriptions(lookup_threads, {"R1": "AC"}),
+            ),
+            patch(
+                "rhesis.sdk.synthesizers.multi_turn.base.MultiTurnSynthesizer",
+                return_value=synthesizer,
+            ) as synth_cls,
+        ):
+            await generation.generate_multiturn_tests(
+                db=MagicMock(),
+                user=MagicMock(),
+                config={
+                    "generation_prompt": "test",
+                    "requirements": ["R1"],
+                    "requirement_descriptions": {"R1": "from the client"},
+                },
+                num_tests=1,
+            )
+
+        assert lookup_threads == model_threads
+        assert threading.get_ident() not in lookup_threads
+        assert synth_cls.call_args.kwargs["config"].requirement_descriptions == {"R1": "AC"}
+
+    @pytest.mark.asyncio
+    async def test_multi_turn_stream_looks_up_off_the_loop(self):
+        threads: list = []
+
+        async def _stream(num_tests):
+            yield {"goal": "x"}
+
+        synthesizer = MagicMock()
+        synthesizer.generate_stream = _stream
+
+        with (
+            patch.object(generation, "resolve_model", MagicMock()),
+            patch.object(
+                generation,
+                "get_requirement_descriptions",
+                _recording_descriptions(threads, {"R1": "AC"}),
+            ),
+            patch(
+                "rhesis.sdk.synthesizers.multi_turn.base.MultiTurnSynthesizer",
+                return_value=synthesizer,
+            ) as synth_cls,
+        ):
+            tests = [
+                t
+                async for t in generation.generate_multiturn_tests_stream(
+                    db=MagicMock(),
+                    user=MagicMock(),
+                    config={"generation_prompt": "test", "requirement": ["R1"]},
+                    num_tests=1,
+                )
+            ]
+
+        assert tests == [{"goal": "x"}]
+        assert threads and threading.get_ident() not in threads
+        assert synth_cls.call_args.kwargs["config"].requirement_descriptions == {"R1": "AC"}
 
 
 @pytest.mark.unit

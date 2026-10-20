@@ -33,6 +33,7 @@ from rhesis.backend.app.schemas.embedding import (
     Scatter2DGraph,
 )
 from rhesis.backend.app.services.audit_events import record_audit_event
+from rhesis.backend.app.services.generation import requirement_descriptions_in_project
 from rhesis.backend.app.services.prompt import get_prompts_for_test_set, prompts_to_csv
 from rhesis.backend.app.services.test import (
     create_test_set_associations,
@@ -171,8 +172,19 @@ def generate_test_set(
             task_id=placeholder_task_id,
             requested_tests=request.num_tests,
             test_type=resolved_type,
+            description=request.description,
         )
         db.commit()
+
+        # Read here, under the test set's project: the job's session has no project
+        # bound when the project came in the body, and RLS would hide project rows.
+        descriptions = requirement_descriptions_in_project(
+            db,
+            str(current_user.organization_id),
+            str(current_user.id),
+            project_id,
+            request.config.requirements,
+        )
 
         # Launch background task with the pre-created test_set_id.
         # If launch fails (broker down, serialisation error, etc.) mark the row
@@ -185,7 +197,7 @@ def generate_test_set(
                 celery_task_id=placeholder_task_id,
                 entity_type="TestSet",
                 entity_id=str(db_test_set.id),
-                config=request.config.model_dump(),
+                config={**request.config.model_dump(), "requirement_descriptions": descriptions},
                 num_tests=request.num_tests,
                 batch_size=request.batch_size,
                 sources=[s.model_dump() for s in request.sources] if request.sources else None,

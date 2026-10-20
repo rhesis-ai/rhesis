@@ -200,6 +200,28 @@ def get_requirement_names(db: Session, requirement_ids: Iterable[str]) -> Dict[s
     return {str(rid): name for rid, name in rows.all()}
 
 
+def get_requirement_descriptions(db: Session, names: Iterable[str]) -> Dict[str, str]:
+    """``{name: description}`` for requirements with these exact names and a description.
+
+    Names are not unique. A project requirement wins over an organization-level one with
+    the same name, and the newest wins after that.
+    """
+    names = list(names)
+    if not names:
+        return {}
+    rows = (
+        db.query(models.Requirement.name, models.Requirement.description)
+        .filter(
+            models.Requirement.name.in_(names),
+            models.Requirement.description.isnot(None),
+            models.Requirement.description != "",
+        )
+        # Later rows overwrite earlier ones in the dict below.
+        .order_by(models.Requirement.project_id.isnot(None), models.Requirement.created_at)
+    )
+    return {name: description for name, description in rows.all()}
+
+
 def get_scorable_metrics_by_requirement(
     db: Session, requirement_ids: Iterable[str]
 ) -> Dict[str, List[models.Metric]]:

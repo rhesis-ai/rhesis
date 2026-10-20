@@ -256,7 +256,10 @@ tools:
           queries, and refuses off-topic requests") — the synthesizer
           uses it to craft the test prompts. requirements takes requirement
           names, e.g. ["Provides Accurate Information", "Refuses
-          Off-Topic Requests"]; categories and topics take names too,
+          Off-Topic Requests"]; each requirement's stored description is
+          sent to the generator with its name, so put acceptance criteria
+          there and use generation_prompt for the scenarios, inputs and
+          triggers the spec names. categories and topics take names too,
           e.g. ["Functional", "Safety"] and ["Travel advisory",
           "Booking"].
       num_tests:
@@ -283,6 +286,10 @@ tools:
         description: >
           Name for the generated test set (string). Use the test set
           name from your plan.
+      description:
+        description: >
+          What the test set covers (string). Use the test set
+          description from your plan.
       sources:
         description: >
           Optional. List of knowledge source objects to ground the generated

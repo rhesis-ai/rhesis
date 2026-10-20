@@ -13,6 +13,7 @@ from rhesis.backend.app.services.test import bulk_create_tests
 from rhesis.backend.app.services.test_set import (
     bulk_create_test_set,
     generate_test_set_attributes,
+    keep_generated_descriptions,
     load_defaults,
 )
 from rhesis.backend.app.services.usage import dispatch_accrual
@@ -365,6 +366,7 @@ def _attach_tests_to_existing_test_set(
             new_attributes["metadata"] = {**new_attributes.get("metadata", {}), **extra_metadata}
 
         db_test_set.attributes = new_attributes
+        keep_generated_descriptions(db_test_set, sdk_test_set)
 
     self.log_with_context(
         "info",
@@ -461,6 +463,7 @@ def generate_and_save_test_set(
     org_id, user_id, project_id = self.get_tenant_context()
 
     # Parse config
+    # Carries requirement_descriptions, which the router read under the test set's project.
     generation_config = GenerationConfig(**config)
 
     # Log the parameters (safely, without exposing sensitive data)

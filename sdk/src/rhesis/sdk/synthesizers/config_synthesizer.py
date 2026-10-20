@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
@@ -20,6 +20,9 @@ class GenerationConfig(BaseModel):
     generation_prompt: Optional[str] = None  # Describe what you want to test
 
     requirements: Optional[List[str]] = None  # Requirements
+    # Requirement name -> what it requires (e.g. its acceptance criteria). A name alone
+    # gets generic tests; the description is what the tests should exercise.
+    requirement_descriptions: Optional[Dict[str, str]] = None
     categories: Optional[List[str]] = None  # Categories
     topics: Optional[List[str]] = None  # Topics
 

@@ -11,7 +11,7 @@ Execute the approved plan exactly — no extra entities.
 5. Metrics — **(reuse)** skip; **(improve)** `improve_metric`; **(new)** `create_metric` with plan name, **`metric_scope`**, `score_type`, `evaluation_prompt`, plus `description`, `evaluation_steps`, `reasoning`, `explanation` written to the depth in `metric-authoring.md`. Do NOT use `generate_metric`
 6. `add_requirement_to_metric` — all mappings before generation
 7. `assign_tag` — if planned (PRD path); `entity_type` `Requirement` or `Metric`
-8. `generate_test_set` — per set; `config.requirements`, `generation_prompt`, `test_type`, optional `sources` (Single-Turn only). **Read `test_type` from the plan** for each test set and pass it explicitly — Multi-Turn sets MUST send `test_type: "Multi-Turn"`. Prefer over `create_test_set_bulk` unless importing verbatim user prompts.
+8. `generate_test_set` — per set; `name` and `description` from the plan, `config.requirements`, `generation_prompt`, `test_type`, optional `sources` (Single-Turn only). **Read `test_type` from the plan** for each test set and pass it explicitly — Multi-Turn sets MUST send `test_type: "Multi-Turn"`. Prefer over `create_test_set_bulk` unless importing verbatim user prompts.
 9. **Wait for generation** — call `await_task` with the `task_id`(s) from the responses. Do NOT poll `get_job_status` manually; the system resumes when all tasks finish.
 10. `get_test_set` + `list_test_set_tests` spot-check generated prompts **and requirement
     attribution** — every test's `requirement` must be one the plan asked for. If tests came back
