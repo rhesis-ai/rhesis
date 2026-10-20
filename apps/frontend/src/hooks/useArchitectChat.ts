@@ -31,10 +31,10 @@ export interface ArchitectChatMessage {
    * back and still see which step actually finished.
    */
   taskCompleted?: boolean;
+  /** Only the details: the upload itself is sent once and not kept. */
   files?: Array<{
     filename: string;
     content_type: string;
-    data: string;
     size: number;
   }>;
   mentions?: Array<{
