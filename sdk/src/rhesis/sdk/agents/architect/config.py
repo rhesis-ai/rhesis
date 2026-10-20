@@ -52,6 +52,8 @@ class ArchitectConfig:
     # Only echoed back for calls that failed, so the cost is bounded by
     # how often the agent gets a call wrong.
     failed_args_preview_chars: int = 1_500
+    # Per held-back call shown to the reply writer, which presents them for approval.
+    proposed_action_max_chars: int = 4_000
 
     # ── tool data carried between turns ───────────────────────────
     # The backend builds a fresh agent per user message, so execution

@@ -211,6 +211,9 @@ class ArchitectAgent(BaseAgent):
         self._tool_schemas: Dict[str, Any] = {}
         self._auto_approve_all: bool = False
         self._blocked_this_turn: bool = False
+        # The calls the guard held back this turn. They are what the user is
+        # asked to approve, so the reply writer gets them verbatim.
+        self._blocked_calls: List[ToolCall] = []
 
         self._discovery_state: Dict[str, Any] = _default_discovery_state()
 
@@ -304,6 +307,7 @@ class ArchitectAgent(BaseAgent):
             # leak into a later finish (e.g. an auto-resumed
             # [TASK_COMPLETED] summary).
             self._blocked_this_turn = False
+            self._blocked_calls = []
             self._turn_start_step = len(self._execution_history)
             self._conversation_history.append({"role": Role.USER, "content": message})
             self._maybe_update_workflow_path(message)
@@ -593,6 +597,7 @@ class ArchitectAgent(BaseAgent):
             # below is a long-lived approval scope, but this flag is
             # specifically "this turn just blocked something".
             self._blocked_this_turn = True
+            self._blocked_calls.extend(mutating)
 
             # Unlock ALL mutating tools so the full plan can
             # execute without re-blocking on subsequent types.
@@ -1880,7 +1885,23 @@ class ArchitectAgent(BaseAgent):
             reasoning=reasoning,
             final_answer=final_answer,
             phase_knowledge_text=phase_knowledge_text,
+            # Without these the writer has only a summary of the reasoning, and
+            # describes requirements from a document it has never seen.
+            attachments_text=self._format_attachments(),
+            proposed_actions=self._format_blocked_calls(),
         )
+
+    def _format_blocked_calls(self) -> str:
+        """Render the held-back calls, arguments verbatim, for the reply writer."""
+        cap = self._cfg.proposed_action_max_chars
+        lines = []
+        for tc in self._blocked_calls:
+            args = json.dumps(tc.arguments, ensure_ascii=False)
+            if len(args) > cap:
+                # A bulk test-set call can carry every test prompt; names come first anyway.
+                args = args[:cap] + " [... truncated ...]"
+            lines.append(f"- {tc.tool_name}: {args}")
+        return "\n".join(lines)
 
     def _render_tool_result(self, tr: ToolResult, *, prefix: str, preview: int) -> Optional[str]:
         """Render a single ToolResult as a compact string for history/streaming prompts.
