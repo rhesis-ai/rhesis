@@ -43,8 +43,13 @@ test.describe('Projects — CRUD @crud', () => {
     // Click "Create Project"
     await page.getByRole('button', { name: /create project/i }).click();
 
-    // After creation we should navigate to the project detail page or back to /projects
-    await page.waitForURL(/\/projects/, { timeout: 20_000 });
+    // The new project becomes active and opens.
+    await page.waitForURL(/\/projects\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+    await expect(
+      page.getByRole('button', {
+        name: `Switch project, current: ${UNIQUE_NAME}`,
+      })
+    ).toBeVisible();
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
