@@ -82,14 +82,15 @@ class TestSessionDocuments:
         assert "Never diagnoses" in doc["text"]
 
     @pytest.mark.asyncio
-    async def test_the_stored_message_keeps_the_upload_and_gains_its_text(
+    async def test_the_stored_message_keeps_the_text_not_the_upload(
         self, runner_db, test_org_id, authenticated_user_id
     ):
-        upload = _upload()
-        session_id, _, _ = await _turn(test_org_id, authenticated_user_id, "Spec", upload)
+        """The base64 upload is only needed to extract the text in its own turn."""
+        session_id, _, _ = await _turn(test_org_id, authenticated_user_id, "Spec", _upload())
 
         [files] = _stored_files(runner_db, session_id).values()
-        assert files[0]["data"] == upload["files"][0]["data"]
+        assert "data" not in files[0]
+        assert files[0]["filename"] == "spec.md"
         assert "Never diagnoses" in files[0]["extracted_text"]
 
     @pytest.mark.asyncio
