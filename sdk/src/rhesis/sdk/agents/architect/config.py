@@ -34,6 +34,9 @@ class ArchitectConfig:
 
     # ── attachment truncation ─────────────────────────────────────
     max_attachment_chars: int = 20_000
+    # Files from earlier turns are repeated in full while they total this much;
+    # past it only their names are, and the agent reads one with read_attached_file.
+    inline_document_chars: int = 12_000
 
     # ── conversation-history truncation ───────────────────────────
     recent_msg_limit: int = 4

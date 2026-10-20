@@ -38,6 +38,7 @@ class InternalTool(StrEnum):
     ERROR = "error"
     SAVE_PLAN = "save_plan"
     AWAIT_TASK = "await_task"
+    READ_ATTACHED_FILE = "read_attached_file"
 
 
 class AgentMode(StrEnum):
