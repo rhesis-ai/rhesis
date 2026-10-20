@@ -129,7 +129,7 @@ async def handle_architect_message(
                 )
                 return
 
-            architect_crud.create_architect_message(
+            saved_message = architect_crud.create_architect_message(
                 db=db,
                 message=schemas.ArchitectMessageCreate(
                     session_id=session_id,
@@ -141,6 +141,9 @@ async def handle_architect_message(
                 organization_id=str(user.organization_id),
                 user_id=str(user.id),
             )
+            # Read before the session closes; the job writes the extracted file
+            # text back onto exactly this message.
+            user_message_id = str(saved_message.id)
 
         # Dispatch Celery task
         from rhesis.backend.jobs.architect import architect_chat_task
@@ -158,6 +161,7 @@ async def handle_architect_message(
                 "user_message": user_message,
                 "attachments": payload.get("attachments"),
                 "auto_approve": payload.get("auto_approve"),
+                "user_message_id": user_message_id,
             },
             headers=task_headers,
         )

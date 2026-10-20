@@ -16,7 +16,10 @@ from pydantic import BaseModel
 from rhesis.backend.app.constants import ARCHITECT_RESUME_PREFIX
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.schemas.websocket import EventType
-from rhesis.backend.app.services.architect.attachments import process_attachments
+from rhesis.backend.app.services.architect.attachments import (
+    process_attachments,
+    session_documents,
+)
 from rhesis.backend.app.services.architect.event_handler import WebSocketEventHandler
 from rhesis.backend.app.services.tool.mcp.agents import get_agent_event_handlers
 from rhesis.backend.app.utils import observability as _observability  # noqa: F401
@@ -48,6 +51,7 @@ async def prepare_and_load_session(
     persist_user_message: bool,
     session_id: Optional[str],
     project_id: Optional[str] = None,
+    user_message_id: Optional[str] = None,
 ) -> tuple[str, Dict[str, Any]]:
     """Create or validate the session and load its full state in one DB context.
 
@@ -81,8 +85,9 @@ async def prepare_and_load_session(
             )
             resolved_session_id = str(db_session.id)
 
+        current_message = None
         if persist_user_message:
-            architect_crud.create_architect_message(
+            current_message = architect_crud.create_architect_message(
                 db=db,
                 message=schemas.ArchitectMessageCreate(
                     session_id=resolved_session_id,
@@ -94,6 +99,8 @@ async def prepare_and_load_session(
                 organization_id=organization_id,
                 user_id=user_id,
             )
+        # Otherwise the WebSocket handler saved it and passed its id along with the job.
+        current_message_id = current_message.id if current_message else user_message_id
 
         if session_id:
             conversation_history = [
@@ -113,9 +120,52 @@ async def prepare_and_load_session(
             "plan_data": db_session.plan_data,
             "agent_state": db_session.agent_state or {},
             "session_has_title": bool(db_session.title),
+            # Files from earlier turns; this turn's are extracted after loading.
+            "documents": session_documents(db_session.messages if session_id else []),
+            "current_message_id": current_message_id,
         }
 
     return resolved_session_id, session_data
+
+
+def _extract_and_store(
+    message_id,
+    attachments: Optional[Dict[str, Any]],
+    organization_id: str,
+    user_id: str,
+    project_id: Optional[str],
+) -> Optional[Dict[str, Any]]:
+    """Extract this turn's files and write the text onto its message, for later turns.
+
+    Returns the attachments with ``extracted_text`` added to each file that yielded
+    some. Storing it is best effort: a failed write costs later turns the file, not
+    this turn its answer.
+    """
+    files = (attachments or {}).get("files")
+    if not files:
+        return attachments
+
+    from rhesis.backend.app.crud import architect as architect_crud
+    from rhesis.backend.app.services.endpoint.files import enrich_files_with_extraction
+
+    with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
+        extracted = {**attachments, "files": enrich_files_with_extraction(files, db, user_id)}
+        if message_id and any(f.get("extracted_text") for f in extracted["files"]):
+            try:
+                architect_crud.update_architect_message_attachments(
+                    db,
+                    message_id,
+                    extracted,
+                    organization_id=organization_id,
+                    user_id=user_id,
+                )
+            except Exception:
+                logger.warning(
+                    "Could not store extracted file text on message %s",
+                    message_id,
+                    exc_info=True,
+                )
+    return extracted
 
 
 def _resolve_project_context(db, project_id: Optional[str], organization_id: str) -> Optional[dict]:
@@ -220,6 +270,7 @@ async def build_agent(
         project_context=project_context,
     )
     agent.restore_state(snapshot)
+    agent.set_documents(session_data.get("documents") or [])
 
     if auto_approve is not None:
         agent.auto_approve_all = auto_approve
@@ -428,6 +479,7 @@ async def run_architect_turn(
     auto_approve: Optional[bool] = None,
     persist_user_message: bool = True,
     project_id: Optional[str] = None,
+    user_message_id: Optional[str] = None,
 ) -> ArchitectChatResult:
     """Process one architect chat turn.
 
@@ -454,6 +506,10 @@ async def run_architect_turn(
         persist_user_message,
         session_id,
         project_id=project_id,
+        user_message_id=user_message_id,
+    )
+    attachments = _extract_and_store(
+        session_data.get("current_message_id"), attachments, organization_id, user_id, project_id
     )
     processed_attachments = process_attachments(attachments)
     agent, ws_handler = await build_agent(

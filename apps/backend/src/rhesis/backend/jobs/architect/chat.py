@@ -42,6 +42,7 @@ def architect_chat_task(
     user_message: str,
     attachments: Optional[Dict[str, Any]] = None,
     auto_approve: Optional[bool] = None,
+    user_message_id: Optional[str] = None,
     **kwargs: Any,
 ) -> Dict[str, Any]:
     """Process a single architect chat turn.
@@ -96,6 +97,7 @@ def architect_chat_task(
                     auto_approve=auto_approve,
                     persist_user_message=False,
                     project_id=project_id,
+                    user_message_id=user_message_id,
                 )
 
         # soft_time_limit is inert under --pool threads; enforce here

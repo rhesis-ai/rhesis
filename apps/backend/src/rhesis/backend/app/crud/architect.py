@@ -126,3 +126,20 @@ def create_architect_message(
     user_id: str | None = None,
 ) -> models.ArchitectMessage:
     return create_item(db, models.ArchitectMessage, message, organization_id, user_id)
+
+
+def update_architect_message_attachments(
+    db: Session,
+    message_id: uuid.UUID,
+    attachments: dict,
+    organization_id: str | None = None,
+    user_id: str | None = None,
+) -> Optional[models.ArchitectMessage]:
+    return update_item(
+        db,
+        models.ArchitectMessage,
+        message_id,
+        {"attachments": attachments},
+        organization_id,
+        user_id,
+    )
