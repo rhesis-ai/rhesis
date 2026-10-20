@@ -470,6 +470,17 @@ class TestContractPrompt:
 
         assert result.details["is_successful"] is not True
 
+    def test_model_failure_is_marked_as_error_not_criteria_failure(self):
+        """A judge error must carry 'error' in details so consumers distinguish it from a
+        genuine criteria failure (issue #3007)."""
+        judge = GoalAchievementJudge(model=_model(raises=RuntimeError("504 Gateway Time-out")))
+
+        result = judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT)
+
+        assert "error" in result.details
+        assert result.details["is_successful"] is False
+        assert "criteria_evaluations" not in result.details
+
 
 class TestAsyncParity:
     @pytest.mark.asyncio
