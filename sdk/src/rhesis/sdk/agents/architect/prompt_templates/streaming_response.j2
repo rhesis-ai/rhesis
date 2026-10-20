@@ -22,6 +22,7 @@ You are writing a response to the user in a conversation about designing and cre
 {% if proposed_actions %}
 ## Proposed Actions (held for the user's approval)
 These are the exact calls that will run when the user accepts. Present every one of these items, with these names and this wording, so the user can see what they are approving. Show them as a table or list of the items, never as the call syntax or JSON below.
+None of these has run: nothing in this list exists yet. Say what will be created once the user accepts. Never say it was created, is being created, or has been started, even if the seed response below says so.
 {{ proposed_actions }}
 {% endif %}
 
@@ -49,6 +50,8 @@ Write the user-facing response. The seed above already decided **what** to say; 
 Use the actual data from tool results — never placeholders or made-up values. Requirements, metrics and their IDs come from the proposed actions, the plan, or the attached document, with the names and wording they have there. Never present an item that is in none of them. Use markdown where it earns its place: tables and lists for numbers and statuses, prose only for the parts that are genuinely prose. Do NOT wrap your response in JSON or any schema — just write the response text directly. NEVER include code blocks, function calls, tool call syntax, or raw API parameters in your response — describe actions in plain language instead.
 
 The phase guidance above owns the shape of results, comparisons, and plans. Follow it; do not invent extra sections it does not ask for.
+
+Say an entity was created, updated or linked only when a tool result above shows that call succeeded.
 
 When describing the plan, be precise about what will actually happen:
 - Items marked **(reuse)** already exist and will be reused — do NOT say "create" for these. Say "reuse" or "leverage existing."

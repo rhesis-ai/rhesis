@@ -54,6 +54,9 @@ _INTERNAL_TOOL_NAMES: FrozenSet[str] = frozenset(t.value for t in InternalTool)
 # record is too clipped to be worth showing as a record at all.
 _MIN_RECORD_CHARS = 400
 
+# Seed for a turn whose create/update calls were held for approval.
+HELD_BACK_SEED = "Here is what I'll do once you accept. Nothing has been created yet."
+
 
 # ── helpers ──────────────────────────────────────────────────────
 
@@ -666,7 +669,9 @@ class ArchitectAgent(BaseAgent):
                     f"Present the plan and ask the user to confirm."
                 ),
                 action=Action.FINISH,
-                final_answer=(action.final_answer or action.reasoning),
+                # The model wrote its answer expecting the calls to run ("I have
+                # created..."), so it can't be the seed for a turn that held them.
+                final_answer=HELD_BACK_SEED,
             )
             return await self._handle_finish_action(finish_action, iteration)
 

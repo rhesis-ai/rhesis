@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from rhesis.sdk.agents.architect.agent import ArchitectAgent
+from rhesis.sdk.agents.architect.agent import HELD_BACK_SEED, ArchitectAgent
 from rhesis.sdk.agents.architect.config import ArchitectConfig
 from rhesis.sdk.agents.base import BaseAgent, BaseTool
 from rhesis.sdk.agents.schemas import ExecutionStep, ToolCall, ToolResult
@@ -3932,6 +3932,10 @@ class TestDocumentRequirements:
         assert f"create_requirement: {json.dumps({'name': name})}" in writer
         assert PRD_TEXT in writer
         assert "Requirements from an attached document" in writer
+        # Issue #3009: held-back calls were reported as "created".
+        assert "None of these has run" in writer
+        assert HELD_BACK_SEED in writer
+        assert "I will create R1." not in writer
 
     def test_large_blocked_calls_are_capped(self, mock_model):
         agent = _make_agent(mock_model)
