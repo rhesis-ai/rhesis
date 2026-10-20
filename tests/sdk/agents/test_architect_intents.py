@@ -191,6 +191,38 @@ class TestInferIntent:
         assert infer_intent("x" * 250, has_attachments=True).key == "spec_foundation"
         assert infer_intent("x" * 100, has_attachments=True) is None
 
+    @pytest.mark.parametrize(
+        "message",
+        [
+            "I want to create a test foundation using my PRD",
+            "Turn my PRD into a test foundation with Requirements R1-R3 from the PRD "
+            "and create a set of new metrics",
+        ],
+    )
+    def test_a_short_message_naming_its_attached_prd_is_a_spec(self, message):
+        """Issue #3009: these went unrouted, so the PRD guidance never loaded."""
+        assert infer_intent(message, has_attachments=True).key == "spec_foundation"
+
+    def test_an_attached_file_that_reads_as_a_spec_is_a_spec(self):
+        text = "| ID | Requirement | Acceptance criteria |\n| R1 | Never diagnoses | ... |"
+        intent = infer_intent("Here's our spec.", has_attachments=True, attachment_text=text)
+        assert intent.key == "spec_foundation"
+
+    @pytest.mark.parametrize(
+        "message, key",
+        [
+            ("compare my last two runs", "run_analyze"),
+            ("explore my endpoint", "quick_exploration"),
+        ],
+    )
+    def test_a_clear_request_in_the_message_beats_a_spec_like_file(self, message, key):
+        text = "| ID | Requirement | Acceptance criteria |"
+        assert infer_intent(message, has_attachments=True, attachment_text=text).key == key
+
+    def test_an_attached_file_that_is_not_a_spec_is_not(self):
+        text = "Quarterly revenue grew 4% on the back of strong renewals."
+        assert infer_intent("Thoughts?", has_attachments=True, attachment_text=text) is None
+
     def test_priority_puts_run_analyze_above_exploration(self):
         """Both signals present: the more specific intent wins."""
         assert infer_intent("explore my endpoint and compare my last run").key == "run_analyze"

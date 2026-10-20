@@ -41,8 +41,10 @@ def _menu_pattern(intent: Intent) -> Optional[re.Pattern[str]]:
     return re.compile("|".join(alternatives))
 
 
-def infer_intent(message: str, *, has_attachments: bool = False) -> Optional[Intent]:
-    """Detect the user's intent from their message. Returns None if ambiguous."""
+def infer_intent(
+    message: str, *, has_attachments: bool = False, attachment_text: str = ""
+) -> Optional[Intent]:
+    """Detect the user's intent from their message and attached files. None if ambiguous."""
     text = message.lower().strip()
 
     for intent in menu_intents():
@@ -67,12 +69,25 @@ def infer_intent(message: str, *, has_attachments: bool = False) -> Optional[Int
         if any(signal in text for signal in intent.keyword_signals):
             return intent
 
+    # With a file attached, the file is the document: the keyword length floor
+    # doesn't apply and the file's own text counts. Checked last, so a clear
+    # request in the message ("compare my last two runs") still wins.
+    if has_attachments:
+        attached = f"{text}\n{attachment_text.lower()}"
+        for intent in load_intents():
+            if intent.attachment_min_length is None:
+                continue
+            if any(signal in attached for signal in intent.keyword_signals):
+                return intent
+
     return None
 
 
-def infer_workflow_path(message: str, *, has_attachments: bool = False) -> WorkflowPath | None:
+def infer_workflow_path(
+    message: str, *, has_attachments: bool = False, attachment_text: str = ""
+) -> WorkflowPath | None:
     """Detect workflow path from the user message. Returns None if ambiguous."""
-    intent = infer_intent(message, has_attachments=has_attachments)
+    intent = infer_intent(message, has_attachments=has_attachments, attachment_text=attachment_text)
     return None if intent is None else intent.workflow_path
 
 
@@ -81,14 +96,13 @@ def resolve_workflow_path_update(
     message: str,
     *,
     has_attachments: bool = False,
+    attachment_text: str = "",
 ) -> WorkflowPath | None:
-    """Return an updated path when user signals warrant re-classification."""
-    inferred = infer_workflow_path(message, has_attachments=has_attachments)
-    if inferred is None:
-        return None
-    if current == WorkflowPath.UNSET:
-        return inferred
-    # Exploration is the default guess, so any other signal may still override it.
-    if current == WorkflowPath.EXPLORE and inferred != WorkflowPath.EXPLORE:
-        return inferred
-    return None
+    """Return the new path when the message clearly asks for a different one.
+
+    A message with no signal ("Change: drop R3") keeps the session on its path.
+    """
+    inferred = infer_workflow_path(
+        message, has_attachments=has_attachments, attachment_text=attachment_text
+    )
+    return inferred if inferred not in (None, current) else None

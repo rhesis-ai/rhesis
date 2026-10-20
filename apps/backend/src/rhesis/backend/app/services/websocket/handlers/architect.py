@@ -162,6 +162,7 @@ async def handle_architect_message(
                 "attachments": payload.get("attachments"),
                 "auto_approve": payload.get("auto_approve"),
                 "user_message_id": user_message_id,
+                "approve": payload.get("approve") is True,
             },
             headers=task_headers,
         )

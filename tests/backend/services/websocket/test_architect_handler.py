@@ -248,6 +248,38 @@ class TestArchitectHandlerSuccess:
                 assert task_kwargs["kwargs"]["auto_approve"] is None
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "extra, expected",
+        [({"approve": True}, True), ({}, False), ({"approve": "yes"}, False)],
+    )
+    async def test_only_the_accept_button_approves(self, mock_manager, mock_user, extra, expected):
+        """A typed reply after a held-back create must not run it (issue #3009)."""
+        message = WebSocketMessage(
+            type=EventType.ARCHITECT_MESSAGE,
+            correlation_id="corr-1",
+            payload={"session_id": str(uuid4()), "message": "Yes, go ahead.", **extra},
+        )
+
+        with patch(
+            "rhesis.backend.app.services.websocket.handlers.architect.get_db_with_tenant_variables"
+        ) as mock_get_db:
+            mock_get_db.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_get_db.return_value.__exit__ = MagicMock(return_value=False)
+            mock_crud = MagicMock()
+            mock_crud.get_architect_session.return_value = MagicMock(project_id=None)
+            mock_task = MagicMock()
+
+            with (
+                patch("rhesis.backend.app.auth.rbac.authorize", return_value=True),
+                patch("rhesis.backend.app.crud.architect", mock_crud),
+                patch("rhesis.backend.app.schemas"),
+                patch("rhesis.backend.jobs.architect.architect_chat_task", mock_task),
+            ):
+                await handle_architect_message(mock_manager, "conn-1", mock_user, message)
+
+        assert mock_task.apply_async.call_args[1]["kwargs"]["approve"] is expected
+
+    @pytest.mark.asyncio
     async def test_attachments_forwarded(self, mock_manager, mock_user):
         session_id = str(uuid4())
         attachments = {"files": ["doc.pdf"]}

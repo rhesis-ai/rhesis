@@ -15,7 +15,9 @@
 #   trigger_signals        prose guidance for a classifying model, not for code
 #   keyword_signals        lowercased substrings matched against the user message
 #   keyword_min_length     message must be longer than this before keywords count
-#   attachment_min_length  a message this long with an attachment matches outright
+#   attachment_min_length  a message this long with an attachment matches outright;
+#                          with an attachment, keyword_signals also match a shorter
+#                          message or the attached file's text
 #   menu.cues              words that confirm the choice when its number is present
 #   menu.phrases           regular expressions that match the choice on their own
 #   next_references        files to read once this intent is chosen
@@ -106,7 +108,8 @@ intents:
       - numbered fr
       - " fr-"
       - prd
-    # Short messages mention a PRD in passing; a pasted one is long.
+    # Short messages mention a PRD in passing; a pasted one is long. An attached
+    # one is the file itself, so a short message with a file still counts.
     keyword_min_length: 400
     attachment_min_length: 200
     next_references:

@@ -54,6 +54,9 @@ _INTERNAL_TOOL_NAMES: FrozenSet[str] = frozenset(t.value for t in InternalTool)
 # record is too clipped to be worth showing as a record at all.
 _MIN_RECORD_CHARS = 400
 
+# Seed for a turn whose create/update calls were held for approval.
+HELD_BACK_SEED = "Here is what I'll do once you accept. Nothing has been created yet."
+
 
 # ── helpers ──────────────────────────────────────────────────────
 
@@ -277,6 +280,7 @@ class ArchitectAgent(BaseAgent):
         self,
         message: str,
         attachments: Optional[Dict[str, Any]] = None,
+        approve: Optional[bool] = None,
     ) -> str:
         """Send a message and get a response.
 
@@ -289,16 +293,21 @@ class ArchitectAgent(BaseAgent):
             attachments: Optional dict with ``mentions`` (resolved
                 entity references) and/or ``files`` (extracted text
                 from user-uploaded files).
+            approve: Whether this message approves the actions held back
+                for confirmation last turn. ``None`` treats any reply as
+                approval; a UI with an Accept button passes ``True`` for it
+                and ``False`` for everything else.
 
         Returns:
             The agent's response text.
         """
-        return asyncio.run(self.chat_async(message, attachments=attachments))
+        return asyncio.run(self.chat_async(message, attachments=attachments, approve=approve))
 
     async def chat_async(
         self,
         message: str,
         attachments: Optional[Dict[str, Any]] = None,
+        approve: Optional[bool] = None,
     ) -> str:
         """Async version of chat()."""
         async with self._turn_lock:
@@ -321,7 +330,7 @@ class ArchitectAgent(BaseAgent):
             # If the previous turn asked for confirmation, unlock
             # only the specific tools that were blocked.
             if self._needs_confirmation and self._confirming_tools:
-                self._creation_approved = True
+                self._creation_approved = approve is not False
 
             # When auto-resumed after background tasks, mark the
             # corresponding plan items as completed.
@@ -660,7 +669,9 @@ class ArchitectAgent(BaseAgent):
                     f"Present the plan and ask the user to confirm."
                 ),
                 action=Action.FINISH,
-                final_answer=(action.final_answer or action.reasoning),
+                # The model wrote its answer expecting the calls to run ("I have
+                # created..."), so it can't be the seed for a turn that held them.
+                final_answer=HELD_BACK_SEED,
             )
             return await self._handle_finish_action(finish_action, iteration)
 
@@ -1709,9 +1720,13 @@ class ArchitectAgent(BaseAgent):
 
     def _maybe_update_workflow_path(self, message: str) -> None:
         """Infer or update workflow path from user signals."""
-        has_attachments = bool(self._attachments)
         updated = resolve_workflow_path_update(
-            self._workflow_path, message, has_attachments=has_attachments
+            self._workflow_path,
+            message,
+            has_attachments=bool(self._attachments),
+            attachment_text="\n".join(
+                d["text"] for d in self._documents if d["filename"] in self._turn_files
+            ),
         )
         if updated is not None:
             self._workflow_path = updated

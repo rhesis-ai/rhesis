@@ -43,6 +43,9 @@ def architect_chat_task(
     attachments: Optional[Dict[str, Any]] = None,
     auto_approve: Optional[bool] = None,
     user_message_id: Optional[str] = None,
+    # Only the Accept button approves held-back actions; a typed reply or an
+    # auto-resume after a background task does not.
+    approve: bool = False,
     **kwargs: Any,
 ) -> Dict[str, Any]:
     """Process a single architect chat turn.
@@ -98,6 +101,7 @@ def architect_chat_task(
                     persist_user_message=False,
                     project_id=project_id,
                     user_message_id=user_message_id,
+                    approve=approve,
                 )
 
         # soft_time_limit is inert under --pool threads; enforce here
