@@ -674,7 +674,6 @@ export default function TestRunMainView({
           onClose={() => setOpenedResultId(null)}
           test={openedResult}
           prompts={prompts}
-          requirements={requirements}
           testRunId={testRunId}
           onTestResultUpdate={handleTestResultUpdate}
           currentUserId={currentUserId}

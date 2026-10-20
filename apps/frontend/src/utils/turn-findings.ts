@@ -105,13 +105,6 @@ export function turnStatus(
   return cited.some(f => !f.met) ? 'Fail' : 'Pass';
 }
 
-/** Failures no turn carries, e.g. a judgment about the conversation as a whole. */
-export function uncitedFailures(findings: TurnFinding[]): TurnFinding[] {
-  return findings.filter(
-    f => !f.met && (f.relevant_turns.length === 0 || f.conversationLevel)
-  );
-}
-
 /** Whether any conversation-level finding cites this turn. */
 export function turnHasConversationFindings(
   findings: TurnFinding[],

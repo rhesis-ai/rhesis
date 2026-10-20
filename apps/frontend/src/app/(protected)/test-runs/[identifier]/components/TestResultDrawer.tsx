@@ -23,7 +23,7 @@ import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import TestDetailOverviewTab from './TestDetailOverviewTab';
 import TestDetailConversationTab from './TestDetailConversationTab';
-import TestDetailMetricsTab from './TestDetailMetricsTab';
+import TestDetailEvaluationTab from './TestDetailEvaluationTab';
 import TestDetailHistoryTab from './TestDetailHistoryTab';
 import TestDetailAnnotationsTab from './TestDetailAnnotationsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
@@ -53,12 +53,6 @@ interface TestResultDrawerProps {
   test: TestResultDetail | null;
   loading?: boolean;
   prompts: Record<string, { content: string; name?: string }>;
-  requirements: Array<{
-    id: string;
-    name: string;
-    description?: string;
-    metrics: Array<{ name: string; description?: string }>;
-  }>;
   testRunId: string;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   currentUserId: string;
@@ -145,7 +139,6 @@ export default function TestResultDrawer({
   test,
   loading = false,
   prompts,
-  requirements,
   testRunId,
   onTestResultUpdate,
   currentUserId,
@@ -463,6 +456,7 @@ export default function TestResultDrawer({
               prompts={prompts}
               onTestResultUpdate={onTestResultUpdate}
               testSetType={testSetType}
+              metricsSource={metricsSource}
               onShowEvaluation={() => setActiveTab(TAB.evaluation)}
             />
           </TabPanel>
@@ -476,14 +470,13 @@ export default function TestResultDrawer({
               onAnnotateTurn={isMultiTurn ? handleAnnotateTurn : undefined}
               onConfirmAutomatedAnnotation={handleConfirmAutomatedAnnotation}
               isConfirmingAnnotation={isConfirmingAnnotation}
-              onShowConversationFindings={() => setActiveTab(TAB.evaluation)}
+              onShowEvaluation={() => setActiveTab(TAB.evaluation)}
             />
           </TabPanel>
 
           <TabPanel value={activeTab} index={TAB.evaluation}>
-            <TestDetailMetricsTab
+            <TestDetailEvaluationTab
               test={conversationTest ?? test}
-              requirements={requirements}
               metricsSource={metricsSource}
               onAnnotateMetric={handleAnnotateMetric}
             />

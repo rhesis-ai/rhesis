@@ -748,7 +748,6 @@ export default function TestsTableView({
         test={selectedTest}
         loading={false}
         prompts={prompts}
-        requirements={requirements}
         testRunId={testRunId}
         onTestResultUpdate={handleTestResultUpdateInDrawer}
         currentUserId={currentUserId}

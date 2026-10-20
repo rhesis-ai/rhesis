@@ -30,9 +30,10 @@ import { useFiles } from '@/hooks/useFiles';
 import {
   getEffectiveTestResultStatus,
   hasConflictingAnnotation,
-  isGoalMetricName,
 } from '@/utils/test-result-status';
 import { getEndpointFailure } from '@/utils/endpoint-failure';
+import { MetricsSource } from '@/utils/api-client/interfaces/test-configuration';
+import { buildResultChecks, checksSummary } from '@/utils/result-checks';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 
 interface TestDetailOverviewTabProps {
@@ -43,6 +44,8 @@ interface TestDetailOverviewTabProps {
   >;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   testSetType?: string; // e.g., "Multi-turn" or "Single-turn"
+  /** Source of metrics used in this test run */
+  metricsSource?: MetricsSource | string;
   onShowEvaluation?: () => void;
 }
 
@@ -55,7 +58,8 @@ const renderFormattedText = (text: string) => {
   lines.forEach((line, index) => {
     const trimmedLine = line.trim();
 
-    if (trimmedLine.startsWith('- ')) {
+    const numbered = /^(\d+)[.)]\s+(.*)$/.exec(trimmedLine);
+    if (trimmedLine.startsWith('- ') || numbered) {
       if (currentParagraph.length > 0) {
         const paragraphKey = `p-${index}-${currentParagraph.join(' ').substring(0, 20)}`;
         elements.push(
@@ -69,9 +73,11 @@ const renderFormattedText = (text: string) => {
       const bulletKey = `bullet-${index}-${trimmedLine.substring(0, 20)}`;
       elements.push(
         <Box key={bulletKey} sx={{ display: 'flex', gap: 1, mb: 0.5, pl: 2 }}>
-          <Typography variant="body2">•</Typography>
+          <Typography variant="body2">
+            {numbered ? `${numbered[1]}.` : '•'}
+          </Typography>
           <Typography variant="body2" sx={{ flex: 1 }}>
-            {trimmedLine.substring(2).trim()}
+            {numbered ? numbered[2] : trimmedLine.substring(2).trim()}
           </Typography>
         </Box>
       );
@@ -104,6 +110,7 @@ export default function TestDetailOverviewTab({
   prompts,
   onTestResultUpdate,
   testSetType,
+  metricsSource,
   onShowEvaluation,
 }: TestDetailOverviewTabProps) {
   const theme = useTheme();
@@ -208,17 +215,22 @@ export default function TestDetailOverviewTab({
     );
   }, [isMultiTurn, test, endpointFailure, contractError]);
 
-  // A re-score stores fresh criteria on the metric; goal_evaluation keeps the live run's.
-  const goalCriteria = useMemo(() => {
-    const goalMetric = Object.entries(test.test_metrics?.metrics ?? {}).find(
-      ([name]) => isGoalMetricName(name)
-    )?.[1];
-    return (
-      goalMetric?.criteria_evaluations ??
-      test.test_output?.goal_evaluation?.criteria_evaluations ??
-      []
-    );
-  }, [test]);
+  const checkGroups = useMemo(
+    () =>
+      buildResultChecks({
+        metrics: test.test_metrics?.metrics,
+        goalEvaluation: test.test_output?.goal_evaluation,
+      }),
+    [test]
+  );
+  const hasChecks = checkGroups.some(g => g.checks.length > 0);
+
+  // Shown only when the run scored this test with its requirement's metrics.
+  const checkedRequirement =
+    (!metricsSource || metricsSource === MetricsSource.REQUIREMENT) &&
+    checkGroups.some(g => g.key === 'metrics')
+      ? test.test?.requirement
+      : undefined;
 
   const testStatus = useMemo(() => getEffectiveTestResultStatus(test), [test]);
   const testLabel = useMemo(() => {
@@ -246,6 +258,23 @@ export default function TestDetailOverviewTab({
         size="small"
         variant="outlined"
       />
+      {hasChecks && (
+        <Typography variant="body2" color="text.secondary">
+          {checksSummary(checkGroups)}
+        </Typography>
+      )}
+      {hasChecks && onShowEvaluation && (
+        <Link
+          component="button"
+          type="button"
+          variant="body2"
+          underline="hover"
+          onClick={onShowEvaluation}
+          sx={{ fontWeight: 500 }}
+        >
+          See Evaluation
+        </Link>
+      )}
       {test.last_annotation &&
         (hasConflictingAnnotation(test) ? (
           <Chip
@@ -525,8 +554,11 @@ export default function TestDetailOverviewTab({
       {endpointFailureBanner}
 
       <Paper variant="outlined" sx={cardSx}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          {/* Goal */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Typography variant="subtitle1" component="h3" fontWeight={600}>
+            What&apos;s checked
+          </Typography>
+
           <ViewField label="Goal" multiline>
             <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
               <Typography
@@ -538,16 +570,6 @@ export default function TestDetailOverviewTab({
             </Box>
           </ViewField>
 
-          {/* Instructions */}
-          {testConfig?.instructions && (
-            <ViewField label="Instructions" multiline>
-              <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
-                {renderFormattedText(testConfig.instructions)}
-              </Box>
-            </ViewField>
-          )}
-
-          {/* Restrictions */}
           {testConfig?.restrictions && (
             <ViewField label="Restrictions" multiline>
               <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
@@ -556,51 +578,53 @@ export default function TestDetailOverviewTab({
             </ViewField>
           )}
 
-          {/* Scenario */}
-          {testConfig?.scenario && (
-            <ViewField label="Scenario" multiline>
-              <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
-                {renderFormattedText(testConfig.scenario)}
-              </Box>
+          {checkedRequirement && (
+            <ViewField
+              label={`Requirement: ${checkedRequirement.name}`}
+              multiline
+            >
+              <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                {checkedRequirement.description || checkedRequirement.name}
+              </Typography>
             </ViewField>
           )}
-
-          {/* Goal verdict -- the reasoning and criteria live on the Evaluation tab */}
-          {(goalCriteria.length > 0 ||
-            test.test_output?.goal_evaluation?.reason) && (
-            <ViewField label="Goal evaluation">
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: 1,
-                }}
-              >
-                {goalCriteria.length > 0 && (
-                  <Typography variant="body2">
-                    {`${goalCriteria.filter(c => c.met).length} of ${goalCriteria.length} criteria met.`}
-                  </Typography>
-                )}
-                {onShowEvaluation && (
-                  <Link
-                    component="button"
-                    variant="body2"
-                    underline="hover"
-                    onClick={onShowEvaluation}
-                    sx={{ fontWeight: 500 }}
-                  >
-                    See reasoning in Evaluation
-                  </Link>
-                )}
-              </Box>
-            </ViewField>
-          )}
-
-          {/* Tags */}
-          <TestResultTags testResult={test} onUpdate={onTestResultUpdate} />
         </Box>
       </Paper>
+
+      {(testConfig?.scenario || testConfig?.instructions) && (
+        <Paper variant="outlined" sx={cardSx}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <Box>
+              <Typography variant="subtitle1" component="h3" fontWeight={600}>
+                Simulated user
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                How Penelope plays the user during the conversation.
+              </Typography>
+            </Box>
+
+            {testConfig?.scenario && (
+              <ViewField label="Scenario" multiline>
+                <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
+                  {renderFormattedText(testConfig.scenario)}
+                </Box>
+              </ViewField>
+            )}
+
+            {testConfig?.instructions && (
+              <ViewField label="Instructions" multiline>
+                <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
+                  {renderFormattedText(testConfig.instructions)}
+                </Box>
+              </ViewField>
+            )}
+          </Box>
+        </Paper>
+      )}
+
+      <Box sx={{ mb: 3 }}>
+        <TestResultTags testResult={test} onUpdate={onTestResultUpdate} />
+      </Box>
 
       {/* Files Section (collapsible) */}
       {(testFilesLoading || testFiles.length > 0) && (

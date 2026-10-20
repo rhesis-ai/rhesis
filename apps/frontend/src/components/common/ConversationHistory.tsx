@@ -17,7 +17,6 @@ import {
   alpha,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import CheckIcon from '@mui/icons-material/Check';
@@ -30,8 +29,7 @@ import {
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import MarkdownContent from '@/components/common/MarkdownContent';
 import StatusChip from '@/components/common/StatusChip';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
-import { STATUS_LABEL } from '@/constants/outcomes';
+import { STATUS_LABEL, type TestResultStatus } from '@/constants/outcomes';
 import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
 import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
 import { looksLikeMarkdown, parseJsonString } from '@/utils/message-content';
@@ -44,9 +42,9 @@ import {
   findingsForTurn,
   turnStatus,
   turnHasConversationFindings,
-  uncitedFailures,
   type TurnFinding,
 } from '@/utils/turn-findings';
+import { buildResultChecks, checksSummary } from '@/utils/result-checks';
 
 // Superhero (female) emoji built from code points to avoid linter emoji detection.
 // U+1F9B8 (superhero) + U+200D (ZWJ) + U+2640 (female sign) + U+FE0F (variation selector)
@@ -96,8 +94,10 @@ interface ConversationHistoryProps {
   isConfirmingAnnotation?: boolean;
   maxHeight?: number | string;
   turnAnnotationMap?: Map<number, AnnotationSummaryEntry>;
-  /** Opens wherever the whole-conversation failures are listed in full. */
-  onShowConversationFindings?: () => void;
+  /** The result's status for the closing summary; derived from the checks when omitted. */
+  resultStatus?: TestResultStatus;
+  /** Opens the full evaluation from the closing summary's link. */
+  onShowEvaluation?: () => void;
   /** Required when turns carry penelope_files for authenticated downloads. */
 }
 
@@ -121,7 +121,8 @@ export default function ConversationHistory({
   isConfirmingAnnotation = false,
   maxHeight = 600,
   turnAnnotationMap = new Map<number, AnnotationSummaryEntry>(),
-  onShowConversationFindings,
+  resultStatus,
+  onShowEvaluation,
 }: ConversationHistoryProps) {
   const theme = useTheme();
   const { status } = useSession();
@@ -219,7 +220,15 @@ export default function ConversationHistory({
     metrics,
     actualConversationTurns.length
   );
-  const conversationFailures = uncitedFailures(findings);
+  const checkGroups = buildResultChecks({ metrics, goalEvaluation });
+  const checks = checkGroups.flatMap(g => g.checks);
+  const shownResultStatus: TestResultStatus =
+    resultStatus ??
+    (checks.some(c => c.passed === false)
+      ? 'Fail'
+      : checks.every(c => c.passed)
+        ? 'Pass'
+        : 'Inconclusive');
 
   // Findings on one turn, grouped by the metric that made them.
   const groupByMetric = (turnFindings: TurnFinding[]) =>
@@ -270,40 +279,6 @@ export default function ConversationHistory({
         },
       }}
     >
-      {conversationFailures.length > 0 && (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: 1,
-            px: 1.5,
-            py: 1,
-            mb: 3,
-            borderRadius: BORDER_RADIUS.sm,
-            bgcolor: 'action.hover',
-          }}
-        >
-          <ErrorOutlineIcon fontSize="small" color="error" />
-          <Typography variant="body2" color="text.secondary">
-            {conversationFailures.length === 1
-              ? '1 failed finding applies to the whole conversation, not a single turn.'
-              : `${conversationFailures.length} failed findings apply to the whole conversation, not a single turn.`}
-          </Typography>
-          {onShowConversationFindings && (
-            <Link
-              component="button"
-              variant="body2"
-              underline="hover"
-              onClick={onShowConversationFindings}
-              sx={{ fontWeight: 500 }}
-            >
-              See Evaluation
-            </Link>
-          )}
-        </Box>
-      )}
-
       {actualConversationTurns.map((turn, index) => {
         const turnFindings = findingsForTurn(findings, turn.turn);
         const findingGroups = Object.entries(groupByMetric(turnFindings));
@@ -1048,6 +1023,42 @@ export default function ConversationHistory({
           </Tooltip>
         ) : null}
       </Box>
+
+      {checks.length > 0 && (
+        <Box
+          data-testid="result-summary"
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            gap: 1.5,
+            pb: 2,
+          }}
+        >
+          <StatusChip
+            status={shownResultStatus}
+            label={STATUS_LABEL[shownResultStatus]}
+            size="small"
+            variant="filled"
+          />
+          <Typography variant="body2" color="text.secondary">
+            {checksSummary(checkGroups)}
+          </Typography>
+          {onShowEvaluation && (
+            <Link
+              component="button"
+              type="button"
+              variant="body2"
+              underline="hover"
+              onClick={onShowEvaluation}
+              sx={{ fontWeight: 500 }}
+            >
+              See Evaluation
+            </Link>
+          )}
+        </Box>
+      )}
     </Box>
   );
 }

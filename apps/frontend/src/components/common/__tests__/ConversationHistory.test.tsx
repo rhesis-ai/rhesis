@@ -143,7 +143,10 @@ describe('ConversationHistory', () => {
 
   describe('turn status from metric findings', () => {
     const turnStatuses = () =>
-      screen.getAllByTestId('status-chip').map(chip => chip.textContent);
+      screen
+        .queryAllByTestId('status-chip')
+        .filter(chip => !chip.closest('[data-testid="result-summary"]'))
+        .map(chip => chip.textContent);
 
     const goalEvaluation = (met: boolean, relevant_turns: number[]) => ({
       all_criteria_met: met,
@@ -209,31 +212,39 @@ describe('ConversationHistory', () => {
       expect(screen.getByText('Evaluated')).toBeInTheDocument();
     });
 
-    it('counts a failure that cites no turn in one line, without listing it', () => {
+    it('sums up the checks after the conversation, not above it', () => {
       renderConversation({
-        conversationSummary: [makeTurn(1)],
+        conversationSummary: [makeTurn(1), makeTurn(2)],
         metrics: redFlag(false),
       });
-      expect(
-        screen.getByText(/1 failed finding applies to the whole conversation/i)
-      ).toBeInTheDocument();
-      expect(screen.queryByText('Red Flag Escalation')).not.toBeInTheDocument();
+      const summary = screen.getByTestId('result-summary');
+      expect(summary).toHaveTextContent('Fail');
+      expect(summary).toHaveTextContent('0 of 1 check passed');
+      expect(turnStatuses()).toEqual([]);
       expect(
         screen.queryByRole('button', { name: /see evaluation/i })
       ).not.toBeInTheDocument();
-      expect(screen.queryByTestId('status-chip')).not.toBeInTheDocument();
     });
 
-    it('links to the full list when a handler is given', async () => {
-      const user = userEvent.setup();
-      const onShowConversationFindings = jest.fn();
+    it('prefers the given result status, e.g. after a human override', () => {
       renderConversation({
         conversationSummary: [makeTurn(1)],
         metrics: redFlag(false),
-        onShowConversationFindings,
+        resultStatus: 'Pass',
+      });
+      expect(screen.getByTestId('result-summary')).toHaveTextContent('Pass');
+    });
+
+    it('links to the evaluation when a handler is given', async () => {
+      const user = userEvent.setup();
+      const onShowEvaluation = jest.fn();
+      renderConversation({
+        conversationSummary: [makeTurn(1)],
+        metrics: redFlag(false),
+        onShowEvaluation,
       });
       await user.click(screen.getByRole('button', { name: /see evaluation/i }));
-      expect(onShowConversationFindings).toHaveBeenCalledTimes(1);
+      expect(onShowEvaluation).toHaveBeenCalledTimes(1);
     });
 
     it('passes the shown turn status to the annotate handler', async () => {

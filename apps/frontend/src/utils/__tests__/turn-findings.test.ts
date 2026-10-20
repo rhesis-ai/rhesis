@@ -2,7 +2,6 @@ import {
   buildTurnFindings,
   turnStatus,
   turnHasConversationFindings,
-  uncitedFailures,
 } from '@/utils/turn-findings';
 import type { MetricResult } from '@/utils/api-client/interfaces/test-results';
 
@@ -62,10 +61,6 @@ describe('turn findings', () => {
 
   it('gives no status to a turn nothing cites', () => {
     expect(turnStatus(findings, 1)).toBeUndefined();
-  });
-
-  it('lists failures that cite no turn', () => {
-    expect(uncitedFailures(findings).map(f => f.metric)).toEqual(['Tone']);
   });
 
   it('prefers the criteria a re-score stored on the goal metric', () => {
@@ -157,9 +152,5 @@ describe('turn findings', () => {
     expect(turnHasConversationFindings(allTurns, 1)).toBe(true);
     expect(turnHasConversationFindings(allTurns, 2)).toBe(true);
     expect(turnHasConversationFindings(allTurns, 3)).toBe(true);
-
-    // Promoted failures show as uncited
-    const uncited = uncitedFailures(allTurns);
-    expect(uncited.map(f => f.label)).toEqual(['Stay on topic']);
   });
 });
