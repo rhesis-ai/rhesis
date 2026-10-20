@@ -53,6 +53,10 @@ Metrics come from **acceptance criteria / FR text**, not requirement titles.
 
 Each metric needs: `score_type`, **`metric_scope`**, `evaluation_prompt` quoting the source FR/AC.
 
+Reuse an existing metric only when it checks the acceptance criteria (`phases/reuse.md`). Otherwise plan a new one.
+
+When the acceptance criteria describe later turns or the whole conversation ("stays active in later turns", "no further history questions follow"), the metric's `metric_scope` includes `Multi-Turn` and its test set is Multi-Turn.
+
 Use `create_metric` during execution (not `generate_metric`).
 
 ---

@@ -26,8 +26,8 @@ Always check what already exists on the platform before proposing new entities. 
 3. Before saving a plan that marks a metric as **(reuse)**, verify the named metric exists on the platform via an exact-match filter. If the filter returns zero results, the metric does not exist — change the entry to **(new)** (or pick a real existing metric) before calling `save_plan`. Do not invent reuse targets.
 4. When reusing a metric, copy its `metric_scope` from `list_metrics` into the plan — scope mismatch causes metrics to be **silently dropped** at run time.
 5. When proposing a new metric, set `metric_scope` to match the `test_type` of every test set that will target its requirements (see `metric-scope.md`).
-6. If a matching or similar metric already exists, propose reusing it — tell the user which existing metric covers the need
-7. Only propose new metrics when no suitable match exists
+6. Reuse an existing metric only when its criteria check what the requirement asks. A name and one-line description are not enough to tell: read it with `get_metric` first. General metrics such as faithfulness, relevancy, misinformation or refusal detection don't check a specific rule like "never names a likely condition". When you reuse one, tell the user which existing metric covers the need
+7. When no existing metric checks the requirement, propose a new one in the first plan. Don't wait for the user to ask
 8. If an existing metric is close but needs adjustment, propose using `improve_metric` with specific edit instructions
 9. If no similar metric exists, use `create_metric` with the exact name and `metric_scope` from the plan
 10. Do NOT use `generate_metric` during plan execution — it produces its own name which will mismatch the plan
