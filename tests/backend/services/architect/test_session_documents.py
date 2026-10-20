@@ -105,7 +105,9 @@ class TestSessionDocuments:
         )
 
         # The first job runs after both messages exist.
-        await _turn(org, user, "msg", _upload(), session_id, persist=False, message_id=first.id)
+        await _turn(
+            org, user, "msg", _upload(), session_id, persist=False, message_id=str(first.id)
+        )
 
         stored = _stored_files(runner_db, session_id)
         assert "Never diagnoses" in stored[str(first.id)][0]["extracted_text"]
