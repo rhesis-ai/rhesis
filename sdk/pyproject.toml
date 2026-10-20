@@ -286,7 +286,9 @@ override-dependencies = [
     # relax for deepeval and CVE fixes.
     "python-dotenv>=1.2.2",
     "pydantic>=2.13.0",
-    "openai>=2.26.0",
+    # Overrides hide every other openai requirement: pydantic-ai's OpenAI model needs
+    # >=2.45, litellm needs <3.
+    "openai>=2.45.0,<3",
 ]
 
 [tool.uv.sources]
