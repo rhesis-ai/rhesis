@@ -49,12 +49,14 @@ haystack = [
 
 [tool.uv]
 # crewai >=1.15.6 caps google-genai below what google-adk >=2.6 and pydantic-ai >=1.106.0
-# need, and google-adk caps opentelemetry-api below what pydantic-ai >=2.44 needs, so these
+# need, google-adk caps opentelemetry-api below what pydantic-ai >=2.44 needs, and
+# llama-index-llms-openai needs openai<3 while pydantic-ai 2 needs openai 3, so these
 # extras cannot co-resolve.
 conflicts = [
     [{ extra = "crewai" }, { extra = "google-adk" }],
     [{ extra = "crewai" }, { extra = "pydantic-ai" }],
     [{ extra = "google-adk" }, { extra = "pydantic-ai" }],
+    [{ extra = "llamaindex" }, { extra = "pydantic-ai" }],
 ]
 exclude-newer = "1 week"
 exclude-newer-package = { pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, cryptography = false, python-multipart = false, pydantic-ai = false, pydantic-ai-slim = false }
@@ -96,7 +98,6 @@ override-dependencies = [
     "mcp>=1.30.0,<2",
     "python-dotenv>=1.2.2",
     "pydantic>=2.13.0",
-    "openai>=2.26.0",
 ]
 
 [tool.uv.sources]
