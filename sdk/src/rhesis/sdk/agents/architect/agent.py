@@ -1709,9 +1709,13 @@ class ArchitectAgent(BaseAgent):
 
     def _maybe_update_workflow_path(self, message: str) -> None:
         """Infer or update workflow path from user signals."""
-        has_attachments = bool(self._attachments)
         updated = resolve_workflow_path_update(
-            self._workflow_path, message, has_attachments=has_attachments
+            self._workflow_path,
+            message,
+            has_attachments=bool(self._attachments),
+            attachment_text="\n".join(
+                d["text"] for d in self._documents if d["filename"] in self._turn_files
+            ),
         )
         if updated is not None:
             self._workflow_path = updated

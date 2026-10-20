@@ -70,6 +70,16 @@ class TestResolveWorkflowPathUpdate:
     def test_explore_not_overridden_by_another_explore_signal(self):
         assert resolve_workflow_path_update(WorkflowPath.EXPLORE, "explore my endpoint") is None
 
+    def test_a_clear_new_request_moves_a_saved_path(self):
+        """The path is kept across turns, so it must not lock the session in."""
+        assert (
+            resolve_workflow_path_update(WorkflowPath.PRD, "compare my last two runs")
+            == WorkflowPath.RUN_ANALYZE
+        )
+
+    def test_a_follow_up_with_no_signal_keeps_the_path(self):
+        assert resolve_workflow_path_update(WorkflowPath.PRD, "Change: drop R3") is None
+
 
 @pytest.mark.unit
 class TestPhaseIncludeNames:

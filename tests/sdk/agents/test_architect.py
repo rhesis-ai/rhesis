@@ -3723,6 +3723,17 @@ class TestSessionDocuments:
 
         assert "R1 text" in agent._format_attachments()
 
+    @pytest.mark.asyncio
+    async def test_a_file_that_reads_as_a_spec_routes_to_the_prd_guidance(self, mock_model):
+        """Issue #3009: a short message with an attached PRD went unrouted."""
+        from rhesis.sdk.agents.architect.workflow import WorkflowPath
+
+        agent = _make_agent(mock_model)
+        spec = "| ID | Requirement | Acceptance criteria |\n| R1 | Never diagnoses | ... |"
+        await agent.chat_async("Here's our spec.", attachments=_file("prd.pdf", spec))
+
+        assert agent._workflow_path == WorkflowPath.PRD
+
     def test_the_state_snapshot_does_not_carry_documents(self, mock_model):
         """The stored messages are the record; a second copy would drift from them."""
         agent = _make_agent(mock_model)
