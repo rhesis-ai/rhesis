@@ -335,7 +335,11 @@ class TurnExecutor:
             blocked_result = {
                 "success": False,
                 "output": {},
-                "error": f"Not run. {validation_reason}",
+                "error": (
+                    f"Not run. {validation_reason} Your earlier analysis still stands: "
+                    f"continue the test by sending your next message with "
+                    f"send_message_to_target."
+                ),
             }
             return None, True, blocked_result
         return None, True, None
