@@ -79,7 +79,9 @@ autogen = [
 ]
 
 pydantic-ai = [
-    "pydantic-ai>=0.0.49",
+    # Slim core is all the integration uses. Full pydantic-ai adds the openai and logfire
+    # extras, which need openai 3 and an OpenTelemetry that litellm and google-adk block.
+    "pydantic-ai-slim>=0.0.49",
 ]
 
 # Microsoft Agent Framework (the unified successor to AutoGen / Semantic Kernel).
@@ -119,7 +121,7 @@ all-integrations = [
     "langgraph>=1.2.0",
     "langgraph-checkpoint>=4.1.0",
     "pyautogen>=0.2.0",
-    "pydantic-ai>=0.0.49",
+    "pydantic-ai-slim>=0.0.49",
     "agent-framework-core>=1.1.0",
     "agent-framework-openai>=1.1.0",
     "agent-framework-orchestrations>=1.0.0b260421",
@@ -185,7 +187,7 @@ dev = [
     # Same reasoning: pydantic-ai installed in dev so the integration tests
     # under tests/sdk/telemetry/integrations/ run without ``--all-extras``.
     # End users install via the ``rhesis-sdk[pydantic-ai]`` optional extra.
-    "pydantic-ai>=0.0.49",
+    "pydantic-ai-slim>=0.0.49",
     # Same reasoning for google-adk: tests/sdk/telemetry/integrations/
     # test_google_adk.py drives a real ADK agent (with a canned model, no
     # network). End users install via ``rhesis-sdk[google-adk]``.
@@ -286,8 +288,7 @@ override-dependencies = [
     # relax for deepeval and CVE fixes.
     "python-dotenv>=1.2.2",
     "pydantic>=2.13.0",
-    # Overrides hide every other openai requirement: pydantic-ai's OpenAI model needs
-    # >=2.45, litellm needs <3.
+    # Overrides replace litellm's own openai<3 cap, so restate it here.
     "openai>=2.45.0,<3",
 ]
 
