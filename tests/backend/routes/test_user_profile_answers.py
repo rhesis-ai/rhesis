@@ -80,6 +80,20 @@ class TestProfileAnswerRoutes:
         rejoined = test_db.query(models.User).filter_by(id=response.json()["id"]).one()
         assert "onboarding" not in rejoined.user_settings
 
+    def test_reinvite_hides_earlier_answers_from_inviter(self, authenticated_client, test_db):
+        test_db.add(
+            models.User(
+                email="rejoin-answered@example.com",
+                user_settings={"version": 1, "onboarding": {"profile": {"job_role": "qa"}}},
+            )
+        )
+        test_db.flush()
+
+        response = _invite(authenticated_client, "rejoin-answered@example.com")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["user_settings"]["onboarding"]["profile"] is None
+
     def test_saving_answers_clears_the_flag(self, authenticated_client):
         response = authenticated_client.patch(
             "/users/settings",

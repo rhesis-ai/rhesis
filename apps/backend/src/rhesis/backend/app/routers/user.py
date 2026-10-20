@@ -292,7 +292,7 @@ def create_user(
 
     notify_stock_crossing(db, _quota_gate, QuotaResource.SEATS)
 
-    return created_user
+    return onboarding_service.present_user(created_user, current_user.id)
 
 
 @router.get("/", response_model=list[schemas.User])
