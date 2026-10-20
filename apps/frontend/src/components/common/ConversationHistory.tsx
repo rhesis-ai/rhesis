@@ -41,7 +41,6 @@ import {
   buildTurnFindings,
   findingsForTurn,
   turnStatus,
-  turnHasConversationFindings,
   type TurnFinding,
 } from '@/utils/turn-findings';
 import { buildResultChecks, checksSummary } from '@/utils/result-checks';
@@ -215,11 +214,7 @@ export default function ConversationHistory({
       turn => turn.penelope_message || turn.target_response
     ) || [];
 
-  const findings = buildTurnFindings(
-    goalEvaluation,
-    metrics,
-    actualConversationTurns.length
-  );
+  const findings = buildTurnFindings(goalEvaluation, metrics);
   const checkGroups = buildResultChecks({ metrics, goalEvaluation });
   const checks = checkGroups.flatMap(g => g.checks);
   const shownResultStatus: TestResultStatus =
@@ -298,10 +293,6 @@ export default function ConversationHistory({
               ? false
               : undefined;
 
-        // Soft indicator: no per-turn verdict, but a conversation-level finding cites this turn.
-        const isEvaluated =
-          !shownStatus && turnHasConversationFindings(findings, turn.turn);
-
         const turnAnnotation = turnAnnotationMap.get(turn.turn);
         const turnIsOverruled = !!turn.override;
         const turnIsConfirmed = !!turnAnnotation && !turnIsOverruled;
@@ -350,19 +341,6 @@ export default function ConversationHistory({
                   label={STATUS_LABEL[shownStatus]}
                   size="small"
                   variant="filled"
-                />
-              )}
-
-              {isEvaluated && (
-                <Chip
-                  label="Evaluated"
-                  size="small"
-                  variant="outlined"
-                  sx={{
-                    color: 'text.secondary',
-                    borderColor: theme.palette.divider,
-                    fontSize: theme.typography.caption.fontSize,
-                  }}
                 />
               )}
 

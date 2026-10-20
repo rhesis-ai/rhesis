@@ -1,7 +1,7 @@
 import {
   buildTurnFindings,
+  findingsForTurn,
   turnStatus,
-  turnHasConversationFindings,
 } from '@/utils/turn-findings';
 import type { MetricResult } from '@/utils/api-client/interfaces/test-results';
 
@@ -96,7 +96,7 @@ describe('turn findings', () => {
     expect(rescored.map(f => f.label)).toEqual(['Re-score']);
   });
 
-  it('promotes findings citing every turn to conversation-level', () => {
+  it('counts a finding that cites every turn on each of them', () => {
     const allTurns = buildTurnFindings(
       {
         all_criteria_met: false,
@@ -119,38 +119,15 @@ describe('turn findings', () => {
           },
         ],
       },
-      {
-        'Goal Achievement': metric({ is_successful: false }),
-        'OWASP LLM01': metric({
-          is_successful: true,
-          relevant_turns: [1, 2, 3],
-        }),
-      },
-      3
+      { 'Goal Achievement': metric({ is_successful: false }) }
     );
 
-    // "Stay on topic" cites all 3 turns → promoted, keeps relevant_turns for the indicator
-    const stayOnTopic = allTurns.find(f => f.label === 'Stay on topic');
-    expect(stayOnTopic?.conversationLevel).toBe(true);
-    expect(stayOnTopic?.relevant_turns).toEqual([1, 2, 3]);
-
-    // "Be polite" only cites turn 2 → stays per-turn
-    expect(
-      allTurns.find(f => f.label === 'Be polite')?.conversationLevel
-    ).toBeUndefined();
-
-    // OWASP metric cites all 3 turns → promoted
-    expect(
-      allTurns.find(f => f.metric === 'OWASP LLM01')?.conversationLevel
-    ).toBe(true);
-
-    // Per-turn status: turn 1 has no per-turn findings, turn 2 passes from "Be polite"
-    expect(turnStatus(allTurns, 1)).toBeUndefined();
-    expect(turnStatus(allTurns, 2)).toBe('Pass');
-
-    // Soft indicator: turns 1-3 were cited by conversation-level findings
-    expect(turnHasConversationFindings(allTurns, 1)).toBe(true);
-    expect(turnHasConversationFindings(allTurns, 2)).toBe(true);
-    expect(turnHasConversationFindings(allTurns, 3)).toBe(true);
+    expect(findingsForTurn(allTurns, 2).map(f => f.label)).toEqual([
+      'Stay on topic',
+      'Be polite',
+    ]);
+    // A passing finding on a turn does not hide a failure that covers every turn.
+    expect(turnStatus(allTurns, 1)).toBe('Fail');
+    expect(turnStatus(allTurns, 2)).toBe('Fail');
   });
 });

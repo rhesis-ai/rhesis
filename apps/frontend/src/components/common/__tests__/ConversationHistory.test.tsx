@@ -200,16 +200,15 @@ describe('ConversationHistory', () => {
       expect(turnStatuses()).toEqual(['Pass', 'Fail']);
     });
 
-    it('promotes a finding citing all turns to conversation-level', () => {
+    it('shows a failure that cites every turn on every turn', () => {
       renderConversation({
         conversationSummary: [makeTurn(1), makeTurn(2)],
-        goalEvaluation: goalEvaluation(true, [1, 2]),
-        metrics: redFlag(false, [2]),
+        goalEvaluation: goalEvaluation(true, [1]),
+        metrics: redFlag(false, [1, 2]),
       });
-      // Goal criterion cites all 2 turns → promoted to conversation-level.
-      // Turn 1: no per-turn verdict → soft "Evaluated" chip. Turn 2: failed metric → Fail.
-      expect(turnStatuses()).toEqual(['Fail']);
-      expect(screen.getByText('Evaluated')).toBeInTheDocument();
+      // The passing criterion only cites turn 1, but the failed metric cites both.
+      expect(turnStatuses()).toEqual(['Fail', 'Fail']);
+      expect(screen.queryByText('Evaluated')).not.toBeInTheDocument();
     });
 
     it('sums up the checks after the conversation, not above it', () => {

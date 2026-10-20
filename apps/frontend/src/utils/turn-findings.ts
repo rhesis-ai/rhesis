@@ -18,8 +18,6 @@ export interface TurnFinding {
   evidence: string;
   kind?: 'required' | 'prohibited';
   relevant_turns: number[];
-  /** True when the finding cited every turn and was promoted to conversation-level. */
-  conversationLevel?: boolean;
 }
 
 export type TurnStatus = 'Pass' | 'Fail';
@@ -32,8 +30,7 @@ const DEFAULT_GOAL_METRIC = 'Goal Achievement';
  */
 export function buildTurnFindings(
   goalEvaluation?: GoalEvaluation,
-  metrics: Record<string, MetricResult> = {},
-  turnCount?: number
+  metrics: Record<string, MetricResult> = {}
 ): TurnFinding[] {
   const entries = Object.entries(metrics);
   const [goalMetric, goalResult] = entries.find(([name]) =>
@@ -72,30 +69,20 @@ export function buildTurnFindings(
       relevant_turns: m.relevant_turns ?? [],
     }));
 
-  const all = [...criteria, ...others];
-
-  // A finding that cites every turn is a conversation-level verdict, not a per-turn one.
-  // Mark it so per-turn queries skip it, while keeping relevant_turns for the soft indicator.
-  if (turnCount && turnCount > 1) {
-    return all.map(f =>
-      new Set(f.relevant_turns).size >= turnCount
-        ? { ...f, conversationLevel: true }
-        : f
-    );
-  }
-  return all;
+  return [...criteria, ...others];
 }
 
 export function findingsForTurn(
   findings: TurnFinding[],
   turn: number
 ): TurnFinding[] {
-  return findings.filter(
-    f => !f.conversationLevel && f.relevant_turns.includes(turn)
-  );
+  return findings.filter(f => f.relevant_turns.includes(turn));
 }
 
-/** Failed if any finding citing the turn failed, passed if only passing ones cite it. */
+/**
+ * Failed if any finding citing the turn failed, passed if only passing ones cite it. A finding
+ * that cites every turn counts on each of them, so a failure is never hidden from the turns.
+ */
 export function turnStatus(
   findings: TurnFinding[],
   turn: number
@@ -103,14 +90,4 @@ export function turnStatus(
   const cited = findingsForTurn(findings, turn);
   if (cited.length === 0) return undefined;
   return cited.some(f => !f.met) ? 'Fail' : 'Pass';
-}
-
-/** Whether any conversation-level finding cites this turn. */
-export function turnHasConversationFindings(
-  findings: TurnFinding[],
-  turn: number
-): boolean {
-  return findings.some(
-    f => f.conversationLevel && f.relevant_turns.includes(turn)
-  );
 }
