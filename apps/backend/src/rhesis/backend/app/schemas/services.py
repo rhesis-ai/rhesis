@@ -12,6 +12,7 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from pydantic.json_schema import SkipJsonSchema
 
 from rhesis.backend.app.constants import TestSetType
 
@@ -47,6 +48,9 @@ class GenerationConfig(BaseModel):
         default=None, validation_alias=AliasChoices("topics", "topic")
     )
     additional_context: Optional[str] = None  # Additional context (JSON string)
+    # Filled by the generation job from the stored requirements, not by clients, so it is
+    # kept out of the OpenAPI schema (and with it the MCP tool the Architect reads).
+    requirement_descriptions: SkipJsonSchema[Optional[Dict[str, str]]] = None
 
 
 class SourceData(BaseModel):

@@ -65,6 +65,10 @@ class TestTestSetGenerationNarration:
                 return_value="fake-model",
             ),
             patch(
+                "rhesis.backend.app.services.generation.requirement_descriptions",
+                return_value=None,
+            ),
+            patch(
                 "rhesis.sdk.synthesizers.ConfigSynthesizer",
                 return_value=mock_synthesizer,
             ),

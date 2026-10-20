@@ -76,7 +76,12 @@ class TestGenerationConfig:
             "categories",
             "topics",
             "additional_context",
+            "requirement_descriptions",
         }
+
+    def test_requirement_descriptions_stay_out_of_the_api_schema(self):
+        """The job fills them from the stored requirements; the MCP tool should not offer them."""
+        assert "requirement_descriptions" not in GenerationConfig.model_json_schema()["properties"]
 
     def test_requirements_is_still_required(self):
         with pytest.raises(ValidationError):

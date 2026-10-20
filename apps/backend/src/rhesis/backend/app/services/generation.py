@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.crud import source as source_crud
+from rhesis.backend.app.crud.requirement import get_requirement_descriptions
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.services import GenerationConfig, SourceData
 from rhesis.backend.app.usage_attribution import with_usage_attribution
@@ -106,6 +107,27 @@ def validate_model_override(db: Session, user: User, model_id: Optional[str]) ->
         raise HTTPException(status_code=400, detail=f"Model {model_id} not found or not accessible")
 
 
+def requirement_descriptions(
+    db: Session,
+    requirements: Optional[List[str]],
+    given: Optional[Dict[str, str]] = None,
+) -> Optional[Dict[str, str]]:
+    """What each named requirement requires: the stored descriptions, overridden by any given.
+
+    A requirement name alone gets generic tests. The description (typically the
+    acceptance criteria) is what the generated tests should exercise.
+    """
+    merged = {**get_requirement_descriptions(db, requirements or []), **(given or {})}
+    return merged or None
+
+
+def _with_requirement_descriptions(db: Session, config: Dict) -> Dict:
+    """A multi-turn config dict with its requirement descriptions filled in."""
+    names = config.get("requirements") or config.get("requirement")
+    descriptions = requirement_descriptions(db, names, config.get("requirement_descriptions"))
+    return {**config, "requirement_descriptions": descriptions} if descriptions else config
+
+
 def _prepare_test_generation(
     db: Session,
     user: User,
@@ -166,6 +188,9 @@ async def generate_tests(
     model, source_specifications = await anyio.to_thread.run_sync(
         _prepare_test_generation, db, user, sources, model_id
     )
+    config.requirement_descriptions = await anyio.to_thread.run_sync(
+        requirement_descriptions, db, config.requirements, config.requirement_descriptions
+    )
 
     # Create synthesizer
     synthesizer = ConfigSynthesizer(
@@ -195,6 +220,9 @@ async def generate_tests_stream(
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """Yield test dicts one-by-one as they parse from the LLM token stream."""
     model = resolve_model(db, user, "generation", override=model_id)
+    config.requirement_descriptions = await anyio.to_thread.run_sync(
+        requirement_descriptions, db, config.requirements, config.requirement_descriptions
+    )
     synthesizer = ConfigSynthesizer(config=config, model=model)
     async for test in synthesizer.generate_stream(num_tests=num_tests):
         yield test
@@ -214,6 +242,7 @@ async def generate_multiturn_tests_stream(
     )
 
     model = resolve_model(db, user, "generation", override=model_id)
+    config = await anyio.to_thread.run_sync(_with_requirement_descriptions, db, config)
     generation_config = GenerationConfig(**config)
     synthesizer = MultiTurnSynthesizer(config=generation_config, model=model)
     async for test in synthesizer.generate_stream(num_tests=num_tests):
@@ -252,6 +281,7 @@ async def generate_multiturn_tests(
     from rhesis.sdk.synthesizers.multi_turn.base import GenerationConfig, MultiTurnSynthesizer
 
     model = await anyio.to_thread.run_sync(_prepare_multiturn_generation, db, user, model_id)
+    config = await anyio.to_thread.run_sync(_with_requirement_descriptions, db, config)
 
     # Create configuration for multi-turn synthesizer from dict
     generation_config = GenerationConfig(**config)

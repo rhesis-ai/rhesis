@@ -35,6 +35,8 @@ class GenerationConfig(BaseModel):
     requirements: Optional[list[str]] = Field(
         default=None, validation_alias=AliasChoices("requirements", "requirement")
     )
+    # Requirement name -> what it requires (e.g. its acceptance criteria).
+    requirement_descriptions: Optional[dict[str, str]] = None
     categories: Optional[list[str]] = Field(
         default=None, validation_alias=AliasChoices("categories", "category")
     )

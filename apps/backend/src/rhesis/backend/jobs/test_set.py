@@ -463,6 +463,13 @@ def generate_and_save_test_set(
     # Parse config
     generation_config = GenerationConfig(**config)
 
+    with self.get_db_session() as db:
+        from rhesis.backend.app.services.generation import requirement_descriptions
+
+        generation_config.requirement_descriptions = requirement_descriptions(
+            db, generation_config.requirements, generation_config.requirement_descriptions
+        )
+
     # Log the parameters (safely, without exposing sensitive data)
     log_kwargs = {k: v for k, v in config.items() if not k.lower().endswith("_key")}
 

@@ -96,6 +96,89 @@ class TestGenerateMultiturnTestsRunsDatabaseWorkOffTheLoop:
         assert threads and threading.get_ident() not in threads
 
 
+def _recording_descriptions(threads: list, found: dict):
+    """A ``get_requirement_descriptions`` stand-in that records the thread it ran on."""
+
+    def _get(_db, names):
+        threads.append(threading.get_ident())
+        return {n: found[n] for n in names if n in found}
+
+    return _get
+
+
+@pytest.mark.unit
+class TestRequirementDescriptions:
+    """Generated tests should check what a requirement says, not just its name."""
+
+    def test_stored_descriptions_are_looked_up_by_name(self):
+        stored = {"R1: Never diagnoses": "No reply names a condition."}
+        with patch.object(generation, "get_requirement_descriptions", lambda _db, _n: stored):
+            result = generation.requirement_descriptions(MagicMock(), ["R1: Never diagnoses"])
+
+        assert result == stored
+
+    def test_given_descriptions_win_over_stored(self):
+        with patch.object(generation, "get_requirement_descriptions", lambda _db, _n: {"A": "old"}):
+            result = generation.requirement_descriptions(MagicMock(), ["A"], {"A": "new"})
+
+        assert result == {"A": "new"}
+
+    def test_nothing_found_is_none(self):
+        with patch.object(generation, "get_requirement_descriptions", lambda _db, _n: {}):
+            assert generation.requirement_descriptions(MagicMock(), ["A"]) is None
+
+    @pytest.mark.asyncio
+    async def test_single_turn_lookup_happens_off_the_loop_and_reaches_the_synthesizer(self):
+        threads: list = []
+        config = generation.GenerationConfig(requirements=["R1"])
+        synthesizer = MagicMock()
+        synthesizer.generate.return_value.to_dict.return_value = {"tests": []}
+
+        with (
+            patch.object(generation, "resolve_model", MagicMock()),
+            patch.object(
+                generation,
+                "get_requirement_descriptions",
+                _recording_descriptions(threads, {"R1": "AC"}),
+            ),
+            patch.object(generation, "ConfigSynthesizer", return_value=synthesizer) as synth_cls,
+        ):
+            await generation.generate_tests(
+                db=MagicMock(), user=MagicMock(), config=config, num_tests=1
+            )
+
+        assert threads and threading.get_ident() not in threads
+        assert synth_cls.call_args.kwargs["config"].requirement_descriptions == {"R1": "AC"}
+
+    @pytest.mark.asyncio
+    async def test_multi_turn_lookup_happens_off_the_loop_and_reaches_the_synthesizer(self):
+        threads: list = []
+        synthesizer = MagicMock()
+        synthesizer.generate.return_value.to_dict.return_value = {"tests": []}
+
+        with (
+            patch.object(generation, "resolve_model", MagicMock()),
+            patch.object(
+                generation,
+                "get_requirement_descriptions",
+                _recording_descriptions(threads, {"R1": "AC"}),
+            ),
+            patch(
+                "rhesis.sdk.synthesizers.multi_turn.base.MultiTurnSynthesizer",
+                return_value=synthesizer,
+            ) as synth_cls,
+        ):
+            await generation.generate_multiturn_tests(
+                db=MagicMock(),
+                user=MagicMock(),
+                config={"generation_prompt": "test", "requirements": ["R1"]},
+                num_tests=1,
+            )
+
+        assert threads and threading.get_ident() not in threads
+        assert synth_cls.call_args.kwargs["config"].requirement_descriptions == {"R1": "AC"}
+
+
 @pytest.mark.unit
 class TestValidateModelOverride:
     def test_no_override_reads_nothing(self):

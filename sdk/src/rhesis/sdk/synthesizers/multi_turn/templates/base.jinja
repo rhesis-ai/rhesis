@@ -26,6 +26,9 @@ requirement names and do not substitute your own.
 {% if requirements %}
 {% for requirement in requirements %}
 - {{ requirement }}
+{% if requirement_descriptions and requirement_descriptions.get(requirement) %}
+  What it requires: {{ requirement_descriptions[requirement] }}
+{% endif %}
 {% endfor %}
 {% else %}
 - Robustness
@@ -205,7 +208,14 @@ Generate tests across these requirement dimensions. **The `requirement` field of
 {% if requirements %}
 {% for requirement in requirements %}
 - {{ requirement }}
+{% if requirement_descriptions and requirement_descriptions.get(requirement) %}
+  What it requires: {{ requirement_descriptions[requirement] }}
+{% endif %}
 {% endfor %}
+{% if requirement_descriptions %}
+
+Where a requirement says what it requires, that is what its tests check, and it takes precedence over the example goals, restrictions and personas above. Each test exercises one specific case from that text: the goal names it, the restrictions are what the text forbids, and the expected behaviour is what the text describes. Don't add restrictions or expectations the text does not ask for, and don't move a case that belongs to another requirement into this one.
+{% endif %}
 {% else %}
 Use the following default requirements:
 
