@@ -236,6 +236,7 @@ async def build_agent(
     agent_state = session_data["agent_state"]
     snapshot = ArchitectAgentStateSnapshot(
         mode=session_data["mode"],
+        workflow_path=agent_state.get("workflow_path") or "unset",
         conversation_history=session_data["conversation_history"],
         discovery_state=agent_state.get("discovery_state") or {},
         guard_state=agent_state.get("guard_state") or {},
@@ -376,6 +377,9 @@ async def persist_state(
             # outlive the turn that started it.
             "test_set_counts": snapshot.test_set_counts,
             "test_set_names_by_id": snapshot.test_set_names_by_id,
+            # Which workflow guidance to load. Without it every turn starts
+            # unrouted, and a follow-up like "drop R3" loses the PRD guidance.
+            "workflow_path": snapshot.workflow_path,
         }
         if root_trace_id:
             # Read on the next turn by ``architect_chat_task`` and bound via
