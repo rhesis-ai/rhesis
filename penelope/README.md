@@ -81,7 +81,7 @@ module load, so `rhesis.penelope` imports fine with none of them installed.
 Penelope includes built-in guardrails to prevent infinite loops and runaway costs:
 
 - **Global execution limit**: By default, limits total tool executions to `max_iterations × 5` (e.g., 10 turns × 5 = 50 executions)
-- **Workflow validation**: Blocks known bad patterns (excessive analysis tools, repetitive usage)
+- **Workflow validation**: Refuses calls that fit known bad patterns (excessive analysis tools, repetitive usage) and tells the model why; the test stops after 3 refused calls in a row
 - **Progress warnings**: Alerts at 60% and 80% of limits
 
 For complex tests that need more executions:

@@ -118,35 +118,19 @@ class TestGlobalExecutionLimit:
 class TestWorkflowValidationBlocking:
     """Tests for workflow validation that blocks execution."""
 
-    def test_consecutive_analysis_limit_blocks(self, mock_model, test_state):
-        """Verify consecutive analysis limit blocks execution."""
+    @staticmethod
+    def _blocked_setup(mock_model):
         executor = TurnExecutor(model=mock_model)
-
-        # Create mock analysis tool
         analysis_tool = Mock(spec=Tool)
         analysis_tool.name = "analyze_response"
         analysis_tool.tool_category = "analysis"
         analysis_tool.execute.return_value = ToolResult(success=True, output={})
-
-        # Simulate 5 consecutive analysis calls
-        for i in range(5):
-            mock_model.generate.return_value = {
-                "reasoning": f"Analysis {i}",
-                "tool_calls": [
-                    {
-                        "tool_name": "analyze_response",
-                        "parameters": {"response_text": "test", "analysis_focus": "test"},
-                    }
-                ],
-            }
-            # Record executions in workflow manager
+        for _ in range(5):
             executor.workflow_manager.record_tool_execution(
                 create_tool_execution("analyze_response")
             )
-
-        # 6th consecutive analysis should be blocked
         mock_model.generate.return_value = {
-            "reasoning": "Analysis 6",
+            "reasoning": "Analyse again",
             "tool_calls": [
                 {
                     "tool_name": "analyze_response",
@@ -154,15 +138,63 @@ class TestWorkflowValidationBlocking:
                 }
             ],
         }
+        return executor, analysis_tool
+
+    def test_blocked_call_is_returned_to_the_model(self, mock_model, test_state):
+        """A blocked call isn't run; the model sees why on its next step and the test goes on."""
+        executor, analysis_tool = self._blocked_setup(mock_model)
 
         success = executor.execute_turn(
             state=test_state, tools=[analysis_tool], system_prompt="Test"
         )
 
-        # Execution should be blocked
-        assert success is False
-        assert len(test_state.findings) > 0
+        assert success is True
+        analysis_tool.execute.assert_not_called()
+        blocked = test_state.current_turn_executions[-1].tool_message.content
+        assert '"success": false' in blocked
+        assert "Not run." in blocked
+        assert test_state.get_conversation_messages()[-1].content == blocked
+        assert not any("Workflow validation blocked" in f for f in test_state.findings)
+
+    def test_repeated_blocked_calls_end_the_test(self, mock_model, test_state):
+        """The test still stops once the model keeps making blocked calls."""
+        executor, analysis_tool = self._blocked_setup(mock_model)
+        limit = executor.workflow_manager.state.max_consecutive_blocked_calls
+
+        results = [
+            executor.execute_turn(state=test_state, tools=[analysis_tool], system_prompt="Test")
+            for _ in range(limit)
+        ]
+
+        assert results == [True] * (limit - 1) + [False]
         assert any("Workflow validation blocked execution" in f for f in test_state.findings)
+
+    def test_target_message_resets_blocked_count(self):
+        manager = WorkflowManager()
+        manager.record_blocked_call()
+        manager.record_blocked_call()
+
+        manager.record_tool_execution(create_tool_execution("send_message_to_target"))
+
+        assert manager.state.consecutive_blocked_calls == 0
+        assert manager.record_blocked_call() is False
+
+    def test_analyse_then_send_cycle_is_not_oscillation(self):
+        """send > analyze > send > analyze, then a second analysis of the same reply."""
+        manager = WorkflowManager()
+        tool = Mock(spec=Tool)
+        tool.name = "analyze_response"
+        for name in [
+            "send_message_to_target",
+            "analyze_response",
+            "send_message_to_target",
+            "analyze_response",
+        ]:
+            manager.record_tool_execution(create_tool_execution(name))
+
+        is_valid, reason = manager.validate_tool_usage(tool)
+
+        assert is_valid is True, reason
 
     def test_same_tool_repetition_blocks(self):
         """Verify same tool used 5/6 times is blocked."""

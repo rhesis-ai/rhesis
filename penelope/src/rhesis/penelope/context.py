@@ -600,14 +600,16 @@ class TestState:
 
         To convert to dictionaries for API calls, use .model_dump() on each message.
 
+        Includes the current, unfinished turn, so Penelope sees its own analyses (and any
+        blocked calls) before it next messages the target.
+
         Returns:
             List of AssistantMessage and ToolMessage objects (alternating)
         """
         messages = []
-        for turn in self.turns:
-            for execution in turn.executions:
-                messages.append(execution.assistant_message)
-                messages.append(execution.tool_message)
+        for execution in self.all_executions:
+            messages.append(execution.assistant_message)
+            messages.append(execution.tool_message)
         return messages
 
     def to_result(

@@ -2,6 +2,8 @@
 
 from datetime import datetime
 
+from helpers import create_tool_execution
+
 from rhesis.penelope.context import (
     ExecutionStatus,
     TestContext,
@@ -145,6 +147,20 @@ def test_test_state_get_conversation_messages(sample_test_state):
     assert len(messages) == 2
     assert messages[0].role == "assistant"
     assert messages[1].role == "tool"
+
+
+def test_conversation_messages_include_the_unfinished_turn(sample_test_state):
+    """Penelope must see its own analysis before it next messages the target (#3014)."""
+    send = create_tool_execution("send_message_to_target")
+    sample_test_state.add_execution("send", send.assistant_message, send.tool_message)
+    analysis = create_tool_execution("analyze_response")
+    sample_test_state.add_execution("analyse", analysis.assistant_message, analysis.tool_message)
+
+    messages = sample_test_state.get_conversation_messages()
+
+    assert sample_test_state.current_turn == 1
+    assert [m.role for m in messages] == ["assistant", "tool", "assistant", "tool"]
+    assert messages[-1].name == "analyze_response"
 
 
 def test_test_state_to_result(sample_test_state):

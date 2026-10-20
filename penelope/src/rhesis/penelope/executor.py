@@ -311,13 +311,13 @@ class TurnExecutor:
         tools: List[Tool],
         action_name: str,
         action_params: Dict[str, Any],
-    ) -> tuple[Optional[Tool], bool]:
+    ) -> tuple[Optional[Tool], bool, Optional[dict]]:
         """Look up the tool and run workflow validation.
 
-        Returns ``(tool, ok)``.  When ``ok`` is False the caller must abort
-        the whole turn (workflow validation hard-fails).  When ``tool`` is
-        None the tool was not found and the caller should record an
-        unknown-tool error.
+        Returns ``(tool, ok, blocked_result)``.  A blocked call is not run: it comes back as
+        ``blocked_result``, a failed tool result the model sees on its next step.  ``ok`` is
+        False only once too many calls in a row were blocked, and the caller must then end
+        the test.  ``tool`` is None with no ``blocked_result`` for an unknown tool.
         """
         for tool in tools:
             if tool.name != action_name:
@@ -325,12 +325,20 @@ class TurnExecutor:
             is_valid, validation_reason = self.workflow_manager.validate_tool_usage(
                 tool, **action_params
             )
-            if not is_valid:
+            if is_valid:
+                return tool, True, None
+            if self.workflow_manager.record_blocked_call():
                 logger.error(f"Workflow validation failed: {validation_reason}")
                 state.add_finding(f"Workflow validation blocked execution: {validation_reason}")
-                return None, False
-            return tool, True
-        return None, True
+                return None, False, None
+            logger.warning(f"Workflow validation blocked {action_name}: {validation_reason}")
+            blocked_result = {
+                "success": False,
+                "output": {},
+                "error": f"Not run. {validation_reason}",
+            }
+            return None, True, blocked_result
+        return None, True, None
 
     @staticmethod
     def _unknown_tool_result(state: TestState, action_name: str, tools: List[Tool]) -> dict:
@@ -376,8 +384,11 @@ class TurnExecutor:
         tool_call_id: str,
         tool_result_dict: dict,
         tool_result: Any,
+        track_workflow: bool = True,
     ) -> Any:
         """Commit the tool message + execution to state and update workflow.
+
+        ``track_workflow`` is False for a blocked call: the model sees it, but it never ran.
 
         Returns the completed Turn when this execution closed a turn, else None.
         """
@@ -393,11 +404,12 @@ class TurnExecutor:
             tool_message=tool_message,
         )
 
-        if state.current_turn_executions:
-            latest_execution = state.current_turn_executions[-1]
-            self.workflow_manager.record_tool_execution(latest_execution)
-        elif turn_result is not None:
-            self.workflow_manager.record_tool_execution(turn_result.target_interaction)
+        if track_workflow:
+            if state.current_turn_executions:
+                latest_execution = state.current_turn_executions[-1]
+                self.workflow_manager.record_tool_execution(latest_execution)
+            elif turn_result is not None:
+                self.workflow_manager.record_tool_execution(turn_result.target_interaction)
 
         if (
             turn_result is not None
@@ -480,9 +492,25 @@ class TurnExecutor:
                 state, action_name, action_params, reasoning, i
             )
 
-            tool, ok = self._find_tool_and_validate(state, tools, action_name, action_params)
+            tool, ok, blocked_result = self._find_tool_and_validate(
+                state, tools, action_name, action_params
+            )
             if not ok:
                 return False
+
+            if blocked_result is not None:
+                self._record_execution(
+                    state,
+                    reasoning,
+                    i,
+                    action_name,
+                    assistant_message,
+                    tool_call_id,
+                    blocked_result,
+                    None,
+                    track_workflow=False,
+                )
+                continue
 
             if tool is None:
                 tool_result = None
@@ -571,9 +599,25 @@ class TurnExecutor:
                 state, action_name, action_params, reasoning, i
             )
 
-            tool, ok = self._find_tool_and_validate(state, tools, action_name, action_params)
+            tool, ok, blocked_result = self._find_tool_and_validate(
+                state, tools, action_name, action_params
+            )
             if not ok:
                 return False
+
+            if blocked_result is not None:
+                self._record_execution(
+                    state,
+                    reasoning,
+                    i,
+                    action_name,
+                    assistant_message,
+                    tool_call_id,
+                    blocked_result,
+                    None,
+                    track_workflow=False,
+                )
+                continue
 
             if tool is None:
                 tool_result = None
