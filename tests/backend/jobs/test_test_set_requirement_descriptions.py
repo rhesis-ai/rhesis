@@ -1,7 +1,7 @@
-"""The generation job hands each requirement's stored description to the synthesizer.
+"""The generation job passes the requirement descriptions it was given to the synthesizer.
 
-Without it the generator sees requirement names only and writes generic tests. The
-job passes the backend's own ``GenerationConfig`` to the SDK synthesizers, so these
+The router reads them under the test set's project and puts them in the job's config.
+The job hands the backend's own ``GenerationConfig`` to the SDK synthesizers, so these
 tests also render the real SDK prompt from what the job passed, for both test types.
 """
 
@@ -40,10 +40,6 @@ def _config_passed_to_synthesizer(test_type: str):
         patch.object(generate_and_save_test_set, "emit"),
         patch.object(generate_and_save_test_set, "set_progress"),
         patch("rhesis.backend.jobs.test_set._resolve_generation_model", return_value="m"),
-        patch(
-            "rhesis.backend.app.services.generation.requirement_descriptions",
-            return_value={NAME: CRITERIA},
-        ) as lookup,
         patch(f"rhesis.sdk.synthesizers.{target}", return_value=synthesizer) as synth_cls,
         patch(
             "rhesis.backend.jobs.test_set._save_test_set_to_database",
@@ -52,12 +48,15 @@ def _config_passed_to_synthesizer(test_type: str):
         patch("rhesis.backend.jobs.test_set.dispatch_accrual"),
     ):
         generate_and_save_test_set(
-            config={"generation_prompt": "Test a visit-prep agent", "requirements": [NAME]},
+            config={
+                "generation_prompt": "Test a visit-prep agent",
+                "requirements": [NAME],
+                "requirement_descriptions": {NAME: CRITERIA},
+            },
             num_tests=1,
             test_type=test_type,
         )
 
-    assert lookup.call_args.args[1] == [NAME]
     return synth_cls.call_args.kwargs["config"]
 
 
@@ -78,7 +77,7 @@ def _prompt(synthesizer_cls, config) -> str:
     "test_type, synthesizer_cls",
     [("Single-Turn", ConfigSynthesizer), ("Multi-Turn", MultiTurnSynthesizer)],
 )
-def test_stored_descriptions_reach_the_generation_prompt(test_type, synthesizer_cls):
+def test_descriptions_reach_the_generation_prompt(test_type, synthesizer_cls):
     config = _config_passed_to_synthesizer(test_type)
 
     assert config.requirement_descriptions == {NAME: CRITERIA}

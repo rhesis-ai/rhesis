@@ -48,8 +48,8 @@ class GenerationConfig(BaseModel):
         default=None, validation_alias=AliasChoices("topics", "topic")
     )
     additional_context: Optional[str] = None  # Additional context (JSON string)
-    # Filled by the generation job from the stored requirements, not by clients, so it is
-    # kept out of the OpenAPI schema (and with it the MCP tool the Architect reads).
+    # Filled from the stored requirements before generation, replacing anything a client
+    # sent, so it is kept out of the OpenAPI schema (and the MCP tool the Architect reads).
     requirement_descriptions: SkipJsonSchema[Optional[Dict[str, str]]] = None
 
 
@@ -108,8 +108,6 @@ class GenerateTestsRequest(BaseModel):
     batch_size: int = 20
     sources: Optional[List[SourceData]] = None
     name: Optional[str] = None  # Used only for bulk generation to name the test set
-    # Bulk generation only. Without one, the description written during generation is kept.
-    description: Optional[str] = None
     # Typed as the enum so the allowed values appear in the OpenAPI schema. The
     # before-validator below still accepts snake_case and loose casing.
     test_type: Optional[TestSetType] = TestSetType.SINGLE_TURN
@@ -142,6 +140,8 @@ class TestSetGenerationRequest(GenerateTestsRequest):
     # as a 422 here rather than a 400 further in. The router then uses the
     # value as-is.
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+    # Without one, the set keeps the description written during generation.
+    description: Optional[str] = None
 
 
 class TestPrompt(BaseModel):

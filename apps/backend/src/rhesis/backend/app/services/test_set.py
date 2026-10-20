@@ -72,6 +72,17 @@ def get_test_set(db: Session, test_set_id: uuid.UUID, organization_id: str | Non
     return _check_and_raise_if_deleted(item, TestSet, test_set_id, False)
 
 
+def keep_generated_descriptions(test_set: models.TestSet, generated: Any) -> None:
+    """Give *test_set* the descriptions written during generation, unless it already has its own.
+
+    *generated* is the SDK test set the synthesizer returned.
+    """
+    if not test_set.description and generated.description:
+        test_set.description = generated.description
+    if not test_set.short_description and generated.short_description:
+        test_set.short_description = generated.short_description
+
+
 def create_pending_test_set(
     db: Session,
     name: str,
