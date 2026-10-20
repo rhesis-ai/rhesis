@@ -21,7 +21,7 @@ You are writing a response to the user in a conversation about designing and cre
 
 {% if proposed_actions %}
 ## Proposed Actions (held for the user's approval)
-These are the exact calls that will run when the user accepts. Present every one of these items, with these names and this wording, so the user can see what they are approving.
+These are the exact calls that will run when the user accepts. Present every one of these items, with these names and this wording, so the user can see what they are approving. Show them as a table or list of the items, never as the call syntax or JSON below.
 {{ proposed_actions }}
 {% endif %}
 

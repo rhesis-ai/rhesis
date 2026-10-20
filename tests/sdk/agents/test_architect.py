@@ -3748,6 +3748,18 @@ class TestDocumentRequirements:
         assert PRD_TEXT in writer
         assert "Requirements from an attached document" in writer
 
+    def test_large_blocked_calls_are_capped(self, mock_model):
+        agent = _make_agent(mock_model)
+        cap = agent._cfg.proposed_action_max_chars
+        agent._blocked_calls = [
+            ToolCall(tool_name="create_test_set_bulk", arguments={"tests": ["x" * cap]})
+        ]
+
+        rendered = agent._format_blocked_calls()
+
+        assert rendered.endswith("[... truncated ...]")
+        assert len(rendered) < cap + 100
+
     @pytest.mark.asyncio
     async def test_blocked_calls_do_not_leak_into_the_next_turn(self, mock_model):
         agent = _make_agent(mock_model)

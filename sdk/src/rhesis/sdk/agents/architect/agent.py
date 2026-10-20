@@ -1893,10 +1893,15 @@ class ArchitectAgent(BaseAgent):
 
     def _format_blocked_calls(self) -> str:
         """Render the held-back calls, arguments verbatim, for the reply writer."""
-        return "\n".join(
-            f"- {tc.tool_name}: {json.dumps(tc.arguments, ensure_ascii=False)}"
-            for tc in self._blocked_calls
-        )
+        cap = self._cfg.proposed_action_max_chars
+        lines = []
+        for tc in self._blocked_calls:
+            args = json.dumps(tc.arguments, ensure_ascii=False)
+            if len(args) > cap:
+                # A bulk test-set call can carry every test prompt; names come first anyway.
+                args = args[:cap] + " [... truncated ...]"
+            lines.append(f"- {tc.tool_name}: {args}")
+        return "\n".join(lines)
 
     def _render_tool_result(self, tr: ToolResult, *, prefix: str, preview: int) -> Optional[str]:
         """Render a single ToolResult as a compact string for history/streaming prompts.
