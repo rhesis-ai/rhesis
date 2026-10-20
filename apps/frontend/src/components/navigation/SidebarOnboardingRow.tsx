@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Badge from '@mui/material/Badge';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -69,9 +69,14 @@ export function SidebarOnboardingRow({
   } = useOnboarding();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // Progress comes from localStorage, which the server can't read. Rendering
+  // before mount makes the server HTML disagree with the client, and React
+  // then rebuilds the whole protected layout.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Gone once dismissed or done, and while a full-screen step blocks the app
-  if (checklistHidden || progress.dismissed || isComplete) {
+  if (!mounted || checklistHidden || progress.dismissed || isComplete) {
     return null;
   }
 
