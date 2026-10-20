@@ -7,7 +7,7 @@ import pytest
 
 from rhesis.sdk.agents.architect.agent import ArchitectAgent
 from rhesis.sdk.agents.base import BaseAgent, BaseTool
-from rhesis.sdk.agents.schemas import ExecutionStep, ToolResult
+from rhesis.sdk.agents.schemas import ExecutionStep, ToolCall, ToolResult
 from rhesis.sdk.models.base import BaseLLM
 
 # ── helpers ────────────────────────────────────────────────────────
@@ -3672,6 +3672,97 @@ class TestArchitectFormatAttachments:
         agent = _make_agent(mock_model)
         agent._attachments = None
         assert agent._format_attachments() == ""
+
+
+PRD_TEXT = "R1 Never diagnoses or implies a likely condition. No reply names a condition."
+PRD_ATTACHMENTS = {
+    "files": [
+        {"filename": "prd.pdf", "content_type": "application/pdf", "extracted_text": PRD_TEXT}
+    ]
+}
+
+
+class TestDocumentRequirements:
+    """Requirements from an attached document must reach the reply as written.
+
+    The reply is written by a second call that used to get only a summary of the
+    reasoning: no document and no blocked calls. It then made the requirements up.
+    """
+
+    @pytest.fixture
+    def mock_model(self):
+        model = Mock(spec=BaseLLM)
+        model.a_generate = AsyncMock(return_value={})
+        return model
+
+    def test_rule_is_in_the_iteration_prompt_when_a_file_is_attached(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._attachments = PRD_ATTACHMENTS
+
+        prompt = agent._build_prompt("turn my PRD into requirements", [])
+
+        assert "Requirements from an attached document" in prompt
+        assert PRD_TEXT in prompt
+
+    def test_rule_is_absent_without_attachments(self, mock_model):
+        agent = _make_agent(mock_model)
+
+        prompt = agent._build_prompt("list my metrics", [])
+
+        assert "Requirements from an attached document" not in prompt
+
+    @pytest.mark.asyncio
+    async def test_writer_sees_the_document_and_the_blocked_calls(self, mock_model):
+        agent = _make_agent(mock_model, tools=[DummyTool()])
+        agent._mutating_tools = frozenset({"create_requirement"})
+        name = "R1: Never diagnoses or implies a likely condition"
+        mock_model.a_generate = AsyncMock(
+            return_value={
+                "reasoning": "Create the requirements from the PRD",
+                "action": "call_tool",
+                "tool_calls": [
+                    {"tool_name": "create_requirement", "arguments": json.dumps({"name": name})}
+                ],
+                "final_answer": "I will create R1.",
+            },
+        )
+
+        async def fake_stream(**kw):
+            yield "ok"
+
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+        prompts = []
+        build = agent._build_streaming_prompt
+
+        def capture(*args, **kwargs):
+            prompts.append(build(*args, **kwargs))
+            return prompts[-1]
+
+        agent._build_streaming_prompt = capture
+
+        await agent.chat_async("turn my PRD into requirements", attachments=PRD_ATTACHMENTS)
+
+        assert agent._needs_confirmation is True
+        writer = prompts[-1]
+        assert f"create_requirement: {json.dumps({'name': name})}" in writer
+        assert PRD_TEXT in writer
+        assert "Requirements from an attached document" in writer
+
+    @pytest.mark.asyncio
+    async def test_blocked_calls_do_not_leak_into_the_next_turn(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._blocked_calls = [ToolCall(tool_name="create_requirement", arguments="{}")]
+        mock_model.a_generate = AsyncMock(return_value=_finish_dict("Hello"))
+
+        async def fake_stream(**kw):
+            yield "Hello"
+
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+
+        await agent.chat_async("hi")
+
+        assert agent._blocked_calls == []
+        assert agent._format_blocked_calls() == ""
 
 
 @pytest.mark.unit

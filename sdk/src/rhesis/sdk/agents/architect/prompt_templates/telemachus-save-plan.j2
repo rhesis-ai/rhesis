@@ -11,8 +11,8 @@ Top-level structure (all three array fields are required, even if empty):
 - `requirement_metric_mappings`: array (**required** when requirements and metrics are present — always populate this, even when all entities are reused)
 
 `requirements[]` items:
-- `name`: string (required) — Title Case, e.g. "Refuses Harmful Requests"
-- `description`: string (optional, defaults to "") — what this requirement expects
+- `name`: string (required) — Title Case, e.g. "Refuses Harmful Requests". A requirement taken from a document keeps its ID and wording instead: "R1: Never diagnoses or implies a likely condition"
+- `description`: string (optional, defaults to "") — what this requirement expects; for one taken from a document, its acceptance criteria as written
 - `reuse_status`: string (optional, defaults to `"new"`) — must be exactly one of `"reuse"`, `"improve"`, `"new"`. Lower-case only. No other values.
 - `existing_id`: string (optional, defaults to `null`) — required when `reuse_status` is `"reuse"`
 
