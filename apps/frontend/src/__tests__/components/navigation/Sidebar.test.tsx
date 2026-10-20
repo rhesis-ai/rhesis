@@ -49,11 +49,33 @@ jest.mock('@/actions/auth', () => ({
   handleSignOut: jest.fn(),
 }));
 
+const mockToggleColorMode = jest.fn();
 jest.mock('@/components/providers/ThemeProvider', () => ({
   ColorModeContext: React.createContext({
-    toggleColorMode: jest.fn(),
+    toggleColorMode: () => mockToggleColorMode(),
     mode: 'light',
   }),
+}));
+
+const mockActiveProject: {
+  current: { id: string; name: string } | null;
+} = { current: null };
+jest.mock('@/contexts/ActiveProjectContext', () => ({
+  useActiveProject: () => ({
+    projects: mockActiveProject.current ? [mockActiveProject.current] : [],
+    activeProject: mockActiveProject.current,
+    loading: false,
+    setActiveProject: jest.fn(),
+  }),
+}));
+
+const mockCanCreate = { current: true };
+jest.mock('@/components/common/Can', () => ({
+  useCan: () => mockCanCreate.current,
+  useCanWithStatus: () => ({ allowed: mockCanCreate.current, loading: false }),
+  Can: ({ children }: { children: React.ReactNode }) =>
+    mockCanCreate.current ? <>{children}</> : null,
+  can: () => mockCanCreate.current,
 }));
 
 const mockUsageResources: {
@@ -135,6 +157,8 @@ describe('Sidebar', () => {
     mockRouterPush.mockClear();
     mockUnreadBySection.current = {};
     mockUsageResources.current = {};
+    mockActiveProject.current = null;
+    mockCanCreate.current = true;
     mockUsagePlan.current = {
       name: 'Community',
       is_paid: false,
@@ -300,9 +324,10 @@ describe('Sidebar', () => {
       expect(screen.getByText('Org Settings')).toBeInTheDocument();
       expect(screen.queryByText('Team')).not.toBeInTheDocument();
       expect(screen.getByText('Projects')).toBeInTheDocument();
+      // Switching lives in the project box now, not the org menu.
       expect(
-        screen.getByRole('menuitem', { name: /switch project/i })
-      ).toBeInTheDocument();
+        screen.queryByRole('menuitem', { name: /switch project/i })
+      ).not.toBeInTheDocument();
     });
 
     it('fills a usage row bar to how much of the limit is used', () => {
@@ -351,6 +376,86 @@ describe('Sidebar', () => {
       fireEvent.click(screen.getByText('Acme Corp'));
       fireEvent.click(screen.getByText('Projects'));
       expect(mockRouterPush).toHaveBeenCalledWith('/projects');
+    });
+  });
+
+  describe('project box', () => {
+    it('shows the active project, not in the org header', () => {
+      mockActiveProject.current = { id: 'p1', name: 'Insurance Chatbot' };
+      setupMocks();
+      render(<Sidebar />);
+      const box = screen.getByRole('button', {
+        name: 'Switch project, current: Insurance Chatbot',
+      });
+      expect(box).toHaveTextContent('Insurance Chatbot');
+      expect(screen.getAllByText('Insurance Chatbot')).toHaveLength(1);
+    });
+
+    it('opens project settings for the active project', () => {
+      mockActiveProject.current = { id: 'p1', name: 'Insurance Chatbot' };
+      setupMocks();
+      render(<Sidebar />);
+      fireEvent.click(
+        screen.getByRole('button', { name: /switch project, current/i })
+      );
+      fireEvent.click(screen.getByText('Project Settings'));
+      expect(mockRouterPush).toHaveBeenCalledWith('/projects/p1');
+    });
+
+    it('links to the org-level overview and the create page', () => {
+      mockActiveProject.current = { id: 'p1', name: 'Insurance Chatbot' };
+      setupMocks();
+      render(<Sidebar />);
+      fireEvent.click(
+        screen.getByRole('button', { name: /switch project, current/i })
+      );
+      fireEvent.click(screen.getByText('All Projects'));
+      expect(mockRouterPush).toHaveBeenCalledWith('/projects');
+
+      fireEvent.click(
+        screen.getByRole('button', { name: /switch project, current/i })
+      );
+      fireEvent.click(screen.getByText('New Project'));
+      expect(mockRouterPush).toHaveBeenCalledWith('/projects/create-new');
+    });
+
+    it('hides New project without the create capability', () => {
+      mockActiveProject.current = { id: 'p1', name: 'Insurance Chatbot' };
+      mockCanCreate.current = false;
+      setupMocks();
+      render(<Sidebar />);
+      fireEvent.click(
+        screen.getByRole('button', { name: /switch project, current/i })
+      );
+      expect(screen.getByText('All Projects')).toBeInTheDocument();
+      expect(screen.queryByText('New Project')).not.toBeInTheDocument();
+    });
+
+    it('asks to select a project when none is active', () => {
+      setupMocks();
+      render(<Sidebar />);
+      fireEvent.click(screen.getByRole('button', { name: 'Select a project' }));
+      expect(screen.queryByText('Project Settings')).not.toBeInTheDocument();
+      expect(screen.getByText('No projects found.')).toBeInTheDocument();
+    });
+  });
+
+  describe('dark mode', () => {
+    it('toggles from the footer card', () => {
+      setupMocks();
+      render(<Sidebar />);
+      fireEvent.click(screen.getByRole('button', { name: 'Dark Mode' }));
+      expect(mockToggleColorMode).toHaveBeenCalledTimes(1);
+    });
+
+    it('is no longer in the user menu', () => {
+      setupMocks();
+      render(<Sidebar />);
+      fireEvent.click(screen.getByRole('button', { name: 'Open user menu' }));
+      expect(screen.getByText('User Settings')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('menuitem', { name: /dark mode/i })
+      ).not.toBeInTheDocument();
     });
   });
 
