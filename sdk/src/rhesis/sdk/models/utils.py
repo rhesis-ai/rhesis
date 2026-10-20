@@ -48,9 +48,9 @@ def _is_retryable_exception(exc: BaseException) -> bool:
         return True
     if isinstance(exc, requests.exceptions.HTTPError) and exc.response is not None:
         return exc.response.status_code in RETRYABLE_STATUS_CODES
-    # litellm / openai errors (e.g. RateLimitError -> 429) are not `requests`
-    # exceptions but carry the HTTP status on `status_code`.
-    return getattr(exc, "status_code", None) in RETRYABLE_STATUS_CODES
+    # litellm / openai errors carry `.status_code`; aiohttp uses `.status`.
+    status = getattr(exc, "status_code", None) or getattr(exc, "status", None)
+    return status in RETRYABLE_STATUS_CODES
 
 
 llm_retry = retry(

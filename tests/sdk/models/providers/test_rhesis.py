@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import aiohttp
 import pytest
+import tenacity
 from pydantic import BaseModel
 
 from rhesis.sdk.models.providers.native import (
@@ -84,7 +85,9 @@ class TestRhesisLLM:
     @pytest.fixture
     def service(self, mock_env_vars, mock_client):
         """Create a service instance with mocked dependencies."""
-        return RhesisLLM()
+        svc = RhesisLLM()
+        svc.a_generate.retry.wait = tenacity.wait_none()
+        return svc
 
     def test_init_with_env_vars(self, mock_env_vars, mock_client):
         """Test initialization with environment variables."""
@@ -142,7 +145,7 @@ class TestRhesisLLM:
 
     @patch("aiohttp.ClientSession")
     def test_create_completion_http_error(self, mock_session_class, service):
-        """Test completion creation with HTTP error."""
+        """Non-retryable HTTP errors propagate to the caller."""
         session_ctx, _, _ = _mock_aiohttp_session(
             status=404,
             raise_for_status=aiohttp.ClientResponseError(
@@ -155,8 +158,8 @@ class TestRhesisLLM:
         mock_session_class.return_value = session_ctx
 
         service.load_model()
-        result = service.generate(prompt="Test prompt")
-        assert result == "An error occurred while processing the request."
+        with pytest.raises(aiohttp.ClientResponseError, match="Not Found"):
+            service.generate(prompt="Test prompt")
 
     @patch("aiohttp.ClientSession")
     def test_generate_with_schema_success(self, mock_session_class, service):
@@ -186,7 +189,7 @@ class TestRhesisLLM:
 
     @patch("aiohttp.ClientSession")
     def test_generate_with_schema_error(self, mock_session_class, service):
-        """Test generate method with schema on error."""
+        """Retryable 5xx errors are retried then raised to the caller."""
         session_ctx, _, _ = _mock_aiohttp_session(
             status=500,
             raise_for_status=aiohttp.ClientResponseError(
@@ -199,8 +202,8 @@ class TestRhesisLLM:
         mock_session_class.return_value = session_ctx
 
         service.load_model()
-        result = service.generate(prompt="Test prompt", schema=Continent)
-        assert result == {"error": "An error occurred while processing the request."}
+        with pytest.raises(aiohttp.ClientResponseError, match="Internal Server Error"):
+            service.generate(prompt="Test prompt", schema=Continent)
 
     def test_default_parameters(self, service, mock_client):
         """Test default parameter values."""
@@ -268,7 +271,7 @@ class TestRhesisLLM:
 
     @patch("aiohttp.ClientSession")
     def test_generate_without_schema_error(self, mock_session_class, service):
-        """Test generate method without schema on error."""
+        """Retryable 5xx errors are retried then raised (no schema case)."""
         session_ctx, _, _ = _mock_aiohttp_session(
             status=500,
             raise_for_status=aiohttp.ClientResponseError(
@@ -281,8 +284,53 @@ class TestRhesisLLM:
         mock_session_class.return_value = session_ctx
 
         service.load_model()
-        result = service.generate(prompt="Tell me a joke.")
-        assert result == "An error occurred while processing the request."
+        with pytest.raises(aiohttp.ClientResponseError, match="Internal Server Error"):
+            service.generate(prompt="Tell me a joke.")
+
+    @patch("aiohttp.ClientSession")
+    def test_generate_retries_on_504_then_succeeds(self, mock_session_class, service):
+        """A 504 Gateway Timeout triggers retry; success on the next attempt is returned."""
+        call_count = 0
+
+        def mock_post(url, **kwargs):
+            nonlocal call_count
+            call_count += 1
+
+            resp = MagicMock()
+            resp.headers = {}
+
+            if call_count == 1:
+                resp.status = 504
+                resp.text = AsyncMock(return_value="504 Gateway Time-out")
+                resp.raise_for_status.side_effect = aiohttp.ClientResponseError(
+                    request_info=MagicMock(),
+                    history=(),
+                    status=504,
+                    message="Gateway Time-out",
+                )
+            else:
+                resp.status = 200
+                resp.json = AsyncMock(return_value={"content": "success"})
+                resp.raise_for_status = MagicMock()
+
+            ctx = MagicMock()
+            ctx.__aenter__ = AsyncMock(return_value=resp)
+            ctx.__aexit__ = AsyncMock(return_value=False)
+            return ctx
+
+        mock_session = MagicMock()
+        mock_session.post = mock_post
+
+        session_ctx = MagicMock()
+        session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+        session_ctx.__aexit__ = AsyncMock(return_value=False)
+        mock_session_class.return_value = session_ctx
+
+        service.load_model()
+        result = service.generate(prompt="Test prompt")
+
+        assert result == {"content": "success"}
+        assert call_count == 2
 
     @patch("aiohttp.ClientSession")
     def test_generate_batch_concurrent(self, mock_session_class, service):

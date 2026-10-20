@@ -96,40 +96,25 @@ class RhesisLLM(BaseLLM):
         Called directly via ``await model.a_generate(...)`` or indirectly
         through ``model.generate(...)`` which bridges via ``run_sync()``.
         """
-        try:
-            if schema and not isinstance(schema, dict):
-                schema = {
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": schema.__name__,
-                        "schema": schema.model_json_schema(),
-                        "strict": True,
-                    },
-                }
+        if schema and not isinstance(schema, dict):
+            schema = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": schema.__name__,
+                    "schema": schema.model_json_schema(),
+                    "strict": True,
+                },
+            }
 
-            combined_prompt = prompt
-            if system_prompt:
-                combined_prompt = f"{system_prompt}\n\n{prompt}"
+        combined_prompt = prompt
+        if system_prompt:
+            combined_prompt = f"{system_prompt}\n\n{prompt}"
 
-            # Usage is emitted inside create_completion() from USAGE_HEADER,
-            # not read off `result`: this endpoint returns bare content, so a
-            # dict result is the caller's own schema-validated payload. A
-            # `usage` key in there belongs to their schema and must not be
-            # mistaken for token counts.
-            return await self.create_completion(
-                prompt=combined_prompt,
-                schema=schema,
-                **kwargs,
-            )
-
-        except (aiohttp.ClientResponseError, KeyError, IndexError) as e:
-            logger.error(
-                f"Error occurred while running the prompt: {e}",
-                exc_info=True,
-            )
-            if schema:
-                return {"error": "An error occurred while processing the request."}
-            return "An error occurred while processing the request."
+        return await self.create_completion(
+            prompt=combined_prompt,
+            schema=schema,
+            **kwargs,
+        )
 
     def generate_batch(
         self,
