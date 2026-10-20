@@ -322,6 +322,12 @@ class TestArchitectHandlerSuccess:
         sent = mock_task.apply_async.call_args[1]["kwargs"]["attachments"]
         assert sent["files"][0]["data"] == "QUJD"
 
+    @pytest.mark.parametrize("attachments", [None, "doc.pdf", {"files": "doc.pdf"}, {"files": []}])
+    def test_payloads_not_shaped_like_an_upload_pass_unchanged(self, attachments):
+        from rhesis.backend.app.services.architect.attachments import without_file_data
+
+        assert without_file_data(attachments) == attachments
+
     @pytest.mark.asyncio
     async def test_attachments_forwarded(self, mock_manager, mock_user):
         session_id = str(uuid4())
