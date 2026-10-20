@@ -81,19 +81,19 @@ coordinator = Agent(
 
 
 @coordinator.tool
-def research_topic(ctx: RunContext[None], question: str) -> str:
+async def research_topic(ctx: RunContext[None], question: str) -> str:
     """Delegate a factual question to the research specialist."""
     # Calling another agent inside a tool is Pydantic AI's delegation
     # pattern. Rhesis synthesizes an ai.agent.handoff span for this
     # transition (coordinator -> research_specialist) automatically.
-    result = research_agent.run_sync(question)
+    result = await research_agent.run(question)
     return str(result.output)
 
 
 @coordinator.tool
-def polish_text(ctx: RunContext[None], text: str) -> str:
+async def polish_text(ctx: RunContext[None], text: str) -> str:
     """Delegate rough text to the writing specialist for a rewrite."""
-    result = writing_agent.run_sync(text)
+    result = await writing_agent.run(text)
     return str(result.output)
 
 

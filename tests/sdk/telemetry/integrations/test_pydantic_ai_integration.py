@@ -325,9 +325,9 @@ class TestHandoffSynthesis:
         parent = Agent(TestModel(), name="parent_agent")
 
         @parent.tool_plain
-        def delegate(question: str) -> str:
+        async def delegate(question: str) -> str:
             """Delegate to the child agent."""
-            return str(child.run_sync(question).output)
+            return str((await child.run(question)).output)
 
         parent.run_sync("delegate this")
 
