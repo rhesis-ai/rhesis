@@ -22,7 +22,10 @@ from rhesis.backend.app.outcomes import (
     outcome_to_test_result_status_name,
 )
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
-from rhesis.backend.app.utils.response_extractor import has_endpoint_failure_in_result
+from rhesis.backend.app.utils.response_extractor import (
+    has_endpoint_failure_in_result,
+    is_unfinished_conversation,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -269,9 +272,10 @@ def create_test_result_record(
     Returns:
         UUID of the created test result, or None if creation failed
     """
-    # A failed invocation must never become Pass/Fail from metric scores.
+    # A failed invocation, or a conversation Penelope stopped early, must never become
+    # Pass/Fail from metric scores.
     endpoint_error = has_endpoint_failure_in_result(processed_result)
-    if endpoint_error:
+    if endpoint_error or is_unfinished_conversation(processed_result):
         metrics_results = {}
     no_metrics_applied = not endpoint_error and _no_metrics_applied(
         db, test_run_id, test_id, metrics_results, processed_result

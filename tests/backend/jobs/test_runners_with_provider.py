@@ -514,3 +514,42 @@ class TestMultiTurnRunnerContractUsability:
             )
 
         assert metrics == {}
+
+
+class TestMultiTurnRunnerConversationStoppedEarly:
+    """#3014: Penelope ended the run with status "error"; its partial transcript isn't scored."""
+
+    @pytest.mark.asyncio
+    async def test_skips_metrics_for_a_conversation_penelope_stopped_early(self):
+        mock_provider = MagicMock()
+        mock_provider.get_output = AsyncMock(
+            return_value=TestOutput(
+                response={
+                    "status": "error",
+                    CONVERSATION_SUMMARY_KEY: [{"turn": 1, "success": True}],
+                },
+                execution_time=1000,
+                metrics={"goal_achievement": {"is_successful": True, "score": 1.0}},
+                source="live",
+            )
+        )
+
+        mock_test = MagicMock()
+        mock_test.id = "test-1"
+        mock_test.test_configuration = {"goal": "Test"}
+
+        with patch(
+            "rhesis.backend.jobs.execution.executors.runners.evaluate_multi_turn_metrics",
+            return_value={},
+        ) as mock_evaluate:
+            runner = MultiTurnRunner()
+            _, _, metrics = await runner.run(
+                db=MagicMock(),
+                test=mock_test,
+                endpoint_id="ep-1",
+                organization_id="org-1",
+                output_provider=mock_provider,
+            )
+
+        assert metrics == {}
+        mock_evaluate.assert_not_called()

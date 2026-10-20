@@ -159,6 +159,33 @@ class TestCreateTestResultRecordOutcome:
         )
         assert (row.execution, row.verdict) == ("error", None)
 
+    def test_conversation_penelope_stopped_early_is_error_despite_passing_metrics(
+        self, outcome_writer_setup
+    ):
+        # #3014: the goal metric scored the partial transcript as a pass.
+        row = self._create(
+            outcome_writer_setup,
+            {"Goal Achievement": {"is_successful": True}},
+            processed_result={
+                "status": "error",
+                "conversation_summary": [{"turn": 1, "success": True}],
+                "findings": ["Workflow validation blocked execution: ..."],
+            },
+        )
+        assert (row.execution, row.verdict) == ("error", None)
+        assert row.test_metrics["metrics"] == {}
+
+    def test_single_turn_output_with_its_own_status_field_is_still_scored(
+        self, outcome_writer_setup
+    ):
+        # The endpoint's own JSON may say "status": "error"; that isn't a Penelope trace.
+        row = self._create(
+            outcome_writer_setup,
+            {"Accuracy": {"is_successful": True}},
+            processed_result={"output": "hi", "status": "error"},
+        )
+        assert (row.execution, row.verdict) == ("ok", "pass")
+
     def test_http_error_beats_present_metrics(self, outcome_writer_setup):
         """The HTTP-error branch is the whole reason this writer's copy of
         the rule was more careful than the other six -- a stale metrics
@@ -512,3 +539,53 @@ class TestNoMetricsAppliedResultCanBeReviewed:
             replacement=None,
         )
         assert (row.execution, row.verdict) == ("ok", "inconclusive")
+
+
+@pytest.mark.unit
+class TestConversationStoppedEarlyStaysErrorUnderAnnotation:
+    """#3014: a turn annotation recomputed the status from the turns alone, which turned a
+    conversation Penelope stopped early into a Pass. Only a whole-result annotation sets it.
+    """
+
+    @staticmethod
+    def _row(setup):
+        db = setup["db"]
+        row = models.TestResult(
+            test_configuration_id=setup["test_config_id"],
+            test_run_id=setup["test_run_id"],
+            test_id=setup["test"].id,
+            organization_id=setup["org_id"],
+            user_id=setup["user_id"],
+            execution="error",
+            verdict=None,
+            test_metrics={"metrics": {}},
+            test_output={
+                "status": "error",
+                "conversation_summary": [{"turn": 1, "success": True}],
+                "goal_evaluation": {"all_criteria_met": True},
+            },
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        return row
+
+    def test_turn_annotation_keeps_error(self, outcome_writer_setup):
+        from rhesis.backend.app.services.annotation_override.test_result import apply_override
+
+        row = self._row(outcome_writer_setup)
+        annotation = _mock_annotation(
+            target_type="turn", target_reference="Turn 1", user_id=row.user_id
+        )
+        apply_override(row, annotation, {"name": "Pass"})
+
+        assert (row.execution, row.verdict) == ("error", None)
+
+    def test_whole_result_annotation_sets_the_verdict(self, outcome_writer_setup):
+        from rhesis.backend.app.services.annotation_override.test_result import apply_override
+
+        row = self._row(outcome_writer_setup)
+        annotation = _mock_annotation(target_type="test_result", user_id=row.user_id)
+        apply_override(row, annotation, {"name": "Fail"})
+
+        assert (row.execution, row.verdict) == ("ok", "fail")

@@ -27,6 +27,7 @@ from rhesis.backend.app.services.annotation_override.common import (
     normalize_metric_name,
     parse_turn_number,
 )
+from rhesis.backend.app.utils.response_extractor import is_unfinished_conversation
 
 # Kept as module-level names because the override writers and their tests read
 # them from here. The implementations moved to common.py when metric improvement
@@ -325,6 +326,12 @@ def recalculate_overall_status(db_test_result: models.TestResult) -> None:
         else {}
     )
     turns_passed = _turns_all_passed(db_test_result.test_output)
+
+    # A conversation Penelope stopped early stays Error when a turn or metric annotation
+    # changes; an annotation on the whole result is how a reviewer sets its verdict.
+    if not metrics and is_unfinished_conversation(db_test_result.test_output):
+        _apply_outcome(db_test_result, Execution.ERROR, None)
+        return
 
     if not metrics:
         if turns_passed is None:

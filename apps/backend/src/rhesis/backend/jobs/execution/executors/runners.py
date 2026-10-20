@@ -12,6 +12,7 @@ from rhesis.backend.app.utils.response_extractor import (
     get_http_error_status_code,
     has_endpoint_failure_in_result,
     is_endpoint_failure,
+    is_unfinished_conversation,
     normalize_context_to_list,
 )
 from rhesis.backend.jobs.execution.constants import PENELOPE_EVALUATED_METRICS, MetricScope
@@ -428,6 +429,14 @@ class MultiTurnRunner(BaseRunner):
             logger.info(
                 f"[MultiTurnRunner] Endpoint failure on first target message "
                 f"(status_code={status_code}); skipping metrics"
+            )
+            return execution_time, penelope_trace, {}
+
+        if is_unfinished_conversation(penelope_trace):
+            logger.info(
+                "[MultiTurnRunner] Test %s reported as Error: Penelope stopped the conversation "
+                "early; skipping metrics",
+                test.id,
             )
             return execution_time, penelope_trace, {}
 
