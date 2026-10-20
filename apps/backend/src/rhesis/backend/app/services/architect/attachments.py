@@ -13,9 +13,27 @@ and test-execution paths.
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 logger = logging.getLogger(__name__)
+
+
+def session_documents(messages: Iterable[Any]) -> List[Dict[str, str]]:
+    """Files attached to the session's user messages, as ``{filename, text}``, oldest first.
+
+    The messages are the one record of what was uploaded; the agent gets these each
+    turn so a file from an earlier turn can still be read. A file whose text has not
+    been written back yet (this turn's, or one uploaded before this existed) is skipped.
+    """
+    documents = []
+    for message in messages:
+        if message.role != "user":
+            continue
+        for f in (message.attachments or {}).get("files") or []:
+            text = f.get("extracted_text")
+            if text:
+                documents.append({"filename": f.get("filename", "file"), "text": text})
+    return documents
 
 
 def process_attachments(
@@ -28,6 +46,8 @@ def process_attachments(
       ``extract_with_vision_fallback``: text-layer extraction first, then a
       vision-model fallback for image-heavy documents when a model is available.
       The binary ``data`` field is replaced with an ``extracted_text`` string.
+      A file that already carries ``extracted_text`` keeps it. One that yielded no
+      text gets a note saying so, for this turn only; it is never stored.
     """
     if not attachments:
         return None
@@ -48,12 +68,15 @@ def process_attachments(
         for f in files:
             filename = f.get("filename", "file")
             content_type = f.get("content_type", "")
-            try:
-                raw_bytes = base64.b64decode(f.get("data", ""))
-                extracted_text = extract_with_vision_fallback(raw_bytes, filename, content_type)
-            except Exception as exc:
-                logger.warning("Failed to extract text from %s: %s", filename, exc)
-                extracted_text = f"[Could not extract text from {filename}: {exc}]"
+            if "extracted_text" in f:
+                extracted_text = f["extracted_text"] or f"[Could not extract text from {filename}]"
+            else:
+                try:
+                    raw_bytes = base64.b64decode(f.get("data", ""))
+                    extracted_text = extract_with_vision_fallback(raw_bytes, filename, content_type)
+                except Exception as exc:
+                    logger.warning("Failed to extract text from %s: %s", filename, exc)
+                    extracted_text = f"[Could not extract text from {filename}: {exc}]"
             processed_files.append(
                 {
                     "filename": filename,

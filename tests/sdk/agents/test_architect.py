@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from rhesis.sdk.agents.architect.agent import ArchitectAgent
+from rhesis.sdk.agents.architect.config import ArchitectConfig
 from rhesis.sdk.agents.base import BaseAgent, BaseTool
 from rhesis.sdk.agents.schemas import ExecutionStep, ToolCall, ToolResult
 from rhesis.sdk.models.base import BaseLLM
@@ -3630,6 +3631,7 @@ class TestArchitectFormatAttachments:
             ]
         }
 
+        agent._add_files(agent._attachments)
         rendered = agent._format_attachments()
         assert "spec.pdf" in rendered
         assert "payload via the new key" in rendered
@@ -3646,6 +3648,7 @@ class TestArchitectFormatAttachments:
             ]
         }
 
+        agent._add_files(agent._attachments)
         rendered = agent._format_attachments()
         assert "old.pdf" in rendered
         assert "legacy payload" in rendered
@@ -3664,6 +3667,7 @@ class TestArchitectFormatAttachments:
             ]
         }
 
+        agent._add_files(agent._attachments)
         rendered = agent._format_attachments()
         assert "modern" in rendered
         assert "legacy" not in rendered
@@ -3672,6 +3676,136 @@ class TestArchitectFormatAttachments:
         agent = _make_agent(mock_model)
         agent._attachments = None
         assert agent._format_attachments() == ""
+
+
+def _file(name: str, text: str) -> dict:
+    return {"files": [{"filename": name, "content_type": "", "extracted_text": text}]}
+
+
+class TestSessionDocuments:
+    """A file uploaded in one turn is still readable in later ones (issue #3008).
+
+    The backend rebuilds the agent every turn and passes the conversation's earlier
+    files from the stored messages through ``set_documents``.
+    """
+
+    @pytest.fixture
+    def mock_model(self):
+        model = Mock(spec=BaseLLM)
+        model.a_generate = AsyncMock(return_value=_finish_dict("ok"))
+
+        async def fake_stream(**kw):
+            yield "ok"
+
+        model.generate_stream = Mock(side_effect=fake_stream)
+        return model
+
+    def _agent(self, mock_model, **config):
+        agent = ArchitectAgent(model=mock_model, tools=[], config=ArchitectConfig(**config))
+        agent._mutating_tools = frozenset()
+        return agent
+
+    def test_earlier_documents_are_in_a_later_turns_prompt(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent.set_documents([{"filename": "prd.pdf", "text": "R1 never diagnoses"}])
+
+        prompt = agent._build_prompt("Create requirements from the spec I uploaded", [])
+
+        assert "prd.pdf" in prompt
+        assert "R1 never diagnoses" in prompt
+        assert "Requirements from an attached document" in prompt
+
+    @pytest.mark.asyncio
+    async def test_the_same_agent_keeps_a_file_across_turns(self, mock_model):
+        agent = _make_agent(mock_model)
+        await agent.chat_async("Here's our spec.", attachments=_file("prd.pdf", "R1 text"))
+        await agent.chat_async("Now create the requirements.")
+
+        assert "R1 text" in agent._format_attachments()
+
+    def test_the_state_snapshot_does_not_carry_documents(self, mock_model):
+        """The stored messages are the record; a second copy would drift from them."""
+        agent = _make_agent(mock_model)
+        agent._add_files(_file("prd.pdf", "R1 text"))
+
+        assert "R1 text" not in agent.dump_state().model_dump_json()
+
+    def test_reuploading_a_file_replaces_the_older_copy(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent.set_documents([{"filename": "prd.pdf", "text": "version one"}])
+        agent._add_files(_file("prd.pdf", "version two"))
+
+        assert agent._documents == [{"filename": "prd.pdf", "text": "version two"}]
+
+    @pytest.mark.asyncio
+    async def test_large_earlier_documents_are_listed_and_read_on_demand(self, mock_model):
+        agent = self._agent(mock_model, inline_document_chars=10)
+        agent.set_documents([{"filename": "prd.pdf", "text": "x" * 50 + "R3 text"}])
+
+        rendered = agent._format_attachments()
+        assert "R3 text" not in rendered
+        assert "prd.pdf (57 characters)" in rendered
+        assert "read_attached_file" in [t["name"] for t in await agent.get_available_tools()]
+
+        result = await agent.execute_tool(
+            ToolCall(tool_name="read_attached_file", arguments={"filename": "prd.pdf"})
+        )
+        assert result.success and result.content.endswith("R3 text")
+
+    @pytest.mark.asyncio
+    async def test_reading_an_unknown_file_names_the_ones_there_are(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent.set_documents([{"filename": "prd.pdf", "text": "R1"}])
+
+        result = await agent.execute_tool(
+            ToolCall(tool_name="read_attached_file", arguments={"filename": "spec.pdf"})
+        )
+
+        assert not result.success
+        assert "prd.pdf" in result.error
+
+    @pytest.mark.asyncio
+    async def test_the_read_tool_is_only_offered_with_earlier_files(self, mock_model):
+        agent = _make_agent(mock_model)
+        names = [t["name"] for t in await agent.get_available_tools()]
+
+        assert "read_attached_file" not in names
+
+    def test_files_attached_this_turn_are_always_shown_in_full(self, mock_model):
+        agent = self._agent(mock_model, inline_document_chars=10, max_attachment_chars=100)
+        agent.set_documents([{"filename": "old.md", "text": "o" * 50}])
+        agent._add_files(_file("new.md", "n" * 60))
+
+        rendered = agent._format_attachments()
+
+        assert "n" * 60 in rendered
+        assert "o" * 50 not in rendered
+        assert "old.md (50 characters)" in rendered
+
+    def test_a_large_file_is_truncated(self, mock_model):
+        agent = self._agent(mock_model, max_attachment_chars=20)
+        agent._add_files(_file("big.md", "x" * 50))
+
+        rendered = agent._format_attachments()
+
+        assert "x" * 20 + "\n\n[... truncated ...]" in rendered
+        assert "x" * 21 not in rendered
+
+    @pytest.mark.asyncio
+    async def test_mentions_are_not_carried_into_later_turns(self, mock_model):
+        agent = _make_agent(mock_model)
+        mention = {"mentions": [{"type": "metric", "display": "Tone", "id": "m-1"}]}
+        await agent.chat_async("use @Tone", attachments=mention)
+        await agent.chat_async("go on")
+
+        assert "Tone" not in agent._format_attachments()
+
+    def test_reset_forgets_documents(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._add_files(_file("prd.pdf", "text"))
+        agent.reset()
+
+        assert agent._documents == []
 
 
 PRD_TEXT = "R1 Never diagnoses or implies a likely condition. No reply names a condition."
@@ -3697,7 +3831,7 @@ class TestDocumentRequirements:
 
     def test_rule_is_in_the_iteration_prompt_when_a_file_is_attached(self, mock_model):
         agent = _make_agent(mock_model)
-        agent._attachments = PRD_ATTACHMENTS
+        agent._add_files(PRD_ATTACHMENTS)
 
         prompt = agent._build_prompt("turn my PRD into requirements", [])
 

@@ -257,6 +257,11 @@ class ArchitectAgent(BaseAgent):
 
         # Per-turn attachments (mentions + file text)
         self._attachments: Optional[Dict[str, Any]] = None
+        # Every file attached in this conversation, as {filename, text}. Not in
+        # the state snapshot: the backend passes them from the stored messages.
+        self._documents: List[Dict[str, str]] = []
+        # Names of the files attached in the current turn, always shown in full.
+        self._turn_files: Set[str] = set()
 
         # Tool data from earlier turns, already rendered. The backend
         # builds a fresh agent per user message, so _execution_history is
@@ -298,6 +303,7 @@ class ArchitectAgent(BaseAgent):
         """Async version of chat()."""
         async with self._turn_lock:
             self._attachments = attachments
+            self._add_files(attachments)
             self._awaiting_task = False
             self._await_message = ""
             self._pending_tasks.clear()
@@ -471,6 +477,8 @@ class ArchitectAgent(BaseAgent):
         self._mutating_tools = None
         self._auto_approve_all = False
         self._attachments = None
+        self._documents = []
+        self._turn_files = set()
         self._discovery_state = _default_discovery_state()
         self._id_to_name.clear()
         self._carried_tool_results.clear()
@@ -516,6 +524,27 @@ class ArchitectAgent(BaseAgent):
         ToolMeta.READONLY_HINT: True,
     }
 
+    _READ_FILE_TOOL: ClassVar[Dict[str, Any]] = {
+        "name": InternalTool.READ_ATTACHED_FILE,
+        "description": (
+            "Read a file the user attached earlier in this conversation. Only "
+            "the names of earlier files are in the prompt once they are too "
+            "large to repeat every turn; call this before relying on what one "
+            "says. Files attached in the current message are already shown."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "filename": {
+                    "type": "string",
+                    "description": "The file's name, exactly as listed.",
+                },
+            },
+            "required": ["filename"],
+        },
+        ToolMeta.READONLY_HINT: True,
+    }
+
     async def get_available_tools(self) -> List[Dict[str, Any]]:
         """Override to inject internal tools and discover mutating ones.
 
@@ -528,6 +557,8 @@ class ArchitectAgent(BaseAgent):
         tools = await super().get_available_tools()
         tools.append(self._SAVE_PLAN_TOOL)
         tools.append(self._AWAIT_TASK_TOOL)
+        if self._earlier_documents():
+            tools.append(self._READ_FILE_TOOL)
 
         # Kept so execute_tool can check arguments against the same schema
         # the LLM was shown, before paying for an HTTP round trip.
@@ -823,6 +854,9 @@ class ArchitectAgent(BaseAgent):
 
         if tool_call.tool_name == InternalTool.AWAIT_TASK:
             return await self._execute_await_task(tool_call)
+
+        if tool_call.tool_name == InternalTool.READ_ATTACHED_FILE:
+            return self._execute_read_attached_file(tool_call)
 
         error = (
             self._check_plan_constraints(tool_call)
@@ -1777,33 +1811,89 @@ class ArchitectAgent(BaseAgent):
                     parts.append(f"  - {item}")
         return "\n".join(parts)
 
-    def _format_attachments(self) -> str:
-        """Format per-turn attachments for the prompt."""
-        if not self._attachments:
-            return ""
+    def set_documents(self, documents: List[Dict[str, str]]) -> None:
+        """Set the files attached earlier in the conversation, as ``{filename, text}``.
 
-        cfg = self._cfg
+        A file uploaded once is referred to later ("the spec I uploaded"). The
+        backend rebuilds the agent every turn and passes these from the stored
+        messages, which stay the one record of what was uploaded.
+        """
+        self._documents = []
+        for doc in documents:
+            self._add_document(doc["filename"], doc["text"])
+
+    def _add_document(self, filename: str, text: str) -> None:
+        # A re-upload with the same name replaces the older copy.
+        self._documents = [d for d in self._documents if d["filename"] != filename]
+        self._documents.append({"filename": filename, "text": text})
+
+    def _add_files(self, attachments: Optional[Dict[str, Any]]) -> None:
+        """Add this turn's attached files to the conversation's documents."""
+        self._turn_files = set()
+        for f in (attachments or {}).get("files") or []:
+            # Prefer ``extracted_text`` (the canonical key across the rest
+            # of the pipeline); fall back to ``content`` for any
+            # in-flight payloads still using the legacy key.
+            text = f.get("extracted_text") or f.get("content") or ""
+            if text:
+                filename = f.get("filename", "unknown")
+                self._add_document(filename, text)
+                self._turn_files.add(filename)
+
+    def _earlier_documents(self) -> List[Dict[str, str]]:
+        return [d for d in self._documents if d["filename"] not in self._turn_files]
+
+    def _capped(self, text: str) -> str:
+        cap = self._cfg.max_attachment_chars
+        return text if len(text) <= cap else text[:cap] + "\n\n[... truncated ...]"
+
+    def _format_attachments(self) -> str:
+        """Format this turn's mentions and the conversation's attached files for the prompt.
+
+        Files attached this turn are shown in full. Earlier ones are too while they
+        are small; past that only their names are, and ``read_attached_file`` reads
+        one, so a long spec is not re-sent with every later message.
+        """
         parts: List[str] = []
 
-        mentions = self._attachments.get("mentions")
+        mentions = (self._attachments or {}).get("mentions")
         if mentions:
             parts.append("Resolved entity references:")
             for m in mentions:
                 parts.append(f"  - @{m['type']}:{m['display']} (id: {m['id']})")
 
-        files = self._attachments.get("files")
-        if files:
-            for f in files:
-                filename = f.get("filename", "unknown")
-                # Prefer ``extracted_text`` (the canonical key across the rest
-                # of the pipeline); fall back to ``content`` for any
-                # in-flight payloads still using the legacy key.
-                content = f.get("extracted_text") or f.get("content") or ""
-                if len(content) > cfg.max_attachment_chars:
-                    content = content[: cfg.max_attachment_chars] + "\n\n[... truncated ...]"
-                parts.append(f"Attached file: {filename}\n```\n{content}\n```")
+        earlier = self._earlier_documents()
+        if sum(len(d["text"]) for d in earlier) <= self._cfg.inline_document_chars:
+            shown, listed = earlier, []
+        else:
+            shown, listed = [], earlier
+        shown += [d for d in self._documents if d["filename"] in self._turn_files]
+
+        for doc in shown:
+            parts.append(f"Attached file: {doc['filename']}\n```\n{self._capped(doc['text'])}\n```")
+        if listed:
+            parts.append(
+                "Attached earlier in this conversation (call read_attached_file to read one):"
+            )
+            parts.extend(f"  - {d['filename']} ({len(d['text']):,} characters)" for d in listed)
 
         return "\n".join(parts)
+
+    def _execute_read_attached_file(self, tool_call: ToolCall) -> ToolResult:
+        filename = tool_call.arguments.get("filename")
+        doc = next((d for d in self._documents if d["filename"] == filename), None)
+        if doc is None:
+            names = ", ".join(d["filename"] for d in self._documents) or "none"
+            return ToolResult(
+                tool_name=InternalTool.READ_ATTACHED_FILE,
+                success=False,
+                error=f"No attached file named {filename!r}. Attached files: {names}.",
+            )
+        return ToolResult(
+            tool_name=InternalTool.READ_ATTACHED_FILE,
+            success=True,
+            content=self._capped(doc["text"]),
+        )
 
     # ── streaming finish (Phase 2 LLM call) ──────────────────────
 
