@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { renderToString } from 'react-dom/server';
 import { SidebarOnboardingRow } from '../SidebarOnboardingRow';
 import type { OnboardingProgress } from '@/types/onboarding';
 
@@ -45,6 +46,10 @@ const row = () =>
   screen.queryByRole('button', { name: /getting started, 2 of 3 done/i });
 
 describe('SidebarOnboardingRow', () => {
+  it('renders nothing on the server so hydration matches', () => {
+    expect(renderToString(<SidebarOnboardingRow />)).toBe('');
+  });
+
   it('shows the label and done count', () => {
     render(<SidebarOnboardingRow />);
     expect(row()).toBeInTheDocument();
