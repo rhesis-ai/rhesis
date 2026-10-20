@@ -142,11 +142,13 @@ const ABBREVIATION = /\b(e\.g|i\.e|etc|vs|Dr|Mr|Mrs|Ms|No)\.$/i;
  * One line of separate sentences ("Must not X. Must not Y.") as "- " lines, so
  * renderFormattedText lists them. Text that already has lines is left alone.
  */
-function asSentenceList(text: string): string {
+export function asSentenceList(text: string): string {
   if (text.includes('\n')) return text;
   const sentences = text
     .trim()
-    .split(/(?<=[.!?])\s+(?=[A-Z])/)
+    // A line break after each sentence end, then split on it: no regex lookbehind needed.
+    .replace(/([.!?])\s+(?=[A-Z])/g, '$1\n')
+    .split('\n')
     .reduce<string[]>((acc, part) => {
       const prev = acc[acc.length - 1];
       if (prev && ABBREVIATION.test(prev))

@@ -42,6 +42,7 @@ import type { MetricsSource } from '@/utils/api-client/interfaces/test-configura
 import {
   buildResultChecks,
   checksForTurn,
+  checksStatus,
   countChecks,
   turnVerdict,
   type ResultCheckGroup,
@@ -246,16 +247,8 @@ export default function ConversationHistory({
     requirementName,
     metricsSource,
   });
-  const checks = checkGroups.flatMap(g => g.checks);
   const shownResultStatus: TestResultStatus | undefined =
-    resultStatus ??
-    (checks.length === 0
-      ? undefined
-      : checks.some(c => c.passed === false)
-        ? 'Fail'
-        : checks.every(c => c.passed)
-          ? 'Pass'
-          : 'Inconclusive');
+    resultStatus ?? checksStatus(checkGroups);
 
   if (actualConversationTurns.length === 0) {
     return (

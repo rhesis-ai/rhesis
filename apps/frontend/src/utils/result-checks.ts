@@ -8,6 +8,7 @@ import {
   getMetricsSourceLabel,
 } from '@/utils/api-client/interfaces/test-configuration';
 import { isGoalMetricName } from '@/utils/test-result-status';
+import type { TestResultStatus } from '@/constants/outcomes';
 
 /**
  * One pass/fail statement about a test result: a Goal Achievement criterion, or a whole
@@ -148,6 +149,20 @@ export function countChecks(checks: ResultCheck[]): {
     passed: scored.filter(c => c.passed).length,
     total: scored.length,
   };
+}
+
+/**
+ * The status the checks add up to, for views that have no result status of their own. It
+ * counts the same scored checks as checksSummary, so the two never disagree.
+ */
+export function checksStatus(
+  groups: ResultCheckGroup[]
+): TestResultStatus | undefined {
+  const checks = groups.flatMap(g => g.checks);
+  if (checks.length === 0) return undefined;
+  const { passed, total } = countChecks(checks);
+  if (passed < total) return 'Fail';
+  return total > 0 ? 'Pass' : 'Inconclusive';
 }
 
 export function checksSummary(groups: ResultCheckGroup[]): string {

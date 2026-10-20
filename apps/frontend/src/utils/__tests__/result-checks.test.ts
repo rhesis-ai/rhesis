@@ -1,6 +1,7 @@
 import {
   buildResultChecks,
   checksForTurn,
+  checksStatus,
   checksSummary,
   countChecks,
   turnScopeLabel,
@@ -197,5 +198,34 @@ describe('turn checks', () => {
       },
     });
     expect(test.checks.map(c => c.label)).toEqual(['Re-score']);
+  });
+});
+
+describe('checksStatus', () => {
+  it('ignores unscored checks, like the summary does', () => {
+    const groups = buildResultChecks({
+      metrics: {
+        A: metric({ is_successful: true }),
+        B: metric({ is_successful: null }),
+      },
+    });
+    expect(checksSummary(groups)).toBe('1 of 1 check passed');
+    expect(checksStatus(groups)).toBe('Pass');
+  });
+
+  it('fails when any scored check failed', () => {
+    const groups = buildResultChecks({
+      metrics: { A: metric({ is_successful: true }), B: metric() },
+    });
+    expect(checksStatus(groups)).toBe('Fail');
+  });
+
+  it('is inconclusive when no check could be scored, and absent with no checks', () => {
+    expect(
+      checksStatus(
+        buildResultChecks({ metrics: { A: metric({ is_successful: null }) } })
+      )
+    ).toBe('Inconclusive');
+    expect(checksStatus([])).toBeUndefined();
   });
 });
