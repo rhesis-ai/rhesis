@@ -59,7 +59,9 @@ langgraph = [
     "langchain-google-genai>=4.3.0",
 ]
 pydantic-ai = [
-    "pydantic-ai>=0.0.49",
+    # Slim core is all the integration uses. Full pydantic-ai adds the openai and logfire
+    # extras, which need openai 3 and an OpenTelemetry that litellm and google-adk block.
+    "pydantic-ai-slim>=0.0.49",
 ]
 # Pin the agent-framework subpackages directly rather than the ``agent-framework``
 # meta-package: the meta-package drags in an ``agent-framework-azure-ai-search``
@@ -87,7 +89,7 @@ all = [
     "langchain-core>=1.6.0",
     "langchain-google-genai>=4.3.0",
     "langgraph>=1.2.0",
-    "pydantic-ai>=0.0.49",
+    "pydantic-ai-slim>=0.0.49",
     "agent-framework-core>=1.1.0",
     "agent-framework-openai>=1.1.0",
     "google-adk>=2.6,<3",
@@ -112,7 +114,10 @@ dev = [
     # pydantic-ai installed in dev so tests/penelope/targets/test_pydantic_ai.py
     # runs without ``--all-extras``. End users install via the
     # ``rhesis-penelope[pydantic-ai]`` optional extra.
-    "pydantic-ai>=0.0.49",
+    "pydantic-ai-slim>=0.0.49",
+    # The ADK target builds google.genai.types messages. google-genai used to arrive
+    # through full pydantic-ai's google extra; dev now has only pydantic-ai-slim.
+    "google-genai>=2.9.0",
     # Same for tests/penelope/targets/test_langgraph.py, which imports langgraph at
     # module level. It used to arrive transitively through rhesis-sdk's langchain
     # chain; that chain went with the Ragas removal, so declare it. End users install
@@ -153,7 +158,7 @@ constraint-dependencies = [
     "python-multipart>=0.0.31",
     "starlette>=1.3.1",
     "pyjwt>=2.15.0",
-    "aiohttp>=3.14.1",
+    "aiohttp>=3.14.4",
     "cryptography>=48.0.1",
     "bleach>=6.4.0",
     "pyarrow>=23.0.1",
@@ -162,7 +167,7 @@ constraint-dependencies = [
     "setuptools>=83.0.0",
     "soupsieve>=2.9.0",
     "uv>=0.11.15",
-    "mcp>=1.28.1",
+    "mcp>=1.30.0",
     "pillow>=12.3.0",
     "httpx2>=2.12.0",
     "httpcore2>=2.10.0",
@@ -175,7 +180,8 @@ constraint-dependencies = [
 override-dependencies = [
     "python-dotenv>=1.2.2",
     "pydantic>=2.13.0",
-    "openai>=2.26.0",
+    # Overrides replace litellm's own openai<3 cap, so restate it here.
+    "openai>=2.45.0,<3",
 ]
 
 [tool.uv.sources]

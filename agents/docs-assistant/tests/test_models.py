@@ -86,13 +86,13 @@ def test_unknown_provider(monkeypatch):
         models.build_model()
 
 
-def test_litellm_without_the_extra_says_how_to_install(monkeypatch):
-    monkeypatch.setenv("DOCS_ASSISTANT_PROVIDER", "litellm")
-    monkeypatch.setenv("DOCS_ASSISTANT_MODEL", "gemini/gemini-3.6-flash")
+def test_any_llm_without_the_extra_says_how_to_install(monkeypatch):
+    monkeypatch.setenv("DOCS_ASSISTANT_PROVIDER", "any_llm")
+    monkeypatch.setenv("DOCS_ASSISTANT_MODEL", "mistral/mistral-small-latest")
     try:
-        import litellm  # noqa: F401
+        import any_llm  # noqa: F401
     except ImportError:
-        with pytest.raises(RuntimeError, match="uv sync --extra litellm"):
+        with pytest.raises(RuntimeError, match="uv sync --extra any-llm"):
             models.build_model()
     else:
-        pytest.skip("litellm extra installed")
+        pytest.skip("any-llm extra installed")

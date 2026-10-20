@@ -25,8 +25,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Only for providers without an OpenAI-compatible endpoint (DOCS_ASSISTANT_PROVIDER=litellm).
-litellm = ["openai-agents[litellm]>=0.22,<0.23"]
+# Only for providers without an OpenAI-compatible endpoint (DOCS_ASSISTANT_PROVIDER=any_llm).
+any-llm = ["openai-agents[any-llm]>=0.22,<0.23"]
 
 [project.license]
 text = "MIT"
@@ -50,10 +50,6 @@ packages = ["src/docs_assistant"]
 
 [tool.uv]
 exclude-newer = "1 week"
-# rhesis-sdk asks for litellm>=1.84, whose releases all pin openai<3, while openai-agents 0.22
-# needs openai>=3. Only the SDK's model providers import litellm (lazily) and this agent never
-# uses them, so it stays on 1.83, the last litellm that works with openai 3.
-override-dependencies = ["litellm>=1.83,<1.84"]
 
 [tool.ruff]
 line-length = 100

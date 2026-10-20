@@ -2,7 +2,7 @@
 
 Switching provider is config only:
 
-    DOCS_ASSISTANT_PROVIDER=gemini|openai|anthropic|openai_compatible|litellm   (default gemini)
+    DOCS_ASSISTANT_PROVIDER=gemini|openai|anthropic|openai_compatible|any_llm   (default gemini)
     DOCS_ASSISTANT_MODEL=<model>                  answer role, and the default for the others
     DOCS_ASSISTANT_<ROLE>_MODEL=<model>           per-role override (TRIAGE, CRITIC)
     DOCS_ASSISTANT_BASE_URL / DOCS_ASSISTANT_API_KEY   override the preset endpoint and key
@@ -50,7 +50,7 @@ PRESETS: dict[str, Preset] = {
         base_url="https://api.anthropic.com/v1/", key_envs=("ANTHROPIC_API_KEY",), models={}
     ),
     "openai_compatible": Preset(base_url=None, key_envs=(), models={}),
-    "litellm": Preset(base_url=None, key_envs=(), models={}),
+    "any_llm": Preset(base_url=None, key_envs=(), models={}),
 }
 
 ROLE_SETTINGS: dict[str, ModelSettings] = {
@@ -124,8 +124,8 @@ def build_model(role: Role = "answer") -> Model:
     provider = provider_name()
     name = model_name(role, provider)
     key = api_key(provider)
-    if provider == "litellm":
-        return _litellm_model(name, key)
+    if provider == "any_llm":
+        return _any_llm_model(name, key)
     if not key:
         keys = " or ".join(PRESETS[provider].key_envs) or "DOCS_ASSISTANT_API_KEY"
         raise RuntimeError(MISSING_KEY_MESSAGE.format(provider=provider, keys=keys))
@@ -133,14 +133,14 @@ def build_model(role: Role = "answer") -> Model:
     return OpenAIChatCompletionsModel(model=name, openai_client=client)
 
 
-def _litellm_model(name: str, key: str | None) -> Model:
+def _any_llm_model(name: str, key: str | None) -> Model:
     try:
-        from agents.extensions.models.litellm_model import LitellmModel
+        from agents.extensions.models.any_llm_model import AnyLLMModel
     except ImportError as exc:
         raise RuntimeError(
-            "DOCS_ASSISTANT_PROVIDER=litellm needs the extra: uv sync --extra litellm"
+            "DOCS_ASSISTANT_PROVIDER=any_llm needs the extra: uv sync --extra any-llm"
         ) from exc
-    return LitellmModel(model=name, api_key=key, base_url=os.getenv("DOCS_ASSISTANT_BASE_URL"))
+    return AnyLLMModel(model=name, api_key=key, base_url=os.getenv("DOCS_ASSISTANT_BASE_URL"))
 
 
 def model_settings(role: Role) -> ModelSettings:

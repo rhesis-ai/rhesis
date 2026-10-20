@@ -252,15 +252,13 @@ function.docs_assistant_turn            (conversation_turn root, rhesis.conversa
 in-memory exporter, and `test_tracing_isolation` keeps the Rhesis imports in `app.py`,
 `tracing.py` and (the light telemetry package only) `session.py`.
 
-`rhesis-sdk` asks for `litellm>=1.84`, whose releases pin `openai<3`, while `openai-agents` 0.22
-needs `openai>=3`. Only the SDK's model providers use litellm, and this agent never calls them,
-so `pyproject.toml` overrides litellm to 1.83.
-
 ## Provider Boundary
 
 `models.py` is the only module that knows about providers. Non-OpenAI providers are reached
 through `OpenAIChatCompletionsModel` with an `AsyncOpenAI` client pointed at the provider's
-OpenAI-compatible endpoint (Gemini, Anthropic, anything self-hosted), or through `LitellmModel`.
+OpenAI-compatible endpoint (Gemini, Anthropic, anything self-hosted), or through `AnyLLMModel`.
+It replaced `LitellmModel` because every litellm release up to 1.106 pins `openai<3`, while
+`openai-agents` 0.22 needs `openai>=3`.
 Only function tools are used, so no OpenAI-hosted tool is needed.
 
 The SDK uploads traces to OpenAI by default, which fails without an OpenAI key. `configure_sdk()`
