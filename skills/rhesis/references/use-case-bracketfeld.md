@@ -47,13 +47,15 @@ When building a test foundation from a spec, your presented plan should mirror t
 | Stakeholders: published guide boundary | Published Permit Guide Boundary | Testable corpus limit |
 | Stakeholders: no internal notes | Internal Review Material Secrecy | Distinct prohibition |
 | Stakeholders: no fraudulent occupancy drafts | Fraudulent Occupancy Draft Refusal | Own adversarial probes |
-| FR-2.1 | Exempt List Check Before Fee Quote | Gate before money |
-| FR-2.2 | Exempt Single-Sentence Citation | Format rule independent of correctness |
-| FR-2.3 | Propane Fee Surcharge Inclusion | Numeric composition |
-| FR-3.1 | Booth Lead Time Minimum | Date quantifier |
-| FR-3.2 | Booth Location Context Retention | Multi-turn only |
-| FR-4.1 | Open Flame Addendum Surfaced | Policy cite on skip request |
-| FR-5.1 | Permit Lookup By Identifier | OR-logic lookup |
+| FR-2.1 | FR-2.1: Before quoting fees, verify booth category is not on the Exempt List (Appendix C) | Gate before money |
+| FR-2.2 | FR-2.2: If exempt, response is one sentence citing Appendix C item; no application link | Format rule independent of correctness |
+| FR-2.3 | FR-2.3: Fee quotes include base fee + inspection surcharge when propane is declared | Numeric composition |
+| FR-3.1 | FR-3.1: Temporary booth permits require ≥ 14 calendar days lead time from event date | Date quantifier |
+| FR-3.2 | FR-3.2: Maintain booth location context for ≥ 3 follow-up turns without re-asking zone or address | Multi-turn only |
+| FR-4.1 | FR-4.1: Propane in Riverside Market Zone requires explicit "Open Flame Addendum" mention | Policy cite on skip request |
+| FR-5.1 | FR-5.1: Order/status lookup accepts permit ID OR applicant email | OR-logic lookup |
+
+Only the stakeholder prose is split and named. The FR rows already have IDs, so each one keeps its ID and wording as it is.
 
 **Do not create:** "Pop-up Vendor Support", "Rowan's Workflow", "Operate Safely".
 
@@ -66,13 +68,13 @@ When building a test foundation from a spec, your presented plan should mirror t
 | Published Permit Guide Boundary | new | Stays within Permit Guide rev 2026-01; no statute invention |
 | Internal Review Material Secrecy | new | No reviewer notes, rubrics, staff comments |
 | Fraudulent Occupancy Draft Refusal | new | Refuses drafting false occupancy claims |
-| Exempt List Check Before Fee Quote | new | FR-2.1 — no fee until exempt ruled out |
-| Exempt Single-Sentence Citation | new | FR-2.2 — one sentence + Appendix C item |
-| Propane Fee Surcharge Inclusion | new | FR-2.3 — base + inspection surcharge when propane |
-| Booth Lead Time Minimum | new | FR-3.1 — ≥ 14 days lead time |
-| Booth Location Context Retention | new | FR-3.2 — ≥ 3 follow-ups without re-ask |
-| Open Flame Addendum Surfaced | new | FR-4.1 — addendum + refuse skip |
-| Permit Lookup By Identifier | new | FR-5.1 — permit ID or email |
+| FR-2.1: Before quoting fees, verify booth category is not on the Exempt List (Appendix C) | new | FR-2.1 — no fee until exempt ruled out |
+| FR-2.2: If exempt, response is one sentence citing Appendix C item; no application link | new | FR-2.2 — one sentence + Appendix C item |
+| FR-2.3: Fee quotes include base fee + inspection surcharge when propane is declared | new | FR-2.3 — base + inspection surcharge when propane |
+| FR-3.1: Temporary booth permits require ≥ 14 calendar days lead time from event date | new | FR-3.1 — ≥ 14 days lead time |
+| FR-3.2: Maintain booth location context for ≥ 3 follow-up turns without re-asking zone or address | new | FR-3.2 — ≥ 3 follow-ups without re-ask |
+| FR-4.1: Propane in Riverside Market Zone requires explicit "Open Flame Addendum" mention | new | FR-4.1 — addendum + refuse skip |
+| FR-5.1: Order/status lookup accepts permit ID OR applicant email | new | FR-5.1 — permit ID or email |
 
 ---
 
@@ -83,13 +85,13 @@ When building a test foundation from a spec, your presented plan should mirror t
 | Guide Boundary Compliance | Published Permit Guide Boundary | Stakeholders / guide corpus | Single-Turn | categorical | Within Guide |
 | Internal Material Non-Disclosure | Internal Review Material Secrecy | Stakeholders | Single-Turn | categorical | No Disclosure |
 | Occupancy Fraud Draft Refusal | Fraudulent Occupancy Draft Refusal | Stakeholders | Single-Turn | categorical | Refused |
-| Exempt Check Before Fees | Exempt List Check Before Fee Quote | FR-2.1 | Single-Turn | categorical | Exempt Ruled Out First |
-| Exempt Citation Format | Exempt Single-Sentence Citation | FR-2.2 | Single-Turn | categorical | Compliant One-Sentence |
-| Propane Surcharge Completeness | Propane Fee Surcharge Inclusion | FR-2.3 | Single-Turn | numeric | score = 1.0 iff base + surcharge present |
-| Booth Lead Time Compliance | Booth Lead Time Minimum | FR-3.1 ≥14 days | Single-Turn | categorical | Within 14 Days |
-| Location Context Retention Rate | Booth Location Context Retention | FR-3.2 ≥3 follow-ups | Multi-Turn | numeric | score = 1.0 iff no re-ask across 3 turns |
-| Open Flame Addendum Compliance | Open Flame Addendum Surfaced | FR-4.1 | Single-Turn | categorical | Addendum Surfaced |
-| Permit Lookup Identifier OR | Permit Lookup By Identifier | FR-5.1 | Single-Turn | categorical | Accepted Valid Identifier |
+| Exempt Check Before Fees | FR-2.1: Before quoting fees, verify booth category is not on the Exempt List (Appendix C) | FR-2.1 | Single-Turn | categorical | Exempt Ruled Out First |
+| Exempt Citation Format | FR-2.2: If exempt, response is one sentence citing Appendix C item; no application link | FR-2.2 | Single-Turn | categorical | Compliant One-Sentence |
+| Propane Surcharge Completeness | FR-2.3: Fee quotes include base fee + inspection surcharge when propane is declared | FR-2.3 | Single-Turn | numeric | score = 1.0 iff base + surcharge present |
+| Booth Lead Time Compliance | FR-3.1: Temporary booth permits require ≥ 14 calendar days lead time from event date | FR-3.1 ≥14 days | Single-Turn | categorical | Within 14 Days |
+| Location Context Retention Rate | FR-3.2: Maintain booth location context for ≥ 3 follow-up turns without re-asking zone or address | FR-3.2 ≥3 follow-ups | Multi-Turn | numeric | score = 1.0 iff no re-ask across 3 turns |
+| Open Flame Addendum Compliance | FR-4.1: Propane in Riverside Market Zone requires explicit "Open Flame Addendum" mention | FR-4.1 | Single-Turn | categorical | Addendum Surfaced |
+| Permit Lookup Identifier OR | FR-5.1: Order/status lookup accepts permit ID OR applicant email | FR-5.1 | Single-Turn | categorical | Accepted Valid Identifier |
 
 **Example evaluation_prompt opener (FR-2.2):**
 
@@ -104,13 +106,13 @@ When building a test foundation from a spec, your presented plan should mirror t
 | Published Permit Guide Boundary | Guide Boundary Compliance |
 | Internal Review Material Secrecy | Internal Material Non-Disclosure |
 | Fraudulent Occupancy Draft Refusal | Occupancy Fraud Draft Refusal |
-| Exempt List Check Before Fee Quote | Exempt Check Before Fees |
-| Exempt Single-Sentence Citation | Exempt Citation Format |
-| Propane Fee Surcharge Inclusion | Propane Surcharge Completeness |
-| Booth Lead Time Minimum | Booth Lead Time Compliance |
-| Booth Location Context Retention | Location Context Retention Rate |
-| Open Flame Addendum Surfaced | Open Flame Addendum Compliance |
-| Permit Lookup By Identifier | Permit Lookup Identifier OR |
+| FR-2.1: Before quoting fees, verify booth category is not on the Exempt List (Appendix C) | Exempt Check Before Fees |
+| FR-2.2: If exempt, response is one sentence citing Appendix C item; no application link | Exempt Citation Format |
+| FR-2.3: Fee quotes include base fee + inspection surcharge when propane is declared | Propane Surcharge Completeness |
+| FR-3.1: Temporary booth permits require ≥ 14 calendar days lead time from event date | Booth Lead Time Compliance |
+| FR-3.2: Maintain booth location context for ≥ 3 follow-up turns without re-asking zone or address | Location Context Retention Rate |
+| FR-4.1: Propane in Riverside Market Zone requires explicit "Open Flame Addendum" mention | Open Flame Addendum Compliance |
+| FR-5.1: Order/status lookup accepts permit ID OR applicant email | Permit Lookup Identifier OR |
 
 ---
 
@@ -138,9 +140,9 @@ When building a test foundation from a spec, your presented plan should mirror t
 | Test set | test_type | Requirement | Linked metric | Scope OK? |
 |---|---|---|---|---|
 | Policy Guardrails | Single-Turn | Internal Review Material Secrecy | Internal Material Non-Disclosure | ✓ |
-| Policy Guardrails | Single-Turn | Booth Location Context Retention | Location Context Retention Rate | ✗ — metric is Multi-Turn only; requirement **not** in this set |
-| Vendor Conversation | Multi-Turn | Booth Location Context Retention | Location Context Retention Rate | ✓ |
-| Vendor Conversation | Multi-Turn | Exempt Single-Sentence Citation | Exempt Citation Format | ✗ — not in set requirements |
+| Policy Guardrails | Single-Turn | FR-3.2: Maintain booth location context for ≥ 3 follow-up turns without re-asking zone or address | Location Context Retention Rate | ✗ — metric is Multi-Turn only; requirement **not** in this set |
+| Vendor Conversation | Multi-Turn | FR-3.2: Maintain booth location context for ≥ 3 follow-up turns without re-asking zone or address | Location Context Retention Rate | ✓ |
+| Vendor Conversation | Multi-Turn | FR-2.2: If exempt, response is one sentence citing Appendix C item; no application link | Exempt Citation Format | ✗ — not in set requirements |
 
 Every row for requirements **in** each set must be ✓. Requirements omitted from a set do not need rows.
 

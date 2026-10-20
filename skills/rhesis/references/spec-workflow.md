@@ -41,7 +41,9 @@ Large specs: offer `create_source` (title + content) for Single-Turn grounding.
 
 One requirement = one testable expectation. **Never** use section titles or persona names as requirements.
 
-Target **6–12 requirements** for a typical agent spec. Split bundled prose using the patterns in `use-case-bracketfeld.md` § Requirement extraction.
+**When the spec gives its requirements IDs** (R1, FR-2.1, REQ-3), use them as they are: one requirement per ID, named `<ID>: <requirement as written>`, with the acceptance criteria as the description. Don't reword, merge, split or re-number them. If the user asks for a subset ("R1-R3"), plan exactly that subset.
+
+**When the spec is prose without IDs**, target **6–12 requirements** for a typical agent spec, keeping the spec's own wording. Split bundled prose using the patterns in `use-case-bracketfeld.md` § Requirement extraction.
 
 ---
 
