@@ -24,8 +24,10 @@ import {
   normalizeUrl,
 } from '@/utils/validation';
 import { isSessionLoading } from '@/hooks/useIsAuthenticated';
+import ProfileQuestionsFields from '@/components/onboarding/ProfileQuestionsFields';
+import type { ProfileAnswers } from '@/constants/user-profile';
 
-interface FormData {
+interface FormData extends ProfileAnswers {
   firstName: string;
   lastName: string;
   organizationName: string;
@@ -62,6 +64,7 @@ export default function OrganizationDetailsStep({
     organizationName: '',
     projectName: '',
     website: '',
+    jobRole: '',
   });
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsWarning, setShowTermsWarning] = useState(false);
@@ -159,6 +162,7 @@ export default function OrganizationDetailsStep({
       organizationName: organizationNameValidation.message || '',
       projectName: projectNameValidation.message || '',
       website: websiteValidation.message || '',
+      jobRole: formData.jobRole ? '' : 'Please select your role',
     };
 
     setErrors(newErrors);
@@ -168,7 +172,8 @@ export default function OrganizationDetailsStep({
       lastNameValidation.isValid &&
       organizationNameValidation.isValid &&
       projectNameValidation.isValid &&
-      websiteValidation.isValid
+      websiteValidation.isValid &&
+      Boolean(formData.jobRole)
     );
   };
 
@@ -323,6 +328,17 @@ export default function OrganizationDetailsStep({
           error={Boolean(errors.website)}
           helperText={errors.website || ''}
           variant="outlined"
+        />
+
+        <ProfileQuestionsFields
+          answers={formData}
+          onChange={answers => {
+            updateFormData(answers);
+            if (answers.jobRole) {
+              setErrors(prev => ({ ...prev, jobRole: '' }));
+            }
+          }}
+          jobRoleError={errors.jobRole}
         />
       </Stack>
 

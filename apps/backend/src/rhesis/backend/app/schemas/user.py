@@ -5,6 +5,7 @@ from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model
 
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.constants_currency import Currency
+from rhesis.backend.app.constants_user_profile import JobRole, ReferralSource
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
 
 
@@ -105,6 +106,15 @@ class PrivacySettings(BaseModel):
     show_activity: Optional[bool] = Field(None, description="Show activity status")
 
 
+class OnboardingProfile(BaseModel):
+    """Answers to the onboarding profile questions; keys from constants_user_profile."""
+
+    job_role: Optional[JobRole] = None
+    job_role_other: Optional[str] = Field(None, max_length=255)
+    referral_source: Optional[ReferralSource] = None
+    referral_source_other: Optional[str] = Field(None, max_length=255)
+
+
 class OnboardingProgress(BaseModel):
     """Onboarding progress tracking"""
 
@@ -113,6 +123,9 @@ class OnboardingProgress(BaseModel):
     users_invited: bool = False
     test_cases_created: bool = False
     dismissed: bool = False
+    # Set when an invitee joins, so the app asks the profile questions they skipped
+    profile_survey_pending: bool = False
+    profile: Optional[OnboardingProfile] = None
     last_updated: Optional[datetime] = None
 
 

@@ -1,4 +1,5 @@
 import type { Currency } from '@/utils/money';
+import type { JobRole, ReferralSource } from '@/constants/user-profile';
 import { UUID } from 'crypto';
 
 // User Settings Interfaces
@@ -19,7 +20,18 @@ export interface OnboardingProgress {
   users_invited?: boolean;
   test_cases_created?: boolean;
   dismissed?: boolean;
+  /** Set for invitees, who skip /onboarding and get the profile questions in a dialog. */
+  profile_survey_pending?: boolean;
+  profile?: OnboardingProfile;
   last_updated?: string;
+}
+
+/** Answers to the onboarding profile questions; `null` clears a field. */
+export interface OnboardingProfile {
+  job_role?: JobRole | null;
+  job_role_other?: string | null;
+  referral_source?: ReferralSource | null;
+  referral_source_other?: string | null;
 }
 
 /**

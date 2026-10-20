@@ -12,6 +12,7 @@ import { NavigationProvider } from '../navigation/NavigationProvider';
 import { NotificationProvider } from '../common/NotificationContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import OnboardingChecklist from '../onboarding/OnboardingChecklist';
+import ProfileSurveyDialog from '../onboarding/ProfileSurveyDialog';
 import { type NavigationItem, type LayoutProps } from '../../types/navigation';
 import { ActiveProjectProvider } from '@/contexts/ActiveProjectContext';
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
@@ -171,7 +172,10 @@ export function LayoutContent({
                             </Box>
                           </Box>
                           {session && isProtectedRoute && (
-                            <OnboardingChecklist />
+                            <>
+                              <OnboardingChecklist />
+                              <ProfileSurveyDialog />
+                            </>
                           )}
                         </div>
                       </OnboardingProvider>

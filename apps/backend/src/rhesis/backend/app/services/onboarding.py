@@ -2,6 +2,7 @@
 ``temporary_project_scope``."""
 
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app.crud.endpoint import user_endpoint_exists
 from rhesis.backend.app.crud.project import list_visible_project_example_flags
@@ -9,7 +10,9 @@ from rhesis.backend.app.crud.test import user_test_exists
 from rhesis.backend.app.crud.test_set import user_test_set_exists
 from rhesis.backend.app.crud.user import other_org_member_exists
 from rhesis.backend.app.database import temporary_project_scope
+from rhesis.backend.app.models.user import User
 from rhesis.backend.app.schemas.user import OnboardingStatus
+from rhesis.backend.app.schemas.user import User as UserSchema
 
 # Empty project id means the org-level scope, where project_id IS NULL rows live.
 _ORG_LEVEL_SCOPE = ""
@@ -27,6 +30,23 @@ def get_onboarding_status(db: Session, organization_id: str, user_id: str) -> On
         users_invited=other_org_member_exists(db, organization_id, user_id),
         test_cases_created=test_cases_created,
     )
+
+
+def mark_profile_survey_pending(user: User) -> None:
+    """Flag an invitee to be asked the profile questions; invitees never see /onboarding."""
+    if user.settings.onboarding.profile.get("job_role") is not None:
+        return
+    user.settings.update({"onboarding": {"profile_survey_pending": True}})
+    flag_modified(user, "user_settings")
+
+
+def present_user(user: User, viewer_id) -> UserSchema:
+    """Serialize a user, hiding their profile answers from anyone but themselves."""
+    presented = UserSchema.model_validate(user)
+    onboarding = presented.user_settings.onboarding if presented.user_settings else None
+    if str(user.id) != str(viewer_id) and onboarding is not None:
+        onboarding.profile = None
+    return presented
 
 
 def _scan_project_data(

@@ -349,6 +349,16 @@ class OnboardingProgressAccessor:
         return self._data.get("dismissed", False)
 
     @property
+    def profile_survey_pending(self) -> bool:
+        """Get whether the user still has to answer the profile questions."""
+        return self._data.get("profile_survey_pending", False)
+
+    @property
+    def profile(self) -> dict:
+        """Get the profile question answers."""
+        return self._data.get("profile") or {}
+
+    @property
     def last_updated(self) -> Optional[str]:
         """Get last updated timestamp."""
         return self._data.get("last_updated")

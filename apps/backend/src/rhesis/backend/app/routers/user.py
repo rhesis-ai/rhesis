@@ -216,6 +216,8 @@ def create_user(
 
         # Create the user (crud function will automatically exclude send_invite)
         created_user = user_crud.create_user(db=db, user=user)
+        # Only brand-new users; rejoining users are never asked
+        onboarding_service.mark_profile_survey_pending(created_user)
 
     # Note: new users are NOT auto-enrolled in any projects.
     # An admin must explicitly add them via the project Members tab.
@@ -290,7 +292,7 @@ def create_user(
 
     notify_stock_crossing(db, _quota_gate, QuotaResource.SEATS)
 
-    return created_user
+    return onboarding_service.present_user(created_user, current_user.id)
 
 
 @router.get("/", response_model=list[schemas.User])
@@ -308,7 +310,7 @@ def read_users(
 ):
     """Get all users with their related objects"""
     organization_id, user_id = tenant_context
-    return user_crud.get_users(
+    users = user_crud.get_users(
         db=db,
         skip=skip,
         limit=limit,
@@ -318,6 +320,7 @@ def read_users(
         organization_id=organization_id,
         user_id=user_id,
     )
+    return [onboarding_service.present_user(u, current_user.id) for u in users]
 
 
 @router.get("/settings", response_model=UserSettingsRead)
@@ -437,7 +440,7 @@ def read_user(
     )
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return db_user
+    return onboarding_service.present_user(db_user, current_user.id)
 
 
 @router.delete("/{user_id}", response_model=schemas.User)
@@ -456,7 +459,7 @@ def delete_user(
         if db_user is None:
             raise HTTPException(status_code=404, detail="User not found")
 
-        return db_user
+        return onboarding_service.present_user(db_user, current_user.id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -598,7 +601,7 @@ def update_user(
             }
         )
 
-    return updated_user
+    return onboarding_service.present_user(updated_user, current_user.id)
 
 
 @router.post(
