@@ -469,7 +469,7 @@ export default function ArchitectChat({
                     message.isStreaming ? streamingState : undefined
                   }
                   onAccept={() => {
-                    sendMessage('Yes, go ahead.');
+                    sendMessage('Yes, go ahead.', undefined, true);
                     onUserActivity?.();
                   }}
                   onReject={() => chatInputRef.current?.focus()}

@@ -188,6 +188,21 @@ describe('useArchitectChat', () => {
     );
   });
 
+  it.each([
+    [true, true],
+    [false, undefined],
+  ])('sends approve only for an Accept (approve=%s)', (approve, sent) => {
+    const { result } = renderHook(() =>
+      useArchitectChat({ sessionId: 'sess-1' })
+    );
+
+    act(() => {
+      result.current.sendMessage('Yes, go ahead.', undefined, approve);
+    });
+
+    expect(mockSend.mock.calls[0][0].payload.approve).toBe(sent);
+  });
+
   it('does not send when sessionId is null', () => {
     const { result } = renderHook(() => useArchitectChat({ sessionId: null }));
 

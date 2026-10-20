@@ -81,6 +81,8 @@ export interface ArchitectMessagePayload {
   attachments?: Record<string, unknown>;
   /** When true, skip per-action confirmations for this session. */
   auto_approve?: boolean;
+  /** True only from the Accept button: approves the actions held back last turn. */
+  approve?: boolean;
 }
 
 /**

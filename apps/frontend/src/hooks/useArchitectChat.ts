@@ -110,7 +110,11 @@ interface UseArchitectChatResult {
   setCurrentMode: React.Dispatch<React.SetStateAction<string>>;
   setCurrentPlan: React.Dispatch<React.SetStateAction<string | null>>;
   /** Returns true when the message was handed to the WebSocket, false otherwise. */
-  sendMessage: (message: string, attachments?: ChatAttachments) => boolean;
+  sendMessage: (
+    message: string,
+    attachments?: ChatAttachments,
+    approve?: boolean
+  ) => boolean;
   setMessages: React.Dispatch<React.SetStateAction<ArchitectChatMessage[]>>;
   markAgentWorking: () => void;
 }
@@ -767,7 +771,11 @@ export function useArchitectChat(
   }, [reconcileDismissedPlan, subscribe, sessionId, clearOptimisticTimer]);
 
   const sendMessage = useCallback(
-    (message: string, attachments?: ChatAttachments): boolean => {
+    (
+      message: string,
+      attachments?: ChatAttachments,
+      approve = false
+    ): boolean => {
       if (!sessionId || !isConnected || isLoading) return false;
 
       const trimmed = message.trim();
@@ -838,6 +846,9 @@ export function useArchitectChat(
       }
       if (autoApproveRef.current) {
         payload.auto_approve = true;
+      }
+      if (approve) {
+        payload.approve = true;
       }
 
       const sent = send({
