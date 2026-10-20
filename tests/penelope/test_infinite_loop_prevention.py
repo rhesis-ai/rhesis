@@ -1,6 +1,6 @@
 """Tests for infinite loop prevention mechanisms in Penelope."""
 
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from helpers import create_tool_execution
@@ -168,6 +168,35 @@ class TestWorkflowValidationBlocking:
 
         assert results == [True] * (limit - 1) + [False]
         assert any("Workflow validation blocked execution" in f for f in test_state.findings)
+
+    async def test_async_blocked_call_is_returned_to_the_model(self, mock_model, test_state):
+        """The batch engine runs a_execute_turn, which has its own copy of this path."""
+        executor, analysis_tool = self._blocked_setup(mock_model)
+        mock_model.a_generate = AsyncMock(return_value=mock_model.generate.return_value)
+
+        success = await executor.a_execute_turn(
+            state=test_state, tools=[analysis_tool], system_prompt="Test"
+        )
+
+        assert success is True
+        analysis_tool.execute.assert_not_called()
+        blocked = test_state.current_turn_executions[-1].tool_message.content
+        assert "Not run." in blocked
+        assert "send_message_to_target" in blocked
+
+    async def test_async_repeated_blocked_calls_end_the_test(self, mock_model, test_state):
+        executor, analysis_tool = self._blocked_setup(mock_model)
+        mock_model.a_generate = AsyncMock(return_value=mock_model.generate.return_value)
+        limit = executor.workflow_manager.state.max_consecutive_blocked_calls
+
+        results = [
+            await executor.a_execute_turn(
+                state=test_state, tools=[analysis_tool], system_prompt="Test"
+            )
+            for _ in range(limit)
+        ]
+
+        assert results == [True] * (limit - 1) + [False]
 
     def test_target_message_resets_blocked_count(self):
         manager = WorkflowManager()

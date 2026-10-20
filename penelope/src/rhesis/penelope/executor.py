@@ -332,14 +332,16 @@ class TurnExecutor:
                 state.add_finding(f"Workflow validation blocked execution: {validation_reason}")
                 return None, False, None
             logger.warning(f"Workflow validation blocked {action_name}: {validation_reason}")
+            # "Try a different approach" alone left the model re-analysing until the test stopped.
+            next_step = (
+                ""
+                if "send_message_to_target" in validation_reason
+                else " Continue the test by sending your next message with send_message_to_target."
+            )
             blocked_result = {
                 "success": False,
                 "output": {},
-                "error": (
-                    f"Not run. {validation_reason} Your earlier analysis still stands: "
-                    f"continue the test by sending your next message with "
-                    f"send_message_to_target."
-                ),
+                "error": f"Not run. {validation_reason}{next_step}",
             }
             return None, True, blocked_result
         return None, True, None

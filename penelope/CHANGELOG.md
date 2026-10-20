@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Improved error messages** with actionable guidance when limits are reached, including execution statistics and instructions to increase limits.
 
 ### Changed
-- **BREAKING**: Workflow validation failures now **block execution** instead of just logging warnings. This prevents known bad patterns (excessive consecutive analysis tools, repetitive tool usage) from causing infinite loops.
+- **BREAKING**: Workflow validation failures now **refuse the call** instead of just logging warnings. This prevents known bad patterns (excessive consecutive analysis tools, repetitive tool usage) from causing infinite loops.
 - **Increased consecutive analysis tool limit** from 3 to 5 for more flexibility in complex tests.
 - **Stopping conditions** now check global execution limit first (before max iterations) to catch runaway executions early.
 - **A blocked tool call no longer ends the test.** It is not run, and the model sees why as a failed tool result on its next step. The test still stops after 3 blocked calls in a row with no message to the target, and blocked calls count toward the global execution limit (#3014).
