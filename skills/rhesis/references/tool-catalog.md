@@ -340,7 +340,7 @@ Generate a test set using the Rhesis synthesizer. An LLM creates diverse test pr
 **Key parameters:**
 - `name` (required) — test set name
 - `config` (required object):
-  - `generation_prompt` (required) — detailed description of what to test and how; be specific
+  - `generation_prompt` (required) — detailed description of what to test and how; be specific. Each requirement's description is sent to the generator too, so use this for the scenarios, inputs and triggers the spec names
   - `requirements` (required, non-empty list of strings) — requirement names the tests target
   - `categories` (optional list of strings)
   - `topics` (optional list of strings)

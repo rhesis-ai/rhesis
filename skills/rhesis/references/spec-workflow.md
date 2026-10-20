@@ -59,6 +59,15 @@ Use `create_metric` during execution (not `generate_metric`).
 
 Split by theme and **`metric_scope`**. One `test_type` per set. Run scope coverage check (`metric-scope.md`) before approval.
 
+The generator receives each requirement's name and description, so the acceptance criteria belong in the requirement. `generation_prompt` carries what the spec adds on top, quoted as written:
+
+- its example scenarios and inputs ("Is this a migraine?")
+- the exact triggers it lists, such as the red flags that must escalate
+- the fixed replies or formats the agent must give
+- behaviour across turns the criteria name ("no further history questions", "stays active in later turns")
+
+Don't add scenarios, triggers or expectations the spec doesn't name.
+
 ---
 
 ## 5. Present plan (required sections)
