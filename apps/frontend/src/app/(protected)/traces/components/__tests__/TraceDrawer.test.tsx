@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, within } from '@/test-utils';
+import { act, render, screen, waitFor, within } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import TraceDrawer from '../TraceDrawer';
@@ -351,5 +351,27 @@ describe('TraceDrawer turn navigation', () => {
         'turn.one.annotated,turn.two'
       )
     );
+  });
+
+  it('ignores a refresh that comes back after moving to another turn', async () => {
+    const user = userEvent.setup();
+    oneTracePerTurn();
+    renderDrawer({ traceId: 't2' });
+    await screen.findByRole('group', { name: 'Conversation turns' });
+
+    let resolveStale: (value: TraceDetailResponse) => void = () => {};
+    const loadTurn = getTrace.getMockImplementation();
+    getTrace.mockImplementationOnce(
+      () => new Promise<TraceDetailResponse>(r => (resolveStale = r))
+    );
+    await user.click(screen.getByRole('button', { name: 'refresh-trace' }));
+    await user.click(screen.getByRole('button', { name: 'Next turn' }));
+    await waitFor(() => expect(turnLabel()).toBe('Turn 3 of 3'));
+
+    const staleTrace = await loadTurn?.('t2');
+    await act(async () => resolveStale(staleTrace));
+
+    expect(await selectedDetails()).toBe('t3-root');
+    expect(turnLabel()).toBe('Turn 3 of 3');
   });
 });
