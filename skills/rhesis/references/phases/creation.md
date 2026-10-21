@@ -45,7 +45,7 @@ a threadbare metric, not a shortcut. `evaluation_steps` uses the `Step N:` / `--
 - `score_type`: `"numeric"` or `"categorical"` only
 - `metric_scope`: non-empty; entries `"Single-Turn"` and/or `"Multi-Turn"`
 - `evaluation_steps`: steps joined by a line containing only `---`, each prefixed `Step N:` on its
-  own line — a plain `1. … 2. …` list stores as a single step
+  own line
 - `threshold_operator`: `=`, `<`, `>`, `<=`, `>=`, `!=`
 - `test_type`: `"Single-Turn"` or `"Multi-Turn"`
 - `priority`: integer, not string

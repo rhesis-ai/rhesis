@@ -52,8 +52,7 @@ class GeneratedMetric(BaseModel):
             "its own line, the step text below it, steps joined by a line "
             'containing only "---" (e.g. "Step 1:\\nIdentify each factual '
             "claim.\\n---\\nStep 2:\\nCheck each claim against the "
-            'provided context."). A plain "1. ... 2. ..." list is stored '
-            "as a single step."
+            'provided context.").'
         )
     )
     reasoning: str = Field(
