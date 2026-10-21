@@ -1,6 +1,7 @@
 import {
   conversationToMessages,
   reconstructConversationFromSpans,
+  conversationRootSpans,
   traceMetricsFromSpans,
   turnToMessages,
 } from '@/utils/conversation-from-spans';
@@ -74,5 +75,36 @@ describe('conversation to extraction messages', () => {
       'Try Air France.',
       'And to New York?',
     ]);
+  });
+});
+
+describe('conversation root spans', () => {
+  const root = (id: string) => span({ span_id: id });
+
+  it('makes each trace a turn when each turn is its own trace', () => {
+    const { spans, targets } = conversationRootSpans([
+      { traceId: 't1', projectId: 'p1', rootSpans: [root('a')] },
+      { traceId: 't2', projectId: 'p2', rootSpans: [root('b')] },
+    ]);
+    expect(spans.map(s => s.span_id)).toEqual(['a', 'b']);
+    expect(targets).toEqual([
+      { traceId: 't1', projectId: 'p1', rootIndex: 0 },
+      { traceId: 't2', projectId: 'p2', rootIndex: 0 },
+    ]);
+  });
+
+  it('makes each root span a turn when one trace holds every turn', () => {
+    const { spans, targets } = conversationRootSpans([
+      { traceId: 't1', projectId: 'p1', rootSpans: [root('a'), root('b')] },
+    ]);
+    expect(spans.map(s => s.span_id)).toEqual(['a', 'b']);
+    expect(targets).toEqual([
+      { traceId: 't1', projectId: 'p1', rootIndex: 0 },
+      { traceId: 't1', projectId: 'p1', rootIndex: 1 },
+    ]);
+  });
+
+  it('has no turns without traces', () => {
+    expect(conversationRootSpans([])).toEqual({ spans: [], targets: [] });
   });
 });

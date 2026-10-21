@@ -23,6 +23,32 @@ export function traceMetricsFromSpans(
   };
 }
 
+export interface TurnTraceTarget {
+  traceId: string;
+  projectId: string;
+  /** Root span to select inside the trace. */
+  rootIndex: number;
+}
+
+/**
+ * A conversation's turns as root spans, from traces already sorted by start time: turn n is
+ * entry n-1. Covers one trace per turn and one trace holding every turn alike. Spans carry no
+ * turn number, so order is the only thing to match on.
+ */
+export function conversationRootSpans(
+  traces: { traceId: string; projectId: string; rootSpans: SpanNode[] }[]
+): { spans: SpanNode[]; targets: TurnTraceTarget[] } {
+  const spans: SpanNode[] = [];
+  const targets: TurnTraceTarget[] = [];
+  for (const { traceId, projectId, rootSpans } of traces) {
+    rootSpans.forEach((span, rootIndex) => {
+      spans.push(span);
+      targets.push({ traceId, projectId, rootIndex });
+    });
+  }
+  return { spans, targets };
+}
+
 /**
  * Whether this test result is a multi-turn conversation (test-set type or
  * per-result output shape).

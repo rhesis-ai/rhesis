@@ -23,8 +23,10 @@ import { useSession } from 'next-auth/react';
 import ConversationHistory from '@/components/common/ConversationHistory';
 import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
 import {
+  conversationRootSpans,
   isMultiTurnTestResult,
   resolveConversationSummary,
+  type TurnTraceTarget,
 } from '@/utils/conversation-from-spans';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
@@ -112,11 +114,11 @@ export default function TestDetailConversationTab({
   const { status } = useSession();
   const [traces, setTraces] = useState<TraceSummary[]>([]);
   const [rootSpans, setRootSpans] = useState<SpanNode[]>([]);
+  const [turnTargets, setTurnTargets] = useState<TurnTraceTarget[]>([]);
   const [spanFiles, setSpanFiles] = useState<FileResponse[][]>([]);
   const [tracesLoading, setTracesLoading] = useState(false);
   const [traceDrawerOpen, setTraceDrawerOpen] = useState(false);
-  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
-  const [selectedTurnNumber, setSelectedTurnNumber] = useState<number | null>(
+  const [selectedTarget, setSelectedTarget] = useState<TurnTraceTarget | null>(
     null
   );
 
@@ -127,6 +129,7 @@ export default function TestDetailConversationTab({
     setSpanFiles([]);
     setTraces([]);
     setRootSpans([]);
+    setTurnTargets([]);
 
     if (!test.id || !isAuthenticated(status) || !isMultiTurn) return;
 
@@ -144,30 +147,34 @@ export default function TestDetailConversationTab({
             new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
         );
 
-        let files: FileResponse[][] = [];
-        let spans: SpanNode[] = [];
-        if (sorted.length > 0) {
-          const detail = await telemetryClient.getTrace(
-            sorted[0].trace_id,
-            sorted[0].project_id
-          );
-          spans = detail.root_spans ?? [];
+        const details = await Promise.all(
+          sorted.map(trace =>
+            telemetryClient.getTrace(trace.trace_id, trace.project_id)
+          )
+        );
+        const { spans, targets } = conversationRootSpans(
+          sorted.map((trace, i) => ({
+            traceId: trace.trace_id,
+            projectId: trace.project_id,
+            rootSpans: details[i].root_spans ?? [],
+          }))
+        );
 
-          const filesClient = factory.getFilesClient();
-          files = await Promise.all(
-            spans.map(async span => {
-              if (!span.id) return [] as FileResponse[];
-              try {
-                return await filesClient.getSpanFiles(span.id);
-              } catch {
-                return [] as FileResponse[];
-              }
-            })
-          );
-        }
+        const filesClient = factory.getFilesClient();
+        const files = await Promise.all(
+          spans.map(async span => {
+            if (!span.id) return [] as FileResponse[];
+            try {
+              return await filesClient.getSpanFiles(span.id);
+            } catch {
+              return [] as FileResponse[];
+            }
+          })
+        );
 
         setTraces(sorted);
         setRootSpans(spans);
+        setTurnTargets(targets);
         setSpanFiles(files);
       } catch {
         // Traces are optional; conversation may still come from test_output
@@ -187,26 +194,21 @@ export default function TestDetailConversationTab({
   const hasConversation = isMultiTurn && conversationSummary.length > 0;
 
   const turnTraceMap = useMemo(() => {
-    const map = new Map<number, TraceSummary>();
-    if (traces.length > 0) {
-      const trace = traces[0];
-      conversationSummary
-        .filter(t => t.target_response)
-        .forEach(turn => {
-          map.set(turn.turn, trace);
-        });
-    }
+    const map = new Map<number, TurnTraceTarget>();
+    conversationSummary
+      .filter(t => t.target_response)
+      .forEach(turn => {
+        const target = turnTargets[turn.turn - 1];
+        if (target) map.set(turn.turn, target);
+      });
     return map;
-  }, [traces, conversationSummary]);
-
-  const projectId = traces[0]?.project_id || '';
+  }, [turnTargets, conversationSummary]);
 
   const handleResponseClick = useCallback(
     (turnNumber: number) => {
-      const trace = turnTraceMap.get(turnNumber);
-      if (trace) {
-        setSelectedTraceId(trace.trace_id);
-        setSelectedTurnNumber(turnNumber);
+      const target = turnTraceMap.get(turnNumber);
+      if (target) {
+        setSelectedTarget(target);
         setTraceDrawerOpen(true);
       }
     },
@@ -335,15 +337,10 @@ export default function TestDetailConversationTab({
       />
       <TraceDrawer
         open={traceDrawerOpen}
-        onClose={() => {
-          setTraceDrawerOpen(false);
-          setSelectedTurnNumber(null);
-        }}
-        traceId={selectedTraceId}
-        projectId={projectId}
-        initialTurnIndex={
-          selectedTurnNumber !== null ? selectedTurnNumber - 1 : undefined
-        }
+        onClose={() => setTraceDrawerOpen(false)}
+        traceId={selectedTarget?.traceId ?? null}
+        projectId={selectedTarget?.projectId ?? ''}
+        initialTurnIndex={selectedTarget?.rootIndex}
       />
     </Box>
   );
