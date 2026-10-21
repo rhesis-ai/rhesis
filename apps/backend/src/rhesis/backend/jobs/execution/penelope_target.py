@@ -385,6 +385,17 @@ class BackendEndpointTarget(Target):
             metadata={"error_details": error_details},
         )
 
+    def _track_trace(self, response_data: Dict[str, Any]) -> None:
+        """Collect the turn's deferred trace and pin the conversation to one trace id."""
+        deferred_trace = response_data.pop("_deferred_trace", None)
+        if deferred_trace:
+            self._deferred_traces.append(deferred_trace)
+        if not self._current_trace_id:
+            # SDK endpoints export their own spans and only hand back the trace id.
+            self._current_trace_id = (
+                deferred_trace.trace_id if deferred_trace else response_data.get("trace_id")
+            )
+
     @staticmethod
     def _failed_target_response_from_result(response_data: Any) -> Optional[TargetResponse]:
         """Return a failed TargetResponse when *response_data* is an HTTP/invoker error.
@@ -487,18 +498,10 @@ class BackendEndpointTarget(Target):
             failed = self._failed_target_response_from_result(response_data)
             if failed is not None:
                 if isinstance(response_data, dict):
-                    deferred_trace = response_data.pop("_deferred_trace", None)
-                    if deferred_trace:
-                        self._deferred_traces.append(deferred_trace)
-                        if not self._current_trace_id:
-                            self._current_trace_id = deferred_trace.trace_id
+                    self._track_trace(response_data)
                 return failed
 
-            deferred_trace = response_data.pop("_deferred_trace", None)
-            if deferred_trace:
-                self._deferred_traces.append(deferred_trace)
-                if not self._current_trace_id:
-                    self._current_trace_id = deferred_trace.trace_id
+            self._track_trace(response_data)
 
             response_text = response_data.get("output", "")
 
