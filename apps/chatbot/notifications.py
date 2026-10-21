@@ -42,15 +42,17 @@ def send_rate_limit_alert(
         return
 
     try:
-        # Extract useful information from request
         user_agent = request.headers.get("User-Agent", "Unknown")
         org_id = request.headers.get("X-Organization-ID", "N/A")
         user_id = request.headers.get("X-User-ID", "N/A")
         endpoint = request.url.path
         timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 
-        # Create email content
-        subject = f"🚨 Chatbot Rate Limit Exceeded - {rate_limit_type}"
+        # The identifier for rh- keys is "authenticated:<email>"; extract it.
+        parts = identifier.split(":", 1)
+        email = parts[1] if len(parts) > 1 and "@" in parts[1] else "N/A"
+
+        subject = f"Chatbot Rate Limit Exceeded - {rate_limit_type}"
 
         body = f"""
 Rate Limit Exceeded Alert
@@ -63,6 +65,7 @@ Rate Limit: {rate_limit_value}
 Request Details:
 - Endpoint: {endpoint}
 - Identifier: {identifier}
+- Email: {email}
 - Organization ID: {org_id}
 - User ID: {user_id}
 - User Agent: {user_agent}
