@@ -146,6 +146,9 @@ test.describe('Requirements — CRUD @crud', () => {
       timeout: 10_000,
     });
 
+    // Starting from zero, so the (1) below proves the assignment landed.
+    await expect(page.getByText(/^linked metrics \(0\)$/i)).toBeVisible();
+
     const drawer = page.locator('.MuiDrawer-root:not([aria-hidden="true"])');
 
     // Quick Start seeds metrics, so the grid always has rows once it loads.
