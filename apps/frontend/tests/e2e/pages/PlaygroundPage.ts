@@ -30,7 +30,10 @@ export class PlaygroundPage extends BasePage {
       name: /select endpoint/i,
     });
     if (
-      !(await endpointFab.isVisible({ timeout: 10_000 }).catch(() => false))
+      !(await endpointFab
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false))
     ) {
       return;
     }
@@ -74,7 +77,8 @@ export class PlaygroundPage extends BasePage {
       name: /select endpoint/i,
     });
     const hasFab = await endpointFab
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasFab) return false;
 
@@ -88,7 +92,10 @@ export class PlaygroundPage extends BasePage {
 
     const noEndpointsAlert = drawer.getByText(/no endpoints available/i);
     if (
-      await noEndpointsAlert.isVisible({ timeout: 3_000 }).catch(() => false)
+      await noEndpointsAlert
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false)
     ) {
       await this.page.keyboard.press('Escape');
       return false;
@@ -96,7 +103,8 @@ export class PlaygroundPage extends BasePage {
 
     const combobox = drawer.getByRole('combobox', { name: /select endpoint/i });
     const hasCombobox = await combobox
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasCombobox) {
       await this.page.keyboard.press('Escape');
@@ -109,7 +117,8 @@ export class PlaygroundPage extends BasePage {
       .filter({ hasNot: this.page.getByText(/choose an endpoint/i) })
       .first();
     const hasOption = await firstOption
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasOption) {
       await this.page.keyboard.press('Escape');

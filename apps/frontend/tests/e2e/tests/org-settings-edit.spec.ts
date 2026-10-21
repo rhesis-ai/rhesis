@@ -35,7 +35,8 @@ test.describe('Organization Settings — edit interactions @interaction', () => 
       .getByRole('textbox', { name: /display name|organization name/i })
       .first();
     const hasInput = await displayNameInput
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasInput) {
       test.skip(true, 'Display Name field not found — skipping');
@@ -66,7 +67,8 @@ test.describe('Organization Settings — edit interactions @interaction', () => 
 
     const emailInput = page.getByRole('textbox', { name: /^email$/i }).first();
     const hasEmail = await emailInput
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasEmail) {
       test.skip(true, 'Email input not found — skipping validation test');
@@ -82,7 +84,8 @@ test.describe('Organization Settings — edit interactions @interaction', () => 
       .getByText(/invalid email|please enter a valid/i)
       .first();
     const hasError = await errorText
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
 
     const ariaInvalid = await emailInput
@@ -115,7 +118,8 @@ test.describe('Organization Settings — edit interactions @interaction', () => 
       .getByRole('textbox', { name: /description/i })
       .first();
     const hasDesc = await descInput
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasDesc) {
       test.skip(true, 'Description field not found — skipping save test');

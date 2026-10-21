@@ -168,7 +168,12 @@ test.describe('Metrics — CRUD @crud', () => {
       const pill = page
         .getByRole('button', { name: new RegExp(`^${name}$`, 'i') })
         .first();
-      if (!(await pill.isVisible({ timeout: 5_000 }).catch(() => false))) {
+      if (
+        !(await pill
+          .waitFor({ state: 'visible', timeout: 5_000 })
+          .then(() => true)
+          .catch(() => false))
+      ) {
         continue;
       }
       await pill.click();

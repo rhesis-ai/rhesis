@@ -143,14 +143,18 @@ export async function selectDrawerOption(
     .nth(selectIndex);
 
   const visible = await selectBtn
-    .isVisible({ timeout: 5_000 })
+    .waitFor({ state: 'visible', timeout: 5_000 })
+    .then(() => true)
     .catch(() => false);
   if (!visible) return false;
 
   await selectBtn.click();
 
   const option = page.getByRole('option', { name: optionPattern });
-  const found = await option.isVisible({ timeout: 8_000 }).catch(() => false);
+  const found = await option
+    .waitFor({ state: 'visible', timeout: 8_000 })
+    .then(() => true)
+    .catch(() => false);
   if (!found) {
     await page.keyboard.press('Escape');
     return false;

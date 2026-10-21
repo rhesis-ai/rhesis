@@ -92,7 +92,8 @@ test.describe('Metrics page — load and filters @interaction', () => {
         .getByRole('button', { name: new RegExp(`^${filterName}$`, 'i') })
         .first();
       const visible = await btn
-        .isVisible({ timeout: 3_000 })
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
         .catch(() => false);
       if (!visible) continue;
 
@@ -105,7 +106,12 @@ test.describe('Metrics page — load and filters @interaction', () => {
 
     // Click "All" to reset
     const allBtn = page.getByRole('button', { name: /^all$/i }).first();
-    if (await allBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (
+      await allBtn
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await allBtn.click();
       await page.waitForLoadState('networkidle');
     }
@@ -123,7 +129,8 @@ test.describe('Metrics page — load and filters @interaction', () => {
     // Click the "Filters" button with a badge
     const filtersBtn = page.getByRole('button', { name: /^filters$/i }).first();
     const hasFilters = await filtersBtn
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasFilters) {
       test.skip(true, 'Filters button not found — skipping popover test');
@@ -140,7 +147,12 @@ test.describe('Metrics page — load and filters @interaction', () => {
     const clearAllBtn = page
       .getByRole('button', { name: /clear all/i })
       .first();
-    if (await clearAllBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (
+      await clearAllBtn
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await clearAllBtn.click();
     }
 

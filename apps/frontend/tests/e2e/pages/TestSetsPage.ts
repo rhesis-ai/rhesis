@@ -49,7 +49,8 @@ export class TestSetsPage {
       .getByRole('button', { name: /create test set/i })
       .first();
     const emptyVisible = await emptyAction
-      .isVisible({ timeout: 3_000 })
+      .waitFor({ state: 'visible', timeout: 3_000 })
+      .then(() => true)
       .catch(() => false);
     if (emptyVisible) {
       await emptyAction.click();

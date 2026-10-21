@@ -34,7 +34,8 @@ export class MetricsPage extends BasePage {
   async searchFor(text: string) {
     const searchInput = this.page.getByPlaceholder(/search/i).first();
     const visible = await searchInput
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (!visible) return;
     await searchInput.fill(text);
@@ -44,7 +45,10 @@ export class MetricsPage extends BasePage {
   /** Click a backend filter button (e.g. "Custom", "DeepEval", "Garak"). */
   async clickBackendFilter(name: string | RegExp) {
     const btn = this.page.getByRole('button', { name }).first();
-    const visible = await btn.isVisible({ timeout: 5_000 }).catch(() => false);
+    const visible = await btn
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
     if (visible) await btn.click();
   }
 

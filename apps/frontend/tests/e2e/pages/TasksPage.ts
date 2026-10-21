@@ -62,7 +62,8 @@ export class TasksPage extends BasePage {
       .getByRole('textbox', { name: /description/i })
       .first();
     const visible = await descInput
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (visible) await descInput.fill(description);
   }
@@ -100,7 +101,8 @@ export class TasksPage extends BasePage {
   async rowIsVisible(text: string): Promise<boolean> {
     return this.page
       .locator('[role="row"]', { hasText: text })
-      .isVisible({ timeout: 15_000 })
+      .waitFor({ state: 'visible', timeout: 15_000 })
+      .then(() => true)
       .catch(() => false);
   }
 
@@ -108,7 +110,8 @@ export class TasksPage extends BasePage {
   async rowIsGone(text: string): Promise<boolean> {
     return this.page
       .locator('[role="row"]', { hasText: text })
-      .isHidden({ timeout: 15_000 })
+      .waitFor({ state: 'hidden', timeout: 15_000 })
+      .then(() => true)
       .catch(() => false);
   }
 }

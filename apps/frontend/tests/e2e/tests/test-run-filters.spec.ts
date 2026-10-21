@@ -40,8 +40,14 @@ test.describe('Test Runs — filters and view modes @interaction', () => {
     const splitToggle = page.getByRole('button', { name: /split/i }).first();
 
     const hasToggle =
-      (await tableToggle.isVisible({ timeout: 5_000 }).catch(() => false)) ||
-      (await splitToggle.isVisible({ timeout: 5_000 }).catch(() => false));
+      (await tableToggle
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false)) ||
+      (await splitToggle
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false));
 
     if (!hasToggle) {
       test.skip(
@@ -100,7 +106,8 @@ test.describe('Test Runs — filters and view modes @interaction', () => {
     // Type into the search input
     const searchInput = page.getByPlaceholder(/search/i).first();
     const hasSearch = await searchInput
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasSearch) {
       test.skip(true, 'Search input not found on detail page — skipping');
@@ -145,7 +152,8 @@ test.describe('Test Runs — filters and view modes @interaction', () => {
     // Click "Passed" filter button
     const passedBtn = page.getByRole('button', { name: /^passed$/i }).first();
     const hasPassedBtn = await passedBtn
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (hasPassedBtn) {
       await passedBtn.click();
@@ -158,7 +166,8 @@ test.describe('Test Runs — filters and view modes @interaction', () => {
     // Click "Failed" filter button
     const failedBtn = page.getByRole('button', { name: /^failed$/i }).first();
     const hasFailedBtn = await failedBtn
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (hasFailedBtn) {
       await failedBtn.click();
@@ -167,7 +176,12 @@ test.describe('Test Runs — filters and view modes @interaction', () => {
 
     // Reset to "All"
     const allBtn = page.getByRole('button', { name: /^all$/i }).first();
-    if (await allBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (
+      await allBtn
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await allBtn.click();
     }
 
@@ -199,7 +213,8 @@ test.describe('Test Runs — filters and view modes @interaction', () => {
     // Click the "Filters" button
     const filtersBtn = page.getByRole('button', { name: /filters/i }).first();
     const hasFilters = await filtersBtn
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasFilters) {
       test.skip(true, 'Filters button not found — skipping');
@@ -217,7 +232,12 @@ test.describe('Test Runs — filters and view modes @interaction', () => {
     const clearAllBtn = page
       .getByRole('button', { name: /clear all/i })
       .first();
-    if (await clearAllBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (
+      await clearAllBtn
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await clearAllBtn.click();
     }
 

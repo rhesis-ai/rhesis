@@ -79,7 +79,8 @@ export class RequirementsPage extends BasePage {
   async openNewRequirementDrawer() {
     const fab = this.newRequirementButton.first();
     const fabVisible = await fab
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (fabVisible) {
       await fab.click();
@@ -113,7 +114,8 @@ export class RequirementsPage extends BasePage {
       .locator('.MuiDrawer-anchorRight:not([aria-hidden="true"])')
       .getByRole('textbox', { name: /description/i });
     const visible = await descInput
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (visible) await descInput.fill(description);
   }
@@ -181,14 +183,16 @@ export class RequirementsPage extends BasePage {
   /** Returns true if a requirement card with the given name is visible. */
   async cardIsVisible(name: string): Promise<boolean> {
     return this.requirementCard(name)
-      .isVisible({ timeout: 15_000 })
+      .waitFor({ state: 'visible', timeout: 15_000 })
+      .then(() => true)
       .catch(() => false);
   }
 
   /** Returns true if no requirement card with the given name is visible. */
   async cardIsGone(name: string): Promise<boolean> {
     return this.requirementCard(name)
-      .isHidden({ timeout: 15_000 })
+      .waitFor({ state: 'hidden', timeout: 15_000 })
+      .then(() => true)
       .catch(() => false);
   }
 }

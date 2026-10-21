@@ -94,7 +94,12 @@ test.describe('Onboarding wizard — form @mocked', () => {
     }
 
     const nextBtn = page.getByRole('button', { name: /^next$/i }).first();
-    if (!(await nextBtn.isVisible({ timeout: 10_000 }).catch(() => false))) {
+    if (
+      !(await nextBtn
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false))
+    ) {
       test.skip(true, '"Next" button not found on Step 0 — skipping');
       return;
     }
@@ -105,7 +110,8 @@ test.describe('Onboarding wizard — form @mocked', () => {
       /please accept the terms and conditions/i
     );
     const hasTermsGate = await termsWarning
-      .isVisible({ timeout: 2_000 })
+      .waitFor({ state: 'visible', timeout: 2_000 })
+      .then(() => true)
       .catch(() => false);
     if (hasTermsGate) {
       await page.getByRole('checkbox').click();
@@ -133,7 +139,10 @@ test.describe('Onboarding wizard — form @mocked', () => {
       .getByRole('textbox', { name: /first name/i })
       .first();
     if (
-      !(await firstNameInput.isVisible({ timeout: 10_000 }).catch(() => false))
+      !(await firstNameInput
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false))
     ) {
       test.skip(true, 'First Name field not found — skipping');
       return;
@@ -144,14 +153,24 @@ test.describe('Onboarding wizard — form @mocked', () => {
     const lastNameInput = page
       .getByRole('textbox', { name: /last name/i })
       .first();
-    if (await lastNameInput.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (
+      await lastNameInput
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await lastNameInput.fill('Playwright');
     }
 
     const orgNameInput = page
       .getByRole('textbox', { name: /organization name/i })
       .first();
-    if (await orgNameInput.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (
+      await orgNameInput
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await orgNameInput.fill(`e2e-org-${Date.now()}`);
     }
 
@@ -159,13 +178,21 @@ test.describe('Onboarding wizard — form @mocked', () => {
       .getByRole('textbox', { name: /project name/i })
       .first();
     if (
-      await projectNameInput.isVisible({ timeout: 3_000 }).catch(() => false)
+      await projectNameInput
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false)
     ) {
       await projectNameInput.fill(`e2e-project-${Date.now()}`);
     }
 
     const termsCheckbox = page.getByRole('checkbox');
-    if (await termsCheckbox.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    if (
+      await termsCheckbox
+        .waitFor({ state: 'visible', timeout: 2_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await termsCheckbox.click();
     }
 
@@ -175,7 +202,8 @@ test.describe('Onboarding wizard — form @mocked', () => {
 
     const inviteHeading = page.getByText(/invite your team/i).first();
     const advancedToStep1 = await inviteHeading
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
 
     if (!advancedToStep1) {
@@ -206,7 +234,10 @@ test.describe('Onboarding wizard — form @mocked', () => {
       .getByRole('textbox', { name: /first name/i })
       .first();
     if (
-      !(await firstNameInput.isVisible({ timeout: 10_000 }).catch(() => false))
+      !(await firstNameInput
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false))
     ) {
       test.skip(true, 'First Name field not found — skipping');
       return;
@@ -216,14 +247,24 @@ test.describe('Onboarding wizard — form @mocked', () => {
     const lastNameInput = page
       .getByRole('textbox', { name: /last name/i })
       .first();
-    if (await lastNameInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    if (
+      await lastNameInput
+        .waitFor({ state: 'visible', timeout: 2_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await lastNameInput.fill('Test');
     }
 
     const orgNameInput = page
       .getByRole('textbox', { name: /organization name/i })
       .first();
-    if (await orgNameInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    if (
+      await orgNameInput
+        .waitFor({ state: 'visible', timeout: 2_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await orgNameInput.fill(`e2e-skip-org-${Date.now()}`);
     }
 
@@ -231,7 +272,10 @@ test.describe('Onboarding wizard — form @mocked', () => {
       .getByRole('textbox', { name: /project name/i })
       .first();
     if (
-      await projectNameInput.isVisible({ timeout: 2_000 }).catch(() => false)
+      await projectNameInput
+        .waitFor({ state: 'visible', timeout: 2_000 })
+        .then(() => true)
+        .catch(() => false)
     ) {
       await projectNameInput.fill(`e2e-skip-project-${Date.now()}`);
     }
@@ -244,7 +288,10 @@ test.describe('Onboarding wizard — form @mocked', () => {
       name: /invite your team/i,
     });
     if (
-      !(await inviteHeading.isVisible({ timeout: 10_000 }).catch(() => false))
+      !(await inviteHeading
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false))
     ) {
       test.skip(true, 'Did not reach Invite Team step — skipping skip test');
       return;
@@ -258,7 +305,8 @@ test.describe('Onboarding wizard — form @mocked', () => {
       name: /review your details/i,
     });
     const advancedToReview = await reviewHeading
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     expect(
       advancedToReview,
@@ -284,7 +332,10 @@ test.describe('Onboarding wizard — form @mocked', () => {
       .getByRole('textbox', { name: /first name/i })
       .first();
     if (
-      !(await firstNameInput.isVisible({ timeout: 10_000 }).catch(() => false))
+      !(await firstNameInput
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false))
     ) {
       test.skip(true, 'First Name field not found — skipping');
       return;
@@ -293,20 +344,33 @@ test.describe('Onboarding wizard — form @mocked', () => {
     const lastNameInput = page
       .getByRole('textbox', { name: /last name/i })
       .first();
-    if (await lastNameInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    if (
+      await lastNameInput
+        .waitFor({ state: 'visible', timeout: 2_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await lastNameInput.fill('Validator');
     }
     const orgNameInput = page
       .getByRole('textbox', { name: /organization name/i })
       .first();
-    if (await orgNameInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    if (
+      await orgNameInput
+        .waitFor({ state: 'visible', timeout: 2_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await orgNameInput.fill(`e2e-email-org-${Date.now()}`);
     }
     const projectNameInput = page
       .getByRole('textbox', { name: /project name/i })
       .first();
     if (
-      await projectNameInput.isVisible({ timeout: 2_000 }).catch(() => false)
+      await projectNameInput
+        .waitFor({ state: 'visible', timeout: 2_000 })
+        .then(() => true)
+        .catch(() => false)
     ) {
       await projectNameInput.fill(`e2e-email-project-${Date.now()}`);
     }
@@ -319,7 +383,8 @@ test.describe('Onboarding wizard — form @mocked', () => {
     if (
       !(await page
         .getByRole('heading', { name: /invite your team/i })
-        .isVisible({ timeout: 8_000 })
+        .waitFor({ state: 'visible', timeout: 8_000 })
+        .then(() => true)
         .catch(() => false))
     ) {
       test.skip(true, 'Did not reach Invite Team step — skipping');
@@ -329,7 +394,12 @@ test.describe('Onboarding wizard — form @mocked', () => {
     const emailInput = page
       .getByRole('textbox', { name: /email address/i })
       .first();
-    if (!(await emailInput.isVisible({ timeout: 5_000 }).catch(() => false))) {
+    if (
+      !(await emailInput
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false))
+    ) {
       test.skip(true, 'Email field not found on Invite Team step — skipping');
       return;
     }
@@ -360,7 +430,10 @@ test.describe('Onboarding wizard — form @mocked', () => {
       .getByRole('textbox', { name: /first name/i })
       .first();
     if (
-      !(await firstNameInput.isVisible({ timeout: 10_000 }).catch(() => false))
+      !(await firstNameInput
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false))
     ) {
       test.skip(true, 'First Name field not found — skipping');
       return;
@@ -395,7 +468,10 @@ test.describe('Onboarding wizard — form @mocked', () => {
       name: /review your details/i,
     });
     if (
-      !(await reviewHeading.isVisible({ timeout: 8_000 }).catch(() => false))
+      !(await reviewHeading
+        .waitFor({ state: 'visible', timeout: 8_000 })
+        .then(() => true)
+        .catch(() => false))
     ) {
       test.skip(true, 'Did not reach Review step — skipping');
       return;

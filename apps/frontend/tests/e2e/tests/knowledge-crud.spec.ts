@@ -118,7 +118,8 @@ test.describe('Knowledge — CRUD @crud', () => {
 
     // Open the upload dialog
     const btnVisible = await knowledgePage.uploadFabButton
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!btnVisible) {
       test.skip(true, 'Upload Source button not found — skipping');
@@ -151,7 +152,8 @@ test.describe('Knowledge — CRUD @crud', () => {
     await page.waitForLoadState('networkidle');
 
     const btnVisible = await knowledgePage.uploadFabButton
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!btnVisible) {
       test.skip(true, 'Upload Source button not found — skipping');
@@ -180,7 +182,8 @@ test.describe('Knowledge — CRUD @crud', () => {
     await page.waitForLoadState('networkidle');
 
     const btnVisible = await knowledgePage.uploadFabButton
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!btnVisible) {
       test.skip(true, 'Upload Source button not found — skipping');

@@ -26,7 +26,8 @@ export class OrgTeamPage extends BasePage {
       name: /invite members/i,
     });
     const hasInviteButton = await inviteButton
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (hasInviteButton) {
       await inviteButton.click();

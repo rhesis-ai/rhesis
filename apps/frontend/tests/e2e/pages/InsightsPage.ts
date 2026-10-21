@@ -85,7 +85,12 @@ export class InsightsPage extends BasePage {
     const expandButton = this.page.getByRole('button', {
       name: /expand sidebar/i,
     });
-    if (await expandButton.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    if (
+      await expandButton
+        .waitFor({ state: 'visible', timeout: 2_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await expandButton.click();
     }
   }
