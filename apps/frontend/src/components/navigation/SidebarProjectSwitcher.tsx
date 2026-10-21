@@ -14,7 +14,7 @@ import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import AppsOutlinedIcon from '@mui/icons-material/AppsOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import type { Theme } from '@mui/material/styles';
+import { alpha, type Theme } from '@mui/material/styles';
 import { Can } from '@/components/common/Can';
 import { getProjectIcon } from '@/components/common/ProjectIcons';
 import { Capability } from '@/constants/capabilities';
@@ -41,7 +41,7 @@ interface SidebarProjectSwitcherProps {
 }
 
 /**
- * The active project, shown as its own box above the nav so it reads as the
+ * The active project, shown as a row above the nav so it reads as the
  * scope of every item below it. Opens a menu with the project's settings, the
  * project list, and the org-level project overview and create page.
  */
@@ -67,6 +67,40 @@ export function SidebarProjectSwitcher({
     router.push(path);
   };
 
+  const tile = (
+    <Avatar
+      variant="rounded"
+      sx={{
+        width: theme => theme.spacing(3),
+        height: theme => theme.spacing(3),
+        flexShrink: 0,
+        borderRadius: BORDER_RADIUS.xs,
+        bgcolor: 'primary.main',
+        '& svg': { fontSize: theme => theme.spacing(2) },
+      }}
+    >
+      {activeProject ? getProjectIcon(activeProject) : null}
+    </Avatar>
+  );
+
+  // The same white card as the footer, so the sidebar has one card style.
+  const cardSx = {
+    bgcolor: (theme: Theme) =>
+      theme.palette.mode === 'light'
+        ? theme.palette.background.paper
+        : theme.palette.background.light3,
+    boxShadow: (theme: Theme) =>
+      `0px 1px 2px ${alpha(theme.palette.common.black, 0.06)}`,
+    // A border, not an outline: the sidebar's scroll container clips anything
+    // drawn outside the box.
+    border: '1px solid',
+    borderColor: (theme: Theme) =>
+      anchor ? theme.palette.greyscale.border : 'transparent',
+    '&:hover': {
+      borderColor: (theme: Theme) => theme.palette.greyscale.border,
+    },
+  };
+
   const trigger = collapsed ? (
     <Tooltip
       title={
@@ -82,55 +116,40 @@ export function SidebarProjectSwitcher({
           alignSelf: 'center',
           flexShrink: 0,
           borderRadius: BORDER_RADIUS.md,
-          border: (theme: Theme) =>
-            `1px solid ${theme.palette.greyscale.border}`,
-          bgcolor: 'background.paper',
-          '&:hover': { borderColor: 'primary.main' },
+          ...cardSx,
         }}
       >
-        <Avatar
-          sx={{
-            width: theme => theme.spacing(3),
-            height: theme => theme.spacing(3),
-            bgcolor: 'primary.main',
-            '& svg': { fontSize: theme => theme.spacing(1.75) },
-          }}
-        >
-          {activeProject ? getProjectIcon(activeProject) : null}
-        </Avatar>
+        {tile}
       </ButtonBase>
     </Tooltip>
   ) : (
-    <ButtonBase
-      {...triggerProps}
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1,
-        width: '100%',
-        flexShrink: 0,
-        px: 1.25,
-        py: 0.75,
-        textAlign: 'left',
-        borderRadius: BORDER_RADIUS.sm,
-        border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
-        bgcolor: 'background.paper',
-        transition: theme =>
-          theme.transitions.create('border-color', {
-            duration: theme.transitions.duration.shortest,
-          }),
-        '&:hover': { borderColor: 'primary.main' },
-      }}
+    <Tooltip
+      title={activeProject?.name ?? ''}
+      placement="right"
+      enterDelay={500}
+      disableHoverListener={Boolean(anchor)}
     >
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        {/* Same type as the nav section headers (DEFINE, GENERATE…). */}
-        <Typography variant="overline" component="div">
-          Project
-        </Typography>
+      <ButtonBase
+        {...triggerProps}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          width: '100%',
+          flexShrink: 0,
+          px: '14px',
+          py: 1.25,
+          textAlign: 'left',
+          borderRadius: BORDER_RADIUS.md,
+          ...cardSx,
+        }}
+      >
         <Typography
           variant="bodyMBold"
           component="div"
           sx={{
+            flex: 1,
+            minWidth: 0,
             color: theme =>
               activeProject
                 ? theme.palette.greyscale.title
@@ -142,14 +161,15 @@ export function SidebarProjectSwitcher({
         >
           {activeProject?.name ?? NO_PROJECT_LABEL}
         </Typography>
-      </Box>
-      <ExpandMoreIcon
-        sx={{
-          flexShrink: 0,
-          color: theme => theme.palette.greyscale.subtitle,
-        }}
-      />
-    </ButtonBase>
+        <ExpandMoreIcon
+          sx={{
+            flexShrink: 0,
+            fontSize: theme => theme.spacing(2),
+            color: theme => theme.palette.greyscale.subtitle,
+          }}
+        />
+      </ButtonBase>
+    </Tooltip>
   );
 
   return (
@@ -165,30 +185,19 @@ export function SidebarProjectSwitcher({
           paper: {
             sx: {
               ...POPOVER_PAPER_SX,
+              mt: 0.5,
+              py: 1,
               width: theme => theme.spacing(POPOVER_WIDTH),
             },
           },
         }}
       >
-        {activeProject && (
-          <>
-            <MenuItem
-              onClick={() => goTo(`/projects/${activeProject.id}`)}
-              sx={MENU_ROW_SX}
-            >
-              <SettingsOutlinedIcon fontSize="small" sx={MENU_ICON_SX} />
-              <Typography variant="bodyMReg">Project Settings</Typography>
-            </MenuItem>
-            <Divider sx={MENU_DIVIDER_SX} />
-          </>
-        )}
         <Box
           sx={{
             display: 'flex',
             flexDirection: 'column',
             gap: 1,
-            px: 1.5,
-            py: 0.5,
+            px: 1,
           }}
         >
           <ProjectSwitcherList
@@ -198,6 +207,16 @@ export function SidebarProjectSwitcher({
           />
         </Box>
         <Divider sx={MENU_DIVIDER_SX} />
+        {/* Switching is what the menu is for, so the actions sit below it. */}
+        {activeProject && (
+          <MenuItem
+            onClick={() => goTo(`/projects/${activeProject.id}`)}
+            sx={MENU_ROW_SX}
+          >
+            <SettingsOutlinedIcon fontSize="small" sx={MENU_ICON_SX} />
+            <Typography variant="bodyMReg">Project Settings</Typography>
+          </MenuItem>
+        )}
         {/* The full overview is org-level, like the org menu's "Projects". */}
         <MenuItem onClick={() => goTo('/projects')} sx={MENU_ROW_SX}>
           <AppsOutlinedIcon fontSize="small" sx={MENU_ICON_SX} />

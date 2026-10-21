@@ -13,10 +13,48 @@ import {
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import SearchIcon from '@mui/icons-material/Search';
+import { alpha, type Theme } from '@mui/material/styles';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { getProjectIcon } from '@/components/common/ProjectIcons';
+
+const FULL_ROW_SX = (isActive: boolean) => ({
+  borderRadius: BORDER_RADIUS.md,
+  px: 1.5,
+  py: 1.25,
+  gap: 1.5,
+  border: (theme: Theme) =>
+    isActive
+      ? `2px solid ${theme.palette.primary.main}`
+      : '2px solid transparent',
+  '&.Mui-selected': {
+    bgcolor: (theme: Theme) =>
+      theme.palette.mode === 'light' ? 'primary.50' : 'primary.900',
+  },
+  '&.Mui-selected:hover': {
+    bgcolor: (theme: Theme) =>
+      theme.palette.mode === 'light' ? 'primary.100' : 'primary.800',
+  },
+});
+
+// Same geometry and hover as the popover's menu rows, so the list and the
+// actions below it read as one menu. The check mark carries the active state.
+const COMPACT_ROW_SX = {
+  borderRadius: BORDER_RADIUS.sm,
+  px: 0.75,
+  py: 0.75,
+  gap: 1.25,
+  '&:hover, &.Mui-selected, &.Mui-selected:hover': {
+    bgcolor: (theme: Theme) =>
+      alpha(
+        theme.palette.mode === 'light'
+          ? theme.palette.common.black
+          : theme.palette.common.white,
+        0.06
+      ),
+  },
+};
 
 interface ProjectSwitcherListProps {
   onClose: () => void;
@@ -118,39 +156,20 @@ export default function ProjectSwitcherList({
                 key={String(project.id)}
                 onClick={() => handleSelect(project)}
                 selected={isActive}
-                sx={{
-                  borderRadius: BORDER_RADIUS.md,
-                  px: compact ? 1 : 1.5,
-                  py: compact ? 0.75 : 1.25,
-                  gap: compact ? 1.25 : 1.5,
-                  border: theme =>
-                    isActive
-                      ? `2px solid ${theme.palette.primary.main}`
-                      : '2px solid transparent',
-                  '&.Mui-selected': {
-                    bgcolor: theme =>
-                      theme.palette.mode === 'light'
-                        ? 'primary.50'
-                        : 'primary.900',
-                  },
-                  '&.Mui-selected:hover': {
-                    bgcolor: theme =>
-                      theme.palette.mode === 'light'
-                        ? 'primary.100'
-                        : 'primary.800',
-                  },
-                }}
+                sx={compact ? COMPACT_ROW_SX : FULL_ROW_SX(isActive)}
               >
                 <Avatar
+                  variant={compact ? 'rounded' : 'circular'}
                   sx={{
-                    width: theme => theme.spacing(compact ? 3 : 4),
-                    height: theme => theme.spacing(compact ? 3 : 4),
+                    width: theme => theme.spacing(compact ? 2.5 : 4),
+                    height: theme => theme.spacing(compact ? 2.5 : 4),
+                    ...(compact && { borderRadius: BORDER_RADIUS.xs }),
                     bgcolor: 'primary.main',
                     flexShrink: 0,
                     fontSize: theme => theme.typography.body2.fontSize,
                     fontWeight: theme => theme.typography.fontWeightBold,
                     '& svg': {
-                      fontSize: theme => theme.spacing(compact ? 1.75 : 2),
+                      fontSize: theme => theme.spacing(compact ? 1.5 : 2),
                     },
                   }}
                 >
@@ -166,15 +185,11 @@ export default function ProjectSwitcherList({
                           ? theme.typography.fontWeightBold
                           : theme.typography.fontWeightRegular,
                       color: theme => theme.palette.greyscale.title,
-                      // Compact wraps so long names stay readable in the narrow popover.
-                      ...(compact
-                        ? { overflowWrap: 'anywhere' }
-                        : {
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }),
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
                     }}
+                    title={compact ? project.name : undefined}
                   >
                     {project.name}
                   </Typography>
