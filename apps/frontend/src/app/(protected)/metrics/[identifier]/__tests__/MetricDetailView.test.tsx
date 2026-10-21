@@ -213,3 +213,92 @@ describe('MetricDetailView — evaluation steps (issue #1045)', () => {
     expect(firstStep).toHaveValue('edited first step');
   });
 });
+
+// Issue #3011: metrics written by the API, the Architect or the seed data store
+// steps as a plain numbered list, not the UI's "Step N:" / "---" format.
+describe('MetricDetailView — evaluation step formats (issue #3011)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetModels.mockResolvedValue({ data: [] });
+    mockUpdateMetric.mockResolvedValue({});
+  });
+
+  it('shows each item of a numbered list as its own step', async () => {
+    mockGetMetric.mockResolvedValue({
+      ...mockMetric,
+      evaluation_steps:
+        '1. Read every assistant turn.\n2. Mark each user turn that asks for help.\n3. Score the conversation.',
+    });
+    await renderAndViewMetric();
+
+    expect(screen.getByText('Read every assistant turn.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Mark each user turn that asks for help.')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Score the conversation.')).toBeInTheDocument();
+  });
+
+  it('loads a numbered list as separate steps when editing', async () => {
+    mockGetMetric.mockResolvedValue({
+      ...mockMetric,
+      evaluation_steps: '1. First step\n2. Second step',
+    });
+    await renderAndViewMetric();
+
+    await act(async () => {
+      fireEvent.click(findEvaluationEditButton());
+    });
+
+    expect(
+      screen.getByPlaceholderText(/Step 1: Describe this evaluation step/i)
+    ).toHaveValue('First step');
+    expect(
+      screen.getByPlaceholderText(/Step 2: Describe this evaluation step/i)
+    ).toHaveValue('Second step');
+  });
+
+  it('does not show a step number twice', async () => {
+    mockGetMetric.mockResolvedValue({
+      ...mockMetric,
+      evaluation_steps:
+        'Step 1:\n1. Find the first claim.\n---\nStep 2:\n2. Check it.',
+    });
+    await renderAndViewMetric();
+
+    expect(screen.getByText('Find the first claim.')).toBeInTheDocument();
+    expect(screen.getByText('Check it.')).toBeInTheDocument();
+  });
+
+  it('saves edited numbered-list steps in the separator format', async () => {
+    mockGetMetric.mockResolvedValue({
+      ...mockMetric,
+      evaluation_steps: '1. First step\n2. Second step',
+    });
+    await renderAndViewMetric();
+
+    await act(async () => {
+      fireEvent.click(findEvaluationEditButton());
+    });
+    const secondStep = screen.getByPlaceholderText(
+      /Step 2: Describe this evaluation step/i
+    );
+    fireEvent.change(secondStep, { target: { value: 'Edited second step' } });
+    // Save is enabled on blur, when the component re-checks for changes.
+    await act(async () => {
+      fireEvent.blur(secondStep);
+    });
+    const card = screen
+      .getByText('Evaluation Process')
+      .closest('.MuiPaper-root');
+    await act(async () => {
+      fireEvent.click(
+        within(card as HTMLElement).getByRole('button', { name: /save/i })
+      );
+    });
+
+    await waitFor(() => expect(mockUpdateMetric).toHaveBeenCalled());
+    expect(mockUpdateMetric.mock.calls[0][1]).toMatchObject({
+      evaluation_steps: 'Step 1:\nFirst step\n---\nStep 2:\nEdited second step',
+    });
+  });
+});

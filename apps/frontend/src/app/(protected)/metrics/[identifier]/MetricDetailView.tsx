@@ -50,6 +50,10 @@ import { TagsClient } from '@/utils/api-client/tags-client';
 import { UUID } from 'crypto';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { generateCopyName } from '@/utils/entity-helpers';
+import {
+  formatEvaluationSteps,
+  parseEvaluationSteps,
+} from '@/utils/evaluation-steps';
 import { TEST_TYPES } from '@/constants/test-types';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -381,9 +385,8 @@ export function MetricDetailView({
         }
 
         const currentSteps = fieldValues.evaluation_steps || [];
-        const originalSteps = metric.evaluation_steps
-          ?.split('\n---\n')
-          .map(step => step.replace(/^Step \d+:\n?/, '').trim()) || [''];
+        const parsedSteps = parseEvaluationSteps(metric.evaluation_steps);
+        const originalSteps = parsedSteps.length > 0 ? parsedSteps : [''];
 
         if (currentSteps.length !== originalSteps.length) {
           return true;
@@ -515,15 +518,13 @@ export function MetricDetailView({
           reasoningRef.current.value = currentMetric.reasoning || '';
 
         // Populate step refs
-        const steps = currentMetric.evaluation_steps?.split('\n---\n') || [''];
-        const stepsWithIds = steps.map((step, index) => {
-          // Remove the "Step X:" prefix if it exists
-          const cleanedStep = step.replace(/^Step \d+:\n?/, '').trim();
-          return {
+        const steps = parseEvaluationSteps(currentMetric.evaluation_steps);
+        const stepsWithIds = (steps.length > 0 ? steps : ['']).map(
+          (step, index) => ({
             id: `step-${Date.now()}-${index}`,
-            content: cleanedStep,
-          };
-        });
+            content: step,
+          })
+        );
         setStepsWithIds(stepsWithIds);
 
         // No setTimeout needed: each step input uses defaultValue={step.content}
@@ -732,9 +733,9 @@ export function MetricDetailView({
 
       // Handle evaluation steps
       if (Array.isArray(dataToSend.evaluation_steps)) {
-        dataToSend.evaluation_steps = dataToSend.evaluation_steps
-          .map((step: string, index: number) => `Step ${index + 1}:\n${step}`)
-          .join('\n---\n');
+        dataToSend.evaluation_steps = formatEvaluationSteps(
+          dataToSend.evaluation_steps
+        );
       }
 
       // Remove tags from the update data as they're handled separately
@@ -1159,9 +1160,8 @@ export function MetricDetailView({
               ) : (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {metric.evaluation_steps ? (
-                    metric.evaluation_steps
-                      .split('\n---\n')
-                      .map((step, index) => {
+                    parseEvaluationSteps(metric.evaluation_steps).map(
+                      (step, index) => {
                         // Create stable key from step content
                         const stepKey = `step-${index}-${step.substring(0, 30).replace(/\s+/g, '-')}`;
                         return (
@@ -1186,11 +1186,12 @@ export function MetricDetailView({
                               {index + 1}
                             </Typography>
                             <Typography sx={{ whiteSpace: 'pre-wrap' }}>
-                              {step.replace(/^Step \d+:\n?/, '').trim()}
+                              {step}
                             </Typography>
                           </Paper>
                         );
-                      })
+                      }
+                    )
                   ) : (
                     <Typography>-</Typography>
                   )}
