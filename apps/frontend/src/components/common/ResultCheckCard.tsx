@@ -118,6 +118,8 @@ interface ResultCheckCardProps {
   footer?: React.ReactNode;
   /** Drops the shadow, for cards sitting inside another panel. */
   flat?: boolean;
+  /** What the checks were read from, shown between the header and the checks. */
+  intro?: React.ReactNode;
 }
 
 /** One group of checks: the test's own must do / must not do, or a set of metrics. */
@@ -128,6 +130,7 @@ export default function ResultCheckCard({
   rowActions,
   footer,
   flat = false,
+  intro,
 }: ResultCheckCardProps) {
   const { passed, total } = countChecks(group.checks);
   // Criteria split by kind; a group of whole metrics has no kind and stays one list.
@@ -175,6 +178,21 @@ export default function ResultCheckCard({
         <Box sx={{ flexGrow: 1 }} />
         {headerActions}
       </Box>
+      {intro && (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+            px: 2.25,
+            py: 1.75,
+            borderBottom: 1,
+            borderColor: 'divider',
+          }}
+        >
+          {intro}
+        </Box>
+      )}
       {hasKinds ? (
         <>
           {mustDo.length > 0 && <SubHeading>Must do</SubHeading>}

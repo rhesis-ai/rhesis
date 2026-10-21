@@ -1,4 +1,4 @@
-import { asSentenceList } from '../TestDetailOverviewTab';
+import { asSentenceList } from '@/components/common/TestText';
 
 describe('asSentenceList', () => {
   it('lists separate sentences on one line', () => {

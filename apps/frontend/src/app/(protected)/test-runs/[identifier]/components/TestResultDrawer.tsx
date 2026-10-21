@@ -21,10 +21,10 @@ import {
   Stack,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import TestDetailOverviewTab from './TestDetailOverviewTab';
+import TestResultHeader from './TestResultHeader';
+import TestResultTags from './TestResultTags';
 import TestDetailConversationTab from './TestDetailConversationTab';
 import TestDetailEvaluationTab from './TestDetailEvaluationTab';
 import TestDetailHistoryTab from './TestDetailHistoryTab';
@@ -38,16 +38,15 @@ import {
 import { EntityType } from '@/types/entity-type';
 
 export const TEST_RESULT_DRAWER_TAB = {
+  conversation: 0,
+  evaluation: 1,
+  annotations: 2,
+  history: 3,
+  tasks: 4,
+  /** Aliases, so links shared before the Overview tab went still open a tab. */
   overview: 0,
-  conversation: 1,
-  evaluation: 2,
-  /** Alias, so links shared before the rename still open the evaluation tab. */
-  metrics: 2,
-  annotations: 3,
-  history: 4,
-  tasks: 5,
-  /** Alias, so links shared before the rename still open the annotations tab. */
-  reviews: 3,
+  metrics: 1,
+  reviews: 2,
 } as const;
 
 interface TestResultDrawerProps {
@@ -55,7 +54,10 @@ interface TestResultDrawerProps {
   onClose: () => void;
   test: TestResultDetail | null;
   loading?: boolean;
-  prompts: Record<string, { content: string; name?: string }>;
+  prompts: Record<
+    string,
+    { content: string; name?: string; expected_response?: string }
+  >;
   testRunId: string;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   currentUserId: string;
@@ -428,6 +430,8 @@ export default function TestResultDrawer({
           overflow: 'hidden',
         }}
       >
+        <TestResultHeader test={test} />
+
         {/* Tabs Header */}
         <Box
           sx={{
@@ -475,34 +479,29 @@ export default function TestResultDrawer({
             }}
           >
             <Tab
-              label="Overview"
+              label="Conversation"
               id="test-detail-tab-0"
               aria-controls="test-detail-tabpanel-0"
             />
             <Tab
-              label="Conversation"
+              label="Evaluation"
               id="test-detail-tab-1"
               aria-controls="test-detail-tabpanel-1"
             />
             <Tab
-              label="Evaluation"
+              label="Annotations"
               id="test-detail-tab-2"
               aria-controls="test-detail-tabpanel-2"
             />
             <Tab
-              label="Annotations"
+              label="History"
               id="test-detail-tab-3"
               aria-controls="test-detail-tabpanel-3"
             />
             <Tab
-              label="History"
+              label="Tasks & Comments"
               id="test-detail-tab-4"
               aria-controls="test-detail-tabpanel-4"
-            />
-            <Tab
-              label="Tasks & Comments"
-              id="test-detail-tab-5"
-              aria-controls="test-detail-tabpanel-5"
             />
           </Tabs>
         </Box>
@@ -529,17 +528,6 @@ export default function TestResultDrawer({
             },
           }}
         >
-          <TabPanel value={activeTab} index={TAB.overview}>
-            <TestDetailOverviewTab
-              test={test}
-              prompts={prompts}
-              onTestResultUpdate={onTestResultUpdate}
-              testSetType={testSetType}
-              metricsSource={metricsSource}
-              onShowEvaluation={() => setActiveTab(TAB.evaluation)}
-            />
-          </TabPanel>
-
           <TabPanel value={activeTab} index={TAB.conversation}>
             <TestDetailConversationTab
               test={conversationTest ?? test}
@@ -561,6 +549,11 @@ export default function TestResultDrawer({
             <TestDetailEvaluationTab
               test={conversationTest ?? test}
               metricsSource={metricsSource}
+              expectedResponse={
+                (test.prompt_id &&
+                  prompts[test.prompt_id]?.expected_response) ||
+                test.test?.prompt?.expected_response
+              }
               onAnnotateMetric={handleAnnotateMetric}
             />
           </TabPanel>
@@ -596,6 +589,12 @@ export default function TestResultDrawer({
                 onCountsChange={handleCountsChange}
                 additionalMetadata={{ test_run_id: testRunId }}
               />
+              <Box sx={{ mt: 4 }}>
+                <TestResultTags
+                  testResult={test}
+                  onUpdate={onTestResultUpdate}
+                />
+              </Box>
             </Box>
           </TabPanel>
         </Box>
@@ -609,18 +608,6 @@ export default function TestResultDrawer({
           }}
         >
           <Stack direction="row" spacing={2} justifyContent="flex-end">
-            {(test?.test?.id ?? test?.test_id) && (
-              <Button
-                variant="outlined"
-                endIcon={<OpenInNewIcon />}
-                component="a"
-                href={`/tests/${test.test?.id ?? test.test_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Go to Test
-              </Button>
-            )}
             <Button variant="contained" onClick={onClose}>
               Close
             </Button>

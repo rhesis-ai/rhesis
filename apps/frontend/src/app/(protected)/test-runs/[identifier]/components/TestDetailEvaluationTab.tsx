@@ -8,6 +8,7 @@ import {
 import {
   Box,
   Typography,
+  Paper,
   Collapse,
   IconButton,
   Tooltip,
@@ -31,6 +32,15 @@ import {
 } from '@/utils/test-result-status';
 import ResultCheckCard from '@/components/common/ResultCheckCard';
 import {
+  SectionField,
+  TextContent,
+  asSentenceList,
+  renderFormattedText,
+} from '@/components/common/TestText';
+import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
+import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
+import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
+import {
   buildResultChecks,
   checksSummary,
   type ResultCheckGroup,
@@ -41,6 +51,8 @@ interface TestDetailEvaluationTabProps {
   /** Source of metrics used in this test run */
   metricsSource?: MetricsSource | string;
   onAnnotateMetric?: (metricName: string) => void;
+  /** Only a single-turn result's prompt carries an expected response. */
+  expectedResponse?: string;
 }
 
 const annotationVerdict = (entry?: AnnotationSummaryEntry) =>
@@ -163,6 +175,96 @@ interface CheckGroupCardProps {
   onAnnotateMetric?: (metricName: string) => void;
 }
 
+/** What a group's checks were read from: the test's goal and restrictions, or the requirement. */
+function groupIntro(
+  group: ResultCheckGroup,
+  test: TestResultDetail
+): React.ReactNode {
+  if (group.key === 'test') {
+    const config = test.test_output?.test_configuration;
+    if (!config?.goal && !config?.restrictions) return null;
+    return (
+      <>
+        {config.goal && (
+          <SectionField label="Goal">
+            <TextContent text={config.goal} />
+          </SectionField>
+        )}
+        {config.restrictions && (
+          <SectionField label="Restrictions">
+            {renderFormattedText(asSentenceList(config.restrictions))}
+          </SectionField>
+        )}
+      </>
+    );
+  }
+  const requirement = test.test?.requirement;
+  if (!requirement?.description || !group.title.startsWith('Requirement:')) {
+    return null;
+  }
+  return (
+    <Typography variant="body2" color="text.secondary">
+      {requirement.description}
+    </Typography>
+  );
+}
+
+/** A single-turn response is judged against these; the prompt and response are the conversation. */
+function JudgedAgainst({
+  test,
+  expectedResponse,
+}: {
+  test: TestResultDetail;
+  expectedResponse?: string;
+}) {
+  const contextItems =
+    test.test_output?.context?.filter(item => item.trim()) ?? [];
+  const metadata = test.test_output?.metadata;
+  const hasMetadata = !!metadata && Object.keys(metadata).length > 0;
+  if (!expectedResponse && contextItems.length === 0 && !hasMetadata) {
+    return null;
+  }
+  return (
+    <Paper
+      variant="outlined"
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        px: 2.25,
+        py: 1.75,
+        borderRadius: BORDER_RADIUS.md,
+        borderColor: 'divider',
+        boxShadow: ELEVATION.xs,
+      }}
+    >
+      <Typography variant="subtitle1" component="h3" fontWeight={600}>
+        Judged against
+      </Typography>
+      {expectedResponse && (
+        <SectionField label="Expected response">
+          <TextContent text={expectedResponse} />
+        </SectionField>
+      )}
+      {contextItems.length > 0 && (
+        <SectionField label={`Context (${contextItems.length})`}>
+          {renderFormattedText(contextItems.map(c => `- ${c}`).join('\n'))}
+        </SectionField>
+      )}
+      {hasMetadata && (
+        <SectionField label="Metadata">
+          <Box
+            component="pre"
+            sx={{ ...testPreviewSx, minHeight: 'unset', m: 0 }}
+          >
+            <JsonPreview value={metadata} />
+          </Box>
+        </SectionField>
+      )}
+    </Paper>
+  );
+}
+
 function CheckGroupCard({
   group,
   test,
@@ -180,6 +282,7 @@ function CheckGroupCard({
     <ResultCheckCard
       group={group}
       turnCount={turnCount}
+      intro={groupIntro(group, test)}
       headerActions={
         group.metric && (
           <MetricActions
@@ -219,6 +322,7 @@ export default function TestDetailEvaluationTab({
   test,
   metricsSource,
   onAnnotateMetric,
+  expectedResponse,
 }: TestDetailEvaluationTabProps) {
   const groups = useMemo(
     () =>
@@ -270,7 +374,8 @@ export default function TestDetailEvaluationTab({
           </AlertTitle>
           <Typography variant="body2">
             No metrics were evaluated, because there was no response to evaluate
-            them against. See the Overview tab for what the endpoint returned.
+            them against. See the Conversation tab for what the endpoint
+            returned.
           </Typography>
         </Alert>
       </Box>
@@ -293,7 +398,7 @@ export default function TestDetailEvaluationTab({
           size="small"
           variant="filled"
         />
-        <Typography variant="body1" color="text.secondary">
+        <Typography variant="body2" color="text.secondary">
           {checksSummary(groups)}
         </Typography>
         {test.last_annotation && (
@@ -305,6 +410,8 @@ export default function TestDetailEvaluationTab({
           />
         )}
       </Box>
+
+      <JudgedAgainst test={test} expectedResponse={expectedResponse} />
 
       {groups.length === 0 ? (
         <Typography variant="body2" color="text.secondary">

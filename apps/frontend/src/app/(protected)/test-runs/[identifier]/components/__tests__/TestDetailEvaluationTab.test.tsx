@@ -110,6 +110,33 @@ describe('TestDetailEvaluationTab', () => {
     expect(screen.queryByText('Goal Achievement')).not.toBeInTheDocument();
   });
 
+  it('heads the test group with the goal and restrictions it was read from', () => {
+    renderTab({
+      test: {
+        ...multiTurnResult,
+        test_output: {
+          ...multiTurnResult.test_output,
+          test_configuration: {
+            goal: 'Escalate breathing difficulty.',
+            restrictions: 'Must not reassure. Must not ask history questions.',
+          },
+        },
+      } as unknown as TestResultDetail,
+    });
+    expect(
+      screen.getByText('Escalate breathing difficulty.')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Must not reassure.')).toBeInTheDocument();
+  });
+
+  it('shows what a single-turn response was judged against', () => {
+    renderTab({ expectedResponse: 'A polite refusal.' });
+    expect(
+      screen.getByRole('heading', { name: 'Judged against' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('A polite refusal.')).toBeInTheDocument();
+  });
+
   it('splits the test checks into must do and must not do', () => {
     renderTab();
     expect(screen.getByText('Must do')).toBeInTheDocument();

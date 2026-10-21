@@ -248,7 +248,7 @@ export default function ConversationResult({
                 />
               )}
               {checks.length > 0 && (
-                <Typography variant="body1" fontWeight={500}>
+                <Typography variant="body2" fontWeight={500}>
                   {checksSummary(groups)}
                 </Typography>
               )}
