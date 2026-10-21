@@ -12,6 +12,17 @@ def mock_client():
     return Mock(spec=APIClient)
 
 
+@pytest.fixture(autouse=True)
+def no_project_from_the_environment(monkeypatch):
+    """A project set where the suite runs would add X-Project-Id to every header dict below."""
+    import rhesis.sdk
+    import rhesis.sdk.config as config
+
+    monkeypatch.delenv("RHESIS_PROJECT_ID", raising=False)
+    monkeypatch.setattr(rhesis.sdk, "project_id", None)
+    monkeypatch.setattr(config, "project_id", None)
+
+
 def test_client_init():
     client = APIClient(api_key="test_api_key", base_url="https://test.example.com")
     assert client.api_key == "test_api_key"
@@ -54,25 +65,15 @@ def test_project_id_from_env_scopes_every_request(mock_request, mock_post, monke
 
 def test_project_id_set_on_the_sdk_module(monkeypatch):
     import rhesis.sdk
-    import rhesis.sdk.config as config
 
-    monkeypatch.delenv("RHESIS_PROJECT_ID", raising=False)
     monkeypatch.setattr(rhesis.sdk, "project_id", PROJECT_ID)
-    monkeypatch.setattr(config, "project_id", None)
 
     client = APIClient(api_key="k", base_url="https://test.example.com")
 
     assert client.headers["X-Project-Id"] == PROJECT_ID
 
 
-def test_no_project_id_leaves_scoping_to_the_key(monkeypatch):
-    import rhesis.sdk
-    import rhesis.sdk.config as config
-
-    monkeypatch.delenv("RHESIS_PROJECT_ID", raising=False)
-    monkeypatch.setattr(rhesis.sdk, "project_id", None)
-    monkeypatch.setattr(config, "project_id", None)
-
+def test_no_project_id_leaves_scoping_to_the_key():
     client = APIClient(api_key="k", base_url="https://test.example.com")
 
     assert "X-Project-Id" not in client.headers
