@@ -29,7 +29,7 @@ test.describe('Metrics page — load and filters @interaction', () => {
 
     await metricsPage.expectLoaded();
 
-    const cards = page.locator('.MuiCard-root');
+    const cards = metricsPage.cards;
     const emptyState = page.getByText(/no metrics|no results/i);
     const main = page.locator('main, [role="main"]').first();
 

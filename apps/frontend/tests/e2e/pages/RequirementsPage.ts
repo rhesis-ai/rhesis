@@ -63,18 +63,14 @@ export class RequirementsPage extends BasePage {
     ).toBeTruthy();
   }
 
-  /** EntityCard renders as MuiButtonBase-root, not MuiCard-root. */
   private requirementCard(name: string) {
-    return this.page
-      .locator('.MuiButtonBase-root')
+    return this.requirementCards()
       .filter({ has: this.page.getByText(name, { exact: true }) })
       .first();
   }
 
   private requirementCards() {
-    return this.page.locator('.MuiButtonBase-root').filter({
-      has: this.page.locator('[data-testid="entity-card-description"]'),
-    });
+    return this.page.getByTestId('entity-card');
   }
 
   // ── CRUD helpers ──────────────────────────────────────────────────────────

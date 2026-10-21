@@ -141,6 +141,7 @@ export default function EntityCard({
   return (
     <ButtonBase
       component="div"
+      data-testid="entity-card"
       onClick={onClick}
       tabIndex={onClick ? 0 : -1}
       disableRipple={!onClick}

@@ -146,34 +146,23 @@ test.describe('Requirements — CRUD @crud', () => {
       timeout: 10_000,
     });
 
+    // Starting from zero, so the (1) below proves the assignment landed.
+    await expect(page.getByText(/^linked metrics \(0\)$/i)).toBeVisible();
+
     const drawer = page.locator('.MuiDrawer-root:not([aria-hidden="true"])');
 
-    // Pick the first available metric row in the assign drawer grid
+    // Quick Start seeds metrics, so the grid always has rows once it loads.
+    // (isVisible ignores its timeout, so it can't be used to wait for them.)
     const metricRow = drawer.locator('[role="row"]').nth(1);
-    const hasMetric = await metricRow
-      .isVisible({ timeout: 8_000 })
-      .catch(() => false);
-    if (!hasMetric) {
-      test.skip(
-        true,
-        'No metrics available in assign drawer — skipping metric assignment'
-      );
-      return;
-    }
+    await expect(metricRow).toBeVisible({ timeout: 15_000 });
     await metricRow.locator('input[type="checkbox"]').click();
 
-    // Confirm assignment
-    const saveBtn = drawer.getByRole('button', { name: /^assign$/i }).first();
-    const hasSave = await saveBtn
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (hasSave) await saveBtn.click();
-    else await page.keyboard.press('Escape');
+    await drawer
+      .getByRole('button', { name: /^assign$/i })
+      .first()
+      .click();
 
-    await page.waitForLoadState('networkidle');
-
-    // Requirement detail page should still show the requirement name
-    await expect(page.getByText(UNIQUE_NAME).first()).toBeVisible({
+    await expect(page.getByText(/^linked metrics \(1\)$/i)).toBeVisible({
       timeout: 15_000,
     });
   });

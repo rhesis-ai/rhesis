@@ -6,6 +6,7 @@ import { BasePage } from './BasePage';
  */
 export class MetricsPage extends BasePage {
   readonly dataGrid = this.page.locator('[role="grid"]');
+  readonly cards = this.page.getByTestId('entity-card');
 
   constructor(page: Page) {
     super(page);
@@ -47,9 +48,9 @@ export class MetricsPage extends BasePage {
     if (visible) await btn.click();
   }
 
-  /** Returns the count of visible MuiCard elements on the page. */
+  /** Returns the count of metric cards on the page. */
   async getCardCount(): Promise<number> {
     await this.page.waitForLoadState('networkidle');
-    return this.page.locator('.MuiCard-root').count();
+    return this.cards.count();
   }
 }
