@@ -393,6 +393,9 @@ test.describe('Metrics — CRUD @crud', () => {
     await metricsPage.goto();
     await page.waitForLoadState('networkidle');
 
+    const backendParam = (value: string) =>
+      new RegExp(`[?&]backend=${value}(&|$)`);
+
     // Rhesis and Custom metrics are the ones whose cards open a detail page.
     let backend: string | undefined;
     let filteredCount = 0;
@@ -404,6 +407,7 @@ test.describe('Metrics — CRUD @crud', () => {
         continue;
       }
       await pill.click();
+      await expect(page).toHaveURL(backendParam(name.toLowerCase()));
       filteredCount = await metricsPage.getCardCount();
       if (filteredCount > 0) {
         backend = name.toLowerCase();
@@ -415,18 +419,17 @@ test.describe('Metrics — CRUD @crud', () => {
       test.skip(true, 'No Rhesis or Custom metrics to open — skipping');
       return;
     }
-    const filteredUrl = new RegExp(`[?&]backend=${backend}(&|$)`);
-    await expect(page).toHaveURL(filteredUrl);
+    const cards = page.locator('.MuiCard-root');
 
-    await page.locator('.MuiCard-root').first().click();
+    await cards.first().click();
     await page.waitForURL(/\/metrics\/[^/?]+/, { timeout: 15_000 });
     await page.goBack();
 
-    await expect(page).toHaveURL(filteredUrl);
-    expect(await metricsPage.getCardCount()).toBe(filteredCount);
+    await expect(page).toHaveURL(backendParam(backend));
+    await expect(cards).toHaveCount(filteredCount);
 
     await page.reload();
-    await expect(page).toHaveURL(filteredUrl);
-    expect(await metricsPage.getCardCount()).toBe(filteredCount);
+    await expect(page).toHaveURL(backendParam(backend));
+    await expect(cards).toHaveCount(filteredCount);
   });
 });
