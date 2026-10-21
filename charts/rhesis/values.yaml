@@ -169,6 +169,7 @@ config:
 
   # Chatbot
   chatbotRateLimit: "1000"
+  chatbotRateLimitAlertsEnabled: "false"
   rhesisConnectorDisabled: "true"
   rhesisProjectId: ""
 

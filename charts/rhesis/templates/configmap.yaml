@@ -118,6 +118,7 @@ data:
   # Chatbot
   # -------------------------------------------------------------------------
   CHATBOT_RATE_LIMIT: {{ .Values.config.chatbotRateLimit | quote }}
+  CHATBOT_RATE_LIMIT_ALERTS_ENABLED: {{ .Values.config.chatbotRateLimitAlertsEnabled | quote }}
   RHESIS_CONNECTOR_DISABLED: {{ .Values.config.rhesisConnectorDisabled | quote }}
   RHESIS_PROJECT_ID: {{ .Values.config.rhesisProjectId | quote }}
 

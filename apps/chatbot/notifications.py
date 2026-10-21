@@ -19,6 +19,7 @@ SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 FROM_EMAIL = os.getenv("FROM_EMAIL", "engineering@rhesis.ai")
 ALERT_EMAIL = "hello@rhesis.ai"
+ALERTS_ENABLED = os.getenv("CHATBOT_RATE_LIMIT_ALERTS_ENABLED", "false").lower() == "true"
 
 
 def send_rate_limit_alert(
@@ -33,9 +34,11 @@ def send_rate_limit_alert(
         rate_limit_type: "Authenticated" or "Public"
         rate_limit_value: Rate limit string (e.g., "1000/day")
     """
-    # Only send if SMTP is configured
+    if not ALERTS_ENABLED:
+        return
+
     if not all([SMTP_HOST, SMTP_USER, SMTP_PASSWORD]):
-        print("⚠️ Rate limit exceeded but SMTP not configured - skipping email notification")
+        print("Rate limit exceeded but SMTP not configured - skipping email notification")
         return
 
     try:
@@ -71,7 +74,7 @@ Actions to Consider:
 2. Consider increasing rate limits for this user if needed
 3. Contact the user if this is repeated behavior
 
-Environment: {os.getenv("ENVIRONMENT", "unknown")}
+Environment: {os.getenv("BACKEND_ENV", "unknown")}
 Chatbot Service
 Rhesis AI
 """
