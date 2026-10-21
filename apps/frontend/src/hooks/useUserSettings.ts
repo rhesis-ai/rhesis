@@ -4,7 +4,10 @@ import { QueryClient, useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { userSettingsKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { UserSettings } from '@/utils/api-client/interfaces/user';
+import type {
+  UserSettings,
+  UserSettingsOutput,
+} from '@/utils/api-client/interfaces/user';
 import {
   isAuthenticated as checkIsAuthenticated,
   useUserScope,
@@ -40,11 +43,21 @@ export function fetchUserSettings(queryClient: QueryClient, userScope: string) {
   });
 }
 
-/** Write-through the cache after a settings mutation, e.g. `updateUserSettings`. */
+/**
+ * Write-through the cache after a settings mutation, e.g. `updateUserSettings`.
+ *
+ * Merges over the cached value: the PATCH response omits GET-only fields
+ * (`has_password`, `provider_type`, profile, `permitted_actions`), and
+ * replacing the cache with it makes their consumers flicker. With nothing
+ * cached there is nothing to merge into, so the next GET fills it instead.
+ */
 export function writeUserSettingsCache(
   queryClient: QueryClient,
   userScope: string,
-  settings: UserSettings
+  settings: UserSettingsOutput
 ) {
-  queryClient.setQueryData(userSettingsKeys.all(userScope), settings);
+  queryClient.setQueryData<UserSettings>(
+    userSettingsKeys.all(userScope),
+    previous => previous && { ...previous, ...settings }
+  );
 }
