@@ -18,6 +18,12 @@ Choose **Add Destination**, pick a type, and give it a name.
 | Splunk HEC | The HEC event endpoint (ending in `/services/collector/event`) and a HEC token | One HEC event per audit event, with `sourcetype` `rhesis:audit` |
 | Datadog | Your Datadog site and an API key | One log per audit event to the Logs intake, with `ddsource` `rhesis` and service `rhesis-audit-log` |
 
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-audit-log-add-destination.webp"
+  darkSrc="/screenshots/rhesis-ai-audit-log-add-destination-dark.webp"
+  alt="Add Destination drawer with type, name and URL fields for a webhook"
+/>
+
 URLs must use HTTPS and resolve to a public address. Tokens and API keys are stored encrypted and never shown again.
 
 A new destination receives events recorded from the moment it is added; earlier events are not sent. Use [export](/docs/organizations/audit-log#exporting) for history. **Send a test event** delivers one sample event of type `audit_log.test`, which is not recorded in the log.
