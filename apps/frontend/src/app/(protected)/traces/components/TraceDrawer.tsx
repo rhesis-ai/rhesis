@@ -12,6 +12,7 @@ import SpanGraphView from './SpanGraphView';
 import SpanDetailsPanel from './SpanDetailsPanel';
 import ConversationTraceView from './ConversationTraceView';
 import TraceAnnotationDrawer from './TraceAnnotationDrawer';
+import TurnSwitcher from './TurnSwitcher';
 import { findSpanPath, pickInitialSelection, treeTabIndex } from './span-path';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import BaseDrawer from '@/components/common/BaseDrawer';
@@ -30,6 +31,12 @@ import { shortVersion } from '@/utils/api-client/interfaces/parameters';
 import { experimentHref } from '@/utils/experiment-links';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import type { TurnTraceTarget } from '@/utils/conversation-from-spans';
+import {
+  conversationTraceQuery,
+  loadConversationTurns,
+  type ConversationTurns,
+} from '@/utils/conversation-traces';
 
 interface TraceDrawerProps {
   open: boolean;
@@ -125,6 +132,20 @@ export default function TraceDrawer({
   const [selectedSpan, setSelectedSpan] = useState<SpanNode | null>(null);
   const [viewTab, setViewTab] = useState<number>(0);
 
+  // A turn reached from inside the drawer, valid only for the trace the parent opened.
+  const [turnNav, setTurnNav] = useState<{
+    openedOn: string | null;
+    target: TurnTraceTarget;
+  } | null>(null);
+  const turnTarget = turnNav?.openedOn === traceId ? turnNav.target : null;
+  const loadedTraceId = turnTarget?.traceId ?? traceId;
+  const loadedProjectId = turnTarget?.projectId ?? projectId;
+
+  const [conversation, setConversation] = useState<{
+    key: string;
+    turns: ConversationTurns;
+  } | null>(null);
+
   // Resizable drawer width state
   const [drawerWidth, setDrawerWidth] = useState(85); // viewport percentage
   const [isResizingDrawer, setIsResizingDrawer] = useState(false);
@@ -183,7 +204,7 @@ export default function TraceDrawer({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const fetchTrace = useCallback(async () => {
-    if (!traceId || !projectId) return;
+    if (!loadedTraceId || !loadedProjectId) return;
 
     setLoading(true);
     setError(null);
@@ -191,17 +212,20 @@ export default function TraceDrawer({
     setSelectedSpan(null);
 
     try {
-      const clientFactory = new ApiClientFactory(undefined, projectId);
+      const clientFactory = new ApiClientFactory(undefined, loadedProjectId);
       const client = clientFactory.getTelemetryClient();
-      const data = await client.getTrace(traceId, projectId);
+      const data = await client.getTrace(loadedTraceId, loadedProjectId);
       setTrace(data);
 
-      const { span, openTree } = pickInitialSelection(data, {
-        initialSpanId,
-        initialTurnIndex,
-      });
+      const { span, openTree } = pickInitialSelection(
+        data,
+        turnTarget
+          ? { initialTurnIndex: turnTarget.rootIndex }
+          : { initialSpanId, initialTurnIndex }
+      );
       setSelectedSpan(span);
-      if (openTree) {
+      // Moving between turns keeps the tab the reader is on.
+      if (openTree && !turnTarget) {
         setViewTab(treeTabIndex(!!data.conversation_id));
       }
     } catch (err: unknown) {
@@ -212,15 +236,21 @@ export default function TraceDrawer({
     } finally {
       setLoading(false);
     }
-  }, [traceId, projectId, initialTurnIndex, initialSpanId]);
+  }, [
+    loadedTraceId,
+    loadedProjectId,
+    turnTarget,
+    initialTurnIndex,
+    initialSpanId,
+  ]);
 
   const refreshTrace = useCallback(async () => {
-    if (!traceId || !projectId) return;
+    if (!loadedTraceId || !loadedProjectId) return;
 
     try {
-      const clientFactory = new ApiClientFactory(undefined, projectId);
+      const clientFactory = new ApiClientFactory(undefined, loadedProjectId);
       const client = clientFactory.getTelemetryClient();
-      const data = await client.getTrace(traceId, projectId);
+      const data = await client.getTrace(loadedTraceId, loadedProjectId);
       setTrace(data);
 
       setSelectedSpan(prev => {
@@ -234,7 +264,85 @@ export default function TraceDrawer({
     } catch (err) {
       console.error('Failed to refresh trace:', err);
     }
-  }, [traceId, projectId]);
+  }, [loadedTraceId, loadedProjectId]);
+
+  const conversationQuery = useMemo(
+    () => (trace ? conversationTraceQuery(trace) : null),
+    [trace]
+  );
+  const conversationKey = conversationQuery
+    ? JSON.stringify(conversationQuery)
+    : null;
+  // Kept while moving between turns: on traces stored before the backend linked them, turn 1
+  // has no conversation_id of its own to look the conversation up by.
+  const turns =
+    conversation && (conversation.key === conversationKey || turnTarget)
+      ? conversation.turns
+      : null;
+
+  // Loaded once per conversation, not again on every turn the reader moves to.
+  useEffect(() => {
+    if (!trace || !conversationQuery || !conversationKey) return;
+    if (conversation?.key === conversationKey) return;
+
+    let cancelled = false;
+    const client = new ApiClientFactory(
+      undefined,
+      loadedProjectId
+    ).getTelemetryClient();
+    loadConversationTurns(client, conversationQuery, trace)
+      .then(loaded => {
+        if (!cancelled)
+          setConversation({ key: conversationKey, turns: loaded });
+      })
+      .catch(err => console.error('Failed to load conversation turns:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    trace,
+    conversationQuery,
+    conversationKey,
+    conversation?.key,
+    loadedProjectId,
+  ]);
+
+  // Index into the conversation's turns of the turn holding the selected span.
+  const turnIndex = useMemo(() => {
+    if (!turns || !trace || !selectedSpan) return null;
+    const root = findSpanPath(trace.root_spans, selectedSpan.span_id)?.[0];
+    if (!root) return null;
+    const rootIndex = trace.root_spans.indexOf(root);
+    const index = turns.targets.findIndex(
+      t => t.traceId === trace.trace_id && t.rootIndex === rootIndex
+    );
+    return index >= 0 ? index : null;
+  }, [turns, trace, selectedSpan]);
+
+  // The loaded trace's roots are taken from it, not the conversation's copy, so a refresh after
+  // an annotation shows.
+  const conversationSpans = useMemo(
+    () =>
+      turns?.targets.map(
+        (t, i) =>
+          (t.traceId === trace?.trace_id && trace.root_spans[t.rootIndex]) ||
+          turns.spans[i]
+      ),
+    [turns, trace]
+  );
+
+  const goToTurn = useCallback(
+    (index: number) => {
+      const target = turns?.targets[index];
+      if (!target || !trace) return;
+      if (target.traceId === trace.trace_id) {
+        setSelectedSpan(trace.root_spans[target.rootIndex] ?? null);
+      } else {
+        setTurnNav({ openedOn: traceId, target });
+      }
+    },
+    [turns, trace, traceId]
+  );
 
   // Annotation drawer state (lifted from SpanDetailsPanel for cross-panel access)
   const [annotationDrawerOpen, setAnnotationDrawerOpen] = useState(false);
@@ -253,8 +361,14 @@ export default function TraceDrawer({
   }, [trace]);
 
   const selectedTurnNumber = useMemo(() => {
-    if (!selectedSpan || !trace?.root_spans || !trace.conversation_id)
-      return null;
+    if (!selectedSpan || !trace?.root_spans) return null;
+    if (turns) {
+      const isRoot = trace.root_spans.some(
+        s => s.span_id === selectedSpan.span_id
+      );
+      return isRoot && turnIndex !== null ? turnIndex + 1 : null;
+    }
+    if (!trace.conversation_id) return null;
     const conversationSpans = trace.root_spans.filter(
       s =>
         s.attributes['rhesis.conversation.input'] ||
@@ -264,7 +378,7 @@ export default function TraceDrawer({
       s => s.span_id === selectedSpan.span_id
     );
     return idx >= 0 ? idx + 1 : null;
-  }, [selectedSpan, trace]);
+  }, [selectedSpan, trace, turns, turnIndex]);
 
   const handleAnnotateMetric = useCallback(
     (metricName: string) => {
@@ -318,10 +432,15 @@ export default function TraceDrawer({
   }, [refreshTrace, onTraceUpdated]);
 
   useEffect(() => {
-    if (open && traceId && projectId) {
+    if (open && loadedTraceId && loadedProjectId) {
       fetchTrace();
     }
-  }, [open, traceId, projectId, fetchTrace]);
+  }, [open, loadedTraceId, loadedProjectId, fetchTrace]);
+
+  // Reopening, or the parent opening another trace, starts from what the parent asks for.
+  useEffect(() => {
+    setTurnNav(null);
+  }, [open, traceId]);
 
   // Fetch experiment info from test run attributes
   useEffect(() => {
@@ -563,7 +682,14 @@ export default function TraceDrawer({
             )}
           </Box>
 
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '8px',
+              alignItems: 'center',
+            }}
+          >
             <GridBadge label={`${trace.span_count} spans`} size="grid" />
             <GridBadge label={formatDuration(trace.duration_ms)} size="grid" />
             <GridBadge label={trace.environment} size="grid" />
@@ -594,6 +720,15 @@ export default function TraceDrawer({
                   color: 'error.contrastText',
                 }}
               />
+            )}
+            {turns && turns.targets.length > 1 && (
+              <Box sx={{ ml: 'auto' }}>
+                <TurnSwitcher
+                  index={turnIndex}
+                  count={turns.targets.length}
+                  onChange={goToTurn}
+                />
+              </Box>
             )}
           </Box>
         </Box>
@@ -650,7 +785,10 @@ export default function TraceDrawer({
                   <ConversationTraceView
                     trace={trace}
                     onSpanSelect={handleSpanSelect}
-                    rootSpans={trace.root_spans}
+                    rootSpans={conversationSpans ?? trace.root_spans}
+                    onTurnClick={
+                      turns ? turnNumber => goToTurn(turnNumber - 1) : undefined
+                    }
                     onAnnotateTurn={handleAnnotateTurn}
                   />
                 )}

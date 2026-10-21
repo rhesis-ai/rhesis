@@ -14,20 +14,17 @@ import { SectionField, FormattedText } from '@/components/common/TestText';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
-import {
-  SpanNode,
-  TraceSummary,
-} from '@/utils/api-client/interfaces/telemetry';
+import type { SpanNode } from '@/utils/api-client/interfaces/telemetry';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useSession } from 'next-auth/react';
 import ConversationHistory from '@/components/common/ConversationHistory';
 import TraceDrawer from '@/app/(protected)/traces/components/TraceDrawer';
 import {
-  conversationRootSpans,
   isMultiTurnTestResult,
   resolveConversationSummary,
   type TurnTraceTarget,
 } from '@/utils/conversation-from-spans';
+import { loadConversationTurns } from '@/utils/conversation-traces';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { getEffectiveTestResultStatus } from '@/utils/test-result-status';
 import { getEndpointFailure } from '@/utils/endpoint-failure';
@@ -112,7 +109,6 @@ export default function TestDetailConversationTab({
   isUndoingReview,
 }: TestDetailConversationTabProps) {
   const { status } = useSession();
-  const [traces, setTraces] = useState<TraceSummary[]>([]);
   const [rootSpans, setRootSpans] = useState<SpanNode[]>([]);
   const [turnTargets, setTurnTargets] = useState<TurnTraceTarget[]>([]);
   const [spanFiles, setSpanFiles] = useState<FileResponse[][]>([]);
@@ -127,7 +123,6 @@ export default function TestDetailConversationTab({
   // Fetch traces, trace detail, and span files in one chain.
   useEffect(() => {
     setSpanFiles([]);
-    setTraces([]);
     setRootSpans([]);
     setTurnTargets([]);
 
@@ -137,27 +132,9 @@ export default function TestDetailConversationTab({
       setTracesLoading(true);
       try {
         const factory = new ApiClientFactory();
-        const telemetryClient = factory.getTelemetryClient();
-        const response = await telemetryClient.listTraces({
-          test_result_id: test.id as string,
-          limit: 100,
-        });
-        const sorted = [...response.traces].sort(
-          (a, b) =>
-            new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
-        );
-
-        const details = await Promise.all(
-          sorted.map(trace =>
-            telemetryClient.getTrace(trace.trace_id, trace.project_id)
-          )
-        );
-        const { spans, targets } = conversationRootSpans(
-          sorted.map((trace, i) => ({
-            traceId: trace.trace_id,
-            projectId: trace.project_id,
-            rootSpans: details[i].root_spans ?? [],
-          }))
+        const { spans, targets } = await loadConversationTurns(
+          factory.getTelemetryClient(),
+          { test_result_id: test.id as string }
         );
 
         const filesClient = factory.getFilesClient();
@@ -172,7 +149,6 @@ export default function TestDetailConversationTab({
           })
         );
 
-        setTraces(sorted);
         setRootSpans(spans);
         setTurnTargets(targets);
         setSpanFiles(files);
@@ -318,7 +294,9 @@ export default function TestDetailConversationTab({
         metrics={test.test_metrics?.metrics}
         project={project}
         projectName={projectName}
-        onResponseClick={traces.length > 0 ? handleResponseClick : undefined}
+        onResponseClick={
+          turnTargets.length > 0 ? handleResponseClick : undefined
+        }
         onAnnotateTurn={onAnnotateTurn}
         onConfirmAutomatedAnnotation={onConfirmAutomatedAnnotation}
         hasExistingAnnotation={!!test.last_annotation}
