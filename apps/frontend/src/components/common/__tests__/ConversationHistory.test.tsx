@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { ThemeProvider } from '@mui/material/styles';
@@ -86,18 +86,73 @@ describe('ConversationHistory', () => {
     expect(onResponseClick).toHaveBeenCalledWith(1);
   });
 
-  it('shows "Conversation Concluded" chip at the end', () => {
-    renderConversation({ conversationSummary: [makeTurn(1)] });
-    expect(screen.getByText(/conversation concluded/i)).toBeInTheDocument();
+  it('ends with a divider saying how many turns there were', () => {
+    renderConversation({ conversationSummary: [makeTurn(1), makeTurn(2)] });
+    expect(
+      screen.getByText('Conversation ended after 2 turns')
+    ).toBeInTheDocument();
   });
 
-  it('shows "Confirmed" chip when hasExistingAnnotation=true and annotationMatchesAutomated=true', () => {
+  it('says who confirmed the verdict once it was reviewed', () => {
+    renderConversation({
+      conversationSummary: [makeTurn(1)],
+      hasExistingAnnotation: true,
+      annotationMatchesAutomated: true,
+      reviewerName: 'Ada',
+      onConfirmAutomatedAnnotation: jest.fn(),
+    });
+    expect(screen.getByText('Verdict confirmed by Ada')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Confirm verdict' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('lets a reviewer undo their review when allowed', async () => {
+    const user = userEvent.setup();
+    const onUndoReview = jest.fn();
+    renderConversation({
+      conversationSummary: [makeTurn(1)],
+      hasExistingAnnotation: true,
+      annotationMatchesAutomated: true,
+      onUndoReview,
+    });
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(onUndoReview).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows no Undo without the handler', () => {
     renderConversation({
       conversationSummary: [makeTurn(1)],
       hasExistingAnnotation: true,
       annotationMatchesAutomated: true,
     });
-    expect(screen.getByText('Confirmed')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Undo' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('says the verdict was changed when the review disagreed', () => {
+    renderConversation({
+      conversationSummary: [makeTurn(1)],
+      hasExistingAnnotation: true,
+      annotationMatchesAutomated: false,
+      reviewerName: 'Ada',
+    });
+    expect(screen.getByText('Verdict changed by Ada')).toBeInTheDocument();
+  });
+
+  it('offers to override an unreviewed verdict', async () => {
+    const user = userEvent.setup();
+    const onOverrideVerdict = jest.fn();
+    renderConversation({
+      conversationSummary: [makeTurn(1)],
+      onOverrideVerdict,
+    });
+    expect(
+      screen.getByText('Automated verdict · not reviewed yet')
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Override' }));
+    expect(onOverrideVerdict).toHaveBeenCalledTimes(1);
   });
 
   it('shows confirm button when hasExistingAnnotation=false and onConfirmAutomatedAnnotation is provided', () => {
@@ -107,8 +162,9 @@ describe('ConversationHistory', () => {
       hasExistingAnnotation: false,
       onConfirmAutomatedAnnotation,
     });
-    // The confirm button is an IconButton — look by role
-    expect(screen.getByRole('button')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Confirm verdict' })
+    ).toBeInTheDocument();
   });
 
   it('calls onConfirmAutomatedAnnotation when the confirm button is clicked', async () => {
@@ -121,7 +177,7 @@ describe('ConversationHistory', () => {
       onConfirmAutomatedAnnotation,
     });
 
-    await user.click(screen.getByRole('button'));
+    await user.click(screen.getByRole('button', { name: 'Confirm verdict' }));
     expect(onConfirmAutomatedAnnotation).toHaveBeenCalled();
   });
 
@@ -143,7 +199,10 @@ describe('ConversationHistory', () => {
 
   describe('turn status from metric findings', () => {
     const turnStatuses = () =>
-      screen.getAllByTestId('status-chip').map(chip => chip.textContent);
+      screen
+        .queryAllByTestId('status-chip')
+        .filter(chip => !chip.closest('[data-testid="result-summary"]'))
+        .map(chip => chip.textContent);
 
     const goalEvaluation = (met: boolean, relevant_turns: number[]) => ({
       all_criteria_met: met,
@@ -197,28 +256,126 @@ describe('ConversationHistory', () => {
       expect(turnStatuses()).toEqual(['Pass', 'Fail']);
     });
 
-    it('promotes a finding citing all turns to conversation-level', () => {
+    it('shows a failure that cites every turn on every turn', () => {
       renderConversation({
         conversationSummary: [makeTurn(1), makeTurn(2)],
-        goalEvaluation: goalEvaluation(true, [1, 2]),
-        metrics: redFlag(false, [2]),
+        goalEvaluation: goalEvaluation(true, [1]),
+        metrics: redFlag(false, [1, 2]),
       });
-      // Goal criterion cites all 2 turns → promoted to conversation-level.
-      // Turn 1: no per-turn verdict → soft "Evaluated" chip. Turn 2: failed metric → Fail.
-      expect(turnStatuses()).toEqual(['Fail']);
-      expect(screen.getByText('Evaluated')).toBeInTheDocument();
+      // The passing criterion only cites turn 1, but the failed metric cites both.
+      expect(turnStatuses()).toEqual(['Fail', 'Fail']);
+      expect(screen.queryByText('Evaluated')).not.toBeInTheDocument();
     });
 
-    it('shows a failure that cites no turn above the conversation', () => {
+    it("lists a turn's checks in the same cards as the Evaluation tab", async () => {
+      const user = userEvent.setup();
+      renderConversation({
+        conversationSummary: [makeTurn(1), makeTurn(2)],
+        goalEvaluation: goalEvaluation(false, [1]),
+        metrics: redFlag(true, [1, 2]),
+        requirementName: 'Escalates Red Flags',
+        metricsSource: 'requirement',
+      });
+      const [toggle] = screen.getAllByRole('button', { name: /^findings/i });
+      // Turn 1: the criterion failed, the metric passed.
+      expect(toggle).toHaveTextContent('Findings · 1 failed');
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute('aria-expanded', 'true');
+      expect(
+        screen.getByRole('heading', { name: 'This test' })
+      ).toBeInTheDocument();
+      expect(screen.getByText('Must do')).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', {
+          name: 'Requirement: Escalates Red Flags',
+        })
+      ).toBeInTheDocument();
+      // The turn is already chosen, so checks carry no turn tags here.
+      const card = screen
+        .getByRole('heading', { name: 'This test' })
+        .closest('.MuiPaper-root') as HTMLElement;
+      expect(within(card).queryByText(/^Turns? \d/)).not.toBeInTheDocument();
+      expect(screen.queryByText('Met')).not.toBeInTheDocument();
+    });
+
+    it('sums up the checks after the conversation, not above it', () => {
+      renderConversation({
+        conversationSummary: [makeTurn(1), makeTurn(2)],
+        metrics: redFlag(false),
+      });
+      const summary = screen.getByTestId('result-summary');
+      expect(summary).toHaveTextContent('Fail');
+      expect(summary).toHaveTextContent('0 of 1 check passed');
+      expect(turnStatuses()).toEqual([]);
+      expect(
+        screen.queryByRole('button', { name: /see full evaluation/i })
+      ).not.toBeInTheDocument();
+    });
+
+    it('collapses a confirmed pass to one line until asked', async () => {
+      const user = userEvent.setup();
+      renderConversation({
+        conversationSummary: [makeTurn(1)],
+        metrics: redFlag(true, [1]),
+        hasExistingAnnotation: true,
+        annotationMatchesAutomated: true,
+        reviewerName: 'Ada',
+      });
+      const summary = screen.getByTestId('result-summary');
+      expect(summary).toHaveTextContent('Confirmed by Ada');
+      expect(within(summary).queryByText('Red Flag Escalation')).toBeNull();
+      await user.click(screen.getByRole('button', { name: 'Show checks' }));
+      expect(
+        within(summary).getByText('Red Flag Escalation')
+      ).toBeInTheDocument();
+    });
+
+    it('collapses right after a pass is confirmed, like a reload would', () => {
+      const props = {
+        conversationSummary: [makeTurn(1)],
+        metrics: redFlag(true, [1]),
+        onConfirmAutomatedAnnotation: jest.fn(),
+      };
+      const { rerender } = renderConversation(props);
+      expect(
+        screen.getByRole('button', { name: 'Confirm verdict' })
+      ).toBeInTheDocument();
+      rerender(
+        <ThemeProvider theme={lightTheme}>
+          <ConversationHistory
+            {...props}
+            hasExistingAnnotation
+            annotationMatchesAutomated
+          />
+        </ThemeProvider>
+      );
+      expect(
+        screen.getByRole('button', { name: 'Show checks' })
+      ).toBeInTheDocument();
+    });
+
+    it('prefers the given result status, e.g. after a human override', () => {
       renderConversation({
         conversationSummary: [makeTurn(1)],
         metrics: redFlag(false),
+        resultStatus: 'Pass',
       });
-      expect(
-        screen.getByText(/failed on the conversation as a whole/i)
-      ).toBeInTheDocument();
-      expect(screen.getByText('Red Flag Escalation')).toBeInTheDocument();
-      expect(screen.queryByTestId('status-chip')).not.toBeInTheDocument();
+      expect(screen.getByTestId('result-summary')).toHaveTextContent('Pass');
+    });
+
+    it('links to the evaluation when a handler is given', async () => {
+      const user = userEvent.setup();
+      const onShowEvaluation = jest.fn();
+      renderConversation({
+        conversationSummary: [makeTurn(1)],
+        metrics: redFlag(false),
+        onShowEvaluation,
+      });
+      await user.click(
+        screen.getByRole('button', { name: /see full evaluation/i })
+      );
+      expect(onShowEvaluation).toHaveBeenCalledTimes(1);
     });
 
     it('passes the shown turn status to the annotate handler', async () => {

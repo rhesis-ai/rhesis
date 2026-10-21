@@ -2,7 +2,16 @@
 
 import { annotationsByTurn } from '@/components/annotations/annotation-summary';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, CircularProgress, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  CircularProgress,
+  Collapse,
+  Typography,
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { SectionField, FormattedText } from '@/components/common/TestText';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import {
@@ -29,6 +38,61 @@ interface TestDetailConversationTabProps {
   onAnnotateTurn?: (turnNumber: number, turnPassed?: boolean) => void;
   onConfirmAutomatedAnnotation?: () => void;
   isConfirmingAnnotation?: boolean;
+  onShowEvaluation?: () => void;
+  metricsSource?: string;
+  onOverrideVerdict?: () => void;
+  onUndoReview?: () => void;
+  isUndoingReview?: boolean;
+}
+
+/** The scenario and instructions Penelope followed, closed until asked for. */
+function SimulationSetup({ test }: { test: TestResultDetail }) {
+  const [open, setOpen] = useState(false);
+  const config = test.test_output?.test_configuration;
+  if (!config?.scenario && !config?.instructions) return null;
+  return (
+    <Box
+      sx={{
+        mx: 3,
+        px: 2,
+        py: 1,
+        borderRadius: BORDER_RADIUS.md,
+        border: 1,
+        borderColor: 'divider',
+      }}
+    >
+      <Button
+        size="small"
+        color="inherit"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        endIcon={
+          <ExpandMoreIcon
+            sx={{ transform: open ? 'rotate(180deg)' : 'none' }}
+          />
+        }
+        sx={{ textTransform: 'none', fontWeight: 600, px: 0 }}
+      >
+        <Typography variant="body2" component="span" fontWeight={600}>
+          Simulation setup
+        </Typography>
+      </Button>
+      <Collapse in={open} timeout="auto" unmountOnExit>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, py: 1.5 }}>
+          {config.scenario && (
+            <SectionField label="Scenario">
+              <FormattedText text={config.scenario} />
+            </SectionField>
+          )}
+          {config.instructions && (
+            <SectionField label="Instructions">
+              <FormattedText text={config.instructions} />
+            </SectionField>
+          )}
+        </Box>
+      </Collapse>
+    </Box>
+  );
 }
 
 export default function TestDetailConversationTab({
@@ -39,6 +103,11 @@ export default function TestDetailConversationTab({
   onAnnotateTurn,
   onConfirmAutomatedAnnotation,
   isConfirmingAnnotation = false,
+  onShowEvaluation,
+  metricsSource,
+  onOverrideVerdict,
+  onUndoReview,
+  isUndoingReview,
 }: TestDetailConversationTabProps) {
   const { status } = useSession();
   const [traces, setTraces] = useState<TraceSummary[]>([]);
@@ -189,6 +258,14 @@ export default function TestDetailConversationTab({
           annotationMatchesAutomated={test.matches_annotation === true}
           isConfirmingAnnotation={isConfirmingAnnotation}
           maxHeight="100%"
+          resultStatus={getEffectiveTestResultStatus(test)}
+          onShowEvaluation={onShowEvaluation}
+          requirementName={test.test?.requirement?.name}
+          metricsSource={metricsSource}
+          reviewerName={test.last_annotation?.user?.name}
+          onOverrideVerdict={onOverrideVerdict}
+          onUndoReview={onUndoReview}
+          isUndoingReview={isUndoingReview}
         />
       </Box>
     );
@@ -232,6 +309,7 @@ export default function TestDetailConversationTab({
     <Box
       sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}
     >
+      <SimulationSetup test={test} />
       <ConversationHistory
         conversationSummary={conversationSummary}
         goalEvaluation={test.test_output?.goal_evaluation}
@@ -246,6 +324,14 @@ export default function TestDetailConversationTab({
         isConfirmingAnnotation={isConfirmingAnnotation}
         maxHeight="100%"
         turnAnnotationMap={turnAnnotationMap}
+        resultStatus={getEffectiveTestResultStatus(test)}
+        onShowEvaluation={onShowEvaluation}
+        requirementName={test.test?.requirement?.name}
+        metricsSource={metricsSource}
+        reviewerName={test.last_annotation?.user?.name}
+        onOverrideVerdict={onOverrideVerdict}
+        onUndoReview={onUndoReview}
+        isUndoingReview={isUndoingReview}
       />
       <TraceDrawer
         open={traceDrawerOpen}

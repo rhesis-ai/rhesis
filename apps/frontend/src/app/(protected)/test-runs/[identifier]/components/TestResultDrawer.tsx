@@ -6,7 +6,10 @@ import { toMentionId } from '@/components/common/MentionTextInput';
 import {
   ANNOTATION_ENTITY_TYPES,
   ANNOTATION_TARGET_TYPES,
+  type Annotation,
 } from '@/utils/api-client/interfaces/annotation';
+import { can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import {
   Box,
   Tabs,
@@ -18,12 +21,12 @@ import {
   Stack,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import TestDetailOverviewTab from './TestDetailOverviewTab';
+import TestResultHeader from './TestResultHeader';
+import TestResultTags from './TestResultTags';
 import TestDetailConversationTab from './TestDetailConversationTab';
-import TestDetailMetricsTab from './TestDetailMetricsTab';
+import TestDetailEvaluationTab from './TestDetailEvaluationTab';
 import TestDetailHistoryTab from './TestDetailHistoryTab';
 import TestDetailAnnotationsTab from './TestDetailAnnotationsTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
@@ -35,28 +38,35 @@ import {
 import { EntityType } from '@/types/entity-type';
 
 export const TEST_RESULT_DRAWER_TAB = {
+  conversation: 0,
+  evaluation: 1,
+  annotations: 2,
+  history: 3,
+  tasks: 4,
+  /** Aliases, so links shared before the Overview tab went still open a tab. */
   overview: 0,
-  conversation: 1,
-  metrics: 2,
-  annotations: 3,
-  history: 4,
-  tasks: 5,
-  /** Alias, so links shared before the rename still open the annotations tab. */
-  reviews: 3,
+  metrics: 1,
+  reviews: 2,
 } as const;
+
+// In display order; ids and panels come from TEST_RESULT_DRAWER_TAB, so a reorder is one edit.
+const TAB_LABELS = [
+  ['conversation', 'Conversation'],
+  ['evaluation', 'Evaluation'],
+  ['annotations', 'Annotations'],
+  ['history', 'History'],
+  ['tasks', 'Tasks & Comments'],
+] as const;
 
 interface TestResultDrawerProps {
   open: boolean;
   onClose: () => void;
   test: TestResultDetail | null;
   loading?: boolean;
-  prompts: Record<string, { content: string; name?: string }>;
-  requirements: Array<{
-    id: string;
-    name: string;
-    description?: string;
-    metrics: Array<{ name: string; description?: string }>;
-  }>;
+  prompts: Record<
+    string,
+    { content: string; name?: string; expected_response?: string }
+  >;
   testRunId: string;
   onTestResultUpdate: (updatedTest: TestResultDetail) => void;
   currentUserId: string;
@@ -143,7 +153,6 @@ export default function TestResultDrawer({
   test,
   loading = false,
   prompts,
-  requirements,
   testRunId,
   onTestResultUpdate,
   currentUserId,
@@ -203,6 +212,15 @@ export default function TestResultDrawer({
     [test, TAB.annotations]
   );
 
+  // Opens the annotation form set to the opposite of what automation decided.
+  const handleOverrideVerdict = useCallback(() => {
+    if (!test) return;
+    const automatedPassed = getEffectiveTestResultStatus(test) === 'Pass';
+    setAnnotationInitialComment('');
+    setAnnotationInitialStatus(automatedPassed ? 'failed' : 'passed');
+    setActiveTab(TAB.annotations);
+  }, [test, TAB.annotations]);
+
   // `test` comes from a results-grid fetch, which strips
   // test_output.conversation_summary (the full multi-turn transcript --
   // dead weight on a grid that never renders it). Fetch the one result this
@@ -211,8 +229,11 @@ export default function TestResultDrawer({
   // directly, e.g. after an annotation write already re-fetches via
   // getTestResult), so this never re-fetches data already in hand.
   const [fetchedTest, setFetchedTest] = useState<TestResultDetail | null>(null);
+  // The evaluation tab needs the turn count to tell whole-conversation findings apart.
   const needsTranscript =
-    activeTab === TAB.conversation || activeTab === TAB.annotations;
+    activeTab === TAB.conversation ||
+    activeTab === TAB.evaluation ||
+    activeTab === TAB.annotations;
 
   // Dropped only when the drawer closes or swaps to a different result -- not on
   // every run of the fetch effect below, which also reruns on tab changes and
@@ -255,8 +276,75 @@ export default function TestResultDrawer({
 
   // Same id check as the fetch guard, so the outgoing result's transcript is never
   // rendered against an incoming one during the render before the reset lands.
+  // Everything else comes from `test`, which callers refresh after each write (a confirm, an
+  // annotation), so the fetched copy only lends its transcript and never goes stale.
+  const fetchedSummary =
+    fetchedTest?.id === test?.id
+      ? fetchedTest?.test_output?.conversation_summary
+      : undefined;
   const conversationTest =
-    fetchedTest?.id === test?.id ? (fetchedTest ?? test) : test;
+    test && fetchedSummary && !test.test_output?.conversation_summary
+      ? {
+          ...test,
+          test_output: {
+            ...fetchedTest?.test_output,
+            ...test.test_output,
+            conversation_summary: fetchedSummary,
+          } as TestResultDetail['test_output'],
+        }
+      : test;
+
+  // The full row behind `last_annotation`, which carries the delete affordance its summary lacks.
+  const lastAnnotationId = test?.last_annotation?.annotation_id;
+  const [reviewAnnotation, setReviewAnnotation] = useState<Annotation | null>(
+    null
+  );
+  const [isUndoingReview, setIsUndoingReview] = useState(false);
+
+  React.useEffect(() => {
+    setReviewAnnotation(null);
+    const testId = test?.id;
+    if (!open || !testId || !lastAnnotationId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await new ApiClientFactory()
+          .getAnnotationsClient()
+          .getByEntity(ANNOTATION_ENTITY_TYPES.TEST_RESULT, testId);
+        if (!cancelled) {
+          setReviewAnnotation(
+            rows.find(a => a.id === lastAnnotationId) ?? null
+          );
+        }
+      } catch {
+        // Without the row there is just no Undo button.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, test?.id, lastAnnotationId]);
+
+  const handleUndoReview = async () => {
+    if (!test || !reviewAnnotation) return;
+    setIsUndoingReview(true);
+    try {
+      const factory = new ApiClientFactory();
+      await factory
+        .getAnnotationsClient()
+        .deleteAnnotation(reviewAnnotation.id);
+      onTestResultUpdate(
+        await factory.getTestResultsClient().getTestResult(test.id)
+      );
+    } catch (error) {
+      console.error('Failed to undo the review:', error);
+    } finally {
+      setIsUndoingReview(false);
+    }
+  };
+
+  const canUndoReview =
+    !!reviewAnnotation && can(reviewAnnotation, Capability.Annotation.DELETE);
 
   const { metrics: mentionableMetrics, turns: mentionableTurns } =
     useTestResultAnnotationTargets(test, conversationTest);
@@ -351,6 +439,8 @@ export default function TestResultDrawer({
           overflow: 'hidden',
         }}
       >
+        <TestResultHeader test={test} />
+
         {/* Tabs Header */}
         <Box
           sx={{
@@ -397,36 +487,15 @@ export default function TestResultDrawer({
               },
             }}
           >
-            <Tab
-              label="Overview"
-              id="test-detail-tab-0"
-              aria-controls="test-detail-tabpanel-0"
-            />
-            <Tab
-              label="Conversation"
-              id="test-detail-tab-1"
-              aria-controls="test-detail-tabpanel-1"
-            />
-            <Tab
-              label="Metrics"
-              id="test-detail-tab-2"
-              aria-controls="test-detail-tabpanel-2"
-            />
-            <Tab
-              label="Annotations"
-              id="test-detail-tab-3"
-              aria-controls="test-detail-tabpanel-3"
-            />
-            <Tab
-              label="History"
-              id="test-detail-tab-4"
-              aria-controls="test-detail-tabpanel-4"
-            />
-            <Tab
-              label="Tasks & Comments"
-              id="test-detail-tab-5"
-              aria-controls="test-detail-tabpanel-5"
-            />
+            {TAB_LABELS.map(([key, label]) => (
+              <Tab
+                key={key}
+                value={TAB[key]}
+                label={label}
+                id={`test-detail-tab-${TAB[key]}`}
+                aria-controls={`test-detail-tabpanel-${TAB[key]}`}
+              />
+            ))}
           </Tabs>
         </Box>
 
@@ -452,15 +521,6 @@ export default function TestResultDrawer({
             },
           }}
         >
-          <TabPanel value={activeTab} index={TAB.overview}>
-            <TestDetailOverviewTab
-              test={test}
-              prompts={prompts}
-              onTestResultUpdate={onTestResultUpdate}
-              testSetType={testSetType}
-            />
-          </TabPanel>
-
           <TabPanel value={activeTab} index={TAB.conversation}>
             <TestDetailConversationTab
               test={conversationTest ?? test}
@@ -470,14 +530,23 @@ export default function TestResultDrawer({
               onAnnotateTurn={isMultiTurn ? handleAnnotateTurn : undefined}
               onConfirmAutomatedAnnotation={handleConfirmAutomatedAnnotation}
               isConfirmingAnnotation={isConfirmingAnnotation}
+              metricsSource={metricsSource}
+              onShowEvaluation={() => setActiveTab(TAB.evaluation)}
+              onOverrideVerdict={handleOverrideVerdict}
+              onUndoReview={canUndoReview ? handleUndoReview : undefined}
+              isUndoingReview={isUndoingReview}
             />
           </TabPanel>
 
-          <TabPanel value={activeTab} index={TAB.metrics}>
-            <TestDetailMetricsTab
-              test={test}
-              requirements={requirements}
+          <TabPanel value={activeTab} index={TAB.evaluation}>
+            <TestDetailEvaluationTab
+              test={conversationTest ?? test}
               metricsSource={metricsSource}
+              expectedResponse={
+                (test.prompt_id &&
+                  prompts[test.prompt_id]?.expected_response) ||
+                test.test?.prompt?.expected_response
+              }
               onAnnotateMetric={handleAnnotateMetric}
             />
           </TabPanel>
@@ -513,6 +582,12 @@ export default function TestResultDrawer({
                 onCountsChange={handleCountsChange}
                 additionalMetadata={{ test_run_id: testRunId }}
               />
+              <Box sx={{ mt: 4 }}>
+                <TestResultTags
+                  testResult={test}
+                  onUpdate={onTestResultUpdate}
+                />
+              </Box>
             </Box>
           </TabPanel>
         </Box>
@@ -526,18 +601,6 @@ export default function TestResultDrawer({
           }}
         >
           <Stack direction="row" spacing={2} justifyContent="flex-end">
-            {(test?.test?.id ?? test?.test_id) && (
-              <Button
-                variant="outlined"
-                endIcon={<OpenInNewIcon />}
-                component="a"
-                href={`/tests/${test.test?.id ?? test.test_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Go to Test
-              </Button>
-            )}
             <Button variant="contained" onClick={onClose}>
               Close
             </Button>

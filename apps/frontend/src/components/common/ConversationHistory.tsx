@@ -9,16 +9,15 @@ import {
   Typography,
   Chip,
   useTheme,
-  Divider,
   Collapse,
   IconButton,
   Tooltip,
+  Button,
   alpha,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
-import CheckIcon from '@mui/icons-material/Check';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import {
   ConversationTurn,
@@ -28,7 +27,8 @@ import {
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
 import MarkdownContent from '@/components/common/MarkdownContent';
 import StatusChip from '@/components/common/StatusChip';
-import { STATUS_LABEL } from '@/constants/outcomes';
+import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { STATUS_LABEL, type TestResultStatus } from '@/constants/outcomes';
 import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
 import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
 import { looksLikeMarkdown, parseJsonString } from '@/utils/message-content';
@@ -36,14 +36,17 @@ import { getProjectIconComponent } from '@/components/common/ProjectIcons';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import ResultCheckCard from '@/components/common/ResultCheckCard';
+import ConversationResult from '@/components/common/ConversationResult';
+import type { MetricsSource } from '@/utils/api-client/interfaces/test-configuration';
 import {
-  buildTurnFindings,
-  findingsForTurn,
-  turnStatus,
-  turnHasConversationFindings,
-  uncitedFailures,
-  type TurnFinding,
-} from '@/utils/turn-findings';
+  buildResultChecks,
+  checksForTurn,
+  checksStatus,
+  countChecks,
+  turnVerdict,
+  type ResultCheckGroup,
+} from '@/utils/result-checks';
 
 // Superhero (female) emoji built from code points to avoid linter emoji detection.
 // U+1F9B8 (superhero) + U+200D (ZWJ) + U+2640 (female sign) + U+FE0F (variation selector)
@@ -93,7 +96,29 @@ interface ConversationHistoryProps {
   isConfirmingAnnotation?: boolean;
   maxHeight?: number | string;
   turnAnnotationMap?: Map<number, AnnotationSummaryEntry>;
+  /** The result's status for the closing summary; derived from the checks when omitted. */
+  resultStatus?: TestResultStatus;
+  /** Opens the full evaluation from the closing summary's link. */
+  onShowEvaluation?: () => void;
+  /** Who annotated the result, shown once it has been reviewed. */
+  reviewerName?: string;
+  /** Opens the annotation flow with the opposite of the automated verdict. */
+  onOverrideVerdict?: () => void;
+  /** Takes the review back; only given when the reviewer may delete it. */
+  onUndoReview?: () => void;
+  isUndoingReview?: boolean;
+  /** Names the group of metrics that came from the test's requirement. */
+  requirementName?: string;
+  metricsSource?: MetricsSource | string;
   /** Required when turns carry penelope_files for authenticated downloads. */
+}
+
+/** "Findings · 1 failed", or how many passed when none failed. */
+function findingsLabel(groups: ResultCheckGroup[]): string {
+  const { passed, total } = countChecks(groups.flatMap(g => g.checks));
+  return total > passed
+    ? `Findings · ${total - passed} failed`
+    : `Findings · ${passed} passed`;
 }
 
 /**
@@ -116,6 +141,14 @@ export default function ConversationHistory({
   isConfirmingAnnotation = false,
   maxHeight = 600,
   turnAnnotationMap = new Map<number, AnnotationSummaryEntry>(),
+  resultStatus,
+  onShowEvaluation,
+  requirementName,
+  metricsSource,
+  reviewerName,
+  onOverrideVerdict,
+  onUndoReview,
+  isUndoingReview = false,
 }: ConversationHistoryProps) {
   const theme = useTheme();
   const { status } = useSession();
@@ -208,19 +241,14 @@ export default function ConversationHistory({
       turn => turn.penelope_message || turn.target_response
     ) || [];
 
-  const findings = buildTurnFindings(
-    goalEvaluation,
+  const checkGroups = buildResultChecks({
     metrics,
-    actualConversationTurns.length
-  );
-  const conversationFailures = uncitedFailures(findings);
-
-  // Findings on one turn, grouped by the metric that made them.
-  const groupByMetric = (turnFindings: TurnFinding[]) =>
-    turnFindings.reduce<Record<string, TurnFinding[]>>((groups, f) => {
-      (groups[f.metric] ??= []).push(f);
-      return groups;
-    }, {});
+    goalEvaluation,
+    requirementName,
+    metricsSource,
+  });
+  const shownResultStatus: TestResultStatus | undefined =
+    resultStatus ?? checksStatus(checkGroups);
 
   if (actualConversationTurns.length === 0) {
     return (
@@ -264,41 +292,8 @@ export default function ConversationHistory({
         },
       }}
     >
-      {conversationFailures.length > 0 && (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            mb: 3,
-            bgcolor: alpha(
-              theme.palette.error.main,
-              theme.palette.mode === 'light' ? 0.06 : 0.16
-            ),
-            border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
-          }}
-        >
-          <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-            Failed on the conversation as a whole
-          </Typography>
-          {conversationFailures.map(f => (
-            <Typography
-              key={f.key}
-              variant="body2"
-              color="text.secondary"
-              sx={{ mb: 0.5 }}
-            >
-              <strong>
-                {f.label === f.metric ? f.metric : `${f.metric}: ${f.label}`}
-              </strong>
-              {f.evidence ? ` — ${f.evidence}` : ''}
-            </Typography>
-          ))}
-        </Paper>
-      )}
-
-      {actualConversationTurns.map((turn, index) => {
-        const turnFindings = findingsForTurn(findings, turn.turn);
-        const findingGroups = Object.entries(groupByMetric(turnFindings));
+      {actualConversationTurns.map(turn => {
+        const turnGroups = checksForTurn(checkGroups, turn.turn);
 
         // A human override wins. Otherwise a turn shows the verdict of the findings that cite
         // it, and no verdict at all when none do, unless the call to the target itself failed.
@@ -306,7 +301,7 @@ export default function ConversationHistory({
           ? turn.success
             ? 'Pass'
             : 'Fail'
-          : (turnStatus(findings, turn.turn) ??
+          : (turnVerdict(checkGroups, turn.turn) ??
             (turn.success ? undefined : 'Error'));
         const turnPassed =
           shownStatus === 'Pass'
@@ -315,17 +310,13 @@ export default function ConversationHistory({
               ? false
               : undefined;
 
-        // Soft indicator: no per-turn verdict, but a conversation-level finding cites this turn.
-        const isEvaluated =
-          !shownStatus && turnHasConversationFindings(findings, turn.turn);
-
         const turnAnnotation = turnAnnotationMap.get(turn.turn);
         const turnIsOverruled = !!turn.override;
         const turnIsConfirmed = !!turnAnnotation && !turnIsOverruled;
 
         return (
           <Box key={turn.turn} sx={{ mb: 4 }}>
-            {/* Turn Header */}
+            {/* Turn header: a section divider, so turns read as sections and not as chat */}
             <Box
               sx={{
                 display: 'flex',
@@ -345,20 +336,23 @@ export default function ConversationHistory({
                 disableHoverListener={!turnAnnotation}
                 arrow
               >
-                <Chip
-                  label={`Turn ${turn.turn}`}
-                  size="small"
-                  color="primary"
-                  variant="outlined"
+                <Typography
+                  variant="caption"
+                  component="h3"
                   sx={{
-                    ...(turnIsOverruled && {
-                      borderColor: theme.palette.warning.main,
-                    }),
-                    ...(turnIsConfirmed && {
-                      borderColor: theme.palette.success.light,
-                    }),
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: theme.typography.overline.letterSpacing,
+                    whiteSpace: 'nowrap',
+                    color: turnIsOverruled
+                      ? 'warning.dark'
+                      : turnIsConfirmed
+                        ? 'success.dark'
+                        : 'text.secondary',
                   }}
-                />
+                >
+                  {`Turn ${turn.turn}`}
+                </Typography>
               </Tooltip>
 
               {shownStatus && (
@@ -370,54 +364,39 @@ export default function ConversationHistory({
                 />
               )}
 
-              {isEvaluated && (
-                <Chip
-                  label="Evaluated"
+              <Box
+                aria-hidden
+                sx={{ flexGrow: 1, height: '1px', bgcolor: 'divider' }}
+              />
+
+              {turnGroups.length > 0 && (
+                <Button
                   size="small"
                   variant="outlined"
-                  sx={{
-                    color: 'text.secondary',
-                    borderColor: theme.palette.divider,
-                    fontSize: theme.typography.caption.fontSize,
-                  }}
-                />
-              )}
-
-              {/* Collapsible Evaluation Toggle */}
-              {turnFindings.length > 0 && (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    cursor: 'pointer',
-                    '&:hover': { opacity: 0.7 },
-                  }}
+                  color="inherit"
+                  aria-expanded={!!expandedEvaluationTurns[turn.turn]}
                   onClick={() => toggleEvaluation(turn.turn)}
+                  endIcon={
+                    <ExpandMoreIcon
+                      sx={{
+                        transform: expandedEvaluationTurns[turn.turn]
+                          ? 'rotate(180deg)'
+                          : 'none',
+                        transition: 'transform 0.2s',
+                      }}
+                    />
+                  }
+                  sx={{
+                    borderRadius: BORDER_RADIUS.pill,
+                    borderColor: 'divider',
+                    color: 'text.primary',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    whiteSpace: 'nowrap',
+                  }}
                 >
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: theme.palette.primary.main,
-                      fontWeight: 500,
-                    }}
-                  >
-                    Evaluation
-                  </Typography>
-                  <IconButton
-                    size="small"
-                    sx={{
-                      padding: 0,
-                      transform: expandedEvaluationTurns[turn.turn]
-                        ? 'rotate(180deg)'
-                        : 'rotate(0deg)',
-                      transition: 'transform 0.2s',
-                      color: theme.palette.primary.main,
-                    }}
-                  >
-                    <ExpandMoreIcon sx={{ fontSize: theme.spacing(2) }} />
-                  </IconButton>
-                </Box>
+                  {findingsLabel(turnGroups)}
+                </Button>
               )}
 
               {/* Annotate Turn Button */}
@@ -461,66 +440,34 @@ export default function ConversationHistory({
               )}
             </Box>
 
-            {/* Evaluation (collapsible) */}
-            {turnFindings.length > 0 && (
+            {/* Findings (collapsible) */}
+            {turnGroups.length > 0 && (
               <Collapse
                 in={expandedEvaluationTurns[turn.turn]}
                 timeout="auto"
                 unmountOnExit
               >
-                <Paper
-                  elevation={0}
+                {/* Tinted and indented, so the verdict never reads as part of the chat */}
+                <Box
                   sx={{
-                    p: 2,
-                    mb: 1.5,
-                    bgcolor: alpha(
-                      theme.palette.warning.main,
-                      theme.palette.mode === 'light' ? 0.08 : 0.2
-                    ),
-                    border: `1px solid ${alpha(theme.palette.warning.main, theme.palette.mode === 'light' ? 0.3 : 0.4)}`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1.5,
+                    ml: 4,
+                    mb: 2.5,
+                    p: 1.5,
+                    borderRadius: BORDER_RADIUS.md,
+                    bgcolor: 'action.hover',
                   }}
                 >
-                  {findingGroups.map(([metric, group], groupIdx) => (
-                    <Box
-                      key={`${turn.turn}-${metric}`}
-                      sx={{ mb: groupIdx < findingGroups.length - 1 ? 2 : 0 }}
-                    >
-                      <Typography
-                        variant="body2"
-                        sx={{ fontWeight: 600, display: 'block', mb: 1 }}
-                      >
-                        {metric}
-                      </Typography>
-                      {group.map(finding => (
-                        <Box
-                          key={`${turn.turn}-${finding.key}`}
-                          sx={{ pl: 2, mb: 1 }}
-                        >
-                          {finding.label !== metric && (
-                            <Typography variant="body2" sx={{ mb: 0.5 }}>
-                              {finding.label}
-                            </Typography>
-                          )}
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              display: 'block',
-                              fontWeight: 600,
-                              color: finding.met
-                                ? 'success.main'
-                                : 'error.main',
-                            }}
-                          >
-                            {finding.met ? 'Met' : 'Not met'}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {finding.evidence}
-                          </Typography>
-                        </Box>
-                      ))}
-                    </Box>
+                  {turnGroups.map(group => (
+                    <ResultCheckCard
+                      key={`${turn.turn}-${group.key}`}
+                      group={group}
+                      flat
+                    />
                   ))}
-                </Paper>
+                </Box>
               </Collapse>
             )}
 
@@ -969,77 +916,24 @@ export default function ConversationHistory({
                 </Box>
               </Tooltip>
             </Box>
-
-            {/* Divider between turns (except last) */}
-            {index < actualConversationTurns.length - 1 && (
-              <Divider sx={{ mt: 4, mb: 1 }} />
-            )}
           </Box>
         );
       })}
 
-      {/* Conversation Concluded Marker */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          mt: 3,
-          py: 2,
-          gap: 2,
-        }}
-      >
-        <Chip
-          label="Conversation Concluded"
-          size="small"
-          sx={{
-            bgcolor: alpha(
-              theme.palette.primary.main,
-              theme.palette.mode === 'light' ? 0.06 : 0.15
-            ),
-            color: theme.palette.primary.main,
-            fontWeight: 500,
-            border: `1px solid ${theme.palette.primary.main}`,
-          }}
-        />
-
-        {/* Confirmed indicator only when an annotation exists AND matches the automated result; otherwise the Confirm button. */}
-        {hasExistingAnnotation && annotationMatchesAutomated ? (
-          <Chip
-            icon={<CheckIcon sx={{ fontSize: theme.spacing(2) }} />}
-            label="Confirmed"
-            size="medium"
-            color="success"
-            variant="filled"
-            sx={{
-              fontWeight: 600,
-            }}
-          />
-        ) : !hasExistingAnnotation && onConfirmAutomatedAnnotation ? (
-          <Tooltip title="Confirm automated result">
-            <span>
-              <IconButton
-                size="small"
-                onClick={onConfirmAutomatedAnnotation}
-                disabled={isConfirmingAnnotation}
-                sx={{
-                  color: theme.palette.success.main,
-                  border: `1px solid ${theme.palette.success.main}`,
-                  '&:hover': {
-                    backgroundColor: alpha(theme.palette.success.main, 0.1),
-                  },
-                  '&:disabled': {
-                    color: theme.palette.action.disabled,
-                    borderColor: theme.palette.action.disabled,
-                  },
-                }}
-              >
-                <CheckIcon sx={{ fontSize: theme.spacing(2.25) }} />
-              </IconButton>
-            </span>
-          </Tooltip>
-        ) : null}
-      </Box>
+      <ConversationResult
+        groups={checkGroups}
+        status={shownResultStatus}
+        turnCount={actualConversationTurns.length}
+        onShowEvaluation={onShowEvaluation}
+        reviewed={hasExistingAnnotation}
+        reviewMatches={annotationMatchesAutomated}
+        reviewerName={reviewerName}
+        onConfirm={onConfirmAutomatedAnnotation}
+        onOverride={onOverrideVerdict}
+        onUndo={onUndoReview}
+        isUndoing={isUndoingReview}
+        isConfirming={isConfirmingAnnotation}
+      />
     </Box>
   );
 }
