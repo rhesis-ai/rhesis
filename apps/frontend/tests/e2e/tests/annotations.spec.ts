@@ -38,16 +38,19 @@ async function annotateAsPass(page: Page, comment: string) {
 
   await page.getByRole('button', { name: /^pass$/i }).click();
   await page.getByPlaceholder(/explain your verdict/i).fill(comment);
-  const save = page.getByRole('button', { name: /^save$/i }).last();
-  await save.click();
-  await expect(save).toBeHidden({ timeout: 10_000 });
-  // The panel updates once the save lands; reloading before that cancels it.
-  await expect(
-    page
-      .getByRole('tabpanel')
-      .last()
-      .getByText(/^not annotated$/i)
-  ).toBeHidden({ timeout: 10_000 });
+  // Wait for the request itself: the panel can update before it lands, and a
+  // reload right after would cancel it.
+  const saved = page.waitForResponse(
+    r =>
+      r.request().method() === 'POST' &&
+      r.url().includes('/annotations') &&
+      r.ok()
+  );
+  await page
+    .getByRole('button', { name: /^save$/i })
+    .last()
+    .click();
+  await saved;
 }
 
 test.describe('Annotations — test result level @crud', () => {
