@@ -170,10 +170,7 @@ test.describe('Knowledge — CRUD @crud', () => {
     await expectGridRowVisible(page, UNIQUE_TITLE);
   });
 
-  // TODO: re-enable after fixing grid row-actions delete (column virtualization / timeout)
-  test.skip('can delete a knowledge source via row actions', async ({
-    page,
-  }) => {
+  test('can delete a knowledge source via row actions', async ({ page }) => {
     const UNIQUE_TITLE = `e2e-src-del-${Date.now()}`;
     const fixturePath = path.join(__dirname, '../fixtures/fixture.txt');
 
