@@ -49,7 +49,6 @@ import {
   SIDEBAR_COLLAPSED_WIDTH,
 } from '@/components/layout/sidebar-constants';
 import { BORDER_RADIUS } from '@/styles/theme';
-import type { NavigationActionItem } from '@/types/navigation';
 import {
   type ExtendedUser,
   type StandaloneGroup,
@@ -395,14 +394,6 @@ export function Sidebar() {
     </>
   );
 
-  const colorModeItem: NavigationActionItem = {
-    kind: 'action',
-    title: mode === 'dark' ? 'Light Mode' : 'Dark Mode',
-    icon:
-      mode === 'dark' ? <LightModeOutlinedIcon /> : <DarkModeOutlinedIcon />,
-    action: 'toggle-color-mode',
-  };
-
   const orgName = branding?.title ?? branding?.productName ?? 'Rhesis AI';
   const groups = groupNavItems(navigation);
 
@@ -728,8 +719,7 @@ export function Sidebar() {
           pt: '20px',
         }}
       >
-        {/* White rounded card: getting started, plan, footer links and the
-            dark-mode toggle. Always shown, since the toggle has no other home. */}
+        {/* White rounded card: getting started, plan and footer links. */}
         <Box
           sx={{
             bgcolor: theme =>
@@ -753,11 +743,6 @@ export function Sidebar() {
               onAction={action => action === 'support' && setSupportOpen(true)}
             />
           ))}
-          <NavLinkItem
-            item={colorModeItem}
-            collapsed={collapsed}
-            onAction={() => toggleColorMode()}
-          />
         </Box>
 
         {/* User avatar block — clickable, opens user menu */}
@@ -885,6 +870,24 @@ export function Sidebar() {
                 {totalUnread > 99 ? '99+' : totalUnread}
               </Box>
             )}
+          </MenuItem>
+
+          {/* Dark Mode */}
+          <MenuItem
+            onClick={() => {
+              toggleColorMode();
+              setMenuAnchor(null);
+            }}
+            sx={MENU_ROW_SX}
+          >
+            {mode === 'dark' ? (
+              <LightModeOutlinedIcon sx={MENU_ICON_SX} />
+            ) : (
+              <DarkModeOutlinedIcon sx={MENU_ICON_SX} />
+            )}
+            <Typography sx={MENU_LABEL_SX}>
+              {mode === 'dark' ? 'Light Mode' : 'Dark Mode'}
+            </Typography>
           </MenuItem>
 
           {/* Sign Out */}
