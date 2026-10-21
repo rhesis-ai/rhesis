@@ -26,6 +26,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import dependencies
+from rhesis.backend.app.auth.principal import AuthKind
 from rhesis.backend.app.dependencies import get_project_context
 
 
@@ -140,8 +141,10 @@ def _ee_provider_active():
         set_authorization_provider(previous)
 
 
-def _call(user_id: uuid.UUID, org_id: uuid.UUID, project_id: uuid.UUID):
-    request = SimpleNamespace(headers={}, state=SimpleNamespace())
+def _call(user_id: uuid.UUID, org_id: uuid.UUID, project_id: uuid.UUID, *, api_token: bool = False):
+    # An org-wide API token marks the request as a token but carries no project.
+    state = SimpleNamespace(auth_kind=AuthKind.TOKEN) if api_token else SimpleNamespace()
+    request = SimpleNamespace(headers={}, state=state)
     current_user = SimpleNamespace(id=user_id, organization_id=org_id)
     return get_project_context(request, current_user, x_project_id=str(project_id))
 
@@ -202,6 +205,51 @@ class TestOwnerException:
                 x_project_id=str(uuid.uuid4()),
             )
         assert exc.value.status_code == 403
+
+
+@pytest.mark.integration
+class TestOrgWideTokenHeader:
+    """An org-wide API token's X-Project-Id was set on purpose (the SDK's RHESIS_PROJECT_ID),
+    so a project the caller can't enter is a 403, not a silent fall back to org scope."""
+
+    def test_non_member_project_is_forbidden(self, patch_ctx_session):
+        db = patch_ctx_session
+        org_id = _create_org(db)
+        owner_id = _create_user(db, org_id)
+        _set_owner(db, org_id, owner_id)
+        other_id = _create_user(db, org_id)
+        project_id = _create_project(db, org_id)
+        _point_session_at_org(db, org_id)
+
+        with pytest.raises(HTTPException) as exc:
+            _call(other_id, org_id, project_id, api_token=True)
+        assert exc.value.status_code == 403
+        assert exc.value.detail == f"User is not a member of project {project_id}"
+
+    def test_nonexistent_project_answers_the_same_as_non_member(self, patch_ctx_session):
+        db = patch_ctx_session
+        org_id = _create_org(db)
+        owner_id = _create_user(db, org_id)
+        _set_owner(db, org_id, owner_id)
+        _point_session_at_org(db, org_id)
+        missing = uuid.uuid4()
+
+        # Same status and wording as a project that exists, so the 403 can't enumerate projects.
+        with pytest.raises(HTTPException) as exc:
+            _call(owner_id, org_id, missing, api_token=True)
+        assert exc.value.status_code == 403
+        assert exc.value.detail == f"User is not a member of project {missing}"
+
+    def test_reachable_project_is_entered(self, patch_ctx_session):
+        db = patch_ctx_session
+        org_id = _create_org(db)
+        owner_id = _create_user(db, org_id)
+        _set_owner(db, org_id, owner_id)
+        _assign_owner_role(db, org_id, owner_id)
+        project_id = _create_project(db, org_id)
+        _point_session_at_org(db, org_id)
+
+        assert _call(owner_id, org_id, project_id, api_token=True) == str(project_id)
 
 
 @pytest.mark.ee

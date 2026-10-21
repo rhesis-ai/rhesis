@@ -11,7 +11,11 @@ import anyio
 from fastapi import Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.auth.principal import REQUEST_STATE_API_TOKEN_PROJECT_ID
+from rhesis.backend.app.auth.principal import (
+    REQUEST_STATE_API_TOKEN_PROJECT_ID,
+    REQUEST_STATE_AUTH_KIND,
+    AuthKind,
+)
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db, get_db_with_tenant_variables
 from rhesis.backend.app.models.organization import Organization
@@ -171,7 +175,11 @@ def get_project_context(
     * **Project-scoped API token** — the token *asserts* a project (it is a
       credential, not a UI hint). A stale/mismatched/non-member project is a hard
       **403**.
-    * **Ambient header only** (the browser's ``rh_active_project_id`` cookie
+    * **Header sent with an API token or API client** (e.g. the SDK's
+      ``RHESIS_PROJECT_ID``) — the caller named the project on purpose, so a
+      project it cannot enter is also a hard **403**. Degrading would hide the
+      mistake behind empty lists and 404s.
+    * **Ambient header from a browser session** (the ``rh_active_project_id`` cookie
       forwarded as ``X-Project-Id``) — the header is only a hint. A stale or
       unauthorized value must not lock the user out of every endpoint, so it
       **degrades to no project scope** (returns ``None``) instead of raising. The
@@ -195,9 +203,9 @@ def get_project_context(
     if not project_id_str:
         return None
 
-    # A project-scoped API token asserts a project — keep it strict (may raise 400/403,
-    # including the token/header mismatch check inside assert_project_access).
-    if token_project_id:
+    # A token names its project on purpose — keep it strict (may raise 400/403, including
+    # the token/header mismatch check inside assert_project_access).
+    if token_project_id or getattr(request.state, REQUEST_STATE_AUTH_KIND, None) == AuthKind.TOKEN:
         return assert_project_access(
             request,
             current_user,
@@ -205,7 +213,7 @@ def get_project_context(
             invalid_uuid_detail="Invalid X-Project-Id format",
         )
 
-    # Ambient header only (cookie-derived hint). A stale/invalid value degrades to
+    # Browser session header (cookie-derived hint). A stale/invalid value degrades to
     # org-level scope instead of hard-locking the user out of unrelated endpoints.
     try:
         return assert_project_access(
