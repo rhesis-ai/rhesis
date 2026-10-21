@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import TestDetailConversationTab from '../TestDetailConversationTab';
 import type {
@@ -8,37 +8,56 @@ import type {
 } from '@/utils/api-client/interfaces/test-results';
 import type { UUID } from 'crypto';
 
-// ---- Stub children: only the summary handed to ConversationHistory matters ----
+// ---- Stub children: capture what ConversationHistory and TraceDrawer get ----
 
 let lastSummary: ConversationTurn[] = [];
+let lastOnResponseClick: ((turnNumber: number) => void) | undefined;
+let lastDrawerProps: {
+  open?: boolean;
+  traceId?: string | null;
+  initialTurnIndex?: number;
+} = {};
 
 jest.mock('@/components/common/ConversationHistory', () => ({
   __esModule: true,
   default: ({
     conversationSummary,
+    onResponseClick,
   }: {
     conversationSummary: ConversationTurn[];
+    onResponseClick?: (turnNumber: number) => void;
   }) => {
     lastSummary = conversationSummary;
+    lastOnResponseClick = onResponseClick;
     return null;
   },
 }));
 
 jest.mock('@/app/(protected)/traces/components/TraceDrawer', () => ({
   __esModule: true,
-  default: () => null,
+  default: (props: typeof lastDrawerProps) => {
+    lastDrawerProps = props;
+    return null;
+  },
 }));
 
+let mockSessionStatus = 'unauthenticated';
+
 jest.mock('next-auth/react', () => ({
-  useSession: () => ({ data: null, status: 'unauthenticated' }),
+  useSession: () => ({ data: null, status: mockSessionStatus }),
 }));
+
+const mockListTraces = jest.fn();
+const mockGetTrace = jest.fn();
+const mockGetSpanFiles = jest.fn();
 
 jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({
     getTelemetryClient: () => ({
-      listTraces: jest.fn().mockResolvedValue({ traces: [] }),
+      listTraces: mockListTraces,
+      getTrace: mockGetTrace,
     }),
-    getFilesClient: () => ({ getSpanFiles: jest.fn().mockResolvedValue([]) }),
+    getFilesClient: () => ({ getSpanFiles: mockGetSpanFiles }),
   })),
 }));
 
@@ -78,6 +97,8 @@ const makeSingleTurnResult = (
 describe('TestDetailConversationTab — single-turn turn status', () => {
   beforeEach(() => {
     lastSummary = [];
+    mockSessionStatus = 'unauthenticated';
+    mockListTraces.mockResolvedValue({ traces: [] });
   });
 
   it('marks the turn passed when the result passed', () => {
@@ -139,5 +160,136 @@ describe('TestDetailConversationTab — single-turn turn status', () => {
     render(<TestDetailConversationTab test={test} />);
 
     expect(lastSummary[0].success).toBe(true);
+  });
+});
+
+// Three turns, each with a target reply.
+const makeMultiTurnResult = (stored = true): TestResultDetail =>
+  ({
+    id: u(2),
+    test_output: {
+      goal: 'g',
+      conversation_summary: stored
+        ? [1, 2, 3].map(turn => ({
+            turn,
+            timestamp: '',
+            session_id: '',
+            penelope_reasoning: '',
+            penelope_message: `question ${turn}`,
+            target_response: `answer ${turn}`,
+            success: true,
+          }))
+        : [],
+      goal_evaluation: {},
+    },
+    status: { id: u(10), name: 'Pass' },
+  }) as unknown as TestResultDetail;
+
+// Deliberately out of order: the tab sorts by start time.
+const trace = (id: string, minute: number) => ({
+  trace_id: id,
+  project_id: 'p',
+  start_time: `2026-10-21T10:0${minute}:00Z`,
+});
+
+const rootSpan = (turn: number) => ({
+  id: `span-${turn}`,
+  span_id: `s${turn}`,
+  start_time: '',
+  status_code: 'OK',
+  attributes: {
+    'rhesis.conversation.input': `question ${turn}`,
+    'rhesis.conversation.output': `answer ${turn}`,
+  },
+});
+
+// One trace per turn: trace tN holds turn N's root span.
+const oneTracePerTurn = () => {
+  mockListTraces.mockResolvedValue({
+    traces: [trace('t3', 3), trace('t1', 1), trace('t2', 2)],
+  });
+  mockGetTrace.mockImplementation(async (traceId: string) => ({
+    root_spans: [rootSpan(Number(traceId.slice(1)))],
+  }));
+};
+
+// One trace with a root span per turn.
+const oneTraceForAllTurns = () => {
+  mockListTraces.mockResolvedValue({ traces: [trace('t1', 1)] });
+  mockGetTrace.mockResolvedValue({
+    root_spans: [rootSpan(1), rootSpan(2), rootSpan(3)],
+  });
+};
+
+describe('TestDetailConversationTab — traces with one trace per turn or one for all', () => {
+  beforeEach(() => {
+    lastSummary = [];
+    lastOnResponseClick = undefined;
+    lastDrawerProps = {};
+    mockSessionStatus = 'authenticated';
+    mockGetSpanFiles.mockImplementation(async (spanId: string) => [
+      { id: `file-of-${spanId}` },
+    ]);
+  });
+
+  const clickTurn = async (turnNumber: number) => {
+    render(<TestDetailConversationTab test={makeMultiTurnResult()} />);
+    await waitFor(() => expect(lastOnResponseClick).toBeDefined());
+    act(() => lastOnResponseClick?.(turnNumber));
+  };
+
+  it('opens the clicked turn’s own trace when each turn is a trace', async () => {
+    oneTracePerTurn();
+
+    await clickTurn(2);
+
+    expect(lastDrawerProps).toMatchObject({
+      open: true,
+      traceId: 't2',
+      initialTurnIndex: 0,
+    });
+  });
+
+  it('opens the turn’s root span when one trace holds every turn', async () => {
+    oneTraceForAllTurns();
+
+    await clickTurn(2);
+
+    expect(lastDrawerProps).toMatchObject({
+      open: true,
+      traceId: 't1',
+      initialTurnIndex: 1,
+    });
+  });
+
+  it.each([
+    ['each turn is a trace', oneTracePerTurn],
+    ['one trace holds every turn', oneTraceForAllTurns],
+  ])('attaches each turn’s own span files when %s', async (_, setup) => {
+    setup();
+
+    render(<TestDetailConversationTab test={makeMultiTurnResult()} />);
+
+    await waitFor(() =>
+      expect(lastSummary.map(t => t.penelope_files?.[0]?.id)).toEqual([
+        'file-of-span-1',
+        'file-of-span-2',
+        'file-of-span-3',
+      ])
+    );
+  });
+
+  it('rebuilds every turn from spans when each turn is a trace', async () => {
+    oneTracePerTurn();
+
+    render(<TestDetailConversationTab test={makeMultiTurnResult(false)} />);
+
+    await waitFor(() =>
+      expect(lastSummary.map(t => t.target_response)).toEqual([
+        'answer 1',
+        'answer 2',
+        'answer 3',
+      ])
+    );
   });
 });
