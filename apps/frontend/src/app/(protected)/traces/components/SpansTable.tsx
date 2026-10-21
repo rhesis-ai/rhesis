@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import type {
+  GridCallbackDetails,
   GridColDef,
   GridRowParams,
   GridSortModel,
@@ -85,7 +86,10 @@ interface SpansTableProps {
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   sortModel?: GridSortModel;
-  onSortModelChange?: (model: GridSortModel) => void;
+  onSortModelChange?: (
+    model: GridSortModel,
+    details: GridCallbackDetails
+  ) => void;
 }
 
 /**
