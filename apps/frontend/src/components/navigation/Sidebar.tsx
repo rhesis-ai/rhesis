@@ -19,7 +19,7 @@ import ExitToAppOutlinedIcon from '@mui/icons-material/ExitToAppOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import AppsOutlinedIcon from '@mui/icons-material/AppsOutlined';
 import DataUsageOutlinedIcon from '@mui/icons-material/DataUsageOutlined';
-import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
+import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined';
 import Divider from '@mui/material/Divider';
 import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import { useSidebarCollapse } from '@/components/layout/AppShell';
@@ -49,7 +49,7 @@ import {
   SIDEBAR_COLLAPSED_WIDTH,
 } from '@/components/layout/sidebar-constants';
 import { BORDER_RADIUS } from '@/styles/theme';
-import { alpha, type Theme } from '@mui/material/styles';
+import type { NavigationActionItem } from '@/types/navigation';
 import {
   type ExtendedUser,
   type StandaloneGroup,
@@ -59,6 +59,10 @@ import {
   collapsedNavGroupSx,
   COLLAPSED_NAV_ITEM_SIZE,
   COUNT_BADGE_SX,
+  MENU_DIVIDER_SX,
+  MENU_ICON_SX,
+  MENU_LABEL_SX,
+  MENU_ROW_SX,
   POPOVER_PAPER_SX,
 } from './sidebar-utils';
 import { NavItem } from './NavItem';
@@ -66,10 +70,9 @@ import { NavLinkItem } from './NavLinkItem';
 import { SidebarPlanRow } from './SidebarPlanRow';
 import { SidebarOnboardingRow } from './SidebarOnboardingRow';
 import { NavSection } from './NavSection';
-import ProjectSwitcherDrawer from './ProjectSwitcherDrawer';
+import { SidebarProjectSwitcher } from './SidebarProjectSwitcher';
 import SupportDrawer from './SupportDrawer';
 import NotificationsDrawer from './NotificationsDrawer';
-import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
 
 // ── Figma "left_panel_close" / "left_panel_open" SVG icons ──────────────────
@@ -85,7 +88,7 @@ const LEFT_PANEL_PATH =
   'M9.5 19H18.6923C18.7692 19 18.8398 18.9679 18.9038 18.9038C18.9679 18.8398 19 18.7692 19 18.6923V5.30775C19 5.23075 18.9679 5.16025 18.9038 5.09625C18.8398 5.03208 18.7692 5 18.6923 5H9.5V19Z';
 
 // Collapse-toggle geometry. TOGGLE_LIFT_PX pulls the expanded toggle out of the
-// brand row by its own full height so it clears the project name — it is derived
+// brand row by its own full height so it clears the org name — it is derived
 // from the two values below rather than hard-coded, and both are applied to the
 // icon and the button, so the alignment holds if either changes.
 const TOGGLE_ICON_PX = 24;
@@ -99,31 +102,6 @@ const TOGGLE_NUDGE_RIGHT_PX = 8;
 // healthy org. A floor, never a cap: every flagged resource gets a row, so
 // the row count always agrees with the badge.
 const MIN_USAGE_ROWS = 3;
-
-// Shared row style for the org and user menu popovers (Figma 860:40824).
-// Every row in both menus uses this; a row with a trailing badge overrides
-// `justifyContent` to 'space-between'.
-const MENU_ROW_SX = {
-  gap: '10px',
-  px: '14px',
-  py: '8px',
-  '&:hover': {
-    bgcolor: (theme: Theme) => theme.palette.greyscale.border,
-  },
-} as const;
-
-// Icon + label pair inside a menu row.
-const MENU_ICON_SX = {
-  fontSize: 24,
-  color: (theme: Theme) => theme.palette.greyscale.body,
-} as const;
-
-const MENU_LABEL_SX = {
-  fontSize: 14,
-  fontWeight: 700,
-  lineHeight: '22px',
-  color: (theme: Theme) => theme.palette.greyscale.body,
-} as const;
 
 function LeftPanelCloseIcon() {
   return (
@@ -256,10 +234,6 @@ export function Sidebar() {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const menuOpen = Boolean(menuAnchor);
 
-  // Project switcher drawer
-  const [switcherOpen, setSwitcherOpen] = useState(false);
-  const { activeProject } = useActiveProject();
-
   // Support drawer
   const [supportOpen, setSupportOpen] = useState(false);
 
@@ -319,11 +293,6 @@ export function Sidebar() {
     ? formatMonthLabel(usagePeriodSource.period_end)
     : null;
 
-  // Reordered around the usage block below, not fixed: with a block to
-  // show, "Switch project" and the divider move ahead of it so the everyday
-  // navigation items stay together at the top instead of splitting across a
-  // wall of usage rows. With nothing to show, "Org usage" is just another
-  // nav row and stays where it was.
   const orgUsageSection = (
     <>
       {/* Named "Org usage", not "Usage": the menu already reads "Org
@@ -426,39 +395,13 @@ export function Sidebar() {
     </>
   );
 
-  // A soft alpha overlay on the popover's own surface, not
-  // `greyscale.border`: that token is tuned for the app's regular
-  // greyscale.surface1/2 backgrounds, and against this popover's own
-  // near-black (dark mode) / near-white (light mode) paper background, set
-  // just below, it sat close enough in luminance to read as no divider
-  // at all.
-  const orgMenuDivider = (
-    <Divider
-      sx={{
-        my: '6px',
-        borderColor: theme =>
-          alpha(
-            theme.palette.mode === 'light'
-              ? theme.palette.common.black
-              : theme.palette.common.white,
-            0.14
-          ),
-      }}
-    />
-  );
-
-  const switchProjectItem = (
-    <MenuItem
-      onClick={() => {
-        setOrgMenuAnchor(null);
-        setSwitcherOpen(true);
-      }}
-      sx={MENU_ROW_SX}
-    >
-      <SwapHorizOutlinedIcon sx={MENU_ICON_SX} />
-      <Typography sx={MENU_LABEL_SX}>Switch project</Typography>
-    </MenuItem>
-  );
+  const colorModeItem: NavigationActionItem = {
+    kind: 'action',
+    title: mode === 'dark' ? 'Light Mode' : 'Dark Mode',
+    icon:
+      mode === 'dark' ? <LightModeOutlinedIcon /> : <DarkModeOutlinedIcon />,
+    action: 'toggle-color-mode',
+  };
 
   const orgName = branding?.title ?? branding?.productName ?? 'Rhesis AI';
   const groups = groupNavItems(navigation);
@@ -540,13 +483,7 @@ export function Sidebar() {
               </IconButton>
             </Tooltip>
             <Tooltip
-              title={
-                usageTooltip
-                  ? `${activeProject ? `${orgName} · ${activeProject.name}` : orgName} — ${usageTooltip}`
-                  : activeProject
-                    ? `${orgName} · ${activeProject.name}`
-                    : orgName
-              }
+              title={usageTooltip ? `${orgName} — ${usageTooltip}` : orgName}
               placement="right"
             >
               <ButtonBase
@@ -635,38 +572,21 @@ export function Sidebar() {
                   priority
                 />
               </Box>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                {activeProject && (
-                  <Typography
-                    sx={{
-                      fontSize: 14,
-                      fontWeight: 700,
-                      lineHeight: '20px',
-                      color: theme => theme.palette.greyscale.title,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      textAlign: 'left',
-                    }}
-                  >
-                    {activeProject.name}
-                  </Typography>
-                )}
-                <Typography
-                  sx={{
-                    fontSize: 12,
-                    fontWeight: 400,
-                    lineHeight: '18px',
-                    color: theme => theme.palette.greyscale.subtitle,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    textAlign: 'left',
-                  }}
-                >
-                  {orgName}
-                </Typography>
-              </Box>
+              {/* Org only: the active project has its own box below. */}
+              <Typography
+                variant="bodyMBold"
+                sx={{
+                  flex: 1,
+                  minWidth: 0,
+                  color: theme => theme.palette.greyscale.title,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  textAlign: 'left',
+                }}
+              >
+                {orgName}
+              </Typography>
               {flaggedCount > 0 && (
                 <Tooltip title={usageTooltip ?? ''} placement="right">
                   <Box
@@ -686,7 +606,7 @@ export function Sidebar() {
               )}
             </ButtonBase>
             {/* Collapse toggle — inline, right of brand row. Lifted a full icon
-                height clear of the project name, into the scrolling section's
+                height clear of the org name, into the scrolling section's
                 top padding. */}
             <Box
               sx={{
@@ -756,25 +676,13 @@ export function Sidebar() {
             <AppsOutlinedIcon sx={MENU_ICON_SX} />
             <Typography sx={MENU_LABEL_SX}>Projects</Typography>
           </MenuItem>
-          {usageRows.length > 0 ? (
-            <>
-              {switchProjectItem}
-              {orgMenuDivider}
-              {orgUsageSection}
-            </>
-          ) : (
-            <>
-              {orgUsageSection}
-              {orgMenuDivider}
-              {switchProjectItem}
-            </>
-          )}
+          {/* With no usage block to show, "Org usage" is just another nav
+              row and needs no divider above it. */}
+          {usageRows.length > 0 && <Divider sx={MENU_DIVIDER_SX} />}
+          {orgUsageSection}
         </Popover>
 
-        <ProjectSwitcherDrawer
-          open={switcherOpen}
-          onClose={() => setSwitcherOpen(false)}
-        />
+        <SidebarProjectSwitcher collapsed={collapsed} />
 
         {/* Main nav groups */}
         {mainGroups.map(group => {
@@ -820,34 +728,37 @@ export function Sidebar() {
           pt: '20px',
         }}
       >
-        {/* White rounded card for external footer links (Star Rhesis, Support),
-            headed by the current plan */}
-        {footerGroup && footerGroup.items.length > 0 && (
-          <Box
-            sx={{
-              bgcolor: theme =>
-                theme.palette.mode === 'light' ? '#ffffff' : '#1F242B',
-              borderRadius: BORDER_RADIUS.lg,
-              overflow: 'hidden',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: collapsed ? 'center' : 'stretch',
-            }}
-          >
-            <SidebarOnboardingRow collapsed={collapsed} />
-            <SidebarPlanRow collapsed={collapsed} />
-            {footerGroup.items.map(item => (
-              <NavLinkItem
-                key={`footer-${item.title}`}
-                item={item}
-                collapsed={collapsed}
-                onAction={action =>
-                  action === 'support' && setSupportOpen(true)
-                }
-              />
-            ))}
-          </Box>
-        )}
+        {/* White rounded card: getting started, plan, footer links and the
+            dark-mode toggle. Always shown, since the toggle has no other home. */}
+        <Box
+          sx={{
+            bgcolor: theme =>
+              theme.palette.mode === 'light'
+                ? theme.palette.background.paper
+                : theme.palette.background.light3,
+            borderRadius: BORDER_RADIUS.lg,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: collapsed ? 'center' : 'stretch',
+          }}
+        >
+          <SidebarOnboardingRow collapsed={collapsed} />
+          <SidebarPlanRow collapsed={collapsed} />
+          {footerGroup?.items.map(item => (
+            <NavLinkItem
+              key={`footer-${item.title}`}
+              item={item}
+              collapsed={collapsed}
+              onAction={action => action === 'support' && setSupportOpen(true)}
+            />
+          ))}
+          <NavLinkItem
+            item={colorModeItem}
+            collapsed={collapsed}
+            onAction={() => toggleColorMode()}
+          />
+        </Box>
 
         {/* User avatar block — clickable, opens user menu */}
         <ButtonBase
@@ -974,20 +885,6 @@ export function Sidebar() {
                 {totalUnread > 99 ? '99+' : totalUnread}
               </Box>
             )}
-          </MenuItem>
-
-          {/* Dark Mode */}
-          <MenuItem
-            onClick={() => {
-              toggleColorMode();
-              setMenuAnchor(null);
-            }}
-            sx={MENU_ROW_SX}
-          >
-            <DarkModeOutlinedIcon sx={MENU_ICON_SX} />
-            <Typography sx={MENU_LABEL_SX}>
-              {mode === 'dark' ? 'Light Mode' : 'Dark Mode'}
-            </Typography>
           </MenuItem>
 
           {/* Sign Out */}

@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Box,
   Paper,
@@ -17,8 +16,7 @@ import {
 import ProjectDetailsStep from './ProjectDetailsStep';
 import FinishStep from './FinishStep';
 import { ProjectCreate } from '@/utils/api-client/interfaces/project';
-import { useActiveProject } from '@/contexts/ActiveProjectContext';
-import { writeActiveProjectId } from '@/utils/active-project';
+import { useOpenNewProject } from '@/hooks/useOpenNewProject';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
@@ -48,9 +46,7 @@ export default function CreateProjectClient({
   userName,
   userImage,
 }: CreateProjectClientProps) {
-  const router = useRouter();
   const theme = useTheme();
-  const { refresh: refreshActiveProjects } = useActiveProject();
   const { allowed: canCreate, loading: permsLoading } = useCanWithStatus(
     Capability.Project.CREATE
   );
@@ -65,6 +61,7 @@ export default function CreateProjectClient({
   });
 
   const createProject = useCreateProject();
+  const openNewProject = useOpenNewProject();
 
   const handleNext = () => {
     setActiveStep(prevActiveStep => prevActiveStep + 1);
@@ -114,11 +111,7 @@ export default function CreateProjectClient({
 
       try {
         const created = await createProject(projectData);
-        writeActiveProjectId(String(created.id));
-        await refreshActiveProjects({ listOnly: false });
-
-        // Navigate to the projects page
-        router.push('/projects');
+        await openNewProject(created);
       } catch (projectError) {
         if (projectError instanceof Error) {
           if (projectError.message.includes('Failed to fetch')) {

@@ -309,3 +309,39 @@ export const POPOVER_PAPER_SX = {
   py: '10px',
   overflow: 'hidden',
 } as const;
+
+// Shared row style for the sidebar menu popovers (Figma 860:40824). Every row
+// uses this; a row with a trailing badge overrides `justifyContent` to
+// 'space-between'.
+export const MENU_ROW_SX = {
+  gap: 1.25,
+  px: 1.75,
+  py: 1,
+  '&:hover': {
+    bgcolor: (theme: Theme) => theme.palette.greyscale.border,
+  },
+} as const;
+
+// Icon + label pair inside a menu row. Icons keep MUI's default 24px.
+export const MENU_ICON_SX = {
+  color: (theme: Theme) => theme.palette.greyscale.body,
+} as const;
+
+export const MENU_LABEL_SX = {
+  typography: 'bodyMBold',
+  color: (theme: Theme) => theme.palette.greyscale.body,
+} as const;
+
+// A soft alpha overlay, not `greyscale.border`: that token is tuned for the
+// app's surface1/2 backgrounds and reads as no divider at all against the
+// popover paper above.
+export const MENU_DIVIDER_SX = {
+  my: 0.75,
+  borderColor: (theme: Theme) =>
+    alpha(
+      theme.palette.mode === 'light'
+        ? theme.palette.common.black
+        : theme.palette.common.white,
+      0.14
+    ),
+} as const;
