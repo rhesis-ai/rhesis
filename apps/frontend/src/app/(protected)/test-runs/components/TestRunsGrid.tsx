@@ -32,6 +32,7 @@ import TestRunFilterDrawer, {
   countActiveTestRunFilters,
 } from './TestRunFilterDrawer';
 import { passRate } from '@/constants/outcomes';
+import { formatDate } from '@/utils/date';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { usageColumns, USAGE_COLUMNS_HIDDEN_BY_DEFAULT } from './usage-columns';
 
@@ -399,6 +400,18 @@ export default function TestRunsGrid({
             </Box>
           );
         },
+      },
+      {
+        field: 'created_at',
+        headerName: 'Created',
+        flex: 1.2,
+        minWidth: 140,
+        filterable: false,
+        renderCell: params => (
+          <Typography variant="body2" color="text.secondary">
+            {formatDate(params.row.created_at)}
+          </Typography>
+        ),
       },
       ...usageColumns(money, alternativesTitle),
       {
