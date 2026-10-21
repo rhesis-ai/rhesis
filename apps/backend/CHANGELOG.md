@@ -24,6 +24,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   anything that referenced them. Recorded metric scores are unaffected: test results and the
   verdict grid read their own JSONB snapshots, not the metric table.
 
+## [0.19.0] - 2026-10-21
+
+### Added
+- **Audit Logging System**: Introduced comprehensive audit logging, featuring append-only event tracking, a read API, background streaming to external destinations (Webhooks, Splunk, Datadog), export management with automated 7-day retention, and a built-in `Auditor` role.
+- **Architect Audit Tooling**: Added MCP tools and skill references allowing the Architect agent to query and answer questions about system audit logs.
+- **Endpoint OAuth 2.0 Support**: Added support for OAuth 2.0 Client Credentials (`client_secret_basic` and `client_secret_post`) authentication on target endpoints.
+- **Google Moderation Integration**: Replaced Perspective API with Google Cloud Natural Language `moderateText` for toxicity scoring, with fallback to LLM judge metrics and tracking of `scoring_backend`.
+- **Requirement-Based Test Generation**: Enhanced test generation to utilize requirement descriptions and acceptance criteria when building single-turn and multi-turn test sets.
+- **Dynamic MCP Tool Filtering**: Implemented feature flag and role-based filtering for MCP tools based on subscription plans and user permissions.
+- **User Onboarding Insights**: Added storage and API support for collecting user roles and referral source details in profile settings.
+
+### Changed
+- **Audit Retention Default**: Reduced default audit log retention period to 90 days.
+- **Multi-Turn Default Adoption**: Language model configurations now automatically adopt execution defaults alongside generation and evaluation.
+- **Onboarding Workflow**: Refactored project onboarding status tracking to evaluate endpoint setup, agent testing, and team invitations per project scope.
+- **Celery Beat Execution**: Converted Celery Beat to run as a singleton service with Redis heartbeat monitoring.
+
+### Fixed
+- **API Key Scope Enforcement**: API key requests sent with an unreachable or unauthorized `X-Project-Id` now strictly return `403 Forbidden` rather than silently falling back to organization scope.
+- **WebSocket Registration Permissions**: Enforced `connector:create` permission checks when registering endpoints via WebSocket connections.
+- **Token Rotation & Revocation Races**: Added database advisory locking on refresh token families during token exchange and logout to prevent race conditions.
+- **Celery Worker Permission Invalidation**: Connected permission caching to Celery worker process initialization to ensure user permission cache invalidations propagate properly.
+- **Architect Multi-Turn Context**: Fixed an issue where the Architect forgot uploaded files after a single turn by persisting attached document text across session turns.
+- **Missing API Timestamps**: Fixed response schemas to properly expose `created_at` and `updated_at` on Projects and `created_at` on Architect messages.
+- **Partial Penelope Test Runs**: Multi-turn test runs ended early by Penelope are now accurately flagged with an `Error` status without rendering misleading verdicts.
+- **OData Wildcard Escaping**: Properly escaped SQL `LIKE` wildcards in OData filter requests.
+- **Web Traffic Channel Classification**: Fixed browser authentication and token exchange requests missing client headers being misclassified as API requests by detecting `Sec-Fetch-Mode`.
+
+### Security
+- **Dependency Updates**: Resolved security vulnerabilities across key dependencies, including updates for `aiohttp`, `mcp`, `pydantic-ai`, `pyjwt`, `urllib3`, and `litellm`.
+
+
 ## [0.18.0] - 2026-10-08
 
 ### Added

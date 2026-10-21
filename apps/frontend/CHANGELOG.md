@@ -27,6 +27,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed the Ragas backend from metric icon handling now that the backend no longer serves it.
 
+## [0.19.0] - 2026-10-21
+
+### Added
+
+- **Sidebar Project Switcher:** Added a dedicated active project box to the sidebar with quick options for project switching, project settings, and project creation.
+- **Evaluation Tab & Check Cards:** Introduced a dedicated Evaluation tab that groups test results into structured check cards categorized by goals, restrictions, and metrics.
+- **Audit Log UI:** Added an Audit Log view complete with an Events tab, event details drawer, capabilities settings, and export functionality.
+- **Endpoint OAuth 2.0 Support:** Added support for OAuth 2.0 client credentials in endpoint forms, including configuration options for client authentication methods (Basic Auth header vs. request body).
+- **Onboarding Enhancements:** Added optional job role and referral source questions to the onboarding flow and profile settings.
+- **Test Runs Improvements:** Added a `Created` date column to the test runs list view.
+- **Auto-open New Projects:** Automatically navigate to and highlight newly created projects immediately after creation.
+
+### Changed
+
+- **Sidebar & Onboarding Layout:** Moved the Getting Started checklist from a floating overlay into a compact sidebar footer widget with a popup drawer.
+- **Test Result Visuals:** Redesigned turn headers, findings cards, and result headers in multi-turn test views for better readability.
+- **Dark Mode Toggle:** Moved the Dark Mode switch into the sidebar footer card.
+- **Runtime Deployment Config:** Refactored frontend environment variables to read deployment configurations at runtime rather than inlining them at build time.
+
+### Fixed
+
+- **Metrics Filters Navigation:** Preserved metrics page filters in the URL when using browser back/forward navigation.
+- **Trace Navigation:** Ensured multi-turn conversation runs open each turn's specific trace and project root span instead of always linking to the first turn's trace.
+- **Numbered Evaluation Steps:** Rendered plain numbered evaluation step lists as separate items instead of condensing them into a single step.
+- **List Grid Sorting:** Prevented MUI DataGrid lists (e.g., Test Runs) from resetting or flipping sort order during initial load and column resizes.
+- **Unscored Runs Display:** Clarified test runs that ended early due to target errors by displaying them as "not scored" rather than showing partial verdicts.
+- **Assign Test Set Drawer:** Fixed server-side pagination, dark mode container background styling, and dangling network requests when closing the drawer.
+- **Onboarding Hydration Mismatch:** Resolved React SSR hydration errors caused by reading client-side local storage during initial layout render.
+- **Client IP Forwarding:** Fixed Server Components and NextAuth JWT refresh calls to properly forward the browser IP address to backend services.
+- **Audit Log Context Crash:** Resolved a module resolution issue that caused duplicate React Query contexts and crashed the Audit Log tab.
+- **Endpoint Project Scoping:** Fixed endpoint creation and updates to explicitly use the active project ID from the view rather than relying solely on active cookies.
+- **User Selector Pickers:** Ensured user selection inputs load the complete list of available organization members.
+
 ## [0.18.0] - 2026-10-08
 
 ### Added

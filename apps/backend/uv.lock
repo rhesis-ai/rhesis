@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu'",
@@ -39,27 +39,27 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-10-13T14:33:20.181086Z"
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
-notebook = false
-mistune = false
-torch = false
-langchain-core = false
-pyarrow = false
-pyjwt = false
-starlette = false
-bleach = false
-litellm = false
 aiohttp = false
+bleach = false
 cryptography = false
-langsmith = false
-python-multipart = false
-pydantic-settings = false
-jupyterlab = false
 jupyter-server = false
+jupyterlab = false
 langchain = false
+langchain-core = false
+langsmith = false
+litellm = false
+mistune = false
+notebook = false
+pyarrow = false
+pydantic-settings = false
+pyjwt = false
+python-multipart = false
+starlette = false
+torch = false
 tornado = false
 
 [manifest]
@@ -130,7 +130,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "safetensors" },
     { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-cpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "torch", version = "2.13.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu') or (sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "torch", version = "2.13.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-14-rhesis-backend-cpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "torch", version = "2.13.0+cu129", source = { registry = "https://download.pytorch.org/whl/cu129" }, marker = "(sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
 ]
@@ -159,7 +159,7 @@ dependencies = [
     { name = "frozenlist" },
     { name = "multidict" },
     { name = "propcache" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
     { name = "yarl" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6c/4c/bdccd81e9ee225b69c60e7766c9a5b05364f118f4d383713b89a682d772d/aiohttp-3.14.5.tar.gz", hash = "sha256:5558a7f5a05af9ecf744af91e5baefc436f93c9333e656c27ec253f9a6bbe178", size = 8078052, upload-time = "2026-10-11T01:05:12.408Z" }
@@ -296,7 +296,7 @@ version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "frozenlist" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/62/06741b579156360248d1ec624842ad0edf697050bbaf7c3e46394e106ad1/aiosignal-1.4.0.tar.gz", hash = "sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7", size = 25007, upload-time = "2025-07-03T22:54:43.528Z" }
 wheels = [
@@ -353,7 +353,7 @@ version = "4.14.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/cc/a381afa6efea9f496eff839d4a6a1aed3bfafc7b3ab4b0d1b243a12573dd/anyio-4.14.2.tar.gz", hash = "sha256:cfa139f3ed1a23ee8f88a145ddb5ac7605b8bbfd8592baacd7ce3d8bb4313c7f", size = 260176, upload-time = "2026-07-12T20:29:07.082Z" }
 wheels = [
@@ -571,7 +571,7 @@ name = "bandit"
 version = "1.9.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
     { name = "pyyaml" },
     { name = "rich" },
     { name = "stevedore" },
@@ -747,7 +747,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -923,7 +923,7 @@ name = "click"
 version = "8.1.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b9/2e/0090cbf739cee7d23781ad4b89a9894a41538e4fcf4c31dcdd705b78eb8b/click-8.1.8.tar.gz", hash = "sha256:ed53c9d8990d83c2a27deae68e4ee337473f6330c040a31d4225c9574d16096a", size = 226593, upload-time = "2024-12-21T18:38:44.339Z" }
 wheels = [
@@ -974,7 +974,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "pyperclip" },
-    { name = "pyreadline3", marker = "sys_platform == 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "pyreadline3", marker = "sys_platform == 'win32'" },
     { name = "wcwidth" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/13/04/b85213575a7bf31cbf1d699cc7d5500d8ca8e52cbd1f3569a753a5376d5c/cmd2-2.4.3.tar.gz", hash = "sha256:71873c11f72bd19e2b1db578214716f0d4f7c8fa250093c601265a9a717dee52", size = 678661, upload-time = "2023-01-28T00:50:17.164Z" }
@@ -1119,7 +1119,7 @@ name = "cryptography"
 version = "50.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cffi", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "cffi", marker = "platform_python_implementation != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/de/41/6cbdcf9142d00fe82836fbb51e503e58088575cf7a0fe1dbff6695bf0840/cryptography-50.0.0.tar.gz", hash = "sha256:eeac2acb5a20ed25e0ad6d1df9891a520b78b404266b6d11778f25d5d691a6c9", size = 880201, upload-time = "2026-07-31T14:25:10.11Z" }
 wheels = [
@@ -1292,43 +1292,43 @@ wheels = [
 
 [package.optional-dependencies]
 cublas = [
-    { name = "nvidia-cublas", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "nvidia-cuda-nvrtc", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-cublas", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-cuda-nvrtc", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
 ]
 cudart = [
-    { name = "nvidia-cuda-runtime", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-cuda-runtime", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
 ]
 cufft = [
-    { name = "nvidia-cufft", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "nvidia-nvjitlink", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-cufft", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
 ]
 cufile = [
-    { name = "nvidia-cufile", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-cufile", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
 ]
 cupti = [
-    { name = "nvidia-cuda-cupti", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-cuda-cupti", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
 ]
 curand = [
-    { name = "nvidia-curand", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-curand", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
 ]
 cusolver = [
-    { name = "nvidia-cublas", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "nvidia-cusolver", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "nvidia-cusparse", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "nvidia-nvjitlink", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-cublas", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-cusolver", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-cusparse", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
 ]
 cusparse = [
-    { name = "nvidia-cusparse", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "nvidia-nvjitlink", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-cusparse", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
 ]
 nvjitlink = [
-    { name = "nvidia-nvjitlink", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
 ]
 nvrtc = [
-    { name = "nvidia-cuda-nvrtc", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-cuda-nvrtc", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
 ]
 nvtx = [
-    { name = "nvidia-nvtx", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'aarch64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "nvidia-nvtx", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
 ]
 
 [[package]]
@@ -1541,7 +1541,7 @@ name = "docker"
 version = "7.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywin32", marker = "sys_platform == 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
     { name = "requests" },
     { name = "urllib3" },
 ]
@@ -1631,7 +1631,7 @@ name = "faker"
 version = "40.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "tzdata", marker = "sys_platform == 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5e/77/1c3ff07b6739b9a1d23ca01ec0a90a309a33b78e345a3eb52f9ce9240e36/faker-40.1.2.tar.gz", hash = "sha256:b76a68163aa5f171d260fc24827a8349bc1db672f6a665359e8d0095e8135d30", size = 1949802, upload-time = "2026-01-13T20:51:49.917Z" }
 wheels = [
@@ -1956,15 +1956,15 @@ dependencies = [
     { name = "ollama" },
     { name = "openai" },
     { name = "pillow" },
-    { name = "python-magic", marker = "sys_platform != 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "python-magic-bin", marker = "sys_platform == 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "python-magic", marker = "sys_platform != 'win32'" },
+    { name = "python-magic-bin", marker = "sys_platform == 'win32'" },
     { name = "rapidfuzz" },
     { name = "replicate" },
     { name = "sentencepiece" },
     { name = "stdlibs" },
     { name = "tiktoken" },
     { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-cpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "torch", version = "2.13.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu') or (sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "torch", version = "2.13.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-14-rhesis-backend-cpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "torch", version = "2.13.0+cu129", source = { registry = "https://download.pytorch.org/whl/cu129" }, marker = "(sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "tqdm" },
@@ -2244,7 +2244,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f9/c8/9d76a66421d1ae24340dfae7e79c313957f6e3195c144d2c73333b5bfe34/greenlet-3.3.1-cp312-cp312-macosx_11_0_universal2.whl", hash = "sha256:7e806ca53acf6d15a888405880766ec84721aa4181261cd11a457dfe9a7a4975", size = 276443, upload-time = "2026-01-23T15:30:10.066Z" },
     { url = "https://files.pythonhosted.org/packages/81/99/401ff34bb3c032d1f10477d199724f5e5f6fbfb59816ad1455c79c1eb8e7/greenlet-3.3.1-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:d842c94b9155f1c9b3058036c24ffb8ff78b428414a19792b2380be9cecf4f36", size = 597359, upload-time = "2026-01-23T16:00:57.394Z" },
     { url = "https://files.pythonhosted.org/packages/2b/bc/4dcc0871ed557792d304f50be0f7487a14e017952ec689effe2180a6ff35/greenlet-3.3.1-cp312-cp312-manylinux_2_24_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:20fedaadd422fa02695f82093f9a98bad3dab5fcda793c658b945fcde2ab27ba", size = 607805, upload-time = "2026-01-23T16:05:28.068Z" },
-    { url = "https://files.pythonhosted.org/packages/3b/cd/7a7ca57588dac3389e97f7c9521cb6641fd8b6602faf1eaa4188384757df/greenlet-3.3.1-cp312-cp312-manylinux_2_24_s390x.manylinux_2_28_s390x.whl", hash = "sha256:c620051669fd04ac6b60ebc70478210119c56e2d5d5df848baec4312e260e4ca", size = 622363, upload-time = "2026-01-23T16:15:54.754Z" },
     { url = "https://files.pythonhosted.org/packages/cf/05/821587cf19e2ce1f2b24945d890b164401e5085f9d09cbd969b0c193cd20/greenlet-3.3.1-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:14194f5f4305800ff329cbf02c5fcc88f01886cadd29941b807668a45f0d2336", size = 609947, upload-time = "2026-01-23T15:32:51.004Z" },
     { url = "https://files.pythonhosted.org/packages/a4/52/ee8c46ed9f8babaa93a19e577f26e3d28a519feac6350ed6f25f1afee7e9/greenlet-3.3.1-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:7b2fe4150a0cf59f847a67db8c155ac36aed89080a6a639e9f16df5d6c6096f1", size = 1567487, upload-time = "2026-01-23T16:04:22.125Z" },
     { url = "https://files.pythonhosted.org/packages/8f/7c/456a74f07029597626f3a6db71b273a3632aecb9afafeeca452cfa633197/greenlet-3.3.1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:49f4ad195d45f4a66a0eb9c1ba4832bb380570d361912fa3554746830d332149", size = 1636087, upload-time = "2026-01-23T15:33:47.486Z" },
@@ -2253,7 +2252,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ec/ab/d26750f2b7242c2b90ea2ad71de70cfcd73a948a49513188a0fc0d6fc15a/greenlet-3.3.1-cp313-cp313-macosx_11_0_universal2.whl", hash = "sha256:7ab327905cabb0622adca5971e488064e35115430cec2c35a50fd36e72a315b3", size = 275205, upload-time = "2026-01-23T15:30:24.556Z" },
     { url = "https://files.pythonhosted.org/packages/10/d3/be7d19e8fad7c5a78eeefb2d896a08cd4643e1e90c605c4be3b46264998f/greenlet-3.3.1-cp313-cp313-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:65be2f026ca6a176f88fb935ee23c18333ccea97048076aef4db1ef5bc0713ac", size = 599284, upload-time = "2026-01-23T16:00:58.584Z" },
     { url = "https://files.pythonhosted.org/packages/ae/21/fe703aaa056fdb0f17e5afd4b5c80195bbdab701208918938bd15b00d39b/greenlet-3.3.1-cp313-cp313-manylinux_2_24_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:7a3ae05b3d225b4155bda56b072ceb09d05e974bc74be6c3fc15463cf69f33fd", size = 610274, upload-time = "2026-01-23T16:05:29.312Z" },
-    { url = "https://files.pythonhosted.org/packages/06/00/95df0b6a935103c0452dad2203f5be8377e551b8466a29650c4c5a5af6cc/greenlet-3.3.1-cp313-cp313-manylinux_2_24_s390x.manylinux_2_28_s390x.whl", hash = "sha256:12184c61e5d64268a160226fb4818af4df02cfead8379d7f8b99a56c3a54ff3e", size = 624375, upload-time = "2026-01-23T16:15:55.915Z" },
     { url = "https://files.pythonhosted.org/packages/cb/86/5c6ab23bb3c28c21ed6bebad006515cfe08b04613eb105ca0041fecca852/greenlet-3.3.1-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:6423481193bbbe871313de5fd06a082f2649e7ce6e08015d2a76c1e9186ca5b3", size = 612904, upload-time = "2026-01-23T15:32:52.317Z" },
     { url = "https://files.pythonhosted.org/packages/c2/f3/7949994264e22639e40718c2daf6f6df5169bf48fb038c008a489ec53a50/greenlet-3.3.1-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:33a956fe78bbbda82bfc95e128d61129b32d66bcf0a20a1f0c08aa4839ffa951", size = 1567316, upload-time = "2026-01-23T16:04:23.316Z" },
     { url = "https://files.pythonhosted.org/packages/8d/6e/d73c94d13b6465e9f7cd6231c68abde838bb22408596c05d9059830b7872/greenlet-3.3.1-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:4b065d3284be43728dd280f6f9a13990b56470b81be20375a207cdc814a983f2", size = 1636549, upload-time = "2026-01-23T15:33:48.643Z" },
@@ -2262,7 +2260,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ae/fb/011c7c717213182caf78084a9bea51c8590b0afda98001f69d9f853a495b/greenlet-3.3.1-cp314-cp314-macosx_11_0_universal2.whl", hash = "sha256:bd59acd8529b372775cd0fcbc5f420ae20681c5b045ce25bd453ed8455ab99b5", size = 275737, upload-time = "2026-01-23T15:32:16.889Z" },
     { url = "https://files.pythonhosted.org/packages/41/2e/a3a417d620363fdbb08a48b1dd582956a46a61bf8fd27ee8164f9dfe87c2/greenlet-3.3.1-cp314-cp314-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:b31c05dd84ef6871dd47120386aed35323c944d86c3d91a17c4b8d23df62f15b", size = 646422, upload-time = "2026-01-23T16:01:00.354Z" },
     { url = "https://files.pythonhosted.org/packages/b4/09/c6c4a0db47defafd2d6bab8ddfe47ad19963b4e30f5bed84d75328059f8c/greenlet-3.3.1-cp314-cp314-manylinux_2_24_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:02925a0bfffc41e542c70aa14c7eda3593e4d7e274bfcccca1827e6c0875902e", size = 658219, upload-time = "2026-01-23T16:05:30.956Z" },
-    { url = "https://files.pythonhosted.org/packages/e2/89/b95f2ddcc5f3c2bc09c8ee8d77be312df7f9e7175703ab780f2014a0e781/greenlet-3.3.1-cp314-cp314-manylinux_2_24_s390x.manylinux_2_28_s390x.whl", hash = "sha256:3e0f3878ca3a3ff63ab4ea478585942b53df66ddde327b59ecb191b19dbbd62d", size = 671455, upload-time = "2026-01-23T16:15:57.232Z" },
     { url = "https://files.pythonhosted.org/packages/80/38/9d42d60dffb04b45f03dbab9430898352dba277758640751dc5cc316c521/greenlet-3.3.1-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:34a729e2e4e4ffe9ae2408d5ecaf12f944853f40ad724929b7585bca808a9d6f", size = 660237, upload-time = "2026-01-23T15:32:53.967Z" },
     { url = "https://files.pythonhosted.org/packages/96/61/373c30b7197f9e756e4c81ae90a8d55dc3598c17673f91f4d31c3c689c3f/greenlet-3.3.1-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:aec9ab04e82918e623415947921dea15851b152b822661cce3f8e4393c3df683", size = 1615261, upload-time = "2026-01-23T16:04:25.066Z" },
     { url = "https://files.pythonhosted.org/packages/fd/d3/ca534310343f5945316f9451e953dcd89b36fe7a19de652a1dc5a0eeef3f/greenlet-3.3.1-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:71c767cf281a80d02b6c1bdc41c9468e1f5a494fb11bc8688c360524e273d7b1", size = 1683719, upload-time = "2026-01-23T15:33:50.61Z" },
@@ -2271,7 +2268,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/28/24/cbbec49bacdcc9ec652a81d3efef7b59f326697e7edf6ed775a5e08e54c2/greenlet-3.3.1-cp314-cp314t-macosx_11_0_universal2.whl", hash = "sha256:3e63252943c921b90abb035ebe9de832c436401d9c45f262d80e2d06cc659242", size = 282706, upload-time = "2026-01-23T15:33:05.525Z" },
     { url = "https://files.pythonhosted.org/packages/86/2e/4f2b9323c144c4fe8842a4e0d92121465485c3c2c5b9e9b30a52e80f523f/greenlet-3.3.1-cp314-cp314t-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:76e39058e68eb125de10c92524573924e827927df5d3891fbc97bd55764a8774", size = 651209, upload-time = "2026-01-23T16:01:01.517Z" },
     { url = "https://files.pythonhosted.org/packages/d9/87/50ca60e515f5bb55a2fbc5f0c9b5b156de7d2fc51a0a69abc9d23914a237/greenlet-3.3.1-cp314-cp314t-manylinux_2_24_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:c9f9d5e7a9310b7a2f416dd13d2e3fd8b42d803968ea580b7c0f322ccb389b97", size = 654300, upload-time = "2026-01-23T16:05:32.199Z" },
-    { url = "https://files.pythonhosted.org/packages/7c/25/c51a63f3f463171e09cb586eb64db0861eb06667ab01a7968371a24c4f3b/greenlet-3.3.1-cp314-cp314t-manylinux_2_24_s390x.manylinux_2_28_s390x.whl", hash = "sha256:4b9721549a95db96689458a1e0ae32412ca18776ed004463df3a9299c1b257ab", size = 662574, upload-time = "2026-01-23T16:15:58.364Z" },
     { url = "https://files.pythonhosted.org/packages/1d/94/74310866dfa2b73dd08659a3d18762f83985ad3281901ba0ee9a815194fb/greenlet-3.3.1-cp314-cp314t-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:92497c78adf3ac703b57f1e3813c2d874f27f71a178f9ea5887855da413cd6d2", size = 653842, upload-time = "2026-01-23T15:32:55.671Z" },
     { url = "https://files.pythonhosted.org/packages/97/43/8bf0ffa3d498eeee4c58c212a3905dd6146c01c8dc0b0a046481ca29b18c/greenlet-3.3.1-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:ed6b402bc74d6557a705e197d47f9063733091ed6357b3de33619d8a8d93ac53", size = 1614917, upload-time = "2026-01-23T16:04:26.276Z" },
     { url = "https://files.pythonhosted.org/packages/89/90/a3be7a5f378fc6e84abe4dcfb2ba32b07786861172e502388b4c90000d1b/greenlet-3.3.1-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:59913f1e5ada20fde795ba906916aea25d442abcc0593fba7e26c92b7ad76249", size = 1676092, upload-time = "2026-01-23T15:33:52.176Z" },
@@ -2429,7 +2425,7 @@ name = "hatch"
 version = "1.16.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "backports-zstd", marker = "python_full_version < '3.14' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "backports-zstd", marker = "python_full_version < '3.14'" },
     { name = "click" },
     { name = "hatchling" },
     { name = "httpx" },
@@ -2546,8 +2542,8 @@ name = "httpcore2"
 version = "2.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "h11", marker = "sys_platform != 'emscripten' or extra == 'extra-14-rhesis-backend-gpu'" },
-    { name = "truststore", marker = "sys_platform != 'emscripten' or extra == 'extra-14-rhesis-backend-gpu'" },
+    { name = "h11" },
+    { name = "truststore" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/be/ad/f4f0e57345f1870f3e8cb624e058d7eca6e5a27d33bcc3311d9b618734cd/httpcore2-2.12.0.tar.gz", hash = "sha256:9293522bba0aa7c4c8e9e3f040c16575bd8868e155a77fa30c7a9085a5eae648", size = 67548, upload-time = "2026-08-18T13:22:08.211Z" }
 wheels = [
@@ -2600,12 +2596,12 @@ name = "httpx2"
 version = "2.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "anyio", marker = "sys_platform != 'emscripten' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "httpcore2", marker = "sys_platform != 'emscripten' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "httpx2-jsfetch", marker = "sys_platform == 'emscripten' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "anyio", marker = "sys_platform != 'emscripten'" },
+    { name = "httpcore2", marker = "sys_platform != 'emscripten'" },
+    { name = "httpx2-jsfetch", marker = "sys_platform == 'emscripten'" },
     { name = "idna" },
-    { name = "truststore", marker = "sys_platform != 'emscripten' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "truststore", marker = "sys_platform != 'emscripten'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7f/f8/579a8b51e42e38ee32647df9f08aa25643ae788e275cc625b199829c4671/httpx2-2.12.0.tar.gz", hash = "sha256:7631fe9887a8a2275f4a2540e053aa670fcc50742864a9ae7c66e609fdcf12cf", size = 100040, upload-time = "2026-08-18T13:22:09.086Z" }
 wheels = [
@@ -2628,7 +2624,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
     { name = "fsspec" },
-    { name = "hf-xet", marker = "platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "hf-xet", marker = "platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'" },
     { name = "httpx" },
     { name = "packaging" },
     { name = "pyyaml" },
@@ -2646,7 +2642,7 @@ name = "humanfriendly"
 version = "10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pyreadline3", marker = "sys_platform == 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "pyreadline3", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cc/3f/2c29224acb2e2df4d2046e4c73ee2662023c58ff5b113c4c1adac0886c43/humanfriendly-10.0.tar.gz", hash = "sha256:6b0b831ce8f15f7300721aa49829fc4e83921a9a301cc7f606be6686a2288ddc", size = 360702, upload-time = "2021-09-17T21:40:43.31Z" }
 wheels = [
@@ -2727,7 +2723,7 @@ name = "ipykernel"
 version = "7.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "appnope", marker = "sys_platform == 'darwin' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "appnope", marker = "sys_platform == 'darwin'" },
     { name = "comm" },
     { name = "debugpy" },
     { name = "ipython" },
@@ -2751,12 +2747,12 @@ name = "ipython"
 version = "9.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
     { name = "decorator" },
     { name = "ipython-pygments-lexers" },
     { name = "jedi" },
     { name = "matplotlib-inline" },
-    { name = "pexpect", marker = "(sys_platform != 'emscripten' and sys_platform != 'win32') or (sys_platform == 'emscripten' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "pexpect", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
     { name = "prompt-toolkit" },
     { name = "pygments" },
     { name = "stack-data" },
@@ -3201,7 +3197,7 @@ dependencies = [
     { name = "nbformat" },
     { name = "packaging" },
     { name = "prometheus-client" },
-    { name = "pywinpty", marker = "(os_name == 'nt' and sys_platform != 'darwin' and sys_platform != 'linux') or (os_name == 'nt' and sys_platform == 'darwin' and extra != 'extra-14-rhesis-backend-cpu') or (os_name == 'nt' and sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-cpu') or (os_name == 'nt' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-gpu') or (os_name != 'nt' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "pywinpty", marker = "(os_name == 'nt' and sys_platform != 'darwin' and sys_platform != 'linux') or (os_name == 'nt' and sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-gpu') or (os_name == 'nt' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-gpu') or (os_name == 'nt' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "pyzmq" },
     { name = "send2trash" },
     { name = "terminado" },
@@ -3219,7 +3215,7 @@ name = "jupyter-server-terminals"
 version = "0.5.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywinpty", marker = "(os_name == 'nt' and sys_platform != 'darwin' and sys_platform != 'linux') or (os_name == 'nt' and sys_platform == 'darwin' and extra != 'extra-14-rhesis-backend-cpu') or (os_name == 'nt' and sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-cpu') or (os_name == 'nt' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-gpu') or (os_name != 'nt' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "pywinpty", marker = "(os_name == 'nt' and sys_platform != 'darwin' and sys_platform != 'linux') or (os_name == 'nt' and sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-gpu') or (os_name == 'nt' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-gpu') or (os_name == 'nt' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "terminado" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f4/a7/bcd0a9b0cbba88986fe944aaaf91bfda603e5a50bda8ed15123f381a3b2f/jupyter_server_terminals-0.5.4.tar.gz", hash = "sha256:bbda128ed41d0be9020349f9f1f2a4ab9952a73ed5f5ac9f1419794761fb87f5", size = 31770, upload-time = "2026-01-14T16:53:20.213Z" }
@@ -3295,9 +3291,9 @@ dependencies = [
     { name = "jaraco-classes" },
     { name = "jaraco-context" },
     { name = "jaraco-functools" },
-    { name = "jeepney", marker = "sys_platform == 'linux' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "pywin32-ctypes", marker = "sys_platform == 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "secretstorage", marker = "sys_platform == 'linux' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "jeepney", marker = "sys_platform == 'linux'" },
+    { name = "pywin32-ctypes", marker = "sys_platform == 'win32'" },
+    { name = "secretstorage", marker = "sys_platform == 'linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/43/4b/674af6ef2f97d56f0ab5153bf0bfa28ccb6c3ed4d1babf4305449668807b/keyring-25.7.0.tar.gz", hash = "sha256:fe01bd85eb3f8fb3dd0405defdeac9a5b4f6f0439edbb3149577f244a2e8245b", size = 63516, upload-time = "2025-11-16T16:26:09.482Z" }
 wheels = [
@@ -3441,7 +3437,7 @@ dependencies = [
     { name = "anyio" },
     { name = "distro" },
     { name = "httpx2" },
-    { name = "orjson", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "orjson", marker = "platform_python_implementation != 'PyPy'" },
     { name = "packaging" },
     { name = "pydantic" },
     { name = "requests" },
@@ -3706,7 +3702,7 @@ dependencies = [
     { name = "defusedxml" },
     { name = "magika" },
     { name = "markdownify" },
-    { name = "onnxruntime", marker = "sys_platform == 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "onnxruntime", marker = "sys_platform == 'win32'" },
     { name = "requests" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f3/4d/06567465c1886c2ea47bac24eab0c96bb6b4ecea47224323409dc9cbb614/markitdown-0.1.4.tar.gz", hash = "sha256:e72a481d1a50c82ff744e85e3289f79a940c5d0ad5ffa2b37c33de814c195bb1", size = 39951, upload-time = "2025-12-01T18:20:30.937Z" }
@@ -3818,12 +3814,12 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "pyjwt", extra = ["crypto"] },
     { name = "python-multipart" },
-    { name = "pywin32", marker = "sys_platform == 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
     { name = "sse-starlette" },
     { name = "starlette" },
     { name = "typing-extensions" },
     { name = "typing-inspection" },
-    { name = "uvicorn", marker = "sys_platform != 'emscripten' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "uvicorn", marker = "sys_platform != 'emscripten'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ba/93/0142dc84a666daf8ad51a34268f34c12fd6fda4f3810c4be2504eecc8212/mcp-1.30.0.tar.gz", hash = "sha256:445414625fce5c295faa505bb11bacece661ab6f4028d57c935db57820b7a3e4", size = 680511, upload-time = "2026-09-07T14:34:15.845Z" }
 wheels = [
@@ -5007,7 +5003,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
     { name = "python-dateutil" },
-    { name = "tzdata", marker = "sys_platform == 'emscripten' or sys_platform == 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "tzdata", marker = "sys_platform == 'emscripten' or sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/de/da/b1dc0481ab8d55d0f46e343cfe67d4551a0e14fcee52bd38ca1bd73258d8/pandas-3.0.0.tar.gz", hash = "sha256:0facf7e87d38f721f0af46fe70d97373a37701b1c09f7ed7aeeb292ade5c050f", size = 4633005, upload-time = "2026-01-21T15:52:04.726Z" }
 wheels = [
@@ -5233,7 +5229,7 @@ name = "portalocker"
 version = "3.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pywin32", marker = "sys_platform == 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ac/91/8bfe23e1f7f630f2061ef38b5225d9fda9068d6a30fcbc187951e678e630/portalocker-3.1.1.tar.gz", hash = "sha256:ec20f6dda2ad9ce89fa399a5f31f4f1495f515958f0cb7ca6543cef7bb5a749e", size = 43708, upload-time = "2024-12-31T14:22:48.535Z" }
 wheels = [
@@ -5423,8 +5419,8 @@ name = "psycopg"
 version = "3.3.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "tzdata", marker = "sys_platform == 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/76/26/3ea4ca5eaea1c0debcdf7ee7c1613fbe721dc27a03c461c0817ffd8a0601/psycopg-3.3.6.tar.gz", hash = "sha256:c081f2250df751a943036e42db6df4571c66cd0aabe8291a7a506512b12007d2", size = 168171, upload-time = "2026-09-18T13:22:55.152Z" }
 wheels = [
@@ -5433,7 +5429,7 @@ wheels = [
 
 [package.optional-dependencies]
 binary = [
-    { name = "psycopg-binary", marker = "implementation_name != 'pypy' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "psycopg-binary", marker = "implementation_name != 'pypy'" },
 ]
 
 [[package]]
@@ -5771,7 +5767,7 @@ name = "pytest"
 version = "9.0.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
     { name = "iniconfig" },
     { name = "packaging" },
     { name = "pluggy" },
@@ -5788,7 +5784,7 @@ version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pytest" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/90/2c/8af215c0f776415f3590cac4f9086ccefd6fd463befeae41cd4d3f193e5a/pytest_asyncio-1.3.0.tar.gz", hash = "sha256:d7f52f36d231b80ee124cd216ffb19369aa168fc10095013c6b014a34d3ee9e5", size = 50087, upload-time = "2025-11-10T16:07:47.256Z" }
 wheels = [
@@ -5936,7 +5932,6 @@ name = "python-magic-bin"
 version = "0.4.14"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/32/2c/bbe8ad26591745da2c4692ea571145fb027c8ee1a0540407aa327684c4ce/python_magic_bin-0.4.14-py2.py3-none-macosx_10_6_intel.whl", hash = "sha256:7b1743b3dbf16601d6eedf4e7c2c9a637901b0faaf24ad4df4d4527e7d8f66a4", size = 334318, upload-time = "2017-10-02T16:30:13.6Z" },
     { url = "https://files.pythonhosted.org/packages/5a/5d/10b9ac745d9fd2f7151a2ab901e6bb6983dbd70e87c71111f54859d1ca2e/python_magic_bin-0.4.14-py2.py3-none-win32.whl", hash = "sha256:34a788c03adde7608028203e2dbb208f1f62225ad91518787ae26d603ae68892", size = 397784, upload-time = "2017-10-02T16:30:15.806Z" },
     { url = "https://files.pythonhosted.org/packages/07/c2/094e3d62b906d952537196603a23aec4bcd7c6126bf80eb14e6f9f4be3a2/python_magic_bin-0.4.14-py2.py3-none-win_amd64.whl", hash = "sha256:90be6206ad31071a36065a2fc169c5afb5e0355cbe6030e87641c6c62edc2b69", size = 409299, upload-time = "2017-10-02T16:30:18.545Z" },
 ]
@@ -6063,7 +6058,7 @@ name = "pyzmq"
 version = "27.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cffi", marker = "implementation_name == 'pypy' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "cffi", marker = "implementation_name == 'pypy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/04/0b/3c9baedbdf613ecaa7aa07027780b8867f57b6293b6ee50de316c9f3222b/pyzmq-27.1.0.tar.gz", hash = "sha256:ac0765e3d44455adb6ddbf4417dcce460fc40a05978c08efdf2948072f6db540", size = 281750, upload-time = "2025-09-08T23:10:18.157Z" }
 wheels = [
@@ -6183,7 +6178,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "rpds-py" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/2f/db/98b5c277be99dd18bfd91dd04e1b759cad18d1a338188c936e92f921c7e2/referencing-0.36.2.tar.gz", hash = "sha256:df2e89862cd09deabbdba16944cc3f10feb6b3e6f18e902f7cc25609a34775aa", size = 74744, upload-time = "2025-01-25T08:48:16.138Z" }
 wheels = [
@@ -6400,7 +6395,7 @@ provides-extras = ["all", "sdk", "telemetry"]
 
 [[package]]
 name = "rhesis-backend"
-version = "0.18.0"
+version = "0.19.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -6481,7 +6476,7 @@ ee = [
     { name = "rhesis-backend-ee" },
 ]
 gpu = [
-    { name = "torch", version = "2.13.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "torch", version = "2.13.0", source = { registry = "https://pypi.org/simple" }, marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "torch", version = "2.13.0+cu129", source = { registry = "https://download.pytorch.org/whl/cu129" }, marker = "(sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
 ]
 
@@ -6680,7 +6675,7 @@ dev = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.18.0"
+version = "0.19.0"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },
@@ -7080,8 +7075,8 @@ name = "secretstorage"
 version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cryptography", marker = "sys_platform == 'linux' or (sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-cpu') or (sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'darwin' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (sys_platform == 'emscripten' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "jeepney", marker = "sys_platform == 'linux' or (sys_platform != 'darwin' and sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-cpu') or (sys_platform != 'emscripten' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'darwin' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (sys_platform == 'emscripten' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "cryptography" },
+    { name = "jeepney" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884, upload-time = "2025-11-23T19:02:53.191Z" }
 wheels = [
@@ -7240,7 +7235,7 @@ name = "sqlalchemy"
 version = "2.0.46"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "greenlet", marker = "platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "greenlet", marker = "platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64'" },
     { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/06/aa/9ce0f3e7a9829ead5c8ce549392f33a12c4555a6c0609bb27d882e9c7ddf/sqlalchemy-2.0.46.tar.gz", hash = "sha256:cf36851ee7219c170bb0793dbc3da3e80c582e04a5437bc601bfe8c85c9216d7", size = 9865393, upload-time = "2026-01-21T18:03:45.119Z" }
@@ -7310,7 +7305,7 @@ version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/e3/7c1dc7381d9f8ab7d854328ebfa884e62cb3f3d8549ddfd37c7814f42afa/starlette-1.3.1.tar.gz", hash = "sha256:05d0213193f2fbaae60e2ecb593b4add4262ad4e46536b54abe36f11a71724e0", size = 2703240, upload-time = "2026-06-12T09:23:11.602Z" }
 wheels = [
@@ -7379,8 +7374,8 @@ name = "terminado"
 version = "0.18.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess", marker = "os_name != 'nt' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "pywinpty", marker = "(os_name == 'nt' and sys_platform != 'darwin' and sys_platform != 'linux') or (os_name == 'nt' and sys_platform == 'darwin' and extra != 'extra-14-rhesis-backend-cpu') or (os_name == 'nt' and sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-cpu') or (os_name == 'nt' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-gpu') or (os_name != 'nt' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "ptyprocess", marker = "os_name != 'nt'" },
+    { name = "pywinpty", marker = "(os_name == 'nt' and sys_platform != 'darwin' and sys_platform != 'linux') or (os_name == 'nt' and sys_platform == 'darwin' and extra == 'extra-14-rhesis-backend-gpu') or (os_name == 'nt' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-gpu') or (os_name == 'nt' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "tornado" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8a/11/965c6fd8e5cc254f1fe142d547387da17a8ebfd75a3455f637c663fb38a0/terminado-0.18.1.tar.gz", hash = "sha256:de09f2c4b85de4765f7714688fff57d3e75bad1f909b589fde880460c753fd2e", size = 32701, upload-time = "2024-03-12T14:34:39.026Z" }
@@ -7612,18 +7607,18 @@ resolution-markers = [
 dependencies = [
     { name = "cuda-bindings", version = "13.3.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.15' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "cuda-toolkit", version = "13.0.3.0", source = { registry = "https://pypi.org/simple" }, extra = ["cublas", "cudart", "cufft", "cufile", "cupti", "curand", "cusolver", "cusparse", "nvjitlink", "nvrtc", "nvtx"], marker = "(sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "filelock", marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu') or (sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "fsspec", marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu') or (sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "jinja2", marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu') or (sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "networkx", marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu') or (sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "filelock", marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "fsspec", marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "jinja2", marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "networkx", marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "nvidia-cudnn-cu13", marker = "(sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "nvidia-cusparselt-cu13", marker = "(sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "nvidia-nccl-cu13", marker = "(sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "nvidia-nvshmem-cu13", marker = "(sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "setuptools", marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu') or (sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "sympy", marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu') or (sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "setuptools", marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "sympy", marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "triton", marker = "(python_full_version < '3.15' and sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "typing-extensions", marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra != 'extra-14-rhesis-backend-cpu') or (sys_platform == 'linux' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "typing-extensions", marker = "(sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra != 'extra-14-rhesis-backend-cpu' and extra != 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c4/3a/ed0f4d4d1dcde03bced7aac9a28e800abcdc0cbd06b6775044c9fbd877b7/torch-2.13.0-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:2fe228aba290d14b9f31b049be550dbd469c3fd3013d7a19705b30454da97027", size = 111213045, upload-time = "2026-07-08T16:05:22.997Z" },
@@ -7706,7 +7701,7 @@ resolution-markers = [
     "python_full_version < '3.13' and sys_platform == 'linux'",
 ]
 dependencies = [
-    { name = "cuda-bindings", version = "12.9.4", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.15' and sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (python_full_version >= '3.15' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "cuda-bindings", version = "12.9.4", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.15' and sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "cuda-toolkit", version = "12.9.1", source = { registry = "https://pypi.org/simple" }, extra = ["cublas", "cudart", "cufft", "cufile", "cupti", "curand", "cusolver", "cusparse", "nvjitlink", "nvrtc", "nvtx"], marker = "(sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "filelock", marker = "(sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "fsspec", marker = "(sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
@@ -7718,7 +7713,7 @@ dependencies = [
     { name = "nvidia-nvshmem-cu12", marker = "(sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "setuptools", marker = "(sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "sympy", marker = "(sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
-    { name = "triton", marker = "(python_full_version < '3.15' and sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (python_full_version >= '3.15' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform != 'linux' and extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "triton", marker = "(python_full_version < '3.15' and sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
     { name = "typing-extensions", marker = "(sys_platform == 'linux' and extra == 'extra-14-rhesis-backend-gpu') or (sys_platform == 'win32' and extra == 'extra-14-rhesis-backend-gpu') or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
 ]
 wheels = [
@@ -7758,7 +7753,7 @@ name = "tqdm"
 version = "4.67.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-14-rhesis-backend-cpu' and extra == 'extra-14-rhesis-backend-gpu')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a8/4b/29b4ef32e036bb34e4ab51796dd745cdba7ed47ad142a9f4a1eb8e0c744d/tqdm-4.67.1.tar.gz", hash = "sha256:f8aef9c52c08c13a65f30ea34f4e5aac3fd1a34959879d7e59e63027286627f2", size = 169737, upload-time = "2024-11-24T20:12:22.481Z" }
 wheels = [

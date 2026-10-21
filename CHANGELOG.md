@@ -18,6 +18,42 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
   since January 2026 and carried advisories with no upstream fix. Existing Ragas metrics and their
   associations are deleted by a backend migration; recorded test results keep their scores.
 
+## [0.19.0] - 2026-10-21
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.19.0**
+- **Frontend 0.19.0**
+- **SDK 0.19.0**
+
+### Summary of Changes
+
+**Backend v0.19.0:**
+- Introduced a comprehensive Audit Log system with event streaming (webhooks, Splunk, Datadog), file export capabilities, role-based access control, and dedicated MCP tools for the Architect.
+- Added OAuth 2.0 client credentials authentication support for target endpoints and enforced strict validation for `X-Project-Id` headers on API key requests.
+- Enhanced test set generation to utilize requirement acceptance criteria and improved Architect context handling for multi-turn file attachments.
+- Replaced the Perspective API toxicity detector with Google Cloud Natural Language moderation and added LLM judge fallback scoring.
+
+**Frontend v0.19.0:**
+- Overhauled test result views with a dedicated Evaluation tab featuring grouped check cards, clearer turn headers, and accurate per-turn trace links.
+- Updated the sidebar layout to highlight active projects with quick switching, moved the onboarding checklist to the sidebar footer, and preserved metrics filters during URL/back navigation.
+- Added Audit Log management (events viewer, settings, and export) and supported OAuth 2.0 client credentials in endpoint setup forms.
+- Fixed list grid sort resetting on load or resize and resolved pagination issues in drawers.
+
+**SDK v0.19.0:**
+- Added project ID configuration support (`RHESIS_PROJECT_ID`) to `APIClient` requests and improved error handling for invalid or unreachable project scopes.
+- Updated toxicity evaluation to use Google Cloud Natural Language (`moderateText`) with judge-model fallback options instead of the Perspective API.
+- Enhanced Architect agent capabilities to maintain uploaded files and context across multi-turn conversations while preserving exact requirement IDs and wording from PRDs.
+- Fixed error handling in `RhesisLLM` to automatically retry 5xx gateway timeouts instead of recording them as evaluation failures.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.18.0] - 2026-10-08
 
 ### Platform Release
