@@ -4,105 +4,51 @@ import { MetricsPage } from '../pages/MetricsPage';
 /**
  * Metrics CRUD interaction tests.
  *
- * Covers: A4.3 (open New Metric dialog), A4.4 (navigate to creation form),
- * A4.5 (fill and submit metric form), A4.6 (edit metric from detail page),
- * A4.7 (assign metric to requirement from metric list card), and quick
- * filters surviving a metric detail round trip (#3020).
+ * Covers: A4.3 (open the create-metric menu), A4.4 (navigate to creation form),
+ * A4.5 (fill and submit metric form), A4.6 (edit metric from detail page), and
+ * quick filters surviving a metric detail round trip (#3020). Assigning a metric
+ * to a requirement is covered from the requirement side in requirements-crud.
  *
- * All tests run against the real backend in Quick Start mode.
+ * All tests run against the real backend in Quick Start mode, which seeds the
+ * Rhesis, DeepEval and Garak metrics. UI lookups assert rather than skip, so a
+ * renamed button fails the test instead of hiding it.
  */
 test.describe('Metrics — CRUD @crud', () => {
-  test('can open the New Metric type-selection dialog', async ({ page }) => {
+  test('can open the create-metric menu', async ({ page }) => {
     const metricsPage = new MetricsPage(page);
     await metricsPage.goto();
-    await page.waitForLoadState('networkidle');
     await metricsPage.expectLoaded();
 
-    // "New Metric" FAB lives in PageLayout actions
-    const newMetricBtn = page
-      .getByRole('button', { name: /^new metric$/i })
-      .first();
-    const hasBtn = await newMetricBtn
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!hasBtn) {
-      test.skip(true, '"New Metric" button not found — skipping');
-      return;
-    }
+    await page.getByRole('button', { name: /^create metric$/i }).click();
 
-    await newMetricBtn.click();
+    const menu = page.getByRole('menu');
+    await expect(
+      menu.getByRole('menuitem', { name: /^llm judge$/i })
+    ).toBeVisible();
+    await expect(
+      menu.getByRole('menuitem', { name: /^code evaluation$/i })
+    ).toBeVisible();
 
-    // The type-selection dialog should open
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible({ timeout: 10_000 });
-
-    // Dialog should contain the "Evaluation Prompt" option card
-    await expect(dialog.getByText(/evaluation prompt/i).first()).toBeVisible({
-      timeout: 5_000,
-    });
-
-    // Close the dialog
-    const cancelBtn = dialog.getByRole('button', { name: /cancel/i });
-    if (await cancelBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await cancelBtn.click();
-    } else {
-      await page.keyboard.press('Escape');
-    }
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
   });
 
-  test('selecting Evaluation Prompt navigates to the metric creation form', async ({
+  test('choosing LLM judge opens the metric creation form', async ({
     page,
   }) => {
     const metricsPage = new MetricsPage(page);
     await metricsPage.goto();
-    await page.waitForLoadState('networkidle');
-
     await metricsPage.expectLoaded();
 
-    const newMetricBtn = page
-      .getByRole('button', { name: /^new metric$/i })
-      .first();
-    if (
-      !(await newMetricBtn.isVisible({ timeout: 10_000 }).catch(() => false))
-    ) {
-      test.skip(true, '"New Metric" button not found — skipping');
-      return;
-    }
+    await page.getByRole('button', { name: /^create metric$/i }).click();
+    await page.getByRole('menuitem', { name: /^llm judge$/i }).click();
 
-    await newMetricBtn.click();
-
-    const dialog = page.getByRole('dialog');
-    if (!(await dialog.isVisible({ timeout: 10_000 }).catch(() => false))) {
-      test.skip(true, 'Type-selection dialog did not open — skipping');
-      return;
-    }
-
-    // Click the "Evaluation Prompt" option card
-    const evalPromptOption = dialog.getByText(/evaluation prompt/i).first();
-    if (
-      !(await evalPromptOption.isVisible({ timeout: 5_000 }).catch(() => false))
-    ) {
-      test.skip(true, '"Evaluation Prompt" option not found — skipping');
-      return;
-    }
-
-    await evalPromptOption.click();
-
-    // Should navigate to /metrics/new
-    const navigated = await page
-      .waitForURL(/\/metrics\/new/, { timeout: 15_000 })
-      .then(() => true)
-      .catch(() => false);
-    if (!navigated) {
-      test.skip(true, '/metrics/new URL not reached — skipping');
-      return;
-    }
-
-    // The stepper should be visible with "Metric Information" step
-    await expect(page.getByText(/metric information/i).first()).toBeVisible({
-      timeout: 10_000,
+    await page.waitForURL(/\/metrics\/new\?type=custom-prompt/, {
+      timeout: 15_000,
     });
-
+    await expect(
+      page.getByText(/metric information and criteria/i).first()
+    ).toBeVisible({ timeout: 10_000 });
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
@@ -113,274 +59,93 @@ test.describe('Metrics — CRUD @crud', () => {
     await page.goto('/metrics/new?type=custom-prompt');
     await page.waitForLoadState('networkidle');
 
-    await expect(page).toHaveURL(/\/metrics\/new/);
-
     const UNIQUE_NAME = `e2e-metric-${Date.now()}`;
 
-    // Fill Name
-    const nameInput = page.getByRole('textbox', { name: /^name$/i }).first();
-    if (!(await nameInput.isVisible({ timeout: 10_000 }).catch(() => false))) {
-      test.skip(true, 'Name field not found on /metrics/new — skipping');
-      return;
-    }
-    await nameInput.fill(UNIQUE_NAME);
-
-    // Fill Evaluation Prompt (required)
-    const evalPromptInput = page
+    await page
+      .getByRole('textbox', { name: /^name$/i })
+      .first()
+      .fill(UNIQUE_NAME);
+    await page
       .getByRole('textbox', { name: /evaluation prompt/i })
-      .first();
-    if (
-      await evalPromptInput.isVisible({ timeout: 5_000 }).catch(() => false)
-    ) {
-      await evalPromptInput.fill(
+      .first()
+      .fill(
         'Evaluate whether the response is helpful and accurate. Score from 0 to 1.'
       );
-    }
 
-    // Set Score Type to Numeric (click the chip)
-    const numericChip = page
+    await page
       .getByRole('button', { name: /^numeric$/i })
-      .first();
-    if (await numericChip.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await numericChip.click();
-    }
-
-    // Fill Min/Max/Threshold for numeric type
-    const minInput = page
-      .getByRole('spinbutton', { name: /minimum score/i })
-      .first();
-    const maxInput = page
-      .getByRole('spinbutton', { name: /maximum score/i })
-      .first();
-    const thresholdInput = page
-      .getByRole('spinbutton', { name: /threshold/i })
-      .first();
-
-    if (await minInput.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await minInput.fill('0');
-    }
-    if (await maxInput.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await maxInput.fill('1');
-    }
-    if (await thresholdInput.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await thresholdInput.fill('0.5');
-    }
-
-    // Set Metric Scope to Single-Turn
-    const singleTurnChip = page
-      .getByRole('button', { name: /single.turn/i })
-      .first();
-    if (await singleTurnChip.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await singleTurnChip.click();
-    }
-
-    // Click "Next" to advance to the confirmation step
-    const nextBtn = page.getByRole('button', { name: /^next$/i }).first();
-    if (!(await nextBtn.isVisible({ timeout: 5_000 }).catch(() => false))) {
-      test.skip(true, '"Next" button not found — skipping');
-      return;
-    }
-    await nextBtn.click();
-    await page.waitForLoadState('networkidle');
-
-    // Confirmation step should show the metric name
-    const confirmationVisible = await page
-      .getByText(/confirmation/i)
       .first()
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!confirmationVisible) {
-      test.skip(true, 'Confirmation step not reached — skipping submit');
-      return;
-    }
+      .click();
+    await page
+      .getByRole('spinbutton', { name: /minimum score/i })
+      .first()
+      .fill('0');
+    await page
+      .getByRole('spinbutton', { name: /maximum score/i })
+      .first()
+      .fill('1');
+    await page
+      .getByRole('spinbutton', { name: /threshold/i })
+      .first()
+      .fill('0.5');
+    // Single-Turn is preselected; clicking it would clear the required scope.
 
-    // Click "Create Metric"
-    const createBtn = page
-      .getByRole('button', { name: /create metric/i })
-      .first();
-    if (!(await createBtn.isVisible({ timeout: 5_000 }).catch(() => false))) {
-      test.skip(true, '"Create Metric" button not found — skipping submit');
-      return;
-    }
+    await page.getByRole('button', { name: /^next$/i }).click();
+
+    const createBtn = page.getByRole('button', { name: /^create metric$/i });
+    await expect(createBtn).toBeVisible({ timeout: 10_000 });
     await createBtn.click();
 
-    // Should redirect back to /metrics after successful creation
-    const redirected = await page
-      .waitForURL(/\/metrics(?!\/new)/, { timeout: 20_000 })
-      .then(() => true)
-      .catch(() => false);
-
-    await expect(page.locator('body')).not.toContainText(
-      'Internal Server Error'
-    );
-
-    if (redirected) {
-      // The new metric card should be visible in the list
-      await page.waitForLoadState('networkidle');
-      const metricCard = page.getByText(UNIQUE_NAME).first();
-      await expect(metricCard).toBeVisible({ timeout: 15_000 });
-    }
-  });
-
-  test('can edit a metric name from the metric detail page', async ({
-    page,
-  }) => {
-    const metricsPage = new MetricsPage(page);
-    await metricsPage.goto();
-    await page.waitForLoadState('networkidle');
-
-    await metricsPage.expectLoaded();
-
-    const cardCount = await metricsPage.getCardCount();
-    if (cardCount === 0) {
-      test.skip(true, 'No metric cards to navigate — skipping edit test');
-      return;
-    }
-
-    // Click the first metric card to navigate to its detail page
-    const firstCard = page.locator('.MuiCard-root').first();
-    await firstCard.click();
-
-    const navigated = await page
-      .waitForURL(/\/metrics\/.+/, { timeout: 15_000 })
-      .then(() => true)
-      .catch(() => false);
-    if (!navigated) {
-      test.skip(true, 'Did not navigate to metric detail — skipping edit test');
-      return;
-    }
-
-    await page.waitForLoadState('networkidle');
-
-    // Click "Edit Section" on the General Information section
-    const editSectionBtn = page
-      .getByRole('button', { name: /edit section/i })
-      .first();
-    const hasEditBtn = await editSectionBtn
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!hasEditBtn) {
-      test.skip(true, '"Edit Section" button not found — skipping');
-      return;
-    }
-
-    await editSectionBtn.click();
-
-    // The Name field should now be editable
-    const nameInput = page.getByRole('textbox', { name: /^name$/i }).first();
-    const hasNameInput = await nameInput
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (!hasNameInput) {
-      test.skip(
-        true,
-        'Name input not editable after clicking Edit Section — skipping'
-      );
-      return;
-    }
-
-    const originalName = await nameInput.inputValue();
-    const updatedName = `${originalName}-e2e-edited`;
-
-    await nameInput.clear();
-    await nameInput.fill(updatedName);
-
-    // Click "Save Section"
-    const saveBtn = page.getByRole('button', { name: /save section/i }).first();
-    const hasSave = await saveBtn
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (!hasSave) {
-      test.skip(true, '"Save Section" button not found — skipping save');
-      return;
-    }
-
-    await saveBtn.click();
-    await page.waitForLoadState('networkidle');
-
-    // The updated name should now be visible on the page
-    await expect(page.getByText(updatedName).first()).toBeVisible({
-      timeout: 10_000,
+    await page.waitForURL(/\/metrics(?!\/new)/, { timeout: 20_000 });
+    await expect(page.getByText(UNIQUE_NAME).first()).toBeVisible({
+      timeout: 15_000,
     });
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
   });
 
-  test('can assign a metric to a requirement from the metric card', async ({
+  test('can edit a metric name from the metric detail page', async ({
     page,
   }) => {
     const metricsPage = new MetricsPage(page);
-    await metricsPage.goto();
-    await page.waitForLoadState('networkidle');
-
+    // Rhesis metrics are seeded and open a detail page.
+    await page.goto('/metrics?backend=rhesis');
     await metricsPage.expectLoaded();
 
-    const cardCount = await metricsPage.getCardCount();
-    if (cardCount === 0) {
-      test.skip(true, 'No metric cards — skipping assign test');
-      return;
-    }
-
-    // Look for the "Add to requirement" / AddIcon button on a card
-    const firstCard = page.locator('.MuiCard-root').first();
-    await firstCard.hover();
-
-    // The icon button with AddIcon has tooltip text. Try aria-label or title.
-    const addToRequirementBtn = firstCard
-      .getByRole('button', { name: /add|assign.*requirement/i })
-      .first();
-    const hasBtn = await addToRequirementBtn
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (!hasBtn) {
-      test.skip(
-        true,
-        'Add-to-requirement button not found on metric card — metric may be locked or no assign icon visible'
-      );
-      return;
-    }
-
-    await addToRequirementBtn.click();
-
-    // The SelectRequirementsDialog should open
-    const dialog = page.getByRole('dialog');
-    const dialogVisible = await dialog
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!dialogVisible) {
-      test.skip(true, 'SelectRequirements dialog did not open — skipping');
-      return;
-    }
-
-    // There should be requirements listed in the dialog
-    const requirementOption = dialog
-      .locator('[role="checkbox"], input[type="checkbox"]')
-      .first();
-    const hasRequirement = await requirementOption
-      .isVisible({ timeout: 8_000 })
-      .catch(() => false);
-    if (!hasRequirement) {
-      // Close and skip — no requirements available
-      await page.keyboard.press('Escape');
-      test.skip(true, 'No requirements available in dialog — skipping assign');
-      return;
-    }
-
-    // Select the first requirement
-    await requirementOption.click();
-
-    // Confirm — look for Save/Confirm/Done button
-    const confirmBtn = dialog
-      .getByRole('button', { name: /save|confirm|done|assign/i })
-      .first();
-    if (await confirmBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await confirmBtn.click();
-    } else {
-      await page.keyboard.press('Escape');
-    }
-
+    await metricsPage.cards.first().click();
+    await page.waitForURL(/\/metrics\/[^/?]+$/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle');
+
+    const main = page.locator('main');
+    // The detail page's name field has a placeholder but no label.
+    const nameInput = main.getByPlaceholder('Enter metric name');
+    const editBtn = main.getByRole('button', { name: /^edit$/i }).first();
+    const saveBtn = main.getByRole('button', { name: /^save$/i }).first();
+
+    const rename = async (name: string) => {
+      await editBtn.click();
+      await nameInput.fill(name);
+      // Save enables only after the field blurs; the page re-checks changes then.
+      await nameInput.blur();
+      await saveBtn.click();
+      await expect(saveBtn).toBeHidden({ timeout: 10_000 });
+      await expect(main.getByText(name, { exact: true }).first()).toBeVisible({
+        timeout: 10_000,
+      });
+    };
+
+    await editBtn.click();
+    const originalName = await nameInput.inputValue();
+    await main
+      .getByRole('button', { name: /^cancel$/i })
+      .first()
+      .click();
+
+    await rename(`${originalName}-e2e-edited`);
+    // Put the seeded name back so other tests see the data they expect.
+    await rename(originalName);
+
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
@@ -419,7 +184,7 @@ test.describe('Metrics — CRUD @crud', () => {
       test.skip(true, 'No Rhesis or Custom metrics to open — skipping');
       return;
     }
-    const cards = page.locator('.MuiCard-root');
+    const cards = metricsPage.cards;
 
     await cards.first().click();
     await page.waitForURL(/\/metrics\/[^/?]+/, { timeout: 15_000 });
