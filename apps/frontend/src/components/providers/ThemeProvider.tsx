@@ -67,7 +67,8 @@ function isExplicitMode(): boolean {
   try {
     return !!localStorage.getItem(THEME_MODE_EXPLICIT_KEY);
   } catch {
-    return false;
+    // Storage blocked: the cookie is the only record of a pick, so trust it.
+    return true;
   }
 }
 

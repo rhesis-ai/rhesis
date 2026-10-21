@@ -71,6 +71,24 @@ describe('ThemeContextProvider', () => {
     expect(screen.getByTestId('mode')).toHaveTextContent('dark');
   });
 
+  it('keeps the stored mode when storage is blocked', () => {
+    document.documentElement.setAttribute('data-theme-mode', 'dark');
+    const getItem = jest
+      .spyOn(Storage.prototype, 'getItem')
+      .mockImplementation(() => {
+        throw new Error('blocked');
+      });
+
+    render(
+      <ThemeContextProvider>
+        <ColorModeConsumer />
+      </ThemeContextProvider>
+    );
+
+    expect(screen.getByTestId('mode')).toHaveTextContent('dark');
+    getItem.mockRestore();
+  });
+
   it('toggles from light to dark when toggleColorMode is called', async () => {
     const user = userEvent.setup();
     render(
