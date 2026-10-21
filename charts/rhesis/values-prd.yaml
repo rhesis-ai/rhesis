@@ -32,6 +32,10 @@ config:
   logLevel: "INFO"
   jsonLoggerEnabled: true
   usageQuotasEnabled: true
+  # Nothing past 90 days at turn-on (0 of 262 jobs, 21 Oct 2026).
+  jobRetentionEnabled: true
+  # Dry run first: read the per-org counts in the worker log, then go live.
+  traceRetentionEnabled: true
 
   # Must match kubernetes/clusters/prd/cnpg-cluster/cnpg-cluster.yaml bootstrap.initdb.database
   dbName: "rhesis-prd-db"
