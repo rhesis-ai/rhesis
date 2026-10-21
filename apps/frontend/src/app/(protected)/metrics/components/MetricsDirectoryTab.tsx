@@ -20,7 +20,7 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import { InsertChartIcon } from '@/components/icons';
+import { InsertChartIcon, SearchIcon } from '@/components/icons';
 import MetricCard from './MetricCard';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -154,6 +154,19 @@ export default function MetricsDirectoryTab({
     !filters.search &&
     filters.backend.length === 0 &&
     activeAdvancedFilterCount === 0;
+
+  const isFilteredEmpty = totalCount === 0 && !isTrueEmpty;
+
+  const clearFilters = () => {
+    setFilters({
+      search: '',
+      backend: [],
+      type: [],
+      scoreType: [],
+      metricScope: [],
+      requirement: '',
+    });
+  };
 
   const handleAssignMetricToRequirement = async (
     requirementId: string,
@@ -418,66 +431,77 @@ export default function MetricsDirectoryTab({
           />
 
           {/* Metrics grid */}
-          <Box
-            sx={theme => ({
-              display: 'grid',
-              gridTemplateColumns: {
-                xs: '1fr',
-                sm: '1fr 1fr',
-                md: 'repeat(3, 1fr)',
-              },
-              gap: theme.spacing(3),
-              mb: 4,
-            })}
-          >
-            {metrics.map(metric => {
-              const requirementNames = getAssignedRequirementNames(metric);
-              const hasAssignedRequirements =
-                Array.isArray(metric.requirements) &&
-                metric.requirements.length > 0;
+          {isFilteredEmpty ? (
+            <EntityEmptyState
+              icon={SearchIcon}
+              title="No metrics match your filters"
+              description="Try adjusting your search or filters to find what you're looking for."
+              actionLabel="Reset filters"
+              onAction={clearFilters}
+            />
+          ) : (
+            <Box
+              sx={theme => ({
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: '1fr 1fr',
+                  md: 'repeat(3, 1fr)',
+                },
+                gap: theme.spacing(3),
+                mb: 4,
+              })}
+            >
+              {metrics.map(metric => {
+                const requirementNames = getAssignedRequirementNames(metric);
+                const hasAssignedRequirements =
+                  Array.isArray(metric.requirements) &&
+                  metric.requirements.length > 0;
 
-              const backendType =
-                metric.backend_type?.type_value?.toLowerCase();
-              const isClickableMetric =
-                backendType === 'custom' || backendType === 'rhesis';
+                const backendType =
+                  metric.backend_type?.type_value?.toLowerCase();
+                const isClickableMetric =
+                  backendType === 'custom' || backendType === 'rhesis';
 
-              return (
-                <MetricCard
-                  key={metric.id}
-                  type={
-                    isValidMetricType(metric.metric_type?.type_value)
-                      ? metric.metric_type.type_value
-                      : undefined
-                  }
-                  title={metric.name}
-                  description={metric.description}
-                  backend={metric.backend_type?.type_value}
-                  metricType={metric.metric_type?.type_value}
-                  scoreType={metric.score_type}
-                  metricScope={metric.metric_scope}
-                  usedIn={requirementNames}
-                  showUsage={true}
-                  onClick={
-                    assignMode
-                      ? () => {
-                          setSelectedMetric(metric);
-                          setAssignDialogOpen(true);
-                        }
-                      : isClickableMetric
-                        ? () => router.push(`/metrics/${metric.id}`)
+                return (
+                  <MetricCard
+                    key={metric.id}
+                    type={
+                      isValidMetricType(metric.metric_type?.type_value)
+                        ? metric.metric_type.type_value
                         : undefined
-                  }
-                  onDelete={
-                    canDelete &&
-                    !hasAssignedRequirements &&
-                    metric.backend_type?.type_value?.toLowerCase() === 'custom'
-                      ? () => handleDeleteMetric(metric.id, metric.name)
-                      : undefined
-                  }
-                />
-              );
-            })}
-          </Box>
+                    }
+                    title={metric.name}
+                    description={metric.description}
+                    backend={metric.backend_type?.type_value}
+                    metricType={metric.metric_type?.type_value}
+                    scoreType={metric.score_type}
+                    metricScope={metric.metric_scope}
+                    usedIn={requirementNames}
+                    showUsage={true}
+                    onClick={
+                      assignMode
+                        ? () => {
+                            setSelectedMetric(metric);
+                            setAssignDialogOpen(true);
+                          }
+                        : isClickableMetric
+                          ? () => router.push(`/metrics/${metric.id}`)
+                          : undefined
+                    }
+                    onDelete={
+                      canDelete &&
+                      !hasAssignedRequirements &&
+                      metric.backend_type?.type_value?.toLowerCase() ===
+                        'custom'
+                        ? () => handleDeleteMetric(metric.id, metric.name)
+                        : undefined
+                    }
+                  />
+                );
+              })}
+            </Box>
+          )}
           {totalCount > 0 && (
             <TablePagination
               component="div"
