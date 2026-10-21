@@ -43,7 +43,7 @@ export function StepNav({
     >
       {steps.map((step, index) => {
         const selected = index === activeIndex;
-        const reachable = index <= maxReachableIndex;
+        const reachable = index <= maxReachableIndex || selected;
         return (
           <React.Fragment key={step.key}>
             {index > 0 && (

@@ -290,6 +290,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       Boolean(formData.url) && validateUrl(formData.url) && authError === null,
       INPUT_VAR_RE.test(reqBody) &&
         hasOutputMapping(resBody) &&
+        // Not keyed on resBody: the response is mapped from this test's result, after it ran.
         mappingTestKey === connectionKey,
       tabTestKey === fullKey,
     ];

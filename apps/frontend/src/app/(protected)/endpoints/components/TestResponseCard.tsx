@@ -12,6 +12,7 @@ import {
   disabledContainedSx,
 } from './MappingRows';
 import { testPreviewSx } from './endpoint-styles';
+import { mappingTarget } from './responsePaths';
 
 export interface EndpointTestResult {
   success: boolean;
@@ -104,6 +105,12 @@ export function TestResponseCard({
           />
         )}
         {result.success && children}
+        {!result.success && result.response && (
+          <RawResponseCollapse
+            label="Complete response returned by your API"
+            value={mappingTarget(result.response)}
+          />
+        )}
       </Box>
     </SectionCard>
   );
