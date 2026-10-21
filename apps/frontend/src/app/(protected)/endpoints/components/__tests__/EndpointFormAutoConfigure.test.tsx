@@ -1,31 +1,11 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
-jest.mock(
-  'next/dynamic',
-  () => (loader: () => Promise<{ default: React.ComponentType }>) => {
-    function DynamicComponent(props: Record<string, unknown>) {
-      const [Comp, setComp] = React.useState<React.ComponentType | null>(null);
-      React.useEffect(() => {
-        loader().then(mod => {
-          setComp(() => mod.default ?? (mod as unknown as React.ComponentType));
-        });
-      }, []);
-      if (!Comp) return null;
-      return React.createElement(Comp, props);
-    }
-    DynamicComponent.displayName = 'DynamicComponent';
-    return DynamicComponent;
-  }
-);
-
-const mockRouterPush = jest.fn();
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockRouterPush, replace: jest.fn() }),
-  // Supply a project identifier so project_id is pre-filled and step 0 is valid
-  useParams: () => ({ identifier: 'proj-1' }),
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  useParams: () => ({}),
 }));
 
 jest.mock('next-auth/react', () => ({
@@ -35,76 +15,46 @@ jest.mock('next-auth/react', () => ({
   }),
 }));
 
-jest.mock('@monaco-editor/react', () => {
-  const MockEditor = ({
-    value,
-    onChange,
-  }: {
-    value?: string;
-    onChange?: (value: string) => void;
-  }) => (
-    <textarea
-      data-testid="mock-editor"
-      value={value || ''}
-      onChange={e => onChange?.(e.target.value)}
-    />
-  );
-  return { __esModule: true, default: MockEditor };
-});
+jest.mock('@/config/runtime-config', () => ({
+  publicEnv: () => ({ architectHelpArticleUrls: [] }),
+}));
 
-const mockNotificationsShow = jest.fn();
 jest.mock('@/components/common/NotificationContext', () => ({
-  useNotifications: () => ({ show: mockNotificationsShow }),
+  useNotifications: () => ({ show: jest.fn() }),
 }));
 
 jest.mock('@/contexts/OnboardingContext', () => ({
   useOnboarding: () => ({ markStepComplete: jest.fn() }),
 }));
 
-jest.mock('@/utils/api-client/client-factory', () => ({
-  ApiClientFactory: jest.fn().mockImplementation(() => ({
-    getProjectsClient: () => ({
-      getProjects: jest
-        .fn()
-        .mockResolvedValue([
-          { id: 'proj-1', name: 'Test Project', description: 'A test project' },
-        ]),
-    }),
-    getEndpointsClient: () => ({
-      testEndpoint: jest.fn(),
-    }),
-  })),
+jest.mock('@/hooks/useQuotaGate', () => ({
+  useQuotaGate: () => ({ exhausted: false, notice: null }),
 }));
 
-const mockCreateEndpoint = jest.fn();
-jest.mock('@/actions/endpoints', () => ({
-  createEndpoint: (...args: unknown[]) => mockCreateEndpoint(...args),
+jest.mock('@/hooks/useCreateEndpoint', () => ({
+  useCreateEndpoint: () => jest.fn(),
 }));
 
-jest.mock('@/actions/endpoints/auto-configure', () => ({
-  autoConfigureEndpoint: jest.fn(),
+jest.mock('@/hooks/useEndpoints', () => ({
+  useTestEndpoint: () => ({ mutateAsync: jest.fn() }),
 }));
 
 jest.mock('../AutoConfigureDrawer', () => {
   const MockDrawer = ({
     open,
-    onClose,
     onApply,
   }: {
     open: boolean;
-    onClose: () => void;
     onApply: (result: Record<string, unknown>) => void;
   }) =>
     open ? (
       <div data-testid="auto-configure-drawer">
-        <button onClick={onClose}>Close Drawer</button>
         <button
           onClick={() =>
             onApply({
               request_mapping: { query: '{{ input }}' },
               response_mapping: { output: '$.response' },
-              request_headers: { 'Content-Type': 'application/json' },
-              url: 'https://api.example.com',
+              url: 'https://api.example.com/chat',
               method: 'POST',
               status: 'success',
             })
@@ -117,125 +67,57 @@ jest.mock('../AutoConfigureDrawer', () => {
   return { __esModule: true, default: MockDrawer };
 });
 
-import EndpointForm from '../EndpointForm';
+import EndpointCreateDrawer from '../EndpointCreateDrawer';
 
-// Navigate to the Mapping tab (index 2).
-async function navigateToBodyStep(user: ReturnType<typeof userEvent.setup>) {
-  await waitFor(() =>
-    expect(screen.queryByText('Loading projects...')).not.toBeInTheDocument()
+function renderDrawer() {
+  render(
+    <EndpointCreateDrawer
+      open
+      onClose={jest.fn()}
+      onCreated={jest.fn()}
+      projectId="proj-1"
+    />
   );
-
-  await user.click(screen.getByRole('tab', { name: /mapping/i }));
 }
 
-describe('EndpointForm — Body step auto-configure', () => {
+describe('Endpoint create drawer — auto-configure', () => {
   jest.setTimeout(10000);
 
-  it('renders the auto-configure button on the body step', async () => {
+  it('opens auto-configure from the Overview step', async () => {
     const user = userEvent.setup({ delay: null });
-    render(<EndpointForm />);
-    await navigateToBodyStep(user);
+    renderDrawer();
 
-    expect(
-      screen.getByRole('button', { name: /auto mapping/i })
-    ).toBeInTheDocument();
-  });
-
-  it('clicking auto-configure opens the drawer', async () => {
-    const user = userEvent.setup({ delay: null });
-    render(<EndpointForm />);
-    await navigateToBodyStep(user);
-
-    await user.click(screen.getByRole('button', { name: /auto mapping/i }));
+    await user.click(screen.getByRole('button', { name: /auto-configure/i }));
 
     expect(screen.getByTestId('auto-configure-drawer')).toBeInTheDocument();
   });
 
-  it('auth token field is in the connection tab', async () => {
+  it('fills the URL and request mapping from the result, even without headers', async () => {
     const user = userEvent.setup({ delay: null });
-    render(<EndpointForm />);
+    renderDrawer();
 
-    await waitFor(() =>
-      expect(screen.queryByText('Loading projects...')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /auto-configure/i }));
+    await user.click(screen.getByRole('button', { name: /apply result/i }));
+    await user.type(screen.getByLabelText(/endpoint name/i), 'My Endpoint');
+    await user.click(screen.getByRole('button', { name: /^next$/i }));
+
+    expect(screen.getByLabelText(/endpoint url/i)).toHaveValue(
+      'https://api.example.com/chat'
     );
 
-    // On the Overview tab there is no auth token field
+    await user.click(screen.getByRole('button', { name: /^next$/i }));
+    expect(screen.getByLabelText('API field for input')).toHaveValue('query');
+  });
+
+  it('puts the auth token field on the Connection step', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderDrawer();
+
     expect(screen.queryByLabelText(/api token/i)).not.toBeInTheDocument();
 
-    // Click the Connection tab (headers merged into Connection)
-    await user.click(screen.getByRole('tab', { name: /connection/i }));
-
-    // Auth token should now be visible in the Connection tab
-    expect(screen.getByLabelText(/api token/i)).toBeInTheDocument();
-  });
-});
-
-describe('EndpointForm — submit result handling', () => {
-  beforeEach(() => {
-    mockCreateEndpoint.mockReset();
-    mockNotificationsShow.mockClear();
-    mockRouterPush.mockClear();
-  });
-
-  async function fillRequiredFieldsAndSubmit(
-    user: ReturnType<typeof userEvent.setup>
-  ) {
-    await waitFor(() =>
-      expect(screen.queryByText('Loading projects...')).not.toBeInTheDocument()
-    );
     await user.type(screen.getByLabelText(/endpoint name/i), 'My Endpoint');
-    await user.click(screen.getByRole('tab', { name: /connection/i }));
-    await user.type(
-      screen.getByLabelText(/endpoint url/i),
-      'https://api.example.com'
-    );
-    await user.click(screen.getByRole('button', { name: /save endpoint/i }));
-  }
+    await user.click(screen.getByRole('button', { name: /^next$/i }));
 
-  it('shows success and navigates when createEndpoint succeeds', async () => {
-    mockCreateEndpoint.mockResolvedValue({
-      success: true,
-      data: { id: 'ep-1' },
-    });
-    const user = userEvent.setup({ delay: null });
-    render(<EndpointForm />);
-
-    await fillRequiredFieldsAndSubmit(user);
-
-    await waitFor(() =>
-      expect(mockNotificationsShow).toHaveBeenCalledWith(
-        'Endpoint created successfully!',
-        expect.objectContaining({ severity: 'success' })
-      )
-    );
-    expect(mockRouterPush).toHaveBeenCalledWith('/projects/proj-1');
-  });
-
-  it('shows the backend error and does not navigate when the org is over its endpoints quota', async () => {
-    // createEndpoint never throws on a business failure -- it returns
-    // {success: false, error}. Both callers used to ignore that and show
-    // "created successfully" regardless.
-    mockCreateEndpoint.mockResolvedValue({
-      success: false,
-      error:
-        'API error: 402 - Your organization is at its endpoints limit (1 of 1).',
-    });
-    const user = userEvent.setup({ delay: null });
-    render(<EndpointForm />);
-
-    await fillRequiredFieldsAndSubmit(user);
-
-    await waitFor(() =>
-      expect(
-        screen.getByText(
-          'Your organization is at its endpoints limit (1 of 1).'
-        )
-      ).toBeInTheDocument()
-    );
-    expect(mockNotificationsShow).not.toHaveBeenCalledWith(
-      'Endpoint created successfully!',
-      expect.anything()
-    );
-    expect(mockRouterPush).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/api token/i)).toBeInTheDocument();
   });
 });

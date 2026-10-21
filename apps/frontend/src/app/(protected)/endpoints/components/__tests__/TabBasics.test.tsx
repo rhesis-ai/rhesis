@@ -38,6 +38,7 @@ describe('TabOverview', () => {
       <TabOverview
         formData={defaultFormData}
         onChange={jest.fn()}
+        onAutoConfigureOpen={jest.fn()}
         projects={projects}
         loadingProjects={false}
       />
@@ -55,6 +56,7 @@ describe('TabOverview', () => {
       <TabOverview
         formData={defaultFormData}
         onChange={jest.fn()}
+        onAutoConfigureOpen={jest.fn()}
         projects={projects}
         loadingProjects={false}
         hideProjectSelect
@@ -71,6 +73,7 @@ describe('TabOverview', () => {
       <TabOverview
         formData={defaultFormData}
         onChange={jest.fn()}
+        onAutoConfigureOpen={jest.fn()}
         projects={projects}
         loadingProjects={false}
         hideProjectSelect
@@ -87,6 +90,7 @@ describe('TabOverview', () => {
       <TabOverview
         formData={defaultFormData}
         onChange={jest.fn()}
+        onAutoConfigureOpen={jest.fn()}
         projects={[]}
         loadingProjects={true}
       />
@@ -102,6 +106,7 @@ describe('TabOverview', () => {
       <TabOverview
         formData={defaultFormData}
         onChange={jest.fn()}
+        onAutoConfigureOpen={jest.fn()}
         projects={[]}
         loadingProjects={false}
       />
@@ -118,6 +123,7 @@ describe('TabOverview', () => {
       <TabOverview
         formData={defaultFormData}
         onChange={onChange}
+        onAutoConfigureOpen={jest.fn()}
         projects={projects}
         loadingProjects={false}
       />
@@ -134,6 +140,7 @@ describe('TabOverview', () => {
       <TabOverview
         formData={defaultFormData}
         onChange={onChange}
+        onAutoConfigureOpen={jest.fn()}
         projects={projects}
         loadingProjects={false}
       />
@@ -145,5 +152,37 @@ describe('TabOverview', () => {
       'description',
       'My endpoint description'
     );
+  });
+
+  it('shows tracing as enabled and turning it off sets disable_tracing', () => {
+    const onChange = jest.fn();
+    render(
+      <TabOverview
+        formData={defaultFormData}
+        onChange={onChange}
+        onAutoConfigureOpen={jest.fn()}
+        projects={projects}
+        loadingProjects={false}
+      />
+    );
+    const toggle = screen.getByRole('switch', { name: /enable tracing/i });
+    expect(toggle).toBeChecked();
+    fireEvent.click(toggle);
+    expect(onChange).toHaveBeenCalledWith('disable_tracing', true);
+  });
+
+  it('opens auto-configure from the quickest setup banner', () => {
+    const onAutoConfigureOpen = jest.fn();
+    render(
+      <TabOverview
+        formData={defaultFormData}
+        onChange={jest.fn()}
+        onAutoConfigureOpen={onAutoConfigureOpen}
+        projects={projects}
+        loadingProjects={false}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /auto-configure/i }));
+    expect(onAutoConfigureOpen).toHaveBeenCalledTimes(1);
   });
 });

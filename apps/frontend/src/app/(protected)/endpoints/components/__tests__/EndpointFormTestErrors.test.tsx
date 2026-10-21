@@ -3,29 +3,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
-jest.mock(
-  'next/dynamic',
-  () => (loader: () => Promise<{ default: React.ComponentType }>) => {
-    function DynamicComponent(props: Record<string, unknown>) {
-      const [Comp, setComp] = React.useState<React.ComponentType | null>(null);
-      React.useEffect(() => {
-        loader().then(mod => {
-          setComp(() => mod.default ?? (mod as unknown as React.ComponentType));
-        });
-      }, []);
-      if (!Comp) return null;
-      return React.createElement(Comp, props);
-    }
-    DynamicComponent.displayName = 'DynamicComponent';
-    return DynamicComponent;
-  }
-);
-
-const mockRouterPush = jest.fn();
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockRouterPush, replace: jest.fn() }),
-  // Supply a project identifier so project_id is pre-filled and step 0 is valid
-  useParams: () => ({ identifier: 'proj-1' }),
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  useParams: () => ({}),
 }));
 
 jest.mock('next-auth/react', () => ({
@@ -35,22 +15,9 @@ jest.mock('next-auth/react', () => ({
   }),
 }));
 
-jest.mock('@monaco-editor/react', () => {
-  const MockEditor = ({
-    value,
-    onChange,
-  }: {
-    value?: string;
-    onChange?: (value: string) => void;
-  }) => (
-    <textarea
-      data-testid="mock-editor"
-      value={value || ''}
-      onChange={e => onChange?.(e.target.value)}
-    />
-  );
-  return { __esModule: true, default: MockEditor };
-});
+jest.mock('@/config/runtime-config', () => ({
+  publicEnv: () => ({ architectHelpArticleUrls: [] }),
+}));
 
 const mockNotificationsShow = jest.fn();
 jest.mock('@/components/common/NotificationContext', () => ({
@@ -61,28 +28,13 @@ jest.mock('@/contexts/OnboardingContext', () => ({
   useOnboarding: () => ({ markStepComplete: jest.fn() }),
 }));
 
-jest.mock('@/utils/api-client/client-factory', () => ({
-  ApiClientFactory: jest.fn().mockImplementation(() => ({
-    getProjectsClient: () => ({
-      getProjects: jest
-        .fn()
-        .mockResolvedValue([
-          { id: 'proj-1', name: 'Test Project', description: 'A test project' },
-        ]),
-    }),
-    getEndpointsClient: () => ({
-      testEndpoint: jest.fn(),
-    }),
-  })),
+jest.mock('@/hooks/useQuotaGate', () => ({
+  useQuotaGate: () => ({ exhausted: false, notice: null }),
 }));
 
 const mockCreateEndpoint = jest.fn();
-jest.mock('@/actions/endpoints', () => ({
-  createEndpoint: (...args: unknown[]) => mockCreateEndpoint(...args),
-}));
-
-jest.mock('@/actions/endpoints/auto-configure', () => ({
-  autoConfigureEndpoint: jest.fn(),
+jest.mock('@/hooks/useCreateEndpoint', () => ({
+  useCreateEndpoint: () => mockCreateEndpoint,
 }));
 
 const mockTestEndpoint = jest.fn();
@@ -90,22 +42,54 @@ jest.mock('@/hooks/useEndpoints', () => ({
   useTestEndpoint: () => ({ mutateAsync: mockTestEndpoint }),
 }));
 
-import EndpointForm from '../EndpointForm';
+jest.mock('../AutoConfigureDrawer', () => ({
+  __esModule: true,
+  default: () => null,
+}));
 
-async function runConnectionCheck(user: ReturnType<typeof userEvent.setup>) {
-  await waitFor(() =>
-    expect(screen.queryByText('Loading projects...')).not.toBeInTheDocument()
+import EndpointCreateDrawer from '../EndpointCreateDrawer';
+
+type User = ReturnType<typeof userEvent.setup>;
+
+const nextButton = () => screen.getByRole('button', { name: /^next$/i });
+const createButton = () =>
+  screen.getByRole('button', { name: /^create endpoint$/i });
+
+function renderDrawer(onCreated = jest.fn()) {
+  render(
+    <EndpointCreateDrawer
+      open
+      onClose={jest.fn()}
+      onCreated={onCreated}
+      projectId="proj-1"
+    />
   );
-  await user.click(screen.getByRole('tab', { name: /connection/i }));
+  return onCreated;
+}
+
+async function fillToMapping(user: User) {
+  expect(nextButton()).toBeDisabled();
+  await user.type(screen.getByLabelText(/endpoint name/i), 'My Endpoint');
+  await user.click(nextButton());
   fireEvent.change(screen.getByLabelText(/endpoint url/i), {
     target: { value: 'https://api.example.com/chat' },
   });
-  await user.click(screen.getByRole('tab', { name: /test/i }));
-  await user.click(screen.getByRole('button', { name: /check connection/i }));
+  await user.click(nextButton());
+  fireEvent.change(screen.getByLabelText('API field for input'), {
+    target: { value: 'q' },
+  });
 }
 
-describe('EndpointForm — connection check errors', () => {
-  jest.setTimeout(10000);
+async function passMappingTest(user: User) {
+  mockTestEndpoint.mockResolvedValueOnce({ raw_response: { text: 'hi' } });
+  await user.click(screen.getByRole('button', { name: /run test request/i }));
+  await screen.findByText('Test request successful');
+  fireEvent.mouseDown(screen.getByLabelText('Variable for $.text'));
+  await user.click(screen.getByRole('option', { name: /^\{\{ output \}\}/ }));
+}
+
+describe('Endpoint create drawer — mapping test errors', () => {
+  jest.setTimeout(15000);
 
   beforeEach(() => mockTestEndpoint.mockReset());
 
@@ -119,14 +103,16 @@ describe('EndpointForm — connection check errors', () => {
         'Could not reach api.example.com: it did not respond before the timeout.',
     });
     const user = userEvent.setup({ delay: null });
-    render(<EndpointForm />);
-    await runConnectionCheck(user);
+    renderDrawer();
+    await fillToMapping(user);
+    await user.click(screen.getByRole('button', { name: /run test request/i }));
 
     expect(
       await screen.findByText(
         'Could not reach api.example.com: it did not respond before the timeout.'
       )
     ).toBeInTheDocument();
+    expect(nextButton()).toBeDisabled();
   });
 
   it('shows a rejected request without masking it', async () => {
@@ -136,11 +122,112 @@ describe('EndpointForm — connection check errors', () => {
       )
     );
     const user = userEvent.setup({ delay: null });
-    render(<EndpointForm />);
-    await runConnectionCheck(user);
+    renderDrawer();
+    await fillToMapping(user);
+    await user.click(screen.getByRole('button', { name: /run test request/i }));
 
     expect(
       await screen.findByText(/token request to auth\.example\.com failed/)
     ).toBeInTheDocument();
+  });
+});
+
+describe('Endpoint create drawer — steps and submit', () => {
+  jest.setTimeout(20000);
+
+  beforeEach(() => {
+    mockTestEndpoint.mockReset();
+    mockCreateEndpoint.mockReset();
+    mockNotificationsShow.mockClear();
+  });
+
+  it('needs a passing mapping test and an output mapping before Next', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderDrawer();
+    await fillToMapping(user);
+    expect(nextButton()).toBeDisabled();
+
+    await passMappingTest(user);
+    expect(nextButton()).toBeEnabled();
+  });
+
+  it('asks for a new test after the URL changes', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderDrawer();
+    await fillToMapping(user);
+    await passMappingTest(user);
+
+    await user.click(screen.getByRole('button', { name: /connection/i }));
+    fireEvent.change(screen.getByLabelText(/endpoint url/i), {
+      target: { value: 'https://api.example.com/v2/chat' },
+    });
+    await user.click(nextButton());
+    expect(nextButton()).toBeDisabled();
+  });
+
+  async function runToCreate(user: User) {
+    await fillToMapping(user);
+    await passMappingTest(user);
+    await user.click(nextButton());
+
+    expect(createButton()).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Value for input'), {
+      target: { value: 'Hello' },
+    });
+    mockTestEndpoint.mockResolvedValueOnce({
+      raw_response: { text: 'Hi there' },
+    });
+    await user.click(screen.getByRole('button', { name: /run test request/i }));
+    await screen.findByText('Endpoint is ready');
+    await user.click(createButton());
+  }
+
+  it('creates the endpoint once the Test step passes', async () => {
+    mockCreateEndpoint.mockResolvedValue({
+      success: true,
+      data: { id: 'ep-1' },
+    });
+    const user = userEvent.setup({ delay: null });
+    const onCreated = renderDrawer();
+    await runToCreate(user);
+
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
+    expect(mockCreateEndpoint).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'My Endpoint',
+        url: 'https://api.example.com/chat',
+        project_id: 'proj-1',
+        request_mapping: { q: '{{ input }}' },
+        response_mapping: { output: '$.text' },
+      })
+    );
+    expect(mockNotificationsShow).toHaveBeenCalledWith(
+      'Endpoint created successfully!',
+      expect.objectContaining({ severity: 'success' })
+    );
+  });
+
+  it('shows the backend error when the org is over its endpoints quota', async () => {
+    // createEndpoint never throws on a business failure -- it returns
+    // {success: false, error}.
+    mockCreateEndpoint.mockResolvedValue({
+      success: false,
+      error:
+        'API error: 402 - Your organization is at its endpoints limit (1 of 1).',
+    });
+    const user = userEvent.setup({ delay: null });
+    const onCreated = renderDrawer();
+    await runToCreate(user);
+
+    expect(
+      await screen.findByText(
+        'Your organization is at its endpoints limit (1 of 1).'
+      )
+    ).toBeInTheDocument();
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(mockNotificationsShow).not.toHaveBeenCalledWith(
+      'Endpoint created successfully!',
+      expect.anything()
+    );
   });
 });
