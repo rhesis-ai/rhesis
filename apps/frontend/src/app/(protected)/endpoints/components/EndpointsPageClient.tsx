@@ -123,7 +123,6 @@ export default function EndpointsPageClient({
               <Fab
                 icon={<FabAddIcon />}
                 tooltip="New Endpoint"
-                aria-label="New Endpoint"
                 onClick={e => setTypeMenuAnchor(e.currentTarget)}
                 data-tour="create-endpoint-button"
               />
