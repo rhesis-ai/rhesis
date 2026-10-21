@@ -38,7 +38,8 @@ test.describe('Test Sets — CRUD @crud', () => {
     await typeSelectBtn.click();
     const singleTurnOption = page.getByRole('option', { name: /single.turn/i });
     const optionsAvailable = await singleTurnOption
-      .isVisible({ timeout: 8_000 })
+      .waitFor({ state: 'visible', timeout: 8_000 })
+      .then(() => true)
       .catch(() => false);
     if (!optionsAvailable) {
       await page.keyboard.press('Escape');
@@ -79,7 +80,8 @@ test.describe('Test Sets — CRUD @crud', () => {
     await setupTypeSelectBtn.click();
     const setupOption = page.getByRole('option', { name: /single.turn/i });
     const setupTypeAvailable = await setupOption
-      .isVisible({ timeout: 8_000 })
+      .waitFor({ state: 'visible', timeout: 8_000 })
+      .then(() => true)
       .catch(() => false);
     if (!setupTypeAvailable) {
       await page.keyboard.press('Escape');

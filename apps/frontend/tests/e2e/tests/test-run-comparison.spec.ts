@@ -32,7 +32,8 @@ test.describe('Test Runs — comparison mode @interaction', () => {
       .getByRole('button', { name: /compare runs/i })
       .first();
     const hasCompare = await compareBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasCompare) {
       test.skip(true, '"Compare" button not found on detail page — skipping');
@@ -76,7 +77,8 @@ test.describe('Test Runs — comparison mode @interaction', () => {
       .getByRole('button', { name: /compare runs/i })
       .first();
     const hasCompare = await compareBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasCompare) {
       test.skip(true, '"Compare" button not found — skipping');
@@ -94,8 +96,14 @@ test.describe('Test Runs — comparison mode @interaction', () => {
       .locator('[class*="MuiCardActionArea"]')
       .first();
     const hasPicker =
-      (await baselineCard.isVisible({ timeout: 8_000 }).catch(() => false)) &&
-      (await baselinePicker.isVisible({ timeout: 3_000 }).catch(() => false));
+      (await baselineCard
+        .waitFor({ state: 'visible', timeout: 8_000 })
+        .then(() => true)
+        .catch(() => false)) &&
+      (await baselinePicker
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false));
     if (!hasPicker) {
       await comparePage.close();
       test.skip(true, 'Baseline picker not found — skipping');
@@ -134,7 +142,12 @@ test.describe('Test Runs — comparison mode @interaction', () => {
     const compareBtn = page
       .getByRole('button', { name: /compare runs/i })
       .first();
-    if (!(await compareBtn.isVisible({ timeout: 10_000 }).catch(() => false))) {
+    if (
+      !(await compareBtn
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false))
+    ) {
       test.skip(true, '"Compare" button not found — skipping');
       return;
     }
@@ -149,7 +162,10 @@ test.describe('Test Runs — comparison mode @interaction', () => {
       .locator('[class*="MuiCardActionArea"]')
       .first();
     if (
-      !(await baselinePicker.isVisible({ timeout: 8_000 }).catch(() => false))
+      !(await baselinePicker
+        .waitFor({ state: 'visible', timeout: 8_000 })
+        .then(() => true)
+        .catch(() => false))
     ) {
       await comparePage.close();
       test.skip(true, 'No baseline runs available — skipping stat cards test');
@@ -163,13 +179,16 @@ test.describe('Test Runs — comparison mode @interaction', () => {
     const unchanged = comparePage.getByText(/unchanged/i).first();
 
     const hasImproved = await improved
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     const hasRegressed = await regressed
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     const hasUnchanged = await unchanged
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
 
     expect(
@@ -202,7 +221,12 @@ test.describe('Test Runs — comparison mode @interaction', () => {
     const compareBtn = page
       .getByRole('button', { name: /compare runs/i })
       .first();
-    if (!(await compareBtn.isVisible({ timeout: 10_000 }).catch(() => false))) {
+    if (
+      !(await compareBtn
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false))
+    ) {
       test.skip(true, '"Compare" button not found — skipping');
       return;
     }
@@ -217,7 +241,10 @@ test.describe('Test Runs — comparison mode @interaction', () => {
       .locator('[class*="MuiCardActionArea"]')
       .first();
     if (
-      !(await baselinePicker.isVisible({ timeout: 8_000 }).catch(() => false))
+      !(await baselinePicker
+        .waitFor({ state: 'visible', timeout: 8_000 })
+        .then(() => true)
+        .catch(() => false))
     ) {
       test.skip(true, 'No baseline runs — skipping');
       return;
@@ -228,7 +255,12 @@ test.describe('Test Runs — comparison mode @interaction', () => {
     const improvedBtn = comparePage
       .getByRole('button', { name: /improved/i })
       .first();
-    if (await improvedBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    if (
+      await improvedBtn
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await improvedBtn.click();
       await comparePage.waitForLoadState('networkidle');
       await expect(comparePage.locator('body')).not.toContainText(
@@ -237,7 +269,12 @@ test.describe('Test Runs — comparison mode @interaction', () => {
     }
 
     const allBtn = comparePage.getByRole('button', { name: /^all$/i }).first();
-    if (await allBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (
+      await allBtn
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await allBtn.click();
     }
     await comparePage.close();

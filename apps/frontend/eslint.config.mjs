@@ -263,6 +263,28 @@ export default [
       ],
     },
   },
+  {
+    // Playwright's locator.isVisible() and isHidden() ignore their `timeout`
+    // option and return at once (playwright.dev/docs/api/class-locator). A guard
+    // written as `isVisible({ timeout })` never waits, so a slow render made
+    // tests skip themselves instead of failing.
+    //
+    // Note: this override REPLACES no-restricted-syntax for matching files, so the
+    // GREYSCALE selectors are repeated here (via the shared constant).
+    files: ['tests/e2e/**/*.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...GREYSCALE_NO_RESTRICTED_SYNTAX,
+        {
+          selector:
+            "CallExpression[callee.property.name=/^is(Visible|Hidden)$/] > ObjectExpression > Property[key.name='timeout']",
+          message:
+            "isVisible()/isHidden() ignore `timeout` and return immediately. To wait, use `await expect(locator).toBeVisible({ timeout })`, or `locator.waitFor({ state: 'visible', timeout }).then(() => true).catch(() => false)` when the result decides a branch.",
+        },
+      ],
+    },
+  },
 ];
 // Note: EE source lives outside apps/frontend/ so ESLint does not scan it.
 // The boundary guard runs only in the other direction (core → EE), which the

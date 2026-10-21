@@ -35,7 +35,8 @@ test.describe('Test Runs — re-scoring @interaction', () => {
       .getByRole('button', { name: /re.?run|rescore/i })
       .first();
     const hasRerun = await rerunBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasRerun) {
       test.skip(true, '"Re-run" button not found on detail page — skipping');
@@ -79,7 +80,8 @@ test.describe('Test Runs — re-scoring @interaction', () => {
       .getByRole('button', { name: /re.?run|rescore/i })
       .first();
     const hasRerun = await rerunBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasRerun) {
       test.skip(true, '"Re-run" button not found — skipping');
@@ -97,7 +99,8 @@ test.describe('Test Runs — re-scoring @interaction', () => {
       .or(page.getByText(/reuse outputs/i))
       .first();
     const hasReuse = await reuseOption
-      .isVisible({ timeout: 8_000 })
+      .waitFor({ state: 'visible', timeout: 8_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasReuse) {
       test.skip(true, '"Reuse Outputs" option not found in drawer — skipping');
@@ -140,7 +143,8 @@ test.describe('Test Runs — re-scoring @interaction', () => {
       .getByRole('button', { name: /re.?run|rescore/i })
       .first();
     const hasRerun = await rerunBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasRerun) {
       test.skip(true, '"Re-run" button not found — skipping submit test');
@@ -157,7 +161,12 @@ test.describe('Test Runs — re-scoring @interaction', () => {
       .getByRole('radio', { name: /reuse outputs/i })
       .or(page.getByText(/reuse outputs/i))
       .first();
-    if (await reuseOption.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    if (
+      await reuseOption
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await reuseOption.click();
     }
 
@@ -167,7 +176,8 @@ test.describe('Test Runs — re-scoring @interaction', () => {
       .getByRole('button', { name: /re.?run test|start|submit|confirm/i })
       .first();
     const hasSubmit = await submitBtn
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasSubmit) {
       test.skip(true, 'Submit button not found in re-run drawer — skipping');
@@ -191,7 +201,8 @@ test.describe('Test Runs — re-scoring @interaction', () => {
       .filter({ hasText: /queued/i });
     const hasQueuedRow = await queuedRow
       .first()
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
 
     if (hasQueuedRow) {

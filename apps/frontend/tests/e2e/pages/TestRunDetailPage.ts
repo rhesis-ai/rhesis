@@ -37,7 +37,12 @@ export class TestRunDetailPage extends BasePage {
    */
   async goToLinkedEntitiesTab() {
     const tab = this.page.getByRole('tab', { name: /test cases/i });
-    if (await tab.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    if (
+      await tab
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await tab.click();
       await this.page.waitForLoadState('networkidle');
     }

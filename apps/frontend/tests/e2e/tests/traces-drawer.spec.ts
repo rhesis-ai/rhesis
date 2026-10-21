@@ -62,7 +62,8 @@ test.describe('Traces — drawer interactions @interaction', () => {
       .getByText(/span|duration|status|environment/i)
       .first();
     const hasMetrics = await metricsText
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     // Soft assertion — chips may not all be present for every trace
     if (hasMetrics) {
@@ -97,7 +98,8 @@ test.describe('Traces — drawer interactions @interaction', () => {
         .getByRole('tab', { name: new RegExp(tabName, 'i') })
         .first();
       const tabVisible = await tab
-        .isVisible({ timeout: 5_000 })
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
         .catch(() => false);
       if (!tabVisible) continue; // some views may not be present for every trace
 
@@ -133,7 +135,8 @@ test.describe('Traces — drawer interactions @interaction', () => {
       .locator('[role="treeitem"], [role="listitem"], .MuiListItem-root')
       .first();
     const hasSpan = await spanItem
-      .isVisible({ timeout: 8_000 })
+      .waitFor({ state: 'visible', timeout: 8_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasSpan) {
       test.skip(true, 'No span items visible in drawer — skipping');
@@ -150,7 +153,8 @@ test.describe('Traces — drawer interactions @interaction', () => {
       .getByText(/attributes|events|links|status/i)
       .first();
     const hasDetails = await detailText
-      .isVisible({ timeout: 8_000 })
+      .waitFor({ state: 'visible', timeout: 8_000 })
+      .then(() => true)
       .catch(() => false);
     if (hasDetails) {
       await expect(detailText).toBeVisible();

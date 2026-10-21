@@ -20,7 +20,8 @@ test.describe('Garak v0.14 — import probe drawer @new-feature', () => {
       .getByRole('button', { name: /import from garak|garak/i })
       .first();
     const hasGarak = await garakBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasGarak) {
       test.skip(true, '"Import from Garak" button not found — skipping');
@@ -32,7 +33,8 @@ test.describe('Garak v0.14 — import probe drawer @new-feature', () => {
     // The Garak Import Drawer should open (MUI Drawer does not use role="dialog")
     const drawer = page.locator('.MuiDrawer-root .MuiDrawer-paper').last();
     const drawerVisible = await drawer
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!drawerVisible) {
       test.skip(true, 'Garak Import Drawer did not open — skipping');
@@ -55,7 +57,8 @@ test.describe('Garak v0.14 — import probe drawer @new-feature', () => {
       .getByRole('button', { name: /import from garak|garak/i })
       .first();
     const hasGarak = await garakBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasGarak) {
       test.skip(true, '"Import from Garak" button not found — skipping');
@@ -66,7 +69,8 @@ test.describe('Garak v0.14 — import probe drawer @new-feature', () => {
 
     const drawer = page.locator('.MuiDrawer-root .MuiDrawer-paper').last();
     const drawerVisible = await drawer
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!drawerVisible) {
       test.skip(true, 'Garak Import Drawer did not open — skipping');
@@ -116,7 +120,8 @@ test.describe('Garak v0.14 — import probe drawer @new-feature', () => {
       .getByRole('button', { name: /import from garak|garak/i })
       .first();
     const hasGarak = await garakBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasGarak) {
       test.skip(
@@ -130,7 +135,8 @@ test.describe('Garak v0.14 — import probe drawer @new-feature', () => {
 
     const drawer = page.locator('.MuiDrawer-root .MuiDrawer-paper').last();
     const drawerVisible = await drawer
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!drawerVisible) {
       test.skip(true, 'Garak drawer did not open — skipping');
@@ -142,7 +148,8 @@ test.describe('Garak v0.14 — import probe drawer @new-feature', () => {
     // Select the first available probe checkbox
     const firstProbe = drawer.locator('input[type="checkbox"]').first();
     const hasProbe = await firstProbe
-      .isVisible({ timeout: 8_000 })
+      .waitFor({ state: 'visible', timeout: 8_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasProbe) {
       test.skip(
@@ -155,7 +162,12 @@ test.describe('Garak v0.14 — import probe drawer @new-feature', () => {
 
     // Enter a name for the new test set (if a name field exists)
     const nameInput = drawer.getByRole('textbox', { name: /name/i }).first();
-    if (await nameInput.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (
+      await nameInput
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await nameInput.fill(UNIQUE_SET_NAME);
     }
 
@@ -164,7 +176,8 @@ test.describe('Garak v0.14 — import probe drawer @new-feature', () => {
       .getByRole('button', { name: /import|create|confirm/i })
       .first();
     const hasImport = await importBtn
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasImport) {
       test.skip(true, 'Import button not found in Garak drawer — skipping');

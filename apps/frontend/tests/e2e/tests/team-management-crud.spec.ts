@@ -21,7 +21,8 @@ test.describe('Team Management — invite form @interaction', () => {
 
     const emailInput = page.locator('input[type="email"]').first();
     const hasEmail = await emailInput
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasEmail) {
       test.skip(true, 'Email input not found — skipping focus regression test');
@@ -58,7 +59,8 @@ test.describe('Team Management — invite form @interaction', () => {
 
     const emailInput = page.locator('input[type="email"]').first();
     const hasEmail = await emailInput
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasEmail) {
       test.skip(true, 'Email input not found — skipping add-another test');
@@ -73,7 +75,8 @@ test.describe('Team Management — invite form @interaction', () => {
       .getByRole('button', { name: /add another email/i })
       .first();
     const hasAddAnother = await addAnotherBtn
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasAddAnother) {
       test.skip(true, '"Add Another Email" button not found — skipping');
@@ -102,7 +105,8 @@ test.describe('Team Management — invite form @interaction', () => {
 
     const emailInput = page.locator('input[type="email"]').first();
     const hasEmail = await emailInput
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasEmail) {
       test.skip(true, 'Email input not found — skipping validation test');
@@ -119,7 +123,8 @@ test.describe('Team Management — invite form @interaction', () => {
       .getByText(/invalid email|enter a valid email/i)
       .first();
     const hasError = await errorText
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     const ariaInvalid = await emailInput
       .getAttribute('aria-invalid')
@@ -145,7 +150,8 @@ test.describe('Team Management — invite form @interaction', () => {
 
     const emailInput = page.locator('input[type="email"]').first();
     const hasEmail = await emailInput
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasEmail) {
       test.skip(true, 'Email input not found — skipping send button test');
@@ -160,7 +166,8 @@ test.describe('Team Management — invite form @interaction', () => {
       .getByRole('button', { name: /send invitation|invite/i })
       .first();
     const hasSend = await sendBtn
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     expect(
       hasSend,

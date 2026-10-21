@@ -55,7 +55,8 @@ test.describe('File Attachments — test detail @new-feature', () => {
       .getByRole('button', { name: /attach|upload|add file/i })
       .first();
     const hasUpload = await uploadBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasUpload) {
       test.skip(
@@ -101,7 +102,8 @@ test.describe('File Attachments — test detail @new-feature', () => {
       .getByRole('button', { name: /attach|upload|add file/i })
       .first();
     const hasUpload = await uploadBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasUpload) {
       test.skip(
@@ -127,7 +129,8 @@ test.describe('File Attachments — test detail @new-feature', () => {
       .locator('[data-testid="file-delete"], [aria-label*="delete"]')
       .first();
     const hasDelete = await deleteBtn
-      .isVisible({ timeout: 8_000 })
+      .waitFor({ state: 'visible', timeout: 8_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasDelete) {
       // Also try finding a delete/remove icon near "fixture.txt"
@@ -136,7 +139,8 @@ test.describe('File Attachments — test detail @new-feature', () => {
         .first();
       const rowDeleteBtn = fixtureRow.getByRole('button').last();
       const hasRowDelete = await rowDeleteBtn
-        .isVisible({ timeout: 5_000 })
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
         .catch(() => false);
       if (!hasRowDelete) {
         test.skip(true, 'Delete button for attachment not found — skipping');
@@ -177,7 +181,8 @@ test.describe('File Attachments — playground @new-feature', () => {
       .getByRole('button', { name: /attach|upload file|add file/i })
       .first();
     const hasAttach = await attachBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasAttach) {
       // Alternatively, look for an icon button near the send input
@@ -185,7 +190,8 @@ test.describe('File Attachments — playground @new-feature', () => {
         .locator('[aria-label*="attach"], [aria-label*="file"]')
         .first();
       const hasIcon = await iconBtn
-        .isVisible({ timeout: 5_000 })
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
         .catch(() => false);
       expect(
         hasIcon,

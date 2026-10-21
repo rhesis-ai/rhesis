@@ -60,7 +60,10 @@ export class TracesPage extends BasePage {
       .getByRole('presentation')
       .getByRole('tab', { name })
       .first();
-    const visible = await tab.isVisible({ timeout: 5_000 }).catch(() => false);
+    const visible = await tab
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
     if (visible) await tab.click();
   }
 

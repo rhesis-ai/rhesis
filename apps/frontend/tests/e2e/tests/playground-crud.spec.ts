@@ -80,7 +80,8 @@ test.describe('Playground — full flow @crud', () => {
 
     const messageInput = page.getByPlaceholder(/type your message/i);
     const hasInput = await messageInput
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     expect(
       hasInput,
@@ -106,7 +107,10 @@ test.describe('Playground — full flow @crud', () => {
 
     const messageInput = page.getByPlaceholder(/type your message/i);
     if (
-      !(await messageInput.isVisible({ timeout: 10_000 }).catch(() => false))
+      !(await messageInput
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false))
     ) {
       test.skip(true, 'Message input not visible — skipping');
       return;
@@ -141,7 +145,8 @@ test.describe('Playground — full flow @crud', () => {
 
     const disconnectedChip = page.getByText(/disconnected/i).first();
     const isDisconnected = await disconnectedChip
-      .isVisible({ timeout: 3_000 })
+      .waitFor({ state: 'visible', timeout: 3_000 })
+      .then(() => true)
       .catch(() => false);
     if (isDisconnected) {
       test.skip(true, 'WebSocket disconnected — skipping message send test');
@@ -150,7 +155,10 @@ test.describe('Playground — full flow @crud', () => {
 
     const messageInput = page.getByPlaceholder(/type your message/i);
     if (
-      !(await messageInput.isVisible({ timeout: 10_000 }).catch(() => false))
+      !(await messageInput
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false))
     ) {
       test.skip(true, 'Message input not visible — skipping');
       return;
@@ -162,7 +170,8 @@ test.describe('Playground — full flow @crud', () => {
 
     const userMessage = page.getByText(testMessage).first();
     const appeared = await userMessage
-      .isVisible({ timeout: 15_000 })
+      .waitFor({ state: 'visible', timeout: 15_000 })
+      .then(() => true)
       .catch(() => false);
 
     await expect(page.locator('body')).not.toContainText(
@@ -190,7 +199,10 @@ test.describe('Playground — full flow @crud', () => {
 
     const disconnectedChip = page.getByText(/disconnected/i).first();
     if (
-      await disconnectedChip.isVisible({ timeout: 3_000 }).catch(() => false)
+      await disconnectedChip
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false)
     ) {
       test.skip(true, 'WebSocket disconnected — skipping reset test');
       return;
@@ -198,7 +210,10 @@ test.describe('Playground — full flow @crud', () => {
 
     const messageInput = page.getByPlaceholder(/type your message/i);
     if (
-      !(await messageInput.isVisible({ timeout: 10_000 }).catch(() => false))
+      !(await messageInput
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false))
     ) {
       test.skip(true, 'Message input not visible — skipping');
       return;
@@ -211,7 +226,8 @@ test.describe('Playground — full flow @crud', () => {
 
     const resetBtn = page.getByRole('button', { name: /reset conversation/i });
     const hasReset = await resetBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasReset) {
       test.skip(true, 'Reset button not visible — no messages sent, skipping');
@@ -244,7 +260,8 @@ test.describe('Playground — full flow @crud', () => {
 
     const attachBtn = page.getByRole('button', { name: /attach file/i });
     const hasAttach = await attachBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     expect(
       hasAttach,
@@ -267,7 +284,12 @@ test.describe('Playground — full flow @crud', () => {
     }
 
     const attachBtn = page.getByRole('button', { name: /attach file/i });
-    if (!(await attachBtn.isVisible({ timeout: 10_000 }).catch(() => false))) {
+    if (
+      !(await attachBtn
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false))
+    ) {
       test.skip(true, 'Attach file button not visible — skipping');
       return;
     }
@@ -303,7 +325,10 @@ test.describe('Playground — full flow @crud', () => {
 
     const disconnectedChip = page.getByText(/disconnected/i).first();
     if (
-      await disconnectedChip.isVisible({ timeout: 3_000 }).catch(() => false)
+      await disconnectedChip
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false)
     ) {
       test.skip(
         true,
@@ -314,7 +339,10 @@ test.describe('Playground — full flow @crud', () => {
 
     const messageInput = page.getByPlaceholder(/type your message/i);
     if (
-      !(await messageInput.isVisible({ timeout: 10_000 }).catch(() => false))
+      !(await messageInput
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false))
     ) {
       test.skip(true, 'Message input not visible — skipping');
       return;
@@ -326,7 +354,8 @@ test.describe('Playground — full flow @crud', () => {
 
     const userBubble = page.getByText(testMessage).first();
     const bubbleAppeared = await userBubble
-      .isVisible({ timeout: 15_000 })
+      .waitFor({ state: 'visible', timeout: 15_000 })
+      .then(() => true)
       .catch(() => false);
     if (!bubbleAppeared) {
       test.skip(
@@ -342,7 +371,8 @@ test.describe('Playground — full flow @crud', () => {
       name: /create single.turn test from this message/i,
     });
     const hasBtn = await createTestBtn
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasBtn) {
       test.skip(true, 'Create-test button not visible after hover — skipping');

@@ -6,7 +6,10 @@ import { type Page } from '@playwright/test';
  */
 export async function dismissTermsGateIfVisible(page: Page): Promise<void> {
   const dialog = page.getByRole('dialog', { name: /updated terms/i });
-  const visible = await dialog.isVisible({ timeout: 2_000 }).catch(() => false);
+  const visible = await dialog
+    .waitFor({ state: 'visible', timeout: 2_000 })
+    .then(() => true)
+    .catch(() => false);
   if (!visible) return;
 
   const checkbox = dialog.getByRole('checkbox');

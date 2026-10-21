@@ -70,7 +70,8 @@ export class KnowledgePage extends BasePage {
       name: /description/i,
     });
     const visible = await descInput
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (visible) await descInput.fill(description);
   }
@@ -112,7 +113,8 @@ export class KnowledgePage extends BasePage {
     return this.page
       .locator('.MuiDataGrid-row')
       .filter({ hasText: text })
-      .isVisible({ timeout: 15_000 })
+      .waitFor({ state: 'visible', timeout: 15_000 })
+      .then(() => true)
       .catch(() => false);
   }
 
@@ -121,7 +123,8 @@ export class KnowledgePage extends BasePage {
     return this.page
       .locator('.MuiDataGrid-row')
       .filter({ hasText: text })
-      .isHidden({ timeout: 15_000 })
+      .waitFor({ state: 'hidden', timeout: 15_000 })
+      .then(() => true)
       .catch(() => false);
   }
 }

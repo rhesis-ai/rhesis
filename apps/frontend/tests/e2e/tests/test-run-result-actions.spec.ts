@@ -43,7 +43,8 @@ test.describe('Test Runs — result actions @interaction', () => {
     // The pencil icon has Tooltip "Rename test run"
     const renameBtn = page.getByRole('button', { name: /rename test run/i });
     const hasBtn = await renameBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasBtn) {
       test.skip(true, '"Rename test run" button not found — skipping');
@@ -58,7 +59,8 @@ test.describe('Test Runs — result actions @interaction', () => {
 
     const nameInput = dialog.getByRole('textbox', { name: /^name$/i }).first();
     const hasInput = await nameInput
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasInput) {
       await page.keyboard.press('Escape');
@@ -96,7 +98,8 @@ test.describe('Test Runs — result actions @interaction', () => {
     // Click the "Table" view mode button
     const tableBtn = page.getByRole('button', { name: /^table$/i }).first();
     const hasTable = await tableBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasTable) {
       test.skip(true, '"Table" view button not found — skipping');
@@ -109,7 +112,8 @@ test.describe('Test Runs — result actions @interaction', () => {
     // In table view, a <table> element (or at least rows) should be visible
     const table = page.locator('table').first();
     const hasTbl = await table
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     expect(
       hasTbl,
@@ -133,7 +137,12 @@ test.describe('Test Runs — result actions @interaction', () => {
 
     // Switch to Table view first so action buttons are visible
     const tableBtn = page.getByRole('button', { name: /^table$/i }).first();
-    if (await tableBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    if (
+      await tableBtn
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await tableBtn.click();
       await page.waitForLoadState('networkidle');
     }
@@ -141,7 +150,8 @@ test.describe('Test Runs — result actions @interaction', () => {
     // Look for the annotate button in the Actions column
     const annotateBtn = page.getByRole('button', { name: /annotate/i }).first();
     const hasBtn = await annotateBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasBtn) {
       test.skip(
@@ -161,8 +171,14 @@ test.describe('Test Runs — result actions @interaction', () => {
     const passToggle = page.getByRole('button', { name: /^passed$/i }).first();
     const failToggle = page.getByRole('button', { name: /^failed$/i }).first();
     const hasPassFail =
-      (await passToggle.isVisible({ timeout: 3_000 }).catch(() => false)) ||
-      (await failToggle.isVisible({ timeout: 3_000 }).catch(() => false));
+      (await passToggle
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false)) ||
+      (await failToggle
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false));
     expect(
       hasPassFail,
       'Expected Pass/Fail toggle buttons in the annotation drawer'
@@ -170,7 +186,12 @@ test.describe('Test Runs — result actions @interaction', () => {
 
     // Close without submitting
     const cancelBtn = page.getByRole('button', { name: /cancel/i }).first();
-    if (await cancelBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    if (
+      await cancelBtn
+        .waitFor({ state: 'visible', timeout: 2_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await cancelBtn.click();
     } else {
       await page.keyboard.press('Escape');
@@ -189,14 +210,22 @@ test.describe('Test Runs — result actions @interaction', () => {
 
     // Switch to Table view
     const tableBtn = page.getByRole('button', { name: /^table$/i }).first();
-    if (await tableBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    if (
+      await tableBtn
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await tableBtn.click();
       await page.waitForLoadState('networkidle');
     }
 
     const annotateBtn = page.getByRole('button', { name: /annotate/i }).first();
     if (
-      !(await annotateBtn.isVisible({ timeout: 10_000 }).catch(() => false))
+      !(await annotateBtn
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false))
     ) {
       test.skip(true, 'Annotate button not visible — skipping submit test');
       return;
@@ -206,7 +235,10 @@ test.describe('Test Runs — result actions @interaction', () => {
 
     const drawerTitle = page.getByText(/add annotation/i).first();
     if (
-      !(await drawerTitle.isVisible({ timeout: 10_000 }).catch(() => false))
+      !(await drawerTitle
+        .waitFor({ state: 'visible', timeout: 10_000 })
+        .then(() => true)
+        .catch(() => false))
     ) {
       test.skip(true, 'Annotation drawer did not open — skipping');
       return;
@@ -214,7 +246,12 @@ test.describe('Test Runs — result actions @interaction', () => {
 
     // Click the Pass toggle
     const passToggle = page.getByRole('button', { name: /^passed$/i }).first();
-    if (!(await passToggle.isVisible({ timeout: 5_000 }).catch(() => false))) {
+    if (
+      !(await passToggle
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false))
+    ) {
       await page.keyboard.press('Escape');
       test.skip(true, 'Pass toggle not found — skipping');
       return;
@@ -226,7 +263,10 @@ test.describe('Test Runs — result actions @interaction', () => {
       .getByRole('textbox', { name: /comment|explain/i })
       .first();
     if (
-      !(await commentInput.isVisible({ timeout: 5_000 }).catch(() => false))
+      !(await commentInput
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false))
     ) {
       await page.keyboard.press('Escape');
       test.skip(true, 'Comment field not found — skipping');
@@ -240,7 +280,12 @@ test.describe('Test Runs — result actions @interaction', () => {
     const submitBtn = page
       .getByRole('button', { name: /save|submit/i })
       .first();
-    if (!(await submitBtn.isVisible({ timeout: 5_000 }).catch(() => false))) {
+    if (
+      !(await submitBtn
+        .waitFor({ state: 'visible', timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false))
+    ) {
       await page.keyboard.press('Escape');
       test.skip(true, 'Save button not found — skipping');
       return;
@@ -267,7 +312,8 @@ test.describe('Test Runs — result actions @interaction', () => {
       .getByRole('button', { name: /^download$/i })
       .first();
     const hasBtn = await downloadBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasBtn) {
       test.skip(true, '"Download" button not found — skipping CSV test');
@@ -300,7 +346,8 @@ test.describe('Test Runs — result actions @interaction', () => {
     // The "Passed" filter button is in the ButtonGroup status filter bar
     const passedBtn = page.getByRole('button', { name: /^passed$/i }).first();
     const hasBtn = await passedBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasBtn) {
       test.skip(
@@ -320,7 +367,12 @@ test.describe('Test Runs — result actions @interaction', () => {
 
     // Click "Failed" to apply that filter
     const failedBtn = page.getByRole('button', { name: /^failed$/i }).first();
-    if (await failedBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (
+      await failedBtn
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await failedBtn.click();
       await page.waitForLoadState('networkidle');
       await expect(page.locator('body')).not.toContainText(
@@ -330,7 +382,12 @@ test.describe('Test Runs — result actions @interaction', () => {
 
     // Reset to "All"
     const allBtn = page.getByRole('button', { name: /^all$/i }).first();
-    if (await allBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (
+      await allBtn
+        .waitFor({ state: 'visible', timeout: 3_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await allBtn.click();
       await page.waitForLoadState('networkidle');
     }
@@ -347,7 +404,8 @@ test.describe('Test Runs — result actions @interaction', () => {
 
     const filtersBtn = page.getByRole('button', { name: /^filters$/i }).first();
     const hasBtn = await filtersBtn
-      .isVisible({ timeout: 10_000 })
+      .waitFor({ state: 'visible', timeout: 10_000 })
+      .then(() => true)
       .catch(() => false);
     if (!hasBtn) {
       test.skip(true, '"Filters" button not found — skipping popover test');
@@ -359,7 +417,8 @@ test.describe('Test Runs — result actions @interaction', () => {
     // The popover should contain Annotation Status options
     const annotatedChip = page.getByText(/^annotated$/i).first();
     const popoverVisible = await annotatedChip
-      .isVisible({ timeout: 5_000 })
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .then(() => true)
       .catch(() => false);
     expect(
       popoverVisible,
@@ -370,7 +429,12 @@ test.describe('Test Runs — result actions @interaction', () => {
     const clearAllBtn = page
       .getByRole('button', { name: /clear all/i })
       .first();
-    if (await clearAllBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    if (
+      await clearAllBtn
+        .waitFor({ state: 'visible', timeout: 2_000 })
+        .then(() => true)
+        .catch(() => false)
+    ) {
       await clearAllBtn.click();
     }
 
