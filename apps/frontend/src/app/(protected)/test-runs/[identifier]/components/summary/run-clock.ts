@@ -22,22 +22,8 @@
  */
 export const LAG_SECONDS = 2;
 
-/** Catch-up rate when joining a run already in progress. */
+/** Catch-up rate when the clock falls well behind the server. */
 export const REPLAY_RATE = 10;
-
-/**
- * How much history a mid-run join replays.
- *
- * Opening a live run replays it from the start so the fill reads as motion
- * rather than a static grid. Replaying *everything* does not scale: a run
- * that has been going an hour would spend six minutes at REPLAY_RATE
- * re-animating work the viewer already missed, and every reload would start
- * that over. Past this window the clock joins near the present instead.
- *
- * Short runs are unaffected -- the cap only bites once elapsed time exceeds
- * it, so the common "launch it and watch" case still plays from zero.
- */
-export const MAX_JOIN_REPLAY_SECONDS = 30;
 
 /** Rate used to close the lag gap once a run finishes, so the strip settles promptly. */
 export const TERMINAL_CATCHUP_RATE = 3;
@@ -193,7 +179,10 @@ export function isSettled(
  * Where the clock starts. A run that was already finished when the page opened
  * renders settled -- there is no live process to convey, and replaying it
  * unasked would misrepresent an old run as happening now. A run still in
- * flight starts at zero and replays up to the present.
+ * flight joins at the present: tests that already finished show their final
+ * state at once, matching the pass rate the runs list showed, and only work
+ * still in progress animates. A run opened right after launch has elapsed
+ * near zero, so it still plays from the start.
  */
 export function initialClock(
   runDuration: number | null,
@@ -201,13 +190,7 @@ export function initialClock(
   serverElapsed: number | null = null
 ): number {
   if (isTerminal) return (runDuration ?? 0) + SETTLE_TAIL;
-  if (serverElapsed === null) return 0;
-
-  // Join near the present rather than replaying hours of history. Negative
-  // for any run shorter than the window, which clamps to 0 -- so a run you
-  // just launched still plays from the very beginning.
-  const target = Math.max(0, serverElapsed - LAG_SECONDS);
-  return Math.max(0, target - MAX_JOIN_REPLAY_SECONDS);
+  return clockTarget({ serverElapsed, runDuration, isTerminal: false }) ?? 0;
 }
 
 /**
