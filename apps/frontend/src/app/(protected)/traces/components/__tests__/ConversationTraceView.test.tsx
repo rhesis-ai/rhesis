@@ -25,17 +25,25 @@ jest.mock('@/utils/api-client/client-factory', () => ({
   ApiClientFactory: jest.fn().mockImplementation(() => ({})),
 }));
 
-// Stand-in that exposes the per-turn hook as a plain button.
+// Stand-in that exposes the per-turn hooks as plain buttons.
 jest.mock('@/components/common/ConversationHistory', () => ({
   __esModule: true,
   default: ({
     onCreateTestFromTurn,
+    onResponseClick,
   }: {
     onCreateTestFromTurn?: (turnNumber: number) => void;
-  }) =>
-    onCreateTestFromTurn ? (
-      <button onClick={() => onCreateTestFromTurn(2)}>turn-2-test</button>
-    ) : null,
+    onResponseClick?: (turnNumber: number) => void;
+  }) => (
+    <>
+      {onCreateTestFromTurn && (
+        <button onClick={() => onCreateTestFromTurn(2)}>turn-2-test</button>
+      )}
+      {onResponseClick && (
+        <button onClick={() => onResponseClick(2)}>turn-2-response</button>
+      )}
+    </>
+  ),
 }));
 
 jest.mock('@/components/tests/CreateTestFromConversationDrawer', () => ({
@@ -135,5 +143,46 @@ describe('ConversationTraceView create test', () => {
     expect(
       screen.queryByRole('button', { name: 'turn-2-test' })
     ).not.toBeInTheDocument();
+  });
+});
+
+describe('ConversationTraceView turn click', () => {
+  it('hands the turn to onTurnClick when given', async () => {
+    const user = userEvent.setup();
+    const onTurnClick = jest.fn();
+    const onSpanSelect = jest.fn();
+    render(
+      <ConversationTraceView
+        trace={trace}
+        rootSpans={rootSpans}
+        onSpanSelect={onSpanSelect}
+        onTurnClick={onTurnClick}
+      />
+    );
+
+    await user.click(
+      await screen.findByRole('button', { name: 'turn-2-response' })
+    );
+
+    expect(onTurnClick).toHaveBeenCalledWith(2);
+    expect(onSpanSelect).not.toHaveBeenCalled();
+  });
+
+  it('selects the turn’s root span without onTurnClick', async () => {
+    const user = userEvent.setup();
+    const onSpanSelect = jest.fn();
+    render(
+      <ConversationTraceView
+        trace={trace}
+        rootSpans={rootSpans}
+        onSpanSelect={onSpanSelect}
+      />
+    );
+
+    await user.click(
+      await screen.findByRole('button', { name: 'turn-2-response' })
+    );
+
+    expect(onSpanSelect).toHaveBeenCalledWith(rootSpans[1]);
   });
 });
