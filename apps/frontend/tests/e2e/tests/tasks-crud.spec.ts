@@ -79,9 +79,11 @@ test.describe('Tasks — CRUD @crud', () => {
     // The details are read-only until Edit; the status is then a select.
     const main = page.locator('main');
     await main.getByRole('button', { name: /^edit$/i }).click();
+    // The select's label isn't linked to it, so find it through its form control.
     await main
+      .locator('.MuiFormControl-root')
+      .filter({ hasText: 'Status' })
       .getByRole('combobox')
-      .filter({ hasText: /^open$/i })
       .click();
     await page.getByRole('option', { name: /^in progress$/i }).click();
     const saved = page.waitForResponse(

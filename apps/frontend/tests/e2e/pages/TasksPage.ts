@@ -22,30 +22,16 @@ export class TasksPage extends BasePage {
     await this.expectNoErrors();
   }
 
-  /** Open the create-task drawer via FAB or empty-state action. */
+  /** Open the create-task drawer via the New Task FAB, shown with or without tasks. */
   async openCreateDrawer() {
-    const fab = this.newTaskFab.first();
-    const fabVisible = await fab
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (fabVisible) {
-      await fab.click();
-    } else {
-      const emptyAction = this.page
-        .getByRole('button', { name: /create task/i })
-        .first();
-      await emptyAction.click();
-    }
+    await this.newTaskFab.first().click();
 
     const drawer = openDrawer(this.page);
     await drawer
       .getByRole('textbox', { name: /task title/i })
       .waitFor({ state: 'visible', timeout: 10_000 });
-    await this.page
-      .waitForResponse(resp => resp.url().includes('/status') && resp.ok(), {
-        timeout: 15_000,
-      })
-      .catch(() => null);
+    // Statuses load after the drawer opens; callers wait on the Create button,
+    // which stays disabled until they arrive.
   }
 
   /**
