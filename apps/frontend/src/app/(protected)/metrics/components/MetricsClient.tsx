@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { MetricDetail } from '@/utils/api-client/interfaces/metric';
@@ -12,20 +12,15 @@ import { TEST_TYPES } from '@/constants/test-types';
 import { useList } from '@/hooks/useList';
 import { useTypeLookups, useRequirements } from '@/hooks/useLookups';
 import { metricsList } from './list';
+import {
+  filtersFromSearchParams,
+  withMetricUrlState,
+} from './metric-url-state';
 
 import MetricsDirectoryTab, {
   type FilterState,
   type FilterOptions,
 } from './MetricsDirectoryTab';
-
-const initialFilterState: FilterState = {
-  search: '',
-  backend: [],
-  type: [],
-  scoreType: [],
-  metricScope: [],
-  requirement: '',
-};
 
 /** Filter options that are fixed rather than resolved from the backend. */
 const STATIC_FILTER_OPTIONS = {
@@ -62,12 +57,26 @@ export default function MetricsClientComponent({
   initialTotalCount = 0,
 }: MetricsClientProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const notifications = useNotifications();
 
   const assignMode = searchParams.get('assignMode') === 'true';
 
-  // Filter state
-  const [filters, setFilters] = React.useState<FilterState>(initialFilterState);
+  // Read once from the URL; this state owns the filters after mount and writes them back.
+  const [filters, setFilters] = React.useState<FilterState>(() =>
+    filtersFromSearchParams(new URLSearchParams(searchParams.toString()))
+  );
+
+  React.useEffect(() => {
+    const current = new URLSearchParams(window.location.search);
+    const next = withMetricUrlState(current, filters);
+    if (next.toString() === current.toString()) return;
+    const query = next.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, {
+      scroll: false,
+    });
+  }, [filters, pathname, router]);
 
   const {
     data: metrics,
