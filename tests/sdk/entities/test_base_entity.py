@@ -172,3 +172,44 @@ class TestHandleHttpErrorsSecurity:
             failing_method(None)
 
         assert isinstance(exc_info.value.__cause__, HTTPError)
+
+
+class TestHandleHttpErrorsProjectHint:
+    """A 403 on a request scoped to a project says where the project came from."""
+
+    PROJECT_ID = "6f1a3c2e-0000-4000-8000-000000000001"
+
+    def _raise(self, status_code: int, detail: str, project_id: Optional[str] = None):
+        mock_response = MagicMock()
+        mock_response.status_code = status_code
+        mock_response.content = f'{{"detail": "{detail}"}}'.encode()
+        mock_response.request = MagicMock()
+        mock_response.request.headers = {"X-Project-Id": project_id} if project_id else {}
+
+        @handle_http_errors
+        def failing_method(self_arg):
+            raise HTTPError(f"{status_code} Client Error", response=mock_response)
+
+        with pytest.raises(RhesisAPIError) as exc_info:
+            failing_method(None)
+        return str(exc_info.value)
+
+    def test_forbidden_names_the_project_setting(self):
+        message = self._raise(
+            403, f"User is not a member of project {self.PROJECT_ID}", self.PROJECT_ID
+        )
+
+        assert f"User is not a member of project {self.PROJECT_ID}" in message
+        assert "RHESIS_PROJECT_ID" in message
+
+    def test_forbidden_without_a_project_has_no_hint(self):
+        assert "RHESIS_PROJECT_ID" not in self._raise(403, "Forbidden")
+
+    def test_other_errors_have_no_hint(self):
+        assert "RHESIS_PROJECT_ID" not in self._raise(404, "Not found", self.PROJECT_ID)
+
+    def test_names_the_project_the_request_sent(self, monkeypatch):
+        # Config can differ from what a request was built with; the hint follows the request.
+        monkeypatch.setenv("RHESIS_PROJECT_ID", "some-other-project")
+
+        assert self.PROJECT_ID in self._raise(403, "Forbidden", self.PROJECT_ID)

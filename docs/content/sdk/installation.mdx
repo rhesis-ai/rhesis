@@ -80,7 +80,8 @@ rhesis.sdk.base_url = "https://api.rhesis.ai"  # optional`}
 
 An API key bound to a project only reaches that project. An organization-wide key reaches only
 organization-level data unless you name a project, with `RHESIS_PROJECT_ID` or
-`rhesis.sdk.project_id`. Every SDK request is then scoped to that project.
+`rhesis.sdk.project_id`. Every SDK request is then scoped to that project. If the key can't
+reach the project you name, or it doesn't exist, requests fail with a 403 that names it.
 
 ### Basic Usage
 

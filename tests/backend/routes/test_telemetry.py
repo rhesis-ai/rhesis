@@ -8,12 +8,14 @@ This module tests the OpenTelemetry trace ingestion endpoints including:
 - Project access control
 """
 
+from contextlib import contextmanager
+
 import pytest
 from faker import Faker
 from fastapi import status
 from fastapi.testclient import TestClient
 
-from rhesis.backend.app import models
+from rhesis.backend.app import dependencies, models
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.models.project_membership import ProjectMembership
 from tests.backend.fixtures.rls import scope_to_project
@@ -195,6 +197,17 @@ class TestLookupSpanCrossProject:
     one must still resolve via /telemetry/spans/{id}/lookup, not silently
     404 under project_isolation RLS (same root cause as routers/resolve.py).
     """
+
+    @pytest.fixture(autouse=True)
+    def project_check_uses_test_db(self, test_db, monkeypatch):
+        """The X-Project-Id check opens its own session, which can't see this test's
+        uncommitted membership row; an API token's header is checked strictly."""
+
+        @contextmanager
+        def _fake(*_args, **_kwargs):
+            yield test_db
+
+        monkeypatch.setattr(dependencies, "get_db_with_tenant_variables", _fake)
 
     def test_lookup_span_in_other_member_project(
         self,

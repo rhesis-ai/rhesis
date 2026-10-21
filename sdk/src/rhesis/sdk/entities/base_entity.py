@@ -42,6 +42,13 @@ def handle_http_errors(func: Callable[..., T]) -> Callable[..., T]:
                     message = f"{message}: {detail}"
             except (json.JSONDecodeError, TypeError, AttributeError):
                 pass
+            # The backend's 403 names the project but not where the SDK got it from.
+            project_id = e.response.request.headers.get("X-Project-Id")
+            if e.response.status_code == HTTPStatus.FORBIDDEN and project_id:
+                message = (
+                    f"{message} (requests are scoped to project {project_id}, "
+                    "set by RHESIS_PROJECT_ID or rhesis.sdk.project_id)"
+                )
             raise RhesisAPIError(
                 message=message,
                 status_code=e.response.status_code,
