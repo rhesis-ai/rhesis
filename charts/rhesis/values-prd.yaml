@@ -28,6 +28,7 @@ database:
 # ---------------------------------------------------------------------------
 config:
   environment: "production"
+  chatbotRateLimitAlertsEnabled: "true"
   logLevel: "INFO"
   jsonLoggerEnabled: true
   usageQuotasEnabled: true
