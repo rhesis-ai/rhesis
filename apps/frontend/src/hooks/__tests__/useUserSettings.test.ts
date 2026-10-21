@@ -50,5 +50,11 @@ describe('writeUserSettingsCache', () => {
     expect(
       queryClient.getQueryData(userSettingsKeys.all('user-1'))
     ).toBeUndefined();
+    // A query left in "success" with no data would block the next GET.
+    expect(
+      queryClient.getQueryCache().find({
+        queryKey: userSettingsKeys.all('user-1'),
+      })
+    ).toBeUndefined();
   });
 });
