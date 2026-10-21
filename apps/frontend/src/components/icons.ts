@@ -159,3 +159,4 @@ export { default as AccountBalanceIcon } from '@mui/icons-material/AccountBalanc
 export { default as ShowChartIcon } from '@mui/icons-material/ShowChartOutlined';
 export { default as SportsFootballIcon } from '@mui/icons-material/SportsFootballOutlined';
 export { default as StarBorderIcon } from '@mui/icons-material/StarBorderOutlined';
+export { default as OpenInNewIcon } from '@mui/icons-material/OpenInNewOutlined';
