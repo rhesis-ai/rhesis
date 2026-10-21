@@ -29,8 +29,9 @@ config:
   usageQuotasEnabled: true
   # On after dev's sweeps checked out; prd follows after a count query on prd.
   jobRetentionEnabled: true
-  # Dry run first: read the per-org counts in the worker log, then go live.
+  # Live after four clean dry runs (16-19 Oct 2026).
   traceRetentionEnabled: true
+  traceRetentionDryRun: false
 
   # Must match kubernetes/clusters/stg/cnpg-cluster/cnpg-cluster.yaml bootstrap.initdb.database
   dbName: "rhesis-stg-db"
