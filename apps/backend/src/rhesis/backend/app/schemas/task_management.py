@@ -82,6 +82,7 @@ class Task(Base, WithPermittedActions, ServerIdentity):
     entity_type: Optional[str] = None
     completed_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     task_metadata: Optional[Dict] = None
     comment_count: Optional[int] = 0
 
