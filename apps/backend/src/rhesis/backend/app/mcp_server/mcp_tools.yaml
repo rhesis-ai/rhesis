@@ -865,8 +865,7 @@ tools:
           "Step 1:\nIdentify each factual claim in the response.\n---\nStep
           2:\nCheck each claim against the provided context.\n---\nStep
           3:\nCount the unsupported claims.\n---\nStep 4:\nMap that count
-          onto the score scale." A plain "1. ... 2. ..." list is stored as
-          a single step and renders as one block in the UI.
+          onto the score scale."
       reasoning:
         description: >
           REQUIRED IN PRACTICE. 3-5 sentences telling the judge how to

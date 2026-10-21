@@ -286,7 +286,7 @@ the context sent on each turn.
 |---|---|
 | One sentence in each field, all fields populated | Passes validation, fails review — the judge has nothing concrete to apply |
 | `description` that restates the name ("Measures factual accuracy") | Tells a reader nothing they did not get from the name |
-| `evaluation_steps` as `1. … 2. … 3. …` in one blob | Renders as a single step in the UI; not the stored step format |
+| `evaluation_steps` as `1. … 2. … 3. …` in one blob | Not the stored step format, which is `Step N:` blocks joined by `---` |
 | Score bands built on adverbs ("mostly correct", "fairly complete") | There is nothing to check the output against, so the same response scores differently on a re-run |
 | Steps that repeat the criterion instead of acting on it | Adds tokens, not repeatability |
 | `reasoning` = "Explain your score" | The default behavior already does that; say what evidence to cite |
