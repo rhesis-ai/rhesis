@@ -40,7 +40,8 @@ describe('ThemeContextProvider', () => {
     expect(screen.getByTestId('mode')).toHaveTextContent('light');
   });
 
-  it('reads initial mode from data-theme-mode attribute', async () => {
+  it('keeps a mode the user picked', async () => {
+    localStorage.setItem('theme-mode-explicit', '1');
     document.documentElement.setAttribute('data-theme-mode', 'dark');
 
     render(
@@ -49,7 +50,24 @@ describe('ThemeContextProvider', () => {
       </ThemeContextProvider>
     );
 
-    // useLayoutEffect sets the mode from the attribute
+    expect(screen.getByTestId('mode')).toHaveTextContent('dark');
+  });
+
+  it("follows the browser over a stored mode the user didn't pick", () => {
+    document.documentElement.setAttribute('data-theme-mode', 'light');
+    (window.matchMedia as jest.Mock).mockImplementationOnce(query => ({
+      matches: true,
+      media: query,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    }));
+
+    render(
+      <ThemeContextProvider>
+        <ColorModeConsumer />
+      </ThemeContextProvider>
+    );
+
     expect(screen.getByTestId('mode')).toHaveTextContent('dark');
   });
 
@@ -68,6 +86,7 @@ describe('ThemeContextProvider', () => {
 
   it('toggles from dark back to light', async () => {
     const user = userEvent.setup();
+    localStorage.setItem('theme-mode-explicit', '1');
     document.documentElement.setAttribute('data-theme-mode', 'dark');
 
     render(
