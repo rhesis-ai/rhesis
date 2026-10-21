@@ -21,9 +21,9 @@ export type ConversationTraceQuery = Pick<
 >;
 
 /**
- * Which traces make up a trace's conversation, or null for a trace that has none. A test
- * result is asked first: on traces stored before the backend linked them, turn 1 carries no
- * conversation_id, so asking by conversation_id would drop it.
+ * The list query for a trace's conversation, or null when the trace has no conversation_id.
+ * Asks by test result when there is one, so the list includes a turn 1 stored before the
+ * backend linked conversations: that turn has no conversation_id to be found by.
  */
 export function conversationTraceQuery(
   trace: TraceDetailResponse

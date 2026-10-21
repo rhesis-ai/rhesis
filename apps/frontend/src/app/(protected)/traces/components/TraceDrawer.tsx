@@ -203,9 +203,14 @@ export default function TraceDrawer({
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // A refresh can still be in flight when the reader moves to another turn; only the latest
+  // getTrace may update the drawer.
+  const traceRequestRef = useRef(0);
+
   const fetchTrace = useCallback(async () => {
     if (!loadedTraceId || !loadedProjectId) return;
 
+    const requestId = ++traceRequestRef.current;
     setLoading(true);
     setError(null);
     setTrace(null);
@@ -215,6 +220,7 @@ export default function TraceDrawer({
       const clientFactory = new ApiClientFactory(undefined, loadedProjectId);
       const client = clientFactory.getTelemetryClient();
       const data = await client.getTrace(loadedTraceId, loadedProjectId);
+      if (requestId !== traceRequestRef.current) return;
       setTrace(data);
 
       const { span, openTree } = pickInitialSelection(
@@ -229,12 +235,13 @@ export default function TraceDrawer({
         setViewTab(treeTabIndex(!!data.conversation_id));
       }
     } catch (err: unknown) {
+      if (requestId !== traceRequestRef.current) return;
       const errorMsg =
         err instanceof Error ? err.message : 'Failed to fetch trace details';
       setError(errorMsg);
       console.error('Failed to fetch trace:', err);
     } finally {
-      setLoading(false);
+      if (requestId === traceRequestRef.current) setLoading(false);
     }
   }, [
     loadedTraceId,
@@ -247,10 +254,12 @@ export default function TraceDrawer({
   const refreshTrace = useCallback(async () => {
     if (!loadedTraceId || !loadedProjectId) return;
 
+    const requestId = ++traceRequestRef.current;
     try {
       const clientFactory = new ApiClientFactory(undefined, loadedProjectId);
       const client = clientFactory.getTelemetryClient();
       const data = await client.getTrace(loadedTraceId, loadedProjectId);
+      if (requestId !== traceRequestRef.current) return;
       setTrace(data);
 
       setSelectedSpan(prev => {
