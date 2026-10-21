@@ -77,4 +77,12 @@ describe('metric URL state', () => {
       true
     );
   });
+
+  it('does not flag empty or invalid filter values', () => {
+    expect(
+      hasMetricUrlFilters(
+        new URLSearchParams('requirement=&scope=Three-Turn&backend=')
+      )
+    ).toBe(false);
+  });
 });

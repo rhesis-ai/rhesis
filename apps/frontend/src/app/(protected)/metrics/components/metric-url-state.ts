@@ -68,5 +68,11 @@ export function withMetricUrlState(
 
 /** True when the URL narrows the list, so a prefetched unfiltered page won't match. */
 export function hasMetricUrlFilters(params: URLSearchParams): boolean {
-  return FILTER_PARAMS.some(key => params.has(key));
+  // Parsed rather than key presence, so an empty or invalid value doesn't skip the prefetch.
+  const filters = filtersFromSearchParams(params);
+  return (
+    (Object.keys(LIST_KEYS) as (keyof typeof LIST_KEYS)[]).some(
+      field => filters[field].length > 0
+    ) || filters.requirement.trim() !== ''
+  );
 }
