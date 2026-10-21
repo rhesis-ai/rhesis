@@ -18,6 +18,7 @@ export interface Task extends WithPermittedActions {
   entity_type?: string;
   task_metadata?: TaskMetadata;
   created_at?: string;
+  updated_at?: string;
 
   // Relationships
   user?: User;
