@@ -137,3 +137,20 @@ export function TextContent({ text }: { text: string }) {
     </Typography>
   );
 }
+
+/**
+ * Author text with formatting kept: markdown or JSON renders as such, plain text gets
+ * "- " and numbered lines as lists. `sentences` lists one-line plain prose by sentence.
+ */
+export function FormattedText({
+  text,
+  sentences = false,
+}: {
+  text: string;
+  sentences?: boolean;
+}) {
+  if (parseJsonString(text) !== null || looksLikeMarkdown(text)) {
+    return <TextContent text={text} />;
+  }
+  return renderFormattedText(sentences ? asSentenceList(text) : text);
+}

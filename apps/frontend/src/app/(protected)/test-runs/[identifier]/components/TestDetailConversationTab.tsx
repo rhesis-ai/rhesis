@@ -10,10 +10,7 @@ import {
   Typography,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import {
-  SectionField,
-  renderFormattedText,
-} from '@/components/common/TestText';
+import { SectionField, FormattedText } from '@/components/common/TestText';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import type { FileResponse } from '@/utils/api-client/interfaces/file';
@@ -84,12 +81,12 @@ function SimulationSetup({ test }: { test: TestResultDetail }) {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, py: 1.5 }}>
           {config.scenario && (
             <SectionField label="Scenario">
-              {renderFormattedText(config.scenario)}
+              <FormattedText text={config.scenario} />
             </SectionField>
           )}
           {config.instructions && (
             <SectionField label="Instructions">
-              {renderFormattedText(config.instructions)}
+              <FormattedText text={config.instructions} />
             </SectionField>
           )}
         </Box>

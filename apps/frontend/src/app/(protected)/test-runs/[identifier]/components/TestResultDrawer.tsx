@@ -49,6 +49,15 @@ export const TEST_RESULT_DRAWER_TAB = {
   reviews: 2,
 } as const;
 
+// In display order; ids and panels come from TEST_RESULT_DRAWER_TAB, so a reorder is one edit.
+const TAB_LABELS = [
+  ['conversation', 'Conversation'],
+  ['evaluation', 'Evaluation'],
+  ['annotations', 'Annotations'],
+  ['history', 'History'],
+  ['tasks', 'Tasks & Comments'],
+] as const;
+
 interface TestResultDrawerProps {
   open: boolean;
   onClose: () => void;
@@ -478,31 +487,15 @@ export default function TestResultDrawer({
               },
             }}
           >
-            <Tab
-              label="Conversation"
-              id="test-detail-tab-0"
-              aria-controls="test-detail-tabpanel-0"
-            />
-            <Tab
-              label="Evaluation"
-              id="test-detail-tab-1"
-              aria-controls="test-detail-tabpanel-1"
-            />
-            <Tab
-              label="Annotations"
-              id="test-detail-tab-2"
-              aria-controls="test-detail-tabpanel-2"
-            />
-            <Tab
-              label="History"
-              id="test-detail-tab-3"
-              aria-controls="test-detail-tabpanel-3"
-            />
-            <Tab
-              label="Tasks & Comments"
-              id="test-detail-tab-4"
-              aria-controls="test-detail-tabpanel-4"
-            />
+            {TAB_LABELS.map(([key, label]) => (
+              <Tab
+                key={key}
+                value={TAB[key]}
+                label={label}
+                id={`test-detail-tab-${TAB[key]}`}
+                aria-controls={`test-detail-tabpanel-${TAB[key]}`}
+              />
+            ))}
           </Tabs>
         </Box>
 

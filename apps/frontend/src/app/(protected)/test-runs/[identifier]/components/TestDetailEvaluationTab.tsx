@@ -34,7 +34,7 @@ import ResultCheckCard from '@/components/common/ResultCheckCard';
 import {
   SectionField,
   TextContent,
-  asSentenceList,
+  FormattedText,
   renderFormattedText,
 } from '@/components/common/TestText';
 import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
@@ -192,7 +192,7 @@ function groupIntro(
         )}
         {config.restrictions && (
           <SectionField label="Restrictions">
-            {renderFormattedText(asSentenceList(config.restrictions))}
+            <FormattedText text={config.restrictions} sentences />
           </SectionField>
         )}
       </>
