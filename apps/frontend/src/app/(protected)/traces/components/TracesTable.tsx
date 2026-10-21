@@ -1,7 +1,11 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { GridColDef, GridSortModel } from '@mui/x-data-grid';
+import type {
+  GridCallbackDetails,
+  GridColDef,
+  GridSortModel,
+} from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import {
   TraceSummary,
@@ -44,7 +48,10 @@ interface TracesTableProps {
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   sortModel?: GridSortModel;
-  onSortModelChange?: (model: GridSortModel) => void;
+  onSortModelChange?: (
+    model: GridSortModel,
+    details: GridCallbackDetails
+  ) => void;
 }
 
 /** Toolbar state comes from `TracesToolbarContext`, provided by `TracesClient`. */

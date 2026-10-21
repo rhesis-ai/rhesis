@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import TestRunsGrid from '../TestRunsGrid';
+import { testRunsList } from '../list';
 
 // ---- Navigation + Auth ----
 
@@ -76,7 +77,10 @@ jest.mock('@/components/common/BaseDataGrid', () => {
     if (loading) return <div data-testid="grid-loading">Loading…</div>;
     const actionsCol = columns?.find(c => c.field === 'actions');
     return (
-      <div data-testid="base-data-grid">
+      <div
+        data-testid="base-data-grid"
+        data-fields={columns?.map(c => c.field).join(' ')}
+      >
         {rows.map(row => (
           <div
             key={String(row.id)}
@@ -337,6 +341,16 @@ describe('TestRunsGrid', () => {
         expect.stringContaining('Failed'),
         expect.objectContaining({ severity: 'error' })
       )
+    );
+  });
+
+  it('has a column for the default sort field', async () => {
+    // The grid drops a sort on a field it has no column for, which used to
+    // flip the run order on load and on column resize.
+    render(<TestRunsGrid />);
+    const grid = await screen.findByTestId('base-data-grid');
+    expect(grid.dataset.fields?.split(' ')).toContain(
+      testRunsList.defaultSort.by
     );
   });
 

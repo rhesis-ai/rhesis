@@ -39,6 +39,7 @@ import {
   GridRowParams,
   GridColumnMenu,
   gridClasses,
+  type GridCallbackDetails,
   type GridColumnGroupingModel,
   type GridColumnMenuProps,
 } from '@mui/x-data-grid';
@@ -104,7 +105,10 @@ interface BaseDataGridProps {
   // Server-side sorting props
   sortingMode?: 'client' | 'server';
   sortModel?: GridSortModel;
-  onSortModelChange?: (model: GridSortModel) => void;
+  onSortModelChange?: (
+    model: GridSortModel,
+    details: GridCallbackDetails
+  ) => void;
   // Link related props
   linkPath?: string;
   linkField?: string;

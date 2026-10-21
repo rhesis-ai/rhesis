@@ -1,7 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import type { GridPaginationModel, GridSortModel } from '@mui/x-data-grid';
+import type {
+  GridCallbackDetails,
+  GridPaginationModel,
+  GridSortModel,
+} from '@mui/x-data-grid';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   listParams,
@@ -33,14 +37,20 @@ function descriptorId(descriptor: object): number {
  * one. Clearing the default column flips it: re-applying the default there
  * would be a no-op, so a list that starts on `start_time desc` could never
  * reach asc.
+ *
+ * The grid also clears a sort whose field isn't one of its columns (e.g. a
+ * `created_at` default with no Created column), on mount and whenever columns
+ * change. That isn't a click, so the current sort is kept.
  */
 export function nextSortModel(
   prev: GridSortModel,
   model: GridSortModel,
-  defaultSort: ListSort
+  defaultSort: ListSort,
+  isColumn: (field: string) => boolean = () => true
 ): GridSortModel {
   if (model.length > 0) return model;
   const current = prev[0];
+  if (current && !isColumn(current.field)) return prev;
   if (current?.field === defaultSort.by && current.sort) {
     return [
       { field: current.field, sort: current.sort === 'asc' ? 'desc' : 'asc' },
@@ -145,7 +155,14 @@ export function useList<T, S extends FilterSpecMap>(
     },
     /** Spread onto a sortable `<BaseDataGrid>`; omit for grids with fixed sort. */
     sortModel,
-    onSortModelChange: (model: GridSortModel) =>
-      setSortModel(prev => nextSortModel(prev, model, descriptor.defaultSort)),
+    onSortModelChange: (model: GridSortModel, details?: GridCallbackDetails) =>
+      setSortModel(prev =>
+        nextSortModel(
+          prev,
+          model,
+          descriptor.defaultSort,
+          details && (field => details.api.getColumn(field) !== undefined)
+        )
+      ),
   };
 }

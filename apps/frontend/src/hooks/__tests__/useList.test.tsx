@@ -39,6 +39,15 @@ describe('nextSortModel', () => {
     expect(nextSortModel(prev, model, startedDesc)).toBe(model);
   });
 
+  it('keeps a sort the grid dropped for having no column', () => {
+    // The grid clears a sort on a field it has no column for, on mount and on
+    // column resize. That isn't a header click, so nothing should flip.
+    const createdDesc = { by: 'created_at', order: 'desc' } as const;
+    const prev: GridSortModel = [{ field: 'created_at', sort: 'desc' }];
+    const isColumn = (field: string) => field !== 'created_at';
+    expect(nextSortModel(prev, [], createdDesc, isColumn)).toBe(prev);
+  });
+
   it('flips an asc default too', () => {
     const nameAsc = { by: 'name', order: 'asc' } as const;
     const prev: GridSortModel = [{ field: 'name', sort: 'desc' }];
