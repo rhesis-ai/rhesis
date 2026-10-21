@@ -332,6 +332,16 @@ class EndpointService:
                                 "trace_id": result["trace_id"],
                                 "conversation_id": response_conversation_id,
                             }
+                        elif invoker.automatic_tracing:
+                            from rhesis.backend.app.services.invokers.tracing import (
+                                DeferredConversationLink,
+                            )
+
+                            result["_deferred_trace"] = DeferredConversationLink(
+                                trace_id=result["trace_id"],
+                                conversation_id=response_conversation_id,
+                                organization_id=organization_id,
+                            )
                     elif db:
                         self._link_first_turn_trace(
                             db=db,

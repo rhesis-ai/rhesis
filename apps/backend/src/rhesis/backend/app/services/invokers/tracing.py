@@ -34,9 +34,33 @@ class DeferredTraceData:
     first_turn_link: Optional[Dict[str, str]] = field(default=None)
 
 
-def persist_deferred_trace(db: Session, trace_data: DeferredTraceData) -> None:
-    """Write a DeferredTraceData to DB using a live session."""
+@dataclass
+class DeferredConversationLink:
+    """First-turn conversation link for an SDK endpoint, applied once a session exists.
+
+    The SDK ships its own spans, so there is no DeferredTraceData to carry the link.
+    """
+
+    trace_id: str
+    conversation_id: str
+    organization_id: str
+
+
+def persist_deferred_trace(
+    db: Session, trace_data: DeferredTraceData | DeferredConversationLink
+) -> None:
+    """Write deferred trace data to DB using a live session."""
+    from rhesis.backend.app.services.endpoint.service import EndpointService
     from rhesis.backend.app.services.telemetry.enrichment import EnrichmentService
+
+    if isinstance(trace_data, DeferredConversationLink):
+        EndpointService._link_first_turn_trace(
+            db=db,
+            trace_id=trace_data.trace_id,
+            conversation_id=trace_data.conversation_id,
+            organization_id=trace_data.organization_id,
+        )
+        return
 
     enrichment_service = EnrichmentService(db)
     stored_spans, _, _ = enrichment_service.create_and_enrich_spans(
@@ -54,8 +78,6 @@ def persist_deferred_trace(db: Session, trace_data: DeferredTraceData) -> None:
         )
 
     if trace_data.first_turn_link and stored_spans:
-        from rhesis.backend.app.services.endpoint.service import EndpointService
-
         EndpointService._link_first_turn_trace(
             db=db,
             trace_id=trace_data.first_turn_link["trace_id"],
