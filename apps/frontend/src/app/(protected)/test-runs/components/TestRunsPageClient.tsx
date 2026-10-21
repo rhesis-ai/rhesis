@@ -67,6 +67,7 @@ export default function TestRunsPageClient({
               <Fab
                 icon={<FabAddIcon />}
                 tooltip="New Test Run"
+                aria-label="New Test Run"
                 onClick={() => setCreateDrawerOpen(true)}
               />
             </Can>

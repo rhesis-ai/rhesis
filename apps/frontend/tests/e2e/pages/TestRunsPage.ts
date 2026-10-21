@@ -46,6 +46,16 @@ export class TestRunsPage {
     await firstDataRow.click();
   }
 
+  /** Open a run's detail page by clicking its row in the list. */
+  async openRun(name: string) {
+    await this.page
+      .locator('[role="row"]')
+      .filter({ hasText: name })
+      .first()
+      .click();
+    await this.expectDetailPageLoaded();
+  }
+
   /** Wait for the detail page to navigate away from the list. */
   async expectDetailPageLoaded() {
     await expect(this.page).toHaveURL(/\/test-runs\/.+/);
