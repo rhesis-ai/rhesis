@@ -8,7 +8,6 @@ import requests
 from pydantic import BaseModel, ConfigDict
 
 from rhesis.sdk.clients import APIClient, Endpoints, HTTPStatus, Methods
-from rhesis.sdk.config import get_project_id
 from rhesis.sdk.errors import RhesisAPIError
 
 T = TypeVar("T")
@@ -44,7 +43,7 @@ def handle_http_errors(func: Callable[..., T]) -> Callable[..., T]:
             except (json.JSONDecodeError, TypeError, AttributeError):
                 pass
             # The backend's 403 names the project but not where the SDK got it from.
-            project_id = get_project_id()
+            project_id = e.response.request.headers.get("X-Project-Id")
             if e.response.status_code == HTTPStatus.FORBIDDEN and project_id:
                 message = (
                     f"{message} (requests are scoped to project {project_id}, "
