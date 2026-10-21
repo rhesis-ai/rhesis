@@ -111,6 +111,38 @@ test.describe('Metrics page — load and filters @interaction', () => {
     }
   });
 
+  test('keeps the backend filter after opening a metric and going back', async ({
+    page,
+  }) => {
+    const metricsPage = new MetricsPage(page);
+    await metricsPage.goto();
+    await page.waitForLoadState('networkidle');
+
+    const customBtn = page.getByRole('button', { name: /^custom$/i }).first();
+    if (!(await customBtn.isVisible({ timeout: 5_000 }).catch(() => false))) {
+      test.skip(true, 'Custom filter not found — skipping');
+      return;
+    }
+    await customBtn.click();
+    await expect(page).toHaveURL(/[?&]backend=custom/);
+    const filteredCount = await metricsPage.getCardCount();
+    if (filteredCount === 0) {
+      test.skip(true, 'No custom metrics to open — skipping');
+      return;
+    }
+
+    await page.locator('.MuiCard-root').first().click();
+    await expect(page).toHaveURL(/\/metrics\/[^/?]+/);
+    await page.goBack();
+
+    await expect(page).toHaveURL(/[?&]backend=custom/);
+    expect(await metricsPage.getCardCount()).toBe(filteredCount);
+
+    await page.reload();
+    await expect(page).toHaveURL(/[?&]backend=custom/);
+    expect(await metricsPage.getCardCount()).toBe(filteredCount);
+  });
+
   test('can open the Filters popover and clear all filters', async ({
     page,
   }) => {
