@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: 25df411d098c1379e3e2e64abc9bbddbfb62b5c4
+    targetRevision: d3dcce50c480464de343dd14d99d281fbdd773c8
     path: kubernetes/clusters/prd/cert-manager
   destination:
     server: https://kubernetes.default.svc
