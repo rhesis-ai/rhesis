@@ -15,6 +15,7 @@ let lastOnResponseClick: ((turnNumber: number) => void) | undefined;
 let lastDrawerProps: {
   open?: boolean;
   traceId?: string | null;
+  projectId?: string;
   initialTurnIndex?: number;
 } = {};
 
@@ -188,7 +189,7 @@ const makeMultiTurnResult = (stored = true): TestResultDetail =>
 // Deliberately out of order: the tab sorts by start time.
 const trace = (id: string, minute: number) => ({
   trace_id: id,
-  project_id: 'p',
+  project_id: `project-of-${id}`,
   start_time: `2026-10-21T10:0${minute}:00Z`,
 });
 
@@ -246,6 +247,7 @@ describe('TestDetailConversationTab — traces with one trace per turn or one fo
     expect(lastDrawerProps).toMatchObject({
       open: true,
       traceId: 't2',
+      projectId: 'project-of-t2',
       initialTurnIndex: 0,
     });
   });

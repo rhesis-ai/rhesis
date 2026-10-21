@@ -25,6 +25,7 @@ export function traceMetricsFromSpans(
 
 export interface TurnTraceTarget {
   traceId: string;
+  projectId: string;
   /** Root span to select inside the trace. */
   rootIndex: number;
 }
@@ -35,14 +36,14 @@ export interface TurnTraceTarget {
  * turn number, so order is the only thing to match on.
  */
 export function conversationRootSpans(
-  traces: { traceId: string; rootSpans: SpanNode[] }[]
+  traces: { traceId: string; projectId: string; rootSpans: SpanNode[] }[]
 ): { spans: SpanNode[]; targets: TurnTraceTarget[] } {
   const spans: SpanNode[] = [];
   const targets: TurnTraceTarget[] = [];
-  for (const { traceId, rootSpans } of traces) {
+  for (const { traceId, projectId, rootSpans } of traces) {
     rootSpans.forEach((span, rootIndex) => {
       spans.push(span);
-      targets.push({ traceId, rootIndex });
+      targets.push({ traceId, projectId, rootIndex });
     });
   }
   return { spans, targets };

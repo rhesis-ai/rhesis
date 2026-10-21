@@ -118,8 +118,7 @@ export default function TestDetailConversationTab({
   const [spanFiles, setSpanFiles] = useState<FileResponse[][]>([]);
   const [tracesLoading, setTracesLoading] = useState(false);
   const [traceDrawerOpen, setTraceDrawerOpen] = useState(false);
-  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
-  const [selectedRootIndex, setSelectedRootIndex] = useState<number | null>(
+  const [selectedTarget, setSelectedTarget] = useState<TurnTraceTarget | null>(
     null
   );
 
@@ -156,6 +155,7 @@ export default function TestDetailConversationTab({
         const { spans, targets } = conversationRootSpans(
           sorted.map((trace, i) => ({
             traceId: trace.trace_id,
+            projectId: trace.project_id,
             rootSpans: details[i].root_spans ?? [],
           }))
         );
@@ -204,14 +204,11 @@ export default function TestDetailConversationTab({
     return map;
   }, [turnTargets, conversationSummary]);
 
-  const projectId = traces[0]?.project_id || '';
-
   const handleResponseClick = useCallback(
     (turnNumber: number) => {
       const target = turnTraceMap.get(turnNumber);
       if (target) {
-        setSelectedTraceId(target.traceId);
-        setSelectedRootIndex(target.rootIndex);
+        setSelectedTarget(target);
         setTraceDrawerOpen(true);
       }
     },
@@ -340,13 +337,10 @@ export default function TestDetailConversationTab({
       />
       <TraceDrawer
         open={traceDrawerOpen}
-        onClose={() => {
-          setTraceDrawerOpen(false);
-          setSelectedRootIndex(null);
-        }}
-        traceId={selectedTraceId}
-        projectId={projectId}
-        initialTurnIndex={selectedRootIndex ?? undefined}
+        onClose={() => setTraceDrawerOpen(false)}
+        traceId={selectedTarget?.traceId ?? null}
+        projectId={selectedTarget?.projectId ?? ''}
+        initialTurnIndex={selectedTarget?.rootIndex}
       />
     </Box>
   );
