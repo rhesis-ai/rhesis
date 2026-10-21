@@ -6,7 +6,8 @@ import { MetricsPage } from '../pages/MetricsPage';
  *
  * Covers: A4.3 (open New Metric dialog), A4.4 (navigate to creation form),
  * A4.5 (fill and submit metric form), A4.6 (edit metric from detail page),
- * A4.7 (assign metric to requirement from metric list card).
+ * A4.7 (assign metric to requirement from metric list card), and quick
+ * filters surviving a metric detail round trip (#3020).
  *
  * All tests run against the real backend in Quick Start mode.
  */
@@ -383,5 +384,49 @@ test.describe('Metrics — CRUD @crud', () => {
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
+  });
+
+  test('keeps the backend filter after opening a metric and going back', async ({
+    page,
+  }) => {
+    const metricsPage = new MetricsPage(page);
+    await metricsPage.goto();
+    await page.waitForLoadState('networkidle');
+
+    // Rhesis and Custom metrics are the ones whose cards open a detail page.
+    let backend: string | undefined;
+    let filteredCount = 0;
+    for (const name of ['Rhesis', 'Custom']) {
+      const pill = page
+        .getByRole('button', { name: new RegExp(`^${name}$`, 'i') })
+        .first();
+      if (!(await pill.isVisible({ timeout: 5_000 }).catch(() => false))) {
+        continue;
+      }
+      await pill.click();
+      filteredCount = await metricsPage.getCardCount();
+      if (filteredCount > 0) {
+        backend = name.toLowerCase();
+        break;
+      }
+      await pill.click();
+    }
+    if (!backend) {
+      test.skip(true, 'No Rhesis or Custom metrics to open — skipping');
+      return;
+    }
+    const filteredUrl = new RegExp(`[?&]backend=${backend}(&|$)`);
+    await expect(page).toHaveURL(filteredUrl);
+
+    await page.locator('.MuiCard-root').first().click();
+    await page.waitForURL(/\/metrics\/[^/?]+/, { timeout: 15_000 });
+    await page.goBack();
+
+    await expect(page).toHaveURL(filteredUrl);
+    expect(await metricsPage.getCardCount()).toBe(filteredCount);
+
+    await page.reload();
+    await expect(page).toHaveURL(filteredUrl);
+    expect(await metricsPage.getCardCount()).toBe(filteredCount);
   });
 });
