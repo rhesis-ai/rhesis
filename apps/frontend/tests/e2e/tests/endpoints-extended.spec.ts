@@ -57,7 +57,9 @@ test.describe('Endpoint navigation @sanity', () => {
     const hasCreateButton = await createButton.isVisible().catch(() => false);
 
     if (hasCreateButton) {
+      // The button asks for the endpoint type; only REST opens the drawer.
       await createButton.click();
+      await page.getByRole('menuitem', { name: /rest endpoint/i }).click();
     } else {
       await page.goto('/endpoints?create=1');
     }
