@@ -14,6 +14,7 @@ DEFAULT_API_TIMEOUT = 30
 # Module level variables
 api_key: Optional[str] = None
 base_url: Optional[str] = None
+project_id: Optional[str] = None
 
 T = TypeVar("T")
 
@@ -41,13 +42,11 @@ def _get_config_value(
     Raises:
         ValueError: If the value is required but not found
     """
-    global api_key, base_url
+    global api_key, base_url, project_id
 
     # Use the correct global variable based on var_name
-    if var_name == "api_key":
-        global_var_ref = "api_key"
-    elif var_name == "base_url":
-        global_var_ref = "base_url"
+    if var_name in ("api_key", "base_url", "project_id"):
+        global_var_ref = var_name
     else:
         global_var_ref = None
 
@@ -68,6 +67,8 @@ def _get_config_value(
                     api_key = value
                 elif global_var_ref == "base_url":
                     base_url = value
+                elif global_var_ref == "project_id":
+                    project_id = value
             return value
     except (ImportError, AttributeError):
         pass
@@ -101,6 +102,14 @@ def get_base_url() -> str:
     Falls back to default if neither is set.
     """
     return _get_config_value("base_url", base_url, "RHESIS_BASE_URL", DEFAULT_BASE_URL)
+
+
+def get_project_id() -> Optional[str]:
+    """
+    Get the project to scope backend requests to, from module level variable or environment
+    variable. None leaves scoping to the API key (a project-scoped key carries its own).
+    """
+    return _get_config_value("project_id", project_id, "RHESIS_PROJECT_ID")
 
 
 try:

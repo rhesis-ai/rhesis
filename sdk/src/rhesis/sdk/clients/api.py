@@ -8,6 +8,7 @@ from rhesis.sdk.config import (
     backend_headers,
     get_api_key,
     get_base_url,
+    get_project_id,
 )
 
 
@@ -83,7 +84,16 @@ class APIClient:
         """
         self.api_key = api_key if api_key is not None else get_api_key()
         self._base_url = base_url if base_url is not None else get_base_url()
-        self.headers = {**backend_headers(self.api_key), "Content-Type": "application/json"}
+        self.headers = {**self._auth_headers(), "Content-Type": "application/json"}
+
+    def _auth_headers(self) -> Dict[str, str]:
+        # An org-level key has no project of its own; without this header the backend only
+        # returns org-level rows, so project-scoped entities 404.
+        headers = backend_headers(self.api_key)
+        project_id = get_project_id()
+        if project_id:
+            headers["X-Project-Id"] = project_id
+        return headers
 
     @property
     def base_url(self) -> str:
@@ -160,7 +170,7 @@ class APIClient:
         """
         url = self.get_url(endpoint.value)
         # No Content-Type: requests sets it for multipart
-        headers = backend_headers(self.api_key)
+        headers = self._auth_headers()
         response = requests.post(
             url=url, headers=headers, files=files, params=params, timeout=DEFAULT_API_TIMEOUT
         )
@@ -186,7 +196,7 @@ class APIClient:
         url = self.get_url(endpoint.value)
         if url_params is not None:
             url = f"{url}/{url_params}"
-        headers = backend_headers(self.api_key)
+        headers = self._auth_headers()
         response = requests.request(
             method=method.value, url=url, headers=headers, timeout=DEFAULT_API_TIMEOUT
         )

@@ -78,6 +78,10 @@ rhesis.sdk.base_url = "https://api.rhesis.ai"  # optional`}
 
 </CodeBlock>
 
+An API key bound to a project only reaches that project. An organization-wide key reaches only
+organization-level data unless you name a project, with `RHESIS_PROJECT_ID` or
+`rhesis.sdk.project_id`. Every SDK request is then scoped to that project.
+
 ### Basic Usage
 
 Once configured, you can start using the SDK to create and manage tests:

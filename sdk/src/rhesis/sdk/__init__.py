@@ -1,5 +1,5 @@
 from rhesis.sdk.clients import CONNECTOR_DISABLED, DisabledClient, RhesisClient
-from rhesis.sdk.config import SDK_VERSION, api_key, base_url
+from rhesis.sdk.config import SDK_VERSION, api_key, base_url, project_id
 from rhesis.sdk.context import EndpointContext
 from rhesis.sdk.decorators import (
     ObserverBuilder,
@@ -25,6 +25,7 @@ __version__ = SDK_VERSION
 __all__ = [
     "api_key",
     "base_url",
+    "project_id",
     "__version__",
     "ExecutionMode",
     "TestType",
