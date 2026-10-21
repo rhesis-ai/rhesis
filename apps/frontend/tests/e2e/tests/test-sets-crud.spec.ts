@@ -59,8 +59,7 @@ test.describe('Test Sets — CRUD @crud', () => {
     await expectGridRowVisible(page, UNIQUE_NAME);
   });
 
-  // TODO: re-enable after fixing grid row-actions delete (column virtualization / timeout)
-  test.skip('can delete a test set via row actions', async ({ page }) => {
+  test('can delete a test set via row actions', async ({ page }) => {
     const UNIQUE_NAME = `e2e-ts-del-${Date.now()}`;
 
     const testSetsPage = new TestSetsPage(page);

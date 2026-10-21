@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { TasksPage } from '../pages/TasksPage';
 import {
   confirmDeleteDialog,
@@ -8,67 +8,43 @@ import {
 /**
  * CRUD interaction tests for Tasks.
  *
- * Covers: D4.3 (create task via drawer on /tasks), D4.5 (change status auto-save),
- * D4.8 (delete task via row actions).
+ * Covers: D4.3 (create task via drawer on /tasks), D4.5 (change status from the
+ * detail page), D4.8 (delete task via row actions).
  */
 test.describe('Tasks — CRUD @crud', () => {
   async function createTaskViaDrawer(
     tasksPage: TasksPage,
-    page: import('@playwright/test').Page,
+    page: Page,
     title: string
-  ): Promise<boolean> {
+  ) {
     await tasksPage.goto();
     await tasksPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
-
     await tasksPage.openCreateDrawer();
 
-    const titleInput = page
+    await page
       .getByRole('textbox', { name: /task title/i })
-      .first();
-    const hasTitle = await titleInput
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!hasTitle) {
-      return false;
-    }
-    await titleInput.fill(title);
-
-    const descInput = page
+      .first()
+      .fill(title);
+    await page
       .getByRole('textbox', { name: /description/i })
-      .first();
-    if (await descInput.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await descInput.fill('Created by Playwright E2E test');
-    }
+      .first()
+      .fill('Created by Playwright E2E test');
 
+    // Save stays disabled until the drawer has loaded the task statuses.
     const saveBtn = page.getByRole('button', { name: /create task/i }).first();
-    const hasSave = await saveBtn
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (!hasSave) {
-      return false;
-    }
-
     await expect(saveBtn).toBeEnabled({ timeout: 15_000 });
     await saveBtn.click();
     await waitForDrawerClosed(page, { timeout: 20_000 });
 
-    await page.waitForLoadState('networkidle');
     await tasksPage.expectTaskVisible(title);
-    return true;
   }
 
-  // TODO: re-enable after fixing task create drawer (status not ready before save)
-  test.skip('can create a task via the overview drawer', async ({ page }) => {
-    const UNIQUE_TITLE = `e2e-task-${Date.now()}`;
-    const tasksPage = new TasksPage(page);
-
-    const created = await createTaskViaDrawer(tasksPage, page, UNIQUE_TITLE);
-    if (!created) {
-      test.skip(true, 'Create drawer not available — skipping');
-      return;
-    }
-
+  test('can create a task via the overview drawer', async ({ page }) => {
+    await createTaskViaDrawer(
+      new TasksPage(page),
+      page,
+      `e2e-task-${Date.now()}`
+    );
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
@@ -83,100 +59,52 @@ test.describe('Tasks — CRUD @crud', () => {
 
     await expect(page).toHaveURL(/\/tasks/);
     await expect(page).not.toHaveURL(/\/tasks\/create$/);
-
-    const titleInput = page
-      .getByRole('textbox', { name: /task title/i })
-      .first();
-    const hasTitle = await titleInput
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!hasTitle) {
-      test.skip(true, 'Create drawer not opened after redirect — skipping');
-      return;
-    }
+    await expect(
+      page.getByRole('textbox', { name: /task title/i }).first()
+    ).toBeVisible({ timeout: 10_000 });
   });
 
-  // TODO: re-enable after task create drawer is fixed (this test depends on createTaskViaDrawer)
-  test.skip('can change task status to In Progress on the detail page', async ({
+  test('can change task status to In Progress on the detail page', async ({
     page,
   }) => {
+    // Creates, opens, edits and reloads a task; first visits compile routes.
+    test.slow();
     const UNIQUE_TITLE = `e2e-task-status-${Date.now()}`;
     const tasksPage = new TasksPage(page);
+    await createTaskViaDrawer(tasksPage, page, UNIQUE_TITLE);
 
-    const created = await createTaskViaDrawer(tasksPage, page, UNIQUE_TITLE);
-    if (!created) {
-      test.skip(true, 'Could not create task — skipping status change test');
-      return;
-    }
-
-    await tasksPage.goto();
-    await tasksPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
-
-    const taskRow = page.locator('[role="row"]', { hasText: UNIQUE_TITLE });
-    const rowVisible = await taskRow
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!rowVisible) {
-      test.skip(
-        true,
-        'Task row not found after creation — skipping status change test'
-      );
-      return;
-    }
-    await taskRow.click();
-
+    await page.locator('[role="row"]', { hasText: UNIQUE_TITLE }).click();
     await page.waitForURL(/\/tasks\/.+/, { timeout: 10_000 });
-    await page.waitForLoadState('networkidle');
 
-    const statusSelect = page
-      .locator('[aria-haspopup="listbox"]')
-      .filter({ hasText: /open|in progress|completed|cancelled/i })
-      .first();
-    const hasStatusSelect = await statusSelect
-      .isVisible({ timeout: 8_000 })
-      .catch(() => false);
-    if (!hasStatusSelect) {
-      test.skip(true, 'Status dropdown not found on task detail — skipping');
-      return;
-    }
-
-    await statusSelect.click();
-    const inProgressOption = page
-      .getByRole('option', { name: /in progress/i })
-      .first();
-    const hasOption = await inProgressOption
-      .isVisible({ timeout: 8_000 })
-      .catch(() => false);
-    if (!hasOption) {
-      await page.keyboard.press('Escape');
-      test.skip(true, '"In Progress" option not available — skipping');
-      return;
-    }
-    await inProgressOption.click();
-
-    await page.waitForLoadState('networkidle');
-    await expect(page.locator('body')).not.toContainText(
-      'Internal Server Error'
+    // The details are read-only until Edit; the status is then a select.
+    const main = page.locator('main');
+    await main.getByRole('button', { name: /^edit$/i }).click();
+    // The select's label isn't linked to it, so find it through its form control.
+    await main
+      .locator('.MuiFormControl-root')
+      .filter({ hasText: 'Status' })
+      .getByRole('combobox')
+      .click();
+    await page.getByRole('option', { name: /^in progress$/i }).click();
+    const saved = page.waitForResponse(
+      r =>
+        r.request().method() === 'PATCH' &&
+        r.url().includes('/tasks/') &&
+        r.ok()
     );
+    await main.getByRole('button', { name: /^save$/i }).click();
+    await saved;
+
+    await page.reload();
+    await expect(main.getByText(/^in progress$/i).first()).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
-  // TODO: re-enable after fixing grid row-actions delete (column virtualization / timeout)
-  test.skip('can delete a task via row actions', async ({ page }) => {
+  test('can delete a task via row actions', async ({ page }) => {
     const UNIQUE_TITLE = `e2e-task-del-${Date.now()}`;
     const tasksPage = new TasksPage(page);
-
-    const created = await createTaskViaDrawer(tasksPage, page, UNIQUE_TITLE);
-    if (!created) {
-      test.skip(true, 'Could not create task — skipping delete test');
-      return;
-    }
-
-    await tasksPage.goto();
-    await tasksPage.expectLoaded();
-    await page.waitForLoadState('networkidle');
-
-    await tasksPage.expectTaskVisible(UNIQUE_TITLE);
+    await createTaskViaDrawer(tasksPage, page, UNIQUE_TITLE);
 
     await tasksPage.deleteRowByText(UNIQUE_TITLE);
     await confirmDeleteDialog(page);
