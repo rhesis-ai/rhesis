@@ -25,6 +25,7 @@ import StatusChip from '@/components/common/StatusChip';
 import AnnotationIndicator from '@/components/annotations/AnnotationIndicator';
 import { STATUS_LABEL } from '@/constants/outcomes';
 import { getEndpointFailure } from '@/utils/endpoint-failure';
+import { getConversationStopReason } from '@/utils/conversation-stopped-early';
 import {
   getEffectiveTestResultStatus,
   hasConflictingAnnotation,
@@ -360,6 +361,29 @@ export default function TestDetailEvaluationTab({
 
   const status = getEffectiveTestResultStatus(test);
   const endpointFailure = getEndpointFailure(test.test_output);
+  const stopReason = getConversationStopReason(test.test_output);
+
+  // Penelope stopped before the conversation finished, so the backend left it unscored.
+  // Its last in-run judgement still sits in goal_evaluation; showing those checks would
+  // put a partial verdict under an Error status.
+  if (stopReason && status === 'Error') {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="warning" icon={<ErrorOutlineIcon />}>
+          <AlertTitle>
+            Not scored: the conversation was stopped before it finished
+          </AlertTitle>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Only part of the planned conversation took place, so no verdict was
+            recorded. See the Conversation tab for the turns that did run.
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {stopReason}
+          </Typography>
+        </Alert>
+      </Box>
+    );
+  }
 
   // Nothing was evaluated because the endpoint never answered. A "0 of 0 checks passed"
   // line would read as a real score rather than as an absence of one.

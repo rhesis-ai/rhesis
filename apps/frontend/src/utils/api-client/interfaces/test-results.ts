@@ -121,7 +121,9 @@ export interface TestOutput {
     scenario?: string | null;
   };
   // Status field for multi-turn tests
-  status?: 'success' | 'failure' | 'timeout' | 'error';
+  status?: 'success' | 'failure' | 'timeout' | 'error' | 'max_turns';
+  // Penelope's summary lines; on status 'error' one of them says why it stopped.
+  findings?: string[];
   /**
    * Why this result has no metrics and reports Error. Two unrelated writers set it, with
    * two different types, so narrow before using it as text:

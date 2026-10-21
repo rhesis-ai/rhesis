@@ -112,6 +112,19 @@ def has_endpoint_failure_in_result(result: Union[Dict, Any]) -> bool:
     return is_endpoint_failure(_error_details_from_tool_execution(target_interaction))
 
 
+def is_unfinished_conversation(result: Union[Dict, Any]) -> bool:
+    """Return True when Penelope stopped a multi-turn run early with an error.
+
+    Penelope reports ``status: "error"`` when it could not finish the conversation (model
+    failure, or its loop guard ending the run). The transcript is partial, so a verdict on
+    it would not be about the test that was asked for. ``conversation_summary`` marks a
+    Penelope trace: a single-turn output is the endpoint's own response and may carry any
+    ``status`` field.
+    """
+    data = as_response_dict(result)
+    return data.get("status") == "error" and isinstance(data.get("conversation_summary"), list)
+
+
 def get_endpoint_error_details(result: Union[Dict, Any]) -> Dict[str, Any]:
     """Return the invoker error dict for a failed call, flat or multi-turn nested.
 

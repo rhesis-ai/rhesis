@@ -39,6 +39,10 @@ class WorkflowState:
     # Recent target responses for analysis context
     recent_target_responses: List[dict] = field(default_factory=list)
 
+    # Blocked calls since the last target interaction; the test stops at the limit
+    consecutive_blocked_calls: int = 0
+    max_consecutive_blocked_calls: int = 3
+
     def add_tool_execution(self, execution: ToolExecution) -> None:
         """Record a tool execution in the workflow state."""
         tool_name = execution.tool_name
@@ -51,6 +55,7 @@ class WorkflowState:
         if ToolType.is_target_interaction(tool_name):
             self.consecutive_analysis_tools = 0
             self.turns_since_target_interaction = 0
+            self.consecutive_blocked_calls = 0
 
             # Store target response for analysis context
             tool_result = execution.tool_result
@@ -137,11 +142,13 @@ class WorkflowManager:
                 if recent_tools[-1] == recent_tools[-2] == tool_name:
                     return False, f"Tool {tool_name} used repeatedly. Try a different approach."
 
-                # Check for oscillation pattern (A -> B -> A -> B)
+                # Check for oscillation between analysis tools (A -> B -> A -> B). A target
+                # message as B is the normal analyse-then-send cycle, not a loop.
                 if (
                     len(recent_tools) >= 4
                     and recent_tools[-1] == recent_tools[-3] == tool_name
                     and recent_tools[-2] == recent_tools[-4]
+                    and not ToolType.is_target_interaction(recent_tools[-2])
                 ):
                     return (
                         False,
@@ -219,6 +226,11 @@ class WorkflowManager:
     def record_tool_execution(self, execution: ToolExecution) -> None:
         """Record a tool execution for workflow tracking."""
         self.state.add_tool_execution(execution)
+
+    def record_blocked_call(self) -> bool:
+        """Count a blocked call. Returns True once the test should stop."""
+        self.state.consecutive_blocked_calls += 1
+        return self.state.consecutive_blocked_calls >= self.state.max_consecutive_blocked_calls
 
     def reset_state(self) -> None:
         """Reset workflow state (e.g., for new test execution)."""

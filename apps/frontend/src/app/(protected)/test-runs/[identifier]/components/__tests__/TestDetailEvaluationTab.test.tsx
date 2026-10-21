@@ -178,4 +178,31 @@ describe('TestDetailEvaluationTab', () => {
       )
     ).toBeInTheDocument();
   });
+
+  it('shows a conversation Penelope stopped early as not scored (#3014)', () => {
+    const blocked =
+      'Workflow validation blocked execution: Tool analyze_response used repeatedly.';
+    const stoppedEarly = {
+      ...multiTurnResult,
+      execution: 'error',
+      verdict: null,
+      test_output: {
+        ...multiTurnResult.test_output,
+        status: 'error',
+        findings: ['Test completed in 3 turn(s)', blocked],
+      },
+      test_metrics: { execution_time: 1, metrics: {} },
+    } as unknown as TestResultDetail;
+
+    renderTab({ test: stoppedEarly });
+
+    expect(
+      screen.getByText(
+        'Not scored: the conversation was stopped before it finished'
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByText(blocked)).toBeInTheDocument();
+    // The partial in-run judgement is not shown as checks.
+    expect(screen.queryByText(/checks passed/)).not.toBeInTheDocument();
+  });
 });

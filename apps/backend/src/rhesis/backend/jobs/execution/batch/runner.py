@@ -14,6 +14,7 @@ from rhesis.backend.app.services.invokers.common.errors import PERMANENT_TARGET_
 from rhesis.backend.app.services.test_run_timing import TestPhase
 from rhesis.backend.app.utils.response_extractor import (
     has_endpoint_failure_in_result,
+    is_unfinished_conversation,
     summarize_endpoint_failure,
     truncate_for_narration,
 )
@@ -131,6 +132,40 @@ def _is_retriable_failure(result: Dict[str, Any]) -> bool:
     if error.startswith("Timeout after") or error.startswith("Test data not pre-fetched"):
         return False
     return True
+
+
+def _unscoreable_output(
+    test_id: str,
+    output: Dict[str, Any],
+    contract_usable: bool,
+    on_emit: Any,
+) -> tuple[bool, Optional[Dict[str, Any]]]:
+    """Whether a test's output must be stored without metrics, plus any endpoint failure.
+
+    Checked before the metric evaluator, which would otherwise score configured metrics
+    against an error output or a partial transcript.
+    """
+    if not contract_usable:
+        # The conversation was never run (see invocation._run_multi_turn).
+        logger.info(f"[BATCH] Test {test_id} reported as Error: evaluation contract was not usable")
+        return True, None
+    if has_endpoint_failure_in_result(output):
+        endpoint_failure = summarize_endpoint_failure(output)
+        logger.info(
+            f"[BATCH] Endpoint failure for test {test_id} "
+            f"(status_code={(endpoint_failure or {}).get('status_code')}); "
+            f"skipping metrics"
+        )
+        if on_emit and endpoint_failure:
+            on_emit(f"  {endpoint_failure['summary']}, skipping metrics")
+        return True, endpoint_failure
+    if is_unfinished_conversation(output):
+        # A partial transcript; a verdict on it would be about a test that never ran.
+        logger.info(
+            f"[BATCH] Test {test_id} reported as Error: Penelope stopped the conversation early"
+        )
+        return True, None
+    return False, None
 
 
 async def _run_gather(
@@ -497,25 +532,11 @@ async def _execute_single_test(
                 return _failure_result(test_id, e, (time.monotonic() - start_time) * 1000)
 
             # --- Async metric evaluation ---
-            endpoint_failure: Optional[Dict[str, Any]] = None
-            if not contract_usable:
-                # The conversation was never run (see invocation._run_multi_turn), so there is
-                # nothing to score. Checked before the evaluator branch below: that one would
-                # otherwise evaluate configured metrics against the empty error output.
+            unscoreable, endpoint_failure = _unscoreable_output(
+                test_id, output, contract_usable, on_emit
+            )
+            if unscoreable:
                 metrics_results = {}
-                logger.info(
-                    f"[BATCH] Test {test_id} reported as Error: evaluation contract was not usable"
-                )
-            elif has_endpoint_failure_in_result(output):
-                metrics_results = {}
-                endpoint_failure = summarize_endpoint_failure(output)
-                logger.info(
-                    f"[BATCH] Endpoint failure for test {test_id} "
-                    f"(status_code={(endpoint_failure or {}).get('status_code')}); "
-                    f"skipping metrics"
-                )
-                if on_emit and endpoint_failure:
-                    on_emit(f"  {endpoint_failure['summary']}, skipping metrics")
             elif evaluator and (
                 ctx.get_metric_configs_for_test(test_id)
                 or (is_multi_turn and ctx.stored_outputs is not None)
