@@ -4,7 +4,10 @@ import { useCallback, useRef, useState } from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { QuotaResource } from '@/constants/quota';
 import { useQuotaGate } from '@/hooks/useQuotaGate';
-import EndpointForm, { type EndpointFormHandle } from './EndpointForm';
+import EndpointForm, {
+  type EndpointFormHandle,
+  type EndpointFormSubmitState,
+} from './EndpointForm';
 
 interface EndpointCreateDrawerProps {
   open: boolean;
@@ -20,9 +23,10 @@ export default function EndpointCreateDrawer({
   projectId,
 }: EndpointCreateDrawerProps) {
   const formRef = useRef<EndpointFormHandle>(null);
-  const [submitState, setSubmitState] = useState({
+  const [submitState, setSubmitState] = useState<EndpointFormSubmitState>({
     isSubmitting: false,
-    canSubmit: false,
+    canAdvance: false,
+    isLastStep: false,
   });
 
   const endpointQuota = useQuotaGate(QuotaResource.ENDPOINTS);
@@ -36,12 +40,15 @@ export default function EndpointCreateDrawer({
     <BaseDrawer
       open={open}
       onClose={onClose}
-      title="Create endpoint"
+      title="Create REST endpoint"
       width="75%"
-      onSave={() => formRef.current?.submit()}
-      saveButtonText="Create endpoint"
-      saveDataTour="create-endpoint-save"
-      saveDisabled={!submitState.canSubmit || endpointQuota.exhausted}
+      onSave={() => formRef.current?.advance()}
+      saveButtonText={submitState.isLastStep ? 'Create endpoint' : 'Next'}
+      saveDataTour={submitState.isLastStep ? 'create-endpoint-save' : undefined}
+      saveDisabled={
+        !submitState.canAdvance ||
+        (submitState.isLastStep && endpointQuota.exhausted)
+      }
       loading={submitState.isSubmitting}
       // The gate goes on the submit, never on the FAB that opens this drawer:
       // a disabled FAB leaves the explanation nowhere to live. The form's own
@@ -52,9 +59,7 @@ export default function EndpointCreateDrawer({
         <EndpointForm
           ref={formRef}
           projectId={projectId}
-          hideActionBar
           hideProjectSelect
-          onCancel={onClose}
           onCreated={handleCreated}
           onSubmitStateChange={setSubmitState}
         />

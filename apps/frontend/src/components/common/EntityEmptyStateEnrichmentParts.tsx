@@ -164,7 +164,11 @@ function EmptyStateMedia({
   );
 }
 
-function EmptyStateArticleCard({ article }: { article: EmptyStateArticle }) {
+export function EmptyStateArticleCard({
+  article,
+}: {
+  article: EmptyStateArticle;
+}) {
   const shouldFetch =
     !article.title && !article.description && !article.imageUrl;
   const { metadata, loading } = useOgMetadata(article.href, shouldFetch);

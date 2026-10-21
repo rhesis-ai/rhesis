@@ -21,9 +21,9 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { SectionCard } from '@/components/common/SectionCard';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { getProjectIcon } from '@/components/common/ProjectIcons';
+import { StarBorderIcon } from '@/components/icons';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -38,6 +38,7 @@ interface TabOverviewProps {
   loadingProjects: boolean;
   /** Hide project picker — project is inferred from the active project scope */
   hideProjectSelect?: boolean;
+  onAutoConfigureOpen: () => void;
 }
 
 function ProjectSelect({
@@ -45,14 +46,13 @@ function ProjectSelect({
   onChange,
   projects,
   loadingProjects,
-}: TabOverviewProps) {
+}: Omit<TabOverviewProps, 'onAutoConfigureOpen'>) {
   const canCreateProject = useCan(Capability.Project.CREATE);
 
   if (projects.length === 0 && !loadingProjects) {
     return (
       <Alert
         severity="warning"
-        sx={{ mb: 2 }}
         // Only offer the shortcut to callers who hold project:create. The
         // built-in Member role does not, so linking them to the wizard just
         // produces a 403 once they reach the end of it.
@@ -77,7 +77,7 @@ function ProjectSelect({
   }
 
   return (
-    <FormControl fullWidth required sx={{ mb: 2 }}>
+    <FormControl fullWidth required>
       <InputLabel>Select Project</InputLabel>
       <Select
         value={formData.project_id}
@@ -120,23 +120,70 @@ function ProjectSelect({
   );
 }
 
+/** A section heading that wraps to the column's width instead of setting it. */
+function SectionHeading(
+  props: React.ComponentProps<typeof FormSectionDivider>
+) {
+  return (
+    <Box sx={{ width: 0, minWidth: '100%' }}>
+      <FormSectionDivider {...props} />
+    </Box>
+  );
+}
+
+function QuickSetupBanner({ onOpen }: { onOpen: () => void }) {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 2,
+        px: 2.5,
+        py: 2,
+        bgcolor: 'background.light2',
+      }}
+    >
+      <StarBorderIcon
+        fontSize="small"
+        sx={{ alignSelf: 'flex-start', mt: 0.25, color: 'greyscale.title' }}
+      />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography
+          variant="subtitle1"
+          sx={{ fontWeight: 700, color: 'greyscale.title' }}
+        >
+          Quickest setup
+        </Typography>
+        <Typography
+          variant="body2"
+          sx={{ color: 'greyscale.subtitle', maxWidth: '75ch' }}
+        >
+          Have an API example? Paste a cURL command, API documentation, or a
+          sample request and let Rhesis configure the endpoint for you.
+        </Typography>
+      </Box>
+      <Button
+        variant="contained"
+        onClick={onOpen}
+        sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+      >
+        Auto-configure
+      </Button>
+    </Box>
+  );
+}
+
 export default function TabOverview({
   formData,
   onChange,
   projects,
   loadingProjects,
   hideProjectSelect = false,
+  onAutoConfigureOpen,
 }: TabOverviewProps) {
   return (
-    <Box>
-      <SectionCard
-        title="Overview"
-        subtitle={
-          hideProjectSelect
-            ? 'Name your endpoint and add an optional description.'
-            : 'Choose a project, name your endpoint, and add an optional description.'
-        }
-      >
+    <Stack spacing={5}>
+      <Stack spacing={4}>
         {!hideProjectSelect && (
           <ProjectSelect
             formData={formData}
@@ -149,7 +196,6 @@ export default function TabOverview({
         {hideProjectSelect && !loadingProjects && !formData.project_id && (
           <Alert
             severity="warning"
-            sx={{ mb: 2 }}
             action={
               <Button
                 color="inherit"
@@ -173,7 +219,6 @@ export default function TabOverview({
           label="Endpoint Name"
           value={formData.name}
           onChange={e => onChange('name', e.target.value)}
-          sx={{ mb: 2 }}
         />
 
         <TextField
@@ -182,84 +227,83 @@ export default function TabOverview({
           value={formData.description}
           onChange={e => onChange('description', e.target.value)}
           multiline
-          rows={2}
-          sx={{ mb: 2 }}
+          rows={3}
         />
+      </Stack>
 
-        <FormSectionDivider
-          headline="Additional settings"
-          descriptiveText="Environment and telemetry options for this endpoint."
-        />
+      {/* Sized by the toggle group, so the timeout field matches its width. */}
+      <Stack spacing={5} sx={{ alignSelf: 'flex-start', width: 'fit-content' }}>
+        <Stack spacing={3}>
+          <SectionHeading
+            headline="Environment"
+            descriptiveText="Choose where this endpoint runs."
+          />
+          <ToggleButtonGroup
+            value={formData.environment}
+            exclusive
+            color="primary"
+            onChange={(_, v) => {
+              if (v) onChange('environment', v);
+            }}
+            sx={{
+              '& .MuiToggleButton-root': {
+                textTransform: 'capitalize',
+                fontWeight: 700,
+                py: 1,
+                px: 2,
+                color: 'primary.main',
+                borderColor: 'primary.main',
+                '&.Mui-selected, &.Mui-selected:hover': {
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                },
+              },
+            }}
+          >
+            {ENVIRONMENTS.map(env => (
+              <ToggleButton key={env} value={env}>
+                {env}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        </Stack>
 
-        <Stack spacing={3} sx={{ mt: 2 }}>
+        <Stack spacing={3}>
+          <SectionHeading
+            headline="Timeout"
+            descriptiveText="How long Rhesis waits for a response. Leave empty for the default of 30 seconds."
+          />
           <TextField
-            fullWidth
-            label="Timeout (seconds)"
+            label="Seconds"
             type="number"
             value={formData.timeout_seconds}
             onChange={e => onChange('timeout_seconds', e.target.value)}
             placeholder="30"
-            helperText="Leave empty for the system default (30s for REST, 120s for SDK endpoints)"
             slotProps={{
               input: { inputProps: { min: 1 } },
             }}
           />
-
-          <Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Environment
-            </Typography>
-            <ToggleButtonGroup
-              value={formData.environment}
-              exclusive
-              onChange={(_, v) => {
-                if (v) onChange('environment', v);
-              }}
-              sx={{
-                width: '100%',
-                display: 'flex',
-                flexWrap: 'wrap',
-                '& .MuiToggleButton-root': {
-                  flex: '1 1 auto',
-                  textTransform: 'capitalize',
-                },
-              }}
-            >
-              {ENVIRONMENTS.map(env => (
-                <ToggleButton key={env} value={env}>
-                  {env}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-          </Box>
-
-          <Box>
-            <FormControlLabel
-              sx={{
-                ml: 0,
-                alignItems: 'flex-start',
-                gap: 1,
-              }}
-              control={
-                <Switch
-                  checked={formData.disable_tracing}
-                  onChange={e => onChange('disable_tracing', e.target.checked)}
-                  sx={{ mt: 0.25 }}
-                />
-              }
-              label={
-                <Box>
-                  <Typography variant="body2">Disable tracing</Typography>
-                  <FormHelperText sx={{ mt: 0.5, mx: 0 }}>
-                    When enabled, invocations will not generate traces or
-                    telemetry data
-                  </FormHelperText>
-                </Box>
-              }
-            />
-          </Box>
         </Stack>
-      </SectionCard>
-    </Box>
+      </Stack>
+
+      <Stack spacing={3}>
+        <FormSectionDivider
+          headline="Tracing"
+          descriptiveText="Capture traces and telemetry for endpoint invocations."
+        />
+        <FormControlLabel
+          sx={{ ml: 0, gap: 1, alignSelf: 'flex-start' }}
+          control={
+            <Switch
+              checked={!formData.disable_tracing}
+              onChange={e => onChange('disable_tracing', !e.target.checked)}
+            />
+          }
+          label="Enable tracing"
+        />
+      </Stack>
+
+      <QuickSetupBanner onOpen={onAutoConfigureOpen} />
+    </Stack>
   );
 }

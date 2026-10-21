@@ -7,13 +7,16 @@ import {
   MenuItem,
   Typography,
   CircularProgress,
+  Tooltip,
 } from '@mui/material';
+import { InfoIcon } from '@/components/icons';
 import dynamic from 'next/dynamic';
 import type { OnMount, BeforeMount } from '@monaco-editor/react';
 import { useTheme } from '@mui/material/styles';
 import { CODE_FONT_SIZE } from '@/styles/theme-constants';
 import { editorContainerSx } from './endpoint-styles';
 import VariableChip from './VariableChip';
+import { SYSTEM_PROMPT_CHIP, SYSTEM_PROMPT_KEY } from './mapping-variables';
 
 // Injected once — colors {{ ... }} template tokens inline inside Monaco
 const DECORATION_CSS_ID = 'rhesis-template-decoration-css';
@@ -108,7 +111,8 @@ interface Props {
   value: string;
   onChange: (value: string) => void;
   variables: Variable[];
-  layout?: 'top' | 'side' | 'bottom';
+  /** `below`: editor first, then the variables as chips with their description on hover. */
+  layout?: 'top' | 'side' | 'bottom' | 'below';
 }
 
 type MonacoInstance = Parameters<BeforeMount>[0];
@@ -218,22 +222,59 @@ export default function RequestBodyEditor({
     editor.focus();
   };
 
+  const parsedBody = (): Record<string, unknown> | null => {
+    try {
+      const parsed: unknown = JSON.parse(value || '{}');
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // An empty body has no valid spot for a bare value, so give it a field of its own.
+  const insertValue = (key: string, text: string) => {
+    const body = parsedBody();
+    if (body && Object.keys(body).length === 0) {
+      setFilesAnchor(null);
+      setMessagesAnchor(null);
+      onChange(`{\n  "${key}": ${text}\n}`);
+      return;
+    }
+    insertAtCursor(text);
+  };
+
   // Variables that render to a plain string and must be quoted in JSON
-  const STRING_VARS = new Set([
-    '{{ input }}',
-    '{{ system_prompt }}',
-    '{{ conversation_id }}',
-  ]);
+  const STRING_VARS = new Set(['{{ input }}', '{{ conversation_id }}']);
 
   const handleChipClick = (name: string, e: React.MouseEvent<HTMLElement>) => {
-    if (name === '{{ files }}') {
+    const base = name.match(/\{\{\s*([\w]+)/)?.[1] ?? '';
+    if (name === SYSTEM_PROMPT_CHIP) {
+      const body = parsedBody();
+      if (body) {
+        if (!(SYSTEM_PROMPT_KEY in body)) {
+          onChange(
+            JSON.stringify(
+              { ...body, [SYSTEM_PROMPT_KEY]: 'You are a helpful assistant.' },
+              null,
+              2
+            )
+          );
+        }
+      } else {
+        insertAtCursor(
+          `"${SYSTEM_PROMPT_KEY}": "You are a helpful assistant.",`
+        );
+      }
+    } else if (name === '{{ files }}') {
       setFilesAnchor(e.currentTarget);
     } else if (name === '{{ messages }}') {
       setMessagesAnchor(e.currentTarget);
     } else if (STRING_VARS.has(name)) {
-      insertAtCursor(`"${name}"`);
+      insertValue(base, `"${name}"`);
     } else {
-      insertAtCursor(name);
+      insertValue(base, name);
     }
   };
 
@@ -241,6 +282,7 @@ export default function RequestBodyEditor({
     name === '{{ files }}' || name === '{{ messages }}' ? `${name} ▾` : name;
 
   const isVarUsed = (name: string): boolean => {
+    if (name === SYSTEM_PROMPT_CHIP) return value.includes(SYSTEM_PROMPT_CHIP);
     const base = name.match(/\{\{\s*([\w]+)/)?.[1];
     if (!base) return false;
     return new RegExp(`\\{\\{\\s*${base}\\b`).test(value);
@@ -467,6 +509,39 @@ export default function RequestBodyEditor({
         {editor}
         {layout === 'side' && chipsPanel}
       </Box>
+      {layout === 'below' && (
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+            Available variables
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Click a variable to insert it at the cursor position.
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
+            {variables.flatMap(variable =>
+              (variable.chips ?? (variable.name ? [variable.name] : [])).map(
+                name => (
+                  <Tooltip
+                    key={name}
+                    title={variable.description ?? ''}
+                    placement="top"
+                  >
+                    <span>
+                      <VariableChip
+                        label={chipDisplayLabel(name)}
+                        isActive={isVarUsed(name)}
+                        onClick={e => handleChipClick(name, e)}
+                        trailingIcon={<InfoIcon sx={{ fontSize: 13 }} />}
+                        tone="primary"
+                      />
+                    </span>
+                  </Tooltip>
+                )
+              )
+            )}
+          </Box>
+        </Box>
+      )}
       {layout === 'bottom' && (
         <Box
           sx={{
@@ -503,7 +578,7 @@ export default function RequestBodyEditor({
         {FILES_PROVIDERS.map(({ label, value: v, hint }) => (
           <MenuItem
             key={label}
-            onClick={() => insertAtCursor(v)}
+            onClick={() => insertValue('files', v)}
             sx={{ fontSize: 12 }}
           >
             <Box>
@@ -557,7 +632,7 @@ export default function RequestBodyEditor({
             key={label}
             onClick={() => {
               setMessagesAnchor(null);
-              insertAtCursor(v);
+              insertValue('messages', v);
             }}
             sx={{ fontSize: 12 }}
           >

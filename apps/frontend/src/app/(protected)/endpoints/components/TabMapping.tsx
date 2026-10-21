@@ -1,31 +1,25 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Box, Button, Collapse, Link, IconButton } from '@mui/material';
-import {
-  AutoFixHighIcon,
-  KeyboardArrowDownIcon,
-  KeyboardArrowUpIcon,
-} from '@/components/icons';
-import { SectionCard } from '@/components/common/SectionCard';
-import MappingEditor from './MappingEditor';
+import React from 'react';
+import { Box } from '@mui/material';
+import RequestMappingCard from './RequestMappingCard';
+import ResponseMappingCard from './ResponseMappingCard';
+import { HelpArticlesPanel } from './MappingRows';
+import type { EndpointTestResult } from './TestResponseCard';
 
-interface TestResult {
-  success: boolean;
-  status?: number;
-  response?: Record<string, unknown>;
-  error?: string;
-}
+const INPUT_VAR_RE = /\{\{\s*input\b/;
+
+// The mapping check only needs a prompt; the Test step lets you choose your own.
+const MAPPING_TEST_INPUT = { input: 'Hello, how are you?' };
 
 interface TabMappingProps {
   reqBody: string;
   resBody: string;
-  onReqBodyChange: React.Dispatch<React.SetStateAction<string>>;
-  onResBodyChange: React.Dispatch<React.SetStateAction<string>>;
-  testResult: TestResult | null;
+  onReqBodyChange: (value: string) => void;
+  onResBodyChange: (value: string) => void;
+  testResult: EndpointTestResult | null;
   isTestingEndpoint: boolean;
   onRunTest: (inputData: Record<string, unknown>) => void;
-  onAutoConfigureOpen: () => void;
 }
 
 export default function TabMapping({
@@ -36,99 +30,32 @@ export default function TabMapping({
   testResult,
   isTestingEndpoint,
   onRunTest,
-  onAutoConfigureOpen,
 }: TabMappingProps) {
-  const [manualExpanded, setManualExpanded] = useState(false);
-
-  const testResponse = (() => {
-    if (!testResult) return '';
-    if (testResult.response)
-      return JSON.stringify(testResult.response, null, 2);
-    if (testResult.error)
-      return JSON.stringify({ error: testResult.error }, null, 2);
-    return '';
-  })();
-
-  const responseMapping: Record<string, string> = (() => {
-    try {
-      return JSON.parse(resBody);
-    } catch {
-      return {};
-    }
-  })();
-
-  const handleRequestTemplateChange = (t: string) => {
-    onReqBodyChange(t);
-  };
-
-  const handleResponseMappingChange = (m: Record<string, string>) => {
-    onResBodyChange(JSON.stringify(m, null, 2));
-  };
-
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-      <SectionCard
-        title="Auto Mapping"
-        subtitle="Paste your API docs or a sample response and Rhesis will configure the mapping for you."
-        actions={
-          <Button
-            variant="contained"
-            startIcon={<AutoFixHighIcon />}
-            onClick={onAutoConfigureOpen}
-            sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
-          >
-            Auto Mapping
-          </Button>
-        }
-      />
-
-      <SectionCard
-        title="Manual Mapping"
-        subtitle={
-          <>
-            Define the request format, run a test call, then click the response
-            field that holds your model&apos;s reply.{' '}
-            <Link
-              href="https://docs.rhesis.ai/docs/endpoints/mapping-examples"
-              target="_blank"
-              rel="noopener"
-              onClick={e => e.stopPropagation()}
-            >
-              See examples ↗
-            </Link>
-          </>
-        }
-        actions={
-          <IconButton
-            aria-label={
-              manualExpanded
-                ? 'Collapse manual mapping'
-                : 'Expand manual mapping'
-            }
-            size="small"
-            sx={{ color: 'primary.main', pointerEvents: 'none' }}
-          >
-            {manualExpanded ? (
-              <KeyboardArrowUpIcon />
-            ) : (
-              <KeyboardArrowDownIcon />
-            )}
-          </IconButton>
-        }
-        onHeaderClick={() => setManualExpanded(e => !e)}
-      >
-        <Collapse in={manualExpanded}>
-          <MappingEditor
-            requestTemplate={reqBody}
-            responseMapping={responseMapping}
-            onRequestTemplateChange={handleRequestTemplateChange}
-            onResponseMappingChange={handleResponseMappingChange}
-            onTest={onRunTest}
-            testResponse={testResponse}
-            isTestingEndpoint={isTestingEndpoint}
-          />
-        </Collapse>
-      </SectionCard>
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+        gap: 3,
+        alignItems: 'start',
+      }}
+    >
+      <RequestMappingCard template={reqBody} onChange={onReqBodyChange} />
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <ResponseMappingCard
+          responseMapping={resBody}
+          onResponseMappingChange={onResBodyChange}
+          testResult={testResult}
+          isTesting={isTestingEndpoint}
+          onRunTest={() => onRunTest(MAPPING_TEST_INPUT)}
+          blockedReason={
+            INPUT_VAR_RE.test(reqBody)
+              ? undefined
+              : 'Map the input variable to a field first.'
+          }
+        />
+        {!testResult?.success && <HelpArticlesPanel />}
+      </Box>
     </Box>
   );
 }
