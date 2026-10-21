@@ -138,6 +138,10 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
       // eslint-disable-next-line react-hooks/exhaustive-deps -- only the stored ids matter
       [project.attributes?.trace_metrics]
     );
+    // initialData seeds every key it's given, and the default staleTime keeps
+    // it fresh, so only the ids the server fetched may use it.
+    const [initialMetricIds] = useState(metricIds);
+    const isInitialKey = metricIds.join() === initialMetricIds.join();
 
     const {
       data: metrics = [],
@@ -152,7 +156,7 @@ export default forwardRef<ProjectTraceMetricsHandle, ProjectTraceMetricsProps>(
       queryFn: () =>
         fetchProjectTraceMetrics(new ApiClientFactory(), metricIds),
       enabled: isAuthenticated(status),
-      initialData: initialMetrics,
+      initialData: isInitialKey ? initialMetrics : undefined,
     });
 
     const error = fetchError

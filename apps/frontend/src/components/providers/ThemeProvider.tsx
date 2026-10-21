@@ -63,9 +63,20 @@ function persistThemeMode(mode: 'light' | 'dark', explicit: boolean) {
   document.cookie = `${THEME_MODE_KEY}=${mode};path=/;max-age=31536000;SameSite=Lax`;
 }
 
+function isExplicitMode(): boolean {
+  try {
+    return !!localStorage.getItem(THEME_MODE_EXPLICIT_KEY);
+  } catch {
+    // Storage blocked: the cookie is the only record of a pick, so trust it.
+    return true;
+  }
+}
+
+/** Until the user picks a mode, the browser's current preference wins over
+ * the stored one, which only exists to get the server render right. */
 function resolveMode(): 'light' | 'dark' {
   const attr = document.documentElement.getAttribute('data-theme-mode');
-  if (attr === 'light' || attr === 'dark') return attr;
+  if (isExplicitMode() && (attr === 'light' || attr === 'dark')) return attr;
   return window.matchMedia('(prefers-color-scheme: dark)').matches
     ? 'dark'
     : 'light';
@@ -86,11 +97,7 @@ export default function ThemeContextProvider({
   }, []);
 
   React.useEffect(() => {
-    try {
-      if (localStorage.getItem(THEME_MODE_EXPLICIT_KEY)) return;
-    } catch {
-      // Storage unavailable (e.g. restricted privacy context); follow OS.
-    }
+    if (isExplicitMode()) return;
 
     const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = (e: MediaQueryListEvent) => {

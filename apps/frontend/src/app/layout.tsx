@@ -69,15 +69,16 @@ import { Capability } from '../constants/capabilities';
 export const dynamic = 'force-dynamic';
 
 /**
- * Sets `data-theme-mode` before first paint when the visitor has no stored
- * preference, so the browser's `prefers-color-scheme` decides. Kept inline and
- * render-blocking on purpose — deferring it would paint light first and flash.
+ * Sets `data-theme-mode` before first paint. Until the visitor picks a mode
+ * themselves, the browser's `prefers-color-scheme` decides on every load, even
+ * over the cookie the server rendered from. Kept inline and render-blocking on
+ * purpose — deferring it would paint the wrong mode first and flash.
  */
 const THEME_MODE_SCRIPT = `(function(){try{
   var el=document.documentElement;
-  if(el.getAttribute('data-theme-mode'))return;
   var stored=localStorage.getItem('theme-mode');
-  var mode=(stored==='dark'||stored==='light')?stored:
+  var explicit=localStorage.getItem('theme-mode-explicit');
+  var mode=explicit&&(stored==='dark'||stored==='light')?stored:
     (window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
   el.setAttribute('data-theme-mode',mode);
 }catch(e){}})();`;

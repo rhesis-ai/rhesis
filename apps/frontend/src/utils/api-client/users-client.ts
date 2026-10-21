@@ -6,6 +6,7 @@ import {
   UserCreate,
   UserUpdate,
   UserSettings,
+  UserSettingsOutput,
   UserSettingsUpdate,
 } from './interfaces/user';
 import { PaginatedResponse } from './interfaces/pagination';
@@ -99,8 +100,8 @@ export class UsersClient extends BaseApiClient {
    */
   async updateUserSettings(
     settings: UserSettingsUpdate
-  ): Promise<UserSettings> {
-    return this.fetch<UserSettings>(`${API_ENDPOINTS.users}/settings`, {
+  ): Promise<UserSettingsOutput> {
+    return this.fetch<UserSettingsOutput>(`${API_ENDPOINTS.users}/settings`, {
       method: 'PATCH',
       body: JSON.stringify(settings),
     });

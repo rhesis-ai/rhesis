@@ -80,13 +80,18 @@ export interface LocalizationSettings {
   currency?: Currency | null;
 }
 
-export interface UserSettings extends WithPermittedActions {
+/** Stored settings, as PATCH /users/settings returns them. */
+export interface UserSettingsOutput {
   models?: ModelsSettings;
   localization?: LocalizationSettings;
   notifications?: NotificationSettings;
   onboarding?: OnboardingProgress;
   polyphemus_access?: PolyphemusAccess;
   default_project?: DefaultProjectSetting;
+}
+
+/** GET /users/settings: stored settings plus auth and profile fields. */
+export interface UserSettings extends UserSettingsOutput, WithPermittedActions {
   is_verified?: boolean;
   has_password: boolean;
   provider_type?: string;

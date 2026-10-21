@@ -441,20 +441,19 @@ describe('Sidebar', () => {
   });
 
   describe('dark mode', () => {
-    it('toggles from the footer card', () => {
-      setupMocks();
-      render(<Sidebar />);
-      fireEvent.click(screen.getByRole('button', { name: 'Dark Mode' }));
-      expect(mockToggleColorMode).toHaveBeenCalledTimes(1);
-    });
-
-    it('is no longer in the user menu', () => {
+    it('toggles from the user menu', () => {
       setupMocks();
       render(<Sidebar />);
       fireEvent.click(screen.getByRole('button', { name: 'Open user menu' }));
-      expect(screen.getByText('User Settings')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Dark Mode' }));
+      expect(mockToggleColorMode).toHaveBeenCalledTimes(1);
+    });
+
+    it('is not in the footer card', () => {
+      setupMocks();
+      render(<Sidebar />);
       expect(
-        screen.queryByRole('menuitem', { name: /dark mode/i })
+        screen.queryByRole('button', { name: /dark mode/i })
       ).not.toBeInTheDocument();
     });
   });

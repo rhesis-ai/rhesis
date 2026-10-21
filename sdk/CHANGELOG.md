@@ -53,6 +53,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DeepEval or Rhesis providers instead. This also drops `diskcache`, `gitpython`, `scipy` and
   `sqlalchemy` from the SDK's dependency tree.
 
+## [0.19.0] - 2026-10-21
+
+### Added
+- Added automatic request scoping to `RHESIS_PROJECT_ID` (or `rhesis.sdk.project_id`) across all `APIClient` requests via the `X-Project-Id` header.
+- Added support for Google Cloud Natural Language `moderateText` API as a toxicity detection backend, with automatic fallback to LLM judge models.
+- Added persistent file context across multi-turn Architect agent conversations, supported by a new `read_attached_file` tool.
+- Added audit log reference and tool support to the Architect agent.
+
+### Changed
+- Refined toxicity judge prompts to evaluate toxicity likelihood, improving scoring calibration against rated datasets.
+- Improved Architect test set generation to dynamically size multi-turn test cases and incorporate requirement acceptance criteria directly.
+- Optimized SDK dependencies by switching to `pydantic-ai-slim`.
+
+### Fixed
+- Fixed 502, 503, and 504 gateway timeouts in `RhesisLLM.a_generate` being swallowed as generic failures rather than triggering automatic retries.
+- Fixed requests targeting an unreachable project ID failing silently; requests now raise explicit 403 errors detailing the unreachable project.
+- Fixed a thread-safety race condition in background event loop initialization (`_get_background_loop()`) when invoking concurrent operations across worker threads.
+- Fixed transient toxicity scoring errors defaulting to a `1.0` (toxic) score instead of raising an exception to allow retry.
+- Fixed Architect modifying or rewording original requirement IDs and text when parsing attached PRD documents.
+
+### Security
+- Updated key dependencies (`pydantic-ai`, `mcp`, `aiohttp`, `pyjwt`, `urllib3`, `litellm`) to address security vulnerabilities.
+
+
 ## [0.18.0] - 2026-10-08
 
 ### Added

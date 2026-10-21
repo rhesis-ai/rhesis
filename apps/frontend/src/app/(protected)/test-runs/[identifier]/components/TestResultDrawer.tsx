@@ -12,8 +12,6 @@ import { can } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import {
   Box,
-  Tabs,
-  Tab,
   Typography,
   Skeleton,
   useTheme,
@@ -23,6 +21,7 @@ import {
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import DetailTabNav from '@/components/common/DetailTabNav';
 import TestResultHeader from './TestResultHeader';
 import TestResultTags from './TestResultTags';
 import TestDetailConversationTab from './TestDetailConversationTab';
@@ -185,10 +184,6 @@ export default function TestResultDrawer({
       setActiveTab(initialTab);
     }
   }, [open, initialTab]);
-
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
-  };
 
   const handleAnnotateTurn = (turnNumber: number, turnPassed?: boolean) => {
     setAnnotationInitialComment(`@[Turn ${turnNumber}](turn:${turnNumber}) `);
@@ -441,63 +436,18 @@ export default function TestResultDrawer({
       >
         <TestResultHeader test={test} />
 
-        {/* Tabs Header */}
-        <Box
-          sx={{
-            backgroundColor: theme.palette.background.paper,
-            position: 'sticky',
-            top: 0,
-            zIndex: 1,
-          }}
-        >
-          <Tabs
-            value={activeTab}
-            onChange={handleTabChange}
-            aria-label="test detail tabs"
-            variant="scrollable"
-            scrollButtons="auto"
-            sx={{
-              '& .MuiTab-root': {
-                minHeight: 43,
-                minWidth: 'auto',
-                paddingX: 0,
-                paddingY: '5px',
-                marginRight: theme.spacing(6.25),
-                textTransform: 'none',
-                fontSize: theme.typography.pxToRem(18),
-                fontWeight: 700,
-                lineHeight: '25px',
-                color: theme.palette.text.disabled,
-                '&:hover:not(.Mui-selected)': {
-                  color: theme.palette.text.secondary,
-                  backgroundColor: 'transparent',
-                },
-                '&.Mui-selected': {
-                  color: theme.palette.text.primary,
-                  fontWeight: 700,
-                  backgroundColor: 'transparent',
-                },
-              },
-              '& .MuiTabs-indicator': {
-                height: 2,
-                backgroundColor: theme.palette.text.primary,
-              },
-              '& .MuiTabs-flexContainer': {
-                gap: 0,
-              },
-            }}
-          >
-            {TAB_LABELS.map(([key, label]) => (
-              <Tab
-                key={key}
-                value={TAB[key]}
-                label={label}
-                id={`test-detail-tab-${TAB[key]}`}
-                aria-controls={`test-detail-tabpanel-${TAB[key]}`}
-              />
-            ))}
-          </Tabs>
-        </Box>
+        <DetailTabNav
+          tabs={TAB_LABELS.map(([key, label]) => ({
+            key,
+            label,
+            id: `test-detail-tab-${TAB[key]}`,
+            'aria-controls': `test-detail-tabpanel-${TAB[key]}`,
+          }))}
+          activeIndex={activeTab}
+          onChange={setActiveTab}
+          aria-label="test detail tabs"
+          scrollable
+        />
 
         {/* Tab Content - with scrolling */}
         <Box
