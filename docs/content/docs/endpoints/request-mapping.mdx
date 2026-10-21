@@ -64,6 +64,39 @@ Each test can carry a freeform JSON object in its `test_parameters` field. These
 
 Test parameters are per-test data stored directly on the test object. They differ from experiment parameters (`params`), which are typed, versioned configuration resolved from experiments. Both namespaces are available in the same template, and they do not collide.
 
+A key missing from a test's `test_parameters` renders as an empty string, without an error. Add `| default(...)` where an empty value would break the request.
+
+### Structured Input
+
+If your API expects an object rather than text, write the object as JSON in the test input and map `input` to the field:
+
+<CodeBlock filename="structured-input-request.json" language="json">
+  {`{
+  "workflow": "{{ test_parameters.workflow }}",
+  "payload": "{{ input }}"
+}`}
+</CodeBlock>
+
+With the test input `{"order_id": "A-2048", "customer": {"tier": "gold"}}` and the test parameters `{"workflow": "refund-check"}`, Rhesis sends:
+
+<CodeBlock filename="structured-input-sent.json" language="json">
+  {`{
+  "workflow": "refund-check",
+  "payload": {
+    "order_id": "A-2048",
+    "customer": { "tier": "gold" }
+  }
+}`}
+</CodeBlock>
+
+After rendering, Rhesis parses each field's value as JSON and sends the parsed value when that succeeds. Do not add `| tojson` to `input` here: it encodes the input a second time, so your API receives a quoted string instead of an object.
+
+The parsing applies to every field, so:
+
+- An input that is not valid JSON is sent as a string.
+- A field that renders to a number, `true`, `false` or `null` is sent as that type. A `test_parameters.store_id` of `"42"` arrives as `42`.
+- A field with text around the variable, such as `"Order: {{ input }}"`, is not valid JSON and stays a string.
+
 ## Raw Body Templates
 
 If your template renders to a JSON object with a `__body__` key, Rhesis unwraps it and sends the value as the raw request body. This is useful for APIs that expect a plain string or a non-JSON payload rather than a JSON object.
