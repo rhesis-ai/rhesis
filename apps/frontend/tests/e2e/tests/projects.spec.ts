@@ -31,7 +31,7 @@ test.describe('Projects @sanity', () => {
     await page.goto('/projects');
     await page.waitForLoadState('networkidle');
 
-    const cards = page.locator('.MuiCard-root');
+    const cards = page.getByTestId('entity-card');
     const emptyState = page.getByText(/no projects found/i);
     const mainContent = page.locator('main, [role="main"]').first();
 

@@ -67,8 +67,7 @@ test.describe('Projects — click-through @crud', () => {
     await page.goto('/projects');
     await page.waitForLoadState('networkidle');
 
-    // Project cards are rendered as MuiCard elements — click the first one
-    const firstCard = page.locator('.MuiCard-root').first();
+    const firstCard = page.getByTestId('entity-card').first();
     const hasCard = await firstCard.isVisible().catch(() => false);
 
     if (!hasCard) {
@@ -80,8 +79,7 @@ test.describe('Projects — click-through @crud', () => {
 
     // Projects page is a Server Component — page.route() mocks do not
     // intercept SSR calls, so the projects list comes from the real backend.
-    // In CI without seeded data, no project cards render and the first
-    // .MuiCard-root may be a layout element that does not navigate.
+    // In CI without seeded data, no project cards render.
     // Treat non-navigation as a skip rather than a failure.
     const navigated = await page
       .waitForURL(/\/projects\/.+/, { timeout: 5_000 })
