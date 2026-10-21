@@ -1,432 +1,76 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { TestsPage } from '../pages/TestsPage';
 
 /**
  * Manual test creation flow tests.
  *
- * Covers: B2.3 (type selection modal), B2.4 (creation method modal),
- * B2.5 (fill a row), B2.6 (add another test case), B2.8 (save to test set).
- *
- * The wizard walks through two modal dialogs before reaching the manual
- * test writer page. Each step gracefully skips if the expected element is
- * not found, since the exact button labels may differ between environments.
+ * Covers: B2.5 (fill a row), B2.6 (add another test case), B2.8 (save to test
+ * set). The Tests page's "Manual test" button opens the writer directly; the
+ * old two-step wizard (B2.3, B2.4) no longer exists. Category, topic and
+ * requirement use the first option Quick Start seeds.
  */
-test.describe('Tests — manual creation wizard @crud', () => {
-  test('can open the test type selection modal', async ({ page }) => {
-    const testsPage = new TestsPage(page);
-    await testsPage.goto();
-    await testsPage.expectLoaded();
-    await page
-      .locator('main, [role="main"]')
-      .first()
-      .waitFor({ state: 'visible', timeout: 15_000 });
 
-    // Click "Add Tests" — the button that opens the first wizard modal
-    const addBtn = page.getByRole('button', { name: /add tests/i }).first();
-    const addVisible = await addBtn
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!addVisible) {
-      test.skip(true, 'Add Tests button not found — skipping');
-      return;
-    }
+async function openManualWriter(page: Page) {
+  const testsPage = new TestsPage(page);
+  await testsPage.goto();
+  await testsPage.expectLoaded();
 
-    await addBtn.click();
+  await page.getByRole('button', { name: /^manual test$/i }).click();
+  await page.waitForURL(/\/tests\/new-manual/, { timeout: 15_000 });
+  await expect(
+    page.getByRole('heading', { name: /^manual test writer$/i })
+  ).toBeVisible();
+}
 
-    // The Test Type Selection modal should open
-    const dialog = page.getByRole('dialog');
-    const dialogVisible = await dialog
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!dialogVisible) {
-      test.skip(true, 'Test type dialog did not open — skipping');
-      return;
-    }
+const promptInputs = (page: Page) =>
+  page.getByPlaceholder(/enter test prompt or scenario description/i);
 
-    // Both card options should be present
-    await expect(page.getByText(/single.turn tests/i).first()).toBeVisible({
-      timeout: 5_000,
-    });
-    await expect(page.getByText(/multi.turn tests/i).first()).toBeVisible({
-      timeout: 5_000,
-    });
-    await expect(page.locator('body')).not.toContainText(
-      'Internal Server Error'
-    );
-  });
-
-  test('can advance to the creation method selection modal', async ({
-    page,
-  }) => {
-    const testsPage = new TestsPage(page);
-    await testsPage.goto();
-    await testsPage.expectLoaded();
-    await page
-      .locator('main, [role="main"]')
-      .first()
-      .waitFor({ state: 'visible', timeout: 15_000 });
-
-    const addBtn = page.getByRole('button', { name: /add tests/i }).first();
-    const addVisible = await addBtn
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!addVisible) {
-      test.skip(true, 'Add Tests button not found — skipping');
-      return;
-    }
-
-    await addBtn.click();
-
-    // Step 1: Select "Single-Turn Tests" — scope to the dialog to avoid
-    // accidentally clicking a "Select" button elsewhere on the page.
-    const dialog = page.getByRole('dialog');
-    const dialogVisible = await dialog
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!dialogVisible) {
-      test.skip(true, 'Test type dialog did not open — skipping');
-      return;
-    }
-
-    const singleTurnSelect = dialog
-      .getByRole('button', { name: /select/i })
-      .first();
-    const hasSingleTurn = await singleTurnSelect
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!hasSingleTurn) {
-      test.skip(true, 'Single-Turn select button not found — skipping');
-      return;
-    }
-    // force: true bypasses the "stable" check — the MUI Dialog entry animation
-    // keeps the button technically "moving" for ~225ms even after it is visible.
-    await singleTurnSelect.click({ force: true });
-
-    // Step 2: The creation method modal should now be visible
-    const creationMethodVisible = await page
-      .getByText(/generate tests with ai|write tests manually|start writing/i)
-      .first()
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!creationMethodVisible) {
-      test.skip(
-        true,
-        'Creation method modal did not appear after selecting Single-Turn — skipping'
-      );
-      return;
-    }
-
-    await expect(
-      page
-        .getByText(/generate tests with ai|write tests manually|start writing/i)
-        .first()
-    ).toBeVisible({ timeout: 5_000 });
-  });
-
-  test('can navigate to the manual test writer page', async ({ page }) => {
-    test.slow(); // Multi-step wizard with sequential waits; needs more than the default 30 s.
-    const testsPage = new TestsPage(page);
-    await testsPage.goto();
-    await testsPage.expectLoaded();
-    await page
-      .locator('main, [role="main"]')
-      .first()
-      .waitFor({ state: 'visible', timeout: 15_000 });
-
-    const addBtn = page.getByRole('button', { name: /add tests/i }).first();
-    const addVisible = await addBtn
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!addVisible) {
-      test.skip(true, 'Add Tests button not found — skipping');
-      return;
-    }
-    await addBtn.click();
-
-    const dialog = page.getByRole('dialog');
-    if (!(await dialog.isVisible({ timeout: 10_000 }).catch(() => false))) {
-      test.skip(true, 'Test type dialog did not open — skipping');
-      return;
-    }
-
-    // Select Single-Turn within the dialog
-    const singleTurnSelect = dialog
-      .getByRole('button', { name: /select/i })
-      .first();
-    const hasSingleTurn = await singleTurnSelect
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!hasSingleTurn) {
-      test.skip(true, 'Single-Turn select button not found — skipping');
-      return;
-    }
-    await singleTurnSelect.click({ force: true });
-
-    // Click "Start Writing" / "Write Tests Manually"
-    const manualBtn = page
-      .getByRole('button', { name: /start writing|write.*manually|manual/i })
-      .first();
-    const hasManual = await manualBtn
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!hasManual) {
-      test.skip(true, '"Start Writing" button not found — skipping');
-      return;
-    }
-    // The button has pointerEvents:none (the Card handles the click); force bypasses that.
-    await manualBtn.click({ force: true });
-
-    // Should navigate to the manual writer page
-    const navSucceeded = await page
-      .waitForURL(/\/tests\/(create|new|manual)/, { timeout: 15_000 })
-      .then(() => true)
-      .catch(() => false);
-    if (!navSucceeded) {
-      test.skip(true, 'Manual writer page URL not reached — skipping');
-      return;
-    }
-    await page
-      .locator('main, [role="main"]')
-      .first()
-      .waitFor({ state: 'visible', timeout: 15_000 });
-
-    await expect(page.locator('body')).not.toContainText(
-      'Internal Server Error'
-    );
+test.describe('Tests — manual creation @crud', () => {
+  test('opens the manual test writer from the Tests page', async ({ page }) => {
+    await openManualWriter(page);
+    await expect(promptInputs(page)).toHaveCount(1);
     await expect(page.locator('body')).not.toContainText('Application error');
   });
 
-  test('can fill a test row and add a second row on the manual writer page', async ({
-    page,
-  }) => {
-    test.slow(); // This test walks through multiple wizard steps; needs more than the default 30 s.
-    const testsPage = new TestsPage(page);
-    await testsPage.goto();
-    await testsPage.expectLoaded();
-    await page
-      .locator('main, [role="main"]')
-      .first()
-      .waitFor({ state: 'visible', timeout: 15_000 });
+  test('can add a second test case row', async ({ page }) => {
+    await openManualWriter(page);
 
-    const addBtn = page.getByRole('button', { name: /add tests/i }).first();
-    const addVisible = await addBtn
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!addVisible) {
-      test.skip(true, 'Add Tests button not found — skipping');
-      return;
-    }
-    await addBtn.click();
-
-    const dialog = page.getByRole('dialog');
-    if (!(await dialog.isVisible({ timeout: 10_000 }).catch(() => false))) {
-      test.skip(true, 'Test type dialog did not open — skipping');
-      return;
-    }
-
-    const singleTurnSelect = dialog
-      .getByRole('button', { name: /select/i })
-      .first();
-    const hasSingleTurn = await singleTurnSelect
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!hasSingleTurn) {
-      test.skip(true, 'Single-Turn select button not found — skipping');
-      return;
-    }
-    await singleTurnSelect.click({ force: true });
-
-    const manualBtn = page
-      .getByRole('button', { name: /start writing|write.*manually|manual/i })
-      .first();
-    const hasManual = await manualBtn
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!hasManual) {
-      test.skip(true, '"Start Writing" button not found — skipping');
-      return;
-    }
-    await manualBtn.click({ force: true });
-
-    const navSucceeded = await page
-      .waitForURL(/\/tests\/(create|new|manual)/, { timeout: 15_000 })
-      .then(() => true)
-      .catch(() => false);
-    if (!navSucceeded) {
-      test.skip(true, 'Manual writer page URL not reached — skipping');
-      return;
-    }
-    await page
-      .locator('main, [role="main"]')
-      .first()
-      .waitFor({ state: 'visible', timeout: 15_000 });
-
-    // Fill in the first test row — look for a test prompt input
-    const promptInput = page
-      .getByRole('textbox', { name: /test prompt|prompt|content/i })
-      .first();
-    const hasPrompt = await promptInput
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!hasPrompt) {
-      test.skip(true, 'Test prompt input not found on writer page — skipping');
-      return;
-    }
-    await promptInput.fill('e2e test prompt for Playwright');
-
-    // Click "Add Another Test Case" / "Add Row"
-    const addRowBtn = page
-      .getByRole('button', { name: /add another|add test case|add row/i })
-      .first();
-    const hasAddRow = await addRowBtn
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (hasAddRow) {
-      await addRowBtn.click();
-      // Verify a counter now shows 2
-      const counter = page.getByText(/total.*2|2.*test case/i).first();
-      const hasCounter = await counter
-        .isVisible({ timeout: 5_000 })
-        .catch(() => false);
-      if (hasCounter) {
-        await expect(counter).toBeVisible();
-      }
-    }
-
-    await expect(page.locator('body')).not.toContainText(
-      'Internal Server Error'
-    );
+    await page.getByRole('button', { name: /^add test case$/i }).click();
+    await expect(promptInputs(page)).toHaveCount(2);
   });
 
-  test('can save tests from the manual writer page', async ({ page }) => {
-    test.slow(); // Multi-step wizard with sequential waits; needs more than the default 30 s.
-    const UNIQUE_SET_NAME = `e2e-manual-${Date.now()}`;
+  test('can save tests into a new test set', async ({ page }) => {
+    test.slow();
+    await openManualWriter(page);
 
-    const testsPage = new TestsPage(page);
-    await testsPage.goto();
-    await testsPage.expectLoaded();
-    await page
-      .locator('main, [role="main"]')
-      .first()
-      .waitFor({ state: 'visible', timeout: 15_000 });
-
-    const addBtn = page.getByRole('button', { name: /add tests/i }).first();
-    const addVisible = await addBtn
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!addVisible) {
-      test.skip(true, 'Add Tests button not found — skipping');
-      return;
-    }
-    await addBtn.click();
-
-    const dialog = page.getByRole('dialog');
-    if (!(await dialog.isVisible({ timeout: 10_000 }).catch(() => false))) {
-      test.skip(true, 'Test type dialog did not open — skipping');
-      return;
-    }
-
-    const singleTurnSelect = dialog
-      .getByRole('button', { name: /select/i })
-      .first();
-    const hasSingleTurn = await singleTurnSelect
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!hasSingleTurn) {
-      test.skip(true, 'Single-Turn select button not found — skipping');
-      return;
-    }
-    await singleTurnSelect.click({ force: true });
-
-    const manualBtn = page
-      .getByRole('button', { name: /start writing|write.*manually|manual/i })
-      .first();
-    const hasManual = await manualBtn
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!hasManual) {
-      test.skip(true, '"Start Writing" button not found — skipping');
-      return;
-    }
-    await manualBtn.click({ force: true });
-
-    const navSucceeded = await page
-      .waitForURL(/\/tests\/(create|new|manual)/, { timeout: 15_000 })
-      .then(() => true)
-      .catch(() => false);
-    if (!navSucceeded) {
-      test.skip(true, 'Manual writer page URL not reached — skipping');
-      return;
-    }
-    await page
-      .locator('main, [role="main"]')
-      .first()
-      .waitFor({ state: 'visible', timeout: 15_000 });
-
-    // Fill in the test prompt
-    const promptInput = page
-      .getByRole('textbox', { name: /test prompt|prompt|content/i })
-      .first();
-    const hasPrompt = await promptInput
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false);
-    if (!hasPrompt) {
-      test.skip(true, 'Test prompt input not found — skipping save flow');
-      return;
-    }
-    await promptInput.fill('e2e manual test — save flow');
-
-    // handleSave() requires prompt, category, topic, and requirement for single-turn rows.
-    const classifiers = page
+    const prompt = `e2e-manual-test-${Date.now()}`;
+    await promptInputs(page).fill(prompt);
+    const pickers = page
       .locator('table')
-      .first()
       .getByPlaceholder('Select or type new...');
-    if ((await classifiers.count()) < 3) {
-      test.skip(
-        true,
-        'Category/topic/requirement fields not found — skipping save flow'
-      );
-      return;
-    }
-    await classifiers.nth(0).fill('e2e-category');
-    await classifiers.nth(1).fill('e2e-topic');
-    await classifiers.nth(2).fill('e2e-requirement');
-
-    // Click Save
-    const saveBtn = page.getByRole('button', { name: /^save$/i }).first();
-    const hasSave = await saveBtn
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (!hasSave) {
-      test.skip(true, 'Save button not found on writer page — skipping');
-      return;
-    }
-    await saveBtn.click();
-
-    // A save dialog should appear — use waitFor so we don't miss a delayed open
-    const saveDialog = page.getByRole('dialog');
-    await saveDialog
-      .waitFor({ state: 'visible', timeout: 10_000 })
-      .catch(() => {});
-    const dialogVisible = await saveDialog.isVisible().catch(() => false);
-
-    if (dialogVisible) {
-      // Optionally enter a test set name
-      const setNameInput = saveDialog
-        .getByRole('textbox', { name: /test set name/i })
-        .first();
-      const hasSetName = await setNameInput.isVisible().catch(() => false);
-      if (hasSetName) await setNameInput.fill(UNIQUE_SET_NAME);
-
-      // Confirm save
-      await saveDialog.getByRole('button', { name: /^save$/i }).click();
+    // Category, topic and requirement: take the first seeded option for each.
+    for (let i = 0; i < 3; i++) {
+      await pickers.nth(i).click();
+      await page.getByRole('option').first().click();
     }
 
-    // When a test-set name is provided the app redirects to /test-sets/{id};
-    // without one it redirects to /tests.
-    await page.waitForURL(/\/(tests($|\?)|test-sets\/)/, { timeout: 20_000 });
-    await expect(page.locator('body')).not.toContainText(
-      'Internal Server Error'
-    );
+    await page.getByRole('button', { name: /^save$/i }).click();
+    const testSetName = `e2e-manual-set-${Date.now()}`;
+    await page
+      .getByRole('textbox', { name: /test set name/i })
+      .fill(testSetName);
+    await page
+      .getByRole('button', { name: /^save$/i })
+      .last()
+      .click();
+
+    await page.waitForURL(/\/test-sets\/[^/?]+/, { timeout: 20_000 });
+    await expect(page.getByText(testSetName).first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.getByRole('tab', { name: /^tests$/i }).click();
+    await expect(page.getByText(prompt).first()).toBeVisible({
+      timeout: 15_000,
+    });
   });
 });

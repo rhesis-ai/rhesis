@@ -78,6 +78,9 @@ export function Fab({
         boxShadow: theme => theme.elevation?.xs ?? ELEVATION.xs,
         ...sx,
       }}
+      // Tooltip labels the wrapper span, not the button, so an icon-only FAB
+      // would have no accessible name without this.
+      aria-label={tooltip}
       {...props}
     >
       {loading ? (

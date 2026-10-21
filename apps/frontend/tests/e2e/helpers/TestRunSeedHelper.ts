@@ -67,14 +67,25 @@ function metricResult(passed: boolean) {
  * Call after a page load, which sets the active project cookie.
  */
 export async function seedCompletedTestRun(page: Page): Promise<string> {
-  const [testSet] = await getJson<Named[]>(page, '/test_sets/?limit=1');
+  // Other specs create small test sets, so pick one with at least two tests
+  // rather than whichever the API lists first.
+  const testSets = await getJson<Named[]>(page, '/test_sets/?limit=100');
+  let testSet: Named | undefined;
+  let tests: Named[] = [];
+  for (const candidate of testSets) {
+    tests = await getJson<Named[]>(
+      page,
+      `/test_sets/${candidate.id}/tests?limit=2`
+    );
+    if (tests.length === 2) {
+      testSet = candidate;
+      break;
+    }
+  }
   const [endpoint] = await getJson<Named[]>(page, '/endpoints/?limit=1');
-  expect(testSet && endpoint, 'Quick Start test set and endpoint').toBeTruthy();
-  const tests = await getJson<Named[]>(
-    page,
-    `/test_sets/${testSet.id}/tests?limit=2`
-  );
-  expect(tests.length, 'tests in the seeded test set').toBe(2);
+  expect(testSet, 'a test set with two tests').toBeTruthy();
+  expect(endpoint, 'the Quick Start endpoint').toBeTruthy();
+  if (!testSet || !endpoint) throw new Error('seed data missing');
 
   const config = await postJson<Named>(page, '/test_configurations/', {
     endpoint_id: endpoint.id,
