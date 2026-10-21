@@ -12,6 +12,17 @@ def mock_client():
     return Mock(spec=APIClient)
 
 
+@pytest.fixture(autouse=True)
+def no_project_from_the_environment(monkeypatch):
+    """A project set where the suite runs would add X-Project-Id to every header dict below."""
+    import rhesis.sdk
+    import rhesis.sdk.config as config
+
+    monkeypatch.delenv("RHESIS_PROJECT_ID", raising=False)
+    monkeypatch.setattr(rhesis.sdk, "project_id", None)
+    monkeypatch.setattr(config, "project_id", None)
+
+
 def test_client_init():
     client = APIClient(api_key="test_api_key", base_url="https://test.example.com")
     assert client.api_key == "test_api_key"
@@ -32,6 +43,40 @@ def test_client_uses_env_api_key(monkeypatch):
     assert client.api_key == "env_test_key"
     assert client.base_url == "https://test.example.com"
     assert client.headers == {**backend_headers("env_test_key"), "Content-Type": "application/json"}
+
+
+PROJECT_ID = "6f1a3c2e-0000-4000-8000-000000000001"
+
+
+@patch("requests.post")
+@patch("requests.request")
+def test_project_id_from_env_scopes_every_request(mock_request, mock_post, monkeypatch):
+    """An org-level key sees only org-level rows unless the request names a project."""
+    monkeypatch.setenv("RHESIS_PROJECT_ID", PROJECT_ID)
+    client = APIClient(api_key="k", base_url="https://test.example.com")
+
+    client.send_request(Endpoints.ENDPOINTS, Methods.GET, url_params="e1")
+    client.send_raw_request(Endpoints.ENDPOINTS, url_params="e1")
+    client.send_file_upload(Endpoints.FILES, files=[])
+
+    for call in (*mock_request.call_args_list, mock_post.call_args):
+        assert call.kwargs["headers"]["X-Project-Id"] == PROJECT_ID
+
+
+def test_project_id_set_on_the_sdk_module(monkeypatch):
+    import rhesis.sdk
+
+    monkeypatch.setattr(rhesis.sdk, "project_id", PROJECT_ID)
+
+    client = APIClient(api_key="k", base_url="https://test.example.com")
+
+    assert client.headers["X-Project-Id"] == PROJECT_ID
+
+
+def test_no_project_id_leaves_scoping_to_the_key():
+    client = APIClient(api_key="k", base_url="https://test.example.com")
+
+    assert "X-Project-Id" not in client.headers
 
 
 def test_base_url():
