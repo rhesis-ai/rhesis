@@ -990,28 +990,6 @@ export function MetricDetailView({
             </InfoRow>
           </EditableSection>
 
-          {/* Tags Section */}
-          <EditableSectionCard
-            editable={canEditMetric}
-            title="Tags"
-            initialValue={{ tagNames }}
-            onSave={handleTagsSave}
-            isDirty={(draft, initial) =>
-              JSON.stringify(draft.tagNames.slice().sort()) !==
-              JSON.stringify(initial.tagNames.slice().sort())
-            }
-          >
-            {({ draft, setDraft, isEditing: isTagsEditing }) => (
-              <TagsField
-                tagNames={draft.tagNames}
-                isEditing={isTagsEditing}
-                onChange={names => setDraft(d => ({ ...d, tagNames: names }))}
-                helperText="These tags help categorize and find this metric"
-                emptyLabel="No tags"
-              />
-            )}
-          </EditableSectionCard>
-
           {/* Evaluation Process Section */}
           <EditableSection
             editable={canEditMetric}
@@ -1676,6 +1654,28 @@ export function MetricDetailView({
               )}
             </InfoRow>
           </EditableSection>
+
+          {/* Tags Section */}
+          <EditableSectionCard
+            editable={canEditMetric}
+            title="Tags"
+            initialValue={{ tagNames }}
+            onSave={handleTagsSave}
+            isDirty={(draft, initial) =>
+              JSON.stringify(draft.tagNames.slice().sort()) !==
+              JSON.stringify(initial.tagNames.slice().sort())
+            }
+          >
+            {({ draft, setDraft, isEditing: isTagsEditing }) => (
+              <TagsField
+                tagNames={draft.tagNames}
+                isEditing={isTagsEditing}
+                onChange={names => setDraft(d => ({ ...d, tagNames: names }))}
+                helperText="These tags help categorize and find this metric"
+                emptyLabel="No tags"
+              />
+            )}
+          </EditableSectionCard>
         </Stack>
       </Box>
     </Stack>
