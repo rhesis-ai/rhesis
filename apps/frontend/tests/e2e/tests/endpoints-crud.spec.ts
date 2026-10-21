@@ -1,15 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { test, expect } from '@playwright/test';
 import { MockApiHelper } from '../helpers/MockApiHelper';
+import {
+  expectGridRowVisible,
+  waitForDrawerClosed,
+} from '../helpers/CrudHelper';
 
 import endpointsFixture from '../fixtures/endpoints.json';
 
 /**
  * CRUD interaction tests for Endpoints.
  *
- * These tests exercise the new-endpoint form and verify field interaction.
- * Full creation is attempted when a project is available; the test degrades
- * gracefully when no projects exist in the test environment.
+ * These tests exercise the new-endpoint form, verify field interaction, and
+ * create an endpoint in the active (Quick Start) project.
  */
 test.describe('Endpoints — CRUD @crud', () => {
   test('new endpoint form loads and required fields are fillable', async ({
@@ -74,59 +77,24 @@ test.describe('Endpoints — CRUD @crud', () => {
     await expect(page.getByText('Enter a valid URL')).toBeVisible();
   });
 
-  test('can create an endpoint when a project is available', async ({
-    page,
-  }) => {
+  test('can create an endpoint in the active project', async ({ page }) => {
     const UNIQUE_NAME = `e2e-endpoint-${Date.now()}`;
     const TEST_URL = 'https://api.example.com/e2e-test';
 
     await page.goto('/endpoints?create=1');
     await expect(page).toHaveURL(/\/endpoints\/?$/);
 
-    // Fill required text fields — URL field is on the Connection tab
+    // The create drawer uses the active project; it has no project field.
     await page.locator('input[name="name"]').fill(UNIQUE_NAME);
     await page.getByRole('tab', { name: /connection/i }).click();
     await page.locator('input[name="url"]').fill(TEST_URL);
+    await page.getByRole('button', { name: /^create endpoint$/i }).click();
 
-    // Project is optional in the create drawer; select one when available
-    const projectSelectTrigger = page.getByLabel(/project/i);
-    const hasProjectSelect = await projectSelectTrigger
-      .isVisible()
-      .catch(() => false);
-
-    if (!hasProjectSelect) {
-      test.skip(true, 'Project select not found — skipping creation');
-      return;
-    }
-
-    // Click the project select to open the dropdown
-    await projectSelectTrigger.click();
-
-    const listbox = page.getByRole('listbox');
-    await listbox
-      .waitFor({ state: 'visible', timeout: 5_000 })
-      .catch(() => null);
-
-    const options = await listbox.getByRole('option').all();
-
-    if (options.length === 0) {
-      test.skip(true, 'No projects available — skipping endpoint creation');
-      return;
-    }
-
-    // Select the first available project
-    await options[0].click();
-
-    // Click "Create Endpoint"
-    await page.getByRole('button', { name: /create endpoint/i }).click();
-
-    // After creation the form navigates back to the endpoints list
-    await page.waitForURL(/\/endpoints/, { timeout: 20_000 });
-    await page.waitForLoadState('networkidle');
+    await waitForDrawerClosed(page, { timeout: 20_000 });
+    await expectGridRowVisible(page, UNIQUE_NAME);
     await expect(page.locator('body')).not.toContainText(
       'Internal Server Error'
     );
-    await expect(page.locator('body')).not.toContainText('Application error');
   });
 });
 
