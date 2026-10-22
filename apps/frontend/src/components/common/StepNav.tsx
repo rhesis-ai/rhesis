@@ -95,7 +95,9 @@ export function StepNav({
                     bgcolor: theme =>
                       selected
                         ? theme.palette.greyscale.title
-                        : theme.palette.greyscale.surface2,
+                        : theme.palette.mode === 'dark'
+                          ? theme.palette.greyscale.border
+                          : theme.palette.greyscale.surface2,
                     color: theme =>
                       selected
                         ? theme.palette.background.paper
