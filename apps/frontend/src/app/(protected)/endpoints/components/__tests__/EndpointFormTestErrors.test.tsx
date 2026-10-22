@@ -80,12 +80,13 @@ async function fillToMapping(user: User) {
   });
 }
 
+// Mapping the input sends the test by itself after a short pause.
+const AUTO_RUN = { timeout: 3000 };
+
 async function passMappingTest(user: User) {
-  mockTestEndpoint.mockResolvedValueOnce({ raw_response: { text: 'hi' } });
-  await user.click(screen.getByRole('button', { name: /run test request/i }));
-  await screen.findByText('Test request successful');
-  fireEvent.mouseDown(screen.getByLabelText('Variable for $.text'));
-  await user.click(screen.getByRole('option', { name: /^\{\{ output \}\}/ }));
+  await screen.findByText('Test request successful', {}, AUTO_RUN);
+  fireEvent.mouseDown(screen.getByLabelText('Response value for output'));
+  await user.click(screen.getByRole('option', { name: '$.text' }));
 }
 
 describe('Endpoint create drawer — mapping test errors', () => {
@@ -105,11 +106,12 @@ describe('Endpoint create drawer — mapping test errors', () => {
     const user = userEvent.setup({ delay: null });
     renderDrawer();
     await fillToMapping(user);
-    await user.click(screen.getByRole('button', { name: /run test request/i }));
 
     expect(
       await screen.findByText(
-        'Could not reach api.example.com: it did not respond before the timeout.'
+        'Could not reach api.example.com: it did not respond before the timeout.',
+        {},
+        AUTO_RUN
       )
     ).toBeInTheDocument();
     expect(nextButton()).toBeDisabled();
@@ -124,10 +126,13 @@ describe('Endpoint create drawer — mapping test errors', () => {
     const user = userEvent.setup({ delay: null });
     renderDrawer();
     await fillToMapping(user);
-    await user.click(screen.getByRole('button', { name: /run test request/i }));
 
     expect(
-      await screen.findByText(/token request to auth\.example\.com failed/)
+      await screen.findByText(
+        /token request to auth\.example\.com failed/,
+        {},
+        AUTO_RUN
+      )
     ).toBeInTheDocument();
   });
 });
@@ -137,8 +142,23 @@ describe('Endpoint create drawer — steps and submit', () => {
 
   beforeEach(() => {
     mockTestEndpoint.mockReset();
+    mockTestEndpoint.mockResolvedValue({ raw_response: { text: 'hi' } });
     mockCreateEndpoint.mockReset();
     mockNotificationsShow.mockClear();
+  });
+
+  it('moves to the next step on Enter once the step is complete', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderDrawer();
+
+    await user.type(screen.getByLabelText(/endpoint name/i), '{Enter}');
+    expect(screen.queryByLabelText(/endpoint url/i)).not.toBeInTheDocument();
+
+    await user.type(
+      screen.getByLabelText(/endpoint name/i),
+      'My Endpoint{Enter}'
+    );
+    expect(screen.getByLabelText(/endpoint url/i)).toBeInTheDocument();
   });
 
   it('needs a passing mapping test and an output mapping before Next', async () => {
@@ -171,13 +191,12 @@ describe('Endpoint create drawer — steps and submit', () => {
     await user.click(nextButton());
 
     expect(createButton()).toBeDisabled();
-    fireEvent.change(screen.getByLabelText('Value for input'), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Value for input' }), {
       target: { value: 'Hello' },
     });
-    mockTestEndpoint.mockResolvedValueOnce({
-      raw_response: { text: 'Hi there' },
-    });
-    await user.click(screen.getByRole('button', { name: /run test request/i }));
+    await user.click(
+      screen.getByRole('button', { name: /send test request/i })
+    );
     await screen.findByText('Endpoint is ready');
     await user.click(createButton());
   }

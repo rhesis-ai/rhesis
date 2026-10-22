@@ -80,13 +80,22 @@ function renderDrawer() {
   );
 }
 
+async function goToConnection(user: ReturnType<typeof userEvent.setup>) {
+  await user.type(screen.getByLabelText(/endpoint name/i), 'My Endpoint');
+  await user.click(screen.getByRole('button', { name: /^next$/i }));
+}
+
 describe('Endpoint create drawer — auto-configure', () => {
   jest.setTimeout(10000);
 
-  it('opens auto-configure from the Overview step', async () => {
+  it('opens auto-configure from the Connection step', async () => {
     const user = userEvent.setup({ delay: null });
     renderDrawer();
 
+    expect(
+      screen.queryByRole('button', { name: /auto-configure/i })
+    ).not.toBeInTheDocument();
+    await goToConnection(user);
     await user.click(screen.getByRole('button', { name: /auto-configure/i }));
 
     expect(screen.getByTestId('auto-configure-drawer')).toBeInTheDocument();
@@ -96,10 +105,9 @@ describe('Endpoint create drawer — auto-configure', () => {
     const user = userEvent.setup({ delay: null });
     renderDrawer();
 
+    await goToConnection(user);
     await user.click(screen.getByRole('button', { name: /auto-configure/i }));
     await user.click(screen.getByRole('button', { name: /apply result/i }));
-    await user.type(screen.getByLabelText(/endpoint name/i), 'My Endpoint');
-    await user.click(screen.getByRole('button', { name: /^next$/i }));
 
     expect(screen.getByLabelText(/endpoint url/i)).toHaveValue(
       'https://api.example.com/chat'

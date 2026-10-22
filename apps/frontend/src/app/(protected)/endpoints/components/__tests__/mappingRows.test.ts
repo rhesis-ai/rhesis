@@ -26,11 +26,14 @@ describe('request template rows', () => {
     });
   });
 
+  it('reads nested objects as dotted paths', () => {
+    expect(
+      parseRequestTemplate('{"payload": {"query": "{{ input }}"}}')?.fields
+    ).toEqual({ input: { field: 'payload.query', filter: '' } });
+  });
+
   it.each([
-    [
-      'a nested body',
-      '{"messages": [{"role": "user", "content": "{{ input }}"}]}',
-    ],
+    ['an array', '{"messages": [{"role": "user", "content": "{{ input }}"}]}'],
     ['a literal value', '{"model": "gpt-4o", "q": "{{ input }}"}'],
     ['a variable used twice', '{"a": "{{ input }}", "b": "{{ input }}"}'],
     ['Jinja that is not JSON', '{"q": {{ input | tojson }}}'],
@@ -53,6 +56,20 @@ describe('request template rows', () => {
       prompt: '{{ input }}',
       q: '{{ messages }}',
       attachments: '{{ files | to_openai | tojson }}',
+    });
+  });
+
+  it('builds nested objects and leaves out clashing paths', () => {
+    const built = buildRequestTemplate({
+      fields: {
+        input: { field: 'payload.query' },
+        conversation_id: { field: 'payload.meta.id' },
+        messages: { field: 'payload.query.history' },
+      },
+      systemPrompt: '',
+    });
+    expect(JSON.parse(built)).toEqual({
+      payload: { meta: { id: '{{ conversation_id }}' } },
     });
   });
 

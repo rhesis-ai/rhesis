@@ -33,7 +33,7 @@ describe('TabTest', () => {
   it('blocks the test until input has a value', () => {
     render(<TabTest {...defaultProps} />);
     expect(
-      screen.getByRole('button', { name: /run test request/i })
+      screen.getByRole('button', { name: /send test request/i })
     ).toBeDisabled();
   });
 
@@ -46,7 +46,7 @@ describe('TabTest', () => {
     fireEvent.change(screen.getByLabelText('Value for messages'), {
       target: { value: 'Earlier question' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /run test request/i }));
+    fireEvent.click(screen.getByRole('button', { name: /send test request/i }));
     await Promise.resolve();
     expect(onRunTest).toHaveBeenCalledWith({
       input: 'Hi',

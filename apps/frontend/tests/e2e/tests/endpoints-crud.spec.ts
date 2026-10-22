@@ -52,7 +52,7 @@ test.describe('Endpoints — CRUD @crud', () => {
     await expect(urlField).toHaveValue(TEST_URL);
 
     // Earlier steps stay reachable; step panels unmount on switch, state is kept.
-    await page.getByRole('button', { name: /overview/i }).click();
+    await page.getByRole('button', { name: /basics/i }).click();
     await expect(page.locator('input[name="name"]')).toHaveValue(UNIQUE_NAME);
   });
 
@@ -93,20 +93,17 @@ test.describe('Endpoints — CRUD @crud', () => {
         body: JSON.stringify({ raw_response: { text: 'Hello from e2e' } }),
       })
     );
-    const runTest = () =>
-      page.getByRole('button', { name: /run test request/i }).click();
 
     // The create drawer uses the active project; it has no project field.
     await goToConnection(page, UNIQUE_NAME);
     await page.locator('input[name="url"]').fill(TEST_URL);
     await nextButton(page).click();
 
-    // Mapping: send input as `prompt`, then map the reply to output.
+    // Mapping: send input as `prompt`; the test runs by itself, then map the reply to output.
     await page.getByLabel('API field for input').fill('prompt');
-    await runTest();
     await expect(page.getByText('Test request successful')).toBeVisible();
-    await page.getByLabel('Variable for $.text').click();
-    await page.getByRole('option', { name: /^\{\{ output \}\}/ }).click();
+    await page.getByLabel('Response value for output').click();
+    await page.getByRole('option', { name: '$.text' }).click();
     await nextButton(page).click();
 
     // Test: Create only unlocks after a passing run.
@@ -115,7 +112,7 @@ test.describe('Endpoints — CRUD @crud', () => {
     });
     await expect(createButton).toBeDisabled();
     await page.getByRole('textbox', { name: 'Value for input' }).fill('Hello');
-    await runTest();
+    await page.getByRole('button', { name: /send test request/i }).click();
     await expect(page.getByText('Endpoint is ready')).toBeVisible();
     await createButton.click();
 
