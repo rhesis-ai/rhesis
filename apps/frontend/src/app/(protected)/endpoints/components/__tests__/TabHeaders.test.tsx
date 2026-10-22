@@ -60,6 +60,7 @@ const defaultFormData: FormData = {
   request_headers: '{}',
   disable_tracing: false,
   timeout_seconds: '',
+  version_info: '',
 };
 
 const connectionProps = {

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   TextField,
@@ -19,13 +19,22 @@ import {
   ListItemText,
   FormHelperText,
   Stack,
+  Link,
+  Collapse,
+  IconButton,
 } from '@mui/material';
+import { KeyboardArrowDownIcon, KeyboardArrowUpIcon } from '@/components/icons';
+import { useTheme } from '@mui/material/styles';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { getProjectIcon } from '@/components/common/ProjectIcons';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import JsonMonacoField from '../[identifier]/components/JsonMonacoField';
 import type { FormData } from './EndpointForm';
+
+const VERSION_INFO_DOCS_URL =
+  'https://docs.rhesis.ai/docs/endpoints/management#version-information';
 
 const ENVIRONMENTS = ['production', 'staging', 'development', 'local'];
 
@@ -36,6 +45,8 @@ interface TabOverviewProps {
   loadingProjects: boolean;
   /** Hide project picker — project is inferred from the active project scope */
   hideProjectSelect?: boolean;
+  /** Why the version information can't be saved, or null when it can. */
+  versionInfoError?: string | null;
 }
 
 function ProjectSelect({
@@ -134,7 +145,17 @@ export default function TabOverview({
   projects,
   loadingProjects,
   hideProjectSelect = false,
+  versionInfoError = null,
 }: TabOverviewProps) {
+  const theme = useTheme();
+  const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
+  // Optional, so the editor starts closed unless there's already something in it.
+  const [versionInfoOpen, setVersionInfoOpen] = useState(() =>
+    Boolean(formData.version_info.trim())
+  );
+  // An error blocks Next, so it's never hidden in a closed section.
+  const versionInfoExpanded = versionInfoOpen || Boolean(versionInfoError);
+
   return (
     <Stack spacing={5}>
       <Stack spacing={4}>
@@ -185,59 +206,117 @@ export default function TabOverview({
         />
       </Stack>
 
-      {/* Sized by the toggle group, so the timeout field matches its width. */}
-      <Stack spacing={5} sx={{ alignSelf: 'flex-start', width: 'fit-content' }}>
-        <Stack spacing={3}>
-          <SectionHeading
-            headline="Environment"
-            descriptiveText="Choose where this endpoint runs."
-          />
-          <ToggleButtonGroup
-            value={formData.environment}
-            exclusive
-            color="primary"
-            onChange={(_, v) => {
-              if (v) onChange('environment', v);
-            }}
-            sx={{
-              '& .MuiToggleButton-root': {
-                textTransform: 'capitalize',
-                fontWeight: 700,
-                py: 1,
-                px: 2,
-                color: 'primary.main',
-                borderColor: 'primary.main',
-                '&.Mui-selected, &.Mui-selected:hover': {
-                  bgcolor: 'primary.main',
-                  color: 'primary.contrastText',
-                },
+      <Stack spacing={3} sx={{ alignSelf: 'flex-start' }}>
+        <SectionHeading
+          headline="Environment"
+          descriptiveText="Choose where this endpoint runs."
+        />
+        <ToggleButtonGroup
+          value={formData.environment}
+          exclusive
+          color="primary"
+          onChange={(_, v) => {
+            if (v) onChange('environment', v);
+          }}
+          sx={{
+            '& .MuiToggleButton-root': {
+              textTransform: 'capitalize',
+              fontWeight: 700,
+              py: 1,
+              px: 2,
+              color: 'primary.main',
+              borderColor: 'primary.main',
+              '&.Mui-selected, &.Mui-selected:hover': {
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
               },
-            }}
-          >
-            {ENVIRONMENTS.map(env => (
-              <ToggleButton key={env} value={env}>
-                {env}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
-        </Stack>
+            },
+          }}
+        >
+          {ENVIRONMENTS.map(env => (
+            <ToggleButton key={env} value={env}>
+              {env}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
+      </Stack>
 
-        <Stack spacing={3}>
-          <SectionHeading
-            headline="Timeout"
-            descriptiveText="How long Rhesis waits for a response. Leave empty for the default of 30 seconds."
+      <Stack spacing={versionInfoExpanded ? 3 : 0}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 2,
+          }}
+        >
+          <FormSectionDivider
+            headline="Version Information"
+            descriptiveText={
+              <>
+                Optional JSON describing the system behind this endpoint, such
+                as prompt version, model and parameters. Recorded on every test
+                run, so past runs keep showing the version that produced them.
+                Avoid secrets: this is shown wherever the endpoint is visible.{' '}
+                <Link
+                  href={VERSION_INFO_DOCS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Learn more
+                </Link>
+              </>
+            }
           />
-          <TextField
-            label="Seconds"
-            type="number"
-            value={formData.timeout_seconds}
-            onChange={e => onChange('timeout_seconds', e.target.value)}
-            placeholder="30"
-            slotProps={{
-              input: { inputProps: { min: 1 } },
-            }}
+          <IconButton
+            onClick={() => setVersionInfoOpen(o => !o)}
+            disabled={Boolean(versionInfoError)}
+            aria-expanded={versionInfoExpanded}
+            aria-controls="endpoint-version-info-editor"
+            aria-label={
+              versionInfoExpanded
+                ? 'Hide version information'
+                : 'Show version information'
+            }
+          >
+            {versionInfoExpanded ? (
+              <KeyboardArrowUpIcon />
+            ) : (
+              <KeyboardArrowDownIcon />
+            )}
+          </IconButton>
+        </Box>
+        <Collapse in={versionInfoExpanded} id="endpoint-version-info-editor">
+          <JsonMonacoField
+            editorKey="create-version-info"
+            height="160px"
+            theme={editorTheme}
+            value={formData.version_info}
+            onChange={v => onChange('version_info', v)}
           />
-        </Stack>
+          <FormHelperText error={Boolean(versionInfoError)} sx={{ mx: 1.75 }}>
+            {versionInfoError ??
+              'e.g. { "prompt_version": "v3.2", "model": "gpt-4o" }'}
+          </FormHelperText>
+        </Collapse>
+      </Stack>
+
+      <Stack spacing={3}>
+        <FormSectionDivider
+          headline="Timeout"
+          descriptiveText="How long Rhesis waits for a response. Leave empty for the default of 30 seconds."
+        />
+        <TextField
+          label="Seconds"
+          sx={{ alignSelf: 'flex-start' }}
+          type="number"
+          value={formData.timeout_seconds}
+          onChange={e => onChange('timeout_seconds', e.target.value)}
+          placeholder="30"
+          slotProps={{
+            input: { inputProps: { min: 1 } },
+          }}
+        />
       </Stack>
 
       <Stack spacing={3}>

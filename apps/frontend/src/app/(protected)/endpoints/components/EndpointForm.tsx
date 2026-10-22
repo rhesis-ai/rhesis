@@ -39,6 +39,7 @@ import {
   validateMappingJson,
 } from './mappingUtils';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { validateVersionInfoDraft } from '@/utils/version-info';
 import { getEndpointFailure } from '@/utils/endpoint-failure';
 import type { TestOutput } from '@/utils/api-client/interfaces/test-results';
 import {
@@ -71,6 +72,8 @@ export interface FormData {
   request_headers: string;
   disable_tracing: boolean;
   timeout_seconds: string;
+  /** Editor text for the optional version_info object. */
+  version_info: string;
 }
 
 // Both start empty: the Mapping step asks for every field explicitly.
@@ -188,6 +191,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       request_headers: DEFAULT_REQUEST_HEADERS,
       disable_tracing: false,
       timeout_seconds: '',
+      version_info: '',
     });
 
     // Set project_id from URL parameter, then fall back to active project cookie
@@ -293,8 +297,12 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       setTabTestResult(null);
     }, [fullKey]);
 
+    const versionInfoError = validateVersionInfoDraft(formData.version_info);
+
     const stepsValid = [
-      Boolean(formData.name) && Boolean(formData.project_id),
+      Boolean(formData.name) &&
+        Boolean(formData.project_id) &&
+        versionInfoError === null,
       Boolean(formData.url) && validateUrl(formData.url) && authError === null,
       INPUT_VAR_RE.test(reqBody) &&
         hasOutputMapping(resBody) &&
@@ -426,6 +434,11 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
         return;
       }
 
+      if (versionInfoError) {
+        setError(versionInfoError);
+        return;
+      }
+
       const reqError = validateMappingJson(reqBody);
       if (reqError) {
         setError(`Invalid JSON in request mapping: ${reqError}`);
@@ -485,6 +498,14 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
           (endpointData as Record<string, unknown>).auth_token =
             formData.auth_token;
         }
+        const versionInfo = formData.version_info.trim();
+        if (versionInfo) {
+          const parsed = JSON.parse(versionInfo) as Record<string, unknown>;
+          // An empty object means nothing to record, same as the detail page.
+          if (Object.keys(parsed).length > 0) {
+            endpointData.version_info = parsed;
+          }
+        }
         const parsedTimeout = parseInt(formData.timeout_seconds, 10);
         if (!isNaN(parsedTimeout) && parsedTimeout > 0) {
           endpointData.timeout_seconds = parsedTimeout;
@@ -520,6 +541,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     }, [
       formData,
       authError,
+      versionInfoError,
       isClientCredentials,
       reqBody,
       resBody,
@@ -600,6 +622,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
               projects={projects}
               loadingProjects={loadingProjects}
               hideProjectSelect={hideProjectSelect}
+              versionInfoError={versionInfoError}
             />
           </DetailTabPanel>
 
