@@ -51,8 +51,9 @@ packages = ["src/visit_prep"]
 
 [tool.uv]
 exclude-newer = "1 week"
-exclude-newer-package = { pydantic-settings = false, langsmith = false, langchain = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, cryptography = false, python-multipart = false, langchain-classic = false, langchain-core = false, idna = false }
+exclude-newer-package = { pydantic-settings = false, langsmith = false, langchain = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, cryptography = false, python-multipart = false, langchain-classic = false, langchain-core = false, idna = false, certifi = false }
 constraint-dependencies = [
+    "certifi>=2026.10.19",
     "anyio>=4.14.2",
     "pyasn1>=0.6.4",
     "orjson>=3.11.7",
@@ -71,7 +72,7 @@ constraint-dependencies = [
     "setuptools>=83.0.0",
     "langchain>=1.4.0",
     "mcp>=1.30.0",
-    "pillow>=12.3.0",
+    "pillow>=13.0.0",
     "cryptography>=50.0.0",
     "soupsieve>=2.9.0",
     "urllib3>=2.8.0",

@@ -150,7 +150,7 @@ all = [
     "mcp>=1.30.0,<2",
     "httpx>=0.27.0",
     # Security floors for packages the ones above pull in.
-    "pillow>=12.3.0",
+    "pillow>=13.0.0",
     "mammoth>=1.11.0",
     "cryptography>=48.0.1",
 ]
@@ -247,8 +247,10 @@ allow-direct-references = true
 [tool.uv]
 exclude-newer = "1 week"
 # Allow newer versions for packages with recent security patches (CVEs).
-exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false }
+exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false, certifi = false, uv = false, nltk = false, pillow = false }
 constraint-dependencies = [
+    "nltk>=3.10.4",
+    "certifi>=2026.10.19",
     "anyio>=4.14.2",
     "tornado>=6.5.8",
     "pyasn1>=0.6.4",
@@ -272,7 +274,7 @@ constraint-dependencies = [
     "pydantic-settings>=2.14.2",
     "setuptools>=83.0.0",
     "soupsieve>=2.9.0",
-    "uv>=0.11.15",
+    "uv>=0.13.4",
     "httpx2>=2.12.0",
     "httpcore2>=2.10.0",
     "httplib2>=0.32.0",

@@ -72,6 +72,7 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.uv]
 constraint-dependencies = [
+    "certifi>=2026.10.19",
     "pyjwt>=2.15.0",
     "urllib3>=2.8.0",
     "multidict>=6.9.1",

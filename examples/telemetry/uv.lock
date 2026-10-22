@@ -1,17 +1,17 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version == '3.13.*' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version >= '3.14' and sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version >= '3.14' and sys_platform != 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version == '3.13.*' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.13' and sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.13' and sys_platform != 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
 ]
 conflicts = [[
@@ -29,28 +29,33 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-10-13T15:03:55.011843Z"
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
-langsmith = false
-langchain-core = false
-python-multipart = false
-pydantic-ai = false
-pydantic-settings = false
-pydantic-ai-slim = false
-starlette = false
-litellm = false
 aiohttp = false
+certifi = false
 cryptography = false
 langchain = false
+langchain-core = false
+langsmith = false
+litellm = false
+nltk = false
+pillow = false
+pydantic-ai = false
+pydantic-ai-slim = false
+pydantic-settings = false
+python-multipart = false
+starlette = false
 tornado = false
+uv = false
 
 [manifest]
 constraints = [
     { name = "aiohttp", specifier = ">=3.14.4" },
     { name = "anyio", specifier = ">=4.14.2" },
     { name = "banks", specifier = ">=2.4.5" },
+    { name = "certifi", specifier = ">=2026.10.19" },
     { name = "cryptography", specifier = ">=48.0.1" },
     { name = "fsspec", specifier = ">=2026.6.0" },
     { name = "httpcore2", specifier = ">=2.10.0" },
@@ -64,9 +69,10 @@ constraints = [
     { name = "litellm", specifier = ">=1.95.1" },
     { name = "mcp", specifier = ">=1.28.1" },
     { name = "multidict", specifier = ">=6.9.1" },
+    { name = "nltk", specifier = ">=3.10.4" },
     { name = "oauthlib", specifier = ">=4.0.0" },
     { name = "orjson", specifier = ">=3.11.7" },
-    { name = "pillow", specifier = ">=12.3.0" },
+    { name = "pillow", specifier = ">=13.0.0" },
     { name = "pyasn1", specifier = ">=0.6.4" },
     { name = "pydantic-ai", specifier = ">=2.52.0" },
     { name = "pydantic-settings", specifier = ">=2.14.2" },
@@ -83,6 +89,7 @@ overrides = [
     { name = "mcp", specifier = ">=1.30.0,<2" },
     { name = "pydantic", specifier = ">=2.13.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
+    { name = "uv", specifier = ">=0.13.4" },
 ]
 
 [[package]]
@@ -126,7 +133,7 @@ dependencies = [
     { name = "frozenlist" },
     { name = "multidict" },
     { name = "propcache" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
     { name = "yarl" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6c/4c/bdccd81e9ee225b69c60e7766c9a5b05364f118f4d383713b89a682d772d/aiohttp-3.14.5.tar.gz", hash = "sha256:5558a7f5a05af9ecf744af91e5baefc436f93c9333e656c27ec253f9a6bbe178", size = 8078052, upload-time = "2026-10-11T01:05:12.408Z" }
@@ -263,7 +270,7 @@ version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "frozenlist" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/62/06741b579156360248d1ec624842ad0edf697050bbaf7c3e46394e106ad1/aiosignal-1.4.0.tar.gz", hash = "sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7", size = 25007, upload-time = "2025-07-03T22:54:43.528Z" }
 wheels = [
@@ -275,7 +282,7 @@ name = "aiosqlite"
 version = "0.21.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/13/7d/8bca2bf9a247c2c5dfeec1d7a5f40db6518f88d314b8bca9da29670d2671/aiosqlite-0.21.0.tar.gz", hash = "sha256:131bb8056daa3bc875608c631c678cda73922a2d4ba8aec373b19f18c17e7aa3", size = 13454, upload-time = "2025-02-03T07:30:16.235Z" }
 wheels = [
@@ -309,7 +316,7 @@ dependencies = [
     { name = "docstring-parser" },
     { name = "httpx2" },
     { name = "jiter", version = "0.13.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "jiter", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
+    { name = "jiter", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
     { name = "pydantic" },
     { name = "sniffio" },
     { name = "typing-extensions" },
@@ -325,7 +332,7 @@ version = "4.14.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/cc/a381afa6efea9f496eff839d4a6a1aed3bfafc7b3ab4b0d1b243a12573dd/anyio-4.14.2.tar.gz", hash = "sha256:cfa139f3ed1a23ee8f88a145ddb5ac7605b8bbfd8592baacd7ce3d8bb4313c7f", size = 260176, upload-time = "2026-07-12T20:29:07.082Z" }
 wheels = [
@@ -535,11 +542,11 @@ wheels = [
 
 [[package]]
 name = "certifi"
-version = "2026.5.20"
+version = "2026.10.19"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f3/ce/ee2ecad540810a79593028e88299baeae54d346cc7a0d94b6199988b89b1/certifi-2026.5.20.tar.gz", hash = "sha256:69dea482ab64caa7b9f6aba1c6bf48bb6a5448d1c0f1b17ab42ad8c763a5344d", size = 135422, upload-time = "2026-05-20T11:46:50.073Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a6/bd/1436c50cc46699de0230fbaacc1d1de7bfec413176099949e9d5112e88f2/certifi-2026.10.19.tar.gz", hash = "sha256:035c1e85572b141bf1c3a3eff0e33a8eb74917522f2559075ff8d2fea780a1ae", size = 137598, upload-time = "2026-10-20T02:24:16.604Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/59/8c/57e832b7af6d7c5abe66eb3fbe3a3a32f4d11ea23a1aa7131371035be991/certifi-2026.5.20-py3-none-any.whl", hash = "sha256:3c52e209ba0a4ad7aebe60436a4ab349c39e1e602e8c134221e546902ad25897", size = 134134, upload-time = "2026-05-20T11:46:48.578Z" },
+    { url = "https://files.pythonhosted.org/packages/c4/51/29046e48f693c54e5b7412216d447a1d8362c9653148d98c02cdf65fa733/certifi-2026.10.19-py3-none-any.whl", hash = "sha256:42d35340cc5b9ba78e818ddbff0c5b1c2b779de448a340fd1b989f5fa8670e1b", size = 136464, upload-time = "2026-10-20T02:24:15.072Z" },
 ]
 
 [[package]]
@@ -547,7 +554,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -719,7 +726,7 @@ name = "click"
 version = "8.1.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b9/2e/0090cbf739cee7d23781ad4b89a9894a41538e4fcf4c31dcdd705b78eb8b/click-8.1.8.tar.gz", hash = "sha256:ed53c9d8990d83c2a27deae68e4ee337473f6330c040a31d4225c9574d16096a", size = 226593, upload-time = "2024-12-21T18:38:44.339Z" }
 wheels = [
@@ -837,7 +844,7 @@ name = "cryptography"
 version = "50.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cffi", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "cffi", marker = "platform_python_implementation != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/de/41/6cbdcf9142d00fe82836fbb51e503e58088575cf7a0fe1dbff6695bf0840/cryptography-50.0.0.tar.gz", hash = "sha256:eeac2acb5a20ed25e0ad6d1df9891a520b78b404266b6d11778f25d5d691a6c9", size = 880201, upload-time = "2026-07-31T14:25:10.11Z" }
 wheels = [
@@ -1035,7 +1042,7 @@ client = [
     { name = "httpx" },
     { name = "mcp" },
     { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "py-key-value-aio", extra = ["filetree", "keyring", "memory"], marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "py-key-value-aio", extra = ["filetree", "keyring", "memory"], marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
     { name = "starlette" },
 ]
 
@@ -1238,9 +1245,9 @@ name = "google-genai"
 version = "1.65.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version == '3.13.*'",
     "python_full_version >= '3.14' and sys_platform == 'win32'",
     "python_full_version >= '3.14' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*'",
     "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
@@ -1270,16 +1277,16 @@ resolution-markers = [
     "python_full_version < '3.14'",
 ]
 dependencies = [
-    { name = "anyio" },
-    { name = "distro" },
-    { name = "google-auth", extra = ["requests"], marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
-    { name = "httpx" },
-    { name = "pydantic" },
-    { name = "requests" },
-    { name = "sniffio" },
-    { name = "tenacity" },
-    { name = "typing-extensions" },
-    { name = "websockets" },
+    { name = "anyio", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "distro", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "google-auth", extra = ["requests"], marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "httpx", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "pydantic", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "requests", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "sniffio", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "tenacity", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "typing-extensions", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "websockets", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/71/84/1d8817ac6999730ba0ce92cd2f0d373300ca8bafd0b3a432b8694737904e/google_genai-2.30.0.tar.gz", hash = "sha256:bd370da8366cef7efebdb4cee959b2180b402cb81ebd7a7fcfe0f00869dae73a", size = 736285, upload-time = "2026-10-13T00:38:19.253Z" }
 wheels = [
@@ -1516,7 +1523,7 @@ dependencies = [
     { name = "networkx" },
     { name = "numpy" },
     { name = "openai", version = "2.54.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
-    { name = "openai", version = "3.29.0", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "openai", version = "3.29.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
     { name = "posthog" },
     { name = "pydantic" },
     { name = "python-dateutil" },
@@ -1653,12 +1660,12 @@ name = "httpx2"
 version = "2.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "anyio", marker = "sys_platform != 'emscripten' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "httpcore2", marker = "sys_platform != 'emscripten' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "httpx2-jsfetch", marker = "sys_platform == 'emscripten' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "anyio", marker = "sys_platform != 'emscripten'" },
+    { name = "httpcore2", marker = "sys_platform != 'emscripten'" },
+    { name = "httpx2-jsfetch", marker = "sys_platform == 'emscripten'" },
     { name = "idna" },
-    { name = "truststore", marker = "sys_platform != 'emscripten' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "truststore", marker = "sys_platform != 'emscripten'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7f/f8/579a8b51e42e38ee32647df9f08aa25643ae788e275cc625b199829c4671/httpx2-2.12.0.tar.gz", hash = "sha256:7631fe9887a8a2275f4a2540e053aa670fcc50742864a9ae7c66e609fdcf12cf", size = 100040, upload-time = "2026-08-18T13:22:09.086Z" }
 wheels = [
@@ -1805,9 +1812,9 @@ name = "jiter"
 version = "0.13.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version == '3.13.*'",
     "python_full_version >= '3.14' and sys_platform == 'win32'",
     "python_full_version >= '3.14' and sys_platform != 'win32'",
+    "python_full_version == '3.13.*'",
     "python_full_version < '3.13' and sys_platform == 'win32'",
     "python_full_version < '3.13' and sys_platform != 'win32'",
 ]
@@ -2214,7 +2221,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filetype" },
     { name = "google-genai", version = "1.65.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "google-genai", version = "2.30.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
+    { name = "google-genai", version = "2.30.0", source = { registry = "https://pypi.org/simple" }, marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
     { name = "langchain-core" },
     { name = "pydantic" },
 ]
@@ -2302,7 +2309,7 @@ dependencies = [
     { name = "anyio" },
     { name = "distro" },
     { name = "httpx2" },
-    { name = "orjson", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "orjson", marker = "platform_python_implementation != 'PyPy'" },
     { name = "packaging" },
     { name = "pydantic" },
     { name = "requests" },
@@ -2391,7 +2398,7 @@ version = "0.5.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "google-genai", version = "1.65.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "google-genai", version = "2.30.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-llamaindex') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "google-genai", version = "2.30.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
     { name = "llama-index-core" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a9/46/3feca634e00f138c8a794dbe0f2ac5c7c1dcbf16fe810418d6c97a7ff9d7/llama_index_embeddings_google_genai-0.5.1.tar.gz", hash = "sha256:c40d09eb9b981949db59a361d3227453c22e98e9e18d35c72bd264967bddd944", size = 5964, upload-time = "2026-05-19T09:44:40.109Z" }
@@ -2431,7 +2438,7 @@ version = "0.9.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "google-genai", version = "1.65.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "google-genai", version = "2.30.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-llamaindex') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "google-genai", version = "2.30.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
     { name = "llama-index-core" },
     { name = "pillow" },
 ]
@@ -2904,7 +2911,7 @@ wheels = [
 
 [[package]]
 name = "nltk"
-version = "3.10.3"
+version = "3.10.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -2913,9 +2920,9 @@ dependencies = [
     { name = "regex" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e0/e6/fe51d2bb1a3b446f59c5c8165999a9fee208bc346af90a7cbf7657bc0d75/nltk-3.10.3.tar.gz", hash = "sha256:bb9327a461c3811c2fa4900e03840401f2126adfb30c0072827c433bd2444ea4", size = 5137152, upload-time = "2026-08-12T23:46:37.258Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3a/cb/bbaa9be58e95d21729c6b9194376610230e0755f6de0bf38b6acc0dce079/nltk-3.10.4.tar.gz", hash = "sha256:44679f4e9220abfd496d2c8cdb22f8425ccbe557604f9aa5cacb1c44003dabc1", size = 4300570, upload-time = "2026-10-21T11:34:35.851Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/6d/ebd2af4640b12168fdf0cb74b6118df2f32a2f62ec7e0c06fbfd80706639/nltk-3.10.3-py3-none-any.whl", hash = "sha256:ff9598a8e20518ee0d557745890cc4435b9578489e2dcbc69c4f81fa060caf7c", size = 1798643, upload-time = "2026-08-12T23:44:13.478Z" },
+    { url = "https://files.pythonhosted.org/packages/a2/04/e7816813e409ca874ba2fcc35455db0e4130b79eb277e1f9edd270ca3c69/nltk-3.10.4-py3-none-any.whl", hash = "sha256:769ba5413f265b7d3e87cd163cc28efa01e29eeef8bb6080bc907949d9fcfb51", size = 1722994, upload-time = "2026-10-21T11:34:27.975Z" },
 ]
 
 [[package]]
@@ -3026,25 +3033,25 @@ version = "2.54.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
     "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version == '3.13.*' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version >= '3.14' and sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version >= '3.14' and sys_platform != 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version == '3.13.*' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.13' and sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.13' and sys_platform != 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
 ]
 dependencies = [
-    { name = "anyio" },
-    { name = "distro" },
-    { name = "httpx" },
+    { name = "anyio", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "distro", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "httpx", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
     { name = "jiter", version = "0.13.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "jiter", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-llamaindex') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "pydantic" },
-    { name = "sniffio" },
-    { name = "tqdm" },
-    { name = "typing-extensions" },
+    { name = "jiter", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "pydantic", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "sniffio", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "tqdm", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/9a/8c75e8c8a5b407a0586faeb2afac91674ff955c191ecc1d6d3b6669f6788/openai-2.54.0.tar.gz", hash = "sha256:e3e6f8bc1ba30ddf381ace1a14340eed381cb984a1a59bd0f34b5be3b5d49cfa", size = 1100285, upload-time = "2026-08-11T18:46:59.035Z" }
 wheels = [
@@ -3060,12 +3067,12 @@ resolution-markers = [
     "python_full_version < '3.14'",
 ]
 dependencies = [
-    { name = "anyio", marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "httpx2", marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "jiter", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "pydantic", marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "sniffio", marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "typing-extensions", marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "anyio", marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
+    { name = "httpx2", marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
+    { name = "jiter", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
+    { name = "pydantic", marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
+    { name = "sniffio", marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e4/99/5f6206494a87edbaa67b35c5212a2cb5e6f414bee5efb0f0672c4704315a/openai-3.29.0.tar.gz", hash = "sha256:bc70a46d97b70ba64daedfcb3227f610a395f297ec68d39f735676190a92be94", size = 1828914, upload-time = "2026-10-11T17:39:41.895Z" }
 wheels = [
@@ -3106,18 +3113,18 @@ name = "opentelemetry-api"
 version = "1.44.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version == '3.13.*' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version >= '3.14' and sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version >= '3.14' and sys_platform != 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version == '3.13.*' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.13' and sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.13' and sys_platform != 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
 ]
 dependencies = [
-    { name = "typing-extensions" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ee/8b/aa9e2d8b8dfa7c946f7dec5d1f8f6ba8eca062f43509a06bdb5ce93d26c0/opentelemetry_api-1.44.0.tar.gz", hash = "sha256:67647e5e9566edcf421166fdf022b3537f818635daa852b289e34604dc6fb33a", size = 72406, upload-time = "2026-07-16T15:25:32.678Z" }
 wheels = [
@@ -3145,18 +3152,18 @@ name = "opentelemetry-exporter-otlp-proto-common"
 version = "1.44.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version == '3.13.*' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version >= '3.14' and sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version >= '3.14' and sys_platform != 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version == '3.13.*' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.13' and sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.13' and sys_platform != 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
 ]
 dependencies = [
-    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
+    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/09/4d717852c1cf3f854b76c7110a5d00883bc3c99288b9b0dbcbeb9e306eb6/opentelemetry_exporter_otlp_proto_common-1.44.0.tar.gz", hash = "sha256:dc87a5a5bc58f149a56d1547e4691588fa12994cdc3bc039a694ccb3375862ac", size = 20202, upload-time = "2026-07-16T15:25:37.658Z" }
 wheels = [
@@ -3208,24 +3215,24 @@ name = "opentelemetry-exporter-otlp-proto-http"
 version = "1.44.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version == '3.13.*' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version >= '3.14' and sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version >= '3.14' and sys_platform != 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version == '3.13.*' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.13' and sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.13' and sys_platform != 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
 ]
 dependencies = [
-    { name = "googleapis-common-protos" },
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "opentelemetry-exporter-otlp-proto-common", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "opentelemetry-sdk", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "requests" },
-    { name = "typing-extensions" },
+    { name = "googleapis-common-protos", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "opentelemetry-exporter-otlp-proto-common", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "opentelemetry-sdk", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "requests", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1a/87/95e2a5aaa795b4e2260d74e16df2d5541deb2ea9de010bcd615f4dee2654/opentelemetry_exporter_otlp_proto_http-1.44.0.tar.gz", hash = "sha256:c633d7270ad6b57cd4cfbe8b0007a9e2e7c0cb50bd6c50fe2a7b245f721a09d8", size = 25806, upload-time = "2026-07-16T15:25:39.162Z" }
 wheels = [
@@ -3284,18 +3291,18 @@ name = "opentelemetry-proto"
 version = "1.44.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version == '3.13.*' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version >= '3.14' and sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version >= '3.14' and sys_platform != 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version == '3.13.*' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.13' and sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.13' and sys_platform != 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
 ]
 dependencies = [
-    { name = "protobuf" },
+    { name = "protobuf", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/64/01/40ac4ae9a149263cc52c2cee200ddd80cb6d8db1a4610abf8eabce0fe771/opentelemetry_proto-1.44.0.tar.gz", hash = "sha256:c547a79c2f8c0c515d31509154682e5921c7cfd5ca67b70e1f9266e2c3e103f3", size = 46488, upload-time = "2026-07-16T15:25:45.34Z" }
 wheels = [
@@ -3325,20 +3332,20 @@ name = "opentelemetry-sdk"
 version = "1.44.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version == '3.13.*' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version >= '3.14' and sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version >= '3.14' and sys_platform != 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version == '3.13.*' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.13' and sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.13' and sys_platform != 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" } },
-    { name = "typing-extensions" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5d/77/a6592cbc7c8d9bcc9d6757a9df45e04a7c585e3e6e7a13456da522b21109/opentelemetry_sdk-1.44.0.tar.gz", hash = "sha256:cebe7f65dc12f26ead75c6064de12fd2a9052e5060c0272d402cfa203aae123b", size = 208624, upload-time = "2026-07-16T15:25:46.078Z" }
 wheels = [
@@ -3367,19 +3374,19 @@ name = "opentelemetry-semantic-conventions"
 version = "0.65b0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version == '3.13.*' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version >= '3.14' and sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version >= '3.14' and sys_platform != 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
+    "python_full_version == '3.13.*' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.13' and sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.13' and sys_platform != 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
-    "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "typing-extensions" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8f/73/0cbdebcb4cf545fdd328da14f5137e37d0770c3f26185e478b0d15d94f50/opentelemetry_semantic_conventions-0.65b0.tar.gz", hash = "sha256:f9b2b81e9d5b64f11bc952075e7e9c7fb0aab075c7fd1c46d597f1b919852d60", size = 148774, upload-time = "2026-07-16T15:25:46.902Z" }
 wheels = [
@@ -3577,73 +3584,78 @@ wheels = [
 
 [[package]]
 name = "pillow"
-version = "12.3.0"
+version = "13.0.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/1c/3d/bb7fca845737cf9d7dbde16ed1843984665ff2e0a518f5db43e77ec540b9/pillow-12.3.0.tar.gz", hash = "sha256:3b8182a766685eaa002637e28b4ec8d6b18819a0c71f579bf0dbaa5830297cce", size = 47025035, upload-time = "2026-07-01T11:56:38.965Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ce/a4/9cc30690a394a8305e8be4c9036aa16d0dfddadd09079860b582f562496d/pillow-13.0.0.tar.gz", hash = "sha256:cdcd1ba258178f7356d74170c9a81ba4eab6a5d55748bc402a5a2a6fe6be3510", size = 47058631, upload-time = "2026-10-16T22:18:09.718Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/37/bf/fb3ebff8ddcb76aac5a01389251bbbb9519922a9b520d8247c1ca864a25d/pillow-12.3.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:ba09209fbe443b4acccebe845d8a138b89a8f4fbaeedd44953490b5315d5e965", size = 5345969, upload-time = "2026-07-01T11:54:06.397Z" },
-    { url = "https://files.pythonhosted.org/packages/d8/66/9a386a92561f402389a4fc70c18838bf6d35eb5eb5c6850b4b2dc64f5048/pillow-12.3.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:ffd0c5368496f41b0944be820fcb7a838aa6e623d250b01acf2643939c3f99d7", size = 4780323, upload-time = "2026-07-01T11:54:09.351Z" },
-    { url = "https://files.pythonhosted.org/packages/25/27/ac8f99618ffd3dde21db0f4d4b1d2ab00c0880595bfd17df103f7f39fd0c/pillow-12.3.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:d9c7f76c0673154f044e9d78c8655fb4213f6ca31a836df48b40fe5d187717b9", size = 6266838, upload-time = "2026-07-01T11:54:11.71Z" },
-    { url = "https://files.pythonhosted.org/packages/84/21/a35af28dcc61f37ed850a2d64c65c701321dfbf25085e469d5559360cbbf/pillow-12.3.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:78cb2c6865a35ab8ff8b75fd122f6033b92a62c82801110e48ddd6c936a45d91", size = 6940830, upload-time = "2026-07-01T11:54:13.732Z" },
-    { url = "https://files.pythonhosted.org/packages/eb/51/8b08617af3ad95e33ce6d7dd2c99ed6c8298f7fb131636303956be022e25/pillow-12.3.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:e491916b378fba47242221bb9ead245211b70d504f495d105d17b14a24b4907c", size = 6344383, upload-time = "2026-07-01T11:54:15.756Z" },
-    { url = "https://files.pythonhosted.org/packages/1d/72/cf78ac9780bb93c28328f408973845a309d4d145041665f734572ced1b52/pillow-12.3.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:0dd2064cbc55aaec028ef5fbb60fa47bb6c3e7918e07ff17935284b227a9d2df", size = 7052934, upload-time = "2026-07-01T11:54:17.721Z" },
-    { url = "https://files.pythonhosted.org/packages/20/20/25e0f4dc178a6bc0696793720055519a0de89e7661dae886992decbd2f81/pillow-12.3.0-cp312-cp312-win32.whl", hash = "sha256:dbce0b29841537a2fa4a214c2bbf14de3587c9680caa9b4e217568472490b28f", size = 6472684, upload-time = "2026-07-01T11:54:19.839Z" },
-    { url = "https://files.pythonhosted.org/packages/45/89/da2f7971a317f83d807fdd4065c0af40208e59e692cc43d315a71a0e96d1/pillow-12.3.0-cp312-cp312-win_amd64.whl", hash = "sha256:a2b55dd6b2a4c4b7d87ffa56bdb33fdc5fdb9a462173861a7bc097f17d91cb09", size = 7227137, upload-time = "2026-07-01T11:54:22.025Z" },
-    { url = "https://files.pythonhosted.org/packages/de/47/4845a0a6c0dbf1db8456bd9fc791f13c5ced7ced20606d08a0aacfd25b49/pillow-12.3.0-cp312-cp312-win_arm64.whl", hash = "sha256:331b624368d4f1d069149002f25f44bc61c8919ce8ddb3c45bdad8f6e2d89510", size = 2568267, upload-time = "2026-07-01T11:54:24.051Z" },
-    { url = "https://files.pythonhosted.org/packages/9d/ac/31fb64e1e7efb5a4b50cd3d92049ba89ac6e4d8d3bb6a74e15048ca3353e/pillow-12.3.0-cp313-cp313-ios_13_0_arm64_iphoneos.whl", hash = "sha256:21900ce7ba264168cd50defae43cd75d25c833ad4ad6e73ffc5596d12e25ac89", size = 4161684, upload-time = "2026-07-01T11:54:25.934Z" },
-    { url = "https://files.pythonhosted.org/packages/87/b4/9805e23d2b4d77842b468513841fda254ee42f0289d25088340e4ff46e2d/pillow-12.3.0-cp313-cp313-ios_13_0_arm64_iphonesimulator.whl", hash = "sha256:4e8c2a84d977f50b9daed6eeaf3baef67d00d5d74d932288f02cb94518ee3ace", size = 4255487, upload-time = "2026-07-01T11:54:27.935Z" },
-    { url = "https://files.pythonhosted.org/packages/df/39/ecf519435a200c693fe053a6ee4d835b41cf963a4dfc2551c4e637cb2a71/pillow-12.3.0-cp313-cp313-ios_13_0_x86_64_iphonesimulator.whl", hash = "sha256:ae26d61dfa7a47befdc7572b521024e8745f3d809bd95ca9505a7bba9ef849ec", size = 3696433, upload-time = "2026-07-01T11:54:29.813Z" },
-    { url = "https://files.pythonhosted.org/packages/42/92/2fc3ffad878ae8dd5469ec1bc8eb83b71f48e13efdf68f02709003982a32/pillow-12.3.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:7a743ff716f746fc19a9557f60dab1600d4613255f8a7aeb3cdde4db7eb15a66", size = 5345889, upload-time = "2026-07-01T11:54:31.97Z" },
-    { url = "https://files.pythonhosted.org/packages/10/76/8803c13605b763d33d156c4678fc77f8443389c0c51c8aef707bb02015f4/pillow-12.3.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:d69141514cc30b774ceea5e3ed3a6635c8d8a96edf664689b890f4089111fb35", size = 4780109, upload-time = "2026-07-01T11:54:34.026Z" },
-    { url = "https://files.pythonhosted.org/packages/1f/01/e18aff37cb0b4aac47ac90f016d347a49aca667ef97f190b06ac2aabc928/pillow-12.3.0-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f7401aebd7f581d7f83a439d87d474999317ee099218e5ad25d125290990ba65", size = 6263736, upload-time = "2026-07-01T11:54:36.131Z" },
-    { url = "https://files.pythonhosted.org/packages/f7/62/de5bdd77d935331f4f802edc11e4d82950f642caad6cb2f949837b8560e2/pillow-12.3.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0847a763afefb695bc912d7c131e7e0632d4edc1d8698f58ddabec8e46b8b6d3", size = 6937129, upload-time = "2026-07-01T11:54:38.216Z" },
-    { url = "https://files.pythonhosted.org/packages/70/4d/105627a13300c5e0df1d174230b32fd1273062c96f7745fd552b945d1e1d/pillow-12.3.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:571b9fcb07b97ef3a492028fb3d2dc0993ca23a06138b0315286566d29ef718a", size = 6339562, upload-time = "2026-07-01T11:54:40.354Z" },
-    { url = "https://files.pythonhosted.org/packages/6b/1d/f13de01a553988ab895ba1c722e06cf3144d4f57656fd5b81b6d881f1179/pillow-12.3.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:756c768d0c9c2955feb7a56c37ea24aea2e369f8d36a88da270b6a9f19e62b5e", size = 7049439, upload-time = "2026-07-01T11:54:42.489Z" },
-    { url = "https://files.pythonhosted.org/packages/c9/f9/066794cca041b969964f779ee5fa66a9498bbf34248ac39c5d7954e4198f/pillow-12.3.0-cp313-cp313-win32.whl", hash = "sha256:a876864214e136f0eb367788dbd7df045f4806801518e2cfe9e13229cfe06d8f", size = 6473287, upload-time = "2026-07-01T11:54:44.9Z" },
-    { url = "https://files.pythonhosted.org/packages/a6/9b/7a58e61d62be561da3a356fe2384d4059a6345fc130e23ef1c36a5b81d24/pillow-12.3.0-cp313-cp313-win_amd64.whl", hash = "sha256:1cca606cd25738df4ed873d5ad46bbdb3d83b5cbca291f6b4ff13a4df6b0bbe8", size = 7239691, upload-time = "2026-07-01T11:54:47.141Z" },
-    { url = "https://files.pythonhosted.org/packages/aa/b0/c4ed4f0ef8f8fa5ee8351537db6650bb8189f7e118842978dd6589065692/pillow-12.3.0-cp313-cp313-win_arm64.whl", hash = "sha256:b629de27fda84b42cde7edef0d85f13b958b47f6e9bbcbba9b673c562a89bd8b", size = 2568185, upload-time = "2026-07-01T11:54:49.137Z" },
-    { url = "https://files.pythonhosted.org/packages/dc/01/001f65b68192f0228cc1dbbc8d2530ab5d58b61037ba0587f946fea607cd/pillow-12.3.0-cp314-cp314-ios_13_0_arm64_iphoneos.whl", hash = "sha256:9cf95fe4d0f84c82d282745d9bb08ad9f926efa00be4697e767b814ce40d4330", size = 4161736, upload-time = "2026-07-01T11:54:51.156Z" },
-    { url = "https://files.pythonhosted.org/packages/1a/d2/0219746d0fd16fc8a84498e79452375be3797d3ce4044596ce565164b84f/pillow-12.3.0-cp314-cp314-ios_13_0_arm64_iphonesimulator.whl", hash = "sha256:8728f216dcdb6e6d555cf971cb34076139ad74b31fc2c14da4fafc741c5f6217", size = 4255435, upload-time = "2026-07-01T11:54:53.414Z" },
-    { url = "https://files.pythonhosted.org/packages/c8/02/8d0bc62ef0302318c46ff2a512822d2610e81c7aa46c9b3abe6cbaca5ad0/pillow-12.3.0-cp314-cp314-ios_13_0_x86_64_iphonesimulator.whl", hash = "sha256:a45650e8ce7fafffd731db8550230db6b0d306d181a90b67d3e6bca2f1990930", size = 3696262, upload-time = "2026-07-01T11:54:55.739Z" },
-    { url = "https://files.pythonhosted.org/packages/85/e2/73c77d218410b14f5f2d565e8a998d5317b7b9c75368d29985139f7a46f0/pillow-12.3.0-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:ba54cfebe86920a559a7c4d6b9050791c20513650a1952ebe3368c7dc70306f8", size = 5350344, upload-time = "2026-07-01T11:54:57.657Z" },
-    { url = "https://files.pythonhosted.org/packages/c7/da/32c752228ae345f489e3a42499d817b6c3996da7e8a3bc7a04fc806b243b/pillow-12.3.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:e158cb00350dc278f3b91551101aa7d12415a66ebf2c91d8d5ac14e56ddd3ad0", size = 4780131, upload-time = "2026-07-01T11:54:59.713Z" },
-    { url = "https://files.pythonhosted.org/packages/b1/9d/8b2c807dbef61a5197c047afe99823787eb66f63daf9fb2432f91d6f0462/pillow-12.3.0-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e9aeb04d6aef139de265b29683e119b638208f88cf73cdd1658aa07221165321", size = 6263757, upload-time = "2026-07-01T11:55:01.778Z" },
-    { url = "https://files.pythonhosted.org/packages/5c/44/c85361f65dbe00eea8576ee467c768d25129989efb76e94f205e9ca9bb46/pillow-12.3.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:251bf95b67017e27b13d82f5b326234ca62d70f9cf4c2b9032de2358a3b12c7b", size = 6936962, upload-time = "2026-07-01T11:55:03.93Z" },
-    { url = "https://files.pythonhosted.org/packages/18/7e/e483414b35800b86b6f08dbbc7803fb5cd52c4d6f897f47d53ea2c7e6f65/pillow-12.3.0-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:fe3cca2e4e8a592be0f269a1ca4835c25199d9f3ce815c8491048f785b0a0198", size = 6339171, upload-time = "2026-07-01T11:55:05.989Z" },
-    { url = "https://files.pythonhosted.org/packages/f0/f4/68c491844841ede6bed70189546b3ee9731cf9f2cbad396faff5e1ccba45/pillow-12.3.0-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:23aceaa007d6172b02c277f0cd359c79492bbb14f7072b4ede9fbcaf20648130", size = 7048116, upload-time = "2026-07-01T11:55:08.131Z" },
-    { url = "https://files.pythonhosted.org/packages/a3/34/77f3f793fed8efc7d243f21b33c5a3f0d1c97ee70346d3db855587e155ff/pillow-12.3.0-cp314-cp314-win32.whl", hash = "sha256:af8d94b0db561cf68b88a267c5c44b49e134f525d0dc2cb7ed413a66bc23559a", size = 6467209, upload-time = "2026-07-01T11:55:10.408Z" },
-    { url = "https://files.pythonhosted.org/packages/f1/e0/492879f69d94f91f60fc8cd05ba03650e9520afebb2fb7aa12777d7c7f38/pillow-12.3.0-cp314-cp314-win_amd64.whl", hash = "sha256:fdafc9cce40277e0f7a0feabce0ee50dd2fa1800f3b38015e51296b5e814048d", size = 7237707, upload-time = "2026-07-01T11:55:12.745Z" },
-    { url = "https://files.pythonhosted.org/packages/c9/ac/6b11f2875f1c2ac040d84e1bbf9cf22a88038f901ca1037898b280b38365/pillow-12.3.0-cp314-cp314-win_arm64.whl", hash = "sha256:e91206ee562682b51b98ef4b26a6ef48fd84e15fd4c4bc5ec768eb641d206838", size = 2565995, upload-time = "2026-07-01T11:55:14.736Z" },
-    { url = "https://files.pythonhosted.org/packages/52/69/c2208e56af9bfc1913afb24020297a691eb1d4ef688474c8a04913f65e04/pillow-12.3.0-cp314-cp314t-macosx_10_15_x86_64.whl", hash = "sha256:164b31cd1a0490ab6efae01aa5df49da7061be0af1b30e035b6e9a1bfe34ee6e", size = 5352503, upload-time = "2026-07-01T11:55:17.076Z" },
-    { url = "https://files.pythonhosted.org/packages/07/70/e5686d753e898a45d778ff1718dba8516ead6ab6b95d85fc8c4b70650cf2/pillow-12.3.0-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:5afb51d599ea772b8365ae807ae557f18bccfe46ab261fd1c2a9ed700fc6eb17", size = 4782956, upload-time = "2026-07-01T11:55:19.448Z" },
-    { url = "https://files.pythonhosted.org/packages/d5/37/25c6692f06927ee973ff18c8d9ee98ad0b4d84ee67a09610c2dd1447958e/pillow-12.3.0-cp314-cp314t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:3edce1d53195db527e0191f84b71d02022de0540bf43a16ed734ed7537b07385", size = 6322855, upload-time = "2026-07-01T11:55:21.613Z" },
-    { url = "https://files.pythonhosted.org/packages/cc/91/420637fcb8f1bc11029e403b4538e6694744428d8246118e45719f944556/pillow-12.3.0-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:bf16ba1b4d0b6b7c8e534936632270cf70eb00dbe09005bc345b2677b726855c", size = 6989642, upload-time = "2026-07-01T11:55:24.006Z" },
-    { url = "https://files.pythonhosted.org/packages/10/08/b94d7811281ccf0d143a1cf768d1c49e1e54af63e7b708ab2ee3eb87face/pillow-12.3.0-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:24870b09b224f7ae3c39ed07d10e819d06f8720bc551847b1d623832b5b0e28d", size = 6391281, upload-time = "2026-07-01T11:55:26.252Z" },
-    { url = "https://files.pythonhosted.org/packages/d2/87/24233f785f55474dc02ce3e739c5528a77e3a862e9333d1dd7a25cc31f70/pillow-12.3.0-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:30f2aa603c41533cc25c05acd0da21636e84a315768feb631c937177db558931", size = 7096716, upload-time = "2026-07-01T11:55:28.318Z" },
-    { url = "https://files.pythonhosted.org/packages/23/26/fcb2f6e37175b04f53570b59937867e2b80ee1685e744023153028fc14f9/pillow-12.3.0-cp314-cp314t-win32.whl", hash = "sha256:4b0a7fe987b14c31ebda6083f74f22b561fd3739bc0ac51e019622e3d72668c7", size = 6474125, upload-time = "2026-07-01T11:55:30.956Z" },
-    { url = "https://files.pythonhosted.org/packages/90/de/3634abee5f1c9e13c56787b7d5517b0ba8d6de51700b95578cf338349c9f/pillow-12.3.0-cp314-cp314t-win_amd64.whl", hash = "sha256:962864dc93511324d51ddbb5b9f8731bf71675b93ca612a07441896f4688fb8c", size = 7242939, upload-time = "2026-07-01T11:55:34.044Z" },
-    { url = "https://files.pythonhosted.org/packages/ce/2a/fd13f8eb24de5714a6eb444a3d67e2842c6c576e159a43793adf23051351/pillow-12.3.0-cp314-cp314t-win_arm64.whl", hash = "sha256:0740a512dc522224c77d9aa5a8d70d8b7d73fb91f2c21125d8d025d3b8990e45", size = 2567506, upload-time = "2026-07-01T11:55:35.988Z" },
-    { url = "https://files.pythonhosted.org/packages/5d/dc/8fdce34ec725a33c81c6ba122b904d6b9024e50ea9ac7bede62fab54506c/pillow-12.3.0-cp315-cp315-ios_13_0_arm64_iphoneos.whl", hash = "sha256:0feb2e9d6ad6c9e3c06effe9d00f3f1e618a6643273576b016f591e9315a7139", size = 4162063, upload-time = "2026-07-01T11:55:37.941Z" },
-    { url = "https://files.pythonhosted.org/packages/76/66/2044b9a63d3b84ff048228dfcb7cd9bf0df983e8470971bf7d4c57b693de/pillow-12.3.0-cp315-cp315-ios_13_0_arm64_iphonesimulator.whl", hash = "sha256:9e881fca225083806662a5c43d627d215f258ff43c890f831966c7d7ba9c7402", size = 4255549, upload-time = "2026-07-01T11:55:40.022Z" },
-    { url = "https://files.pythonhosted.org/packages/52/7e/1f67e6f4ece6b582ee4b539decbcc9f848dc245a93ed8cd7338bafef72f1/pillow-12.3.0-cp315-cp315-ios_13_0_x86_64_iphonesimulator.whl", hash = "sha256:4998562bf62a445225f22e07c896bb04b35b1b1f2eb6d760584c9c51d7a5f78c", size = 3696331, upload-time = "2026-07-01T11:55:41.98Z" },
-    { url = "https://files.pythonhosted.org/packages/12/40/d306fc2c8e4d45d7f175c77edca7063be7b86fe7fe6e68f4353bf71d808c/pillow-12.3.0-cp315-cp315-macosx_10_15_x86_64.whl", hash = "sha256:dc624f6bc473dacdf7ef7eb8678d0d08edf15cd94fad6ae5c7d6cc67a4e4902f", size = 5350370, upload-time = "2026-07-01T11:55:44.028Z" },
-    { url = "https://files.pythonhosted.org/packages/dd/44/668fb1437e8ce420f62d6106eb66e44a5971602a4d794615bdf79315d82d/pillow-12.3.0-cp315-cp315-macosx_11_0_arm64.whl", hash = "sha256:71d6097b330eea8fd15097780c8e89cb1a8ce7838669f48c5bacd6f663dd4701", size = 4780147, upload-time = "2026-07-01T11:55:46.073Z" },
-    { url = "https://files.pythonhosted.org/packages/0c/08/93fa2e70e30a2d81547e481b6ee2bb9522117221fb1e0ce4b5df70967677/pillow-12.3.0-cp315-cp315-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:28ce87c5ab450a9dd970b52e5aca5fe63ed432d18a2eaddd1979a00a1ba24ace", size = 6273659, upload-time = "2026-07-01T11:55:48.264Z" },
-    { url = "https://files.pythonhosted.org/packages/f8/6d/043e96ff814fc31a33077e4cba86082167db520c93632afdf2042febbb0c/pillow-12.3.0-cp315-cp315-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:6b02afb9b97f65fbca5f31db6a2a3ba21aa93030225f150fa3f249717e938fb4", size = 6947439, upload-time = "2026-07-01T11:55:50.503Z" },
-    { url = "https://files.pythonhosted.org/packages/af/92/ba71d2ee2ac0edf3fa33bd9d5ee9ee080da70b1766f3ca3934f9938ddac9/pillow-12.3.0-cp315-cp315-musllinux_1_2_aarch64.whl", hash = "sha256:1182d52bc2d5e5d7d0949503aa7e36d12f42205dc287e4883f407b1988820d39", size = 6353577, upload-time = "2026-07-01T11:55:52.697Z" },
-    { url = "https://files.pythonhosted.org/packages/0f/ce/e63064e2122923ff687c8ad792d0d736a7b3920a56a46982e81a7fdd25d6/pillow-12.3.0-cp315-cp315-musllinux_1_2_x86_64.whl", hash = "sha256:e795b7eb908249c4e43c7c99fac7c2c75dab0c43566e37db472a355f63693d71", size = 7060394, upload-time = "2026-07-01T11:55:55.149Z" },
-    { url = "https://files.pythonhosted.org/packages/54/76/a09cc3ccc8d773a7283d34c38bec1708f9e3cc932093cbc4c5e71ac4060b/pillow-12.3.0-cp315-cp315-win32.whl", hash = "sha256:57b3d78c95ba9059768b10e28b813002261d3f3dfc55cc48b0c988f625175827", size = 6467375, upload-time = "2026-07-01T11:55:57.769Z" },
-    { url = "https://files.pythonhosted.org/packages/3e/03/1846c49ba3b1d5550392a4bbd06d6fb4578e1cd91a803198b5c90f5f7d53/pillow-12.3.0-cp315-cp315-win_amd64.whl", hash = "sha256:fa4ecea169a355be7a3ade2c783e2ed12f0e40d2c5621cda8b3297faf7fbb9f5", size = 7237048, upload-time = "2026-07-01T11:55:59.975Z" },
-    { url = "https://files.pythonhosted.org/packages/fb/bb/89f35dcc79610423f9f195504d7def7f0d1416a711541b42867e25fe3412/pillow-12.3.0-cp315-cp315-win_arm64.whl", hash = "sha256:877c3f311ff35410f690861c4409e7ccbf0cd2f878e50628a28e5a0bb689e658", size = 2566006, upload-time = "2026-07-01T11:56:02.143Z" },
-    { url = "https://files.pythonhosted.org/packages/30/88/707027ba09942dfa2c28759b5c222d769290a41c6d20ea60ec250801941f/pillow-12.3.0-cp315-cp315t-macosx_10_15_x86_64.whl", hash = "sha256:e9871b1ffbfa9656b60aeee92ed5136a5742696006fa322b29ea3d8da0ecc9cf", size = 5352509, upload-time = "2026-07-01T11:56:04.2Z" },
-    { url = "https://files.pythonhosted.org/packages/b0/6d/00352fa25332c2569cd387851f568cc5a4b75a9adbfb37ac4fbce4c02eec/pillow-12.3.0-cp315-cp315t-macosx_11_0_arm64.whl", hash = "sha256:53aa02d20d10c3d814d536aa4e5ac9b84ca0ff5a88377963b085ad6822f93e64", size = 4783167, upload-time = "2026-07-01T11:56:06.631Z" },
-    { url = "https://files.pythonhosted.org/packages/13/4f/9e049dfa21af7c22427275720e2490267ba8138120add5c4c574deb69782/pillow-12.3.0-cp315-cp315t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:446c34dcc4324b084a53b705127dc15717b22c5e140ae0a3c38349d4efec071e", size = 6329237, upload-time = "2026-07-01T11:56:08.868Z" },
-    { url = "https://files.pythonhosted.org/packages/36/16/cf6eeaae8d0fce8dd390a33437cf68c5d5bd73834a2bc6e2f14efda0ab45/pillow-12.3.0-cp315-cp315t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:cf1845d02ad822a369a49f2bb9345b1614744267682e7a03527dc3bf6eea1777", size = 6997047, upload-time = "2026-07-01T11:56:11.379Z" },
-    { url = "https://files.pythonhosted.org/packages/1e/69/dbf769bdd55f48bf5733cac28edc6364ffaa072ec9ba336266e4fe66be55/pillow-12.3.0-cp315-cp315t-musllinux_1_2_aarch64.whl", hash = "sha256:186941b6aef820ad110fb01fb06eb925374dc3a21b17e37ec9a53b250c6fe2d1", size = 6400440, upload-time = "2026-07-01T11:56:13.908Z" },
-    { url = "https://files.pythonhosted.org/packages/a0/e1/ffc9cfc2eea0d178da8018e18e959301ad9d6bc9f3edb7181e748a474b97/pillow-12.3.0-cp315-cp315t-musllinux_1_2_x86_64.whl", hash = "sha256:f13c32a3abd6079a66d9526e18dad9b6d280384d49d7c54040cd57b6424041d9", size = 7105895, upload-time = "2026-07-01T11:56:16.575Z" },
-    { url = "https://files.pythonhosted.org/packages/18/f0/a5595c1e8c3ae44b9828cb2f0fa8155e5095ef04d6327b8f61cf44a3df85/pillow-12.3.0-cp315-cp315t-win32.whl", hash = "sha256:1657923d2d45afb66526e5b933e5b3052e6bdea196c90d3abb2424e18c77dae8", size = 6474384, upload-time = "2026-07-01T11:56:18.855Z" },
-    { url = "https://files.pythonhosted.org/packages/e4/04/62bcd9f844984c5938d3b05264a61d797a29d3e0812341a8204af70bbdee/pillow-12.3.0-cp315-cp315t-win_amd64.whl", hash = "sha256:8cd2f7bdda092d99c9fc2fb7391354f306d01443d22785d0cbfafa2e2c8bb418", size = 7243537, upload-time = "2026-07-01T11:56:21.214Z" },
-    { url = "https://files.pythonhosted.org/packages/3d/68/1f3066acedf37673694a7141381d8f811ae97f30d34413d236abe7d489f1/pillow-12.3.0-cp315-cp315t-win_arm64.whl", hash = "sha256:06ff022112bc9cbf83b60f8e028d94ad87b60621706487e65f673de61610ab59", size = 2567491, upload-time = "2026-07-01T11:56:23.506Z" },
+    { url = "https://files.pythonhosted.org/packages/7a/b8/58d79332229482eb0d27c82973850808c19d37e5bdc14443d3417bd373f5/pillow-13.0.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:67c8d44ad89fa7eb88de5d6ef6199b1e03dd24974f85a67639fc8badb801fe79", size = 5568643, upload-time = "2026-10-16T22:15:44.474Z" },
+    { url = "https://files.pythonhosted.org/packages/39/4b/f2ed53d83aa44ac19599ac0a54897f867fafb95f406980d1e24083f8cbe3/pillow-13.0.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:fc481f742ccda20e9ed760b8f978dff50f2a4e9bc253ac167fb0a05b0783ef52", size = 4852329, upload-time = "2026-10-16T22:15:46.284Z" },
+    { url = "https://files.pythonhosted.org/packages/3b/bb/9e30e8ed18c20800ee327a12107d5249ad8dc444867b3adfcc21654e3c71/pillow-13.0.0-cp312-cp312-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:8bf295fe459343bc6093c8e5e0df60bfa189e0fcb775a22e2c2488fdeccc6c0d", size = 6519309, upload-time = "2026-10-16T22:15:48.14Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/99/fdf65cc539e266ab93546c261bdf98411fe165c6e4e13f9dbf597097192b/pillow-13.0.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:42d63be3af4f9b951b199b0a9d23365d37ab14687e6d77b74940432c8515c4ca", size = 7144542, upload-time = "2026-10-16T22:15:50.093Z" },
+    { url = "https://files.pythonhosted.org/packages/26/9b/f38b7c4d8f599537e2d1a6d546cec9beef7536ff8f5c49a3f9c78179d8ac/pillow-13.0.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:4bd024d567eca931b668978d672dba914d4b8e2628e2c3073a2ad178de8a2620", size = 6618042, upload-time = "2026-10-16T22:15:52.054Z" },
+    { url = "https://files.pythonhosted.org/packages/a8/7c/45ee28531f89ee4582967d8a17f7a26d71ca64cd902b93c269590cd60a00/pillow-13.0.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:23edf4ec4b6f4f240e8df6e4985e9ee2ced86474632433e55fb1e2548744bf40", size = 7228137, upload-time = "2026-10-16T22:15:54.009Z" },
+    { url = "https://files.pythonhosted.org/packages/01/bc/9c2a969cb1b70201d04fa17fd5aedf02a732870b8da86bceaaa30b0ca385/pillow-13.0.0-cp312-cp312-win32.whl", hash = "sha256:02464da86f561f410e13b061ec37c3068a9cb557a095494157742d07b3c24a27", size = 6515423, upload-time = "2026-10-16T22:15:56.25Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/cd/73a79ecdc822076002eb24b5e1e4a530b0bb5310fcb6d239abbec877110b/pillow-13.0.0-cp312-cp312-win_amd64.whl", hash = "sha256:ff3fe9eb621fbb9db4c4be33ab946f6bac5f98ab50ca8d3260503653656c961b", size = 7272166, upload-time = "2026-10-16T22:15:58.597Z" },
+    { url = "https://files.pythonhosted.org/packages/4a/a3/be5a1236efd085b3984e4305da8f179ae9dab80c991d2ad78f2bd5c4c843/pillow-13.0.0-cp312-cp312-win_arm64.whl", hash = "sha256:c3bc8ee0271387e0b1e3ad0ff893645990a656e79bf9c42f4f734a3642b11d51", size = 2698943, upload-time = "2026-10-16T22:16:00.637Z" },
+    { url = "https://files.pythonhosted.org/packages/82/e2/9132d38df320e8099e2642d9fa538f18a7dfebf68a875a31725dc2a115aa/pillow-13.0.0-cp313-cp313-ios_13_0_arm64_iphoneos.whl", hash = "sha256:e98b4f91f99b24b1da72e10621ba181f7281922384a7403094debb4199de6c00", size = 4190620, upload-time = "2026-10-16T22:16:02.527Z" },
+    { url = "https://files.pythonhosted.org/packages/cb/be/436dac0996876f65ef1916ffb711c5ef4af2ebc57414b6f16642e07f6b47/pillow-13.0.0-cp313-cp313-ios_13_0_arm64_iphonesimulator.whl", hash = "sha256:34fb3db1149c879343861831728c243c432d4a5afc8f1878ca7612ef8de2a033", size = 4290286, upload-time = "2026-10-16T22:16:04.861Z" },
+    { url = "https://files.pythonhosted.org/packages/60/16/7c1007162e4169ea0d5bec47e2e0b2174f56c50cf5b8c02a1dc23e41037e/pillow-13.0.0-cp313-cp313-ios_13_0_x86_64_iphonesimulator.whl", hash = "sha256:2d50500a4a3bc6469adcdb319cf05d688b08ca3bf0f22a05339f3b25b433a599", size = 3723169, upload-time = "2026-10-16T22:16:06.956Z" },
+    { url = "https://files.pythonhosted.org/packages/08/bc/578ab2eaa04705a8978bd9be0fe15c3d43a8fc95097c4f7e39540e79e4fa/pillow-13.0.0-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:ef5fe6b7db3f501c56000ba8fe7c7e1a35ca1d45824fbeb95a67daa85cff4dbe", size = 5568469, upload-time = "2026-10-16T22:16:08.664Z" },
+    { url = "https://files.pythonhosted.org/packages/98/c8/ccede3dcc4f274b80fb49199eed1ef34ba05566c8b71976b9d1f111da2e3/pillow-13.0.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:f11a3c1358bb3c68012a7b1f41b223c3db9f7bfde90b481df028cfe1c3363313", size = 4852187, upload-time = "2026-10-16T22:16:10.693Z" },
+    { url = "https://files.pythonhosted.org/packages/fb/3c/cd0770e96d20bfd990db024bcbd43897ff3e88da1f4782cf90ea231b1d4f/pillow-13.0.0-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:19b66ca0a4d25cc0200b381ce824c7ea090db61427315e73cfb05dbf1b35c369", size = 6515908, upload-time = "2026-10-16T22:16:12.896Z" },
+    { url = "https://files.pythonhosted.org/packages/ef/fe/f5cdaa2d1c4086e757430f368c271a58ee29cfe7378e7ae7b9d964015c25/pillow-13.0.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5f56499c1a74d2b862beb0c33b8016f99d095858455df9d21583bbbc1c15b582", size = 7142544, upload-time = "2026-10-16T22:16:14.844Z" },
+    { url = "https://files.pythonhosted.org/packages/fb/b5/a54f6d44adbcd23737c8c12953f42be107e4cca64e247c0ca3a5b563061c/pillow-13.0.0-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:a2a14cd73d5e6c927f644b0110ee81f59c4ef506259ec9183904747f2caacc81", size = 6613097, upload-time = "2026-10-16T22:16:16.893Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/b4/9e6c1207c21b2e91db0d15c16d30f3701ce5add1bd4da0e787761e66cb6e/pillow-13.0.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:08b826a9bf1265c76de04a42061d61ea6b109418b7826f28ff1ecdfaa26c5502", size = 7224846, upload-time = "2026-10-16T22:16:19.195Z" },
+    { url = "https://files.pythonhosted.org/packages/78/9f/d3c3cb0518f3dd1eee0ef501535f53d15597a53c5c4118d178086143397a/pillow-13.0.0-cp313-cp313-win32.whl", hash = "sha256:12b0fa15879fe5a9d9eebe66e4e2d74128a773b1a4448010c9c714f45e04b9d8", size = 6516013, upload-time = "2026-10-16T22:16:21.389Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/ed/1b16fb66a37e1b9e41370b93b2c614c7da761a5b2a41dc333f7af4639962/pillow-13.0.0-cp313-cp313-win_amd64.whl", hash = "sha256:9dda0788a9932776a75d8bcc020076edc308ce2508b51f6739a45e3158b3fc42", size = 7284777, upload-time = "2026-10-16T22:16:23.393Z" },
+    { url = "https://files.pythonhosted.org/packages/87/7d/8d02eba9f7ecc87f8e90f731e032cc4773802f2a843763afd0c66a535ff4/pillow-13.0.0-cp313-cp313-win_arm64.whl", hash = "sha256:40a266371ece581e5de13b6635ef78d7487824af80561b6ca27694a88c19bc0f", size = 2698826, upload-time = "2026-10-16T22:16:25.382Z" },
+    { url = "https://files.pythonhosted.org/packages/8e/45/fbad9c7f5e2f1745c373a434d46072bc84eddfefaa28b852425ac957fda6/pillow-13.0.0-cp314-cp314-ios_13_0_arm64_iphoneos.whl", hash = "sha256:44629d4498c9cb6b2051806155f22141df0d8a929c56134b166655232dfb2f8c", size = 4190721, upload-time = "2026-10-16T22:16:27.524Z" },
+    { url = "https://files.pythonhosted.org/packages/a2/bf/2074902a259a90692c5dbf132885d21671644cbbd3f690047516243a55db/pillow-13.0.0-cp314-cp314-ios_13_0_arm64_iphonesimulator.whl", hash = "sha256:bf97ba1b5542050e9b0c74e632323b6d8136cc99d64e193abebee22fe6013c76", size = 4290236, upload-time = "2026-10-16T22:16:29.562Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/a5/3d1bb93b8ea38d15d21356c1b8e9f50971ac592aaa248f7fb71739094c0e/pillow-13.0.0-cp314-cp314-ios_13_0_x86_64_iphonesimulator.whl", hash = "sha256:aa694c49787040943570d61c9b8fc01271bd2a2cfdd55f0d896f8aecdce1a981", size = 3723093, upload-time = "2026-10-16T22:16:31.249Z" },
+    { url = "https://files.pythonhosted.org/packages/84/a1/be060135d85187b25fa8b2573786c0e45c62ae27527fff5257675eb97f4a/pillow-13.0.0-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:49c12af515073e9bf511e4ef736743bf70d531a643668722279314b937742ba4", size = 5572253, upload-time = "2026-10-16T22:16:33.103Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/f4/0bf6f1ac9ba7ee2ffe9914aeb410a1035a0c1a3c42f122388d7fc950bc4b/pillow-13.0.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:d9b0a2bee3f3e03e9f29057aedb807dbf1e1d96ee1b9d0f422d9db6c8583271d", size = 4852269, upload-time = "2026-10-16T22:16:35.102Z" },
+    { url = "https://files.pythonhosted.org/packages/83/16/b603274617b3e6728da3a0133d4fba1ea8d7fbe0c4ea5fef9cbffa398b8b/pillow-13.0.0-cp314-cp314-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:5933fcea5a5ba64c686f55c886a115cbfd92f2900460784a1e79909fdbafd7b6", size = 6516058, upload-time = "2026-10-16T22:16:37.228Z" },
+    { url = "https://files.pythonhosted.org/packages/1d/f2/1371707ce438ba9a43f9d24089828494ec6f9396e28cd7903aa704dd6306/pillow-13.0.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e91c2b1cbeae768c98752e67e717e283d68dae45717b41f2d91eaee648e37b7d", size = 7142574, upload-time = "2026-10-16T22:16:39.172Z" },
+    { url = "https://files.pythonhosted.org/packages/b9/a9/62cf68587f910bc87c5951bcb6e9430c7643a65076adf5f18b4bf350e2bd/pillow-13.0.0-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:7f6299e494e46253d40c34653cac369412f44ca53b5f85d848d3f95b1ed0546c", size = 6614295, upload-time = "2026-10-16T22:16:41.117Z" },
+    { url = "https://files.pythonhosted.org/packages/6c/c9/9e9b48178649730299be0bafbf5f810a5b6977538f5a92d47e4ba5f5d608/pillow-13.0.0-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:f9bd7d260d986f3553518c5d723544346fa48031f8aef3265d786aeb59845bc0", size = 7224841, upload-time = "2026-10-16T22:16:43.118Z" },
+    { url = "https://files.pythonhosted.org/packages/8f/48/c44e91384b1b6c072a714a63d00608acc16a6a968735e478e4be4384e5ac/pillow-13.0.0-cp314-cp314-win32.whl", hash = "sha256:2e31c4e68cffd7b1f116127626813b82fcba19edf6b940a7b0c266d6484d0055", size = 6508694, upload-time = "2026-10-16T22:16:45.883Z" },
+    { url = "https://files.pythonhosted.org/packages/50/e2/7ad17747517e4c813dca78257d6bb593466f8231baf1384bc98d92745edb/pillow-13.0.0-cp314-cp314-win_amd64.whl", hash = "sha256:f7cbb7a64e7ec664775195e4f81923bc8a93d9451b963f844e59118f63147a7a", size = 7281830, upload-time = "2026-10-16T22:16:47.725Z" },
+    { url = "https://files.pythonhosted.org/packages/41/9f/e5b51f2ce8ef4563215334035403ce61a244f93a2e65c24a940131618f87/pillow-13.0.0-cp314-cp314-win_arm64.whl", hash = "sha256:a6aaa7871aebca081eb5c45f83e845bbd9712ae99fa9286dbfdcee835e63f4b4", size = 2695468, upload-time = "2026-10-16T22:16:49.515Z" },
+    { url = "https://files.pythonhosted.org/packages/97/73/a53502f731f6c84805a4ce87a8881e86d07a65aee64728b900d112dc703e/pillow-13.0.0-cp314-cp314t-macosx_10_15_x86_64.whl", hash = "sha256:7b999816b5850a35ada08443e6e03945f1f6488144a83afe2d37b240a552aafa", size = 5578196, upload-time = "2026-10-16T22:16:51.291Z" },
+    { url = "https://files.pythonhosted.org/packages/21/50/7e949959a56b5559c78ef172b70fc6025706acb289f3f648a15329e4fa6f/pillow-13.0.0-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:67871a13cf47275201553b536c025da777f997fa562a19eb798af4ad4b97c18f", size = 4857276, upload-time = "2026-10-16T22:16:53.399Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/52/43ded0ac08e77e39d17bd6d894162572201b5e8fdc4a022b14c55a1960a4/pillow-13.0.0-cp314-cp314t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e8ca8f69b7c77fa96dad99f8638c1fc4f1c0bed4acaa1baf7a3c31bdb80a0ab1", size = 6607008, upload-time = "2026-10-16T22:16:55.525Z" },
+    { url = "https://files.pythonhosted.org/packages/0d/2e/4a57ed216d5bf877387cba4d44c02aa87abe51ad2e06404aa6b597c4da39/pillow-13.0.0-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:6bce6a29c3898191f4c9998e4d4e8f69790caeabde46e54da4bc235ce5bde683", size = 7224281, upload-time = "2026-10-16T22:16:57.738Z" },
+    { url = "https://files.pythonhosted.org/packages/5c/3d/2929b248e135752d63aaeabf53f6de797e905b7b6263f9c1e2adade20aba/pillow-13.0.0-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:816752a5ef76a80484c8c441c85593b7ea9304f6231fc5776ad1fbff7e773058", size = 6695600, upload-time = "2026-10-16T22:16:59.842Z" },
+    { url = "https://files.pythonhosted.org/packages/bc/33/fb0da992cf084ed1ee6ee05e96b6191e35c351eb707ca2df874feb24ce47/pillow-13.0.0-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:5bdb38ba220b61b4ec31dd1046dea6b016d3c6850a23f43ed8b58332b2fc668e", size = 7300589, upload-time = "2026-10-16T22:17:01.686Z" },
+    { url = "https://files.pythonhosted.org/packages/bb/af/c30dd9ef6a3dce84ecb1b2393cac629047a32e66279056c6cb46c3ffd65c/pillow-13.0.0-cp314-cp314t-win32.whl", hash = "sha256:06903aac074d00c988e77a1fc435286dc498506d4ca8d6f69df9babddf4ecc15", size = 6517204, upload-time = "2026-10-16T22:17:03.722Z" },
+    { url = "https://files.pythonhosted.org/packages/85/d5/ef3a8ae7609c8ab26570abf18194882534b480d245a9148b895a2262c004/pillow-13.0.0-cp314-cp314t-win_amd64.whl", hash = "sha256:9a635068d9793c7f0d929f39f18b58f1bd86c236e8e7b64167b86af9232ebca0", size = 7286695, upload-time = "2026-10-16T22:17:05.543Z" },
+    { url = "https://files.pythonhosted.org/packages/84/3c/0861db0c69a03689ebe3e7599d35668a414deb5aaafd8255215e4e62e3d3/pillow-13.0.0-cp314-cp314t-win_arm64.whl", hash = "sha256:0d1a9cf7bc6917538b20f8d06b9ab2147e542f68849e96fc58eb66bdf6acc692", size = 2698098, upload-time = "2026-10-16T22:17:07.674Z" },
+    { url = "https://files.pythonhosted.org/packages/6e/eb/e86a41962a3a31ad495a3d6a912d9002b01bba4a6fa71c28703abdca7f69/pillow-13.0.0-cp315-cp315-ios_13_0_arm64_iphoneos.whl", hash = "sha256:7d5e097eabd5d4915c27ac9f6e9325bb1e01a7c94d7348b5c4451d3fc30e8521", size = 4191213, upload-time = "2026-10-16T22:17:09.449Z" },
+    { url = "https://files.pythonhosted.org/packages/dd/04/7e7445e706afec84ef06dc25b2c77f9cecff242c23730c62928ad1089d4a/pillow-13.0.0-cp315-cp315-ios_13_0_arm64_iphonesimulator.whl", hash = "sha256:51ebb529fc5e8abdd55302f6c3f8943037348ec2384329a3e55677f69ae2fdfc", size = 4290650, upload-time = "2026-10-16T22:17:11.196Z" },
+    { url = "https://files.pythonhosted.org/packages/46/85/d534089068ac40c0f61f650389a296c812eab745a8a733f81feec39ae955/pillow-13.0.0-cp315-cp315-ios_13_0_x86_64_iphonesimulator.whl", hash = "sha256:c87a04e7f152ee4db5dbe15f0bfa3fe628a1aeedbe66b81c43b87f52c813f9ac", size = 3723078, upload-time = "2026-10-16T22:17:12.772Z" },
+    { url = "https://files.pythonhosted.org/packages/ce/2b/00b5c3b401df538b5dbe311d3899730fae5ba1e21cb8b80a128887ac6747/pillow-13.0.0-cp315-cp315-macosx_10_15_x86_64.whl", hash = "sha256:20722cd5375533ad754053363a80b8fb30c79d37930a6f7228030e237ce3bd5d", size = 5572292, upload-time = "2026-10-16T22:17:14.539Z" },
+    { url = "https://files.pythonhosted.org/packages/72/f5/a6b0610f946e9b54ae888ba7ad29d6e2f8d9b11f69e212d70416b7186c09/pillow-13.0.0-cp315-cp315-macosx_11_0_arm64.whl", hash = "sha256:04a63720f79e22fd54d897c233a68314c50ca0603360f54ce2bd5db8f0f43782", size = 4852222, upload-time = "2026-10-16T22:17:16.521Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/d0/c0ff25bb0427ec70f32aac995453321fc3c4494a46c7292ff02d9d260b04/pillow-13.0.0-cp315-cp315-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:4f8db54177035a2b5f717f94475b74907e12a96dc74f6d487f3966b0a4694071", size = 6527349, upload-time = "2026-10-16T22:17:18.534Z" },
+    { url = "https://files.pythonhosted.org/packages/85/11/e46fa0bcc0fc117f1eacc206b3d51f04d583fab328b4b740672d0438d83f/pillow-13.0.0-cp315-cp315-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:8f36aa77f74b14a2103622b196402c71330e4e7cf4122ee45c854e9a01e0eecf", size = 7152873, upload-time = "2026-10-16T22:17:20.415Z" },
+    { url = "https://files.pythonhosted.org/packages/7c/53/2bdeca705f3a58679fa9201233193c86a30238340ca29b3a152c3fcc719b/pillow-13.0.0-cp315-cp315-musllinux_1_2_aarch64.whl", hash = "sha256:149a1c323ba366f90b48e6f1a6db6582eb50512df374588de56fc909abc0f0f3", size = 6626871, upload-time = "2026-10-16T22:17:22.361Z" },
+    { url = "https://files.pythonhosted.org/packages/14/de/3829030f209722ade3753bb456b805a0e7f885cf885b483407365c82e9ca/pillow-13.0.0-cp315-cp315-musllinux_1_2_x86_64.whl", hash = "sha256:e892354a424b1e82a78ba16785822bdd40de06f19446a3d4a28047df1a4f8932", size = 7236439, upload-time = "2026-10-16T22:17:24.352Z" },
+    { url = "https://files.pythonhosted.org/packages/44/b1/67fc37388382bc036a74f04da5bb6fcbf90ec3ac1f45893e06176c373fd3/pillow-13.0.0-cp315-cp315-win32.whl", hash = "sha256:8e459b613cf31f8980f584387b4fe47bf08e076e288d61aa8eba1f7fd4ddbb81", size = 6508688, upload-time = "2026-10-16T22:17:26.314Z" },
+    { url = "https://files.pythonhosted.org/packages/44/05/fdb6a79aee10861165526b41b7b440e36ee1ff58613b2fbefe3acbf06d4f/pillow-13.0.0-cp315-cp315-win_amd64.whl", hash = "sha256:d4737f50d23ddd11d6685faacbb9252887dde0bc7997127757247983d74399d6", size = 7281107, upload-time = "2026-10-16T22:17:28.198Z" },
+    { url = "https://files.pythonhosted.org/packages/e6/9c/6c6f7dc2a566467baf121394e83de25ac287cffe34cc030726beb4be0224/pillow-13.0.0-cp315-cp315-win_arm64.whl", hash = "sha256:2310e2adfc13c6d457d7d0f2ffdd5c56a74a317650cf765887df8d515a647ac0", size = 2695513, upload-time = "2026-10-16T22:17:30.013Z" },
+    { url = "https://files.pythonhosted.org/packages/23/16/e9120defdb8bff693b582d035312acc6f530cdc2bc5238a87f410efccd82/pillow-13.0.0-cp315-cp315t-macosx_10_15_x86_64.whl", hash = "sha256:21c32061a5512dc13f87cc7303e120e4d77c2f70df89a35af0e3ce246e5ac57f", size = 5578129, upload-time = "2026-10-16T22:17:31.642Z" },
+    { url = "https://files.pythonhosted.org/packages/47/22/76faf2bb2448f48a84cf894c1e2bb1090d7d2b1aa521ece131cb2f05d631/pillow-13.0.0-cp315-cp315t-macosx_11_0_arm64.whl", hash = "sha256:1c774b9c0ba0d0b356f71530677b39028878a2cae5a93e0a13779cfd17120f88", size = 4857428, upload-time = "2026-10-16T22:17:33.43Z" },
+    { url = "https://files.pythonhosted.org/packages/b3/64/0861ea4e03c50b14af9ed9dd8b9f388ab42f445c623a9fcbab19aef7aa55/pillow-13.0.0-cp315-cp315t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:20822140c9a2ba9c5e42df342b0a892ab2e102fc0e3db967a133bb9ce3f898bb", size = 6612582, upload-time = "2026-10-16T22:17:35.415Z" },
+    { url = "https://files.pythonhosted.org/packages/5c/20/cd1e9b3f60a9f3d5ebe46da36955c26004092a501f7f2c42f9fcc26611bc/pillow-13.0.0-cp315-cp315t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ffea6b2986a797c84b6d1d27d4f43e0b83c73fc16281a930891cd237cf0d08fe", size = 7230176, upload-time = "2026-10-16T22:17:37.362Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/ef/ffb0a2fc85690714fb7ac662956949645d57f15bf4426f520da361e7b6e3/pillow-13.0.0-cp315-cp315t-musllinux_1_2_aarch64.whl", hash = "sha256:05cd2cd39055d0b9650060e4513ef4a9a0aea870083950bd046a0d6490f93a22", size = 6703640, upload-time = "2026-10-16T22:17:39.313Z" },
+    { url = "https://files.pythonhosted.org/packages/e0/c2/6402ee3ccb3363aeed8fdb3f9fe56703ac5377a539f0b81b53999d7e121f/pillow-13.0.0-cp315-cp315t-musllinux_1_2_x86_64.whl", hash = "sha256:c6fd031333dedcad7ce3e03d244093f43504f209e86925ebdb2b868fa4037630", size = 7309231, upload-time = "2026-10-16T22:17:41.021Z" },
+    { url = "https://files.pythonhosted.org/packages/fc/96/d6b82e8b8c06ad143b66b12e0b31051e4bf489b4fabca1f390a14fe1ebde/pillow-13.0.0-cp315-cp315t-win32.whl", hash = "sha256:c50c80e3591e5cf9a8dfa6007d4f10732f02e32263850999286e56ccd650cfb2", size = 6517200, upload-time = "2026-10-16T22:17:42.886Z" },
+    { url = "https://files.pythonhosted.org/packages/60/d4/0062e6005e9b270b165015aafd343364ac378ec5a685431ea42baad33357/pillow-13.0.0-cp315-cp315t-win_amd64.whl", hash = "sha256:adb3c2124c68e480f4632d06cb7caa3b48a51678475f483b4edb1c6dee29ea43", size = 7287488, upload-time = "2026-10-16T22:17:45.56Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/81/b8eb349746be7bce47dd95337c6634e84910af91b59aaa9159c034c614fa/pillow-13.0.0-cp315-cp315t-win_arm64.whl", hash = "sha256:4a25756244bdcce3b50580baadf320fa48297f0eeb8e114ba64139a40d4d0fc8", size = 2698073, upload-time = "2026-10-16T22:17:47.556Z" },
+    { url = "https://files.pythonhosted.org/packages/60/da/f6d644e631c5b370c5d0b899f3ccadd2780aab070b29a110527cf4e1fd2c/pillow-13.0.0-pp312-pypy312_pp80-macosx_10_15_x86_64.whl", hash = "sha256:8619685cad8efc4c38c66d3b36aad854523297c43d748b3b6f0cc03c90ba3463", size = 5523188, upload-time = "2026-10-16T22:17:59.334Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/b0/2594f202d743a35d4fe80682bfd96f277e5ca7aecb27cf64ef5bfc1d000b/pillow-13.0.0-pp312-pypy312_pp80-macosx_11_0_arm64.whl", hash = "sha256:7e91e97a929232cdb828889ee6ad0e48d7f40f4ec38818f4e4a8968b2b1af22e", size = 4806808, upload-time = "2026-10-16T22:18:01.188Z" },
+    { url = "https://files.pythonhosted.org/packages/8e/ed/d504165ef79af6fafe25c76726cf30f544cc236002f7ed054f1d51adc4ff/pillow-13.0.0-pp312-pypy312_pp80-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:93ff9c9c3663ce23aaa5d0b6b6abac55359e2a0c06c7e30f3771829af816be63", size = 5464358, upload-time = "2026-10-16T22:18:02.779Z" },
+    { url = "https://files.pythonhosted.org/packages/7b/fe/a10aba5503ca13e9e009b8bd0a1a4ce5584bdce246245fd6f3a83701369c/pillow-13.0.0-pp312-pypy312_pp80-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e65dd6e75de67b2362a4fa3e16aa627595f65054dc4ec73d64680c84d592fa61", size = 6043514, upload-time = "2026-10-16T22:18:04.538Z" },
+    { url = "https://files.pythonhosted.org/packages/c0/37/66b12dc476041fe523bca29c9d58fbf1ea92a4eaf73acfb9e993948f1191/pillow-13.0.0-pp312-pypy312_pp80-win_amd64.whl", hash = "sha256:567f20f1c75897d7663830da6ea8af719e03d712b1d9ee7f813319f9ece42e5a", size = 7366030, upload-time = "2026-10-16T22:18:06.638Z" },
 ]
 
 [[package]]
@@ -4032,7 +4044,7 @@ name = "pydantic-ai"
 version = "2.55.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pydantic-ai-slim", extra = ["anthropic", "cli", "evals", "google", "logfire", "mcp", "openai", "web"], marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "pydantic-ai-slim", extra = ["anthropic", "cli", "evals", "google", "logfire", "mcp", "openai", "web"], marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/52/a1/fe269bcb0ed07c00c549128095ccc62ccff6ec4eed36e68b6f7a164c57e7/pydantic_ai-2.55.0.tar.gz", hash = "sha256:b57057025a49392096821dccb6df5261880f558c9a99c470bcb0e946de10f47e", size = 28022, upload-time = "2026-10-09T19:40:48.347Z" }
 wheels = [
@@ -4076,11 +4088,11 @@ google = [
     { name = "google-genai", version = "2.30.0", source = { registry = "https://pypi.org/simple" } },
 ]
 logfire = [
-    { name = "logfire", extra = ["httpx"], marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "logfire", extra = ["httpx"], marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
     { name = "opentelemetry-instrumentation-httpx" },
 ]
 mcp = [
-    { name = "fastmcp-slim", extra = ["client"], marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "fastmcp-slim", extra = ["client"], marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
 ]
 openai = [
     { name = "openai", version = "3.29.0", source = { registry = "https://pypi.org/simple" } },
@@ -4402,7 +4414,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "rpds-py" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/22/f5/df4e9027acead3ecc63e50fe1e36aca1523e1719559c499951bb4b53188f/referencing-0.37.0.tar.gz", hash = "sha256:44aefc3142c5b842538163acb373e24cce6632bd54bdb01b21ad5863489f50d8", size = 78036, upload-time = "2025-10-13T15:30:48.871Z" }
 wheels = [
@@ -4549,11 +4561,11 @@ dependencies = [
 [package.optional-dependencies]
 telemetry = [
     { name = "opentelemetry-api", version = "1.39.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
     { name = "opentelemetry-exporter-otlp-proto-http", version = "1.39.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "opentelemetry-exporter-otlp-proto-http", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "opentelemetry-exporter-otlp-proto-http", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
     { name = "opentelemetry-sdk", version = "1.39.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "opentelemetry-sdk", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "opentelemetry-sdk", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 
 [package.metadata]
@@ -4574,7 +4586,7 @@ provides-extras = ["all", "sdk", "telemetry"]
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.18.0"
+version = "0.19.0"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },
@@ -4630,7 +4642,7 @@ requires-dist = [
     { name = "markitdown", extras = ["pdf", "docx", "pptx", "xlsx"], marker = "extra == 'all'", specifier = ">=0.1.0" },
     { name = "mcp", marker = "extra == 'all'", specifier = ">=1.30.0,<2" },
     { name = "pdfminer-six", marker = "extra == 'all'", specifier = ">=20231228" },
-    { name = "pillow", marker = "extra == 'all'", specifier = ">=12.3.0" },
+    { name = "pillow", marker = "extra == 'all'", specifier = ">=13.0.0" },
     { name = "pyautogen", marker = "extra == 'all-integrations'", specifier = ">=0.2.0" },
     { name = "pyautogen", marker = "extra == 'autogen'", specifier = ">=0.2.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
@@ -4722,7 +4734,7 @@ llamaindex = [
 openai-sdk = [
     { name = "anthropic" },
     { name = "openai", version = "2.54.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
-    { name = "openai", version = "3.29.0", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "openai", version = "3.29.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
 ]
 pydantic-ai = [
     { name = "pydantic-ai" },
@@ -4991,7 +5003,7 @@ version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/e3/7c1dc7381d9f8ab7d854328ebfa884e62cb3f3d8549ddfd37c7814f42afa/starlette-1.3.1.tar.gz", hash = "sha256:05d0213193f2fbaae60e2ecb593b4add4262ad4e46536b54abe36f11a71724e0", size = 2703240, upload-time = "2026-06-12T09:23:11.602Z" }
 wheels = [
@@ -5130,7 +5142,7 @@ name = "tqdm"
 version = "4.68.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/06/b3/36c8ecf72e8925200671613332db156d84b99b3aee742a41c1938ebb0808/tqdm-4.68.1.tar.gz", hash = "sha256:fc163d96b287bd031e1aa24421ce4411b25559bd0a1be4fe649bdaa4d2c02bf5", size = 171236, upload-time = "2026-06-05T17:23:15.267Z" }
 wheels = [
@@ -5305,28 +5317,28 @@ wheels = [
 
 [[package]]
 name = "uv"
-version = "0.11.19"
+version = "0.13.5"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/67/f0/6254502aebfdc0a9df6069269a126dd58252ac29d2d6cdf4777cea3e90b5/uv-0.11.19.tar.gz", hash = "sha256:f56f5bf853626a30423052d7ee00bf5cc940a08347d6ee7ede96862d084054a5", size = 4213580, upload-time = "2026-06-03T22:37:15.976Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/de/f0/7565e80415f841c3500ed69d86516c7676e3b24470a218ab61b1f43071a2/uv-0.13.5.tar.gz", hash = "sha256:979409b8c9a78df140ffb19c53f511b7a73526da8d1d5e36558833055e371c6c", size = 7513309, upload-time = "2026-10-22T01:32:33.909Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1a/73/be32c2f6ba30fa9d8b3baceb478107cc23722d4aaab87145a332e4985185/uv-0.11.19-py3-none-linux_armv6l.whl", hash = "sha256:c729f56ffef9b945053412c839695e8a0b13758aa15b7763e95a7dd539a6f522", size = 23620003, upload-time = "2026-06-03T22:37:53.017Z" },
-    { url = "https://files.pythonhosted.org/packages/fd/ed/3aefe4a4ca4ac9204c6745670dbe12f4add69194d40f5abd1c7bd45ba9af/uv-0.11.19-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:a98495b9dd67287d8c1a0786f98cb037a50f0ee6c3d648572edaa7137aabc277", size = 23183211, upload-time = "2026-06-03T22:37:20.699Z" },
-    { url = "https://files.pythonhosted.org/packages/5b/eb/5d1469f9e709d56066f292978711fbf1f805b7fb46f901d3c1f260fd9908/uv-0.11.19-py3-none-macosx_11_0_arm64.whl", hash = "sha256:7fdd881cd6d80782afcf8c1d446dd15a42985167fd812b763d38ba1e4a8d944d", size = 21754003, upload-time = "2026-06-03T22:37:05.027Z" },
-    { url = "https://files.pythonhosted.org/packages/7b/93/109b5ee6678f54492f94fdef74149643eaa1f2f4716906a2a10816b31247/uv-0.11.19-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl", hash = "sha256:7222f45b5541551057bfc2e3021f113800704f665c119fdf3ea700c6c4859b21", size = 23518832, upload-time = "2026-06-03T22:37:28.794Z" },
-    { url = "https://files.pythonhosted.org/packages/08/0c/8c59bbcf78e94ca9994256920efa99d1c4dc9d0b966eb62ebba075585a16/uv-0.11.19-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.musllinux_1_1_armv7l.whl", hash = "sha256:2e0e0b8ad59ec56f1440d6e4313b64a1d8119275dcec73d19eef33c43f99428c", size = 23163128, upload-time = "2026-06-03T22:37:23.226Z" },
-    { url = "https://files.pythonhosted.org/packages/89/d6/69caf9e6f11c84b5fb92df190b46fbecb7dc6645ae891c6ed66d7aaaa310/uv-0.11.19-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:f4aa17ffd719daf37b7a6265efd3ee4922a8ddaabaf0406d2b28c7e5ce2f20ff", size = 23164395, upload-time = "2026-06-03T22:37:18.11Z" },
-    { url = "https://files.pythonhosted.org/packages/d6/83/0c2242b77c51ac33a0ddd8b06790429a0b8b9623974c9594ab2b0070ec47/uv-0.11.19-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:32d7988c0dfb6f90941f201c871a4478e96e4f2a32bdb2256d62a78ee20593fc", size = 24541708, upload-time = "2026-06-03T22:37:08.093Z" },
-    { url = "https://files.pythonhosted.org/packages/54/10/b1404fc52c0eddc3655f57a8b76e79dcf8dd02568382272f17e2fa68c4bb/uv-0.11.19-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:2d663bacb97e2e8412d1c26eace28c7ebbde9d6f5d7d78760fafd114d693817f", size = 25575501, upload-time = "2026-06-03T22:37:47.526Z" },
-    { url = "https://files.pythonhosted.org/packages/7c/17/4cda5994195ba9ce1f6971d40d5f2ceec58e2a79030d9052b3bf322557b1/uv-0.11.19-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:574f5dd4f31666661ea6386d3b91c5f0e8b84a8cae98ebba447c4674f2e6a4c7", size = 24827200, upload-time = "2026-06-03T22:37:34.039Z" },
-    { url = "https://files.pythonhosted.org/packages/5a/74/2bd8b51e1d76210fd424ae55ec3f34ded5a10eeff3dd38aeb03c816a0af2/uv-0.11.19-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:731d9fab8db5d41590af64236d03f8069c8da665fd0f9493b85985f19c86cd90", size = 24872664, upload-time = "2026-06-03T22:37:11.301Z" },
-    { url = "https://files.pythonhosted.org/packages/06/b1/44b0764f656bbdd0728118610a63f2feddd9cbe450f974d80c5bb56aad34/uv-0.11.19-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:301fd78309fc545c2cec2bfcc61a6bbdde876856c6d2041502737cf44085c178", size = 23617890, upload-time = "2026-06-03T22:37:44.796Z" },
-    { url = "https://files.pythonhosted.org/packages/d2/25/312fa33cd4c34e7618f86cad0c9fdb312d8fef2e7fc61944c1a2f1bf1256/uv-0.11.19-py3-none-manylinux_2_31_riscv64.musllinux_1_1_riscv64.whl", hash = "sha256:62b0b35a51d3034ff30ecd0f381e9bbc20d5b335754f54b098da29424d551ceb", size = 24267220, upload-time = "2026-06-03T22:37:39.425Z" },
-    { url = "https://files.pythonhosted.org/packages/8d/25/13856aeff9e14c98ee3e1ceae4d209301cbdeabde93abcd758433601dc82/uv-0.11.19-py3-none-manylinux_2_31_riscv64.whl", hash = "sha256:65e932720daed1af1f720a0ff5f9b33ee5f7ad97488dcceceb85154fc1323b82", size = 24376177, upload-time = "2026-06-03T22:37:50.276Z" },
-    { url = "https://files.pythonhosted.org/packages/45/7d/590b3ab420e03504cf658d2981e1fcb4af60f3858d42da1d4d8740141dd9/uv-0.11.19-py3-none-musllinux_1_1_i686.whl", hash = "sha256:8f90b6687a480d154595aa619fb836a9a20d00ce37293db8099aad924f2b18f9", size = 23808336, upload-time = "2026-06-03T22:37:26.086Z" },
-    { url = "https://files.pythonhosted.org/packages/9e/8e/40acebd4ea419c870930580623e8367e23d810a0ecb8cc2f44d852a27293/uv-0.11.19-py3-none-musllinux_1_1_x86_64.whl", hash = "sha256:28b0d612a766eb25756dbaa315433b726e93affa467d29a2682cc317547952ba", size = 25080747, upload-time = "2026-06-03T22:37:13.886Z" },
-    { url = "https://files.pythonhosted.org/packages/9c/d3/4037b2acb2bb73b1a3ee47a1d23864ecc503f5840387afd29f621d4fd2ec/uv-0.11.19-py3-none-win32.whl", hash = "sha256:aa6a7e8d07b33ad22f4732848ebb1d9486503973c248d6e632c06ce4339fe347", size = 22459533, upload-time = "2026-06-03T22:37:36.741Z" },
-    { url = "https://files.pythonhosted.org/packages/d4/43/f374fad7ad94e4a8c47cf09f00d803c76c6cc7f225668c41f4e2fb5de000/uv-0.11.19-py3-none-win_amd64.whl", hash = "sha256:480fc34a8d0967af6a90b3f99a6e5687cd5c6e29528de96bec04d6e305a59363", size = 25143888, upload-time = "2026-06-03T22:37:42.169Z" },
-    { url = "https://files.pythonhosted.org/packages/18/98/d2db53ae036528b0a9407529ef175ee200b01f626c9c160978784c8af870/uv-0.11.19-py3-none-win_arm64.whl", hash = "sha256:50e4d4796ca1a6da359a4f723a0fea86640c381d3ff4fa759a41badd7cb52dee", size = 23601290, upload-time = "2026-06-03T22:37:31.393Z" },
+    { url = "https://files.pythonhosted.org/packages/24/ff/e30478710f53cf388c892e27e90662aa2acac7a7998bdb18023c595213c1/uv-0.13.5-py3-none-linux_armv6l.whl", hash = "sha256:8d092d07d2389909027c2ed4965ade1bd46bbcecceb26686ff40927684f8c457", size = 18325046, upload-time = "2026-10-22T01:31:37.115Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/2a/dcae794203261e49564bb9ff7c4b64a093f69ac73476cc8ce54c1deed3a1/uv-0.13.5-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:337a14829bb499e114989df4f908f134ff37f1fb6c33497541cfb05b28080e39", size = 17335724, upload-time = "2026-10-22T01:31:40.889Z" },
+    { url = "https://files.pythonhosted.org/packages/d2/26/9ac45211123244ea68be852775093af487a64debc13621a2de239f8ebe73/uv-0.13.5-py3-none-macosx_11_0_arm64.whl", hash = "sha256:a42c85fa8156e1e5e2cecdbc77bb818ea1dcf5f78b8e2a8f84c7fe4f16f0702e", size = 14470685, upload-time = "2026-10-22T01:31:43.897Z" },
+    { url = "https://files.pythonhosted.org/packages/e8/2e/5bf9acf9d11fb790420e258a875e13bba36bc890858350642aca185efe0e/uv-0.13.5-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl", hash = "sha256:2386c2dc9b59fc1d39b1c500e4319d71d3268232eb3b38e29cd6775d6269e8d4", size = 17784583, upload-time = "2026-10-22T01:31:46.95Z" },
+    { url = "https://files.pythonhosted.org/packages/f3/70/b02fdcbae77346e3ec1310e7de9dde541252e709f6641db3fbd32cd4da79/uv-0.13.5-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.musllinux_1_1_armv7l.whl", hash = "sha256:4f62680fe58c5a83fd539e38f1956c2b577b1f5939c9020aa4c7f0addda2f4ad", size = 17866408, upload-time = "2026-10-22T01:31:50.352Z" },
+    { url = "https://files.pythonhosted.org/packages/fd/b9/6663095851e0943e05e47318d7600e567bc172a1e7a26b21b8e6608e8491/uv-0.13.5-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:0e03f5717bdaaf5ab4e2df361d2395e36b515946f56ef4bed88801aeb9959fb0", size = 17753574, upload-time = "2026-10-22T01:31:53.502Z" },
+    { url = "https://files.pythonhosted.org/packages/e5/84/1bb89a94486b813bbeaa1b8b491e69a25fa864626711944127b186f903de/uv-0.13.5-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:f867c5ec24c563afaae730a13e46cdf74a1a0b64c134286ff99762a96e2abf40", size = 18502087, upload-time = "2026-10-22T01:31:56.748Z" },
+    { url = "https://files.pythonhosted.org/packages/a4/a1/b0b0c7247f3bb0f307eae8a28679ecd0d4b0e2757fcf6c87dea6f679a099/uv-0.13.5-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:d3fd5db55c20feb672ea457361aba29ab68b9ae69a14d98ad6c138b5f86dcca4", size = 19927049, upload-time = "2026-10-22T01:31:59.831Z" },
+    { url = "https://files.pythonhosted.org/packages/b4/44/6bf11de78ce18869849a14178534b900dbe4e310270b2f60df6503c03137/uv-0.13.5-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:e01481ae5212e45ee7c85fad5fc67f06b0ee0329a7c3c289dc529da884b03881", size = 19662743, upload-time = "2026-10-22T01:32:03.258Z" },
+    { url = "https://files.pythonhosted.org/packages/3a/ad/3c2a81d66d1839063662e5b6c0002ec31f8ee987dbc5295747627ca6160a/uv-0.13.5-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:fa8d26e08e34c29c0c4e820cf3181757086d547240b4f4d31ff1d8bd810ca946", size = 17211825, upload-time = "2026-10-22T01:32:06.393Z" },
+    { url = "https://files.pythonhosted.org/packages/4c/92/d83d019c63c1ccc6ff17df2bfe76270412f9766e7e71aa4d4ccbf018683f/uv-0.13.5-py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:91e58e304b63b6c91bac5561459ab0c3ea24f17bc01ea9359d69fed72142978f", size = 16654136, upload-time = "2026-10-22T01:32:10.086Z" },
+    { url = "https://files.pythonhosted.org/packages/b8/5a/d42f9d93b322ad36647eb3bf516cc528847c240f630f6df213b6221c5262/uv-0.13.5-py3-none-manylinux_2_31_riscv64.musllinux_1_1_riscv64.whl", hash = "sha256:309a74d3c488bfaa3ba7bff759da73193d8781729c0a01274f4940fd32bb5712", size = 17921105, upload-time = "2026-10-22T01:32:13.174Z" },
+    { url = "https://files.pythonhosted.org/packages/97/79/c5c2c39c78cf7a1dd6e041b3f7aa2cc4258d351d42dea06f6fee0bde5daa/uv-0.13.5-py3-none-manylinux_2_31_riscv64.whl", hash = "sha256:469cca66de1b17c75b9b9de806a64cffb57cba5e42b1e30d0bba6fa72a146f58", size = 18103266, upload-time = "2026-10-22T01:32:16.302Z" },
+    { url = "https://files.pythonhosted.org/packages/01/2f/e5c70a05013077e5ecadb804418ddbab33f7279f96d052f79f565369b2a7/uv-0.13.5-py3-none-musllinux_1_1_i686.whl", hash = "sha256:2386e8dbfe110ff2f8ec8bd344dd18bf39eb9eb54e1edeeb87c3b85c34229cd3", size = 17842061, upload-time = "2026-10-22T01:32:19.208Z" },
+    { url = "https://files.pythonhosted.org/packages/4f/b0/7dba2cb636d7f58e0d74e948ad1afc6b7923e84e82de025e9951a68055db/uv-0.13.5-py3-none-musllinux_1_1_x86_64.whl", hash = "sha256:d162669e3a7811c584b03690eaa11e796ad1d309aa8229d5dfe3cbcd68a90400", size = 18963145, upload-time = "2026-10-22T01:32:22.362Z" },
+    { url = "https://files.pythonhosted.org/packages/00/7c/e38b312abaae1bd59ff5886126f48e9e223fbb9a8edf9e236ede976f67cb/uv-0.13.5-py3-none-win32.whl", hash = "sha256:f4e55a6e2a1089fe74ed50fbdf2df0f6f336ee148ad232b05932db5deee8007e", size = 16240919, upload-time = "2026-10-22T01:32:25.329Z" },
+    { url = "https://files.pythonhosted.org/packages/32/ea/771744a784b16aa21d195cb5d5d5a2878d72fa00fc26f11ea3f9646994fe/uv-0.13.5-py3-none-win_amd64.whl", hash = "sha256:1fb29fc46ba12033e2ef95a95ac79d649e71bbb1358419bbbcbd19d86026ef2f", size = 15358650, upload-time = "2026-10-22T01:32:28.22Z" },
+    { url = "https://files.pythonhosted.org/packages/52/67/1f31243f75ece410f2db1afdfc9a9f9722fdee2385e4a347c3ca1dee6d13/uv-0.13.5-py3-none-win_arm64.whl", hash = "sha256:0548460d46c8667488b1f089e936f29f0edfb1cc753f9152ffbd8bc84a46aa20", size = 15533668, upload-time = "2026-10-22T01:32:31.335Z" },
 ]
 
 [[package]]
@@ -5344,11 +5356,11 @@ wheels = [
 
 [package.optional-dependencies]
 standard = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
     { name = "httptools" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
-    { name = "uvloop", marker = "(platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32') or (platform_python_implementation == 'PyPy' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (platform_python_implementation == 'PyPy' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (platform_python_implementation == 'PyPy' and extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (platform_python_implementation == 'PyPy' and extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (sys_platform == 'cygwin' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (sys_platform == 'cygwin' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (sys_platform == 'cygwin' and extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (sys_platform == 'cygwin' and extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "uvloop", marker = "platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'" },
     { name = "watchfiles" },
     { name = "websockets" },
 ]

@@ -17,6 +17,7 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 constraint-dependencies = [
+    "certifi>=2026.10.19",
     "anyio>=4.14.2",
     "urllib3>=2.8.0",
 ]

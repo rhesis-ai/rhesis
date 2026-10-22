@@ -59,9 +59,11 @@ conflicts = [
     [{ extra = "llamaindex" }, { extra = "pydantic-ai" }],
 ]
 exclude-newer = "1 week"
-exclude-newer-package = { pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, cryptography = false, python-multipart = false, pydantic-ai = false, pydantic-ai-slim = false }
+exclude-newer-package = { pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, cryptography = false, python-multipart = false, pydantic-ai = false, pydantic-ai-slim = false, certifi = false, nltk = false, pillow = false, uv = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
+    "nltk>=3.10.4",
+    "certifi>=2026.10.19",
     "anyio>=4.14.2",
     "pyasn1>=0.6.4",
     "orjson>=3.11.7",
@@ -83,7 +85,7 @@ constraint-dependencies = [
     "soupsieve>=2.9.0",
     "setuptools>=83.0.0",
     "mcp>=1.28.1",
-    "pillow>=12.3.0",
+    "pillow>=13.0.0",
     "httpx2>=2.12.0",
     "httpcore2>=2.10.0",
     "banks>=2.4.5",
@@ -96,6 +98,8 @@ constraint-dependencies = [
 override-dependencies = [
     # crewai pins mcp~=1.28.1; 1.30.0 is the patched minor release.
     "mcp>=1.30.0,<2",
+    # crewai-cli pins uv~=0.11.6; 0.13.4 drops a compromised CA root.
+    "uv>=0.13.4",
     "python-dotenv>=1.2.2",
     "pydantic>=2.13.0",
 ]

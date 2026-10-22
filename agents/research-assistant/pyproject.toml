@@ -26,7 +26,7 @@ dependencies = [
     "pydantic>=2.0.0",
     "requests>=2.31.0",
     "cryptography>=48.0.1",
-    "pillow>=12.3.0",
+    "pillow>=13.0.0",
 ]
 
 [project.license]
@@ -48,9 +48,10 @@ packages = ["src/research_assistant"]
 
 [tool.uv]
 exclude-newer = "1 week"
-exclude-newer-package = { pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, cryptography = false, python-multipart = false }
+exclude-newer-package = { pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, cryptography = false, python-multipart = false, certifi = false, pillow = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
+    "certifi>=2026.10.19",
     "pyasn1>=0.6.4",
     "orjson>=3.11.7",
     "tornado>=6.5.7",

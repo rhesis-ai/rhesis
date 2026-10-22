@@ -65,9 +65,10 @@ include = ["src/rhesis/py.typed"]
 
 [tool.uv]
 exclude-newer = "1 week"
-exclude-newer-package = { tornado = false, litellm = false, langsmith = false, langchain-core = false, cryptography = false, python-multipart = false }
+exclude-newer-package = { tornado = false, litellm = false, langsmith = false, langchain-core = false, cryptography = false, python-multipart = false, certifi = false, uv = false, pillow = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
+    "certifi>=2026.10.19",
     "anyio>=4.14.2",
     "pyasn1>=0.6.4",
     "orjson>=3.11.7",
@@ -85,7 +86,7 @@ constraint-dependencies = [
     "pytest>=9.0.3",
     "cryptography>=48.0.1",
     "soupsieve>=2.9.0",
-    "uv>=0.11.15",
-    "pillow>=12.3.0",
+    "uv>=0.13.4",
+    "pillow>=13.0.0",
     "virtualenv>=21.7.13",
 ]
