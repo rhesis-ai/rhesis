@@ -6,7 +6,12 @@ import { useTheme } from '@mui/material/styles';
 import { FileUploadIcon } from '@/components/icons';
 import { BORDER_RADIUS } from '@/styles/theme';
 import JsonMonacoField from '../[identifier]/components/JsonMonacoField';
-import { OUTPUT_VARIABLES, responseMappingToPathToVar } from './JsonPreview';
+import {
+  JsonPreview,
+  OUTPUT_VARIABLES,
+  responseMappingToPathToVar,
+} from './JsonPreview';
+import { testPreviewSx } from './endpoint-styles';
 import { AUTO_FILLED_VARS } from './mapping-variables';
 import {
   CardSubtitle,
@@ -61,6 +66,19 @@ function readFile(f: File) {
       reader.readAsDataURL(f);
     }
   );
+}
+
+/** An object or array, or a string holding one, to show as JSON; otherwise undefined. */
+function asJsonValue(value: unknown): unknown {
+  let parsed = value;
+  if (typeof value === 'string') {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return undefined;
+    }
+  }
+  return parsed !== null && typeof parsed === 'object' ? parsed : undefined;
 }
 
 function formatValue(value: unknown): string {
@@ -351,30 +369,46 @@ export default function TabTest({
                   right="Returned values"
                 />
                 <MappingRowList>
-                  {mappedVars.map(v => (
-                    <MappingRow key={v.name} label={v.groupLabel}>
-                      <Box
-                        sx={{
-                          px: 1.5,
-                          py: 1,
-                          borderRadius: BORDER_RADIUS.xs,
-                          bgcolor: t => t.palette.greyscale.fieldSurface,
-                          maxHeight: theme.spacing(15),
-                          overflowY: 'auto',
-                        }}
-                      >
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            wordBreak: 'break-word',
-                            whiteSpace: 'pre-wrap',
-                          }}
-                        >
-                          {formatValue(mappedValues[v.name])}
-                        </Typography>
-                      </Box>
-                    </MappingRow>
-                  ))}
+                  {mappedVars.map(v => {
+                    const json = asJsonValue(mappedValues[v.name]);
+                    return (
+                      <MappingRow key={v.name} label={v.name}>
+                        {json !== undefined ? (
+                          <Box
+                            component="pre"
+                            sx={{
+                              ...testPreviewSx,
+                              m: 0,
+                              maxHeight: theme.spacing(30),
+                            }}
+                          >
+                            <JsonPreview value={json} />
+                          </Box>
+                        ) : (
+                          <Box
+                            sx={{
+                              px: 1.5,
+                              py: 1,
+                              borderRadius: BORDER_RADIUS.xs,
+                              bgcolor: t => t.palette.greyscale.fieldSurface,
+                              maxHeight: theme.spacing(15),
+                              overflowY: 'auto',
+                            }}
+                          >
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                wordBreak: 'break-word',
+                                whiteSpace: 'pre-wrap',
+                              }}
+                            >
+                              {formatValue(mappedValues[v.name])}
+                            </Typography>
+                          </Box>
+                        )}
+                      </MappingRow>
+                    );
+                  })}
                 </MappingRowList>
               </Box>
             )}

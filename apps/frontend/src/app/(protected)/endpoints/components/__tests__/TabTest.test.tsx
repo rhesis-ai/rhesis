@@ -68,6 +68,28 @@ describe('TabTest', () => {
     expect(screen.getByText('Hello back')).toBeInTheDocument();
   });
 
+  it('labels returned values by variable name and shows JSON as JSON', () => {
+    render(
+      <TabTest
+        {...defaultProps}
+        resBody='{"output": "$.text", "metadata": "$.meta"}'
+        testResult={{
+          success: true,
+          response: {
+            raw_response: { text: 'Hi', meta: { model: 'gpt-x', tokens: 12 } },
+          },
+        }}
+      />
+    );
+    expect(screen.getByText('metadata')).toBeInTheDocument();
+    expect(screen.queryByText('Metadata')).not.toBeInTheDocument();
+    // Rendered as a JSON tree, not one stringified line.
+    expect(
+      screen.queryByText('{"model":"gpt-x","tokens":12}')
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText(/gpt-x/).length).toBeGreaterThan(0);
+  });
+
   it('shows the error when the test fails', () => {
     render(
       <TabTest
