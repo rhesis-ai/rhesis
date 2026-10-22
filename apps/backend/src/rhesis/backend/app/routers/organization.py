@@ -2,7 +2,17 @@ import logging
 import uuid
 
 import anyio
-from fastapi import Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+)
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
@@ -37,7 +47,6 @@ from rhesis.backend.app.services.organization import (
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.notifications import email_service
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +112,32 @@ def read_organizations(
 # in declaration order, so a later literal path loses to an earlier parameter
 # and "settings" would be parsed as a UUID.
 # ---------------------------------------------------------------------------
+
+
+def _send_onboarding_emails_bg(email: str, name: str | None, organization_id: str) -> None:
+    """Best-effort Day 1/2/3 onboarding emails, safe for BackgroundTasks."""
+    from rhesis.backend.notifications.email.service import EmailService
+
+    svc = EmailService()
+    for day, send_method in [
+        (1, svc.send_day_1_email),
+        (2, svc.send_day_2_email),
+        (3, svc.send_day_3_email),
+    ]:
+        try:
+            success = send_method(recipient_email=email, recipient_name=name)
+            if not success:
+                logger.warning(
+                    "Day %s email not scheduled for org_id=%s — check SENDGRID_API_KEY "
+                    "and SENDGRID_DAY_%s_EMAIL_TEMPLATE_ID env vars.",
+                    day,
+                    organization_id,
+                    day,
+                )
+        except Exception:
+            logger.exception(
+                "Failed to schedule Day %s email for org_id=%s", day, organization_id
+            )
 
 
 def _current_organization(db: Session, organization_id) -> models.Organization:
@@ -453,6 +488,7 @@ def update_organization(
 )
 def initialize_organization_data(
     organization_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_tenant_db_session),
     current_user: User = Depends(require_current_user_or_token),
 ):
@@ -538,37 +574,16 @@ def initialize_organization_data(
             e, context=f"loading initial data for organization {organization_id}"
         ) from e
 
-    # Schedule onboarding emails AFTER successful DB commit
+    # Schedule onboarding emails as a background task so the response returns
+    # immediately and SMTP/SendGrid I/O does not block the caller.
     logger.info("Onboarding complete — scheduling Day 1/2/3 emails for org_id=%s", organization_id)
-
-    email_schedule = [
-        (1, email_service.send_day_1_email),
-        (2, email_service.send_day_2_email),
-        (3, email_service.send_day_3_email),
-    ]
-
-    email_results = {}
-    for day, send_method in email_schedule:
-        try:
-            success = send_method(
-                recipient_email=current_user.email,
-                recipient_name=current_user.name or current_user.given_name,
-            )
-            email_results[f"day_{day}"] = "scheduled" if success else "skipped"
-            if not success:
-                logger.warning(
-                    "Day %s email not scheduled for org_id=%s — check SENDGRID_API_KEY "
-                    "and SENDGRID_DAY_%s_EMAIL_TEMPLATE_ID env vars.",
-                    day,
-                    organization_id,
-                    day,
-                )
-        except Exception:
-            email_results[f"day_{day}"] = "error"
-            logger.exception("Failed to schedule Day %s email for org_id=%s", day, organization_id)
-
-    logger.info("Email scheduling results for org_id=%s: %s", organization_id, email_results)
-    response["email_schedule"] = email_results
+    background_tasks.add_task(
+        _send_onboarding_emails_bg,
+        current_user.email,
+        current_user.name or current_user.given_name,
+        str(organization_id),
+    )
+    response["email_schedule"] = "pending"
     return response
 
 
