@@ -53,6 +53,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DeepEval or Rhesis providers instead. This also drops `diskcache`, `gitpython`, `scipy` and
   `sqlalchemy` from the SDK's dependency tree.
 
+## [0.19.1] - 2026-10-22
+
+### Security
+
+- Updated `certifi` to address security risks associated with compromised root certificates.
+- Upgraded `nltk` to `3.10.4` across the SDK and related packages to resolve security advisories.
+
+### Changed
+
+- Updated development environment dependencies and lockfiles, including `uv` (`0.13.5`) and `pillow` (`13.0.0`).
+
+### Fixed
+
+- Preserved authentication fields correctly when caching settings.
+- Ensured trace metrics grid automatically refreshes upon change.
+- Improved dark mode behavior to follow browser system themes by default and persist user selections correctly.
+
+
 ## [0.19.0] - 2026-10-21
 
 ### Added

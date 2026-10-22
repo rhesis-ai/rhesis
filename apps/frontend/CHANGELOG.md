@@ -27,6 +27,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed the Ragas backend from metric icon handling now that the backend no longer serves it.
 
+## [0.19.1] - 2026-10-22
+
+### Added
+
+- Turn navigation for conversation traces, allowing step-by-step browsing ("Turn n of N") and direct navigation to specific turns from replies (#3057).
+- Redesigned endpoint creation into a four-step wizard with step navigation, endpoint type selection, documentation links, and raw JSON response previews (#3050).
+- Display of captures directly within the endpoints grid (#3050).
+
+### Changed
+
+- Relocated the tags section to the bottom of the metric detail page (#3055).
+
+### Fixed
+
+- Added an empty state view when metric filters yield no results (#3058).
+- Prevented stale trace reloads from overwriting drawer content during fast turn navigation (#3057).
+- Preserved test step values across wizard steps and resolved dark mode styling issues in the endpoint wizard (#3050).
+
 ## [0.19.0] - 2026-10-21
 
 ### Added
