@@ -28,6 +28,16 @@ describe('TabMapping', () => {
     expect(screen.getByLabelText('API field for messages')).toHaveValue('');
   });
 
+  it('links to the mapping examples in the docs', () => {
+    render(<TabMapping {...defaultProps} />);
+    expect(
+      screen.getByRole('link', { name: /see mapping examples/i })
+    ).toHaveAttribute(
+      'href',
+      'https://docs.rhesis.ai/docs/endpoints/mapping-examples'
+    );
+  });
+
   it('writes a nested field path into the request template', () => {
     const onReqBodyChange = jest.fn();
     render(

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Box, TextField } from '@mui/material';
+import { Box, Link, TextField } from '@mui/material';
 import RequestBodyEditor from './RequestBodyEditor';
 import { CREATE_REQUEST_VARIABLES, REQUEST_FIELDS } from './mapping-variables';
 import {
@@ -18,6 +18,9 @@ import {
   parseRequestTemplate,
   type RequestTemplateRows,
 } from './requestTemplateRows';
+
+const MAPPING_EXAMPLES_DOCS_URL =
+  'https://docs.rhesis.ai/docs/endpoints/mapping-examples';
 
 interface RequestMappingCardProps {
   template: string;
@@ -65,7 +68,14 @@ export default function RequestMappingCard({
         <CardSubtitle>
           The field in your request body each variable goes into. Use dots for
           nested fields, e.g. <code>payload.query</code>. Leave unused rows
-          empty.
+          empty.{' '}
+          <Link
+            href={MAPPING_EXAMPLES_DOCS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            See mapping examples
+          </Link>
         </CardSubtitle>
       }
       action={action}
