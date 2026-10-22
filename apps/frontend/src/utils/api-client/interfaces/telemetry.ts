@@ -187,6 +187,7 @@ export interface TraceQueryParams {
   test_run_id?: string;
   test_result_id?: string;
   test_id?: string;
+  conversation_id?: string;
   endpoint_id?: string; // Filter by endpoint ID
   trace_source?: TraceSource; // Filter by trace source (all/test/operation)
   trace_type?: TraceType; // Filter by trace type (all/Single-Turn/Multi-Turn)

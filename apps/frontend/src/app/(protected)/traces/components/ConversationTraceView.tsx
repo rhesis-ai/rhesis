@@ -48,6 +48,8 @@ interface ConversationTraceViewProps {
   trace: TraceDetailResponse;
   onSpanSelect?: (span: SpanNode) => void;
   rootSpans?: SpanNode[];
+  /** Opens a turn that may live in another trace; replaces selecting the n-th root span. */
+  onTurnClick?: (turnNumber: number) => void;
   onAnnotateTurn?: (turnNumber: number, turnPassed?: boolean) => void;
 }
 
@@ -105,6 +107,7 @@ export default function ConversationTraceView({
   trace,
   onSpanSelect,
   rootSpans,
+  onTurnClick,
   onAnnotateTurn,
 }: ConversationTraceViewProps) {
   const notifications = useNotifications();
@@ -119,6 +122,7 @@ export default function ConversationTraceView({
   const [deletedTestResult, setDeletedTestResult] =
     useState<DeletedEntityData | null>(null);
   const [spanFiles, setSpanFiles] = useState<FileResponse[][]>([]);
+  const rootSpanIds = rootSpans?.map(s => s.span_id).join(',') ?? '';
 
   useEffect(() => {
     setLoading(true);
@@ -175,12 +179,10 @@ export default function ConversationTraceView({
     };
 
     void load();
-    // rootSpans is intentionally omitted from deps. The parent derives it
-    // directly from trace.root_spans, so it can only carry new spans when
-    // trace.trace_id changes — which is already a dep. Adding rootSpans would
-    // trigger a re-fetch on every render (new array reference each time).
+    // Keyed on the spans' ids rather than the array: the parent passes a new array on every
+    // render, and the conversation's spans can arrive after the trace itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trace.trace_id, trace.test_result?.id]);
+  }, [trace.trace_id, trace.test_result?.id, rootSpanIds]);
 
   const turnAnnotationMap = useMemo(
     () =>
@@ -256,7 +258,9 @@ export default function ConversationTraceView({
       : overriddenTurns;
 
   const handleResponseClick = (turnNumber: number) => {
-    if (onSpanSelect && rootSpans) {
+    if (onTurnClick) {
+      onTurnClick(turnNumber);
+    } else if (onSpanSelect && rootSpans) {
       const spanIndex = turnNumber - 1;
       if (spanIndex >= 0 && spanIndex < rootSpans.length) {
         onSpanSelect(rootSpans[spanIndex]);
@@ -328,7 +332,9 @@ export default function ConversationTraceView({
           }
           project={trace.project}
           onResponseClick={
-            onSpanSelect && rootSpans ? handleResponseClick : undefined
+            onTurnClick || (onSpanSelect && rootSpans)
+              ? handleResponseClick
+              : undefined
           }
           onAnnotateTurn={onAnnotateTurn}
           onCreateTestFromTurn={
