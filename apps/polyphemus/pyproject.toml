@@ -55,9 +55,10 @@ asyncio_mode = "auto"
 
 [tool.uv]
 exclude-newer = "1 week"
-exclude-newer-package = { pydantic-settings = false, tornado = false, starlette = false, pyjwt = false, cryptography = false, python-multipart = false }
+exclude-newer-package = { pydantic-settings = false, tornado = false, starlette = false, pyjwt = false, cryptography = false, python-multipart = false, certifi = false, pillow = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
+    "certifi>=2026.10.19",
     "anyio>=4.14.2",
     "pyasn1>=0.6.4",
     "orjson>=3.11.7",
@@ -73,7 +74,7 @@ constraint-dependencies = [
     "pydantic-settings>=2.14.2",
     "joserfc>=1.6.8",
     "mcp>=1.30.0,<2",
-    "pillow>=12.3.0",
+    "pillow>=13.0.0",
     "httplib2>=0.32.0",
     "werkzeug>=3.1.9",
 ]

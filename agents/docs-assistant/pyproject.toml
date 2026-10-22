@@ -50,6 +50,10 @@ packages = ["src/docs_assistant"]
 
 [tool.uv]
 exclude-newer = "1 week"
+exclude-newer-package = { certifi = false }
+constraint-dependencies = [
+    "certifi>=2026.10.19",
+]
 
 [tool.ruff]
 line-length = 100

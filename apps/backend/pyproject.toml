@@ -57,7 +57,7 @@ dependencies = [
     "jinja2",
     "faker",
     "openpyxl",
-    "pillow>=12.3.0",
+    "pillow>=13.0.0",
     "fastxlsx>=0.2.0",
     # --- OpenTelemetry (small wheels, eagerly imported by main.py) ---
     "opentelemetry-api>=1.32.1",
@@ -131,9 +131,11 @@ explicit = true
 [tool.uv]
 exclude-newer = "1 week"
 # Allow newer versions for packages with recent security patches (CVEs).
-exclude-newer-package = { torch = false, jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false }
+exclude-newer-package = { torch = false, jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false, certifi = false, uv = false, nltk = false, pillow = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
+    "nltk>=3.10.4",
+    "certifi>=2026.10.19",
     "anyio>=4.14.2",
     "pyasn1>=0.6.4",
     "orjson>=3.11.7",
@@ -167,7 +169,7 @@ constraint-dependencies = [
     "langchain>=1.4.0",
     "langgraph-checkpoint>=4.1.1",
     "langgraph-sdk>=0.4.4",
-    "uv>=0.11.15",
+    "uv>=0.13.4",
     "transformers>=5.5.0",
     "mcp>=1.30.0",
     "httpx2>=2.12.0",
