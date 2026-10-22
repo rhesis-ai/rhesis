@@ -135,9 +135,7 @@ def _send_onboarding_emails_bg(email: str, name: str | None, organization_id: st
                     day,
                 )
         except Exception:
-            logger.exception(
-                "Failed to schedule Day %s email for org_id=%s", day, organization_id
-            )
+            logger.exception("Failed to schedule Day %s email for org_id=%s", day, organization_id)
 
 
 def _current_organization(db: Session, organization_id) -> models.Organization:

@@ -1047,9 +1047,7 @@ def resend_verification(
     user = user_crud.get_user_by_email(db, body.email)
 
     if user and not user.is_email_verified:
-        background_tasks.add_task(
-            _send_verification_email_bg, str(user.id), user.email, user.name
-        )
+        background_tasks.add_task(_send_verification_email_bg, str(user.id), user.email, user.name)
 
     # Always return success to prevent email enumeration
     return {
