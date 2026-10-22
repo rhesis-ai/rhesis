@@ -19,6 +19,7 @@ import { escapeODataValue } from '@/utils/odata-filter';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import type { BulkDeleteActionsState } from '@/hooks/useBulkDelete';
 import { endpointsList } from './list';
+import EndpointCaptures from './EndpointCaptures';
 import { getProjectIcon } from './endpoint-icon-utils';
 import EndpointFilterDrawer, {
   type EndpointFilters,
@@ -185,6 +186,17 @@ export default function EndpointsGrid({
             </Box>
           );
         },
+      },
+      {
+        field: 'captures',
+        headerName: 'Captures',
+        description:
+          'What the endpoint gives Rhesis besides its output: tracing, tool calls, multi-turn and context. Grey means not set up.',
+        flex: 0.8,
+        sortable: false,
+        renderCell: params => (
+          <EndpointCaptures endpoint={params.row as Endpoint} />
+        ),
       },
       {
         field: 'status',
