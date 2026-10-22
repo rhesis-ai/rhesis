@@ -1,13 +1,25 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Box, Button, Collapse, Tooltip, Typography } from '@mui/material';
-import { KeyboardArrowDownIcon, KeyboardArrowUpIcon } from '@/components/icons';
-import { SectionCard } from '@/components/common/SectionCard';
+import {
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Collapse,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import {
+  CheckCircleIcon,
+  KeyboardArrowDownIcon,
+  KeyboardArrowUpIcon,
+} from '@/components/icons';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { JsonPreview } from './JsonPreview';
 import {
   CardSubtitle,
+  MappingCard,
   TestStatusBox,
   disabledContainedSx,
 } from './MappingRows';
@@ -21,30 +33,23 @@ export interface EndpointTestResult {
   error?: string;
 }
 
-interface TestResponseCardProps {
-  result: EndpointTestResult | null;
-  isTesting: boolean;
+export function RunTestButton({
+  label,
+  onRun,
+  isTesting,
+  blockedReason,
+  variant = 'contained',
+}: {
+  label: string;
   onRun: () => void;
+  isTesting: boolean;
   /** Why the test can't run yet; the button is disabled while set. */
   blockedReason?: string;
-  emptyText: string;
-  successTitle: string;
-  /** Rendered under the success box. */
-  children?: React.ReactNode;
-}
-
-export function TestResponseCard({
-  result,
-  isTesting,
-  onRun,
-  blockedReason,
-  emptyText,
-  successTitle,
-  children,
-}: TestResponseCardProps) {
-  const runButton = (label: string, variant: 'contained' | 'outlined') => (
+  variant?: 'contained' | 'outlined';
+}) {
+  return (
     <Tooltip title={blockedReason ?? ''}>
-      <span>
+      <Box component="span" sx={{ alignSelf: 'flex-start' }}>
         <Button
           variant={variant}
           onClick={onRun}
@@ -54,65 +59,93 @@ export function TestResponseCard({
         >
           {label}
         </Button>
-      </span>
+      </Box>
     </Tooltip>
   );
+}
 
-  if (!result) {
-    return (
-      <SectionCard>
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            gap: 2,
-          }}
-        >
-          <Typography variant="h6" sx={{ fontWeight: 600 }} color="primary">
-            No response yet
-          </Typography>
-          <Typography variant="body2">{emptyText}</Typography>
-          {runButton('Run test request', 'contained')}
-        </Box>
-      </SectionCard>
-    );
-  }
+interface TestResponseCardProps {
+  result: EndpointTestResult | null;
+  isTesting: boolean;
+  subtitle: string;
+  /** Shown before any run, e.g. what to do to get a response. */
+  emptyText: string;
+  successTitle: string;
+  /** Header action, e.g. a Run again button. */
+  action?: React.ReactNode;
+  /** Rendered under the success box. */
+  children?: React.ReactNode;
+  complete?: boolean;
+}
 
-  const failedTitle = result.status
+/** The Response side of the Mapping and Test steps; same header in every state. */
+export function TestResponseCard({
+  result,
+  isTesting,
+  subtitle,
+  emptyText,
+  successTitle,
+  action,
+  children,
+  complete,
+}: TestResponseCardProps) {
+  const failedTitle = result?.status
     ? `HTTP ${result.status} error from endpoint`
     : 'Test request failed';
 
   return (
-    <SectionCard
+    <MappingCard
       title="Response"
-      subtitle={
-        <CardSubtitle>
-          Run a test to see your API&apos;s response and map its fields.
-        </CardSubtitle>
-      }
-      actions={runButton('Run again', 'outlined')}
-    >
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {result.success ? (
-          <TestStatusBox status="success" title={successTitle} />
+      subtitle={<CardSubtitle>{subtitle}</CardSubtitle>}
+      complete={complete}
+      // Success is a small chip beside the title, so the mapping rows don't shift down.
+      action={
+        result?.success ? (
+          <Chip
+            icon={<CheckCircleIcon />}
+            label={successTitle}
+            color="success"
+            variant="outlined"
+            size="small"
+          />
         ) : (
-          <TestStatusBox
-            status="error"
-            title={failedTitle}
-            detail={result.error}
-          />
-        )}
-        {result.success && children}
-        {!result.success && result.response && (
-          <RawResponseCollapse
-            label="Complete response returned by your API"
-            value={mappingTarget(result.response)}
-          />
-        )}
-      </Box>
-    </SectionCard>
+          action
+        )
+      }
+    >
+      {!result ? (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            color: 'text.secondary',
+          }}
+        >
+          {isTesting && <CircularProgress size={16} />}
+          <Typography variant="body2">
+            {isTesting ? 'Waiting for your API…' : emptyText}
+          </Typography>
+        </Box>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {!result.success && (
+            <TestStatusBox
+              status="error"
+              title={failedTitle}
+              detail={result.error}
+            />
+          )}
+          {result.success && children}
+          {!result.success && result.response && (
+            <RawResponseCollapse
+              label="Complete response returned by your API"
+              value={mappingTarget(result.response)}
+            />
+          )}
+        </Box>
+      )}
+    </MappingCard>
   );
 }
 

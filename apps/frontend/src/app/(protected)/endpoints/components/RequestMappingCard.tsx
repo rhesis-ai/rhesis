@@ -2,11 +2,11 @@
 
 import React, { useState } from 'react';
 import { Box, TextField } from '@mui/material';
-import { SectionCard } from '@/components/common/SectionCard';
 import RequestBodyEditor from './RequestBodyEditor';
-import { REQUEST_FIELDS, REQUEST_VARIABLES } from './mapping-variables';
+import { CREATE_REQUEST_VARIABLES, REQUEST_FIELDS } from './mapping-variables';
 import {
   CardSubtitle,
+  MappingCard,
   MappingColumnHeaders,
   MappingRow,
   MappingRowList,
@@ -14,6 +14,7 @@ import {
 } from './MappingRows';
 import {
   buildRequestTemplate,
+  conflictingFields,
   parseRequestTemplate,
   type RequestTemplateRows,
 } from './requestTemplateRows';
@@ -21,11 +22,16 @@ import {
 interface RequestMappingCardProps {
   template: string;
   onChange: (template: string) => void;
+  /** Header action, e.g. the button that sends the test request. */
+  action?: React.ReactNode;
+  complete?: boolean;
 }
 
 export default function RequestMappingCard({
   template,
   onChange,
+  action,
+  complete,
 }: RequestMappingCardProps) {
   // A template easy input can't show opens in the editor, so a row edit can't overwrite it.
   const [mode, setMode] = useState<'rows' | 'json'>(() =>
@@ -48,35 +54,34 @@ export default function RequestMappingCard({
       fields: { ...fields, [name]: { ...fields[name], field } },
     });
 
-  const fieldCounts = new Map<string, number>();
-  for (const { field } of Object.values(fields)) {
-    const key = field.trim();
-    if (key) fieldCounts.set(key, (fieldCounts.get(key) ?? 0) + 1);
-  }
+  const conflicts = conflictingFields(fields);
 
   const parsedForRows = mode === 'json' ? parseRequestTemplate(template) : null;
 
   return (
-    <SectionCard
+    <MappingCard
       title="Request"
       subtitle={
         <CardSubtitle>
-          Tell Rhesis which field of your API&apos;s request body each variable
-          goes into.
+          The field in your request body each variable goes into. Use dots for
+          nested fields, e.g. <code>payload.query</code>. Leave unused rows
+          empty.
         </CardSubtitle>
       }
+      action={action}
+      complete={complete}
     >
       {mode === 'rows' ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Box>
             <MappingColumnHeaders
               left="Rhesis' variables"
-              right="Your API's fields"
+              right="Field in your request body"
             />
             <MappingRowList>
               {REQUEST_FIELDS.map(({ name, required, description }) => {
                 const value = fields[name]?.field ?? '';
-                const duplicate = (fieldCounts.get(value.trim()) ?? 0) > 1;
+                const duplicate = conflicts.has(name);
                 return (
                   <MappingRow
                     key={name}
@@ -86,11 +91,13 @@ export default function RequestMappingCard({
                     <TextField
                       fullWidth
                       size="small"
-                      placeholder="Type in key value"
+                      placeholder="e.g. prompt"
                       value={value}
                       onChange={e => setField(name, e.target.value)}
                       error={duplicate}
-                      helperText={duplicate ? 'Used by another variable' : ''}
+                      helperText={
+                        duplicate ? 'Clashes with another variable' : ''
+                      }
                       slotProps={{
                         htmlInput: { 'aria-label': `API field for ${name}` },
                       }}
@@ -118,7 +125,7 @@ export default function RequestMappingCard({
           <RequestBodyEditor
             value={template}
             onChange={onChange}
-            variables={REQUEST_VARIABLES}
+            variables={CREATE_REQUEST_VARIABLES}
             layout="below"
           />
           <ModeLink
@@ -134,6 +141,6 @@ export default function RequestMappingCard({
           </ModeLink>
         </Box>
       )}
-    </SectionCard>
+    </MappingCard>
   );
 }

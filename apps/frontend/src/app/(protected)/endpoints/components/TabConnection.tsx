@@ -5,6 +5,7 @@ import { Box, Stack, TextField } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import EndpointHeadersFields from './EndpointHeadersFields';
+import QuickSetupBanner from './QuickSetupBanner';
 import type { FormData } from './EndpointForm';
 
 function validateUrl(url: string) {
@@ -19,11 +20,13 @@ function validateUrl(url: string) {
 interface TabConnectionProps {
   formData: FormData;
   onChange: (field: keyof FormData, value: unknown) => void;
+  onAutoConfigureOpen: () => void;
 }
 
 export default function TabConnection({
   formData,
   onChange,
+  onAutoConfigureOpen,
 }: TabConnectionProps) {
   const theme = useTheme();
   const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
@@ -31,6 +34,8 @@ export default function TabConnection({
 
   return (
     <Stack spacing={5}>
+      <QuickSetupBanner onOpen={onAutoConfigureOpen} />
+
       <Box sx={{ display: 'flex', gap: 3.75 }}>
         <TextField
           label="Method"

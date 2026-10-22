@@ -64,7 +64,7 @@ export default function EndpointHeadersFields({
         flexWrap: 'wrap',
       }}
     >
-      Stored as
+      {easyHeaderInput ? 'Sent as Authorization: Bearer' : 'Stored as'}
       <Chip
         label="{{ auth_token }}"
         size="small"
@@ -75,7 +75,9 @@ export default function EndpointHeadersFields({
           '& .MuiChip-label': { px: 0.75 },
         }}
       />
-      {easyHeaderInput ? 'in the headers below.' : 'in the editor below.'}
+      {easyHeaderInput
+        ? '— added to the headers below.'
+        : 'in the editor below.'}
     </Box>
   );
 

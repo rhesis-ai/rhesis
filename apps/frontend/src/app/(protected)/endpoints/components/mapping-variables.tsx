@@ -100,25 +100,12 @@ export const REQUEST_FIELDS: RequestField[] = [
     description: 'File attachments (images, PDFs), in OpenAI format.',
     defaultFilter: ' | to_openai | tojson',
   },
-  {
-    name: 'test_id',
-    description:
-      'ID of the test that triggered the request. Only filled during test runs.',
-    defaultFilter: '',
-  },
-  {
-    name: 'test_run_id',
-    description:
-      'ID of the test run that triggered the request. Only filled during test runs.',
-    defaultFilter: '',
-  },
-  {
-    name: 'test_configuration_id',
-    description:
-      'ID of the test configuration behind the run. Only filled during test runs.',
-    defaultFilter: '',
-  },
 ];
+
+/** The create wizard leaves out the execution-context IDs; they matter only to APIs that log them. */
+export const CREATE_REQUEST_VARIABLES = REQUEST_VARIABLES.filter(
+  v => v.groupLabel !== 'Execution context'
+);
 
 /** Variables Rhesis fills in itself, so the Test step doesn't ask for them. */
 export const AUTO_FILLED_VARS = new Set([

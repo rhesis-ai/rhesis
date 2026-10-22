@@ -19,11 +19,9 @@ import {
   ListItemText,
   FormHelperText,
   Stack,
-  Typography,
 } from '@mui/material';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { getProjectIcon } from '@/components/common/ProjectIcons';
-import { StarBorderIcon } from '@/components/icons';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -38,7 +36,6 @@ interface TabOverviewProps {
   loadingProjects: boolean;
   /** Hide project picker — project is inferred from the active project scope */
   hideProjectSelect?: boolean;
-  onAutoConfigureOpen: () => void;
 }
 
 function ProjectSelect({
@@ -46,7 +43,7 @@ function ProjectSelect({
   onChange,
   projects,
   loadingProjects,
-}: Omit<TabOverviewProps, 'onAutoConfigureOpen'>) {
+}: TabOverviewProps) {
   const canCreateProject = useCan(Capability.Project.CREATE);
 
   if (projects.length === 0 && !loadingProjects) {
@@ -131,55 +128,12 @@ function SectionHeading(
   );
 }
 
-function QuickSetupBanner({ onOpen }: { onOpen: () => void }) {
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 2,
-        px: 2.5,
-        py: 2,
-        bgcolor: 'background.light2',
-      }}
-    >
-      <StarBorderIcon
-        fontSize="small"
-        sx={{ alignSelf: 'flex-start', mt: 0.25, color: 'greyscale.title' }}
-      />
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography
-          variant="subtitle1"
-          sx={{ fontWeight: 700, color: 'greyscale.title' }}
-        >
-          Quickest setup
-        </Typography>
-        <Typography
-          variant="body2"
-          sx={{ color: 'greyscale.subtitle', maxWidth: '75ch' }}
-        >
-          Have an API example? Paste a cURL command, API documentation, or a
-          sample request and let Rhesis configure the endpoint for you.
-        </Typography>
-      </Box>
-      <Button
-        variant="contained"
-        onClick={onOpen}
-        sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
-      >
-        Auto-configure
-      </Button>
-    </Box>
-  );
-}
-
 export default function TabOverview({
   formData,
   onChange,
   projects,
   loadingProjects,
   hideProjectSelect = false,
-  onAutoConfigureOpen,
 }: TabOverviewProps) {
   return (
     <Stack spacing={5}>
@@ -302,8 +256,6 @@ export default function TabOverview({
           label="Enable tracing"
         />
       </Stack>
-
-      <QuickSetupBanner onOpen={onAutoConfigureOpen} />
     </Stack>
   );
 }

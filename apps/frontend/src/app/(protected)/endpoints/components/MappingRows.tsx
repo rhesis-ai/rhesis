@@ -9,6 +9,7 @@ import {
   InfoIcon,
 } from '@/components/icons';
 import { BORDER_RADIUS } from '@/styles/theme';
+import { SectionCard } from '@/components/common/SectionCard';
 import { EmptyStateArticleCard } from '@/components/common/EntityEmptyStateEnrichmentParts';
 import { publicEnv } from '@/config/runtime-config';
 
@@ -17,18 +18,79 @@ export function CardSubtitle({ children }: { children: React.ReactNode }) {
   return (
     <Box
       component="span"
-      sx={{ typography: 'caption', color: 'greyscale.subtitle' }}
+      sx={{
+        display: 'block',
+        typography: 'caption',
+        color: 'greyscale.subtitle',
+      }}
     >
       {children}
     </Box>
   );
 }
 
+/**
+ * SectionCard with the action beside the title only, so the description below
+ * keeps the full card width instead of wrapping beside the button.
+ */
+export function MappingCard({
+  title,
+  subtitle,
+  action,
+  complete = false,
+  children,
+}: {
+  title: string;
+  subtitle?: React.ReactNode;
+  action?: React.ReactNode;
+  /** Green border: this part has passed its check. */
+  complete?: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <SectionCard variant={complete ? 'success' : 'default'}>
+      <Box sx={{ mb: 3 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 2,
+            // Button height, so titles line up across cards with and without one.
+            minHeight: theme => theme.spacing(4.5),
+          }}
+        >
+          <Typography variant="h6" sx={{ fontWeight: 600 }} color="primary">
+            {title}
+          </Typography>
+          {action}
+        </Box>
+        {/* Two caption lines reserved, so rows start level in side-by-side cards. */}
+        <Box
+          sx={{
+            mt: 1.5,
+            minHeight: theme =>
+              `calc(2 * ${theme.typography.caption.lineHeight})`,
+          }}
+        >
+          {subtitle}
+        </Box>
+      </Box>
+      {children}
+    </SectionCard>
+  );
+}
+
 // The theme's containedPrimary rule unsets disabled colours and outranks a plain `&.Mui-disabled`.
 export const disabledContainedSx = {
-  '&.Mui-disabled, &.MuiButton-containedPrimary.Mui-disabled': {
-    bgcolor: 'greyscale.border',
-    color: 'background.paper',
+  '&.MuiButton-contained.Mui-disabled': {
+    bgcolor: 'action.disabledBackground',
+    color: 'text.disabled',
+  },
+  // Same for outlined: the theme's outlinedPrimary colours make a disabled button look live.
+  '&.MuiButton-outlined.Mui-disabled': {
+    color: 'text.disabled',
+    borderColor: 'action.disabledBackground',
   },
 };
 
@@ -70,14 +132,16 @@ export function MappingRow({
   children: React.ReactNode;
 }) {
   return (
-    <Box sx={ROW_GRID}>
+    // Top-aligned at the inputs' 40px height, so a helper text or a growing
+    // multi-line value doesn't push the label and arrow off its first line.
+    <Box sx={{ ...ROW_GRID, alignItems: 'start' }}>
       <Box
         sx={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: 1,
-          minHeight: theme => theme.spacing(4.25),
+          minHeight: theme => theme.spacing(5),
           px: 1.5,
           borderRadius: BORDER_RADIUS.xs,
           bgcolor: theme => theme.palette.greyscale.fieldSurface,
@@ -103,7 +167,10 @@ export function MappingRow({
           </Tooltip>
         )}
       </Box>
-      <ArrowForwardIcon fontSize="small" sx={{ color: 'greyscale.border' }} />
+      <ArrowForwardIcon
+        fontSize="small"
+        sx={{ color: 'greyscale.border', mt: 1.25 }}
+      />
       <Box sx={{ minWidth: 0 }}>{children}</Box>
     </Box>
   );
@@ -191,9 +258,37 @@ export function TestStatusBox({
   );
 }
 
+/** Request and Response cards side by side, always the same height. */
+export function TwoCardRow({
+  left,
+  right,
+}: {
+  left: React.ReactNode;
+  right: React.ReactNode;
+}) {
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+        gap: 3,
+        alignItems: 'stretch',
+        '& > * > .MuiPaper-root': {
+          height: '100%',
+          mb: 0,
+          boxSizing: 'border-box',
+        },
+      }}
+    >
+      <Box>{left}</Box>
+      <Box>{right}</Box>
+    </Box>
+  );
+}
+
 /** The getting-started articles the Architect shows; hidden when none are configured. */
 export function HelpArticlesPanel() {
-  const articleUrls = publicEnv().architectHelpArticleUrls.slice(0, 2);
+  const articleUrls = publicEnv().architectHelpArticleUrls.slice(0, 4);
   if (articleUrls.length === 0) return null;
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
@@ -203,7 +298,11 @@ export function HelpArticlesPanel() {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, 1fr)',
+            lg: 'repeat(4, 1fr)',
+          },
           gap: 2.5,
         }}
       >

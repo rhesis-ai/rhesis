@@ -1,14 +1,10 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Box, ListItemText, MenuItem, Select, Typography } from '@mui/material';
+import { Box, MenuItem, Select, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import JsonMonacoField from '../[identifier]/components/JsonMonacoField';
-import {
-  OUTPUT_VARIABLES,
-  pathToVarToResponseMapping,
-  responseMappingToPathToVar,
-} from './JsonPreview';
+import { OUTPUT_VARIABLES } from './JsonPreview';
 import {
   MappingColumnHeaders,
   MappingRow,
@@ -27,10 +23,11 @@ interface ResponseMappingCardProps {
   onResponseMappingChange: (value: string) => void;
   testResult: EndpointTestResult | null;
   isTesting: boolean;
-  onRunTest: () => void;
-  blockedReason?: string;
+  inputMapped: boolean;
+  complete: boolean;
 }
 
+/** Variable → JSONPath, or null when the JSON can't be shown as rows. */
 function parseMapping(json: string): Record<string, string> | null {
   try {
     const parsed: unknown = JSON.parse(json || '{}');
@@ -44,123 +41,110 @@ function parseMapping(json: string): Record<string, string> | null {
   }
 }
 
+const toPath = (jsonPath: string) => jsonPath.replace(/^\$\.?/, '');
+
 export default function ResponseMappingCard({
   responseMapping,
   onResponseMappingChange,
   testResult,
   isTesting,
-  onRunTest,
-  blockedReason,
+  inputMapped,
+  complete,
 }: ResponseMappingCardProps) {
   const theme = useTheme();
   const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
   const [mode, setMode] = useState<'rows' | 'json'>('rows');
 
-  const parsedMapping = parseMapping(responseMapping);
-  const pathToVar = useMemo(
-    () => responseMappingToPathToVar(parseMapping(responseMapping) ?? {}),
+  const mapping = useMemo(
+    () => parseMapping(responseMapping),
     [responseMapping]
   );
   const target = mappingTarget(testResult?.response);
 
-  // Mapped paths the response didn't contain (e.g. from auto-configure) still get a row.
+  // Mapped paths the response didn't contain (e.g. from auto-configure) stay selectable.
   const paths = useMemo(() => {
     const found = responsePaths(target);
-    return [
-      ...found,
-      ...Object.keys(pathToVar).filter(p => !found.includes(p)),
-    ];
-  }, [target, pathToVar]);
+    const mapped = Object.values(mapping ?? {}).map(toPath);
+    return [...found, ...mapped.filter(p => p && !found.includes(p))];
+  }, [target, mapping]);
 
-  const assign = (path: string, varName: string) => {
-    const next = { ...pathToVar };
-    for (const p of Object.keys(next)) {
-      if (next[p] === varName) delete next[p];
-    }
-    if (varName) next[path] = varName;
-    else delete next[path];
-    onResponseMappingChange(
-      JSON.stringify(pathToVarToResponseMapping(next), null, 2)
-    );
+  const assign = (varName: string, path: string) => {
+    const next = { ...(mapping ?? {}) };
+    if (path) next[varName] = `$.${path}`;
+    else delete next[varName];
+    onResponseMappingChange(JSON.stringify(next, null, 2));
   };
 
   return (
     <TestResponseCard
       result={testResult}
       isTesting={isTesting}
-      onRun={onRunTest}
-      blockedReason={blockedReason}
-      emptyText="Run a test request to receive your API's response."
+      subtitle="Pick which part of your API's response holds each Rhesis variable."
+      emptyText={
+        inputMapped
+          ? 'Rhesis sends a test request once the request is mapped.'
+          : 'Map the input variable on the left. Rhesis then sends a test request and shows the response here.'
+      }
       successTitle="Test request successful"
+      complete={complete}
     >
       {mode === 'rows' ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {paths.length > 0 ? (
-            <Box>
-              <MappingColumnHeaders
-                left="Your API's keys"
-                right="Mapped variables"
-              />
-              <Box sx={{ maxHeight: 440, overflowY: 'auto' }}>
-                <MappingRowList>
-                  {paths.map(path => (
-                    <MappingRow key={path} label={`$.${path}`}>
-                      <Select
-                        fullWidth
-                        size="small"
-                        displayEmpty
-                        value={pathToVar[path] ?? ''}
-                        onChange={e => assign(path, e.target.value)}
-                        inputProps={{ 'aria-label': `Variable for $.${path}` }}
-                        renderValue={v =>
-                          v ? (
-                            v
-                          ) : (
-                            <Typography
-                              variant="body2"
-                              color="text.disabled"
-                              component="span"
-                            >
-                              Assign variable
-                            </Typography>
-                          )
-                        }
-                      >
-                        <MenuItem value="">
-                          <em>None</em>
+          <Box>
+            <MappingColumnHeaders
+              left="Rhesis' variables"
+              right="Value from your API's response"
+            />
+            <MappingRowList>
+              {OUTPUT_VARIABLES.map(v => {
+                const selected = mapping?.[v.name]
+                  ? toPath(mapping[v.name])
+                  : '';
+                return (
+                  <MappingRow
+                    key={v.name}
+                    label={v.name === 'output' ? `${v.name}*` : v.name}
+                    info={v.description}
+                  >
+                    <Select
+                      fullWidth
+                      size="small"
+                      displayEmpty
+                      value={selected}
+                      onChange={e => assign(v.name, e.target.value)}
+                      inputProps={{
+                        'aria-label': `Response value for ${v.name}`,
+                      }}
+                      renderValue={p =>
+                        p ? (
+                          `$.${p}`
+                        ) : (
+                          <Typography
+                            variant="body2"
+                            color="text.disabled"
+                            component="span"
+                          >
+                            {v.name === 'output'
+                              ? 'Select the reply text'
+                              : 'Not mapped'}
+                          </Typography>
+                        )
+                      }
+                    >
+                      <MenuItem value="">
+                        <em>Not mapped</em>
+                      </MenuItem>
+                      {paths.map(p => (
+                        <MenuItem key={p} value={p}>
+                          {`$.${p}`}
                         </MenuItem>
-                        {OUTPUT_VARIABLES.map(v => {
-                          const usedElsewhere = Object.entries(pathToVar).some(
-                            ([p, name]) => name === v.name && p !== path
-                          );
-                          return (
-                            <MenuItem
-                              key={v.name}
-                              value={v.name}
-                              sx={{ whiteSpace: 'normal', maxWidth: 360 }}
-                            >
-                              <ListItemText
-                                primary={v.label}
-                                secondary={
-                                  usedElsewhere
-                                    ? `${v.description} Selecting it moves it here.`
-                                    : v.description
-                                }
-                              />
-                            </MenuItem>
-                          );
-                        })}
-                      </Select>
-                    </MappingRow>
-                  ))}
-                </MappingRowList>
-              </Box>
-            </Box>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              The response has no keys to map. Edit the mapping as JSON instead.
-            </Typography>
-          )}
+                      ))}
+                    </Select>
+                  </MappingRow>
+                );
+              })}
+            </MappingRowList>
+          </Box>
           <ModeLink onClick={() => setMode('json')}>Edit as JSON</ModeLink>
         </Box>
       ) : (
@@ -184,7 +168,7 @@ export default function ResponseMappingCard({
             </Typography>
           </Box>
           <ModeLink
-            disabled={!parsedMapping}
+            disabled={!mapping}
             disabledReason="Easy input needs valid JSON whose values are all paths."
             onClick={() => setMode('rows')}
           >
