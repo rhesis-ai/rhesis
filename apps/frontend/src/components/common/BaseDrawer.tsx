@@ -35,6 +35,8 @@ export interface BaseDrawerProps {
   /** Optional data-tour attribute for onboarding (save button). */
   saveDataTour?: string;
   closeButtonText?: string;
+  /** Shows a Back button before the save button, for multi-step drawers. */
+  onBack?: () => void;
   onDelete?: () => void;
   deleteButtonText?: string;
   deleteDisabled?: boolean;
@@ -83,6 +85,7 @@ export default function BaseDrawer({
   saveButtonText = 'Save Changes',
   saveDataTour,
   closeButtonText = 'Cancel',
+  onBack,
   onDelete,
   deleteButtonText = 'Delete',
   deleteDisabled = false,
@@ -186,6 +189,16 @@ export default function BaseDrawer({
                 sx={drawerFooterDeleteButtonSx}
               >
                 {deleteButtonText}
+              </Button>
+            )}
+            {onBack && (
+              <Button
+                variant="outlined"
+                onClick={onBack}
+                disabled={loading}
+                sx={drawerFooterCancelButtonSx}
+              >
+                Back
               </Button>
             )}
             {onSave && (

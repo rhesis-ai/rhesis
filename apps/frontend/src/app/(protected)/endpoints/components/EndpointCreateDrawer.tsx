@@ -27,6 +27,7 @@ export default function EndpointCreateDrawer({
     isSubmitting: false,
     canAdvance: false,
     isLastStep: false,
+    isFirstStep: true,
   });
 
   const endpointQuota = useQuotaGate(QuotaResource.ENDPOINTS);
@@ -43,6 +44,11 @@ export default function EndpointCreateDrawer({
       title="Create REST endpoint"
       width="75%"
       onSave={() => formRef.current?.advance()}
+      // Steps 2-4 go back step by step; only the first step offers Cancel.
+      closeButtonText={submitState.isFirstStep ? 'Cancel' : ''}
+      onBack={
+        submitState.isFirstStep ? undefined : () => formRef.current?.back()
+      }
       saveButtonText={submitState.isLastStep ? 'Create endpoint' : 'Next'}
       saveDataTour={submitState.isLastStep ? 'create-endpoint-save' : undefined}
       saveDisabled={

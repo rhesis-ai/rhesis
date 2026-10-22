@@ -78,7 +78,7 @@ const DEFAULT_REQ_BODY = '{}';
 const DEFAULT_RES_BODY = '{}';
 
 const CREATE_STEPS = [
-  { key: 'overview', label: 'Overview' },
+  { key: 'basics', label: 'Basics' },
   { key: 'connection', label: 'Connection' },
   { key: 'mapping', label: 'Mapping' },
   { key: 'test', label: 'Test' },
@@ -114,6 +114,7 @@ export interface EndpointFormSubmitState {
   /** The active step is complete, so Next (or Create on the last step) can run. */
   canAdvance: boolean;
   isLastStep: boolean;
+  isFirstStep: boolean;
 }
 
 export interface EndpointFormProps {
@@ -127,6 +128,7 @@ export interface EndpointFormProps {
 export interface EndpointFormHandle {
   /** Moves to the next step, or creates the endpoint on the last one. */
   advance: () => void;
+  back: () => void;
 }
 
 const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
@@ -285,6 +287,12 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     // The test step also checks the response mapping, so a mapping edit needs a new run.
     const fullKey = `${connectionKey}${resBody}`;
 
+    // A Test step result only describes the setup it ran against; drop it once
+    // that changes, so the step shows green only after a new successful send.
+    useEffect(() => {
+      setTabTestResult(null);
+    }, [fullKey]);
+
     const stepsValid = [
       Boolean(formData.name) && Boolean(formData.project_id),
       Boolean(formData.url) && validateUrl(formData.url) && authError === null,
@@ -300,10 +308,22 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       firstInvalidStep === -1 ? LAST_STEP : firstInvalidStep;
     const canAdvance = stepsValid[activeTab];
     const isLastStep = activeTab === LAST_STEP;
+    const isFirstStep = activeTab === 0;
 
     useEffect(() => {
-      onSubmitStateChange?.({ isSubmitting, canAdvance, isLastStep });
-    }, [isSubmitting, canAdvance, isLastStep, onSubmitStateChange]);
+      onSubmitStateChange?.({
+        isSubmitting,
+        canAdvance,
+        isLastStep,
+        isFirstStep,
+      });
+    }, [
+      isSubmitting,
+      canAdvance,
+      isLastStep,
+      isFirstStep,
+      onSubmitStateChange,
+    ]);
 
     const runTest = async (
       inputData: Record<string, unknown>,
@@ -311,7 +331,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
         React.SetStateAction<EndpointTestResult | null>
       >,
       setTesting: React.Dispatch<React.SetStateAction<boolean>>,
-      onPassed: () => void
+      onPassed?: () => void
     ) => {
       setTesting(true);
       setResult(null);
@@ -371,7 +391,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
           response: r,
           error: failure ? failure.message || failure.summary : undefined,
         });
-        if (success) onPassed();
+        if (success) onPassed?.();
       } catch (err) {
         setResult({ success: false, error: (err as Error).message ?? '' });
       } finally {
@@ -523,12 +543,38 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
             setActiveTab(activeTab + 1);
           }
         },
+        back: () => {
+          setError(null);
+          setActiveTab(Math.max(0, activeTab - 1));
+        },
       }),
       [activeTab, canAdvance, isLastStep, handleSubmit]
     );
 
+    // Enter in a one-line field moves on once the step is complete. Multi-line
+    // fields keep Enter for new lines, and the last step never creates on Enter.
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+      const target = e.target as HTMLElement;
+      if (
+        e.key !== 'Enter' ||
+        e.shiftKey ||
+        e.nativeEvent.isComposing ||
+        target.tagName !== 'INPUT' ||
+        // React bubbles through portals; ignore the auto-configure drawer's fields.
+        !e.currentTarget.contains(target) ||
+        isLastStep ||
+        !canAdvance
+      ) {
+        return;
+      }
+      e.preventDefault();
+      setError(null);
+      setActiveTab(activeTab + 1);
+    };
+
     return (
       <Box
+        onKeyDown={handleKeyDown}
         sx={{
           display: 'flex',
           flexDirection: 'column',
@@ -536,7 +582,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
           minHeight: 0,
         }}
       >
-        <Box sx={{ mb: 3 }}>
+        <Box>
           <StepNav
             steps={CREATE_STEPS}
             activeIndex={activeTab}
@@ -554,12 +600,15 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
               projects={projects}
               loadingProjects={loadingProjects}
               hideProjectSelect={hideProjectSelect}
-              onAutoConfigureOpen={() => setAutoConfigureOpen(true)}
             />
           </DetailTabPanel>
 
           <DetailTabPanel value={activeTab} index={1} prefix="endpoint">
-            <TabConnection formData={formData} onChange={handleChange} />
+            <TabConnection
+              formData={formData}
+              onChange={handleChange}
+              onAutoConfigureOpen={() => setAutoConfigureOpen(true)}
+            />
           </DetailTabPanel>
 
           <DetailTabPanel value={activeTab} index={2} prefix="endpoint">
@@ -571,6 +620,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
               testResult={testResult}
               isTestingEndpoint={isTestingEndpoint}
               onRunTest={handleRunTest}
+              resultIsCurrent={mappingTestKey === connectionKey}
             />
           </DetailTabPanel>
 
