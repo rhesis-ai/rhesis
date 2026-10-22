@@ -9,17 +9,21 @@ interface DetailTabPanelProps {
   value: number;
   /** Prefix used to generate stable ARIA ids (e.g. "requirement-detail"). */
   prefix?: string;
+  /** Keep children mounted while hidden, so their local state survives a tab switch. */
+  keepMounted?: boolean;
 }
 
 /**
  * Accessible tab panel for entity detail pages.
- * Renders children only when `value === index` and sets correct ARIA attributes.
+ * Renders children only when `value === index` (or always, with `keepMounted`)
+ * and sets correct ARIA attributes.
  */
 export function DetailTabPanel({
   children,
   value,
   index,
   prefix = 'detail',
+  keepMounted = false,
 }: DetailTabPanelProps) {
   return (
     <div
@@ -28,7 +32,7 @@ export function DetailTabPanel({
       id={`${prefix}-tabpanel-${index}`}
       aria-labelledby={`${prefix}-tab-${index}`}
     >
-      {value === index && <Box sx={{ pt: 5 }}>{children}</Box>}
+      {(keepMounted || value === index) && <Box sx={{ pt: 5 }}>{children}</Box>}
     </div>
   );
 }

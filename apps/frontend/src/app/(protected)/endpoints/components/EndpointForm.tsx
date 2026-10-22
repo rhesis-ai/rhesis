@@ -624,7 +624,13 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
             />
           </DetailTabPanel>
 
-          <DetailTabPanel value={activeTab} index={3} prefix="endpoint">
+          {/* Kept mounted so typed test values and uploads survive leaving the step. */}
+          <DetailTabPanel
+            value={activeTab}
+            index={3}
+            prefix="endpoint"
+            keepMounted
+          >
             <TabTest
               url={formData.url}
               method={formData.method}
