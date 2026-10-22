@@ -36,13 +36,11 @@ export class EndpointDetailPage extends BasePage {
   }
 
   /**
-   * Assert the tabbed detail view renders (Overview, Connection, Mappings, Test).
+   * Assert the tabbed detail view renders (Basics, Connection, Mappings, Test).
    */
   async expectTabsVisible() {
     await this.waitForEndpointLoaded();
-    await expect(
-      this.page.getByRole('tab', { name: /overview/i })
-    ).toBeVisible();
+    await expect(this.page.getByRole('tab', { name: /basics/i })).toBeVisible();
   }
 
   /** Assert overview tab content is visible. */

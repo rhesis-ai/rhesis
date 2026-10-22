@@ -11,6 +11,7 @@ import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { useBulkActionsBridge } from '@/hooks/useBulkActionsBridge';
 import EndpointsGrid from './EndpointsGrid';
 import EndpointCreateDrawer from './EndpointCreateDrawer';
+import EndpointTypeMenu from './EndpointTypeMenu';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -42,6 +43,8 @@ export default function EndpointsPageClient({
     string | undefined
   >();
   const [refreshTrigger, setRefreshTrigger] = React.useState(0);
+  const [typeMenuAnchor, setTypeMenuAnchor] =
+    React.useState<HTMLElement | null>(null);
   const { bulkActionsVisible, onBulkDelete, handleBulkActionsChange } =
     useBulkActionsBridge();
 
@@ -120,8 +123,13 @@ export default function EndpointsPageClient({
               <Fab
                 icon={<FabAddIcon />}
                 tooltip="New Endpoint"
-                onClick={handleCreate}
+                onClick={e => setTypeMenuAnchor(e.currentTarget)}
                 data-tour="create-endpoint-button"
+              />
+              <EndpointTypeMenu
+                anchorEl={typeMenuAnchor}
+                onClose={() => setTypeMenuAnchor(null)}
+                onCreateRest={handleCreate}
               />
             </Can>
           </FabGroup>

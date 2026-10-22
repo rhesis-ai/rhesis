@@ -5,7 +5,7 @@ import { Box, Paper, Typography } from '@mui/material';
 import { alpha, type Theme } from '@mui/material/styles';
 import { ELEVATION, BORDER_RADIUS } from '@/styles/theme';
 
-export type SectionCardVariant = 'default' | 'danger';
+export type SectionCardVariant = 'default' | 'danger' | 'success';
 
 export interface SectionCardProps {
   /** When omitted (along with subtitle and actions), the header row is skipped entirely */
@@ -44,7 +44,13 @@ function cardSx(variant: SectionCardVariant) {
       theme.palette.mode === 'light'
         ? '#ffffff'
         : theme.palette.greyscale.surface1,
-    border: (theme: Theme) => `1px solid ${theme.palette.greyscale.border}`,
+    // `success` marks a finished part of a flow; only the border changes.
+    border: (theme: Theme) =>
+      `1px solid ${
+        variant === 'success'
+          ? theme.palette.success.main
+          : theme.palette.greyscale.border
+      }`,
   };
 }
 

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { MockApiHelper } from '../helpers/MockApiHelper';
 import {
   expectGridRowVisible,
@@ -11,9 +11,21 @@ import endpointsFixture from '../fixtures/endpoints.json';
 /**
  * CRUD interaction tests for Endpoints.
  *
- * These tests exercise the new-endpoint form, verify field interaction, and
+ * These tests exercise the new-endpoint wizard, verify field interaction, and
  * create an endpoint in the active (Quick Start) project.
  */
+
+const nextButton = (page: Page) =>
+  page.getByRole('button', { name: /^next$/i });
+
+/** Fill the Overview step and move on to Connection. */
+async function goToConnection(page: Page, name: string) {
+  const nameField = page.locator('input[name="name"]');
+  await expect(nameField).toBeVisible({ timeout: 15_000 });
+  await nameField.fill(name);
+  await nextButton(page).click();
+}
+
 test.describe('Endpoints — CRUD @crud', () => {
   test('new endpoint form loads and required fields are fillable', async ({
     page,
@@ -30,36 +42,25 @@ test.describe('Endpoints — CRUD @crud', () => {
     );
     await expect(page.locator('body')).not.toContainText('Application error');
 
-    // Create page should show required fields.
-    // name attributes on TextFields keep selectors stable for e2e.
-    const nameField = page.locator('input[name="name"]');
+    // Next stays disabled until the Overview step has a name.
+    await expect(nextButton(page)).toBeDisabled();
+    await goToConnection(page, UNIQUE_NAME);
 
-    await expect(nameField).toBeVisible({ timeout: 15_000 });
-    await nameField.fill(UNIQUE_NAME);
-
-    // URL field is on the Connection tab
-    await page.getByRole('tab', { name: /connection/i }).click();
     const urlField = page.locator('input[name="url"]');
     await expect(urlField).toBeVisible({ timeout: 15_000 });
     await urlField.fill(TEST_URL);
-
-    // Verify URL value was accepted on the Connection tab
     await expect(urlField).toHaveValue(TEST_URL);
 
-    // Switch back to Overview to verify the name field (tab panels unmount on switch)
-    await page.getByRole('tab', { name: /overview/i }).click();
-    await expect(nameField).toHaveValue(UNIQUE_NAME);
+    // Earlier steps stay reachable; step panels unmount on switch, state is kept.
+    await page.getByRole('button', { name: /basics/i }).click();
+    await expect(page.locator('input[name="name"]')).toHaveValue(UNIQUE_NAME);
   });
 
   test('client credentials replaces the API token with OAuth fields', async ({
     page,
   }) => {
     await page.goto('/endpoints?create=1');
-    await expect(page.locator('input[name="name"]')).toBeVisible({
-      timeout: 15_000,
-    });
-
-    await page.getByRole('tab', { name: /connection/i }).click();
+    await goToConnection(page, `e2e-endpoint-${Date.now()}`);
     await expect(page.getByLabel(/api token/i)).toBeVisible();
 
     await page.getByLabel('Authentication').click();
@@ -84,11 +85,36 @@ test.describe('Endpoints — CRUD @crud', () => {
     await page.goto('/endpoints?create=1');
     await expect(page).toHaveURL(/\/endpoints\/?$/);
 
+    // The target URL isn't reachable from CI, so the wizard's test calls get a canned reply.
+    await page.route('**/endpoints/test', route =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ raw_response: { text: 'Hello from e2e' } }),
+      })
+    );
+
     // The create drawer uses the active project; it has no project field.
-    await page.locator('input[name="name"]').fill(UNIQUE_NAME);
-    await page.getByRole('tab', { name: /connection/i }).click();
+    await goToConnection(page, UNIQUE_NAME);
     await page.locator('input[name="url"]').fill(TEST_URL);
-    await page.getByRole('button', { name: /^create endpoint$/i }).click();
+    await nextButton(page).click();
+
+    // Mapping: send input as `prompt`; the test runs by itself, then map the reply to output.
+    await page.getByLabel('API field for input').fill('prompt');
+    await expect(page.getByText('Test request successful')).toBeVisible();
+    await page.getByLabel('Response value for output').click();
+    await page.getByRole('option', { name: '$.text' }).click();
+    await nextButton(page).click();
+
+    // Test: Create only unlocks after a passing run.
+    const createButton = page.getByRole('button', {
+      name: /^create endpoint$/i,
+    });
+    await expect(createButton).toBeDisabled();
+    await page.getByRole('textbox', { name: 'Value for input' }).fill('Hello');
+    await page.getByRole('button', { name: /send test request/i }).click();
+    await expect(page.getByText('Endpoint is ready')).toBeVisible();
+    await createButton.click();
 
     await waitForDrawerClosed(page, { timeout: 20_000 });
     await expectGridRowVisible(page, UNIQUE_NAME);

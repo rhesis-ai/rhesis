@@ -11,6 +11,10 @@ interface VariableChipProps {
   isActive?: boolean;
   onClick?: (e: React.MouseEvent<HTMLElement>) => void;
   alignSelf?: string;
+  /** Shown after the label, e.g. an info icon. */
+  trailingIcon?: React.ReactNode;
+  /** `primary`: light blue, body font — the Mapping step's variable list. */
+  tone?: 'neutral' | 'primary';
 }
 
 export default function VariableChip({
@@ -18,14 +22,17 @@ export default function VariableChip({
   isActive = false,
   onClick,
   alignSelf,
+  trailingIcon,
+  tone = 'neutral',
 }: VariableChipProps) {
   return (
     <Chip
       label={
-        isActive ? (
+        isActive || trailingIcon ? (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <span>{label}</span>
-            <CheckIcon sx={{ fontSize: 11 }} />
+            {isActive && <CheckIcon sx={{ fontSize: 11 }} />}
+            {trailingIcon}
           </Box>
         ) : (
           label
@@ -36,6 +43,13 @@ export default function VariableChip({
       sx={{
         ...insertableVariableChipSx,
         ...(alignSelf && { alignSelf }),
+        ...(tone === 'primary' && {
+          fontFamily: 'inherit',
+          fontSize: 13,
+          height: 24,
+          bgcolor: 'background.light2',
+          color: 'greyscale.title',
+        }),
         ...(isActive && {
           bgcolor: (t: Theme) =>
             t.palette.mode === 'light'

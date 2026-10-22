@@ -5,13 +5,13 @@ import React, {
   useEffect,
   useCallback,
   useImperativeHandle,
+  useMemo,
   forwardRef,
 } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Box, Alert } from '@mui/material';
-import DetailTabNav from '@/components/common/DetailTabNav';
+import StepNav from '@/components/common/StepNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
-import ActionBar from '@/components/common/ActionBar';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useTestEndpoint } from '@/hooks/useEndpoints';
@@ -26,10 +26,12 @@ import { useOnboarding } from '@/contexts/OnboardingContext';
 import { readActiveProjectId } from '@/utils/active-project';
 import { getApiErrorMessage } from '@/utils/error-utils';
 import AutoConfigureDrawer from './AutoConfigureDrawer';
+import { DEFAULT_REQUEST_HEADERS } from './headerRows';
 import TabOverview from './TabOverview';
 import TabConnection from './TabConnection';
 import TabMapping from './TabMapping';
 import TabTest from './TabTest';
+import type { EndpointTestResult } from './TestResponseCard';
 import {
   bodyToRequestMapping,
   parseBodyMapping,
@@ -37,6 +39,7 @@ import {
   validateMappingJson,
 } from './mappingUtils';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { validateVersionInfoDraft } from '@/utils/version-info';
 import { getEndpointFailure } from '@/utils/endpoint-failure';
 import type { TestOutput } from '@/utils/api-client/interfaces/test-results';
 import {
@@ -69,19 +72,36 @@ export interface FormData {
   request_headers: string;
   disable_tracing: boolean;
   timeout_seconds: string;
+  /** Editor text for the optional version_info object. */
+  version_info: string;
 }
 
-const DEFAULT_REQ_BODY =
-  '{\n  "input": "{{ input }}",\n  "messages": "{{ messages | tojson }}",\n  "conversation_id": "{{ conversation_id }}",\n  "files": "{{ files | to_openai | tojson }}"\n}';
-
+// Both start empty: the Mapping step asks for every field explicitly.
+const DEFAULT_REQ_BODY = '{}';
 const DEFAULT_RES_BODY = '{}';
 
-const CREATE_TABS = [
-  { key: 'overview', label: 'Overview' },
+const CREATE_STEPS = [
+  { key: 'basics', label: 'Basics' },
   { key: 'connection', label: 'Connection' },
   { key: 'mapping', label: 'Mapping' },
   { key: 'test', label: 'Test' },
-] as const;
+];
+const LAST_STEP = CREATE_STEPS.length - 1;
+
+const INPUT_VAR_RE = /\{\{\s*input\b/;
+
+function hasOutputMapping(resBody: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(resBody);
+    return (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      typeof (parsed as Record<string, unknown>).output === 'string'
+    );
+  } catch {
+    return false;
+  }
+}
 
 function validateUrl(url: string) {
   try {
@@ -94,30 +114,31 @@ function validateUrl(url: string) {
 
 export interface EndpointFormSubmitState {
   isSubmitting: boolean;
-  canSubmit: boolean;
+  /** The active step is complete, so Next (or Create on the last step) can run. */
+  canAdvance: boolean;
+  isLastStep: boolean;
+  isFirstStep: boolean;
 }
 
 export interface EndpointFormProps {
   projectId?: string;
-  onCancel?: () => void;
   onCreated?: () => void;
-  hideActionBar?: boolean;
   /** Hide project picker — project is inferred from active project scope */
   hideProjectSelect?: boolean;
   onSubmitStateChange?: (state: EndpointFormSubmitState) => void;
 }
 
 export interface EndpointFormHandle {
-  submit: () => void;
+  /** Moves to the next step, or creates the endpoint on the last one. */
+  advance: () => void;
+  back: () => void;
 }
 
 const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
   function EndpointForm(
     {
       projectId: projectIdProp,
-      onCancel,
       onCreated,
-      hideActionBar = false,
       hideProjectSelect = false,
       onSubmitStateChange,
     },
@@ -130,20 +151,16 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     const [activeTab, setActiveTab] = useState(0);
     const [reqBody, setReqBody] = useState<string>(DEFAULT_REQ_BODY);
     const [resBody, setResBody] = useState<string>(DEFAULT_RES_BODY);
-    const [testResult, setTestResult] = useState<{
-      success: boolean;
-      status?: number;
-      response?: Record<string, unknown>;
-      error?: string;
-    } | null>(null);
+    const [testResult, setTestResult] = useState<EndpointTestResult | null>(
+      null
+    );
     const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
-    const [tabTestResult, setTabTestResult] = useState<{
-      success: boolean;
-      status?: number;
-      response?: Record<string, unknown>;
-      error?: string;
-    } | null>(null);
+    const [tabTestResult, setTabTestResult] =
+      useState<EndpointTestResult | null>(null);
     const [isTabTestRunning, setIsTabTestRunning] = useState(false);
+    // The setup each passing test ran against; a pass only counts while it still matches.
+    const [mappingTestKey, setMappingTestKey] = useState<string | null>(null);
+    const [tabTestKey, setTabTestKey] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [projects, setProjects] = useState<Project[]>([]);
     const [loadingProjects, setLoadingProjects] = useState(true);
@@ -171,9 +188,10 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       auth_type: ENDPOINT_AUTH_TYPES.BEARER_TOKEN,
       auth_token: '',
       client_credentials: EMPTY_CLIENT_CREDENTIALS,
-      request_headers: '{}',
+      request_headers: DEFAULT_REQUEST_HEADERS,
       disable_tracing: false,
       timeout_seconds: '',
+      version_info: '',
     });
 
     // Set project_id from URL parameter, then fall back to active project cookie
@@ -233,14 +251,14 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
         });
         setResBody(JSON.stringify(asJson, null, 2));
       }
-      if (result.request_headers) {
-        setFormData(prev => ({
-          ...prev,
-          request_headers: JSON.stringify(result.request_headers, null, 2),
-          url: result.url || prev.url,
-          method: result.method || prev.method,
-        }));
-      }
+      setFormData(prev => ({
+        ...prev,
+        request_headers: result.request_headers
+          ? JSON.stringify(result.request_headers, null, 2)
+          : prev.request_headers,
+        url: result.url || prev.url,
+        method: result.method || prev.method,
+      }));
       setAutoConfigureOpen(false);
       notifications.show('Auto-configure mappings applied!', {
         severity: 'success',
@@ -255,37 +273,79 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     // Only a bearer token is a value the test and auto-configure calls can use as is.
     const bearerToken = isClientCredentials ? '' : formData.auth_token;
 
-    const step1Valid =
-      Boolean(formData.url) &&
-      validateUrl(formData.url) &&
+    const connectionKey = useMemo(
+      () =>
+        JSON.stringify([
+          formData.url,
+          formData.method,
+          formData.request_headers,
+          formData.auth_type,
+          formData.auth_token,
+          formData.client_credentials,
+          formData.endpoint_path,
+          formData.response_format,
+          reqBody,
+        ]),
+      [formData, reqBody]
+    );
+    // The test step also checks the response mapping, so a mapping edit needs a new run.
+    const fullKey = `${connectionKey}${resBody}`;
+
+    // A Test step result only describes the setup it ran against; drop it once
+    // that changes, so the step shows green only after a new successful send.
+    useEffect(() => {
+      setTabTestResult(null);
+    }, [fullKey]);
+
+    const versionInfoError = validateVersionInfoDraft(formData.version_info);
+
+    const stepsValid = [
       Boolean(formData.name) &&
-      Boolean(formData.project_id) &&
-      authError === null;
+        Boolean(formData.project_id) &&
+        versionInfoError === null,
+      Boolean(formData.url) && validateUrl(formData.url) && authError === null,
+      INPUT_VAR_RE.test(reqBody) &&
+        hasOutputMapping(resBody) &&
+        // Not keyed on resBody: the response is mapped from this test's result, after it ran.
+        mappingTestKey === connectionKey,
+      tabTestKey === fullKey,
+    ];
+    const firstInvalidStep = stepsValid.findIndex(valid => !valid);
+    // Steps can be opened up to the first incomplete one; later ones wait for it.
+    const maxReachableStep =
+      firstInvalidStep === -1 ? LAST_STEP : firstInvalidStep;
+    const canAdvance = stepsValid[activeTab];
+    const isLastStep = activeTab === LAST_STEP;
+    const isFirstStep = activeTab === 0;
 
     useEffect(() => {
       onSubmitStateChange?.({
         isSubmitting,
-        canSubmit: step1Valid,
+        canAdvance,
+        isLastStep,
+        isFirstStep,
       });
-    }, [isSubmitting, step1Valid, onSubmitStateChange]);
+    }, [
+      isSubmitting,
+      canAdvance,
+      isLastStep,
+      isFirstStep,
+      onSubmitStateChange,
+    ]);
 
     const runTest = async (
       inputData: Record<string, unknown>,
       setResult: React.Dispatch<
-        React.SetStateAction<{
-          success: boolean;
-          status?: number;
-          response?: Record<string, unknown>;
-          error?: string;
-        } | null>
+        React.SetStateAction<EndpointTestResult | null>
       >,
-      setTesting: React.Dispatch<React.SetStateAction<boolean>>
+      setTesting: React.Dispatch<React.SetStateAction<boolean>>,
+      onPassed?: () => void
     ) => {
       setTesting(true);
       setResult(null);
       try {
         if (!formData.url || !validateUrl(formData.url)) {
-          throw new Error('Please enter a valid URL in step 1');
+          throw new Error('Enter a valid URL in the Connection step');
         }
         if (authError) {
           throw new Error(authError);
@@ -332,11 +392,14 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
         const r = result as Record<string, unknown>;
         // A failed call to the target comes back as a 200 with the failure in the body.
         const failure = getEndpointFailure(r as unknown as TestOutput);
+        const success = !failure && r.success !== false && !r.error;
         setResult({
-          success: !failure && r.success !== false && !r.error,
+          success,
+          status: failure?.statusCode,
           response: r,
           error: failure ? failure.message || failure.summary : undefined,
         });
+        if (success) onPassed?.();
       } catch (err) {
         setResult({ success: false, error: (err as Error).message ?? '' });
       } finally {
@@ -344,11 +407,19 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       }
     };
 
-    const handleRunTest = (inputData: Record<string, unknown>) =>
-      runTest(inputData, setTestResult, setIsTestingEndpoint);
+    const handleRunTest = (inputData: Record<string, unknown>) => {
+      const key = connectionKey;
+      return runTest(inputData, setTestResult, setIsTestingEndpoint, () =>
+        setMappingTestKey(key)
+      );
+    };
 
-    const handleTabRunTest = (inputData: Record<string, unknown>) =>
-      runTest(inputData, setTabTestResult, setIsTabTestRunning);
+    const handleTabRunTest = (inputData: Record<string, unknown>) => {
+      const key = fullKey;
+      return runTest(inputData, setTabTestResult, setIsTabTestRunning, () =>
+        setTabTestKey(key)
+      );
+    };
 
     const handleSubmit = useCallback(async () => {
       setError(null);
@@ -360,6 +431,11 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
 
       if (authError) {
         setError(authError);
+        return;
+      }
+
+      if (versionInfoError) {
+        setError(versionInfoError);
         return;
       }
 
@@ -422,6 +498,14 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
           (endpointData as Record<string, unknown>).auth_token =
             formData.auth_token;
         }
+        const versionInfo = formData.version_info.trim();
+        if (versionInfo) {
+          const parsed = JSON.parse(versionInfo) as Record<string, unknown>;
+          // An empty object means nothing to record, same as the detail page.
+          if (Object.keys(parsed).length > 0) {
+            endpointData.version_info = parsed;
+          }
+        }
         const parsedTimeout = parseInt(formData.timeout_seconds, 10);
         if (!isNaN(parsedTimeout) && parsedTimeout > 0) {
           endpointData.timeout_seconds = parsedTimeout;
@@ -457,6 +541,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     }, [
       formData,
       authError,
+      versionInfoError,
       isClientCredentials,
       reqBody,
       resBody,
@@ -471,32 +556,47 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     useImperativeHandle(
       ref,
       () => ({
-        submit: () => {
-          void handleSubmit();
+        advance: () => {
+          if (!canAdvance) return;
+          if (isLastStep) {
+            void handleSubmit();
+          } else {
+            setError(null);
+            setActiveTab(activeTab + 1);
+          }
+        },
+        back: () => {
+          setError(null);
+          setActiveTab(Math.max(0, activeTab - 1));
         },
       }),
-      [handleSubmit]
+      [activeTab, canAdvance, isLastStep, handleSubmit]
     );
 
-    const handleCancel = () => {
-      if (onCancel) {
-        onCancel();
+    // Enter in a one-line field moves on once the step is complete. Multi-line
+    // fields keep Enter for new lines, and the last step never creates on Enter.
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+      const target = e.target as HTMLElement;
+      if (
+        e.key !== 'Enter' ||
+        e.shiftKey ||
+        e.nativeEvent.isComposing ||
+        target.tagName !== 'INPUT' ||
+        // React bubbles through portals; ignore the auto-configure drawer's fields.
+        !e.currentTarget.contains(target) ||
+        isLastStep ||
+        !canAdvance
+      ) {
         return;
       }
-      router.push(
-        projectIdFromUrl ? `/projects/${projectIdFromUrl}` : '/endpoints'
-      );
+      e.preventDefault();
+      setError(null);
+      setActiveTab(activeTab + 1);
     };
-
-    const navTabs = CREATE_TABS.map((tab, index) => ({
-      key: tab.key,
-      label: tab.label,
-      id: `endpoint-tab-${index}`,
-      'aria-controls': `endpoint-tabpanel-${index}`,
-    }));
 
     return (
       <Box
+        onKeyDown={handleKeyDown}
         sx={{
           display: 'flex',
           flexDirection: 'column',
@@ -504,12 +604,13 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
           minHeight: 0,
         }}
       >
-        <Box sx={{ mb: 3 }}>
-          <DetailTabNav
-            tabs={navTabs}
+        <Box>
+          <StepNav
+            steps={CREATE_STEPS}
             activeIndex={activeTab}
+            maxReachableIndex={maxReachableStep}
             onChange={setActiveTab}
-            aria-label="endpoint creation tabs"
+            aria-label="Endpoint creation steps"
           />
         </Box>
 
@@ -521,11 +622,16 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
               projects={projects}
               loadingProjects={loadingProjects}
               hideProjectSelect={hideProjectSelect}
+              versionInfoError={versionInfoError}
             />
           </DetailTabPanel>
 
           <DetailTabPanel value={activeTab} index={1} prefix="endpoint">
-            <TabConnection formData={formData} onChange={handleChange} />
+            <TabConnection
+              formData={formData}
+              onChange={handleChange}
+              onAutoConfigureOpen={() => setAutoConfigureOpen(true)}
+            />
           </DetailTabPanel>
 
           <DetailTabPanel value={activeTab} index={2} prefix="endpoint">
@@ -537,18 +643,23 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
               testResult={testResult}
               isTestingEndpoint={isTestingEndpoint}
               onRunTest={handleRunTest}
-              onAutoConfigureOpen={() => setAutoConfigureOpen(true)}
+              resultIsCurrent={mappingTestKey === connectionKey}
             />
           </DetailTabPanel>
 
-          <DetailTabPanel value={activeTab} index={3} prefix="endpoint">
+          {/* Kept mounted so typed test values and uploads survive leaving the step. */}
+          <DetailTabPanel
+            value={activeTab}
+            index={3}
+            prefix="endpoint"
+            keepMounted
+          >
             <TabTest
               url={formData.url}
               method={formData.method}
               reqBody={reqBody}
               resBody={resBody}
               requestHeaders={formData.request_headers}
-              authToken={bearerToken}
               testResult={tabTestResult}
               isTestingEndpoint={isTabTestRunning}
               onRunTest={handleTabRunTest}
@@ -561,30 +672,6 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
             </Box>
           )}
         </Box>
-
-        {!hideActionBar && (
-          <ActionBar
-            sx={{
-              borderTop: 0,
-              bgcolor: 'transparent',
-              position: 'relative',
-              flexShrink: 0,
-            }}
-            leftButton={{
-              label: 'Cancel',
-              onClick: handleCancel,
-              variant: 'outlined',
-            }}
-            rightButton={{
-              label: 'Save endpoint',
-              onClick: () => {
-                void handleSubmit();
-              },
-              variant: 'contained',
-              disabled: isSubmitting || !step1Valid,
-            }}
-          />
-        )}
 
         <AutoConfigureDrawer
           open={autoConfigureOpen}

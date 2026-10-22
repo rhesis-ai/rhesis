@@ -25,6 +25,7 @@ const defaultFormData: FormData = {
   request_headers: '{}',
   disable_tracing: false,
   timeout_seconds: '',
+  version_info: '',
 };
 
 const projects = [
@@ -145,5 +146,85 @@ describe('TabOverview', () => {
       'description',
       'My endpoint description'
     );
+  });
+
+  it('links the version information section to the docs', () => {
+    render(
+      <TabOverview
+        formData={defaultFormData}
+        onChange={jest.fn()}
+        projects={projects}
+        loadingProjects={false}
+      />
+    );
+    expect(screen.getByText('Version Information')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /learn more/i })).toHaveAttribute(
+      'href',
+      'https://docs.rhesis.ai/docs/endpoints/management#version-information'
+    );
+  });
+
+  it('keeps the version information editor closed until opened', () => {
+    render(
+      <TabOverview
+        formData={defaultFormData}
+        onChange={jest.fn()}
+        projects={projects}
+        loadingProjects={false}
+      />
+    );
+    const toggle = screen.getByRole('button', {
+      name: /show version information/i,
+    });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(toggle);
+    expect(
+      screen.getByRole('button', { name: /hide version information/i })
+    ).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('opens the version information editor when it has content', () => {
+    render(
+      <TabOverview
+        formData={{ ...defaultFormData, version_info: '{"model": "x"}' }}
+        onChange={jest.fn()}
+        projects={projects}
+        loadingProjects={false}
+      />
+    );
+    expect(
+      screen.getByRole('button', { name: /hide version information/i })
+    ).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('shows why the version information is invalid', () => {
+    render(
+      <TabOverview
+        formData={defaultFormData}
+        onChange={jest.fn()}
+        projects={projects}
+        loadingProjects={false}
+        versionInfoError="version_info must be a JSON object, not an array or a scalar"
+      />
+    );
+    expect(
+      screen.getByText(/must be a JSON object, not an array/)
+    ).toBeInTheDocument();
+  });
+
+  it('shows tracing as enabled and turning it off sets disable_tracing', () => {
+    const onChange = jest.fn();
+    render(
+      <TabOverview
+        formData={defaultFormData}
+        onChange={onChange}
+        projects={projects}
+        loadingProjects={false}
+      />
+    );
+    const toggle = screen.getByRole('switch', { name: /enable tracing/i });
+    expect(toggle).toBeChecked();
+    fireEvent.click(toggle);
+    expect(onChange).toHaveBeenCalledWith('disable_tracing', true);
   });
 });

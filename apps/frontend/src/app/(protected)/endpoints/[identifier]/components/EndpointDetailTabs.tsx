@@ -12,7 +12,7 @@ import EndpointMappingTab from './EndpointMappingTab';
 import EndpointTestTab from './EndpointTestTab';
 
 const TAB_LABELS: Record<EndpointTabKey, string> = {
-  overview: 'Overview',
+  overview: 'Basics',
   connection: 'Connection',
   mapping: 'Mapping',
   test: 'Test',

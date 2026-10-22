@@ -23,63 +23,7 @@ import {
   OUTPUT_VARIABLES,
   responseMappingToPathToVar,
 } from './JsonPreview';
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const REQUEST_VARIABLES = [
-  {
-    groupLabel: 'Input',
-    name: '{{ input }}',
-    description: 'Required. The test prompt sent to your endpoint.',
-  },
-  {
-    groupLabel: 'Multi-turn',
-    chips: ['{{ messages }}', '{{ conversation_id }}'],
-    description: (
-      <>
-        <strong>messages</strong>: full conversation history for stateless
-        endpoints. <strong>conversation_id</strong>: tracking ID for both
-        stateful and stateless endpoints.
-      </>
-    ),
-    docsUrl:
-      'https://docs.rhesis.ai/docs/endpoints/request-mapping#multi-turn-conversations',
-  },
-  {
-    groupLabel: 'System prompt',
-    name: '{{ system_prompt }}',
-    description:
-      'Injected as the system message. Rhesis removes it from the body before sending.',
-  },
-  {
-    groupLabel: 'Files',
-    name: '{{ files }}',
-    description:
-      'File attachments (images, PDFs). Use provider filters: to_openai, to_anthropic, to_gemini.',
-    docsUrl:
-      'https://docs.rhesis.ai/docs/endpoints/request-mapping#file-format-filters',
-  },
-  {
-    groupLabel: 'Experiments',
-    name: '{{ params }}',
-    description:
-      'Required if you run experiments. Access individual values with dot notation: {{ params.model }}, {{ params.temperature }}.',
-    docsUrl:
-      'https://docs.rhesis.ai/docs/endpoints#using-experiment-parameters',
-  },
-  {
-    groupLabel: 'Execution context',
-    chips: [
-      '{{ test_id }}',
-      '{{ test_run_id }}',
-      '{{ test_configuration_id }}',
-    ],
-    description:
-      'Auto-filled on every test run — useful if your API logs or traces which test triggered the request.',
-    docsUrl:
-      'https://docs.rhesis.ai/docs/endpoints/mapping-examples#test-execution-context',
-  },
-];
+import { REQUEST_VARIABLES } from './mapping-variables';
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 

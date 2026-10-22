@@ -2,15 +2,8 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-jest.mock('../JsonPreview', () => ({
-  JsonPreview: ({ value }: { value: unknown }) => (
-    <div data-testid="json-preview">{JSON.stringify(value)}</div>
-  ),
-  TemplatePreview: ({ template }: { template: string }) => (
-    <div data-testid="template-preview">{template}</div>
-  ),
-  responseMappingToPathToVar: (m: Record<string, string>) =>
-    Object.fromEntries(Object.entries(m).map(([k, v]) => [v, k])),
+jest.mock('@/config/runtime-config', () => ({
+  publicEnv: () => ({ architectHelpArticleUrls: [] }),
 }));
 
 import TabTest from '../TabTest';
@@ -18,83 +11,93 @@ import TabTest from '../TabTest';
 const defaultProps = {
   url: 'https://api.example.com/chat',
   method: 'POST',
-  reqBody: '{"input": "{{ input }}"}',
-  resBody: '{"output": "$.choices[0].message.content"}',
+  reqBody:
+    '{"prompt": "{{ input }}", "history": "{{ messages | tojson }}", "run": "{{ test_run_id }}"}',
+  resBody: '{"output": "$.text"}',
   requestHeaders: '{}',
-  authToken: '',
   testResult: null,
   isTestingEndpoint: false,
   onRunTest: jest.fn(),
 };
 
 describe('TabTest', () => {
-  it('renders the Check connection button', () => {
+  it('asks for a value per variable, skipping ones Rhesis fills in', () => {
+    render(<TabTest {...defaultProps} />);
+    expect(screen.getByLabelText('Value for input')).toBeInTheDocument();
+    expect(screen.getByLabelText('Value for messages')).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Value for test_run_id')
+    ).not.toBeInTheDocument();
+  });
+
+  it('blocks the test until input has a value', () => {
     render(<TabTest {...defaultProps} />);
     expect(
-      screen.getByRole('button', { name: /check connection/i })
-    ).toBeInTheDocument();
+      screen.getByRole('button', { name: /send test request/i })
+    ).toBeDisabled();
   });
 
-  it('shows "No response yet" placeholder before a test is run', () => {
-    render(<TabTest {...defaultProps} />);
-    expect(
-      screen.getAllByText(/run a test to see the response/i).length
-    ).toBeGreaterThan(0);
-  });
-
-  it('extracts template variables from reqBody and shows input fields', () => {
-    render(<TabTest {...defaultProps} />);
-    expect(screen.getByText('{{ input }}')).toBeInTheDocument();
-  });
-
-  it('shows "No template variables" message when reqBody has no variables', () => {
-    render(<TabTest {...defaultProps} reqBody='{"static": "value"}' />);
-    expect(
-      screen.getByText(/no template variables in request body/i)
-    ).toBeInTheDocument();
-  });
-
-  it('calls onRunTest when Check connection is clicked', () => {
+  it('sends typed messages as a single user turn', async () => {
     const onRunTest = jest.fn();
     render(<TabTest {...defaultProps} onRunTest={onRunTest} />);
-    fireEvent.click(screen.getByRole('button', { name: /check connection/i }));
-    expect(onRunTest).toHaveBeenCalledTimes(1);
+    fireEvent.change(screen.getByLabelText('Value for input'), {
+      target: { value: 'Hi' },
+    });
+    fireEvent.change(screen.getByLabelText('Value for messages'), {
+      target: { value: 'Earlier question' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /send test request/i }));
+    await Promise.resolve();
+    expect(onRunTest).toHaveBeenCalledWith({
+      input: 'Hi',
+      messages: [{ role: 'user', content: 'Earlier question' }],
+    });
   });
 
-  it('shows error alert when testResult has an error', () => {
+  it('shows the returned value for each mapped variable', () => {
+    render(
+      <TabTest
+        {...defaultProps}
+        testResult={{
+          success: true,
+          response: { raw_response: { text: 'Hello back' } },
+        }}
+      />
+    );
+    expect(screen.getByText('Endpoint is ready')).toBeInTheDocument();
+    expect(screen.getByText('Hello back')).toBeInTheDocument();
+  });
+
+  it('labels returned values by variable name and shows JSON as JSON', () => {
+    render(
+      <TabTest
+        {...defaultProps}
+        resBody='{"output": "$.text", "metadata": "$.meta"}'
+        testResult={{
+          success: true,
+          response: {
+            raw_response: { text: 'Hi', meta: { model: 'gpt-x', tokens: 12 } },
+          },
+        }}
+      />
+    );
+    expect(screen.getByText('metadata')).toBeInTheDocument();
+    expect(screen.queryByText('Metadata')).not.toBeInTheDocument();
+    // Rendered as a JSON tree, not one stringified line.
+    expect(
+      screen.queryByText('{"model":"gpt-x","tokens":12}')
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText(/gpt-x/).length).toBeGreaterThan(0);
+  });
+
+  it('shows the error when the test fails', () => {
     render(
       <TabTest
         {...defaultProps}
         testResult={{ success: false, error: 'Connection refused' }}
       />
     );
+    expect(screen.getByText('Test request failed')).toBeInTheDocument();
     expect(screen.getByText('Connection refused')).toBeInTheDocument();
-  });
-
-  it('shows status code after a successful test', () => {
-    render(
-      <TabTest
-        {...defaultProps}
-        testResult={{
-          success: true,
-          response: { status_code: 200, raw_response: { output: 'hello' } },
-        }}
-      />
-    );
-    expect(screen.getByText('200')).toBeInTheDocument();
-  });
-
-  it('shows the URL in the request panel', () => {
-    render(<TabTest {...defaultProps} />);
-    expect(
-      screen.getAllByText(/https:\/\/api\.example\.com\/chat/).length
-    ).toBeGreaterThan(0);
-  });
-
-  it('shows "No response mapping configured yet" when resBody is empty object', () => {
-    render(<TabTest {...defaultProps} resBody="{}" />);
-    expect(
-      screen.getByText(/no response mapping configured yet/i)
-    ).toBeInTheDocument();
   });
 });

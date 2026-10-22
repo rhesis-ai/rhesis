@@ -210,8 +210,14 @@ export const drawerFooterSaveButtonSx: SxProps<Theme> = {
   fontSize: 14,
   lineHeight: '22px',
   textTransform: 'none',
-  '&.Mui-disabled': {
-    bgcolor: theme => theme.palette.greyscale.border,
-    color: '#fff',
+  // The theme's containedPrimary rule unsets disabled colours and outranks a plain `&.Mui-disabled`.
+  // Dark mode's greyscale.border nearly matches the drawer, so it uses the theme's disabled colours.
+  '&.Mui-disabled, &.MuiButton-containedPrimary.Mui-disabled': {
+    bgcolor: theme =>
+      theme.palette.mode === 'dark'
+        ? theme.palette.action.disabledBackground
+        : theme.palette.greyscale.border,
+    color: theme =>
+      theme.palette.mode === 'dark' ? theme.palette.text.disabled : '#fff',
   },
 };

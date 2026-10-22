@@ -60,16 +60,49 @@ const defaultFormData: FormData = {
   request_headers: '{}',
   disable_tracing: false,
   timeout_seconds: '',
+  version_info: '',
 };
+
+const connectionProps = {
+  onAutoConfigureOpen: jest.fn(),
+};
+
+describe('TabConnection — quickest setup', () => {
+  it('opens auto-configure from the banner', () => {
+    const onAutoConfigureOpen = jest.fn();
+    render(
+      <TabConnection
+        {...connectionProps}
+        formData={defaultFormData}
+        onChange={jest.fn()}
+        onAutoConfigureOpen={onAutoConfigureOpen}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /auto-configure/i }));
+    expect(onAutoConfigureOpen).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('TabConnection — auth token fields', () => {
   it('renders the API token field', () => {
-    render(<TabConnection formData={defaultFormData} onChange={jest.fn()} />);
+    render(
+      <TabConnection
+        {...connectionProps}
+        formData={defaultFormData}
+        onChange={jest.fn()}
+      />
+    );
     expect(screen.getByLabelText(/api token/i)).toBeInTheDocument();
   });
 
   it('token field is type=password by default', () => {
-    render(<TabConnection formData={defaultFormData} onChange={jest.fn()} />);
+    render(
+      <TabConnection
+        {...connectionProps}
+        formData={defaultFormData}
+        onChange={jest.fn()}
+      />
+    );
     expect(screen.getByLabelText(/api token/i)).toHaveAttribute(
       'type',
       'password'
@@ -77,7 +110,13 @@ describe('TabConnection — auth token fields', () => {
   });
 
   it('token field becomes type=text after clicking the visibility toggle', () => {
-    render(<TabConnection formData={defaultFormData} onChange={jest.fn()} />);
+    render(
+      <TabConnection
+        {...connectionProps}
+        formData={defaultFormData}
+        onChange={jest.fn()}
+      />
+    );
     fireEvent.click(
       screen.getByRole('button', { name: /show|toggle|visibility/i })
     );
@@ -88,6 +127,7 @@ describe('TabConnection — auth token fields', () => {
     const onChange = jest.fn();
     render(
       <TabConnection
+        {...connectionProps}
         formData={{ ...defaultFormData, auth_token: '' }}
         onChange={onChange}
       />
@@ -104,6 +144,7 @@ describe('TabConnection — auth token fields', () => {
   it('displays the current token value', () => {
     render(
       <TabConnection
+        {...connectionProps}
         formData={{ ...defaultFormData, auth_token: 'sk-my-token' }}
         onChange={jest.fn()}
       />
@@ -123,7 +164,11 @@ describe('TabConnection — client credentials', () => {
 
   it('shows the OAuth fields and hides the API token', () => {
     render(
-      <TabConnection formData={clientCredentialsForm} onChange={jest.fn()} />
+      <TabConnection
+        {...connectionProps}
+        formData={clientCredentialsForm}
+        onChange={jest.fn()}
+      />
     );
     expect(screen.getByLabelText(/token url/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/client id/i)).toBeInTheDocument();
@@ -137,7 +182,11 @@ describe('TabConnection — client credentials', () => {
   it('reports a field change as a new client_credentials draft', () => {
     const onChange = jest.fn();
     render(
-      <TabConnection formData={clientCredentialsForm} onChange={onChange} />
+      <TabConnection
+        {...connectionProps}
+        formData={clientCredentialsForm}
+        onChange={onChange}
+      />
     );
     fireEvent.change(screen.getByLabelText(/client id/i), {
       target: { value: 'my-client' },
@@ -151,6 +200,7 @@ describe('TabConnection — client credentials', () => {
   it('flags an invalid token URL', () => {
     render(
       <TabConnection
+        {...connectionProps}
         formData={{
           ...clientCredentialsForm,
           client_credentials: {

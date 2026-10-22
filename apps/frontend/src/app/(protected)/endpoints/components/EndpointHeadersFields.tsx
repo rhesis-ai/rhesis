@@ -8,6 +8,7 @@ import {
   type EndpointAuthType,
 } from '@/constants/endpoint-auth';
 import HeadersEditor from './HeadersEditor';
+import CustomHeadersField from './CustomHeadersField';
 import JsonMonacoField from '../[identifier]/components/JsonMonacoField';
 import EndpointAuthFields from './EndpointAuthFields';
 import SecretField, { STORED_MASK } from './SecretField';
@@ -30,6 +31,8 @@ export interface EndpointHeadersFieldsProps {
   tokenCleared?: boolean;
   onToggleTokenCleared?: () => void;
   editorWrapperStyle?: Record<string, unknown>;
+  /** Edit headers as key/value rows first, with JSON one click away. */
+  easyHeaderInput?: boolean;
 }
 
 export default function EndpointHeadersFields({
@@ -48,6 +51,7 @@ export default function EndpointHeadersFields({
   tokenCleared = false,
   onToggleTokenCleared,
   editorWrapperStyle,
+  easyHeaderInput = false,
 }: EndpointHeadersFieldsProps) {
   const isBearer = authType === ENDPOINT_AUTH_TYPES.BEARER_TOKEN;
   const tokenHelper = (
@@ -60,7 +64,7 @@ export default function EndpointHeadersFields({
         flexWrap: 'wrap',
       }}
     >
-      Stored as
+      {easyHeaderInput ? 'Sent as Authorization: Bearer' : 'Stored as'}
       <Chip
         label="{{ auth_token }}"
         size="small"
@@ -71,7 +75,9 @@ export default function EndpointHeadersFields({
           '& .MuiChip-label': { px: 0.75 },
         }}
       />
-      in the editor below.
+      {easyHeaderInput
+        ? '— added to the headers below.'
+        : 'in the editor below.'}
     </Box>
   );
 
@@ -115,7 +121,14 @@ export default function EndpointHeadersFields({
         />
       </Box>
 
-      {isEditing ? (
+      {isEditing && easyHeaderInput ? (
+        <CustomHeadersField
+          authToken={isBearer ? authToken : ''}
+          requestHeaders={requestHeaders}
+          onChange={onRequestHeadersChange}
+          editorTheme={editorTheme}
+        />
+      ) : isEditing ? (
         <HeadersEditor
           // Only a typed bearer token adds an Authorization header here; the
           // backend adds one for an OAuth token when no header sets it.

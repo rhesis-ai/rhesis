@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Box, Grid, TextField } from '@mui/material';
+import { Box, Stack, TextField } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import { SectionCard } from '@/components/common/SectionCard';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import EndpointHeadersFields from './EndpointHeadersFields';
+import QuickSetupBanner from './QuickSetupBanner';
 import type { FormData } from './EndpointForm';
 
 function validateUrl(url: string) {
@@ -20,75 +20,64 @@ function validateUrl(url: string) {
 interface TabConnectionProps {
   formData: FormData;
   onChange: (field: keyof FormData, value: unknown) => void;
+  onAutoConfigureOpen: () => void;
 }
 
 export default function TabConnection({
   formData,
   onChange,
+  onAutoConfigureOpen,
 }: TabConnectionProps) {
   const theme = useTheme();
   const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
+  const urlInvalid = Boolean(formData.url && !validateUrl(formData.url));
 
   return (
-    <Box>
-      <SectionCard
-        title="Connection"
-        subtitle="Enter the API URL of the AI application you want to test. Rhesis will send test prompts to this endpoint and evaluate how it responds."
-      >
-        <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid size={{ xs: 12, sm: 3, md: 2 }}>
-            <TextField
-              fullWidth
-              label="Method"
-              value={formData.method}
-              onChange={e => onChange('method', e.target.value)}
-              slotProps={{
-                input: {
-                  readOnly: true,
-                  sx: { fontFamily: 'monospace', fontWeight: 700 },
-                },
-              }}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 9, md: 10 }}>
-            <TextField
-              fullWidth
-              required
-              name="url"
-              label="Endpoint URL"
-              value={formData.url}
-              onChange={e => onChange('url', e.target.value)}
-              placeholder="https://api.example.com/chat"
-              error={Boolean(formData.url && !validateUrl(formData.url))}
-              helperText={
-                formData.url && !validateUrl(formData.url)
-                  ? 'Enter a valid URL'
-                  : undefined
-              }
-            />
-          </Grid>
-        </Grid>
+    <Stack spacing={5}>
+      <QuickSetupBanner onOpen={onAutoConfigureOpen} />
 
-        <FormSectionDivider
-          headline="Authentication & headers"
-          descriptiveText="Choose how Rhesis authenticates, and add any custom headers it should send with each request."
+      <Box sx={{ display: 'flex', gap: 3.75 }}>
+        <TextField
+          label="Method"
+          value={formData.method}
+          onChange={e => onChange('method', e.target.value)}
+          slotProps={{ input: { readOnly: true } }}
+          sx={{ flex: 1 }}
         />
+        <TextField
+          required
+          name="url"
+          label="Endpoint URL"
+          value={formData.url}
+          onChange={e => onChange('url', e.target.value)}
+          placeholder="https://api.example.com/chat"
+          error={urlInvalid}
+          helperText={urlInvalid ? 'Enter a valid URL' : undefined}
+          sx={{ flex: 3 }}
+        />
+      </Box>
 
-        <Box sx={{ mt: 2 }}>
-          <EndpointHeadersFields
-            authType={formData.auth_type}
-            onAuthTypeChange={v => onChange('auth_type', v)}
-            clientCredentials={formData.client_credentials}
-            onClientCredentialsChange={v => onChange('client_credentials', v)}
-            authToken={formData.auth_token}
-            requestHeaders={formData.request_headers}
-            onAuthTokenChange={v => onChange('auth_token', v)}
-            onRequestHeadersChange={v => onChange('request_headers', v)}
-            editorTheme={editorTheme}
-            isEditing
+      <Box>
+        <Box sx={{ mb: 3 }}>
+          <FormSectionDivider
+            headline="Authentication"
+            descriptiveText="Configure the credentials Rhesis sends with each request."
           />
         </Box>
-      </SectionCard>
-    </Box>
+        <EndpointHeadersFields
+          authType={formData.auth_type}
+          onAuthTypeChange={v => onChange('auth_type', v)}
+          clientCredentials={formData.client_credentials}
+          onClientCredentialsChange={v => onChange('client_credentials', v)}
+          authToken={formData.auth_token}
+          requestHeaders={formData.request_headers}
+          onAuthTokenChange={v => onChange('auth_token', v)}
+          onRequestHeadersChange={v => onChange('request_headers', v)}
+          editorTheme={editorTheme}
+          isEditing
+          easyHeaderInput
+        />
+      </Box>
+    </Stack>
   );
 }

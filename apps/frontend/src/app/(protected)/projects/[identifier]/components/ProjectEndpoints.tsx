@@ -6,6 +6,7 @@ import { Box, Button, Typography } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import EndpointsGrid from '@/app/(protected)/endpoints/components/EndpointsGrid';
 import EndpointCreateDrawer from '@/app/(protected)/endpoints/components/EndpointCreateDrawer';
+import EndpointTypeMenu from '@/app/(protected)/endpoints/components/EndpointTypeMenu';
 import { AddIcon } from '@/components/icons';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -22,6 +23,9 @@ export default function ProjectEndpoints({ projectId }: ProjectEndpointsProps) {
   const canCreate = useCan(Capability.Endpoint.CREATE);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [typeMenuAnchor, setTypeMenuAnchor] = useState<HTMLElement | null>(
+    null
+  );
   const invalidateUsage = useInvalidateUsage();
 
   const handleCreate = useCallback(() => setDrawerOpen(true), []);
@@ -48,11 +52,16 @@ export default function ProjectEndpoints({ projectId }: ProjectEndpointsProps) {
             variant="outlined"
             size="small"
             startIcon={<AddIcon sx={{ fontSize: 20 }} />}
-            onClick={handleCreate}
+            onClick={e => setTypeMenuAnchor(e.currentTarget)}
             sx={sectionEditButtonSx}
           >
             New Endpoint
           </Button>
+          <EndpointTypeMenu
+            anchorEl={typeMenuAnchor}
+            onClose={() => setTypeMenuAnchor(null)}
+            onCreateRest={handleCreate}
+          />
         </Can>
       </Box>
 
