@@ -275,6 +275,14 @@ class TestInsightsValidation:
         response = authenticated_client.get("/insights/", params={"measures": ["count"], **params})
         assert response.status_code == status.HTTP_400_BAD_REQUEST, response.text
 
+    def test_repeated_dimension_is_named(self, authenticated_client):
+        response = authenticated_client.get(
+            "/insights/",
+            params={"entity": "test_result", "group_by": ["topic", "topic"], "measures": ["count"]},
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "['topic'] more than once" in response.json()["detail"]
+
     def test_schema_lists_the_registry(self, authenticated_client):
         from rhesis.backend.app.services.insights import REGISTRY
 
