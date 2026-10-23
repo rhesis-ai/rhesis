@@ -90,6 +90,8 @@ def _period(entry: Entity, time_grain: str):
 
 def _group_columns(entity: str, entry: Entity, group_by: List[str], time_grain: str):
     """(labelled select columns, group-by expressions, label -> expression)."""
+    if len(set(group_by)) != len(group_by):
+        raise InsightsValidationError(f"group_by lists a dimension more than once: {group_by}")
     unknown = [g for g in group_by if g != PERIOD and g not in entry.dimensions]
     if unknown:
         raise InsightsValidationError(

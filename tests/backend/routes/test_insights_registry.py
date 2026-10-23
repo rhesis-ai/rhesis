@@ -267,6 +267,8 @@ class TestInsightsValidation:
             {"entity": "test_result", "order_by": ["pass_rate"]},
             {"entity": "test_result", "limit": 0},
             {"entity": "test_result", "min_count": 0},
+            {"entity": "test_result", "group_by": ["topic", "topic"]},
+            {"entity": "test", "group_by": ["test_type_id"]},
         ],
     )
     def test_invalid_params_return_400(self, authenticated_client, params):
