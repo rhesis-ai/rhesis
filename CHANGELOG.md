@@ -18,6 +18,41 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
   since January 2026 and carried advisories with no upstream fix. Existing Ragas metrics and their
   associations are deleted by a backend migration; recorded test results keep their scores.
 
+## [0.19.1] - 2026-10-22
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.19.1**
+- **Frontend 0.19.1**
+- **SDK 0.19.1**
+
+### Summary of Changes
+
+**Backend v0.19.1:**
+- Added `created_at` and `updated_at` timestamp fields to API task responses.
+- Fixed an issue where SDK multi-turn conversation runs split turns into separate traces.
+- Updated backend dependencies (`certifi`, `nltk`, `uv`, `pillow`) to resolve security advisories.
+
+**Frontend v0.19.1:**
+- Redesigned endpoint creation into a four-step guided wizard with step navigation, connection testing, and raw JSON response previews.
+- Added turn navigation to conversation traces, enabling users to step through multi-turn conversations and open specific turns from replies.
+- Restored the dark mode toggle to the user menu with support for automatically matching browser theme preferences.
+- Enhanced UI components by adding empty states for unmatched metric filters and moving tags to the bottom of the metric detail page.
+
+**SDK v0.19.1:**
+- Updated dependencies including `nltk`, `certifi`, `uv`, and `pillow` to address security vulnerabilities.
+- Fixed an issue where authentication fields were not preserved when caching settings.
+- Improved theme handling to automatically follow browser dark mode preferences.
+- Resolved an issue to ensure the trace metrics grid automatically refreshes on change.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.19.0] - 2026-10-21
 
 ### Platform Release

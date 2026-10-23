@@ -6439,7 +6439,7 @@ provides-extras = ["all", "sdk", "telemetry"]
 
 [[package]]
 name = "rhesis-backend"
-version = "0.19.0"
+version = "0.19.1"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -6719,7 +6719,7 @@ dev = [
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.19.0"
+version = "0.19.1"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },

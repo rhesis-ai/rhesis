@@ -24,6 +24,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   anything that referenced them. Recorded metric scores are unaffected: test results and the
   verdict grid read their own JSONB snapshots, not the metric table.
 
+## [0.19.1] - 2026-10-22
+
+### Added
+
+- Task API responses now include `created_at` and `updated_at` timestamps. (#3053)
+
+### Fixed
+
+- Resolved an issue where SDK multi-turn test runs split conversation turns into separate traces, ensuring turns are now correctly linked to a single trace and conversation ID. (#3056)
+
+### Security
+
+- Updated dependencies (`certifi`, `uv`, `nltk`, and `pillow`) to resolve security vulnerabilities, including the compromised emSign root CA issue in `certifi`. (#3061)
+
+
 ## [0.19.0] - 2026-10-21
 
 ### Added
