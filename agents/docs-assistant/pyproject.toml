@@ -52,6 +52,7 @@ packages = ["src/docs_assistant"]
 exclude-newer = "1 week"
 exclude-newer-package = { certifi = false }
 constraint-dependencies = [
+    "opentelemetry-api>=1.45.1",
     "certifi>=2026.10.19",
 ]
 
