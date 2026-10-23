@@ -65,6 +65,8 @@ async def test_chart_carries_the_query_rows_and_measure_kinds():
     # Nested filters are flattened into get_insights' own arguments.
     insights_args = dict(calls)["get_insights"]
     assert insights_args["test_run_ids"] == ["r1"] and "filters" not in insights_args
+    # The query is capped one row past what a chart shows, so a huge breakdown stays cheap.
+    assert insights_args["limit"] == MAX_ROWS + 1
     assert tool.drain() == []
 
 
@@ -87,6 +89,15 @@ async def test_rows_are_capped():
 
     (chart,) = tool.drain()
     assert len(chart["rows"]) == MAX_ROWS and chart["truncated"] is True
+
+
+@pytest.mark.asyncio
+async def test_a_smaller_limit_is_kept():
+    tool, calls = _tool(TOPIC_ROWS)
+
+    await tool.execute(**{**BAR, "query": {**BAR["query"], "limit": 5}})
+
+    assert dict(calls)["get_insights"]["limit"] == 5
 
 
 @pytest.mark.asyncio

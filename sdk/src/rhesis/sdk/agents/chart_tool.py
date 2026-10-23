@@ -146,7 +146,7 @@ class ShowChartTool(BaseTool):
             "truncated": len(rows) > MAX_ROWS,
         }
         self.charts.append(chart)
-        return ToolResult(tool_name=self.name, success=True, content=_summary(chart, len(rows)))
+        return ToolResult(tool_name=self.name, success=True, content=_summary(chart))
 
     def drain(self) -> List[Dict[str, Any]]:
         """Return the charts shown since the last call, and forget them."""
@@ -211,10 +211,12 @@ def _validate(args: Dict[str, Any]) -> Dict[str, Any]:
         raise ValueError("use either several measures or a series dimension, not both")
 
     query.setdefault("measures", measures)
+    # One row past the cap is enough to know the chart was cut off.
+    query["limit"] = min(int(query.get("limit") or MAX_ROWS + 1), MAX_ROWS + 1)
     return {**args, "query": query, "y": y}
 
 
-def _summary(chart: Dict[str, Any], total_rows: int) -> str:
+def _summary(chart: Dict[str, Any]) -> str:
     rows = chart["rows"]
     ranges = []
     for measure in chart["measures"]:
@@ -223,7 +225,7 @@ def _summary(chart: Dict[str, Any], total_rows: int) -> str:
         ]
         if values:
             ranges.append(f"{measure['key']} {min(values)}-{max(values)}")
-    shown = f"{len(rows)} of {total_rows} rows" if chart["truncated"] else f"{len(rows)} rows"
+    shown = f"first {len(rows)} rows" if chart["truncated"] else f"{len(rows)} rows"
     return (
         f"Showed the chart '{chart['title']}' ({chart['chart_type']}, {shown}"
         + (f"; {', '.join(ranges)}" if ranges else "")
