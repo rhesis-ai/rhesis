@@ -337,11 +337,7 @@ def _load_registered_user(db: Session, email: str) -> tuple[User, str]:
 def _send_welcome_email_bg(email: str, name: str | None) -> None:
     """Best-effort welcome email, safe for BackgroundTasks."""
     try:
-        from rhesis.backend.notifications.email.service import EmailService
-
-        svc = EmailService()
-        if svc.is_configured:
-            svc.send_welcome_email(recipient_email=email, recipient_name=name)
+        _get_email_service().send_welcome_email(recipient_email=email, recipient_name=name)
     except Exception:
         logger.warning("Failed to send welcome email to %s", redact_email(email))
 
