@@ -14,6 +14,7 @@ class InsightsResponse(BaseModel):
     dimensions: List[str]
     measures: List[str]
     rows: List[Dict[str, Any]]
+    time_grain: Optional[str] = None
 
 
 class InsightsIdsResponse(BaseModel):
@@ -24,12 +25,18 @@ class InsightsIdsResponse(BaseModel):
 class Insights(BaseModel):
     """One insights query: entity, group_by/measures, filters, and date window.
 
+    Grouping by an entity-backed dimension returns its name and ``<dimension>_id``.
+    ``Insights.describe()`` lists what each entity accepts.
+
     Example:
         >>> insights = Insights(
         ...     entity="test_result",
-        ...     group_by=["requirement"],
+        ...     group_by=["topic"],
         ...     measures=["count", "pass_rate"],
         ...     filters={"test_run_ids": [run_id]},
+        ...     order_by=["pass_rate"],
+        ...     limit=5,
+        ...     min_count=10,
         ... )
         >>> insights.get()
         >>> insights.ids(outcome="fail")
@@ -42,6 +49,15 @@ class Insights(BaseModel):
     months: Optional[int] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+    time_grain: Optional[str] = None
+    order_by: List[str] = Field(default_factory=list)
+    limit: Optional[int] = None
+    min_count: Optional[int] = None
+
+    @staticmethod
+    def describe() -> Dict[str, Any]:
+        """Every entity's dimensions, measures and filters, with what each one means."""
+        return APIClient().send_request(endpoint=ENDPOINT, method=Methods.GET, url_params="schema")
 
     def _base_params(self) -> Dict[str, Any]:
         params: Dict[str, Any] = {"entity": self.entity}
@@ -62,6 +78,14 @@ class Insights(BaseModel):
             params["group_by"] = self.group_by
         if self.measures:
             params["measures"] = self.measures
+        if self.time_grain is not None:
+            params["time_grain"] = self.time_grain
+        if self.order_by:
+            params["order_by"] = self.order_by
+        if self.limit is not None:
+            params["limit"] = self.limit
+        if self.min_count is not None:
+            params["min_count"] = self.min_count
 
         client = APIClient()
         response = client.send_request(

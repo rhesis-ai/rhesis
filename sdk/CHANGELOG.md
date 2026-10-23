@@ -13,16 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- Normalized cached prompt usage for OpenAI and LiteLLM so separately billed cache reads and
-  writes stay out of `input_tokens`, while provider-reported totals remain unchanged.
-
-### Added
-- `ConversationalJudge` results include `relevant_turns`, the turns the verdict rests on.
-  `NumericJudge` and `CategoricalJudge` return them too when passed `conversation_history`;
-  without it their prompt and output are unchanged.
-
 ### Changed
+- **BREAKING:** `Insights` follows the redesigned `/insights` API. Grouping by `requirement`,
+  `topic`, `category` or `test_run` returns both the name and `<dimension>_id`, so the `*_id`
+  dimensions are gone. `year`/`month` are replaced by `period` with `time_grain`, the metric
+  entity's `metric_name` dimension is now `metric`, and `test_run`'s `passed`/`pass_rate` are now
+  `completed`/`completion_rate`. See https://docs.rhesis.ai/sdk/insights.
 - **BREAKING:** `pip install rhesis-sdk` now installs a core SDK of about 35 MB, enough to connect
   an application to Rhesis: the connector, `@endpoint`, `@observe` and tracing, `RhesisClient`
   and the entities, `@metric`, and the native judges and synthesizers with the Rhesis-hosted
@@ -44,6 +40,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING:** Goal-based `GoalAchievementJudge` results now pass only when every criterion is
   met, the same rule contract-based results use. The score threshold no longer decides the
   verdict when the judge returns criteria.
+
+### Added
+- `Insights` takes `time_grain`, `order_by`, `limit` and `min_count`, and `Insights.describe()`
+  returns every entity's dimensions, measures and filters.
+- `ConversationalJudge` results include `relevant_turns`, the turns the verdict rests on.
+  `NumericJudge` and `CategoricalJudge` return them too when passed `conversation_history`;
+  without it their prompt and output are unchanged.
+
+### Fixed
+- Normalized cached prompt usage for OpenAI and LiteLLM so separately billed cache reads and
+  writes stay out of `input_tokens`, while provider-reported totals remain unchanged.
 
 ### Removed
 - **BREAKING:** Removed the Ragas metric provider. `RagasMetricBase`, `RagasAnswerAccuracy`,
