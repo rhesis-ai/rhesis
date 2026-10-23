@@ -12,6 +12,7 @@ from fastapi import HTTPException
 from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
 from rhesis.backend.app.error_handlers import PublicHTTPException
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
+from rhesis.backend.app.services.invokers.templating.filters import TemplateInputError
 from rhesis.telemetry.constants import ConversationContext as ConversationConstants
 
 from .base import BaseEndpointInvoker
@@ -685,6 +686,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 message=f"Function did not respond within {effective_timeout} seconds",
                 request_details=self._safe_request_details(locals(), "SDK"),
             )
+        except TemplateInputError as e:
+            return self._template_error_response(e, self._safe_request_details(locals(), "SDK"))
         except Exception as e:
             logger.error(f"Unexpected error invoking SDK function: {e}", exc_info=True)
             return self._create_error_response(

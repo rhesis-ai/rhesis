@@ -4,8 +4,10 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
+import pytest
 from pydantic import BaseModel
 
+from rhesis.backend.app.services.invokers.templating.filters import TemplateInputError
 from rhesis.backend.app.services.invokers.templating.renderer import TemplateRenderer
 
 
@@ -443,7 +445,9 @@ class TestTemplateRendererParams:
     def test_params_numeric_values_preserved_as_numbers(self):
         """Numeric params render as JSON numbers, not strings."""
         renderer = TemplateRenderer()
-        template = '{"temperature": {{ params.temperature }}, "max_tokens": {{ params.max_tokens }}}'
+        template = (
+            '{"temperature": {{ params.temperature }}, "max_tokens": {{ params.max_tokens }}}'
+        )
         input_data = {"params": {"temperature": 0.5, "max_tokens": 2048}}
 
         result = renderer.render(template, input_data)
@@ -640,3 +644,62 @@ class TestSimpleReferenceKeepsSourceType:
         result = renderer.render({"x": "{{ v }}"}, {"v": moment})
         assert result["x"] == str(moment)
         assert isinstance(result["x"], str)
+
+
+class TestFromJsonFilter:
+    """{{ input | fromjson }} sends a JSON string input as structured data."""
+
+    ORDER = '{\n  "is_test": true,\n  "order": {"order_id": "A-2048"}\n}'
+
+    def test_json_object_input_is_sent_as_object(self):
+        renderer = TemplateRenderer()
+        result = renderer.render({"inputs": "{{ input | fromjson }}"}, {"input": self.ORDER})
+        assert result["inputs"] == {"is_test": True, "order": {"order_id": "A-2048"}}
+
+    def test_from_json_alias_matches(self):
+        renderer = TemplateRenderer()
+        result = renderer.render({"inputs": "{{ input | from_json }}"}, {"input": self.ORDER})
+        assert result["inputs"]["order"]["order_id"] == "A-2048"
+
+    def test_scalars_keep_their_json_type(self):
+        renderer = TemplateRenderer()
+        template = {"x": "{{ input | fromjson }}"}
+        assert renderer.render(template, {"input": "true"})["x"] is True
+        assert renderer.render(template, {"input": "5"})["x"] == 5
+        assert renderer.render(template, {"input": "null"})["x"] is None
+        assert renderer.render(template, {"input": '"text"'})["x"] == "text"
+
+    def test_list_item_and_top_level_template(self):
+        renderer = TemplateRenderer()
+        result = renderer.render({"args": ["{{ input | fromjson }}"]}, {"input": '{"a": 1}'})
+        assert result == {"args": [{"a": 1}]}
+
+        result = renderer.render("{{ input | fromjson }}", {"input": '{"a": 1}'})
+        assert result == {"a": 1}
+
+    def test_non_string_values_pass_through(self):
+        renderer = TemplateRenderer()
+        payload = {"a": [1, 2]}
+        result = renderer.render({"x": "{{ payload | fromjson }}"}, {"payload": payload})
+        assert result["x"] == payload
+
+        result = renderer.render({"x": "{{ missing | fromjson }}"}, {})
+        assert result["x"] is None
+
+    def test_invalid_json_raises(self):
+        renderer = TemplateRenderer()
+        with pytest.raises(TemplateInputError, match="not valid JSON"):
+            renderer.render({"inputs": "{{ input | fromjson }}"}, {"input": "A-2048"})
+
+    def test_chained_before_tojson_round_trips(self):
+        renderer = TemplateRenderer()
+        result = renderer.render(
+            {"order": "{{ (input | fromjson).order | tojson }}"}, {"input": self.ORDER}
+        )
+        assert result["order"] == {"order_id": "A-2048"}
+
+    def test_to_json_alias_matches_tojson(self):
+        renderer = TemplateRenderer()
+        payload = {"a": 1, "b": [2]}
+        result = renderer.render({"body": "{{ payload | to_json }}"}, {"payload": payload})
+        assert result["body"] == payload

@@ -135,10 +135,13 @@ class EndpointInvocationError(Exception):
 # it before attributing a failure to the target or passing the message to the caller.
 INTERNAL_ERROR_TYPE = "internal_error"
 
+# The request template could not be rendered for this input (e.g. fromjson on invalid JSON).
+TEMPLATE_ERROR_TYPE = "template_error"
+
 # Permanent failures that are genuinely the target's or the endpoint config's, so retrying
 # is pointless. Deliberately excludes INTERNAL_ERROR_TYPE: an unexpected exception on our
 # side is exactly the sort of thing a second attempt can get past.
-PERMANENT_TARGET_ERROR_TYPES = frozenset({"http_error", "validation_error"})
+PERMANENT_TARGET_ERROR_TYPES = frozenset({"http_error", "validation_error", TEMPLATE_ERROR_TYPE})
 
 _TRANSIENT_STATUS_CODES = frozenset({408, 429, 502, 503, 504})
 

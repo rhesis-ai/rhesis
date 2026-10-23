@@ -46,6 +46,20 @@ class DeferredConversationLink:
     organization_id: str
 
 
+def pop_deferred_trace(result: Any) -> Any:
+    """Take the in-memory trace off an invoker result before it is serialized.
+
+    A successful invocation carries it under ``_deferred_trace``; an
+    ``ErrorResponse`` carries it as the extra field ``deferred_trace``.
+    """
+    if isinstance(result, dict):
+        return result.pop("_deferred_trace", None)
+    extra = getattr(result, "__pydantic_extra__", None)
+    if isinstance(extra, dict):
+        return extra.pop("deferred_trace", None)
+    return None
+
+
 def persist_deferred_trace(
     db: Session, trace_data: DeferredTraceData | DeferredConversationLink
 ) -> None:

@@ -9,9 +9,14 @@ so ``{{ files | gemini_parts | tojson }}`` works without explicitly passing
 the input variable.
 """
 
+import json
 from typing import Any, Dict, List, Optional
 
 from jinja2 import pass_context
+
+
+class TemplateInputError(ValueError):
+    """A template filter was given a value it cannot use, such as invalid JSON."""
 
 
 def to_anthropic(
@@ -164,6 +169,24 @@ def to_anthropic_messages(
     return [msg for msg in (messages or []) if msg.get("role") != "system"]
 
 
+def from_json(value: Any) -> Any:
+    """Parse a JSON string into a dict, list or scalar.
+
+    Inputs arrive as text even when they hold JSON; this sends them as structured data.
+    Values that are not strings are returned unchanged.
+
+    Usage: {{ input | fromjson }}
+    """
+    if not isinstance(value, str):
+        return value
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError as e:
+        raise TemplateInputError(
+            f"fromjson: value is not valid JSON ({e.msg} at line {e.lineno} column {e.colno})"
+        ) from e
+
+
 FILE_FILTERS = {
     "to_anthropic": to_anthropic,
     "to_openai": to_openai,
@@ -173,4 +196,6 @@ FILE_FILTERS = {
     "anthropic_content": anthropic_content,
     "to_gemini_contents": to_gemini_contents,
     "to_anthropic_messages": to_anthropic_messages,
+    "fromjson": from_json,
+    "from_json": from_json,
 }

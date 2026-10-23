@@ -208,6 +208,20 @@ class TestRestEndpointInvoker:
         assert result["error_type"] == "json_parsing_error"
 
     @pytest.mark.asyncio
+    async def test_invoke_with_invalid_fromjson_input(self, mock_db, sample_endpoint_rest):
+        """Invalid JSON passed to fromjson is reported as a template error, not sent."""
+        invoker = RestEndpointInvoker()
+        sample_endpoint_rest.request_mapping = {"inputs": "{{ input | fromjson }}"}
+
+        with patch.object(invoker, "_async_request", new_callable=AsyncMock) as mock_req:
+            result = await invoker.invoke(mock_db, sample_endpoint_rest, {"input": "A-2048"})
+
+        assert not mock_req.called
+        result = result.model_dump(exclude_none=True)
+        assert result["error_type"] == "template_error"
+        assert "not valid JSON" in result["message"]
+
+    @pytest.mark.asyncio
     async def test_invoke_with_get_method(self, mock_db, sample_endpoint_rest, sample_input_data):
         """Test invocation with GET method."""
         invoker = RestEndpointInvoker()

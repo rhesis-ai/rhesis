@@ -197,6 +197,21 @@ class TestWebSocketEndpointInvoker:
         assert "401" in result["message"]
 
     @pytest.mark.asyncio
+    async def test_async_invoke_invalid_fromjson_input(self, mock_db, sample_endpoint_websocket):
+        """A template error is permanent; websocket_error would be retried as transient."""
+        invoker = WebSocketEndpointInvoker()
+        sample_endpoint_websocket.request_mapping = {"inputs": "{{ input | fromjson }}"}
+
+        with patch("rhesis.backend.app.services.invokers.websocket_invoker.connect") as connect:
+            result = await invoker._async_invoke(
+                mock_db, sample_endpoint_websocket, {"input": "A-2048"}
+            )
+
+        assert not connect.called
+        assert result.error_type == "template_error"
+        assert "not valid JSON" in result.message
+
+    @pytest.mark.asyncio
     async def test_invoke_calls_async_implementation(
         self, mock_db, sample_endpoint_websocket, sample_input_data
     ):
