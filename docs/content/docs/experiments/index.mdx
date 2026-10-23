@@ -107,18 +107,35 @@ When executing a Test Set, you can optionally target it against an experiment:
 4. Review the resolved-values preview (secret references are masked).
 5. Click Run.
 
-### The Latest Results panel
+### The experiment detail page
 
-The bottom of the Experiment detail page features the Latest Results panel. This fetches recent test runs that executed against versions of this experiment.
+**Overview** shows the experiment's description, project and visibility, and the environments that currently point at one of its versions.
 
-It offers two toggleable views:
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-experiment-overview.webp"
+  darkSrc="/screenshots/rhesis-ai-experiment-overview-dark.webp"
+  alt="Experiment Overview tab: description, project, visibility and active environments"
+/>
 
-1. **By run:** A flat list providing a pass/fail summary per run with deep links to the test run details.
-2. **By version (config-diff):** Runs grouped by `parameter_version`, ordered newest first. For each pair of adjacent versions, a compact diff row shows:
-   - The changed parameter slots and their before/after values (for example `temperature: 0.7 → 1.4`).
-   - The pass-rate before vs after, and the delta (for example `82% → 70% (-12pp)`).
+**Parameters** shows the project's [parameter schema](/docs/experiments/parameter-schema): each parameter and its type.
 
-The config-diff view is your primary regression-finder: it surfaces exactly which edit broke things without requiring manual reasoning.
+**Versions** lists every saved version with one column per parameter, its save message, and the environments pointing at it. **Add version** saves a new one.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-experiment-versions.webp"
+  darkSrc="/screenshots/rhesis-ai-experiment-versions-dark.webp"
+  alt="Versions tab: each version's parameter values, message and environments"
+/>
+
+**Experiment Runs** lists the test runs that executed against a version of this experiment: run name, test set, version, and how many tests passed and failed. Each run links to its test run detail.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-experiment-runs.webp"
+  darkSrc="/screenshots/rhesis-ai-experiment-runs-dark.webp"
+  alt="Experiment Runs tab: test runs per version with passed and failed counts"
+/>
+
+To compare versions directly, request the results grouped by version from the API: `GET /experiments/{experiment_id}/results?group_by=version`. Each version comes back with its runs and the parameters that changed since the previous version, before and after.
 
 ## Comparisons
 
