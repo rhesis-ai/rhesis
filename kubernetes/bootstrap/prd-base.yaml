@@ -17,7 +17,7 @@ spec:
     # `argocd app set --revision <write-back commit>` on every release, and
     # rewrites this line so a disaster-recovery apply lands on the latest
     # promoted commit rather than a stale one.
-    targetRevision: d3dcce50c480464de343dd14d99d281fbdd773c8
+    targetRevision: c1e88b0943c76f75da6c54acbcf6f3ce8c498006
     path: kubernetes/clusters/prd
   destination:
     server: https://kubernetes.default.svc
