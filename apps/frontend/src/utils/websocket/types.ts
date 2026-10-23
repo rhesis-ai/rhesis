@@ -5,6 +5,8 @@
  * apps/backend/src/rhesis/backend/app/schemas/websocket.py
  */
 
+import type { ArchitectChartSpec } from '@/utils/architect/charts';
+
 /**
  * WebSocket event types.
  *
@@ -98,6 +100,8 @@ export interface ArchitectResponsePayload {
   auto_approve_all?: boolean;
   /** True when the agent has dispatched a background task and is waiting for it to finish. */
   awaiting_task?: boolean;
+  /** Charts the agent showed this turn, in order. */
+  charts?: ArchitectChartSpec[];
 }
 
 /**

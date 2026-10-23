@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useWebSocket } from './useWebSocket';
 import { isPlanComplete } from '@/utils/architect/plan';
 import { readActiveProjectId } from '@/utils/active-project';
+import type { ArchitectChartSpec } from '@/utils/architect/charts';
 import {
   EventType,
   WebSocketMessage,
@@ -31,6 +32,8 @@ export interface ArchitectChatMessage {
    * back and still see which step actually finished.
    */
   taskCompleted?: boolean;
+  /** Charts the agent showed with this reply. */
+  charts?: ArchitectChartSpec[];
   /** Only the details: the upload itself is sent once and not kept. */
   files?: Array<{
     filename: string;
@@ -506,6 +509,7 @@ export function useArchitectChat(
                 // resumed turn begins.
                 isStreaming: payload.awaiting_task ? true : false,
                 needsConfirmation: payload.needs_confirmation ?? false,
+                ...(payload.charts?.length ? { charts: payload.charts } : {}),
               };
             })
           );
@@ -530,6 +534,7 @@ export function useArchitectChat(
             timestamp: new Date(),
             needsConfirmation: payload.needs_confirmation ?? false,
             isStreaming: payload.awaiting_task ? true : undefined,
+            ...(payload.charts?.length ? { charts: payload.charts } : {}),
           };
           setMessages(prev => [...prev, assistantMessage]);
           if (payload.awaiting_task) {

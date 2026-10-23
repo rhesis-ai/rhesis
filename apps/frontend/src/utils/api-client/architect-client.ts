@@ -1,3 +1,4 @@
+import type { ArchitectChartSpec } from '@/utils/architect/charts';
 import { BaseApiClient } from './base-client';
 
 export interface ArchitectSession {
@@ -24,7 +25,7 @@ export interface ArchitectMessageResponse {
   session_id: string;
   role: string;
   content?: string;
-  metadata_?: Record<string, unknown>;
+  metadata_?: { charts?: ArchitectChartSpec[] } | null;
   attachments?: Record<string, unknown>;
   created_at?: string;
 }

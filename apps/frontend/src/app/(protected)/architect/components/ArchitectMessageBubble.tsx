@@ -19,6 +19,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import ThinkingDots from './ThinkingDots';
 import ToolCallList from './ToolCallList';
+import ArchitectChart, { ArchitectChartBoundary } from './ArchitectChart';
 import Chip from '@mui/material/Chip';
 import { ArchitectChatMessage, StreamingState } from '@/hooks/useArchitectChat';
 import MarkdownContent from '@/components/common/MarkdownContent';
@@ -189,6 +190,14 @@ export default function ArchitectMessageBubble({
         >
           <MarkdownContent content={message.content} variant="body2" />
         </Box>
+
+        {message.charts?.map((spec, i) => (
+          // A reply's charts are fixed once sent and never reorder.
+          // eslint-disable-next-line react/no-array-index-key
+          <ArchitectChartBoundary key={`${spec.title}-${i}`} title={spec.title}>
+            <ArchitectChart spec={spec} />
+          </ArchitectChartBoundary>
+        ))}
 
         {/* File attachment chips (user messages) */}
         {isUser && message.files && message.files.length > 0 && (
