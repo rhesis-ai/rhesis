@@ -4,6 +4,7 @@ This module provides common evaluation patterns to reduce code duplication
 across different judge types (single-turn and conversational).
 """
 
+import math
 from typing import Any, Dict, Optional, Type
 
 from pydantic import BaseModel
@@ -84,7 +85,7 @@ class NumericEvaluationMixin:
         response_schema: Type[BaseModel],
         additional_details: Optional[Dict[str, Any]] = None,
     ) -> MetricResult:
-        """Async version of _execute_numeric_evaluation."""
+        """Evaluate a finite score within the configured range, or return an error result."""
         details = self._get_base_details(prompt)
 
         threshold_operator_value = (
@@ -97,11 +98,13 @@ class NumericEvaluationMixin:
             else None
         )
 
+        min_score = self.min_score
+        max_score = self.max_score
         details.update(
             {
                 "threshold_operator": threshold_operator_value,
-                "min_score": self.min_score,
-                "max_score": self.max_score,
+                "min_score": min_score,
+                "max_score": max_score,
                 "threshold": self.threshold,
             }
         )
@@ -125,6 +128,10 @@ class NumericEvaluationMixin:
                 )
 
             score = response.score
+            if not math.isfinite(score) or not min_score <= score <= max_score:
+                raise ValueError(
+                    f"Score must be finite and between {min_score} and {max_score}, got {score}"
+                )
             reason = response.reason
             is_successful = self._evaluate_score(score=score)
 
