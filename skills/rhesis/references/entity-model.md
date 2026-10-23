@@ -88,7 +88,7 @@ flowchart TB
 1. `get_test_set_metrics` (optional pre-flight)
 2. `execute_test_set` (test_set_identifier + endpoint_id)
 3. `get_test_run` (accurate totals)
-4. `get_insights` with `entity=test_result`, `group_by=[requirement]` and `test_run_ids`; again with `entity=metric`, `group_by=[metric_name]`
+4. `get_insights` with `entity=test_result`, `group_by=[requirement]` and `test_run_ids`; again with `entity=metric`, `group_by=[metric]`
 5. `list_test_results` filtered to failures
 6. `get_test_result` on top 2–3 failures (read `reason` field)
 
@@ -102,7 +102,7 @@ flowchart TB
 ### Compare with previous run
 
 1. `get_test_set_last_run` with test set + endpoint IDs
-2. `get_insights` with `entity=test_result`, `group_by=[test_run,test_run_id]` and both `test_run_ids`
+2. `get_insights` with `entity=test_result`, `group_by=[test_run]` and both `test_run_ids`
 
 ### Fix a single test prompt
 

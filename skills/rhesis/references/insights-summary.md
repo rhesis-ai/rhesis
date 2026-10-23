@@ -39,7 +39,7 @@ summarize just one run.
 
    Passing the whole array pools the numbers across the scope rather than reporting one run.
    Omit `group_by` for overall totals alone, and repeat with `entity=metric`,
-   `group_by=[metric_name]` for per-metric pass rates.
+   `group_by=[metric]` for per-metric pass rates.
 2. Identify the weak requirements and metrics from the pooled numbers.
 3. Failures: `list_test_results` with Failed status + requirement scope across the same `test_run_ids`;
    minimal `$select`. Call `get_test_result` only for a few samples.

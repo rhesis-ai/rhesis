@@ -507,23 +507,33 @@ The response includes `test_run_id` and `task_id`. Poll `get_job_status` with `t
 ### `get_insights`
 One aggregation query over test results, metrics, test runs or tests. This is the analytics tool — pass rates, requirement and metric breakdowns, run comparisons and run volume all come from here, by choosing an `entity` rather than a different tool.
 
-Always pass `entity` and `measures`. `group_by` is optional; omit it for a single overall row, which is the cheapest way to get totals.
+Always pass `entity` and `measures`. `group_by` is optional; omit it for a single overall row, which is the cheapest way to get totals. `describe_insights` returns the full, current list of each entity's dimensions, measures and filters.
 
 | `entity` | One row per | `group_by` | `measures` |
 |---|---|---|---|
-| `test_result` | test execution | `requirement`, `requirement_id`, `category`, `category_id`, `topic`, `topic_id`, `test_run`, `test_run_id`, `status`, `year`, `month` | `count`, `passed`, `failed`, `pass_rate` |
-| `metric` | (result, metric name) | `metric_name`, `requirement_id`, `year`, `month` | the same, plus `automated_passed`, `automated_failed`, `human_annotation_count` |
-| `test_run` | run | `status`, `test_set`, `executor`, `year`, `month` | `count`, `passed`, `failed`, `pass_rate` |
-| `test` | test, including never-run ones | `requirement`, `category`, `topic`, `is_unrun`, `year`, `month` | `count`, `unrun_count`, `run_count`, `passed`, `failed`, `pass_rate` |
+| `test_result` | test execution | `requirement`, `category`, `topic`, `test_run`, `test_set`, `endpoint`, `executor`, `status`, `priority`, `period` | `count`, `passed`, `failed`, `error_count`, `pending_count`, `pass_rate` |
+| `metric` | (result, metric) | `metric`, `requirement`, `category`, `topic`, `test_run`, `test_set`, `endpoint`, `period` | `count`, `passed`, `failed`, `pass_rate`, `avg_score`, `min_score`, `max_score`, `automated_passed`, `automated_failed`, `human_annotation_count` |
+| `test_run` | run | `test_set`, `endpoint`, `executor`, `status`, `period` | `count`, `completed`, `failed`, `completion_rate` |
+| `test` | test, including never-run ones | `requirement`, `category`, `topic`, `priority`, `is_unrun`, `period` | `count`, `unrun_count`, `run_count`, `passed`, `failed`, `error_count`, `pass_rate` |
+
+Grouping by an entity-backed dimension (`requirement`, `topic`, `test_run`, `endpoint`, …) returns both its name and `<dimension>_id` in each row: show the name, put the id in link URLs. `period` is the start date of a time bucket in UTC, sized by `time_grain` (`day`, `week`, `month` by default, `quarter`, `year`).
+
+**Shaping the result:** `order_by` sorts by a dimension or measure in the query (prefix `-` for descending), `limit` caps the rows (1–1000), and `min_count` drops groups smaller than N. Use `min_count` when ranking rates, so a topic with one test at 100% does not outrank one with 300 at 95%.
 
 **Which entity answers which question:**
-- Post-run analysis → `test_result` grouped by `requirement`, then `metric` grouped by `metric_name`
-- Compare runs → `test_result` grouped by `[test_run, test_run_id]` with two or more `test_run_ids`. `test_run` is the name you show; `test_run_id` is the UUID for the link
-- Run volume, who runs tests, most-run test sets → `test_run`. **Not** for comparing outcomes between runs: a run's pass rate is computed from its results, so that is `test_result` grouped by `test_run`
+- Post-run analysis → `test_result` grouped by `requirement`, then `metric` grouped by `metric`
+- Compare runs → `test_result` grouped by `test_run` with two or more `test_run_ids`
+- Trends → group by `period` with a `time_grain`, optionally alongside another dimension (`[endpoint, period]`)
+- Worst areas → group by `topic` or `requirement`, `order_by=[pass_rate]`, `limit`, `min_count`
+- Metric scores → `metric` with `avg_score`, `min_score`, `max_score`; text scores are ignored
+- Run volume, who runs tests, most-run test sets → `test_run`. Its `completed`/`failed` come from the run's status, not its tests' verdicts; a run's pass rate is `test_result` grouped by `test_run`
 - Tests that never ran → `test` with `measures=[count,unrun_count]`
 - Where people overrode the automation → `metric`, whose measures include `human_annotation_count`
 
-**Filters:** `test_run_ids`, `test_set_ids`, `requirement_ids`, `category_ids`, `topic_ids`, `endpoint_ids`, `tags`, `months` (default 6), `start_date`, `end_date`.
+**Filters:** `test_run_ids`, `test_set_ids`, `requirement_ids`, `category_ids`, `topic_ids`, `endpoint_ids`, `executor_ids`, `status_ids`, `metric_names` (metric only), `tags`, `months` (default 6), `start_date`, `end_date`. Which ones apply depends on the entity; `describe_insights` lists them.
+
+### `describe_insights`
+List what `get_insights` accepts: each entity's dimensions (and whether each returns an id), measures (and whether each is a count, a rate or a score), and filters, with a line on what each means. No parameters.
 
 **Careful:** counting rows from `list_test_results` is not a substitute. That list pages and can truncate; these measures are computed server-side over everything in scope. For a run's authoritative test count use `get_test_run` → `attributes.total_tests`.
 
@@ -915,7 +925,7 @@ List metrics attached to a test set (execution overrides).
 ### `get_test_set_last_run`
 Most recent completed run for a test set + endpoint pair.
 
-**CHAIN:** use for run comparison; pair with `get_insights(entity=test_result, group_by=[test_run,test_run_id])`.
+**CHAIN:** use for run comparison; pair with `get_insights(entity=test_result, group_by=[test_run])`.
 
 **Key parameters:** `test_set_identifier`, `endpoint_id` (required)
 

@@ -27,7 +27,7 @@ The metric breakdown is a second call, because metrics are their own entity — 
 ```
 get_insights
   entity=metric
-  group_by=[metric_name]
+  group_by=[metric]
   measures=[count,passed,failed,pass_rate]
   test_run_ids=["<uuid>"]
 ```
@@ -79,14 +79,14 @@ When the user asks to compare runs or detect regressions, use `get_insights`.
 ```
 get_insights
   entity=test_result
-  group_by=[test_run,test_run_id]
+  group_by=[test_run]
   measures=[count,passed,failed,pass_rate]
   test_run_ids=["<run-a-uuid>", "<run-b-uuid>"]
 ```
 
 Per-run pass/fail counts and pass rates in a single call. Best starting point for "did anything change between these runs?"
 
-`test_run` comes back as the run's name, which is what you show the user; `test_run_id` is the UUID, which is what goes in a link URL. Group by both so you have each.
+Each row carries `test_run`, the run's name, which is what you show the user, and `test_run_id`, the UUID, which is what goes in a link URL.
 
 ### Requirement-level breakdown
 
@@ -107,7 +107,7 @@ Requirements whose pass rate moved between the two runs are the regressions and 
 ```
 get_insights
   entity=metric
-  group_by=[metric_name]
+  group_by=[metric]
   measures=[count,passed,failed,pass_rate]
   test_run_ids=["<uuid>"]
 ```
@@ -170,7 +170,8 @@ get_insights
 ```
 get_insights
   entity=test_run
-  group_by=[month]
+  group_by=[period]
+  time_grain=month
   measures=[count]
   months=3
 ```

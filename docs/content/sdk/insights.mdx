@@ -18,26 +18,55 @@ stats = Insights(
 for row in stats.rows:
     print(f"{row['requirement']}: {row['passed']}/{row['count']} ({row['pass_rate']}%)")
 
+# The five weakest topics over the last three months, ignoring topics with fewer than 10 results
+worst = Insights(
+    entity="test_result",
+    group_by=["topic"],
+    measures=["count", "pass_rate"],
+    months=3,
+    order_by=["pass_rate"],
+    limit=5,
+    min_count=10,
+).get()
+
+# Weekly pass rate per endpoint
+trend = Insights(
+    entity="test_result",
+    group_by=["endpoint", "period"],
+    measures=["pass_rate"],
+    time_grain="week",
+).get()
+
 # Distinct test IDs (not test_result IDs) matching a filter, e.g. for drill-down from a chart
 failed_ids = Insights(entity="test_result", filters={"test_run_ids": ["your-run-id"]}).ids(outcome="fail").ids`}
 </CodeBlock>
 
 `entity` selects what each row represents, `group_by` the dimensions to break out by, and `measures` what to compute. What's valid depends on the entity:
 
-| Entity | group_by | measures |
-|--------|----------|----------|
-| `test_result` | `requirement`, `requirement_id`, `category`, `category_id`, `topic`, `topic_id`, `test_run`, `status`, `year`, `month` | `count`, `passed`, `failed`, `pass_rate` |
-| `metric` | `metric_name`, `requirement_id`, `year`, `month` | `count`, `passed`, `failed`, `pass_rate`, `automated_passed`, `automated_failed`, `human_annotation_count` |
-| `test_run` | `status`, `test_set`, `executor`, `year`, `month` | `count`, `passed`, `failed`, `pass_rate` |
-| `test` | `requirement`, `requirement_id`, `category`, `category_id`, `topic`, `topic_id`, `is_unrun`, `year`, `month` | `count`, `unrun_count`, `run_count`, `passed`, `failed`, `pass_rate` |
+| Entity | One row per | group_by | measures |
+|--------|-------------|----------|----------|
+| `test_result` | test execution | `requirement`, `category`, `topic`, `test_run`, `test_set`, `endpoint`, `executor`, `status`, `priority`, `period` | `count`, `passed`, `failed`, `error_count`, `pending_count`, `pass_rate` |
+| `metric` | (test result, metric) | `metric`, `requirement`, `category`, `topic`, `test_run`, `test_set`, `endpoint`, `period` | `count`, `passed`, `failed`, `pass_rate`, `avg_score`, `min_score`, `max_score`, `automated_passed`, `automated_failed`, `human_annotation_count` |
+| `test_run` | run | `test_set`, `endpoint`, `executor`, `status`, `period` | `count`, `completed`, `failed`, `completion_rate` |
+| `test` | test, including tests that never ran | `requirement`, `category`, `topic`, `priority`, `is_unrun`, `period` | `count`, `unrun_count`, `run_count`, `passed`, `failed`, `error_count`, `pass_rate` |
 
-Filters narrow which rows are aggregated, and which keys are valid depends on the entity — a key not listed for that entity returns a 400:
+`Insights.describe()` returns the same lists with a description of each entry.
+
+**Rows.** Grouping by a dimension backed by an entity (`requirement`, `category`, `topic`, `test_run`, `test_set`, `endpoint`, `executor`, `status`) groups by its ID and returns both the name and `<dimension>_id`, so two requirements that share a name stay separate. `period` is the start date of a time bucket in UTC; set its size with `time_grain`: `day`, `week`, `month` (the default), `quarter` or `year`.
+
+**Measures.** `pass_rate` is `passed / (passed + failed) × 100`: errored and pending results are left out. The score measures on `metric` average only numeric scores, so a metric with text scores returns `null`. On `test_run`, `completed`, `failed` and `completion_rate` come from the run's own status. For the pass rate of what a run tested, use `test_result` grouped by `test_run`.
+
+**Sorting and limits.** `order_by` takes dimensions or measures from the same query, with a `-` prefix for descending (`["-pass_rate"]`). `limit` caps the rows at 1–1000. `min_count` drops groups with fewer rows than the given number, which keeps a topic with one passing test from topping a ranking.
+
+Filters narrow which rows are aggregated, and which keys are valid depends on the entity. A key not listed for that entity returns a 400:
 
 | Entity | filters |
 |--------|---------|
-| `test_result` | `test_run_ids`, `requirement_ids`, `category_ids`, `topic_ids`, `status_ids`, `test_ids`, `test_type_ids`, `user_ids`, `assignee_ids`, `owner_ids`, `prompt_ids`, `test_set_ids`, `tags` |
-| `metric` | `test_run_ids`, `requirement_ids`, `test_ids`, `metric_names` |
-| `test_run` | `test_run_ids`, `user_ids`, `endpoint_ids`, `test_set_ids`, `status_names` |
+| `test_result` | `requirement_ids`, `category_ids`, `topic_ids`, `test_run_ids`, `test_set_ids`, `endpoint_ids`, `executor_ids`, `status_ids`, `test_ids`, `test_type_ids`, `user_ids`, `assignee_ids`, `owner_ids`, `prompt_ids`, `tags` |
+| `metric` | `metric_names`, `requirement_ids`, `category_ids`, `topic_ids`, `test_run_ids`, `test_set_ids`, `endpoint_ids`, `test_ids` |
+| `test_run` | `test_run_ids`, `test_set_ids`, `endpoint_ids`, `executor_ids`, `status_ids` |
 | `test` | `requirement_ids`, `category_ids`, `topic_ids`, `status_ids`, `test_ids`, `test_type_ids`, `user_ids`, `assignee_ids`, `owner_ids`, `prompt_ids`, `test_set_ids`, `tags` |
+
+`test_set_ids` on `test_result` and `metric` matches results from runs of that test set; on `test` it matches tests that belong to the set.
 
 `months`, `start_date`, and `end_date` bound the date range and apply to every entity.

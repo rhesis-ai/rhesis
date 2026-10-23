@@ -2,7 +2,7 @@
 
 **Preferred:** `get_insights` with `entity=test_result`, `group_by=[requirement]`,
 `measures=[count,passed,failed,pass_rate]` and `test_run_ids`. Add a second call
-with `entity=metric`, `group_by=[metric_name]` for the metric rows.
+with `entity=metric`, `group_by=[metric]` for the metric rows.
 
 **Counts:** `get_test_run` → `attributes.total_tests` — never count list rows.
 
@@ -58,7 +58,7 @@ real reviewer feedback and nothing marks it as invented.
 
 ## Comparison
 
-`get_insights` with `entity=test_result`, `group_by=[test_run,test_run_id]` and
+`get_insights` with `entity=test_result`, `group_by=[test_run]` and
 both `test_run_ids`.
 
 1. **One line** with the pass rate delta: `72% → 85%, +13 points`.
