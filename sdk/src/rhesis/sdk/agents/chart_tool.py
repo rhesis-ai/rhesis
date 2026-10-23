@@ -152,7 +152,9 @@ class ShowChartTool(BaseTool):
             "truncated": len(rows) > MAX_ROWS,
         }
         self.charts.append(chart)
-        return ToolResult(tool_name=self.name, success=True, content=_summary(chart))
+        return ToolResult(
+            tool_name=self.name, success=True, content=_summary(chart, spec_args["query"])
+        )
 
     def drain(self) -> List[Dict[str, Any]]:
         """Return the charts shown since the last call, and forget them."""
@@ -225,7 +227,7 @@ def _validate(args: Dict[str, Any]) -> Dict[str, Any]:
 SUMMARY_ROWS = 15
 
 
-def _summary(chart: Dict[str, Any]) -> str:
+def _summary(chart: Dict[str, Any], query: Dict[str, Any]) -> str:
     """What the model needs to describe the chart truthfully: the real labels and values.
 
     Without them it narrates from nothing, and made-up category names end up beside a
@@ -239,7 +241,7 @@ def _summary(chart: Dict[str, Any]) -> str:
         # The hidden middle may hold the extremes; without them the model calls the
         # highest value it happened to see "the peak".
         lines += _extremes(chart)
-    order = "in time order" if chart["x"] == "period" else "in the order shown"
+    order = "in time order" if _in_time_order(chart, query) else "in the order shown"
     shown = f"first {len(rows)} rows" if chart["truncated"] else f"{len(rows)} rows"
     return (
         f"Showed the chart '{chart['title']}' ({chart['chart_type']}, {shown}). Its data, "
@@ -250,7 +252,16 @@ def _summary(chart: Dict[str, Any]) -> str:
     )
 
 
+def _in_time_order(chart: Dict[str, Any], query: Dict[str, Any]) -> bool:
+    # get_insights sorts by order_by, else by group_by, so period must be the first key.
+    keys = query.get("order_by") or query.get("group_by") or []
+    return chart["x"] == "period" and bool(keys) and keys[0] == "period"
+
+
 def _extremes(chart: Dict[str, Any]) -> List[str]:
+    scope = (
+        f"Across the first {len(chart['rows'])} rows" if chart["truncated"] else "Across all rows"
+    )
     lines = []
     for measure in chart["measures"]:
         key = measure["key"]
@@ -259,13 +270,18 @@ def _extremes(chart: Dict[str, Any]) -> List[str]:
             low = min(rows, key=lambda r: r[key])
             high = max(rows, key=lambda r: r[key])
             lines.append(
-                f"Across all rows, lowest {key}: {_summary_row(chart, low)[2:]}; "
+                f"{scope}, lowest {key}: {_summary_row(chart, low)[2:]}; "
                 f"highest {key}: {_summary_row(chart, high)[2:]}"
             )
     return lines
 
 
 def _summary_row(chart: Dict[str, Any], row: Dict[str, Any]) -> str:
-    label = " / ".join(str(row.get(d)) for d in (chart["x"], chart["series"]) if d)
+    # "(none)" matches how the chart labels a missing value.
+    label = " / ".join(
+        "(none)" if row.get(d) in (None, "") else str(row.get(d))
+        for d in (chart["x"], chart["series"])
+        if d
+    )
     values = ", ".join(f"{m['key']}={row.get(m['key'])}" for m in chart["measures"])
     return f"- {label}: {values}" if label else f"- {values}"
