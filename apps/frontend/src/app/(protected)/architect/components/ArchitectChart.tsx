@@ -34,9 +34,15 @@ import {
 } from '@/utils/architect/charts';
 
 const PLOT_HEIGHT = 280;
+const VALUE_AXIS_WIDTH = 64;
+const CROWDED_CATEGORIES = 4;
+const ANGLED_LABEL_ALLOWANCE = 64;
+// Room right of the plot for a vertical target line's label ("Target 90%").
+const TARGET_LABEL_MARGIN = 88;
 // Horizontal bars grow with the number of categories so labels stay readable.
 const HORIZONTAL_BAR_ROW_HEIGHT = 32;
-const PLOT_MARGIN = { top: 16, right: 16, bottom: 32, left: 56 };
+// The right margin leaves room for the last x label ("Week of Oct 12") to center on its tick.
+const PLOT_MARGIN = { top: 16, right: 48, bottom: 32, left: 56 };
 
 interface ArchitectChartProps {
   spec: ArchitectChartSpec;
@@ -63,6 +69,8 @@ function CartesianChart({ spec }: ArchitectChartProps) {
   const primary: ChartMeasure = spec.measures[0];
   const valueAxis = {
     ...valueBounds(primary.kind),
+    // Room for the widest tick label ("$0.0450", "5.25 s").
+    width: VALUE_AXIS_WIDTH,
     valueFormatter: (value: number | null) =>
       formatMeasure(value, primary.kind),
   };
@@ -110,7 +118,11 @@ function CartesianChart({ spec }: ArchitectChartProps) {
           PLOT_HEIGHT,
           categories.length * HORIZONTAL_BAR_ROW_HEIGHT
         )}
-        margin={{ ...PLOT_MARGIN, left: 16 }}
+        margin={{
+          ...PLOT_MARGIN,
+          left: 16,
+          right: spec.target != null ? TARGET_LABEL_MARGIN : 24,
+        }}
         layout="horizontal"
         hideLegend={hideLegend}
         yAxis={[{ scaleType: 'band', data: categories, width: 160 }]}
@@ -122,12 +134,26 @@ function CartesianChart({ spec }: ArchitectChartProps) {
     );
   }
 
+  // Past a few categories MUI drops overlapping labels; angle them so every bar is named.
+  const crowded = categories.length > CROWDED_CATEGORIES;
   return (
     <BarChart
-      height={PLOT_HEIGHT}
+      height={PLOT_HEIGHT + (crowded ? ANGLED_LABEL_ALLOWANCE : 0)}
       margin={PLOT_MARGIN}
       hideLegend={hideLegend}
-      xAxis={[{ scaleType: 'band', data: categories }]}
+      xAxis={[
+        {
+          scaleType: 'band',
+          data: categories,
+          ...(crowded
+            ? {
+                tickLabelInterval: () => true,
+                tickLabelStyle: { angle: -30, textAnchor: 'end' },
+                height: ANGLED_LABEL_ALLOWANCE,
+              }
+            : {}),
+        },
+      ]}
       yAxis={[stacked ? countAxis : valueAxis]}
       series={stackedSeries}
     >
