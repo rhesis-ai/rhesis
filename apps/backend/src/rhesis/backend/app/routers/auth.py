@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 
 import anyio
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from jwt import PyJWTError as JWTError
 from pydantic import BaseModel, EmailStr, Field, ValidationError
@@ -53,7 +53,6 @@ from rhesis.backend.app.auth.used_token_store import (
     claim_token_jti,
 )
 from rhesis.backend.app.auth.user_utils import (
-    _send_welcome_email,
     find_or_create_user_from_auth,
     mark_user_joined_if_needed,
     require_current_user_or_token_without_context,
@@ -335,27 +334,75 @@ def _load_registered_user(db: Session, email: str) -> tuple[User, str]:
     return user, str(user.id)
 
 
-def _send_registration_emails(user: User) -> None:
+def _send_welcome_email_bg(email: str, name: str | None) -> None:
+    """Best-effort welcome email, safe for BackgroundTasks."""
+    try:
+        _get_email_service().send_welcome_email(recipient_email=email, recipient_name=name)
+    except Exception:
+        logger.warning("Failed to send welcome email to %s", redact_email(email))
+
+
+def _send_registration_emails(user_id: str, email: str, name: str | None) -> None:
     """Welcome and verification mail for a fresh registration, both best-effort.
 
-    Runs in a worker thread for two reasons: SMTP blocks, and ``user`` was
-    expired by the commit in :func:`_issue_login_tokens`, so every attribute
-    read here is a fresh SELECT.
+    Takes plain values so it runs safely as a BackgroundTask after the
+    response, with no ORM session access.
     """
-    _send_welcome_email(user)
+    _send_welcome_email_bg(email, name)
+    _send_verification_email_bg(user_id, email, name)
 
+
+def _send_verification_email_bg(user_id: str, email: str, name: str | None) -> None:
+    """Best-effort verification email, safe for BackgroundTasks."""
     try:
-        token = create_email_verification_token(str(user.id), user.email)
+        token = create_email_verification_token(user_id, email)
         frontend_url = _get_frontend_url()
         verification_url = f"{frontend_url}/auth/verify-email?token={token}"
-        email_service = _get_email_service()
-        email_service.send_verification_email(
-            recipient_email=user.email,
-            recipient_name=user.name,
+        _get_email_service().send_verification_email(
+            recipient_email=email,
+            recipient_name=name,
             verification_url=verification_url,
         )
-    except Exception as email_err:
-        logger.warning(f"Failed to send verification email: {email_err}")
+    except Exception as e:
+        logger.warning("Failed to send verification email: %s", e)
+
+
+def _send_password_reset_email_bg(user_id: str, email: str, name: str | None) -> None:
+    """Best-effort password reset email, safe for BackgroundTasks."""
+    try:
+        token = create_password_reset_token(user_id, email)
+        frontend_url = _get_frontend_url()
+        reset_url = f"{frontend_url}/auth/reset-password?token={token}"
+        _get_email_service().send_password_reset_email(
+            recipient_email=email,
+            recipient_name=name,
+            reset_url=reset_url,
+        )
+        logger.info("Password reset email sent to: %s", redact_email(email))
+    except Exception as e:
+        logger.warning("Failed to send password reset email: %s", e)
+
+
+def _send_magic_link_email_bg(
+    user_id: str, email: str, name: str | None, is_new_user: bool
+) -> None:
+    """Best-effort magic-link email (+ welcome for new signups), safe for BackgroundTasks."""
+    try:
+        token = create_magic_link_token(user_id, email)
+        frontend_url = _get_frontend_url()
+        magic_link_url = f"{frontend_url}/auth/magic-link?token={token}"
+        _get_email_service().send_magic_link_email(
+            recipient_email=email,
+            recipient_name=name,
+            magic_link_url=magic_link_url,
+            is_new_user=is_new_user,
+        )
+        logger.info("Magic link email sent to: %s", redact_email(email))
+    except Exception as e:
+        logger.warning("Failed to send magic link email: %s", e)
+
+    if is_new_user:
+        _send_welcome_email_bg(email, name)
 
 
 def _complete_oauth_login(db: Session, auth_user) -> tuple[str, str, str, dict]:
@@ -861,6 +908,7 @@ async def login_with_email(
 async def register_with_email(
     request: Request,
     body: EmailRegisterRequest,
+    background_tasks: BackgroundTasks,
     db: OffLoopSession = Depends(get_off_loop_db_session),
 ):
     """
@@ -908,8 +956,9 @@ async def register_with_email(
         )
         auth_code = await create_auth_code(access_token, refresh_tok)
 
-        # Welcome + verification email, both best-effort and both blocking SMTP
-        await anyio.to_thread.run_sync(_send_registration_emails, user)
+        background_tasks.add_task(
+            _send_registration_emails, user_info["id"], user_info["email"], user_info["name"]
+        )
 
         # Track registration activity
         if get_telemetry_settings().is_telemetry_enabled:
@@ -982,6 +1031,7 @@ async def verify_email(
 def resend_verification(
     request: Request,
     body: ResendVerificationRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -993,18 +1043,7 @@ def resend_verification(
     user = user_crud.get_user_by_email(db, body.email)
 
     if user and not user.is_email_verified:
-        try:
-            token = create_email_verification_token(str(user.id), user.email)
-            frontend_url = _get_frontend_url()
-            verification_url = f"{frontend_url}/auth/verify-email?token={token}"
-            email_service = _get_email_service()
-            email_service.send_verification_email(
-                recipient_email=user.email,
-                recipient_name=user.name,
-                verification_url=verification_url,
-            )
-        except Exception as e:
-            logger.warning(f"Failed to resend verification email: {e}")
+        background_tasks.add_task(_send_verification_email_bg, str(user.id), user.email, user.name)
 
     # Always return success to prevent email enumeration
     return {
@@ -1023,6 +1062,7 @@ def resend_verification(
 def forgot_password(
     request: Request,
     body: ForgotPasswordRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -1034,22 +1074,9 @@ def forgot_password(
     user = user_crud.get_user_by_email(db, body.email)
 
     if user:
-        try:
-            token = create_password_reset_token(str(user.id), user.email)
-            frontend_url = _get_frontend_url()
-            reset_url = f"{frontend_url}/auth/reset-password?token={token}"
-            email_service = _get_email_service()
-            email_service.send_password_reset_email(
-                recipient_email=user.email,
-                recipient_name=user.name,
-                reset_url=reset_url,
-            )
-            logger.info(
-                "Password reset email sent to: %s",
-                redact_email(user.email),
-            )
-        except Exception as e:
-            logger.warning(f"Failed to send password reset email: {e}")
+        background_tasks.add_task(
+            _send_password_reset_email_bg, str(user.id), user.email, user.name
+        )
 
     # Always return success to prevent email enumeration
     return {
@@ -1164,6 +1191,7 @@ _MAGIC_LINK_SUCCESS_RESPONSE = {
 def request_magic_link(
     request: Request,
     body: MagicLinkRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db_session),
 ):
     """
@@ -1213,27 +1241,9 @@ def request_magic_link(
             logger.warning(f"Failed to create user for magic link: {e}")
             return _MAGIC_LINK_SUCCESS_RESPONSE
 
-    try:
-        token = create_magic_link_token(str(user.id), user.email)
-        frontend_url = _get_frontend_url()
-        magic_link_url = f"{frontend_url}/auth/magic-link?token={token}"
-        email_service = _get_email_service()
-        email_service.send_magic_link_email(
-            recipient_email=user.email,
-            recipient_name=user.name,
-            magic_link_url=magic_link_url,
-            is_new_user=is_new_user,
-        )
-        logger.info(
-            "Magic link email sent to: %s",
-            redact_email(user.email),
-        )
-    except Exception as e:
-        logger.warning(f"Failed to send magic link email: {e}")
-
-    # Send welcome email for newly created accounts (best-effort)
-    if is_new_user:
-        _send_welcome_email(user)
+    background_tasks.add_task(
+        _send_magic_link_email_bg, str(user.id), user.email, user.name, is_new_user
+    )
 
     return _MAGIC_LINK_SUCCESS_RESPONSE
 
