@@ -61,6 +61,8 @@ The frontend event enum in `utils/websocket/types.ts` includes Architect-specifi
 
 Charts arrive as `charts` on `architect.response` and are stored on the message; history reloads read them from the message's `metadata_.charts`. `ArchitectMessageBubble` renders each one below the markdown with `ArchitectChart`, which maps the spec's `chart_type` to an `@mui/x-charts` component (or a color-scaled table for `heat_table`) and formats axes from each measure's `kind`. The spec type and the row-to-series helpers live in `utils/architect/charts.ts`.
 
+Colors come from `theme.chartPalettes.architect`, defined per mode: `neutral` and `neutralLine` gray for context, and `series`, four colors in a fixed order that was checked for color-blind separation. The brand blue is left out on purpose, because in the chat it marks clickable things. `seriesColors` and `categoryColors` apply the spec's `focus` (the values the reply is about, in the accent) or the palette in order. The **Export** menu (`utils/architect/chart-export.ts`) writes the rows as CSV, or serializes the rendered SVG with its computed styles inlined plus a drawn title and legend, then rasterizes it to PNG; MUI X's own export is Pro-only.
+
 `architect.task_progress` payloads are routed into the same `StreamingState` shape used for tool calls. The hook ignores progress for other sessions, requires both `task_id` and `label`, and only attaches updates when a waiting bubble has been registered from an `architect.response` payload with `awaiting_task: true`.
 
 ## Confirmation and auto-approve behavior
