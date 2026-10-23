@@ -128,7 +128,7 @@ describe('requirement-insights-utils', () => {
     const metricRows: InsightsRow[] = [
       {
         requirement_id: 'b-1',
-        metric_name: 'Fluency',
+        metric: 'Fluency',
         count: 10,
         passed: 8,
         failed: 2,
