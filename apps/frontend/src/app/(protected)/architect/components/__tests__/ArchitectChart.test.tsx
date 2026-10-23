@@ -9,16 +9,25 @@ import type { ArchitectChartSpec } from '@/utils/architect/charts';
 // MUI X charts measure the DOM, which jsdom can't; render what they were given.
 // A function declaration so it is hoisted above the jest.mock calls that use it.
 function mockFakeChart(name: string) {
-  return function FakeChart({ series }: { series: Array<{ label?: string }> }) {
+  return function FakeChart({
+    series,
+  }: {
+    series: Array<{ label?: string; color?: string }>;
+  }) {
     return (
       <div data-testid={name}>
         {series.map(s => (
-          <span key={s.label ?? name}>{s.label}</span>
+          <span key={s.label ?? name} data-color={s.color}>
+            {s.label}
+          </span>
         ))}
       </div>
     );
   };
 }
+jest.mock('@/components/common/NotificationContext', () => ({
+  useNotifications: () => ({ show: jest.fn() }),
+}));
 jest.mock('@mui/x-charts/BarChart', () => ({ BarChart: mockFakeChart('bar') }));
 jest.mock('@mui/x-charts/LineChart', () => ({
   LineChart: mockFakeChart('line'),
@@ -89,6 +98,42 @@ describe('ArchitectChart', () => {
     expect(screen.getByTestId('line')).toHaveTextContent('Bot B');
   });
 
+  it('draws series in the architect palette, never the brand blue', () => {
+    const { series } = lightTheme.chartPalettes.architect;
+    renderChart({
+      title: 'Weekly pass rate',
+      chart_type: 'line',
+      x: 'period',
+      series: 'endpoint',
+      measures: [{ key: 'pass_rate', kind: 'rate' }],
+      rows: [
+        { period: '2026-08-31', endpoint: 'Bot A', pass_rate: 70 },
+        { period: '2026-08-31', endpoint: 'Bot B', pass_rate: 50 },
+      ],
+    });
+
+    expect(screen.getByText('Bot A')).toHaveAttribute('data-color', series[0]);
+    expect(screen.getByText('Bot B')).toHaveAttribute('data-color', series[1]);
+  });
+
+  it('exports the data as CSV', () => {
+    const createObjectURL = jest.fn(() => 'blob:chart');
+    Object.assign(URL, { createObjectURL, revokeObjectURL: jest.fn() });
+    const click = jest
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {});
+    renderChart(topics);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    // jsdom lays nothing out, so there is no plot to export as an image.
+    expect(screen.queryByText('Image (PNG)')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Data (CSV)'));
+
+    expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
+    expect(click).toHaveBeenCalled();
+    click.mockRestore();
+  });
+
   it('renders a heat table with a cell per pair', () => {
     renderChart({
       title: 'Topic by run',
@@ -109,7 +154,7 @@ describe('ArchitectChart', () => {
     expect(screen.getByText('–')).toBeInTheDocument();
   });
 
-  it('shows a headline number for kpi without a data toggle', () => {
+  it('shows a headline number for kpi with export but no data toggle', () => {
     renderChart({
       title: 'Overall',
       chart_type: 'kpi',
@@ -120,7 +165,10 @@ describe('ArchitectChart', () => {
 
     expect(screen.getByText('58.3%')).toBeInTheDocument();
     expect(screen.getByText(/target 90%/)).toBeInTheDocument();
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Show data' })
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Export' })).toBeInTheDocument();
   });
 
   it('notes when rows were cut off', () => {

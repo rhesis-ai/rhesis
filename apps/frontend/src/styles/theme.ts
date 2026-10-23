@@ -42,6 +42,16 @@ export interface BrandColors {
   fontFamily?: string;
 }
 
+/** Colors for Architect charts: gray for context, `series` in fixed order. */
+export interface ArchitectChartPalette {
+  /** Bars and areas that carry context, not the point. */
+  neutral: string;
+  /** The same role for lines, which need more contrast than a filled bar. */
+  neutralLine: string;
+  /** Series colors in assignment order; the first is also the focus accent. */
+  series: string[];
+}
+
 /**
  * Define theme settings for both light and dark modes.
  *
@@ -667,6 +677,21 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
         '#FCA5A5',
         '#3BC4F2',
       ],
+      // Architect charts stay off the brand blue, which means "clickable" in the chat.
+      // Gray carries context; clay, roughly opposite the blue at the same chroma, marks
+      // what the reply is about. The series order is checked for color-blind separation.
+      architect:
+        mode === 'light'
+          ? {
+              neutral: '#b6bfcb',
+              neutralLine: '#8f9aa8',
+              series: ['#c4774e', '#6e5ba1', '#bb9a46', '#3b7f4d'],
+            }
+          : {
+              neutral: '#4b5563',
+              neutralLine: '#6b7482',
+              series: ['#bf774f', '#917fc6', '#b09141', '#3b804d'],
+            },
     },
     elevation: {
       none: 0,
@@ -731,6 +756,7 @@ declare module '@mui/material/styles' {
       pie: string[];
       status: string[];
       categorical: string[];
+      architect: ArchitectChartPalette;
     };
     elevation: {
       none: number;
@@ -753,6 +779,7 @@ declare module '@mui/material/styles' {
       pie: string[];
       status: string[];
       categorical: string[];
+      architect: ArchitectChartPalette;
     };
     elevation?: {
       none?: number;
