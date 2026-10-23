@@ -1339,6 +1339,10 @@ tools:
       tests' verdicts). For pass rates of what a run tested, use test_result
       grouped by test_run.
       entity="test" -- one row per test, including tests that never ran.
+      entity="trace" -- one row per trace. Latency (avg/p50/p95/p99 of the
+      root span), tokens, cost in USD and error rate, by environment,
+      operation, test_run, endpoint, has_error or period. Only test-run
+      traces have a test_run and endpoint. Not supported by /insights/ids.
 
       Grouping by an entity-backed dimension (requirement, topic, category,
       test_run, test_set, endpoint, executor, status) returns its name AND
@@ -1371,6 +1375,8 @@ tools:
       - Runs per week by status: entity=test_run, group_by=[period,status],
         time_grain=week, measures=[count]
       - Tests that never ran: entity=test, measures=[count,unrun_count]
+      - Daily LLM cost and p95 latency: entity=trace, group_by=[period],
+        time_grain=day, measures=[cost_usd,p95_duration_ms]
     parameters:
       entity:
         description: >
@@ -1413,6 +1419,8 @@ tools:
         description: "Filter by endpoint UUIDs (array)."
       metric_names:
         description: "Filter by metric names (array). entity=metric only."
+      environments:
+        description: "Filter by environment names (array). entity=trace only."
       months:
         description: "Months of history to include (default: 6)."
       start_date:
@@ -1992,10 +2000,11 @@ tools:
       USD, the models and providers involved, error rate and error span
       count, and latency percentiles (p50, p95, p99) alongside the average.
 
-      This is the tool for "what did we spend on LLM calls", "how slow is
-      this in production" and "what is our error rate". get_insights does not
-      cover traces at all, and no other tool reports cost or latency
-      percentiles.
+      This is the tool for one set of totals: "what did we spend on LLM
+      calls", "how slow is this in production", "what is our error rate".
+      Its latency percentiles are per span. To break cost, tokens, errors or
+      per-trace latency down by environment, test run, endpoint, operation or
+      time, use get_insights with entity=trace.
 
       Scope it with a time window, or with test_run_id to ask the same
       questions about one run rather than the whole project.

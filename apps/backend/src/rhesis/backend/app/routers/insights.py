@@ -41,6 +41,9 @@ def insights_filters(
     executor_ids: Optional[List[UUID]] = Query(
         None, description="Filter by IDs of users who started the run"
     ),
+    environments: Optional[List[str]] = Query(
+        None, description="Filter traces by environment name"
+    ),
 ) -> dict:
     """Shared registry filter query params for GET /insights and GET /insights/ids."""
     filters = {
@@ -60,6 +63,7 @@ def insights_filters(
         "metric_names": metric_names,
         "endpoint_ids": endpoint_ids,
         "executor_ids": executor_ids,
+        "environments": environments,
     }
     return {key: value for key, value in filters.items() if value}
 
@@ -75,7 +79,9 @@ def insights_date_range(
 
 @router.get("/", response_model=schemas.InsightsResponse, **capability(Permission.Insights.READ))
 def get_insights(
-    entity: str = Query(..., description="Registry entity: test_result, metric, test_run, or test"),
+    entity: str = Query(
+        ..., description="Registry entity: test_result, metric, test_run, test, or trace"
+    ),
     group_by: List[str] = Query(default=[], description="Dimensions to group by"),
     measures: List[str] = Query(default=["count"], description="Measures to compute"),
     time_grain: str = Query(
@@ -133,7 +139,9 @@ def get_insights_schema(current_user: User = Depends(require_current_user_or_tok
     **capability(Permission.Insights.READ),
 )
 def get_insights_ids(
-    entity: str = Query(..., description="Registry entity: test_result, metric, test_run, or test"),
+    entity: str = Query(
+        ..., description="Registry entity: test_result, metric, test_run, test, or trace"
+    ),
     outcome: str = Query(
         "all",
         description="Match pass/fail/all. Only for entities that declare apply_outcome "

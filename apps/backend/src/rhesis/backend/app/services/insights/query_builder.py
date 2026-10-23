@@ -37,7 +37,27 @@ def _entry(entity: str) -> Entity:
     return entry
 
 
-def _apply_filters(q, db: Session, entity: str, entry: Entity, filters: Optional[Dict[str, list]]):
+class _Columns:
+    """Resolves registry column references against the queried view or source.
+
+    A view entity names its columns directly; a source entity names them as
+    strings, which only exist once the source subquery has been built.
+    """
+
+    def __init__(self, entry: Entity, view: Any):
+        self.entry = entry
+        self.view = view
+
+    def __call__(self, ref: Any) -> Any:
+        return self.view.c[ref] if isinstance(ref, str) else ref
+
+    def measure(self, name: str) -> Any:
+        build = self.entry.measures[name].build
+        return build(self.view.c) if self.entry.source else build()
+
+
+def _apply_filters(q, db: Session, entity: str, cols: _Columns, filters: Optional[Dict[str, list]]):
+    entry = cols.entry
     for key, values in (filters or {}).items():
         if not values:
             continue
@@ -47,17 +67,18 @@ def _apply_filters(q, db: Session, entity: str, entry: Entity, filters: Optional
                 f"Unknown filter '{key}' for entity '{entity}'. Available: {sorted(entry.filters)}"
             )
         target = flt.subquery(db, values) if flt.subquery else values
-        q = q.filter(flt.column.in_(target))
+        q = q.filter(cols(flt.column).in_(target))
     return q
 
 
 def _apply_date_range(
-    q, entry: Entity, start_date: Optional[datetime], end_date: Optional[datetime]
+    q, cols: _Columns, start_date: Optional[datetime], end_date: Optional[datetime]
 ):
+    date_column = cols(cols.entry.date_column)
     if start_date is not None:
-        q = q.filter(entry.date_column >= start_date)
+        q = q.filter(date_column >= start_date)
     if end_date is not None:
-        q = q.filter(entry.date_column <= end_date)
+        q = q.filter(date_column <= end_date)
     return q
 
 
@@ -71,28 +92,32 @@ def _base_query(
 ):
     """Filtered view query shared by aggregation and ID resolution.
 
-    Returns (entry, query) -- callers add GROUP BY / DISTINCT on top.
+    Returns (columns, query) -- callers add GROUP BY / DISTINCT on top.
     """
     entry = _entry(entity)
-    q = db.query(entry.view)
+    cols = _Columns(entry, entry.source(db) if entry.source else entry.view)
+    q = db.query(cols.view)
 
     if organization_id is not None:
-        q = q.filter(entry.view.organization_id == organization_id)
+        org_column = cols("organization_id") if entry.source else entry.view.organization_id
+        q = q.filter(org_column == organization_id)
 
-    q = _apply_filters(q, db, entity, entry, filters)
-    q = _apply_date_range(q, entry, start_date, end_date)
-    return entry, q
-
-
-def _period(entry: Entity, time_grain: str):
-    return cast(func.date_trunc(time_grain, func.timezone("UTC", entry.date_column)), Date)
+    q = _apply_filters(q, db, entity, cols, filters)
+    q = _apply_date_range(q, cols, start_date, end_date)
+    return cols, q
 
 
-def _group_columns(entity: str, entry: Entity, group_by: List[str], time_grain: str):
+def _period(cols: _Columns, time_grain: str):
+    date_column = cols(cols.entry.date_column)
+    return cast(func.date_trunc(time_grain, func.timezone("UTC", date_column)), Date)
+
+
+def _group_columns(entity: str, cols: _Columns, group_by: List[str], time_grain: str):
     """(labelled select columns, group-by expressions, label -> expression)."""
     repeated = sorted({g for g in group_by if group_by.count(g) > 1})
     if repeated:
         raise InsightsValidationError(f"group_by lists {repeated} more than once; list each once")
+    entry = cols.entry
     unknown = [g for g in group_by if g != PERIOD and g not in entry.dimensions]
     if unknown:
         raise InsightsValidationError(
@@ -107,18 +132,20 @@ def _group_columns(entity: str, entry: Entity, group_by: List[str], time_grain: 
     selected, grouped, by_label = [], [], {}
     for name in group_by:
         if name == PERIOD:
-            expr = _period(entry, time_grain)
+            expr = _period(cols, time_grain)
             selected.append(expr.label(PERIOD))
             grouped.append(expr)
             by_label[PERIOD] = expr
             continue
         dim = entry.dimensions[name]
         if dim.id is not None:
-            selected.append(dim.id.label(f"{name}_id"))
-            grouped.append(dim.id)
-        selected.append(dim.name.label(name))
-        grouped.append(dim.name)
-        by_label[name] = dim.name
+            id_column = cols(dim.id)
+            selected.append(id_column.label(f"{name}_id"))
+            grouped.append(id_column)
+        name_column = cols(dim.name)
+        selected.append(name_column.label(name))
+        grouped.append(name_column)
+        by_label[name] = name_column
     return selected, grouped, by_label
 
 
@@ -152,7 +179,8 @@ def build_query(
     min_count: Optional[int] = None,
 ):
     """Return a validated, filtered, grouped SQLAlchemy query to be executed."""
-    entry, q = _base_query(db, entity, filters, start_date, end_date, organization_id)
+    cols, q = _base_query(db, entity, filters, start_date, end_date, organization_id)
+    entry = cols.entry
 
     if not measures:
         raise InsightsValidationError("At least one measure is required")
@@ -167,8 +195,8 @@ def build_query(
     if min_count is not None and min_count < 1:
         raise InsightsValidationError("min_count must be at least 1")
 
-    selected, grouped, by_label = _group_columns(entity, entry, group_by, time_grain)
-    measure_exprs = {m: entry.measures[m].build() for m in measures}
+    selected, grouped, by_label = _group_columns(entity, cols, group_by, time_grain)
+    measure_exprs = {m: cols.measure(m) for m in measures}
     by_label.update(measure_exprs)
 
     q = q.with_entities(*selected, *(expr.label(m) for m, expr in measure_exprs.items()))
@@ -304,7 +332,10 @@ def run_ids(
         start_date_obj, end_date_obj = parse_date_range(start_date, end_date, months)
     except ValueError as exc:
         raise InsightsValidationError(str(exc)) from exc
-    entry, q = _base_query(db, entity, filters, start_date_obj, end_date_obj, organization_id)
+    cols, q = _base_query(db, entity, filters, start_date_obj, end_date_obj, organization_id)
+    entry = cols.entry
+    if entry.id_column is None:
+        raise InsightsValidationError(f"Entity '{entity}' does not support /insights/ids")
 
     if outcome != "all":
         if entry.apply_outcome is None:
