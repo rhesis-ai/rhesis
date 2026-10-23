@@ -1325,70 +1325,76 @@ tools:
     method: GET
     path: /insights/
     description: >
-      Generic aggregation query over test results, metrics, test runs, or
-      tests. Always pass entity and measures; group_by is optional (omit
-      for one overall total).
+      Aggregation query over test results, metrics, test runs, or tests.
+      Always pass entity and measures; group_by is optional (omit for one
+      overall total). Call describe_insights for the full list of each
+      entity's dimensions, measures and filters.
 
-      entity="test_result" -- one row per test execution. Use for
-      single-run analysis (which requirements/metrics failed?) and multi-run
-      comparison (did results improve?).
-        group_by: requirement, requirement_id, category, category_id, topic,
-        topic_id, test_run (the run's name), test_run_id, status, year, month.
-        measures: count, passed, failed, pass_rate.
+      entity="test_result" -- one row per test execution. Pass rates and
+      breakdowns of what was run.
+      entity="metric" -- one row per (test result, metric). Per-metric pass
+      rates and numeric scores (avg_score, min_score, max_score).
+      entity="test_run" -- one row per run. Run volume and completion
+      (completed, failed, completion_rate come from the run's status, not its
+      tests' verdicts). For pass rates of what a run tested, use test_result
+      grouped by test_run.
+      entity="test" -- one row per test, including tests that never ran.
 
-      entity="metric" -- one row per (test_result, metric_name); use for
-      per-metric breakdowns (Answer Fluency, Contextual Recall, etc.).
-        group_by: metric_name, requirement_id, year, month.
-        measures: count, passed, failed, pass_rate, automated_passed,
-        automated_failed, human_annotation_count.
+      Grouping by an entity-backed dimension (requirement, topic, category,
+      test_run, test_set, endpoint, executor, status) returns its name AND
+      <dimension>_id in each row: show the name, put the id in link URLs.
+      Group by period with time_grain (day, week, month, quarter, year) for
+      trends; period is the bucket's start date in UTC.
 
-      entity="test_run" -- one row per run. Use for operational overview
-      (how many runs by status, which test sets are run most often, who
-      runs tests, run volume over time), NOT for comparing pass/fail
-      outcomes between runs (use entity=test_result for that).
-        group_by: status, test_set, executor, year, month.
-        measures: count, passed, failed, pass_rate.
-
-      entity="test" -- one row per test, including tests that have never
-      run. Use for test-inventory questions (how many tests never ran?).
-        group_by: requirement, requirement_id, category, category_id, topic,
-        topic_id, is_unrun, year, month.
-        measures: count, unrun_count, run_count, passed, failed, pass_rate.
+      order_by sorts by a group_by dimension or a requested measure (prefix
+      - for descending), limit caps the rows, and min_count drops groups
+      smaller than N. Use min_count when ranking rates, so a topic with one
+      test at 100% doesn't outrank one with 300 at 95%.
 
       Examples:
       - Which requirements failed in a run: entity=test_result,
         group_by=[requirement], measures=[count,passed,failed,pass_rate],
         test_run_ids=[<id>]
-      - Compare runs side by side: entity=test_result,
-        group_by=[test_run,test_run_id],
+      - Compare runs side by side: entity=test_result, group_by=[test_run],
         measures=[count,passed,failed,pass_rate], test_run_ids=[<id1>,<id2>]
-        -- test_run is the run's name (what you show the user), test_run_id
-        the UUID (what you put in the link URL)
-      - Which metrics are the problem areas: entity=metric,
-        group_by=[metric_name], measures=[count,passed,failed,pass_rate],
-        test_run_ids=[<id>]
-      - Runs by status: entity=test_run, group_by=[status], measures=[count]
-      - Most-run test sets: entity=test_run, group_by=[test_set],
-        measures=[count]
+      - Five worst topics: entity=test_result, group_by=[topic],
+        measures=[count,pass_rate], order_by=[pass_rate], limit=5,
+        min_count=10
+      - Pass rate by week: entity=test_result, group_by=[period],
+        time_grain=week, measures=[count,pass_rate], months=3
+      - Pass rate per endpoint over time: entity=test_result,
+        group_by=[endpoint,period], measures=[pass_rate]
+      - Which metrics fail on which topics: entity=metric,
+        group_by=[metric,topic], measures=[count,pass_rate]
+      - Average metric score per run: entity=metric,
+        group_by=[metric,test_run], measures=[avg_score]
+      - Runs per week by status: entity=test_run, group_by=[period,status],
+        time_grain=week, measures=[count]
       - Tests that never ran: entity=test, measures=[count,unrun_count]
-      - Lightweight overall total: entity=test_result, group_by=[],
-        measures=[count,passed,failed,pass_rate]
-
-      Filter by test_run_ids, requirement_ids, category_ids, topic_ids,
-      test_set_ids, endpoint_ids, or tags to narrow the analysis.
     parameters:
       entity:
         description: >
-          "test_result", "metric", "test_run", or "test". See description
-          for the group_by/measures each supports.
+          "test_result", "metric", "test_run", or "test".
       group_by:
         description: >
-          Dimensions to group by (array). See description for the valid
-          list per entity. Omit for a single overall row.
+          Dimensions to group by (array), including period. Omit for a
+          single overall row. describe_insights lists them per entity.
       measures:
         description: >
-          Measures to compute (array). See description for the valid list
-          per entity.
+          Measures to compute (array). describe_insights lists them per
+          entity.
+      time_grain:
+        description: >
+          Bucket size when grouping by period: day, week, month (default),
+          quarter, or year.
+      order_by:
+        description: >
+          Dimensions or measures to sort by (array); prefix with - for
+          descending, e.g. [-pass_rate].
+      limit:
+        description: "Return at most this many rows (1-1000)."
+      min_count:
+        description: "Drop groups with fewer than this many rows."
       test_run_ids:
         description: >
           Filter to specific test runs (array of UUIDs). Pass two or
@@ -1405,12 +1411,25 @@ tools:
         description: "Filter by tag names (array)."
       endpoint_ids:
         description: "Filter by endpoint UUIDs (array)."
+      metric_names:
+        description: "Filter by metric names (array). entity=metric only."
       months:
         description: "Months of history to include (default: 6)."
       start_date:
         description: "Start date in ISO format (overrides months)."
       end_date:
         description: "End date in ISO format (overrides months)."
+
+  - name: describe_insights
+    label: Checking what insights can answer
+    method: GET
+    path: /insights/schema
+    description: >
+      List what get_insights accepts: for each entity, its dimensions (and
+      whether each returns an id), its measures (and whether each is a count,
+      a rate, or a score), and its filters, with one line on what each means.
+      Call it before building a report or when a question needs a breakdown
+      you have not used yet.
 
   # ── Annotations (human judgements) ──────────────────────────
   - name: list_annotations

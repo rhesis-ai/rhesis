@@ -10,6 +10,8 @@ class InsightsResponse(BaseModel):
     dimensions: List[str]
     measures: List[str]
     rows: List[Dict[str, Any]]
+    # Set only when grouping by period.
+    time_grain: Optional[str] = None
 
 
 class InsightsQuery(BaseModel):
@@ -23,6 +25,10 @@ class InsightsQuery(BaseModel):
     months: Optional[int] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+    time_grain: str = "month"
+    order_by: List[str] = Field(default_factory=list)
+    limit: Optional[int] = None
+    min_count: Optional[int] = None
 
 
 class InsightsIdsResponse(BaseModel):

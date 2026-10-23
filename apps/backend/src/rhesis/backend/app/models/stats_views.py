@@ -1,14 +1,13 @@
 """Read-only SQLAlchemy models mapped to PostgreSQL stats views.
 
-These models back the v_test_run_stats/v_test_result_stats views (migration
-cb4b107b5daf), v_metric_stats (migration d3f8a91c5b02), and v_test_stats
-(migration 90104949ab99). They are intentionally thin -- all join and
-classification logic lives in the view DDL.
+These models back v_test_run_stats, v_test_result_stats, v_metric_stats and
+v_test_stats, last redefined by migration b3e7c91d4a20. They are intentionally
+thin -- all join and classification logic lives in the view DDL.
 """
 
 from typing import ClassVar
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 
 from rhesis.backend.app.models.audit_policy import NOT_AUDITED
@@ -26,14 +25,15 @@ class TestRunStatsView(Base):
     organization_id = Column(GUID())
     created_at = Column(DateTime(timezone=True))
     user_id = Column(GUID())
+    status_id = Column(GUID())
     status_name = Column(String)
+    # The run's own completion from its status, not its tests' verdicts.
     result = Column(String)
     test_set_id = Column(GUID())
     endpoint_id = Column(GUID())
     test_set_name = Column(String)
+    endpoint_name = Column(String)
     executor_name = Column(String)
-    year = Column(Integer)
-    month = Column(Integer)
 
     # Suppress Base defaults that don't apply to views
     id = None
@@ -59,12 +59,22 @@ class MetricStatsView(Base):
     test_id = Column(GUID())
     requirement_id = Column(GUID())
     created_at = Column(DateTime(timezone=True))
-    year = Column(Integer)
-    month = Column(Integer)
     metric_name = Column(String, primary_key=True)
     has_override = Column(Boolean)
     automated_success = Column(Boolean)
     effective_success = Column(Boolean)
+    topic_id = Column(GUID())
+    category_id = Column(GUID())
+    requirement_name = Column(String)
+    topic_name = Column(String)
+    category_name = Column(String)
+    test_run_name = Column(String)
+    test_set_id = Column(GUID())
+    test_set_name = Column(String)
+    endpoint_id = Column(GUID())
+    endpoint_name = Column(String)
+    # NULL for categorical scores, so averages only see numbers.
+    score = Column(Float)
 
     # Suppress Base defaults that don't apply to views
     id = None
@@ -101,8 +111,6 @@ class TestStatsView(Base):
     category_name = Column(String)
     topic_name = Column(String)
     created_at = Column(DateTime(timezone=True))
-    year = Column(Integer)
-    month = Column(Integer)
     run_count = Column(Integer)
     passed_count = Column(Integer)
     failed_count = Column(Integer)
@@ -148,8 +156,12 @@ class TestResultStatsView(Base):
     run_id = Column(GUID())
     test_run_name = Column(String)
     test_run_created_at = Column(DateTime(timezone=True))
-    year = Column(Integer)
-    month = Column(Integer)
+    test_set_id = Column(GUID())
+    test_set_name = Column(String)
+    endpoint_id = Column(GUID())
+    endpoint_name = Column(String)
+    executor_id = Column(GUID())
+    executor_name = Column(String)
 
     # Suppress Base defaults that don't apply to views
     id = None

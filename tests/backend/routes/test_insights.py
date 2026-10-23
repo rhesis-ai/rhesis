@@ -127,16 +127,16 @@ class TestInsightsRoute:
         assert row["count"] == 2
         assert row["unrun_count"] == 1
 
-    def test_group_by_test_run_returns_the_run_name(self, authenticated_client, two_test_results):
-        """`test_run` is a name dimension like `requirement`/`topic` -- a bare UUID
-        here leaves callers (the Architect above all) unable to name the run."""
+    def test_group_by_test_run_returns_name_and_id(self, authenticated_client, two_test_results):
+        """A bare UUID leaves callers (the Architect above all) unable to name the run,
+        and a bare name can't be linked to -- so the dimension returns both."""
         db_test_run, _ = two_test_results
 
         response = authenticated_client.get(
             "/insights/",
             params={
                 "entity": "test_result",
-                "group_by": ["test_run", "test_run_id"],
+                "group_by": ["test_run"],
                 "measures": ["count"],
                 "test_run_ids": [str(db_test_run.id)],
             },
