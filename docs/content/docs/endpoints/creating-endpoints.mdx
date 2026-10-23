@@ -9,22 +9,36 @@ There are two ways to set up an endpoint:
 
 ## Manual Configuration
 
-The creation wizard has four tabs: **Overview**, **Connection**, **Mapping**, and **Test**.
+Click **+** on the Endpoints page and pick **REST endpoint**. SDK connectors are registered from code instead; see [SDK Endpoints](/docs/endpoints/sdk-endpoints).
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-endpoint-create-type.webp"
+  darkSrc="/screenshots/rhesis-ai-endpoint-create-type-dark.webp"
+  alt="Endpoints page with the + menu open: REST endpoint and SDK Connector"
+/>
+
+The wizard has four steps: **Basics**, **Connection**, **Mapping**, and **Test**.
 
 <Steps>
-### Fill in the Overview
+### Fill in the basics
 
-Enter the endpoint **Name**, **URL**, **HTTP method**, **protocol** (REST or WebSocket), and **environment**. When you create an endpoint from a project-scoped view, the active project is applied automatically.
+Enter the endpoint **Name**, an optional **Description**, and the **Environment** (Production, Staging, Development, or Local). When you create an endpoint from a project-scoped view, the active project is applied automatically.
 
-**Environment** tags the endpoint as Development, Staging, or Production — useful for keeping configurations separate and quickly identifying production-critical endpoints on the grid.
+**Environment** tags the endpoint so you can keep configurations apart and spot production endpoints on the grid.
 
-**Timeout (seconds)** — overrides the default invocation timeout for this endpoint (1 -- 3600). Leave empty to use the system default: 30s for REST, 120s for SDK endpoints.
+**Timeout** — overrides the default invocation timeout for this endpoint (1 -- 3600 seconds). Leave it empty to use the system default: 30s for REST, 120s for SDK endpoints.
 
-**Disable tracing** — when on, invocations skip [trace](/docs/tracing) and telemetry collection. Useful when the endpoint already emits its own telemetry. Tracing is enabled by default.
+**Enable tracing** — on by default. Turn it off when the endpoint already emits its own telemetry; invocations then skip [trace](/docs/tracing) and telemetry collection.
 
-### Set up authentication
+### Set up the connection
 
-In the **Connection** tab, pick an **Authentication** type, then add any custom request headers.
+On the **Connection** step, enter the **Method** and **Endpoint URL**, pick an **Authentication** type, then add any custom request headers.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-endpoint-create-connection.webp"
+  darkSrc="/screenshots/rhesis-ai-endpoint-create-connection-dark.webp"
+  alt="Connection step: method, endpoint URL, authentication and custom headers"
+/>
 
 - **Bearer token**: paste your API key or token. Leave it empty for an endpoint that needs no authentication.
 - **OAuth 2.0 client credentials**: enter the **Token URL**, **Client ID** and **Client secret**. The token URL must use `https://`, since the client secret is sent to it; `http://` is accepted only for `localhost`. **Audience**, **Scopes** (separated by spaces) and **Extra payload** (a JSON object of string fields to add to the token request) are optional.
@@ -38,49 +52,38 @@ Rhesis caches the access token until it expires and requests a new one when you 
 
 Either way, the token is available as `{{ auth_token }}` in your request headers. If no `Authorization` header is set, Rhesis adds `Authorization: Bearer <token>` automatically. Tokens and client secrets are stored encrypted and are never shown again after saving.
 
-### Write the request and response mapping
+### Map the request and response
 
-In the **Mapping** tab, define how Rhesis formats requests to your API and extracts values from the response.
+On the **Mapping** step, tell Rhesis where each of its variables goes in your request and where it comes back in the response.
 
-**Request body** — write a Jinja2 template that maps Rhesis variables to the fields your API expects. At minimum, place `{{ input }}` wherever your API expects the user's message:
-
-<CodeBlock filename="request-body.json" language="json">
-{`{
-  "model": "gpt-4",
-  "messages": [{ "role": "user", "content": "{{ input }}" }]
-}`}
-</CodeBlock>
-
-The editor provides clickable variable chips organized by category — click any chip to insert it at the cursor position.
+**Request** — for each Rhesis variable, enter the field in your request body it goes into. Use dots for nested fields, e.g. `payload.query`. `input` is required; leave unused rows empty. Add an optional **System prompt**, or switch to **Edit as JSON** to write the body as a template yourself.
 
 <ThemeAwareImage
   lightSrc="/screenshots/rhesis-ai-endpoint-create-mapping-request.webp"
   darkSrc="/screenshots/rhesis-ai-endpoint-create-mapping-request-dark.webp"
-  alt="Mapping tab — request body editor with variable chips"
+  alt="Mapping step: request fields for each Rhesis variable, and the response picker"
 />
 
-For the full list of available variables and filters, see [Request Mapping](/docs/endpoints/request-mapping).
+For the full list of variables and filters, see [Request Mapping](/docs/endpoints/request-mapping).
 
-**Response** — run a test request, then click any key in the JSON response tree to map it to a Rhesis output variable (`output`, `context`, `metadata`, etc.). The mapping is saved automatically.
+**Response** — Rhesis sends a test request and shows **Test request successful** when your API answers. For each variable, pick the part of the response that holds it; `output` is required. Open **Complete response returned by your API** to see the full payload.
 
 <ThemeAwareImage
   lightSrc="/screenshots/rhesis-ai-endpoint-create-mapping-response.webp"
   darkSrc="/screenshots/rhesis-ai-endpoint-create-mapping-response-dark.webp"
-  alt="Mapping tab — clickable response JSON tree for output mapping"
+  alt="Mapping step: complete response returned by the API"
 />
 
-For response variable details and extraction syntax, see [Response Mapping](/docs/endpoints/response-mapping).
+For extraction syntax, see [Response Mapping](/docs/endpoints/response-mapping).
 
-### Verify with a connection test
+### Run a test request
 
-In the **Test** tab, fire a live request to confirm everything works end-to-end before saving.
-
-Fill in the input variable rows on the left, then click **Run test**. You'll see the rendered request preview alongside the raw API response and the extracted mapped output.
+On the **Test** step, type a value for each request variable and click **Send test request**. The response card shows what your API returned and the value Rhesis reads for each variable. **Create endpoint** unlocks once a test request passes and the step shows **Endpoint is ready**.
 
 <ThemeAwareImage
   lightSrc="/screenshots/rhesis-ai-endpoint-create-connection-test.webp"
   darkSrc="/screenshots/rhesis-ai-endpoint-create-connection-test-dark.webp"
-  alt="Test tab — request preview, input variables, and mapped output"
+  alt="Test step: test value for input, returned values, and Endpoint is ready"
 />
 
 ### Save
@@ -99,13 +102,13 @@ Auto-Configure generates your request and response mappings automatically. Use i
 <img src="/screenshots/rhesis-ai-endpoints-auto-configure.png" alt="Auto-configure Endpoint" className="screenshot" />
 
 <Steps>
-### Fill in the Overview and Connection tabs
+### Fill in the basics
 
-Provide the endpoint **Name**, **URL**, and **API Token** before running Auto-Configure.
+Provide the endpoint **Name** on the **Basics** step, then go to **Connection** and enter the **API Token** if your API needs one.
 
-### Click Auto-Configure
+### Click Auto-configure
 
-The **Auto-configure** button (magic wand icon) becomes active once the URL is filled in.
+In the **Quickest setup** bar at the top of the **Connection** step, click **Auto-configure**.
 
 ### Paste reference material
 
