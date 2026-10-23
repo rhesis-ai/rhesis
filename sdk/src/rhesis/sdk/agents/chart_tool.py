@@ -133,6 +133,12 @@ class ShowChartTool(BaseTool):
             )
 
         kinds = await self._kinds(spec_args["query"]["entity"])
+        y_kinds = {kinds.get(m, "count") for m in spec_args["y"]}
+        if len(y_kinds) > 1 and spec_args["chart_type"] != "scatter":
+            return self._error(
+                f"y mixes measure kinds ({', '.join(sorted(y_kinds))}), which can't share an "
+                "axis; show one chart per kind"
+            )
         chart = {
             "title": spec_args["title"],
             "chart_type": spec_args["chart_type"],
@@ -216,18 +222,50 @@ def _validate(args: Dict[str, Any]) -> Dict[str, Any]:
     return {**args, "query": query, "y": y}
 
 
+SUMMARY_ROWS = 15
+
+
 def _summary(chart: Dict[str, Any]) -> str:
+    """What the model needs to describe the chart truthfully: the real labels and values.
+
+    Without them it narrates from nothing, and made-up category names end up beside a
+    chart that shows the real ones.
+    """
     rows = chart["rows"]
-    ranges = []
-    for measure in chart["measures"]:
-        values = [
-            r[measure["key"]] for r in rows if isinstance(r.get(measure["key"]), (int, float))
-        ]
-        if values:
-            ranges.append(f"{measure['key']} {min(values)}-{max(values)}")
+    lines = [_summary_row(chart, row) for row in rows]
+    if len(lines) > SUMMARY_ROWS:
+        half = SUMMARY_ROWS // 3
+        lines = lines[:half] + [f"... {len(lines) - 2 * half} more rows ..."] + lines[-half:]
+        # The hidden middle may hold the extremes; without them the model calls the
+        # highest value it happened to see "the peak".
+        lines += _extremes(chart)
+    order = "in time order" if chart["x"] == "period" else "in the order shown"
     shown = f"first {len(rows)} rows" if chart["truncated"] else f"{len(rows)} rows"
     return (
-        f"Showed the chart '{chart['title']}' ({chart['chart_type']}, {shown}"
-        + (f"; {', '.join(ranges)}" if ranges else "")
-        + "). The user can see it and its numbers; describe what it shows instead of listing rows."
+        f"Showed the chart '{chart['title']}' ({chart['chart_type']}, {shown}). Its data, "
+        f"{order}:\n"
+        + "\n".join(lines)
+        + "\nDescribe what it shows using these exact names and values. The user sees the "
+        "chart and can open its numbers, so don't repeat them as a table."
     )
+
+
+def _extremes(chart: Dict[str, Any]) -> List[str]:
+    lines = []
+    for measure in chart["measures"]:
+        key = measure["key"]
+        rows = [r for r in chart["rows"] if isinstance(r.get(key), (int, float))]
+        if rows:
+            low = min(rows, key=lambda r: r[key])
+            high = max(rows, key=lambda r: r[key])
+            lines.append(
+                f"Across all rows, lowest {key}: {_summary_row(chart, low)[2:]}; "
+                f"highest {key}: {_summary_row(chart, high)[2:]}"
+            )
+    return lines
+
+
+def _summary_row(chart: Dict[str, Any], row: Dict[str, Any]) -> str:
+    label = " / ".join(str(row.get(d)) for d in (chart["x"], chart["series"]) if d)
+    values = ", ".join(f"{m['key']}={row.get(m['key'])}" for m in chart["measures"])
+    return f"- {label}: {values}" if label else f"- {values}"

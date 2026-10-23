@@ -11,7 +11,11 @@ from rhesis.sdk.agents.schemas import ToolResult
 SCHEMA = {
     "entities": {
         "test_result": {
-            "measures": {"count": {"kind": "count"}, "pass_rate": {"kind": "rate"}},
+            "measures": {
+                "count": {"kind": "count"},
+                "pass_rate": {"kind": "rate"},
+                "p95_duration_ms": {"kind": "duration"},
+            },
         }
     }
 }
@@ -71,13 +75,60 @@ async def test_chart_carries_the_query_rows_and_measure_kinds():
 
 
 @pytest.mark.asyncio
-async def test_summary_gives_ranges_not_rows():
+async def test_summary_gives_the_real_labels_and_values():
+    """Without them the model narrated invented category names beside the real chart."""
     tool, _ = _tool(TOPIC_ROWS)
 
     result = await tool.execute(**BAR)
 
-    assert "pass_rate 25.0-60.0" in result.content
-    assert "Claims" not in result.content
+    assert "- Claims: pass_rate=25.0" in result.content
+    assert "- Billing: pass_rate=60.0" in result.content
+    assert "don't repeat them as a table" in result.content
+
+
+@pytest.mark.asyncio
+async def test_summary_elides_long_charts_but_keeps_both_ends():
+    rows = [{"topic": f"t{i}", "pass_rate": float(i)} for i in range(40)]
+    tool, _ = _tool(rows)
+
+    result = await tool.execute(**BAR)
+
+    assert "- t0:" in result.content and "- t39:" in result.content
+    assert "- t20:" not in result.content and "more rows" in result.content
+
+
+@pytest.mark.asyncio
+async def test_elided_summary_still_names_the_true_extremes():
+    """The peak hid in the elided middle, and the model reported a smaller one as the peak."""
+    rows = [{"topic": f"t{i}", "pass_rate": 50.0} for i in range(40)]
+    rows[20] = {"topic": "peak", "pass_rate": 99.0}
+    rows[25] = {"topic": "trough", "pass_rate": 1.0}
+    tool, _ = _tool(rows)
+
+    result = await tool.execute(**BAR)
+
+    assert "highest pass_rate: peak: pass_rate=99.0" in result.content
+    assert "lowest pass_rate: trough: pass_rate=1.0" in result.content
+
+
+@pytest.mark.asyncio
+async def test_measures_of_different_kinds_are_rejected():
+    tool, _ = _tool([{"period": "2026-10-01", "pass_rate": 80.0, "p95_duration_ms": 2100.0}])
+
+    result = await tool.execute(
+        query={
+            "entity": "test_result",
+            "group_by": ["period"],
+            "measures": ["pass_rate", "p95_duration_ms"],
+        },
+        chart_type="line",
+        title="Mixed",
+        x="period",
+        y=["pass_rate", "p95_duration_ms"],
+    )
+
+    assert not result.success and "one chart per kind" in result.error
+    assert tool.drain() == []
 
 
 @pytest.mark.asyncio
