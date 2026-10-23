@@ -9,6 +9,7 @@ from websockets.asyncio.client import connect
 from websockets.exceptions import InvalidStatus
 
 from rhesis.backend.app.models.endpoint import Endpoint
+from rhesis.backend.app.services.invokers.templating.filters import TemplateInputError
 
 from .base import BaseEndpointInvoker
 from .common.schemas import ErrorResponse
@@ -551,6 +552,10 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     },
                 )
 
+        except TemplateInputError as e:
+            return self._template_error_response(
+                e, {"connection_type": "WebSocket", "uri": uri or "unknown"}
+            )
         except Exception as e:
             logger.error(f"Async invoke error: {type(e).__name__}: {str(e)}", exc_info=True)
             logger.debug(

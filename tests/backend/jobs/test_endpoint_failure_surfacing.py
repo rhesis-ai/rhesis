@@ -221,6 +221,20 @@ class TestPermanentFailuresAreNotReInvoked:
         assert result["status_code"] == 400
         assert _is_retriable_failure(result) is False
 
+    def test_template_error_is_not_retried(self):
+        """Rendering the same input again fails the same way."""
+        exc = classify_error_response(
+            ErrorResponse(
+                output="Could not render the request template: fromjson: ...",
+                error_type="template_error",
+                message="Could not render the request template: fromjson: ...",
+            )
+        )
+        result = _failure_result("test-1", exc, 12.0)
+
+        assert result["transient"] is False
+        assert _is_retriable_failure(result) is False
+
     def test_transient_invoker_failure_is_still_retried(self):
         exc = EndpointInvocationError("boom", transient=True, status_code=503)
         result = _failure_result("test-1", exc, 12.0)

@@ -2,13 +2,19 @@
 
 import json
 import logging
+import re
 from typing import Any, Dict
 
 from jinja2 import ChainableUndefined, Environment
 
-from .filters import FILE_FILTERS
+from rhesis.backend.app.services.invokers.templating.filters import FILE_FILTERS
 
 logger = logging.getLogger(__name__)
+
+# A template that is one expression ending in fromjson, e.g. "{{ input | fromjson }}"
+_FROMJSON_PATTERN = re.compile(
+    r"^\{\{\s*(?P<expr>(?:(?!\}\}).)+?\|\s*(?:fromjson|from_json))\s*\}\}$", re.DOTALL
+)
 
 
 class TemplateRenderer:
@@ -17,6 +23,7 @@ class TemplateRenderer:
     def __init__(self):
         self.env = Environment(undefined=ChainableUndefined)
         self.env.filters.update(FILE_FILTERS)
+        self.env.filters["to_json"] = self.env.filters["tojson"]
 
     def render(self, template_data: Any, input_data: Dict[str, Any]) -> Any:
         """
@@ -199,6 +206,11 @@ class TemplateRenderer:
                 if value is None or isinstance(value, (str, int, float, bool, dict, list)):
                     return value
                 return str(value)
+
+        # Rendering turns the parsed value into Python repr text, so evaluate it natively.
+        fromjson_match = _FROMJSON_PATTERN.match(original_template)
+        if fromjson_match:
+            return self.env.compile_expression(fromjson_match.group("expr"))(**render_context)
 
         # For non-simple templates, try to parse as JSON (e.g. filter output)
         filtered = self._filter_omit_markers(rendered_value)

@@ -20,6 +20,7 @@ from rhesis.backend.app.services.invokers.common.connection_errors import (
     url_host,
 )
 from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
+from rhesis.backend.app.services.invokers.templating.filters import TemplateInputError
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +167,8 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 message=message,
                 request_details=self._safe_request_details(locals(), "REST"),
             )
+        except TemplateInputError as e:
+            return self._template_error_response(e, self._safe_request_details(locals(), "REST"))
         except (ValueError, json.JSONDecodeError) as e:
             # Handle JSON parsing errors specifically
             logger.error(f"JSON parsing error: {str(e)}")

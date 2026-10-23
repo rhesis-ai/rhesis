@@ -7,6 +7,8 @@ if TYPE_CHECKING:
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.endpoint import Endpoint
+from rhesis.backend.app.services.invokers.common.errors import TEMPLATE_ERROR_TYPE
+from rhesis.backend.app.services.invokers.templating.filters import TemplateInputError
 
 # Import modular components
 from .auth import AuthenticationManager
@@ -156,6 +158,18 @@ class BaseEndpointInvoker(ABC):
         """Create standardized error response."""
         return self.error_builder.create_error_response(
             error_type, output_message, message, request_details, **kwargs
+        )
+
+    def _template_error_response(
+        self, error: TemplateInputError, request_details: Dict | None = None
+    ) -> ErrorResponse:
+        """Report a request template that could not be rendered for this input."""
+        message = f"Could not render the request template: {error}"
+        return self._create_error_response(
+            error_type=TEMPLATE_ERROR_TYPE,
+            output_message=message,
+            message=message,
+            request_details=request_details,
         )
 
     def _safe_request_details(self, local_vars: Dict, connection_type: str = "unknown"):

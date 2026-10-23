@@ -3,6 +3,8 @@
 import inspect
 from uuid import uuid4
 
+import pytest
+
 from rhesis.backend.app.services.invokers.context import InvocationContext
 from rhesis.backend.app.services.invokers.sdk_invoker import SdkEndpointInvoker
 
@@ -184,3 +186,16 @@ class TestSdkVersionInfoMapping:
         # The raw dict rides along inside output, but version_info is not a top-level field,
         # which is where the run-level lookup reads it from -- so it stays invisible.
         assert "version_info" not in mapped
+
+
+class TestSdkTemplateErrors:
+    @pytest.mark.asyncio
+    async def test_invalid_fromjson_input_is_a_template_error(self, sample_endpoint_sdk):
+        """Reported as template_error, not as an unexpected SDK error."""
+        sample_endpoint_sdk.request_mapping = {"inputs": "{{ input | fromjson }}"}
+        invoker = SdkEndpointInvoker()
+
+        result = await invoker.invoke(None, sample_endpoint_sdk, {"input": "A-2048"})
+
+        assert result.error_type == "template_error"
+        assert "not valid JSON" in result.message
