@@ -515,6 +515,7 @@ Always pass `entity` and `measures`. `group_by` is optional; omit it for a singl
 | `metric` | (result, metric) | `metric`, `requirement`, `category`, `topic`, `test_run`, `test_set`, `endpoint`, `period` | `count`, `passed`, `failed`, `pass_rate`, `avg_score`, `min_score`, `max_score`, `automated_passed`, `automated_failed`, `human_annotation_count` |
 | `test_run` | run | `test_set`, `endpoint`, `executor`, `status`, `period` | `count`, `completed`, `failed`, `completion_rate` |
 | `test` | test, including never-run ones | `requirement`, `category`, `topic`, `priority`, `is_unrun`, `period` | `count`, `unrun_count`, `run_count`, `passed`, `failed`, `error_count`, `pass_rate` |
+| `trace` | trace (one request to your application) | `environment`, `operation`, `test_run`, `endpoint`, `has_error`, `period` | `count`, `error_count`, `error_rate`, `avg_duration_ms`, `p50_duration_ms`, `p95_duration_ms`, `p99_duration_ms`, `tokens`, `input_tokens`, `output_tokens`, `cost_usd`, `avg_cost_usd` |
 
 Grouping by an entity-backed dimension (`requirement`, `topic`, `test_run`, `endpoint`, …) returns both its name and `<dimension>_id` in each row: show the name, put the id in link URLs. `period` is the start date of a time bucket in UTC, sized by `time_grain` (`day`, `week`, `month` by default, `quarter`, `year`).
 
@@ -528,9 +529,10 @@ Grouping by an entity-backed dimension (`requirement`, `topic`, `test_run`, `end
 - Metric scores → `metric` with `avg_score`, `min_score`, `max_score`; text scores are ignored
 - Run volume, who runs tests, most-run test sets → `test_run`. Its `completed`/`failed` come from the run's status, not its tests' verdicts; a run's pass rate is `test_result` grouped by `test_run`
 - Tests that never ran → `test` with `measures=[count,unrun_count]`
+- Latency, tokens and cost broken down → `trace`. Durations are the root span's, in milliseconds; tokens count LLM calls only; cost is in USD. Only test-run traces have a `test_run` and `endpoint`
 - Where people overrode the automation → `metric`, whose measures include `human_annotation_count`
 
-**Filters:** `test_run_ids`, `test_set_ids`, `requirement_ids`, `category_ids`, `topic_ids`, `endpoint_ids`, `executor_ids`, `status_ids`, `metric_names` (metric only), `tags`, `months` (default 6), `start_date`, `end_date`. Which ones apply depends on the entity; `describe_insights` lists them.
+**Filters:** `test_run_ids`, `test_set_ids`, `requirement_ids`, `category_ids`, `topic_ids`, `endpoint_ids`, `executor_ids`, `status_ids`, `metric_names` (metric only), `environments` (trace only), `tags`, `months` (default 6), `start_date`, `end_date`. Which ones apply depends on the entity; `describe_insights` lists them.
 
 ### `describe_insights`
 List what `get_insights` accepts: each entity's dimensions (and whether each returns an id), measures (and whether each is a count, a rate or a score), and filters, with a line on what each means. No parameters.
@@ -712,7 +714,7 @@ The span whose `status_code` is `"ERROR"`, or whose `duration_ms` dominates the 
 ### `get_trace_metrics`
 Aggregate cost and latency across a project's traces: total traces and spans, input/output token counts, total cost USD, models and providers involved, error rate and error span count, and latency percentiles (p50, p95, p99) alongside the average.
 
-This is the only tool that reports trace cost or latency. `get_insights` covers `test_result`, `metric`, `test_run` and `test`, and has no trace coverage at all.
+Use it for one set of totals; its latency percentiles are per span. To break cost, tokens, errors or per-trace latency down by environment, test run, endpoint, operation or time, use `get_insights` with `entity=trace`.
 
 **Key parameters:**
 - `project_id` (required)

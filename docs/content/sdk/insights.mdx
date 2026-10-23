@@ -2,7 +2,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Insights
 
-`Insights` runs aggregation queries against your organization's test results, metrics, test runs, and tests directly.
+`Insights` runs aggregation queries against your organization's test results, metrics, test runs, tests, and traces directly.
 
 <CodeBlock filename="insights.py" language="python">
 {`from rhesis.sdk.entities import Insights
@@ -49,12 +49,13 @@ failed_ids = Insights(entity="test_result", filters={"test_run_ids": ["your-run-
 | `metric` | (test result, metric) | `metric`, `requirement`, `category`, `topic`, `test_run`, `test_set`, `endpoint`, `period` | `count`, `passed`, `failed`, `pass_rate`, `avg_score`, `min_score`, `max_score`, `automated_passed`, `automated_failed`, `human_annotation_count` |
 | `test_run` | run | `test_set`, `endpoint`, `executor`, `status`, `period` | `count`, `completed`, `failed`, `completion_rate` |
 | `test` | test, including tests that never ran | `requirement`, `category`, `topic`, `priority`, `is_unrun`, `period` | `count`, `unrun_count`, `run_count`, `passed`, `failed`, `error_count`, `pass_rate` |
+| `trace` | trace (one request to your application) | `environment`, `operation`, `test_run`, `endpoint`, `has_error`, `period` | `count`, `error_count`, `error_rate`, `avg_duration_ms`, `p50_duration_ms`, `p95_duration_ms`, `p99_duration_ms`, `tokens`, `input_tokens`, `output_tokens`, `cost_usd`, `avg_cost_usd` |
 
 `Insights.describe()` returns the same lists with a description of each entry.
 
 **Rows.** Grouping by a dimension backed by an entity (`requirement`, `category`, `topic`, `test_run`, `test_set`, `endpoint`, `executor`, `status`) groups by its ID and returns both the name and `<dimension>_id`, so two requirements that share a name stay separate. `period` is the start date of a time bucket in UTC; set its size with `time_grain`: `day`, `week`, `month` (the default), `quarter` or `year`.
 
-**Measures.** `pass_rate` is `passed / (passed + failed) × 100`: errored and pending results are left out. The score measures on `metric` average only numeric scores, so a metric with text scores returns `null`. On `test_run`, `completed`, `failed` and `completion_rate` come from the run's own status. For the pass rate of what a run tested, use `test_result` grouped by `test_run`.
+**Measures.** `pass_rate` is `passed / (passed + failed) × 100`: errored and pending results are left out. The score measures on `metric` average only numeric scores, so a metric with text scores returns `null`. On `test_run`, `completed`, `failed` and `completion_rate` come from the run's own status. On `trace`, durations are the root span's in milliseconds, `tokens` counts LLM calls only, and cost is in USD, matching the traces list; `operation` is the root span's name, and only traces from test runs have a `test_run` and `endpoint`. For the pass rate of what a run tested, use `test_result` grouped by `test_run`.
 
 **Sorting and limits.** `order_by` takes dimensions or measures from the same query, with a `-` prefix for descending (`["-pass_rate"]`). `limit` caps the rows at 1–1000. `min_count` drops groups with fewer rows than the given number, which keeps a topic with one passing test from topping a ranking.
 
@@ -66,6 +67,7 @@ Filters narrow which rows are aggregated, and which keys are valid depends on th
 | `metric` | `metric_names`, `requirement_ids`, `category_ids`, `topic_ids`, `test_run_ids`, `test_set_ids`, `endpoint_ids`, `test_ids` |
 | `test_run` | `test_run_ids`, `test_set_ids`, `endpoint_ids`, `executor_ids`, `status_ids` |
 | `test` | `requirement_ids`, `category_ids`, `topic_ids`, `status_ids`, `test_ids`, `test_type_ids`, `user_ids`, `assignee_ids`, `owner_ids`, `prompt_ids`, `test_set_ids`, `tags` |
+| `trace` | `test_run_ids`, `endpoint_ids`, `environments` |
 
 `test_set_ids` on `test_result` and `metric` matches results from runs of that test set; on `test` it matches tests that belong to the set.
 
