@@ -193,6 +193,25 @@ class TestBatchRoutesPermanentFailuresAsResults:
         assert isinstance(result["output"]["output"], str)
 
     @pytest.mark.asyncio
+    async def test_error_trace_reaches_persist_as_the_dataclass(self):
+        """model_dump() on the ErrorResponse used to turn the trace into a dict, so persisting
+        it raised and every failed test was stored as "Persist failed: ... 'otel_span'".
+        """
+        from rhesis.backend.app.services.invokers.tracing import DeferredTraceData
+
+        trace = DeferredTraceData(
+            otel_span=MagicMock(), trace_id="t", project_id="p", organization_id="o"
+        )
+        error = _http_400_error_response()
+        error.deferred_trace = trace
+
+        result = await self._run_single_turn_with(error)
+
+        assert result["deferred_traces"] == [trace]
+        assert result["deferred_traces"][0] is trace
+        assert "deferred_trace" not in result["output"]
+
+    @pytest.mark.asyncio
     async def test_transient_failure_still_propagates(self):
         """Recovery rounds are a flaky endpoint's remaining chance; reporting a transient
         failure as a result here would silently retire that retry.

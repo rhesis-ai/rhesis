@@ -31,7 +31,10 @@ from rhesis.backend.app.services.invokers.conversation import (
     find_conversation_id,
     get_conversation_store,
 )
-from rhesis.backend.app.services.invokers.tracing import persist_deferred_trace
+from rhesis.backend.app.services.invokers.tracing import (
+    persist_deferred_trace,
+    pop_deferred_trace,
+)
 
 if TYPE_CHECKING:
     from rhesis.backend.app.services.endpoint.service import EndpointService
@@ -129,20 +132,6 @@ def _prefetch(
     return endpoint, trace_id, files
 
 
-def _pop_deferred_trace(result: Any) -> Any:
-    """Take the in-memory trace off the result before it becomes the response.
-
-    A successful invocation carries it under ``_deferred_trace``; an
-    ``ErrorResponse`` carries it as the extra field ``deferred_trace``.
-    """
-    if isinstance(result, dict):
-        return result.pop("_deferred_trace", None)
-    extra = getattr(result, "__pydantic_extra__", None)
-    if isinstance(extra, dict):
-        return extra.pop("deferred_trace", None)
-    return None
-
-
 def _as_invocation_error(exc: Exception) -> EndpointInvocationError:
     """Report a database failure the way ``invoke_endpoint`` reports its own.
 
@@ -201,7 +190,7 @@ async def invoke_endpoint_off_loop(
         project_id=project_id,
     )
 
-    deferred = _pop_deferred_trace(result)
+    deferred = pop_deferred_trace(result)
     if deferred is not None:
         try:
             await anyio.to_thread.run_sync(persist_deferred_trace, db, deferred)
