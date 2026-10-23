@@ -122,6 +122,12 @@ This architecture keeps:
 - tool schema generation centralized
 - list-tool pagination behavior consistent
 
+## Charts
+
+`ShowChartTool` (`sdk/src/rhesis/sdk/agents/chart_tool.py`) lets the agent show a chart of an insights query. The agent passes the `get_insights` arguments plus a chart type and which columns go where; the tool runs the query through the same `LocalToolProvider`, so a chart only shows data the user can already read, and builds the chart spec from the returned rows. The model never supplies the numbers.
+
+`build_agent()` returns the tool alongside the agent. After the turn, `run_architect_turn` drains its charts, `persist_state` saves them on the assistant message as `metadata_.charts`, and `architect.response` carries them as `charts`.
+
 ## MCP tool behavior relevant to Architect
 
 `mcp_tools.yaml` defines:

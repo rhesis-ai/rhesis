@@ -1,0 +1,37 @@
+# Reports and Charts
+
+Architect answers questions about your test data with charts: pass rates, breakdowns by topic or requirement, trends over time, and comparisons between runs or endpoints. Ask in plain language and it picks the breakdowns, draws a chart for each, and says what each one shows.
+
+```text
+"Give me a report on pass rates by topic, and how they changed week by week over the last two months."
+"Which five requirements fail most often? Ignore ones with fewer than ten results."
+"Compare our two endpoints across all metrics."
+```
+
+## Where the numbers come from
+
+Every chart is drawn from a query against your data, the same one behind the Insights page, so the two always agree. Architect chooses what to chart; it never writes the numbers itself. Each chart has a **Show data** toggle that switches it to a table of the exact values.
+
+A chart shows at most 200 rows. When a breakdown has more, the chart says so; narrow the question (a shorter date range, fewer runs, or a top-N) to see the rest.
+
+## What you can ask
+
+| Question | Chart |
+|----------|-------|
+| How has the pass rate moved over time? Per endpoint or test set? | Line, one line per endpoint or test set |
+| How did passed, failed and errored results change over time? | Stacked area |
+| Which topics, requirements or metrics are weakest? | Horizontal bars, sorted, optionally against a target |
+| How do categories compare? | Bars |
+| What share of each run passed, failed or errored? | Stacked bars |
+| Which topics got worse between two runs? Which metric fails on which topic? | Heat table: one row per topic, one column per run or metric, cells shaded from red to green |
+| Do topics with more tests pass less often? | Scatter, one point per topic |
+| How do two endpoints compare across all metrics? | Radar, one shape per endpoint |
+| What is the overall pass rate? | A single headline number, optionally with a target |
+
+Breakdowns are available by requirement, category, topic, test run, test set, endpoint, who started the run, status, and time (by day, week, month, quarter or year). For metrics, Architect can chart pass rates and average, minimum and maximum scores per metric. The full list is in the [SDK Insights reference](/sdk/insights).
+
+When Architect ranks rates, it leaves out groups with too few results to be meaningful, so a topic with one passing test doesn't top the list.
+
+## Reloading a session
+
+Charts are saved with the reply. Reopening a session shows them as they were drawn, from the data at the time of the question. Ask again for current numbers.

@@ -6,6 +6,7 @@ const meta: MetaRecord = {
   exploration: 'Endpoint Exploration',
   planning: 'Planning Test Suites',
   'execution-and-analysis': 'Running and Analyzing',
+  reports: 'Reports and Charts',
   'chat-features': 'Chat Features',
   scenarios: 'Scenarios',
 }
