@@ -99,7 +99,7 @@ function DimensionRows({
         const clickable = isClickable(item);
         return (
           <Box
-            key={item.name}
+            key={item.id ?? item.name}
             role={clickable ? 'button' : undefined}
             tabIndex={clickable ? 0 : undefined}
             onClick={clickable ? () => openTestsForDimension(item) : undefined}
