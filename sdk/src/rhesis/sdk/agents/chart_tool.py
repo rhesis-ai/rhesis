@@ -273,7 +273,8 @@ def _resolve_focus(args: Dict[str, Any], rows: List[Dict[str, Any]]) -> List[str
             f"a {args['chart_type']} chart without a series has nothing to set apart; "
             "drop focus, or add a series dimension and focus on its values"
         )
-    known = {str(row.get(dimension)) for row in rows}
+    # A missing value can't be a focus: the chart labels it "(none)", not "None".
+    known = {str(row[dimension]) for row in rows if row.get(dimension) not in (None, "")}
     unknown = [v for v in focus if v not in known]
     if unknown:
         sample = ", ".join(sorted(known)[:10])

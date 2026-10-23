@@ -288,6 +288,16 @@ SERIES_QUERY = {
 
 
 @pytest.mark.asyncio
+async def test_focus_on_a_missing_value_is_rejected():
+    """'None' would pass a string match but never match the chart's '(none)' label."""
+    tool, _ = _tool([*TOPIC_ROWS, {"topic": None, "pass_rate": 10.0}])
+
+    result = await tool.execute(**BAR, focus=["None"])
+
+    assert not result.success and "None" in result.error
+
+
+@pytest.mark.asyncio
 async def test_focus_names_series_values_when_there_is_a_series():
     """An x focus on a chart with series would be ignored by the renderer."""
     tool, _ = _tool(_by_run(2))
