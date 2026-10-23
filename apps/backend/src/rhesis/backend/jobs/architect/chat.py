@@ -152,6 +152,7 @@ def architect_chat_task(
                     "auto_approve_all": result.auto_approve_all,
                     "awaiting_task": result.awaiting_task,
                     "plan": result.plan,
+                    "charts": result.charts,
                 },
             ),
             target,

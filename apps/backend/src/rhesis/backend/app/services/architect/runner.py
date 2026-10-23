@@ -41,6 +41,8 @@ class ArchitectChatResult(BaseModel):
     awaiting_task: bool
     plan: Optional[str]
     pending_tasks: List[Dict[str, Any]]
+    # Charts the agent showed this turn, in order; also saved on the message.
+    charts: List[Dict[str, Any]] = []
 
 
 @observe()
@@ -220,6 +222,7 @@ async def build_agent(
     from rhesis.backend.app.utils.user_model_utils import build_model_or_raise
     from rhesis.sdk.agents.architect.agent import ArchitectAgent
     from rhesis.sdk.agents.architect.state import ArchitectAgentStateSnapshot
+    from rhesis.sdk.agents.chart_tool import ShowChartTool
     from rhesis.sdk.agents.tools import ExploreEndpointTool
 
     with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
@@ -257,6 +260,8 @@ async def build_agent(
         target_factory=_make_target_factory(organization_id, user_id, project_id),
         model=model,
     )
+    # Charts query through the same provider, so they only see what the user can read.
+    chart_tool = ShowChartTool(lambda name, args: tool_provider.execute(name, **args))
     ws_handler = WebSocketEventHandler(session_id)
     tracing_handlers = get_agent_event_handlers(
         model_name=getattr(model, "model_name", None) or str(model),
@@ -265,7 +270,7 @@ async def build_agent(
 
     agent = ArchitectAgent(
         model=model,
-        tools=[tool_provider, explore_tool],
+        tools=[tool_provider, explore_tool, chart_tool],
         event_handlers=[ws_handler, *tracing_handlers],
         max_iterations=snapshot.max_iterations,
         verbose=False,
@@ -277,7 +282,7 @@ async def build_agent(
     if auto_approve is not None:
         agent.auto_approve_all = auto_approve
 
-    return agent, ws_handler
+    return agent, ws_handler, chart_tool
 
 
 async def _handle_auto_resume(
@@ -338,6 +343,7 @@ async def persist_state(
     session_has_title: bool,
     user_message: str,
     project_id: Optional[str] = None,
+    charts: Optional[List[Dict[str, Any]]] = None,
 ) -> None:
     """Save assistant message and updated architect session state.
 
@@ -359,6 +365,7 @@ async def persist_state(
                 role="assistant",
                 content=response,
                 project_id=project_id,
+                metadata_={"charts": charts} if charts else None,
             ),
             organization_id=organization_id,
             user_id=user_id,
@@ -519,7 +526,7 @@ async def run_architect_turn(
         session_data.get("current_message_id"), attachments, organization_id, user_id, project_id
     )
     processed_attachments = process_attachments(attachments)
-    agent, ws_handler = await build_agent(
+    agent, ws_handler, chart_tool = await build_agent(
         session_data,
         session_id,
         organization_id,
@@ -531,6 +538,7 @@ async def run_architect_turn(
         session_id, organization_id, user_id, message, ws_handler, project_id=project_id
     )
     response = await run_chat(agent, message, processed_attachments, approve)
+    charts = chart_tool.drain()
     await persist_state(
         agent,
         response,
@@ -540,6 +548,7 @@ async def run_architect_turn(
         session_data["session_has_title"],
         message,
         project_id=project_id,
+        charts=charts,
     )
 
     return ArchitectChatResult(
@@ -553,4 +562,5 @@ async def run_architect_turn(
             agent.plan.to_markdown() if agent.plan and hasattr(agent.plan, "to_markdown") else None
         ),
         pending_tasks=agent.pending_tasks,
+        charts=charts,
     )

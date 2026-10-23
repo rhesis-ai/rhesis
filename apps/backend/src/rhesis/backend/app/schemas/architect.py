@@ -12,6 +12,8 @@ class ArchitectMessageBase(Base):
     role: str
     content: Optional[str] = None
     attachments: Optional[Dict[str, Any]] = None
+    # Named after the model attribute: SQLAlchemy reserves `metadata`. Holds the reply's charts.
+    metadata_: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(
         from_attributes=True,
