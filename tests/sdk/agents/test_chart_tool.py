@@ -249,6 +249,92 @@ async def test_invalid_requests_are_rejected_before_querying(change, message):
 
 
 @pytest.mark.asyncio
+async def test_focus_is_kept_on_the_chart():
+    tool, _ = _tool(TOPIC_ROWS)
+
+    result = await tool.execute(**BAR, focus=["Claims"])
+
+    assert result.success
+    (chart,) = tool.drain()
+    assert chart["focus"] == ["Claims"]
+
+
+@pytest.mark.asyncio
+async def test_focus_on_a_value_not_in_the_data_is_rejected():
+    """A misspelled focus would silently leave every bar gray."""
+    tool, _ = _tool(TOPIC_ROWS)
+
+    result = await tool.execute(**BAR, focus=["Claim"])
+
+    assert not result.success and "Claim" in result.error and "Billing" in result.error
+    assert tool.drain() == []
+
+
+def _by_run(n_runs):
+    return [{"topic": "Claims", "test_run": f"run {i}", "pass_rate": 50.0} for i in range(n_runs)]
+
+
+SERIES_QUERY = {
+    "query": {
+        "entity": "test_result",
+        "group_by": ["topic", "test_run"],
+        "measures": ["pass_rate"],
+    },
+    "title": "By run",
+    "x": "topic",
+    "series": "test_run",
+    "y": ["pass_rate"],
+}
+
+
+@pytest.mark.asyncio
+async def test_focus_names_series_values_when_there_is_a_series():
+    """An x focus on a chart with series would be ignored by the renderer."""
+    tool, _ = _tool(_by_run(2))
+
+    rejected = await tool.execute(**SERIES_QUERY, chart_type="bar", focus=["Claims"])
+    accepted = await tool.execute(**SERIES_QUERY, chart_type="bar", focus=["run 1"])
+
+    assert not rejected.success and "test_run values" in rejected.error
+    assert accepted.success
+
+
+@pytest.mark.asyncio
+async def test_focus_on_a_lone_line_is_rejected():
+    tool, _ = _tool([{"period": "2026-10-01", "pass_rate": 80.0}])
+
+    result = await tool.execute(
+        query={"entity": "test_result", "group_by": ["period"], "measures": ["pass_rate"]},
+        chart_type="line",
+        title="Trend",
+        x="period",
+        y=["pass_rate"],
+        focus=["2026-10-01"],
+    )
+
+    assert not result.success and "nothing to set apart" in result.error
+
+
+@pytest.mark.asyncio
+async def test_more_series_than_the_palette_holds_is_rejected():
+    tool, _ = _tool(_by_run(5))
+
+    result = await tool.execute(**SERIES_QUERY, chart_type="bar")
+
+    assert not result.success and "heat_table" in result.error
+    assert tool.drain() == []
+
+
+@pytest.mark.asyncio
+async def test_a_heat_table_takes_any_number_of_series():
+    tool, _ = _tool(_by_run(8))
+
+    result = await tool.execute(**SERIES_QUERY, chart_type="heat_table")
+
+    assert result.success
+
+
+@pytest.mark.asyncio
 async def test_kpi_takes_no_group_by():
     tool, _ = _tool([{"pass_rate": 58.33}])
 

@@ -46,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   environment, operation, test run, endpoint or period.
 - `ShowChartTool` (`rhesis.sdk.agents`): runs a `get_insights` query and keeps a chart spec built
   from the returned rows, for agents that report on insights data. The Architect uses it.
+  Its `focus` argument names the x or series values the reply is about, so a renderer can
+  draw them in an accent color and the rest in gray. Charts are capped at four series, the
+  most a palette can tell apart; past that it asks for a narrower query or a `heat_table`.
 - `Insights` takes `time_grain`, `order_by`, `limit` and `min_count`, and `Insights.describe()`
   returns every entity's dimensions, measures and filters.
 - `ConversationalJudge` results include `relevant_turns`, the turns the verdict rests on.
