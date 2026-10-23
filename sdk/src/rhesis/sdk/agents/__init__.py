@@ -20,6 +20,7 @@ with requires_full_sdk("rhesis.sdk.agents"):
         TestSetSpec,
     )
     from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
+    from rhesis.sdk.agents.chart_tool import ShowChartTool
     from rhesis.sdk.agents.events import AgentEventHandler
     from rhesis.sdk.agents.mcp import (
         MCPAgent,
@@ -73,6 +74,7 @@ __all__ = [
     "MCPTool",
     # Tools
     "ExploreEndpointTool",
+    "ShowChartTool",
     # Targets
     "LocalEndpointTarget",
     # Events
