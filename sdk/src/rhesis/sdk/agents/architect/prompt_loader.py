@@ -107,7 +107,7 @@ def phase_include_names(
             ]
         )
         # Keep the Insights handoff guidance loaded once analysis starts.
-        # The first get_test_result_stats call switches the mode to EXECUTING;
+        # An execute_test_set call switches the mode to EXECUTING;
         # without this, insights-summary.md (only loaded in DISCOVERY) is
         # dropped mid-turn and the agent falls back to the single-run patterns
         # in result-analysis.md, summarizing one run instead of the whole scope.

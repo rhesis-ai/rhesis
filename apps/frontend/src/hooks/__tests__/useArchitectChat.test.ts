@@ -359,6 +359,32 @@ describe('useArchitectChat', () => {
       expect(result.current.messages[0].needsConfirmation).toBe(false);
     });
 
+    it('attaches the charts the agent showed', () => {
+      const { result } = renderHook(() =>
+        useArchitectChat({ sessionId: 'sess-1' })
+      );
+      const chart = {
+        title: 'Weakest topics',
+        chart_type: 'horizontal_bar',
+        x: 'topic',
+        measures: [{ key: 'pass_rate', kind: 'rate' }],
+        rows: [{ topic: 'Claims', pass_rate: 25 }],
+      };
+
+      act(() => {
+        subscriptionHandlers[EventType.ARCHITECT_RESPONSE]({
+          type: EventType.ARCHITECT_RESPONSE,
+          payload: {
+            session_id: 'sess-1',
+            content: 'Claims is the weakest topic.',
+            charts: [chart],
+          },
+        });
+      });
+
+      expect(result.current.messages[0].charts).toEqual([chart]);
+    });
+
     it('updates currentMode from response', () => {
       const { result } = renderHook(() =>
         useArchitectChat({ sessionId: 'sess-1' })

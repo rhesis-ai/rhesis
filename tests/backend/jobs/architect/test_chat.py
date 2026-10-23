@@ -18,6 +18,7 @@ tests cover:
 
 from __future__ import annotations
 
+import uuid
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -243,6 +244,68 @@ async def test_persist_state_stores_carried_tool_results():
     assert session_update.agent_state["carried_tool_results"] == [
         "[list_annotations]: one Fail review from Nicolai Bohn"
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "charts, expected", [([{"title": "t"}], {"charts": [{"title": "t"}]}), ([], None)]
+)
+async def test_persist_state_saves_charts_on_the_message(charts, expected):
+    """Charts live on the assistant message so they come back when the session reloads."""
+    agent = MagicMock()
+    agent.dump_state.return_value = MagicMock(
+        mode="discovery",
+        max_iterations=15,
+        discovery_state={},
+        guard_state={},
+        pending_tasks=[],
+        id_to_name={},
+        plan_data=None,
+        carried_tool_results=[],
+    )
+
+    with (
+        patch("rhesis.telemetry.context.get_root_trace_id", return_value=None),
+        patch(
+            "rhesis.backend.app.services.architect.runner.get_db_with_tenant_variables"
+        ) as mock_db_ctx,
+        patch("rhesis.backend.app.crud.architect.create_architect_message") as mock_create,
+        patch("rhesis.backend.app.crud.architect.update_architect_session"),
+    ):
+        mock_db_ctx.return_value.__enter__.return_value = MagicMock()
+
+        await persist_state(
+            agent=agent,
+            response="reply",
+            session_id=_VALID_SESSION_ID,
+            organization_id="org",
+            user_id="user",
+            session_has_title=True,
+            user_message="hi",
+            charts=charts,
+        )
+
+    assert mock_create.call_args.kwargs["message"].metadata_ == expected
+
+
+def test_message_schema_exposes_the_charts_metadata():
+    from types import SimpleNamespace
+
+    from rhesis.backend.app.schemas import ArchitectMessage
+
+    row = SimpleNamespace(
+        id=uuid.uuid4(),
+        session_id=uuid.uuid4(),
+        role="assistant",
+        content="reply",
+        attachments=None,
+        metadata_={"charts": [{"title": "t"}]},
+        created_at=None,
+    )
+
+    dumped = ArchitectMessage.model_validate(row).model_dump(by_alias=True)
+
+    assert dumped["metadata_"] == {"charts": [{"title": "t"}]}
 
 
 # ── _conversation_telemetry_context lifecycle ───────────────────────

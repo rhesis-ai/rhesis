@@ -125,7 +125,7 @@ class TestPhaseIncludeNames:
         assert "phases/analysis.md" in names
 
     def test_run_analyze_executing_keeps_insights_summary(self):
-        # The first get_test_result_stats call switches the mode to EXECUTING;
+        # An execute_test_set call switches the mode to EXECUTING;
         # the Insights handoff guidance must stay loaded so the agent keeps
         # aggregating across all runs instead of falling back to single-run
         # patterns.

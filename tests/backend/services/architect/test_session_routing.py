@@ -46,7 +46,7 @@ async def _rebuild(org, user, session_id):
         patch("rhesis.backend.app.mcp_server.local_tools.LocalToolProvider"),
         patch("rhesis.sdk.agents.tools.ExploreEndpointTool"),
     ):
-        agent, _ = await runner.build_agent(data, session_id, org, user, None)
+        agent, _, _ = await runner.build_agent(data, session_id, org, user, None)
     return agent
 
 

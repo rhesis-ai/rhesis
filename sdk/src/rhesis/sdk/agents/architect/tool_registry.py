@@ -70,12 +70,6 @@ TOOL_REGISTRY: Dict[str, ToolEntry] = {
     "execute_test_set": ToolEntry(
         mode=AgentMode.EXECUTING,
     ),
-    "get_test_result_stats": ToolEntry(
-        mode=AgentMode.EXECUTING,
-    ),
-    "get_test_run_stats": ToolEntry(
-        mode=AgentMode.EXECUTING,
-    ),
 }
 
 

@@ -218,6 +218,7 @@ export default function ArchitectChat({
                 timestamp: new Date(m.created_at || Date.now()),
                 files: attachments?.files,
                 mentions: attachments?.mentions,
+                charts: m.metadata_?.charts,
               };
             });
           setMessages(loaded);
