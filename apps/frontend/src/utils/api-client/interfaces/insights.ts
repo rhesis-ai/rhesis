@@ -1,5 +1,10 @@
 /** Registry entities exposed by Insights endpoints — see backend `services/insights/registry.py`. */
-export type InsightsEntity = 'test_result' | 'metric' | 'test_run' | 'test';
+export type InsightsEntity =
+  | 'test_result'
+  | 'metric'
+  | 'test_run'
+  | 'test'
+  | 'trace';
 
 /** One named sub-query in a POST /insights/query request. */
 export interface InsightsQuery {
