@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -101,9 +102,7 @@ def test_evaluate_successful_evaluation(metric):
     metric.threshold = 5.0
     metric.threshold_operator = ThresholdOperator.GREATER_THAN_OR_EQUAL
 
-    with patch.object(
-        metric.model, "a_generate", new_callable=AsyncMock
-    ) as mock_a_generate:
+    with patch.object(metric.model, "a_generate", new_callable=AsyncMock) as mock_a_generate:
         mock_a_generate.return_value = {
             "score": 7.5,
             "reason": "The output demonstrates good understanding and accuracy",
@@ -144,9 +143,7 @@ def test_evaluate_error_handling(metric):
     metric.threshold = 5.0
     metric.threshold_operator = ThresholdOperator.GREATER_THAN_OR_EQUAL
 
-    with patch.object(
-        metric.model, "a_generate", new_callable=AsyncMock
-    ) as mock_a_generate:
+    with patch.object(metric.model, "a_generate", new_callable=AsyncMock) as mock_a_generate:
         mock_a_generate.side_effect = Exception("LLM service unavailable")
 
         # Call evaluate method
@@ -262,9 +259,7 @@ def test_evaluate_passes_tool_calls_to_template(metric):
     metric.max_score = 10.0
     metric.threshold = 5.0
 
-    with patch.object(
-        metric.model, "a_generate", new_callable=AsyncMock
-    ) as mock_a_generate:
+    with patch.object(metric.model, "a_generate", new_callable=AsyncMock) as mock_a_generate:
         mock_a_generate.return_value = {"score": 8.0, "reason": "ok"}
 
         result = metric.evaluate(
@@ -280,3 +275,77 @@ def test_evaluate_passes_tool_calls_to_template(metric):
         prompt = call_args[0][0]
         assert "Tool Calls:" in prompt
         assert "get_weather" in prompt
+
+
+@pytest.mark.parametrize("use_async", [False, True], ids=["sync", "async"])
+@pytest.mark.parametrize(
+    "score,min_score,max_score",
+    [
+        (-1.0, 0.0, 1.0),
+        (2.0, 0.0, 1.0),
+        (float("nan"), 0.0, 1.0),
+        (float("inf"), 0.0, 1.0),
+        (float("-inf"), 0.0, 1.0),
+        (11.0, 1.0, 10.0),
+    ],
+)
+def test_evaluate_invalid_model_score_returns_error(
+    metric: NumericJudge, score: float, min_score: float, max_score: float, use_async: bool
+) -> None:
+    metric.min_score = min_score
+    metric.max_score = max_score
+    metric.threshold = (min_score + max_score) / 2
+
+    with patch.object(metric.model, "a_generate", new_callable=AsyncMock) as generate:
+        generate.return_value = {"score": score, "reason": "Model response"}
+        inputs = {"input": "Question", "output": "Answer", "expected_output": None}
+        result = (
+            asyncio.run(metric.a_evaluate(**inputs)) if use_async else metric.evaluate(**inputs)
+        )
+
+    assert result.score == 0.0
+    assert result.details["is_successful"] is False
+    assert result.details["exception_type"] == "ValueError"
+    assert "finite and between" in result.details["error"]
+    assert result.details["min_score"] == min_score
+    assert result.details["max_score"] == max_score
+
+
+@pytest.mark.parametrize("use_async", [False, True], ids=["sync", "async"])
+@pytest.mark.parametrize(
+    "score,min_score,max_score,is_successful",
+    [
+        (0.0, 0.0, 1.0, False),
+        (0.5, 0.0, 1.0, True),
+        (1.0, 0.0, 1.0, True),
+        (1.0, 1.0, 10.0, False),
+        (5.5, 1.0, 10.0, True),
+        (10.0, 1.0, 10.0, True),
+        (-10.0, -10.0, -1.0, False),
+        (-5.5, -10.0, -1.0, True),
+        (-1.0, -10.0, -1.0, True),
+    ],
+)
+def test_evaluate_valid_model_score_preserves_configured_scale(
+    metric: NumericJudge,
+    score: float,
+    min_score: float,
+    max_score: float,
+    is_successful: bool,
+    use_async: bool,
+) -> None:
+    metric.min_score = min_score
+    metric.max_score = max_score
+    metric.threshold = (min_score + max_score) / 2
+
+    with patch.object(metric.model, "a_generate", new_callable=AsyncMock) as generate:
+        generate.return_value = {"score": score, "reason": "Valid model response"}
+        inputs = {"input": "Question", "output": "Answer", "expected_output": None}
+        result = (
+            asyncio.run(metric.a_evaluate(**inputs)) if use_async else metric.evaluate(**inputs)
+        )
+
+    assert result.score == score
+    assert result.details["score"] == score
+    assert result.details["is_successful"] is is_successful
+    assert "error" not in result.details
