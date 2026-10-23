@@ -6,6 +6,9 @@ trace as the traces list and GET /telemetry/metrics. The trace's own fields come
 from its first root span, which is the canonical one when a trace has several.
 """
 
+from datetime import datetime
+from typing import Optional
+
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
@@ -18,9 +21,19 @@ from rhesis.backend.app.crud.usage_sql import (
 )
 
 
-def trace_stats(db: Session):
+def trace_stats(
+    db: Session, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None
+):
     T = models.Trace
-    spans = db.query(T).filter(T.deleted_at.is_(None)).subquery("trace_spans")
+    spans = db.query(T).filter(T.deleted_at.is_(None))
+    # The window has to apply here: Postgres can't push a filter on the outer query
+    # down through the per-trace DISTINCT ON and GROUP BY, so every query would
+    # otherwise collapse the project's whole span history.
+    if start_date is not None:
+        spans = spans.filter(T.start_time >= start_date)
+    if end_date is not None:
+        spans = spans.filter(T.start_time <= end_date)
+    spans = spans.subquery("trace_spans")
 
     roots = (
         db.query(

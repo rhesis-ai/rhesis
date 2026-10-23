@@ -75,7 +75,8 @@ class Entity:
     # (view, 'pass'|'fail') -> predicate behind its outcome param.
     id_column: Any = None
     apply_outcome: Optional[Callable] = None
-    # (db) -> subquery, for an entity no view can express; see the module docstring.
+    # (db, start_date, end_date) -> subquery, for an entity no view can express; see the
+    # module docstring.
     source: Optional[Callable] = None
 
 

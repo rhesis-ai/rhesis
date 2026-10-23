@@ -507,3 +507,13 @@ class TestTraceEntity:
 
         (row,) = _trace_rows(authenticated_client, [], ["count"])
         assert row["count"] == 3
+
+    def test_date_window_bounds_the_traces(self, authenticated_client, traces):
+        (row,) = _trace_rows(
+            authenticated_client, [], ["count"], start_date="2026-09-16T00:00:00+00:00"
+        )
+        assert row["count"] == 0
+        (row,) = _trace_rows(
+            authenticated_client, [], ["count"], end_date="2026-09-16T00:00:00+00:00"
+        )
+        assert row["count"] == 3

@@ -95,7 +95,8 @@ def _base_query(
     Returns (columns, query) -- callers add GROUP BY / DISTINCT on top.
     """
     entry = _entry(entity)
-    cols = _Columns(entry, entry.source(db) if entry.source else entry.view)
+    view = entry.source(db, start_date, end_date) if entry.source else entry.view
+    cols = _Columns(entry, view)
     q = db.query(cols.view)
 
     if organization_id is not None:
