@@ -286,7 +286,7 @@ function groupRowsByRequirementId(
 
 /**
  * Build requirement columns straight from `/insights/query` rows: `requirementRows`
- * (group_by=[requirement_id,requirement]) already are "requirements with data" -- no
+ * (group_by=[requirement], which returns requirement and requirement_id) already are "requirements with data" -- no
  * separate requirement list fetch needed. `topicRows`/`metricRows` are grouped
  * by requirement_id to fill each column's breakdown lists.
  */
@@ -328,10 +328,7 @@ export function buildRequirementColumns(
     'topic',
     'topic_id'
   );
-  const metricsByRequirement = groupRowsByRequirementId(
-    metricRows,
-    'metric_name'
-  );
+  const metricsByRequirement = groupRowsByRequirementId(metricRows, 'metric');
 
   const columns: RequirementInsightColumn[] = requirementRows
     .filter(
@@ -437,8 +434,8 @@ export async function fetchRequirementInsights(
     ...timeParams,
   };
 
-  // The `metric` entity's registry filters don't include topic_ids/status_ids
-  // (see services/insights/registry.py) -- sending them would 400.
+  // The `metric` entity's registry filters don't include status_ids
+  // (see services/insights/registry.py) -- sending it would 400.
   const metricQuery = {
     filters: { test_run_ids: testRunIds, ...requirementFilter },
     ...timeParams,
@@ -453,25 +450,25 @@ export async function fetchRequirementInsights(
     },
     requirements: {
       entity: 'test_result',
-      group_by: ['requirement_id', 'requirement'],
+      group_by: ['requirement'],
       measures,
       ...testResultQuery,
     },
     topics: {
       entity: 'test_result',
-      group_by: ['requirement_id', 'topic_id', 'topic'],
+      group_by: ['requirement', 'topic'],
       measures,
       ...testResultQuery,
     },
     metrics: {
       entity: 'metric',
-      group_by: ['requirement_id', 'metric_name'],
+      group_by: ['requirement', 'metric'],
       measures,
       ...metricQuery,
     },
     allRequirements: {
       entity: 'test_result',
-      group_by: ['requirement_id', 'requirement'],
+      group_by: ['requirement'],
       measures,
       ...optionsQuery,
     },

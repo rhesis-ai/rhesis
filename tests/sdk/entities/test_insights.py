@@ -104,3 +104,43 @@ def test_test_runs_stats_raises_not_implemented():
 def test_test_run_instance_stats_raises_not_implemented():
     with pytest.raises(NotImplementedError, match="Insights"):
         TestRun(id="run-1").stats()
+
+
+@patch("requests.request")
+def test_insights_get_sends_shaping_params_only_when_set(mock_request, insights_response):
+    """time_grain/order_by/limit/min_count are forwarded when set and left out otherwise."""
+    mock_response = MagicMock()
+    mock_response.json.return_value = insights_response
+    mock_request.return_value = mock_response
+
+    Insights(
+        entity="test_result",
+        group_by=["period"],
+        measures=["pass_rate"],
+        time_grain="week",
+        order_by=["-pass_rate"],
+        limit=5,
+        min_count=10,
+    ).get()
+
+    _, kwargs = mock_request.call_args
+    assert kwargs["params"] == {
+        "entity": "test_result",
+        "group_by": ["period"],
+        "measures": ["pass_rate"],
+        "time_grain": "week",
+        "order_by": ["-pass_rate"],
+        "limit": 5,
+        "min_count": 10,
+    }
+
+
+@patch("requests.request")
+def test_insights_describe_hits_schema_endpoint(mock_request):
+    mock_response = MagicMock()
+    mock_response.json.return_value = {"time_grains": ["month"], "entities": {}}
+    mock_request.return_value = mock_response
+
+    assert Insights.describe()["time_grains"] == ["month"]
+    _, kwargs = mock_request.call_args
+    assert kwargs["url"] == "http://test:8000/insights/schema"

@@ -11,6 +11,7 @@ from rhesis.backend.app.dependencies import get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.insights import (
     InsightsValidationError,
+    describe,
     run_ids,
     run_queries,
     run_query,
@@ -24,7 +25,9 @@ def insights_filters(
     requirement_ids: Optional[List[UUID]] = Query(None, description="Filter by requirement IDs"),
     category_ids: Optional[List[UUID]] = Query(None, description="Filter by category IDs"),
     topic_ids: Optional[List[UUID]] = Query(None, description="Filter by topic IDs"),
-    status_ids: Optional[List[UUID]] = Query(None, description="Filter by test status IDs"),
+    status_ids: Optional[List[UUID]] = Query(
+        None, description="Filter by the entity's own status IDs"
+    ),
     test_ids: Optional[List[UUID]] = Query(None, description="Filter by test IDs"),
     test_type_ids: Optional[List[UUID]] = Query(None, description="Filter by test type IDs"),
     user_ids: Optional[List[UUID]] = Query(None, description="Filter by test creator user IDs"),
@@ -35,8 +38,8 @@ def insights_filters(
     tags: Optional[List[str]] = Query(None, description="Filter by tags"),
     metric_names: Optional[List[str]] = Query(None, description="Filter by metric names"),
     endpoint_ids: Optional[List[UUID]] = Query(None, description="Filter by endpoint IDs"),
-    status_names: Optional[List[str]] = Query(
-        None, description="Filter by status names (e.g. test_run status)"
+    executor_ids: Optional[List[UUID]] = Query(
+        None, description="Filter by IDs of users who started the run"
     ),
 ) -> dict:
     """Shared registry filter query params for GET /insights and GET /insights/ids."""
@@ -56,7 +59,7 @@ def insights_filters(
         "tags": tags,
         "metric_names": metric_names,
         "endpoint_ids": endpoint_ids,
-        "status_names": status_names,
+        "executor_ids": executor_ids,
     }
     return {key: value for key, value in filters.items() if value}
 
@@ -75,6 +78,16 @@ def get_insights(
     entity: str = Query(..., description="Registry entity: test_result, metric, test_run, or test"),
     group_by: List[str] = Query(default=[], description="Dimensions to group by"),
     measures: List[str] = Query(default=["count"], description="Measures to compute"),
+    time_grain: str = Query(
+        "month", description="Bucket size for the period dimension: day, week, month, quarter, year"
+    ),
+    order_by: List[str] = Query(
+        default=[], description="Dimensions or measures to sort by; prefix with - for descending"
+    ),
+    limit: Optional[int] = Query(None, description="Return at most this many rows (1-1000)"),
+    min_count: Optional[int] = Query(
+        None, description="Drop groups with fewer than this many rows"
+    ),
     filters: dict = Depends(insights_filters),
     dates: dict = Depends(insights_date_range),
     db: Session = Depends(get_tenant_db_session),
@@ -84,9 +97,11 @@ def get_insights(
 
     Every param is checked against the registry entry for `entity` before it
     reaches SQL -- an unknown group_by/measure/filter returns 400, not a query.
+    GET /insights/schema lists what each entity accepts.
 
     Example:
-    `GET /insights/?entity=test_result&group_by=requirement&measures=count&measures=pass_rate`
+    `GET /insights/?entity=test_result&group_by=topic&measures=count&measures=pass_rate
+    &order_by=pass_rate&limit=5&min_count=10`
     """
     try:
         return run_query(
@@ -96,10 +111,20 @@ def get_insights(
             measures=measures,
             filters=filters,
             organization_id=current_user.organization_id,
+            time_grain=time_grain,
+            order_by=order_by,
+            limit=limit,
+            min_count=min_count,
             **dates,
         )
     except InsightsValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/schema", **capability(Permission.Insights.READ))
+def get_insights_schema(current_user: User = Depends(require_current_user_or_token)):
+    """Every entity's dimensions, measures and filters, with what each one means."""
+    return describe()
 
 
 @router.get(
@@ -163,7 +188,7 @@ def query_insights(
         POST /insights/query
         {"topics": {"entity": "test_result", "group_by": ["requirement", "topic"],
                     "measures": ["count", "pass_rate"]},
-         "metrics": {"entity": "metric", "group_by": ["requirement_id", "metric_name"],
+         "metrics": {"entity": "metric", "group_by": ["requirement", "metric"],
                      "measures": ["count", "passed", "pass_rate"]}}
     """
     try:

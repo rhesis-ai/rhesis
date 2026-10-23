@@ -41,7 +41,15 @@ function namedDimensionItems(
     .flatMap(row => {
       const name = row[nameKey];
       if (typeof name !== 'string' || !name) return [];
-      return [{ name, ...rowToPassFailStats(row) }];
+      // Rows group by id, so two categories or topics can share a name.
+      const id = row[`${nameKey}_id`];
+      return [
+        {
+          name,
+          ...(typeof id === 'string' ? { id } : {}),
+          ...rowToPassFailStats(row),
+        },
+      ];
     })
     .sort((a, b) => a.pass_rate - b.pass_rate);
 }
@@ -51,7 +59,7 @@ function DimensionList({ items }: { items: DimensionItem[] }) {
     <Stack spacing={0.5}>
       {items.map(item => (
         <Box
-          key={item.name}
+          key={item.id ?? item.name}
           sx={{
             display: 'flex',
             alignItems: 'center',
