@@ -68,12 +68,12 @@ A key missing from a test's `test_parameters` renders as an empty string, withou
 
 ### Structured Input
 
-If your API expects an object rather than text, write the object as JSON in the test input and map `input` to the field:
+Test inputs are text. A field that holds only `"{{ input }}"` sends the input as a string, even when the input is JSON. If your API expects an object, add the `fromjson` filter:
 
 <CodeBlock filename="structured-input-request.json" language="json">
   {`{
   "workflow": "{{ test_parameters.workflow }}",
-  "payload": "{{ input }}"
+  "payload": "{{ input | fromjson }}"
 }`}
 </CodeBlock>
 
@@ -89,13 +89,13 @@ With the test input `{"order_id": "A-2048", "customer": {"tier": "gold"}}` and t
 }`}
 </CodeBlock>
 
-After rendering, Rhesis parses each field's value as JSON and sends the parsed value when that succeeds. Do not add `| tojson` to `input` here: it encodes the input a second time, so your API receives a quoted string instead of an object.
+- `fromjson` must be the whole field value. `from_json` is the same filter.
+- If the input is not valid JSON, the request is not sent and the test fails with a template error.
+- Don't use `tojson` here. It turns a value into JSON text, so your API receives a quoted string.
 
-The parsing applies to every field, so:
+Structured data that is not the prompt itself can go in `test_parameters` instead. A field that holds only `"{{ test_parameters.payload }}"` sends the value with its type unchanged: objects stay objects, and the string `"42"` stays a string.
 
-- An input that is not valid JSON is sent as a string.
-- A field that renders to a number, `true`, `false` or `null` is sent as that type. A `test_parameters.store_id` of `"42"` arrives as `42`.
-- A field with text around the variable, such as `"Order: {{ input }}"`, is not valid JSON and stays a string.
+A field with a filter, such as `"{{ test_parameters.limit | default(10) }}"`, is parsed as JSON after rendering, so it arrives as the number `10`. A field with text around the variable, such as `"Order: {{ input }}"`, stays a string.
 
 ## Raw Body Templates
 
@@ -106,6 +106,8 @@ If your template renders to a JSON object with a `__body__` key, Rhesis unwraps 
   "__body__": "{{ input }}"
 }`}
 </CodeBlock>
+
+A raw body template inserts `{{ input }}` as written, so an input that holds JSON lands in the body as JSON. `fromjson` works only on field values, not inside a raw body.
 
 ## File Format Filters
 
