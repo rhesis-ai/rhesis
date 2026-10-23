@@ -15,8 +15,13 @@ export type ArchitectChartType =
   | 'radar'
   | 'kpi';
 
-/** From the insights registry: a rate is 0-100, a score is 0-1, a count is a whole number. */
-export type MeasureKind = 'count' | 'rate' | 'score';
+/**
+ * From the insights registry: a rate is 0-100, a score is 0-1, a count is a whole
+ * number, a duration is in milliseconds and a currency amount is in USD.
+ */
+export type MeasureKind = 'count' | 'rate' | 'score' | 'duration' | 'currency';
+
+const MS_PER_SECOND = 1000;
 
 export interface ChartMeasure {
   key: string;
@@ -73,6 +78,13 @@ export function formatMeasure(
   if (value === null || value === undefined) return '';
   if (kind === 'rate') return `${Number(value.toFixed(1))}%`;
   if (kind === 'score') return value.toFixed(2);
+  if (kind === 'duration') {
+    return value < MS_PER_SECOND
+      ? `${Math.round(value)} ms`
+      : `${Number((value / MS_PER_SECOND).toFixed(2))} s`;
+  }
+  // LLM calls often cost fractions of a cent, so small amounts keep more digits.
+  if (kind === 'currency') return `$${value.toFixed(value < 1 ? 4 : 2)}`;
   return value.toLocaleString();
 }
 
@@ -179,7 +191,7 @@ export function valueBounds(kind: MeasureKind): {
 
 /**
  * Where a value sits between bad (0) and good (1), for heat-table shading.
- * Counts have no good direction, so they shade by size relative to the largest.
+ * Other kinds have no fixed scale, so they shade by size relative to the largest.
  */
 export function heatPosition(
   value: number,
@@ -189,6 +201,11 @@ export function heatPosition(
   if (kind === 'rate') return Math.min(Math.max(value / 100, 0), 1);
   if (kind === 'score') return Math.min(Math.max(value, 0), 1);
   return maxCount > 0 ? value / maxCount : 0;
+}
+
+/** Rates and scores have a good direction; everything else is shaded by size. */
+export function hasGoodDirection(kind: MeasureKind): boolean {
+  return kind === 'rate' || kind === 'score';
 }
 
 /** Table columns for the "show data" view: x, series, then the measures. */

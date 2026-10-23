@@ -312,7 +312,7 @@ def test_sdk_docs_tables_match_the_registry():
     for line in page.splitlines():
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
         if line.startswith("| `") and cells[0].strip("`") in REGISTRY:
-            names = [set(re.findall(r"`([a-z_]+)`", c)) for c in cells[1:]]
+            names = [set(re.findall(r"`([a-z0-9_]+)`", c)) for c in cells[1:]]
             rows.setdefault(cells[0].strip("`"), []).append(names)
 
     for entity, entry in REGISTRY.items():
@@ -320,3 +320,200 @@ def test_sdk_docs_tables_match_the_registry():
         assert group_by == {*entry.dimensions, PERIOD}, entity
         assert measures == set(entry.measures), entity
         assert filters == set(entry.filters), entity
+
+
+@pytest.fixture
+def traces(test_db, test_organization, db_user, db_project, db_test_run):
+    """Two traces from a test run (one with an errored span) and one production trace.
+
+    Tokens sit on llm.invoke child spans and cost on every span's enriched_data, as
+    ingestion and enrichment leave them, so the per-trace collapse is exercised.
+    """
+    from rhesis.backend.app.scope import RequestScope
+
+    started = datetime(2026, 9, 15, 10, tzinfo=timezone.utc)
+
+    def span(trace_id, span_id, *, parent=None, env="development", ms, error=False, **extra):
+        return models.Trace(
+            trace_id=trace_id,
+            span_id=span_id,
+            parent_span_id=parent,
+            project_id=db_project.id,
+            organization_id=test_organization.id,
+            environment=env,
+            span_name="ai.llm.invoke" if parent else "chat",
+            span_kind="INTERNAL",
+            start_time=started,
+            end_time=started + timedelta(milliseconds=ms),
+            duration_ms=ms,
+            status_code="ERROR" if error else "OK",
+            events=[],
+            links=[],
+            resource={},
+            **extra,
+        )
+
+    def llm(tokens):
+        return {
+            "ai.operation.type": "llm.invoke",
+            "ai.llm.tokens.input": tokens[0],
+            "ai.llm.tokens.output": tokens[1],
+            "ai.llm.tokens.total": tokens[0] + tokens[1],
+        }
+
+    def cost(usd):
+        return {"costs": {"total_cost_usd": usd}}
+
+    run_id = db_test_run.id
+    test_db.add_all(
+        [
+            span(
+                "a" * 32,
+                "a1" * 8,
+                ms=1000,
+                test_run_id=run_id,
+                attributes={},
+                enriched_data=cost(0.01),
+            ),
+            span(
+                "a" * 32,
+                "a2" * 8,
+                parent="a1" * 8,
+                ms=900,
+                attributes=llm((100, 50)),
+                enriched_data=cost(0.01),
+            ),
+            span(
+                "b" * 32,
+                "b1" * 8,
+                ms=3000,
+                test_run_id=run_id,
+                attributes={},
+                enriched_data=cost(0.03),
+            ),
+            span(
+                "b" * 32,
+                "b2" * 8,
+                parent="b1" * 8,
+                ms=2900,
+                error=True,
+                attributes=llm((200, 100)),
+                enriched_data=cost(0.03),
+            ),
+            span("c" * 32, "c1" * 8, env="production", ms=500, attributes={}, enriched_data={}),
+        ]
+    )
+    test_db.commit()
+
+    previous = test_db.info.get("_scope")
+    test_db.info["_scope"] = RequestScope(
+        organization_id=str(test_organization.id),
+        user_id=str(db_user.id),
+        project_id=str(db_project.id),
+    )
+    yield db_test_run
+    if previous is None:
+        test_db.info.pop("_scope", None)
+    else:
+        test_db.info["_scope"] = previous
+
+
+def _trace_rows(client, group_by, measures, **params):
+    response = client.get(
+        "/insights/",
+        params={"entity": "trace", "group_by": group_by, "measures": measures, **params},
+    )
+    assert response.status_code == status.HTTP_200_OK, response.text
+    return response.json()["rows"]
+
+
+@pytest.mark.unit
+class TestTraceEntity:
+    def test_totals_count_each_trace_once(self, authenticated_client, traces):
+        (row,) = _trace_rows(
+            authenticated_client,
+            [],
+            ["count", "error_count", "error_rate", "tokens", "cost_usd", "avg_duration_ms"],
+        )
+        # Tokens from the llm.invoke spans only; cost once per trace, not per span row.
+        assert row == {
+            "count": 3,
+            "error_count": 1,
+            "error_rate": 33.33,
+            "tokens": 450,
+            "cost_usd": 0.04,
+            "avg_duration_ms": 1500.0,
+        }
+
+    def test_by_test_run_and_endpoint(self, authenticated_client, traces):
+        rows = _trace_rows(authenticated_client, ["test_run"], ["count", "p95_duration_ms"])
+        by_run = {r["test_run_id"]: r for r in rows}
+        assert by_run[str(traces.id)]["count"] == 2
+        assert by_run[str(traces.id)]["test_run"] == traces.name
+        assert by_run[None]["count"] == 1  # the production trace has no run
+
+        (endpoint,) = _trace_rows(
+            authenticated_client, ["endpoint"], ["count"], test_run_ids=[str(traces.id)]
+        )
+        assert endpoint["endpoint_id"] and endpoint["count"] == 2
+
+    def test_by_environment_and_errors(self, authenticated_client, traces):
+        rows = _trace_rows(authenticated_client, ["environment"], ["count", "cost_usd"])
+        assert {r["environment"]: r["count"] for r in rows} == {"development": 2, "production": 1}
+
+        rows = _trace_rows(
+            authenticated_client, ["has_error"], ["count"], environments=["development"]
+        )
+        assert {r["has_error"]: r["count"] for r in rows} == {False: 1, True: 1}
+
+    def test_ids_are_not_supported(self, authenticated_client, traces):
+        response = authenticated_client.get("/insights/ids", params={"entity": "trace"})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_other_projects_traces_are_left_out(
+        self,
+        authenticated_client,
+        traces,
+        test_db,
+        test_organization,
+        db_project,
+        db_inactive_project,
+    ):
+        from tests.backend.fixtures.rls import scope_to_project
+
+        started = datetime(2026, 9, 15, 10, tzinfo=timezone.utc)
+        scope_to_project(test_db, db_inactive_project.id)
+        test_db.add(
+            models.Trace(
+                trace_id="d" * 32,
+                span_id="d1" * 8,
+                project_id=db_inactive_project.id,
+                organization_id=test_organization.id,
+                environment="development",
+                span_name="chat",
+                span_kind="INTERNAL",
+                start_time=started,
+                end_time=started,
+                duration_ms=1,
+                status_code="OK",
+                attributes={},
+                events=[],
+                links=[],
+                resource={},
+            )
+        )
+        test_db.commit()
+        scope_to_project(test_db, db_project.id)
+
+        (row,) = _trace_rows(authenticated_client, [], ["count"])
+        assert row["count"] == 3
+
+    def test_date_window_bounds_the_traces(self, authenticated_client, traces):
+        (row,) = _trace_rows(
+            authenticated_client, [], ["count"], start_date="2026-09-16T00:00:00+00:00"
+        )
+        assert row["count"] == 0
+        (row,) = _trace_rows(
+            authenticated_client, [], ["count"], end_date="2026-09-16T00:00:00+00:00"
+        )
+        assert row["count"] == 3

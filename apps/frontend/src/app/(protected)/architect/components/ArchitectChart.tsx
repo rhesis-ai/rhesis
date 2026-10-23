@@ -25,6 +25,7 @@ import {
   dataColumns,
   formatDimension,
   formatMeasure,
+  hasGoodDirection,
   heatPosition,
   humanize,
   seriesValues,
@@ -220,7 +221,7 @@ function HeatTable({ spec }: ArchitectChartProps) {
 
   const shade = (value: number) => {
     const position = heatPosition(value, measure.kind, maxCount);
-    if (measure.kind === 'count') {
+    if (!hasGoodDirection(measure.kind)) {
       return alpha(theme.palette.primary.main, position * 0.6);
     }
     // Good values lean green, poor values lean red, the middle stays neutral.

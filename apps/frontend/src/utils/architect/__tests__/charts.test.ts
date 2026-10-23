@@ -24,6 +24,10 @@ describe('architect chart helpers', () => {
     expect(formatMeasure(0.6429, 'score')).toBe('0.64');
     expect(formatMeasure(1200, 'count')).toBe((1200).toLocaleString());
     expect(formatMeasure(null, 'rate')).toBe('');
+    expect(formatMeasure(850.4, 'duration')).toBe('850 ms');
+    expect(formatMeasure(1500, 'duration')).toBe('1.5 s');
+    expect(formatMeasure(0.0123456, 'currency')).toBe('$0.0123');
+    expect(formatMeasure(12.5, 'currency')).toBe('$12.50');
   });
 
   it('labels periods by their grain', () => {
@@ -80,6 +84,7 @@ describe('architect chart helpers', () => {
     expect(heatPosition(25, 'rate', 0)).toBe(0.25);
     expect(heatPosition(0.9, 'score', 0)).toBe(0.9);
     expect(heatPosition(5, 'count', 10)).toBe(0.5);
+    expect(heatPosition(300, 'duration', 1200)).toBe(0.25);
   });
 
   it('lists data columns as dimensions then measures', () => {

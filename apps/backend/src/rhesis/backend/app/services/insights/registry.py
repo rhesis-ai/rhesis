@@ -8,6 +8,10 @@ the Architect and MCP clients read.
 
 A dimension with an `id` column groups by that id and returns both keys in
 each row (`topic` and `topic_id`), so two entities sharing a name stay apart.
+
+An entity with a `source` is built per query instead of read from a view. Its
+dimensions, filters and date column name source columns as strings, and its
+measures take the source's column collection.
 """
 
 from dataclasses import dataclass
@@ -24,6 +28,7 @@ from rhesis.backend.app.models.stats_views import (
 )
 from rhesis.backend.app.models.tag import Tag, TaggedItem
 from rhesis.backend.app.models.test import test_test_set_association
+from rhesis.backend.app.services.insights.trace_source import trace_stats
 
 TR = TestResultStatsView
 RN = TestRunStatsView
@@ -44,8 +49,8 @@ class Dimension:
 
 @dataclass(frozen=True)
 class Measure:
-    build: Callable[[], Any]
-    kind: str  # "count", "rate" (0-100) or "score"
+    build: Callable[..., Any]
+    kind: str  # "count", "rate" (0-100), "score" (0-1), "duration" (ms) or "currency" (USD)
     description: str
 
 
@@ -70,6 +75,9 @@ class Entity:
     # (view, 'pass'|'fail') -> predicate behind its outcome param.
     id_column: Any = None
     apply_outcome: Optional[Callable] = None
+    # (db, start_date, end_date) -> subquery, for an entity no view can express; see the
+    # module docstring.
+    source: Optional[Callable] = None
 
 
 def _count():
@@ -133,6 +141,23 @@ def _metric_success_outcome(view, outcome: str):
 
 _PASSED = TR.result == OverallTestResult.PASSED
 _FAILED = TR.result == OverallTestResult.FAILED
+
+
+def _trace_rate(c):
+    rate = case((func.count() == 0, 0), else_=func.sum(c.error_flag) * 100.0 / func.count())
+    return cast(func.round(cast(rate, Numeric), 2), Float)
+
+
+def _trace_percentile(fraction):
+    return lambda c: cast(
+        func.round(cast(func.percentile_cont(fraction).within_group(c.duration_ms), Numeric), 2),
+        Float,
+    )
+
+
+def _trace_round(aggregate, column, places):
+    return lambda c: cast(func.round(cast(aggregate(c[column]), Numeric), places), Float)
+
 
 REGISTRY: Dict[str, Entity] = {
     "test_result": Entity(
@@ -354,6 +379,62 @@ REGISTRY: Dict[str, Entity] = {
                 subquery=_test_set_ids_subquery,
             ),
             "tags": Filter(TS.test_id, "Test tag names", subquery=_tags_subquery),
+        },
+    ),
+    "trace": Entity(
+        view=None,
+        source=trace_stats,
+        description=(
+            "One row per trace (an LLM application request). Use for latency, token and cost "
+            "questions: p95 latency per endpoint, cost per day, error rate by operation. Only "
+            "test-run traces have a test_run and endpoint."
+        ),
+        date_column="start_time",
+        dimensions={
+            "environment": Dimension("environment", "Environment the trace was sent from"),
+            "operation": Dimension("operation", "Name of the trace's root span"),
+            "test_run": Dimension("test_run_name", "Test run that produced it", "test_run_id"),
+            "endpoint": Dimension("endpoint_name", "Endpoint the test run targeted", "endpoint_id"),
+            "has_error": Dimension("has_error", "True when any span in the trace errored"),
+        },
+        measures={
+            "count": Measure(lambda c: func.count(), "count", "Number of traces"),
+            "error_count": Measure(
+                lambda c: cast(func.sum(c.error_flag), Integer),
+                "count",
+                "Traces with an errored span",
+            ),
+            "error_rate": Measure(_trace_rate, "rate", "Errored traces / all traces x 100"),
+            "avg_duration_ms": Measure(
+                _trace_round(func.avg, "duration_ms", 2), "duration", "Mean root-span duration"
+            ),
+            "p50_duration_ms": Measure(_trace_percentile(0.5), "duration", "Median duration"),
+            "p95_duration_ms": Measure(
+                _trace_percentile(0.95), "duration", "95th percentile duration"
+            ),
+            "p99_duration_ms": Measure(
+                _trace_percentile(0.99), "duration", "99th percentile duration"
+            ),
+            "tokens": Measure(
+                lambda c: cast(func.sum(c.tokens), Integer), "count", "Tokens across LLM calls"
+            ),
+            "input_tokens": Measure(
+                lambda c: cast(func.sum(c.input_tokens), Integer), "count", "Input tokens"
+            ),
+            "output_tokens": Measure(
+                lambda c: cast(func.sum(c.output_tokens), Integer), "count", "Output tokens"
+            ),
+            "cost_usd": Measure(
+                _trace_round(func.sum, "cost_usd", 6), "currency", "Total LLM cost in USD"
+            ),
+            "avg_cost_usd": Measure(
+                _trace_round(func.avg, "cost_usd", 6), "currency", "Mean LLM cost per trace in USD"
+            ),
+        },
+        filters={
+            "test_run_ids": Filter("test_run_id", "Test run IDs"),
+            "endpoint_ids": Filter("endpoint_id", "Endpoint IDs (test-run traces only)"),
+            "environments": Filter("environment", "Environment names"),
         },
     ),
 }

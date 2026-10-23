@@ -1,5 +1,10 @@
 /** Registry entities exposed by Insights endpoints — see backend `services/insights/registry.py`. */
-export type InsightsEntity = 'test_result' | 'metric' | 'test_run' | 'test';
+export type InsightsEntity =
+  | 'test_result'
+  | 'metric'
+  | 'test_run'
+  | 'test'
+  | 'trace';
 
 /** One named sub-query in a POST /insights/query request. */
 export interface InsightsQuery {
@@ -26,9 +31,11 @@ export type InsightsQueryRequest = Record<string, InsightsQuery>;
 
 /**
  * One aggregated row: the requested `group_by` dimension values plus the requested
- * measures. A dimension backed by an entity also returns `<dimension>_id`.
+ * measures. A dimension backed by an entity also returns `<dimension>_id`. Values
+ * can be booleans (`is_unrun`, `has_error`) or null (a test with no topic, a
+ * trace from outside a test run).
  */
-export type InsightsRow = Record<string, string | number>;
+export type InsightsRow = Record<string, string | number | boolean | null>;
 
 export interface InsightsResponse {
   entity: string;
