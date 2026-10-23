@@ -65,9 +65,10 @@ include = ["src/rhesis/py.typed"]
 
 [tool.uv]
 exclude-newer = "1 week"
-exclude-newer-package = { tornado = false, litellm = false, langsmith = false, langchain-core = false, cryptography = false, python-multipart = false, certifi = false, uv = false, pillow = false }
+exclude-newer-package = { tornado = false, litellm = false, langsmith = false, langchain-core = false, cryptography = false, python-multipart = false, certifi = false, uv = false, pillow = false, virtualenv = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
+    "opentelemetry-api>=1.45.1",
     "certifi>=2026.10.19",
     "anyio>=4.14.2",
     "pyasn1>=0.6.4",
@@ -88,5 +89,5 @@ constraint-dependencies = [
     "soupsieve>=2.9.0",
     "uv>=0.13.4",
     "pillow>=13.0.0",
-    "virtualenv>=21.7.13",
+    "virtualenv>=21.14.9",
 ]

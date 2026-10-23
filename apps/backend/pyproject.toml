@@ -131,9 +131,10 @@ explicit = true
 [tool.uv]
 exclude-newer = "1 week"
 # Allow newer versions for packages with recent security patches (CVEs).
-exclude-newer-package = { torch = false, jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false, certifi = false, uv = false, nltk = false, pillow = false }
+exclude-newer-package = { torch = false, jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false, certifi = false, uv = false, nltk = false, pillow = false, virtualenv = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
+    "opentelemetry-api>=1.45.1",
     "nltk>=3.10.4",
     "certifi>=2026.10.19",
     "anyio>=4.14.2",
@@ -146,7 +147,7 @@ constraint-dependencies = [
     "jupyterlab>=4.5.11",
     "jupyter-server>=2.20.0",
     "notebook>=7.6.3",
-    "nbconvert>=7.17.1",
+    "nbconvert>=7.17.2",
     "lxml>=6.1.0",
     "langchain-text-splitters>=1.1.2",
     "langsmith>=0.12.2",
@@ -181,7 +182,7 @@ constraint-dependencies = [
     "multidict>=6.9.1",
     "werkzeug>=3.1.9",
     "oauthlib>=4.0.0",
-    "virtualenv>=21.7.13",
+    "virtualenv>=21.14.9",
 ]
 # garak declares datasets<4.0, which transitively caps fsspec at <=2025.3.0 and so
 # collides with gcsfs>=2025.9.0 (fsspec==2025.10.0). The existing environment already

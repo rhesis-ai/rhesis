@@ -1674,7 +1674,7 @@ dev = [
     { name = "sphinx-rtd-theme", specifier = ">=3.0.2" },
     { name = "types-pytz", specifier = ">=2025.2.0.20250326" },
     { name = "types-requests", specifier = ">=2.32.0" },
-    { name = "virtualenv", specifier = ">=21.7.13" },
+    { name = "virtualenv", specifier = ">=21.14.9" },
 ]
 
 [[package]]
