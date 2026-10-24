@@ -2348,6 +2348,21 @@ class TestArchitectCompactListRendering:
         )
         assert out is None
 
+    def test_runs_keep_their_status_and_date(self):
+        """Names alone left "the last two runs" undecidable, and the model re-listed 14 times."""
+        runs = [
+            {
+                "id": "r1",
+                "name": "misty-pine",
+                "status": {"name": "Completed"},
+                "created_at": "2026-10-22T10:00:00Z",
+            }
+        ]
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps(runs))
+        assert "misty-pine" in out
+        assert "status=Completed" in out
+        assert "created_at=2026-10-22T10:00:00Z" in out
+
     def test_returns_none_for_invalid_json(self):
         out = ArchitectAgent._compact_list_result_for_history("not json")
         assert out is None

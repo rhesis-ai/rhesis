@@ -102,6 +102,7 @@ When `has_more: true`, choose the right resolution strategy:
 1. **Looking for a specific named entity** → re-call with `$filter` (e.g. `$filter=tolower(name) eq 'my endpoint'`). Filtered results are paginated independently so the match will appear if it exists.
 2. **Need a full enumeration** (e.g. counting all requirements, building an exhaustive list) → re-call with `skip=_pagination.next_skip` and accumulate pages until `has_more: false`.
 3. **Browsing for context** (e.g. "what requirements exist?") → it is fine to work with the first page and tell the user there are more. Offer to filter or paginate on request.
+4. **The latest or last N** (e.g. "the last two runs") → lists come newest first, so the first page already holds them. Read `created_at` on the first page and stop; do not page through older results.
 
 Never pass `limit` directly in your tool arguments — page size is controlled by the server and cannot be changed.
 

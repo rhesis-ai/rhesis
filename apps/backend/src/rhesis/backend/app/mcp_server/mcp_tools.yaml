@@ -570,10 +570,13 @@ tools:
       endpoint, created_at, completed_at. Every run has a generated
       memorable name — always request it and use it whenever you refer
       to a run, so the user can tell two runs of the same test set
-      apart. Status values: Queued, Running, Completed, Failed. Use
-      $select to request only the fields you need (e.g.
-      $select=id,name,status,test_set,created_at). Use $filter to
-      narrow results (e.g. $filter=status eq 'Completed').
+      apart. Results come newest first (sort_by=created_at,
+      sort_order=desc), so "the last N runs" is the first page: never
+      page through older runs to find recent ones. Status values:
+      Queued, Running, Completed, Failed. Use $select to request only
+      the fields you need (e.g. $select=id,name,status,test_set,created_at).
+      Use $filter to narrow results (e.g. $filter=status/name eq
+      'Completed').
 
   - name: get_test_run
     label: Checking test run status
