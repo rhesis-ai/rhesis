@@ -6,28 +6,9 @@ import {
 } from '@/components/annotations/annotation-summary';
 import type { AnnotationSummaryEntry } from '@/utils/api-client/interfaces/annotation';
 import { useMemo, useState } from 'react';
-import {
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  TableContainer,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  Chip,
-  Stack,
-  Tooltip,
-  ToggleButtonGroup,
-  ToggleButton,
-  IconButton,
-  useTheme,
-} from '@mui/material';
-import Grid from '@mui/material/Grid';
-import RateReviewIcon from '@mui/icons-material/RateReview';
+import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
+import { ChevronRightIcon, RateReviewIcon } from '@/components/icons';
 import {
   SpanNode,
   TraceMetricsStatus,
@@ -35,7 +16,7 @@ import {
 } from '@/utils/api-client/interfaces/telemetry';
 import StatusChip from '@/components/common/StatusChip';
 import { TEST_RESULT_STATUS_NAMES } from '@/utils/test-result-status';
-import { passRate, allMetricsPassed } from '@/constants/outcomes';
+import { allMetricsPassed } from '@/constants/outcomes';
 
 interface MetricOverride {
   original_value: boolean;
@@ -58,640 +39,486 @@ interface MetricEntry {
   override?: MetricOverride;
 }
 
-type FilterStatus = 'all' | 'passed' | 'failed';
+interface MetricSection {
+  execution_time?: number;
+  metrics?: Record<string, MetricEntry>;
+}
 
 interface TraceMetricsTabProps {
   selectedSpan: SpanNode | null;
   isConversationTrace: boolean;
   onAnnotateMetric?: (metricName: string) => void;
-  onAnnotateTrace?: () => void;
   onAnnotateTurn?: (turnNumber: number, turnPassed?: boolean) => void;
   traceMetricsStatus?: TraceMetricsStatus | null;
   selectedTurnNumber?: number | null;
 }
 
-function MetricsTable({
-  metrics,
-  executionTime,
-  filterStatus,
-  onAnnotateMetric,
-  metricAnnotationMap = new Map(),
-}: {
-  metrics: Record<string, MetricEntry>;
-  executionTime?: number;
-  filterStatus: FilterStatus;
-  onAnnotateMetric?: (metricName: string) => void;
-  metricAnnotationMap?: Map<string, AnnotationSummaryEntry>;
-}) {
-  const theme = useTheme();
-  const allEntries = Object.entries(metrics);
+const COLUMN = { score: 14, result: 12, action: 4 } as const;
 
-  const entries = allEntries.filter(([, m]) => {
-    if (filterStatus === 'passed') return m.is_successful;
-    if (filterStatus === 'failed') return !m.is_successful;
-    return true;
-  });
-
-  if (allEntries.length === 0) {
-    return (
-      <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-        No metrics recorded.
-      </Typography>
-    );
-  }
-
+function passedChip(passed: boolean) {
+  const name = passed
+    ? TEST_RESULT_STATUS_NAMES.PASSED
+    : TEST_RESULT_STATUS_NAMES.FAILED;
   return (
-    <Box>
-      {executionTime !== undefined && (
-        <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-          <Chip
-            label={`${executionTime.toFixed(0)}ms`}
-            size="small"
-            variant="outlined"
-          />
-        </Stack>
-      )}
-      <TableContainer>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell width={onAnnotateMetric ? '12%' : '12%'}>
-                Status
-              </TableCell>
-              <TableCell width={onAnnotateMetric ? '23%' : '25%'}>
-                Metric
-              </TableCell>
-              <TableCell width="10%" align="right">
-                Score
-              </TableCell>
-              <TableCell width={onAnnotateMetric ? '49%' : '53%'}>
-                Reason
-              </TableCell>
-              {onAnnotateMetric && <TableCell width="6%" align="right" />}
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {entries.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={onAnnotateMetric ? 5 : 4} align="center">
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ py: 2 }}
-                  >
-                    No {filterStatus === 'passed' ? 'passed' : 'failed'} metrics
-                    found
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              entries.map(([name, metric]) => {
-                const metricAnnotation = metricAnnotationMap.get(name);
-                const isOverruled = !!metric.override;
-                const isConfirmed = !!metricAnnotation && !isOverruled;
+    <StatusChip status={name} label={name} size="small" variant="filled" />
+  );
+}
 
-                return (
-                  <TableRow
-                    key={name}
-                    sx={{
-                      '&:hover': {
-                        backgroundColor: theme.palette.action.hover,
-                      },
-                      ...(isOverruled
-                        ? {
-                            borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.warning.main}`,
-                          }
-                        : isConfirmed
-                          ? {
-                              borderLeft: `${theme.spacing(0.375)} solid ${theme.palette.success.light}`,
-                            }
-                          : {}),
-                    }}
-                  >
-                    <TableCell>
-                      <Tooltip
-                        title={
-                          isOverruled
-                            ? `Annotated by ${metricAnnotation?.user?.name}: status changed to ${metricAnnotation?.status?.name}`
-                            : isConfirmed
-                              ? `Confirmed by ${metricAnnotation?.user?.name}`
-                              : ''
-                        }
-                        disableHoverListener={!metricAnnotation}
-                        arrow
-                      >
-                        <StatusChip
-                          status={
-                            metric.is_successful
-                              ? TEST_RESULT_STATUS_NAMES.PASSED
-                              : TEST_RESULT_STATUS_NAMES.FAILED
-                          }
-                          label={
-                            metric.is_successful
-                              ? TEST_RESULT_STATUS_NAMES.PASSED
-                              : TEST_RESULT_STATUS_NAMES.FAILED
-                          }
-                          size="small"
-                          variant="filled"
-                          sx={{ minWidth: theme.spacing(10) }}
-                        />
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip
-                        title={metric.description || ''}
-                        arrow
-                        placement="top"
-                        enterDelay={300}
-                        disableHoverListener={!metric.description}
-                      >
-                        <Typography variant="body2" fontWeight={500}>
-                          {name}
-                        </Typography>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontFamily:
-                            theme.typography.fontFamilyCode ?? 'monospace',
-                        }}
-                      >
-                        {metric.score !== undefined
-                          ? typeof metric.score === 'number'
-                            ? metric.score.toFixed(2)
-                            : metric.score
-                          : '—'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {metric.reason ? (
-                        <Typography
-                          variant="caption"
-                          sx={{ wordBreak: 'break-word' }}
-                        >
-                          {metric.reason}
-                        </Typography>
-                      ) : (
-                        <Typography
-                          variant="caption"
-                          color="text.disabled"
-                          fontStyle="italic"
-                        >
-                          No reason provided
-                        </Typography>
-                      )}
-                    </TableCell>
-                    {onAnnotateMetric && (
-                      <TableCell align="right">
-                        <Tooltip title="Annotate this metric">
-                          <IconButton
-                            size="small"
-                            onClick={() => onAnnotateMetric(name)}
-                            sx={{
-                              padding: 0.5,
-                              color: theme.palette.text.secondary,
-                              '&:hover': {
-                                color: theme.palette.primary.main,
-                                backgroundColor: alpha(
-                                  theme.palette.primary.main,
-                                  theme.palette.action.hoverOpacity
-                                ),
-                              },
-                            }}
-                          >
-                            <RateReviewIcon
-                              sx={{ fontSize: theme.spacing(2) }}
-                            />
-                          </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+/** A 0–1 score as a short bar, with the threshold marked when there is one. */
+function ScoreBar({ score, threshold }: { score: number; threshold?: number }) {
+  return (
+    <Box
+      aria-hidden
+      sx={{
+        position: 'relative',
+        width: theme => theme.spacing(7),
+        height: theme => theme.spacing(0.75),
+        borderRadius: theme => theme.spacing(0.5),
+        bgcolor: 'action.hover',
+        flexShrink: 0,
+      }}
+    >
+      <Box
+        sx={theme => ({
+          position: 'absolute',
+          inset: 0,
+          right: 'auto',
+          width: `${Math.min(Math.max(score, 0), 1) * 100}%`,
+          borderRadius: theme.spacing(0.5),
+          bgcolor:
+            threshold === undefined || score >= threshold
+              ? 'success.main'
+              : 'error.main',
+        })}
+      />
+      {threshold !== undefined && threshold >= 0 && threshold <= 1 && (
+        <Box
+          sx={theme => ({
+            position: 'absolute',
+            top: theme.spacing(-0.375),
+            bottom: theme.spacing(-0.375),
+            left: `${threshold * 100}%`,
+            width: '2px',
+            bgcolor: 'text.primary',
+          })}
+        />
+      )}
     </Box>
   );
 }
 
+function MetricRow({
+  name,
+  metric,
+  annotation,
+  onAnnotate,
+}: {
+  name: string;
+  metric: MetricEntry;
+  annotation?: AnnotationSummaryEntry;
+  onAnnotate?: () => void;
+}) {
+  const [open, setOpen] = useState(!metric.is_successful);
+  const isOverruled = !!metric.override;
+  const isConfirmed = !!annotation && !isOverruled;
+  const hasScore = typeof metric.score === 'number';
+
+  return (
+    <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          minHeight: theme => theme.spacing(4.5),
+          px: 1,
+          '&:hover': { bgcolor: 'action.hover' },
+        }}
+      >
+        <Box
+          component="button"
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen(o => !o)}
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+            p: 0,
+            border: 0,
+            bgcolor: 'transparent',
+            color: 'text.primary',
+            cursor: 'pointer',
+            textAlign: 'left',
+            font: 'inherit',
+          }}
+        >
+          <ChevronRightIcon
+            sx={{
+              fontSize: theme => theme.spacing(2),
+              color: 'text.secondary',
+              transform: open ? 'rotate(90deg)' : 'none',
+              transition: 'transform 0.15s',
+            }}
+          />
+          <Tooltip
+            title={metric.description || ''}
+            disableHoverListener={!metric.description}
+            enterDelay={300}
+          >
+            <Typography variant="body2" noWrap>
+              {name}
+            </Typography>
+          </Tooltip>
+        </Box>
+        <Box
+          sx={{
+            width: theme => theme.spacing(COLUMN.score),
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            flexShrink: 0,
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={theme => ({
+              fontFamily: theme.typography.fontFamilyCode,
+              width: theme.spacing(4.5),
+            })}
+          >
+            {hasScore ? (metric.score as number).toFixed(2) : '—'}
+          </Typography>
+          {hasScore && (metric.score as number) <= 1 && (
+            <ScoreBar
+              score={metric.score as number}
+              threshold={metric.threshold}
+            />
+          )}
+        </Box>
+        <Tooltip
+          title={
+            isOverruled
+              ? `Annotated by ${annotation?.user?.name}: status changed to ${annotation?.status?.name}`
+              : isConfirmed
+                ? `Confirmed by ${annotation?.user?.name}`
+                : ''
+          }
+          disableHoverListener={!annotation}
+        >
+          <Box
+            sx={{ width: theme => theme.spacing(COLUMN.result), flexShrink: 0 }}
+          >
+            {passedChip(!!metric.is_successful)}
+          </Box>
+        </Tooltip>
+        <Box
+          sx={{ width: theme => theme.spacing(COLUMN.action), flexShrink: 0 }}
+        >
+          {onAnnotate && (
+            <Tooltip title="Annotate this metric">
+              <IconButton
+                size="small"
+                aria-label={`Annotate ${name}`}
+                onClick={onAnnotate}
+                sx={{ p: 0.5, color: 'text.secondary' }}
+              >
+                <RateReviewIcon sx={{ fontSize: theme => theme.spacing(2) }} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+      </Box>
+      {open && (
+        <Box
+          sx={{
+            pl: 4,
+            pr: 1,
+            pb: 1.25,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0.5,
+          }}
+        >
+          <Typography
+            variant="body2"
+            color={metric.reason ? 'text.primary' : 'text.disabled'}
+            sx={{ wordBreak: 'break-word' }}
+          >
+            {metric.reason || 'No reason provided'}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {[
+              metric.threshold !== undefined && `Threshold ${metric.threshold}`,
+              metric.backend,
+              isOverruled &&
+                annotation?.user?.name &&
+                `Overruled by ${annotation.user.name}`,
+              isConfirmed &&
+                annotation?.user?.name &&
+                `Confirmed by ${annotation.user.name}`,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+function MetricsList({
+  metrics,
+  annotations,
+  onAnnotateMetric,
+}: {
+  metrics: Record<string, MetricEntry>;
+  annotations: Map<string, AnnotationSummaryEntry>;
+  onAnnotateMetric?: (metricName: string) => void;
+}) {
+  const entries = Object.entries(metrics);
+  if (entries.length === 0) {
+    return (
+      <Typography variant="caption" color="text.secondary" sx={{ py: 1 }}>
+        No metrics recorded.
+      </Typography>
+    );
+  }
+  // Failures first: they are what the reader came for.
+  entries.sort(
+    ([, a], [, b]) => Number(!!a.is_successful) - Number(!!b.is_successful)
+  );
+
+  return (
+    <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          px: 1,
+          py: 0.5,
+          borderBottom: 1,
+          borderColor: 'divider',
+        }}
+      >
+        {[
+          { label: 'Metric', width: undefined },
+          { label: 'Score', width: COLUMN.score },
+          { label: 'Result', width: COLUMN.result },
+          { label: '', width: COLUMN.action },
+        ].map(col => (
+          <Typography
+            key={col.label || 'action'}
+            variant="caption"
+            color="text.secondary"
+            sx={
+              col.width
+                ? { width: theme => theme.spacing(col.width), flexShrink: 0 }
+                : { flex: 1, pl: 2.75 }
+            }
+          >
+            {col.label}
+          </Typography>
+        ))}
+      </Box>
+      {entries.map(([name, metric]) => (
+        <MetricRow
+          key={name}
+          name={name}
+          metric={metric}
+          annotation={annotations.get(name)}
+          onAnnotate={
+            onAnnotateMetric ? () => onAnnotateMetric(name) : undefined
+          }
+        />
+      ))}
+    </Box>
+  );
+}
+
+function SectionHeader({
+  title,
+  note,
+  children,
+}: {
+  title: string;
+  note?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        minHeight: theme => theme.spacing(3.5),
+        mb: 0.5,
+      }}
+    >
+      <Typography
+        variant="caption"
+        component="h3"
+        sx={{ fontWeight: 600, color: 'text.primary' }}
+      >
+        {title}
+      </Typography>
+      {note && (
+        <Typography variant="caption" color="text.secondary">
+          {note}
+        </Typography>
+      )}
+      <Box sx={{ flex: 1 }} />
+      {children}
+    </Box>
+  );
+}
+
+/**
+ * The span's metric results, turn metrics first, as compact rows that open to
+ * show the judge's reason. Failed metrics start open.
+ */
 export default function TraceMetricsTab({
   selectedSpan,
   isConversationTrace,
   onAnnotateMetric,
-  onAnnotateTrace,
   onAnnotateTurn,
   traceMetricsStatus,
   selectedTurnNumber = null,
 }: TraceMetricsTabProps) {
-  const theme = useTheme();
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
-
   const traceMetrics = selectedSpan?.trace_metrics as
     | Record<string, unknown>
     | undefined;
-
-  const turnMetrics = useMemo(() => {
-    if (!traceMetrics?.turn_metrics) return null;
-    return traceMetrics.turn_metrics as {
-      execution_time?: number;
-      metrics?: Record<string, MetricEntry>;
-    };
-  }, [traceMetrics]);
-
-  const conversationMetrics = useMemo(() => {
-    if (!traceMetrics?.conversation_metrics) return null;
-    return traceMetrics.conversation_metrics as {
-      execution_time?: number;
-      metrics?: Record<string, MetricEntry>;
-    };
-  }, [traceMetrics]);
-
-  const summary = useMemo(() => {
-    const allMetrics: Record<string, MetricEntry> = {
-      ...(turnMetrics?.metrics || {}),
-      ...(conversationMetrics?.metrics || {}),
-    };
-    const entries = Object.values(allMetrics);
-    const total = entries.length;
-    const passed = entries.filter(m => m.is_successful).length;
-    const failed = total - passed;
-    // Per-metric tally, not the trace's own outcome (that is execution/
-    // verdict) -- but it uses the one shared rate formula.
-    return { total, passed, failed, passRate: passRate(passed, failed) };
-  }, [turnMetrics, conversationMetrics]);
+  const turnMetrics = traceMetrics?.turn_metrics as MetricSection | undefined;
+  const conversationMetrics = traceMetrics?.conversation_metrics as
+    | MetricSection
+    | undefined;
 
   const metricAnnotationMap = useMemo(
     () => annotationsByMetric(selectedSpan?.annotation_summary),
     [selectedSpan?.annotation_summary]
   );
-
-  // Per-TURN, which is finer than anything the backend stores an outcome
-  // for -- see allMetricsPassed. Not the trace's execution/verdict.
-  const automatedTurnSuccess = useMemo(() => {
-    const metrics = turnMetrics?.metrics;
-    if (!metrics || Object.keys(metrics).length === 0) return undefined;
-    return allMetricsPassed(Object.values(metrics));
-  }, [turnMetrics]);
-
-  const turnOverrides = useMemo(() => {
-    const overrides = traceMetrics?.turn_overrides as
-      | Record<string, { success?: boolean; override?: MetricOverride }>
-      | undefined;
-    if (!overrides)
-      return {} as Record<
-        number,
-        { success: boolean; override: MetricOverride }
-      >;
-    const result: Record<
-      number,
-      { success: boolean; override: MetricOverride }
-    > = {};
-    for (const [key, data] of Object.entries(overrides)) {
-      const num = parseInt(key, 10);
-      if (!isNaN(num) && data?.override && typeof data.success === 'boolean') {
-        result[num] = { success: data.success, override: data.override };
-      }
-    }
-    return result;
-  }, [traceMetrics]);
-
   const turnAnnotationMap = useMemo(
     () => annotationsByTurn(selectedSpan?.annotation_summary),
     [selectedSpan?.annotation_summary]
   );
 
-  if (!traceMetrics || (!turnMetrics && !conversationMetrics)) {
+  if (!turnMetrics?.metrics && !conversationMetrics?.metrics) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography color="text.secondary">
-          No trace metrics available for this span.
-        </Typography>
-      </Box>
+      <Typography variant="caption" color="text.secondary">
+        No trace metrics for this span.
+      </Typography>
     );
   }
 
+  // Per-turn, finer than anything the backend stores an outcome for -- see allMetricsPassed.
+  const automatedTurnSuccess =
+    turnMetrics?.metrics && Object.keys(turnMetrics.metrics).length > 0
+      ? allMetricsPassed(Object.values(turnMetrics.metrics))
+      : undefined;
+  const turnOverride =
+    selectedTurnNumber != null
+      ? (
+          traceMetrics?.turn_overrides as
+            | Record<string, { success?: boolean; override?: MetricOverride }>
+            | undefined
+        )?.[String(selectedTurnNumber)]
+      : undefined;
+  const turnSuccess =
+    turnOverride?.override && typeof turnOverride.success === 'boolean'
+      ? turnOverride.success
+      : (automatedTurnSuccess ?? false);
+  const turnAnnotation =
+    selectedTurnNumber != null
+      ? turnAnnotationMap.get(selectedTurnNumber)
+      : undefined;
+  const showTurnVerdict = isConversationTrace && selectedTurnNumber != null;
+
   return (
-    <Box sx={{ p: 2, overflow: 'auto' }}>
-      <Stack spacing={3}>
-        {/* Header with title and filter */}
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+      {traceMetricsStatus === TRACE_METRICS_STATUS.ERROR && (
+        <Typography
+          variant="caption"
+          sx={theme => ({
+            color: 'error.main',
+            bgcolor: alpha(theme.palette.error.main, 0.08),
+            px: 1.5,
+            py: 1,
+            borderRadius: theme.spacing(0.75),
+          })}
         >
-          <Typography variant="h6" fontWeight={600}>
-            Metrics Overview
-          </Typography>
-          <ToggleButtonGroup
-            value={filterStatus}
-            exclusive
-            onChange={(_, val) => val && setFilterStatus(val)}
-            size="small"
-            aria-label="metric status filter"
+          Metric evaluation errored for this trace; results may be incomplete.
+        </Typography>
+      )}
+
+      {turnMetrics?.metrics && (
+        <Box>
+          <SectionHeader
+            title={
+              showTurnVerdict
+                ? `Turn ${selectedTurnNumber} metrics`
+                : 'Turn metrics'
+            }
           >
-            <ToggleButton value="all" aria-label="all metrics">
-              All
-            </ToggleButton>
-            <ToggleButton value="passed" aria-label="passed metrics">
-              Passed
-            </ToggleButton>
-            <ToggleButton value="failed" aria-label="failed metrics">
-              Failed
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
-
-        {/* Summary Cards */}
-        <Grid container spacing={2}>
-          {/* Overall Trace Status */}
-          {traceMetricsStatus && (
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Card variant="outlined" sx={{ height: '100%' }}>
-                <CardContent
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    height: '100%',
-                    '&:last-child': { pb: theme.spacing(2) },
-                  }}
+            {showTurnVerdict && (
+              <>
+                <Tooltip
+                  title={
+                    turnOverride?.override
+                      ? `Annotated by ${turnAnnotation?.user?.name}: status changed to ${turnAnnotation?.status?.name}`
+                      : turnAnnotation
+                        ? `Confirmed by ${turnAnnotation.user?.name}`
+                        : ''
+                  }
+                  disableHoverListener={!turnAnnotation}
                 >
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    gutterBottom
-                  >
-                    Trace Status
-                  </Typography>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                    }}
-                  >
-                    <Typography
-                      variant="h5"
-                      fontWeight={600}
-                      color={
-                        traceMetricsStatus === TRACE_METRICS_STATUS.PASS
-                          ? 'success.main'
-                          : traceMetricsStatus === TRACE_METRICS_STATUS.FAIL
-                            ? 'error.main'
-                            : 'warning.main'
+                  <Box>{passedChip(turnSuccess)}</Box>
+                </Tooltip>
+                {onAnnotateTurn && (
+                  <Tooltip title="Annotate this turn">
+                    <IconButton
+                      size="small"
+                      aria-label={`Annotate turn ${selectedTurnNumber}`}
+                      onClick={() =>
+                        onAnnotateTurn(
+                          selectedTurnNumber as number,
+                          turnSuccess
+                        )
                       }
+                      sx={{ p: 0.5, color: 'text.secondary' }}
                     >
-                      {traceMetricsStatus}
-                    </Typography>
-                    {onAnnotateTrace && (
-                      <Tooltip title="Annotate this trace">
-                        <IconButton
-                          size="small"
-                          onClick={onAnnotateTrace}
-                          sx={{
-                            color: theme.palette.text.secondary,
-                            '&:hover': {
-                              color: theme.palette.primary.main,
-                              backgroundColor: alpha(
-                                theme.palette.primary.main,
-                                theme.palette.action.hoverOpacity
-                              ),
-                            },
-                          }}
-                        >
-                          <RateReviewIcon
-                            sx={{ fontSize: theme.spacing(2.5) }}
-                          />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                  </Box>
-                  <Typography variant="caption" color="text.secondary">
-                    {summary.passed}/{summary.total} metrics passed
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          )}
+                      <RateReviewIcon
+                        sx={{ fontSize: theme => theme.spacing(2) }}
+                      />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </>
+            )}
+          </SectionHeader>
+          <MetricsList
+            metrics={turnMetrics.metrics}
+            annotations={metricAnnotationMap}
+            onAnnotateMetric={onAnnotateMetric}
+          />
+        </Box>
+      )}
 
-          {/* Overall Performance */}
-          <Grid size={{ xs: 12, md: 4 }}>
-            <Card variant="outlined" sx={{ height: '100%' }}>
-              <CardContent>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Overall Performance
-                </Typography>
-                <Typography variant="h5" fontWeight={600}>
-                  {summary.passRate === null
-                    ? '—'
-                    : `${summary.passRate.toFixed(1)}%`}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {summary.passed} of {summary.total} metrics passed
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Passed / Failed */}
-          <Grid size={{ xs: 12, md: 4 }}>
-            <Card variant="outlined" sx={{ height: '100%' }}>
-              <CardContent>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Results
-                </Typography>
-                <Stack direction="row" spacing={3} alignItems="baseline">
-                  <Box>
-                    <Typography
-                      variant="h5"
-                      fontWeight={600}
-                      color="success.main"
-                    >
-                      {summary.passed}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      passed
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography
-                      variant="h5"
-                      fontWeight={600}
-                      color="error.main"
-                    >
-                      {summary.failed}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      failed
-                    </Typography>
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
-        {/* Turn Metrics Section */}
-        {turnMetrics && turnMetrics.metrics && (
-          <Card variant="outlined">
-            <CardContent>
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  mb: 1,
-                }}
-              >
-                <Box>
-                  <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-                    Turn Metrics
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 2 }}
-                  >
-                    Per-turn evaluation results for this span.
-                  </Typography>
-                </Box>
-                {isConversationTrace &&
-                  selectedTurnNumber != null &&
-                  (() => {
-                    const override = turnOverrides[selectedTurnNumber];
-                    const turnSuccess = override
-                      ? override.success
-                      : (automatedTurnSuccess ?? false);
-                    const turnAnnotation =
-                      turnAnnotationMap.get(selectedTurnNumber);
-                    const isOverruled = !!override;
-                    const isConfirmed = !!turnAnnotation && !isOverruled;
-
-                    return (
-                      <Stack
-                        direction="row"
-                        spacing={0.75}
-                        alignItems="center"
-                        sx={{ flexShrink: 0, ml: 2 }}
-                      >
-                        <Tooltip
-                          title={
-                            isOverruled
-                              ? `Annotated by ${turnAnnotation?.user?.name}: status changed to ${turnAnnotation?.status?.name}`
-                              : isConfirmed
-                                ? `Confirmed by ${turnAnnotation?.user?.name}`
-                                : ''
-                          }
-                          disableHoverListener={!isOverruled && !isConfirmed}
-                          arrow
-                        >
-                          <Chip
-                            label={`Turn ${selectedTurnNumber}`}
-                            size="small"
-                            color={turnSuccess ? 'success' : 'error'}
-                            variant="outlined"
-                            sx={{
-                              ...(isOverruled
-                                ? {
-                                    borderColor: theme.palette.warning.main,
-                                    borderWidth: theme.spacing(0.25),
-                                  }
-                                : isConfirmed
-                                  ? {
-                                      borderColor: theme.palette.success.light,
-                                      borderWidth: theme.spacing(0.25),
-                                    }
-                                  : {}),
-                            }}
-                          />
-                        </Tooltip>
-                        <StatusChip
-                          status={
-                            turnSuccess
-                              ? TEST_RESULT_STATUS_NAMES.PASSED
-                              : TEST_RESULT_STATUS_NAMES.FAILED
-                          }
-                          label={turnSuccess ? 'Passed' : 'Failed'}
-                          size="small"
-                          variant="filled"
-                        />
-                        {onAnnotateTurn && (
-                          <Tooltip title="Annotate this turn">
-                            <IconButton
-                              size="small"
-                              onClick={() =>
-                                onAnnotateTurn(selectedTurnNumber, turnSuccess)
-                              }
-                              sx={{
-                                padding: theme.spacing(0.25),
-                                color: theme.palette.text.secondary,
-                                '&:hover': {
-                                  color: theme.palette.primary.main,
-                                  backgroundColor: alpha(
-                                    theme.palette.primary.main,
-                                    theme.palette.action.hoverOpacity
-                                  ),
-                                },
-                              }}
-                            >
-                              <RateReviewIcon
-                                sx={{
-                                  fontSize: theme.spacing(2),
-                                }}
-                              />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Stack>
-                    );
-                  })()}
-              </Box>
-              <MetricsTable
-                metrics={turnMetrics.metrics}
-                executionTime={turnMetrics.execution_time}
-                filterStatus={filterStatus}
-                onAnnotateMetric={onAnnotateMetric}
-                metricAnnotationMap={metricAnnotationMap}
-              />
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Conversation Metrics Section */}
-        {isConversationTrace &&
-          conversationMetrics &&
-          conversationMetrics.metrics && (
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-                  Conversation Metrics
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 2 }}
-                >
-                  Full-conversation evaluation results (shared across all
-                  turns).
-                </Typography>
-                <MetricsTable
-                  metrics={conversationMetrics.metrics}
-                  executionTime={conversationMetrics.execution_time}
-                  filterStatus={filterStatus}
-                  onAnnotateMetric={onAnnotateMetric}
-                  metricAnnotationMap={metricAnnotationMap}
-                />
-              </CardContent>
-            </Card>
-          )}
-      </Stack>
+      {isConversationTrace && conversationMetrics?.metrics && (
+        <Box>
+          <SectionHeader
+            title="Conversation metrics"
+            note="· shared across all turns"
+          />
+          <MetricsList
+            metrics={conversationMetrics.metrics}
+            annotations={metricAnnotationMap}
+            onAnnotateMetric={onAnnotateMetric}
+          />
+        </Box>
+      )}
     </Box>
   );
 }

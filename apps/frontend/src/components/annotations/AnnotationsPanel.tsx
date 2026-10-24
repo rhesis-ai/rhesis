@@ -59,6 +59,11 @@ export interface AnnotationsPanelProps {
   onCreate?: () => void;
   /** Called after any write, for parents that live outside react-query. */
   onChanged?: () => void;
+  /**
+   * For a parent that shows the verdicts itself (the trace drawer's Evaluation
+   * tab): drops the verdict row, and an empty list becomes one line.
+   */
+  compact?: boolean;
 }
 
 function verdictDisplay(statusName: string): {
@@ -99,6 +104,7 @@ export default function AnnotationsPanel({
   hasConflict = false,
   onCreate,
   onChanged,
+  compact = false,
 }: AnnotationsPanelProps) {
   const theme = useTheme();
   const [showOthers, setShowOthers] = useState(false);
@@ -172,9 +178,21 @@ export default function AnnotationsPanel({
   };
 
   return (
-    <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box
+      sx={{
+        p: compact ? 0 : 3,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+      }}
+    >
       <Box
-        sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}
+        sx={{
+          display: compact ? 'none' : 'flex',
+          alignItems: 'center',
+          gap: 3,
+          flexWrap: 'wrap',
+        }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="body2" color="text.primary">
@@ -294,7 +312,23 @@ export default function AnnotationsPanel({
         </Box>
       )}
 
-      {sorted.length === 0 ? (
+      {compact && visible.length === 0 ? (
+        <Typography variant="caption" color="text.secondary">
+          {sorted.length === 0
+            ? ANNOTATION_COPY.emptyNone
+            : ANNOTATION_COPY.emptyMine}
+          {others.length > 0 && mine.length === 0 && !showOthers && (
+            <Button
+              variant="text"
+              size="small"
+              onClick={() => setShowOthers(true)}
+              sx={{ textTransform: 'none', ml: 1, py: 0 }}
+            >
+              {ANNOTATION_COPY.showOthers(others.length)}
+            </Button>
+          )}
+        </Typography>
+      ) : sorted.length === 0 ? (
         <EmptyStateCard
           title={ANNOTATION_COPY.emptyNone}
           onCreate={canCreate ? onCreate : undefined}
@@ -320,12 +354,16 @@ export default function AnnotationsPanel({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              px: 3,
-              pt: 3,
-              pb: 2,
+              ...(compact
+                ? { px: 2, pt: 1.5, pb: 1 }
+                : { px: 3, pt: 3, pb: 2 }),
             }}
           >
-            <Typography variant="h6" color="primary">
+            <Typography
+              variant={compact ? 'caption' : 'h6'}
+              color={compact ? 'text.primary' : 'primary'}
+              sx={compact ? { fontWeight: 600 } : undefined}
+            >
               {ANNOTATION_COPY.sectionTitle}
             </Typography>
             {canCreate && (
@@ -352,7 +390,10 @@ export default function AnnotationsPanel({
               return (
                 <Box
                   key={annotation.id}
-                  sx={{ px: 3, py: 2, opacity: annotation.resolved ? 0.7 : 1 }}
+                  sx={{
+                    ...(compact ? { px: 2, py: 1.5 } : { px: 3, py: 2 }),
+                    opacity: annotation.resolved ? 0.7 : 1,
+                  }}
                 >
                   <Box
                     sx={{

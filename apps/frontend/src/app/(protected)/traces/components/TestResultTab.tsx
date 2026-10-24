@@ -4,23 +4,10 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
-  Chip,
-  Stack,
   useTheme,
   CircularProgress,
   Alert,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Table,
-  TableBody,
-  TableRow,
-  TableCell,
 } from '@mui/material';
-import CheckIcon from '@mui/icons-material/Check';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import StatusChip from '@/components/common/StatusChip';
 import { TraceDetailResponse } from '@/utils/api-client/interfaces/telemetry';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
@@ -41,9 +28,14 @@ import { format } from 'date-fns';
 
 interface TestResultTabProps {
   trace: TraceDetailResponse;
+  /** Off when the trace's own metrics are already shown above. */
+  showMetrics?: boolean;
 }
 
-export default function TestResultTab({ trace }: TestResultTabProps) {
+export default function TestResultTab({
+  trace,
+  showMetrics = true,
+}: TestResultTabProps) {
   const theme = useTheme();
   const [testResult, setTestResult] = useState<TestResultDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -99,11 +91,9 @@ export default function TestResultTab({ trace }: TestResultTabProps) {
 
   if (!trace.test_result) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography color="text.secondary">
-          No test result data available
-        </Typography>
-      </Box>
+      <Typography variant="caption" color="text.secondary">
+        No test result data available
+      </Typography>
     );
   }
 
@@ -114,334 +104,170 @@ export default function TestResultTab({ trace }: TestResultTabProps) {
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          p: 4,
+          p: 2,
         }}
       >
-        <CircularProgress />
+        <CircularProgress size={24} />
       </Box>
     );
   }
 
   if (error) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
-    );
+    return <Alert severity="error">{error}</Alert>;
   }
 
   if (deletedTestResult) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <DeletedEntityAlert entityData={deletedTestResult} />
-      </Box>
-    );
+    return <DeletedEntityAlert entityData={deletedTestResult} />;
   }
 
   if (!testResult) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography color="text.secondary">Loading test result...</Typography>
-      </Box>
+      <Typography variant="caption" color="text.secondary">
+        Loading test result...
+      </Typography>
     );
   }
 
-  // Get test result status
   const testStatus = getEffectiveTestResultStatus(testResult);
   const testLabel = getTestResultLabel(testResult);
+  const goal =
+    testResult.test_output?.goal ||
+    testResult.test_output?.test_configuration?.goal;
+  const prompt = testResult.test?.prompt?.content;
+  const turnsUsed = testResult.test_output?.turns_used;
+  const maxTurns = testResult.test_output?.test_configuration?.max_turns;
+  const metrics = showMetrics ? testResult.test_metrics?.metrics : undefined;
 
   return (
-    <Box sx={{ p: theme => theme.spacing(2) }}>
-      {/* Overview Card - Rounded */}
-      <Card
-        variant="outlined"
+    <Box>
+      <Typography
+        variant="caption"
+        component="h3"
         sx={{
-          mb: theme => theme.spacing(2),
-          backgroundColor: theme => theme.palette.success.main + '08',
-          borderColor: theme => theme.palette.success.main + '20',
+          fontWeight: 600,
+          color: 'text.primary',
+          display: 'flex',
+          alignItems: 'center',
+          minHeight: t => t.spacing(3.5),
+          mb: 0.5,
         }}
       >
-        <CardContent>
-          <Stack spacing={2}>
-            {/* Status, Test Type, and Requirement - Side by Side */}
-            <Box sx={{ display: 'flex', gap: theme => theme.spacing(2) }}>
-              {/* Test Status Cell */}
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Test Status
-                </Typography>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    mt: 0.5,
-                  }}
-                >
-                  <StatusChip
-                    status={testStatus}
-                    label={testLabel}
-                    size="medium"
-                    variant="filled"
-                    sx={{ fontWeight: 600 }}
-                  />
-                  {/* Show Review Confirmed indicator if review exists */}
-                  {testResult.last_annotation && (
-                    <Chip
-                      icon={<CheckIcon sx={{ fontSize: 16 }} />}
-                      label="Confirmed"
-                      size="medium"
-                      color="success"
-                      variant="filled"
-                      sx={{
-                        fontWeight: 600,
-                      }}
-                    />
-                  )}
-                </Box>
-              </Box>
-
-              {/* Test Type Cell */}
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Test Type
-                </Typography>
-                <Box sx={{ mt: 0.5 }}>
-                  <Chip
-                    label={trace.conversation_id ? 'Multi-turn' : 'Single-turn'}
-                    size="medium"
-                    variant="outlined"
-                    color={trace.conversation_id ? 'primary' : 'secondary'}
-                  />
-                </Box>
-              </Box>
-
-              {/* Test Requirement Cell */}
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Requirement
-                </Typography>
-                <Box sx={{ mt: 0.5 }}>
-                  {testResult.test?.requirement?.name ? (
-                    <Chip
-                      label={testResult.test.requirement.name}
-                      size="medium"
-                      variant="outlined"
-                      color="info"
-                    />
-                  ) : (
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{
-                        fontSize: theme => theme.typography.body2.fontSize,
-                      }}
-                    >
-                      No requirement
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
+        Test
+      </Typography>
+      <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
+        <Row label="Result">
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <StatusChip
+              status={testStatus}
+              label={testLabel}
+              size="small"
+              variant="filled"
+            />
+            {testResult.last_annotation && (
+              <Typography variant="caption" color="success.main">
+                Confirmed
+              </Typography>
+            )}
+          </Box>
+        </Row>
+        <Row label="Type">
+          {trace.conversation_id ? 'Multi-turn' : 'Single-turn'}
+          {turnsUsed
+            ? ` · ${turnsUsed} turns used${maxTurns ? ` of ${maxTurns}` : ''}`
+            : ''}
+        </Row>
+        {testResult.test?.requirement?.name && (
+          <Row label="Requirement">{testResult.test.requirement.name}</Row>
+        )}
+        {(goal || prompt) && (
+          <Row label={goal ? 'Goal' : 'Prompt'}>
+            <Box component="span" sx={{ whiteSpace: 'pre-wrap' }}>
+              {goal || prompt}
             </Box>
-
-            {/* Test Content - Prompt for single-turn, Goal for multi-turn */}
-            {(() => {
-              const goal =
-                testResult.test_output?.goal ||
-                testResult.test_output?.test_configuration?.goal;
-              const prompt = testResult.test?.prompt?.content; // Access prompt from testResult.test relationship
-
-              const content = goal || prompt;
-              const contentType = goal ? 'Test Goal' : 'Test Prompt';
-
-              if (content) {
-                return (
-                  <Box>
-                    <Typography variant="caption" color="text.secondary">
-                      {contentType}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        mt: 0.5,
-                        p: 1,
-                        backgroundColor: theme =>
-                          theme.palette.background.default,
-                        borderRadius: theme => theme.shape.borderRadius * 0.25,
-                        border: theme => `1px solid ${theme.palette.divider}`,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                        maxHeight: 150,
-                        overflow: 'auto',
-                      }}
-                    >
-                      {content}
-                    </Typography>
-                  </Box>
-                );
-              }
-              return null;
-            })()}
-
-            {/* Test Output - Right after test content */}
-            {testResult.test_output?.output && (
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Test Output
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    mt: 0.5,
-                    p: 1,
-                    backgroundColor: theme => theme.palette.background.default,
-                    borderRadius: theme => theme.shape.borderRadius * 0.25,
-                    border: theme => `1px solid ${theme.palette.divider}`,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    fontFamily: 'monospace',
-                    fontSize: theme => theme.typography.body2.fontSize,
-                    maxHeight: 150,
-                    overflow: 'auto',
-                  }}
-                >
-                  {testResult.test_output.output}
-                </Typography>
-              </Box>
-            )}
-
-            {/* Multi-turn specific details */}
-            {testResult.test_output?.goal && (
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Test Configuration
-                </Typography>
-                <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
-                  {testResult.test_output.turns_used && (
-                    <Chip
-                      label={`${testResult.test_output.turns_used} turns used`}
-                      size="small"
-                      variant="outlined"
-                    />
-                  )}
-                  {testResult.test_output.test_configuration?.max_turns && (
-                    <Chip
-                      label={`Max: ${testResult.test_output.test_configuration.max_turns} turns`}
-                      size="small"
-                      variant="outlined"
-                    />
-                  )}
-                  {testResult.test_output.goal_achieved !== undefined && (
-                    // Outcome comes from the backend, not from goal_achieved:
-                    // a human review or an evaluation error must move this
-                    // chip the same way it moves the header chip above.
-                    <StatusChip
-                      status={testStatus}
-                      label={testStatus}
-                      size="small"
-                      variant="outlined"
-                    />
-                  )}
-                </Stack>
-              </Box>
-            )}
-
-            {/* Timestamps */}
-            {testResult.created_at && (
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Execution Time
-                </Typography>
-                <Typography variant="body2">
-                  {format(new Date(testResult.created_at), 'PPpp')}
-                </Typography>
-              </Box>
-            )}
-          </Stack>
-        </CardContent>
-      </Card>
-
-      {/* Metrics Summary - Rectangular Accordion */}
-      {testResult.test_metrics?.metrics && (
-        <Accordion
-          defaultExpanded
-          sx={{
-            backgroundColor: theme => theme.palette.info.main + '08',
-            borderColor: theme => theme.palette.info.main + '20',
-            mb: 1,
-          }}
-        >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="subtitle2">
-              Metrics ({Object.keys(testResult.test_metrics.metrics).length})
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Table size="small">
-              <TableBody>
-                {Object.entries(testResult.test_metrics.metrics).map(
-                  ([name, metric]) => (
-                    <TableRow key={name}>
-                      <TableCell
-                        sx={{
-                          fontFamily: 'monospace',
-                          fontSize: theme => theme.typography.body2.fontSize,
-                          width: '60%',
-                        }}
-                      >
-                        {name}
-                      </TableCell>
-                      <TableCell sx={{ textAlign: 'right' }}>
-                        <Chip
-                          label={metric.is_successful ? 'Pass' : 'Fail'}
-                          color={metric.is_successful ? 'success' : 'error'}
-                          size="small"
-                          variant="outlined"
-                        />
-                      </TableCell>
-                    </TableRow>
-                  )
-                )}
-              </TableBody>
-            </Table>
-          </AccordionDetails>
-        </Accordion>
-      )}
-
-      {/* Review Comments - Rectangular Accordion */}
-      {testResult.last_annotation?.comments && (
-        <Accordion
-          sx={{
-            backgroundColor: theme => theme.palette.secondary.main + '08',
-            borderColor: theme => theme.palette.secondary.main + '20',
-            mb: 1,
-          }}
-        >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="subtitle2">Review Comments</Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <Card
-              variant="outlined"
+          </Row>
+        )}
+        {testResult.test_output?.output && (
+          <Row label="Output">
+            <Box
+              component="span"
               sx={{
-                backgroundColor: theme.palette.background.paper,
+                fontFamily: theme.typography.fontFamilyCode,
+                whiteSpace: 'pre-wrap',
+                display: 'block',
+                maxHeight: theme.spacing(18),
+                overflow: 'auto',
               }}
             >
-              <CardContent>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {testResult.last_annotation.comments}
-                </Typography>
-              </CardContent>
-            </Card>
-          </AccordionDetails>
-        </Accordion>
-      )}
+              {testResult.test_output.output}
+            </Box>
+          </Row>
+        )}
+        {testResult.created_at && (
+          <Row label="Executed">
+            {format(new Date(testResult.created_at), 'PPpp')}
+          </Row>
+        )}
+        {metrics &&
+          Object.entries(metrics).map(([name, metric]) => (
+            <Row key={name} label={name}>
+              <StatusChip
+                passed={!!metric.is_successful}
+                label={metric.is_successful ? 'Passed' : 'Failed'}
+                size="small"
+                variant="outlined"
+              />
+            </Row>
+          ))}
+        {testResult.last_annotation?.comments && (
+          <Row label="Review">
+            <Box component="span" sx={{ whiteSpace: 'pre-wrap' }}>
+              {testResult.last_annotation.comments}
+            </Box>
+          </Row>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+function Row({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        gap: 1.5,
+        py: 0.75,
+        px: 1,
+        borderBottom: 1,
+        borderColor: 'divider',
+      }}
+    >
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{
+          width: t => t.spacing(13),
+          flexShrink: 0,
+          pt: 0.25,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {label}
+      </Typography>
+      <Typography
+        variant="body2"
+        component="div"
+        sx={{ flex: 1, minWidth: 0, wordBreak: 'break-word' }}
+      >
+        {children}
+      </Typography>
     </Box>
   );
 }
