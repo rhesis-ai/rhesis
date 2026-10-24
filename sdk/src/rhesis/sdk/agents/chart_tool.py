@@ -30,7 +30,7 @@ CHART_TYPES: Dict[str, str] = {
 }
 
 MAX_ROWS = 200
-# The chart palette tells four series apart, color-blind readers included; past that,
+# The chart palette has four evenly spaced shades, readable without color vision; past that,
 # colors repeat or blur, so the model must narrow the query or pick a heat_table.
 MAX_SERIES = 4
 SERIES_CHART_TYPES = ("line", "area", "bar", "horizontal_bar", "stacked_bar", "radar")
@@ -119,7 +119,7 @@ class ShowChartTool(BaseTool):
                         "Optional values your reply is about, exactly as they appear in the "
                         "data: series values when the chart has a series, else x values of a "
                         "bar or horizontal_bar (e.g. the weakest topic). They are drawn in "
-                        "the accent color and everything else in gray. Omit it when the "
+                        "the accent color and everything else in a pale neutral. Omit it when the "
                         "chart makes no single point."
                     ),
                 },
