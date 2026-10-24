@@ -328,6 +328,8 @@ class BaseAgent:
         self.system_prompt = system_prompt or self._load_default_system_prompt()
         self.max_iterations = max_iterations
         self._tools: List[Union[BaseTool, MCPTool]] = list(tools or [])
+        # Tool names each MCP provider serves, looked up once per provider.
+        self._provider_tool_names: Dict[int, set] = {}
         self._max_tool_executions = (
             max_tool_executions if max_tool_executions is not None else max_iterations * 3
         )
@@ -383,6 +385,10 @@ class BaseAgent:
                             error=str(e),
                         )
             elif isinstance(tool, MCPTool):
+                # A provider answers an unknown name with an error rather than passing,
+                # which would hide a named tool listed after it.
+                if not await self._provider_serves(tool, tool_name):
+                    continue
                 try:
                     return await tool.execute(tool_name, **arguments)
                 except Exception as e:
@@ -400,6 +406,17 @@ class BaseAgent:
             success=False,
             error=f"Tool '{tool_name}' not found",
         )
+
+    async def _provider_serves(self, provider: "MCPTool", tool_name: str) -> bool:
+        names = self._provider_tool_names.get(id(provider))
+        if names is None:
+            try:
+                names = {t.get("name") for t in await provider.list_tools()}
+            except Exception:
+                # Can't tell; let execute() decide, as before.
+                return True
+            self._provider_tool_names[id(provider)] = names
+        return tool_name in names
 
     # ── model helpers ───────────────────────────────────────────────
 

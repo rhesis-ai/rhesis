@@ -153,7 +153,7 @@ class TestBaseAgentToolRouting:
                 content="results",
             )
         )
-        mcp.list_tools = AsyncMock(return_value=[])
+        mcp.list_tools = AsyncMock(return_value=[{"name": "search"}])
         agent = _make_agent(mock_model, tools=[mcp])
 
         tc = ToolCall(tool_name="search", arguments='{"q": "hi"}')
@@ -161,6 +161,34 @@ class TestBaseAgentToolRouting:
 
         assert result.success
         assert result.content == "results"
+
+    @pytest.mark.asyncio
+    async def test_provider_that_lacks_the_tool_is_skipped(self, mock_model):
+        """The Architect lists its MCP provider first. The provider raises for a name it
+        doesn't serve, which used to end the search before a later named tool was tried."""
+        mcp = Mock(spec=MCPTool)
+        mcp.execute = AsyncMock(side_effect=ValueError("Tool not available: dummy"))
+        mcp.list_tools = AsyncMock(return_value=[{"name": "search"}])
+        agent = _make_agent(mock_model, tools=[mcp, DummyTool()])
+
+        result = await agent.execute_tool(ToolCall(tool_name="dummy", arguments="{}"))
+
+        assert result.success and result.content == "ok"
+        mcp.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_provider_that_serves_the_tool_still_wins(self, mock_model):
+        """explore_endpoint is both an MCP tool and a named tool; the provider keeps it."""
+        mcp = Mock(spec=MCPTool)
+        mcp.execute = AsyncMock(
+            return_value=ToolResult(tool_name="dummy", success=True, content="from provider")
+        )
+        mcp.list_tools = AsyncMock(return_value=[{"name": "dummy"}])
+        agent = _make_agent(mock_model, tools=[mcp, DummyTool()])
+
+        result = await agent.execute_tool(ToolCall(tool_name="dummy", arguments="{}"))
+
+        assert result.content == "from provider"
 
     @pytest.mark.asyncio
     async def test_get_available_tools_aggregates(self, mock_model):

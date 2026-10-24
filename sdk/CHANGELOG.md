@@ -53,6 +53,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   without it their prompt and output are unchanged.
 
 ### Fixed
+- `ShowChartTool` gives the model the chart's real labels and values (and the true lowest and
+  highest when it shortens a long chart), instead of only value ranges, which left it to
+  invent category names and misreport peaks. It also rejects mixing measure kinds, such as
+  latency and cost, on one axis.
+- An agent with an MCP provider listed before a named tool (as the Architect lists its
+  `LocalToolProvider` before `ShowChartTool`) sent the named tool's calls to the provider,
+  which answered "Tool not available", so the Architect could never show a chart. A call now
+  goes to the first tool that serves its name.
 - Normalized cached prompt usage for OpenAI and LiteLLM so separately billed cache reads and
   writes stay out of `input_tokens`, while provider-reported totals remain unchanged.
 
