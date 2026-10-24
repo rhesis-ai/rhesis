@@ -21,10 +21,11 @@ from typing import Any, Dict, List, Optional
 # ``category``, item 87 almost certainly is too.
 _MAX_ITEMS_CHECKED = 5
 
-# Ids are UUIDs or hex (trace and span ids). Anything else in an ``*_id``
-# argument is a stand-in the model wrote before the real id existed, such as
-# "pending_id_resolution", which the server rejects with a 422.
-_ID_VALUE = re.compile(r"[0-9a-fA-F-]{8,}")
+# A stand-in the model wrote before the real id existed, such as
+# "pending_id_resolution" or "<metric id>", which the server rejects with a 422.
+# Real ids are not all hex (nano_id, conversation_id), but every real one has a
+# digit and none has brackets, braces or spaces.
+_PLACEHOLDER_ID = re.compile(r"[^0-9]*|.*[<>{}\s].*")
 
 
 def _unwrap_optional(schema: Dict[str, Any]) -> Dict[str, Any]:
@@ -104,7 +105,7 @@ def find_placeholder_ids(arguments: Dict[str, Any]) -> Optional[str]:
     """Return an error for an ``*_id`` argument that holds no real id, else None."""
     for key, value in arguments.items():
         if key.endswith("_id") and isinstance(value, str) and value:
-            if not _ID_VALUE.fullmatch(value):
+            if _PLACEHOLDER_ID.fullmatch(value):
                 return (
                     f"{key}={value!r} is not an id. Use the id a previous tool call "
                     "returned; if the entity is created in this same step, call this "

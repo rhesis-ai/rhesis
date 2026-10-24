@@ -115,13 +115,19 @@ class TestFindMissingArguments:
 
 @pytest.mark.parametrize(
     "value",
-    ["c6369ce8-9c3b-4720-82a6-4d153db14fd4", "4bf92f3577b34da6a3ce929d0e0e4736"],
+    [
+        "c6369ce8-9c3b-4720-82a6-4d153db14fd4",
+        "4bf92f3577b34da6a3ce929d0e0e4736",
+        "V1StGXR8_Z5jdHi6B-myT",  # nano_id
+    ],
 )
 def test_real_ids_pass(value):
     assert find_placeholder_ids({"metric_id": value, "name": "pending"}) is None
 
 
-@pytest.mark.parametrize("value", ["pending_id_resolution", "<metric id>", "TBD"])
+@pytest.mark.parametrize(
+    "value", ["pending_id_resolution", "<metric id>", "TBD", "--------", "{{metric_1}}"]
+)
 def test_placeholder_ids_are_rejected(value):
     """A placeholder sent before the metric existed came back as a raw 422."""
     error = find_placeholder_ids({"metric_id": value})
