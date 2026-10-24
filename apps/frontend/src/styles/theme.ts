@@ -42,6 +42,16 @@ export interface BrandColors {
   fontFamily?: string;
 }
 
+/** Colors for Architect charts: a pale neutral for context, `series` in fixed order. */
+export interface ArchitectChartPalette {
+  /** Bars and areas that carry context, not the point. */
+  neutral: string;
+  /** The same role for lines, which need more contrast than a filled bar. */
+  neutralLine: string;
+  /** Series colors in assignment order; the first is also the focus accent. */
+  series: string[];
+}
+
 /**
  * Define theme settings for both light and dark modes.
  *
@@ -667,6 +677,22 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
         '#FCA5A5',
         '#3BC4F2',
       ],
+      // Architect charts use shades of the brand teal, kept apart from the solid brand
+      // fill (bubbles, buttons) by lightness and lower chroma: pale teal for context, a
+      // deeper muted teal for what the reply is about. Series step evenly in lightness
+      // from that accent, so they read apart without color vision.
+      architect:
+        mode === 'light'
+          ? {
+              neutral: '#bdd6e0',
+              neutralLine: '#80bbd3',
+              series: ['#266077', '#317e9f', '#559dbb', '#80bbd3'],
+            }
+          : {
+              neutral: '#2e4651',
+              neutralLine: '#2a6581',
+              series: ['#8ec0d4', '#5ba3c1', '#3884a5', '#2a6581'],
+            },
     },
     elevation: {
       none: 0,
@@ -731,6 +757,7 @@ declare module '@mui/material/styles' {
       pie: string[];
       status: string[];
       categorical: string[];
+      architect: ArchitectChartPalette;
     };
     elevation: {
       none: number;
@@ -753,6 +780,7 @@ declare module '@mui/material/styles' {
       pie: string[];
       status: string[];
       categorical: string[];
+      architect: ArchitectChartPalette;
     };
     elevation?: {
       none?: number;

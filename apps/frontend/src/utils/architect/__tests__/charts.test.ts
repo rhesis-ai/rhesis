@@ -1,7 +1,13 @@
 import {
   ArchitectChartSpec,
+  ChartPalette,
   buildSeries,
+  categoryColors,
   dataColumns,
+  focusLabels,
+  legendEntries,
+  seriesColors,
+  seriesMark,
   formatMeasure,
   formatPeriod,
   heatPosition,
@@ -93,5 +99,84 @@ describe('architect chart helpers', () => {
       'endpoint',
       'pass_rate',
     ]);
+  });
+});
+
+describe('architect chart colors', () => {
+  const palette: ChartPalette = {
+    neutral: 'gray',
+    neutralLine: 'dark-gray',
+    series: ['accent', 'second', 'third', 'fourth'],
+  };
+  const topics: ArchitectChartSpec = {
+    title: 't',
+    chart_type: 'horizontal_bar',
+    x: 'topic',
+    measures: [{ key: 'pass_rate', kind: 'rate' }],
+    rows: [
+      { topic: 'Visa', pass_rate: 56 },
+      { topic: 'Baggage', pass_rate: 92 },
+    ],
+  };
+  const byEndpoint: ArchitectChartSpec = {
+    ...base,
+    series: 'endpoint',
+    rows: [
+      { period: '2026-09-07', endpoint: 'v1', pass_rate: 70 },
+      { period: '2026-09-07', endpoint: 'v2', pass_rate: 80 },
+      { period: '2026-09-07', endpoint: 'v3', pass_rate: 75 },
+    ],
+  };
+
+  it('keeps a lone bar series gray and a lone line in the accent', () => {
+    expect(seriesColors(topics, ['Pass rate'], palette, 'fill')).toEqual([
+      'gray',
+    ]);
+    expect(seriesColors(base, ['Pass rate'], palette, 'line')).toEqual([
+      'accent',
+    ]);
+  });
+
+  it('gives several series the palette in order', () => {
+    expect(
+      seriesColors(byEndpoint, ['v1', 'v2', 'v3'], palette, 'line')
+    ).toEqual(['accent', 'second', 'third']);
+  });
+
+  it('puts a focused series in the accent and the rest in gray', () => {
+    const spec = { ...byEndpoint, focus: ['v2'] };
+    expect(seriesColors(spec, ['v1', 'v2', 'v3'], palette, 'line')).toEqual([
+      'dark-gray',
+      'accent',
+      'dark-gray',
+    ]);
+  });
+
+  it('colors focused bars by category, and none without a focus', () => {
+    const categories = xCategories(topics);
+    expect(categoryColors(topics, categories, palette)).toBeNull();
+    expect(
+      categoryColors({ ...topics, focus: ['Visa'] }, categories, palette)
+    ).toEqual(['accent', 'gray']);
+  });
+
+  it('matches a period focus by its ISO date', () => {
+    const spec = { ...byEndpoint, focus: ['2026-09-07'] };
+    expect([...focusLabels(spec, 'period')]).toEqual(['Week of Sep 7']);
+    expect(focusLabels(spec, 'endpoint').size).toBe(0);
+  });
+
+  it('lists legend entries only for two or more series', () => {
+    expect(legendEntries(topics, palette)).toEqual([]);
+    expect(legendEntries(byEndpoint, palette)).toEqual([
+      { label: 'v1', color: 'accent' },
+      { label: 'v2', color: 'second' },
+      { label: 'v3', color: 'third' },
+    ]);
+  });
+
+  it('draws lines, areas and radar shapes as lines', () => {
+    expect(seriesMark('area')).toBe('line');
+    expect(seriesMark('stacked_bar')).toBe('fill');
   });
 });

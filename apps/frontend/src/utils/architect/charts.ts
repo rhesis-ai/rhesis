@@ -39,8 +39,17 @@ export interface ArchitectChartSpec {
   measures: ChartMeasure[];
   time_grain?: string | null;
   target?: number | null;
+  /** x or series values the reply is about, as they appear in the rows. */
+  focus?: string[] | null;
   rows: ChartRow[];
   truncated?: boolean;
+}
+
+/** Mirrors `ArchitectChartPalette` in the theme, kept here so these helpers stay pure. */
+export interface ChartPalette {
+  neutral: string;
+  neutralLine: string;
+  series: string[];
 }
 
 export interface ChartSeries {
@@ -177,6 +186,87 @@ export function buildSeries(spec: ArchitectChartSpec): ChartSeries[] {
     }
     return { label: humanize(measure.key), measure, data };
   });
+}
+
+/** The focus values that are values of `dimension`, formatted like its labels. */
+export function focusLabels(
+  spec: ArchitectChartSpec,
+  dimension?: string | null
+): Set<string> {
+  if (!dimension || !spec.focus?.length) return new Set();
+  const present = new Set(distinctValues(spec, dimension));
+  return new Set(
+    spec.focus
+      .map(value => formatDimension(spec, dimension, value))
+      .filter(label => present.has(label))
+  );
+}
+
+/**
+ * One color per series. With a focus, the focused series take the accent and the
+ * rest take the neutral. Without one, several series take the palette in order, and a
+ * lone series is neutral as bars (no single point to make) but the accent as a line,
+ * since a pale line reads as disabled.
+ */
+export function seriesColors(
+  spec: ArchitectChartSpec,
+  labels: string[],
+  palette: ChartPalette,
+  mark: 'fill' | 'line'
+): string[] {
+  const neutral = mark === 'line' ? palette.neutralLine : palette.neutral;
+  const accent = palette.series[0];
+  const focused = focusLabels(spec, spec.series);
+  if (focused.size) return labels.map(l => (focused.has(l) ? accent : neutral));
+  if (labels.length === 1) return [mark === 'line' ? accent : neutral];
+  // The SDK caps charts at the palette's length, so the fallback is only a guard.
+  return labels.map((_, i) => palette.series[i] ?? neutral);
+}
+
+/** Lines, areas and radar shapes are drawn as lines; bars as fills. */
+export function seriesMark(chartType: ArchitectChartType): 'fill' | 'line' {
+  return chartType === 'line' || chartType === 'area' || chartType === 'radar'
+    ? 'line'
+    : 'fill';
+}
+
+const SERIES_CHART_TYPES: ArchitectChartType[] = [
+  'line',
+  'area',
+  'bar',
+  'horizontal_bar',
+  'stacked_bar',
+  'radar',
+];
+
+/** Legend entries for charts with two or more series, else none. */
+export function legendEntries(
+  spec: ArchitectChartSpec,
+  palette: ChartPalette
+): Array<{ label: string; color: string }> {
+  if (!SERIES_CHART_TYPES.includes(spec.chart_type)) return [];
+  const labels = buildSeries(spec).map(s => s.label);
+  if (labels.length < 2) return [];
+  const colors = seriesColors(
+    spec,
+    labels,
+    palette,
+    seriesMark(spec.chart_type)
+  );
+  return labels.map((label, i) => ({ label, color: colors[i] }));
+}
+
+/** Per-category bar colors when the focus names x values, else null. */
+export function categoryColors(
+  spec: ArchitectChartSpec,
+  categories: string[],
+  palette: ChartPalette
+): string[] | null {
+  const focused = focusLabels(spec, spec.x);
+  if (!focused.size) return null;
+  return categories.map(c =>
+    focused.has(c) ? palette.series[0] : palette.neutral
+  );
 }
 
 /** Value axis bounds: rates span 0-100 and scores 0-1, so bars compare honestly. */

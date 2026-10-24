@@ -30,6 +30,12 @@ CHART_TYPES: Dict[str, str] = {
 }
 
 MAX_ROWS = 200
+# The chart palette has four evenly spaced shades, readable without color vision; past that,
+# colors repeat or blur, so the model must narrow the query or pick a heat_table.
+MAX_SERIES = 4
+SERIES_CHART_TYPES = ("line", "area", "bar", "horizontal_bar", "stacked_bar", "radar")
+# Without a series dimension, only bars can set one x value apart from the rest.
+X_FOCUS_CHART_TYPES = ("bar", "horizontal_bar")
 
 
 class ShowChartTool(BaseTool):
@@ -106,6 +112,17 @@ class ShowChartTool(BaseTool):
                     "type": "number",
                     "description": "Optional reference line, e.g. a 90 pass-rate target.",
                 },
+                "focus": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Optional values your reply is about, exactly as they appear in the "
+                        "data: series values when the chart has a series, else x values of a "
+                        "bar or horizontal_bar (e.g. the weakest topic). They are drawn in "
+                        "the accent color and everything else in a pale neutral. Omit it when the "
+                        "chart makes no single point."
+                    ),
+                },
             },
             "required": ["query", "chart_type", "title", "y"],
         }
@@ -132,6 +149,12 @@ class ShowChartTool(BaseTool):
                 content="The query matched no data, so no chart was shown. Tell the user so.",
             )
 
+        try:
+            _check_series_count(spec_args, rows)
+            focus = _resolve_focus(spec_args, rows)
+        except ValueError as exc:
+            return self._error(str(exc))
+
         kinds = await self._kinds(spec_args["query"]["entity"])
         y_kinds = {kinds.get(m, "count") for m in spec_args["y"]}
         if len(y_kinds) > 1 and spec_args["chart_type"] != "scatter":
@@ -148,6 +171,7 @@ class ShowChartTool(BaseTool):
             "measures": [{"key": m, "kind": kinds.get(m, "count")} for m in spec_args["y"]],
             "time_grain": envelope.get("time_grain"),
             "target": spec_args.get("target"),
+            "focus": focus,
             "rows": rows[:MAX_ROWS],
             "truncated": len(rows) > MAX_ROWS,
         }
@@ -222,6 +246,43 @@ def _validate(args: Dict[str, Any]) -> Dict[str, Any]:
     # One row past the cap is enough to know the chart was cut off.
     query["limit"] = min(int(query.get("limit") or MAX_ROWS + 1), MAX_ROWS + 1)
     return {**args, "query": query, "y": y}
+
+
+def _check_series_count(args: Dict[str, Any], rows: List[Dict[str, Any]]) -> None:
+    if args["chart_type"] not in SERIES_CHART_TYPES:
+        return
+    series = args.get("series")
+    count = len({str(row.get(series)) for row in rows}) if series else len(args["y"])
+    if count > MAX_SERIES:
+        raise ValueError(
+            f"this chart would have {count} series, more than the {MAX_SERIES} that can be told "
+            "apart by color; narrow the query with filters or limit, or use a heat_table"
+        )
+
+
+def _resolve_focus(args: Dict[str, Any], rows: List[Dict[str, Any]]) -> List[str]:
+    focus = [str(v) for v in args.get("focus") or []]
+    if not focus:
+        return []
+    if args.get("series"):
+        dimension = args["series"]
+    elif args["chart_type"] in X_FOCUS_CHART_TYPES:
+        dimension = args["x"]
+    else:
+        raise ValueError(
+            f"a {args['chart_type']} chart without a series has nothing to set apart; "
+            "drop focus, or add a series dimension and focus on its values"
+        )
+    # A missing value can't be a focus: the chart labels it "(none)", not "None".
+    known = {str(row[dimension]) for row in rows if row.get(dimension) not in (None, "")}
+    unknown = [v for v in focus if v not in known]
+    if unknown:
+        sample = ", ".join(sorted(known)[:10])
+        raise ValueError(
+            f"focus names {unknown}, which aren't {dimension} values in the data; "
+            f"values include: {sample}"
+        )
+    return focus
 
 
 SUMMARY_ROWS = 15
