@@ -68,6 +68,8 @@ export default function ArchitectSidebar({
           alignSelf: 'stretch',
           minHeight: 0,
           flexShrink: 0,
+          // Dark mode paints the nav and this panel the same colour.
+          borderLeft: 1,
           borderRight: 1,
           borderColor: 'divider',
           display: 'flex',
@@ -102,6 +104,7 @@ export default function ArchitectSidebar({
         alignSelf: 'stretch',
         minHeight: 0,
         flexShrink: 0,
+        borderLeft: 1,
         borderRight: 1,
         borderColor: 'divider',
         display: 'flex',
