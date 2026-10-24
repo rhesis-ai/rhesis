@@ -837,6 +837,33 @@ class TestArchitectWriteGuard:
         assert [tc.tool_name for tc in agent._blocked_calls] == ["create_metric"]
 
     @pytest.mark.asyncio
+    async def test_a_held_call_approves_only_its_own_target(self, mock_model):
+        """Held calls without a plan name are keyed by their ids, not the tool name."""
+        agent = _make_agent(mock_model)
+        agent._mutating_tools = frozenset({"add_requirement_to_metric", "update_metric"})
+
+        async def fake_stream(**kw):
+            yield "Plan"
+
+        link = {"requirement_id": "r1", "metric_id": "m1"}
+        mock_model.a_generate = AsyncMock(
+            return_value=_tool_dict("add_requirement_to_metric", link)
+        )
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+        await agent.chat_async("link them")
+
+        await self._accept(
+            agent,
+            mock_model,
+            _tool_dict("add_requirement_to_metric", link),
+            _tool_dict("add_requirement_to_metric", {"requirement_id": "r2", "metric_id": "m2"}),
+        )
+
+        assert [tc.arguments for tc in agent._blocked_calls] == [
+            {"requirement_id": "r2", "metric_id": "m2"}
+        ]
+
+    @pytest.mark.asyncio
     async def test_approval_scope_survives_the_guard_state_round_trip(self, mock_model):
         """The backend builds a fresh agent per message and restores guard_state."""
         agent = _make_agent(mock_model)

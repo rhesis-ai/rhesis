@@ -717,7 +717,16 @@ class ArchitectAgent(BaseAgent):
             category = PlanCategory.TEST_SET if name else category
         if category and category != PlanCategory.MAPPING and isinstance(name, str) and name:
             return (str(category), name.strip().lower())
-        return ("tool", tool_call.tool_name)
+        # Otherwise the call is approved only as shown: the same tool on the same
+        # ids (or name), never every call of that tool.
+        target = sorted(
+            f"{key}={value}"
+            for key, value in args.items()
+            if key.endswith("_id") and value not in (None, "")
+        )
+        if not target and isinstance(name, str) and name:
+            target = [f"name={name.strip().lower()}"]
+        return ("tool", ":".join([tool_call.tool_name, *target]))
 
     def _scope_shown(self, held: List[ToolCall]) -> FrozenSet[Tuple[str, str]]:
         """The held calls plus every item of the plan as it is saved now."""
