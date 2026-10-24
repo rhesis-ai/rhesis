@@ -2235,18 +2235,19 @@ class ArchitectAgent(BaseAgent):
             parts.append(f"[... {omitted} earlier tool steps omitted ...]")
         # A failure the same tool later recovered from is settled; repeating it
         # every iteration only crowds out what actually stands.
-        last_success: Dict[str, int] = {}
+        last_success: Dict[str, Tuple[int, int]] = {}
         for position, step in enumerate(exec_window):
-            for tr in step.tool_results:
+            for i, tr in enumerate(step.tool_results):
                 if tr.success:
-                    last_success[tr.tool_name] = position
+                    last_success[tr.tool_name] = (position, i)
         for position, step in enumerate(exec_window):
             reasoning_preview = step.reasoning[: cfg.reasoning_preview_chars]
             parts.append(f"[Tool iteration {step.iteration}] Reasoning: {reasoning_preview}")
             settled = {
                 i
                 for i, tc in enumerate(step.tool_calls)
-                if self._call_failed(step, i) and last_success.get(tc.tool_name, -1) > position
+                if self._call_failed(step, i)
+                and last_success.get(tc.tool_name, (-1, -1)) > (position, i)
             }
             for i, tc in enumerate(step.tool_calls):
                 if i in settled:
