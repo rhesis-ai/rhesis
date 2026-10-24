@@ -298,15 +298,40 @@ async def test_focus_on_a_missing_value_is_rejected():
 
 
 @pytest.mark.asyncio
-async def test_focus_names_series_values_when_there_is_a_series():
-    """An x focus on a chart with series would be ignored by the renderer."""
+async def test_grouped_bars_take_a_focus_on_either_dimension():
+    """The model highlighted a topic across two runs and was rejected three times running."""
     tool, _ = _tool(_by_run(2))
 
-    rejected = await tool.execute(**SERIES_QUERY, chart_type="bar", focus=["Claims"])
-    accepted = await tool.execute(**SERIES_QUERY, chart_type="bar", focus=["run 1"])
+    by_topic = await tool.execute(**SERIES_QUERY, chart_type="bar", focus=["Claims"])
+    by_run = await tool.execute(**SERIES_QUERY, chart_type="bar", focus=["run 1"])
+    unknown = await tool.execute(**SERIES_QUERY, chart_type="bar", focus=["Billing"])
 
-    assert not rejected.success and "test_run values" in rejected.error
-    assert accepted.success
+    assert by_topic.success and by_run.success
+    assert not unknown.success and "test_run or topic values" in unknown.error
+    assert "again with focus fixed or without it" in unknown.error
+
+
+@pytest.mark.asyncio
+async def test_a_line_takes_a_focus_only_on_its_series():
+    tool, _ = _tool([{"period": "2026-10-01", "topic": "Claims", "pass_rate": 80.0}])
+    query = {
+        "query": {
+            "entity": "test_result",
+            "group_by": ["period", "topic"],
+            "measures": ["pass_rate"],
+        },
+        "chart_type": "line",
+        "title": "Trend",
+        "x": "period",
+        "series": "topic",
+        "y": ["pass_rate"],
+    }
+
+    on_series = await tool.execute(**query, focus=["Claims"])
+    on_period = await tool.execute(**query, focus=["2026-10-01"])
+
+    assert on_series.success
+    assert not on_period.success and "topic values" in on_period.error
 
 
 @pytest.mark.asyncio
@@ -322,7 +347,7 @@ async def test_focus_on_a_lone_line_is_rejected():
         focus=["2026-10-01"],
     )
 
-    assert not result.success and "nothing to set apart" in result.error
+    assert not result.success and "without focus" in result.error
 
 
 @pytest.mark.asyncio
