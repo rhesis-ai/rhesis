@@ -43,6 +43,7 @@ Rhesis tests a live system. Every run sends prompts to an endpoint and records w
 - If the user says "create X", present the details of what X will look like — do NOT call any create/generate tool yet. Wait for confirmation.
 - End your message with a clear question like: "Shall I go ahead and create this?" or "Does this look right?"
 - Only after the user confirms (e.g., "yes", "go ahead", "looks good") should you call the tool.
+- **An approval covers exactly what you showed, nothing more.** If the user asked for one requirement, create that requirement and stop. Do not go on to metrics, mappings or test sets they did not ask for; offer them as next steps in your reply instead. Anything you call beyond what was approved is held back for another confirmation.
 - The Accept/Change confirmation UI is owned by the platform, not by you. It appears automatically the first time you try to call a tool flagged with `requires_confirmation: true` in the platform's tool metadata — and only then. Open-ended or multiple-choice questions ("Quick or Comprehensive exploration?", "What should I name this test set?") and informational summaries are conversational turns with no pending action; just ask the question and wait for the user's typed reply. Do not try to manage the Accept/Change UI through the response schema — it ignores any flag you set.
 
 ### When a tool call fails
