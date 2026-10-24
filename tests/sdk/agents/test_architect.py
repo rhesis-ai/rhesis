@@ -860,9 +860,7 @@ class TestArchitectWriteGuard:
         assert agent._confirming_tools == frozenset()
 
     @pytest.mark.asyncio
-    async def test_finish_after_approved_tool_does_not_re_surface_confirmation(
-        self, mock_model
-    ):
+    async def test_finish_after_approved_tool_does_not_re_surface_confirmation(self, mock_model):
         """Auto-resumed summaries must not inherit a stale confirmation flag.
 
         Reproduces the bug where the Accept/Change UI re-appeared on
@@ -911,9 +909,7 @@ class TestArchitectWriteGuard:
         assert agent._blocked_this_turn is False
 
     @pytest.mark.asyncio
-    async def test_blocked_tool_sets_needs_confirmation_without_llm_flag(
-        self, mock_model
-    ):
+    async def test_blocked_tool_sets_needs_confirmation_without_llm_flag(self, mock_model):
         """Runtime derivation works even when the LLM omits the flag.
 
         When the LLM tries to call a mutating tool, ``_handle_tool_calls``
@@ -1628,10 +1624,12 @@ class TestArchitectAwaitTask:
 
         tc = ToolCall(
             tool_name="await_task",
-            arguments=json.dumps({
-                "task_ids": ["tid-1", "tid-2"],
-                "message": "Generating tests...",
-            }),
+            arguments=json.dumps(
+                {
+                    "task_ids": ["tid-1", "tid-2"],
+                    "message": "Generating tests...",
+                }
+            ),
         )
         result = await agent.execute_tool(tc)
         assert result.success is True
@@ -1648,10 +1646,12 @@ class TestArchitectAwaitTask:
 
         tc = ToolCall(
             tool_name="await_task",
-            arguments=json.dumps({
-                "task_ids": [],
-                "message": "Waiting...",
-            }),
+            arguments=json.dumps(
+                {
+                    "task_ids": [],
+                    "message": "Waiting...",
+                }
+            ),
         )
         result = await agent.execute_tool(tc)
         assert result.success is False
@@ -1664,10 +1664,13 @@ class TestArchitectAwaitTask:
         agent = _make_agent(mock_model, max_iterations=5)
 
         mock_model.a_generate.side_effect = [
-            _tool_dict("await_task", {
-                "task_ids": ["tid-1"],
-                "message": "Generating tests...",
-            }),
+            _tool_dict(
+                "await_task",
+                {
+                    "task_ids": ["tid-1"],
+                    "message": "Generating tests...",
+                },
+            ),
             # The agent should NOT reach a second iteration
             _finish_dict("should not reach here"),
         ]
@@ -1718,10 +1721,13 @@ class TestArchitectAwaitTask:
 
         mock_model.a_generate.side_effect = [
             _tool_dict("dummy", {"x": "work"}),
-            _tool_dict("await_task", {
-                "task_ids": ["tid-1"],
-                "message": "Now waiting...",
-            }),
+            _tool_dict(
+                "await_task",
+                {
+                    "task_ids": ["tid-1"],
+                    "message": "Now waiting...",
+                },
+            ),
         ]
 
         response = await agent.chat_async("do work then wait")
@@ -1755,10 +1761,13 @@ class TestArchitectDeferredTestSetCompletion:
 
         mock_model.a_generate.side_effect = [
             _tool_dict("generate_test_set", {"name": "Safety Tests"}),
-            _tool_dict("await_task", {
-                "task_ids": ["tid-1"],
-                "message": "Generating...",
-            }),
+            _tool_dict(
+                "await_task",
+                {
+                    "task_ids": ["tid-1"],
+                    "message": "Generating...",
+                },
+            ),
         ]
 
         await agent.chat_async("create tests")
@@ -1923,11 +1932,13 @@ class TestArchitectPlanConstraints:
         agent._plan = ArchitectPlan(
             requirements=[],
             test_sets=[],
-            metrics=[MetricSpec(
-                name="Factual Accuracy",
-                description="d",
-                completed=True,
-            )],
+            metrics=[
+                MetricSpec(
+                    name="Factual Accuracy",
+                    description="d",
+                    completed=True,
+                )
+            ],
         )
         tc = ToolCall(
             tool_name="create_metric",
@@ -1946,11 +1957,13 @@ class TestArchitectPlanConstraints:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            requirements=[RequirementSpec(
-                name="Safety",
-                description="d",
-                completed=True,
-            )],
+            requirements=[
+                RequirementSpec(
+                    name="Safety",
+                    description="d",
+                    completed=True,
+                )
+            ],
             test_sets=[],
             metrics=[],
         )
@@ -1970,11 +1983,13 @@ class TestArchitectPlanConstraints:
         agent._plan = ArchitectPlan(
             requirements=[],
             test_sets=[],
-            metrics=[MetricSpec(
-                name="Factual Accuracy",
-                description="d",
-                completed=False,
-            )],
+            metrics=[
+                MetricSpec(
+                    name="Factual Accuracy",
+                    description="d",
+                    completed=False,
+                )
+            ],
         )
         tc = ToolCall(
             tool_name="create_metric",
@@ -1993,11 +2008,13 @@ class TestArchitectPlanConstraints:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            requirements=[RequirementSpec(
-                name="Safety",
-                description="d",
-                completed=False,
-            )],
+            requirements=[
+                RequirementSpec(
+                    name="Safety",
+                    description="d",
+                    completed=False,
+                )
+            ],
             test_sets=[TestSetSpec(name="Tests", description="d")],
             metrics=[],
         )
@@ -2021,11 +2038,13 @@ class TestArchitectPlanConstraints:
         agent._plan = ArchitectPlan(
             requirements=[],
             test_sets=[TestSetSpec(name="Tests", description="d")],
-            metrics=[MetricSpec(
-                name="Accuracy",
-                description="d",
-                completed=False,
-            )],
+            metrics=[
+                MetricSpec(
+                    name="Accuracy",
+                    description="d",
+                    completed=False,
+                )
+            ],
         )
         tc = ToolCall(
             tool_name="generate_test_set",
@@ -2048,10 +2067,12 @@ class TestArchitectPlanConstraints:
             requirements=[],
             test_sets=[TestSetSpec(name="Tests", description="d")],
             metrics=[],
-            requirement_metric_mappings=[MappingSpec(
-                requirement="Safety",
-                metrics=["Accuracy"],
-            )],
+            requirement_metric_mappings=[
+                MappingSpec(
+                    requirement="Safety",
+                    metrics=["Accuracy"],
+                )
+            ],
         )
         tc = ToolCall(
             tool_name="generate_test_set",
@@ -2073,18 +2094,28 @@ class TestArchitectPlanConstraints:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            requirements=[RequirementSpec(
-                name="Safety", description="d", completed=True,
-            )],
+            requirements=[
+                RequirementSpec(
+                    name="Safety",
+                    description="d",
+                    completed=True,
+                )
+            ],
             test_sets=[TestSetSpec(name="Tests", description="d")],
-            metrics=[MetricSpec(
-                name="Accuracy", description="d", completed=True,
-            )],
-            requirement_metric_mappings=[MappingSpec(
-                requirement="Safety",
-                metrics=["Accuracy"],
-                completed=True,
-            )],
+            metrics=[
+                MetricSpec(
+                    name="Accuracy",
+                    description="d",
+                    completed=True,
+                )
+            ],
+            requirement_metric_mappings=[
+                MappingSpec(
+                    requirement="Safety",
+                    metrics=["Accuracy"],
+                    completed=True,
+                )
+            ],
         )
         tc = ToolCall(
             tool_name="generate_test_set",
@@ -2120,10 +2151,12 @@ class TestArchitectIdNameCollection:
         result = ToolResult(
             tool_name="list_requirements",
             success=True,
-            content=json.dumps([
-                {"id": "uuid-1", "name": "Safety"},
-                {"id": "uuid-2", "name": "Accuracy"},
-            ]),
+            content=json.dumps(
+                [
+                    {"id": "uuid-1", "name": "Safety"},
+                    {"id": "uuid-2", "name": "Accuracy"},
+                ]
+            ),
         )
         agent._collect_id_names(result)
         assert agent._id_to_name["uuid-1"] == "Safety"
@@ -2134,11 +2167,13 @@ class TestArchitectIdNameCollection:
         result = ToolResult(
             tool_name="list_metrics",
             success=True,
-            content=json.dumps({
-                "value": [
-                    {"id": "uuid-3", "name": "Relevance"},
-                ]
-            }),
+            content=json.dumps(
+                {
+                    "value": [
+                        {"id": "uuid-3", "name": "Relevance"},
+                    ]
+                }
+            ),
         )
         agent._collect_id_names(result)
         assert agent._id_to_name["uuid-3"] == "Relevance"
@@ -2154,13 +2189,15 @@ class TestArchitectIdNameCollection:
         result = ToolResult(
             tool_name="list_requirements",
             success=True,
-            content=json.dumps({
-                "results": [
-                    {"id": "uuid-1", "name": "Safety"},
-                    {"id": "uuid-2", "name": "Accuracy"},
-                ],
-                "_pagination": {"returned": 2, "has_more": False},
-            }),
+            content=json.dumps(
+                {
+                    "results": [
+                        {"id": "uuid-1", "name": "Safety"},
+                        {"id": "uuid-2", "name": "Accuracy"},
+                    ],
+                    "_pagination": {"returned": 2, "has_more": False},
+                }
+            ),
         )
         agent._collect_id_names(result)
         assert agent._id_to_name["uuid-1"] == "Safety"
@@ -2222,6 +2259,21 @@ class TestArchitectCompactListRendering:
             json.dumps({"id": "u-1", "name": "Solo"})
         )
         assert out is None
+
+    def test_runs_keep_their_status_and_date(self):
+        """Names alone left "the last two runs" undecidable, and the model re-listed 14 times."""
+        runs = [
+            {
+                "id": "r1",
+                "name": "misty-pine",
+                "status": {"name": "Completed"},
+                "created_at": "2026-10-22T10:00:00Z",
+            }
+        ]
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps(runs))
+        assert "misty-pine" in out
+        assert "status=Completed" in out
+        assert "created_at=2026-10-22T10:00:00Z" in out
 
     def test_returns_none_for_invalid_json(self):
         out = ArchitectAgent._compact_list_result_for_history("not json")
@@ -2306,9 +2358,7 @@ class TestArchitectCompactListRendering:
 
     def test_long_descriptions_are_truncated_per_item(self):
         items = [self._metric(0, desc_chars=500)]
-        out = ArchitectAgent._compact_list_result_for_history(
-            json.dumps(items), desc_chars=100
-        )
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps(items), desc_chars=100)
         assert out is not None
         assert "Metric 0" in out
         assert "x" * 500 not in out
@@ -2330,13 +2380,8 @@ class TestArchitectCompactListRendering:
         assert "metric_scope=endpoint" in out
 
     def test_caps_displayed_items_when_page_huge(self):
-        items = [
-            {"id": f"u-{i}", "name": f"Item {i}", "description": "d"}
-            for i in range(80)
-        ]
-        out = ArchitectAgent._compact_list_result_for_history(
-            json.dumps(items), max_items=10
-        )
+        items = [{"id": f"u-{i}", "name": f"Item {i}", "description": "d"} for i in range(80)]
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps(items), max_items=10)
         assert out is not None
         assert "Item 0" in out
         assert "Item 9" in out
@@ -2347,9 +2392,7 @@ class TestArchitectCompactListRendering:
         """Lists of primitives (e.g. tag strings) shouldn't be rendered
         as entity lists — let the caller fall back to plain truncation.
         """
-        out = ArchitectAgent._compact_list_result_for_history(
-            json.dumps(["a", "b", "c"])
-        )
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps(["a", "b", "c"]))
         assert out is None
 
     def test_format_history_uses_compact_renderer_for_lists(self):
@@ -2471,9 +2514,7 @@ class TestCompactUnnamedListResults:
 
     def test_null_fields_are_dropped(self):
         """``id``/``nano_id`` are null on every annotation — noise."""
-        out = ArchitectAgent._compact_list_result_for_history(
-            json.dumps([self._annotation(1)])
-        )
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps([self._annotation(1)]))
         assert out is not None
         assert "nano_id" not in out
 
@@ -2714,9 +2755,7 @@ class TestCarriedToolResults:
     def test_an_oversized_page_is_truncated_not_dropped(self):
         """A page bigger than the whole budget used to return an empty digest."""
         agent = _make_agent(_mock_model())
-        agent._execution_history.append(
-            _tool_step(1, "list_annotations", content=self._fat_page())
-        )
+        agent._execution_history.append(_tool_step(1, "list_annotations", content=self._fat_page()))
 
         digest = agent._build_carried_tool_results()
 
@@ -2727,9 +2766,7 @@ class TestCarriedToolResults:
     def test_an_oversized_page_does_not_wipe_earlier_entries(self):
         agent = _make_agent(_mock_model())
         agent._carried_tool_results = ["[list_annotations]: one review, from Nicolai."]
-        agent._execution_history.append(
-            _tool_step(1, "list_annotations", content=self._fat_page())
-        )
+        agent._execution_history.append(_tool_step(1, "list_annotations", content=self._fat_page()))
 
         digest = agent._build_carried_tool_results()
 
@@ -2843,9 +2880,7 @@ class TestArchitectMappingMatch:
 
         return ToolCall(
             tool_name="add_requirement_to_metric",
-            arguments=json.dumps(
-                {"requirement_id": requirement_id, "metric_id": metric_id}
-            ),
+            arguments=json.dumps({"requirement_id": requirement_id, "metric_id": metric_id}),
         )
 
     def test_single_metric_mapping_completes_on_first_link(self, mock_model):
@@ -2864,7 +2899,8 @@ class TestArchitectMappingMatch:
         )
 
         refuses = next(
-            m for m in plan.requirement_metric_mappings
+            m
+            for m in plan.requirement_metric_mappings
             if m.requirement == "Refuses Non-Travel Queries"
         )
         assert updated is True
@@ -2888,8 +2924,7 @@ class TestArchitectMappingMatch:
         )
 
         core = next(
-            m for m in plan.requirement_metric_mappings
-            if m.requirement == "Core Travel Assistance"
+            m for m in plan.requirement_metric_mappings if m.requirement == "Core Travel Assistance"
         )
         assert core.completed is False
         assert core.linked_metrics == ["Pricing Information Accuracy"]
@@ -2932,11 +2967,11 @@ class TestArchitectMappingMatch:
         )
 
         core = next(
-            m for m in plan.requirement_metric_mappings
-            if m.requirement == "Core Travel Assistance"
+            m for m in plan.requirement_metric_mappings if m.requirement == "Core Travel Assistance"
         )
         pricing = next(
-            m for m in plan.requirement_metric_mappings
+            m
+            for m in plan.requirement_metric_mappings
             if m.requirement == "Pricing Information & Disclaimers"
         )
         assert core.completed is True
@@ -2961,7 +2996,8 @@ class TestArchitectMappingMatch:
         )
 
         refuses = next(
-            m for m in plan.requirement_metric_mappings
+            m
+            for m in plan.requirement_metric_mappings
             if m.requirement == "Refuses Non-Travel Queries"
         )
         assert updated is False
@@ -2986,9 +3022,7 @@ class TestArchitectMappingMatch:
             assert mapping.linked_metrics == []
 
     @pytest.mark.asyncio
-    async def test_save_plan_validation_failure_has_actionable_error(
-        self, mock_model, caplog
-    ):
+    async def test_save_plan_validation_failure_has_actionable_error(self, mock_model, caplog):
         """save_plan should reject malformed args, log the offending input,
         and return a structured field-level error for the LLM to act on."""
         from rhesis.sdk.agents.schemas import ToolCall
@@ -3111,7 +3145,8 @@ class TestArchitectMappingMatch:
         )
 
         refuses = next(
-            m for m in plan.requirement_metric_mappings
+            m
+            for m in plan.requirement_metric_mappings
             if m.requirement == "Refuses Non-Travel Queries"
         )
         assert first is True
@@ -3142,20 +3177,20 @@ class TestArchitectIdCollectionUngated:
             return ToolResult(
                 tool_name=tc.tool_name,
                 success=True,
-                content=json.dumps({
-                    "results": [
-                        {"id": "uuid-1", "name": "Safety"},
-                        {"id": "uuid-2", "name": "Accuracy"},
-                    ],
-                    "_pagination": {"returned": 2, "has_more": False},
-                }),
+                content=json.dumps(
+                    {
+                        "results": [
+                            {"id": "uuid-1", "name": "Safety"},
+                            {"id": "uuid-2", "name": "Accuracy"},
+                        ],
+                        "_pagination": {"returned": 2, "has_more": False},
+                    }
+                ),
             )
 
         monkeypatch.setattr(BaseAgent, "execute_tool", _fake_execute)
 
-        await agent.execute_tool(
-            ToolCall(tool_name="list_requirements", arguments=json.dumps({}))
-        )
+        await agent.execute_tool(ToolCall(tool_name="list_requirements", arguments=json.dumps({})))
 
         assert agent._id_to_name["uuid-1"] == "Safety"
         assert agent._id_to_name["uuid-2"] == "Accuracy"
@@ -3272,9 +3307,7 @@ class TestArchitectPlanProgress:
         assert "mappings 0/0" in progress
         assert "test_sets 0/1" in progress
 
-    def test_progress_string_marks_test_set_generation_blocked_while_pending(
-        self, mock_model
-    ):
+    def test_progress_string_marks_test_set_generation_blocked_while_pending(self, mock_model):
         agent = _make_agent(mock_model)
         agent._plan = self._pending_mapping_plan()
 
@@ -3282,9 +3315,7 @@ class TestArchitectPlanProgress:
         assert "test-set generation: blocked" in progress
         assert "N/N" in progress
 
-    def test_progress_string_marks_test_set_generation_ready_when_done(
-        self, mock_model
-    ):
+    def test_progress_string_marks_test_set_generation_ready_when_done(self, mock_model):
         agent = _make_agent(mock_model)
         agent._plan = self._ready_plan()
 
@@ -3313,9 +3344,7 @@ class TestArchitectPlanProgress:
         prompt = agent._build_prompt("hi", self._tools_list())
         assert "Plan progress:" not in prompt
 
-    def test_test_set_tools_remain_visible_in_prompt_regardless_of_plan_state(
-        self, mock_model
-    ):
+    def test_test_set_tools_remain_visible_in_prompt_regardless_of_plan_state(self, mock_model):
         """We deliberately do NOT hide tools from the LLM. The
         principled mechanism is: prompt advertises preconditions,
         runtime constraint enforces them. This test guards against
@@ -3389,15 +3418,11 @@ class TestArchitectSavePlanReconciliation:
 
         return ToolCall(
             tool_name="add_requirement_to_metric",
-            arguments=json.dumps(
-                {"requirement_id": requirement_id, "metric_id": metric_id}
-            ),
+            arguments=json.dumps({"requirement_id": requirement_id, "metric_id": metric_id}),
         )
 
     @pytest.mark.asyncio
-    async def test_entities_created_before_plan_are_marked_completed(
-        self, mock_model
-    ):
+    async def test_entities_created_before_plan_are_marked_completed(self, mock_model):
         """Reproduces the failing session in the worker logs:
         create_requirement + create_metric run while ``self._plan is None``,
         then save_plan arrives. Without reconciliation, every plan item
@@ -3421,9 +3446,7 @@ class TestArchitectSavePlanReconciliation:
         assert plan.metrics[0].completed is True
 
     @pytest.mark.asyncio
-    async def test_links_made_before_plan_complete_their_mappings_on_save(
-        self, mock_model
-    ):
+    async def test_links_made_before_plan_complete_their_mappings_on_save(self, mock_model):
         """``add_requirement_to_metric`` succeeded before save_plan, so
         ``_linked_pairs`` carries the (requirement, metric) pair across
         the plan-save boundary. After save, the matching MappingSpec
@@ -3436,9 +3459,7 @@ class TestArchitectSavePlanReconciliation:
         }
         agent._requirement_id_names = {"b-health": "Provides Accurate Health Info"}
         agent._metric_id_names = {"m-health": "Health Information Accuracy"}
-        agent._record_link_if_mapping(
-            self._link_call("b-health", "m-health")
-        )
+        agent._record_link_if_mapping(self._link_call("b-health", "m-health"))
         assert agent._linked_pairs == {
             ("provides accurate health info", "health information accuracy")
         }
@@ -4067,9 +4088,7 @@ class TestProjectContext:
         assert len(text) < agent._cfg.project_name_max_chars + 200
 
     def test_non_string_fields_are_ignored(self, mock_model):
-        agent = self._agent(
-            mock_model, {"project_id": "abc-123", "name": None, "description": 42}
-        )
+        agent = self._agent(mock_model, {"project_id": "abc-123", "name": None, "description": 42})
         text = agent._format_project_context()
         assert "(unnamed)" in text
         assert "About:" not in text

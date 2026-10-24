@@ -59,6 +59,22 @@ HELD_BACK_SEED = "Here is what I'll do once you accept. Nothing has been created
 
 
 # ── helpers ──────────────────────────────────────────────────────
+def _list_item_extras(item: Dict[str, Any]) -> List[str]:
+    """The fields a compacted list line keeps beside an item's name."""
+    extras: List[str] = []
+    for key in ("score_type", "metric_scope", "requirement_type", "test_type"):
+        val = item.get(key)
+        if val not in (None, ""):
+            extras.append(f"{key}={val}")
+    # Without these a list of runs is only names, so "the last two runs" cannot
+    # be told apart and the model kept re-listing.
+    for key in ("status", "created_at"):
+        val = item.get(key)
+        if isinstance(val, dict):
+            val = val.get("name")
+        if val not in (None, ""):
+            extras.append(f"{key}={val}")
+    return extras
 
 
 def _strip_llm_internal_fields(args: Any) -> Any:
@@ -1456,11 +1472,7 @@ class ArchitectAgent(BaseAgent):
             desc = item.get("description") or item.get("summary") or ""
             if isinstance(desc, str) and len(desc) > desc_chars:
                 desc = desc[:desc_chars].rstrip() + "…"
-            extras: List[str] = []
-            for key in ("score_type", "metric_scope", "requirement_type", "test_type"):
-                val = item.get(key)
-                if val not in (None, ""):
-                    extras.append(f"{key}={val}")
+            extras = _list_item_extras(item)
             line = f"  - {name}"
             if eid:
                 line += f" (id: {eid})"
