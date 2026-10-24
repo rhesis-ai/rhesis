@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import {
   Box,
   Button,
@@ -68,30 +68,36 @@ function PrettyValue({ value }: { value: unknown }) {
   if (typeof value === 'string') return <Text value={value} />;
   if (!isPlainObject(value)) return <JsonBlock value={value} />;
 
+  // One grid for all rows, so every value starts where the longest key ends.
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: 'max-content minmax(0, 1fr)',
+        columnGap: 1.5,
+        rowGap: 0.75,
+      }}
+    >
       {Object.entries(value).map(([key, inner]) => (
-        <Box key={key} sx={{ display: 'flex', gap: 1.5, minWidth: 0 }}>
+        <Fragment key={key}>
           <Typography
             variant="caption"
             sx={theme => ({
               ...monoSx(theme),
               color: 'text.secondary',
-              flexShrink: 0,
-              minWidth: theme.spacing(11),
               pt: 0.25,
             })}
           >
             {key}
           </Typography>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box sx={{ minWidth: 0 }}>
             {typeof inner === 'string' ? (
               <Text value={inner} />
             ) : (
               <JsonBlock value={inner} />
             )}
           </Box>
-        </Box>
+        </Fragment>
       ))}
     </Box>
   );

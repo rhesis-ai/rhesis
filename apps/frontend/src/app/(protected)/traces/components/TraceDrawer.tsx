@@ -74,6 +74,8 @@ export default function TraceDrawer({
     useState<TraceExperimentInfo | null>(null);
   const [selectedSpan, setSelectedSpan] = useState<SpanNode | null>(null);
   const [viewTab, setViewTab] = useState<number>(0);
+  // The toolbar slot a view renders its own actions into (the Conversation view's create-test button).
+  const [viewActions, setViewActions] = useState<HTMLElement | null>(null);
 
   // A turn reached from inside the drawer, valid only for the trace the parent opened.
   const [turnNav, setTurnNav] = useState<{
@@ -96,11 +98,6 @@ export default function TraceDrawer({
   // Tab index computation for optional conversation tab
   const showConversationTab = !!trace?.conversation_id;
   const isConversationTrace = showConversationTab;
-  const hasTraceMetrics =
-    trace?.root_spans?.some(
-      s => s.trace_metrics && Object.keys(s.trace_metrics).length > 0
-    ) ?? false;
-
   const viewTabs = useMemo(() => {
     const tabs: {
       key: string;
@@ -660,6 +657,10 @@ export default function TraceDrawer({
                   </ToggleButton>
                 ))}
               </ToggleButtonGroup>
+              <Box
+                ref={setViewActions}
+                sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}
+              />
             </Box>
 
             <ErrorBoundary>
@@ -686,6 +687,7 @@ export default function TraceDrawer({
                     }
                     onAnnotateTurn={handleAnnotateTurn}
                     selectedTurn={selectedTurnNumber}
+                    actionsContainer={viewActions}
                   />
                 )}
                 {activeViewKey === 'tree' && (
@@ -757,7 +759,6 @@ export default function TraceDrawer({
             <SpanDetailsPanel
               span={selectedSpan}
               trace={trace}
-              hasTraceMetrics={hasTraceMetrics}
               isConversationTrace={isConversationTrace}
               currentUserId={currentUserId}
               currentUserName={currentUserName}

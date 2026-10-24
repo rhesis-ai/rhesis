@@ -26,7 +26,6 @@ import { automatedVerdictFor } from './trace-verdict';
 interface SpanDetailsPanelProps {
   span: SpanNode | null;
   trace: TraceDetailResponse | null;
-  hasTraceMetrics?: boolean;
   isConversationTrace?: boolean;
   currentUserId?: string;
   currentUserName?: string;
@@ -41,7 +40,7 @@ interface SpanDetailsPanelProps {
   selectedTurnNumber?: number | null;
 }
 
-type TabKey = 'details' | 'evaluation' | 'comments';
+type TabKey = 'details' | 'evaluation' | 'tasks';
 
 const IO_KIND_LABEL: Record<SpanIO['kind'], string> = {
   function: 'Function',
@@ -114,7 +113,6 @@ function SpanIOList({ span }: { span: SpanNode }) {
 export default function SpanDetailsPanel({
   span,
   trace,
-  hasTraceMetrics = false,
   isConversationTrace = false,
   currentUserId = '',
   currentUserName = '',
@@ -165,10 +163,10 @@ export default function SpanDetailsPanel({
     }));
     if (trace?.root_spans?.[0]?.id) {
       list.push({
-        key: 'comments',
-        label: 'Comments',
-        id: 'span-detail-tab-comments',
-        'aria-controls': 'span-detail-tabpanel-comments',
+        key: 'tasks',
+        label: 'Tasks & Comments',
+        id: 'span-detail-tab-tasks',
+        'aria-controls': 'span-detail-tabpanel-tasks',
       });
     }
     return list;
@@ -282,7 +280,6 @@ export default function SpanDetailsPanel({
             <EvaluationTab
               span={span}
               trace={trace}
-              hasTraceMetrics={hasTraceMetrics}
               isConversationTrace={isConversationTrace}
               selectedTurnNumber={selectedTurnNumber}
               traceMetricsStatus={traceMetricsStatus}
@@ -297,7 +294,7 @@ export default function SpanDetailsPanel({
         )}
 
         {trace?.root_spans?.[0]?.id && (
-          <TabPanel value={tabs[activeIndex].key} index="comments">
+          <TabPanel value={tabs[activeIndex].key} index="tasks">
             <Box sx={{ px: 2, py: 1.5 }}>
               <TasksAndCommentsWrapper
                 entityType="Trace"

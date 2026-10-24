@@ -37,6 +37,7 @@ import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import ResultCheckCard from '@/components/common/ResultCheckCard';
+import CheckSection from '@/components/common/CheckSection';
 import ConversationResult from '@/components/common/ConversationResult';
 import type { MetricsSource } from '@/utils/api-client/interfaces/test-configuration';
 import {
@@ -422,6 +423,9 @@ export default function ConversationHistory({
                     textTransform: 'none',
                     fontWeight: 500,
                     whiteSpace: 'nowrap',
+                    ...(compact
+                      ? { typography: 'caption', py: 0, px: 1.25 }
+                      : {}),
                   }}
                 >
                   {findingsLabel(turnGroups)}
@@ -481,21 +485,31 @@ export default function ConversationHistory({
                   sx={{
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 1.5,
-                    ml: 4,
-                    mb: 2.5,
-                    p: 1.5,
+                    gap: compact ? 0.5 : 1.5,
+                    ml: compact ? 0 : 4,
+                    mb: compact ? 1 : 2.5,
+                    ...(compact ? { px: 1.5, py: 0.5 } : { p: 1.5 }),
                     borderRadius: BORDER_RADIUS.md,
                     bgcolor: 'action.hover',
+                    // The first compact section needs no rule above it.
+                    '& > section:first-of-type': { borderTop: 0 },
                   }}
                 >
-                  {turnGroups.map(group => (
-                    <ResultCheckCard
-                      key={`${turn.turn}-${group.key}`}
-                      group={group}
-                      flat
-                    />
-                  ))}
+                  {turnGroups.map(group =>
+                    compact ? (
+                      <CheckSection
+                        key={`${turn.turn}-${group.key}`}
+                        title={group.title}
+                        checks={group.checks}
+                      />
+                    ) : (
+                      <ResultCheckCard
+                        key={`${turn.turn}-${group.key}`}
+                        group={group}
+                        flat
+                      />
+                    )
+                  )}
                 </Box>
               </Collapse>
             )}

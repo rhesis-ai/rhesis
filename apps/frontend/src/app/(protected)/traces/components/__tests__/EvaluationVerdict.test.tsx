@@ -45,17 +45,31 @@ beforeEach(() => {
 });
 
 describe('EvaluationVerdict', () => {
-  it('shows the automated result next to an empty human one', () => {
-    render(<EvaluationVerdict span={failingSpan} onChanged={jest.fn()} />);
+  it('shows the result and tally next to an empty human verdict', () => {
+    render(
+      <EvaluationVerdict
+        span={failingSpan}
+        status="Fail"
+        summary="1 of 2 checks passed"
+        onChanged={jest.fn()}
+      />
+    );
 
     expect(screen.getByText('Failed')).toBeInTheDocument();
-    expect(screen.getByText('1/2 metrics passed')).toBeInTheDocument();
+    expect(screen.getByText('1 of 2 checks passed')).toBeInTheDocument();
     expect(screen.getByText('Not annotated')).toBeInTheDocument();
   });
 
   it('records agreement as an annotation with the automated status', async () => {
     const user = userEvent.setup();
-    render(<EvaluationVerdict span={failingSpan} onChanged={jest.fn()} />);
+    render(
+      <EvaluationVerdict
+        span={failingSpan}
+        status="Fail"
+        summary="1 of 2 checks passed"
+        onChanged={jest.fn()}
+      />
+    );
 
     await user.click(screen.getByRole('button', { name: /agree/i }));
 
@@ -80,18 +94,22 @@ describe('EvaluationVerdict', () => {
             },
           } as unknown as SpanNode
         }
+        status="Fail"
+        summary="1 of 2 checks passed"
         onChanged={jest.fn()}
       />
     );
 
     expect(screen.queryByRole('button', { name: /agree/i })).toBeNull();
-    expect(screen.getByText(/by Sam/)).toBeInTheDocument();
+    expect(screen.getByText('Human:')).toBeInTheDocument();
   });
 
-  it('offers no Agree when nothing automated ran', () => {
+  it('offers no Agree when nothing was evaluated', () => {
     render(
       <EvaluationVerdict
         span={{ id: 's-2' } as unknown as SpanNode}
+        status={null}
+        summary={null}
         onChanged={jest.fn()}
       />
     );

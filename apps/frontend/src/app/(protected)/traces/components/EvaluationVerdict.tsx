@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { Box, Button, Tooltip, Typography } from '@mui/material';
-import { BORDER_RADIUS } from '@/styles/theme';
 import { CheckIcon, RateReviewIcon } from '@/components/icons';
 import StatusChip from '@/components/common/StatusChip';
+import AnnotationIndicator from '@/components/annotations/AnnotationIndicator';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { STATUS_LABEL, type TestResultStatus } from '@/constants/outcomes';
 import { useAnnotationMutations } from '@/hooks/useAnnotations';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -19,29 +20,28 @@ import {
   findStatusByCategory,
   isPassedStatusName,
 } from '@/utils/test-result-status';
-import { automatedVerdictFor } from './trace-verdict';
 
 /** Saved as the comment of a one-click agreement, so the record says what happened. */
 export const AGREE_COMMENT = 'Agreed with the automated result.';
 
 interface EvaluationVerdictProps {
   span: SpanNode;
+  /** The automated result: the test result's status, else the span's own metrics. */
+  status: TestResultStatus | null;
+  /** "2 of 3 checks passed", or null when nothing was checked. */
+  summary: string | null;
   onAnnotate?: () => void;
   onChanged: () => void;
 }
 
-const sideLabelSx = {
-  fontWeight: 600,
-  textTransform: 'uppercase',
-  color: 'text.secondary',
-} as const;
-
 /**
- * The automated result beside the human one, with the two ways to record a
- * human verdict: agree in one click, or open the annotation form.
+ * The summary line of the Evaluation tab, as on the test run's: the automated
+ * result and its tally, then the human verdict with the two ways to record one.
  */
 export default function EvaluationVerdict({
   span,
+  status,
+  summary,
   onAnnotate,
   onChanged,
 }: EvaluationVerdictProps) {
@@ -53,29 +53,29 @@ export default function EvaluationVerdict({
     { parentInvalidate: onChanged }
   );
 
-  const automated = automatedVerdictFor(span);
   const last = span.last_annotation;
   const human =
     last?.status?.name &&
     last.target_type === ENTITY_LEVEL_TARGETS[ANNOTATION_ENTITY_TYPES.TRACE]
       ? last
       : null;
-  const conflict = !!human && span.matches_annotation === false;
+  // Only a pass or a fail can be agreed with; an error or inconclusive result has no verdict.
+  const agreeable = status === 'Pass' || status === 'Fail';
 
   const handleAgree = async () => {
-    if (!automated) return;
+    if (!agreeable) return;
     setAgreeing(true);
     try {
       // Trace annotations take test-result statuses, the same set the annotation form offers.
       const statuses = await new ApiClientFactory()
         .getStatusClient()
         .getStatuses({ entity_type: EntityType.TEST_RESULT });
-      const status = findStatusByCategory(
+      const match = findStatusByCategory(
         statuses,
-        automated.passed ? 'passed' : 'failed'
+        status === 'Pass' ? 'passed' : 'failed'
       );
-      if (!status) return;
-      await create({ statusId: String(status.id), comments: AGREE_COMMENT });
+      if (!match) return;
+      await create({ statusId: String(match.id), comments: AGREE_COMMENT });
     } catch (err) {
       console.error('Failed to save agreement:', err);
     } finally {
@@ -85,104 +85,66 @@ export default function EvaluationVerdict({
 
   return (
     <Box
-      sx={{
-        display: 'flex',
-        border: 1,
-        borderColor: conflict ? 'warning.main' : 'divider',
-        borderRadius: BORDER_RADIUS.sm,
-      }}
+      sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}
     >
-      <Box
-        sx={{
-          flex: 1,
-          minWidth: 0,
-          px: 1.75,
-          py: 1.25,
-          borderRight: 1,
-          borderColor: 'divider',
-        }}
-      >
-        <Typography variant="caption" component="p" sx={sideLabelSx}>
-          Automated
+      {status ? (
+        <StatusChip
+          status={status}
+          label={STATUS_LABEL[status]}
+          size="small"
+          variant="filled"
+        />
+      ) : (
+        <Typography variant="body2" color="text.secondary">
+          Not evaluated
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-          {automated ? (
-            <>
-              <StatusChip
-                passed={automated.passed}
-                label={automated.label}
-                size="small"
-                variant="filled"
-              />
-              <Typography variant="caption" color="text.secondary">
-                {automated.count} metrics passed
-              </Typography>
-            </>
-          ) : (
-            <Typography variant="caption" color="text.secondary">
-              Not evaluated
-            </Typography>
-          )}
-        </Box>
-      </Box>
-
-      <Box sx={{ flex: 1, minWidth: 0, px: 1.75, py: 1.25 }}>
-        <Typography variant="caption" component="p" sx={sideLabelSx}>
-          Human
+      )}
+      {summary && (
+        <Typography variant="body2" color="text.secondary">
+          {summary}
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-          {human?.status?.name ? (
-            <>
-              <StatusChip
-                passed={isPassedStatusName(human.status.name)}
-                label={
-                  isPassedStatusName(human.status.name) ? 'Passed' : 'Failed'
-                }
-                size="small"
-                variant="outlined"
-              />
-              <Typography variant="caption" color="text.secondary" noWrap>
-                {human.user?.name ? `by ${human.user.name}` : ''}
-                {conflict ? ' · disagrees with automated' : ''}
-              </Typography>
-            </>
-          ) : (
-            <Typography variant="caption" color="text.secondary">
-              Not annotated
-            </Typography>
-          )}
-          <Box sx={{ flex: 1 }} />
-          {canCreate && automated && !human && (
-            <Tooltip
-              title={`Record a human verdict of ${automated.label.toLowerCase()}`}
-            >
-              <span>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<CheckIcon />}
-                  onClick={handleAgree}
-                  disabled={agreeing}
-                  sx={{ textTransform: 'none', py: 0.25 }}
-                >
-                  Agree
-                </Button>
-              </span>
-            </Tooltip>
-          )}
-          {canCreate && onAnnotate && (
+      )}
+      <Box sx={{ flex: 1 }} />
+      <Typography variant="caption" color="text.secondary">
+        {human ? 'Human:' : 'Not annotated'}
+      </Typography>
+      {human?.status?.name && (
+        <AnnotationIndicator
+          verdict={isPassedStatusName(human.status.name) ? 'passed' : 'failed'}
+          hasConflict={span.matches_annotation === false}
+          annotator={human.user?.name}
+          comment={human.comments}
+        />
+      )}
+      {canCreate && agreeable && !human && (
+        <Tooltip
+          title={`Record a human verdict of ${STATUS_LABEL[status].toLowerCase()}`}
+        >
+          <span>
             <Button
               size="small"
               variant="outlined"
-              startIcon={<RateReviewIcon />}
-              onClick={onAnnotate}
+              startIcon={<CheckIcon />}
+              onClick={handleAgree}
+              disabled={agreeing}
               sx={{ textTransform: 'none', py: 0.25 }}
             >
-              Annotate
+              Agree
             </Button>
-          )}
-        </Box>
-      </Box>
+          </span>
+        </Tooltip>
+      )}
+      {canCreate && onAnnotate && (
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<RateReviewIcon />}
+          onClick={onAnnotate}
+          sx={{ textTransform: 'none', py: 0.25 }}
+        >
+          Annotate
+        </Button>
+      )}
     </Box>
   );
 }

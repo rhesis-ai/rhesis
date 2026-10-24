@@ -2,6 +2,7 @@
 
 import { annotationsByTurn } from '@/components/annotations/annotation-summary';
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Alert,
   Box,
@@ -53,6 +54,8 @@ interface ConversationTraceViewProps {
   onAnnotateTurn?: (turnNumber: number, turnPassed?: boolean) => void;
   /** The turn whose span is open in the details panel; highlighted. */
   selectedTurn?: number | null;
+  /** Where the view's actions go, e.g. the parent's toolbar; inline above the turns when absent. */
+  actionsContainer?: HTMLElement | null;
 }
 
 interface TurnOverrideEntry {
@@ -112,6 +115,7 @@ export default function ConversationTraceView({
   onTurnClick,
   onAnnotateTurn,
   selectedTurn = null,
+  actionsContainer = null,
 }: ConversationTraceViewProps) {
   const notifications = useNotifications();
   const canCreateTest = useCan(Capability.Test.CREATE);
@@ -271,6 +275,23 @@ export default function ConversationTraceView({
     }
   };
 
+  const createTestButton = (
+    <Tooltip title="Create multi-turn test from conversation">
+      <IconButton
+        size="small"
+        aria-label="Create multi-turn test from conversation"
+        onClick={() =>
+          setTestDraft({
+            type: TEST_TYPES.MULTI_TURN,
+            messages: conversationToMessages(turns),
+          })
+        }
+      >
+        <ScienceOutlinedIcon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  );
+
   if (turns.length === 0) {
     return (
       <Box sx={{ p: 3 }}>
@@ -296,32 +317,22 @@ export default function ConversationTraceView({
     >
       {deletedTestWarning}
       {fetchErrorWarning}
-      {canCreateTest && (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            px: 1.5,
-            pt: 0.5,
-          }}
-        >
-          <Tooltip title="Create multi-turn test from conversation">
-            <IconButton
-              size="small"
-              aria-label="Create multi-turn test from conversation"
-              onClick={() =>
-                setTestDraft({
-                  type: TEST_TYPES.MULTI_TURN,
-                  messages: conversationToMessages(turns),
-                })
-              }
-            >
-              <ScienceOutlinedIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      )}
+      {canCreateTest &&
+        (actionsContainer ? (
+          createPortal(createTestButton, actionsContainer)
+        ) : (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              px: 1.5,
+              pt: 0.5,
+            }}
+          >
+            {createTestButton}
+          </Box>
+        ))}
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <ConversationHistory
           conversationSummary={turns}
