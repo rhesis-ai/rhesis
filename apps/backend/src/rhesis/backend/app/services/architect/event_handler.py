@@ -107,6 +107,9 @@ class WebSocketEventHandler:
         }
         if duration_ms is not None:
             payload["duration_ms"] = duration_ms
+        if not success:
+            # Without the reason the chat can only show that something failed.
+            payload["error"] = str(getattr(result, "error", "") or "")[:300]
         self.publish(EventType.ARCHITECT_TOOL_END, payload)
 
     async def on_mode_change(self, *, old_mode: str, new_mode: str, **kw: Any) -> None:

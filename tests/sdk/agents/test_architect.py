@@ -409,6 +409,51 @@ class TestArchitectAgentHistoryWindowing:
         formatted = agent._format_history()
         assert "omitted" not in formatted
 
+    def test_a_failure_recovered_in_the_same_step_drops_out(self, mock_model):
+        agent = _make_agent(mock_model)
+        calls = [ToolCall(tool_name="save_plan", arguments=json.dumps({"n": n})) for n in (1, 2)]
+        agent._execution_history.append(
+            ExecutionStep(
+                iteration=1,
+                reasoning="retry in one step",
+                action="call_tool",
+                tool_calls=calls,
+                tool_results=[
+                    ToolResult(tool_name="save_plan", success=False, error="Field required"),
+                    ToolResult(tool_name="save_plan", success=True, content="saved"),
+                ],
+            )
+        )
+
+        assert "Field required" not in agent._format_history()
+
+    def test_a_failure_the_tool_recovered_from_drops_out(self, mock_model):
+        """Six settled save_plan errors otherwise sit in every later prompt."""
+        agent = _make_agent(mock_model)
+
+        def step(iteration, success, error=None):
+            return ExecutionStep(
+                iteration=iteration,
+                reasoning=f"step {iteration}",
+                action="call_tool",
+                tool_calls=[
+                    ToolCall(tool_name="save_plan", arguments=json.dumps({"n": iteration}))
+                ],
+                tool_results=[
+                    ToolResult(tool_name="save_plan", success=success, content="saved", error=error)
+                ],
+            )
+
+        agent._execution_history += [
+            step(1, False, "description: Field required"),
+            step(2, True),
+            step(3, False, "metric scope coverage failed"),
+        ]
+
+        formatted = agent._format_history()
+        assert "description: Field required" not in formatted
+        assert "metric scope coverage failed" in formatted
+
 
 # ── write-guard tests ─────────────────────────────────────────────
 

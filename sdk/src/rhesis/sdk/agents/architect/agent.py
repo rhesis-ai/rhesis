@@ -26,7 +26,7 @@ from rhesis.sdk.agents.architect.prompt_loader import (
 from rhesis.sdk.agents.architect.state import ArchitectAgentStateSnapshot
 from rhesis.sdk.agents.architect.tool_registry import PlanCategory, mode_for, plan_category_for
 from rhesis.sdk.agents.architect.workflow import WorkflowPath, resolve_workflow_path_update
-from rhesis.sdk.agents.arg_validation import find_missing_arguments
+from rhesis.sdk.agents.arg_validation import find_missing_arguments, find_placeholder_ids
 from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
 from rhesis.sdk.agents.constants import (
     Action,
@@ -964,6 +964,7 @@ class ArchitectAgent(BaseAgent):
         error = (
             self._check_plan_constraints(tool_call)
             or self._validate_tool_arguments(tool_call)
+            or find_placeholder_ids(tool_call.arguments or {})
             or find_missing_arguments(
                 tool_call.arguments,
                 self._tool_schemas.get(tool_call.tool_name),
@@ -2232,10 +2233,25 @@ class ArchitectAgent(BaseAgent):
         if len(self._execution_history) > self._history_window:
             omitted = len(self._execution_history) - self._history_window
             parts.append(f"[... {omitted} earlier tool steps omitted ...]")
-        for step in exec_window:
+        # A failure the same tool later recovered from is settled; repeating it
+        # every iteration only crowds out what actually stands.
+        last_success: Dict[str, Tuple[int, int]] = {}
+        for position, step in enumerate(exec_window):
+            for i, tr in enumerate(step.tool_results):
+                if tr.success:
+                    last_success[tr.tool_name] = (position, i)
+        for position, step in enumerate(exec_window):
             reasoning_preview = step.reasoning[: cfg.reasoning_preview_chars]
             parts.append(f"[Tool iteration {step.iteration}] Reasoning: {reasoning_preview}")
+            settled = {
+                i
+                for i, tc in enumerate(step.tool_calls)
+                if self._call_failed(step, i)
+                and last_success.get(tc.tool_name, (-1, -1)) > (position, i)
+            }
             for i, tc in enumerate(step.tool_calls):
+                if i in settled:
+                    continue
                 line = f"  Called: {tc.tool_name}"
                 # Echo the payload back only when the call failed. Without it
                 # the model sees the rejection but not what it sent, so it
@@ -2245,7 +2261,9 @@ class ArchitectAgent(BaseAgent):
                     line += f" with arguments: {preview}"
                 parts.append(line)
             if step.tool_results:
-                for tr in step.tool_results:
+                for i, tr in enumerate(step.tool_results):
+                    if i in settled:
+                        continue
                     rendered = self._render_tool_result(
                         tr,
                         prefix=f"  Result ({tr.tool_name})",

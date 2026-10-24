@@ -62,6 +62,7 @@ export interface StreamingState {
     description?: string;
     success: boolean;
     preview?: string;
+    error?: string;
     reasoning?: string;
     durationMs?: number;
     startedAt: number;
@@ -591,6 +592,7 @@ export function useArchitectChat(
                 description: payload.description,
                 success: payload.success ?? true,
                 preview: payload.preview,
+                error: payload.error,
                 reasoning: activeTool?.reasoning || payload.reasoning,
                 durationMs,
                 startedAt: activeTool?.startedAt ?? Date.now(),

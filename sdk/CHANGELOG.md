@@ -60,6 +60,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   point. Before, one Accept unlocked every creating tool for the rest of the turn, so asking for one
   requirement could also create metrics and test sets. Work beyond what was shown is held for
   another Accept, and a turn cut off by the iteration limit no longer offers Accept again.
+- Agents no longer resend a tool call that already failed in the same turn, and stop calling a
+  tool after three failures, instead of spending the turn on retries. The Architect also rejects
+  placeholder ids before sending them and leaves failures a later call recovered from out of the
+  model's history.
 - `ShowChartTool` gives the model the chart's real labels and values (and the true lowest and
   highest when it shortens a long chart), instead of only value ranges, which left it to
   invent category names and misreport peaks. It also rejects mixing measure kinds, such as

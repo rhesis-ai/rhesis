@@ -122,7 +122,7 @@ class TestWebSocketEventHandlerEvents:
 
     @pytest.mark.asyncio
     async def test_on_tool_end_failure(self, handler):
-        result = MagicMock(success=False, content="error occurred")
+        result = MagicMock(success=False, content="", error="Field required")
         with patch.object(handler, "publish") as mock_pub:
             with patch(
                 f"{_HANDLER_MODULE}._tool_description",
@@ -132,6 +132,8 @@ class TestWebSocketEventHandlerEvents:
 
         payload = mock_pub.call_args[0][1]
         assert payload["success"] is False
+        # The chat shows why it failed, not only that it did.
+        assert payload["error"] == "Field required"
 
     @pytest.mark.asyncio
     async def test_on_mode_change(self, handler):

@@ -257,6 +257,78 @@ class TestBaseAgentRunLoop:
 
 
 @pytest.mark.unit
+class FailingTool(BaseTool):
+    """Fails every call and counts how many reached it."""
+
+    def __init__(self):
+        self.calls = 0
+
+    @property
+    def name(self) -> str:
+        return "save_plan"
+
+    @property
+    def description(self) -> str:
+        return "Always fails"
+
+    @property
+    def parameters_schema(self) -> dict:
+        return {"properties": {"x": {"type": "string"}}}
+
+    async def execute(self, **kwargs) -> ToolResult:
+        self.calls += 1
+        return ToolResult(tool_name="save_plan", success=False, error="Field required")
+
+
+class TestRepeatedFailures:
+    """A turn spent six identical save_plan failures before hitting the iteration cap."""
+
+    @pytest.fixture
+    def mock_model(self):
+        return Mock(spec=BaseLLM)
+
+    @pytest.mark.asyncio
+    async def test_an_identical_failed_call_is_not_sent_again(self, mock_model):
+        tool = FailingTool()
+        agent = _make_agent(mock_model, tools=[tool], max_iterations=10)
+        mock_model.a_generate = AsyncMock(
+            side_effect=[_tool_dict("save_plan", {"x": "a"})] * 3 + [_finish_dict()]
+        )
+
+        await agent.run_async("go")
+
+        assert tool.calls == 1
+        refused = agent._execution_history[1].tool_results[0]
+        assert "already failed" in refused.error and "Field required" in refused.error
+
+    @pytest.mark.asyncio
+    async def test_a_tool_is_refused_after_three_failures(self, mock_model):
+        tool = FailingTool()
+        agent = _make_agent(mock_model, tools=[tool], max_iterations=10)
+        mock_model.a_generate = AsyncMock(
+            side_effect=[_tool_dict("save_plan", {"x": str(i)}) for i in range(5)]
+            + [_finish_dict()]
+        )
+
+        await agent.run_async("go")
+
+        assert tool.calls == 3
+        assert "failed 3 times" in agent._execution_history[3].tool_results[0].error
+
+    @pytest.mark.asyncio
+    async def test_failures_do_not_carry_into_the_next_turn(self, mock_model):
+        tool = FailingTool()
+        agent = _make_agent(mock_model, tools=[tool], max_iterations=10)
+        mock_model.a_generate = AsyncMock(
+            side_effect=[_tool_dict("save_plan", {"x": "a"}), _finish_dict()] * 2
+        )
+
+        await agent.run_async("go")
+        await agent.run_async("again")
+
+        assert tool.calls == 2
+
+
 class TestBaseAgentHistoryWindowing:
     """Test _format_history windowing."""
 
