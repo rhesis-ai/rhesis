@@ -123,6 +123,7 @@ export interface ArchitectToolPayload {
   reasoning?: string;
   success?: boolean;
   preview?: string;
+  error?: string;
   duration_ms?: number;
 }
 

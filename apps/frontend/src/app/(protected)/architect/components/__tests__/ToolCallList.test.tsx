@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ToolCallList from '../ToolCallList';
 import { StreamingState } from '@/hooks/useArchitectChat';
@@ -111,5 +111,58 @@ describe('ToolCallList', () => {
     expect(screen.getByText('2 completed')).toBeInTheDocument();
     expect(screen.getByText('Tool 2 done')).toBeInTheDocument();
     expect(screen.getByText('Tool 3 done')).toBeInTheDocument();
+  });
+
+  it('hides a failure the same tool later recovered from', () => {
+    const tools: CompletedTool[] = [
+      {
+        tool: 'save_plan',
+        description: 'Save plan',
+        success: false,
+        startedAt: 1,
+      },
+      {
+        tool: 'save_plan',
+        description: 'Save plan again',
+        success: true,
+        startedAt: 2,
+      },
+    ];
+    render(<ToolCallList completedTools={tools} activeTools={[]} />);
+
+    expect(screen.queryByText('Save plan')).not.toBeInTheDocument();
+    expect(screen.getByText('Save plan again')).toBeInTheDocument();
+  });
+
+  it('shows why a failure that stands failed', async () => {
+    const tools: CompletedTool[] = [
+      {
+        tool: 'generate_test_set',
+        description: 'Generate test set',
+        success: false,
+        error: 'Not in the saved plan',
+        startedAt: 1,
+      },
+    ];
+    render(<ToolCallList completedTools={tools} activeTools={[]} />);
+
+    fireEvent.mouseOver(screen.getByText('Generate test set'));
+    await waitFor(() =>
+      expect(screen.getByText('Not in the saved plan')).toBeInTheDocument()
+    );
+  });
+
+  it('counts failures folded into the summary', () => {
+    const tools = [
+      ...makeDone(1, { tool: 'broken', success: false }),
+      ...makeDone(3).map((t, i) => ({
+        ...t,
+        tool: `ok_${i}`,
+        startedAt: 10 + i,
+      })),
+    ];
+    render(<ToolCallList completedTools={tools} activeTools={[]} />);
+
+    expect(screen.getByText('2 completed, 1 failed')).toBeInTheDocument();
   });
 });

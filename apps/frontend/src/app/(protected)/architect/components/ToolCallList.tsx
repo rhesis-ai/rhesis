@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, Typography, ButtonBase, Collapse } from '@mui/material';
+import { Box, Typography, ButtonBase, Collapse, Tooltip } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import BuildCircleOutlinedIcon from '@mui/icons-material/BuildCircleOutlined';
@@ -53,11 +53,28 @@ interface ToolCallListProps {
   collapsedLabel?: (count: number) => string;
 }
 
+/**
+ * Drops failures a later call of the same tool recovered from: the retry
+ * worked, so the stumble is not news to the user.
+ */
+export function unrecoveredTools(
+  tools: StreamingState['completedTools']
+): StreamingState['completedTools'] {
+  return tools.filter(
+    (tool, i) =>
+      tool.success ||
+      !tools
+        .slice(i + 1)
+        .some(later => later.tool === tool.tool && later.success)
+  );
+}
+
 export default function ToolCallList({
-  completedTools,
+  completedTools: allCompletedTools,
   activeTools,
   collapsedLabel = (n: number) => `${n} completed`,
 }: ToolCallListProps) {
+  const completedTools = unrecoveredTools(allCompletedTools);
   const [expandedCompleted, setExpandedCompleted] = useState(false);
   const [expandedReasoning, setExpandedReasoning] = useState<Set<number>>(
     new Set<number>()
@@ -108,6 +125,7 @@ export default function ToolCallList({
   const visibleCompleted = shouldCollapse
     ? completedTools.slice(collapsedCount)
     : completedTools;
+  const hiddenFailures = hiddenTools.filter(t => !t.success).length;
 
   const toggleReasoning = (startedAt: number) => {
     setExpandedReasoning(prev => {
@@ -150,12 +168,14 @@ export default function ToolCallList({
           ) : (
             <ErrorIcon sx={{ fontSize: 14, color: 'error.main' }} />
           )}
-          <Typography
-            variant="caption"
-            color={tool.success ? 'text.secondary' : 'error.main'}
-          >
-            {tool.description || tool.tool}
-          </Typography>
+          <Tooltip title={tool.success ? '' : tool.error || ''}>
+            <Typography
+              variant="caption"
+              color={tool.success ? 'text.secondary' : 'error.main'}
+            >
+              {tool.description || tool.tool}
+            </Typography>
+          </Tooltip>
           {tool.durationMs != null && (
             <Typography
               component="span"
@@ -252,9 +272,14 @@ export default function ToolCallList({
             '&:hover': { bgcolor: 'action.hover' },
           }}
         >
-          <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
+          {hiddenFailures > 0 ? (
+            <ErrorIcon sx={{ fontSize: 14, color: 'error.main' }} />
+          ) : (
+            <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
+          )}
           <Typography variant="caption" color="text.secondary">
             {collapsedLabel(collapsedCount)}
+            {hiddenFailures > 0 ? `, ${hiddenFailures} failed` : ''}
           </Typography>
           {expandedCompleted ? (
             <ExpandLessIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
