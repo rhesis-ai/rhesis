@@ -296,6 +296,7 @@ class BaseAgent:
     ``AgentEventHandler`` instances to receive events.
     """
 
+    _MAX_FAILURES_PER_TOOL = 3
     _DEFAULT_HISTORY_WINDOW = 20
 
     def __init__(
@@ -340,6 +341,10 @@ class BaseAgent:
         self.verbose = verbose
         self._event_handlers: List[AgentEventHandler] = list(event_handlers or [])
         self._execution_history: List[ExecutionStep] = []
+        # This turn's failed calls (call key -> error) and failures per tool, so a
+        # call that already failed is refused instead of sent again.
+        self._turn_failures: Dict[str, str] = {}
+        self._turn_failure_counts: Dict[str, int] = {}
         self._needs_confirmation = False
         self._turn_lock = asyncio.Lock()
 
@@ -599,6 +604,8 @@ class BaseAgent:
         iteration = 0
         tool_exec_count = 0
         turn_start = time.monotonic()
+        self._turn_failures = {}
+        self._turn_failure_counts = {}
 
         while iteration < self.max_iterations:
             iteration += 1
@@ -987,6 +994,11 @@ class BaseAgent:
         results: List[ToolResult] = []
         for tc in tool_calls:
             arguments = tc.arguments
+            refused = self._refuse_repeated_failure(tc)
+            if refused:
+                # Never sent, so nothing for the user to see; the model reads why.
+                results.append(refused)
+                continue
             await _emit(
                 self._event_handlers,
                 "on_tool_start",
@@ -1006,6 +1018,10 @@ class BaseAgent:
                     tc.tool_name,
                     result.error,
                 )
+                self._turn_failures[self._call_key(tc)] = result.error or ""
+                self._turn_failure_counts[tc.tool_name] = (
+                    self._turn_failure_counts.get(tc.tool_name, 0) + 1
+                )
 
             await _emit(
                 self._event_handlers,
@@ -1020,6 +1036,35 @@ class BaseAgent:
                 else:
                     print(f"      x {result.tool_name}: {result.error}")
         return results
+
+    @staticmethod
+    def _call_key(tool_call: ToolCall) -> str:
+        return (
+            f"{tool_call.tool_name}:{json.dumps(tool_call.arguments, sort_keys=True, default=str)}"
+        )
+
+    def _refuse_repeated_failure(self, tool_call: ToolCall) -> Optional[ToolResult]:
+        """A result refusing a call that can't succeed this turn, or None to send it.
+
+        In production a turn spent six calls on the same failing save_plan and
+        five on a rejected generate_test_set before hitting the iteration cap.
+        """
+        previous = self._turn_failures.get(self._call_key(tool_call))
+        failures = self._turn_failure_counts.get(tool_call.tool_name, 0)
+        if previous is not None:
+            error = (
+                f"Not sent: this exact call already failed this turn ({previous}). "
+                "Change the arguments, or stop and tell the user what went wrong."
+            )
+        elif failures >= self._MAX_FAILURES_PER_TOOL:
+            error = (
+                f"Not sent: {tool_call.tool_name} has already failed {failures} times "
+                "this turn. Stop calling it and tell the user what went wrong."
+            )
+        else:
+            return None
+        logger.warning("[Agent] Refused %s: %s", tool_call.tool_name, error)
+        return ToolResult(tool_name=tool_call.tool_name, success=False, error=error)
 
     def _handle_unknown_action(
         self, action: AgentAction, iteration: int
