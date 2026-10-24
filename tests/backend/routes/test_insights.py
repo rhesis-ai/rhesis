@@ -78,7 +78,8 @@ def timed_runs(test_db, test_organization, db_user, db_status, db_test_configura
         {"total_execution_time_ms": 60000},
         {"started_at": "2026-10-01T10:00:00+00:00", "completed_at": "2026-10-01T10:02:00+00:00"},
         {"started_at": "2026-10-01T10:00:00+00:00"},  # still running
-        {"started_at": "not a date", "completed_at": "2026-10-01T10:02:00+00:00"},
+        # A plausible prefix that still fails the cast; it must not break the query.
+        {"started_at": "2026-99-99T10:00:00+00:00", "completed_at": "2026-10-01T10:02:00+00:00"},
     ]
     runs = [
         models.TestRun(

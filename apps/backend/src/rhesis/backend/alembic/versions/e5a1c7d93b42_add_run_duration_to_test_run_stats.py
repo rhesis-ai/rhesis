@@ -20,13 +20,14 @@ down_revision: Union[str, None] = "b3e7c91d4a20"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-# Values come from JSON, so each is checked before the cast: one malformed
-# timestamp must not make every insights query on runs fail.
-_DURATION_MS = r"""CASE
-        WHEN tr.attributes->>'total_execution_time_ms' ~ '^[0-9]+(\.[0-9]+)?$'
+# Values come from JSON, so each is checked with pg_input_is_valid (Postgres 16+)
+# before the cast: a malformed value becomes NULL instead of failing every
+# insights query on runs.
+_DURATION_MS = """CASE
+        WHEN pg_input_is_valid(tr.attributes->>'total_execution_time_ms', 'double precision')
             THEN CAST(tr.attributes->>'total_execution_time_ms' AS double precision)
-        WHEN tr.attributes->>'started_at' ~ '^\d{4}-\d{2}-\d{2}T'
-            AND tr.attributes->>'completed_at' ~ '^\d{4}-\d{2}-\d{2}T'
+        WHEN pg_input_is_valid(tr.attributes->>'started_at', 'timestamptz')
+            AND pg_input_is_valid(tr.attributes->>'completed_at', 'timestamptz')
             THEN EXTRACT(EPOCH FROM (
                 CAST(tr.attributes->>'completed_at' AS timestamptz)
                 - CAST(tr.attributes->>'started_at' AS timestamptz)
@@ -34,9 +35,9 @@ _DURATION_MS = r"""CASE
     END"""
 
 
-def _view(duration: str) -> str:
+def _view(duration: str, create: str = "CREATE VIEW") -> str:
     return f"""
-CREATE VIEW v_test_run_stats AS
+{create} v_test_run_stats AS
 SELECT tr.id AS test_run_id,
     tr.organization_id,
     tr.created_at,
@@ -65,8 +66,8 @@ WHERE tr.deleted_at IS NULL
 
 
 def upgrade() -> None:
-    op.execute("DROP VIEW IF EXISTS v_test_run_stats")
-    op.execute(_view(f",\n    {_DURATION_MS} AS duration_ms"))
+    # The new column comes last, so the view can be replaced in place.
+    op.execute(_view(f",\n    {_DURATION_MS} AS duration_ms", "CREATE OR REPLACE VIEW"))
 
 
 def downgrade() -> None:
