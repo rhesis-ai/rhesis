@@ -181,7 +181,7 @@ export default function SpanTreeView({
         </Box>
       </Box>
 
-      <Box role="tree" aria-label="Spans" sx={{ py: 0.5 }}>
+      <Box sx={{ py: 0.5 }}>
         {spans
           .filter(span => !visible || visible.has(span.span_id))
           .map((span, index) => (
@@ -262,13 +262,9 @@ function SpanTreeNode({
   const width = span.duration_ms / timeline.duration;
 
   return (
-    <Box role="none">
+    <Box>
       <Box
         ref={rowRef}
-        role="treeitem"
-        aria-selected={isSelected}
-        aria-level={level + 1}
-        aria-expanded={hasChildren ? expanded : undefined}
         onClick={() => onSpanSelect(span)}
         data-span-id={span.span_id}
         data-selected={isSelected || undefined}
@@ -415,7 +411,7 @@ function SpanTreeNode({
 
       {hasChildren && (
         <Collapse in={expanded} timeout="auto" unmountOnExit>
-          <Box role="group">
+          <Box>
             {children.map(child => (
               <SpanTreeNode
                 key={child.span_id}
