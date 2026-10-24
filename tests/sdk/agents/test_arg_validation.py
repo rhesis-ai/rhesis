@@ -2,7 +2,7 @@
 
 import pytest
 
-from rhesis.sdk.agents.arg_validation import find_missing_arguments
+from rhesis.sdk.agents.arg_validation import find_missing_arguments, find_placeholder_ids
 
 # Mirrors the real create_test_set_bulk schema closely enough to exercise
 # the nested-item path that produced most of the server 422s.
@@ -111,3 +111,18 @@ class TestFindMissingArguments:
     def test_empty_list_is_left_to_the_server(self):
         args = {"name": "n", "test_set_type": "Single-Turn", "tests": []}
         assert find_missing_arguments(args, BULK_SCHEMA) is None
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["c6369ce8-9c3b-4720-82a6-4d153db14fd4", "4bf92f3577b34da6a3ce929d0e0e4736"],
+)
+def test_real_ids_pass(value):
+    assert find_placeholder_ids({"metric_id": value, "name": "pending"}) is None
+
+
+@pytest.mark.parametrize("value", ["pending_id_resolution", "<metric id>", "TBD"])
+def test_placeholder_ids_are_rejected(value):
+    """A placeholder sent before the metric existed came back as a raw 422."""
+    error = find_placeholder_ids({"metric_id": value})
+    assert error is not None and "later step" in error

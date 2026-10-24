@@ -26,7 +26,7 @@ from rhesis.sdk.agents.architect.prompt_loader import (
 from rhesis.sdk.agents.architect.state import ArchitectAgentStateSnapshot
 from rhesis.sdk.agents.architect.tool_registry import PlanCategory, mode_for, plan_category_for
 from rhesis.sdk.agents.architect.workflow import WorkflowPath, resolve_workflow_path_update
-from rhesis.sdk.agents.arg_validation import find_missing_arguments
+from rhesis.sdk.agents.arg_validation import find_missing_arguments, find_placeholder_ids
 from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
 from rhesis.sdk.agents.constants import (
     Action,
@@ -964,6 +964,7 @@ class ArchitectAgent(BaseAgent):
         error = (
             self._check_plan_constraints(tool_call)
             or self._validate_tool_arguments(tool_call)
+            or find_placeholder_ids(tool_call.arguments or {})
             or find_missing_arguments(
                 tool_call.arguments,
                 self._tool_schemas.get(tool_call.tool_name),
