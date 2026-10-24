@@ -34,6 +34,8 @@ class TestRunStatsView(Base):
     test_set_name = Column(String)
     endpoint_name = Column(String)
     executor_name = Column(String)
+    # Milliseconds from start to finish; NULL for runs that never started or are running.
+    duration_ms = Column(Float)
 
     # Suppress Base defaults that don't apply to views
     id = None
