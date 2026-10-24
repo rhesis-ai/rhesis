@@ -155,6 +155,14 @@ def _trace_percentile(fraction):
     )
 
 
+def _run_duration(aggregate):
+    return lambda: cast(func.round(cast(aggregate(RN.duration_ms), Numeric), 0), Float)
+
+
+def _run_duration_percentile(fraction):
+    return _run_duration(lambda column: func.percentile_cont(fraction).within_group(column))
+
+
 def _trace_round(aggregate, column, places):
     return lambda c: cast(func.round(cast(aggregate(c[column]), Numeric), places), Float)
 
@@ -287,9 +295,9 @@ REGISTRY: Dict[str, Entity] = {
     "test_run": Entity(
         view=RN,
         description=(
-            "One row per run. Use for run volume and completion: runs per week, per test set, "
-            "per endpoint, per executor. For pass rates of what a run tested, use test_result "
-            "grouped by test_run."
+            "One row per run. Use for run volume, completion and duration: runs per week, per "
+            "test set, per endpoint, per executor, and how long they take. For pass rates of "
+            "what a run tested, use test_result grouped by test_run."
         ),
         date_column=RN.created_at,
         id_column=RN.test_run_id,
@@ -317,6 +325,15 @@ REGISTRY: Dict[str, Entity] = {
                 "rate",
                 "completed / (completed + failed) x 100",
             ),
+            # Runs without timing (never started, still running) are left out.
+            "avg_duration_ms": Measure(_run_duration(func.avg), "duration", "Mean run duration"),
+            "p50_duration_ms": Measure(
+                _run_duration_percentile(0.5), "duration", "Median run duration"
+            ),
+            "p95_duration_ms": Measure(
+                _run_duration_percentile(0.95), "duration", "95th percentile run duration"
+            ),
+            "max_duration_ms": Measure(_run_duration(func.max), "duration", "Longest run"),
         },
         filters={
             "test_run_ids": Filter(RN.test_run_id, "Test run IDs"),
