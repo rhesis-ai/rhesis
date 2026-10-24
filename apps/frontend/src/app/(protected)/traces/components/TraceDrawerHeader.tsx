@@ -25,7 +25,8 @@ interface TraceDrawerHeaderProps {
   turnIndex: number | null;
   turnCount: number;
   onTurnChange: (index: number) => void;
-  onClose: () => void;
+  /** Omitted when embedded, where there is nothing to close. */
+  onClose?: () => void;
 }
 
 interface ContextLink {
@@ -264,11 +265,13 @@ export default function TraceDrawerHeader({
         </Box>
       )}
 
-      <Tooltip title="Close (Esc)">
-        <IconButton size="small" aria-label="Close trace" onClick={onClose}>
-          <CloseIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
+      {onClose && (
+        <Tooltip title="Close (Esc)">
+          <IconButton size="small" aria-label="Close trace" onClick={onClose}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
     </Box>
   );
 }

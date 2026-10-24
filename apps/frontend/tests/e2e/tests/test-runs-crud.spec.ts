@@ -67,6 +67,7 @@ test.describe('Test Runs — navigation @crud', () => {
     for (const name of [
       'Conversation',
       'Evaluation',
+      'Traces',
       'Annotations',
       'History',
       'Tasks & Comments',
