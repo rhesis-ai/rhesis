@@ -22,6 +22,7 @@ export type ArchitectChartType =
 export type MeasureKind = 'count' | 'rate' | 'score' | 'duration' | 'currency';
 
 const MS_PER_SECOND = 1000;
+const MS_PER_MINUTE = 60 * MS_PER_SECOND;
 
 export interface ChartMeasure {
   key: string;
@@ -88,9 +89,12 @@ export function formatMeasure(
   if (kind === 'rate') return `${Number(value.toFixed(1))}%`;
   if (kind === 'score') return value.toFixed(2);
   if (kind === 'duration') {
-    return value < MS_PER_SECOND
-      ? `${Math.round(value)} ms`
-      : `${Number((value / MS_PER_SECOND).toFixed(2))} s`;
+    if (value < MS_PER_SECOND) return `${Math.round(value)} ms`;
+    // Test runs last minutes; "1102 s" is hard to read.
+    if (value >= MS_PER_MINUTE) {
+      return `${Number((value / MS_PER_MINUTE).toFixed(1))} min`;
+    }
+    return `${Number((value / MS_PER_SECOND).toFixed(2))} s`;
   }
   // LLM calls often cost fractions of a cent, so small amounts keep more digits.
   if (kind === 'currency') return `$${value.toFixed(value < 1 ? 4 : 2)}`;

@@ -32,6 +32,7 @@ describe('architect chart helpers', () => {
     expect(formatMeasure(null, 'rate')).toBe('');
     expect(formatMeasure(850.4, 'duration')).toBe('850 ms');
     expect(formatMeasure(1500, 'duration')).toBe('1.5 s');
+    expect(formatMeasure(1102000, 'duration')).toBe('18.4 min');
     expect(formatMeasure(0.0123456, 'currency')).toBe('$0.0123');
     expect(formatMeasure(12.5, 'currency')).toBe('$12.50');
   });
