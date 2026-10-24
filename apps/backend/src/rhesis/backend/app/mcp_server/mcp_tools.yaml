@@ -1334,13 +1334,15 @@ tools:
       breakdowns of what was run.
       entity="metric" -- one row per (test result, metric). Per-metric pass
       rates and numeric scores (avg_score, min_score, max_score).
-      entity="test_run" -- one row per run. Run volume and completion
-      (completed, failed, completion_rate come from the run's status, not its
-      tests' verdicts). For pass rates of what a run tested, use test_result
-      grouped by test_run.
+      entity="test_run" -- one row per run. Run volume, completion and
+      duration (completed, failed, completion_rate come from the run's status,
+      not its tests' verdicts; avg/p50/p95/max_duration_ms are start to
+      finish). Use it for how long runs take per test set, endpoint or
+      executor. For pass rates of what a run tested, use test_result grouped
+      by test_run.
       entity="test" -- one row per test, including tests that never ran.
-      entity="trace" -- one row per trace. Latency (avg/p50/p95/p99 of the
-      root span), tokens, cost in USD and error rate, by environment,
+      entity="trace" -- one row per trace. Latency of single requests
+      (avg/p50/p95/p99 of the root span), tokens, cost in USD and error rate, by environment,
       operation, test_run, endpoint, has_error or period. Only test-run
       traces have a test_run and endpoint. Not supported by /insights/ids.
 
