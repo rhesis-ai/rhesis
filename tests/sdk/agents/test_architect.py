@@ -7,6 +7,7 @@ import pytest
 
 from rhesis.sdk.agents.architect.agent import HELD_BACK_SEED, ArchitectAgent
 from rhesis.sdk.agents.architect.config import ArchitectConfig
+from rhesis.sdk.agents.architect.plan import ArchitectPlan, MetricSpec, RequirementSpec
 from rhesis.sdk.agents.base import BaseAgent, BaseTool
 from rhesis.sdk.agents.schemas import ExecutionStep, ToolCall, ToolResult
 from rhesis.sdk.models.base import BaseLLM
@@ -756,59 +757,146 @@ class TestArchitectWriteGuard:
         agent = await self._block_then_reply(mock_model, "Change: drop R3", approve=None)
         assert agent._needs_confirmation is False
 
-    @pytest.mark.asyncio
-    async def test_plan_approval_unlocks_all_mutating_tools(self, mock_model):
-        """Approval after any block unlocks ALL mutating tools (plan-level)."""
-        tool = DummyTool()
-        agent = _make_agent(mock_model, tools=[tool])
-        agent._mutating_tools = frozenset({"create_metric", "create_project"})
+    async def _hold(self, agent, mock_model, tool_name, name):
+        """Run a turn whose only step is a mutating call, so the guard holds it."""
 
         async def fake_stream(**kw):
             yield "Plan"
 
-        # Turn 1: create_metric is blocked — confirming set should
-        # include ALL mutating tools, not just the blocked batch.
-        mock_model.a_generate = AsyncMock(
-            return_value={
-                "reasoning": "Creating metric",
-                "action": "call_tool",
-                "tool_calls": [
-                    {
-                        "tool_name": "create_metric",
-                        "arguments": json.dumps({"name": "test"}),
-                    }
-                ],
-                "final_answer": "Plan to create metric",
-            },
-        )
+        mock_model.a_generate = AsyncMock(return_value=_tool_dict(tool_name, {"name": name}))
         mock_model.generate_stream = Mock(side_effect=fake_stream)
-        await agent.chat_async("create a metric")
-        assert agent._confirming_tools == frozenset({"create_metric", "create_project"})
+        await agent.chat_async(f"create {name}")
         assert agent._needs_confirmation is True
 
-        # Turn 2: LLM tries create_project — should be allowed because
-        # plan-level approval covers all mutating tools.
+    async def _accept(self, agent, mock_model, *steps):
+        """Run the Accept turn with these model steps, then a finish."""
+
+        async def fake_stream(**kw):
+            yield "Done"
+
+        mock_model.a_generate = AsyncMock(side_effect=[*steps, _finish_dict("Done")])
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+        await agent.chat_async("Yes, go ahead.", approve=True)
+
+    @staticmethod
+    def _plan(requirements=(), metrics=()):
+        return ArchitectPlan(
+            requirements=[RequirementSpec(name=n) for n in requirements],
+            metrics=[MetricSpec(name=n, description=f"Checks {n}") for n in metrics],
+        )
+
+    @pytest.mark.asyncio
+    async def test_accept_does_not_approve_unrequested_work(self, mock_model):
+        """Replays 2026-10-21: one requirement approved, then a metric nobody asked for."""
+        agent = _make_agent(mock_model)
+        agent._mutating_tools = frozenset({"create_requirement", "create_metric"})
+        await self._hold(agent, mock_model, "create_requirement", "Always use English")
+
+        await self._accept(
+            agent,
+            mock_model,
+            _tool_dict("create_requirement", {"name": "Always use English"}),
+            _tool_dict("create_metric", {"name": "Language Compliance"}),
+        )
+
+        assert [tc.tool_name for tc in agent._blocked_calls] == ["create_metric"]
+        assert agent._needs_confirmation is True
+
+    @pytest.mark.asyncio
+    async def test_accept_covers_the_plan_saved_before_it(self, mock_model):
+        """A suite proposed as a plan still runs on one Accept."""
+        agent = _make_agent(mock_model)
+        agent._mutating_tools = frozenset({"create_requirement", "create_metric"})
+        agent._plan = self._plan(requirements=["Refund policy"], metrics=["Refund accuracy"])
+        await self._hold(agent, mock_model, "create_requirement", "Refund policy")
+
+        await self._accept(
+            agent,
+            mock_model,
+            _tool_dict("create_requirement", {"name": "Refund policy"}),
+            _tool_dict("create_metric", {"name": "Refund accuracy"}),
+        )
+
+        assert agent._blocked_calls == []
+        assert agent._needs_confirmation is False
+
+    @pytest.mark.asyncio
+    async def test_plan_items_added_after_the_hold_need_their_own_accept(self, mock_model):
+        """save_plan inside the approved turn must not widen what the user approved."""
+        agent = _make_agent(mock_model)
+        agent._mutating_tools = frozenset({"create_requirement", "create_metric"})
+        await self._hold(agent, mock_model, "create_requirement", "Always use English")
+        agent._plan = self._plan(
+            requirements=["Always use English"], metrics=["Language Compliance"]
+        )
+
+        await self._accept(
+            agent, mock_model, _tool_dict("create_metric", {"name": "Language Compliance"})
+        )
+
+        assert [tc.tool_name for tc in agent._blocked_calls] == ["create_metric"]
+
+    @pytest.mark.asyncio
+    async def test_a_held_call_approves_only_its_own_target(self, mock_model):
+        """Held calls without a plan name are keyed by their ids, not the tool name."""
+        agent = _make_agent(mock_model)
+        agent._mutating_tools = frozenset({"add_requirement_to_metric", "update_metric"})
+
+        async def fake_stream(**kw):
+            yield "Plan"
+
+        link = {"requirement_id": "r1", "metric_id": "m1"}
         mock_model.a_generate = AsyncMock(
-            side_effect=[
-                {
-                    "reasoning": "Creating project",
-                    "action": "call_tool",
-                    "tool_calls": [
-                        {
-                            "tool_name": "create_project",
-                            "arguments": json.dumps({"name": "proj"}),
-                        }
-                    ],
-                    "final_answer": None,
-                },
-                _finish_dict("Project created"),
-            ]
+            return_value=_tool_dict("add_requirement_to_metric", link)
         )
         mock_model.generate_stream = Mock(side_effect=fake_stream)
-        await agent.chat_async("Yes, go ahead.")
+        await agent.chat_async("link them")
 
-        # create_project was in the approved set — no re-blocking
-        assert agent._creation_approved is False  # Reset after turn
+        await self._accept(
+            agent,
+            mock_model,
+            _tool_dict("add_requirement_to_metric", link),
+            _tool_dict("add_requirement_to_metric", {"requirement_id": "r2", "metric_id": "m2"}),
+        )
+
+        assert [tc.arguments for tc in agent._blocked_calls] == [
+            {"requirement_id": "r2", "metric_id": "m2"}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_approval_scope_survives_the_guard_state_round_trip(self, mock_model):
+        """The backend builds a fresh agent per message and restores guard_state."""
+        agent = _make_agent(mock_model)
+        agent._mutating_tools = frozenset({"create_requirement"})
+        await self._hold(agent, mock_model, "create_requirement", "Always use English")
+
+        restored = _make_agent(mock_model)
+        restored._mutating_tools = agent._mutating_tools
+        restored.guard_state = agent.guard_state
+        await self._accept(
+            restored,
+            mock_model,
+            _tool_dict("create_requirement", {"name": "Always use English"}),
+        )
+
+        assert restored._approved_scope == agent._approved_scope
+        assert restored._blocked_calls == []
+
+    @pytest.mark.asyncio
+    async def test_approved_turn_that_hits_the_iteration_cap_asks_nothing(self, mock_model):
+        """A turn that stops on the cap, not a finish, must not offer Accept again."""
+        agent = _make_agent(mock_model, tools=[DummyTool()])
+        agent._needs_confirmation = True
+        agent._confirming_tools = frozenset({"create_metric"})
+        mock_model.a_generate = AsyncMock(return_value=_tool_dict("dummy"))
+
+        async def fake_stream(**kw):
+            yield "Stopped"
+
+        mock_model.generate_stream = Mock(side_effect=fake_stream)
+        await agent.chat_async("Yes, go ahead.", approve=True)
+
+        assert agent._needs_confirmation is False
 
     @pytest.mark.asyncio
     async def test_approval_resets_after_turn(self, mock_model):
@@ -860,9 +948,7 @@ class TestArchitectWriteGuard:
         assert agent._confirming_tools == frozenset()
 
     @pytest.mark.asyncio
-    async def test_finish_after_approved_tool_does_not_re_surface_confirmation(
-        self, mock_model
-    ):
+    async def test_finish_after_approved_tool_does_not_re_surface_confirmation(self, mock_model):
         """Auto-resumed summaries must not inherit a stale confirmation flag.
 
         Reproduces the bug where the Accept/Change UI re-appeared on
@@ -911,9 +997,7 @@ class TestArchitectWriteGuard:
         assert agent._blocked_this_turn is False
 
     @pytest.mark.asyncio
-    async def test_blocked_tool_sets_needs_confirmation_without_llm_flag(
-        self, mock_model
-    ):
+    async def test_blocked_tool_sets_needs_confirmation_without_llm_flag(self, mock_model):
         """Runtime derivation works even when the LLM omits the flag.
 
         When the LLM tries to call a mutating tool, ``_handle_tool_calls``
@@ -1628,10 +1712,12 @@ class TestArchitectAwaitTask:
 
         tc = ToolCall(
             tool_name="await_task",
-            arguments=json.dumps({
-                "task_ids": ["tid-1", "tid-2"],
-                "message": "Generating tests...",
-            }),
+            arguments=json.dumps(
+                {
+                    "task_ids": ["tid-1", "tid-2"],
+                    "message": "Generating tests...",
+                }
+            ),
         )
         result = await agent.execute_tool(tc)
         assert result.success is True
@@ -1648,10 +1734,12 @@ class TestArchitectAwaitTask:
 
         tc = ToolCall(
             tool_name="await_task",
-            arguments=json.dumps({
-                "task_ids": [],
-                "message": "Waiting...",
-            }),
+            arguments=json.dumps(
+                {
+                    "task_ids": [],
+                    "message": "Waiting...",
+                }
+            ),
         )
         result = await agent.execute_tool(tc)
         assert result.success is False
@@ -1664,10 +1752,13 @@ class TestArchitectAwaitTask:
         agent = _make_agent(mock_model, max_iterations=5)
 
         mock_model.a_generate.side_effect = [
-            _tool_dict("await_task", {
-                "task_ids": ["tid-1"],
-                "message": "Generating tests...",
-            }),
+            _tool_dict(
+                "await_task",
+                {
+                    "task_ids": ["tid-1"],
+                    "message": "Generating tests...",
+                },
+            ),
             # The agent should NOT reach a second iteration
             _finish_dict("should not reach here"),
         ]
@@ -1718,10 +1809,13 @@ class TestArchitectAwaitTask:
 
         mock_model.a_generate.side_effect = [
             _tool_dict("dummy", {"x": "work"}),
-            _tool_dict("await_task", {
-                "task_ids": ["tid-1"],
-                "message": "Now waiting...",
-            }),
+            _tool_dict(
+                "await_task",
+                {
+                    "task_ids": ["tid-1"],
+                    "message": "Now waiting...",
+                },
+            ),
         ]
 
         response = await agent.chat_async("do work then wait")
@@ -1755,10 +1849,13 @@ class TestArchitectDeferredTestSetCompletion:
 
         mock_model.a_generate.side_effect = [
             _tool_dict("generate_test_set", {"name": "Safety Tests"}),
-            _tool_dict("await_task", {
-                "task_ids": ["tid-1"],
-                "message": "Generating...",
-            }),
+            _tool_dict(
+                "await_task",
+                {
+                    "task_ids": ["tid-1"],
+                    "message": "Generating...",
+                },
+            ),
         ]
 
         await agent.chat_async("create tests")
@@ -1923,11 +2020,13 @@ class TestArchitectPlanConstraints:
         agent._plan = ArchitectPlan(
             requirements=[],
             test_sets=[],
-            metrics=[MetricSpec(
-                name="Factual Accuracy",
-                description="d",
-                completed=True,
-            )],
+            metrics=[
+                MetricSpec(
+                    name="Factual Accuracy",
+                    description="d",
+                    completed=True,
+                )
+            ],
         )
         tc = ToolCall(
             tool_name="create_metric",
@@ -1946,11 +2045,13 @@ class TestArchitectPlanConstraints:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            requirements=[RequirementSpec(
-                name="Safety",
-                description="d",
-                completed=True,
-            )],
+            requirements=[
+                RequirementSpec(
+                    name="Safety",
+                    description="d",
+                    completed=True,
+                )
+            ],
             test_sets=[],
             metrics=[],
         )
@@ -1970,11 +2071,13 @@ class TestArchitectPlanConstraints:
         agent._plan = ArchitectPlan(
             requirements=[],
             test_sets=[],
-            metrics=[MetricSpec(
-                name="Factual Accuracy",
-                description="d",
-                completed=False,
-            )],
+            metrics=[
+                MetricSpec(
+                    name="Factual Accuracy",
+                    description="d",
+                    completed=False,
+                )
+            ],
         )
         tc = ToolCall(
             tool_name="create_metric",
@@ -1993,11 +2096,13 @@ class TestArchitectPlanConstraints:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            requirements=[RequirementSpec(
-                name="Safety",
-                description="d",
-                completed=False,
-            )],
+            requirements=[
+                RequirementSpec(
+                    name="Safety",
+                    description="d",
+                    completed=False,
+                )
+            ],
             test_sets=[TestSetSpec(name="Tests", description="d")],
             metrics=[],
         )
@@ -2021,11 +2126,13 @@ class TestArchitectPlanConstraints:
         agent._plan = ArchitectPlan(
             requirements=[],
             test_sets=[TestSetSpec(name="Tests", description="d")],
-            metrics=[MetricSpec(
-                name="Accuracy",
-                description="d",
-                completed=False,
-            )],
+            metrics=[
+                MetricSpec(
+                    name="Accuracy",
+                    description="d",
+                    completed=False,
+                )
+            ],
         )
         tc = ToolCall(
             tool_name="generate_test_set",
@@ -2048,10 +2155,12 @@ class TestArchitectPlanConstraints:
             requirements=[],
             test_sets=[TestSetSpec(name="Tests", description="d")],
             metrics=[],
-            requirement_metric_mappings=[MappingSpec(
-                requirement="Safety",
-                metrics=["Accuracy"],
-            )],
+            requirement_metric_mappings=[
+                MappingSpec(
+                    requirement="Safety",
+                    metrics=["Accuracy"],
+                )
+            ],
         )
         tc = ToolCall(
             tool_name="generate_test_set",
@@ -2073,18 +2182,28 @@ class TestArchitectPlanConstraints:
 
         agent = _make_agent(mock_model)
         agent._plan = ArchitectPlan(
-            requirements=[RequirementSpec(
-                name="Safety", description="d", completed=True,
-            )],
+            requirements=[
+                RequirementSpec(
+                    name="Safety",
+                    description="d",
+                    completed=True,
+                )
+            ],
             test_sets=[TestSetSpec(name="Tests", description="d")],
-            metrics=[MetricSpec(
-                name="Accuracy", description="d", completed=True,
-            )],
-            requirement_metric_mappings=[MappingSpec(
-                requirement="Safety",
-                metrics=["Accuracy"],
-                completed=True,
-            )],
+            metrics=[
+                MetricSpec(
+                    name="Accuracy",
+                    description="d",
+                    completed=True,
+                )
+            ],
+            requirement_metric_mappings=[
+                MappingSpec(
+                    requirement="Safety",
+                    metrics=["Accuracy"],
+                    completed=True,
+                )
+            ],
         )
         tc = ToolCall(
             tool_name="generate_test_set",
@@ -2120,10 +2239,12 @@ class TestArchitectIdNameCollection:
         result = ToolResult(
             tool_name="list_requirements",
             success=True,
-            content=json.dumps([
-                {"id": "uuid-1", "name": "Safety"},
-                {"id": "uuid-2", "name": "Accuracy"},
-            ]),
+            content=json.dumps(
+                [
+                    {"id": "uuid-1", "name": "Safety"},
+                    {"id": "uuid-2", "name": "Accuracy"},
+                ]
+            ),
         )
         agent._collect_id_names(result)
         assert agent._id_to_name["uuid-1"] == "Safety"
@@ -2134,11 +2255,13 @@ class TestArchitectIdNameCollection:
         result = ToolResult(
             tool_name="list_metrics",
             success=True,
-            content=json.dumps({
-                "value": [
-                    {"id": "uuid-3", "name": "Relevance"},
-                ]
-            }),
+            content=json.dumps(
+                {
+                    "value": [
+                        {"id": "uuid-3", "name": "Relevance"},
+                    ]
+                }
+            ),
         )
         agent._collect_id_names(result)
         assert agent._id_to_name["uuid-3"] == "Relevance"
@@ -2154,13 +2277,15 @@ class TestArchitectIdNameCollection:
         result = ToolResult(
             tool_name="list_requirements",
             success=True,
-            content=json.dumps({
-                "results": [
-                    {"id": "uuid-1", "name": "Safety"},
-                    {"id": "uuid-2", "name": "Accuracy"},
-                ],
-                "_pagination": {"returned": 2, "has_more": False},
-            }),
+            content=json.dumps(
+                {
+                    "results": [
+                        {"id": "uuid-1", "name": "Safety"},
+                        {"id": "uuid-2", "name": "Accuracy"},
+                    ],
+                    "_pagination": {"returned": 2, "has_more": False},
+                }
+            ),
         )
         agent._collect_id_names(result)
         assert agent._id_to_name["uuid-1"] == "Safety"
@@ -2306,9 +2431,7 @@ class TestArchitectCompactListRendering:
 
     def test_long_descriptions_are_truncated_per_item(self):
         items = [self._metric(0, desc_chars=500)]
-        out = ArchitectAgent._compact_list_result_for_history(
-            json.dumps(items), desc_chars=100
-        )
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps(items), desc_chars=100)
         assert out is not None
         assert "Metric 0" in out
         assert "x" * 500 not in out
@@ -2330,13 +2453,8 @@ class TestArchitectCompactListRendering:
         assert "metric_scope=endpoint" in out
 
     def test_caps_displayed_items_when_page_huge(self):
-        items = [
-            {"id": f"u-{i}", "name": f"Item {i}", "description": "d"}
-            for i in range(80)
-        ]
-        out = ArchitectAgent._compact_list_result_for_history(
-            json.dumps(items), max_items=10
-        )
+        items = [{"id": f"u-{i}", "name": f"Item {i}", "description": "d"} for i in range(80)]
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps(items), max_items=10)
         assert out is not None
         assert "Item 0" in out
         assert "Item 9" in out
@@ -2347,9 +2465,7 @@ class TestArchitectCompactListRendering:
         """Lists of primitives (e.g. tag strings) shouldn't be rendered
         as entity lists — let the caller fall back to plain truncation.
         """
-        out = ArchitectAgent._compact_list_result_for_history(
-            json.dumps(["a", "b", "c"])
-        )
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps(["a", "b", "c"]))
         assert out is None
 
     def test_format_history_uses_compact_renderer_for_lists(self):
@@ -2471,9 +2587,7 @@ class TestCompactUnnamedListResults:
 
     def test_null_fields_are_dropped(self):
         """``id``/``nano_id`` are null on every annotation — noise."""
-        out = ArchitectAgent._compact_list_result_for_history(
-            json.dumps([self._annotation(1)])
-        )
+        out = ArchitectAgent._compact_list_result_for_history(json.dumps([self._annotation(1)]))
         assert out is not None
         assert "nano_id" not in out
 
@@ -2714,9 +2828,7 @@ class TestCarriedToolResults:
     def test_an_oversized_page_is_truncated_not_dropped(self):
         """A page bigger than the whole budget used to return an empty digest."""
         agent = _make_agent(_mock_model())
-        agent._execution_history.append(
-            _tool_step(1, "list_annotations", content=self._fat_page())
-        )
+        agent._execution_history.append(_tool_step(1, "list_annotations", content=self._fat_page()))
 
         digest = agent._build_carried_tool_results()
 
@@ -2727,9 +2839,7 @@ class TestCarriedToolResults:
     def test_an_oversized_page_does_not_wipe_earlier_entries(self):
         agent = _make_agent(_mock_model())
         agent._carried_tool_results = ["[list_annotations]: one review, from Nicolai."]
-        agent._execution_history.append(
-            _tool_step(1, "list_annotations", content=self._fat_page())
-        )
+        agent._execution_history.append(_tool_step(1, "list_annotations", content=self._fat_page()))
 
         digest = agent._build_carried_tool_results()
 
@@ -2843,9 +2953,7 @@ class TestArchitectMappingMatch:
 
         return ToolCall(
             tool_name="add_requirement_to_metric",
-            arguments=json.dumps(
-                {"requirement_id": requirement_id, "metric_id": metric_id}
-            ),
+            arguments=json.dumps({"requirement_id": requirement_id, "metric_id": metric_id}),
         )
 
     def test_single_metric_mapping_completes_on_first_link(self, mock_model):
@@ -2864,7 +2972,8 @@ class TestArchitectMappingMatch:
         )
 
         refuses = next(
-            m for m in plan.requirement_metric_mappings
+            m
+            for m in plan.requirement_metric_mappings
             if m.requirement == "Refuses Non-Travel Queries"
         )
         assert updated is True
@@ -2888,8 +2997,7 @@ class TestArchitectMappingMatch:
         )
 
         core = next(
-            m for m in plan.requirement_metric_mappings
-            if m.requirement == "Core Travel Assistance"
+            m for m in plan.requirement_metric_mappings if m.requirement == "Core Travel Assistance"
         )
         assert core.completed is False
         assert core.linked_metrics == ["Pricing Information Accuracy"]
@@ -2932,11 +3040,11 @@ class TestArchitectMappingMatch:
         )
 
         core = next(
-            m for m in plan.requirement_metric_mappings
-            if m.requirement == "Core Travel Assistance"
+            m for m in plan.requirement_metric_mappings if m.requirement == "Core Travel Assistance"
         )
         pricing = next(
-            m for m in plan.requirement_metric_mappings
+            m
+            for m in plan.requirement_metric_mappings
             if m.requirement == "Pricing Information & Disclaimers"
         )
         assert core.completed is True
@@ -2961,7 +3069,8 @@ class TestArchitectMappingMatch:
         )
 
         refuses = next(
-            m for m in plan.requirement_metric_mappings
+            m
+            for m in plan.requirement_metric_mappings
             if m.requirement == "Refuses Non-Travel Queries"
         )
         assert updated is False
@@ -2986,9 +3095,7 @@ class TestArchitectMappingMatch:
             assert mapping.linked_metrics == []
 
     @pytest.mark.asyncio
-    async def test_save_plan_validation_failure_has_actionable_error(
-        self, mock_model, caplog
-    ):
+    async def test_save_plan_validation_failure_has_actionable_error(self, mock_model, caplog):
         """save_plan should reject malformed args, log the offending input,
         and return a structured field-level error for the LLM to act on."""
         from rhesis.sdk.agents.schemas import ToolCall
@@ -3111,7 +3218,8 @@ class TestArchitectMappingMatch:
         )
 
         refuses = next(
-            m for m in plan.requirement_metric_mappings
+            m
+            for m in plan.requirement_metric_mappings
             if m.requirement == "Refuses Non-Travel Queries"
         )
         assert first is True
@@ -3142,20 +3250,20 @@ class TestArchitectIdCollectionUngated:
             return ToolResult(
                 tool_name=tc.tool_name,
                 success=True,
-                content=json.dumps({
-                    "results": [
-                        {"id": "uuid-1", "name": "Safety"},
-                        {"id": "uuid-2", "name": "Accuracy"},
-                    ],
-                    "_pagination": {"returned": 2, "has_more": False},
-                }),
+                content=json.dumps(
+                    {
+                        "results": [
+                            {"id": "uuid-1", "name": "Safety"},
+                            {"id": "uuid-2", "name": "Accuracy"},
+                        ],
+                        "_pagination": {"returned": 2, "has_more": False},
+                    }
+                ),
             )
 
         monkeypatch.setattr(BaseAgent, "execute_tool", _fake_execute)
 
-        await agent.execute_tool(
-            ToolCall(tool_name="list_requirements", arguments=json.dumps({}))
-        )
+        await agent.execute_tool(ToolCall(tool_name="list_requirements", arguments=json.dumps({})))
 
         assert agent._id_to_name["uuid-1"] == "Safety"
         assert agent._id_to_name["uuid-2"] == "Accuracy"
@@ -3272,9 +3380,7 @@ class TestArchitectPlanProgress:
         assert "mappings 0/0" in progress
         assert "test_sets 0/1" in progress
 
-    def test_progress_string_marks_test_set_generation_blocked_while_pending(
-        self, mock_model
-    ):
+    def test_progress_string_marks_test_set_generation_blocked_while_pending(self, mock_model):
         agent = _make_agent(mock_model)
         agent._plan = self._pending_mapping_plan()
 
@@ -3282,9 +3388,7 @@ class TestArchitectPlanProgress:
         assert "test-set generation: blocked" in progress
         assert "N/N" in progress
 
-    def test_progress_string_marks_test_set_generation_ready_when_done(
-        self, mock_model
-    ):
+    def test_progress_string_marks_test_set_generation_ready_when_done(self, mock_model):
         agent = _make_agent(mock_model)
         agent._plan = self._ready_plan()
 
@@ -3313,9 +3417,7 @@ class TestArchitectPlanProgress:
         prompt = agent._build_prompt("hi", self._tools_list())
         assert "Plan progress:" not in prompt
 
-    def test_test_set_tools_remain_visible_in_prompt_regardless_of_plan_state(
-        self, mock_model
-    ):
+    def test_test_set_tools_remain_visible_in_prompt_regardless_of_plan_state(self, mock_model):
         """We deliberately do NOT hide tools from the LLM. The
         principled mechanism is: prompt advertises preconditions,
         runtime constraint enforces them. This test guards against
@@ -3389,15 +3491,11 @@ class TestArchitectSavePlanReconciliation:
 
         return ToolCall(
             tool_name="add_requirement_to_metric",
-            arguments=json.dumps(
-                {"requirement_id": requirement_id, "metric_id": metric_id}
-            ),
+            arguments=json.dumps({"requirement_id": requirement_id, "metric_id": metric_id}),
         )
 
     @pytest.mark.asyncio
-    async def test_entities_created_before_plan_are_marked_completed(
-        self, mock_model
-    ):
+    async def test_entities_created_before_plan_are_marked_completed(self, mock_model):
         """Reproduces the failing session in the worker logs:
         create_requirement + create_metric run while ``self._plan is None``,
         then save_plan arrives. Without reconciliation, every plan item
@@ -3421,9 +3519,7 @@ class TestArchitectSavePlanReconciliation:
         assert plan.metrics[0].completed is True
 
     @pytest.mark.asyncio
-    async def test_links_made_before_plan_complete_their_mappings_on_save(
-        self, mock_model
-    ):
+    async def test_links_made_before_plan_complete_their_mappings_on_save(self, mock_model):
         """``add_requirement_to_metric`` succeeded before save_plan, so
         ``_linked_pairs`` carries the (requirement, metric) pair across
         the plan-save boundary. After save, the matching MappingSpec
@@ -3436,9 +3532,7 @@ class TestArchitectSavePlanReconciliation:
         }
         agent._requirement_id_names = {"b-health": "Provides Accurate Health Info"}
         agent._metric_id_names = {"m-health": "Health Information Accuracy"}
-        agent._record_link_if_mapping(
-            self._link_call("b-health", "m-health")
-        )
+        agent._record_link_if_mapping(self._link_call("b-health", "m-health"))
         assert agent._linked_pairs == {
             ("provides accurate health info", "health information accuracy")
         }
@@ -4067,9 +4161,7 @@ class TestProjectContext:
         assert len(text) < agent._cfg.project_name_max_chars + 200
 
     def test_non_string_fields_are_ignored(self, mock_model):
-        agent = self._agent(
-            mock_model, {"project_id": "abc-123", "name": None, "description": 42}
-        )
+        agent = self._agent(mock_model, {"project_id": "abc-123", "name": None, "description": 42})
         text = agent._format_project_context()
         assert "(unnamed)" in text
         assert "About:" not in text

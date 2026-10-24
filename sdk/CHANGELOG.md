@@ -56,6 +56,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   without it their prompt and output are unchanged.
 
 ### Fixed
+- The Architect's Accept approves what it showed: the held calls and the plan as saved at that
+  point. Before, one Accept unlocked every creating tool for the rest of the turn, so asking for one
+  requirement could also create metrics and test sets. Work beyond what was shown is held for
+  another Accept, and a turn cut off by the iteration limit no longer offers Accept again.
 - `ShowChartTool` gives the model the chart's real labels and values (and the true lowest and
   highest when it shortens a long chart), instead of only value ranges, which left it to
   invent category names and misreport peaks. It also rejects mixing measure kinds, such as
