@@ -3,7 +3,7 @@
 import * as React from 'react';
 import {
   Box,
-  Button,
+  IconButton,
   Menu,
   MenuItem,
   Table,
@@ -11,10 +11,13 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import InsertChartOutlinedIcon from '@mui/icons-material/InsertChartOutlined';
+import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { LineChart } from '@mui/x-charts/LineChart';
 import { ScatterChart } from '@mui/x-charts/ScatterChart';
@@ -542,15 +545,18 @@ function ExportMenu({ spec, plotRef }: ExportMenuProps) {
 
   return (
     <>
-      <Button
-        size="small"
-        startIcon={<FileDownloadOutlinedIcon fontSize="small" />}
-        aria-haspopup="menu"
-        aria-expanded={anchor ? 'true' : undefined}
-        onClick={open}
-      >
-        Export
-      </Button>
+      <Tooltip title="Export">
+        <IconButton
+          size="small"
+          aria-label="Export"
+          aria-haspopup="menu"
+          aria-expanded={anchor ? 'true' : undefined}
+          onClick={open}
+          sx={{ color: 'text.secondary' }}
+        >
+          <FileDownloadOutlinedIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
       <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={close}>
         {plot && (
           <MenuItem onClick={() => exportAs('png')}>Image (PNG)</MenuItem>
@@ -589,13 +595,24 @@ export default function ArchitectChart({ spec }: ArchitectChartProps) {
         }}
       >
         <Typography variant="subtitle2">{spec.title}</Typography>
-        <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-          <ExportMenu spec={spec} plotRef={plotRef} />
+        <Box sx={{ display: 'flex', flexShrink: 0 }}>
           {canToggle && (
-            <Button size="small" onClick={() => setShowData(v => !v)}>
-              {showData ? 'Show chart' : 'Show data'}
-            </Button>
+            <Tooltip title={showData ? 'Show chart' : 'Show data'}>
+              <IconButton
+                size="small"
+                aria-label={showData ? 'Show chart' : 'Show data'}
+                onClick={() => setShowData(v => !v)}
+                sx={{ color: 'text.secondary' }}
+              >
+                {showData ? (
+                  <InsertChartOutlinedIcon fontSize="small" />
+                ) : (
+                  <TableChartOutlinedIcon fontSize="small" />
+                )}
+              </IconButton>
+            </Tooltip>
           )}
+          <ExportMenu spec={spec} plotRef={plotRef} />
         </Box>
       </Box>
       <Box ref={plotRef}>
