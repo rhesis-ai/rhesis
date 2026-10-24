@@ -1,12 +1,22 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Box, Typography, Collapse, IconButton, Chip } from '@mui/material';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Box,
+  Chip,
+  Collapse,
+  IconButton,
+  InputAdornment,
+  TextField,
+  Typography,
+} from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import { SearchIcon } from '@/components/icons';
 import { SpanNode } from '@/utils/api-client/interfaces/telemetry';
 import { getSpanIcon, getSpanColor } from '@/utils/span-icon-mapper';
 import { formatDuration } from '@/utils/format-duration';
+import { formatTokenCount, spanUsage } from '@/utils/trace-utils';
 
 interface SpanTreeViewProps {
   spans: SpanNode[];
@@ -15,38 +25,27 @@ interface SpanTreeViewProps {
   isConversationTrace?: boolean;
 }
 
-export default function SpanTreeView({
-  spans,
-  selectedSpan,
-  onSpanSelect,
-  isConversationTrace,
-}: SpanTreeViewProps) {
-  return (
-    <Box>
-      {spans.map((span, index) => (
-        <SpanTreeNode
-          key={span.span_id}
-          span={span}
-          selectedSpan={selectedSpan}
-          onSpanSelect={onSpanSelect}
-          level={0}
-          turnLabel={
-            isConversationTrace && spans.length > 1
-              ? `Turn ${index + 1}`
-              : undefined
-          }
-        />
-      ))}
-    </Box>
-  );
+/** The trace's time window, which every row's bar is drawn against. */
+interface Timeline {
+  start: number;
+  duration: number;
 }
 
-interface SpanTreeNodeProps {
-  span: SpanNode;
-  selectedSpan: SpanNode | null;
-  onSpanSelect: (span: SpanNode) => void;
-  level: number;
-  turnLabel?: string;
+// Column widths in theme spacing units, shared by the header and every row.
+const BAR_WIDTH = 22;
+const DURATION_WIDTH = 7;
+
+function timelineOf(spans: SpanNode[]): Timeline {
+  let start = Infinity;
+  let end = -Infinity;
+  for (const span of spans) {
+    start = Math.min(start, new Date(span.start_time).getTime());
+    end = Math.max(end, new Date(span.end_time).getTime());
+  }
+  if (!Number.isFinite(start) || !Number.isFinite(end)) {
+    return { start: 0, duration: 1 };
+  }
+  return { start, duration: Math.max(end - start, 1) };
 }
 
 /**
@@ -78,15 +77,168 @@ function getSpanDisplayName(span: SpanNode): string {
   return span.span_name;
 }
 
+/** Spans whose own name matches, plus every ancestor of one, so matches keep their place. */
+function matchingSpanIds(spans: SpanNode[], query: string): Set<string> {
+  const ids = new Set<string>();
+  const needle = query.toLowerCase();
+  const visit = (span: SpanNode): boolean => {
+    const own = getSpanDisplayName(span).toLowerCase().includes(needle);
+    const below = (span.children ?? []).map(visit).some(Boolean);
+    if (own || below) ids.add(span.span_id);
+    return own || below;
+  };
+  spans.forEach(visit);
+  return ids;
+}
+
+function formatTick(ms: number): string {
+  return ms === 0 ? '0' : formatDuration(Math.round(ms));
+}
+
+export default function SpanTreeView({
+  spans,
+  selectedSpan,
+  onSpanSelect,
+  isConversationTrace,
+}: SpanTreeViewProps) {
+  const [query, setQuery] = useState('');
+  const timeline = useMemo(() => timelineOf(spans), [spans]);
+  const visible = useMemo(
+    () => (query.trim() ? matchingSpanIds(spans, query.trim()) : null),
+    [spans, query]
+  );
+
+  return (
+    <Box>
+      <Box
+        sx={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 1,
+          bgcolor: 'background.paper',
+          borderBottom: 1,
+          borderColor: 'divider',
+        }}
+      >
+        <Box sx={{ px: 2, pt: 1, pb: 0.5 }}>
+          <TextField
+            size="small"
+            fullWidth
+            placeholder="Filter spans"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            slotProps={{
+              htmlInput: { 'aria-label': 'Filter spans' },
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+        </Box>
+        <Box
+          aria-hidden
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            px: 2,
+            py: 0.5,
+          }}
+        >
+          <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+            Span
+          </Typography>
+          <Box
+            sx={theme => ({
+              width: theme.spacing(BAR_WIDTH),
+              flexShrink: 0,
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontFamily: theme.typography.fontFamilyCode,
+            })}
+          >
+            {[0, 0.5, 1].map(f => (
+              <Typography key={f} variant="caption" color="text.secondary">
+                {formatTick(f * timeline.duration)}
+              </Typography>
+            ))}
+          </Box>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              width: theme => theme.spacing(DURATION_WIDTH),
+              flexShrink: 0,
+              textAlign: 'right',
+            }}
+          >
+            Duration
+          </Typography>
+        </Box>
+      </Box>
+
+      <Box role="tree" aria-label="Spans" sx={{ py: 0.5 }}>
+        {spans
+          .filter(span => !visible || visible.has(span.span_id))
+          .map((span, index) => (
+            <SpanTreeNode
+              key={span.span_id}
+              span={span}
+              selectedSpan={selectedSpan}
+              onSpanSelect={onSpanSelect}
+              level={0}
+              timeline={timeline}
+              visible={visible}
+              turnLabel={
+                isConversationTrace && spans.length > 1
+                  ? `Turn ${index + 1}`
+                  : undefined
+              }
+            />
+          ))}
+        {visible && visible.size === 0 && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: 'block', px: 2, py: 1 }}
+          >
+            No spans match “{query}”.
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+interface SpanTreeNodeProps {
+  span: SpanNode;
+  selectedSpan: SpanNode | null;
+  onSpanSelect: (span: SpanNode) => void;
+  level: number;
+  timeline: Timeline;
+  /** Ids left by the filter, or null when nothing is filtered. */
+  visible: Set<string> | null;
+  turnLabel?: string;
+}
+
 function SpanTreeNode({
   span,
   selectedSpan,
   onSpanSelect,
   level,
+  timeline,
+  visible,
   turnLabel,
 }: SpanTreeNodeProps) {
   const [expanded, setExpanded] = useState(true);
-  const hasChildren = span.children && span.children.length > 0;
+  const children = (span.children ?? []).filter(
+    child => !visible || visible.has(child.span_id)
+  );
+  const hasChildren = children.length > 0;
   const isSelected = selectedSpan?.span_id === span.span_id;
   const rowRef = useRef<HTMLDivElement>(null);
 
@@ -101,159 +253,179 @@ function SpanTreeNode({
     setExpanded(!expanded);
   };
 
-  const handleClick = () => {
-    onSpanSelect(span);
-  };
-
   const colorPath = getSpanColor(span, span.status_code);
   const SpanIcon = getSpanIcon(span);
+  const usage = spanUsage(span);
+
+  const offset =
+    (new Date(span.start_time).getTime() - timeline.start) / timeline.duration;
+  const width = span.duration_ms / timeline.duration;
 
   return (
-    <Box>
+    <Box role="none">
       <Box
         ref={rowRef}
-        onClick={handleClick}
+        role="treeitem"
+        aria-selected={isSelected}
+        aria-level={level + 1}
+        aria-expanded={hasChildren ? expanded : undefined}
+        onClick={() => onSpanSelect(span)}
         data-span-id={span.span_id}
         data-selected={isSelected || undefined}
         sx={{
           display: 'flex',
           alignItems: 'center',
-          py: 0.5,
-          px: 1,
-          ml: level * 2,
+          gap: 1.5,
+          minHeight: theme => theme.spacing(3.75),
+          px: 2,
           cursor: 'pointer',
-          borderRadius: theme => theme.shape.borderRadius,
           backgroundColor: isSelected ? 'action.selected' : 'transparent',
           '&:hover': {
             backgroundColor: isSelected ? 'action.selected' : 'action.hover',
           },
         }}
       >
-        {/* Expand/Collapse Icon */}
-        <Box sx={{ width: theme => theme.spacing(3), flexShrink: 0 }}>
-          {hasChildren && (
-            <IconButton size="small" onClick={handleToggle}>
-              {expanded ? (
-                <ExpandMoreIcon fontSize="small" />
-              ) : (
-                <ChevronRightIcon fontSize="small" />
-              )}
-            </IconButton>
-          )}
-        </Box>
-
-        {/* Semantic Icon */}
         <Box
-          component={SpanIcon}
           sx={{
-            fontSize: theme => theme.spacing(2.25),
-            color: colorPath,
-            mr: 1,
-            flexShrink: 0,
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+            pl: level * 2,
           }}
-        />
+        >
+          <Box sx={{ width: theme => theme.spacing(2.5), flexShrink: 0 }}>
+            {hasChildren && (
+              <IconButton
+                size="small"
+                aria-label={expanded ? 'Collapse' : 'Expand'}
+                onClick={handleToggle}
+                sx={{ p: 0 }}
+              >
+                {expanded ? (
+                  <ExpandMoreIcon fontSize="small" />
+                ) : (
+                  <ChevronRightIcon fontSize="small" />
+                )}
+              </IconButton>
+            )}
+          </Box>
 
-        {/* Turn Label (for conversation traces) */}
-        {turnLabel && (
-          <Chip
-            label={turnLabel}
-            size="small"
-            color="primary"
-            variant="outlined"
+          <Box
+            component={SpanIcon}
             sx={{
-              height: theme => theme.spacing(2.5),
-              fontSize: theme => theme.typography.caption.fontSize,
-              mr: 1,
+              fontSize: theme => theme.spacing(2),
+              color: colorPath,
               flexShrink: 0,
             }}
           />
-        )}
 
-        {/* Span Name and Duration */}
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+          {turnLabel && (
+            <Chip
+              label={turnLabel}
+              size="small"
+              color="primary"
+              variant="outlined"
+              sx={{
+                height: theme => theme.spacing(2.5),
+                fontSize: theme => theme.typography.caption.fontSize,
+                flexShrink: 0,
+              }}
+            />
+          )}
+
           <Typography
-            variant="body2"
-            sx={{
-              fontFamily: 'monospace',
-              fontSize: theme => theme.typography.body2.fontSize,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
+            variant="caption"
+            noWrap
+            title={getSpanDisplayName(span)}
+            sx={theme => ({
+              fontFamily: theme.typography.fontFamilyCode,
+              color: 'text.primary',
+              minWidth: 0,
+            })}
           >
             {getSpanDisplayName(span)}
           </Typography>
+
+          {usage && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              noWrap
+              sx={{ flexShrink: 0 }}
+            >
+              {formatTokenCount(usage.total)} tok
+            </Typography>
+          )}
+
+          {span.status_code === 'ERROR' && (
+            <Chip
+              label="ERROR"
+              size="small"
+              color="error"
+              sx={{
+                height: theme => theme.spacing(2.25),
+                fontSize: theme => theme.typography.caption.fontSize,
+                flexShrink: 0,
+              }}
+            />
+          )}
         </Box>
 
-        {/* Duration Badge */}
-        <Chip
-          label={formatDuration(span.duration_ms)}
-          size="small"
+        <Box
+          aria-hidden
           sx={{
-            height: theme => theme.spacing(2.5),
-            fontSize: theme => theme.typography.caption.fontSize,
-            ml: 1,
+            position: 'relative',
+            width: theme => theme.spacing(BAR_WIDTH),
+            height: theme => theme.spacing(0.75),
             flexShrink: 0,
+            borderRadius: theme => theme.spacing(0.5),
+            bgcolor: 'action.hover',
           }}
-        />
-
-        {/* Error Indicator */}
-        {span.status_code === 'ERROR' && (
-          <Chip
-            label="ERROR"
-            size="small"
-            color="error"
-            sx={{
-              height: theme => theme.spacing(2.5),
-              fontSize: theme => theme.typography.caption.fontSize,
-              ml: 0.5,
-              flexShrink: 0,
-            }}
-          />
-        )}
-      </Box>
-
-      {/* Children */}
-      {hasChildren && (
-        <Collapse in={expanded} timeout="auto" unmountOnExit>
+        >
           <Box
             sx={{
-              position: 'relative',
-              ml: 3,
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                bottom: theme => theme.spacing(1),
-                width: '1px',
-                backgroundColor: 'divider',
-              },
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: `${Math.min(Math.max(offset, 0), 1) * 100}%`,
+              width: `${Math.min(Math.max(width, 0), 1) * 100}%`,
+              minWidth: theme => theme.spacing(0.375),
+              borderRadius: theme => theme.spacing(0.5),
+              bgcolor: colorPath,
+              opacity: isSelected ? 1 : 0.7,
             }}
-          >
-            {span.children.map((child, _index) => (
-              <Box
+          />
+        </Box>
+
+        <Typography
+          variant="caption"
+          sx={theme => ({
+            width: theme.spacing(DURATION_WIDTH),
+            flexShrink: 0,
+            textAlign: 'right',
+            fontFamily: theme.typography.fontFamilyCode,
+            color: 'text.primary',
+          })}
+        >
+          {formatDuration(span.duration_ms)}
+        </Typography>
+      </Box>
+
+      {hasChildren && (
+        <Collapse in={expanded} timeout="auto" unmountOnExit>
+          <Box role="group">
+            {children.map(child => (
+              <SpanTreeNode
                 key={child.span_id}
-                sx={{
-                  position: 'relative',
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    left: 0,
-                    top: theme => theme.spacing(1.5),
-                    width: theme => theme.spacing(1.5),
-                    height: '1px',
-                    backgroundColor: 'divider',
-                  },
-                }}
-              >
-                <SpanTreeNode
-                  span={child}
-                  selectedSpan={selectedSpan}
-                  onSpanSelect={onSpanSelect}
-                  level={level + 1}
-                />
-              </Box>
+                span={child}
+                selectedSpan={selectedSpan}
+                onSpanSelect={onSpanSelect}
+                level={level + 1}
+                timeline={timeline}
+                visible={visible}
+              />
             ))}
           </Box>
         </Collapse>
