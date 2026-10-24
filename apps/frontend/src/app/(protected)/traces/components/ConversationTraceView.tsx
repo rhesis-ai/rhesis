@@ -51,6 +51,8 @@ interface ConversationTraceViewProps {
   /** Opens a turn that may live in another trace; replaces selecting the n-th root span. */
   onTurnClick?: (turnNumber: number) => void;
   onAnnotateTurn?: (turnNumber: number, turnPassed?: boolean) => void;
+  /** The turn whose span is open in the details panel; highlighted. */
+  selectedTurn?: number | null;
 }
 
 interface TurnOverrideEntry {
@@ -109,6 +111,7 @@ export default function ConversationTraceView({
   rootSpans,
   onTurnClick,
   onAnnotateTurn,
+  selectedTurn = null,
 }: ConversationTraceViewProps) {
   const notifications = useNotifications();
   const canCreateTest = useCan(Capability.Test.CREATE);
@@ -299,8 +302,8 @@ export default function ConversationTraceView({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'flex-end',
-            px: 2,
-            pt: 1,
+            px: 1.5,
+            pt: 0.5,
           }}
         >
           <Tooltip title="Create multi-turn test from conversation">
@@ -351,6 +354,8 @@ export default function ConversationTraceView({
           }
           maxHeight="100%"
           turnAnnotationMap={turnAnnotationMap}
+          density="compact"
+          selectedTurn={selectedTurn}
         />
       </Box>
       {testDraft && (

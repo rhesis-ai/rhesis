@@ -3,21 +3,28 @@
 import { useTraceAnnotationTargets } from '@/components/annotations/useAnnotationTargets';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
-import { useCurrency } from '@/contexts/CurrencyContext';
-import { Box, Typography, CircularProgress, Alert, Paper } from '@mui/material';
-import Link from 'next/link';
+import {
+  Box,
+  Typography,
+  CircularProgress,
+  Alert,
+  IconButton,
+  ToggleButton,
+  ToggleButtonGroup,
+} from '@mui/material';
+import { CloseIcon } from '@/components/icons';
 import SpanTreeView from './SpanTreeView';
 import SpanSequenceView from './SpanSequenceView';
 import SpanGraphView from './SpanGraphView';
 import SpanDetailsPanel from './SpanDetailsPanel';
 import ConversationTraceView from './ConversationTraceView';
 import TraceAnnotationDrawer from './TraceAnnotationDrawer';
-import TurnSwitcher from './TurnSwitcher';
+import TraceDrawerHeader, {
+  type TraceExperimentInfo,
+} from './TraceDrawerHeader';
 import { findSpanPath, pickInitialSelection, treeTabIndex } from './span-path';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import BaseDrawer from '@/components/common/BaseDrawer';
-import DetailTabNav from '@/components/common/DetailTabNav';
-import { GridBadge } from '@/components/common/GridBadge';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   TraceDetailResponse,
@@ -25,11 +32,6 @@ import {
   SpanNode,
 } from '@/utils/api-client/interfaces/telemetry';
 import { toMentionId } from '@/components/common/MentionTextInput';
-import { formatDuration } from '@/utils/format-duration';
-import { formatTokenCount, tokenSplitLabel } from '@/utils/trace-utils';
-import { shortVersion } from '@/utils/api-client/interfaces/parameters';
-import { experimentHref } from '@/utils/experiment-links';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import type { TurnTraceTarget } from '@/utils/conversation-from-spans';
 import {
@@ -52,61 +54,6 @@ interface TraceDrawerProps {
   onTraceUpdated?: () => void;
 }
 
-function TraceMetadataRow({
-  label,
-  href,
-  children,
-}: {
-  label: string;
-  href?: string;
-  children: React.ReactNode;
-}) {
-  const pillSx = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    px: '10px',
-    py: '2px',
-    borderRadius: BORDER_RADIUS.pill,
-    border: '1px solid',
-    borderColor: 'greyscale.border',
-    fontSize: 12,
-    lineHeight: '18px',
-    color: 'greyscale.body',
-    textDecoration: 'none',
-    whiteSpace: 'nowrap',
-    ...(href
-      ? {
-          '&:hover': {
-            borderColor: 'primary.main',
-            color: 'primary.main',
-          },
-        }
-      : {}),
-  } as const;
-
-  return (
-    <Box sx={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-      <Typography
-        sx={{
-          fontSize: 12,
-          lineHeight: '18px',
-          color: 'greyscale.body',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {label}
-      </Typography>
-      {href ? (
-        <Box component={Link} href={href} target="_blank" sx={pillSx}>
-          {children}
-        </Box>
-      ) : (
-        <Box sx={pillSx}>{children}</Box>
-      )}
-    </Box>
-  );
-}
-
 export default function TraceDrawer({
   open,
   onClose,
@@ -120,15 +67,11 @@ export default function TraceDrawer({
   onTraceUpdated,
 }: TraceDrawerProps) {
   const { status } = useSession();
-  const { format: money } = useCurrency();
   const [trace, setTrace] = useState<TraceDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [experimentInfo, setExperimentInfo] = useState<{
-    id: string;
-    name: string;
-    version: string;
-  } | null>(null);
+  const [experimentInfo, setExperimentInfo] =
+    useState<TraceExperimentInfo | null>(null);
   const [selectedSpan, setSelectedSpan] = useState<SpanNode | null>(null);
   const [viewTab, setViewTab] = useState<number>(0);
 
@@ -199,7 +142,7 @@ export default function TraceDrawer({
   const activeViewKey = viewTabs[viewTab]?.key ?? 'tree';
 
   // Resizable split pane state
-  const [leftPanelWidth, setLeftPanelWidth] = useState(60); // percentage
+  const [leftPanelWidth, setLeftPanelWidth] = useState(46); // percentage
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -585,38 +528,64 @@ export default function TraceDrawer({
     isDragging,
   ]);
 
+  // Loading and error states still need a way out: the drawer has no footer.
+  const bareCloseBar = (
+    <Box
+      sx={{
+        flexShrink: 0,
+        display: 'flex',
+        justifyContent: 'flex-end',
+        px: 1.5,
+        py: 1,
+      }}
+    >
+      <IconButton size="small" aria-label="Close trace" onClick={onClose}>
+        <CloseIcon fontSize="small" />
+      </IconButton>
+    </Box>
+  );
+
   const drawerContent = () => {
     if (loading) {
       return (
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '100%',
-            p: 4,
-          }}
-        >
-          <CircularProgress />
-        </Box>
+        <>
+          {bareCloseBar}
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              flex: 1,
+              p: 4,
+            }}
+          >
+            <CircularProgress />
+          </Box>
+        </>
       );
     }
 
     if (error) {
       return (
-        <Box sx={{ p: 3 }}>
-          <Alert severity="error">{error}</Alert>
-        </Box>
+        <>
+          {bareCloseBar}
+          <Box sx={{ px: 3 }}>
+            <Alert severity="error">{error}</Alert>
+          </Box>
+        </>
       );
     }
 
     if (!trace || !trace.root_spans || trace.root_spans.length === 0) {
       return (
-        <Box sx={{ p: 3 }}>
-          <Typography color="text.secondary">
-            No trace data available
-          </Typography>
-        </Box>
+        <>
+          {bareCloseBar}
+          <Box sx={{ px: 3 }}>
+            <Typography color="text.secondary">
+              No trace data available
+            </Typography>
+          </Box>
+        </>
       );
     }
 
@@ -626,135 +595,26 @@ export default function TraceDrawer({
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          gap: '40px',
           overflow: 'hidden',
           minHeight: 0,
         }}
       >
+        <TraceDrawerHeader
+          trace={trace}
+          experiment={experimentInfo}
+          turnIndex={turnIndex}
+          turnCount={turns?.targets.length ?? 0}
+          onTurnChange={goToTurn}
+          onClose={onClose}
+        />
+
         <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '20px',
-            flexShrink: 0,
-          }}
-        >
-          <Box
-            sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '30px',
-              alignItems: 'center',
-            }}
-          >
-            {trace.project && (
-              <TraceMetadataRow
-                label="Project:"
-                href={`/projects/${trace.project.id}`}
-              >
-                {trace.project.name}
-              </TraceMetadataRow>
-            )}
-            {trace.endpoint && (
-              <TraceMetadataRow
-                label="Endpoint:"
-                href={`/endpoints/${trace.endpoint.id}`}
-              >
-                {trace.endpoint.name}
-              </TraceMetadataRow>
-            )}
-            {trace.test_run && (
-              <TraceMetadataRow
-                label="Test Run:"
-                href={`/test-runs/${trace.test_run.id}`}
-              >
-                {trace.test_run.name ||
-                  trace.test_run.nano_id ||
-                  trace.test_run.id}
-              </TraceMetadataRow>
-            )}
-            {trace.test && (
-              <TraceMetadataRow label="Test:" href={`/tests/${trace.test.id}`}>
-                {trace.test.nano_id || trace.test.id}
-              </TraceMetadataRow>
-            )}
-            {experimentInfo && (
-              <TraceMetadataRow
-                label="Experiment:"
-                href={experimentHref(experimentInfo.id, experimentInfo.version)}
-              >
-                {experimentInfo.name}
-                {experimentInfo.version
-                  ? ` (${shortVersion(experimentInfo.version)})`
-                  : ''}
-              </TraceMetadataRow>
-            )}
-          </Box>
-
-          <Box
-            sx={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '8px',
-              alignItems: 'center',
-            }}
-          >
-            <GridBadge label={`${trace.span_count} spans`} size="grid" />
-            <GridBadge label={formatDuration(trace.duration_ms)} size="grid" />
-            <GridBadge label={trace.environment} size="grid" />
-            {trace.total_tokens > 0 && (
-              <GridBadge
-                label={`${formatTokenCount(trace.total_tokens)} tokens`}
-                size="grid"
-                // Native title rather than MUI Tooltip: GridBadge is not a
-                // forwardRef component, so Tooltip cannot anchor to it.
-                title={tokenSplitLabel(
-                  trace.total_input_tokens,
-                  trace.total_output_tokens
-                )}
-              />
-            )}
-            {/* A trace priced at nothing gets its badge too: zero is a figure
-                somebody computed. Only a trace with no cost at all -- not
-                enriched, or no model on it could be priced -- has no badge. */}
-            {typeof trace.total_cost_usd === 'number' && (
-              <GridBadge label={money(trace.total_cost_usd)} size="grid" />
-            )}
-            {trace.error_count > 0 && (
-              <GridBadge
-                label={`${trace.error_count} errors`}
-                size="grid"
-                sx={{
-                  bgcolor: 'error.main',
-                  color: 'error.contrastText',
-                }}
-              />
-            )}
-            {turns && turns.targets.length > 1 && (
-              <Box sx={{ ml: 'auto' }}>
-                <TurnSwitcher
-                  index={turnIndex}
-                  count={turns.targets.length}
-                  onChange={goToTurn}
-                />
-              </Box>
-            )}
-          </Box>
-        </Box>
-
-        <Paper
           ref={containerRef}
-          elevation={0}
           sx={{
             flex: 1,
             minHeight: 0,
             display: 'flex',
             overflow: 'hidden',
-            borderRadius: BORDER_RADIUS.md,
-            boxShadow: theme =>
-              theme.palette.mode === 'light' ? ELEVATION.xs : 'none',
-            border: theme => `1px solid ${theme.palette.greyscale.border}`,
-            bgcolor: 'background.paper',
           }}
         >
           <Box
@@ -766,27 +626,53 @@ export default function TraceDrawer({
               flexShrink: 0,
             }}
           >
-            <Box sx={{ flexShrink: 0, px: '30px', pt: '30px' }}>
-              <DetailTabNav
-                tabs={viewTabs}
-                activeIndex={viewTab}
-                onChange={setViewTab}
-                aria-label="span hierarchy tabs"
-                tabGap="20px"
-                scrollable
-              />
+            <Box
+              sx={{
+                flexShrink: 0,
+                minHeight: theme => theme.spacing(5.5),
+                display: 'flex',
+                alignItems: 'center',
+                px: 2,
+                borderBottom: 1,
+                borderColor: 'divider',
+              }}
+            >
+              <ToggleButtonGroup
+                value={activeViewKey}
+                exclusive
+                size="small"
+                aria-label="Trace view"
+                onChange={(_, key: string | null) => {
+                  if (!key) return;
+                  const index = viewTabs.findIndex(t => t.key === key);
+                  if (index >= 0) setViewTab(index);
+                }}
+              >
+                {viewTabs.map(tab => (
+                  <ToggleButton
+                    key={tab.key}
+                    value={tab.key}
+                    id={tab.id}
+                    aria-controls={tab['aria-controls']}
+                    sx={{ py: 0.25, px: 1.25, textTransform: 'none' }}
+                  >
+                    {tab.label}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
             </Box>
 
             <ErrorBoundary>
               <Box
+                id={
+                  viewTabs.find(t => t.key === activeViewKey)?.['aria-controls']
+                }
                 sx={{
                   flex: 1,
                   overflow:
                     activeViewKey === 'tree' || activeViewKey === 'conversation'
                       ? 'auto'
                       : 'hidden',
-                  px: activeViewKey === 'tree' ? '30px' : 0,
-                  pb: '30px',
                   minHeight: 0,
                 }}
               >
@@ -799,6 +685,7 @@ export default function TraceDrawer({
                       turns ? turnNumber => goToTurn(turnNumber - 1) : undefined
                     }
                     onAnnotateTurn={handleAnnotateTurn}
+                    selectedTurn={selectedTurnNumber}
                   />
                 )}
                 {activeViewKey === 'tree' && (
@@ -885,7 +772,7 @@ export default function TraceDrawer({
               selectedTurnNumber={selectedTurnNumber}
             />
           </Box>
-        </Paper>
+        </Box>
       </Box>
     );
   };
@@ -896,8 +783,9 @@ export default function TraceDrawer({
       onClose={onClose}
       width={`${drawerWidth}%`}
       showHeader={false}
-      closeButtonText="Close"
+      closeButtonText=""
       contentLayout="fill"
+      disablePadding
     >
       <Box
         sx={{
