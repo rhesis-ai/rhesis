@@ -166,7 +166,7 @@ function CartesianChart({ spec }: ArchitectChartProps) {
 
   const stacked = spec.chart_type === 'stacked_bar';
   const single = series.length === 1 && !stacked;
-  // A focus on x values colors those bars; the rest of a lone series stays gray.
+  // A focus on x values colors those bars; the rest of a lone series stays neutral.
   const barColors = single ? categoryColors(spec, categories, palette) : null;
   const bandAxis = {
     scaleType: 'band' as const,

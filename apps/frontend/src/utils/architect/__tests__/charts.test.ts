@@ -106,7 +106,7 @@ describe('architect chart colors', () => {
   const palette: ChartPalette = {
     neutral: 'gray',
     neutralLine: 'dark-gray',
-    series: ['clay', 'violet', 'ochre', 'sage'],
+    series: ['accent', 'second', 'third', 'fourth'],
   };
   const topics: ArchitectChartSpec = {
     title: 't',
@@ -133,21 +133,21 @@ describe('architect chart colors', () => {
       'gray',
     ]);
     expect(seriesColors(base, ['Pass rate'], palette, 'line')).toEqual([
-      'clay',
+      'accent',
     ]);
   });
 
   it('gives several series the palette in order', () => {
     expect(
       seriesColors(byEndpoint, ['v1', 'v2', 'v3'], palette, 'line')
-    ).toEqual(['clay', 'violet', 'ochre']);
+    ).toEqual(['accent', 'second', 'third']);
   });
 
   it('puts a focused series in the accent and the rest in gray', () => {
     const spec = { ...byEndpoint, focus: ['v2'] };
     expect(seriesColors(spec, ['v1', 'v2', 'v3'], palette, 'line')).toEqual([
       'dark-gray',
-      'clay',
+      'accent',
       'dark-gray',
     ]);
   });
@@ -157,7 +157,7 @@ describe('architect chart colors', () => {
     expect(categoryColors(topics, categories, palette)).toBeNull();
     expect(
       categoryColors({ ...topics, focus: ['Visa'] }, categories, palette)
-    ).toEqual(['clay', 'gray']);
+    ).toEqual(['accent', 'gray']);
   });
 
   it('matches a period focus by its ISO date', () => {
@@ -169,9 +169,9 @@ describe('architect chart colors', () => {
   it('lists legend entries only for two or more series', () => {
     expect(legendEntries(topics, palette)).toEqual([]);
     expect(legendEntries(byEndpoint, palette)).toEqual([
-      { label: 'v1', color: 'clay' },
-      { label: 'v2', color: 'violet' },
-      { label: 'v3', color: 'ochre' },
+      { label: 'v1', color: 'accent' },
+      { label: 'v2', color: 'second' },
+      { label: 'v3', color: 'third' },
     ]);
   });
 

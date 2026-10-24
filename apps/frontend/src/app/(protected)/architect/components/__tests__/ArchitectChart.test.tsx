@@ -98,7 +98,7 @@ describe('ArchitectChart', () => {
     expect(screen.getByTestId('line')).toHaveTextContent('Bot B');
   });
 
-  it('draws series in the architect palette, never the brand blue', () => {
+  it('draws series in the architect palette', () => {
     const { series } = lightTheme.chartPalettes.architect;
     renderChart({
       title: 'Weekly pass rate',

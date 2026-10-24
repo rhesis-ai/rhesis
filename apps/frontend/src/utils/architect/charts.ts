@@ -204,9 +204,9 @@ export function focusLabels(
 
 /**
  * One color per series. With a focus, the focused series take the accent and the
- * rest go gray. Without one, several series take the palette in order, and a lone
- * series is gray as bars (no single point to make) but the accent as a line, since a
- * gray line reads as disabled.
+ * rest take the neutral. Without one, several series take the palette in order, and a
+ * lone series is neutral as bars (no single point to make) but the accent as a line,
+ * since a pale line reads as disabled.
  */
 export function seriesColors(
   spec: ArchitectChartSpec,

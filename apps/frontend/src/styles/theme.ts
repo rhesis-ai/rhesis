@@ -42,7 +42,7 @@ export interface BrandColors {
   fontFamily?: string;
 }
 
-/** Colors for Architect charts: gray for context, `series` in fixed order. */
+/** Colors for Architect charts: a pale neutral for context, `series` in fixed order. */
 export interface ArchitectChartPalette {
   /** Bars and areas that carry context, not the point. */
   neutral: string;
@@ -677,20 +677,21 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
         '#FCA5A5',
         '#3BC4F2',
       ],
-      // Architect charts stay off the brand blue, which means "clickable" in the chat.
-      // Gray carries context; clay, roughly opposite the blue at the same chroma, marks
-      // what the reply is about. The series order is checked for color-blind separation.
+      // Architect charts use shades of the brand teal, kept apart from the solid brand
+      // fill (bubbles, buttons) by lightness and lower chroma: pale teal for context, a
+      // deeper muted teal for what the reply is about. Series step evenly in lightness
+      // from that accent, so they read apart without color vision.
       architect:
         mode === 'light'
           ? {
-              neutral: '#b6bfcb',
-              neutralLine: '#8f9aa8',
-              series: ['#c4774e', '#6e5ba1', '#bb9a46', '#3b7f4d'],
+              neutral: '#bdd6e0',
+              neutralLine: '#80bbd3',
+              series: ['#266077', '#317e9f', '#559dbb', '#80bbd3'],
             }
           : {
-              neutral: '#4b5563',
-              neutralLine: '#6b7482',
-              series: ['#bf774f', '#917fc6', '#b09141', '#3b804d'],
+              neutral: '#2e4651',
+              neutralLine: '#2a6581',
+              series: ['#8ec0d4', '#5ba3c1', '#3884a5', '#2a6581'],
             },
     },
     elevation: {
