@@ -34,6 +34,7 @@ A chart shows at most 200 rows. When a breakdown has more, the chart says so; na
 | How do two endpoints compare across all metrics? | Radar, one shape per endpoint |
 | What is the overall pass rate? | A single headline number, optionally with a target |
 | How has p95 latency or LLM cost moved day by day? Per environment? | Line, one line per environment |
+| How long do runs take, per test set or endpoint? | Horizontal bars of average or p95 run duration |
 | Which operations error most often? | Horizontal bars of error rate |
 
 Breakdowns are available by requirement, category, topic, test run, test set, endpoint, who started the run, status, and time (by day, week, month, quarter or year). For metrics, Architect can chart pass rates and average, minimum and maximum scores per metric. For traces, it can chart latency (average and percentiles), tokens, cost in USD and error rate by environment, operation, test run, endpoint and time. The full list is in the [SDK Insights reference](/sdk/insights).
