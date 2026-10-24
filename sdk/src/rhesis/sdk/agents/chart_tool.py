@@ -34,8 +34,8 @@ MAX_ROWS = 200
 # colors repeat or blur, so the model must narrow the query or pick a heat_table.
 MAX_SERIES = 4
 SERIES_CHART_TYPES = ("line", "area", "bar", "horizontal_bar", "stacked_bar", "radar")
-# Without a series dimension, only bars can set one x value apart from the rest.
-X_FOCUS_CHART_TYPES = ("bar", "horizontal_bar")
+# Only bars can set an x value apart: its bars keep their color and the others fade.
+X_FOCUS_CHART_TYPES = ("bar", "horizontal_bar", "stacked_bar")
 
 
 class ShowChartTool(BaseTool):
@@ -117,10 +117,11 @@ class ShowChartTool(BaseTool):
                     "items": {"type": "string"},
                     "description": (
                         "Optional values your reply is about, exactly as they appear in the "
-                        "data: series values when the chart has a series, else x values of a "
-                        "bar or horizontal_bar (e.g. the weakest topic). They are drawn in "
-                        "the accent color and everything else in a pale neutral. Omit it when the "
-                        "chart makes no single point."
+                        "data (e.g. the weakest topic, or the run that regressed): series "
+                        "values, or x values of a bar, horizontal_bar or stacked_bar chart. "
+                        "They are drawn in full and the rest are muted. Set it whenever your "
+                        "reply singles out a value; omit it when the chart makes no single "
+                        "point."
                     ),
                 },
             },
@@ -264,23 +265,24 @@ def _resolve_focus(args: Dict[str, Any], rows: List[Dict[str, Any]]) -> List[str
     focus = [str(v) for v in args.get("focus") or []]
     if not focus:
         return []
-    if args.get("series"):
-        dimension = args["series"]
-    elif args["chart_type"] in X_FOCUS_CHART_TYPES:
-        dimension = args["x"]
-    else:
+    # Series values color their series; on bars, x values keep their bars and fade the rest.
+    dimensions = [d for d in (args.get("series"),) if d]
+    if args["chart_type"] in X_FOCUS_CHART_TYPES:
+        dimensions.append(args["x"])
+    if not dimensions:
         raise ValueError(
             f"a {args['chart_type']} chart without a series has nothing to set apart; "
-            "drop focus, or add a series dimension and focus on its values"
+            "call show_chart again without focus"
         )
     # A missing value can't be a focus: the chart labels it "(none)", not "None".
-    known = {str(row[dimension]) for row in rows if row.get(dimension) not in (None, "")}
+    known = {str(row[d]) for row in rows for d in dimensions if row.get(d) not in (None, "")}
     unknown = [v for v in focus if v not in known]
     if unknown:
         sample = ", ".join(sorted(known)[:10])
         raise ValueError(
-            f"focus names {unknown}, which aren't {dimension} values in the data; "
-            f"values include: {sample}"
+            f"focus names {unknown}, which aren't {' or '.join(dimensions)} values in the "
+            f"data (values include: {sample}); call show_chart again with focus fixed or "
+            "without it"
         )
     return focus
 
