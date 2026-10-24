@@ -211,14 +211,16 @@ export default function SpanSequenceView({
     isConversationTrace && rootSpans && rootSpans.length > 1;
 
   // Layout constants derived from theme spacing
-  const PARTICIPANT_WIDTH = Number(theme.spacing(19).replace('px', '')); // ~150px
-  const PARTICIPANT_GAP = Number(theme.spacing(2.5).replace('px', '')); // ~20px
-  const ROW_HEIGHT = Number(theme.spacing(6.25).replace('px', '')); // ~50px
-  const HEADER_HEIGHT = Number(theme.spacing(7.5).replace('px', '')); // ~60px
-  const TIMELINE_WIDTH = Number(theme.spacing(10).replace('px', '')); // ~80px
-  const ARROW_GAP = Number(theme.spacing(1).replace('px', '')); // ~8px
-  const ARROW_HEIGHT = Number(theme.spacing(2.5).replace('px', '')); // ~20px
-  const BOX_VERTICAL_PADDING = Number(theme.spacing(0.625).replace('px', '')); // ~5px
+  const PARTICIPANT_WIDTH = Number(theme.spacing(14).replace('px', '')); // ~112px
+  const PARTICIPANT_GAP = Number(theme.spacing(1).replace('px', '')); // ~8px
+  const ROW_HEIGHT = Number(theme.spacing(4).replace('px', '')); // ~32px
+  const HEADER_HEIGHT = Number(theme.spacing(5).replace('px', '')); // ~40px
+  const TIMELINE_WIDTH = Number(theme.spacing(7.5).replace('px', '')); // ~60px
+  const ARROW_GAP = Number(theme.spacing(0.75).replace('px', '')); // ~6px
+  const ARROW_HEIGHT = Number(theme.spacing(2).replace('px', '')); // ~16px
+  const BOX_VERTICAL_PADDING = Number(theme.spacing(0.5).replace('px', '')); // ~4px
+  // Activation boxes take most of a lane so the duration label fits.
+  const BOX_WIDTH = PARTICIPANT_WIDTH * 0.75;
   const BORDER_WIDTH = Number(theme.spacing(0.125).replace('px', '')); // ~1px
   const BORDER_WIDTH_MEDIUM = Number(theme.spacing(0.25).replace('px', '')); // ~2px
   const DASH_SIZE = Number(theme.spacing(0.5).replace('px', '')); // ~4px
@@ -322,7 +324,7 @@ export default function SpanSequenceView({
             zIndex: theme.zIndex.appBar + 1,
             display: 'flex',
             justifyContent: 'center',
-            py: 1,
+            py: 0.5,
             backgroundColor: theme.palette.background.default,
             borderBottom: `1px solid ${theme.palette.divider}`,
           }}
@@ -416,16 +418,15 @@ export default function SpanSequenceView({
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: theme.spacing(1),
+                  padding: theme.spacing(0.5),
                 }}
               >
                 {SpanIcon && (
                   <Box
                     component={SpanIcon}
                     sx={{
-                      fontSize: theme.typography.body1.fontSize,
+                      fontSize: theme.typography.caption.fontSize,
                       color: colorPath,
-                      mb: 0.5,
                     }}
                   />
                 )}
@@ -547,7 +548,7 @@ export default function SpanSequenceView({
               {/* Arrow rendering */}
               {parentX !== undefined &&
                 (() => {
-                  const boxHalfWidth = PARTICIPANT_WIDTH / 4;
+                  const boxHalfWidth = BOX_WIDTH / 2;
                   const arrowVerticalCenter = ARROW_HEIGHT / 2;
                   const markerSize = Number(theme.spacing(1).replace('px', ''));
                   const strokeWidth = Number(
@@ -652,8 +653,8 @@ export default function SpanSequenceView({
                     onClick={() => handleSpanClick(span)}
                     sx={{
                       position: 'absolute',
-                      left: spanX - PARTICIPANT_WIDTH / 4,
-                      width: PARTICIPANT_WIDTH / 2,
+                      left: spanX - BOX_WIDTH / 2,
+                      width: BOX_WIDTH,
                       height: ROW_HEIGHT - BOX_VERTICAL_PADDING * 2,
                       top: BOX_VERTICAL_PADDING,
                       backgroundColor: isSelected
@@ -743,7 +744,7 @@ export default function SpanSequenceView({
                 <Box
                   sx={{
                     position: 'absolute',
-                    left: spanX + PARTICIPANT_WIDTH / 4 + BOX_VERTICAL_PADDING,
+                    left: spanX + BOX_WIDTH / 2 + BOX_VERTICAL_PADDING,
                     top:
                       ROW_HEIGHT / 2 -
                       Number(theme.spacing(1).replace('px', '')),

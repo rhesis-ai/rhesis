@@ -45,6 +45,8 @@ export interface BaseDrawerProps {
   anchor?: 'left' | 'right';
   /** `form` — scrollable stacked sections; `fill` — full-height workspace (traces, test results). */
   contentLayout?: 'form' | 'fill';
+  /** Drops the paper's padding and gap, for a fill workspace that draws its own chrome. */
+  disablePadding?: boolean;
 }
 
 // Utility function to filter out duplicates and invalid entries
@@ -93,6 +95,7 @@ export default function BaseDrawer({
   showHeader = true,
   anchor = 'right',
   contentLayout = 'form',
+  disablePadding = false,
 }: BaseDrawerProps) {
   const hasFooter = !!(closeButtonText || onSave || onDelete || error);
   const isFillLayout = contentLayout === 'fill';
@@ -109,8 +112,8 @@ export default function BaseDrawer({
           width: width,
           display: 'flex',
           flexDirection: 'column',
-          p: '30px',
-          gap: '40px',
+          p: disablePadding ? 0 : '30px',
+          gap: disablePadding ? 0 : '40px',
           boxSizing: 'border-box',
         },
       }}
