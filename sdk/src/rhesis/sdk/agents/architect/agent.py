@@ -2233,10 +2233,24 @@ class ArchitectAgent(BaseAgent):
         if len(self._execution_history) > self._history_window:
             omitted = len(self._execution_history) - self._history_window
             parts.append(f"[... {omitted} earlier tool steps omitted ...]")
-        for step in exec_window:
+        # A failure the same tool later recovered from is settled; repeating it
+        # every iteration only crowds out what actually stands.
+        last_success: Dict[str, int] = {}
+        for position, step in enumerate(exec_window):
+            for tr in step.tool_results:
+                if tr.success:
+                    last_success[tr.tool_name] = position
+        for position, step in enumerate(exec_window):
             reasoning_preview = step.reasoning[: cfg.reasoning_preview_chars]
             parts.append(f"[Tool iteration {step.iteration}] Reasoning: {reasoning_preview}")
+            settled = {
+                i
+                for i, tc in enumerate(step.tool_calls)
+                if self._call_failed(step, i) and last_success.get(tc.tool_name, -1) > position
+            }
             for i, tc in enumerate(step.tool_calls):
+                if i in settled:
+                    continue
                 line = f"  Called: {tc.tool_name}"
                 # Echo the payload back only when the call failed. Without it
                 # the model sees the rejection but not what it sent, so it
@@ -2246,7 +2260,9 @@ class ArchitectAgent(BaseAgent):
                     line += f" with arguments: {preview}"
                 parts.append(line)
             if step.tool_results:
-                for tr in step.tool_results:
+                for i, tr in enumerate(step.tool_results):
+                    if i in settled:
+                        continue
                     rendered = self._render_tool_result(
                         tr,
                         prefix=f"  Result ({tr.tool_name})",
