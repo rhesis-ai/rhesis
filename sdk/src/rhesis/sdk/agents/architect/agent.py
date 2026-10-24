@@ -24,7 +24,7 @@ from rhesis.sdk.agents.architect.prompt_loader import (
     render_phase_knowledge,
 )
 from rhesis.sdk.agents.architect.state import ArchitectAgentStateSnapshot
-from rhesis.sdk.agents.architect.tool_registry import mode_for, plan_category_for
+from rhesis.sdk.agents.architect.tool_registry import PlanCategory, mode_for, plan_category_for
 from rhesis.sdk.agents.architect.workflow import WorkflowPath, resolve_workflow_path_update
 from rhesis.sdk.agents.arg_validation import find_missing_arguments
 from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
@@ -56,6 +56,10 @@ _MIN_RECORD_CHARS = 400
 
 # Seed for a turn whose create/update calls were held for approval.
 HELD_BACK_SEED = "Here is what I'll do once you accept. Nothing has been created yet."
+# Seed for an approved turn that reached work the user hadn't approved.
+HELD_BACK_NEXT_SEED = (
+    "I've done what you approved. The next step goes beyond that, so it waits for your OK."
+)
 
 
 # ── helpers ──────────────────────────────────────────────────────
@@ -207,6 +211,11 @@ class ArchitectAgent(BaseAgent):
         #   confirmable tool that we just intercepted.
         self._creation_approved: bool = False
         self._confirming_tools: FrozenSet[str] = frozenset()
+        # What an Accept approves: the held calls and the plan items saved when
+        # they were held, as (kind, name) pairs, or ("tool", name) for a call
+        # with no entity name. Work the agent adds after that, even through
+        # save_plan, is held again.
+        self._approved_scope: FrozenSet[Tuple[str, str]] = frozenset()
         self._mutating_tools: Optional[FrozenSet[str]] = None
         # Populated by get_available_tools(); empty until the first call,
         # which makes the pre-dispatch check a no-op rather than a false
@@ -331,6 +340,10 @@ class ArchitectAgent(BaseAgent):
             # only the specific tools that were blocked.
             if self._needs_confirmation and self._confirming_tools:
                 self._creation_approved = approve is not False
+            # The last turn's question is answered now. A finish sets it again if
+            # this turn holds something; a turn cut off by the iteration cap
+            # never reaches a finish and must not offer Accept a second time.
+            self._needs_confirmation = False
 
             # When auto-resumed after background tasks, mark the
             # corresponding plan items as completed.
@@ -464,6 +477,7 @@ class ArchitectAgent(BaseAgent):
         return {
             "needs_confirmation": self._needs_confirmation,
             "confirming_tools": list(self._confirming_tools),
+            "approved_scope": [list(entry) for entry in sorted(self._approved_scope)],
             "auto_approve_all": self._auto_approve_all,
         }
 
@@ -471,6 +485,9 @@ class ArchitectAgent(BaseAgent):
     def guard_state(self, value: Dict[str, Any]) -> None:
         self._needs_confirmation = value.get("needs_confirmation", False)
         self._confirming_tools = frozenset(value.get("confirming_tools", []))
+        self._approved_scope = frozenset(
+            (str(kind), str(name)) for kind, name in value.get("approved_scope", [])
+        )
         self._auto_approve_all = value.get("auto_approve_all", False)
 
     def reset(self) -> None:
@@ -482,6 +499,7 @@ class ArchitectAgent(BaseAgent):
         self._workflow_path = WorkflowPath.UNSET
         self._creation_approved = False
         self._confirming_tools = frozenset()
+        self._approved_scope = frozenset()
         self._blocked_this_turn = False
         self._mutating_tools = None
         self._auto_approve_all = False
@@ -636,12 +654,16 @@ class ArchitectAgent(BaseAgent):
             # Accept/Change confirmation prompt. ``_confirming_tools``
             # below is a long-lived approval scope, but this flag is
             # specifically "this turn just blocked something".
+            # Work already done in an approved turn stays done; the seed must
+            # not claim nothing was created.
+            approved_turn = self._creation_approved
             self._blocked_this_turn = True
             self._blocked_calls.extend(mutating)
 
-            # Unlock ALL mutating tools so the full plan can
-            # execute without re-blocking on subsequent types.
-            self._confirming_tools = self._mutating_tools or frozenset(blocked_names)
+            # An Accept approves what the user is about to be shown: these
+            # calls and the plan as saved now, not every creating tool.
+            self._confirming_tools = frozenset(blocked_names)
+            self._approved_scope = self._scope_shown(mutating)
 
             # Still allow read-only tools to execute
             read_only = [tc for tc in action.tool_calls if not self._is_mutating(tc.tool_name)]
@@ -671,7 +693,7 @@ class ArchitectAgent(BaseAgent):
                 action=Action.FINISH,
                 # The model wrote its answer expecting the calls to run ("I have
                 # created..."), so it can't be the seed for a turn that held them.
-                final_answer=HELD_BACK_SEED,
+                final_answer=HELD_BACK_NEXT_SEED if approved_turn else HELD_BACK_SEED,
             )
             return await self._handle_finish_action(finish_action, iteration)
 
@@ -683,7 +705,52 @@ class ArchitectAgent(BaseAgent):
             return True
         if not self._creation_approved:
             return False
-        return all(tc.tool_name in self._confirming_tools for tc in tool_calls)
+        return all(self._in_approved_scope(tc) for tc in tool_calls)
+
+    def _scope_key(self, tool_call: ToolCall) -> Tuple[str, str]:
+        """What a call acts on: (plan category, name), else ("tool", tool name)."""
+        category = plan_category_for(tool_call.tool_name)
+        args = tool_call.arguments or {}
+        name = args.get("name")
+        if not name and args.get("test_set_id"):
+            name = self._test_set_names_by_id.get(str(args["test_set_id"]))
+            category = PlanCategory.TEST_SET if name else category
+        if category and category != PlanCategory.MAPPING and isinstance(name, str) and name:
+            return (str(category), name.strip().lower())
+        return ("tool", tool_call.tool_name)
+
+    def _scope_shown(self, held: List[ToolCall]) -> FrozenSet[Tuple[str, str]]:
+        """The held calls plus every item of the plan as it is saved now."""
+        scope = {self._scope_key(tc) for tc in held}
+        plan = self._plan
+        if plan:
+            items = [
+                (PlanCategory.PROJECT, [plan.project] if plan.project else []),
+                (PlanCategory.REQUIREMENT, plan.requirements),
+                (PlanCategory.METRIC, plan.metrics),
+                (PlanCategory.TEST_SET, plan.test_sets),
+            ]
+            for category, specs in items:
+                scope.update((str(category), spec.name.strip().lower()) for spec in specs)
+        return frozenset(scope)
+
+    def _in_approved_scope(self, tool_call: ToolCall) -> bool:
+        key = self._scope_key(tool_call)
+        if key in self._approved_scope:
+            return True
+        if tool_call.tool_name == "add_requirement_to_metric":
+            # A link between two approved entities was part of what was shown.
+            args = tool_call.arguments or {}
+            requirement = self._requirement_id_names.get(str(args.get("requirement_id")), "")
+            metric = self._metric_id_names.get(str(args.get("metric_id")), "")
+            return (
+                str(PlanCategory.REQUIREMENT),
+                requirement.lower(),
+            ) in self._approved_scope and (
+                str(PlanCategory.METRIC),
+                metric.lower(),
+            ) in self._approved_scope
+        return False
 
     # ── argument validation ──────────────────────────────────────
 
