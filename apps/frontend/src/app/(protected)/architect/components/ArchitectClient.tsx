@@ -13,6 +13,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { ArchitectSession } from '@/utils/api-client/architect-client';
+import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useViewingEntity } from '@/contexts/NotificationsContext';
 import { NotificationSection } from '@/constants/notifications';
@@ -38,10 +39,13 @@ import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
 interface ArchitectClientProps {
   /** Server-fetched session list -- when present, skips the initial client fetch. */
   initialSessions?: ArchitectSession[];
+  /** Server-fetched `limit: 1` endpoint list for the welcome screen's chips. */
+  initialEndpoints?: Endpoint[];
 }
 
 export default function ArchitectClient({
   initialSessions,
+  initialEndpoints,
 }: ArchitectClientProps) {
   const { status } = useSession();
   const userScope = useUserScope();
@@ -355,7 +359,10 @@ export default function ArchitectClient({
             }
           />
         ) : !isCreatingSession ? (
-          <ArchitectWelcome onSubmit={handleNewSessionWithMessage} />
+          <ArchitectWelcome
+            onSubmit={handleNewSessionWithMessage}
+            initialEndpoints={initialEndpoints}
+          />
         ) : null}
       </Box>
     </Box>
