@@ -31,6 +31,7 @@ import {
   ChartPalette,
   buildSeries,
   categoryColors,
+  focusLabels,
   dataColumns,
   formatDimension,
   formatMeasure,
@@ -73,6 +74,8 @@ const QUIET_AXIS = { disableLine: true, disableTicks: true };
 const CATEGORY_GAP_RATIO = 0.4;
 // Past this many points the dots crowd the line, so only the line is drawn.
 const MAX_MARKED_POINTS = 12;
+// Categories outside an x focus on a multi-series bar chart.
+const FADED_BAR_OPACITY = 0.3;
 const LEGEND_AT_START = {
   legend: { position: { vertical: 'top', horizontal: 'start' } },
 } as const;
@@ -187,6 +190,20 @@ function CartesianChart({ spec }: ArchitectChartProps) {
       : {}),
   };
   const countAxis = { min: 0, ...QUIET_AXIS, tickNumber: VALUE_TICKS };
+  // With several series the colors name the series, so an x focus fades the other
+  // categories instead of recoloring.
+  const focusedX = single ? new Set<string>() : focusLabels(spec, spec.x);
+  const barSlotProps = focusedX.size
+    ? {
+        ...LEGEND_AT_START,
+        bar: ({ dataIndex }: { dataIndex: number }) => ({
+          // fillOpacity: MUI sets the bar's opacity itself, for hover fading.
+          fillOpacity: focusedX.has(categories[dataIndex])
+            ? 1
+            : FADED_BAR_OPACITY,
+        }),
+      }
+    : LEGEND_AT_START;
 
   if (spec.chart_type === 'horizontal_bar') {
     // A ranked list reads by its values, so a lone series labels each bar.
@@ -205,7 +222,7 @@ function CartesianChart({ spec }: ArchitectChartProps) {
         layout="horizontal"
         borderRadius={BAR_RADIUS}
         hideLegend={hideLegend}
-        slotProps={LEGEND_AT_START}
+        slotProps={barSlotProps}
         grid={{ vertical: true }}
         yAxis={[{ ...bandAxis, width: 160 }]}
         xAxis={[stacked ? countAxis : valueAxis]}
@@ -234,7 +251,7 @@ function CartesianChart({ spec }: ArchitectChartProps) {
       margin={PLOT_MARGIN}
       borderRadius={BAR_RADIUS}
       hideLegend={hideLegend}
-      slotProps={LEGEND_AT_START}
+      slotProps={barSlotProps}
       grid={{ horizontal: true }}
       xAxis={[
         {
