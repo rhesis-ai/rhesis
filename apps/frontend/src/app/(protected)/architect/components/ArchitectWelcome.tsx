@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Box,
   TextField,
@@ -16,6 +16,7 @@ import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { useProjectNeedsEndpoint } from '@/hooks/useProjectNeedsEndpoint';
+import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import ArchitectHelpSection from './ArchitectHelpSection';
 
 const SUGGESTED_PROMPTS = [
@@ -38,17 +39,29 @@ const SUGGESTED_PROMPTS = [
 
 interface ArchitectWelcomeProps {
   onSubmit: (message: string) => void;
+  /** Server-fetched endpoint existence check, so the chips render on first paint. */
+  initialEndpoints?: Endpoint[];
 }
 
-export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
+export default function ArchitectWelcome({
+  onSubmit,
+  initialEndpoints,
+}: ArchitectWelcomeProps) {
   const canCreate = useCan(Capability.Architect.CREATE);
   const { pending: endpointCheckPending, needsEndpoint } =
-    useProjectNeedsEndpoint();
+    useProjectNeedsEndpoint(initialEndpoints);
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const inputDisabled = isSubmitting || !canCreate;
+
+  // Not `autoFocus`: on a full page load the browser focuses the server HTML
+  // before hydration, MUI never sees the focus event, and the focus border
+  // stays off.
+  useEffect(() => {
+    if (canCreate) inputRef.current?.focus();
+  }, [canCreate]);
 
   const handleSubmit = () => {
     const trimmed = inputValue.trim();
@@ -133,7 +146,6 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
             onChange={e => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={inputDisabled}
-            autoFocus={canCreate}
             sx={{
               '& .MuiOutlinedInput-root': {
                 borderRadius: theme => theme.spacing(3.5),
@@ -145,6 +157,9 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
               },
             }}
             slotProps={{
+              // MUI's server HTML omits `rows`, so the browser draws its
+              // two-row default until the client measures and shrinks it.
+              htmlInput: { rows: 1 },
               input: {
                 endAdornment: (
                   <InputAdornment position="end">

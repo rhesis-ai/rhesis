@@ -2,6 +2,7 @@
 
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useEndpoints } from '@/hooks/useEndpoints';
+import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 
 interface ProjectNeedsEndpoint {
   /** The check is still running — callers should render neither branch yet. */
@@ -18,7 +19,9 @@ interface ProjectNeedsEndpoint {
  * `pending` keeps callers from flashing one branch before the other — both the
  * chips and the help cards wait for the same answer.
  */
-export function useProjectNeedsEndpoint(): ProjectNeedsEndpoint {
+export function useProjectNeedsEndpoint(
+  initialEndpoints?: Endpoint[]
+): ProjectNeedsEndpoint {
   const { activeProject } = useActiveProject();
   const enabled = !!activeProject?.id;
 
@@ -29,7 +32,7 @@ export function useProjectNeedsEndpoint(): ProjectNeedsEndpoint {
     data: endpoints,
     isSuccess,
     isPending,
-  } = useEndpoints({ limit: 1 }, enabled);
+  } = useEndpoints({ limit: 1 }, enabled, initialEndpoints);
 
   // `isPending`, not `!isSuccess`: a failed query leaves isSuccess false for
   // good, which would latch `pending` on and hide the chips and the cards
