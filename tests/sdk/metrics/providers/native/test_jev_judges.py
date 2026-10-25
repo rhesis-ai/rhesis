@@ -30,7 +30,9 @@ def metric(jev):
     )
 
 
-def test_categorical_judge_asks_one_choice_question(metric):
+@pytest.mark.asyncio
+@pytest.mark.parametrize("use_async", [False, True], ids=["sync", "async"])
+async def test_categorical_judge_asks_one_choice_question(metric, use_async):
     answers = {
         "score": {
             "type": "choice",
@@ -41,7 +43,8 @@ def test_categorical_judge_asks_one_choice_question(metric):
     }
     with patch.object(metric.model, "a_decide", new_callable=AsyncMock) as decide:
         decide.return_value = answers
-        result = metric.evaluate(input="hi", output="Hello!", expected_output="A greeting")
+        inputs = {"input": "hi", "output": "Hello!", "expected_output": "A greeting"}
+        result = await metric.a_evaluate(**inputs) if use_async else metric.evaluate(**inputs)
 
     state, questions = decide.call_args.args
     assert state == {"input": "hi", "expected_output": "A greeting", "output_to_evaluate": "Hello!"}
@@ -56,6 +59,8 @@ def test_categorical_judge_asks_one_choice_question(metric):
     assert result.details["is_successful"] is True
     assert result.details["reason"] == "Chose 'polite' (p=0.93)."
     assert result.details["probabilities"] == {"polite": 0.93, "rude": 0.07}
+    assert result.details["confidence"] == 0.9
+    assert "error" not in result.details
     assert json.loads(result.details["prompt"])["question"] == questions["score"]
 
 
@@ -67,13 +72,39 @@ def test_categorical_judge_still_sends_an_empty_output(metric):
     assert state == {"input": "hi", "output_to_evaluate": ""}
 
 
-def test_categorical_judge_fails_a_non_passing_choice(metric):
+@pytest.mark.asyncio
+@pytest.mark.parametrize("use_async", [False, True], ids=["sync", "async"])
+async def test_categorical_judge_fails_a_non_passing_choice(metric, use_async):
     with patch.object(metric.model, "a_decide", new_callable=AsyncMock) as decide:
         decide.return_value = {"score": {"choice": "rude"}}
-        result = metric.evaluate(input="hi", output="Go away", expected_output="x")
+        inputs = {"input": "hi", "output": "Go away", "expected_output": "x"}
+        result = await metric.a_evaluate(**inputs) if use_async else metric.evaluate(**inputs)
     assert result.score == "rude"
     assert result.details["reason"] == "Chose 'rude'."
     assert result.details["is_successful"] is False
+    assert "error" not in result.details
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("use_async", [False, True], ids=["sync", "async"])
+@pytest.mark.parametrize(
+    "choice",
+    ["unknown", "", None, 1, ["polite"], {"choice": "polite"}],
+    ids=["unknown", "empty", "null", "number", "list", "object"],
+)
+async def test_categorical_judge_reports_invalid_choice(metric, use_async, choice):
+    with patch.object(metric.model, "a_decide", new_callable=AsyncMock) as decide:
+        decide.return_value = {"score": {"choice": choice}}
+        inputs = {"input": "hi", "output": "Hello!", "expected_output": "A greeting"}
+        result = await metric.a_evaluate(**inputs) if use_async else metric.evaluate(**inputs)
+
+    assert result.score == "error"
+    assert result.details["is_successful"] is False
+    assert result.details["exception_type"] == "ValueError"
+    assert result.details["exception_details"] == (
+        f"Expected decision model to choose one of ['polite', 'rude'], got {choice!r}"
+    )
+    assert "Expected decision model to choose one of" in result.details["error"]
 
 
 def test_categorical_judge_reports_jev_failure(metric):
