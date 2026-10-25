@@ -8,6 +8,7 @@ import {
   SiLinear,
   SiAsana,
   SiTrello,
+  SiClickup,
 } from '@icons-pack/react-simple-icons';
 
 /**
@@ -19,7 +20,7 @@ import {
  */
 
 // Providers that support the extract action (REST or MCP — backend picks transport).
-// Must stay in sync with _ROUTES in apps/backend/.../services/tool/actions.py.
+// Must stay in sync with the backend provider manifests' extract actions.
 export const EXTRACT_PROVIDERS = [
   'notion',
   'github',
@@ -29,10 +30,12 @@ export const EXTRACT_PROVIDERS = [
   'azure_devops',
   'linear',
   'trello',
+  'clickup',
 ];
 
 const TOOL_PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   azure_devops: 'Azure DevOps',
+  clickup: 'ClickUp',
 };
 
 export function formatToolProviderDisplayName(typeValue: string): string {
@@ -53,6 +56,7 @@ export const TOOL_PROVIDER_DESCRIPTIONS: Record<string, string> = {
   gitlab: 'Import issues, merge requests, and wiki pages from GitLab projects',
   shortcut: 'Import stories and epics from Shortcut into your knowledge base',
   asana: 'Import tasks and projects from Asana into your knowledge base',
+  clickup: 'Import tasks and documents from ClickUp into your knowledge base',
   linear:
     'Import issues and project context from Linear into your knowledge base',
   azure_devops:
@@ -108,4 +112,5 @@ export const TOOL_PROVIDER_ICONS: Record<string, React.ReactNode> = {
   linear: <SiLinear size={PROVIDER_ICON_SIZE} />,
   azure_devops: <AzureDevOpsIcon size={PROVIDER_ICON_SIZE} />,
   trello: <SiTrello size={PROVIDER_ICON_SIZE} />,
+  clickup: <SiClickup size={PROVIDER_ICON_SIZE} />,
 };

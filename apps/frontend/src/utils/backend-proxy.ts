@@ -13,6 +13,8 @@ const DEFAULT_TIMEOUT_MS = 10_000;
  */
 const LONG_RUNNING_PATH_PREFIXES = [
   '/services/generate',
+  // Connection checks can launch an MCP server and run an LLM agent.
+  '/tools/test-connection',
   '/import',
   '/garak/import',
   '/garak/generate',
@@ -27,6 +29,8 @@ const LONG_RUNNING_PATH_PREFIXES = [
  */
 const LONG_RUNNING_PATH_SUFFIXES = [
   '/suggestion_pipeline',
+  // Tool extraction can require several MCP and LLM calls.
+  '/extract',
   '/generate_outputs',
   '/evaluate',
   '/load-initial-data',

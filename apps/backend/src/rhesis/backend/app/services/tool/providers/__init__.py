@@ -16,6 +16,7 @@ from typing import Dict, Optional, Tuple
 from rhesis.backend.app.services.tool.providers import (
     asana,
     azure_devops,
+    clickup,
     confluence,
     github,
     gitlab,
@@ -52,6 +53,7 @@ _MODULES = (
     shortcut,
     asana,
     azure_devops,
+    clickup,
     linear,
     trello,
 )

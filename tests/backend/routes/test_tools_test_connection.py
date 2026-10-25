@@ -101,3 +101,37 @@ def test_saved_credential_override_allows_mcp_providers():
     _ensure_mcp_saved_credential_override("azure_devops")
     _ensure_mcp_saved_credential_override("gitlab")
     _ensure_mcp_saved_credential_override("linear")
+
+
+@pytest.mark.parametrize("field", ["CLICKUP_API_KEY", "CLICKUP_TEAM_ID"])
+@pytest.mark.parametrize(
+    "value",
+    [None, "", "   "],
+    ids=["omitted", "empty", "whitespace"],
+)
+def test_mcp_test_connection_rejects_missing_clickup_credentials(field, value):
+    credentials = {
+        "CLICKUP_API_KEY": "clickup_test_token",
+        "CLICKUP_TEAM_ID": "123456789",
+    }
+    if value is None:
+        credentials.pop(field)
+    else:
+        credentials[field] = value
+
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_mcp_test_connection_request("clickup", credentials, None)
+
+    assert exc_info.value.status_code == 400
+    assert field in exc_info.value.detail
+
+
+def test_mcp_test_connection_accepts_complete_clickup_credentials():
+    _validate_mcp_test_connection_request(
+        "clickup",
+        {
+            "CLICKUP_API_KEY": "clickup_test_token",
+            "CLICKUP_TEAM_ID": "123456789",
+        },
+        None,
+    )
