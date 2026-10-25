@@ -1,5 +1,6 @@
 """Judges with the Jev decision model: categorical works, everything else refuses it."""
 
+import asyncio
 import json
 from unittest.mock import AsyncMock, patch
 
@@ -44,7 +45,11 @@ async def test_categorical_judge_asks_one_choice_question(metric, use_async):
     with patch.object(metric.model, "a_decide", new_callable=AsyncMock) as decide:
         decide.return_value = answers
         inputs = {"input": "hi", "output": "Hello!", "expected_output": "A greeting"}
-        result = await metric.a_evaluate(**inputs) if use_async else metric.evaluate(**inputs)
+        result = (
+            await metric.a_evaluate(**inputs)
+            if use_async
+            else await asyncio.to_thread(metric.evaluate, **inputs)
+        )
 
     state, questions = decide.call_args.args
     assert state == {"input": "hi", "expected_output": "A greeting", "output_to_evaluate": "Hello!"}
@@ -78,7 +83,11 @@ async def test_categorical_judge_fails_a_non_passing_choice(metric, use_async):
     with patch.object(metric.model, "a_decide", new_callable=AsyncMock) as decide:
         decide.return_value = {"score": {"choice": "rude"}}
         inputs = {"input": "hi", "output": "Go away", "expected_output": "x"}
-        result = await metric.a_evaluate(**inputs) if use_async else metric.evaluate(**inputs)
+        result = (
+            await metric.a_evaluate(**inputs)
+            if use_async
+            else await asyncio.to_thread(metric.evaluate, **inputs)
+        )
     assert result.score == "rude"
     assert result.details["reason"] == "Chose 'rude'."
     assert result.details["is_successful"] is False
@@ -96,7 +105,11 @@ async def test_categorical_judge_reports_invalid_choice(metric, use_async, choic
     with patch.object(metric.model, "a_decide", new_callable=AsyncMock) as decide:
         decide.return_value = {"score": {"choice": choice}}
         inputs = {"input": "hi", "output": "Hello!", "expected_output": "A greeting"}
-        result = await metric.a_evaluate(**inputs) if use_async else metric.evaluate(**inputs)
+        result = (
+            await metric.a_evaluate(**inputs)
+            if use_async
+            else await asyncio.to_thread(metric.evaluate, **inputs)
+        )
 
     assert result.score == "error"
     assert result.details["is_successful"] is False

@@ -143,8 +143,8 @@ class DecisionCategoricalScorer(CategoricalScorer):
         answers = await self.judge.model.a_decide(state, questions)
         answer = answers[self.QUESTION_ID]
         score = answer["choice"]
-        categories = self.judge.categories
-        if categories is None or score not in categories:
+        categories = list(questions[self.QUESTION_ID]["criteria"])
+        if score not in categories:
             raise ValueError(
                 f"Expected decision model to choose one of {categories!r}, got {score!r}"
             )
