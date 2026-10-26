@@ -138,10 +138,16 @@ class DecisionCategoricalScorer(CategoricalScorer):
         return Request(prompt=prompt, payload=(state, {self.QUESTION_ID: question}))
 
     async def a_score(self, request: Request) -> Verdict:
+        """Score the request, rejecting choices outside the judge's categories."""
         state, questions = request.payload
         answers = await self.judge.model.a_decide(state, questions)
         answer = answers[self.QUESTION_ID]
         score = answer["choice"]
+        categories = list(questions[self.QUESTION_ID]["criteria"])
+        if score not in categories:
+            raise ValueError(
+                f"Expected decision model to choose one of {categories!r}, got {score!r}"
+            )
         probabilities = answer.get("probabilities") or {}
         probability = probabilities.get(score)
         # Decision models give no reasoning; the probability is the explanation there is.
