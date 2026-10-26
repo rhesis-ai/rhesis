@@ -8,6 +8,7 @@ without being coupled to their concrete implementations.
 
 from typing import Any, Callable, Dict, List, Optional, Protocol
 
+from rhesis.backend.metrics.inputs import EvaluationInputs
 from rhesis.sdk.metrics import MetricConfig
 
 OnMetricComplete = Optional[Callable[[str, Dict[str, Any]], None]]
@@ -16,11 +17,9 @@ OnMetricComplete = Optional[Callable[[str, Dict[str, Any]], None]]
 class MetricStrategy(Protocol):
     """Strategy for evaluating metrics (local, sdk, etc.).
 
-    ``instructions``/``contract`` are passed to every strategy uniformly, same as
-    ``conversation_history``/``metadata``/``tool_calls`` -- only ``GoalAchievementJudge``
-    (a local/native metric) declares them, and ``build_metric_evaluate_params`` only
-    forwards a kwarg to a metric whose signature actually names it. A strategy that has no
-    use for them, like ``ConnectorStrategy``, accepts and drops them.
+    Every strategy gets the same ``EvaluationInputs``; ``build_metric_evaluate_params``
+    hands each metric only the inputs its signature names, so a strategy with no use for
+    one (``ConnectorStrategy`` and ``instructions``, say) simply never reads it.
 
     Concrete implementations handle the specifics of each evaluation
     (parallel thread execution, RPC calls, remote APIs, etc.).  The evaluator
@@ -34,17 +33,9 @@ class MetricStrategy(Protocol):
     def evaluate(
         self,
         configs: List[MetricConfig],
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
+        inputs: EvaluationInputs,
         *,
         max_workers: int = 5,
-        conversation_history: Any = None,
-        metadata: Dict[str, Any] | None = None,
-        tool_calls: List[Dict[str, Any]] | None = None,
-        instructions: str | None = None,
-        contract: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """Evaluate all configs for this strategy."""
         ...
@@ -52,16 +43,8 @@ class MetricStrategy(Protocol):
     async def a_evaluate(
         self,
         configs: List[MetricConfig],
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
+        inputs: EvaluationInputs,
         *,
-        conversation_history: Any = None,
-        metadata: Dict[str, Any] | None = None,
-        tool_calls: List[Dict[str, Any]] | None = None,
-        instructions: str | None = None,
-        contract: Dict[str, Any] | None = None,
         on_metric_complete: OnMetricComplete = None,
     ) -> Dict[str, Any]:
         """Async version of evaluate using asyncio.gather instead of threads."""

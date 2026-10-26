@@ -23,13 +23,13 @@ from tenacity import (
 )
 
 from rhesis.backend.app.usage_attribution import with_usage_attribution
-from rhesis.backend.metrics.metric_config import build_metric_evaluate_params
+from rhesis.backend.metrics.inputs import EvaluationInputs
+from rhesis.backend.metrics.metric_config import build_metric_evaluate_params, metric_wants_trace
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.strategies.base import OnMetricComplete
 from rhesis.sdk.metrics import BaseMetric, MetricConfig, MetricResult
 from rhesis.sdk.metrics.base import UnsupportedModelType
-from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
 logger = logging.getLogger(__name__)
 
@@ -108,24 +108,16 @@ class LocalStrategy:
     def evaluate(
         self,
         configs: List[MetricConfig],
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
+        inputs: EvaluationInputs,
         *,
         max_workers: int = 5,
-        conversation_history: Any = None,
-        metadata: Dict[str, Any] | None = None,
-        tool_calls: List[Dict[str, Any]] | None = None,
-        instructions: str | None = None,
-        contract: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         """Evaluate all local strategy configs in parallel."""
         refused: List[Dict[str, Any]] = []
         metric_tasks = prepare_metrics(
             configs,
-            expected_output,
-            context,
+            inputs.expected_output,
+            inputs.context,
             model=self._model,
             db=self._db,
             organization_id=self._organization_id,
@@ -134,36 +126,16 @@ class LocalStrategy:
             require_model=self._require_model,
             text_model=self._text_model,
         )
-        results = self._execute_metrics_in_parallel(
-            metric_tasks,
-            input_text,
-            output_text,
-            expected_output,
-            context,
-            max_workers,
-            conversation_history=conversation_history,
-            metadata=metadata,
-            tool_calls=tool_calls,
-            instructions=instructions,
-            contract=contract,
-        )
+        results = self._execute_metrics_in_parallel(metric_tasks, inputs, max_workers)
         _merge_refused(results, refused)
         return results
 
     async def a_evaluate(
         self,
         configs: List[MetricConfig],
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
+        inputs: EvaluationInputs,
         *,
         max_workers: int = 5,
-        conversation_history: Any = None,
-        metadata: Dict[str, Any] | None = None,
-        tool_calls: List[Dict[str, Any]] | None = None,
-        instructions: str | None = None,
-        contract: Dict[str, Any] | None = None,
         on_metric_complete: OnMetricComplete = None,
     ) -> Dict[str, Any]:
         """Async evaluate using asyncio.gather over metric.a_evaluate().
@@ -174,8 +146,8 @@ class LocalStrategy:
         refused: List[Dict[str, Any]] = []
         metric_tasks = prepare_metrics(
             configs,
-            expected_output,
-            context,
+            inputs.expected_output,
+            inputs.context,
             model=self._model,
             db=self._db,
             organization_id=self._organization_id,
@@ -187,6 +159,10 @@ class LocalStrategy:
         if not metric_tasks:
             logger.warning("No metrics to evaluate (async)")
             return _merge_refused({}, refused)
+
+        # Reading the trace is a blocking database read; do it once, off the event loop.
+        if any(metric_wants_trace(metric) for _, metric, _, _ in metric_tasks):
+            await asyncio.to_thread(inputs.load_trace)
 
         metric_keys, results = self._generate_unique_metric_keys(metric_tasks)
         sem = asyncio.Semaphore(max_workers)
@@ -200,20 +176,7 @@ class LocalStrategy:
         ) -> Tuple[str, Dict[str, Any]]:
             async with sem:
                 key, result = await self._a_eval_one_with_retry(
-                    unique_key,
-                    class_name,
-                    metric,
-                    metric_config,
-                    backend,
-                    input_text,
-                    output_text,
-                    expected_output,
-                    context,
-                    conversation_history=conversation_history,
-                    metadata=metadata,
-                    tool_calls=tool_calls,
-                    instructions=instructions,
-                    contract=contract,
+                    unique_key, class_name, metric, metric_config, backend, inputs
                 )
                 if on_metric_complete:
                     try:
@@ -255,33 +218,13 @@ class LocalStrategy:
         metric: BaseMetric,
         metric_config: MetricConfig,
         backend: str,
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
-        *,
-        conversation_history: Any = None,
-        metadata: Dict[str, Any] | None = None,
-        tool_calls: List[Dict[str, Any]] | None = None,
-        instructions: str | None = None,
-        contract: Dict[str, Any] | None = None,
+        inputs: EvaluationInputs,
     ) -> Tuple[str, Dict[str, Any]]:
         """Evaluate a single metric with retry for transient errors."""
         last_exc: Optional[Exception] = None
         for attempt in range(1, METRIC_MAX_RETRIES + 2):
             try:
-                kwargs = build_metric_evaluate_params(
-                    metric,
-                    input_text,
-                    output_text,
-                    expected_output,
-                    context,
-                    conversation_history=conversation_history,
-                    metadata=metadata,
-                    tool_calls=tool_calls,
-                    instructions=instructions,
-                    contract=contract,
-                )
+                kwargs = build_metric_evaluate_params(metric, inputs)
                 result = await metric.a_evaluate(**kwargs)
                 description = metric_config.description or f"{class_name} evaluation metric"
 
@@ -402,16 +345,7 @@ class LocalStrategy:
         executor: concurrent.futures.ThreadPoolExecutor,
         metric_tasks: List[Tuple[str, BaseMetric, MetricConfig, str]],
         metric_keys: List[str],
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
-        *,
-        conversation_history: Optional[ConversationHistory] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tool_calls: Optional[List[Dict[str, Any]]] = None,
-        instructions: str | None = None,
-        contract: Dict[str, Any] | None = None,
+        inputs: EvaluationInputs,
     ) -> Dict[concurrent.futures.Future, Tuple[str, str, MetricConfig, str]]:
         future_to_metric: Dict[concurrent.futures.Future, Tuple[str, str, MetricConfig, str]] = {}
 
@@ -423,17 +357,7 @@ class LocalStrategy:
             # emits token usage that has to name an org. Without this the
             # judge's tokens land in the unattributed bucket.
             future = executor.submit(
-                with_usage_attribution(self._evaluate_metric_with_retry),
-                metric,
-                input_text,
-                output_text,
-                expected_output,
-                context,
-                conversation_history=conversation_history,
-                metadata=metadata,
-                tool_calls=tool_calls,
-                instructions=instructions,
-                contract=contract,
+                with_usage_attribution(self._evaluate_metric_with_retry), metric, inputs
             )
             future_to_metric[future] = (unique_key, class_name, metric_config, backend)
 
@@ -545,18 +469,7 @@ class LocalStrategy:
     # ============================================================================
 
     def _evaluate_metric_with_retry(
-        self,
-        metric: BaseMetric,
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
-        *,
-        conversation_history: Optional[ConversationHistory] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tool_calls: Optional[List[Dict[str, Any]]] = None,
-        instructions: str | None = None,
-        contract: Dict[str, Any] | None = None,
+        self, metric: BaseMetric, inputs: EvaluationInputs
     ) -> MetricResult:
         @retry(
             retry=retry_if_exception_type((TimeoutError, ConnectionError, OSError)),
@@ -568,18 +481,7 @@ class LocalStrategy:
             reraise=True,
         )
         def _execute_with_retry():
-            return self._evaluate_metric(
-                metric,
-                input_text,
-                output_text,
-                expected_output,
-                context,
-                conversation_history=conversation_history,
-                metadata=metadata,
-                tool_calls=tool_calls,
-                instructions=instructions,
-                contract=contract,
-            )
+            return self._evaluate_metric(metric, inputs)
 
         try:
             return _execute_with_retry()
@@ -594,33 +496,9 @@ class LocalStrategy:
     # SINGLE METRIC EVALUATION
     # ============================================================================
 
-    def _evaluate_metric(
-        self,
-        metric: BaseMetric,
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
-        *,
-        conversation_history: Optional[ConversationHistory] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tool_calls: Optional[List[Dict[str, Any]]] = None,
-        instructions: str | None = None,
-        contract: Dict[str, Any] | None = None,
-    ) -> MetricResult:
+    def _evaluate_metric(self, metric: BaseMetric, inputs: EvaluationInputs) -> MetricResult:
         logger.debug(f"Evaluating metric '{metric.name}'")
-        kwargs = build_metric_evaluate_params(
-            metric,
-            input_text,
-            output_text,
-            expected_output,
-            context,
-            conversation_history=conversation_history,
-            metadata=metadata,
-            tool_calls=tool_calls,
-            instructions=instructions,
-            contract=contract,
-        )
+        kwargs = build_metric_evaluate_params(metric, inputs)
         logger.debug(f"Calling metric '{metric.name}' with parameters: {list(kwargs.keys())}")
         return metric.evaluate(**kwargs)
 
@@ -699,17 +577,8 @@ class LocalStrategy:
     def _execute_metrics_in_parallel(
         self,
         metric_tasks: List[Tuple[str, BaseMetric, MetricConfig, str]],
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
+        inputs: EvaluationInputs,
         max_workers: int,
-        *,
-        conversation_history: Optional[ConversationHistory] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tool_calls: Optional[List[Dict[str, Any]]] = None,
-        instructions: str | None = None,
-        contract: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
         if not metric_tasks:
             logger.warning("No metrics to evaluate")
@@ -724,18 +593,7 @@ class LocalStrategy:
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_metric = self._submit_metric_evaluations(
-                executor,
-                metric_tasks,
-                metric_keys,
-                input_text,
-                output_text,
-                expected_output,
-                context,
-                conversation_history=conversation_history,
-                metadata=metadata,
-                tool_calls=tool_calls,
-                instructions=instructions,
-                contract=contract,
+                executor, metric_tasks, metric_keys, inputs
             )
 
             self._collect_metric_results(

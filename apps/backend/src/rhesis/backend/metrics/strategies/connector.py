@@ -8,11 +8,13 @@ evaluation logic lives here.
 
 import asyncio
 import concurrent.futures
+import json
 import logging
 import uuid
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from rhesis.backend.app.usage_attribution import with_usage_attribution
+from rhesis.backend.metrics.inputs import EvaluationInputs
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.strategies.base import OnMetricComplete
@@ -53,24 +55,11 @@ class ConnectorStrategy:
     def evaluate(
         self,
         configs: List[MetricConfig],
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
+        inputs: EvaluationInputs,
         *,
         max_workers: int = 5,
-        conversation_history: Any = None,
-        metadata: Dict[str, Any] | None = None,
-        tool_calls: List[Dict[str, Any]] | None = None,
-        instructions: str | None = None,
-        contract: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
-        """Evaluate connector strategy configs via WebSocket RPC.
-
-        ``instructions``/``contract`` are accepted for interface uniformity (see
-        ``MetricStrategy``) and dropped: they describe the goal-achievement judge, a native
-        metric that never dispatches through the connector.
-        """
+        """Evaluate connector strategy configs via WebSocket RPC."""
         if not configs:
             return {}
 
@@ -81,47 +70,26 @@ class ConnectorStrategy:
             return _build_sender_not_configured_results(configs)
 
         return _evaluate_connector_metrics(
-            configs,
-            input_text,
-            output_text,
-            expected_output,
-            context,
-            self._connector_metric_sender,
-            self._score_evaluator,
+            configs, inputs, self._connector_metric_sender, self._score_evaluator
         )
 
     async def a_evaluate(
         self,
         configs: List[MetricConfig],
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
+        inputs: EvaluationInputs,
         *,
-        conversation_history: Any = None,
-        metadata: Dict[str, Any] | None = None,
-        tool_calls: List[Dict[str, Any]] | None = None,
-        instructions: str | None = None,
-        contract: Dict[str, Any] | None = None,
         on_metric_complete: OnMetricComplete = None,
     ) -> Dict[str, Any]:
-        """Async evaluate — dispatches all connector calls concurrently via asyncio.gather.
-
-        ``instructions``/``contract`` are accepted for interface uniformity and dropped --
-        see ``evaluate``'s docstring.
-        """
+        """Async evaluate — dispatches all connector calls concurrently via asyncio.gather."""
         if not configs:
             return {}
         if not self._connector_metric_sender:
             logger.warning("Cannot evaluate connector metrics (async): no connector_metric_sender")
             return _build_sender_not_configured_results(configs)
 
-        inputs = {
-            "input": input_text,
-            "output": output_text,
-            "expected_output": expected_output or "",
-            "context": context or [],
-        }
+        if any(_wants_trace(config) for config in configs):
+            # A blocking database read and a large dump; once, off the event loop.
+            await asyncio.to_thread(inputs.trace_json)
 
         async def _call_one(config: MetricConfig) -> tuple:
             metric_name = config.name or ""
@@ -131,7 +99,9 @@ class ConnectorStrategy:
             metric_run_id = str(uuid.uuid4())
 
             try:
-                raw_result = await self._connector_metric_sender(metric_run_id, class_name, inputs)
+                raw_result = await self._connector_metric_sender(
+                    metric_run_id, class_name, _connector_inputs(config, inputs)
+                )
                 result = _connector_response_to_result(
                     raw_result,
                     config,
@@ -173,12 +143,38 @@ class ConnectorStrategy:
 # ============================================================================
 
 
+def _wants_trace(config: MetricConfig) -> bool:
+    """Whether the SDK function behind this metric declares ``trace``.
+
+    Metric sync records the function's parameters under ``sdk_connection`` in
+    ``evaluation_examples`` (``services/connector/handlers/metric_sync.py``).
+    """
+    try:
+        data = json.loads(config.evaluation_examples or "")
+    except (json.JSONDecodeError, TypeError):
+        return False
+    connection = data.get("sdk_connection") if isinstance(data, dict) else None
+    accepted = connection.get("accepted_params") if isinstance(connection, dict) else None
+    return isinstance(accepted, list) and "trace" in accepted
+
+
+def _connector_inputs(config: MetricConfig, inputs: EvaluationInputs) -> Dict[str, Any]:
+    """The inputs sent to one SDK metric. The trace, the largest input by far, goes only
+    to a metric that asked for it."""
+    payload: Dict[str, Any] = {
+        "input": inputs.input_text,
+        "output": inputs.output_text,
+        "expected_output": inputs.expected_output or "",
+        "context": inputs.context or [],
+    }
+    if _wants_trace(config):
+        payload["trace"] = inputs.trace_json()
+    return payload
+
+
 def _evaluate_connector_metrics(
     configs: List[MetricConfig],
-    input_text: str,
-    output_text: str,
-    expected_output: str,
-    context: List[str],
+    inputs: EvaluationInputs,
     connector_metric_sender: ConnectorMetricSender,
     score_evaluator: ScoreEvaluator,
 ) -> Dict[str, Any]:
@@ -195,16 +191,13 @@ def _evaluate_connector_metrics(
         threshold = config.threshold if config.threshold is not None else 0.0
 
         metric_run_id = str(uuid.uuid4())
-        inputs = {
-            "input": input_text,
-            "output": output_text,
-            "expected_output": expected_output or "",
-            "context": context or [],
-        }
 
         try:
             raw_result = _call_connector_sender(
-                connector_metric_sender, metric_run_id, class_name, inputs
+                connector_metric_sender,
+                metric_run_id,
+                class_name,
+                _connector_inputs(config, inputs),
             )
             result = _connector_response_to_result(
                 raw_result,

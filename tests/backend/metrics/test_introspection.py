@@ -9,9 +9,15 @@ import inspect
 from typing import ClassVar
 from unittest.mock import MagicMock
 
+from rhesis.backend.metrics.inputs import EvaluationInputs
 from rhesis.backend.metrics.metric_config import build_metric_evaluate_params
+from rhesis.sdk.entities.trace import Trace
 from rhesis.sdk.metrics import MetricResult
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
+
+
+def _params(metric, **inputs):
+    return build_metric_evaluate_params(metric, EvaluationInputs(**inputs))
 
 
 class TestBuildMetricEvaluateParams:
@@ -26,7 +32,7 @@ class TestBuildMetricEvaluateParams:
 
         mock_metric.evaluate = evaluate_all
 
-        kwargs = build_metric_evaluate_params(
+        kwargs = _params(
             mock_metric,
             input_text="test input",
             output_text="test output",
@@ -50,7 +56,7 @@ class TestBuildMetricEvaluateParams:
 
         mock_metric.evaluate = evaluate_no_output
 
-        kwargs = build_metric_evaluate_params(
+        kwargs = _params(
             mock_metric,
             input_text="test input",
             output_text="test output",
@@ -71,7 +77,7 @@ class TestBuildMetricEvaluateParams:
 
         mock_metric.evaluate = evaluate_no_expected
 
-        kwargs = build_metric_evaluate_params(
+        kwargs = _params(
             mock_metric,
             input_text="test input",
             output_text="test output",
@@ -92,7 +98,7 @@ class TestBuildMetricEvaluateParams:
 
         mock_metric.evaluate = evaluate_only_input
 
-        kwargs = build_metric_evaluate_params(
+        kwargs = _params(
             mock_metric,
             input_text="test input",
             output_text="test output",
@@ -111,7 +117,7 @@ class TestBuildMetricEvaluateParams:
 
         mock_metric.evaluate = contextual_relevancy_evaluate
 
-        kwargs = build_metric_evaluate_params(
+        kwargs = _params(
             mock_metric,
             input_text="What is AI?",
             output_text="AI is artificial intelligence",
@@ -131,7 +137,7 @@ class TestBuildMetricEvaluateParams:
 
         mock_metric.evaluate = answer_relevancy_evaluate
 
-        kwargs = build_metric_evaluate_params(
+        kwargs = _params(
             mock_metric,
             input_text="What is AI?",
             output_text="AI is artificial intelligence",
@@ -152,7 +158,7 @@ class TestBuildMetricEvaluateParams:
 
         mock_metric.evaluate = evaluate_with_metadata
 
-        kwargs = build_metric_evaluate_params(
+        kwargs = _params(
             mock_metric,
             input_text="test",
             output_text="response",
@@ -172,7 +178,7 @@ class TestBuildMetricEvaluateParams:
 
         mock_metric.evaluate = evaluate_with_metadata
 
-        kwargs = build_metric_evaluate_params(
+        kwargs = _params(
             mock_metric,
             input_text="test",
             output_text="response",
@@ -192,7 +198,7 @@ class TestBuildMetricEvaluateParams:
 
         mock_metric.evaluate = evaluate_with_tool_calls
 
-        kwargs = build_metric_evaluate_params(
+        kwargs = _params(
             mock_metric,
             input_text="test",
             output_text="response",
@@ -212,7 +218,7 @@ class TestBuildMetricEvaluateParams:
 
         mock_metric.evaluate = evaluate_with_tool_calls
 
-        kwargs = build_metric_evaluate_params(
+        kwargs = _params(
             mock_metric,
             input_text="test",
             output_text="response",
@@ -243,7 +249,7 @@ class TestConversationalParams:
 
         mock_metric.evaluate = evaluate_conv
 
-        kwargs = build_metric_evaluate_params(
+        kwargs = _params(
             mock_metric,
             input_text="Achieve the goal",
             output_text="conversation text",
@@ -257,9 +263,7 @@ class TestConversationalParams:
 
     def test_conversation_history_excluded_from_single_turn(self):
         """Single-turn metrics do not receive conversation_history."""
-        history = ConversationHistory.from_messages(
-            [{"role": "user", "content": "Hello"}]
-        )
+        history = ConversationHistory.from_messages([{"role": "user", "content": "Hello"}])
 
         mock_metric = MagicMock()
 
@@ -268,7 +272,7 @@ class TestConversationalParams:
 
         mock_metric.evaluate = evaluate_single
 
-        kwargs = build_metric_evaluate_params(
+        kwargs = _params(
             mock_metric,
             input_text="test",
             output_text="response",
@@ -295,7 +299,7 @@ class TestConversationalParams:
 
         mock_metric.evaluate = evaluate_conv
 
-        kwargs = build_metric_evaluate_params(
+        kwargs = _params(
             mock_metric,
             input_text="goal text",
             output_text="output",
@@ -331,7 +335,7 @@ class TestConversationalParams:
             [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}]
         )
 
-        kwargs = build_metric_evaluate_params(
+        kwargs = _params(
             mock_metric,
             input_text="goal",
             output_text="text",
@@ -361,7 +365,7 @@ class TestConversationalParams:
         mock_metric.a_evaluate = a_evaluate_varargs
         mock_metric.evaluate = evaluate_impl
 
-        kwargs = build_metric_evaluate_params(
+        kwargs = _params(
             mock_metric,
             input_text="test",
             output_text="response",
@@ -371,6 +375,91 @@ class TestConversationalParams:
 
         # Falls back to evaluate: input + output
         assert kwargs == {"input": "test", "output": "response"}
+
+
+class TestTraceParam:
+    """The trace is read only for a metric that declares it, and only once."""
+
+    @staticmethod
+    def _metric(evaluate):
+        metric = MagicMock()
+        metric.evaluate = evaluate
+        return metric
+
+    def test_a_metric_declaring_trace_receives_it(self):
+        trace = Trace(trace_id="a" * 32, root_spans=[{"span_id": "b" * 16, "span_name": "x"}])
+
+        def evaluate(input, output, trace):
+            return MetricResult(score=1.0)
+
+        kwargs = _params(
+            self._metric(evaluate),
+            input_text="in",
+            output_text="out",
+            expected_output="",
+            context=[],
+            trace_loader=lambda: trace,
+        )
+
+        assert kwargs["trace"] is trace
+
+    def test_a_metric_without_it_never_triggers_a_read(self):
+        def evaluate(input, output):
+            return MetricResult(score=1.0)
+
+        def loader():
+            raise AssertionError("the trace was read for a metric that did not ask for it")
+
+        kwargs = _params(
+            self._metric(evaluate),
+            input_text="in",
+            output_text="out",
+            expected_output="",
+            context=[],
+            trace_loader=loader,
+        )
+
+        assert "trace" not in kwargs
+
+    def test_the_trace_is_read_once_for_all_metrics(self):
+        calls = []
+
+        def loader():
+            calls.append(1)
+            return Trace(trace_id="a" * 32)
+
+        def evaluate(input, output, trace):
+            return MetricResult(score=1.0)
+
+        inputs = EvaluationInputs(
+            input_text="in",
+            output_text="out",
+            expected_output="",
+            context=[],
+            trace_loader=loader,
+        )
+        for _ in range(3):
+            build_metric_evaluate_params(self._metric(evaluate), inputs)
+
+        assert calls == [1]
+
+    def test_a_trace_that_cannot_be_read_is_built_from_the_response(self):
+        def loader():
+            raise RuntimeError("database gone")
+
+        def evaluate(input, output, trace):
+            return MetricResult(score=1.0)
+
+        kwargs = _params(
+            self._metric(evaluate),
+            input_text="in",
+            output_text="out",
+            expected_output="",
+            context=[],
+            trace_loader=loader,
+        )
+
+        assert (kwargs["trace"].input, kwargs["trace"].output) == ("in", "out")
 
 
 class TestIntrospectionCompleteness:
@@ -391,6 +480,7 @@ class TestIntrospectionCompleteness:
         "goal",
         "metadata",
         "tool_calls",
+        "trace",
     }
 
     def _get_all_metric_classes(self):

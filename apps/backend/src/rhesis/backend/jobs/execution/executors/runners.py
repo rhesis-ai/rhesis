@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
+from rhesis.backend.app.services.telemetry.evaluation_trace import evaluation_trace_loader
 from rhesis.backend.app.services.test_run_timing import TestPhase
 from rhesis.backend.app.utils.response_extractor import (
     get_http_error_status_code,
@@ -46,7 +47,8 @@ def _get_endpoint_routing(
         qb = QueryBuilder(db, models.Endpoint).with_organization_filter(organization_id)
         endpoint = qb.query.filter(models.Endpoint.id == endpoint_id).first()
         if endpoint:
-            return str(endpoint.project_id), endpoint.environment
+            project_id = str(endpoint.project_id) if endpoint.project_id else None
+            return project_id, endpoint.environment
     except Exception as e:
         logger.warning(f"Could not resolve endpoint routing: {e}")
     return None, None
@@ -288,6 +290,9 @@ class SingleTurnRunner(BaseRunner):
                 result=processed_result,
                 metrics=metric_configs,
                 test_id=test_id,
+                trace_loader=evaluation_trace_loader(
+                    processed_result, organization_id, ep_project_id, user_id
+                ),
             )
 
         return execution_time, processed_result, metrics_results

@@ -503,6 +503,10 @@ class TraceOutput(OutputProvider):
 
         # Extract input/output from the root span
         response = self._build_response_from_traces(traces)
+        # So metrics that declare `trace` read this whole trace, not only its root.
+        response["trace_id"] = self.trace_id
+        # The trace may sit in another project than the endpoint the test names.
+        response["trace_project_id"] = str(traces[0].project_id)
         return TestOutput(response=response, execution_time=0, source="trace")
 
     # ------------------------------------------------------------------

@@ -1,10 +1,11 @@
 import dataclasses
 import inspect
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
 from rhesis.backend.app.schemas.metric_types import ScoreType
+from rhesis.backend.metrics.inputs import EvaluationInputs
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.utils import diagnose_invalid_metric
 from rhesis.sdk.metrics import BaseMetric, MetricConfig
@@ -32,18 +33,12 @@ def _get_metric_signature(metric: BaseMetric) -> Any:
     return inspect.signature(metric.evaluate).parameters
 
 
-def build_metric_evaluate_params(
-    metric: BaseMetric,
-    input_text: str,
-    output_text: str,
-    expected_output: str,
-    context: List[str],
-    conversation_history: Optional[Any] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-    tool_calls: Optional[List[Dict[str, Any]]] = None,
-    instructions: Optional[str] = None,
-    contract: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+def metric_wants_trace(metric: BaseMetric) -> bool:
+    """Whether the metric declares a ``trace`` parameter."""
+    return "trace" in _get_metric_signature(metric)
+
+
+def build_metric_evaluate_params(metric: BaseMetric, inputs: EvaluationInputs) -> Dict[str, Any]:
     """
     Build kwargs for metric.a_evaluate() from evaluation inputs using introspection.
 
@@ -51,22 +46,10 @@ def build_metric_evaluate_params(
     a_evaluate is the base *args/**kwargs default) and only includes parameters
     that are actually defined (e.g., ContextualRelevancy doesn't need output).
 
-    Args:
-        metric: The metric instance
-        input_text: The input query or question
-        output_text: The actual output from the LLM
-        expected_output: The expected or reference output
-        context: List of context strings used for the response
-        conversation_history: Optional conversation history for conversational metrics
-        metadata: Optional metadata dict
-        tool_calls: Optional list of tool calls
-        instructions: Optional test instructions -- only ``GoalAchievementJudge`` declares
-            this today. Without it, re-scoring a multi-turn test renders its prompt missing
-            the mandatory-instructions block a live run always includes, which can score the
-            same conversation differently depending on which path produced the verdict.
-        contract: Optional evaluation contract (see
-            ``app/schemas/evaluation_contract.py``) -- likewise only
-            ``GoalAchievementJudge`` declares this.
+    ``instructions`` and ``contract`` are only declared by ``GoalAchievementJudge`` today.
+    Without ``instructions``, re-scoring a multi-turn test renders its prompt missing the
+    mandatory-instructions block a live run always includes, which can score the same
+    conversation differently depending on which path produced the verdict.
 
     Returns:
         Dict of kwargs to pass to metric.a_evaluate()
@@ -75,25 +58,27 @@ def build_metric_evaluate_params(
 
     kwargs: Dict[str, Any] = {}
     if "input" in params:
-        kwargs["input"] = input_text
+        kwargs["input"] = inputs.input_text
     if "output" in params:
-        kwargs["output"] = output_text
+        kwargs["output"] = inputs.output_text
     if "expected_output" in params:
-        kwargs["expected_output"] = expected_output
+        kwargs["expected_output"] = inputs.expected_output
     if "context" in params:
-        kwargs["context"] = context
+        kwargs["context"] = inputs.context
     if "conversation_history" in params:
-        kwargs["conversation_history"] = conversation_history
-    if "metadata" in params and metadata is not None:
-        kwargs["metadata"] = metadata
-    if "tool_calls" in params and tool_calls is not None:
-        kwargs["tool_calls"] = tool_calls
+        kwargs["conversation_history"] = inputs.conversation_history
+    if "metadata" in params and inputs.metadata is not None:
+        kwargs["metadata"] = inputs.metadata
+    if "tool_calls" in params and inputs.tool_calls is not None:
+        kwargs["tool_calls"] = inputs.tool_calls
     if "goal" in params:
-        kwargs["goal"] = input_text
-    if "instructions" in params and instructions is not None:
-        kwargs["instructions"] = instructions
-    if "contract" in params and contract is not None:
-        kwargs["contract"] = contract
+        kwargs["goal"] = inputs.input_text
+    if "instructions" in params and inputs.instructions is not None:
+        kwargs["instructions"] = inputs.instructions
+    if "contract" in params and inputs.contract is not None:
+        kwargs["contract"] = inputs.contract
+    if "trace" in params:
+        kwargs["trace"] = inputs.load_trace()
 
     return kwargs
 

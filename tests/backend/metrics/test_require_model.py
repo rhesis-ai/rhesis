@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
+from rhesis.backend.metrics.inputs import EvaluationInputs
 from rhesis.backend.metrics.strategies.local import (
     NO_JUDGE_MODEL_REASON,
     LocalStrategy,
@@ -46,7 +47,7 @@ def test_a_metric_without_a_model_is_refused_before_the_sdk_builds_one():
 def test_the_run_sees_the_metric_as_errored():
     strategy = LocalStrategy(model=None, require_model=True)
 
-    results = strategy.evaluate([_numeric()], "in", "out", "expected", [])
+    results = strategy.evaluate([_numeric()], EvaluationInputs("in", "out", "expected", []))
 
     assert results["helpfulness"]["reason"] == NO_JUDGE_MODEL_REASON
 

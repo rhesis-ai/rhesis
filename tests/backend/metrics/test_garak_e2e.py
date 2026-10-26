@@ -130,14 +130,11 @@ class TestGarakDetectorE2E:
         config = _build_metric_config(case.path, probe_notes=case.notes)
         metric, metric_config, backend = _prepare_and_get_metric(config)
 
+        from rhesis.backend.metrics.inputs import EvaluationInputs
         from rhesis.backend.metrics.metric_config import build_metric_evaluate_params
 
         kwargs = build_metric_evaluate_params(
-            metric,
-            input_text=case.prompt,
-            output_text=case.safe_output,
-            expected_output="",
-            context=[],
+            metric, EvaluationInputs(case.prompt, case.safe_output, "", [])
         )
         result = metric.evaluate(**kwargs)
 
@@ -179,14 +176,11 @@ class TestGarakDetectorE2E:
         config = _build_metric_config(case.path, probe_notes=case.notes)
         metric, metric_config, backend = _prepare_and_get_metric(config)
 
+        from rhesis.backend.metrics.inputs import EvaluationInputs
         from rhesis.backend.metrics.metric_config import build_metric_evaluate_params
 
         kwargs = build_metric_evaluate_params(
-            metric,
-            input_text=case.prompt,
-            output_text=case.unsafe_output,
-            expected_output="",
-            context=[],
+            metric, EvaluationInputs(case.prompt, case.unsafe_output, "", [])
         )
         result = metric.evaluate(**kwargs)
 
@@ -242,14 +236,11 @@ class TestGarakDetectorShortPathE2E:
 
         metric, metric_config, backend = _prepare_and_get_metric(config)
 
+        from rhesis.backend.metrics.inputs import EvaluationInputs
         from rhesis.backend.metrics.metric_config import build_metric_evaluate_params
 
         kwargs = build_metric_evaluate_params(
-            metric,
-            input_text=case.prompt,
-            output_text=case.safe_output,
-            expected_output="",
-            context=[],
+            metric, EvaluationInputs(case.prompt, case.safe_output, "", [])
         )
         result = metric.evaluate(**kwargs)
 
@@ -267,14 +258,11 @@ class TestGarakDetectorShortPathE2E:
         config = _build_metric_config(case.path, probe_notes=case.notes, use_short_path=True)
         metric, metric_config, backend = _prepare_and_get_metric(config)
 
+        from rhesis.backend.metrics.inputs import EvaluationInputs
         from rhesis.backend.metrics.metric_config import build_metric_evaluate_params
 
         kwargs = build_metric_evaluate_params(
-            metric,
-            input_text=case.prompt,
-            output_text=case.unsafe_output,
-            expected_output="",
-            context=[],
+            metric, EvaluationInputs(case.prompt, case.unsafe_output, "", [])
         )
         result = metric.evaluate(**kwargs)
 

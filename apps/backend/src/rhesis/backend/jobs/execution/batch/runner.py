@@ -552,6 +552,7 @@ async def _execute_single_test(
                     is_multi_turn,
                     penelope_metrics,
                     on_emit=on_emit,
+                    deferred_traces=deferred_traces,
                 )
             else:
                 metrics_results = dict(penelope_metrics)

@@ -3,9 +3,10 @@ Metric evaluation for batch tests.
 """
 
 import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Sequence
 
 from rhesis.backend.app.models.test import Test
+from rhesis.backend.app.services.invokers.tracing import DeferredTraceData
 from rhesis.backend.app.utils.response_extractor import (
     get_http_error_status_code,
     has_endpoint_failure_in_result,
@@ -32,8 +33,13 @@ async def evaluate_metrics(
     is_multi_turn: bool,
     penelope_metrics: Dict[str, Any],
     on_emit: Optional[Callable[[str], None]] = None,
+    deferred_traces: Sequence[Any] = (),
 ) -> Dict[str, Any]:
-    """Run async metric evaluation, returning merged results."""
+    """Run async metric evaluation, returning merged results.
+
+    ``deferred_traces`` are this test's invocation spans, not yet written: metrics that read
+    the trace see them until they are.
+    """
     # A failed invocation is not a model answer; do not score metrics against it.
     if has_endpoint_failure_in_result(output):
         status_code = get_http_error_status_code(output)
@@ -70,6 +76,12 @@ async def evaluate_metrics(
                     prompt_content,
                     expected_response,
                     test_metric_configs,
+                    unsaved_spans=[
+                        span
+                        for deferred in deferred_traces
+                        if isinstance(deferred, DeferredTraceData)
+                        for span in deferred.spans
+                    ],
                 )
             )
     except Exception as e:
@@ -144,7 +156,7 @@ async def _evaluate_multi_turn_metrics(
 
 
 async def _evaluate_single_turn_metrics(
-    _ctx: ExecutionContext,
+    ctx: ExecutionContext,
     evaluator: Any,
     test: Any,
     output: Dict[str, Any],
@@ -152,7 +164,9 @@ async def _evaluate_single_turn_metrics(
     expected_response: str,
     metric_configs: list,
     on_metric_complete: Any = None,
+    unsaved_spans: Sequence[Any] = (),
 ) -> Dict[str, Any]:
+    from rhesis.backend.app.services.telemetry.evaluation_trace import evaluation_trace_loader
     from rhesis.backend.app.utils.response_extractor import (
         extract_response_with_fallback,
         normalize_context_to_list,
@@ -189,6 +203,13 @@ async def _evaluate_single_turn_metrics(
         metadata=metadata,
         tool_calls=tool_calls,
         on_metric_complete=on_metric_complete,
+        trace_loader=evaluation_trace_loader(
+            output,
+            ctx.organization_id,
+            str(ctx.endpoint.project_id) if ctx.endpoint.project_id else None,
+            ctx.user_id,
+            unsaved_spans,
+        ),
     )
 
 
