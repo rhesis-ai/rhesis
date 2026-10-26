@@ -30,6 +30,18 @@ Use auto-approve when you trust the plan and want to move quickly. Architect sti
 
 The **Accept** and **Change** buttons appear only when Architect actually tried to call a confirmable tool in the current turn and the backend blocked it for your approval. They do not appear on informational replies or auto-resumed task summaries.
 
+### What Accept approves
+
+**Accept** approves only what Architect showed you when it asked: the actions it was holding, and the items in the plan at that moment. Linking a requirement to a metric is covered when you approved both. Anything else waits for another **Accept**, including items Architect adds to the plan after you accepted.
+
+For example, if you ask for one requirement and accept, Architect creates that requirement and stops. It then offers a metric or tests as next steps instead of creating them. A full plan you approve in one go still runs on a single **Accept**.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-architect-accept.webp"
+  darkSrc="/screenshots/rhesis-ai-architect-accept-dark.webp"
+  alt="Architect proposing one new requirement, with Accept and Change buttons under the reply"
+/>
+
 <Callout type="warning">
   The auto-approve toggle does not reset automatically when you start a new conversation — switch it off when you no longer want actions to run unconfirmed.
 </Callout>

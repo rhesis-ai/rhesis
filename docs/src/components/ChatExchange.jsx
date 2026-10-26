@@ -104,7 +104,7 @@ export const ChatArchitect = ({ children }) => (
       style={{
         ...bubbleBase,
         backgroundColor: 'var(--chat-architect-bg, var(--rh-surface-sunken))',
-        color: 'var(--chat-architect-text, #374151)',
+        color: 'var(--chat-architect-text, var(--rh-text))',
         borderBottomLeftRadius: '0.2rem',
         border: '1px solid var(--chat-architect-border, var(--rh-border))',
       }}
@@ -122,7 +122,7 @@ export const ChatExchange = ({ children, title }) => (
       padding: '1rem 1rem 0.25rem',
       marginTop: '1.25rem',
       marginBottom: '1.25rem',
-      backgroundColor: 'var(--chat-container-bg, #fafafa)',
+      backgroundColor: 'var(--chat-container-bg, var(--rh-surface))',
     }}
   >
     {title && (

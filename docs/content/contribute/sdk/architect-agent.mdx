@@ -151,11 +151,22 @@ The write guard prevents the agent from creating or modifying platform entities 
 
 **Layer 1 — prompt:** `system_prompt.j2` instructs the LLM to always present a plan and ask for confirmation before calling any mutating tool.
 
-**Layer 2 — structural:** `agent.py` intercepts tool calls at execution time. If a mutating tool is called before `_creation_approved` is `True`, the agent blocks it, records the tool name in `_confirming_tools`, and presents a confirmation prompt to the user. On the next turn, if the user confirms, only the specific blocked tools are unlocked.
+**Layer 2 — structural:** `agent.py` intercepts tool calls at execution time. When it holds a mutating call, it records the approval scope in `_approved_scope`: each held call and each item of the plan as saved at that moment, as `(kind, name)` pairs. A call with no entity name is keyed by its tool and `*_id` arguments, so approving it never approves every call of that tool. On the next turn, if the user confirms, only calls inside that scope run. `add_requirement_to_metric` passes when both the requirement and the metric are in scope. Anything else is held again, including plan items added with `save_plan` during the approved turn.
+
+The scope is part of `guard_state`, so it survives the backend rebuilding the agent for each message.
 
 `_auto_approve_all = True` bypasses layer 2 for the session (set when the UI auto-approve toggle is on). Layer 1 (prompt) is always active.
 
 A tool is considered mutating if its HTTP method is **not** in `ArchitectConfig.readonly_http_methods` (`GET`, `HEAD`, `OPTIONS`).
+
+## Failed tool calls
+
+`BaseAgent` stops a turn from looping on calls that can't succeed. It refuses, without sending, an identical call (same tool, same arguments) that already failed this turn, and any call to a tool that has failed three times (`_MAX_FAILURES_PER_TOOL`). The refusal comes back to the model as the tool's error and emits no events. The record resets at the start of each turn.
+
+The Architect adds two checks of its own:
+
+- An `*_id` argument that holds a placeholder rather than a real id (for example `pending_id_resolution`) is rejected before dispatch, telling the model to wait for the create to return its id (`find_placeholder_ids` in `arg_validation.py`).
+- A failure that a later call of the same tool recovered from is left out of the tool history in the model's prompt.
 
 ## How to add a new MCP tool
 

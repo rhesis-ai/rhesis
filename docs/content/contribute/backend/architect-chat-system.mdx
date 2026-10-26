@@ -48,6 +48,8 @@ Server event types used by Architect include:
 - `architect.response`
 - `architect.error`
 
+`architect.tool_end` carries `tool`, `description`, `success`, `preview` (the first 300 characters of the result) and `duration_ms` when known. A failed call also carries `error`, the first 300 characters of the reason, which the chat shows on hover.
+
 Source:
 
 - `apps/backend/src/rhesis/backend/app/routers/websocket.py`
