@@ -29,31 +29,49 @@ interface TraceDrawerHeaderProps {
   onClose?: () => void;
 }
 
+/** Header width (px) below which an item is dropped; lowest priority goes first. */
+const HIDE_BELOW = {
+  experiment: 1500,
+  spans: 1350,
+  endpoint: 1200,
+  environment: 1050,
+  tokens: 950,
+  run: 800,
+} as const;
+
+/** Hides an element once the header is narrower than `px`. */
+function hideBelow(px?: number) {
+  return px
+    ? { [`@container (max-width: ${px - 1}px)`]: { display: 'none' } }
+    : {};
+}
+
+/** An item's leading dot shows only while some item before it does. */
+function separatorHideBelow(items: { hideBelow?: number }[], i: number) {
+  return Math.min(...items.slice(0, i).map(item => item.hideBelow ?? 0));
+}
+
 interface ContextLink {
   key: string;
   label?: string;
   href: string;
   text: string;
   mono?: boolean;
+  hideBelow?: number;
 }
 
 function contextLinks(
   trace: TraceDetailResponse,
   experiment: TraceExperimentInfo | null
 ): ContextLink[] {
+  // No project link: traces are always viewed inside the active project.
   const links: ContextLink[] = [];
-  if (trace.project) {
-    links.push({
-      key: 'project',
-      href: `/projects/${trace.project.id}`,
-      text: trace.project.name,
-    });
-  }
   if (trace.endpoint) {
     links.push({
       key: 'endpoint',
       href: `/endpoints/${trace.endpoint.id}`,
       text: trace.endpoint.name,
+      hideBelow: HIDE_BELOW.endpoint,
     });
   }
   if (trace.test_run) {
@@ -62,6 +80,7 @@ function contextLinks(
       label: 'Run',
       href: `/test-runs/${trace.test_run.id}`,
       text: trace.test_run.name || trace.test_run.nano_id || trace.test_run.id,
+      hideBelow: HIDE_BELOW.run,
     });
   }
   if (trace.test) {
@@ -81,6 +100,7 @@ function contextLinks(
       text: experiment.version
         ? `${experiment.name} (${shortVersion(experiment.version)})`
         : experiment.name,
+      hideBelow: HIDE_BELOW.experiment,
     });
   }
   return links;
@@ -91,6 +111,7 @@ const dotSx = { color: 'text.disabled' } as const;
 /**
  * One bar for the whole trace: what it is, where it ran, its totals, the turn
  * switcher and the close button. Replaces the label/pill rows and the footer.
+ * As the bar narrows, whole items drop out by priority instead of truncating.
  */
 export default function TraceDrawerHeader({
   trace,
@@ -104,8 +125,17 @@ export default function TraceDrawerHeader({
   const links = contextLinks(trace, experiment);
   const title = trace.root_spans[0]?.span_name;
 
-  const stats: { key: string; text: string; title?: string }[] = [
-    { key: 'spans', text: `${trace.span_count} spans` },
+  const stats: {
+    key: string;
+    text: string;
+    title?: string;
+    hideBelow?: number;
+  }[] = [
+    {
+      key: 'spans',
+      text: `${trace.span_count} spans`,
+      hideBelow: HIDE_BELOW.spans,
+    },
     { key: 'duration', text: formatDuration(trace.duration_ms) },
   ];
   if (trace.total_tokens > 0) {
@@ -116,6 +146,7 @@ export default function TraceDrawerHeader({
         trace.total_input_tokens,
         trace.total_output_tokens
       ),
+      hideBelow: HIDE_BELOW.tokens,
     });
   }
   // Zero is a figure somebody computed; only a trace with no cost at all goes without.
@@ -128,6 +159,7 @@ export default function TraceDrawerHeader({
       component="header"
       sx={{
         flexShrink: 0,
+        containerType: 'inline-size',
         minHeight: theme => theme.spacing(6.5),
         display: 'flex',
         alignItems: 'center',
@@ -176,14 +208,20 @@ export default function TraceDrawerHeader({
           {links.map((link, i) => (
             <Fragment key={link.key}>
               {i > 0 && (
-                <Typography variant="caption" aria-hidden sx={dotSx}>
-                  {link.key === 'endpoint' && links[i - 1].key === 'project'
-                    ? '›'
-                    : '·'}
+                <Typography
+                  variant="caption"
+                  aria-hidden
+                  sx={{ ...dotSx, ...hideBelow(separatorHideBelow(links, i)) }}
+                >
+                  ·
                 </Typography>
               )}
               {link.label && (
-                <Typography variant="caption" color="text.secondary">
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={hideBelow(link.hideBelow)}
+                >
                   {link.label}
                 </Typography>
               )}
@@ -201,6 +239,7 @@ export default function TraceDrawerHeader({
                     ? { fontFamily: theme.typography.fontFamilyCode }
                     : {}),
                   '&:hover': { textDecoration: 'underline' },
+                  ...hideBelow(link.hideBelow),
                 })}
               >
                 {link.text}
@@ -222,7 +261,11 @@ export default function TraceDrawerHeader({
         {stats.map((stat, i) => (
           <Fragment key={stat.key}>
             {i > 0 && (
-              <Typography variant="caption" aria-hidden sx={dotSx}>
+              <Typography
+                variant="caption"
+                aria-hidden
+                sx={{ ...dotSx, ...hideBelow(separatorHideBelow(stats, i)) }}
+              >
                 ·
               </Typography>
             )}
@@ -230,14 +273,22 @@ export default function TraceDrawerHeader({
               title={stat.title ?? ''}
               disableHoverListener={!stat.title}
             >
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={hideBelow(stat.hideBelow)}
+              >
                 {stat.text}
               </Typography>
             </Tooltip>
           </Fragment>
         ))}
         {trace.environment && (
-          <GridBadge label={trace.environment} size="grid" />
+          <GridBadge
+            label={trace.environment}
+            size="grid"
+            sx={hideBelow(HIDE_BELOW.environment)}
+          />
         )}
         {trace.error_count > 0 && (
           <GridBadge
