@@ -70,7 +70,7 @@ python metrics.py
 
 ### Function Signature
 
-Your function must accept `input` and `output` as keyword arguments. Two optional parameters are also available:
+Your function must accept `input` and `output` as keyword arguments. Three optional parameters are also available:
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
@@ -78,8 +78,42 @@ Your function must accept `input` and `output` as keyword arguments. Two optiona
 | `output` | `str` | Yes | The LLM response being evaluated. |
 | `expected_output` | `str` | No | The ground truth or reference answer (when provided in the test set). |
 | `context` | `list[str]` | No | Retrieved context documents (for RAG evaluation). |
+| `trace` | `Trace` | No | Everything the endpoint did to produce the output, as a `rhesis.sdk.entities.Trace` with its spans loaded. |
 
 No other parameter names are accepted — the decorator will raise a `TypeError` if your function signature contains anything else.
+
+### Checking what the endpoint did
+
+With `trace`, a metric can check the steps behind an answer, not only the answer. Every evaluation has one: when the endpoint sent no spans, it holds the request and response. Each span has a `kind` (`"llm.invoke"`, `"tool.invoke"`, `"retrieval"`, `"agent.invoke"`, ...), an `input` and an `output`, and tool spans a `tool_name`.
+
+The trace also reads as a whole:
+
+| Property | What it holds |
+| --- | --- |
+| `trace.input`, `trace.output` | What the endpoint was sent and answered, in full |
+| `trace.context` | The documents every retrieval returned, as `list[str]` |
+| `trace.tool_calls` | Every tool call, as `{"name", "arguments", "output"}` |
+| `trace.metadata` | The metadata the response reported |
+
+<CodeBlock filename="tool_metrics.py" language="python">
+{`from rhesis.sdk import metric
+from rhesis.sdk.entities import Trace
+
+
+@metric(score_type="binary")
+def looks_up_the_order_before_refunding(input: str, output: str, trace: Trace) -> dict:
+    tools = [call["name"] for call in trace.tool_calls]
+    if "issue_refund" not in tools:
+        return {"score": 1.0}
+    ok = "lookup_order" in tools[: tools.index("issue_refund")]
+    return {"score": 1.0 if ok else 0.0, "details": {"reason": f"Tool calls: {tools}"}}`}
+</CodeBlock>
+
+Which spans a trace holds depends on the endpoint:
+
+- **SDK endpoints** send their own spans: model calls, tool calls, retrievals and anything else they trace.
+- **REST and WebSocket endpoints** have one span for the call. If their [response mapping](/docs/endpoints/response-mapping) exposes `tool_calls` or `context`, each tool call becomes a tool span under it and the context a retrieval span.
+- **Services instrumented with OpenTelemetry** receive a W3C `traceparent` header with each call, so the spans they send to Rhesis join the same trace. For a service that rejects unknown headers, set the endpoint's `endpoint_metadata.propagate_trace_context` to `false` through the API.
 
 ### Return Format
 
