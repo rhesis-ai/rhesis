@@ -62,6 +62,24 @@ def test_openai_shaped_tool_calls_are_read_too():
     assert (span.tool_name, span.input) == ("lookup", "{}")
 
 
+def test_a_null_field_does_not_hide_the_value_beside_it():
+    """Some mappers emit ``"arguments": null`` next to OpenAI's ``function.arguments``."""
+    result = {
+        "tool_calls": [
+            {
+                "arguments": None,
+                "output": None,
+                "result": "booked",
+                "function": {"name": "book", "arguments": '{"room": 4}'},
+            }
+        ]
+    }
+
+    [span] = [_as_sdk(s) for s in reported_spans(result, _invocation())]
+
+    assert (span.input, span.output) == ('{"room": 4}', "booked")
+
+
 def test_context_is_one_retrieval_span():
     result = {"context": ["Refunds take 5 days.", "Contact support."]}
 

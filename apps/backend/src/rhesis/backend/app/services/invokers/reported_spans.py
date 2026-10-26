@@ -34,12 +34,17 @@ def _tool_call_fields(call: Any) -> Dict[str, Any]:
         return {"name": _text(call), "arguments": None, "output": None}
     function = call.get("function") if isinstance(call.get("function"), dict) else {}
     name = call.get("name") or call.get("tool") or function.get("name") or "tool"
-    arguments = next(
-        (c.get(k) for c in (call, function) for k in ("arguments", "args", "input") if k in c),
+    arguments = _first_set([call, function], ("arguments", "args", "input"))
+    output = _first_set([call], ("output", "result", "content"))
+    return {"name": str(name), "arguments": arguments, "output": output}
+
+
+def _first_set(sources: List[Dict[str, Any]], keys: tuple) -> Any:
+    # A key present but null (``"arguments": null`` beside ``function.arguments``) is skipped.
+    return next(
+        (s[k] for s in sources for k in keys if s.get(k) not in (None, "")),
         None,
     )
-    output = next((call.get(k) for k in ("output", "result", "content") if k in call), None)
-    return {"name": str(name), "arguments": arguments, "output": output}
 
 
 def _child(parent: OTELSpan, index: int, name: str, attributes: Dict[str, Any], events) -> OTELSpan:
