@@ -15,3 +15,5 @@ class InvocationContext:
     input_data: Dict[str, Any]
     test_execution_context: Optional[Dict[str, str]] = None
     trace_id: Optional[str] = None
+    # Set while the invocation span is open; sent as the W3C traceparent header.
+    traceparent: Optional[str] = None

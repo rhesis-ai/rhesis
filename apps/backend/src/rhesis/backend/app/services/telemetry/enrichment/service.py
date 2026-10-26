@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.services.async_service import AsyncService
+from rhesis.backend.app.services.invokers.reported_spans import REPORTED, SOURCE_ATTRIBUTE
 from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
 from rhesis.backend.app.services.usage import dispatch_accrual
 
@@ -186,7 +187,14 @@ class EnrichmentService(AsyncService[dict | None]):
         # task wrapper here, so there is no double-count to guard against,
         # and storing the spans is what makes them billable -- a failure to
         # dispatch enrichment below should not silently drop the count.
-        dispatch_accrual(organization_id, QuotaResource.TRACING_SPANS, len(stored_spans))
+        # Spans made from what a response reported are Rhesis's own derivation, not the
+        # endpoint's telemetry, so they are not metered.
+        metered = [
+            span
+            for span in stored_spans
+            if (span.attributes or {}).get(SOURCE_ATTRIBUTE) != REPORTED
+        ]
+        dispatch_accrual(organization_id, QuotaResource.TRACING_SPANS, len(metered))
 
         async_count = 0
         sync_count = 0

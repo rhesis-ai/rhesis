@@ -350,6 +350,39 @@ async def test_create_invocation_trace_output_truncation():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "metadata, expected",
+    [
+        ({"model": "small"}, '{"model": "small"}'),
+        ({}, None),
+        # Too large to store whole, and cut JSON would read back as nothing
+        ({"blob": "x" * 20000}, None),
+    ],
+)
+async def test_create_invocation_trace_records_response_metadata(metadata, expected):
+    endpoint = MagicMock(spec=Endpoint)
+    endpoint.id = uuid4()
+    endpoint.name = "test-endpoint"
+    endpoint.connection_type = "REST"
+    endpoint.url = "https://api.example.com"
+    endpoint.project_id = uuid4()
+    endpoint.environment = "development"
+
+    with patch(
+        "rhesis.backend.app.services.telemetry.enrichment.EnrichmentService"
+    ) as mock_service_class:
+        captured = []
+        mock_service_class.return_value.create_and_enrich_spans.side_effect = (
+            lambda spans, organization_id, project_id: (captured.extend(spans) or spans, 0, 1)
+        )
+
+        async with create_invocation_trace(MagicMock(), endpoint, str(uuid4())) as trace_ctx:
+            trace_ctx["result"] = {"status": "success", "output": "Hi", "metadata": metadata}
+
+    assert captured[0].attributes.get(EndpointAttributes.RESPONSE_METADATA) == expected
+
+
+@pytest.mark.asyncio
 async def test_create_invocation_trace_span_name_format():
     """Test span name follows semantic conventions."""
     db_mock = MagicMock()

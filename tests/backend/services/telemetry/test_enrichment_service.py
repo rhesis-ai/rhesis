@@ -443,6 +443,21 @@ class TestCreateAndEnrichSpansUsageAccrual:
 
         assert mock_accrual.call_args.args[2] == 2
 
+    def test_spans_made_from_a_reported_response_are_not_metered(self, service):
+        """Tool calls and context a response reported are Rhesis's derivation."""
+        stored = self._stored(3)
+        stored[0].attributes = {}
+        stored[1].attributes = {"rhesis.span.source": "reported"}
+        stored[2].attributes = {"rhesis.span.source": "reported"}
+        with (
+            patch(f"{self.MODULE}.build_enrichment_chain", return_value=Mock()),
+            patch("rhesis.backend.app.crud.telemetry.create_trace_spans", return_value=stored),
+            patch(f"{self.MODULE}.dispatch_accrual") as mock_accrual,
+        ):
+            service.create_and_enrich_spans([], "org-1", "proj-1")
+
+        assert mock_accrual.call_args.args[2] == 1
+
     def test_no_accrual_when_nothing_was_stored(self, service):
         with (
             patch("rhesis.backend.app.crud.telemetry.create_trace_spans", return_value=[]),
