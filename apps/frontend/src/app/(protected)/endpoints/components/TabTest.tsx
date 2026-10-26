@@ -1,18 +1,17 @@
 'use client';
 
 import React, { useMemo, useRef, useState } from 'react';
-import { Box, Button, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Stack, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { FileUploadIcon } from '@/components/icons';
 import { BORDER_RADIUS } from '@/styles/theme';
-import JsonMonacoField from '../[identifier]/components/JsonMonacoField';
 import {
   JsonPreview,
   OUTPUT_VARIABLES,
   responseMappingToPathToVar,
 } from './JsonPreview';
 import { testPreviewSx } from './endpoint-styles';
-import { AUTO_FILLED_VARS } from './mapping-variables';
+import TestValuesEditor from './TestValuesEditor';
 import {
   CardSubtitle,
   MappingCard,
@@ -20,7 +19,6 @@ import {
   MappingColumnHeaders,
   MappingRow,
   MappingRowList,
-  ModeLink,
   TwoCardRow,
 } from './MappingRows';
 import { mappingTarget } from './responsePaths';
@@ -33,11 +31,14 @@ import {
 import {
   applyJsonPath,
   buildCurl,
-  extractVars,
   substituteVars,
 } from './endpoint-template-utils';
-
-const FILE_VAR_RE = /^(files?|images?)$/i;
+import {
+  formatTestValue as formatValue,
+  testInputData,
+  testValueVars,
+  type TestValues,
+} from './testValues';
 
 interface TabTestProps {
   url: string;
@@ -45,6 +46,9 @@ interface TabTestProps {
   reqBody: string;
   resBody: string;
   requestHeaders?: string;
+  /** Shared with the Mapping step, so values typed there carry over. */
+  values: TestValues;
+  onValuesChange: (values: TestValues) => void;
   testResult: EndpointTestResult | null;
   isTestingEndpoint: boolean;
   onRunTest: (inputData: Record<string, unknown>) => void;
@@ -81,64 +85,24 @@ function asJsonValue(value: unknown): unknown {
   return parsed !== null && typeof parsed === 'object' ? parsed : undefined;
 }
 
-function formatValue(value: unknown): string {
-  if (value === undefined) return '—';
-  if (typeof value === 'string') return value;
-  return JSON.stringify(value);
-}
-
 export default function TabTest({
   url,
   method,
   reqBody,
   resBody,
   requestHeaders,
+  values,
+  onValuesChange: setValues,
   testResult,
   isTestingEndpoint,
   onRunTest,
 }: TabTestProps) {
   const theme = useTheme();
-  const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
 
-  const inputVars = useMemo(
-    () => extractVars(reqBody).filter(v => !AUTO_FILLED_VARS.has(v)),
-    [reqBody]
-  );
-  const textVars = inputVars.filter(v => !FILE_VAR_RE.test(v));
-  const fileVars = inputVars.filter(v => FILE_VAR_RE.test(v));
+  const inputVars = useMemo(() => testValueVars(reqBody), [reqBody]);
 
-  const [mode, setMode] = useState<'rows' | 'json'>('rows');
-  const [values, setValues] = useState<Record<string, unknown>>({});
-  const [valuesJson, setValuesJson] = useState('');
   const [fileValues, setFileValues] = useState<Record<string, File[]>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-
-  const allStrings = textVars.every(
-    v => values[v] === undefined || typeof values[v] === 'string'
-  );
-
-  const openJson = () => {
-    setValuesJson(
-      JSON.stringify(
-        Object.fromEntries(textVars.map(v => [v, values[v] ?? ''])),
-        null,
-        2
-      )
-    );
-    setMode('json');
-  };
-
-  const handleJsonChange = (text: string) => {
-    setValuesJson(text);
-    try {
-      const parsed: unknown = JSON.parse(text);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        setValues(parsed as Record<string, unknown>);
-      }
-    } catch {
-      // Keep the last valid values while the JSON is mid-edit.
-    }
-  };
 
   const resolvedHeaders = useMemo<Record<string, string>>(() => {
     try {
@@ -177,15 +141,7 @@ export default function TabTest({
       : undefined;
 
   const handleRun = async () => {
-    const inputData: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(values)) {
-      if (v === '' || v === undefined) continue;
-      // Typed text is one user turn; JSON input can pass a full history instead.
-      inputData[k] =
-        k === 'messages' && typeof v === 'string'
-          ? [{ role: 'user', content: v }]
-          : v;
-    }
+    const inputData = testInputData(values);
     for (const [k, files] of Object.entries(fileValues)) {
       if (files.length) inputData[k] = await Promise.all(files.map(readFile));
     }
@@ -265,85 +221,14 @@ export default function TabTest({
       }
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {mode === 'rows' ? (
-          <>
-            {inputVars.length > 0 ? (
-              <Box>
-                <MappingColumnHeaders
-                  left="Rhesis' variables"
-                  right="Test value"
-                />
-                <MappingRowList>
-                  {inputVars.map(v => (
-                    <MappingRow key={v} label={v}>
-                      {FILE_VAR_RE.test(v) ? (
-                        fileRow(v)
-                      ) : (
-                        <TextField
-                          fullWidth
-                          size="small"
-                          multiline
-                          maxRows={4}
-                          placeholder="Type a test value"
-                          value={formatValue(values[v] ?? '')}
-                          onChange={e =>
-                            setValues({ ...values, [v]: e.target.value })
-                          }
-                          slotProps={{
-                            htmlInput: { 'aria-label': `Value for ${v}` },
-                          }}
-                        />
-                      )}
-                    </MappingRow>
-                  ))}
-                </MappingRowList>
-              </Box>
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                The request uses no variables, so there is nothing to fill in.
-              </Typography>
-            )}
-            {textVars.length > 0 && (
-              <ModeLink onClick={openJson}>Edit as JSON</ModeLink>
-            )}
-          </>
-        ) : (
-          <>
-            <Box>
-              <JsonMonacoField
-                editorKey="create-test-values"
-                height="160px"
-                theme={editorTheme}
-                value={valuesJson}
-                onChange={handleJsonChange}
-              />
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                component="p"
-                sx={{ mt: 0.5, mx: 1.75 }}
-              >
-                Values can be any JSON, e.g. a full messages array.
-              </Typography>
-            </Box>
-            {fileVars.length > 0 && (
-              <MappingRowList>
-                {fileVars.map(v => (
-                  <MappingRow key={v} label={v}>
-                    {fileRow(v)}
-                  </MappingRow>
-                ))}
-              </MappingRowList>
-            )}
-            <ModeLink
-              disabled={!allStrings}
-              disabledReason="Easy input only works when every value is text."
-              onClick={() => setMode('rows')}
-            >
-              Switch to easy input
-            </ModeLink>
-          </>
-        )}
+        <TestValuesEditor
+          vars={inputVars}
+          values={values}
+          onValuesChange={setValues}
+          editorKey="create-test-values"
+          fieldLabel={v => `Value for ${v}`}
+          renderFileField={fileRow}
+        />
         <RawResponseCollapse label="cURL command" value={curlText} />
       </Box>
     </MappingCard>
@@ -419,6 +304,12 @@ export default function TabTest({
           </TestResponseCard>
         }
       />
+      {!testResult?.success && !isTestingEndpoint && (
+        <Alert severity="info">
+          No successful test yet. You can still create the endpoint and test it
+          later from its page.
+        </Alert>
+      )}
     </Stack>
   );
 }

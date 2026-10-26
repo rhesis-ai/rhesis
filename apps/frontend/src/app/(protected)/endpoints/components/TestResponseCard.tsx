@@ -4,9 +4,12 @@ import React, { useState } from 'react';
 import {
   Box,
   Button,
+  ButtonGroup,
   Chip,
   CircularProgress,
   Collapse,
+  Menu,
+  MenuItem,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -39,6 +42,7 @@ export function RunTestButton({
   isTesting,
   blockedReason,
   variant = 'contained',
+  menuItems,
 }: {
   label: string;
   onRun: () => void;
@@ -46,19 +50,63 @@ export function RunTestButton({
   /** Why the test can't run yet; the button is disabled while set. */
   blockedReason?: string;
   variant?: 'contained' | 'outlined';
+  /** Extra actions behind an arrow beside the button, e.g. editing the test request. */
+  menuItems?: { label: string; onClick: () => void }[];
 }) {
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
+  const disabled = Boolean(blockedReason);
+  const runButton = (
+    <Button
+      variant={variant}
+      onClick={onRun}
+      disabled={disabled}
+      loading={isTesting}
+      sx={disabledContainedSx}
+    >
+      {label}
+    </Button>
+  );
+
   return (
     <Tooltip title={blockedReason ?? ''}>
       <Box component="span" sx={{ alignSelf: 'flex-start' }}>
-        <Button
-          variant={variant}
-          onClick={onRun}
-          disabled={Boolean(blockedReason)}
-          loading={isTesting}
-          sx={disabledContainedSx}
-        >
-          {label}
-        </Button>
+        {menuItems?.length ? (
+          <>
+            <ButtonGroup variant={variant} disabled={disabled}>
+              {runButton}
+              <Button
+                size="small"
+                aria-label="More test request options"
+                aria-haspopup="menu"
+                onClick={e => setMenuAnchor(e.currentTarget)}
+                sx={disabledContainedSx}
+              >
+                <KeyboardArrowDownIcon fontSize="small" />
+              </Button>
+            </ButtonGroup>
+            <Menu
+              anchorEl={menuAnchor}
+              open={Boolean(menuAnchor)}
+              onClose={() => setMenuAnchor(null)}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+              {menuItems.map(item => (
+                <MenuItem
+                  key={item.label}
+                  onClick={() => {
+                    setMenuAnchor(null);
+                    item.onClick();
+                  }}
+                >
+                  {item.label}
+                </MenuItem>
+              ))}
+            </Menu>
+          </>
+        ) : (
+          runButton
+        )}
       </Box>
     </Tooltip>
   );

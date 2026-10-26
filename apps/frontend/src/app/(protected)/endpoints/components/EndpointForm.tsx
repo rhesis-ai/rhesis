@@ -33,6 +33,11 @@ import TabMapping from './TabMapping';
 import TabTest from './TabTest';
 import type { EndpointTestResult } from './TestResponseCard';
 import {
+  DEFAULT_TEST_VALUES,
+  testInputData,
+  type TestValues,
+} from './testValues';
+import {
   bodyToRequestMapping,
   parseBodyMapping,
   parseResMapping,
@@ -118,6 +123,8 @@ export interface EndpointFormSubmitState {
   canAdvance: boolean;
   isLastStep: boolean;
   isFirstStep: boolean;
+  /** The Test step passed for the current setup. Creating without it is allowed. */
+  isTested: boolean;
 }
 
 export interface EndpointFormProps {
@@ -158,6 +165,8 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     const [tabTestResult, setTabTestResult] =
       useState<EndpointTestResult | null>(null);
     const [isTabTestRunning, setIsTabTestRunning] = useState(false);
+    const [testValues, setTestValues] =
+      useState<TestValues>(DEFAULT_TEST_VALUES);
     // The setup each passing test ran against; a pass only counts while it still matches.
     const [mappingTestKey, setMappingTestKey] = useState<string | null>(null);
     const [tabTestKey, setTabTestKey] = useState<string | null>(null);
@@ -299,17 +308,17 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
 
     const versionInfoError = validateVersionInfoDraft(formData.version_info);
 
+    // A failing test never blocks: some APIs only pass with values or setup the
+    // wizard can't provide, and the endpoint page can test it after creation.
     const stepsValid = [
       Boolean(formData.name) &&
         Boolean(formData.project_id) &&
         versionInfoError === null,
       Boolean(formData.url) && validateUrl(formData.url) && authError === null,
-      INPUT_VAR_RE.test(reqBody) &&
-        hasOutputMapping(resBody) &&
-        // Not keyed on resBody: the response is mapped from this test's result, after it ran.
-        mappingTestKey === connectionKey,
-      tabTestKey === fullKey,
+      INPUT_VAR_RE.test(reqBody) && hasOutputMapping(resBody),
+      true,
     ];
+    const isTested = tabTestKey === fullKey;
     const firstInvalidStep = stepsValid.findIndex(valid => !valid);
     // Steps can be opened up to the first incomplete one; later ones wait for it.
     const maxReachableStep =
@@ -324,12 +333,14 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
         canAdvance,
         isLastStep,
         isFirstStep,
+        isTested,
       });
     }, [
       isSubmitting,
       canAdvance,
       isLastStep,
       isFirstStep,
+      isTested,
       onSubmitStateChange,
     ]);
 
@@ -407,10 +418,13 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       }
     };
 
-    const handleRunTest = (inputData: Record<string, unknown>) => {
+    const handleRunTest = () => {
       const key = connectionKey;
-      return runTest(inputData, setTestResult, setIsTestingEndpoint, () =>
-        setMappingTestKey(key)
+      return runTest(
+        testInputData(testValues),
+        setTestResult,
+        setIsTestingEndpoint,
+        () => setMappingTestKey(key)
       );
     };
 
@@ -640,6 +654,8 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
               resBody={resBody}
               onReqBodyChange={setReqBody}
               onResBodyChange={setResBody}
+              testValues={testValues}
+              onTestValuesChange={setTestValues}
               testResult={testResult}
               isTestingEndpoint={isTestingEndpoint}
               onRunTest={handleRunTest}
@@ -647,7 +663,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
             />
           </DetailTabPanel>
 
-          {/* Kept mounted so typed test values and uploads survive leaving the step. */}
+          {/* Kept mounted so uploads and the JSON editor survive leaving the step. */}
           <DetailTabPanel
             value={activeTab}
             index={3}
@@ -660,6 +676,8 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
               reqBody={reqBody}
               resBody={resBody}
               requestHeaders={formData.request_headers}
+              values={testValues}
+              onValuesChange={setTestValues}
               testResult={tabTestResult}
               isTestingEndpoint={isTabTestRunning}
               onRunTest={handleTabRunTest}

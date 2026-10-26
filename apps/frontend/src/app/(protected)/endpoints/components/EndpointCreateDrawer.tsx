@@ -28,6 +28,7 @@ export default function EndpointCreateDrawer({
     canAdvance: false,
     isLastStep: false,
     isFirstStep: true,
+    isTested: false,
   });
 
   const endpointQuota = useQuotaGate(QuotaResource.ENDPOINTS);
@@ -49,7 +50,13 @@ export default function EndpointCreateDrawer({
       onBack={
         submitState.isFirstStep ? undefined : () => formRef.current?.back()
       }
-      saveButtonText={submitState.isLastStep ? 'Create endpoint' : 'Next'}
+      saveButtonText={
+        !submitState.isLastStep
+          ? 'Next'
+          : submitState.isTested
+            ? 'Create endpoint'
+            : 'Create without test'
+      }
       saveDataTour={submitState.isLastStep ? 'create-endpoint-save' : undefined}
       saveDisabled={
         !submitState.canAdvance ||
