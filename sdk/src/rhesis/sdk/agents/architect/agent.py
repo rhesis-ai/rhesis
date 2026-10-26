@@ -2083,6 +2083,16 @@ class ArchitectAgent(BaseAgent):
             # describes requirements from a document it has never seen.
             attachments_text=self._format_attachments(),
             proposed_actions=self._format_blocked_calls(),
+            charts_shown=self._charts_shown_this_turn(),
+        )
+
+    def _charts_shown_this_turn(self) -> int:
+        """How many charts this turn's reply carries; their numbers are not retyped."""
+        return sum(
+            1
+            for step in self._execution_history[self._turn_start_step :]
+            for tr in step.tool_results
+            if tr.tool_name == "show_chart" and tr.success
         )
 
     def _format_blocked_calls(self) -> str:

@@ -4091,6 +4091,27 @@ class TestDocumentRequirements:
         assert HELD_BACK_SEED in writer
         assert "I will create R1." not in writer
 
+    @pytest.mark.parametrize("success", [True, False])
+    def test_writer_leaves_charted_numbers_to_the_chart(self, mock_model, success):
+        """Told to lay numbers out as tables, the writer retyped every chart as one."""
+        agent = _make_agent(mock_model)
+        agent._execution_history.append(
+            ExecutionStep(
+                iteration=1,
+                reasoning="chart it",
+                action="call_tool",
+                tool_calls=[ToolCall(tool_name="show_chart", arguments={})],
+                tool_results=[
+                    ToolResult(tool_name="show_chart", success=success, content="Charted")
+                ],
+            )
+        )
+
+        writer = agent._build_streaming_prompt("chart it", "Refunds regressed.")
+
+        assert ("Never lay a chart's numbers out again" in writer) is success
+        assert ("tables and lists for numbers" in writer) is not success
+
     def test_large_blocked_calls_are_capped(self, mock_model):
         agent = _make_agent(mock_model)
         cap = agent._cfg.proposed_action_max_chars

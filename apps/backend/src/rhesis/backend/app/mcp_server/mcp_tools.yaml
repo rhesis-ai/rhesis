@@ -1425,7 +1425,7 @@ tools:
       metric_names:
         description: "Filter by metric names (array). entity=metric only."
       environments:
-        description: "Filter by environment names (array). entity=trace only."
+        description: "Filter by environment names (array), such as [\"production\"]. entity=trace only. Pass it whenever the user names an environment: without it the rows cover every environment."
       months:
         description: "Months of history to include (default: 6)."
       start_date:
