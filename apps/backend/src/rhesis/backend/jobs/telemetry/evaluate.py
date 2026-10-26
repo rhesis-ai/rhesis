@@ -407,8 +407,7 @@ def evaluate_conversation_trace_metrics(
         trace = load_evaluation_trace(trace_id, organization_id, project_id)
         if trace is None or not trace.messages().messages:
             return {"status": "no_conversation", "trace_id": trace_id}
-        # Judged as a conversation however many turns it has so far.
-        trace.conversation_id = root_spans[0].conversation_id or trace_id
+        trace.conversation_id = root_spans[0].conversation_id
         start_time = time.time()
         results = evaluator.evaluate(metrics, trace)
         execution_time = (time.time() - start_time) * 1000

@@ -59,7 +59,7 @@ def build_trace(
     *,
     context: Any = None,
     tool_calls: Any = None,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Any = None,
     conversation: Any = None,
 ) -> Trace:
     """A trace from a response's parts, or from a conversation."""

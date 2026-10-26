@@ -631,9 +631,12 @@ class Trace(BaseEntity):
 
     @property
     def is_conversation(self) -> bool:
-        """Whether the trace records a conversation: it has a conversation id, or several
-        turns."""
-        return bool(self.conversation_id) or len(self._turn_roots()) > 1
+        """Whether the trace records a conversation: several turns, or built from one. A single
+        turn of a longer conversation is judged as that turn."""
+        turns = self._turn_roots()
+        return len(turns) > 1 or any(
+            span.attributes.get(TRACE_SOURCE_ATTRIBUTE) == FROM_CONVERSATION for span in turns
+        )
 
     def messages(self) -> "ConversationHistory":
         """The trace as a conversation of messages, for conversational metrics.
@@ -674,7 +677,7 @@ class Trace(BaseEntity):
         *,
         context: Any = None,
         tool_calls: Any = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Any = None,
     ) -> "Trace":
         """A trace of one request and response, built in memory, to evaluate without tracing.
 

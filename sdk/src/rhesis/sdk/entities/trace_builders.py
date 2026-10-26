@@ -96,7 +96,7 @@ def trace_from_response(
     *,
     context: Any = None,
     tool_calls: Any = None,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Any = None,
 ) -> Trace:
     """A trace of one request and its response."""
     trace_id = secrets.token_hex(16)

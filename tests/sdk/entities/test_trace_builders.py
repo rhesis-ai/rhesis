@@ -174,9 +174,8 @@ def test_metadata_that_is_not_a_dict_still_reads_back():
     assert trace.metadata == ["source:kb", "lang:en"]
 
 
-def test_a_trace_with_a_conversation_id_is_a_conversation_even_with_one_turn():
+def test_one_turn_of_a_longer_conversation_is_judged_as_that_turn():
     trace = Trace.from_response("Hi", "Hello")
-    assert not trace.is_conversation
-
     trace.conversation_id = "conv-1"
-    assert trace.is_conversation
+
+    assert not trace.is_conversation
