@@ -66,15 +66,17 @@ export function MappingCard({
           {action}
         </Box>
         {/* Two caption lines reserved, so rows start level in side-by-side cards. */}
-        <Box
-          sx={{
-            mt: 1.5,
-            minHeight: theme =>
-              `calc(2 * ${theme.typography.caption.lineHeight})`,
-          }}
-        >
-          {subtitle}
-        </Box>
+        {subtitle && (
+          <Box
+            sx={{
+              mt: 1.5,
+              minHeight: theme =>
+                `calc(2 * ${theme.typography.caption.lineHeight})`,
+            }}
+          >
+            {subtitle}
+          </Box>
+        )}
       </Box>
       {children}
     </SectionCard>
