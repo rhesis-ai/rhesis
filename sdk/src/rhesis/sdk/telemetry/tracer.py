@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 from opentelemetry import trace
 
+from rhesis.sdk.telemetry.retrieval import record_documents
 from rhesis.telemetry.attributes import AIAttributes
 from rhesis.telemetry.constants import ConversationContext as ConvContextConstants
 from rhesis.telemetry.constants import TestExecutionContext as TestContextConstants
@@ -56,6 +57,16 @@ def _get_sdk_version() -> str:
     except PackageNotFoundError:
         # Fallback for development/testing environments
         return "dev"
+
+
+def _retrieved(result: Any) -> list:
+    """The documents a retrieval function returned: a list as is, the ``documents`` of a
+    dict that has them, nothing for None, else the one value."""
+    if result is None:
+        return []
+    if isinstance(result, dict) and isinstance(result.get("documents"), (list, tuple)):
+        return list(result["documents"])
+    return list(result) if isinstance(result, (list, tuple)) else [result]
 
 
 class Tracer:
@@ -285,6 +296,10 @@ class Tracer:
             span.set_attribute(AIAttributes.FUNCTION_RESULT, result_str)
         # Always store preview (first 1000 chars)
         span.set_attribute(AIAttributes.FUNCTION_RESULT_PREVIEW, result_str[:1000])
+
+        attributes = getattr(span, "attributes", None) or {}
+        if attributes.get(AIAttributes.OPERATION_TYPE) == AIAttributes.OPERATION_RETRIEVAL:
+            record_documents(span, _retrieved(result))
 
     def _setup_span_attributes(
         self,

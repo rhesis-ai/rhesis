@@ -305,9 +305,6 @@ def extract_tool_output(output: Any) -> str:
 # Retriever Extraction
 # =============================================================================
 
-# Per-document preview budget, so one long document cannot crowd out the rest.
-_DOCUMENT_PREVIEW_LENGTH = 200
-
 
 def extract_retriever_backend(
     serialized: Dict | None,
@@ -332,25 +329,6 @@ def extract_retriever_backend(
         return str(name)
 
     return "unknown"
-
-
-def summarize_documents(documents: Any) -> str:
-    """Summarize retrieved documents for the results event.
-
-    Keeps a short preview per document rather than full text: retrieved
-    context is often far larger than the content cap.
-    """
-    if not documents:
-        return "[no documents]"
-
-    previews = []
-    for i, doc in enumerate(documents):
-        content = getattr(doc, "page_content", None)
-        if content is None and isinstance(doc, dict):
-            content = doc.get("page_content")
-        previews.append(f"[{i}] {str(content or doc)[:_DOCUMENT_PREVIEW_LENGTH]}")
-
-    return "\n".join(previews)[:MAX_CONTENT_LENGTH]
 
 
 # =============================================================================
