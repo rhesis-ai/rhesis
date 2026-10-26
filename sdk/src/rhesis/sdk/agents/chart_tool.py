@@ -22,7 +22,7 @@ CHART_TYPES: Dict[str, str] = {
     "area": "stacked areas over period, for composition over time (passed/failed/error_count)",
     "bar": "compare categories; one group of bars per x value",
     "horizontal_bar": "a ranked list of categories; pair with order_by and limit",
-    "stacked_bar": "composition per category: several count measures, or one split by series",
+    "stacked_bar": "composition per category: several count measures, or one count split by series",
     "scatter": "how two measures relate; y names exactly two measures, one point per x value",
     "heat_table": "two dimensions at once (x by series), cells colored by one rate or score",
     "radar": "a profile across x values (for example metrics), one shape per series value",
@@ -34,6 +34,8 @@ MAX_ROWS = 200
 # colors repeat or blur, so the model must narrow the query or pick a heat_table.
 MAX_SERIES = 4
 SERIES_CHART_TYPES = ("line", "area", "bar", "horizontal_bar", "stacked_bar", "radar")
+# These add their values up, so only counts belong in them: two pass rates stacked read as 160%.
+STACKED_CHART_TYPES = ("area", "stacked_bar")
 # Only bars can set an x value apart: its bars keep their color and the others fade.
 X_FOCUS_CHART_TYPES = ("bar", "horizontal_bar", "stacked_bar")
 
@@ -162,6 +164,11 @@ class ShowChartTool(BaseTool):
             return self._error(
                 f"y mixes measure kinds ({', '.join(sorted(y_kinds))}), which can't share an "
                 "axis; show one chart per kind"
+            )
+        if spec_args["chart_type"] in STACKED_CHART_TYPES and y_kinds != {"count"}:
+            return self._error(
+                f"{spec_args['chart_type']} adds values up, which only makes sense for counts; "
+                "to compare rates, scores, durations or costs side by side, use bar with a series"
             )
         chart = {
             "title": spec_args["title"],

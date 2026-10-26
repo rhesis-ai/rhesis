@@ -102,6 +102,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `LocalToolProvider` before `ShowChartTool`) sent the named tool's calls to the provider,
   which answered "Tool not available", so the Architect could never show a chart. A call now
   goes to the first tool that serves its name.
+- `ShowChartTool` rejects `stacked_bar` and `area` charts of anything but counts. The Architect
+  stacked two endpoints' pass rates into one bar, drawing an axis that ran to 200%; it is now
+  told to compare them side by side with `bar` and a series.
 - Normalized cached prompt usage for OpenAI and LiteLLM so separately billed cache reads and
   writes stay out of `input_tokens`, while provider-reported totals remain unchanged.
 - Streamed LangChain calls record their cache reads and writes. They carry usage only on

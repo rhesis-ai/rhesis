@@ -187,6 +187,34 @@ async def test_measures_of_different_kinds_are_rejected():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("chart_type", ["stacked_bar", "area"])
+async def test_stacked_rates_are_rejected(chart_type):
+    """Two endpoints' pass rates stacked into one bar drew an axis running to 200%."""
+    tool, _ = _tool(_by_run(2))
+
+    result = await tool.execute(**SERIES_QUERY, chart_type=chart_type)
+
+    assert not result.success and "use bar with a series" in result.error
+    assert tool.drain() == []
+
+
+@pytest.mark.asyncio
+async def test_stacked_counts_are_kept():
+    tool, _ = _tool([{"topic": "Claims", "test_run": "run 0", "count": 4}])
+
+    result = await tool.execute(
+        **{
+            **SERIES_QUERY,
+            "query": {**SERIES_QUERY["query"], "measures": ["count"]},
+            "y": ["count"],
+        },
+        chart_type="stacked_bar",
+    )
+
+    assert result.success
+
+
+@pytest.mark.asyncio
 async def test_rows_are_capped():
     rows = [{"topic": f"t{i}", "pass_rate": float(i)} for i in range(MAX_ROWS + 5)]
     tool, _ = _tool(rows)
