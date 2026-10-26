@@ -30,6 +30,12 @@ You are restricted to the following Asana workspace:
 Scope all Asana tool calls to workspace GID "{{ workspace_context.workspace_gid }}".
 {% endif %}
 {% endif %}
+{% if provider == "clickup" %}
+Use getTaskById for task URLs and readDocument for document URLs.
+Extract the task ID or doc_id from the supplied URL. For a document page URL,
+also pass the page ID as page. Documents require a known ID; there is no
+document-search tool.
+{% endif %}
 {% if provider == "trello" %}
 Use Trello tools to retrieve the full board, list, or card content, including description,
 checklists, comments, and attachments when available.

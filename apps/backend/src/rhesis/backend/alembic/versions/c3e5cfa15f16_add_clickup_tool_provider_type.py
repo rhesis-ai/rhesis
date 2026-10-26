@@ -1,7 +1,7 @@
 """Add ClickUp ToolProviderType.
 
 Revision ID: c3e5cfa15f16
-Revises: b3e7c91d4a20
+Revises: e5a1c7d93b42
 Create Date: 2026-10-24
 """
 
@@ -15,7 +15,7 @@ from rhesis.backend.alembic.utils.template_loader import (
 )
 
 revision: str = "c3e5cfa15f16"
-down_revision: Union[str, None] = "b3e7c91d4a20"
+down_revision: Union[str, None] = "e5a1c7d93b42"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

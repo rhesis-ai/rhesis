@@ -116,6 +116,12 @@ function getProviderLabel(provider: string): {
       placeholder: 'Paste Trello board or card URL...',
     };
   }
+  if (provider === 'clickup') {
+    return {
+      checkbox: '',
+      placeholder: 'Paste ClickUp task or doc URL...',
+    };
+  }
   return {
     checkbox: 'Include linked items',
     placeholder: 'Paste URL...',

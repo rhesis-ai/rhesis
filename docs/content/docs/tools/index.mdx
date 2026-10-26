@@ -78,19 +78,15 @@ Every connection follows the same flow in Rhesis: on the **Tools** page, click *
 </details>
 
 <details>
-<summary id="clickup">ClickUp</summary>
+<summary id="clickup"><img src="/integrations/providers/clickup.svg" width="20" height="20" alt="" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> ClickUp</summary>
 
 <ToolPurposeChip text="Export knowledge into Rhesis" />
 
-1. In ClickUp Settings, open **ClickUp API** and create a personal API token. See [ClickUp authentication](https://developer.clickup.com/docs/authentication).
-2. Use that token with [Get Authorized Workspaces](https://developer.clickup.com/reference/getauthorizedteams) to find the workspace's complete `id`. ClickUp's API also calls a workspace a team.
+1. In ClickUp Settings, open **ClickUp API** and create a [personal API token](https://developer.clickup.com/docs/authentication).
+2. Use [Get Authorized Workspaces](https://developer.clickup.com/reference/getauthorizedteams) to find your workspace ID (called a team ID in the API).
 3. In Rhesis, enter the personal API token and workspace ID.
 
-The token is passed to the MCP server as `CLICKUP_API_KEY`, and the workspace ID as `CLICKUP_TEAM_ID`.
-
-The backend runtime needs Node.js and `npx`. Rhesis launches the community server `@hauptsache.net/clickup-mcp@1.9.0` over stdio, with `CLICKUP_MCP_MODE` fixed to `read`. The first launch may download the package.
-
-This server supports task search and document reading by ID. It has no dedicated document-search tool, so include the document ID when requesting a document import rather than relying on discovery by title.
+For documents, provide a URL containing the document ID; search by title is not supported.
 
 </details>
 
