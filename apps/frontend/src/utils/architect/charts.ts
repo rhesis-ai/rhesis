@@ -295,10 +295,9 @@ export function labelledAxisMax(
   kind: MeasureKind,
   values: Array<number | null>
 ): number | undefined {
-  const top = Math.max(
-    valueBounds(kind).max ?? 0,
-    ...values.filter((v): v is number => v !== null)
-  );
+  const numbers = values.filter((v): v is number => v !== null);
+  if (numbers.length === 0) return undefined;
+  const top = Math.max(valueBounds(kind).max ?? 0, ...numbers);
   return top > 0 ? top * LABEL_HEADROOM : undefined;
 }
 

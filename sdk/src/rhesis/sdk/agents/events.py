@@ -80,8 +80,15 @@ class AgentEventHandler:
     ) -> None:
         """Called before a tool is executed."""
 
-    async def on_tool_end(self, *, tool_name: str, result: "ToolResult", **kwargs: Any) -> None:
-        """Called after a tool finishes (success or failure)."""
+    async def on_tool_end(
+        self,
+        *,
+        tool_name: str,
+        result: "ToolResult",
+        arguments: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Called after a tool finishes (success or failure), with the call's arguments."""
 
     # ── streaming lifecycle ────────────────────────────────────────
 

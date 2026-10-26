@@ -92,6 +92,7 @@ describe('architect chart helpers', () => {
     expect(labelledAxisMax('rate', [64, 98])).toBeCloseTo(115);
     expect(labelledAxisMax('count', [3, null, 40])).toBeCloseTo(46);
     expect(labelledAxisMax('count', [null])).toBeUndefined();
+    expect(labelledAxisMax('rate', [null])).toBeUndefined();
   });
 
   it('places heat values between bad and good', () => {
