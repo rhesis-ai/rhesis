@@ -283,6 +283,25 @@ export function valueBounds(kind: MeasureKind): {
   return { min: 0 };
 }
 
+// A bar's value label sits past its end, and the plot clips anything outside it.
+const LABEL_HEADROOM = 1.15;
+
+/**
+ * The value-axis maximum for bars labelled with their values: past both the
+ * kind's fixed top (100% for a rate) and the largest value, so the longest
+ * bar's label still fits inside the plot.
+ */
+export function labelledAxisMax(
+  kind: MeasureKind,
+  values: Array<number | null>
+): number | undefined {
+  const top = Math.max(
+    valueBounds(kind).max ?? 0,
+    ...values.filter((v): v is number => v !== null)
+  );
+  return top > 0 ? top * LABEL_HEADROOM : undefined;
+}
+
 /**
  * Where a value sits between bad (0) and good (1), for heat-table shading.
  * Other kinds have no fixed scale, so they shade by size relative to the largest.
