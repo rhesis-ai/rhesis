@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
-from rhesis.backend.app.services.invokers.reported_spans import reported_spans
+from rhesis.sdk.telemetry.reported_spans import reported_spans
 from rhesis.telemetry.constants import ConversationContext as ConversationConstants
 from rhesis.telemetry.schemas import OTELSpan, SpanKind, StatusCode
 

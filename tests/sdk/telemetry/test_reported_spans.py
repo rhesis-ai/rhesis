@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from rhesis.telemetry.schemas import OTELSpan
 
-from rhesis.backend.app.services.invokers.reported_spans import reported_spans
+from rhesis.sdk.telemetry.reported_spans import reported_spans
 from rhesis.sdk.entities.trace import Span
 
 START = datetime(2026, 10, 26, 12, 0, tzinfo=timezone.utc)
