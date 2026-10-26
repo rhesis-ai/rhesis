@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
-from rhesis.backend.metrics.inputs import EvaluationInputs, TraceLoader
+from rhesis.backend.metrics.inputs import EvaluationInputs, ResponseTrace
 from rhesis.backend.metrics.metric_config import validate_metric_configs
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.strategies.base import MetricStrategy, OnMetricComplete
@@ -14,8 +14,8 @@ from rhesis.backend.metrics.strategies.connector import (
     ConnectorStrategy,
 )
 from rhesis.backend.metrics.strategies.local import LocalStrategy
-from rhesis.sdk.metrics import MetricConfig
-from rhesis.sdk.metrics.conversational.types import ConversationHistory
+from rhesis.sdk.entities.trace import Trace
+from rhesis.sdk.metrics import Expectations, MetricConfig
 
 logger = logging.getLogger(__name__)
 
@@ -106,40 +106,22 @@ class MetricEvaluator:
 
     def evaluate(
         self,
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
         metrics: List[Union[Dict[str, Any], MetricConfig, MetricModel]],
+        trace: Union[Trace, ResponseTrace],
+        expectations: Optional[Expectations] = None,
+        *,
         max_workers: int = 5,
-        conversation_history: Optional[ConversationHistory] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tool_calls: Optional[List[Dict[str, Any]]] = None,
-        instructions: Optional[str] = None,
-        contract: Optional[Dict[str, Any]] = None,
-        trace_loader: Optional[TraceLoader] = None,
     ) -> Dict[str, Any]:
         """
         Compute metrics using the configured backends.
 
         Args:
-            input_text: The input query or question.
-            output_text: The actual output from the LLM.
-            expected_output: The expected or reference output.
-            context: List of context strings used for the response.
             metrics: List of Metric models, MetricConfig objects, or config dicts.
+            trace: What happened: a Trace in hand (a conversation, a production trace), or
+                the ``ResponseTrace`` of one response, read from storage only if a metric
+                declares ``trace``.
+            expectations: What should have happened, from the test. None in production.
             max_workers: Maximum number of parallel workers for local strategy.
-            conversation_history: Optional conversation history.
-            metadata: Optional metadata dict.
-            tool_calls: Optional list of tool calls made by the endpoint.
-            instructions: Optional test instructions. Only consumed by
-                ``GoalAchievementJudge``; other metrics ignore it (see
-                ``build_metric_evaluate_params``).
-            contract: Optional evaluation contract (see
-                ``app/schemas/evaluation_contract.py``). Likewise only consumed by
-                ``GoalAchievementJudge``.
-            trace_loader: Reads the trace of what is being evaluated, for metrics that
-                declare ``trace``. Called at most once, and only if one does.
 
         Returns:
             Dictionary containing scores and details for each metric.
@@ -163,18 +145,7 @@ class MetricEvaluator:
 
         # Step 2: group configs by backend
         configs_by_backend = self._group_by_backend(metric_configs)
-        inputs = EvaluationInputs(
-            input_text=input_text,
-            output_text=output_text,
-            expected_output=expected_output,
-            context=context,
-            conversation_history=conversation_history,
-            metadata=metadata,
-            tool_calls=tool_calls,
-            instructions=instructions,
-            contract=contract,
-            trace_loader=trace_loader,
-        )
+        inputs = EvaluationInputs(trace=trace, expectations=expectations)
 
         # Step 3: dispatch each group to the matching strategy
         results: Dict[str, Any] = {}
@@ -190,23 +161,13 @@ class MetricEvaluator:
 
     async def a_evaluate(
         self,
-        input_text: str,
-        output_text: str,
-        expected_output: str,
-        context: List[str],
         metrics: List[Union[Dict[str, Any], MetricConfig, MetricModel]],
-        conversation_history: Optional[ConversationHistory] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tool_calls: Optional[List[Dict[str, Any]]] = None,
-        instructions: Optional[str] = None,
-        contract: Optional[Dict[str, Any]] = None,
+        trace: Union[Trace, ResponseTrace],
+        expectations: Optional[Expectations] = None,
+        *,
         on_metric_complete: OnMetricComplete = None,
-        trace_loader: Optional[TraceLoader] = None,
     ) -> Dict[str, Any]:
-        """Async version of evaluate — dispatches backends concurrently.
-
-        See ``evaluate`` for ``instructions``/``contract``/``trace_loader``.
-        """
+        """Async version of evaluate — dispatches backends concurrently."""
         if not metrics:
             logger.warning("No metrics provided for async evaluation")
             return {}
@@ -218,18 +179,7 @@ class MetricEvaluator:
             return invalid_metric_results or {}
 
         configs_by_backend = self._group_by_backend(metric_configs)
-        inputs = EvaluationInputs(
-            input_text=input_text,
-            output_text=output_text,
-            expected_output=expected_output,
-            context=context,
-            conversation_history=conversation_history,
-            metadata=metadata,
-            tool_calls=tool_calls,
-            instructions=instructions,
-            contract=contract,
-            trace_loader=trace_loader,
-        )
+        inputs = EvaluationInputs(trace=trace, expectations=expectations)
 
         async def _run_backend(backend_val: str, backend_configs: list) -> Dict[str, Any]:
             strategy = self._strategies.get(backend_val, self._local_strategy)

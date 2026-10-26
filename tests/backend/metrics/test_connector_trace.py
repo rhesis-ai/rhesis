@@ -4,10 +4,10 @@ import json
 
 import pytest
 
-from rhesis.backend.metrics.inputs import EvaluationInputs
+from rhesis.backend.metrics.inputs import EvaluationInputs, ResponseTrace
 from rhesis.backend.metrics.strategies.connector import ConnectorStrategy
 from rhesis.sdk.entities.trace import Trace
-from rhesis.sdk.metrics import MetricConfig
+from rhesis.sdk.metrics import Expectations, MetricConfig
 
 TRACE_ID = "a" * 32
 
@@ -22,13 +22,10 @@ def _config(name, accepted_params):
     )
 
 
-def _inputs(loader):
+def _inputs(loader, expectations=None):
     return EvaluationInputs(
-        input_text="Book a room",
-        output_text="Booked.",
-        expected_output="",
-        context=[],
-        trace_loader=loader,
+        trace=ResponseTrace(input="Book a room", output="Booked.", loader=loader),
+        expectations=expectations,
     )
 
 
@@ -93,3 +90,29 @@ def test_with_nothing_stored_the_trace_is_built_from_the_response():
 
     trace = Trace.model_validate(sender.sent["tool_budget"]["trace"])
     assert (trace.input, trace.output) == ("Book a room", "Booked.")
+
+
+@pytest.mark.unit
+def test_the_payload_carries_expectations_and_no_old_fields():
+    sender = _Sender()
+
+    ConnectorStrategy(connector_metric_sender=sender).evaluate(
+        [_config("exact_match", ["output", "expectations"])],
+        _inputs(lambda: None, Expectations(response="Booked.")),
+    )
+
+    sent = sender.sent["exact_match"]
+    assert sent["expectations"] == {"response": "Booked."}
+    assert (sent["input"], sent["output"]) == ("Book a room", "Booked.")
+    assert not {"expected_output", "context"} & set(sent)
+
+
+@pytest.mark.unit
+def test_production_sends_no_expectations():
+    sender = _Sender()
+
+    ConnectorStrategy(connector_metric_sender=sender).evaluate(
+        [_config("exact_match", ["output", "expectations"])], _inputs(lambda: None)
+    )
+
+    assert sender.sent["exact_match"]["expectations"] is None

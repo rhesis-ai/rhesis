@@ -355,7 +355,7 @@ class TestSetEvaluator:
             r = fluency.evaluate(
                 input=test_result.prompt,
                 output=test_result.text,
-                expected_output=test_result.expected_text,
+                expectations=test_result.expected_text,
             )
             test_result.details["fluency"] = {"score": r.score, **r.details}
         except Exception as e:
@@ -397,7 +397,7 @@ class TestSetEvaluator:
                 r = context_retention.evaluate(
                     input=test_result.prompt,
                     output=test_result.text,
-                    expected_output=test_result.expected_text,
+                    expectations=test_result.expected_text,
                     context=test_result.context,
                 )
                 test_result.details["context_retention"] = {"score": r.score, **r.details}

@@ -11,9 +11,8 @@ evaluation pipeline to GarakDetectorMetric.evaluate(), covering every link:
   4. _evaluate_single_turn_metrics reads garak_notes and threads them end-to-end
 """
 
-import dataclasses
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -195,9 +194,7 @@ class TestFactoryPassesProbeNotes:
 
     def test_factory_passes_probe_notes(self):
         notes = {"triggers": ["I hate humans"]}
-        with patch(
-            "rhesis.sdk.metrics.providers.garak.factory.GarakDetectorMetric"
-        ) as MockCls:
+        with patch("rhesis.sdk.metrics.providers.garak.factory.GarakDetectorMetric") as MockCls:
             self._create_via_factory(
                 detector_class="garak.detectors.promptinject.AttackRogueString",
                 probe_notes=notes,
@@ -208,9 +205,7 @@ class TestFactoryPassesProbeNotes:
             assert call_kwargs["probe_notes"] == notes
 
     def test_factory_without_probe_notes_defaults_to_absent(self):
-        with patch(
-            "rhesis.sdk.metrics.providers.garak.factory.GarakDetectorMetric"
-        ) as MockCls:
+        with patch("rhesis.sdk.metrics.providers.garak.factory.GarakDetectorMetric") as MockCls:
             self._create_via_factory(
                 detector_class="garak.detectors.promptinject.AttackRogueString",
             )
@@ -221,9 +216,7 @@ class TestFactoryPassesProbeNotes:
     def test_factory_filters_unknown_params(self):
         """Unknown params are dropped; probe_notes is kept."""
         notes = {"triggers": ["test"]}
-        with patch(
-            "rhesis.sdk.metrics.providers.garak.factory.GarakDetectorMetric"
-        ) as MockCls:
+        with patch("rhesis.sdk.metrics.providers.garak.factory.GarakDetectorMetric") as MockCls:
             self._create_via_factory(
                 detector_class="garak.detectors.continuation.Continuation",
                 probe_notes=notes,
@@ -258,7 +251,7 @@ class TestPrepareMetricsForwardsProbeNotes:
             mock_metric.requires_ground_truth = False
             mock_create.return_value = mock_metric
 
-            tasks = prepare_metrics([config], expected_output="")
+            tasks = prepare_metrics([config])
 
             mock_create.assert_called_once()
             call_kwargs = mock_create.call_args.kwargs
@@ -274,7 +267,7 @@ class TestPrepareMetricsForwardsProbeNotes:
             mock_metric.requires_ground_truth = False
             mock_create.return_value = mock_metric
 
-            tasks = prepare_metrics([config], expected_output="")
+            tasks = prepare_metrics([config])
 
             mock_create.assert_called_once()
             call_kwargs = mock_create.call_args.kwargs
@@ -340,20 +333,6 @@ class TestProbeNotesFallbackInEvaluate:
 
         assert mock_garak["notes_dict"] == {"triggers": ["I hate humans"]}
 
-    def test_explicit_notes_override_probe_notes(self, mock_garak):
-        from rhesis.sdk.metrics.providers.garak import GarakDetectorMetric
-
-        constructor_notes = {"triggers": ["original"]}
-        override_notes = {"triggers": ["override"]}
-        metric = GarakDetectorMetric(
-            detector_class="garak.detectors.promptinject.AttackRogueString",
-            probe_notes=constructor_notes,
-        )
-
-        metric.evaluate(input="test", output="test", notes=override_notes)
-
-        assert mock_garak["notes_dict"]["triggers"] == ["override"]
-
     def test_no_notes_at_all_leaves_attempt_notes_empty(self, mock_garak):
         from rhesis.sdk.metrics.providers.garak import GarakDetectorMetric
 
@@ -405,10 +384,7 @@ class TestEvaluateSingleTurnGarakNotes:
         )
 
         mock_evaluator.a_evaluate.assert_called_once()
-        call_kwargs = mock_evaluator.a_evaluate.call_args
-        metrics_arg = call_kwargs.kwargs.get("metrics") or call_kwargs[1].get("metrics")
-        if metrics_arg is None:
-            metrics_arg = call_kwargs[0][5] if len(call_kwargs[0]) > 5 else call_kwargs.kwargs["metrics"]
+        metrics_arg = mock_evaluator.a_evaluate.call_args.args[0]
 
         assert len(metrics_arg) == 1
         assert metrics_arg[0].parameters["probe_notes"] == garak_notes
@@ -436,10 +412,7 @@ class TestEvaluateSingleTurnGarakNotes:
             ctx, mock_evaluator, mock_test, output, "test", "", ctx.metric_configs
         )
 
-        call_kwargs = mock_evaluator.a_evaluate.call_args
-        metrics_arg = call_kwargs.kwargs.get("metrics") or call_kwargs[1].get("metrics")
-        if metrics_arg is None:
-            metrics_arg = call_kwargs.kwargs["metrics"]
+        metrics_arg = mock_evaluator.a_evaluate.call_args.args[0]
 
         assert "probe_notes" not in (metrics_arg[0].parameters or {})
 
@@ -464,10 +437,7 @@ class TestEvaluateSingleTurnGarakNotes:
             ctx, mock_evaluator, mock_test, output, "test", "", ctx.metric_configs
         )
 
-        call_kwargs = mock_evaluator.a_evaluate.call_args
-        metrics_arg = call_kwargs.kwargs.get("metrics") or call_kwargs[1].get("metrics")
-        if metrics_arg is None:
-            metrics_arg = call_kwargs.kwargs["metrics"]
+        metrics_arg = mock_evaluator.a_evaluate.call_args.args[0]
 
         assert "probe_notes" not in (metrics_arg[0].parameters or {})
 

@@ -193,8 +193,6 @@ def _prepare_metrics(
     refused: list = []
     tasks = prepare_metrics(
         metric_configs,
-        "",
-        [],
         model=model,
         db=db,
         organization_id=organization_id,

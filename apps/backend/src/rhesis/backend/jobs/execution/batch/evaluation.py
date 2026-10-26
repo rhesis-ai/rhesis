@@ -101,16 +101,12 @@ async def _evaluate_multi_turn_metrics(
 ) -> Dict[str, Any]:
     from rhesis.backend.jobs.execution.constants import CONVERSATION_SUMMARY_KEY
     from rhesis.backend.jobs.execution.evaluation import (
-        _build_conversation_history,
-        _collect_conversation_context,
+        conversation_expectations,
+        conversation_trace,
     )
 
-    conversation_summary = output.get(CONVERSATION_SUMMARY_KEY, [])
-    conversation_history = _build_conversation_history(conversation_summary)
-    conversation_text = conversation_history.format_conversation() if conversation_history else ""
-
+    trace = conversation_trace(output.get(CONVERSATION_SUMMARY_KEY, []))
     test_config_data = test.test_configuration or {}
-    goal = test_config_data.get("goal", "")
 
     # The batch prefetch cannot scope-filter (one shared config list may serve a
     # mixed-type test set), so it happens here. Without it, Single-Turn metrics
@@ -136,21 +132,14 @@ async def _evaluate_multi_turn_metrics(
     if not filtered_configs:
         return {}
 
-    # Empty conversation summary means there is nothing to evaluate in a multi-turn
-    # context — return early rather than passing conversation_history=None to metrics
-    # that may accept it (including those with metric_scope=None or mixed scopes).
-    if conversation_history is None:
+    # An empty conversation summary leaves nothing to evaluate.
+    if trace is None:
         return {}
 
     return await evaluator.a_evaluate(
-        input_text=goal,
-        output_text=conversation_text.strip(),
-        expected_output="",
-        context=_collect_conversation_context(conversation_summary),
-        metrics=filtered_configs,
-        conversation_history=conversation_history,
-        instructions=instructions,
-        contract=contract,
+        filtered_configs,
+        trace,
+        conversation_expectations(test_config_data, instructions=instructions, contract=contract),
         on_metric_complete=on_metric_complete,
     )
 
@@ -167,16 +156,11 @@ async def _evaluate_single_turn_metrics(
     unsaved_spans: Sequence[Any] = (),
 ) -> Dict[str, Any]:
     from rhesis.backend.app.services.telemetry.evaluation_trace import evaluation_trace_loader
-    from rhesis.backend.app.utils.response_extractor import (
-        extract_response_with_fallback,
-        normalize_context_to_list,
-    )
+    from rhesis.backend.app.utils.response_extractor import normalize_context_to_list
+    from rhesis.backend.jobs.execution.evaluation import response_trace
+    from rhesis.sdk.metrics import Expectations
 
-    actual_response = extract_response_with_fallback(output)
-    metadata = output.get("metadata") if isinstance(output, dict) else None
-    tool_calls = output.get("tool_calls") if isinstance(output, dict) else None
     raw_context = output.get("context") if isinstance(output, dict) else None
-    context = normalize_context_to_list(raw_context)
 
     # Inject probe-level notes (e.g. trigger strings for Garak probe-coupled detectors)
     # directly into the metric configs so the metric has them at construction time.
@@ -194,22 +178,23 @@ async def _evaluate_single_turn_metrics(
     if not metric_configs:
         return {}
 
-    return await evaluator.a_evaluate(
-        input_text=prompt_content,
-        output_text=actual_response,
-        expected_output=expected_response,
-        context=context,
-        metrics=metric_configs,
-        metadata=metadata,
-        tool_calls=tool_calls,
-        on_metric_complete=on_metric_complete,
-        trace_loader=evaluation_trace_loader(
+    trace = response_trace(
+        prompt_content,
+        output,
+        normalize_context_to_list(raw_context),
+        evaluation_trace_loader(
             output,
             ctx.organization_id,
             str(ctx.endpoint.project_id) if ctx.endpoint.project_id else None,
             ctx.user_id,
             unsaved_spans,
         ),
+    )
+    return await evaluator.a_evaluate(
+        metric_configs,
+        trace,
+        Expectations(response=expected_response),
+        on_metric_complete=on_metric_complete,
     )
 
 

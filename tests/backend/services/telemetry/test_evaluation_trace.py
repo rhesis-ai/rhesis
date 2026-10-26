@@ -8,7 +8,6 @@ from unittest.mock import patch
 
 from rhesis.telemetry.schemas import OTELSpan
 
-from rhesis.backend.app.services.invokers.reported_spans import reported_spans
 from rhesis.backend.app.services.telemetry import evaluation_trace
 from rhesis.backend.app.services.telemetry.evaluation_trace import (
     evaluation_trace_loader,
@@ -16,7 +15,8 @@ from rhesis.backend.app.services.telemetry.evaluation_trace import (
     trace_from_response,
     with_live_values,
 )
-from rhesis.backend.metrics.inputs import EvaluationInputs
+from rhesis.backend.metrics.inputs import EvaluationInputs, ResponseTrace
+from rhesis.sdk.telemetry.reported_spans import reported_spans
 
 TRACE_ID = "a" * 32
 ORG = "11111111-1111-1111-1111-111111111111"
@@ -213,11 +213,11 @@ def test_the_live_answer_replaces_the_stored_copy_which_is_cut_short():
     db_patch, crud_patch = _stored(rows)
     with db_patch, crud_patch:
         inputs = EvaluationInputs(
-            input_text="Explain",
-            output_text="Long answer, in full.",
-            expected_output="",
-            context=[],
-            trace_loader=evaluation_trace_loader({"trace_id": TRACE_ID}, ORG, PROJECT),
+            trace=ResponseTrace(
+                input="Explain",
+                output="Long answer, in full.",
+                loader=evaluation_trace_loader({"trace_id": TRACE_ID}, ORG, PROJECT),
+            )
         )
         trace = inputs.load_trace()
 
@@ -230,11 +230,51 @@ def test_a_trace_that_cannot_be_read_falls_back_to_the_response():
         raise RuntimeError("database gone")
 
     inputs = EvaluationInputs(
-        input_text="Hi",
-        output_text="Hello",
-        expected_output="",
-        context=["Doc"],
-        trace_loader=unreadable,
+        trace=ResponseTrace(input="Hi", output="Hello", context=["Doc"], loader=unreadable)
     )
 
     assert (inputs.load_trace().output, inputs.load_trace().context) == ("Hello", ["Doc"])
+
+
+def test_the_context_the_response_reported_wins_over_a_capped_recorded_retrieval():
+    """A recorded retrieval keeps what fits the content cap; the response's context is whole."""
+    rows = [
+        _row("e" * 16, None, "function.endpoint_sdk_invoke", 0),
+        _row("g" * 16, "e" * 16, "ai.retrieval", 1, "retrieval"),
+    ]
+    rows[1].events = [
+        {
+            "name": "ai.retrieval.results",
+            "attributes": {"ai.completion.content": '["Rooms from 90"]'},
+        }
+    ]
+    db_patch, crud_patch = _stored(rows)
+    with db_patch, crud_patch:
+        trace = with_live_values(
+            load_evaluation_trace(TRACE_ID, ORG, PROJECT),
+            "Book",
+            "Booked.",
+            context=["Rooms from 90 EUR, breakfast included."],
+        )
+
+    assert trace.context == ["Rooms from 90 EUR, breakfast included."]
+
+
+def _turn(span_id, offset, said, answered):
+    attributes = {"rhesis.conversation.input": said, "rhesis.conversation.output": answered}
+    return _row(span_id, None, "function.endpoint_invoke", offset, attributes=attributes)
+
+
+def test_a_response_from_a_stored_conversation_keeps_only_its_own_turn():
+    """Turns of a conversation share a trace id, so the stored trace can hold later turns."""
+    rows = [_turn("a" * 16, 0, "Hi", "Hello"), _turn("b" * 16, 5, "Book", "Booked")]
+    db_patch, crud_patch = _stored(rows)
+    with db_patch, crud_patch:
+        trace = ResponseTrace(
+            input="Hi",
+            output="Hello",
+            loader=evaluation_trace_loader({"trace_id": TRACE_ID}, ORG, PROJECT),
+        ).load()
+
+    assert [root.span_id for root in trace.root_spans] == ["a" * 16]
+    assert not trace.is_conversation

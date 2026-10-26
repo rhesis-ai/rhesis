@@ -29,6 +29,8 @@ from rhesis.backend.jobs.execution.evaluation import (
     evaluate_single_turn_metrics,
 )
 
+_ONE_TURN = {CONVERSATION_SUMMARY_KEY: [{PENELOPE_MESSAGE_KEY: "Hi", TARGET_RESPONSE_KEY: "Hello"}]}
+
 # ============================================================================
 # evaluate_single_turn_metrics tests
 # ============================================================================
@@ -73,8 +75,9 @@ class TestEvaluateSingleTurnMetrics:
             )
 
         mock_extract.assert_called_once_with({"output": "raw"})
-        call_kwargs = mock_evaluator.evaluate.call_args.kwargs
-        assert call_kwargs["output_text"] == "extracted text"
+        _, trace, expectations = mock_evaluator.evaluate.call_args.args
+        assert (trace.input, trace.output) == ("prompt", "extracted text")
+        assert expectations.response == "expected"
 
     def test_returns_empty_on_evaluation_error(self):
         """Returns empty dict when MetricEvaluator raises an exception."""
@@ -302,13 +305,14 @@ class TestEvaluateMultiTurnMetrics:
             )
 
         assert result == {"goal_achievement": {"score": 0.8, "is_successful": True}}
-        # Check the evaluator was called with the concatenated conversation
-        call_kwargs = mock_evaluator_instance.evaluate.call_args.kwargs
-        assert call_kwargs["input_text"] == "Greet and check wellness"
-        assert "User: Hello" in call_kwargs["output_text"]
-        assert "Assistant: Hi there" in call_kwargs["output_text"]
-        assert "User: How are you?" in call_kwargs["output_text"]
-        assert "Assistant: I'm fine" in call_kwargs["output_text"]
+        # The evaluator gets the conversation's trace and the test's goal
+        _, trace, expectations = mock_evaluator_instance.evaluate.call_args.args
+        assert expectations.goal == "Greet and check wellness"
+        transcript = trace.messages().format_conversation()
+        assert "User: Hello" in transcript
+        assert "Assistant: Hi there" in transcript
+        assert "User: How are you?" in transcript
+        assert "Assistant: I'm fine" in transcript
 
     def test_returns_empty_when_no_metrics(self):
         """Returns empty dict when no metric configs are resolved."""
@@ -372,7 +376,7 @@ class TestEvaluateMultiTurnMetrics:
         assert result == {}
 
     def test_handles_empty_conversation(self):
-        """Handles empty conversation_summary gracefully."""
+        """An empty conversation_summary leaves nothing to score."""
         mock_test = MagicMock()
         mock_test.test_configuration = {"goal": "test"}
         mock_test.id = "test-1"
@@ -403,11 +407,10 @@ class TestEvaluateMultiTurnMetrics:
                 model="gpt-4",
             )
 
-        call_kwargs = mock_evaluator_instance.evaluate.call_args.kwargs
-        assert call_kwargs["output_text"] == ""
+        mock_evaluator_instance.evaluate.assert_not_called()
 
     def test_missing_goal_defaults_to_empty(self):
-        """When test_configuration has no goal, input_text is empty string."""
+        """When test_configuration has no goal, the expectations carry none."""
         mock_test = MagicMock()
         mock_test.test_configuration = {}
         mock_test.id = "test-1"
@@ -430,7 +433,7 @@ class TestEvaluateMultiTurnMetrics:
             ),
         ):
             evaluate_multi_turn_metrics(
-                stored_output={CONVERSATION_SUMMARY_KEY: []},
+                stored_output=_ONE_TURN,
                 test=mock_test,
                 db=MagicMock(),
                 organization_id="org-1",
@@ -438,8 +441,8 @@ class TestEvaluateMultiTurnMetrics:
                 model="gpt-4",
             )
 
-        call_kwargs = mock_evaluator_instance.evaluate.call_args.kwargs
-        assert call_kwargs["input_text"] == ""
+        _, _, expectations = mock_evaluator_instance.evaluate.call_args.args
+        assert expectations.goal is None
 
     def test_assistant_metadata_in_messages(self):
         """Per-turn metadata from conversation_summary propagates to assistant messages."""
@@ -466,8 +469,8 @@ class TestEvaluateMultiTurnMetrics:
 
         captured_history = {}
 
-        def capture_evaluate(**kwargs):
-            captured_history["conversation_history"] = kwargs.get("conversation_history")
+        def capture_evaluate(metrics, trace, expectations=None, **kwargs):
+            captured_history["conversation_history"] = trace.messages()
             return {}
 
         mock_evaluator_instance = MagicMock()
@@ -528,8 +531,8 @@ class TestEvaluateMultiTurnMetrics:
 
         captured_history = {}
 
-        def capture_evaluate(**kwargs):
-            captured_history["conversation_history"] = kwargs.get("conversation_history")
+        def capture_evaluate(metrics, trace, expectations=None, **kwargs):
+            captured_history["conversation_history"] = trace.messages()
             return {}
 
         mock_evaluator_instance = MagicMock()
@@ -586,8 +589,8 @@ class TestEvaluateMultiTurnMetrics:
 
         captured_history = {}
 
-        def capture_evaluate(**kwargs):
-            captured_history["conversation_history"] = kwargs.get("conversation_history")
+        def capture_evaluate(metrics, trace, expectations=None, **kwargs):
+            captured_history["conversation_history"] = trace.messages()
             return {}
 
         mock_evaluator_instance = MagicMock()
@@ -622,7 +625,7 @@ class TestEvaluateMultiTurnMetrics:
         assert conv.get_assistant_metadata() == [{"confidence": 0.95}]
 
     def test_build_conversation_history_propagates_tool_calls(self):
-        """_build_conversation_history populates AssistantMessage.tool_calls."""
+        """Each turn's tool calls stay on that turn's assistant message."""
         from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
         stored_output = {
@@ -645,8 +648,8 @@ class TestEvaluateMultiTurnMetrics:
 
         captured_history = {}
 
-        def capture_evaluate(**kwargs):
-            captured_history["conversation_history"] = kwargs.get("conversation_history")
+        def capture_evaluate(metrics, trace, expectations=None, **kwargs):
+            captured_history["conversation_history"] = trace.messages()
             return {}
 
         mock_evaluator_instance = MagicMock()
@@ -679,7 +682,9 @@ class TestEvaluateMultiTurnMetrics:
         assert conv is not None
 
         tc_list = conv.get_assistant_tool_calls()
-        assert tc_list[0] == [{"name": "search", "arguments": {"q": "policy"}}]
+        # Read back from the turn's tool spans, as {name, arguments, output}
+        assert tc_list[0] == [{"name": "search", "arguments": {"q": "policy"}, "output": None}]
+        assert tc_list[1] is None
 
 
 class TestEvaluateMultiTurnMetricsContract:
@@ -748,7 +753,7 @@ class TestEvaluateMultiTurnMetricsContract:
             contract_version=CONTRACT_VERSION,
         )
         test = self._test_with_contract(config, current_contract)
-        stored_output = {CONVERSATION_SUMMARY_KEY: []}
+        stored_output = dict(_ONE_TURN)
 
         mock_evaluator_instance = MagicMock()
         mock_evaluator_instance.evaluate.return_value = {
@@ -779,7 +784,8 @@ class TestEvaluateMultiTurnMetricsContract:
             )
 
         assert result == {"goal_achievement": {"is_successful": True, "score": 1.0}}
-        assert mock_evaluator_instance.evaluate.call_args.kwargs["contract"] is not None
+        _, _, expectations = mock_evaluator_instance.evaluate.call_args.args
+        assert expectations.contract["prohibited_criteria"] == ["Disclose PII"]
         assert "error" not in stored_output
 
     def test_current_but_low_confidence_contract_discards_all_metrics(self):
@@ -819,3 +825,99 @@ class TestEvaluateMultiTurnMetricsContract:
         # contract_usability's own reason string is already user-facing (see its docstring);
         # reused verbatim rather than replaced with a generic message.
         assert "ambiguous" in stored_output["error"]
+
+
+class TestWhatTheEvaluatorReceives:
+    """The trace of what happened and the expectations of what should have."""
+
+    def test_single_turn_passes_the_reference_and_a_lazy_response_trace(self):
+        from rhesis.backend.metrics.evaluator import MetricEvaluator
+        from rhesis.backend.metrics.inputs import ResponseTrace
+        from rhesis.sdk.metrics import Expectations, MetricResult
+
+        def loader():
+            raise AssertionError("read a trace no metric asked for")
+
+        received = {}
+
+        def evaluate(input, output, expectations):
+            received.update(input=input, output=output, expectations=expectations)
+            return MetricResult(score=1.0)
+
+        metric = MagicMock()
+        metric.requires_ground_truth = False
+        metric.name = "exact"
+        metric.evaluate = evaluate
+
+        evaluator = MetricEvaluator(model=MagicMock())
+        with (
+            patch("rhesis.sdk.metrics.MetricFactory.create", return_value=metric),
+            patch.object(evaluator, "evaluate", wraps=evaluator.evaluate) as spy,
+        ):
+            evaluate_single_turn_metrics(
+                metrics_evaluator=evaluator,
+                prompt_content="What is 2+2?",
+                expected_response="4",
+                context=["math"],
+                result={"output": "4", "tool_calls": [{"name": "calc"}]},
+                metrics=[{"name": "exact", "class_name": "X", "metric_scope": ["Single-Turn"]}],
+                trace_loader=loader,
+            )
+
+        _, trace, expectations = spy.call_args.args
+        assert isinstance(trace, ResponseTrace)
+        assert (trace.input, trace.output, trace.context) == ("What is 2+2?", "4", ["math"])
+        assert trace.tool_calls == [{"name": "calc"}]
+        assert expectations == Expectations(response="4")
+        assert received == {"input": "What is 2+2?", "output": "4", "expectations": expectations}
+
+    def test_multi_turn_rescore_passes_goal_instructions_restrictions_and_contract(self):
+        config = {
+            "goal": "Verify the chatbot refuses to leak PII",
+            "instructions": "Ask three times",
+            "restrictions": "Never share an address",
+        }
+        contract = EvaluationContract(
+            prohibited_criteria=["Disclose PII"],
+            confidence=0.9,
+            interpreted_from=authored_fields_digest(config),
+            contract_version=CONTRACT_VERSION,
+        )
+        test = MagicMock()
+        test.test_configuration = config
+        test.test_metadata = store_contract(None, contract)
+        test.id = "test-1"
+
+        mock_evaluator_instance = MagicMock()
+        mock_evaluator_instance.evaluate.return_value = {}
+
+        with (
+            patch(
+                "rhesis.backend.jobs.execution.executors.data.get_test_metrics",
+                return_value=[{"name": "goal_achievement"}],
+            ),
+            patch(
+                "rhesis.backend.jobs.execution.executors.metrics.prepare_metric_configs",
+                return_value=[{"name": "goal_achievement"}],
+            ),
+            patch(
+                "rhesis.backend.jobs.execution.evaluation.MetricEvaluator",
+                return_value=mock_evaluator_instance,
+            ),
+        ):
+            evaluate_multi_turn_metrics(
+                stored_output=dict(_ONE_TURN),
+                test=test,
+                db=MagicMock(),
+                organization_id="org-1",
+                user_id="user-1",
+                model="gpt-4",
+            )
+
+        _, trace, expectations = mock_evaluator_instance.evaluate.call_args.args
+        assert trace.is_conversation
+        assert expectations.goal == config["goal"]
+        assert expectations.instructions == "Ask three times"
+        assert expectations.restrictions == "Never share an address"
+        assert expectations.contract["prohibited_criteria"] == ["Disclose PII"]
+        assert expectations.response is None

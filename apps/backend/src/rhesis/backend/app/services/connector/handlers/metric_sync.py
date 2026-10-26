@@ -202,8 +202,9 @@ def _update_existing_metric(
     metric.score_type = score_type
 
     accepted_params = metric_data.get("parameters", list(DEFAULT_METRIC_PARAMS))
-    metric.ground_truth_required = "expected_output" in accepted_params
-    metric.context_required = "context" in accepted_params
+    metric.ground_truth_required = "expectations" in accepted_params
+    # Context is read from the trace, so whether a metric needs it can't be told here.
+    metric.context_required = False
 
     _set_sdk_connection(metric, metric.name, accepted_params)
 
@@ -253,8 +254,8 @@ def _create_new_metric(
             backend_type_id=backend_type.id,
             metric_type_id=metric_type.id if metric_type else None,
             status_id=active_status.id if active_status else None,
-            ground_truth_required="expected_output" in accepted_params,
-            context_required="context" in accepted_params,
+            ground_truth_required="expectations" in accepted_params,
+            context_required=False,
             metric_scope=["Single-Turn"],
             evaluation_examples=_with_sdk_connection(None, metric_name, accepted_params),
         ),

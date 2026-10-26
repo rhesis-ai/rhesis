@@ -19,7 +19,7 @@ class Test:
     context: Optional[List[str]] = None
     # additional parameters passed to the model tested
     additional_params: Optional[Dict[str, Any]] = field(default_factory=dict)
-    
+
     ##### expectation #####
     expected_text: Optional[str] = None
 
@@ -42,7 +42,7 @@ class TestResult:
     context: Optional[List[str]] = None
     # additional parameters passed to the model tested
     additional_params: Optional[Dict[str, Any]] = field(default_factory=dict)
-    
+
     ##### expectation #####
     expected_text: Optional[str] = None
 

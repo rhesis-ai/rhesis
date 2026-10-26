@@ -8,7 +8,9 @@ and will serve as regression guards during the migration to SDK metrics.
 from unittest.mock import MagicMock, patch
 
 from rhesis.backend.metrics import Evaluator, MetricResult
+from rhesis.backend.metrics.inputs import ResponseTrace
 from rhesis.backend.metrics.strategies.local import LocalStrategy
+from rhesis.sdk.metrics import Expectations
 
 
 class TestLocalStrategyInit:
@@ -57,11 +59,9 @@ class TestEvaluatorBehavior:
 
         evaluator = Evaluator()
         results = evaluator.evaluate(
-            input_text="What is 2+2?",
-            expected_output="4",
-            output_text="The answer is 4",
-            context=[],
-            metrics=[numeric_metric_config],
+            [numeric_metric_config],
+            ResponseTrace("What is 2+2?", "The answer is 4"),
+            Expectations(response="4"),
         )
 
         assert results is not None
@@ -94,11 +94,9 @@ class TestEvaluatorBehavior:
 
         evaluator = Evaluator()
         results = evaluator.evaluate(
-            input_text="Test input",
-            expected_output="Expected",
-            output_text="Actual output",
-            context=[],
-            metrics=[numeric_metric_config, categorical_metric_config],
+            [numeric_metric_config, categorical_metric_config],
+            ResponseTrace("Test input", "Actual output"),
+            Expectations(response="Expected"),
         )
 
         assert results is not None
@@ -120,11 +118,9 @@ class TestEvaluatorBehavior:
 
         evaluator = Evaluator()
         results = evaluator.evaluate(
-            input_text="Test input",
-            expected_output=None,  # No ground truth provided
-            output_text="Actual output",
-            context=[],
-            metrics=[config_with_gt],
+            [config_with_gt],
+            ResponseTrace("Test input", "Actual output"),
+            None,
         )
 
         # Metric should be skipped since ground truth is required but not provided
@@ -156,11 +152,9 @@ class TestEvaluatorBehavior:
 
         evaluator = Evaluator()
         results = evaluator.evaluate(
-            input_text="Test input",
-            expected_output="Expected",
-            output_text="Actual output",
-            context=[],
-            metrics=[numeric_metric_config, categorical_metric_config],
+            [numeric_metric_config, categorical_metric_config],
+            ResponseTrace("Test input", "Actual output"),
+            Expectations(response="Expected"),
         )
 
         # Should return results despite one metric failing
@@ -180,11 +174,9 @@ class TestEvaluatorBehavior:
 
         evaluator = Evaluator()
         results = evaluator.evaluate(
-            input_text="Test input",
-            expected_output="Expected",
-            output_text="Actual output",
-            context=[],
-            metrics=[numeric_metric_config],
+            [numeric_metric_config],
+            ResponseTrace("Test input", "Actual output"),
+            Expectations(response="Expected"),
         )
 
         # Should return results structure even if metrics fail
@@ -206,11 +198,9 @@ class TestEvaluatorBehavior:
         context = ["Context 1", "Context 2"]
         evaluator = Evaluator()
         results = evaluator.evaluate(
-            input_text="Test input",
-            expected_output="Expected",
-            output_text="Actual output",
-            context=context,
-            metrics=[numeric_metric_config],
+            [numeric_metric_config],
+            ResponseTrace("Test input", "Actual output", context=context),
+            Expectations(response="Expected"),
         )
 
         assert results is not None
@@ -222,11 +212,9 @@ class TestEvaluatorBehavior:
         """Test evaluator with empty metrics list."""
         evaluator = Evaluator()
         results = evaluator.evaluate(
-            input_text="Test input",
-            expected_output="Expected",
-            output_text="Actual output",
-            context=[],
-            metrics=[],
+            [],
+            ResponseTrace("Test input", "Actual output"),
+            Expectations(response="Expected"),
         )
 
         # Should return empty or minimal results
@@ -247,11 +235,9 @@ class TestEvaluatorBehavior:
 
         evaluator = Evaluator()
         results = evaluator.evaluate(
-            input_text="Test input",
-            expected_output="Expected",
-            output_text="Actual output",
-            context=[],
-            metrics=[numeric_metric_config],
+            [numeric_metric_config],
+            ResponseTrace("Test input", "Actual output"),
+            Expectations(response="Expected"),
         )
 
         # Verify structure (exact structure depends on implementation)

@@ -8,13 +8,13 @@ from unittest.mock import patch
 
 import pytest
 
-from rhesis.backend.metrics.inputs import EvaluationInputs
+from rhesis.backend.metrics.inputs import EvaluationInputs, ResponseTrace
 from rhesis.backend.metrics.strategies.local import (
     NO_JUDGE_MODEL_REASON,
     LocalStrategy,
     prepare_metrics,
 )
-from rhesis.sdk.metrics import MetricConfig
+from rhesis.sdk.metrics import Expectations, MetricConfig
 
 
 def _numeric(name="helpfulness"):
@@ -31,9 +31,7 @@ def _numeric(name="helpfulness"):
 def test_a_metric_without_a_model_is_refused_before_the_sdk_builds_one():
     refused = []
     with patch("rhesis.sdk.metrics.MetricFactory.create") as create:
-        tasks = prepare_metrics(
-            [_numeric()], "expected", [], model=None, refused=refused, require_model=True
-        )
+        tasks = prepare_metrics([_numeric()], model=None, refused=refused, require_model=True)
 
     create.assert_not_called()
     assert tasks == []
@@ -47,7 +45,10 @@ def test_a_metric_without_a_model_is_refused_before_the_sdk_builds_one():
 def test_the_run_sees_the_metric_as_errored():
     strategy = LocalStrategy(model=None, require_model=True)
 
-    results = strategy.evaluate([_numeric()], EvaluationInputs("in", "out", "expected", []))
+    results = strategy.evaluate(
+        [_numeric()],
+        EvaluationInputs(ResponseTrace("in", "out"), Expectations(response="expected")),
+    )
 
     assert results["helpfulness"]["reason"] == NO_JUDGE_MODEL_REASON
 
@@ -56,7 +57,7 @@ def test_the_run_sees_the_metric_as_errored():
 def test_a_metric_with_a_model_is_unaffected():
     model = object()
     with patch("rhesis.sdk.metrics.MetricFactory.create") as create:
-        tasks = prepare_metrics([_numeric()], "expected", [], model=model, require_model=True)
+        tasks = prepare_metrics([_numeric()], model=model, require_model=True)
 
     assert len(tasks) == 1
     assert create.call_args.kwargs["model"] is model
@@ -66,7 +67,7 @@ def test_a_metric_with_a_model_is_unaffected():
 def test_other_callers_keep_the_old_behaviour():
     """Only test runs opt in."""
     with patch("rhesis.sdk.metrics.MetricFactory.create") as create:
-        tasks = prepare_metrics([_numeric()], "expected", [], model=None)
+        tasks = prepare_metrics([_numeric()], model=None)
 
     assert len(tasks) == 1
     assert "model" not in create.call_args.kwargs

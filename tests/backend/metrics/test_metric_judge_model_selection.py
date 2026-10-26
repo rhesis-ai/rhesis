@@ -121,7 +121,6 @@ class TestPrepareMetricsHonoursTheOverride:
         with patch("rhesis.sdk.metrics.MetricFactory.create", side_effect=create):
             tasks = prepare_metrics(
                 [_config_with_model_id()],
-                expected_output=None,
                 model=default_model,
                 db=None,
                 metric_models={MODEL_ID: pre_resolved},
@@ -138,7 +137,6 @@ class TestPrepareMetricsHonoursTheOverride:
         with patch("rhesis.sdk.metrics.MetricFactory.create", side_effect=create):
             prepare_metrics(
                 [_config_with_model_id()],
-                expected_output=None,
                 model=default_model,
                 db=None,
                 metric_models={MODEL_ID: None},
@@ -153,7 +151,6 @@ class TestPrepareMetricsHonoursTheOverride:
         with patch("rhesis.sdk.metrics.MetricFactory.create", side_effect=create):
             prepare_metrics(
                 [_config_with_model_id(model_id=None)],
-                expected_output=None,
                 model=default_model,
                 db=None,
                 metric_models={},

@@ -15,6 +15,9 @@ from rhesis.backend.app.schemas.metric_types import (
     ScoreType,
     ThresholdOperator,
 )
+from rhesis.backend.metrics.evaluator import MetricEvaluator as Evaluator
+from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
+from rhesis.backend.metrics.utils import diagnose_invalid_metric
 from rhesis.sdk.metrics import (
     BaseMetric,
     CategoricalJudge,
@@ -25,15 +28,10 @@ from rhesis.sdk.metrics import (
     NumericJudge,
 )
 
-from .evaluator import MetricEvaluator as Evaluator
-from .score_evaluator import ScoreEvaluator
-from .utils import diagnose_invalid_metric, run_evaluation
-
 __all__ = [
     # Backend orchestration
     "Evaluator",
     "ScoreEvaluator",
-    "run_evaluation",
     "diagnose_invalid_metric",
     # Types and utilities
     "ScoreType",

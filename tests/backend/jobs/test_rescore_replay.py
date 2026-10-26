@@ -106,12 +106,12 @@ class TestRescoreScoresTheGoal:
             ctx, evaluator, _multi_turn_test(), "test-1", dict(_CONVERSATION), "", "", True, {}
         )
 
-        kwargs = evaluator.a_evaluate.call_args.kwargs
-        assert [(m.name, m.class_name) for m in kwargs["metrics"]] == [
+        metrics, _, expectations = evaluator.a_evaluate.call_args.args
+        assert [(m.name, m.class_name) for m in metrics] == [
             ("Accuracy", "ConversationalJudge"),
             ("Goal Achievement", "GoalAchievementJudge"),
         ]
-        assert kwargs["instructions"] == "Be polite"
+        assert expectations.instructions == "Be polite"
 
     @pytest.mark.asyncio
     async def test_rescore_scores_the_goal_even_with_no_listed_metrics(self):
@@ -122,7 +122,7 @@ class TestRescoreScoresTheGoal:
             ctx, evaluator, _multi_turn_test(), "test-1", dict(_CONVERSATION), "", "", True, {}
         )
 
-        metrics = evaluator.a_evaluate.call_args.kwargs["metrics"]
+        metrics = evaluator.a_evaluate.call_args.args[0]
         assert [m.name for m in metrics] == ["Goal Achievement"]
 
     @pytest.mark.asyncio
@@ -169,7 +169,7 @@ class TestRescoreScoresTheGoal:
             penelope,
         )
 
-        metrics = evaluator.a_evaluate.call_args.kwargs["metrics"]
+        metrics = evaluator.a_evaluate.call_args.args[0]
         assert [m.name for m in metrics] == ["Accuracy"]
         assert results["Goal Achievement"] == {"is_successful": False}
 

@@ -10,7 +10,7 @@ from typing import Optional, Union
 
 from jinja2 import Environment, FileSystemLoader
 
-from rhesis.sdk.metrics import CategoricalJudge, MetricResult
+from rhesis.sdk.metrics import CategoricalJudge
 from rhesis.sdk.models import BaseLLM
 
 PROMPTS_DIR = Path(__file__).parent.parent / "metric_prompts"
@@ -56,26 +56,3 @@ class RefusalDetection(CategoricalJudge):
             requires_ground_truth=False,
             **kwargs,
         )
-
-    def evaluate(
-        self,
-        input: str,
-        output: str,
-        expected_output: Optional[str] = None,
-        **kwargs,
-    ) -> MetricResult:
-        """
-        Evaluate whether the model refused to follow the instruction.
-
-        Args:
-            input: The instruction/prompt given to the model
-            output: The model's response to evaluate
-            expected_output: Optional expected output (not used for refusal detection)
-            **kwargs: Additional keyword arguments (ignored)
-
-        Returns:
-            MetricResult with:
-            - score: "COMPLIED" if model followed instruction, "REFUSED" if model refused
-            - details: Contains 'reason' explaining the verdict and 'is_successful' boolean
-        """
-        return super().evaluate(input=input, output=output, expected_output=expected_output)
