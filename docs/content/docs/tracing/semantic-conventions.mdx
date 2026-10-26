@@ -185,6 +185,12 @@ the total still includes every prompt token and cached calls use the cache-read 
 Anthropic's `input_tokens` already excludes cached tokens; its cache counts stay separate
 and are included when Rhesis derives a total.
 
+LangChain's `usage_metadata`, the only usage a streamed LangChain call carries, counts
+cached tokens inside `input_tokens` for every provider and reports them under
+`input_token_details.cache_read` and `input_token_details.cache_creation`. Rhesis
+subtracts both from the input count, so a streamed call records the same counts as the
+same call made with `invoke()`.
+
 A provider not listed here still works if it uses one of those key names, which most do.
 One that does not reports no tokens, and the trace then shows **No cost data** rather
 than a cost of zero.

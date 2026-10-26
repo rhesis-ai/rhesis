@@ -335,3 +335,83 @@ class TestOpenAICachedTokens:
         usage["usage"] = usage
 
         assert extract_token_usage(usage) == (10, 5, 15)
+
+
+class TestLangChainUsageMetadata:
+    """LangChain's input_tokens includes cached tokens, which it reports in input_token_details.
+
+    These are the shapes langchain-openai and langchain-anthropic put on a message's
+    usage_metadata, the only usage a streamed call carries.
+    """
+
+    def test_openai_cache_read_is_taken_out_of_the_input_count(self):
+        usage = {
+            "input_tokens": 1000,
+            "output_tokens": 20,
+            "total_tokens": 1020,
+            "input_token_details": {"audio": 0, "cache_read": 800},
+            "output_token_details": {"audio": 0, "reasoning": 0},
+        }
+
+        assert extract_token_usage(usage) == (200, 20, 1020)
+        assert extract_cache_tokens(usage) == (0, 800)
+
+    def test_anthropic_cache_write_and_read_are_both_taken_out(self):
+        usage = {
+            "input_tokens": 5050,
+            "output_tokens": 20,
+            "total_tokens": 5070,
+            "input_token_details": {"cache_creation": 1000, "cache_read": 4000},
+        }
+
+        input_tokens, output_tokens, total_tokens = extract_token_usage(usage)
+        cache_write, cache_read = extract_cache_tokens(usage)
+
+        assert (input_tokens, output_tokens, total_tokens) == (50, 20, 5070)
+        assert (cache_write, cache_read) == (1000, 4000)
+        assert input_tokens + output_tokens + cache_write + cache_read == total_tokens
+
+    def test_anthropic_writes_split_by_ttl_are_summed(self):
+        # langchain-anthropic zeroes cache_creation when the API breaks writes down by TTL.
+        usage = {
+            "input_tokens": 5050,
+            "output_tokens": 20,
+            "total_tokens": 5070,
+            "input_token_details": {
+                "cache_read": 4000,
+                "cache_creation": 0,
+                "ephemeral_5m_input_tokens": 600,
+                "ephemeral_1h_input_tokens": 400,
+            },
+        }
+
+        assert extract_token_usage(usage) == (50, 20, 5070)
+        assert extract_cache_tokens(usage) == (1000, 4000)
+
+    def test_a_call_that_used_no_cache_is_unchanged(self):
+        usage = {
+            "input_tokens": 12,
+            "output_tokens": 8,
+            "total_tokens": 20,
+            "input_token_details": {"audio": 0},
+        }
+
+        assert extract_token_usage(usage) == (12, 8, 20)
+        assert extract_cache_tokens(usage) == (0, 0)
+
+    def test_anthropic_native_usage_with_a_ttl_breakdown_is_unchanged(self):
+        """Anthropic's own input_tokens excludes cached tokens, so nothing is subtracted."""
+        from anthropic.types import CacheCreation, Usage
+
+        usage = Usage(
+            input_tokens=50,
+            output_tokens=20,
+            cache_creation_input_tokens=1000,
+            cache_read_input_tokens=4000,
+            cache_creation=CacheCreation(
+                ephemeral_5m_input_tokens=1000, ephemeral_1h_input_tokens=0
+            ),
+        )
+
+        assert extract_token_usage(usage) == (50, 20, 5070)
+        assert extract_cache_tokens(usage) == (1000, 4000)

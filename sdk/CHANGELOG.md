@@ -74,6 +74,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   goes to the first tool that serves its name.
 - Normalized cached prompt usage for OpenAI and LiteLLM so separately billed cache reads and
   writes stay out of `input_tokens`, while provider-reported totals remain unchanged.
+- Streamed LangChain calls record their cache reads and writes. They carry usage only on
+  `usage_metadata`, whose `input_tokens` includes cached tokens, so every cached token was
+  priced at the full input rate. A streamed call now records the same token counts as the same
+  call made with `invoke()`.
 
 ### Removed
 - **BREAKING:** Removed the Ragas metric provider. `RagasMetricBase`, `RagasAnswerAccuracy`,

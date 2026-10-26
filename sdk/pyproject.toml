@@ -205,6 +205,11 @@ dev = [
     # them.
     "anthropic>=0.40.0",
     "cohere>=5.13.0",
+    # Same reasoning for the LangChain chat models: tests/sdk/telemetry/integrations/
+    # test_langchain_tokens.py streams real ChatOpenAI and ChatAnthropic responses over a
+    # fake HTTP transport, so the usage_metadata it reads is what LangChain builds.
+    "langchain-anthropic>=1.7.0",
+    "langchain-openai>=1.4.0",
     "mistralai>=1.2.0",
 ]
 
