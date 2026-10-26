@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "clickup": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@hauptsache.net/clickup-mcp@1.9.0"],
+      "env": {
+        "CLICKUP_API_KEY": {{ CLICKUP_API_KEY | tojson }},
+        "CLICKUP_TEAM_ID": {{ CLICKUP_TEAM_ID | tojson }},
+        "CLICKUP_MCP_MODE": "read"
+      }
+    }
+  }
+}

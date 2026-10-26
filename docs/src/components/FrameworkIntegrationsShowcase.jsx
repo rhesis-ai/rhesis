@@ -84,6 +84,12 @@ const TOOL_ITEMS = [
     kind: 'simpleIcon',
   },
   {
+    name: 'ClickUp',
+    href: '/docs/tools#clickup',
+    src: '/integrations/providers/clickup.svg',
+    kind: 'simpleIcon',
+  },
+  {
     name: 'GitHub',
     href: '/docs/tools#github',
     src: '/integrations/providers/github.svg',
