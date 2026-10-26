@@ -23,6 +23,8 @@ export interface DetailTabNavProps {
   tabGap?: string | number;
   /** Keep tabs on one row with horizontal scroll when they overflow. */
   scrollable?: boolean;
+  /** `compact`: 14px labels and a 2px underline that sits on the row's bottom edge, for dense panels. */
+  size?: 'default' | 'compact';
   sx?: SxProps<Theme>;
 }
 
@@ -38,8 +40,10 @@ export function DetailTabNav({
   'aria-label': ariaLabel = 'Detail page tabs',
   tabGap = '50px',
   scrollable = false,
+  size = 'default',
   sx,
 }: DetailTabNavProps) {
+  const compact = size === 'compact';
   const tabRefs = React.useRef<(HTMLButtonElement | null)[]>([]);
 
   const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
@@ -65,13 +69,13 @@ export function DetailTabNav({
         {
           display: 'flex',
           gap: tabGap,
-          alignItems: 'flex-start',
+          alignItems: compact ? 'stretch' : 'flex-start',
           flexWrap: scrollable ? 'nowrap' : 'wrap',
           ...(scrollable
             ? {
                 overflowX: 'auto',
                 overflowY: 'hidden',
-                pb: '2px',
+                pb: compact ? 0 : '2px',
                 scrollbarWidth: 'thin',
               }
             : {}),
@@ -104,6 +108,17 @@ export function DetailTabNav({
               py: '5px',
               px: 0,
               border: 'none',
+              ...(compact
+                ? {
+                    justifyContent: 'center',
+                    gap: 0,
+                    py: 0,
+                    borderBottom: '2px solid',
+                    borderBottomColor: selected
+                      ? 'greyscale.title'
+                      : 'transparent',
+                  }
+                : {}),
               background: 'transparent',
               cursor: 'pointer',
               outline: 'none',
@@ -127,10 +142,11 @@ export function DetailTabNav({
             >
               <Typography
                 component="span"
+                variant={compact ? 'body2' : undefined}
                 sx={{
-                  fontSize: 18,
-                  fontWeight: 700,
-                  lineHeight: '25px',
+                  ...(compact
+                    ? { fontWeight: 600 }
+                    : { fontSize: 18, fontWeight: 700, lineHeight: '25px' }),
                   color: theme =>
                     selected
                       ? theme.palette.greyscale.title
@@ -142,7 +158,7 @@ export function DetailTabNav({
               </Typography>
               {tab.badge}
             </Box>
-            {selected ? (
+            {selected && !compact ? (
               <Box
                 aria-hidden
                 sx={{

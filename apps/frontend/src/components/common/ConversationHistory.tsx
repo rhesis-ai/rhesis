@@ -37,6 +37,7 @@ import { Project } from '@/utils/api-client/interfaces/project';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import ResultCheckCard from '@/components/common/ResultCheckCard';
+import CheckSection from '@/components/common/CheckSection';
 import ConversationResult from '@/components/common/ConversationResult';
 import type { MetricsSource } from '@/utils/api-client/interfaces/test-configuration';
 import {
@@ -110,6 +111,10 @@ interface ConversationHistoryProps {
   /** Names the group of metrics that came from the test's requirement. */
   requirementName?: string;
   metricsSource?: MetricsSource | string;
+  /** `compact` tightens spacing for side panels such as the trace drawer. */
+  density?: 'comfortable' | 'compact';
+  /** Highlights this turn, e.g. the one whose span is open beside the conversation. */
+  selectedTurn?: number | null;
   /** Required when turns carry penelope_files for authenticated downloads. */
 }
 
@@ -149,8 +154,12 @@ export default function ConversationHistory({
   onOverrideVerdict,
   onUndoReview,
   isUndoingReview = false,
+  density = 'comfortable',
+  selectedTurn = null,
 }: ConversationHistoryProps) {
   const theme = useTheme();
+  const compact = density === 'compact';
+  const bubblePadding = compact ? { py: 1, px: 1.5 } : { p: 2 };
   const { status } = useSession();
 
   const handleDownloadFile = useCallback(
@@ -272,7 +281,7 @@ export default function ConversationHistory({
         maxHeight,
         height: maxHeight === '100%' ? '100%' : 'auto',
         overflow: 'auto',
-        p: 3,
+        ...(compact ? { px: 2, py: 1.5 } : { p: 3 }),
         bgcolor: 'transparent',
         flex: maxHeight === '100%' ? 1 : 'none',
         width: '100%',
@@ -315,14 +324,35 @@ export default function ConversationHistory({
         const turnIsConfirmed = !!turnAnnotation && !turnIsOverruled;
 
         return (
-          <Box key={turn.turn} sx={{ mb: 4 }}>
+          <Box
+            key={turn.turn}
+            aria-current={turn.turn === selectedTurn ? 'true' : undefined}
+            sx={
+              compact
+                ? {
+                    mb: 1,
+                    p: 1.25,
+                    borderRadius: BORDER_RADIUS.md,
+                    border: 1,
+                    borderColor:
+                      turn.turn === selectedTurn
+                        ? alpha(theme.palette.primary.main, 0.35)
+                        : 'transparent',
+                    bgcolor:
+                      turn.turn === selectedTurn
+                        ? alpha(theme.palette.primary.main, 0.04)
+                        : 'transparent',
+                  }
+                : { mb: 4 }
+            }
+          >
             {/* Turn header: a section divider, so turns read as sections and not as chat */}
             <Box
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 1.5,
-                mb: 2.5,
+                gap: compact ? 1 : 1.5,
+                mb: compact ? 1 : 2.5,
               }}
             >
               <Tooltip
@@ -393,6 +423,9 @@ export default function ConversationHistory({
                     textTransform: 'none',
                     fontWeight: 500,
                     whiteSpace: 'nowrap',
+                    ...(compact
+                      ? { typography: 'caption', py: 0, px: 1.25 }
+                      : {}),
                   }}
                 >
                   {findingsLabel(turnGroups)}
@@ -452,21 +485,31 @@ export default function ConversationHistory({
                   sx={{
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 1.5,
-                    ml: 4,
-                    mb: 2.5,
-                    p: 1.5,
+                    gap: compact ? 0.5 : 1.5,
+                    ml: compact ? 0 : 4,
+                    mb: compact ? 1 : 2.5,
+                    ...(compact ? { px: 1.5, py: 0.5 } : { p: 1.5 }),
                     borderRadius: BORDER_RADIUS.md,
                     bgcolor: 'action.hover',
+                    // The first compact section needs no rule above it.
+                    '& > section:first-of-type': { borderTop: 0 },
                   }}
                 >
-                  {turnGroups.map(group => (
-                    <ResultCheckCard
-                      key={`${turn.turn}-${group.key}`}
-                      group={group}
-                      flat
-                    />
-                  ))}
+                  {turnGroups.map(group =>
+                    compact ? (
+                      <CheckSection
+                        key={`${turn.turn}-${group.key}`}
+                        title={group.title}
+                        checks={group.checks}
+                      />
+                    ) : (
+                      <ResultCheckCard
+                        key={`${turn.turn}-${group.key}`}
+                        group={group}
+                        flat
+                      />
+                    )
+                  )}
                 </Box>
               </Collapse>
             )}
@@ -476,7 +519,7 @@ export default function ConversationHistory({
               sx={{
                 display: 'flex',
                 gap: 1.5,
-                mb: 2,
+                mb: compact ? 1 : 2,
                 alignItems: 'flex-start',
               }}
             >
@@ -498,8 +541,8 @@ export default function ConversationHistory({
               <Paper
                 elevation={0}
                 sx={{
-                  p: 2,
-                  maxWidth: '85%',
+                  ...bubblePadding,
+                  maxWidth: compact ? '88%' : '85%',
                   bgcolor: 'background.paper',
                   border: `1px solid ${theme.palette.divider}`,
                   borderLeft: `3px solid ${theme.palette.primary.main}`,
@@ -672,8 +715,8 @@ export default function ConversationHistory({
                   onResponseClick ? () => onResponseClick(turn.turn) : undefined
                 }
                 sx={{
-                  p: 2,
-                  maxWidth: '85%',
+                  ...bubblePadding,
+                  maxWidth: compact ? '88%' : '85%',
                   bgcolor: theme.palette.background.paper,
                   border: `1px solid ${theme.palette.divider}`,
                   borderRight: `3px solid ${theme.palette.warning.main}`,

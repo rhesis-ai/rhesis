@@ -1,4 +1,4 @@
-import { VERSION_INFO_ATTRIBUTE, parseVersionInfo } from '../SpanDetailsPanel';
+import { VERSION_INFO_ATTRIBUTE, parseVersionInfo } from '../span-io';
 
 describe('VERSION_INFO_ATTRIBUTE', () => {
   it('matches the key the backend writes on the span', () => {

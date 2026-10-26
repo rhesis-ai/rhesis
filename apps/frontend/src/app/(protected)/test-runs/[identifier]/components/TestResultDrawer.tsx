@@ -28,6 +28,7 @@ import TestDetailConversationTab from './TestDetailConversationTab';
 import TestDetailEvaluationTab from './TestDetailEvaluationTab';
 import TestDetailHistoryTab from './TestDetailHistoryTab';
 import TestDetailAnnotationsTab from './TestDetailAnnotationsTab';
+import TestDetailTracesTab from './TestDetailTracesTab';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -39,19 +40,21 @@ import { EntityType } from '@/types/entity-type';
 export const TEST_RESULT_DRAWER_TAB = {
   conversation: 0,
   evaluation: 1,
-  annotations: 2,
-  history: 3,
-  tasks: 4,
+  traces: 2,
+  annotations: 3,
+  history: 4,
+  tasks: 5,
   /** Aliases, so links shared before the Overview tab went still open a tab. */
   overview: 0,
   metrics: 1,
-  reviews: 2,
+  reviews: 3,
 } as const;
 
 // In display order; ids and panels come from TEST_RESULT_DRAWER_TAB, so a reorder is one edit.
 const TAB_LABELS = [
   ['conversation', 'Conversation'],
   ['evaluation', 'Evaluation'],
+  ['traces', 'Traces'],
   ['annotations', 'Annotations'],
   ['history', 'History'],
   ['tasks', 'Tasks & Comments'],
@@ -498,6 +501,16 @@ export default function TestResultDrawer({
                 test.test?.prompt?.expected_response
               }
               onAnnotateMetric={handleAnnotateMetric}
+            />
+          </TabPanel>
+
+          <TabPanel value={activeTab} index={TAB.traces}>
+            <TestDetailTracesTab
+              test={test}
+              active={activeTab === TAB.traces}
+              currentUserId={currentUserId}
+              currentUserName={currentUserName}
+              currentUserPicture={currentUserPicture}
             />
           </TabPanel>
 

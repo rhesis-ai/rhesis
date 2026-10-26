@@ -159,9 +159,10 @@ async function selectedDetails() {
 }
 
 function selectedTab() {
-  return screen
-    .getAllByRole('tab')
-    .find(tab => tab.getAttribute('aria-selected') === 'true')?.textContent;
+  return within(screen.getByRole('group', { name: 'Trace view' }))
+    .getAllByRole('button')
+    .find(button => button.getAttribute('aria-pressed') === 'true')
+    ?.textContent;
 }
 
 describe('TraceDrawer initial selection', () => {
