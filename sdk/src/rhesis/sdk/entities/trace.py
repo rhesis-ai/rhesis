@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from datetime import datetime
 from typing import (
@@ -96,6 +97,82 @@ def _draft_test(extraction: Dict[str, Any]) -> Test:
     )
 
 
+# Where a span keeps what went in and what came out, best source first. Events are what the
+# SDK and its framework integrations record; the attributes cover hand-set spans, the
+# endpoint invocation span (rhesis.conversation.*) and older conventions (gen_ai.*).
+_INPUT_EVENTS = (
+    ("ai.agent.input", "ai.agent.input"),
+    ("ai.tool.input", "ai.tool.input"),
+    ("ai.retrieval.query", "ai.prompt.content"),
+    ("ai.prompt", "ai.prompt.content"),
+)
+_OUTPUT_EVENTS = (
+    ("ai.agent.output", "ai.agent.output"),
+    ("ai.tool.output", "ai.tool.output"),
+    ("ai.retrieval.results", "ai.completion.content"),
+    ("ai.completion", "ai.completion.content"),
+)
+_INPUT_ATTRIBUTES = (
+    "ai.agent.input",
+    "ai.tool.arguments",
+    _CONVERSATION_INPUT,
+    "function.kwargs",
+    "gen_ai.prompt",
+)
+_OUTPUT_ATTRIBUTES = (
+    "ai.agent.output",
+    "ai.tool.output",
+    _CONVERSATION_OUTPUT,
+    "function.result",
+    "gen_ai.completion",
+)
+
+
+# Set on the invocation span by the platform, as JSON text, when the response mapping
+# exposes ``metadata``.
+_RESPONSE_METADATA = "endpoint.response.metadata"
+# Marks spans the platform made from tool calls and context the response reported.
+_SPAN_SOURCE = "rhesis.span.source"
+_REPORTED = "reported"
+
+
+def _parsed(value: Any) -> Any:
+    """A JSON object or array recorded as text, decoded; anything else as it is."""
+    if isinstance(value, str) and value[:1] in ("{", "["):
+        try:
+            return json.loads(value)
+        except ValueError:
+            return value
+    return value
+
+
+def _documents(value: Any) -> List[str]:
+    value = _parsed(value)
+    if value in (None, ""):
+        return []
+    if isinstance(value, list):
+        return [item if isinstance(item, str) else json.dumps(item, default=str) for item in value]
+    return [value if isinstance(value, str) else json.dumps(value, default=str)]
+
+
+def _from_events(events: List[Dict[str, Any]], sources: Sequence[tuple]) -> Any:
+    for event_name, key in sources:
+        for event in events:
+            if isinstance(event, dict) and event.get("name") == event_name:
+                value = (event.get("attributes") or {}).get(key)
+                if value not in (None, ""):
+                    return value
+    return None
+
+
+def _from_attributes(attributes: Dict[str, Any], keys: Sequence[str]) -> Any:
+    for key in keys:
+        value = attributes.get(key)
+        if value not in (None, ""):
+            return value
+    return None
+
+
 def _as_timestamp(value: Optional[Union[str, datetime]]) -> Optional[str]:
     """A time filter as the route wants it, accepting a datetime or an ISO string."""
     if isinstance(value, datetime):
@@ -115,6 +192,9 @@ class Span(BaseModel):
     span_id: Optional[str] = None
     span_name: Optional[str] = None
     span_kind: Optional[str] = None
+    # The operation this span is ("llm.invoke", "tool.invoke", "retrieval", ...), as the
+    # platform classified it at ingest. Read it through ``kind``.
+    span_type: Optional[str] = None
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     duration_ms: Optional[float] = None
@@ -135,6 +215,45 @@ class Span(BaseModel):
     matches_annotation: Optional[bool] = None
     annotation_summary: Optional[Dict[str, Any]] = None
     children: List["Span"] = Field(default_factory=list)
+
+    @property
+    def kind(self) -> str:
+        """What this span did: ``"llm.invoke"``, ``"tool.invoke"``, ``"retrieval"``,
+        ``"agent.invoke"`` and so on, or ``"span"`` when nothing says.
+
+        A span built outside the platform has no ``span_type``, so this applies the
+        platform's rule (``apps/backend/.../telemetry/span_types.py``): the operation
+        type if set, else a model call if the span names a model.
+        """
+        if self.span_type:
+            return self.span_type
+        operation = self.attributes.get("ai.operation.type")
+        if isinstance(operation, str) and operation:
+            return operation
+        model = self.attributes.get("ai.model.name")
+        if isinstance(model, str) and model:
+            return "llm.invoke"
+        return "span"
+
+    @property
+    def input(self) -> Any:
+        """What went into this span: a model call's prompt, a tool call's arguments,
+        a retrieval's query, an agent's task. None when the span recorded none."""
+        found = _from_events(self.events, _INPUT_EVENTS)
+        return found if found is not None else _from_attributes(self.attributes, _INPUT_ATTRIBUTES)
+
+    @property
+    def output(self) -> Any:
+        """What came out of this span: a completion, a tool result, retrieved
+        documents, an agent's answer. None when the span recorded none."""
+        found = _from_events(self.events, _OUTPUT_EVENTS)
+        return found if found is not None else _from_attributes(self.attributes, _OUTPUT_ATTRIBUTES)
+
+    @property
+    def tool_name(self) -> Optional[str]:
+        """The tool a tool span called, or None."""
+        name = self.attributes.get("ai.tool.name")
+        return name if isinstance(name, str) and name else None
 
     def _row_id(self) -> str:
         if not self.id:
@@ -374,12 +493,13 @@ class Trace(BaseEntity):
             )
         return root.id
 
-    def spans(self, *, name: Optional[str] = None) -> List[Span]:
+    def spans(self, *, name: Optional[str] = None, kind: Optional[str] = None) -> List[Span]:
         """Every span in the trace, depth first, roots included.
 
         The API returns a tree because that is the shape of a trace, but "find
         the LLM call" is the question people actually have. Pass ``name`` to keep
-        only the spans with that operation name.
+        only the spans with that operation name, and ``kind`` to keep only one
+        kind of span (``"tool.invoke"``, ``"retrieval"``; see ``Span.kind``).
 
         This fetches the detail once if the trace came from a listing, and that
         response is the large one: each span carries its attributes and events,
@@ -392,7 +512,7 @@ class Trace(BaseEntity):
         stack: List[Span] = list(reversed(self.root_spans))
         while stack:
             span = stack.pop()
-            if name is None or span.span_name == name:
+            if (name is None or span.span_name == name) and (kind is None or span.kind == kind):
                 found.append(span)
             stack.extend(reversed(span.children))
         return found
@@ -401,6 +521,64 @@ class Trace(BaseEntity):
         """The first span with this operation name, depth first, or None."""
         matches = self.spans(name=name)
         return matches[0] if matches else None
+
+    def _root(self) -> Optional[Span]:
+        # A trace built in memory has no trace_id to fetch by, only the spans it was given.
+        if self.trace_id:
+            self._ensure_detail()
+        return self.root_spans[0] if self.root_spans else None
+
+    @property
+    def input(self) -> Any:
+        """What the endpoint was sent: the root span's input. For a conversation, which has
+        a root per turn, this is the first turn's; read every turn with ``conversation()``."""
+        root = self._root()
+        if root is None:
+            return None
+        return root.attributes.get(_CONVERSATION_INPUT) or root.input
+
+    @property
+    def output(self) -> Any:
+        """What the endpoint answered: the root span's output (the first turn's, as ``input``)."""
+        root = self._root()
+        if root is None:
+            return None
+        return root.attributes.get(_CONVERSATION_OUTPUT) or root.output
+
+    def _recorded(self, kind: str) -> List[Span]:
+        """Spans of one kind, preferring those the endpoint recorded over those it only
+        reported in its response, so a call that is both counts once."""
+        spans = self.spans(kind=kind) if self._root() else []
+        recorded = [s for s in spans if s.attributes.get(_SPAN_SOURCE) != _REPORTED]
+        return recorded or spans
+
+    @property
+    def context(self) -> List[str]:
+        """The documents every retrieval in the trace returned, in order, as each retrieval
+        recorded them (some framework integrations record short previews)."""
+        found: List[str] = []
+        for span in self._recorded("retrieval"):
+            found.extend(_documents(span.output))
+        return found
+
+    @property
+    def tool_calls(self) -> List[Dict[str, Any]]:
+        """Every tool call in the trace, in order, as ``{"name", "arguments", "output"}``."""
+        return [
+            {
+                "name": span.tool_name or span.span_name,
+                "arguments": _parsed(span.input),
+                "output": _parsed(span.output),
+            }
+            for span in self._recorded("tool.invoke")
+        ]
+
+    @property
+    def metadata(self) -> Dict[str, Any]:
+        """The metadata the endpoint's response reported, or an empty dict."""
+        root = self._root()
+        value = _parsed(root.attributes.get(_RESPONSE_METADATA)) if root else None
+        return value if isinstance(value, dict) else {}
 
     def get_endpoint(self) -> Optional["Endpoint"]:
         """The endpoint this trace ran against, or None if it ran against none."""

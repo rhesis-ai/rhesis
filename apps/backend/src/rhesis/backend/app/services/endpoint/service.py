@@ -273,6 +273,7 @@ class EndpointService:
                         deferred=deferred_trace,
                         trace_id=trace_id,
                     ) as trace_ctx:
+                        context.traceparent = trace_ctx.get("traceparent")
                         result = await invoker.invoke()
                         trace_ctx["result"] = result
 

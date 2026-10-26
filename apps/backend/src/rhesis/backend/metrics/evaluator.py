@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
+from rhesis.backend.metrics.inputs import EvaluationInputs, TraceLoader
 from rhesis.backend.metrics.metric_config import validate_metric_configs
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.strategies.base import MetricStrategy, OnMetricComplete
@@ -116,6 +117,7 @@ class MetricEvaluator:
         tool_calls: Optional[List[Dict[str, Any]]] = None,
         instructions: Optional[str] = None,
         contract: Optional[Dict[str, Any]] = None,
+        trace_loader: Optional[TraceLoader] = None,
     ) -> Dict[str, Any]:
         """
         Compute metrics using the configured backends.
@@ -136,6 +138,8 @@ class MetricEvaluator:
             contract: Optional evaluation contract (see
                 ``app/schemas/evaluation_contract.py``). Likewise only consumed by
                 ``GoalAchievementJudge``.
+            trace_loader: Reads the trace of what is being evaluated, for metrics that
+                declare ``trace``. Called at most once, and only if one does.
 
         Returns:
             Dictionary containing scores and details for each metric.
@@ -159,24 +163,24 @@ class MetricEvaluator:
 
         # Step 2: group configs by backend
         configs_by_backend = self._group_by_backend(metric_configs)
+        inputs = EvaluationInputs(
+            input_text=input_text,
+            output_text=output_text,
+            expected_output=expected_output,
+            context=context,
+            conversation_history=conversation_history,
+            metadata=metadata,
+            tool_calls=tool_calls,
+            instructions=instructions,
+            contract=contract,
+            trace_loader=trace_loader,
+        )
 
         # Step 3: dispatch each group to the matching strategy
         results: Dict[str, Any] = {}
         for backend_val, backend_configs in configs_by_backend.items():
             strategy = self._strategies.get(backend_val, self._local_strategy)
-            backend_results = strategy.evaluate(
-                backend_configs,
-                input_text,
-                output_text,
-                expected_output,
-                context,
-                max_workers=max_workers,
-                conversation_history=conversation_history,
-                metadata=metadata,
-                tool_calls=tool_calls,
-                instructions=instructions,
-                contract=contract,
-            )
+            backend_results = strategy.evaluate(backend_configs, inputs, max_workers=max_workers)
             results.update(backend_results)
 
         # Step 4: merge invalid metric results
@@ -197,10 +201,11 @@ class MetricEvaluator:
         instructions: Optional[str] = None,
         contract: Optional[Dict[str, Any]] = None,
         on_metric_complete: OnMetricComplete = None,
+        trace_loader: Optional[TraceLoader] = None,
     ) -> Dict[str, Any]:
         """Async version of evaluate — dispatches backends concurrently.
 
-        See ``evaluate`` for ``instructions``/``contract``.
+        See ``evaluate`` for ``instructions``/``contract``/``trace_loader``.
         """
         if not metrics:
             logger.warning("No metrics provided for async evaluation")
@@ -213,21 +218,23 @@ class MetricEvaluator:
             return invalid_metric_results or {}
 
         configs_by_backend = self._group_by_backend(metric_configs)
+        inputs = EvaluationInputs(
+            input_text=input_text,
+            output_text=output_text,
+            expected_output=expected_output,
+            context=context,
+            conversation_history=conversation_history,
+            metadata=metadata,
+            tool_calls=tool_calls,
+            instructions=instructions,
+            contract=contract,
+            trace_loader=trace_loader,
+        )
 
         async def _run_backend(backend_val: str, backend_configs: list) -> Dict[str, Any]:
             strategy = self._strategies.get(backend_val, self._local_strategy)
             return await strategy.a_evaluate(
-                backend_configs,
-                input_text,
-                output_text,
-                expected_output,
-                context,
-                conversation_history=conversation_history,
-                metadata=metadata,
-                tool_calls=tool_calls,
-                instructions=instructions,
-                contract=contract,
-                on_metric_complete=on_metric_complete,
+                backend_configs, inputs, on_metric_complete=on_metric_complete
             )
 
         backend_results = await asyncio.gather(

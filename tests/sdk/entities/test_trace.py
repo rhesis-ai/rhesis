@@ -177,9 +177,7 @@ class TestReadsBothResponseShapes:
                         ROOT_ROW_ID,
                         "ai.chat",
                         status_code="OK",
-                        children=[
-                            span_payload(LLM_ROW_ID, "ai.llm.invoke", status_code="ERROR")
-                        ],
+                        children=[span_payload(LLM_ROW_ID, "ai.llm.invoke", status_code="ERROR")],
                     )
                 ],
             }
@@ -353,6 +351,27 @@ class TestSpans:
     def test_a_span_that_is_not_there_is_none(self, detail_payload):
         assert Trace.model_validate(detail_payload).span("ai.rerank") is None
 
+    def test_filtering_by_kind_finds_every_tool_call(self):
+        trace = Trace.model_validate(
+            {
+                "trace_id": TRACE_ID,
+                "project_id": PROJECT_ID,
+                "root_spans": [
+                    span_payload(
+                        "root",
+                        "function.endpoint_rest_invoke",
+                        children=[
+                            span_payload("t1", "ai.tool.invoke", span_type="tool.invoke"),
+                            span_payload("l1", "ai.llm.invoke", span_type="llm.invoke"),
+                            span_payload("t2", "ai.tool.invoke", span_type="tool.invoke"),
+                        ],
+                    )
+                ],
+            }
+        )
+
+        assert [s.id for s in trace.spans(kind="tool.invoke")] == ["t1", "t2"]
+
     @patch("rhesis.sdk.entities.trace.APIClient")
     def test_a_listing_trace_fetches_its_spans(self, mock_client, summary_payload, detail_payload):
         mock_client.return_value.send_request.return_value = detail_payload
@@ -410,6 +429,182 @@ class TestSpans:
         assert trace.conversation_input == "What is the refund window?"
         # And it does pick up what only the detail has.
         assert trace.error_count == 1
+
+
+class TestSpanKind:
+    def test_the_platform_classification_wins(self):
+        span = Span(span_type="retrieval", attributes={"ai.operation.type": "tool.invoke"})
+
+        assert span.kind == "retrieval"
+
+    def test_without_one_the_operation_type_decides(self):
+        assert Span(attributes={"ai.operation.type": "agent.invoke"}).kind == "agent.invoke"
+
+    def test_a_span_naming_a_model_is_a_model_call(self):
+        assert Span(attributes={"ai.model.name": "gpt-4o"}).kind == "llm.invoke"
+
+    def test_anything_else_is_a_plain_span(self):
+        assert Span(attributes={"function.name": "helper"}).kind == "span"
+
+
+class TestSpanInputAndOutput:
+    def test_a_tool_call_reads_its_input_and_output_events(self):
+        span = Span(
+            events=[
+                {"name": "ai.tool.input", "attributes": {"ai.tool.input": '{"city": "Paris"}'}},
+                {"name": "ai.tool.output", "attributes": {"ai.tool.output": "18C"}},
+            ],
+            attributes={"ai.tool.name": "weather"},
+        )
+
+        assert (span.input, span.output, span.tool_name) == ('{"city": "Paris"}', "18C", "weather")
+
+    def test_a_retrieval_reads_its_query_and_documents(self):
+        span = Span(
+            events=[
+                {"name": "ai.retrieval.query", "attributes": {"ai.prompt.content": "refunds"}},
+                {"name": "ai.retrieval.results", "attributes": {"ai.completion.content": "Doc 1"}},
+            ]
+        )
+
+        assert (span.input, span.output) == ("refunds", "Doc 1")
+
+    def test_a_model_call_reads_its_prompt_and_completion(self):
+        span = Span(
+            events=[
+                {"name": "ai.prompt", "attributes": {"ai.prompt.content": "Hi"}},
+                {"name": "ai.completion", "attributes": {"ai.completion.content": "Hello"}},
+            ]
+        )
+
+        assert (span.input, span.output) == ("Hi", "Hello")
+
+    def test_attributes_stand_in_when_no_event_says(self):
+        """The agent loop's tool spans and the endpoint invocation span set attributes."""
+        tool = Span(attributes={"ai.tool.arguments": '{"q": 1}', "ai.tool.output": "ok"})
+        invocation = Span(
+            attributes={
+                "rhesis.conversation.input": "Book a room",
+                "rhesis.conversation.output": "Booked.",
+            }
+        )
+
+        assert (tool.input, tool.output) == ('{"q": 1}', "ok")
+        assert (invocation.input, invocation.output) == ("Book a room", "Booked.")
+
+    def test_a_span_that_recorded_nothing_has_none(self):
+        assert (Span().input, Span().output, Span().tool_name) == (None, None, None)
+
+
+def _agent_trace():
+    def event(name, key, value):
+        return {"name": name, "attributes": {key: value}}
+
+    return Trace.model_validate(
+        {
+            "trace_id": TRACE_ID,
+            "project_id": PROJECT_ID,
+            "root_spans": [
+                span_payload(
+                    "root",
+                    "function.endpoint_rest_invoke",
+                    attributes={
+                        "rhesis.conversation.input": "Refund order 7",
+                        "rhesis.conversation.output": "Refunded.",
+                        "endpoint.response.metadata": '{"model": "small"}',
+                    },
+                    children=[
+                        span_payload(
+                            "r1",
+                            "ai.retrieval",
+                            span_type="retrieval",
+                            events=[
+                                event(
+                                    "ai.retrieval.results",
+                                    "ai.completion.content",
+                                    '["Policy A", "Policy B"]',
+                                )
+                            ],
+                        ),
+                        span_payload(
+                            "t1",
+                            "ai.tool.invoke",
+                            span_type="tool.invoke",
+                            attributes={"ai.tool.name": "issue_refund"},
+                            events=[
+                                event("ai.tool.input", "ai.tool.input", '{"order": 7}'),
+                                event("ai.tool.output", "ai.tool.output", "ok"),
+                            ],
+                        ),
+                        span_payload(
+                            "r2",
+                            "ai.retrieval",
+                            span_type="retrieval",
+                            events=[
+                                event("ai.retrieval.results", "ai.completion.content", "[0] Doc")
+                            ],
+                        ),
+                    ],
+                )
+            ],
+        }
+    )
+
+
+class TestTraceProjections:
+    def test_input_and_output_are_the_root_conversation(self):
+        trace = _agent_trace()
+
+        assert (trace.input, trace.output) == ("Refund order 7", "Refunded.")
+
+    def test_context_is_every_retrieved_document_in_order(self):
+        assert _agent_trace().context == ["Policy A", "Policy B", "[0] Doc"]
+
+    def test_tool_calls_decode_recorded_json(self):
+        assert _agent_trace().tool_calls == [
+            {"name": "issue_refund", "arguments": {"order": 7}, "output": "ok"}
+        ]
+
+    def test_metadata_is_what_the_response_reported(self):
+        assert _agent_trace().metadata == {"model": "small"}
+
+    def test_a_call_both_recorded_and_reported_counts_once(self):
+        """An instrumented service that also maps tool_calls leaves both kinds of span."""
+        reported = {"ai.tool.name": "issue_refund", "rhesis.span.source": "reported"}
+        trace = Trace.model_validate(
+            {
+                "root_spans": [
+                    span_payload(
+                        "root",
+                        "function.endpoint_rest_invoke",
+                        children=[
+                            span_payload(
+                                "t1",
+                                "ai.tool.invoke",
+                                span_type="tool.invoke",
+                                attributes={"ai.tool.name": "issue_refund"},
+                            ),
+                            span_payload(
+                                "t2", "ai.tool.invoke", span_type="tool.invoke", attributes=reported
+                            ),
+                        ],
+                    )
+                ]
+            }
+        )
+
+        assert [call["name"] for call in trace.tool_calls] == ["issue_refund"]
+
+    def test_a_trace_built_without_spans_reads_as_empty(self):
+        trace = Trace()
+
+        assert (trace.input, trace.output, trace.context, trace.tool_calls, trace.metadata) == (
+            None,
+            None,
+            [],
+            [],
+            {},
+        )
 
 
 class TestAnnotating:

@@ -173,6 +173,7 @@ if __name__ == "__main__":
 | `output` | Yes | Model output to evaluate |
 | `expected_output` | No | Ground truth reference output |
 | `context` | No | Retrieved context documents used for generation |
+| `trace` | No | The endpoint's trace, as a `Trace` with its spans ([Code Metrics](/docs/metrics/code-metrics#checking-what-the-endpoint-did)) |
 
 <Callout type="info">
   The metric function must return a dict containing at least a `score` key (or a `MetricResult` instance).

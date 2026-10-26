@@ -21,7 +21,7 @@ def _validate_metric_signature(func: Callable) -> list[str]:
     Validate that a metric function has a valid signature.
 
     Required: input, output
-    Optional: expected_output, context
+    Optional: expected_output, context, trace
     No other parameter names are allowed.
 
     Args:
@@ -51,7 +51,7 @@ def _validate_metric_signature(func: Callable) -> list[str]:
         raise TypeError(
             f"@metric function '{func.__name__}' has invalid "
             f"parameter(s): {', '.join(sorted(extra))}. "
-            f"Allowed: input, output, expected_output, context"
+            f"Allowed: input, output, expected_output, context, trace"
         )
 
     return param_names
@@ -74,6 +74,9 @@ def metric(
     - output (str): required - the LLM response text
     - expected_output (str): optional - ground truth / reference output
     - context (List[str]): optional - context documents
+    - trace (Trace): optional - everything the endpoint did to answer, as a
+      ``rhesis.sdk.entities.Trace`` with its spans loaded. ``trace.tool_calls``,
+      ``trace.context`` and ``trace.metadata`` read the whole trace at once.
 
     The function must return a dict with at least a "score" key,
     or a MetricResult instance.
@@ -97,6 +100,10 @@ def metric(
         def groundedness(input: str, output: str, context: list[str]) -> dict:
             is_grounded = verify(output, context)
             return {"score": 1.0 if is_grounded else 0.0}
+
+        @metric(score_type="binary")
+        def at_most_five_tool_calls(input: str, output: str, trace: Trace) -> dict:
+            return {"score": 1.0 if len(trace.tool_calls) <= 5 else 0.0}
     """
 
     def decorator(func: Callable) -> Callable:

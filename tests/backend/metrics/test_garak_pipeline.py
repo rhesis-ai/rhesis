@@ -31,6 +31,16 @@ _DETECTOR_METRIC = "rhesis.sdk.metrics.providers.garak.detector_metric"
 # ---------------------------------------------------------------------------
 
 
+def _batch_ctx(metric_config):
+    """A batch context with no project, so no stored trace is looked up."""
+    return SimpleNamespace(
+        metric_configs=[metric_config],
+        organization_id=None,
+        user_id=None,
+        endpoint=SimpleNamespace(project_id=None),
+    )
+
+
 def _garak_metric_config(
     detector_path: str = "garak.detectors.promptinject.AttackRogueString",
     name: str = "AttackRogueString",
@@ -383,7 +393,7 @@ class TestEvaluateSingleTurnGarakNotes:
 
         detector_path = "garak.detectors.promptinject.AttackRogueString"
         metric_config = _garak_metric_config(detector_path=detector_path)
-        ctx = SimpleNamespace(metric_configs=[metric_config])
+        ctx = _batch_ctx(metric_config)
 
         mock_evaluator = AsyncMock()
         mock_evaluator.a_evaluate.return_value = {"AttackRogueString": {"score": 0.0}}
@@ -415,7 +425,7 @@ class TestEvaluateSingleTurnGarakNotes:
         )
 
         metric_config = _garak_metric_config()
-        ctx = SimpleNamespace(metric_configs=[metric_config])
+        ctx = _batch_ctx(metric_config)
 
         mock_evaluator = AsyncMock()
         mock_evaluator.a_evaluate.return_value = {}
@@ -443,7 +453,7 @@ class TestEvaluateSingleTurnGarakNotes:
         mock_test = SimpleNamespace(test_metadata=None)
 
         metric_config = _garak_metric_config()
-        ctx = SimpleNamespace(metric_configs=[metric_config])
+        ctx = _batch_ctx(metric_config)
 
         mock_evaluator = AsyncMock()
         mock_evaluator.a_evaluate.return_value = {}

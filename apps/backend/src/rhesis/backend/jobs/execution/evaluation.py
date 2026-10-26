@@ -31,6 +31,7 @@ from rhesis.backend.jobs.execution.constants import (
     MetricScope,
 )
 from rhesis.backend.metrics.evaluator import MetricEvaluator
+from rhesis.backend.metrics.inputs import TraceLoader
 
 if TYPE_CHECKING:
     from rhesis.sdk.metrics import MetricConfig
@@ -188,6 +189,7 @@ def evaluate_single_turn_metrics(
     result: Dict,
     metrics: List[Union[Dict[str, Any], MetricConfig]],
     test_id: str = "unknown",
+    trace_loader: Optional[TraceLoader] = None,
 ) -> Dict:
     """
     Evaluate single-turn metrics on a prompt/response pair.
@@ -203,6 +205,7 @@ def evaluate_single_turn_metrics(
         result: The response dictionary from endpoint invocation
         metrics: List of metric configurations to use for evaluation
         test_id: Test ID, used only for the scope-filtering debug log
+        trace_loader: Reads the response's trace, for metrics that declare ``trace``
 
     Returns:
         Dictionary containing the evaluation results
@@ -231,6 +234,7 @@ def evaluate_single_turn_metrics(
             metrics=metrics,
             metadata=metadata,
             tool_calls=tool_calls,
+            trace_loader=trace_loader,
         )
     except Exception as e:
         logger.warning(f"Error evaluating metrics: {str(e)}")

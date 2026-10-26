@@ -26,6 +26,24 @@ from rhesis.telemetry.context import (
 
 logger = logging.getLogger(__name__)
 
+# Spans otherwise leave in batches every few seconds, after the response; the platform
+# evaluates a test right after the response, and metrics that read the trace need it stored.
+SPAN_FLUSH_TIMEOUT_MILLIS = 5000
+
+
+async def _flush_spans() -> None:
+    from opentelemetry import trace
+
+    flush = getattr(trace.get_tracer_provider(), "force_flush", None)
+    if flush is None:
+        return
+    try:
+        await asyncio.get_running_loop().run_in_executor(
+            None, partial(flush, SPAN_FLUSH_TIMEOUT_MILLIS)
+        )
+    except Exception:
+        logger.debug("Span flush before responding failed", exc_info=True)
+
 
 class TestExecutor:
     """Handles execution of remote test requests with automatic type serialization."""
@@ -248,6 +266,9 @@ class TestExecutor:
                     if trace_id is None and result is not None:
                         trace_id = pop_result_trace_id(result)
 
+                if test_context and not disable_tracing:
+                    await _flush_spans()
+
                 # Serialize result to JSON-compatible format
                 result = self._serialize_result(result, serializer)
 
@@ -296,7 +317,7 @@ class TestExecutor:
         Args:
             metric_func: Metric callable
             metric_name: Name of the metric (for logging)
-            inputs: Metric inputs (input, output, expected_output, context)
+            inputs: Metric inputs (input, output, expected_output, context, trace)
             accepted_params: Parameter names the metric accepts
 
         Returns:
@@ -311,6 +332,10 @@ class TestExecutor:
 
         try:
             filtered_inputs = {k: v for k, v in inputs.items() if k in accepted_params}
+            if isinstance(filtered_inputs.get("trace"), dict):
+                from rhesis.sdk.entities.trace import Trace
+
+                filtered_inputs["trace"] = Trace.model_validate(filtered_inputs["trace"])
 
             if asyncio.iscoroutinefunction(metric_func):
                 result = await metric_func(**filtered_inputs)

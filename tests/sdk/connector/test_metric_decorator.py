@@ -23,9 +23,9 @@ class TestMetricSignatureValidation:
         assert params == ["input", "output"]
 
     def test_full_signature(self):
-        """Test metric with all four allowed params."""
+        """Test metric with every allowed param."""
 
-        def my_metric(input: str, output: str, expected_output: str, context: list):
+        def my_metric(input: str, output: str, expected_output: str, context: list, trace):
             pass
 
         params = _validate_metric_signature(my_metric)
@@ -120,13 +120,13 @@ class TestMetricConstants:
         assert METRIC_REQUIRED_PARAMS == {"input", "output"}
 
     def test_optional_params(self):
-        assert METRIC_OPTIONAL_PARAMS == {"expected_output", "context"}
+        assert METRIC_OPTIONAL_PARAMS == {"expected_output", "context", "trace"}
 
     def test_allowed_params_is_union(self):
         assert METRIC_ALLOWED_PARAMS == METRIC_REQUIRED_PARAMS | METRIC_OPTIONAL_PARAMS
 
-    def test_allowed_has_four_params(self):
-        assert len(METRIC_ALLOWED_PARAMS) == 4
+    def test_allowed_has_five_params(self):
+        assert len(METRIC_ALLOWED_PARAMS) == 5
 
 
 class TestMetricDecoratorDisabled:

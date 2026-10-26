@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.constants import TestExecutionContext as TestContextConstants
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
+from rhesis.backend.app.services.invokers.reported_spans import reported_spans
 from rhesis.telemetry.constants import ConversationContext as ConversationConstants
 from rhesis.telemetry.schemas import OTELSpan, SpanKind, StatusCode
 
@@ -32,6 +33,13 @@ class DeferredTraceData:
     conversation_id: Optional[str] = None
     file_data: Optional[List[Dict[str, Any]]] = None
     first_turn_link: Optional[Dict[str, str]] = field(default=None)
+    # Children of otel_span, from the tool calls and context the response reported.
+    reported_spans: List[OTELSpan] = field(default_factory=list)
+
+    @property
+    def spans(self) -> List[OTELSpan]:
+        """The invocation span first, then its reported children: the order they are written."""
+        return [self.otel_span, *self.reported_spans]
 
 
 @dataclass
@@ -78,7 +86,7 @@ def persist_deferred_trace(
 
     enrichment_service = EnrichmentService(db)
     stored_spans, _, _ = enrichment_service.create_and_enrich_spans(
-        spans=[trace_data.otel_span],
+        spans=trace_data.spans,
         organization_id=trace_data.organization_id,
         project_id=trace_data.project_id,
     )
@@ -124,6 +132,8 @@ class EndpointAttributes:
     RESPONSE_STATUS = "endpoint.response.status"
     RESPONSE_HAS_OUTPUT = "endpoint.response.has_output"
     RESPONSE_OUTPUT_PREVIEW = "endpoint.response.output_preview"
+    # The mapped response metadata, as JSON text; read back as ``Trace.metadata``.
+    RESPONSE_METADATA = "endpoint.response.metadata"
 
     # Test context - use constants from TestContextConstants.SpanAttributes
     TEST_RUN_ID = TestContextConstants.SpanAttributes.TEST_RUN_ID
@@ -278,6 +288,8 @@ async def create_invocation_trace(
         yield trace_context
         return
 
+    trace_context["traceparent"] = f"00-{final_trace_id}-{span_id}-01"
+
     try:
         yield trace_context
     except Exception as e:
@@ -304,6 +316,13 @@ async def create_invocation_trace(
             reported_version = _serialize_version_info(result.get("version_info"))
             if reported_version is not None:
                 attributes[EndpointAttributes.VERSION_INFO] = reported_version
+
+            metadata = result.get("metadata")
+            if isinstance(metadata, dict) and metadata:
+                metadata_str = json.dumps(metadata, default=str)
+                # Skipped rather than cut: truncated JSON reads back as nothing.
+                if len(metadata_str) <= ConversationConstants.MAX_IO_LENGTH:
+                    attributes[EndpointAttributes.RESPONSE_METADATA] = metadata_str
 
             output = result.get("output")
             if output:
@@ -355,6 +374,7 @@ async def create_invocation_trace(
                 organization_id=organization_id,
                 conversation_id=conversation_id,
                 file_data=file_data,
+                reported_spans=reported_spans(result, otel_span),
             )
             trace_context["_deferred_trace"] = deferred_data
             logger.debug(f"Deferred invocation trace {final_trace_id} (will persist later)")
@@ -363,7 +383,7 @@ async def create_invocation_trace(
 
             enrichment_service = EnrichmentService(db)
             stored_spans, _, _ = enrichment_service.create_and_enrich_spans(
-                spans=[otel_span],
+                spans=[otel_span, *reported_spans(result, otel_span)],
                 organization_id=organization_id,
                 project_id=str(endpoint.project_id),
             )

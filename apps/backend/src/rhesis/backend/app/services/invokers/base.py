@@ -140,7 +140,14 @@ class BaseEndpointInvoker(ABC):
         self, headers: Dict[str, str], input_data: Dict[str, Any] | None = None
     ):
         """Inject context headers into headers dict."""
-        return self.header_manager.inject_context_headers(headers, input_data)
+        result = self.header_manager.inject_context_headers(headers, input_data)
+        # W3C trace context: an instrumented service's own spans then join this invocation's
+        # trace. A traceparent the endpoint configures itself wins.
+        traceparent = self.context.traceparent if self.context else None
+        configured = any(name.lower() == "traceparent" for name in headers)
+        if traceparent and not configured and self.context.endpoint.propagates_trace_context:
+            headers["traceparent"] = traceparent
+        return result
 
     def _sanitize_headers(self, headers: Dict[str, Any]):
         """Sanitize headers by redacting sensitive information."""

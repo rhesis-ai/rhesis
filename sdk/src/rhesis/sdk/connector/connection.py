@@ -27,6 +27,10 @@ from rhesis.sdk.connector.types import (
 
 logger = logging.getLogger(__name__)
 
+# A metric that reads the trace receives it whole, and an agent's trace runs to megabytes.
+# websockets' 1 MiB default would close the connection on such a message.
+MAX_INBOUND_MESSAGE_BYTES = 64 * 1024 * 1024
+
 
 class PermanentConnectionError(Exception):
     """Exception for permanent connection failures that should not be retried."""
@@ -438,6 +442,7 @@ class WebSocketConnection:
             additional_headers=self.headers,
             ping_interval=self.ping_interval,
             ping_timeout=self.ping_timeout,
+            max_size=MAX_INBOUND_MESSAGE_BYTES,
             **extra,
         ) as websocket:
             self.websocket = websocket

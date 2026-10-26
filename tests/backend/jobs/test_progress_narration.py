@@ -378,7 +378,15 @@ class TestMetricLevelNarration:
         test.test_metadata = {}
 
         async def _fake_single_turn(
-            _ctx, ev, _test, _output, _prompt, _expected, _configs, on_metric_complete=None
+            _ctx,
+            ev,
+            _test,
+            _output,
+            _prompt,
+            _expected,
+            _configs,
+            on_metric_complete=None,
+            unsaved_spans=(),
         ):
             return await ev.a_evaluate(
                 input_text=_prompt,
@@ -430,7 +438,15 @@ class TestMetricLevelNarration:
         emit_calls = []
 
         async def _fake_single_turn(
-            _ctx, ev, _test, _output, _prompt, _expected, _configs, on_metric_complete=None
+            _ctx,
+            ev,
+            _test,
+            _output,
+            _prompt,
+            _expected,
+            _configs,
+            on_metric_complete=None,
+            unsaved_spans=(),
         ):
             return await ev.a_evaluate(
                 input_text=_prompt,

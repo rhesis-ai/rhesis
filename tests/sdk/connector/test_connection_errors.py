@@ -271,6 +271,19 @@ class TestTrustStoreFallback:
 
         assert mock_connect.call_args.kwargs["ssl"] is sentinel
 
+    @pytest.mark.asyncio
+    async def test_connect_accepts_messages_larger_than_the_websockets_default(self):
+        """A metric that reads the trace receives it whole; 1 MiB would drop the connection."""
+        connection = WebSocketConnection(
+            url="wss://test.example.com/ws", headers={}, on_message=AsyncMock()
+        )
+        with patch("rhesis.sdk.connector.connection.websockets.connect") as mock_connect:
+            mock_connect.side_effect = RuntimeError("stop here")
+            with pytest.raises(RuntimeError, match="stop here"):
+                await connection._attempt_single_connection()
+
+        assert mock_connect.call_args.kwargs["max_size"] > 1024 * 1024
+
 
 class TestWebSocketConnectionRetry:
     """Test WebSocket connection retry logic."""

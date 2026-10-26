@@ -142,7 +142,7 @@ class FunctionRegistry:
 # Allowed parameter names for SDK metrics
 METRIC_REQUIRED_PARAMS = {"input", "output"}
 DEFAULT_METRIC_PARAMS = ("input", "output")
-METRIC_OPTIONAL_PARAMS = {"expected_output", "context"}
+METRIC_OPTIONAL_PARAMS = {"expected_output", "context", "trace"}
 METRIC_ALLOWED_PARAMS = METRIC_REQUIRED_PARAMS | METRIC_OPTIONAL_PARAMS
 
 

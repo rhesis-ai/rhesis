@@ -116,6 +116,15 @@ class Endpoint(Base, ActivityTrackableMixin, TagsMixin, ExampleDataMixin):
         return bool(self.client_secret)
 
     @property
+    def propagates_trace_context(self) -> bool:
+        """Whether invocations send a W3C ``traceparent`` header. On unless
+        ``endpoint_metadata.propagate_trace_context`` is false, for services that
+        reject headers they do not know."""
+        if isinstance(self.endpoint_metadata, dict):
+            return self.endpoint_metadata.get("propagate_trace_context") is not False
+        return True
+
+    @property
     def timeout_seconds(self) -> int | None:
         """Invocation timeout from endpoint_metadata, or None for system default."""
         if self.endpoint_metadata and isinstance(self.endpoint_metadata, dict):

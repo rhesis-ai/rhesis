@@ -102,6 +102,8 @@ class EndpointMetadata(_MetadataBase):
     created_at: Optional[str] = None
     last_registered: Optional[str] = None
     timeout_seconds: Optional[int] = None
+    # False stops REST/WebSocket calls from sending a W3C traceparent header.
+    propagate_trace_context: Optional[bool] = None
 
     @field_validator("timeout_seconds")
     @classmethod

@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from rhesis.backend.metrics.inputs import EvaluationInputs
 from rhesis.backend.metrics.strategies.local import LocalStrategy, prepare_metrics
 from rhesis.sdk.metrics import MetricConfig
 from rhesis.sdk.models.base import BaseLLM
@@ -35,7 +36,7 @@ def test_prepare_metrics_reports_the_refusal():
 @pytest.mark.unit
 def test_local_strategy_returns_the_refusal_as_an_error_result():
     strategy = LocalStrategy(model=JevDecisionModel(api_key="k"))
-    results = strategy.evaluate([_numeric()], "in", "out", "expected", [])
+    results = strategy.evaluate([_numeric()], EvaluationInputs("in", "out", "expected", []))
     assert "a decision model" in results["helpfulness"]["reason"]
 
 
@@ -56,7 +57,7 @@ def test_a_refusal_never_overwrites_a_result_with_the_same_name():
     with patch.object(JevDecisionModel, "a_decide", new=AsyncMock(return_value=answers)):
         strategy = LocalStrategy(model=JevDecisionModel(api_key="k"))
         results = strategy.evaluate(
-            [categorical, _numeric(), _numeric()], "in", "out", "expected", []
+            [categorical, _numeric(), _numeric()], EvaluationInputs("in", "out", "expected", [])
         )
 
     assert set(results) == {"helpfulness", "helpfulness_1", "helpfulness_2"}
