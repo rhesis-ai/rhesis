@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Box, TextField, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { BORDER_RADIUS } from '@/styles/theme';
@@ -93,6 +93,20 @@ export default function TestValuesEditor({
     jsonOnly ? toJson() : ''
   );
 
+  // The other step edits the same values (the Test step stays mounted), so reload
+  // the JSON when values arrive that this editor didn't send, or the variables change.
+  const sentValuesRef = useRef<TestValues | null>(null);
+  const varsKey = textVars.join('\n');
+  const syncedVarsKeyRef = useRef(varsKey);
+  useEffect(() => {
+    const varsChanged = syncedVarsKeyRef.current !== varsKey;
+    syncedVarsKeyRef.current = varsKey;
+    if (mode !== 'json') return;
+    if (values === sentValuesRef.current && !varsChanged) return;
+    setValuesJson(toJson());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- toJson only reads values and textVars, both covered
+  }, [values, varsKey, mode]);
+
   // Test runs only ever pass text here, so another type would test a request they never send.
   const inputNotText =
     values.input !== undefined && typeof values.input !== 'string';
@@ -111,6 +125,7 @@ export default function TestValuesEditor({
     try {
       const parsed: unknown = JSON.parse(text);
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        sentValuesRef.current = parsed as TestValues;
         onValuesChange(parsed as TestValues);
       }
     } catch {

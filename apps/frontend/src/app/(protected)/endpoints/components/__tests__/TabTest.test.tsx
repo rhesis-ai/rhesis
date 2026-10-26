@@ -6,6 +6,23 @@ jest.mock('@/config/runtime-config', () => ({
   publicEnv: () => ({ architectHelpArticleUrls: [] }),
 }));
 
+jest.mock('@monaco-editor/react', () => {
+  const MockEditor = ({
+    value,
+    onChange,
+  }: {
+    value?: string;
+    onChange?: (value: string) => void;
+  }) => (
+    <textarea
+      data-testid="mock-editor"
+      value={value || ''}
+      onChange={e => onChange?.(e.target.value)}
+    />
+  );
+  return { __esModule: true, default: MockEditor };
+});
+
 import TabTest from '../TabTest';
 import type { TestValues } from '../testValues';
 
@@ -125,5 +142,30 @@ describe('TabTest', () => {
     expect(screen.getByLabelText('Value for input')).toHaveValue(
       'From mapping'
     );
+  });
+
+  it('reloads the JSON when the Mapping step changes the shared values', async () => {
+    const onValuesChange = jest.fn();
+    const props = { ...defaultProps, onValuesChange };
+    const { rerender } = render(
+      <TabTest {...props} values={{ input: 'Old' }} />
+    );
+    fireEvent.click(screen.getByText('Edit as JSON'));
+    const editor = (await screen.findByTestId(
+      'mock-editor'
+    )) as HTMLTextAreaElement;
+    expect(JSON.parse(editor.value).input).toBe('Old');
+
+    rerender(<TabTest {...props} values={{ input: 'From mapping' }} />);
+    expect(JSON.parse(editor.value).input).toBe('From mapping');
+  });
+
+  it('keeps what is being typed in the JSON editor', async () => {
+    render(<WithTabTestValues {...defaultProps} values={{ input: 'Hi' }} />);
+    fireEvent.click(screen.getByText('Edit as JSON'));
+    const editor = await screen.findByTestId('mock-editor');
+    const typed = '{\n  "input": "Typed",\n  "messages": ""\n}';
+    fireEvent.change(editor, { target: { value: typed } });
+    expect(editor).toHaveValue(typed);
   });
 });
