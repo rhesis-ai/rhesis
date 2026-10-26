@@ -317,7 +317,7 @@ class TestExecutor:
         Args:
             metric_func: Metric callable
             metric_name: Name of the metric (for logging)
-            inputs: Metric inputs (input, output, expected_output, context, trace)
+            inputs: Metric inputs (input, output, trace, expectations)
             accepted_params: Parameter names the metric accepts
 
         Returns:
@@ -332,10 +332,17 @@ class TestExecutor:
 
         try:
             filtered_inputs = {k: v for k, v in inputs.items() if k in accepted_params}
+            # A function registered without @metric gets the same types a decorated one does.
             if isinstance(filtered_inputs.get("trace"), dict):
                 from rhesis.sdk.entities.trace import Trace
 
                 filtered_inputs["trace"] = Trace.model_validate(filtered_inputs["trace"])
+            if "expectations" in filtered_inputs:
+                from rhesis.sdk.metrics.expectations import Expectations
+
+                filtered_inputs["expectations"] = Expectations.coerce(
+                    filtered_inputs["expectations"]
+                )
 
             if asyncio.iscoroutinefunction(metric_func):
                 result = await metric_func(**filtered_inputs)

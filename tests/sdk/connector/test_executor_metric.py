@@ -24,10 +24,10 @@ def sync_metric():
 
 @pytest.fixture
 def async_metric():
-    """Async metric function (all four params)."""
+    """Async metric function comparing the output with the expected response."""
 
-    async def score_metric(input: str, output: str, expected_output: str, context: list) -> dict:
-        match = 1.0 if output == expected_output else 0.0
+    async def score_metric(output: str, expectations) -> dict:
+        match = 1.0 if output == expectations.response else 0.0
         return {"score": match, "details": {"reason": "exact match"}}
 
     return score_metric
@@ -52,8 +52,6 @@ async def test_execute_sync_metric(executor, sync_metric):
         inputs={
             "input": "hello",
             "output": "hello world",
-            "expected_output": "",
-            "context": [],
         },
         accepted_params=["input", "output"],
     )
@@ -73,10 +71,9 @@ async def test_execute_async_metric(executor, async_metric):
         inputs={
             "input": "what is 2+2?",
             "output": "4",
-            "expected_output": "4",
-            "context": ["math"],
+            "expectations": {"response": "4"},
         },
-        accepted_params=["input", "output", "expected_output", "context"],
+        accepted_params=["output", "expectations"],
     )
 
     assert result["status"] == "success"
@@ -99,8 +96,7 @@ async def test_execute_metric_filters_inputs(executor):
         inputs={
             "input": "hello",
             "output": "world",
-            "expected_output": "should be filtered",
-            "context": ["should", "be", "filtered"],
+            "expectations": {"response": "should be filtered"},
         },
         accepted_params=["input", "output"],
     )
@@ -144,6 +140,46 @@ async def test_execute_metric_receives_the_trace_as_a_trace(executor):
 
 
 @pytest.mark.asyncio
+async def test_execute_metric_receives_expectations_as_expectations(executor):
+    """Expectations arrive as JSON and reach the metric as Expectations."""
+    from rhesis.sdk.metrics.expectations import Expectations
+
+    received = {}
+
+    def capture(expectations) -> dict:
+        received["expectations"] = expectations
+        return {"score": 1.0}
+
+    await executor.execute_metric(
+        metric_func=capture,
+        metric_name="capture",
+        inputs={"expectations": {"response": "4", "goal": "Add"}},
+        accepted_params=["expectations"],
+    )
+
+    assert received["expectations"] == Expectations(response="4", goal="Add")
+
+
+@pytest.mark.asyncio
+async def test_execute_metric_receives_no_expectations_as_none(executor):
+    """Production traces have no expectations."""
+    received = {}
+
+    def capture(expectations) -> dict:
+        received["expectations"] = expectations
+        return {"score": 1.0}
+
+    await executor.execute_metric(
+        metric_func=capture,
+        metric_name="capture",
+        inputs={"expectations": None},
+        accepted_params=["expectations"],
+    )
+
+    assert received["expectations"] is None
+
+
+@pytest.mark.asyncio
 async def test_execute_metric_failure(executor, failing_metric):
     """Test metric that raises an exception."""
     result = await executor.execute_metric(
@@ -152,8 +188,6 @@ async def test_execute_metric_failure(executor, failing_metric):
         inputs={
             "input": "hello",
             "output": "world",
-            "expected_output": "",
-            "context": [],
         },
         accepted_params=["input", "output"],
     )
@@ -174,7 +208,7 @@ async def test_execute_metric_bare_score_return(executor):
     result = await executor.execute_metric(
         metric_func=bare_metric,
         metric_name="bare",
-        inputs={"input": "a", "output": "b", "expected_output": "", "context": []},
+        inputs={"input": "a", "output": "b"},
         accepted_params=["input", "output"],
     )
 
@@ -198,7 +232,7 @@ async def test_execute_metric_object_result(executor):
     result = await executor.execute_metric(
         metric_func=obj_metric,
         metric_name="obj_metric",
-        inputs={"input": "a", "output": "b", "expected_output": "", "context": []},
+        inputs={"input": "a", "output": "b"},
         accepted_params=["input", "output"],
     )
 

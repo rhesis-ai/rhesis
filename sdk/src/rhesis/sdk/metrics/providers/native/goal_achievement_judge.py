@@ -7,9 +7,12 @@ from typing import Any, Dict, List, Literal, Mapping, Optional, Sequence, Union
 from pydantic import BaseModel, Field
 
 from rhesis.sdk.async_utils import run_sync
+from rhesis.sdk.entities.trace import Trace
+from rhesis.sdk.metrics.arguments import evaluation_arguments
 from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import JUDGE_TEMPERATURE, ThresholdOperator
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
+from rhesis.sdk.metrics.expectations import Expectations, ExpectationsLike
 from rhesis.sdk.metrics.providers.native.configs import ConversationalNumericConfig
 from rhesis.sdk.metrics.providers.native.conversational_judge import (
     GOAL_DEFAULT,
@@ -45,6 +48,15 @@ def _is_scorable_contract(contract: Optional[Mapping[str, Any]]) -> bool:
     if not isinstance(contract, Mapping):
         return False
     return bool(contract.get("required_criteria") or contract.get("prohibited_criteria"))
+
+
+def _goal_expectations(
+    expectations: Optional[Expectations],
+) -> tuple[Optional[str], str, Optional[Dict[str, Any]]]:
+    """The goal, instructions and contract a conversation is judged against."""
+    if expectations is None:
+        return None, "", None
+    return expectations.goal, expectations.instructions or "", expectations.contract
 
 
 #: Key present only in ``MetricResult.details`` produced by ``_a_evaluate_contract``.
@@ -503,30 +515,29 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             details["threshold_applies"] = False
         return result
 
+    @evaluation_arguments
     def evaluate(
-        self,
-        conversation_history: ConversationHistory,
-        goal: Optional[str] = None,
-        instructions: Optional[str] = None,
-        contract: Optional[Mapping[str, Any]] = None,
+        self, trace: Optional[Trace] = None, expectations: ExpectationsLike = None
     ) -> MetricResult:
         """
         Evaluate goal achievement in the conversation.
 
         Args:
-            conversation_history: The conversation to evaluate
-            goal: Optional explicit goal statement. If not provided, the goal
-                  should be inferred from the conversation context.
-            instructions: Optional test instructions that specify HOW the test
-                  should be conducted (e.g., "send 6 exact messages", "do not stop early").
-                  These provide critical context for evaluating whether the goal was
-                  properly achieved.
-            contract: Optional evaluation contract -- a normalized reading of the test stating
-                  what the target must and must not do. When present and it lists at least one
+            trace: The conversation's trace. Pass ``conversation=`` instead to judge a
+                ``ConversationHistory`` or a list of messages.
+            expectations: What the conversation should achieve:
+                ``goal``: the goal statement. If not provided, the goal should be inferred
+                  from the conversation context.
+                ``instructions``: test instructions that specify HOW the test should be
+                  conducted (e.g., "send 6 exact messages", "do not stop early"). These
+                  provide critical context for evaluating whether the goal was properly
+                  achieved.
+                ``contract``: an evaluation contract -- a normalized reading of the test
+                  stating what the target must and must not do. When it lists at least one
                   criterion, it supersedes ``goal`` and ``instructions``: the conversation is
                   scored against the contract's criteria instead of criteria the judge derives
-                  from a free-text goal. This is what makes an adversarial test score the right
-                  way round regardless of how its goal was phrased.
+                  from a free-text goal. This is what makes an adversarial test score the
+                  right way round regardless of how its goal was phrased.
 
         Returns:
             MetricResult with:
@@ -553,6 +564,8 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
         Raises:
             ValueError: If validation fails
         """
+        conversation_history = trace.messages()
+        goal, instructions, contract = _goal_expectations(expectations)
         if _is_scorable_contract(contract):
             return run_sync(
                 self._a_evaluate_contract(conversation_history, contract)  # type: ignore[arg-type]
@@ -575,14 +588,13 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
         )
         return self._apply_criteria_verdict(result)
 
+    @evaluation_arguments
     async def a_evaluate(
-        self,
-        conversation_history: ConversationHistory,
-        goal: Optional[str] = None,
-        instructions: Optional[str] = None,
-        contract: Optional[Mapping[str, Any]] = None,
+        self, trace: Optional[Trace] = None, expectations: ExpectationsLike = None
     ) -> MetricResult:
         """Async evaluate using the existing async evaluation pattern."""
+        conversation_history = trace.messages()
+        goal, instructions, contract = _goal_expectations(expectations)
         if _is_scorable_contract(contract):
             return await self._a_evaluate_contract(
                 conversation_history,

@@ -112,7 +112,7 @@ def test_evaluate_successful_evaluation(metric):
         result = metric.evaluate(
             input="What is the capital of France?",
             output="Paris is the capital of France",
-            expected_output="Paris",
+            expectations="Paris",
             context=["France is a country in Europe"],
         )
 
@@ -150,7 +150,7 @@ def test_evaluate_error_handling(metric):
         result = metric.evaluate(
             input="What is the capital of France?",
             output="Paris is the capital of France",
-            expected_output="Paris",
+            expectations="Paris",
             context=["France is a country in Europe"],
         )
 
@@ -265,7 +265,7 @@ def test_evaluate_passes_tool_calls_to_template(metric):
         result = metric.evaluate(
             input="Q",
             output="A",
-            expected_output="A",
+            expectations="A",
             context=[],
             tool_calls=[{"name": "get_weather", "arguments": {"city": "Berlin"}}],
         )
@@ -298,7 +298,7 @@ def test_evaluate_invalid_model_score_returns_error(
 
     with patch.object(metric.model, "a_generate", new_callable=AsyncMock) as generate:
         generate.return_value = {"score": score, "reason": "Model response"}
-        inputs = {"input": "Question", "output": "Answer", "expected_output": None}
+        inputs = {"input": "Question", "output": "Answer", "expectations": None}
         result = (
             asyncio.run(metric.a_evaluate(**inputs)) if use_async else metric.evaluate(**inputs)
         )
@@ -340,7 +340,7 @@ def test_evaluate_valid_model_score_preserves_configured_scale(
 
     with patch.object(metric.model, "a_generate", new_callable=AsyncMock) as generate:
         generate.return_value = {"score": score, "reason": "Valid model response"}
-        inputs = {"input": "Question", "output": "Answer", "expected_output": None}
+        inputs = {"input": "Question", "output": "Answer", "expectations": None}
         result = (
             asyncio.run(metric.a_evaluate(**inputs)) if use_async else metric.evaluate(**inputs)
         )

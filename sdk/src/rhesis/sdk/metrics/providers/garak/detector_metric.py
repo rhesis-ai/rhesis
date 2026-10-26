@@ -10,7 +10,7 @@ import asyncio
 import importlib
 import logging
 import os
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 from rhesis.sdk.metrics.base import (
     Backend,
@@ -110,8 +110,7 @@ class GarakDetectorMetric(BaseMetric):
         self._detector = None
         self._detector_kwargs = kwargs
         self.threshold = threshold if threshold is not None else self.DEFAULT_THRESHOLD
-        # Probe-level notes stored at construction time (e.g. {"triggers": ["I hate humans"]}).
-        # Used as a fallback when evaluate() is called without explicit notes.
+        # The probe's notes (e.g. {"triggers": ["I hate humans"]}), which some detectors need.
         self._probe_notes = probe_notes
 
         # Create metric config
@@ -191,29 +190,19 @@ class GarakDetectorMetric(BaseMetric):
                 f"Detector class '{self.detector_class_path}' not found in module"
             ) from e
 
-    def evaluate(
-        self,
-        input: str = "",
-        output: str = "",
-        expected_output: str = "",
-        context: Optional[List[str]] = None,
-        notes: Optional[dict] = None,
-        **kwargs,
-    ) -> MetricResult:
+    def evaluate(self, input: str = "", output: str = "") -> MetricResult:
         """
         Evaluate the model output using the Garak detector.
+
+        The probe's notes, passed to the constructor as ``probe_notes``, are forwarded to
+        ``attempt.notes``. Certain detectors (Continuation, StartsWith, RepeatDiverges)
+        require keys like ``triggers`` or ``repeat_word`` to function. Without them the
+        detector returns no scores and the result is marked **inconclusive** rather than
+        falsely passing.
 
         Args:
             input: The input prompt (used as the attack prompt)
             output: The model's response to evaluate
-            expected_output: Not used by Garak detectors
-            context: Not used by Garak detectors
-            notes: Optional probe metadata forwarded to ``attempt.notes``.
-                Certain detectors (Continuation, StartsWith, RepeatDiverges)
-                require keys like ``triggers`` or ``repeat_word`` to function.
-                Without them the detector returns no scores and the result is
-                marked **inconclusive** rather than falsely passing.
-            **kwargs: Additional arguments
 
         Returns:
             MetricResult with score and details
@@ -237,7 +226,7 @@ class GarakDetectorMetric(BaseMetric):
             attempt.prompt = Message(text=input, lang="*")
             attempt.outputs = [output]
 
-            effective_notes = notes if notes is not None else self._probe_notes
+            effective_notes = self._probe_notes
             if effective_notes:
                 attempt.notes.update(effective_notes)
 
@@ -275,7 +264,7 @@ class GarakDetectorMetric(BaseMetric):
                         f"Detector '{self.detector_class_path.split('.')[-1]}' "
                         f"returned no scores because "
                         f"notes['{required_note}'] was not provided or empty. "
-                        f"Pass probe metadata via the 'notes' parameter."
+                        f"Pass the probe's metadata as probe_notes."
                     )
                 else:
                     reason = (
@@ -359,19 +348,9 @@ class GarakDetectorMetric(BaseMetric):
                 },
             )
 
-    async def a_evaluate(
-        self,
-        input: str = "",
-        output: str = "",
-        expected_output: str = "",
-        context: Optional[List[str]] = None,
-        notes: Optional[dict] = None,
-        **kwargs,
-    ) -> MetricResult:
+    async def a_evaluate(self, input: str = "", output: str = "") -> MetricResult:
         """Async evaluate wrapping the sync detector in to_thread."""
-        return await asyncio.to_thread(
-            self.evaluate, input, output, expected_output, context, notes, **kwargs
-        )
+        return await asyncio.to_thread(self.evaluate, input, output)
 
     def _unavailable_result(self, reason: str, not_implemented: bool = False) -> MetricResult:
         """An inconclusive result for a detector that cannot run here."""

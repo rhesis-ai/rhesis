@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
+from rhesis.sdk.metrics.expectations import Expectations
 from rhesis.sdk.metrics.providers.deepeval.conversational_metrics import (
     DeepEvalConversationCompleteness,
     DeepEvalGoalAccuracy,
@@ -54,7 +55,7 @@ class TestDeepEvalTurnRelevancy:
             metric._metric.reason = "Conversation is relevant"
             mock_measure.return_value = None
 
-            result = metric.evaluate(conversation_history=conversation)
+            result = metric.evaluate(conversation=conversation)
 
             assert isinstance(result.score, float)
             assert 0.0 <= result.score <= 1.0
@@ -81,7 +82,7 @@ class TestDeepEvalTurnRelevancy:
             metric._metric.reason = "Conversation is not relevant"
             mock_measure.return_value = None
 
-            result = metric.evaluate(conversation_history=conversation)
+            result = metric.evaluate(conversation=conversation)
 
             assert isinstance(result.score, float)
             assert 0.0 <= result.score <= 1.0
@@ -103,7 +104,7 @@ class TestDeepEvalRoleAdherence:
 
     def test_evaluate_role_adherent_conversation(self):
         """Test evaluation of a conversation where assistant adheres to role."""
-        metric = DeepEvalRoleAdherence(threshold=0.5)
+        metric = DeepEvalRoleAdherence(threshold=0.5, chatbot_role="customer support agent")
 
         conversation = ConversationHistory.from_messages(
             [
@@ -119,9 +120,7 @@ class TestDeepEvalRoleAdherence:
             metric._metric.reason = "Assistant adheres to customer support role"
             mock_measure.return_value = None
 
-            result = metric.evaluate(
-                conversation_history=conversation, chatbot_role="customer support agent"
-            )
+            result = metric.evaluate(conversation=conversation)
 
             assert isinstance(result.score, float)
             assert 0.0 <= result.score <= 1.0
@@ -130,7 +129,7 @@ class TestDeepEvalRoleAdherence:
 
     def test_evaluate_role_violation_conversation(self):
         """Test evaluation of a conversation with role violations."""
-        metric = DeepEvalRoleAdherence(threshold=0.7)
+        metric = DeepEvalRoleAdherence(threshold=0.7, chatbot_role="customer support agent")
 
         conversation = ConversationHistory.from_messages(
             [
@@ -146,15 +145,13 @@ class TestDeepEvalRoleAdherence:
             metric._metric.reason = "Assistant violated customer support role"
             mock_measure.return_value = None
 
-            result = metric.evaluate(
-                conversation_history=conversation, chatbot_role="customer support agent"
-            )
+            result = metric.evaluate(conversation=conversation)
 
             assert isinstance(result.score, float)
             assert 0.0 <= result.score <= 1.0
 
     def test_evaluate_without_chatbot_role(self):
-        """Test evaluation without chatbot_role parameter (uses default 'assistant')."""
+        """Test evaluation without a chatbot_role (uses default 'assistant')."""
         metric = DeepEvalRoleAdherence(threshold=0.5)
 
         conversation = ConversationHistory.from_messages(
@@ -171,8 +168,8 @@ class TestDeepEvalRoleAdherence:
             metric._metric.reason = "Assistant adheres to default role"
             mock_measure.return_value = None
 
-            # Should work without chatbot_role parameter (defaults to "assistant")
-            result = metric.evaluate(conversation_history=conversation)
+            # Should work without a chatbot_role (defaults to "assistant")
+            result = metric.evaluate(conversation=conversation)
 
             assert isinstance(result.score, float)
             assert 0.0 <= result.score <= 1.0
@@ -212,7 +209,7 @@ class TestDeepEvalKnowledgeRetention:
             metric._metric.reason = "Good knowledge retention"
             mock_measure.return_value = None
 
-            result = metric.evaluate(conversation_history=conversation)
+            result = metric.evaluate(conversation=conversation)
 
             assert isinstance(result.score, float)
             assert 0.0 <= result.score <= 1.0
@@ -237,7 +234,7 @@ class TestDeepEvalKnowledgeRetention:
             metric._metric.reason = "Poor knowledge retention"
             mock_measure.return_value = None
 
-            result = metric.evaluate(conversation_history=conversation)
+            result = metric.evaluate(conversation=conversation)
 
             assert isinstance(result.score, float)
             assert 0.0 <= result.score <= 1.0
@@ -262,7 +259,7 @@ class TestDeepEvalKnowledgeRetention:
             metric._metric.reason = "Multiple facts retained correctly"
             mock_measure.return_value = None
 
-            result = metric.evaluate(conversation_history=conversation)
+            result = metric.evaluate(conversation=conversation)
 
             assert isinstance(result.score, float)
             assert 0.0 <= result.score <= 1.0
@@ -306,7 +303,7 @@ class TestDeepEvalConversationCompleteness:
             metric._metric.reason = "Conversation is complete"
             mock_measure.return_value = None
 
-            result = metric.evaluate(conversation_history=conversation)
+            result = metric.evaluate(conversation=conversation)
 
             assert isinstance(result.score, float)
             assert 0.0 <= result.score <= 1.0
@@ -330,7 +327,7 @@ class TestDeepEvalConversationCompleteness:
             metric._metric.reason = "Conversation is incomplete"
             mock_measure.return_value = None
 
-            result = metric.evaluate(conversation_history=conversation)
+            result = metric.evaluate(conversation=conversation)
 
             assert isinstance(result.score, float)
             assert 0.0 <= result.score <= 1.0
@@ -354,7 +351,7 @@ class TestDeepEvalConversationCompleteness:
             metric._metric.reason = "Multiple requests handled completely"
             mock_measure.return_value = None
 
-            result = metric.evaluate(conversation_history=conversation)
+            result = metric.evaluate(conversation=conversation)
 
             assert isinstance(result.score, float)
             assert 0.0 <= result.score <= 1.0
@@ -400,7 +397,8 @@ class TestDeepEvalGoalAccuracy:
             mock_measure.return_value = None
 
             result = metric.evaluate(
-                conversation_history=conversation, goal="Book a flight to Paris for next week"
+                conversation=conversation,
+                expectations=Expectations(goal="Book a flight to Paris for next week"),
             )
 
             assert isinstance(result.score, float)
@@ -427,7 +425,7 @@ class TestDeepEvalGoalAccuracy:
             mock_measure.return_value = None
 
             result = metric.evaluate(
-                conversation_history=conversation, goal="Book a flight to Paris"
+                conversation=conversation, expectations=Expectations(goal="Book a flight to Paris")
             )
 
             assert isinstance(result.score, float)
@@ -490,7 +488,7 @@ class TestDeepEvalToolUse:
             metric._metric.reason = "Appropriate tool use"
             mock_measure.return_value = None
 
-            result = metric.evaluate(conversation_history=conversation)
+            result = metric.evaluate(conversation=conversation)
 
             assert isinstance(result.score, float)
             assert 0.0 <= result.score <= 1.0
@@ -527,7 +525,7 @@ class TestDeepEvalToolUse:
             metric._metric.reason = "Multiple tools used correctly"
             mock_measure.return_value = None
 
-            result = metric.evaluate(conversation_history=conversation)
+            result = metric.evaluate(conversation=conversation)
 
             assert isinstance(result.score, float)
             assert 0.0 <= result.score <= 1.0
@@ -549,7 +547,7 @@ class TestDeepEvalToolUse:
             mock_measure.return_value = None
 
             # Should work without available_tools parameter (defaults to empty list)
-            result = metric.evaluate(conversation_history=conversation)
+            result = metric.evaluate(conversation=conversation)
 
             assert isinstance(result.score, float)
             assert 0.0 <= result.score <= 1.0
@@ -581,7 +579,7 @@ class TestDeepEvalToolUse:
             mock_measure.return_value = None
 
             # Should evaluate even without available_tools provided
-            result = metric.evaluate(conversation_history=conversation)
+            result = metric.evaluate(conversation=conversation)
 
             assert isinstance(result.score, float)
             assert 0.0 <= result.score <= 1.0
@@ -646,7 +644,7 @@ class TestConversationHistoryFormats:
             metric._metric.reason = "Conversation is relevant"
             mock_measure.return_value = None
 
-            result = metric.evaluate(conversation_history=conversation)
+            result = metric.evaluate(conversation=conversation)
             assert isinstance(result.score, float)
 
     def test_with_metadata(self):
@@ -666,7 +664,9 @@ class TestConversationHistoryFormats:
             metric._metric.reason = "Goal achieved with metadata"
             mock_measure.return_value = None
 
-            result = metric.evaluate(conversation_history=conversation, goal="Book a flight")
+            result = metric.evaluate(
+                conversation=conversation, expectations=Expectations(goal="Book a flight")
+            )
             assert isinstance(result.score, float)
 
     def test_empty_conversation_handling(self):
@@ -679,7 +679,7 @@ class TestConversationHistoryFormats:
         # Note: DeepEval might raise an error or return a default score
         # depending on implementation
         try:
-            result = metric.evaluate(conversation_history=conversation)
+            result = metric.evaluate(conversation=conversation)
             assert isinstance(result.score, float)
         except Exception:
             # Empty conversations might not be supported

@@ -105,9 +105,7 @@ def test_evaluate_successful_evaluation(metric):
     mock_response.score = "test_category1"
     mock_response.reason = "The output correctly matches the expected category"
 
-    with patch.object(
-        metric.model, "a_generate", new_callable=AsyncMock
-    ) as mock_a_generate:
+    with patch.object(metric.model, "a_generate", new_callable=AsyncMock) as mock_a_generate:
         mock_a_generate.return_value = {
             "score": "test_category1",
             "reason": "The output correctly matches the expected category",
@@ -117,7 +115,7 @@ def test_evaluate_successful_evaluation(metric):
         result = metric.evaluate(
             input="What is the capital of France?",
             output="Paris",
-            expected_output="Paris",
+            expectations="Paris",
             context=["France is a country in Europe"],
         )
 
@@ -140,16 +138,14 @@ def test_evaluate_successful_evaluation(metric):
 
 def test_evaluate_error_handling(metric):
     """Test error handling when LLM evaluation fails."""
-    with patch.object(
-        metric.model, "a_generate", new_callable=AsyncMock
-    ) as mock_a_generate:
+    with patch.object(metric.model, "a_generate", new_callable=AsyncMock) as mock_a_generate:
         mock_a_generate.side_effect = Exception("LLM service unavailable")
 
         # Call evaluate method
         result = metric.evaluate(
             input="What is the capital of France?",
             output="Paris",
-            expected_output="Paris",
+            expectations="Paris",
             context=["France is a country in Europe"],
         )
 

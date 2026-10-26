@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 from rhesis.sdk.connector.schemas import FunctionMetadata, MetricMetadata
+from rhesis.sdk.metrics.arguments import EVALUATION_PARAMETERS
 
 logger = logging.getLogger(__name__)
 
@@ -139,11 +140,9 @@ class FunctionRegistry:
         }
 
 
-# Allowed parameter names for SDK metrics
-METRIC_REQUIRED_PARAMS = {"input", "output"}
+# Parameter names an SDK metric may declare: the same four every metric takes.
+METRIC_ALLOWED_PARAMS = frozenset(EVALUATION_PARAMETERS)
 DEFAULT_METRIC_PARAMS = ("input", "output")
-METRIC_OPTIONAL_PARAMS = {"expected_output", "context", "trace"}
-METRIC_ALLOWED_PARAMS = METRIC_REQUIRED_PARAMS | METRIC_OPTIONAL_PARAMS
 
 
 class MetricRegistry:

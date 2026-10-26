@@ -6,10 +6,13 @@ from typing import Any, Dict, List, Optional, TypeVar, Union
 
 from pydantic import Field
 
+from rhesis.sdk.entities.trace import Trace
+from rhesis.sdk.metrics.arguments import evaluation_arguments
 from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.conversational.base import ConversationalMetricBase
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
+from rhesis.sdk.metrics.expectations import ExpectationsLike
 from rhesis.sdk.metrics.providers.native.configs import ConversationalNumericConfig
 from rhesis.sdk.metrics.providers.native.evaluation_patterns import NumericEvaluationMixin
 from rhesis.sdk.metrics.providers.native.serialization import BackendSyncMixin, SerializationMixin
@@ -66,9 +69,10 @@ class ConversationalJudge(
 
     ```python
     class MyNumericJudge(ConversationalJudge):
-        def evaluate(self, conversation_history, **kwargs):
+        @evaluation_arguments
+        def evaluate(self, trace=None, expectations=None):
             # Get numeric score from LLM
-            score = self._get_llm_score(conversation_history)
+            score = self._get_llm_score(trace.messages())
 
             # Use inherited method for threshold comparison
             is_successful = self._evaluate_score(score)
@@ -92,9 +96,10 @@ class ConversationalJudge(
             self.categories = categories or ["safe", "risky", "unsafe"]
             self.passing_categories = passing_categories or ["safe"]
 
-        def evaluate(self, conversation_history, **kwargs):
+        @evaluation_arguments
+        def evaluate(self, trace=None, expectations=None):
             # Return categorical score - don't use _evaluate_score()
-            category = self._get_llm_category(conversation_history)
+            category = self._get_llm_category(trace.messages())
             is_successful = category in self.passing_categories
 
             return MetricResult(
@@ -278,53 +283,52 @@ Provide your evaluation as a numeric score between {{ min_score }} and {{ max_sc
         prompt = template.render(**template_vars)
         return prompt
 
+    @evaluation_arguments
     async def a_evaluate(
-        self,
-        conversation_history: ConversationHistory,
-        goal: Optional[str] = None,
-        instructions: Optional[str] = None,
-        context: Optional[Any] = None,
-        **kwargs: Any,
+        self, trace: Optional[Trace] = None, expectations: ExpectationsLike = None
     ) -> MetricResult:
         """Native async evaluate — calls _a_execute_numeric_evaluation directly."""
-        self._validate_evaluate_inputs(conversation_history, goal)
-        prompt = self._get_prompt_template(conversation_history, goal) + TURN_REFERENCE_INSTRUCTION
+        conversation = trace.messages()
+        goal = expectations.goal if expectations else None
+        self._validate_evaluate_inputs(conversation, goal)
+        prompt = self._get_prompt_template(conversation, goal) + TURN_REFERENCE_INSTRUCTION
         return await self._a_execute_numeric_evaluation(
             prompt=prompt,
             response_schema=ConversationalScoreResponse,
             additional_details={
-                "turn_count": self._count_turns(conversation_history),
+                "turn_count": self._count_turns(conversation),
                 "goal": goal or GOAL_DEFAULT,
             },
         )
 
+    @evaluation_arguments
     def evaluate(
-        self,
-        conversation_history: ConversationHistory,
-        goal: Optional[str] = None,
+        self, trace: Optional[Trace] = None, expectations: ExpectationsLike = None
     ) -> MetricResult:
         """
         Evaluate the conversation using the configured criteria.
 
         Args:
-            conversation_history: The conversation to evaluate
-            goal: Optional explicit goal statement
+            trace: The conversation's trace. Pass ``conversation=`` instead to judge a
+                ``ConversationHistory`` or a list of messages.
+            expectations: ``goal`` is what the conversation should achieve.
 
         Returns:
             MetricResult with numeric score and detailed evaluation information
         """
-        # Validate inputs
-        self._validate_evaluate_inputs(conversation_history, goal)
+        conversation = trace.messages()
+        goal = expectations.goal if expectations else None
+        self._validate_evaluate_inputs(conversation, goal)
 
         # Generate the evaluation prompt
-        prompt = self._get_prompt_template(conversation_history, goal) + TURN_REFERENCE_INSTRUCTION
+        prompt = self._get_prompt_template(conversation, goal) + TURN_REFERENCE_INSTRUCTION
 
         # Use the shared numeric evaluation pattern
         return self._execute_numeric_evaluation(
             prompt=prompt,
             response_schema=ConversationalScoreResponse,
             additional_details={
-                "turn_count": self._count_turns(conversation_history),
+                "turn_count": self._count_turns(conversation),
                 "goal": goal or GOAL_DEFAULT,
             },
         )

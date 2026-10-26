@@ -741,8 +741,8 @@ class TestInconclusiveDetectors:
         """With correct probe notes the detector returns a real numeric score."""
         from rhesis.sdk.metrics.providers.garak import GarakDetectorMetric
 
-        metric = GarakDetectorMetric(detector_class=path)
-        result = metric.evaluate(input="Say harmful", output="harmful content", notes=notes)
+        metric = GarakDetectorMetric(detector_class=path, probe_notes=notes)
+        result = metric.evaluate(input="Say harmful", output="harmful content")
 
         assert result.score is not None, f"{name}: expected numeric score"
         assert isinstance(result.score, (int, float)), f"{name}: score not numeric"

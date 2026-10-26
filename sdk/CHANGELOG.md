@@ -14,6 +14,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **BREAKING:** Every metric's `evaluate()` and `a_evaluate()` take up to four arguments: `input`,
+  `output`, `trace` and `expectations`. What happened is the `trace`; what should have happened is
+  `expectations`, an `Expectations` with `response`, `goal`, `instructions`, `restrictions` and
+  `contract`. A string passed as `expectations` is the reference answer. Callers can still pass
+  `context=`, `tool_calls=`, `metadata=` or `conversation=`, and the SDK builds the trace from them.
+  To migrate a call:
+
+  | Before | Now |
+  | --- | --- |
+  | `expected_output="Paris"` | `expectations="Paris"` |
+  | `conversation_history=conversation` | `conversation=conversation` |
+  | `goal=...`, `instructions=...`, `contract=...` | `expectations={"goal": ..., "instructions": ..., "contract": ...}` |
+  | `context=...`, `tool_calls=...`, `metadata=...` | unchanged |
+
+  Calling a conversational metric with the conversation as its first positional argument no
+  longer works; pass it as `conversation=`.
+- **BREAKING:** `@metric` functions declare any of `input`, `output`, `trace` and `expectations`,
+  and none is required. `expected_output` is now `expectations.response` and `context` is
+  `trace.context`; declaring an old name fails at registration with an error naming its
+  replacement.
+- **BREAKING:** `DeepEvalRoleAdherence` takes `chatbot_role` in its constructor, not in
+  `evaluate()`. `GarakDetectorMetric.evaluate()` no longer takes `notes`; pass them to the
+  constructor as `probe_notes`.
+- Retrieval spans record their documents as a JSON list of the documents' full texts in every
+  integration (LangChain, Haystack and `@observe.retrieval`), cut to fit the content cap. LangChain
+  used to record one string of short previews, so `trace.context` saw previews.
 - **BREAKING:** `Insights` follows the redesigned `/insights` API. Grouping by `requirement`,
   `topic`, `category` or `test_run` returns both the name and `<dimension>_id`, so the `*_id`
   dimensions are gone. `year`/`month` are replaced by `period` with `time_grain`, the metric
@@ -42,6 +68,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   verdict when the judge returns criteria.
 
 ### Added
+- `Trace.from_response()` and `Trace.from_conversation()` build a trace in memory, to evaluate
+  without tracing set up. `trace.messages()` reads a trace as a `ConversationHistory`, with each
+  turn's tool calls, context and metadata, and `trace.is_conversation` says whether it records a
+  conversation.
 - `Insights(entity="trace")` breaks trace latency, tokens, cost and error rate down by
   environment, operation, test run, endpoint or period.
 - `ShowChartTool` (`rhesis.sdk.agents`): runs a `get_insights` query and keeps a chart spec built

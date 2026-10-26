@@ -2,8 +2,7 @@
 
 from typing import Any, Dict, List, Optional, Union
 
-from rhesis.sdk.metrics.base import MetricConfig, MetricResult, MetricType, ScoreType
-from rhesis.sdk.metrics.conversational.types import ConversationHistory
+from rhesis.sdk.metrics.base import MetricConfig, MetricType, ScoreType
 from rhesis.sdk.metrics.providers.deepeval.conversational_base import (
     DeepEvalConversationalBase,
 )
@@ -32,7 +31,7 @@ class DeepEvalTurnRelevancy(DeepEvalConversationalBase):
         ...     {"role": "assistant", "content": "Auto includes liability and collision."},
         ... ])
         >>>
-        >>> result = metric.evaluate(conversation_history=conversation)
+        >>> result = metric.evaluate(conversation=conversation)
         >>> print(f"Score: {result.score}")
         >>> print(f"Successful: {result.details['is_successful']}")
     """
@@ -99,7 +98,7 @@ class DeepEvalRoleAdherence(DeepEvalConversationalBase):
         ...     },
         ... ])
         >>>
-        >>> result = metric.evaluate(conversation_history=conversation)
+        >>> result = metric.evaluate(conversation=conversation)
         >>> print(f"Score: {result.score}")
         >>> print(f"Successful: {result.details['is_successful']}")
     """
@@ -110,6 +109,7 @@ class DeepEvalRoleAdherence(DeepEvalConversationalBase):
         self,
         threshold: float = 0.5,
         model: Optional[Union[BaseLLM, str]] = None,
+        chatbot_role: str = "assistant",
     ):
         """
         Initialize Role Adherence metric.
@@ -117,6 +117,7 @@ class DeepEvalRoleAdherence(DeepEvalConversationalBase):
         Args:
             threshold: Minimum passing score (0.0 to 1.0)
             model: Language model for evaluation
+            chatbot_role: The role the assistant should keep to
         """
         config = MetricConfig(
             name="role_adherence",
@@ -136,45 +137,9 @@ class DeepEvalRoleAdherence(DeepEvalConversationalBase):
             threshold=threshold,
             model=self._deepeval_model,
         )
+        self._chatbot_role = chatbot_role
 
         self.threshold = threshold
-
-    def evaluate(
-        self,
-        conversation_history: ConversationHistory,
-        goal: Optional[str] = None,
-        instructions: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None,
-        chatbot_role: Optional[str] = None,
-        **kwargs: Any,
-    ) -> MetricResult:
-        """
-        Evaluate conversation for role adherence.
-
-        Args:
-            conversation_history: Conversation to evaluate
-            goal: Optional goal (not used by this metric)
-            instructions: Optional instructions (not used by this metric)
-            context: Optional context (not used by this metric)
-            chatbot_role: Optional chatbot role. If not provided, defaults to "assistant"
-            **kwargs: Additional parameters
-
-        Returns:
-            MetricResult with role adherence evaluation
-        """
-        # If chatbot_role is not provided, use a default
-        if chatbot_role is None:
-            chatbot_role = "assistant"
-
-        # Call parent evaluate with chatbot_role
-        return super().evaluate(
-            conversation_history=conversation_history,
-            goal=goal,
-            instructions=instructions,
-            context=context,
-            chatbot_role=chatbot_role,
-            **kwargs,
-        )
 
 
 class DeepEvalKnowledgeRetention(DeepEvalConversationalBase):
@@ -197,7 +162,7 @@ class DeepEvalKnowledgeRetention(DeepEvalConversationalBase):
         ...     {"role": "assistant", "content": "Your order number is ABC123."},
         ... ])
         >>>
-        >>> result = metric.evaluate(conversation_history=conversation)
+        >>> result = metric.evaluate(conversation=conversation)
         >>> print(f"Score: {result.score}")
         >>> print(f"Successful: {result.details['is_successful']}")
     """
@@ -258,7 +223,7 @@ class DeepEvalConversationCompleteness(DeepEvalConversationalBase):
         ...     {"role": "assistant", "content": "Your subscription has been cancelled."},
         ... ])
         >>>
-        >>> result = metric.evaluate(conversation_history=conversation)
+        >>> result = metric.evaluate(conversation=conversation)
         >>> print(f"Score: {result.score}")
         >>> print(f"Successful: {result.details['is_successful']}")
     """
@@ -324,10 +289,7 @@ class DeepEvalGoalAccuracy(DeepEvalConversationalBase):
         ...     {"role": "assistant", "content": "Flight booked successfully."},
         ... ])
         >>>
-        >>> result = metric.evaluate(
-        ...     conversation_history=conversation,
-        ...     goal="Book a flight to Paris"
-        ... )
+        >>> result = metric.evaluate(conversation=conversation)
         >>> print(f"Score: {result.score}")
         >>> print(f"Successful: {result.details['is_successful']}")
     """
@@ -396,7 +358,7 @@ class DeepEvalToolUse(DeepEvalConversationalBase):
         ...     {"role": "assistant", "content": "It's sunny today!"},
         ... ])
         >>>
-        >>> result = metric.evaluate(conversation_history=conversation)
+        >>> result = metric.evaluate(conversation=conversation)
         >>> print(f"Score: {result.score}")
         >>> print(f"Successful: {result.details['is_successful']}")
     """

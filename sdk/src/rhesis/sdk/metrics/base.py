@@ -227,13 +227,14 @@ class BaseMetric(ABC):
         **kwargs: Any,
     ) -> MetricResult:
         """
-        Evaluate the metric on the given input, output, and context.
+        Evaluate the metric. Implementations declare any of these, decorated with
+        ``rhesis.sdk.metrics.arguments.evaluation_arguments``:
 
         Args:
             input: The input query/question
             output: The system output/response
-            expected_output: Optional ground truth/reference output
-            context: Optional list of context strings
+            trace: What happened, as a ``Trace`` (context, tool calls, metadata, conversation)
+            expectations: What should have happened, as ``Expectations``
 
         Returns:
             MetricResult: The evaluation result
