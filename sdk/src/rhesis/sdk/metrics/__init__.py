@@ -31,6 +31,7 @@ from rhesis.sdk.metrics.conversational import (
     ToolMessage,
     UserMessage,
 )
+from rhesis.sdk.metrics.expectations import Expectations
 from rhesis.sdk.metrics.factory import MetricFactory
 
 if TYPE_CHECKING:
@@ -127,6 +128,7 @@ __all__ = [
     "BaseMetric",
     "MetricConfig",
     "MetricResult",
+    "Expectations",
     "UnsupportedModelType",
     "MetricScope",
     "MetricConfigLoader",

@@ -175,9 +175,9 @@ def _evaluator_returning(*results, by_input=None):
     calls = list(results)
     evaluator = MagicMock()
 
-    def _evaluate(**kwargs):
+    def _evaluate(metrics, trace, expectations=None):
         if by_input is not None:
-            outcome = by_input[kwargs["input_text"]]
+            outcome = by_input[trace.input]
         else:
             outcome = calls.pop(0) if calls else {"score": 0.0, "reason": "no more stubs"}
         if isinstance(outcome, Exception):

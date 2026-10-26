@@ -1,14 +1,14 @@
 import dataclasses
 import inspect
 import logging
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
 from rhesis.backend.app.schemas.metric_types import ScoreType
 from rhesis.backend.metrics.inputs import EvaluationInputs
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.utils import diagnose_invalid_metric
-from rhesis.sdk.metrics import BaseMetric, MetricConfig
+from rhesis.sdk.metrics import BaseMetric, Expectations, MetricConfig
 from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
 
 logger = logging.getLogger(__name__)
@@ -39,48 +39,33 @@ def metric_wants_trace(metric: BaseMetric) -> bool:
 
 
 def build_metric_evaluate_params(metric: BaseMetric, inputs: EvaluationInputs) -> Dict[str, Any]:
-    """
-    Build kwargs for metric.a_evaluate() from evaluation inputs using introspection.
-
-    Inspects the metric's a_evaluate signature (falling back to evaluate when
-    a_evaluate is the base *args/**kwargs default) and only includes parameters
-    that are actually defined (e.g., ContextualRelevancy doesn't need output).
-
-    ``instructions`` and ``contract`` are only declared by ``GoalAchievementJudge`` today.
-    Without ``instructions``, re-scoring a multi-turn test renders its prompt missing the
-    mandatory-instructions block a live run always includes, which can score the same
-    conversation differently depending on which path produced the verdict.
-
-    Returns:
-        Dict of kwargs to pass to metric.a_evaluate()
-    """
+    """The kwargs for ``metric.a_evaluate()``: whichever of ``input``, ``output``, ``trace``
+    and ``expectations`` its signature declares. The trace is read only for a metric that
+    declares it."""
     params = _get_metric_signature(metric)
+    values = {
+        "input": lambda: inputs.input_text,
+        "output": lambda: inputs.output_text,
+        "trace": inputs.load_trace,
+        "expectations": lambda: _expectations_for(metric, inputs.expectations),
+    }
+    return {name: read() for name, read in values.items() if name in params}
 
-    kwargs: Dict[str, Any] = {}
-    if "input" in params:
-        kwargs["input"] = inputs.input_text
-    if "output" in params:
-        kwargs["output"] = inputs.output_text
-    if "expected_output" in params:
-        kwargs["expected_output"] = inputs.expected_output
-    if "context" in params:
-        kwargs["context"] = inputs.context
-    if "conversation_history" in params:
-        kwargs["conversation_history"] = inputs.conversation_history
-    if "metadata" in params and inputs.metadata is not None:
-        kwargs["metadata"] = inputs.metadata
-    if "tool_calls" in params and inputs.tool_calls is not None:
-        kwargs["tool_calls"] = inputs.tool_calls
-    if "goal" in params:
-        kwargs["goal"] = inputs.input_text
-    if "instructions" in params and inputs.instructions is not None:
-        kwargs["instructions"] = inputs.instructions
-    if "contract" in params and inputs.contract is not None:
-        kwargs["contract"] = inputs.contract
-    if "trace" in params:
-        kwargs["trace"] = inputs.load_trace()
 
-    return kwargs
+def _expectations_for(metric: BaseMetric, expectations: Optional[Expectations]) -> Expectations:
+    """The expectations a metric is scored against.
+
+    A metric that requires a reference answer gets an empty one when the test has none
+    (conversations, production traces), as it always has. TBE 3 reports these as not
+    applicable instead.
+    """
+    if not getattr(metric, "requires_ground_truth", False):
+        return expectations
+    if expectations is None:
+        return Expectations(response="")
+    if expectations.response is None:
+        return expectations.model_copy(update={"response": ""})
+    return expectations
 
 
 #: Generic fallback for a numeric metric row that never had a threshold set.

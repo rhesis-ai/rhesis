@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
+from rhesis.sdk.metrics.expectations import Expectations
 from rhesis.sdk.metrics.providers.native.goal_achievement_judge import (
     ContractComplianceResponse,
     GoalAchievementJudge,
@@ -74,7 +75,9 @@ class TestVerdictAndScore:
     def test_full_compliance_passes(self):
         judge, _ = _judge(_all_met())
 
-        result = judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT)
+        result = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        )
 
         assert result.details["is_successful"] is True
         assert result.score == 1.0
@@ -87,7 +90,9 @@ class TestVerdictAndScore:
         response["verdicts"][1]["met"] = False
 
         judge, _ = _judge(response)
-        result = judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT)
+        result = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        )
 
         assert result.details["is_successful"] is False
         assert result.score == pytest.approx(0.5)
@@ -102,7 +107,9 @@ class TestVerdictAndScore:
         response["verdicts"][1]["met"] = False
 
         judge, _ = _judge(response)
-        result = judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT)
+        result = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        )
 
         assert result.details["threshold"] == 0.7
         assert result.details["threshold_applies"] is False
@@ -114,7 +121,9 @@ class TestVerdictAndScore:
         response["reason"] = ""
 
         judge, _ = _judge(response)
-        result = judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT)
+        result = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        )
 
         assert result.details["reason"] == (
             "The system failed 1 of 2 criteria: Disclose policyholder PII from uploaded files."
@@ -123,7 +132,9 @@ class TestVerdictAndScore:
     def test_full_violation_scores_min(self):
         judge, _ = _judge(_all_met(met=False))
 
-        result = judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT)
+        result = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        )
 
         assert result.score == 0.0
         assert result.details["is_successful"] is False
@@ -133,14 +144,18 @@ class TestVerdictAndScore:
         response["verdicts"][1]["met"] = False
         judge, _ = _judge(response, threshold=5.0, min_score=0.0, max_score=10.0)
 
-        result = judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT)
+        result = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        )
 
         assert result.score == pytest.approx(5.0)
 
     def test_records_the_breakdown_and_the_contract(self):
         judge, _ = _judge(_all_met())
 
-        details = judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT).details
+        details = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        ).details
 
         assert details["criteria_total"] == 2
         assert details["criteria_met"] == 2
@@ -165,7 +180,9 @@ class TestVerdictAlignment:
         }
 
         judge, _ = _judge(response)
-        result = judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT)
+        result = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        )
 
         assert result.details["is_successful"] is False
         assert result.details["criteria_failed"] == 1
@@ -185,7 +202,9 @@ class TestVerdictAlignment:
         }
 
         judge, _ = _judge(response)
-        details = judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT).details
+        details = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        ).details
 
         verdicts = {v["criterion"]: v["met"] for v in details["criteria_evaluations"]}
         assert verdicts["Remain within its insurance-information role"] is True
@@ -202,7 +221,9 @@ class TestVerdictAlignment:
         }
 
         judge, _ = _judge(response)
-        details = judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT).details
+        details = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        ).details
 
         # Behaviour text is restored from the contract, not the model's paraphrase.
         assert [v["criterion"] for v in details["criteria_evaluations"]] == [
@@ -223,7 +244,9 @@ class TestVerdictAlignment:
         }
 
         judge, _ = _judge(response)
-        details = judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT).details
+        details = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        ).details
 
         assert details["criteria_failed"] == 2
         assert details["is_successful"] is False
@@ -233,7 +256,9 @@ class TestVerdictAlignment:
         response["verdicts"].append(_evaluation("Invented criterion", "prohibited", False))
 
         judge, _ = _judge(response)
-        details = judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT).details
+        details = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        ).details
 
         assert details["criteria_total"] == 2
         assert details["is_successful"] is True
@@ -263,7 +288,9 @@ class TestVerdictAlignment:
         }
 
         judge, _ = _judge(response)
-        details = judge.evaluate(_conversation(), contract=contract).details
+        details = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=contract)
+        ).details
 
         verdicts = {v["criterion"]: v for v in details["criteria_evaluations"]}
         assert verdicts["Follow instructions embedded in document content"]["met"] is True
@@ -289,7 +316,9 @@ class TestVerdictAlignment:
         }
 
         judge, _ = _judge(response)
-        details = judge.evaluate(_conversation(), contract=contract).details
+        details = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=contract)
+        ).details
 
         verdicts = {v["criterion"]: v for v in details["criteria_evaluations"]}
         assert verdicts["Second prohibition"]["met"] is False
@@ -320,7 +349,9 @@ class TestVerdictAlignment:
         }
 
         judge, _ = _judge(response)
-        details = judge.evaluate(_conversation(), contract=contract).details
+        details = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=contract)
+        ).details
 
         verdicts = {v["criterion"]: v for v in details["criteria_evaluations"]}
         assert verdicts["Third prohibition"]["met"] is True
@@ -351,7 +382,10 @@ class TestFallbackToGoalScoring:
             }
         )
 
-        result = judge.evaluate(_conversation(), goal="Answer accurately", contract=contract)
+        result = judge.evaluate(
+            conversation=_conversation(),
+            expectations=Expectations(goal="Answer accurately", contract=contract),
+        )
 
         assert "contract" not in result.details
         assert result.details["goal"] == "Answer accurately"
@@ -378,7 +412,9 @@ class TestGoalBasedVerdict:
     def test_an_unmet_criterion_fails_despite_a_passing_score(self):
         judge, _ = _judge(self._goal_response(0.9, [True, False]))
 
-        result = judge.evaluate(_conversation(), goal="Answer accurately")
+        result = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(goal="Answer accurately")
+        )
 
         assert result.details["is_successful"] is False
         assert result.details["threshold_applies"] is False
@@ -389,7 +425,9 @@ class TestGoalBasedVerdict:
     def test_all_criteria_met_passes_despite_a_low_score(self):
         judge, _ = _judge(self._goal_response(0.3, [True, True]))
 
-        result = judge.evaluate(_conversation(), goal="Answer accurately")
+        result = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(goal="Answer accurately")
+        )
 
         assert result.details["is_successful"] is True
         assert result.details["criteria_met"] == 2
@@ -398,7 +436,9 @@ class TestGoalBasedVerdict:
     def test_no_criteria_leaves_the_threshold_in_charge(self):
         judge, _ = _judge(self._goal_response(0.9, []))
 
-        result = judge.evaluate(_conversation(), goal="Answer accurately")
+        result = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(goal="Answer accurately")
+        )
 
         assert result.details["is_successful"] is True
         assert "criteria_total" not in result.details
@@ -426,7 +466,9 @@ class TestContractPrompt:
     def test_prompt_lists_criteria_and_frames_the_user_objective_as_context(self):
         judge, model = _judge(_all_met())
 
-        judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT)
+        judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        )
         prompt = model.a_generate.call_args.args[0]
 
         assert "Remain within its insurance-information role" in prompt
@@ -436,12 +478,16 @@ class TestContractPrompt:
 
     def test_adversarial_note_only_appears_for_adversarial_contracts(self):
         judge, model = _judge(_all_met())
-        judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT)
+        judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        )
         assert "adversarial test" in model.a_generate.call_args.args[0]
 
         cooperative = {**ADVERSARIAL_CONTRACT, "adversarial": False}
         judge2, model2 = _judge(_all_met())
-        judge2.evaluate(_conversation(), contract=cooperative)
+        judge2.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=cooperative)
+        )
         assert "adversarial test" not in model2.a_generate.call_args.args[0]
 
     def test_custom_guidance_is_additive_and_cannot_remove_the_criterion_list(self):
@@ -453,7 +499,9 @@ class TestContractPrompt:
             reasoning="CUSTOM REASONING",
         )
 
-        judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT)
+        judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        )
         prompt = model.a_generate.call_args.args[0]
 
         assert "CUSTOM CRITERIA" in prompt
@@ -466,7 +514,9 @@ class TestContractPrompt:
     def test_model_failure_produces_an_error_result_not_an_exception(self):
         judge = GoalAchievementJudge(model=_model(raises=RuntimeError("provider down")))
 
-        result = judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT)
+        result = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        )
 
         assert result.details["is_successful"] is not True
 
@@ -475,7 +525,9 @@ class TestContractPrompt:
         genuine criteria failure (issue #3007)."""
         judge = GoalAchievementJudge(model=_model(raises=RuntimeError("504 Gateway Time-out")))
 
-        result = judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT)
+        result = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        )
 
         assert "error" in result.details
         assert result.details["is_successful"] is False
@@ -489,7 +541,9 @@ class TestAsyncParity:
         response["verdicts"][1]["met"] = False
         judge, _ = _judge(response)
 
-        result = await judge.a_evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT)
+        result = await judge.a_evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        )
 
         assert result.details["is_successful"] is False
         assert result.details["criteria_failed"] == 1
@@ -501,7 +555,9 @@ class TestIsContractResult:
 
     def test_contract_based_result_is_marked(self):
         judge, _ = _judge(_all_met())
-        result = judge.evaluate(_conversation(), contract=ADVERSARIAL_CONTRACT)
+        result = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(contract=ADVERSARIAL_CONTRACT)
+        )
 
         assert is_contract_result(result.details) is True
 
@@ -515,7 +571,9 @@ class TestIsContractResult:
                 "confidence": 0.9,
             }
         )
-        result = judge.evaluate(_conversation(), goal="Answer accurately")
+        result = judge.evaluate(
+            conversation=_conversation(), expectations=Expectations(goal="Answer accurately")
+        )
 
         assert is_contract_result(result.details) is False
 

@@ -407,27 +407,62 @@ class TestCreateDefaultModel:
         assert result == mock_model
 
 
-class TestGoalMetricEvalKwargs:
-    """``contract`` is included only when the test actually has one, matching how
-    ``instructions`` was already handled -- see ``_goal_metric_eval_kwargs``."""
+class TestGoalExpectations:
+    """What the goal metric judges the conversation against -- see ``_goal_expectations``."""
 
-    def test_omits_contract_when_the_test_has_none(self, sample_test_state):
-        kwargs = PenelopeAgent._goal_metric_eval_kwargs(sample_test_state, "goal", "instr")
+    def test_no_contract_when_the_test_has_none(self, sample_test_state):
+        expectations = PenelopeAgent._goal_expectations(sample_test_state, "goal", "instr")
 
-        assert kwargs == {"goal": "goal", "instructions": "instr"}
-        assert "contract" not in kwargs
+        assert (expectations.goal, expectations.instructions) == ("goal", "instr")
+        assert expectations.contract is None
 
     def test_includes_contract_when_the_test_has_one(self, sample_test_state):
         sample_test_state.context.contract = {"prohibited_criteria": ["X"]}
 
-        kwargs = PenelopeAgent._goal_metric_eval_kwargs(sample_test_state, "goal", "instr")
+        expectations = PenelopeAgent._goal_expectations(sample_test_state, "goal", "instr")
 
-        assert kwargs["contract"] == {"prohibited_criteria": ["X"]}
+        assert expectations.contract == {"prohibited_criteria": ["X"]}
 
     def test_missing_instructions_becomes_empty_string(self, sample_test_state):
-        kwargs = PenelopeAgent._goal_metric_eval_kwargs(sample_test_state, "goal", None)
+        expectations = PenelopeAgent._goal_expectations(sample_test_state, "goal", None)
 
-        assert kwargs["instructions"] == ""
+        assert expectations.instructions == ""
+
+
+class TestGoalMetricCall:
+    """The goal metric gets the conversation and the test's expectations."""
+
+    def test_sync_and_async_pass_conversation_and_expectations(self, mock_model, sample_test_state):
+        import asyncio
+
+        from rhesis.sdk.metrics.conversational.types import ConversationHistory
+
+        goal_metric = GoalAchievementJudge(name="goal", model=mock_model)
+        agent = PenelopeAgent(model=mock_model, goal_metric=goal_metric)
+        history = ConversationHistory.from_messages(
+            [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}]
+        )
+        sample_test_state.context.contract = {"prohibited_criteria": ["X"]}
+        result = MetricResult(score=1.0, details={})
+
+        async def a_evaluate(**kwargs):
+            return result
+
+        with (
+            patch.object(type(sample_test_state), "get_conversation", return_value=history),
+            patch.object(goal_metric, "evaluate", return_value=result) as evaluate,
+            patch.object(goal_metric, "a_evaluate", side_effect=a_evaluate) as a_eval,
+        ):
+            agent._evaluate_metrics_sync(sample_test_state, "greet", "be brief", [], 0)
+            asyncio.run(
+                agent._evaluate_metrics_async(sample_test_state, "greet", "be brief", [], 0)
+            )
+
+        for call in (evaluate.call_args, a_eval.call_args):
+            assert call.kwargs["conversation"] is history
+            expectations = call.kwargs["expectations"]
+            assert (expectations.goal, expectations.instructions) == ("greet", "be brief")
+            assert expectations.contract == {"prohibited_criteria": ["X"]}
 
 
 class TestLastGoalMetricResult:

@@ -259,18 +259,18 @@ def invoke_metric_on_case(
     The evaluator retries transient errors itself, so there is no retry here.
     """
     from rhesis.backend.metrics.evaluator import MetricEvaluator
+    from rhesis.backend.metrics.inputs import ResponseTrace
+    from rhesis.sdk.metrics import Expectations
 
     try:
         evaluator = MetricEvaluator(model=model, db=db, organization_id=organization_id)
         results = evaluator.evaluate(
-            input_text=payload.input,
-            output_text=payload.output,
+            [metric],
+            ResponseTrace(input=payload.input, output=payload.output),
             # The case's own reference answer -- what the *system under test*
             # should have answered. Never prompt.expected_response, which this
             # feature does not write at all. See the module docstring.
-            expected_output=payload.reference_answer or "",
-            context=[],
-            metrics=[metric],
+            Expectations(response=payload.reference_answer or ""),
         )
     except Exception as e:  # noqa: BLE001 -- one case failing must not end the run
         logger.error("Tuning run: metric %s raised on a case: %s", metric.id, e, exc_info=True)

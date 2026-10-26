@@ -52,9 +52,7 @@ class TestFilterConfigsByScope:
 
         assert [c.name for c in kept] == ["Faithfulness"]
 
-    @pytest.mark.parametrize(
-        "scope", [MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN]
-    )
+    @pytest.mark.parametrize("scope", [MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN])
     def test_dual_scoped_metric_kept_for_both(self, scope):
         configs = [_Config("Response Conciseness", ["Single-Turn", "Multi-Turn"])]
 
@@ -189,7 +187,7 @@ class TestMultiTurnEvaluatorAppliesScopeFilter:
             MagicMock(stored_outputs=None), evaluator, test, self._conversation_output(), configs
         )
 
-        passed = evaluator.a_evaluate.call_args.kwargs["metrics"]
+        passed = evaluator.a_evaluate.call_args.args[0]
         assert [c.name for c in passed] == ["State Consistency"]
 
     @pytest.mark.asyncio

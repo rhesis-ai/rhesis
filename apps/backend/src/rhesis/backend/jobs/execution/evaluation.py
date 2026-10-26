@@ -31,7 +31,9 @@ from rhesis.backend.jobs.execution.constants import (
     MetricScope,
 )
 from rhesis.backend.metrics.evaluator import MetricEvaluator
-from rhesis.backend.metrics.inputs import TraceLoader
+from rhesis.backend.metrics.inputs import ResponseTrace, TraceLoader
+from rhesis.sdk.entities.trace import Trace
+from rhesis.sdk.metrics.expectations import Expectations
 
 if TYPE_CHECKING:
     from rhesis.sdk.metrics import MetricConfig
@@ -161,24 +163,43 @@ def _build_conversation_history(
     return ConversationHistory.from_messages(messages)
 
 
-def _collect_conversation_context(conversation_summary: List[Dict[str, Any]]) -> List[str]:
-    """Flatten every turn's per-turn context (e.g. RAG chunks) into one list.
+def conversation_trace(conversation_summary: List[Dict[str, Any]]) -> Optional[Trace]:
+    """The trace of a stored conversation, one turn per summary entry, or None when empty."""
+    history = _build_conversation_history(conversation_summary)
+    return Trace.from_conversation(history) if history is not None else None
 
-    context_required metrics (LLM08, ASI06, ASI08) need this at the top level of
-    MetricEvaluator.evaluate(), separately from the per-turn context already
-    rendered inline by ConversationHistory.format_conversation() for judges that
-    read the formatted transcript directly.
-    """
-    context: List[str] = []
-    for turn in conversation_summary:
-        turn_context = turn.get(TURN_CONTEXT_KEY)
-        if not turn_context:
-            continue
-        if isinstance(turn_context, list):
-            context.extend(str(c) for c in turn_context)
-        else:
-            context.append(str(turn_context))
-    return context
+
+def conversation_expectations(
+    test_config: Dict[str, Any],
+    instructions: Optional[str] = None,
+    contract: Optional[Dict[str, Any]] = None,
+) -> Expectations:
+    """What a multi-turn test expects: its goal and restrictions, and the instructions and
+    contract the goal judge reads."""
+    return Expectations(
+        goal=test_config.get("goal") or None,
+        instructions=instructions,
+        restrictions=test_config.get("restrictions") or None,
+        contract=contract,
+    )
+
+
+def response_trace(
+    prompt_content: str,
+    result: Any,
+    context: List[str],
+    trace_loader: Optional[TraceLoader] = None,
+) -> ResponseTrace:
+    """The trace of one endpoint response, from its mapped output, tool calls and metadata."""
+    mapped = result if isinstance(result, dict) else {}
+    return ResponseTrace(
+        input=prompt_content,
+        output=extract_response_with_fallback(result),
+        context=context,
+        tool_calls=mapped.get("tool_calls"),
+        metadata=mapped.get("metadata"),
+        loader=trace_loader,
+    )
 
 
 def evaluate_single_turn_metrics(
@@ -212,11 +233,6 @@ def evaluate_single_turn_metrics(
     """
     metrics_results = {}
 
-    # Extract actual_response using the fallback hierarchy
-    actual_response = extract_response_with_fallback(result)
-    metadata = result.get("metadata") if isinstance(result, dict) else None
-    tool_calls = result.get("tool_calls") if isinstance(result, dict) else None
-
     # Callers normally already scope-filtered via prepare_metric_configs(...,
     # scope=MetricScope.SINGLE_TURN) before this runs (see executors/runners.py),
     # so this is defense in depth for any caller that hands in metrics directly.
@@ -227,14 +243,9 @@ def evaluate_single_turn_metrics(
 
     try:
         metrics_results = metrics_evaluator.evaluate(
-            input_text=prompt_content,
-            expected_output=expected_response,
-            output_text=actual_response,
-            context=context,
-            metrics=metrics,
-            metadata=metadata,
-            tool_calls=tool_calls,
-            trace_loader=trace_loader,
+            metrics,
+            response_trace(prompt_content, result, context, trace_loader),
+            Expectations(response=expected_response),
         )
     except Exception as e:
         logger.warning(f"Error evaluating metrics: {str(e)}")
@@ -387,7 +398,6 @@ def evaluate_multi_turn_metrics(
     )
 
     test_config = test.test_configuration or {}
-    goal = test_config.get("goal", "")
     # GoalAchievementJudge's prompt has a mandatory-instructions block a live run always
     # includes; omitting it here would let a re-score score the same conversation
     # differently from the live run that originally produced it.
@@ -434,25 +444,15 @@ def evaluate_multi_turn_metrics(
         require_model=True,
     )
 
-    conversation_summary = stored_output.get(CONVERSATION_SUMMARY_KEY, [])
-    conversation_history = _build_conversation_history(conversation_summary)
-
-    # Use format_conversation() so that per-turn metadata, context, and tool calls
-    # are rendered inline within each turn. Both single-turn judges (NumericJudge,
-    # CategoricalJudge) and ConversationalJudge therefore see the same rich
-    # structured transcript as their output/conversation_text input.
-    conversation_text = conversation_history.format_conversation() if conversation_history else ""
+    trace = conversation_trace(stored_output.get(CONVERSATION_SUMMARY_KEY, []))
+    if trace is None:
+        return {}
 
     try:
         results = metrics_evaluator.evaluate(
-            input_text=goal,
-            output_text=conversation_text.strip(),
-            expected_output="",
-            context=_collect_conversation_context(conversation_summary),
-            metrics=metric_configs,
-            conversation_history=conversation_history,
-            instructions=instructions,
-            contract=contract_dict,
+            metric_configs,
+            trace,
+            conversation_expectations(test_config, instructions, contract_dict),
         )
     except Exception as e:
         logger.warning(f"Error evaluating multi-turn metrics: {str(e)}")

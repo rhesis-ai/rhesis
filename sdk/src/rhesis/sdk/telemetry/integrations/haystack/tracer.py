@@ -47,6 +47,7 @@ from rhesis.sdk.telemetry.integrations.genai import (
     content_capture_enabled,
 )
 from rhesis.sdk.telemetry.integrations.haystack import extraction, mapping
+from rhesis.sdk.telemetry.retrieval import record_documents
 from rhesis.sdk.telemetry.utils import identify_provider_from_model_name
 from rhesis.telemetry.attributes import MAX_CONTENT_LENGTH, AIAttributes, AIEvents
 from rhesis.telemetry.constants import ConversationContext
@@ -305,6 +306,10 @@ class RhesisSpan(Span):
         self._add_prompt_events(tracing_utils.coerce_tag_value(value))
 
     def _set_output_content(self, key: str, value: Any) -> None:
+        if isinstance(value, dict) and "documents" in value and self._is_retrieval():
+            record_documents(self._span, value.get("documents"))
+            return
+
         if key == mapping.AGENT_OUTPUT:
             text = _stringify_content(value)
             if text:
@@ -380,6 +385,10 @@ class RhesisSpan(Span):
     def raw_span(self) -> trace.Span:
         """Return the underlying OpenTelemetry span instance."""
         return self._span
+
+    def _is_retrieval(self) -> bool:
+        attributes = getattr(self._span, "attributes", None) or {}
+        return attributes.get(AIAttributes.OPERATION_TYPE) == AIAttributes.OPERATION_RETRIEVAL
 
     def close(self, exc_info: tuple[Any, Any, Any] | None = None) -> None:
         """

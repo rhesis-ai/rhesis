@@ -13,6 +13,7 @@ These cover regressions where spans were silently dropped or fragmented:
   skipped run became a root span in its own trace.
 """
 
+import json
 import threading
 from typing import Annotated, List, TypedDict
 
@@ -302,6 +303,15 @@ class TestRetrievalSpans:
         assert span.attributes.get("ai.retrieval.top_k") == 2
         event_names = {e.name for e in span.events}
         assert {"ai.retrieval.query", "ai.retrieval.results"} <= event_names
+
+    def test_retriever_records_the_documents_as_a_json_list(self, callback, exporter):
+        """The whole text of each document, which is what Trace.context reads."""
+        FakeRetriever().invoke("refund policy", config={"callbacks": [callback]})
+
+        span = named(exporter.get_finished_spans(), RETRIEVAL)[0]
+        results = next(e for e in span.events if e.name == "ai.retrieval.results")
+        documents = json.loads(results.attributes["ai.completion.content"])
+        assert documents == ["about refund policy", "second"]
 
     def test_retriever_error_marks_the_span(self, callback, exporter):
         class Failing(BaseRetriever):

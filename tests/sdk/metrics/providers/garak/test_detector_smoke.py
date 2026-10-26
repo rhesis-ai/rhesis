@@ -216,12 +216,8 @@ class TestDetectorSmokeScores:
 
         from rhesis.sdk.metrics.providers.garak import GarakDetectorMetric
 
-        metric = GarakDetectorMetric(detector_class=case.path)
-        result = metric.evaluate(
-            input=case.prompt,
-            output=case.safe_output,
-            **({"notes": case.notes} if case.notes else {}),
-        )
+        metric = GarakDetectorMetric(detector_class=case.path, probe_notes=case.notes)
+        result = metric.evaluate(input=case.prompt, output=case.safe_output)
 
         assert result.score is not None, (
             f"{case.name}: expected numeric score for safe input, "
@@ -239,12 +235,8 @@ class TestDetectorSmokeScores:
 
         from rhesis.sdk.metrics.providers.garak import GarakDetectorMetric
 
-        metric = GarakDetectorMetric(detector_class=case.path)
-        result = metric.evaluate(
-            input=case.prompt,
-            output=case.unsafe_output,
-            **({"notes": case.notes} if case.notes else {}),
-        )
+        metric = GarakDetectorMetric(detector_class=case.path, probe_notes=case.notes)
+        result = metric.evaluate(input=case.prompt, output=case.unsafe_output)
 
         assert result.score is not None, (
             f"{case.name}: expected numeric score for unsafe input, "

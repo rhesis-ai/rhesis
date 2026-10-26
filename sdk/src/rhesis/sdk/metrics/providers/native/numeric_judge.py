@@ -1,13 +1,14 @@
-import json
 from dataclasses import fields
 from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
 from rhesis.sdk.async_utils import run_sync
+from rhesis.sdk.entities.trace import Trace
+from rhesis.sdk.metrics.arguments import evaluation_arguments
 from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
-from rhesis.sdk.metrics.conversational.types import ConversationHistory
+from rhesis.sdk.metrics.expectations import ExpectationsLike
 from rhesis.sdk.metrics.providers.native.base import JudgeBase
 from rhesis.sdk.metrics.providers.native.configs import NumericJudgeConfig
 from rhesis.sdk.metrics.providers.native.evaluation_patterns import NumericEvaluationMixin
@@ -149,37 +150,25 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
             **additional_template_vars,
         )
 
+    @evaluation_arguments
     def evaluate(
         self,
-        input: str,
-        output: str,
-        expected_output: Optional[str],
-        context: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tool_calls: Optional[List[Dict[str, Any]]] = None,
-        conversation_history: Optional[ConversationHistory] = None,
+        input: Optional[str] = None,
+        output: Optional[str] = None,
+        trace: Optional[Trace] = None,
+        expectations: ExpectationsLike = None,
     ) -> MetricResult:
         return run_sync(
-            self.a_evaluate(
-                input=input,
-                output=output,
-                expected_output=expected_output,
-                context=context,
-                metadata=metadata,
-                tool_calls=tool_calls,
-                conversation_history=conversation_history,
-            )
+            self.a_evaluate(input=input, output=output, trace=trace, expectations=expectations)
         )
 
+    @evaluation_arguments
     async def a_evaluate(
         self,
-        input: str,
-        output: str,
-        expected_output: Optional[str],
-        context: Optional[List[str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        tool_calls: Optional[List[Dict[str, Any]]] = None,
-        conversation_history: Optional[ConversationHistory] = None,
+        input: Optional[str] = None,
+        output: Optional[str] = None,
+        trace: Optional[Trace] = None,
+        expectations: ExpectationsLike = None,
     ) -> MetricResult:
         """
         Evaluate the output using the LLM with the custom prompt template.
@@ -189,14 +178,16 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
         numeric score and detailed evaluation information.
 
         Args:
-            input (str): The input query/question that was posed to the system
-            output (str): The system's response/output that needs to be evaluated
-            expected_output (Optional[str]): The expected or reference output (ground truth).
-                Required for this metric as it requires ground truth for evaluation.
-            context (Optional[List[str]], optional): List of context chunks used for the response.
-                Defaults to None.
-            conversation_history: Set when ``output`` is a multi-turn transcript. The judge
-                then also returns ``relevant_turns``.
+            input: The input posed to the system. Read from the trace when not passed.
+            output: The system's response. Read from the trace when not passed; for a
+                conversation, the transcript.
+            trace: What happened. The judge shows its context, tool calls and metadata. Built
+                from ``input`` and ``output`` when not passed, and from ``context=``,
+                ``tool_calls=``, ``metadata=`` or ``conversation=`` when those are passed.
+            expectations: What should have happened; ``response`` is the reference answer.
+                A string is read as the reference answer.
+
+        On a conversation the judge also returns ``relevant_turns``.
 
         Returns:
             MetricResult: The evaluation result containing:
@@ -217,39 +208,21 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
                     - exception_details: Detailed exception information if evaluation failed
 
         Raises:
-            ValueError: If expected_output is None (this metric requires ground truth)
+            ValueError: If the metric requires a reference answer and none was provided
 
         Note:
             The method handles various error conditions gracefully, returning error scores
             with detailed information rather than raising exceptions for LLM-related issues.
             Only ground truth validation errors are raised as exceptions.
         """
-        # Validate inputs using shared method
-        self._validate_evaluate_inputs(input, output, expected_output, context)
+        expected = expectations.response if expectations else None
+        template_vars = self._trace_template_vars(trace)
+        context = template_vars.pop("context")
+        self._validate_evaluate_inputs(input, output, expected, context)
 
-        # Serialize metadata for template
-        metadata_text = (
-            json.dumps(metadata, indent=2)
-            if isinstance(metadata, (dict, list))
-            else str(metadata)
-            if metadata
-            else None
-        )
+        prompt = self._get_prompt_template(input, output, expected or "", context, **template_vars)
 
-        # Serialize tool_calls for template
-        tool_calls_text = json.dumps(tool_calls, indent=2) if tool_calls else None
-
-        # Generate the evaluation prompt
-        prompt = self._get_prompt_template(
-            input,
-            output,
-            expected_output or "",
-            context or [],
-            metadata_text=metadata_text,
-            tool_calls_text=tool_calls_text,
-        )
-
-        if conversation_history is None:
+        if not trace.is_conversation:
             return await self._a_execute_numeric_evaluation(
                 prompt=prompt, response_schema=NumericScoreResponse
             )

@@ -10,9 +10,9 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.services.async_service import AsyncService
-from rhesis.backend.app.services.invokers.reported_spans import REPORTED, SOURCE_ATTRIBUTE
 from rhesis.backend.app.services.telemetry.enrichment.processor import TraceEnricher
 from rhesis.backend.app.services.usage import dispatch_accrual
+from rhesis.sdk.telemetry.reported_spans import REPORTED, SOURCE_ATTRIBUTE
 
 if TYPE_CHECKING:
     from rhesis.backend.app import models

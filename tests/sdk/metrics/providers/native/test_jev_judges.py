@@ -44,7 +44,7 @@ async def test_categorical_judge_asks_one_choice_question(metric, use_async):
     }
     with patch.object(metric.model, "a_decide", new_callable=AsyncMock) as decide:
         decide.return_value = answers
-        inputs = {"input": "hi", "output": "Hello!", "expected_output": "A greeting"}
+        inputs = {"input": "hi", "output": "Hello!", "expectations": "A greeting"}
         result = (
             await metric.a_evaluate(**inputs)
             if use_async
@@ -72,7 +72,7 @@ async def test_categorical_judge_asks_one_choice_question(metric, use_async):
 def test_categorical_judge_still_sends_an_empty_output(metric):
     with patch.object(metric.model, "a_decide", new_callable=AsyncMock) as decide:
         decide.return_value = {"score": {"choice": "rude"}}
-        metric.evaluate(input="hi", output="", expected_output="")
+        metric.evaluate(input="hi", output="", expectations="")
     state, _ = decide.call_args.args
     assert state == {"input": "hi", "output_to_evaluate": ""}
 
@@ -82,7 +82,7 @@ def test_categorical_judge_still_sends_an_empty_output(metric):
 async def test_categorical_judge_fails_a_non_passing_choice(metric, use_async):
     with patch.object(metric.model, "a_decide", new_callable=AsyncMock) as decide:
         decide.return_value = {"score": {"choice": "rude"}}
-        inputs = {"input": "hi", "output": "Go away", "expected_output": "x"}
+        inputs = {"input": "hi", "output": "Go away", "expectations": "x"}
         result = (
             await metric.a_evaluate(**inputs)
             if use_async
@@ -104,7 +104,7 @@ async def test_categorical_judge_fails_a_non_passing_choice(metric, use_async):
 async def test_categorical_judge_reports_invalid_choice(metric, use_async, choice):
     with patch.object(metric.model, "a_decide", new_callable=AsyncMock) as decide:
         decide.return_value = {"score": {"choice": choice}}
-        inputs = {"input": "hi", "output": "Hello!", "expected_output": "A greeting"}
+        inputs = {"input": "hi", "output": "Hello!", "expectations": "A greeting"}
         result = (
             await metric.a_evaluate(**inputs)
             if use_async
@@ -123,7 +123,7 @@ async def test_categorical_judge_reports_invalid_choice(metric, use_async, choic
 def test_categorical_judge_reports_jev_failure(metric):
     with patch.object(metric.model, "a_decide", new_callable=AsyncMock) as decide:
         decide.side_effect = RuntimeError("upstream down")
-        result = metric.evaluate(input="hi", output="Hello!", expected_output="x")
+        result = metric.evaluate(input="hi", output="Hello!", expectations="x")
     assert result.score == "error"
     assert "upstream down" in result.details["error"]
 

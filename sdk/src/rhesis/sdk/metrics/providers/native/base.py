@@ -1,6 +1,8 @@
+import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TypeVar, Union
 
+from rhesis.sdk.entities.trace import Trace
 from rhesis.sdk.metrics.base import BaseMetric, MetricResult
 from rhesis.sdk.metrics.providers.native.configs import BaseJudgeConfig
 from rhesis.sdk.metrics.providers.native.serialization import BackendSyncMixin, SerializationMixin
@@ -31,6 +33,28 @@ class JudgeBase(BaseMetric, SerializationMixin, BackendSyncMixin):
 
     def evaluate(self, *args, **kwargs) -> MetricResult:
         raise NotImplementedError("Subclasses should override this method")
+
+    @staticmethod
+    def _trace_template_vars(trace: Trace) -> Dict[str, Any]:
+        """The trace's context, metadata and tool calls as the judge templates render them.
+
+        A conversation's transcript already shows each turn's metadata and tool calls, so
+        only its context is passed beside it.
+        """
+        if trace.is_conversation:
+            return {"context": trace.context, "metadata_text": None, "tool_calls_text": None}
+        metadata, tool_calls = trace.metadata, trace.tool_calls
+        return {
+            "context": trace.context,
+            "metadata_text": (
+                metadata
+                if isinstance(metadata, str)
+                else json.dumps(metadata, indent=2, default=str)
+                if metadata
+                else None
+            ),
+            "tool_calls_text": json.dumps(tool_calls, indent=2) if tool_calls else None,
+        }
 
     def _validate_evaluate_inputs(
         self,

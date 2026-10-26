@@ -16,19 +16,14 @@ from rhesis.telemetry.schemas import OTELSpan
 
 from rhesis.backend.app.crud.telemetry import get_trace_by_id
 from rhesis.backend.app.database import get_db_with_tenant_variables
-from rhesis.backend.app.services.invokers.reported_spans import reported_spans
 from rhesis.backend.app.services.invokers.tracing import EndpointAttributes
 from rhesis.backend.app.services.telemetry.span_types import classify_span_type
 from rhesis.sdk.entities.trace import Span, Trace
+from rhesis.sdk.telemetry.reported_spans import reported_spans
 
 logger = logging.getLogger(__name__)
 
 ConversationAttributes = ConversationContext.SpanAttributes
-
-# Marks a trace built from the request and response because no spans were stored, so a
-# metric can tell it from one the endpoint recorded.
-TRACE_SOURCE_ATTRIBUTE = "rhesis.trace.source"
-FROM_RESPONSE = "response"
 
 
 def _node(
@@ -159,8 +154,6 @@ def trace_from_response(
     context: Optional[List[str]] = None,
     tool_calls: Optional[List[Dict[str, Any]]] = None,
     metadata: Optional[Dict[str, Any]] = None,
-    trace_id: Optional[str] = None,
-    project_id: Optional[str] = None,
 ) -> Trace:
     """A trace built from the request and response alone, for an evaluation with nothing
     stored: tracing off, an older SDK, or an endpoint without a project.
@@ -168,18 +161,9 @@ def trace_from_response(
     One invocation span, marked ``rhesis.trace.source = "response"``, with the reported tool
     calls and context as its children: the same shape a stored REST invocation has.
     """
-    now = datetime.now(timezone.utc)
-    root = OTELSpan(
-        trace_id=trace_id or secrets.token_hex(16),
-        span_id=secrets.token_hex(8),
-        project_id=project_id,
-        span_name="function.endpoint_invoke",
-        start_time=now,
-        end_time=now,
-        attributes={TRACE_SOURCE_ATTRIBUTE: FROM_RESPONSE},
+    return Trace.from_response(
+        input_text, output_text, context=context, tool_calls=tool_calls, metadata=metadata
     )
-    trace = _trace(root.trace_id, project_id, _from_otel([root]))
-    return with_live_values(trace, input_text, output_text, context, tool_calls, metadata)
 
 
 def with_live_values(
@@ -193,8 +177,9 @@ def with_live_values(
     """Put what the evaluation itself received on the trace's root.
 
     The input and output replace the stored copies, which are cut at ``MAX_IO_LENGTH``: a
-    metric must judge the whole answer. Reported tool calls and context become child spans
-    only where the trace has no span of that kind, so they never count a call twice.
+    metric must judge the whole answer. Reported tool calls become child spans only where the
+    trace has no tool span, so a call never counts twice. Reported context always does:
+    ``Trace.context`` prefers it, because it is the full text and a recorded retrieval is not.
     """
     root = trace.root_spans[0] if trace.root_spans else None
     if root is None:
@@ -206,7 +191,7 @@ def with_live_values(
 
     reported = {
         "tool_calls": None if trace.spans(kind="tool.invoke") else tool_calls,
-        "context": None if trace.spans(kind="retrieval") else context,
+        "context": context,
     }
     if not any(reported.values()):
         return trace

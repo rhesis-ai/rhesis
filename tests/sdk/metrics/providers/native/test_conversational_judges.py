@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rhesis.sdk.metrics import ConversationHistory, GoalAchievementJudge
+from rhesis.sdk.metrics import ConversationHistory, Expectations, GoalAchievementJudge
 from rhesis.sdk.metrics.base import MetricType, ScoreType
 from rhesis.sdk.metrics.providers.native.goal_achievement_judge import (
     DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD,
@@ -123,18 +123,18 @@ def test_goal_achievement_judge_validation(mock_model, sample_conversation):
     """Test input validation for evaluate method."""
     judge = GoalAchievementJudge(model=mock_model)
 
-    # Test with invalid conversation_history type
-    with pytest.raises(ValueError, match="must be a ConversationHistory instance"):
-        judge.evaluate(conversation_history="not a conversation")  # type: ignore
+    # Test with invalid conversation type
+    with pytest.raises(TypeError, match="ConversationHistory or a list of messages"):
+        judge.evaluate(conversation="not a conversation")  # type: ignore
 
     # Test with empty conversation
     empty_conversation = ConversationHistory.from_messages([])
     with pytest.raises(ValueError, match="cannot be empty"):
-        judge.evaluate(conversation_history=empty_conversation)
+        judge.evaluate(conversation=empty_conversation)
 
     # Test with invalid goal type
-    with pytest.raises(ValueError, match="goal must be a string"):
-        judge.evaluate(conversation_history=sample_conversation, goal=123)  # type: ignore
+    with pytest.raises(ValueError, match="valid string"):
+        judge.evaluate(conversation=sample_conversation, expectations={"goal": 123})
 
 
 def test_goal_achievement_judge_prompt_generation(mock_model, sample_conversation):
@@ -208,8 +208,8 @@ def test_goal_achievement_judge_evaluate_with_mock(mock_model, sample_conversati
     }
 
     result = judge.evaluate(
-        conversation_history=sample_conversation,
-        goal="Customer learns about auto insurance options",
+        conversation=sample_conversation,
+        expectations=Expectations(goal="Customer learns about auto insurance options"),
     )
 
     assert result.score == 0.85
@@ -249,8 +249,8 @@ def test_goal_achievement_judge_evaluate_below_threshold(mock_model, sample_conv
     }
 
     result = judge.evaluate(
-        conversation_history=sample_conversation,
-        goal="Customer completes insurance purchase",
+        conversation=sample_conversation,
+        expectations=Expectations(goal="Customer completes insurance purchase"),
     )
 
     assert result.score == 0.6
@@ -276,7 +276,7 @@ def test_goal_achievement_judge_evaluate_without_goal(mock_model, sample_convers
         "confidence": 0.7,
     }
 
-    result = judge.evaluate(conversation_history=sample_conversation)
+    result = judge.evaluate(conversation=sample_conversation)
 
     assert result.score == 0.75
     assert result.details["goal"] == "Infer from conversation"
@@ -288,7 +288,7 @@ def test_goal_achievement_judge_evaluate_error_handling(mock_model, sample_conve
 
     mock_model.a_generate.side_effect = Exception("LLM API error")
 
-    result = judge.evaluate(conversation_history=sample_conversation)
+    result = judge.evaluate(conversation=sample_conversation)
 
     assert result.score == 0.0  # Default score on error
     assert result.details["is_successful"] is False
@@ -455,7 +455,7 @@ def test_evaluate_passes_has_assistant_metadata_to_template(mock_model):
             "all_criteria_met": True,
             "confidence": 0.9,
         }
-        judge.evaluate(conversation_history=conv_with, goal="test")
+        judge.evaluate(conversation=conv_with, expectations=Expectations(goal="test"))
         _, kwargs_with = mock_pt.call_args
         assert kwargs_with.get("has_assistant_metadata") is True or mock_pt.call_args[0]
 

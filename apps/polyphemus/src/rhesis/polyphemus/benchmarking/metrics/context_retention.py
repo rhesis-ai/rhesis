@@ -4,11 +4,11 @@ Matches SDK patterns by accepting context as List[str].
 """
 
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 from jinja2 import Environment, FileSystemLoader
 
-from rhesis.sdk.metrics import MetricResult, NumericJudge
+from rhesis.sdk.metrics import NumericJudge
 from rhesis.sdk.models import BaseLLM
 
 PROMPTS_DIR = Path(__file__).parent.parent / "metric_prompts"
@@ -66,36 +66,5 @@ class ContextRetentionJudge(NumericJudge):
             threshold=threshold if threshold is not None else 0.7,
             model=model,
             requires_context=True,
-            **kwargs,
-        )
-
-    def evaluate(
-        self,
-        input: str,
-        output: str,
-        expected_output: Optional[str] = None,
-        context: Optional[List[str]] = None,
-        **kwargs,
-    ) -> MetricResult:
-        """
-        Evaluate context retention with SDK-compatible interface.
-
-        Args:
-            input: The input query/prompt
-            output: The model's response to evaluate
-            expected_output: Optional expected response
-            context: List of context chunks (SDK format)
-            **kwargs: Additional arguments
-
-        Returns:
-            MetricResult with score (0-1) and explanation
-        """
-        # Convert context list to format expected by parent class
-        # The SDK's NumericJudge expects context as List[str] and handles joining internally
-        return super().evaluate(
-            input=input,
-            output=output,
-            expected_output=expected_output,
-            context=context,
             **kwargs,
         )

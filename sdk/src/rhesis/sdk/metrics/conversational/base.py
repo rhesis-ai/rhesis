@@ -2,11 +2,14 @@
 
 import asyncio
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from rhesis.sdk.metrics.base import MetricConfig, MetricResult, resolve_metric_model
-from rhesis.sdk.metrics.conversational.types import ConversationHistory
+from rhesis.sdk.metrics.expectations import ExpectationsLike
 from rhesis.sdk.models.base import BaseLLM
+
+if TYPE_CHECKING:
+    from rhesis.sdk.entities.trace import Trace
 
 
 class ConversationalMetricBase(ABC):
@@ -72,21 +75,18 @@ class ConversationalMetricBase(ABC):
     @abstractmethod
     def evaluate(
         self,
-        conversation_history: ConversationHistory,
-        goal: Optional[str] = None,
-        instructions: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None,
-        **kwargs: Any,
+        trace: Optional["Trace"] = None,
+        expectations: ExpectationsLike = None,
     ) -> MetricResult:
         """
         Evaluate a multi-turn conversation.
 
         Args:
-            conversation_history: The conversation to evaluate
-            goal: Optional goal or success criteria
-            instructions: Optional instructions that guided the conversation
-            context: Optional additional context
-            **kwargs: Additional metric-specific parameters
+            trace: The conversation's trace; ``trace.messages()`` reads it as messages.
+            expectations: What the conversation should achieve (``goal``, ``instructions``).
+
+        Implementations decorate this with ``evaluation_arguments``, so callers may pass
+        ``conversation=`` (a ``ConversationHistory`` or a list of messages) instead of a trace.
 
         Returns:
             MetricResult with score and detailed evaluation
@@ -95,10 +95,8 @@ class ConversationalMetricBase(ABC):
 
     async def a_evaluate(
         self,
-        conversation_history: ConversationHistory,
-        goal: Optional[str] = None,
-        instructions: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None,
+        trace: Optional["Trace"] = None,
+        expectations: ExpectationsLike = None,
         **kwargs: Any,
     ) -> MetricResult:
         """
@@ -106,11 +104,4 @@ class ConversationalMetricBase(ABC):
 
         Subclasses with native async implementations should override this.
         """
-        if conversation_history is None:
-            raise ValueError(
-                f"{self.__class__.__name__} requires conversation_history to evaluate. "
-                "No conversation history was provided."
-            )
-        return await asyncio.to_thread(
-            self.evaluate, conversation_history, goal, instructions, context, **kwargs
-        )
+        return await asyncio.to_thread(self.evaluate, trace, expectations, **kwargs)

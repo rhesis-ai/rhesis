@@ -57,7 +57,7 @@ async def test_answer_relevancy():
         "Paris is the capital and largest city of France.",
     ]
 
-    result = metric.evaluate(input, output, expected_output, context)
+    result = metric.evaluate(input=input, output=output)
     print_metric_result(
         "Answer Relevancy",
         "PASSING - Direct answer to question",
@@ -77,7 +77,7 @@ async def test_answer_relevancy():
         "Paris is the capital and largest city of France.",
     ]
 
-    result = metric.evaluate(input, output, expected_output, context)
+    result = metric.evaluate(input=input, output=output)
     print_metric_result(
         "Answer Relevancy",
         "FAILING - Completely irrelevant answer",
@@ -106,7 +106,7 @@ async def test_faithfulness():
         "Tokyo is one of the most populous metropolitan areas in the world.",
     ]
 
-    result = metric.evaluate(input, output, expected_output, context)
+    result = metric.evaluate(input=input, output=output, context=context)
     print_metric_result(
         "Faithfulness",
         "PASSING - Answer based on provided context",
@@ -124,7 +124,7 @@ async def test_faithfulness():
         "Tokyo is one of the most populous metropolitan areas in the world.",
     ]
 
-    result = metric.evaluate(input, output, expected_output, context)
+    result = metric.evaluate(input=input, output=output, context=context)
     print_metric_result(
         "Faithfulness",
         "FAILING - Answer contradicts provided context",
@@ -153,7 +153,7 @@ async def test_contextual_relevancy():
         "Mix dry ingredients first, then gradually add wet ingredients for best results.",
     ]
 
-    result = metric.evaluate(input, output, expected_output, context)
+    result = metric.evaluate(input=input, context=context)
     print_metric_result(
         "Contextual Relevancy",
         "PASSING - Context directly relevant to question",
@@ -171,7 +171,7 @@ async def test_contextual_relevancy():
         "The latest smartphone models were released last month.",
     ]
 
-    result = metric.evaluate(input, output, expected_output, context)
+    result = metric.evaluate(input=input, context=context)
     print_metric_result(
         "Contextual Relevancy",
         "FAILING - Context completely irrelevant to question",
@@ -204,7 +204,9 @@ async def test_contextual_precision():
         "Studies show that regular exercise can increase life expectancy by 3-7 years.",
     ]
 
-    result = metric.evaluate(input, output, expected_output, context)
+    result = metric.evaluate(
+        input=input, output=output, context=context, expectations=expected_output
+    )
     print_metric_result(
         "Contextual Precision",
         "PASSING - All context chunks are highly relevant",
@@ -230,7 +232,9 @@ async def test_contextual_precision():
         "Studies show that regular exercise can increase life expectancy.",
     ]
 
-    result = metric.evaluate(input, output, expected_output, context)
+    result = metric.evaluate(
+        input=input, output=output, context=context, expectations=expected_output
+    )
     print_metric_result(
         "Contextual Precision",
         "FAILING - Context contains irrelevant information",
@@ -270,7 +274,9 @@ async def test_contextual_recall():
         "These renewable sources help reduce greenhouse gas emissions.",
     ]
 
-    result = metric.evaluate(input, output, expected_output, context)
+    result = metric.evaluate(
+        input=input, output=output, context=context, expectations=expected_output
+    )
     print_metric_result(
         "Contextual Recall",
         "PASSING - Answer covers most relevant context information",
@@ -291,7 +297,9 @@ async def test_contextual_recall():
         "These renewable sources help reduce greenhouse gas emissions.",
     ]
 
-    result = metric.evaluate(input, output, expected_output, context)
+    result = metric.evaluate(
+        input=input, output=output, context=context, expectations=expected_output
+    )
     print_metric_result(
         "Contextual Recall",
         "FAILING - Answer misses important context information",

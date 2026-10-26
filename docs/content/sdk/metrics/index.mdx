@@ -9,6 +9,35 @@ The Rhesis SDK evaluates LLM applications with built-in metrics from several fra
 - **[Single-turn metrics](/sdk/metrics/single-turn)** evaluate an individual exchange between a user input and a system output — RAG quality, response quality, safety, and custom checks.
 - **[Conversational metrics](/sdk/metrics/conversational)** evaluate interactions across multiple turns — coherence, goal achievement, role adherence, knowledge retention, and tool usage.
 
+## What a metric receives
+
+Every metric judges what happened against what should have happened. Its `evaluate()` takes up to four arguments:
+
+| Argument | What it is |
+| --- | --- |
+| `input` | What the endpoint was sent |
+| `output` | What it answered |
+| `trace` | Everything the endpoint did to answer, as a `rhesis.sdk.entities.Trace`: `trace.context`, `trace.tool_calls`, `trace.metadata`, and `trace.messages()` for a conversation |
+| `expectations` | What should have happened: `response` (the reference answer), `goal`, `instructions`, `restrictions`, `contract`. A string is read as the reference answer |
+
+Locally you rarely build a trace yourself. Pass the parts you have, and the SDK builds the trace from them:
+
+<CodeBlock filename="evaluate.py" language="python">
+{`# A judge with a reference answer
+judge.evaluate(input="What is the capital of France?", output="Paris.", expectations="Paris")
+
+# A RAG check: the documents the answer should rest on
+faithfulness.evaluate(input=question, output=answer, context=documents)
+
+# Tool calls and metadata the response reported
+judge.evaluate(input=question, output=answer, tool_calls=calls, metadata={"latency_ms": 840})
+
+# A conversation, as a list of messages or a ConversationHistory
+goal_judge.evaluate(conversation=messages, expectations={"goal": "Book a flight to Paris"})`}
+</CodeBlock>
+
+In a test run, the platform passes the trace of what the endpoint did and the expectations from the test. On production traces there are no expectations.
+
 ## Metric Scopes
 
 Every metric has a `metric_scope` that controls where and when it runs. The three scope values are:
@@ -25,13 +54,13 @@ A metric can have any combination of these scopes. Scopes are additive: includin
 | --- | --- | --- |
 | `NumericJudge` | Single-Turn, Multi-Turn | See note below on multi-turn behavior |
 | `CategoricalJudge` | Single-Turn, Multi-Turn | See note below on multi-turn behavior |
-| `ConversationalJudge` | Single-Turn, Multi-Turn | Receives structured `ConversationHistory` |
-| `GoalAchievementJudge` | Single-Turn, Multi-Turn | Receives structured `ConversationHistory` |
+| `ConversationalJudge` | Single-Turn, Multi-Turn | Reads the conversation turn by turn |
+| `GoalAchievementJudge` | Single-Turn, Multi-Turn | Reads the conversation turn by turn |
 | `GarakDetectorMetric` | Single-Turn only | Operates on individual prompt/response pairs |
 
 <Callout type="info">
 
-**How single-turn metrics work in multi-turn tests**: When a `NumericJudge` or `CategoricalJudge` is used in a multi-turn evaluation, the full conversation is serialized to plain text and passed as the `output` parameter. The metric evaluates the conversation as a single text blob. It is also passed the `conversation_history`, but only to return `relevant_turns`, the turns its verdict rests on. This means the evaluation quality depends entirely on the `evaluation_prompt` you write. For turn-aware evaluation (e.g., analyzing coherence between specific turns), use a `ConversationalJudge` instead, which receives the full structured conversation with individual turns.
+**How single-turn metrics work in multi-turn tests**: When a `NumericJudge` or `CategoricalJudge` is used in a multi-turn evaluation, its `output` is the conversation's transcript, with each turn's context, metadata and tool calls, and its `input` is the test's goal. The metric evaluates the conversation as one text, and also returns `relevant_turns`, the turns its verdict rests on. This means the evaluation quality depends entirely on the `evaluation_prompt` you write. For turn-aware evaluation (e.g., analyzing coherence between specific turns), use a `ConversationalJudge` instead, which reads the conversation turn by turn.
 
 </Callout>
 

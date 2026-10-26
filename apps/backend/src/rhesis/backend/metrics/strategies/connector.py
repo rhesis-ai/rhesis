@@ -161,11 +161,11 @@ def _wants_trace(config: MetricConfig) -> bool:
 def _connector_inputs(config: MetricConfig, inputs: EvaluationInputs) -> Dict[str, Any]:
     """The inputs sent to one SDK metric. The trace, the largest input by far, goes only
     to a metric that asked for it."""
+    expectations = inputs.expectations
     payload: Dict[str, Any] = {
         "input": inputs.input_text,
         "output": inputs.output_text,
-        "expected_output": inputs.expected_output or "",
-        "context": inputs.context or [],
+        "expectations": expectations.model_dump(exclude_none=True) if expectations else None,
     }
     if _wants_trace(config):
         payload["trace"] = inputs.trace_json()

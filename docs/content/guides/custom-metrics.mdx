@@ -93,11 +93,11 @@ Add evaluation steps to guide the LLM's assessment:
     model="gpt-4o"  # Specify evaluation model
 )
 
-# Evaluate with expected output for comparison
+# Evaluate against a reference answer
 result = metric.evaluate(
     input="Explain neural networks",
     output="Neural networks are computational models inspired by the human brain...",
-    expected_output="A neural network consists of interconnected nodes organized in layers...")
+    expectations="A neural network consists of interconnected nodes organized in layers...")
 
 print(f"Technical Accuracy Score: {result.score}/10")
 print(f"Meets Threshold (8.0): {result.details['is_successful']}")
@@ -249,7 +249,7 @@ conversation = ConversationHistory.from_messages([
 ])
 
 # Evaluate the conversation
-result = metric.evaluate(conversation_history=conversation)
+result = metric.evaluate(conversation=conversation)
 
 print(f"Coherence Score: {result.score}/10")
 print(f"Passed: {result.details['is_successful']}")
@@ -267,14 +267,6 @@ print(f"Analysis: {result.details['reason']}")`}
 metric = GoalAchievementJudge(
     name="booking_completion",
     evaluation_prompt="Evaluate whether the flight booking goal was achieved.",
-    goal="Successfully book a flight for the customer",
-    criteria=[
-        "Destination was confirmed",
-        "Travel dates were collected",
-        "Flight options were presented",
-        "Customer selected a flight",
-        "Booking was confirmed"
-    ]
 )
 
 # Example successful booking conversation
@@ -287,16 +279,17 @@ conversation = ConversationHistory.from_messages([
     {"role": "assistant", "content": "Perfect! Your flight is booked. Confirmation #ABC123. You'll receive an email shortly."},
 ])
 
-result = metric.evaluate(conversation_history=conversation)
+result = metric.evaluate(
+    conversation=conversation,
+    expectations={"goal": "Book a flight to London with confirmed dates and a confirmation number"},
+)
 
 print(f"Goal Achievement Score: {result.score}")
 print(f"Goal Achieved: {result.details['is_successful']}")
 
-# Check individual criteria
-if 'criteria_results' in result.details:
-    print("\nCriteria Breakdown:")
-    for criterion, achieved in result.details['criteria_results'].items():
-        print(f"  {criterion}: {'✓' if achieved else '✗'}")`}
+# The judge breaks the goal into criteria and scores each one
+for criterion in result.details["criteria_evaluations"]:
+    print(f"  {criterion['criterion']}: {'met' if criterion['met'] else 'not met'}")`}
 </CodeBlock>
 
 ### Real-World Example: Customer Retention
@@ -328,7 +321,7 @@ conversation = ConversationHistory.from_messages([
     {"role": "assistant", "content": "Great! I've switched you to the basic plan. Your next bill will be $15. Thanks for staying with us!"},
 ])
 
-result = retention_metric.evaluate(conversation_history=conversation)
+result = retention_metric.evaluate(conversation=conversation)
 
 print(f"Retention Effectiveness: {result.score}/5.0")
 print(f"Strong Retention Attempt: {result.details['is_successful']}")`}

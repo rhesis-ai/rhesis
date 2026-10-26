@@ -4,9 +4,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from rhesis.backend.metrics.inputs import EvaluationInputs
+from rhesis.backend.metrics.inputs import EvaluationInputs, ResponseTrace
 from rhesis.backend.metrics.strategies.local import LocalStrategy, prepare_metrics
-from rhesis.sdk.metrics import MetricConfig
+from rhesis.sdk.metrics import Expectations, MetricConfig
 from rhesis.sdk.models.base import BaseLLM
 from rhesis.sdk.models.providers.jev import JevDecisionModel
 
@@ -25,7 +25,7 @@ def _numeric(name="helpfulness"):
 def test_prepare_metrics_reports_the_refusal():
     refused = []
     jev = JevDecisionModel(api_key="k")
-    tasks = prepare_metrics([_numeric()], "expected", [], model=jev, refused=refused)
+    tasks = prepare_metrics([_numeric()], model=jev, refused=refused)
 
     assert tasks == []
     [result] = refused
@@ -36,7 +36,10 @@ def test_prepare_metrics_reports_the_refusal():
 @pytest.mark.unit
 def test_local_strategy_returns_the_refusal_as_an_error_result():
     strategy = LocalStrategy(model=JevDecisionModel(api_key="k"))
-    results = strategy.evaluate([_numeric()], EvaluationInputs("in", "out", "expected", []))
+    results = strategy.evaluate(
+        [_numeric()],
+        EvaluationInputs(ResponseTrace("in", "out"), Expectations(response="expected")),
+    )
     assert "a decision model" in results["helpfulness"]["reason"]
 
 
@@ -57,7 +60,8 @@ def test_a_refusal_never_overwrites_a_result_with_the_same_name():
     with patch.object(JevDecisionModel, "a_decide", new=AsyncMock(return_value=answers)):
         strategy = LocalStrategy(model=JevDecisionModel(api_key="k"))
         results = strategy.evaluate(
-            [categorical, _numeric(), _numeric()], EvaluationInputs("in", "out", "expected", [])
+            [categorical, _numeric(), _numeric()],
+            EvaluationInputs(ResponseTrace("in", "out"), Expectations(response="expected")),
         )
 
     assert set(results) == {"helpfulness", "helpfulness_1", "helpfulness_2"}
@@ -77,8 +81,6 @@ def test_a_metric_on_the_default_model_falls_back_to_the_text_model():
     text_model = _text_model()
     tasks = prepare_metrics(
         [_numeric()],
-        "expected",
-        [],
         model=JevDecisionModel(api_key="k"),
         refused=refused,
         text_model=text_model,
@@ -97,8 +99,6 @@ def test_a_decision_model_set_on_the_metric_itself_is_still_refused():
     config.parameters = {**config.parameters, "model_id": "jev-model"}
     tasks = prepare_metrics(
         [config],
-        "expected",
-        [],
         model=_text_model(),
         metric_models={"jev-model": JevDecisionModel(api_key="k")},
         refused=refused,

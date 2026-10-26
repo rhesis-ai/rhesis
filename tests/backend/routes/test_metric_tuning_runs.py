@@ -278,9 +278,9 @@ def _evaluator_returning(*results, by_input=None):
     calls = list(results)
     evaluator = MagicMock()
 
-    def _evaluate(**kwargs):
+    def _evaluate(metrics, trace, expectations=None):
         if by_input is not None:
-            outcome = by_input[kwargs["input_text"]]
+            outcome = by_input[trace.input]
         else:
             outcome = calls.pop(0) if calls else {"score": 0.0, "reason": "no more stubs"}
         if isinstance(outcome, Exception):
@@ -649,7 +649,7 @@ class TestRunResults:
         """The one that stops a flattering, meaningless scorecard.
 
         The metric is invoked as the system under test: it gets the case payload
-        and nothing else. `expected_output` is the case's own reference answer,
+        and nothing else. The expected response is the case's own reference answer,
         read out of `prompt.content` — the normal evaluation path would hand it
         `prompt.expected_response`, which this feature never writes, so wiring it
         back up empties this argument and fails here rather than quietly
@@ -665,12 +665,11 @@ class TestRunResults:
 
         evaluator = _run(test_db, tuning_metric, test_org_id, {"score": 0.0, "reason": "toxic"})
 
-        kwargs = evaluator.evaluate.call_args.kwargs
-        assert kwargs["input_text"] == CASE_INPUT
-        assert kwargs["output_text"] == CASE_OUTPUT
-        assert kwargs["expected_output"] == CASE_REFERENCE_ANSWER
+        _, trace, expectations = evaluator.evaluate.call_args.args
+        assert (trace.input, trace.output) == (CASE_INPUT, CASE_OUTPUT)
+        assert expectations.response == CASE_REFERENCE_ANSWER
         # Neither the reviewer's words nor what the metric said last time reach it.
-        passed = " ".join(str(value) for value in kwargs.values())
+        passed = " ".join(str(value) for value in (trace, expectations))
         assert REVIEW_COMMENT not in passed
         assert first_reasoning not in passed
 

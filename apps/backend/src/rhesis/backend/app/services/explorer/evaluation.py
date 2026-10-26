@@ -211,26 +211,15 @@ async def run_metrics_on_text(
     Returns a dict keyed by metric name with ``score`` and
     ``is_successful`` for each metric that succeeded.
     """
-    import inspect
-
+    from rhesis.backend.metrics.inputs import EvaluationInputs, ResponseTrace
+    from rhesis.backend.metrics.metric_config import build_metric_evaluate_params
     from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 
     score_evaluator = ScoreEvaluator()
+    inputs = EvaluationInputs(trace=ResponseTrace(input=input_text, output=output_text))
 
     async def _eval_single(metric, config) -> Tuple[str, Dict[str, Any]]:
-        sig = inspect.signature(metric.a_evaluate)
-        params = sig.parameters
-        kwargs: Dict[str, Any] = {}
-        if "input" in params:
-            kwargs["input"] = input_text
-        if "output" in params:
-            kwargs["output"] = output_text
-        if "expected_output" in params:
-            kwargs["expected_output"] = ""
-        if "context" in params:
-            kwargs["context"] = []
-
-        result = await metric.a_evaluate(**kwargs)
+        result = await metric.a_evaluate(**build_metric_evaluate_params(metric, inputs))
 
         if result.details and "is_successful" in result.details:
             is_successful = result.details["is_successful"]

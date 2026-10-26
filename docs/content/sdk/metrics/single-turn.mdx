@@ -188,13 +188,13 @@ metric = NumericJudge(
 result = metric.evaluate(
     input="Explain quantum computing",
     output="Quantum computers use qubits to process information...",
-    expected_output="A quantum computer uses quantum mechanics...",
+    expectations="A quantum computer uses quantum mechanics...",
 )`}
 </CodeBlock>
 
 #### Using Metadata in Evaluation
 
-Both `NumericJudge` and `CategoricalJudge` accept an optional `metadata` parameter. When provided, the metadata JSON is included in the evaluation prompt as "Response Metadata", allowing the judge model to reason about structured data alongside the text response.
+`NumericJudge` and `CategoricalJudge` show the judge the response's metadata, tool calls and retrieved context when the trace holds them. Locally, pass them as `metadata=`, `tool_calls=` and `context=`. The metadata JSON is included in the evaluation prompt as "Response Metadata", so the judge can reason about structured data alongside the text response.
 
 This is useful for evaluating aspects like token efficiency, latency, confidence scores, or any structured data returned by your endpoint.
 
@@ -225,7 +225,7 @@ print(f"Score: {result.score}")
 print(f"Reason: {result.details['reason']}")`}
 </CodeBlock>
 
-When running tests through the platform, metadata is extracted automatically from your endpoint's response using the `metadata` field in the [response mapping](/docs/endpoints). The metadata is then passed to each metric during evaluation.
+When running tests through the platform, metadata is read from your endpoint's response using the `metadata` field in the [response mapping](/docs/endpoints), and becomes part of the trace each metric receives.
 
 #### Categorical Judge
 
@@ -246,7 +246,7 @@ metric = CategoricalJudge(
 result = metric.evaluate(
     input="Describe machine learning",
     output="Machine learning is a subset of AI...",
-    expected_output="ML enables systems to learn from data...",
+    expectations="ML enables systems to learn from data...",
 )
 
 print(f"Category: {result.score}")

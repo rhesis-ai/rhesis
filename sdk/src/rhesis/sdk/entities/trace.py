@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from rhesis.sdk.entities.annotation import Annotation, Verdict
     from rhesis.sdk.entities.endpoint import Endpoint
     from rhesis.sdk.entities.file import File
+    from rhesis.sdk.metrics.conversational.types import ConversationHistory
 
 ENDPOINT = Endpoints.TELEMETRY_TRACES
 
@@ -130,10 +131,14 @@ _OUTPUT_ATTRIBUTES = (
 
 # Set on the invocation span by the platform, as JSON text, when the response mapping
 # exposes ``metadata``.
-_RESPONSE_METADATA = "endpoint.response.metadata"
+RESPONSE_METADATA_ATTRIBUTE = "endpoint.response.metadata"
 # Marks spans the platform made from tool calls and context the response reported.
 _SPAN_SOURCE = "rhesis.span.source"
 _REPORTED = "reported"
+# Marks a trace built from a response or a conversation rather than recorded.
+TRACE_SOURCE_ATTRIBUTE = "rhesis.trace.source"
+FROM_RESPONSE = "response"
+FROM_CONVERSATION = "conversation"
 
 
 def _parsed(value: Any) -> Any:
@@ -171,6 +176,56 @@ def _from_attributes(attributes: Dict[str, Any], keys: Sequence[str]) -> Any:
         if value not in (None, ""):
             return value
     return None
+
+
+def _as_text(value: Any) -> str:
+    return value if isinstance(value, str) else json.dumps(value, default=str)
+
+
+def _recorded(spans: List["Span"], kind: str) -> List["Span"]:
+    """Spans of one kind, preferring those the endpoint recorded over those it only
+    reported in its response, so a call that is both counts once."""
+    of_kind = [s for s in spans if s.kind == kind]
+    recorded = [s for s in of_kind if s.attributes.get(_SPAN_SOURCE) != _REPORTED]
+    return recorded or of_kind
+
+
+def _context(spans: List["Span"]) -> List[str]:
+    # Context the response itself reported comes first: it is the full text, while a recorded
+    # retrieval keeps what fits the content cap (and older LangChain traces only previews).
+    retrievals = [s for s in spans if s.kind == "retrieval"]
+    reported = [s for s in retrievals if s.attributes.get(_SPAN_SOURCE) == _REPORTED]
+    found: List[str] = []
+    for span in reported or retrievals:
+        found.extend(_documents(span.output))
+    return found
+
+
+def _tool_calls(spans: List["Span"]) -> List[Dict[str, Any]]:
+    return [
+        {
+            "name": span.tool_name or span.span_name,
+            "arguments": _parsed(span.input),
+            "output": _parsed(span.output),
+        }
+        for span in _recorded(spans, "tool.invoke")
+    ]
+
+
+def _metadata(root: "Span") -> Any:
+    value = _parsed(root.attributes.get(RESPONSE_METADATA_ATTRIBUTE))
+    return {} if value in (None, "") else value
+
+
+def _subtree(root: "Span") -> List["Span"]:
+    """A span and everything under it, depth first."""
+    found: List[Span] = []
+    stack = [root]
+    while stack:
+        span = stack.pop()
+        found.append(span)
+        stack.extend(reversed(span.children))
+    return found
 
 
 def _as_timestamp(value: Optional[Union[str, datetime]]) -> Optional[str]:
@@ -545,40 +600,112 @@ class Trace(BaseEntity):
             return None
         return root.attributes.get(_CONVERSATION_OUTPUT) or root.output
 
-    def _recorded(self, kind: str) -> List[Span]:
-        """Spans of one kind, preferring those the endpoint recorded over those it only
-        reported in its response, so a call that is both counts once."""
-        spans = self.spans(kind=kind) if self._root() else []
-        recorded = [s for s in spans if s.attributes.get(_SPAN_SOURCE) != _REPORTED]
-        return recorded or spans
-
     @property
     def context(self) -> List[str]:
-        """The documents every retrieval in the trace returned, in order, as each retrieval
-        recorded them (some framework integrations record short previews)."""
-        found: List[str] = []
-        for span in self._recorded("retrieval"):
-            found.extend(_documents(span.output))
-        return found
+        """The documents every retrieval in the trace returned, in order. When the response
+        also reported its context, that is used instead: it is the full text."""
+        return _context(self.spans() if self._root() else [])
 
     @property
     def tool_calls(self) -> List[Dict[str, Any]]:
         """Every tool call in the trace, in order, as ``{"name", "arguments", "output"}``."""
-        return [
-            {
-                "name": span.tool_name or span.span_name,
-                "arguments": _parsed(span.input),
-                "output": _parsed(span.output),
-            }
-            for span in self._recorded("tool.invoke")
-        ]
+        return _tool_calls(self.spans() if self._root() else [])
 
     @property
-    def metadata(self) -> Dict[str, Any]:
-        """The metadata the endpoint's response reported, or an empty dict."""
+    def metadata(self) -> Any:
+        """The metadata the endpoint's response reported, usually a dict, or an empty dict."""
         root = self._root()
-        value = _parsed(root.attributes.get(_RESPONSE_METADATA)) if root else None
-        return value if isinstance(value, dict) else {}
+        return _metadata(root) if root else {}
+
+    def _turn_roots(self) -> List[Span]:
+        """The root span of each turn: those carrying a conversation input or output, else
+        the first root."""
+        if not self._root():
+            return []
+        turns = [
+            span
+            for span in self.root_spans
+            if span.attributes.get(_CONVERSATION_INPUT) or span.attributes.get(_CONVERSATION_OUTPUT)
+        ]
+        return turns or self.root_spans[:1]
+
+    @property
+    def is_conversation(self) -> bool:
+        """Whether the trace records a conversation: several turns, or built from one. A single
+        turn of a longer conversation is judged as that turn."""
+        turns = self._turn_roots()
+        return len(turns) > 1 or any(
+            span.attributes.get(TRACE_SOURCE_ATTRIBUTE) == FROM_CONVERSATION for span in turns
+        )
+
+    def messages(self) -> "ConversationHistory":
+        """The trace as a conversation of messages, for conversational metrics.
+
+        One user and one assistant message per turn. The assistant's carries that turn's tool
+        calls, context and metadata, the way ``ConversationHistory.format_conversation()``
+        shows them to a judge.
+        """
+        from rhesis.sdk.metrics.conversational.types import ConversationHistory
+
+        messages: List[Dict[str, Any]] = []
+        for root in self._turn_roots():
+            spans = _subtree(root)
+            user = root.attributes.get(_CONVERSATION_INPUT) or root.input
+            if user not in (None, ""):
+                messages.append({"role": "user", "content": _as_text(user)})
+            assistant = root.attributes.get(_CONVERSATION_OUTPUT) or root.output
+            reply: Dict[str, Any] = {
+                "role": "assistant",
+                "content": None if assistant in (None, "") else _as_text(assistant),
+            }
+            for key, value in (
+                ("context", _context(spans)),
+                ("metadata", _metadata(root)),
+                ("tool_calls", _tool_calls(spans)),
+            ):
+                if value:
+                    reply[key] = value
+            if len(reply) > 2 or reply["content"] is not None:
+                messages.append(reply)
+        return ConversationHistory.from_messages(messages, conversation_id=self.conversation_id)
+
+    @classmethod
+    def from_response(
+        cls,
+        input: Any,
+        output: Any,
+        *,
+        context: Any = None,
+        tool_calls: Any = None,
+        metadata: Any = None,
+    ) -> "Trace":
+        """A trace of one request and response, built in memory, to evaluate without tracing.
+
+        ``context`` becomes a retrieval span and each tool call a tool span, so
+        ``trace.context`` and ``trace.tool_calls`` read them back.
+
+            trace = Trace.from_response("Refund order 42", "Done.", tool_calls=[...])
+        """
+        from rhesis.sdk.entities.trace_builders import trace_from_response
+
+        return trace_from_response(
+            input, output, context=context, tool_calls=tool_calls, metadata=metadata
+        )
+
+    @classmethod
+    def from_conversation(
+        cls,
+        conversation: Union["ConversationHistory", Sequence[Any]],
+        *,
+        conversation_id: Optional[str] = None,
+    ) -> "Trace":
+        """A trace of a conversation, built in memory: one turn per user message and the
+        assistant reply after it. A reply's ``tool_calls``, ``context`` and ``metadata``
+        become that turn's spans. Accepts a ``ConversationHistory`` or a list of messages.
+        """
+        from rhesis.sdk.entities.trace_builders import trace_from_conversation
+
+        return trace_from_conversation(conversation, conversation_id=conversation_id)
 
     def get_endpoint(self) -> Optional["Endpoint"]:
         """The endpoint this trace ran against, or None if it ran against none."""

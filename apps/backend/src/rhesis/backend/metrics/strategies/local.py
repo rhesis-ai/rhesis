@@ -116,8 +116,6 @@ class LocalStrategy:
         refused: List[Dict[str, Any]] = []
         metric_tasks = prepare_metrics(
             configs,
-            inputs.expected_output,
-            inputs.context,
             model=self._model,
             db=self._db,
             organization_id=self._organization_id,
@@ -146,8 +144,6 @@ class LocalStrategy:
         refused: List[Dict[str, Any]] = []
         metric_tasks = prepare_metrics(
             configs,
-            inputs.expected_output,
-            inputs.context,
             model=self._model,
             db=self._db,
             organization_id=self._organization_id,
@@ -774,8 +770,6 @@ def create_metric(
 
 def prepare_metrics(
     metrics: List[MetricConfig],
-    expected_output: Optional[str],
-    context: Optional[List[str]] = None,
     model: Optional[Any] = None,
     db: Optional[Session] = None,
     organization_id: Optional[str] = None,
@@ -788,8 +782,6 @@ def prepare_metrics(
 
     Args:
         metrics: List of metric configurations (may contain None values).
-        expected_output: The expected output (to check if ground truth is required).
-        context: List of context strings (to check if context is required).
         model: Optional default LLM model for metrics evaluation.
         db: Optional database session for fetching metric-specific models.
         organization_id: Optional organization ID for secure model lookups.
@@ -893,13 +885,6 @@ def prepare_metrics(
                     f"(class: {class_name}, backend: {backend}): "
                     f"{create_error}",
                     exc_info=True,
-                )
-                continue
-
-            if metric.requires_ground_truth and expected_output is None:
-                logger.debug(
-                    f"Skipping metric '{class_name}' as it requires "
-                    f"ground truth which is not provided"
                 )
                 continue
 

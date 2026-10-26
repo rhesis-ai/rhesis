@@ -20,7 +20,6 @@ from rhesis.sdk.telemetry.integrations.langchain.extractors import (
     extract_retriever_backend,
     extract_tool_output,
     should_trace_chain,
-    summarize_documents,
 )
 from rhesis.sdk.telemetry.integrations.langchain.llm_processing import (
     add_chat_prompt_event,
@@ -29,6 +28,7 @@ from rhesis.sdk.telemetry.integrations.langchain.llm_processing import (
 )
 from rhesis.sdk.telemetry.integrations.langchain.span_registry import SpanRegistry
 from rhesis.sdk.telemetry.integrations.langchain.turns import claim_turn_root, resolve_turn
+from rhesis.sdk.telemetry.retrieval import record_documents
 from rhesis.telemetry.attributes import AIAttributes, AIEvents
 from rhesis.telemetry.context import is_llm_observation_active, is_tracing_disabled
 from rhesis.telemetry.schemas import AIOperationType
@@ -297,10 +297,7 @@ class RhesisSpanRecorder:
             span.set_attribute(
                 AIAttributes.RETRIEVAL_TOP_K, len(documents) if documents is not None else 0
             )
-            span.add_event(
-                AIEvents.RETRIEVAL_RESULTS,
-                {AIAttributes.COMPLETION_CONTENT: summarize_documents(documents)},
-            )
+            record_documents(span, documents)
         finally:
             self._succeed(run_id)
 

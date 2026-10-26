@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING:** Penelope calls its goal metric, and any other metric it runs, with
+  `conversation=` and `expectations=Expectations(goal=..., instructions=..., contract=...)`,
+  the SDK's new metric arguments. A custom `goal_metric` must take `trace` and `expectations`
+  (see the SDK changelog).
+
 ### Added
 - **`GoogleADKTarget`** for testing Google ADK agents. Accepts either a configured `Runner` or a
   bare agent (wrapped in a `Runner` with an in-memory session service on first use), and uses

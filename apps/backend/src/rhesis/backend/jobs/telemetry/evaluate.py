@@ -20,7 +20,10 @@ from rhesis.backend.app.crud.telemetry import (
 )
 from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
 from rhesis.backend.app.schemas.metric import MetricScope
+from rhesis.backend.app.services.telemetry.evaluation_trace import load_evaluation_trace
 from rhesis.backend.celery.core import app
+from rhesis.backend.metrics.inputs import ResponseTrace, TraceLoader
+from rhesis.sdk.entities.trace import Trace
 
 logger = logging.getLogger(__name__)
 
@@ -208,6 +211,22 @@ def _prepare_evaluation(
     return project, config, evaluator
 
 
+def _turn_trace_loader(
+    trace_id: str, span_id: str, organization_id: str, project_id: str
+) -> TraceLoader:
+    """Reads one turn's trace. The turns of a conversation share a trace id, so the stored
+    trace holds every turn; only this turn's root is kept."""
+
+    def load() -> Optional[Trace]:
+        trace = load_evaluation_trace(trace_id, organization_id, project_id)
+        if trace is None:
+            return None
+        trace.root_spans = [root for root in trace.root_spans if root.span_id == span_id]
+        return trace
+
+    return load
+
+
 @app.task(bind=True, max_retries=3, default_retry_delay=60)
 def evaluate_turn_trace_metrics(
     self,
@@ -290,14 +309,15 @@ def evaluate_turn_trace_metrics(
                 _schedule_debounced_conversation_eval(trace_id, project_id, organization_id)
             return {"status": "no_metrics", "trace_id": trace_id}
 
-        start_time = time.time()
-        results = evaluator.evaluate(
-            input_text=input_text,
-            output_text=output_text,
-            expected_output="",
-            context=[],
-            metrics=metrics,
+        trace = ResponseTrace(
+            input=input_text,
+            output=output_text,
+            loader=_turn_trace_loader(
+                trace_id, str(root_span.span_id), organization_id, project_id
+            ),
         )
+        start_time = time.time()
+        results = evaluator.evaluate(metrics, trace)
         execution_time = (time.time() - start_time) * 1000
 
         turn_metrics = {
@@ -384,33 +404,12 @@ def evaluate_conversation_trace_metrics(
         if not root_spans:
             return {"status": "no_spans", "trace_id": trace_id}
 
-        from rhesis.sdk.metrics.conversational.types import ConversationHistory
-
-        messages = []
-        for span in root_spans:
-            attrs = span.attributes or {}
-            input_text = attrs.get(CONVERSATION_INPUT_KEY, "")
-            output_text = attrs.get(CONVERSATION_OUTPUT_KEY, "")
-            if input_text:
-                messages.append({"role": "user", "content": input_text})
-            if output_text:
-                messages.append({"role": "assistant", "content": output_text})
-
-        if not messages:
+        trace = load_evaluation_trace(trace_id, organization_id, project_id)
+        if trace is None or not trace.messages().messages:
             return {"status": "no_conversation", "trace_id": trace_id}
-
-        conversation_history = ConversationHistory.from_messages(messages)
-        conversation_text = conversation_history.format_conversation()
-
+        trace.conversation_id = root_spans[0].conversation_id
         start_time = time.time()
-        results = evaluator.evaluate(
-            input_text="",
-            output_text=conversation_text.strip(),
-            expected_output="",
-            context=[],
-            metrics=metrics,
-            conversation_history=conversation_history,
-        )
+        results = evaluator.evaluate(metrics, trace)
         execution_time = (time.time() - start_time) * 1000
 
         conversation_metrics = {

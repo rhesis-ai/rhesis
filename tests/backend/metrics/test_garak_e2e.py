@@ -56,11 +56,9 @@ pytestmark = [
 # Import SMOKE_CASES from the SDK test suite
 # ---------------------------------------------------------------------------
 
-from tests.sdk.metrics.providers.garak.test_detector_smoke import SMOKE_CASES
-
 from rhesis.sdk.metrics import MetricConfig
 from rhesis.sdk.metrics.base import Backend
-
+from tests.sdk.metrics.providers.garak.test_detector_smoke import SMOKE_CASES
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -81,7 +79,7 @@ def _build_metric_config(
     """
     ep = detector_path
     if use_short_path and ep.startswith("garak.detectors."):
-        ep = ep[len("garak.detectors."):]
+        ep = ep[len("garak.detectors.") :]
 
     params = {}
     if probe_notes:
@@ -104,7 +102,7 @@ def _prepare_and_get_metric(config: MetricConfig):
     """Run the real prepare_metrics pipeline and return the metric instance."""
     from rhesis.backend.metrics.strategies.local import prepare_metrics
 
-    tasks = prepare_metrics([config], expected_output="")
+    tasks = prepare_metrics([config])
     assert len(tasks) == 1, (
         f"prepare_metrics should produce exactly 1 task, got {len(tasks)}. "
         f"The factory failed to instantiate the detector."
@@ -130,11 +128,11 @@ class TestGarakDetectorE2E:
         config = _build_metric_config(case.path, probe_notes=case.notes)
         metric, metric_config, backend = _prepare_and_get_metric(config)
 
-        from rhesis.backend.metrics.inputs import EvaluationInputs
+        from rhesis.backend.metrics.inputs import EvaluationInputs, ResponseTrace
         from rhesis.backend.metrics.metric_config import build_metric_evaluate_params
 
         kwargs = build_metric_evaluate_params(
-            metric, EvaluationInputs(case.prompt, case.safe_output, "", [])
+            metric, EvaluationInputs(ResponseTrace(case.prompt, case.safe_output))
         )
         result = metric.evaluate(**kwargs)
 
@@ -176,11 +174,11 @@ class TestGarakDetectorE2E:
         config = _build_metric_config(case.path, probe_notes=case.notes)
         metric, metric_config, backend = _prepare_and_get_metric(config)
 
-        from rhesis.backend.metrics.inputs import EvaluationInputs
+        from rhesis.backend.metrics.inputs import EvaluationInputs, ResponseTrace
         from rhesis.backend.metrics.metric_config import build_metric_evaluate_params
 
         kwargs = build_metric_evaluate_params(
-            metric, EvaluationInputs(case.prompt, case.unsafe_output, "", [])
+            metric, EvaluationInputs(ResponseTrace(case.prompt, case.unsafe_output))
         )
         result = metric.evaluate(**kwargs)
 
@@ -236,11 +234,11 @@ class TestGarakDetectorShortPathE2E:
 
         metric, metric_config, backend = _prepare_and_get_metric(config)
 
-        from rhesis.backend.metrics.inputs import EvaluationInputs
+        from rhesis.backend.metrics.inputs import EvaluationInputs, ResponseTrace
         from rhesis.backend.metrics.metric_config import build_metric_evaluate_params
 
         kwargs = build_metric_evaluate_params(
-            metric, EvaluationInputs(case.prompt, case.safe_output, "", [])
+            metric, EvaluationInputs(ResponseTrace(case.prompt, case.safe_output))
         )
         result = metric.evaluate(**kwargs)
 
@@ -248,8 +246,7 @@ class TestGarakDetectorShortPathE2E:
             f"{case.name} (short path): got None score. details={result.details}"
         )
         assert result.score < _THRESHOLD, (
-            f"{case.name} (short path): safe output scored {result.score}, "
-            f"expected < {_THRESHOLD}"
+            f"{case.name} (short path): safe output scored {result.score}, expected < {_THRESHOLD}"
         )
 
     @pytest.mark.parametrize("case", _CONTEXT_CASES, ids=[c.name for c in _CONTEXT_CASES])
@@ -258,11 +255,11 @@ class TestGarakDetectorShortPathE2E:
         config = _build_metric_config(case.path, probe_notes=case.notes, use_short_path=True)
         metric, metric_config, backend = _prepare_and_get_metric(config)
 
-        from rhesis.backend.metrics.inputs import EvaluationInputs
+        from rhesis.backend.metrics.inputs import EvaluationInputs, ResponseTrace
         from rhesis.backend.metrics.metric_config import build_metric_evaluate_params
 
         kwargs = build_metric_evaluate_params(
-            metric, EvaluationInputs(case.prompt, case.unsafe_output, "", [])
+            metric, EvaluationInputs(ResponseTrace(case.prompt, case.unsafe_output))
         )
         result = metric.evaluate(**kwargs)
 

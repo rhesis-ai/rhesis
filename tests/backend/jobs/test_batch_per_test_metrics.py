@@ -508,7 +508,6 @@ class TestBatchEvaluationPerTestMetrics:
 
         # The evaluator should have been called with test-1's metric (MetricA),
         # not test-2's (MetricB) or an empty shared list.
-        call_kwargs = mock_evaluator.a_evaluate.call_args
-        metrics_passed = call_kwargs.kwargs.get("metrics") or call_kwargs[1].get("metrics")
+        metrics_passed = mock_evaluator.a_evaluate.call_args.args[0]
         assert len(metrics_passed) == 1
         assert metrics_passed[0].class_name == "JudgeA"

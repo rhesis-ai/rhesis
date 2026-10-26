@@ -141,6 +141,7 @@ Metric functions are executed from the backend during evaluation.
 
 <CodeBlock filename="custom_metric.py" language="python">
 {`from rhesis.sdk import RhesisClient, endpoint, metric
+from rhesis.sdk.entities import Trace
 
 client = RhesisClient.from_environment()
 
@@ -152,8 +153,8 @@ def chat(input: str, conversation_id: str | None = None) -> dict:
     }
 
 @metric(name="groundedness_check", score_type="binary")
-def groundedness_check(input: str, output: str, context: list[str] | None = None) -> dict:
-    grounded = bool(context) and any(source in output for source in context)
+def groundedness_check(output: str, trace: Trace) -> dict:
+    grounded = any(source in output for source in trace.context)
     return {
         "score": 1.0 if grounded else 0.0,
         "details": {"reason": "Checks whether output uses provided context"},
@@ -165,19 +166,18 @@ if __name__ == "__main__":
 
 ### Allowed metric function parameters
 
-`@metric` validates function signatures at registration time.
+`@metric` validates function signatures at registration time. A metric declares any of these, and receives only those:
 
-| Parameter | Required | Description |
-|---|---|---|
-| `input` | Yes | Input prompt or user message |
-| `output` | Yes | Model output to evaluate |
-| `expected_output` | No | Ground truth reference output |
-| `context` | No | Retrieved context documents used for generation |
-| `trace` | No | The endpoint's trace, as a `Trace` with its spans ([Code Metrics](/docs/metrics/code-metrics#checking-what-the-endpoint-did)) |
+| Parameter | Description |
+|---|---|
+| `input` | Input prompt or user message |
+| `output` | Model output to evaluate |
+| `trace` | The endpoint's trace, as a `Trace` with its spans ([Code Metrics](/docs/metrics/code-metrics#checking-what-the-endpoint-did)) |
+| `expectations` | What the test expects, as `Expectations`; `expectations.response` is the reference answer |
 
 <Callout type="info">
   The metric function must return a dict containing at least a `score` key (or a `MetricResult` instance).
-  Any unsupported parameter names cause registration-time errors.
+  Any other parameter name causes a registration-time error that names its replacement, for example `context` is `trace.context`.
 </Callout>
 
 ### Metrics-only connector mode (optional `project_id`)
@@ -187,16 +187,16 @@ In this mode, the connector still establishes a WebSocket session and registers 
 
 <CodeBlock filename="metrics_only.py" language="python">
 {`from rhesis.sdk import RhesisClient, metric
+from rhesis.sdk.metrics import Expectations
 
 client = RhesisClient(
     api_key="your-api-key",
     environment="development",
 )
 
-@metric(name="contains_policy_reference", score_type="binary")
-def contains_policy_reference(input: str, output: str, context: list[str] | None = None) -> dict:
-    has_reference = bool(context) and any(ref in output for ref in context)
-    return {"score": 1.0 if has_reference else 0.0}
+@metric(name="matches_reference", score_type="binary")
+def matches_reference(output: str, expectations: Expectations) -> dict:
+    return {"score": 1.0 if output.strip() == (expectations.response or "").strip() else 0.0}
 
 if __name__ == "__main__":
     client.connect()`}

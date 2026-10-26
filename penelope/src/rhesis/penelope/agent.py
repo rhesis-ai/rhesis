@@ -37,6 +37,7 @@ from rhesis.penelope.utils import (
     display_test_result,
 )
 from rhesis.sdk.metrics.base import MetricResult
+from rhesis.sdk.metrics.expectations import Expectations
 from rhesis.sdk.metrics.providers.native.goal_achievement_judge import is_contract_result
 from rhesis.sdk.models import get_model
 from rhesis.sdk.models.base import BaseLLM
@@ -703,22 +704,16 @@ class PenelopeAgent:
             result.details["is_goal_achievement_metric"] = metric.is_goal_achievement_metric
 
     @staticmethod
-    def _goal_metric_eval_kwargs(
+    def _goal_expectations(
         state: TestState, goal: str, instructions: Optional[str]
-    ) -> Dict[str, Any]:
-        """Build the kwargs for one call to the goal metric's evaluate/a_evaluate.
-
-        ``contract`` is included only when one was derived for this test, matching how
-        ``instructions`` is already handled here: both are simply omitted rather than passed as
-        ``None`` when absent. ``goal_metric`` can be swapped for a custom metric
-        (``PenelopeAgent(goal_metric=...)``), and a custom metric that predates evaluation
-        contracts never receives the new kwarg unless a contract is actually in play, so it
-        keeps working exactly as it always has for every test that doesn't opt in.
-        """
-        kwargs: Dict[str, Any] = {"goal": goal, "instructions": instructions or ""}
-        if state.context.contract:
-            kwargs["contract"] = state.context.contract
-        return kwargs
+    ) -> Expectations:
+        """What the goal metric judges the conversation against: the goal, the instructions,
+        and the evaluation contract when one was derived for this test."""
+        return Expectations(
+            goal=goal,
+            instructions=instructions or "",
+            contract=dict(state.context.contract) if state.context.contract else None,
+        )
 
     def _evaluate_metrics_sync(
         self,
@@ -739,14 +734,16 @@ class PenelopeAgent:
                 if len(conversation) < 1:
                     metric_result = self._insufficient_conversation_result()
                 else:
-                    eval_kwargs = self._goal_metric_eval_kwargs(state, goal, instructions)
                     metric_result = self.goal_metric.evaluate(
-                        conversation_history=conversation, **eval_kwargs
+                        conversation=conversation,
+                        expectations=self._goal_expectations(state, goal, instructions),
                     )
                 for condition in conditions:
                     condition.update_result(metric_result)
             else:
-                metric_result = metric.evaluate(conversation, goal=goal)
+                metric_result = metric.evaluate(
+                    conversation=conversation, expectations=Expectations(goal=goal)
+                )
 
             self._annotate_goal_flag(metric, metric_result)
             state.metric_results.append(metric_result)
@@ -770,14 +767,16 @@ class PenelopeAgent:
                 if len(conversation) < 1:
                     metric_result = self._insufficient_conversation_result()
                 else:
-                    eval_kwargs = self._goal_metric_eval_kwargs(state, goal, instructions)
                     metric_result = await self.goal_metric.a_evaluate(
-                        conversation_history=conversation, **eval_kwargs
+                        conversation=conversation,
+                        expectations=self._goal_expectations(state, goal, instructions),
                     )
                 for condition in conditions:
                     condition.update_result(metric_result)
             else:
-                metric_result = await metric.a_evaluate(conversation, goal=goal)
+                metric_result = await metric.a_evaluate(
+                    conversation=conversation, expectations=Expectations(goal=goal)
+                )
 
             self._annotate_goal_flag(metric, metric_result)
             state.metric_results.append(metric_result)

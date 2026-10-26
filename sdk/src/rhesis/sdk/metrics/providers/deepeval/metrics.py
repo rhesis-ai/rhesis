@@ -1,7 +1,10 @@
 from typing import List, Optional, Union
 
 from rhesis.sdk.async_utils import run_sync
+from rhesis.sdk.entities.trace import Trace
+from rhesis.sdk.metrics.arguments import evaluation_arguments
 from rhesis.sdk.metrics.base import MetricResult, MetricType
+from rhesis.sdk.metrics.expectations import ExpectationsLike
 from rhesis.sdk.metrics.providers.deepeval.metric_base import DeepEvalMetricBase
 from rhesis.sdk.metrics.utils import resilient_evaluation, retry_evaluation
 from rhesis.sdk.models.base import BaseLLM
@@ -65,17 +68,26 @@ class DeepEvalFaithfulness(DeepEvalMetricBase):
         self._metric = FaithfulnessMetric(threshold=threshold, model=self._deepeval_model)
         self.threshold = threshold
 
+    @evaluation_arguments
     @retry_evaluation()
     def evaluate(
-        self, input: str, output: str, context: Optional[List[str]] = None
+        self,
+        input: Optional[str] = None,
+        output: Optional[str] = None,
+        trace: Optional[Trace] = None,
     ) -> MetricResult:
-        return run_sync(self.a_evaluate(input=input, output=output, context=context))
+        return run_sync(self.a_evaluate(input=input, output=output, trace=trace))
 
+    @evaluation_arguments
     @resilient_evaluation
     async def a_evaluate(
-        self, input: str, output: str, context: Optional[List[str]] = None
+        self,
+        input: Optional[str] = None,
+        output: Optional[str] = None,
+        trace: Optional[Trace] = None,
     ) -> MetricResult:
-        if not context or len(context) == 0:
+        context = trace.context
+        if not context:
             return MetricResult(
                 score=0.0,
                 details={
@@ -118,13 +130,18 @@ class DeepEvalContextualRelevancy(DeepEvalMetricBase):
         self._metric = ContextualRelevancyMetric(threshold=threshold, model=self._deepeval_model)
         self.threshold = threshold
 
+    @evaluation_arguments
     @retry_evaluation()
-    def evaluate(self, input: str, context: Optional[List[str]] = None) -> MetricResult:
-        return run_sync(self.a_evaluate(input=input, context=context))
+    def evaluate(self, input: Optional[str] = None, trace: Optional[Trace] = None) -> MetricResult:
+        return run_sync(self.a_evaluate(input=input, trace=trace))
 
+    @evaluation_arguments
     @resilient_evaluation
-    async def a_evaluate(self, input: str, context: Optional[List[str]] = None) -> MetricResult:
-        if not context or len(context) == 0:
+    async def a_evaluate(
+        self, input: Optional[str] = None, trace: Optional[Trace] = None
+    ) -> MetricResult:
+        context = trace.context
+        if not context:
             return MetricResult(
                 score=0.0,
                 details={
@@ -168,32 +185,31 @@ class DeepEvalContextualPrecision(DeepEvalMetricBase):
         self._metric = ContextualPrecisionMetric(threshold=threshold, model=self._deepeval_model)
         self.threshold = threshold
 
+    @evaluation_arguments
     @retry_evaluation()
     def evaluate(
         self,
-        input: str,
-        output: str,
-        expected_output: Optional[str] = None,
-        context: Optional[List[str]] = None,
+        input: Optional[str] = None,
+        output: Optional[str] = None,
+        trace: Optional[Trace] = None,
+        expectations: ExpectationsLike = None,
     ) -> MetricResult:
         return run_sync(
-            self.a_evaluate(
-                input=input,
-                output=output,
-                expected_output=expected_output,
-                context=context,
-            )
+            self.a_evaluate(input=input, output=output, trace=trace, expectations=expectations)
         )
 
+    @evaluation_arguments
     @resilient_evaluation
     async def a_evaluate(
         self,
-        input: str,
-        output: str,
-        expected_output: Optional[str] = None,
-        context: Optional[List[str]] = None,
+        input: Optional[str] = None,
+        output: Optional[str] = None,
+        trace: Optional[Trace] = None,
+        expectations: ExpectationsLike = None,
     ) -> MetricResult:
-        if not context or len(context) == 0:
+        context = trace.context
+        expected_output = expectations.response if expectations else None
+        if not context:
             return MetricResult(
                 score=0.0,
                 details={
@@ -237,32 +253,31 @@ class DeepEvalContextualRecall(DeepEvalMetricBase):
         self._metric = ContextualRecallMetric(threshold=threshold, model=self._deepeval_model)
         self.threshold = threshold
 
+    @evaluation_arguments
     @retry_evaluation()
     def evaluate(
         self,
-        input: str,
-        output: str,
-        expected_output: Optional[str] = None,
-        context: Optional[List[str]] = None,
+        input: Optional[str] = None,
+        output: Optional[str] = None,
+        trace: Optional[Trace] = None,
+        expectations: ExpectationsLike = None,
     ) -> MetricResult:
         return run_sync(
-            self.a_evaluate(
-                input=input,
-                output=output,
-                expected_output=expected_output,
-                context=context,
-            )
+            self.a_evaluate(input=input, output=output, trace=trace, expectations=expectations)
         )
 
+    @evaluation_arguments
     @resilient_evaluation
     async def a_evaluate(
         self,
-        input: str,
-        output: str,
-        expected_output: Optional[str] = None,
-        context: Optional[List[str]] = None,
+        input: Optional[str] = None,
+        output: Optional[str] = None,
+        trace: Optional[Trace] = None,
+        expectations: ExpectationsLike = None,
     ) -> MetricResult:
-        if not context or len(context) == 0:
+        context = trace.context
+        expected_output = expectations.response if expectations else None
+        if not context:
             return MetricResult(
                 score=0.0,
                 details={

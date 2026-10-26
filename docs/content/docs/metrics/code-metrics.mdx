@@ -70,17 +70,16 @@ python metrics.py
 
 ### Function Signature
 
-Your function must accept `input` and `output` as keyword arguments. Three optional parameters are also available:
+Your function declares any of four parameters, and receives only those:
 
-| Parameter | Type | Required | Description |
-| --- | --- | --- | --- |
-| `input` | `str` | Yes | The prompt or user message sent to the LLM. |
-| `output` | `str` | Yes | The LLM response being evaluated. |
-| `expected_output` | `str` | No | The ground truth or reference answer (when provided in the test set). |
-| `context` | `list[str]` | No | Retrieved context documents (for RAG evaluation). |
-| `trace` | `Trace` | No | Everything the endpoint did to produce the output, as a `rhesis.sdk.entities.Trace` with its spans loaded. |
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `input` | `str` | The prompt or user message sent to the LLM. |
+| `output` | `str` | The LLM response being evaluated. |
+| `trace` | `Trace` | Everything the endpoint did to produce the output, as a `rhesis.sdk.entities.Trace` with its spans loaded. Retrieved documents are `trace.context`. |
+| `expectations` | `Expectations` | What the test expects. `expectations.response` is the reference answer from the test set; `None` on production traces. |
 
-No other parameter names are accepted — the decorator will raise a `TypeError` if your function signature contains anything else.
+No other parameter names are accepted. The decorator raises a `TypeError` that names the replacement for a parameter metrics used to take, such as `trace.context` for `context` or `expectations.response` for `expected_output`.
 
 ### Checking what the endpoint did
 
