@@ -1028,6 +1028,7 @@ class BaseAgent:
                 "on_tool_end",
                 tool_name=tc.tool_name,
                 result=result,
+                arguments=tc.arguments,
             )
 
             if self.verbose:

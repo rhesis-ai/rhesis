@@ -14,6 +14,8 @@ from rhesis.sdk.agents.errors import format_user_facing_error, model_error_code
 logger = logging.getLogger(__name__)
 
 _tool_labels: Optional[Dict[str, str]] = None
+# Tools the agent runs itself, which mcp_tools.yaml has no label for.
+_AGENT_TOOL_LABELS = {"show_chart": "Show chart"}
 
 
 def _get_tool_labels() -> Dict[str, str]:
@@ -29,9 +31,13 @@ def _get_tool_labels() -> Dict[str, str]:
 def _tool_description(tool_name: str, arguments: Dict[str, Any]) -> str:
     """Generate a human-readable description of a tool call."""
     labels = _get_tool_labels()
-    base = labels.get(tool_name, tool_name.replace("_", " ").title())
+    base = (
+        labels.get(tool_name)
+        or _AGENT_TOOL_LABELS.get(tool_name)
+        or tool_name.replace("_", " ").title()
+    )
 
-    name = arguments.get("name", "")
+    name = arguments.get("name") or arguments.get("title") or ""
     prompt = arguments.get("prompt", "")
     if name:
         return f"{base}: {name}"
@@ -95,13 +101,23 @@ class WebSocketEventHandler:
             payload["reasoning"] = reasoning
         self.publish(EventType.ARCHITECT_TOOL_START, payload)
 
-    async def on_tool_end(self, *, tool_name: str, result: Any, **kw: Any) -> None:
+    async def on_tool_end(
+        self,
+        *,
+        tool_name: str,
+        result: Any,
+        arguments: Optional[Dict[str, Any]] = None,
+        **kw: Any,
+    ) -> None:
         success = getattr(result, "success", True)
         content = getattr(result, "content", "")
         duration_ms = getattr(result, "duration_ms", None)
         payload: Dict[str, Any] = {
             "tool": tool_name,
-            "description": _tool_description(tool_name, {}),
+            # The finished row replaces the running one, so it keeps the call's detail.
+            "description": _tool_description(
+                tool_name, arguments if isinstance(arguments, dict) else {}
+            ),
             "success": success,
             "preview": str(content)[:300],
         }

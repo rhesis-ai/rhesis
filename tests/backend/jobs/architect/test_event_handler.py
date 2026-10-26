@@ -136,6 +136,20 @@ class TestWebSocketEventHandlerEvents:
         assert payload["error"] == "Field required"
 
     @pytest.mark.asyncio
+    async def test_on_tool_end_names_what_a_chart_shows(self, handler):
+        """The finished row read "Show Chart", with nothing about what was charted."""
+        result = MagicMock(success=True, content="Charted")
+        with patch.object(handler, "publish") as mock_pub:
+            with patch(f"{_HANDLER_MODULE}._get_tool_labels", return_value={}):
+                await handler.on_tool_end(
+                    tool_name="show_chart",
+                    result=result,
+                    arguments={"title": "Pass rate by topic"},
+                )
+
+        assert mock_pub.call_args[0][1]["description"] == "Show chart: Pass rate by topic"
+
+    @pytest.mark.asyncio
     async def test_on_mode_change(self, handler):
         with patch.object(handler, "publish") as mock_pub:
             await handler.on_mode_change(old_mode="discovery", new_mode="planning")

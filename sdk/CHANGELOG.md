@@ -105,6 +105,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ShowChartTool` rejects `stacked_bar` and `area` charts of anything but counts. The Architect
   stacked two endpoints' pass rates into one bar, drawing an axis that ran to 200%; it is now
   told to compare them side by side with `bar` and a series.
+- `on_tool_end` event handlers receive the call's `arguments`, so a finished tool can be
+  described as precisely as a started one.
 - Normalized cached prompt usage for OpenAI and LiteLLM so separately billed cache reads and
   writes stay out of `input_tokens`, while provider-reported totals remain unchanged.
 - Streamed LangChain calls record their cache reads and writes. They carry usage only on
