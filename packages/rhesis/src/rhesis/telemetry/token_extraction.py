@@ -10,9 +10,11 @@ LLM providers use different key names for the same concepts:
       "candidates_token_count"
     - Total tokens: "total_tokens", "total_token_count"
 
-OpenAI includes cached prompt tokens in ``prompt_tokens``; when its cache details are
-present, input tokens are normalized to exclude them and the cache count is returned
-separately. Anthropic's ``input_tokens`` already excludes cached tokens.
+OpenAI includes cached prompt tokens in ``prompt_tokens``, and LangChain's
+``usage_metadata`` includes them in ``input_tokens`` (its ``UsageMetadata`` contract,
+reported under ``input_token_details``). When those cache details are present, input
+tokens are normalized to exclude them and the cache count is returned separately.
+Anthropic's own ``input_tokens`` already excludes cached tokens.
 
 Cohere nests its counts one level down, under "billed_units" and "tokens"; those are
 flattened before the lookup so a caller never has to unwrap them first.
@@ -75,6 +77,13 @@ _CACHE_CREATION_KEYS = [
     "cacheCreationInputTokens",  # camelCase variant
     "cache_creation_tokens",  # LiteLLM prompt token details
     "cache_write_tokens",  # normalized callback payload
+    "cache_creation",  # LangChain input_token_details
+]
+
+# langchain-anthropic and langchain-aws split cache writes by TTL, then report cache_creation as 0.
+_CACHE_CREATION_TTL_KEYS = [
+    "ephemeral_5m_input_tokens",
+    "ephemeral_1h_input_tokens",
 ]
 
 _CACHE_READ_KEYS = [
@@ -82,6 +91,7 @@ _CACHE_READ_KEYS = [
     "cacheReadInputTokens",  # camelCase variant
     "cached_tokens",  # OpenAI prompt_tokens_details
     "cache_read_tokens",  # normalized callback payload
+    "cache_read",  # LangChain input_token_details
 ]
 
 _ALL_KEYS = (
@@ -103,6 +113,7 @@ _NESTED_CONTAINERS = (
     "usage_metadata",
     "token_usage",
     "prompt_tokens_details",
+    "input_token_details",
 )
 
 
@@ -229,6 +240,14 @@ def get_first_value(data: Union[Dict, Any], keys: list, default: int = 0) -> int
     return default
 
 
+def _cache_counts(usage: Dict) -> Tuple[int, int]:
+    """(cache_write, cache_read) from an already flattened payload."""
+    cache_write = get_first_value(usage, _CACHE_CREATION_KEYS)
+    if not cache_write:
+        cache_write = sum(_safe_int(usage.get(key)) for key in _CACHE_CREATION_TTL_KEYS)
+    return cache_write, get_first_value(usage, _CACHE_READ_KEYS)
+
+
 def extract_token_usage(usage: Union[Dict, Any]) -> Tuple[int, int, int]:
     """
     Extract (input, output, total) token counts from a usage dictionary or object.
@@ -269,23 +288,19 @@ def extract_token_usage(usage: Union[Dict, Any]) -> Tuple[int, int, int]:
     # Extract input tokens (try all common key names)
     input_tokens = get_first_value(usage, _INPUT_KEYS)
 
-    # OpenAI and LiteLLM include their cache counts in prompt_tokens.
-    if "prompt_tokens" in usage and "input_tokens" not in usage:
-        input_tokens = max(
-            0,
-            input_tokens
-            - get_first_value(usage, _CACHE_CREATION_KEYS)
-            - get_first_value(usage, _CACHE_READ_KEYS),
-        )
+    cache_creation_tokens, cache_read_tokens = _cache_counts(usage)
+
+    # OpenAI, LiteLLM and LangChain's usage_metadata include their cache counts in the
+    # input count. Anthropic's own input_tokens does not, and has no input_token_details.
+    openai_shape = "prompt_tokens" in usage and "input_tokens" not in usage
+    if openai_shape or "input_token_details" in usage:
+        input_tokens = max(0, input_tokens - cache_creation_tokens - cache_read_tokens)
 
     # Extract output tokens (try all common key names)
     output_tokens = get_first_value(usage, _OUTPUT_KEYS)
 
     # Extract total tokens (try all common key names)
     total_tokens = get_first_value(usage, _TOTAL_KEYS)
-
-    cache_creation_tokens = get_first_value(usage, _CACHE_CREATION_KEYS)
-    cache_read_tokens = get_first_value(usage, _CACHE_READ_KEYS)
 
     # Calculate total if not explicitly provided
     counted = input_tokens or output_tokens or cache_creation_tokens or cache_read_tokens
@@ -315,7 +330,4 @@ def extract_cache_tokens(usage: Union[Dict, Any]) -> Tuple[int, int]:
     if not usage:
         return 0, 0
 
-    return (
-        get_first_value(usage, _CACHE_CREATION_KEYS),
-        get_first_value(usage, _CACHE_READ_KEYS),
-    )
+    return _cache_counts(usage)
