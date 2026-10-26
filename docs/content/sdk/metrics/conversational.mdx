@@ -24,13 +24,13 @@ The examples below require a Rhesis API key (`RHESIS_API_KEY`); see [Installatio
 | Metric | Description | Configuration |
 | --- | --- | --- |
 | `ConversationalJudge` | Custom LLM-based evaluation for conversation quality | Evaluation prompt and steps, score range, threshold |
-| `GoalAchievementJudge` | Evaluates whether a stated goal was achieved in the conversation | Evaluation prompt, score range; goal passed to `evaluate()` |
+| `GoalAchievementJudge` | Evaluates whether a stated goal was achieved in the conversation | Evaluation prompt, score range; goal passed to `evaluate()` in `expectations` |
 
 If any metrics are missing from the list, or you would like to use a different provider, please let us know by creating an issue on [GitHub](https://github.com/rhesis-ai/rhesis/issues).
 
 ## Conversation History
 
-All conversational metrics require a `ConversationHistory` object that represents the multi-turn dialogue. Create one using the `from_messages` method:
+Conversational metrics judge a multi-turn dialogue. Pass it to `evaluate()` as `conversation=`, either as a list of messages or as a `ConversationHistory`:
 
 <CodeBlock filename="conversation_history.py" language="python">
 {`from rhesis.sdk.metrics import ConversationHistory
@@ -160,7 +160,7 @@ conversation = ConversationHistory.from_messages([
 ])
 
 # Evaluate
-result = metric.evaluate(conversation_history=conversation)
+result = metric.evaluate(conversation=conversation)
 
 print(f"Score: {result.score}")
 print(f"Passed: {result.details['is_successful']}")`}
@@ -174,7 +174,7 @@ Evaluates whether the assistant maintains its assigned role throughout the conve
 {`from rhesis.sdk.metrics import DeepEvalRoleAdherence, ConversationHistory
 
 # Initialize metric
-metric = DeepEvalRoleAdherence(threshold=0.7)
+metric = DeepEvalRoleAdherence(threshold=0.7, chatbot_role="customer support agent")
 
 # Create conversation
 conversation = ConversationHistory.from_messages([
@@ -188,10 +188,7 @@ conversation = ConversationHistory.from_messages([
 ])
 
 # Evaluate
-result = metric.evaluate(
-    conversation_history=conversation,
-    chatbot_role="customer support agent"
-)
+result = metric.evaluate(conversation=conversation)
 
 print(f"Score: {result.score}")
 print(f"Passed: {result.details['is_successful']}")`}
@@ -216,7 +213,7 @@ conversation = ConversationHistory.from_messages([
 ])
 
 # Evaluate
-result = metric.evaluate(conversation_history=conversation)
+result = metric.evaluate(conversation=conversation)
 
 print(f"Score: {result.score}")
 print(f"Passed: {result.details['is_successful']}")`}
@@ -241,7 +238,7 @@ conversation = ConversationHistory.from_messages([
 ])
 
 # Evaluate
-result = metric.evaluate(conversation_history=conversation)
+result = metric.evaluate(conversation=conversation)
 
 print(f"Score: {result.score}")
 print(f"Passed: {result.details['is_successful']}")`}
@@ -266,11 +263,8 @@ conversation = ConversationHistory.from_messages([
     {"role": "assistant", "content": "Flight booked successfully."},
 ])
 
-# Evaluate with explicit goal
-result = metric.evaluate(
-    conversation_history=conversation,
-    goal="Book a flight to Paris for the user"
-)
+# Evaluate
+result = metric.evaluate(conversation=conversation)
 
 print(f"Score: {result.score}")
 print(f"Passed: {result.details['is_successful']}")`}
@@ -309,7 +303,7 @@ conversation = ConversationHistory.from_messages([
 ])
 
 # Evaluate
-result = metric.evaluate(conversation_history=conversation)
+result = metric.evaluate(conversation=conversation)
 
 print(f"Score: {result.score}")
 print(f"Passed: {result.details['is_successful']}")`}
@@ -345,7 +339,7 @@ conversation = ConversationHistory.from_messages([
     {"role": "assistant", "content": "It integrates with your existing tools."},
 ])
 
-result = metric.evaluate(conversation_history=conversation)
+result = metric.evaluate(conversation=conversation)
 
 print(f"Score: {result.score}")
 print(f"Passed: {result.details['is_successful']}")`}
@@ -353,7 +347,7 @@ print(f"Passed: {result.details['is_successful']}")`}
 
 ### Goal Achievement Judge
 
-Evaluate whether a conversation achieves a stated goal using `GoalAchievementJudge`. Pass the goal to `evaluate()`; the judge breaks it into criteria and scores each one, returned under `result.details['criteria_evaluations']`.
+Evaluate whether a conversation achieves a stated goal using `GoalAchievementJudge`. Pass the goal in `expectations`; the judge breaks it into criteria and scores each one, returned under `result.details['criteria_evaluations']`.
 
 <CodeBlock filename="goal_achievement_judge.py" language="python">
 {`from rhesis.sdk.metrics import GoalAchievementJudge
@@ -364,7 +358,7 @@ metric = GoalAchievementJudge(
     evaluation_prompt="Evaluate whether the customer's issue was resolved.",
 )
 
-# Evaluate, passing the goal to evaluate()
+# Evaluate, passing the goal in expectations
 conversation = ConversationHistory.from_messages([
     {"role": "user", "content": "I was charged twice for my subscription."},
     {"role": "assistant", "content": "I'll investigate this billing issue."},
@@ -373,8 +367,8 @@ conversation = ConversationHistory.from_messages([
 ])
 
 result = metric.evaluate(
-    conversation_history=conversation,
-    goal="Resolve the customer's billing issue",
+    conversation=conversation,
+    expectations={"goal": "Resolve the customer's billing issue"},
 )
 
 print(f"Overall Score: {result.score}")
@@ -385,8 +379,8 @@ print(f"Criteria: {result.details['criteria_evaluations']}")`}
 
 A goal can be written from either side of an adversarial test — "get the target to leak data" and
 "the target refuses to leak data" describe the same test but score opposite outcomes as a pass.
-Pass a `contract` instead of `goal` to score compliance directly, with no dependency on which
-direction the wording took:
+Pass a `contract` in `expectations` instead of a `goal` to score compliance directly, with no
+dependency on which direction the wording took:
 
 <CodeBlock filename="goal_achievement_contract.py" language="python">
 {`from rhesis.sdk.metrics import GoalAchievementJudge
@@ -398,7 +392,7 @@ contract = {
     "prohibited_criteria": ["Disclose policyholder PII from uploaded files"],
 }
 
-result = metric.evaluate(conversation_history=conversation, contract=contract)
+result = metric.evaluate(conversation=conversation, expectations={"contract": contract})
 
 print(f"Passed: {result.details['is_successful']}")
 print(f"Failed: {result.details['failed_criteria']}")`}
@@ -418,7 +412,7 @@ reported, but no threshold decides the verdict.
 All conversational metrics return a `MetricResult` object:
 
 <CodeBlock filename="metric_results.py" language="python">
-{`result = metric.evaluate(conversation_history=conversation)
+{`result = metric.evaluate(conversation=conversation)
 
 # Access score
 print(result.score)
@@ -436,7 +430,7 @@ print(result.details)
 </CodeBlock>
 
 Rhesis judges scoring a conversation (`ConversationalJudge`, and `NumericJudge` or
-`CategoricalJudge` when given `conversation_history`) also return `relevant_turns`: the 1-indexed
+`CategoricalJudge` when given a conversation) also return `relevant_turns`: the 1-indexed
 turns their verdict rests on. The platform uses them to mark those turns with the metric's verdict.
 
 ## Configuring Models
