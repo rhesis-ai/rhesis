@@ -109,6 +109,41 @@ async def test_execute_metric_filters_inputs(executor):
 
 
 @pytest.mark.asyncio
+async def test_execute_metric_receives_the_trace_as_a_trace(executor):
+    """The trace arrives as JSON and reaches the metric as a Trace it can query."""
+    from rhesis.sdk.entities.trace import Trace
+
+    received = {}
+
+    def count_tool_calls(input: str, output: str, trace: Trace) -> dict:
+        received["trace"] = trace
+        return {"score": float(len(trace.spans(kind="tool.invoke")))}
+
+    payload = {
+        "trace_id": "a" * 32,
+        "project_id": "p",
+        "root_spans": [
+            {
+                "span_id": "b" * 16,
+                "span_name": "function.endpoint_rest_invoke",
+                "children": [
+                    {"span_id": "c" * 16, "span_name": "ai.tool.invoke", "span_type": "tool.invoke"}
+                ],
+            }
+        ],
+    }
+    result = await executor.execute_metric(
+        metric_func=count_tool_calls,
+        metric_name="tool_calls",
+        inputs={"input": "hi", "output": "done", "trace": payload},
+        accepted_params=["input", "output", "trace"],
+    )
+
+    assert isinstance(received["trace"], Trace)
+    assert result["score"] == 1.0
+
+
+@pytest.mark.asyncio
 async def test_execute_metric_failure(executor, failing_metric):
     """Test metric that raises an exception."""
     result = await executor.execute_metric(

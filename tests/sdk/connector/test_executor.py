@@ -253,3 +253,33 @@ class TestTraceIdPropagation:
         assert result["output"] == {"message": "hello"}
         # trace_id should be retrieved before serialization
         assert result["trace_id"] == test_trace_id
+
+
+class TestSpansAreFlushedBeforeATestResponse:
+    """The platform scores a test right after the response, and metrics may read its trace."""
+
+    @pytest.fixture
+    def provider(self, monkeypatch):
+        from unittest.mock import MagicMock
+
+        from opentelemetry import trace
+
+        fake = MagicMock()
+        monkeypatch.setattr(trace, "get_tracer_provider", lambda: fake)
+        return fake
+
+    @pytest.mark.asyncio
+    async def test_a_test_invocation_flushes_spans(self, executor, provider):
+        from rhesis.telemetry.constants import TestExecutionContext
+
+        inputs = {TestExecutionContext.CONTEXT_KEY: {"test_run_id": "run"}}
+        result = await executor.execute(lambda: "ok", "answer", inputs)
+
+        assert result["status"] == "success"
+        provider.force_flush.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_an_ordinary_invocation_does_not_wait_for_a_flush(self, executor, provider):
+        await executor.execute(lambda: "ok", "answer", {})
+
+        provider.force_flush.assert_not_called()
