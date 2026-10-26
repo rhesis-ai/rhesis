@@ -106,11 +106,13 @@ test.describe('Endpoints — CRUD @crud', () => {
     await page.getByRole('option', { name: '$.text' }).click();
     await nextButton(page).click();
 
-    // Test: Create only unlocks after a passing run.
+    // Test: creating untested is allowed; a passing run switches the label.
+    await expect(
+      page.getByRole('button', { name: /^create without test$/i })
+    ).toBeEnabled();
     const createButton = page.getByRole('button', {
       name: /^create endpoint$/i,
     });
-    await expect(createButton).toBeDisabled();
     await page.getByRole('textbox', { name: 'Value for input' }).fill('Hello');
     await page.getByRole('button', { name: /send test request/i }).click();
     await expect(page.getByText('Endpoint is ready')).toBeVisible();

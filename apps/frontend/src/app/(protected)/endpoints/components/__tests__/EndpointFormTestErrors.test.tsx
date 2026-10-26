@@ -42,6 +42,23 @@ jest.mock('@/hooks/useEndpoints', () => ({
   useTestEndpoint: () => ({ mutateAsync: mockTestEndpoint }),
 }));
 
+jest.mock('@monaco-editor/react', () => {
+  const MockEditor = ({
+    value,
+    onChange,
+  }: {
+    value?: string;
+    onChange?: (value: string) => void;
+  }) => (
+    <textarea
+      data-testid="mock-editor"
+      value={value || ''}
+      onChange={e => onChange?.(e.target.value)}
+    />
+  );
+  return { __esModule: true, default: MockEditor };
+});
+
 jest.mock('../AutoConfigureDrawer', () => ({
   __esModule: true,
   default: () => null,
@@ -54,6 +71,8 @@ type User = ReturnType<typeof userEvent.setup>;
 const nextButton = () => screen.getByRole('button', { name: /^next$/i });
 const createButton = () =>
   screen.getByRole('button', { name: /^create endpoint$/i });
+const createUntestedButton = () =>
+  screen.getByRole('button', { name: /^create without test$/i });
 
 function renderDrawer(onCreated = jest.fn()) {
   render(
@@ -161,7 +180,7 @@ describe('Endpoint create drawer — steps and submit', () => {
     expect(screen.getByLabelText(/endpoint url/i)).toBeInTheDocument();
   });
 
-  it('needs a passing mapping test and an output mapping before Next', async () => {
+  it('needs an output mapping before Next', async () => {
     const user = userEvent.setup({ delay: null });
     renderDrawer();
     await fillToMapping(user);
@@ -171,18 +190,66 @@ describe('Endpoint create drawer — steps and submit', () => {
     expect(nextButton()).toBeEnabled();
   });
 
-  it('asks for a new test after the URL changes', async () => {
+  it('does not block Next when the mapping test is out of date', async () => {
     const user = userEvent.setup({ delay: null });
     renderDrawer();
     await fillToMapping(user);
     await passMappingTest(user);
 
+    mockTestEndpoint.mockResolvedValue({
+      error: true,
+      error_type: 'network_error',
+      message: 'Could not reach api.example.com.',
+    });
     await user.click(screen.getByRole('button', { name: /connection/i }));
     fireEvent.change(screen.getByLabelText(/endpoint url/i), {
       target: { value: 'https://api.example.com/v2/chat' },
     });
     await user.click(nextButton());
-    expect(nextButton()).toBeDisabled();
+    expect(nextButton()).toBeEnabled();
+  });
+
+  it('sends the edited mapping test value', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderDrawer();
+    await fillToMapping(user);
+    await screen.findByText('Test request successful', {}, AUTO_RUN);
+
+    await user.click(
+      screen.getByRole('button', { name: 'More test request options' })
+    );
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Edit test request' })
+    );
+    fireEvent.change(await screen.findByTestId('mock-editor'), {
+      target: { value: '{"input": "What is my balance?"}' },
+    });
+    await user.click(
+      screen.getByRole('button', { name: /send test request/i })
+    );
+    await waitFor(() =>
+      expect(mockTestEndpoint).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          input_data: { input: 'What is my balance?' },
+        })
+      )
+    );
+  });
+
+  it('creates the endpoint without a passing Test step', async () => {
+    mockCreateEndpoint.mockResolvedValue({
+      success: true,
+      data: { id: 'ep-1' },
+    });
+    const user = userEvent.setup({ delay: null });
+    const onCreated = renderDrawer();
+    await fillToMapping(user);
+    await passMappingTest(user);
+    await user.click(nextButton());
+
+    expect(screen.getByText(/no successful test yet/i)).toBeInTheDocument();
+    await user.click(createUntestedButton());
+    await waitFor(() => expect(onCreated).toHaveBeenCalled());
   });
 
   async function runToCreate(user: User) {
@@ -190,7 +257,7 @@ describe('Endpoint create drawer — steps and submit', () => {
     await passMappingTest(user);
     await user.click(nextButton());
 
-    expect(createButton()).toBeDisabled();
+    expect(createUntestedButton()).toBeEnabled();
     fireEvent.change(screen.getByRole('textbox', { name: 'Value for input' }), {
       target: { value: 'Hello' },
     });

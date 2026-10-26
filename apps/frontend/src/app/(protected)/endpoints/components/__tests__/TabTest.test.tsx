@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
@@ -7,6 +7,7 @@ jest.mock('@/config/runtime-config', () => ({
 }));
 
 import TabTest from '../TabTest';
+import type { TestValues } from '../testValues';
 
 const defaultProps = {
   url: 'https://api.example.com/chat',
@@ -20,9 +21,20 @@ const defaultProps = {
   onRunTest: jest.fn(),
 };
 
+type Props = Omit<
+  React.ComponentProps<typeof TabTest>,
+  'values' | 'onValuesChange'
+> & { values?: TestValues };
+
+// The wizard owns the test values; hold them here so typing updates the fields.
+function WithTabTestValues({ values: initial, ...props }: Props) {
+  const [values, setValues] = useState<TestValues>(initial ?? {});
+  return <TabTest {...props} values={values} onValuesChange={setValues} />;
+}
+
 describe('TabTest', () => {
   it('asks for a value per variable, skipping ones Rhesis fills in', () => {
-    render(<TabTest {...defaultProps} />);
+    render(<WithTabTestValues {...defaultProps} />);
     expect(screen.getByLabelText('Value for input')).toBeInTheDocument();
     expect(screen.getByLabelText('Value for messages')).toBeInTheDocument();
     expect(
@@ -31,7 +43,7 @@ describe('TabTest', () => {
   });
 
   it('blocks the test until input has a value', () => {
-    render(<TabTest {...defaultProps} />);
+    render(<WithTabTestValues {...defaultProps} />);
     expect(
       screen.getByRole('button', { name: /send test request/i })
     ).toBeDisabled();
@@ -39,7 +51,7 @@ describe('TabTest', () => {
 
   it('sends typed messages as a single user turn', async () => {
     const onRunTest = jest.fn();
-    render(<TabTest {...defaultProps} onRunTest={onRunTest} />);
+    render(<WithTabTestValues {...defaultProps} onRunTest={onRunTest} />);
     fireEvent.change(screen.getByLabelText('Value for input'), {
       target: { value: 'Hi' },
     });
@@ -56,7 +68,7 @@ describe('TabTest', () => {
 
   it('shows the returned value for each mapped variable', () => {
     render(
-      <TabTest
+      <WithTabTestValues
         {...defaultProps}
         testResult={{
           success: true,
@@ -70,7 +82,7 @@ describe('TabTest', () => {
 
   it('labels returned values by variable name and shows JSON as JSON', () => {
     render(
-      <TabTest
+      <WithTabTestValues
         {...defaultProps}
         resBody='{"output": "$.text", "metadata": "$.meta"}'
         testResult={{
@@ -92,12 +104,26 @@ describe('TabTest', () => {
 
   it('shows the error when the test fails', () => {
     render(
-      <TabTest
+      <WithTabTestValues
         {...defaultProps}
         testResult={{ success: false, error: 'Connection refused' }}
       />
     );
     expect(screen.getByText('Test request failed')).toBeInTheDocument();
     expect(screen.getByText('Connection refused')).toBeInTheDocument();
+  });
+
+  it('says creating without a passing test is still possible', () => {
+    render(<WithTabTestValues {...defaultProps} />);
+    expect(screen.getByText(/no successful test yet/i)).toBeInTheDocument();
+  });
+
+  it('starts from the values typed in the Mapping step', () => {
+    render(
+      <WithTabTestValues {...defaultProps} values={{ input: 'From mapping' }} />
+    );
+    expect(screen.getByLabelText('Value for input')).toHaveValue(
+      'From mapping'
+    );
   });
 });
