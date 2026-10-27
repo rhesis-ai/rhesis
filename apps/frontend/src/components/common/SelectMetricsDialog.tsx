@@ -27,12 +27,15 @@ import CategoryIcon from '@mui/icons-material/Category';
 import ToggleOnIcon from '@mui/icons-material/ToggleOn';
 import { AutoGraphIcon } from '@/components/icons';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import type {
-  MetricDetail,
-  MetricScope,
-} from '@/utils/api-client/interfaces/metric';
+import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type { UUID } from 'crypto';
-import { getMetricScopeIcon } from '@/constants/metric-scopes';
+import { useMetricTargets } from '@/hooks/useLookups';
+import {
+  formatMetricTarget,
+  getMetricTarget,
+  getMetricTargetIcon,
+  metricRunsOnTestType,
+} from '@/utils/metric-targets';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { PrimarySegmentedPills } from '@/components/common/GridToolbar';
@@ -88,16 +91,12 @@ const capitalize = (s: string) =>
 interface SelectMetricsDialogProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (metric: {
-    id: UUID;
-    name: string;
-    metric_scope?: MetricScope[];
-  }) => void;
+  onSelect: (metric: { id: UUID; name: string }) => void;
   excludeMetricIds?: UUID[];
   title?: string;
   subtitle?: string;
-  /** Filter metrics by scope value (Single-Turn or Multi-Turn) */
-  scopeFilter?: string;
+  /** Test type the metrics will run on; leaves out metrics that can't run on it. */
+  testType?: string;
   /** Presentation shell — drawer is used on project detail configuration sections. */
   variant?: 'dialog' | 'drawer';
 }
@@ -109,10 +108,11 @@ export default function SelectMetricsDialog({
   excludeMetricIds = [],
   title = 'Add Metric',
   subtitle = 'Select a metric to add',
-  scopeFilter,
+  testType,
   variant = 'dialog',
 }: SelectMetricsDialogProps) {
   const searchRef = React.useRef<HTMLInputElement>(null);
+  const { data: targetChoices } = useMetricTargets(open);
 
   const [metrics, setMetrics] = React.useState<MetricDetail[]>([]);
   const [filteredMetrics, setFilteredMetrics] = React.useState<MetricDetail[]>(
@@ -133,20 +133,11 @@ export default function SelectMetricsDialog({
         sort_order: 'asc',
       });
 
-      // Filter out excluded metrics and apply scope filter
-      const availableMetrics = allMetrics.filter(metric => {
-        // Exclude already-selected metrics
-        if (excludeMetricIds.includes(metric.id)) return false;
-        // No scope filter requested — show everything
-        if (!scopeFilter) return true;
-        // Metrics with no defined scope are compatible with any test type
-        if (!metric.metric_scope || metric.metric_scope.length === 0)
-          return true;
-        // Metric scope is an array — show the metric if it supports the requested scope
-        return metric.metric_scope.some(
-          scope => scope.toLowerCase() === scopeFilter.toLowerCase()
-        );
-      });
+      const availableMetrics = allMetrics.filter(
+        metric =>
+          !excludeMetricIds.includes(metric.id) &&
+          metricRunsOnTestType(metric, testType)
+      );
 
       setMetrics(availableMetrics);
       setFilteredMetrics(availableMetrics);
@@ -155,7 +146,7 @@ export default function SelectMetricsDialog({
     } finally {
       setIsLoading(false);
     }
-  }, [excludeMetricIds, scopeFilter]);
+  }, [excludeMetricIds, testType]);
 
   // Fetch metrics when dialog opens
   React.useEffect(() => {
@@ -215,7 +206,6 @@ export default function SelectMetricsDialog({
     onSelect({
       id: metric.id as UUID,
       name: metric.name || 'Unnamed metric',
-      metric_scope: metric.metric_scope,
     });
     onClose();
   };
@@ -389,15 +379,17 @@ export default function SelectMetricsDialog({
                         variant="outlined"
                       />
                     )}
-                    {metric.metric_scope?.map(scope => (
-                      <Chip
-                        key={scope}
-                        icon={getMetricScopeIcon(scope)}
-                        label={scope}
-                        size="small"
-                        variant="outlined"
-                      />
-                    ))}
+                    {(() => {
+                      const target = getMetricTarget(metric);
+                      return target ? (
+                        <Chip
+                          icon={getMetricTargetIcon(target.on)}
+                          label={formatMetricTarget(target, targetChoices)}
+                          size="small"
+                          variant="outlined"
+                        />
+                      ) : null;
+                    })()}
                   </Box>
                 </Box>
               </Box>

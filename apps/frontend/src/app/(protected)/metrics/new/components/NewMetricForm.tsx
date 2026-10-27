@@ -30,16 +30,24 @@ import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   MetricCreate,
-  MetricScope,
+  MetricTargetChoice,
   ThresholdOperator,
 } from '@/utils/api-client/interfaces/metric';
 import type { UUID } from 'crypto';
 import { Model } from '@/utils/api-client/interfaces/model';
 import CircularProgress from '@mui/material/CircularProgress';
 import { EntityType } from '@/utils/api-client/interfaces/tag';
-import { TEST_TYPES } from '@/constants/test-types';
 import { SCORE_TYPES, ScoreTypeValue } from '@/constants/score-types';
-import { useTypeLookups } from '@/hooks/useLookups';
+import { useMetricTargets, useTypeLookups } from '@/hooks/useLookups';
+import {
+  formatMetricTarget,
+  METRIC_TARGET,
+  offeredTargets,
+  toMetricTarget,
+} from '@/utils/metric-targets';
+import MetricTargetPicker, {
+  type MetricTargetValue,
+} from '../../components/MetricTargetPicker';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { validateScore } from '@/utils/validation';
 import { formatEvaluationSteps } from '@/utils/evaluation-steps';
@@ -66,7 +74,7 @@ interface MetricFormData {
   threshold_operator: ThresholdOperator;
   explanation: string;
   model_id: string;
-  metric_scope: MetricScope[];
+  target: MetricTargetValue;
 }
 
 const initialFormData: MetricFormData = {
@@ -85,8 +93,10 @@ const initialFormData: MetricFormData = {
   threshold_operator: '>=',
   explanation: '',
   model_id: '',
-  metric_scope: [TEST_TYPES.SINGLE_TURN],
+  target: { on: METRIC_TARGET.TURN, name: '' },
 };
+
+const NO_TARGETS: MetricTargetChoice[] = [];
 
 const steps = ['Metric Information and Criteria', 'Confirmation'];
 
@@ -106,6 +116,12 @@ export default function NewMetricForm({
   const theme = useTheme();
   const { data: allTypeLookups } = useTypeLookups(
     `(type_name eq 'MetricType' and type_value eq '${type}') or (type_name eq 'BackendType' and type_value eq 'custom')`
+  );
+  const { data: allTargets = NO_TARGETS } = useMetricTargets();
+  // The form has no "ground truth required" field, so nothing narrows this yet.
+  const targetChoices = React.useMemo(
+    () => offeredTargets(allTargets),
+    [allTargets]
   );
   const [activeStep, setActiveStep] = React.useState(0);
   const [formData, setFormData] =
@@ -226,7 +242,6 @@ export default function NewMetricForm({
     // Common required fields
     if (!formData.name.trim()) return false;
     if (!formData.evaluation_prompt.trim()) return false;
-    if (formData.metric_scope.length === 0) return false;
 
     // Score type conditional validation
     if (formData.score_type === SCORE_TYPES.NUMERIC) {
@@ -325,7 +340,7 @@ export default function NewMetricForm({
         backend_type_id: backendTypes[0].id as UUID,
         model_id: formData.model_id ? (formData.model_id as UUID) : undefined,
         owner_id: session?.user?.id as UUID,
-        metric_scope: formData.metric_scope,
+        config: { target: toMetricTarget(formData.target, targetChoices) },
       };
 
       // Create the metric
@@ -783,60 +798,21 @@ export default function NewMetricForm({
           </>
         )}
 
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="body1" sx={{ mb: 1, fontWeight: 'medium' }}>
-            Metric Scope{' '}
-            <Typography component="span" sx={{ color: 'error.main' }}>
-              *
+        {targetChoices.length > 0 && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body1" sx={{ mb: 1, fontWeight: 'medium' }}>
+              Judges
             </Typography>
-          </Typography>
-          <Typography
-            variant="body2"
-            color={
-              showErrors && formData.metric_scope.length === 0
-                ? 'error'
-                : 'text.secondary'
-            }
-            sx={{ mb: 2 }}
-          >
-            {showErrors && formData.metric_scope.length === 0
-              ? 'At least one metric scope must be selected'
-              : 'Select which test types this metric applies to (at least one required):'}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {(
-              [TEST_TYPES.SINGLE_TURN, TEST_TYPES.MULTI_TURN] as MetricScope[]
-            ).map(scope => {
-              const isSelected = formData.metric_scope.includes(scope);
-
-              return (
-                <Chip
-                  key={scope}
-                  label={scope}
-                  clickable
-                  color={isSelected ? 'primary' : 'default'}
-                  variant={isSelected ? 'filled' : 'outlined'}
-                  onClick={() => {
-                    const newScope = isSelected
-                      ? formData.metric_scope.filter(s => s !== scope)
-                      : [...formData.metric_scope, scope];
-                    setFormData(prev => ({
-                      ...prev,
-                      metric_scope: newScope,
-                    }));
-                  }}
-                  sx={{
-                    '&:hover': {
-                      backgroundColor: isSelected
-                        ? 'primary.dark'
-                        : 'action.hover',
-                    },
-                  }}
-                />
-              );
-            })}
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Choose what this metric scores.
+            </Typography>
+            <MetricTargetPicker
+              choices={targetChoices}
+              value={formData.target}
+              onChange={target => setFormData(prev => ({ ...prev, target }))}
+            />
           </Box>
-        </Box>
+        )}
 
         <TextField
           fullWidth
@@ -1187,18 +1163,16 @@ export default function NewMetricForm({
             color="text.secondary"
             sx={{ fontWeight: 'medium', mb: 1 }}
           >
-            Metric Scope
+            Judges
           </Typography>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {formData.metric_scope.map(scope => (
-              <Chip
-                key={scope}
-                label={scope}
-                color="primary"
-                variant="filled"
-              />
-            ))}
-          </Box>
+          <Chip
+            label={formatMetricTarget(
+              toMetricTarget(formData.target, targetChoices),
+              allTargets
+            )}
+            color="primary"
+            variant="filled"
+          />
         </Box>
 
         <Box>

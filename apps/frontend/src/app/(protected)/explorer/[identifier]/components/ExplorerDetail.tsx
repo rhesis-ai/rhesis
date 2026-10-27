@@ -80,7 +80,8 @@ import { useEndpointOptions, type EndpointOption } from '@/hooks/useEndpoints';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import SuggestionsDialog from './SuggestionsDialog';
 import { ScoreMetricsTooltip } from './scoreMetricsTooltip';
-import { METRIC_SCOPES } from '@/constants/metric-scopes';
+import { metricRunsOnTestType } from '@/utils/metric-targets';
+import { TEST_TYPES } from '@/constants/test-types';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
 const GENERATE_PROGRESS_NOTIFICATION_KEY = 'explorer-generate-progress';
@@ -2082,14 +2083,10 @@ export default function ExplorerDetail({
         if (cancelled) return;
         const list = res?.data ?? [];
         const metricsList = Array.isArray(list) ? list : [];
-        const singleTurnMetrics = metricsList.filter(metric => {
-          if (!metric.metric_scope || metric.metric_scope.length === 0)
-            return true;
-          return metric.metric_scope.some(
-            scope =>
-              scope.toLowerCase() === METRIC_SCOPES.SINGLE_TURN.toLowerCase()
-          );
-        });
+        // Explorer tests are single-turn, so conversation metrics can't run on them.
+        const singleTurnMetrics = metricsList.filter(metric =>
+          metricRunsOnTestType(metric, TEST_TYPES.SINGLE_TURN)
+        );
         setMetrics(singleTurnMetrics);
       })
       .catch(() => {

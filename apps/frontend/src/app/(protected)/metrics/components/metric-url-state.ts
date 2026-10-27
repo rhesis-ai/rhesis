@@ -1,4 +1,4 @@
-import { TEST_TYPES } from '@/constants/test-types';
+import { isTargetOnValue } from '@/utils/metric-targets';
 import type { FilterState } from './MetricsDirectoryTab';
 
 /**
@@ -11,13 +11,12 @@ const LIST_KEYS = {
   backend: 'backend',
   type: 'type',
   scoreType: 'score_type',
-  metricScope: 'scope',
+  target: 'target',
 } as const satisfies Partial<Record<keyof FilterState, string>>;
 
 const REQUIREMENT_PARAM = 'requirement';
 
 const SCORE_TYPES = ['numeric', 'categorical'];
-const METRIC_SCOPES: string[] = [TEST_TYPES.SINGLE_TURN, TEST_TYPES.MULTI_TURN];
 
 /** Every URL key this module owns, so writing filters clears stale ones first. */
 const FILTER_PARAMS = [...Object.values(LIST_KEYS), REQUIREMENT_PARAM];
@@ -27,7 +26,7 @@ const EMPTY_METRIC_FILTERS: FilterState = {
   backend: [],
   type: [],
   scoreType: [],
-  metricScope: [],
+  target: [],
   requirement: '',
 };
 
@@ -39,9 +38,7 @@ export function filtersFromSearchParams(params: URLSearchParams): FilterState {
     backend: all(LIST_KEYS.backend),
     type: all(LIST_KEYS.type),
     scoreType: all(LIST_KEYS.scoreType).filter(v => SCORE_TYPES.includes(v)),
-    metricScope: all(LIST_KEYS.metricScope).filter(v =>
-      METRIC_SCOPES.includes(v)
-    ),
+    target: all(LIST_KEYS.target).filter(isTargetOnValue),
     requirement: params.get(REQUIREMENT_PARAM) ?? '',
   };
 }
