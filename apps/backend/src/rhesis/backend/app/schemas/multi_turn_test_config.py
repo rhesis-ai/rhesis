@@ -5,9 +5,14 @@ This is separate from the TestConfiguration entity - this validates the JSON
 stored in the test's test_configuration attribute for multi-turn tests.
 """
 
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
+
+from rhesis.sdk.metrics.expectations import ExpectedToolCall
+
+#: Where a test's expected tool calls live in ``test_configuration``, for either test type.
+EXPECTED_TOOL_CALLS_KEY = "expected_tool_calls"
 
 
 class MultiTurnTestConfig(BaseModel):
@@ -50,6 +55,11 @@ class MultiTurnTestConfig(BaseModel):
         ge=1,
         le=50,
         description="Minimum turns before early stopping is allowed (default: 80% of max_turns)",
+    )
+
+    expected_tool_calls: Optional[List[ExpectedToolCall]] = Field(
+        None,
+        description="Tools the target should call over the conversation, in order (optional)",
     )
 
     @field_validator("goal", "instructions", "restrictions", "scenario")

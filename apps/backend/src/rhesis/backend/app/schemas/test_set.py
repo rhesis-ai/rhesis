@@ -135,9 +135,10 @@ class TestData(BaseModel):
 
         prompt = info.data.get("prompt")
 
-        # If prompt is provided, it's a single-turn test - OK
         if prompt:
-            return v
+            from rhesis.backend.app.schemas.validators import validate_test_config_content
+
+            return validate_test_config_content(v)
 
         # If no prompt, must be multi-turn - validate goal exists
         if not v or not v.get("goal"):

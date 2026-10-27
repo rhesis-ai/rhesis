@@ -21,6 +21,7 @@ from rhesis.backend.app.services.run_config import record_resolved_evaluation_mo
 
 # Called through the module so tests that patch these at their source still apply.
 from rhesis.backend.app.utils import user_model_utils
+from rhesis.backend.metrics.applicability import needs_model
 
 logger = logging.getLogger(__name__)
 
@@ -48,19 +49,24 @@ class RunModels:
 
 
 def metric_backends(db: Session, metrics: Iterable[Any]) -> List[str]:
-    """Distinct backend names of ``Metric`` rows, read in one query.
+    """Distinct backend names of the ``Metric`` rows that judge with a model, read in one
+    query. A code metric that needs none (the tool call trajectory) is left out.
 
     Read by id because callers do not eager-load ``Metric.backend_type``.
     """
-    type_ids = {getattr(metric, "backend_type_id", None) for metric in metrics}
-    backends = {DEFAULT_METRIC_BACKEND} if None in type_ids else set()
-    type_ids.discard(None)
-    if type_ids:
-        rows = db.query(TypeLookup.type_value).filter(TypeLookup.id.in_(list(type_ids))).all()
-        backends.update(value for (value,) in rows)
+    metrics = list(metrics)
+    type_ids = {getattr(m, "backend_type_id", None) for m in metrics} - {None}
+    values = (
+        dict(db.query(TypeLookup.id, TypeLookup.type_value).filter(TypeLookup.id.in_(type_ids)))
+        if type_ids
+        else {}
+    )
+    backends = set()
+    for metric in metrics:
         # A backend that could not be read is not known to be an SDK one.
-        if len(rows) < len(type_ids):
-            backends.add(DEFAULT_METRIC_BACKEND)
+        backend = values.get(getattr(metric, "backend_type_id", None), DEFAULT_METRIC_BACKEND)
+        if needs_model({"backend": backend, "class_name": getattr(metric, "class_name", None)}):
+            backends.add(backend)
     return sorted(backends)
 
 

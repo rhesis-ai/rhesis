@@ -211,12 +211,15 @@ async def run_metrics_on_text(
     Returns a dict keyed by metric name with ``score`` and
     ``is_successful`` for each metric that succeeded.
     """
+    from rhesis.backend.metrics.applicability import applies
     from rhesis.backend.metrics.inputs import EvaluationInputs, ResponseTrace
     from rhesis.backend.metrics.metric_config import build_metric_evaluate_params
     from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 
     score_evaluator = ScoreEvaluator()
     inputs = EvaluationInputs(trace=ResponseTrace(input=input_text, output=output_text))
+    # Explorer rows carry no expectations, so metrics that compare with them don't apply.
+    sdk_metrics = [(m, c) for m, c in sdk_metrics if applies(c, inputs.expectations)]
 
     async def _eval_single(metric, config) -> Tuple[str, Dict[str, Any]]:
         result = await metric.a_evaluate(**build_metric_evaluate_params(metric, inputs))

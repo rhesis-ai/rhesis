@@ -669,3 +669,45 @@ class TestMetricImprove(MetricTestMixin, BaseEntityTests):
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Failed to improve metric" in response.json()["detail"]
+
+
+# === METRIC SETTINGS (config) ===
+
+
+@pytest.mark.integration
+class TestMetricConfig(MetricTestMixin):
+    """Settings are checked against the metric's class on every write, and never on reads."""
+
+    def _trajectory(self, metric_factory):
+        data = {
+            **MetricDataFactory.sample_data(),
+            "class_name": "ToolCallTrajectory",
+            "backend_type": "rhesis",
+            "config": {"match": "superset"},
+        }
+        return metric_factory.create(data)
+
+    def test_valid_settings_are_stored(self, metric_factory):
+        metric = self._trajectory(metric_factory)
+
+        assert metric["config"] == {"match": "superset"}
+
+    def test_an_update_without_class_name_is_checked_against_the_stored_class(self, metric_factory):
+        metric = self._trajectory(metric_factory)
+
+        response = metric_factory.client.put(
+            self.endpoints.put(metric["id"]), json={"config": {"match": "sometimes"}}
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert metric_factory.client.get(self.endpoints.get(metric["id"])).status_code == 200
+
+    def test_an_update_with_valid_settings_is_saved(self, metric_factory):
+        metric = self._trajectory(metric_factory)
+
+        response = metric_factory.client.put(
+            self.endpoints.put(metric["id"]), json={"config": {"match": "exact"}}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["config"] == {"match": "exact"}

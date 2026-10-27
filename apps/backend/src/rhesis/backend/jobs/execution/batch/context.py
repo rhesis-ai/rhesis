@@ -19,6 +19,7 @@ from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.services.run_models import resolve_run_models
+from rhesis.backend.metrics.applicability import needs_model
 from rhesis.backend.metrics.metric_config import metric_model_to_config
 from rhesis.sdk.metrics import MetricConfig
 
@@ -328,6 +329,7 @@ def prefetch_execution_context(
         live_backends=[
             getattr(config.backend, "value", config.backend)
             for config in _all_configs(metric_configs, per_test_metric_configs)
+            if needs_model(config)
         ],
         live_multi_turn=any(is_multi_turn_test(td["test"]) for td in test_data.values()),
     )

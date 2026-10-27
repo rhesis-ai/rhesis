@@ -26,6 +26,7 @@ from rhesis.backend.jobs.execution.executors.output_providers import (
     OutputProvider,
     SingleTurnOutput,
 )
+from rhesis.backend.metrics.applicability import expected_tool_calls
 from rhesis.backend.metrics.evaluator import MetricEvaluator
 
 from .data import get_test_metrics
@@ -286,6 +287,7 @@ class SingleTurnRunner(BaseRunner):
                 metrics_evaluator=metrics_evaluator,
                 prompt_content=prompt_content,
                 expected_response=expected_response,
+                expected_tool_calls=expected_tool_calls(test.test_configuration),
                 context=context,
                 result=processed_result,
                 metrics=metric_configs,

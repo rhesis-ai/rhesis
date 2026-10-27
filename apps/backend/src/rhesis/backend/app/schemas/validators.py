@@ -1,10 +1,16 @@
 import json
-from typing import Annotated, Any, Dict, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
-from pydantic import BeforeValidator, ValidationError
+from pydantic import BeforeValidator, TypeAdapter, ValidationError
 
 from rhesis.backend.app.constants import TestSetType, TestType
-from rhesis.backend.app.schemas.multi_turn_test_config import validate_multi_turn_config
+from rhesis.backend.app.schemas.multi_turn_test_config import (
+    EXPECTED_TOOL_CALLS_KEY,
+    validate_multi_turn_config,
+)
+from rhesis.sdk.metrics.expectations import ExpectedToolCall
+
+_EXPECTED_TOOL_CALLS = TypeAdapter(List[ExpectedToolCall])
 
 
 def format_test_type(v: Optional[str]) -> Optional[str]:
@@ -89,7 +95,16 @@ def validate_test_config_content(v: Optional[Dict[str, Any]]) -> Optional[Dict[s
                 error_messages.append(f"{field}: {error['msg']}")
             raise ValueError(f"Invalid multi-turn test configuration: {'; '.join(error_messages)}")
 
-    # For other configurations, allow any valid JSON
+    # Other keys are free-form, but expected tool calls are read by metrics.
+    if v.get(EXPECTED_TOOL_CALLS_KEY) is not None:
+        try:
+            calls = _EXPECTED_TOOL_CALLS.validate_python(v[EXPECTED_TOOL_CALLS_KEY])
+        except ValidationError as e:
+            raise ValueError(f"Invalid {EXPECTED_TOOL_CALLS_KEY}: {e.errors()[0]['msg']}")
+        return {
+            **v,
+            EXPECTED_TOOL_CALLS_KEY: _EXPECTED_TOOL_CALLS.dump_python(calls, exclude_none=True),
+        }
     return v
 
 

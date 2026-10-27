@@ -112,7 +112,8 @@ tools:
         description: >
           REQUIRED, non-empty array, 25 or fewer. Each test takes the same
           shape as in create_test_set_bulk: prompt, requirement, category,
-          topic, and test_type.
+          topic, test_type, and test_configuration (a Multi-Turn test's goal,
+          or either type's expected_tool_calls).
       test_set_id:
         description: >
           REQUIRED in practice. UUID of the set these tests join, from the
@@ -218,6 +219,14 @@ tools:
           UUIDs — the server resolves or creates them automatically. Use
           list_requirements, list_categories and list_topics to reuse
           existing values rather than inventing near-duplicates.
+
+          3. To check which tools the endpoint calls, give a test
+          test_configuration.expected_tool_calls: a list of {name,
+          arguments} in the order expected, where arguments is optional and
+          lists only the keys that matter. It works on both test types; a
+          Single-Turn test sends it beside prompt. The built-in "Tool Call
+          Trajectory" metric compares it with the calls the endpoint made,
+          and skips tests that have none.
       metadata:
         description: >
           Omit. Free-form storage the synthesizers use to record how a
@@ -557,6 +566,13 @@ tools:
         description: "Topic name string. Omit to keep unchanged."
       test_type:
         description: '"Single-Turn" or "Multi-Turn". Omit to keep unchanged.'
+      test_configuration:
+        description: >
+          Optional. Replaces the whole object, so send the test's current
+          test_configuration from get_test with your change made: dropping
+          a Multi-Turn test's goal breaks the test. Holds expected_tool_calls
+          (a list of {name, arguments}, arguments optional and listing only
+          the keys that matter) on either test type. Omit to keep unchanged.
 
   # ── Test Runs ─────────────────────────────────────────────
   - name: list_test_runs
@@ -844,6 +860,11 @@ tools:
       exists fails with "Metric with this name already exists". Call
       list_metrics first and reuse the existing id, or use improve_metric
       to change it — do NOT retry with a suffixed name.
+
+      To check which tools an endpoint calls, do not write a judge: reuse
+      the built-in "Tool Call Trajectory" metric and give the tests
+      expected_tool_calls (see create_test_set_bulk). Change how it matches
+      with update_metric's config.
     parameters:
       name:
         description: "Metric name, unique within the organization (required, string)"
@@ -929,6 +950,10 @@ tools:
         description: "Deprecated. Omit — use categories instead."
       class_name:
         description: "Omit. Only used by built-in provider-backed metrics."
+      config:
+        description: >
+          Omit. Settings of a built-in metric's class; change those on the
+          built-in metric with update_metric.
       ground_truth_required:
         description: >
           Set true only when the metric cannot be scored without the
@@ -1046,6 +1071,20 @@ tools:
         description: "Pass/fail threshold (number). Omit to keep unchanged."
       threshold_operator:
         description: 'Comparison operator: "=", "<", ">", "<=", ">=", "!=". Omit to keep.'
+      class_name:
+        description: >
+          Send the metric's current class_name (from get_metric) together
+          with config, so the settings are checked against it. Otherwise
+          omit.
+      config:
+        description: >
+          Settings of a built-in metric's class. For "Tool Call Trajectory"
+          (class_name ToolCallTrajectory): match is one of "exact" (same
+          calls, same order, nothing else), "in_order" (expected calls in
+          order, others allowed between; the default), "any_order",
+          "subset" (every call made was expected) or "superset" (every
+          expected call was made); arguments is "partial" (listed keys must
+          match; the default), "exact" or "ignore". Omit to keep.
 
   - name: add_requirement_to_metric
     label: Linking requirement to metric

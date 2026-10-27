@@ -108,7 +108,7 @@ class TestModelNeeds:
 
     def test_metric_backends_are_read_by_type_id(self):
         db = MagicMock()
-        db.query.return_value.filter.return_value.all.return_value = [("sdk",)]
+        db.query.return_value.filter.return_value = [("type-1", "sdk")]
         sdk_metric = MagicMock(backend_type_id="type-1")
 
         assert metric_backends(db, [sdk_metric, sdk_metric]) == ["sdk"]
@@ -116,17 +116,25 @@ class TestModelNeeds:
 
     def test_a_metric_with_no_backend_counts_as_rhesis(self):
         db = MagicMock()
-        db.query.return_value.filter.return_value.all.return_value = [("sdk",)]
+        db.query.return_value.filter.return_value = [("type-1", "sdk")]
         metrics = [MagicMock(backend_type_id="type-1"), MagicMock(backend_type_id=None)]
 
         assert metric_backends(db, metrics) == ["rhesis", "sdk"]
 
     def test_a_backend_that_cannot_be_read_is_not_taken_for_sdk(self):
         db = MagicMock()
-        db.query.return_value.filter.return_value.all.return_value = [("sdk",)]
+        db.query.return_value.filter.return_value = [("type-1", "sdk")]
         metrics = [MagicMock(backend_type_id="type-1"), MagicMock(backend_type_id="type-2")]
 
         assert metric_backends(db, metrics) == ["rhesis", "sdk"]
+
+    def test_a_metric_that_needs_no_model_is_left_out(self):
+        """A run whose only metric is the trajectory metric needs no judge."""
+        db = MagicMock()
+        trajectory = MagicMock(backend_type_id=None, class_name="ToolCallTrajectory")
+
+        assert metric_backends(db, [trajectory]) == []
+        assert not model_needs(metric_backends(db, [trajectory]), has_multi_turn=False).evaluation
 
 
 @pytest.mark.unit

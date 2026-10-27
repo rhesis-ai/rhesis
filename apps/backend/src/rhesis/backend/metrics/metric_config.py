@@ -130,6 +130,8 @@ def metric_model_to_config(metric: MetricModel) -> MetricConfig:
     # Needed so _generate_unique_metric_keys can break a (name, class_name)
     # tie deterministically when two distinct metrics happen to share both.
     cfg.id = str(metric.id) if metric.id else None
+    if isinstance(metric.config, dict) and metric.config:
+        cfg.parameters = {**(cfg.parameters or {}), **metric.config}
     if model_id := (str(metric.model_id) if metric.model_id else None):
         cfg.parameters = dict(cfg.parameters or {})
         cfg.parameters["model_id"] = model_id

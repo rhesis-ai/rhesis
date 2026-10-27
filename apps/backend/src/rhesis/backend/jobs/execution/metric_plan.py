@@ -20,7 +20,7 @@ Plan shape::
       ],
       "test_order": [test_id, ...],          # every column, in grid order
       "cell_keys": {test_id: {metric_ref: jsonb_key}},
-      "metric_backends": ["rhesis", "sdk"],  # distinct backends of every resolved metric
+      "metric_backends": ["rhesis", "sdk"],  # distinct backends of metrics that need a model
       "has_multi_turn": bool,
     }
 
@@ -70,6 +70,8 @@ from rhesis.backend.jobs.execution.constants import (
 )
 from rhesis.backend.jobs.execution.evaluation import filter_configs_by_scope
 from rhesis.backend.jobs.execution.executors.data import get_test_metrics
+from rhesis.backend.metrics.applicability import applicable, applies, expected_tool_calls
+from rhesis.sdk.metrics import Expectations
 
 _EMPTY_PLAN: Dict[str, Any] = {
     "source": "none",
@@ -148,13 +150,31 @@ def _runtime_keys(
     return {_metric_ref(m, row_key_by_metric[id(m)]): runtime_key_by_metric[id(m)] for m in metrics}
 
 
+def _expectations_by_test(
+    db: Session, keyed: List[Tuple[str, models.Metric, bool]], test_ids: List[str]
+) -> Dict[str, Expectations]:
+    """What each test expects, read only when one of the metrics depends on it."""
+    if all(applies(metric, None) for _, metric, _ in keyed):
+        return {}
+    rows = db.query(models.Test.id, models.Test.test_configuration).filter(
+        models.Test.id.in_([uuid.UUID(t) for t in test_ids])
+    )
+    return {
+        str(test_id): Expectations(tool_calls=expected_tool_calls(config))
+        for test_id, config in rows
+    }
+
+
 def _cell_keys_for_test(
     keyed: List[Tuple[str, models.Metric, bool]],
     multi_turn: bool,
     test_id: str,
+    expectations: Optional[Expectations] = None,
 ) -> Dict[str, str]:
     row_key_by_metric = {id(m): key for key, m, _ in keyed}
-    metrics = [m for _, m, _ in keyed]
+    # A metric missing what it compares with is not applicable, and keyed without it,
+    # as the evaluator leaves it out.
+    metrics = applicable([m for _, m, _ in keyed], expectations)
     if not multi_turn:
         kept = filter_configs_by_scope(metrics, MetricScope.SINGLE_TURN, test_id)
         return _runtime_keys(kept, row_key_by_metric)
@@ -305,8 +325,11 @@ def _build_metric_plan(
                 if metric.id:
                     pooled_metrics[metric.id] = metric
 
+        expectations = _expectations_by_test(db, keyed, group_test_ids)
         for test_id in group_test_ids:
-            per_test = _cell_keys_for_test(keyed, bool(is_multi_turn_by_test.get(test_id)), test_id)
+            per_test = _cell_keys_for_test(
+                keyed, bool(is_multi_turn_by_test.get(test_id)), test_id, expectations.get(test_id)
+            )
             if per_test:
                 cell_keys[test_id] = per_test
 

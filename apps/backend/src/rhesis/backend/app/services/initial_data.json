@@ -2145,6 +2145,32 @@
             "metric_scope": [
                 "Multi-Turn"
             ]
+        },
+        {
+            "name": "Tool Call Trajectory",
+            "description": "Checks that the endpoint called the tools the test expects, in order. Compares the tool calls in the trace with the test's expected tool calls, without a model. Tests without expected tool calls are not judged by it.",
+            "evaluation_prompt": "Compare the trace's tool calls with the test's expected tool calls.",
+            "score_type": "numeric",
+            "min_score": 0,
+            "max_score": 1,
+            "threshold": 1,
+            "threshold_operator": ">=",
+            "explanation": "Scores 1 and passes when the tool calls match; the reason names the first difference.",
+            "ground_truth_required": false,
+            "context_required": false,
+            "class_name": "ToolCallTrajectory",
+            "metric_type": "custom-code",
+            "backend_type": "rhesis",
+            "status": "New",
+            "requirements": [],
+            "metric_scope": [
+                "Single-Turn",
+                "Multi-Turn"
+            ],
+            "config": {
+                "match": "in_order",
+                "arguments": "partial"
+            }
         }
     ]
 }

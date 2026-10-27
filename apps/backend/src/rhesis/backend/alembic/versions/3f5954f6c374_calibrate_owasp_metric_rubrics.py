@@ -34,7 +34,7 @@ import hmac
 from typing import Any, Dict, Sequence, Union
 
 from alembic import op
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from rhesis.backend.alembic.utils.metric_sync import load_metrics_from_initial_data
 from rhesis.backend.app import models
@@ -153,6 +153,8 @@ def upgrade() -> None:
 
     rows = (
         session.query(models.Metric)
+        # metric.config is added by a later revision.
+        .options(defer(models.Metric.config))
         .filter(
             models.Metric.name.in_(ORIGINAL_HASHES.keys()),
             models.Metric.deleted_at.is_(None),

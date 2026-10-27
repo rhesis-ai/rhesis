@@ -24,7 +24,7 @@ from typing import Sequence, Union
 
 from alembic import op
 from sqlalchemy import text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 # revision identifiers, used by Alembic.
 revision: str = "6a7b8c9d0e1f"
@@ -69,6 +69,8 @@ def upgrade() -> None:
         # project_id column is guaranteed to exist at this point (see comment above)
         garak_metrics = (
             session.query(models.Metric)
+            # metric.config is added by a later revision.
+            .options(defer(models.Metric.config))
             .filter(models.Metric.class_name == "GarakDetectorMetric")
             .all()
         )
