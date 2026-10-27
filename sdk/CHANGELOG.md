@@ -144,6 +144,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DeepEval or Rhesis providers instead. This also drops `diskcache`, `gitpython`, `scipy` and
   `sqlalchemy` from the SDK's dependency tree.
 
+## [0.20.0] - 2026-10-27
+
+### Added
+
+- **Tool Call Trajectory Metric**: Introduced `ToolCallTrajectory` to evaluate agent tool call sequences against expected tool calls defined in test configurations (`Test(expected_tool_calls=[...])`).
+- **Metric Targets**: Added metric targeting support, enabling metrics to evaluate specific sub-paths or target scopes within a trace.
+- **In-Memory Trace Construction**: Added `Trace.from_response()` and `Trace.from_conversation()` to allow trace and metric evaluations without requiring active background telemetry tracing.
+- **Trace Access for Custom Metrics**: Code metrics (`@metric`) can now declare a `trace` parameter to inspect detailed trace spans, kinds, inputs, outputs, tool calls, and metadata.
+- **Agent Charting Capabilities**: Added `ShowChartTool` allowing agents to construct charts from insights queries with custom focus filters and chart types.
+- **Enhanced Insights Query Shaping**: Added `time_grain`, `order_by`, `limit`, and `min_count` parameters to `Insights` queries, alongside an `Insights.describe()` method for registry schema introspection.
+- **Named Tool Parameters in Telemetry**: Tool spans now capture positional and keyword parameters by parameter name under `ai.tool.arguments`.
+
+### Changed
+
+- **Metric Evaluation Signature (BREAKING CHANGE)**: Standardized `evaluate()` and `a_evaluate()` signatures across all metrics to accept `(input, output, trace, expectations)`.
+  - Individual evaluation parameters (`expected_output`, `context`, `tool_calls`, `metadata`, `conversation_history`, `goal`, `instructions`, `contract`) have been removed in favor of `expectations` and `trace` / `conversation`.
+  - `@metric` functions using legacy parameter names must update their signatures to use `trace` and `expectations`.
+- **Retrieval Telemetry Format**: Telemetry hooks for LangChain, Haystack, and `@observe.retrieval` now record full document lists as JSON objects rather than truncated preview strings.
+- **Architect Approval & Retry Logic**: Tightened agent execution by preventing infinite retry loops on failing tool calls, validating placeholder IDs before dispatch, and strictly scoping user approvals (`Accept`) to specific targeted calls.
+
+### Fixed
+
+- **LangChain Streamed Cache Token Calculations**: Corrected input token pricing on streamed LangChain calls by subtracting `cache_read` and `cache_creation` details from the total input token count.
+- **Tool Routing in Multi-Provider Agents**: Fixed an issue in `BaseAgent` where named tool execution failed when routed across multiple tool providers.
+- **Score & Choice Validation**: Added strict validation checks for numeric judge scores and categorical decision model outputs.
+- **Architect Chart Rendering**: Resolved issues with grouped bar focus matching, area/stacked bar constraints on non-count metrics, and chart title formatting.
+
+
 ## [0.19.1] - 2026-10-22
 
 ### Security

@@ -27,6 +27,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed the Ragas backend from metric icon handling now that the backend no longer serves it.
 
+## [0.20.0] - 2026-10-27
+
+### Added
+
+- **Architect Charts & Export**: Embedded interactive charts (bar, line, heat tables, radar) directly in Architect chat responses, featuring CSV/SVG/PNG data export, focused topic highlighting, and raw data modal views.
+- **Enhanced Trace Visualizations**: Compact trace drawer layout with timing bars, tree filtering, span sequence views, and a dedicated **Traces** tab within test results.
+- **Flexible Endpoint Wizard**: Editable JSON test request payloads during mapping steps and unblocked endpoint creation even if mapping tests fail.
+- **Insights Formatting**: Formatting support for trace durations (milliseconds/minutes) and cost/currency dimensions across insight charts and heat tables.
+- **Navigation Cues**: Dynamic scroll cues on the main navigation sidebar.
+
+### Changed
+
+- **Insights Integration**: Updated Insights view to align with redesigned registry metrics, grouping items by ID to support duplicate entity names (requirements, topics, categories).
+- **Architect Tool Failure Visibility**: Simplified tool call summaries to show actionable error tooltips on hover and hide transient failures that were successfully recovered in subsequent retries.
+- **Architect Chat Controls**: Replaced text buttons with streamlined icon actions for switching data views and exporting charts.
+
+### Fixed
+
+- **Architect Visual Layout**: Fixed overlapping axis labels, clipped chart boundaries, and input jumping/flashing on welcome screen hydration.
+- **Dark Mode Navigation**: Separated background styling between the navigation bar and the Architect session sidebar in dark mode.
+- **Tool Operation Timeouts**: Extended timeout thresholds for longer-running tool operations.
+- **Unverified Entity Links**: Rendered Architect links as plain text if they lack verified entity IDs.
+
+### Security
+
+- Updated `next` to patch security vulnerabilities related to SVG image optimization, Server Actions DoS, and typed array caching (GHSA-2464-fhr4-w9xw, GHSA-673q-mjm6-r5xr, GHSA-p3m5-59mp-jv5r).
+
 ## [0.19.1] - 2026-10-22
 
 ### Added
