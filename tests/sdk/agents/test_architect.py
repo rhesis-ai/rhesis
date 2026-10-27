@@ -4170,7 +4170,7 @@ class TestDocumentRequirements:
         assert done is True
 
     def test_a_chart_dropping_the_turns_filter_gets_it_back(self, mock_model):
-        """Production latency was charted over every environment, and rejecting it showed an error."""
+        """Production latency was charted over every environment; rejecting it showed an error."""
         agent = _make_agent(mock_model)
         agent._execution_history.append(self._insights_step())
         chart = ToolCall(
@@ -4182,6 +4182,68 @@ class TestDocumentRequirements:
 
         assert added == 'environments=["production"]'
         assert chart.arguments["query"]["environments"] == ["production"]
+
+    @staticmethod
+    def _asked(agent, message):
+        agent._conversation_history.append({"role": "user", "content": message})
+        agent._environment_names = ["production", "staging"]
+
+    @pytest.mark.asyncio
+    async def test_a_trace_query_gets_the_environment_the_user_named(self, mock_model):
+        """Asked for production cost, the platform model queried every environment."""
+        agent = _make_agent(mock_model)
+        self._asked(agent, "How has LLM cost moved day by day in production?")
+        call = ToolCall(tool_name="get_insights", arguments={"entity": "trace"})
+
+        added = await agent._scope_to_named_environments(call)
+
+        assert added == 'environments=["production"]'
+        assert call.arguments["environments"] == ["production"]
+
+    @pytest.mark.asyncio
+    async def test_a_chart_query_gets_the_environment_the_user_named(self, mock_model):
+        agent = _make_agent(mock_model)
+        self._asked(agent, "Chart p95 latency in Production")
+        call = ToolCall(
+            tool_name="show_chart",
+            arguments={"query": {"entity": "trace", "group_by": ["period"]}},
+        )
+
+        await agent._scope_to_named_environments(call)
+
+        assert call.arguments["query"]["environments"] == ["production"]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("message", "arguments"),
+        [
+            ("How has LLM cost moved day by day?", {"entity": "trace"}),
+            ("Cost in production?", {"entity": "trace", "environments": ["staging"]}),
+            ("Pass rates in production?", {"entity": "test_result"}),
+        ],
+    )
+    async def test_other_queries_are_left_alone(self, mock_model, message, arguments):
+        agent = _make_agent(mock_model)
+        self._asked(agent, message)
+        call = ToolCall(tool_name="get_insights", arguments=dict(arguments))
+
+        assert await agent._scope_to_named_environments(call) == ""
+        assert call.arguments == arguments
+
+    @pytest.mark.asyncio
+    async def test_environment_names_are_looked_up_once(self, mock_model, monkeypatch):
+        agent = _make_agent(mock_model)
+        rows = {"rows": [{"environment": "production", "count": 3}, {"environment": None}]}
+        lookup = AsyncMock(
+            return_value=ToolResult(
+                tool_name="get_insights", success=True, content=json.dumps(rows)
+            )
+        )
+        monkeypatch.setattr(BaseAgent, "execute_tool", lookup)
+
+        assert await agent._trace_environments() == ["production"]
+        assert await agent._trace_environments() == ["production"]
+        lookup.assert_awaited_once()
 
     def test_large_blocked_calls_are_capped(self, mock_model):
         agent = _make_agent(mock_model)

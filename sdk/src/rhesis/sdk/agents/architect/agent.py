@@ -7,6 +7,7 @@ plan tracking. Tools are injected by the caller.
 import asyncio
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any, ClassVar, Dict, FrozenSet, List, Optional, Set, Tuple, Union
 
@@ -245,6 +246,8 @@ class ArchitectAgent(BaseAgent):
         # which makes the pre-dispatch check a no-op rather than a false
         # rejection.
         self._tool_schemas: Dict[str, Any] = {}
+        # The project's trace environment names, looked up once a trace query needs them.
+        self._environment_names: Optional[List[str]] = None
         self._auto_approve_all: bool = False
         self._blocked_this_turn: bool = False
         # The calls the guard held back this turn. They are what the user is
@@ -969,6 +972,7 @@ class ArchitectAgent(BaseAgent):
         if tool_call.tool_name == InternalTool.READ_ATTACHED_FILE:
             return self._execute_read_attached_file(tool_call)
 
+        scoped = await self._scope_to_named_environments(tool_call)
         filled = self._fill_chart_filters(tool_call)
         error = (
             self._check_plan_constraints(tool_call)
@@ -1000,6 +1004,11 @@ class ArchitectAgent(BaseAgent):
             result.content = (
                 f"Added {filled} from this turn's get_insights call for the same breakdown, so "
                 f"the chart shows the data your reply describes.\n{result.content or ''}"
+            )
+        if scoped and result.success:
+            result.content = (
+                f"Added {scoped}, the environment the user's message names, so these rows "
+                f"cover only it.\n{result.content or ''}"
             )
         if result.success:
             self._collect_id_names(result)
@@ -2134,6 +2143,68 @@ class ArchitectAgent(BaseAgent):
             for step in self._execution_history[self._turn_start_step :]
             for tr in step.tool_results
         )
+
+    async def _scope_to_named_environments(self, tool_call: ToolCall) -> str:
+        """Add the environments the user's message names to a trace query that sets none.
+
+        Asked for production latency and cost, the platform model queried every
+        environment about one time in five, and the chart showed the wrong numbers.
+        Returns what was added, or "".
+        """
+        name = tool_call.tool_name
+        if name not in ("get_insights", "show_chart") or not isinstance(tool_call.arguments, dict):
+            return ""
+        args = tool_call.arguments
+        query = flatten_query(args.get("query")) if name == "show_chart" else dict(args)
+        if query.get("entity") != "trace" or query.get("environments"):
+            return ""
+        message = self._latest_user_message()
+        if not message:
+            return ""
+        named = [
+            env
+            for env in await self._trace_environments()
+            if re.search(rf"(?<!\w){re.escape(env)}(?!\w)", message, re.IGNORECASE)
+        ]
+        if not named:
+            return ""
+        if name == "show_chart":
+            tool_call.arguments = {**args, "query": {**query, "environments": named}}
+        else:
+            tool_call.arguments = {**args, "environments": named}
+        added = f"environments={json.dumps(named)}"
+        logger.info("[Architect] Added %s to a %s query", added, name)
+        return added
+
+    async def _trace_environments(self) -> List[str]:
+        """The environment names the project's traces were sent from, looked up once."""
+        if self._environment_names is not None:
+            return self._environment_names
+        # The base class runs the tool without events, so the lookup shows no tool row.
+        result = await super().execute_tool(
+            ToolCall(
+                tool_name="get_insights",
+                arguments={"entity": "trace", "group_by": ["environment"], "measures": ["count"]},
+            )
+        )
+        if not result.success:
+            return []
+        try:
+            rows = json.loads(result.content or "{}").get("rows") or []
+        except (TypeError, ValueError, AttributeError):
+            return []
+        self._environment_names = [
+            str(row["environment"])
+            for row in rows
+            if isinstance(row, dict) and row.get("environment")
+        ]
+        return self._environment_names
+
+    def _latest_user_message(self) -> str:
+        for entry in reversed(self._conversation_history):
+            if entry.get("role") == Role.USER:
+                return str(entry.get("content") or "")
+        return ""
 
     def _fill_chart_filters(self, tool_call: ToolCall) -> str:
         """Add to a chart query the filters this turn's insights query for it set.

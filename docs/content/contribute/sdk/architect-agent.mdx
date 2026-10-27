@@ -174,6 +174,7 @@ The Architect's charts come from `ShowChartTool` (`chart_tool.py`), which runs a
 
 - **Nudge to chart.** A turn that read `get_insights` rows and tries to finish without calling `show_chart` is turned back once with `CHART_NUDGE`, a failed `finish` result asking for a chart per breakdown. The model may finish again if no chart fits. It never fires on the last iteration.
 - **Kept filters.** Before `show_chart` runs, `_fill_chart_filters` compares its query with this turn's latest `get_insights` call for the same breakdown (same entity and `group_by`). A filter that call set and the chart leaves out (`environments`, `endpoint_ids`, `months` and the like) is added to the chart query, so the chart shows the data the reply was written from (`dropped_filters` in `chart_tool.py`).
+- **Named environments.** A trace query (`get_insights` or `show_chart`) with no `environments` filter gets the environments the user's message names, matched as whole words against the project's trace environments (`_scope_to_named_environments`). The names come from one `get_insights` grouped by `environment`, run without events so it shows no tool row.
 - **Counts only in stacks.** `stacked_bar` and `area` add values up, so for any other measure they are drawn as `bar` and `line`.
 - **No duplicates.** A chart identical to one already on the reply is not added again.
 - **Honest titles.** A "top N" over fewer rows is dropped from the title.

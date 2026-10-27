@@ -111,7 +111,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   insights rows and answered without a chart. A finish without a chart after `get_insights` is
   turned back once, a chart query that drops a filter its `get_insights` call set (such as
   `environments=["production"]`) gets it back, and `ShowChartTool` skips a chart already on the
-  reply and drops a "top N" from a title over fewer rows. These correct the call rather than
+  reply and drops a "top N" from a title over fewer rows. A trace query with no environment
+  filter gets the environment the user's message names, such as "production". These correct the call rather than
   reject it, so the user sees no failed tool call.
 - Normalized cached prompt usage for OpenAI and LiteLLM so separately billed cache reads and
   writes stay out of `input_tokens`, while provider-reported totals remain unchanged.
