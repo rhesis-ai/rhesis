@@ -1,5 +1,6 @@
 import json
 import logging
+import logging.handlers
 import os
 import re
 import sys
@@ -21,6 +22,12 @@ DEV_MODE = application_settings.dev_mode
 # role_prefix is "" for API; Celery workers get "[MAIN] - " via the filter.
 LOG_FORMAT = "%(asctime)s - %(role_prefix)s%(request_prefix)s%(name)s - %(levelname)s - %(message)s"
 LOG_DATE_FORMAT = "%m/%d/%Y %I:%M:%S%p"
+
+# Dev log files: each process's file rotates at this size, and startup keeps only the
+# newest files. One `./rh dev` run writes a file per process (API plus each worker).
+DEV_LOG_MAX_BYTES = 50 * 1024 * 1024
+DEV_LOG_BACKUP_COUNT = 3
+DEV_LOG_KEEP_FILES = 10
 
 
 #: Value characters. Stops where a value ends in prose, JSON or a dict repr;
@@ -361,6 +368,20 @@ class ColorFormatter(logging.Formatter):
         return result
 
 
+def _prune_dev_logs(log_dir: Path, keep: int) -> None:
+    """Delete all but the ``keep`` newest log files (and their rotated backups)."""
+    runs = []
+    for path in log_dir.glob("rhesis_*.log"):
+        try:
+            runs.append((path.stat().st_mtime, path))
+        except FileNotFoundError:
+            continue  # Pruned by another process starting at the same time.
+    runs.sort(reverse=True)
+    for _, old in runs[keep:]:
+        for path in log_dir.glob(f"{old.name}*"):
+            path.unlink(missing_ok=True)
+
+
 _configured = False
 
 
@@ -398,9 +419,17 @@ def set_logger(worker_role: str | None = None):
 
     if DEV_MODE:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        Path(LOG_DIR).mkdir(parents=True, exist_ok=True)
+        log_dir = Path(LOG_DIR)
+        log_dir.mkdir(parents=True, exist_ok=True)
+        # Keep one slot free for the file this run is about to create.
+        _prune_dev_logs(log_dir, keep=DEV_LOG_KEEP_FILES - 1)
 
-        file_handler = logging.FileHandler(os.path.join(LOG_DIR, f"rhesis_{timestamp}.log"))
+        file_handler = logging.handlers.RotatingFileHandler(
+            # PID keeps the API and Celery workers, which start together, off one rotating file.
+            os.path.join(LOG_DIR, f"rhesis_{timestamp}_{os.getpid()}.log"),
+            maxBytes=DEV_LOG_MAX_BYTES,
+            backupCount=DEV_LOG_BACKUP_COUNT,
+        )
         file_handler.setLevel(LOG_LEVEL)
         file_handler.setFormatter(
             RedactingFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT))

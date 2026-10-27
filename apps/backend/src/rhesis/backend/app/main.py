@@ -430,7 +430,7 @@ async def lifespan(app: FastAPI):
 
     # Only start RPC listener if Redis is available
     if redis_manager.is_available:
-        connection_manager._track_background_task(connection_manager._listen_for_rpc_requests())
+        connection_manager.start_rpc_listener()
         logger.info(
             "🚀 SDK RPC SYSTEM INITIALIZED - Workers can now invoke SDK functions via Redis bridge"
         )
@@ -605,7 +605,9 @@ async def lifespan(app: FastAPI):
             # task" check on SIGINT.
             await stack.aclose()
 
-            # Shutdown: Clean up Redis connections
+            # Shutdown: Clean up Redis connections. The RPC listener goes first, or
+            # it keeps reading from the closed connection.
+            await connection_manager.stop_rpc_listener()
             if redis_manager.is_available:
                 await redis_manager.close()
 
