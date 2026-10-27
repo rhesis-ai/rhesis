@@ -11,11 +11,11 @@ from tests.conftest import EXTRA_PAGES, LLMS_FULL, LLMS_TXT
 
 
 def test_slugify_matches_the_ids_on_the_html_site():
-    # Real ids from https://docs.rhesis.ai/docs/metrics/metric-scope
-    assert slugify('When to use `["Single-Turn"]`') == "when-to-use-single-turn"
-    assert slugify('When to use `["Multi-Turn"]`') == "when-to-use-multi-turn"
-    assert slugify("When to use both") == "when-to-use-both"
-    assert slugify("Planning checklist") == "planning-checklist"
+    # Real ids from https://docs.rhesis.ai/docs/metrics/targets
+    assert slugify("Which tests a metric runs on") == "which-tests-a-metric-runs-on"
+    assert slugify("Default target") == "default-target"
+    assert slugify("Choices") == "choices"
+    assert slugify("Setting a target") == "setting-a-target"
 
 
 def test_slugify_handles_links_versions_and_underscores():
@@ -26,24 +26,24 @@ def test_slugify_handles_links_versions_and_underscores():
 
 
 def test_canonical_url_accepts_every_form():
-    expected = "https://docs.rhesis.ai/docs/metrics/metric-scope"
+    expected = "https://docs.rhesis.ai/docs/metrics/targets"
     for form in [
-        "https://docs.rhesis.ai/docs/metrics/metric-scope",
-        "https://docs.rhesis.ai/docs/metrics/metric-scope.md",
-        "https://docs.rhesis.ai/docs/metrics/metric-scope/",
-        "https://docs.rhesis.ai/docs/metrics/metric-scope#when-to-use-both",
-        "https://docs.rhesis.ai/api/md/docs/metrics/metric-scope",
-        "http://localhost:8765/docs/metrics/metric-scope",
-        "/docs/metrics/metric-scope",
-        "docs/metrics/metric-scope",
+        "https://docs.rhesis.ai/docs/metrics/targets",
+        "https://docs.rhesis.ai/docs/metrics/targets.md",
+        "https://docs.rhesis.ai/docs/metrics/targets/",
+        "https://docs.rhesis.ai/docs/metrics/targets#choices",
+        "https://docs.rhesis.ai/api/md/docs/metrics/targets",
+        "http://localhost:8765/docs/metrics/targets",
+        "/docs/metrics/targets",
+        "docs/metrics/targets",
     ]:
         assert canonical_url(form) == expected, form
 
 
 def test_split_anchor_keeps_the_anchor():
-    assert split_anchor("/sdk/metrics.md#metric-scopes") == (
+    assert split_anchor("/sdk/metrics.md#targets") == (
         "https://docs.rhesis.ai/sdk/metrics",
-        "metric-scopes",
+        "targets",
     )
     assert split_anchor("sdk/metrics") == ("https://docs.rhesis.ai/sdk/metrics", None)
 
@@ -51,7 +51,7 @@ def test_split_anchor_keeps_the_anchor():
 def test_parse_llms_full_reads_every_page():
     pages = {p.path: p for p in parse_llms_full(LLMS_FULL)}
     assert set(pages) == {
-        "docs/metrics/metric-scope",
+        "docs/metrics/targets",
         "docs/endpoints/response-mapping",
         "docs/endpoints/sdk-endpoints",
         "docs/api-tokens",
@@ -60,12 +60,10 @@ def test_parse_llms_full_reads_every_page():
         "self-hosting/docker-compose",
         "changelog",
     }
-    scope = pages["docs/metrics/metric-scope"]
-    assert scope.title == "Metric scope"
-    assert scope.url == "https://docs.rhesis.ai/docs/metrics/metric-scope"
-    assert {"when-to-use-single-turn", "when-to-use-multi-turn", "planning-checklist"} <= (
-        scope.anchors
-    )
+    scope = pages["docs/metrics/targets"]
+    assert scope.title == "Metric Targets"
+    assert scope.url == "https://docs.rhesis.ai/docs/metrics/targets"
+    assert {"default-target", "which-tests-a-metric-runs-on", "setting-a-target"} <= (scope.anchors)
     assert pages["self-hosting/docker-compose"].section == "self_hosting"
 
 
@@ -73,10 +71,10 @@ def test_sections_start_with_the_intro_and_keep_their_heading_line():
     scope = parse_page_markdown(EXTRA_PAGES["glossary/hallucination"])
     assert scope.sections[0].anchor == ""
     assert scope.sections[0].heading == "Hallucination"
-    page = {p.path: p for p in parse_llms_full(LLMS_FULL)}["docs/metrics/metric-scope"]
-    multi = page.sections[page.find_section("when-to-use-multi-turn")]
-    assert multi.text.startswith('## When to use `["Multi-Turn"]`')
-    assert "context retention" in multi.text
+    page = {p.path: p for p in parse_llms_full(LLMS_FULL)}["docs/metrics/targets"]
+    multi = page.sections[page.find_section("which-tests-a-metric-runs-on")]
+    assert multi.text.startswith("## Which tests a metric runs on")
+    assert "never runs on single-turn tests" in multi.text
 
 
 def test_headings_inside_code_fences_are_not_sections():
@@ -88,19 +86,19 @@ def test_headings_inside_code_fences_are_not_sections():
 
 def test_links_are_canonical_and_keep_anchors():
     body = (
-        "[Scope](/glossary/metric-scope) [Plan](https://docs.rhesis.ai/docs/architect/planning#x) "
-        "[Ext](https://example.com/a) [Again](/glossary/metric-scope)"
+        "[Term](/glossary/metric-target) [Plan](https://docs.rhesis.ai/docs/architect/planning#x) "
+        "[Ext](https://example.com/a) [Again](/glossary/metric-target)"
     )
     page = build_page("https://docs.rhesis.ai/x", "T", body)
     assert [link.url for link in page.links] == [
-        "https://docs.rhesis.ai/glossary/metric-scope",
+        "https://docs.rhesis.ai/glossary/metric-target",
         "https://docs.rhesis.ai/docs/architect/planning#x",
     ]
 
 
 def test_parse_llms_txt_keeps_docs_links_once_with_their_section():
     entries = {e.url: e for e in parse_llms_txt(LLMS_TXT)}
-    # metric-scope appears under "Agent reference" and "Docs"; it is kept once.
+    # The targets page appears under "Agent reference" and "Docs"; it is kept once.
     assert len(entries) == 10
     assert entries["https://docs.rhesis.ai/glossary/hallucination"].section == "glossary"
     assert entries["https://docs.rhesis.ai/changelog"].section == "changelog"

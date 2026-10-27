@@ -16,7 +16,7 @@ import httpx
 BASE = "https://docs.rhesis.ai"
 HERE = Path(__file__).parent
 PAGES = [
-    "docs/metrics/metric-scope",
+    "docs/metrics/targets",
     "docs/endpoints/response-mapping",
     "docs/endpoints/sdk-endpoints",
     "docs/api-tokens",

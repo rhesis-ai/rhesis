@@ -8,7 +8,7 @@ Execute the approved plan exactly — no extra entities.
 2. `create_project` — only when the user asked for a **new** project. The session already has one; never create a project to "hold" this work
 3. `create_requirement` — **(new)** only; name + description
 4. Resolve all requirement IDs
-5. Metrics — **(reuse)** skip; **(improve)** `improve_metric`; **(new)** `create_metric` with plan name, **`metric_scope`**, `score_type`, `evaluation_prompt`, plus `description`, `evaluation_steps`, `reasoning`, `explanation` written to the depth in `metric-authoring.md`. Do NOT use `generate_metric`
+5. Metrics — **(reuse)** skip; **(improve)** `improve_metric`; **(new)** `create_metric` with plan name, **`config: {"target": {"on": ...}}`** from the plan's target, `score_type`, `evaluation_prompt`, plus `description`, `evaluation_steps`, `reasoning`, `explanation` written to the depth in `metric-authoring.md`. Do NOT use `generate_metric`
 6. `add_requirement_to_metric` — all mappings before generation
 7. `assign_tag` — if planned (PRD path); `entity_type` `Requirement` or `Metric`
 8. `generate_test_set` — per set; `name` and `description` from the plan, `config.requirements`, `generation_prompt`, `test_type`, optional `sources` (Single-Turn only). **Read `test_type` from the plan** for each test set and pass it explicitly — Multi-Turn sets MUST send `test_type: "Multi-Turn"`. Prefer over `create_test_set_bulk` unless importing verbatim user prompts.
@@ -43,7 +43,7 @@ a threadbare metric, not a shortcut. `evaluation_steps` uses the `Step N:` / `--
 
 - `metric_type`: `"custom-prompt"`; `backend_type`: `"custom"`
 - `score_type`: `"numeric"` or `"categorical"` only
-- `metric_scope`: non-empty; entries `"Single-Turn"` and/or `"Multi-Turn"`
+- `config.target.on`: the plan's target, such as `"turn"` or `"conversation"`. Left out, a custom judge gets `"turn"`. In Architect, a call whose target differs from the saved plan is refused
 - `evaluation_steps`: steps joined by a line containing only `---`, each prefixed `Step N:` on its
   own line
 - `threshold_operator`: `=`, `<`, `>`, `<=`, `>=`, `!=`

@@ -23,7 +23,7 @@ async def test_fetch_page_uses_the_api_md_route():
         seen.append(request.url.path)
         return httpx.Response(200, text="md")
 
-    await _fetcher(handler).fetch_page("https://docs.rhesis.ai/sdk/metrics.md#metric-scopes")
+    await _fetcher(handler).fetch_page("https://docs.rhesis.ai/sdk/metrics.md#targets")
     assert seen == ["/api/md/sdk/metrics"]
 
 

@@ -1,4 +1,4 @@
-{"id": "metric-scope", "question": "What's the difference between single-turn and multi-turn metrics?", "expected_route": "answered", "expected_pages": ["docs/metrics/metric-scope|sdk/metrics"]}
+{"id": "metric-targets", "question": "What's the difference between single-turn and multi-turn metrics?", "expected_route": "answered", "expected_pages": ["docs/metrics/targets|sdk/metrics"]}
 {"id": "sdk-install", "question": "How do I install the Rhesis SDK?", "expected_route": "answered", "expected_pages": ["sdk/installation"]}
 {"id": "adk-tracing", "question": "How do I trace a Google ADK agent with Rhesis?", "expected_route": "answered", "expected_pages": ["docs/tracing/google-adk"]}
 {"id": "response-mapping", "question": "How do I pull the answer text out of my API's JSON response when I set up an endpoint?", "expected_route": "answered", "expected_pages": ["docs/endpoints/response-mapping"]}
@@ -8,7 +8,7 @@
 {"id": "quicksort", "question": "Write me a quicksort in Rust.", "expected_route": "out_of_scope", "expected_pages": []}
 {"id": "add-metric", "question": "How do I add a metric?", "expected_route": "needs_clarification", "expected_pages": []}
 {"id": "greeting", "question": "Hi! What can you do?", "expected_route": "smalltalk", "expected_pages": []}
-{"id": "metric-scope-what", "question": "What is metric scope?", "expected_route": "answered", "expected_pages": ["docs/metrics/metric-scope|sdk/metrics"]}
+{"id": "metric-target-what", "question": "What is a metric target?", "expected_route": "answered", "expected_pages": ["docs/metrics/targets|sdk/metrics"]}
 {"id": "env-vars", "question": "Which environment variables configure a self-hosted Rhesis?", "expected_route": "answered", "expected_pages": ["self-hosting/environment-variables"]}
 {"id": "garak-import", "question": "How do I import tests from garak?", "expected_route": "answered", "expected_pages": ["docs/test-sets/import-from-garak"]}
 {"id": "trace-costs", "question": "How are trace costs calculated?", "expected_route": "answered", "expected_pages": ["docs/tracing/costs"]}

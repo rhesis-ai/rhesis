@@ -20,10 +20,10 @@ def test_eval_rows_are_valid():
 
 def test_page_recall_counts_alternatives_and_ignores_anchors():
     cited = [
-        "https://docs.rhesis.ai/sdk/metrics#metric-scopes",
+        "https://docs.rhesis.ai/sdk/metrics#targets",
         "https://docs.rhesis.ai/sdk/installation",
     ]
-    assert page_recall(["docs/metrics/metric-scope|sdk/metrics"], cited) == 1.0
+    assert page_recall(["docs/metrics/targets|sdk/metrics"], cited) == 1.0
     assert page_recall(["sdk/installation", "guides/ci-cd-integration"], cited) == 0.5
     assert page_recall([], cited) is None
 
@@ -61,7 +61,7 @@ def test_scenario_citation_check_accepts_alternatives_and_prefixes():
         citations=[SimpleNamespace(url="https://docs.rhesis.ai/sdk/metrics/single-turn#x")]
     )
     assert cites(response, "sdk/*") == []
-    assert cites(response, "docs/metrics/metric-scope|sdk/metrics/single-turn") == []
+    assert cites(response, "docs/metrics/targets|sdk/metrics/single-turn") == []
     assert cites(response, "sdk/installation") == [
         "no citation of sdk/installation (cited: sdk/metrics/single-turn)"
     ]

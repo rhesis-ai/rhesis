@@ -13,7 +13,7 @@ TOP_HITS = [
     ),
     ("generate an API token", "docs/api-tokens", ""),
     ("deploy with docker compose", "self-hosting/docker-compose", ""),
-    ("RHESIS_API_KEY", "sdk/installation", "configure-the-sdk"),
+    ("RHESIS_API_KEY environment variable", "sdk/installation", "configure-the-sdk"),
     ("hallucination", "glossary/hallucination", ""),
     ("prompt injection", "glossary/prompt-injection", ""),
     ("MetricSynthesizer", "sdk/metrics", "generate-and-improve-metrics-with-metricsynthesizer"),
@@ -29,7 +29,7 @@ def test_top_hit(snapshot, query, path, anchor):
 
 def test_a_question_spanning_sections_still_finds_the_page(snapshot):
     hits = snapshot.index.search("difference between single-turn and multi-turn metrics", k=3)
-    assert "https://docs.rhesis.ai/docs/metrics/metric-scope" in [h.url for h in hits]
+    assert "https://docs.rhesis.ai/docs/metrics/targets" in [h.url for h in hits]
 
 
 def test_tokenize_splits_code_names_and_drops_stopwords():

@@ -4,23 +4,23 @@ from docs_assistant.schemas import Route
 from docs_assistant.terminals import text as reply
 from tests.mocks import ScriptedModel, draft, fetch, models, search, submit, text
 
-SCOPE = "https://docs.rhesis.ai/docs/metrics/metric-scope"
+SCOPE = "https://docs.rhesis.ai/docs/metrics/targets"
 
 
-async def turn(model, cache, settings, message="What is metric scope?"):
+async def turn(model, cache, settings, message="What is a metric target?"):
     return await run_turn(message, cache=cache, models=models(model), settings=settings)
 
 
 async def test_search_fetch_submit_gives_a_cited_answer(cache, settings):
-    model = ScriptedModel([[search("metric scope")], [fetch(SCOPE)], [submit()]])
+    model = ScriptedModel([[search("metric target")], [fetch(SCOPE)], [submit()]])
     response = await turn(model, cache, settings)
 
     assert response.route is Route.ANSWERED
-    assert [c.url for c in response.citations] == [f"{SCOPE}#when-to-use-multi-turn"]
-    assert response.citations[0].title == "Metric scope"
-    assert response.citations[0].heading == 'When to use `["Multi-Turn"]`'
+    assert [c.url for c in response.citations] == [f"{SCOPE}#which-tests-a-metric-runs-on"]
+    assert response.citations[0].title == "Metric Targets"
+    assert response.citations[0].heading == "Which tests a metric runs on"
     # The inline [c1] marker becomes a numbered link to the source.
-    assert f"[\\[1\\]]({SCOPE}#when-to-use-multi-turn)" in response.response
+    assert f"[\\[1\\]]({SCOPE}#which-tests-a-metric-runs-on)" in response.response
     assert "**Sources**" in response.response
     assert response.limits_hit == []
     assert len(model.requests) == 3
@@ -58,18 +58,18 @@ async def test_answered_with_no_citations_never_reaches_the_user(cache, settings
 
 
 async def test_a_plain_text_ending_gets_one_nudge(cache, settings):
-    model = ScriptedModel([[fetch(SCOPE)], [text("Metric scope is ...")], [submit()]])
+    model = ScriptedModel([[fetch(SCOPE)], [text("A metric target is ...")], [submit()]])
     response = await turn(model, cache, settings)
 
     assert response.route is Route.ANSWERED
     assert NUDGE in model.input_text(2)
     # The unchecked text is never shown.
-    assert "Metric scope is ..." not in response.response
+    assert "A metric target is ..." not in response.response
 
 
 async def test_two_plain_text_endings_give_the_fallback(cache, settings):
     model = ScriptedModel(
-        [[search("metric scope")], [text("unchecked")], [text("still unchecked")]]
+        [[search("metric target")], [text("unchecked")], [text("still unchecked")]]
     )
     response = await turn(model, cache, settings)
 
