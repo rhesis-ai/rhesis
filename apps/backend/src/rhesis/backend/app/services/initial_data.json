@@ -1628,7 +1628,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
@@ -1660,7 +1660,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
@@ -1692,7 +1692,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
@@ -1724,7 +1724,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
@@ -1756,7 +1756,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
@@ -1788,7 +1788,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
@@ -1820,7 +1820,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
@@ -1852,7 +1852,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
@@ -1884,7 +1884,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
@@ -1916,7 +1916,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
@@ -1948,7 +1948,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
@@ -1980,7 +1980,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
@@ -2012,7 +2012,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
@@ -2044,7 +2044,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
@@ -2076,7 +2076,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
@@ -2140,7 +2140,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
@@ -2204,7 +2204,7 @@
             ],
             "config": {
                 "target": {
-                    "on": "turn"
+                    "on": "run"
                 }
             }
         },
