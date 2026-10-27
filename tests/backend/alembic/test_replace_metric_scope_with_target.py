@@ -167,6 +167,19 @@ class TestReplaceMetricScopeWithTarget:
         assert _config(conn, settings) == {"match": "exact", "target": {"on": "run"}}
         assert _config(conn, chosen) == {"target": {"on": "retrieval"}}
 
+    def test_the_downgrade_gives_every_target_but_the_conversation_both_scopes(
+        self, conn, make_metric, migration_ops
+    ):
+        single = make_metric(["Single-Turn"])
+        multi = make_metric(["Multi-Turn"])
+
+        _migration.upgrade()
+        _migration.downgrade()
+
+        scope = sa.text("SELECT metric_scope FROM metric WHERE id = :id")
+        assert conn.execute(scope, {"id": single}).scalar() == ["Single-Turn", "Multi-Turn"]
+        assert conn.execute(scope, {"id": multi}).scalar() == ["Multi-Turn"]
+
     def test_the_column_and_the_lookups_go(self, conn, test_org_id, migration_ops):
         conn.execute(
             sa.text(

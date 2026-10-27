@@ -83,12 +83,13 @@ _DROP_SCOPE_TYPES = sa.text("""
       AND project_id IS NOT DISTINCT FROM CAST(:project_id AS uuid)
       AND type_name = 'MetricScope'
 """)
+# Lossy either way: every target but the conversation runs on both test types, so that is
+# what they get back, though a metric scoped to Single-Turn alone wasn't run on conversations.
 _RESTORE = sa.text("""
     UPDATE metric
     SET metric_scope = CASE
         WHEN config -> 'target' ->> 'on' = 'conversation' THEN '["Multi-Turn"]'::jsonb
-        WHEN config -> 'target' ->> 'on' = 'run' THEN '["Single-Turn", "Multi-Turn"]'::jsonb
-        ELSE '["Single-Turn"]'::jsonb
+        ELSE '["Single-Turn", "Multi-Turn"]'::jsonb
     END
     WHERE organization_id = CAST(:org_id AS uuid)
       AND project_id IS NOT DISTINCT FROM CAST(:project_id AS uuid)
