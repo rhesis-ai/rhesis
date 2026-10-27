@@ -92,6 +92,7 @@ all = [
     "huggingface_hub",
     "google-genai>=1.13.0",
     "gcsfs>=2025.9.0",
+    "s3fs==2026.6.0",
     "sendgrid>=6.12.5",
 ]
 # PyTorch accelerator options - use ONE of these extras
@@ -115,6 +116,10 @@ dev = [
     "pytest-timeout>=2.3.1",
     "pytest-rerunfailures>=12.0",
     "testcontainers[postgres,redis]>=4.13.3",
+    # moto's threaded server: s3fs talks to S3 via aiobotocore, which moto's in-process mock can't patch.
+    "moto[s3]>=5.1.0",
+    "flask>=3.1.0",
+    "flask-cors>=6.0.0",
 ]
 
 # PyTorch index configuration for CPU and GPU variants
