@@ -36,3 +36,14 @@ def test_prune_with_fewer_runs_than_keep_deletes_nothing(tmp_path):
     _prune_dev_logs(tmp_path, keep=10)
 
     assert [p.name for p in tmp_path.iterdir()] == ["rhesis_only.log"]
+
+
+def test_prune_skips_files_deleted_by_another_process(tmp_path):
+    # A dangling symlink: glob lists it, stat() raises FileNotFoundError, the same as
+    # a file another process deleted between our glob and stat.
+    (tmp_path / "rhesis_gone.log").symlink_to(tmp_path / "missing")
+    _touch(tmp_path / "rhesis_kept.log", time.time())
+
+    _prune_dev_logs(tmp_path, keep=1)
+
+    assert (tmp_path / "rhesis_kept.log").exists()

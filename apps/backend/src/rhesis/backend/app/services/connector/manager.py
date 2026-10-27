@@ -135,6 +135,7 @@ class ConnectionManager:
 
         # Track background tasks to prevent silent failures
         self._background_tasks: set = set()
+        self._rpc_listener_task: Optional[asyncio.Task] = None
 
         # Track heartbeat tasks for each connection
         self._heartbeat_tasks: Dict[str, asyncio.Task] = {}
@@ -181,6 +182,24 @@ class ConnectionManager:
 
         task.add_done_callback(log_exception)
         return task
+
+    def start_rpc_listener(self) -> None:
+        """Start the RPC listener as a tracked background task."""
+        self._rpc_listener_task = self._track_background_task(self._listen_for_rpc_requests())
+
+    async def stop_rpc_listener(self) -> None:
+        """Cancel the RPC listener and wait for it to exit.
+
+        Call before closing Redis: a listener left running reads from the closed
+        connection and fails on every iteration.
+        """
+        task, self._rpc_listener_task = self._rpc_listener_task, None
+        if task is None or task.done():
+            return
+        task.cancel()
+        # asyncio.wait, not `await task`: the latter re-raises the task's
+        # CancelledError here, which can't be told apart from our own cancellation.
+        await asyncio.wait({task})
 
     async def connect(
         self,

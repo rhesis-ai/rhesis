@@ -52,3 +52,30 @@ async def test_listener_backoff_resets_after_success():
         await ConnectionManager()._listen_for_rpc_requests()
 
     assert [c.args[0] for c in sleep.await_args_list] == [1.0, 2.0, 1.0]
+
+
+@pytest.mark.asyncio
+async def test_stop_rpc_listener_cancels_before_redis_closes():
+    blocked = asyncio.Event()
+
+    async def blpop(*_args, **_kwargs):
+        blocked.set()
+        await asyncio.Event().wait()
+
+    redis = _redis(blpop)
+    manager = ConnectionManager()
+
+    with patch(f"{MANAGER}.redis_manager", redis):
+        manager.start_rpc_listener()
+        task = manager._rpc_listener_task
+        await blocked.wait()
+
+        await manager.stop_rpc_listener()
+
+    assert task.cancelled()
+    assert manager._rpc_listener_task is None
+
+
+@pytest.mark.asyncio
+async def test_stop_rpc_listener_without_start_is_a_no_op():
+    await ConnectionManager().stop_rpc_listener()
