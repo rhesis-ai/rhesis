@@ -13,6 +13,8 @@ const DEFAULT_TIMEOUT_MS = 10_000;
  */
 const LONG_RUNNING_PATH_PREFIXES = [
   '/services/generate',
+  // Connection checks can launch an MCP server and run an LLM agent.
+  '/tools/test-connection',
   '/import',
   '/garak/import',
   '/garak/generate',
@@ -47,6 +49,8 @@ const LONG_RUNNING_TIMEOUT_MS = 300_000;
 export function resolveTimeoutMs(pathname: string): number {
   const isLongRunning =
     LONG_RUNNING_PATH_PREFIXES.some(prefix => pathname.startsWith(prefix)) ||
+    // Tool extraction can wait for MCP startup and model calls.
+    /^\/tools\/[^/]+\/extract$/.test(pathname) ||
     LONG_RUNNING_PATH_SUFFIXES.some(suffix => pathname.endsWith(suffix));
   return isLongRunning ? LONG_RUNNING_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
 }

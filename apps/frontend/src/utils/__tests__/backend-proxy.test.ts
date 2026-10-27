@@ -34,6 +34,25 @@ describe('resolveTimeoutMs', () => {
     expect(resolveTimeoutMs('/metrics/abc/tuning/run')).toBe(CRUD_MS);
   });
 
+  it.each(['/tools/test-connection', '/tools/abc/extract'])(
+    'gives synchronous operation %s the long budget',
+    pathname => {
+      expect(resolveTimeoutMs(pathname)).toBe(LONG_MS);
+    }
+  );
+
+  it.each([
+    '/tools',
+    '/tools/providers',
+    '/tools/abc',
+    '/sources',
+    '/sources/abc',
+    '/sources/abc/extract',
+    '/sources/abc/embeddings/compute-graph',
+  ])('preserves the short budget for %s', pathname => {
+    expect(resolveTimeoutMs(pathname)).toBe(CRUD_MS);
+  });
+
   it('still recognises the paths that were already long-running', () => {
     expect(resolveTimeoutMs('/services/generate/tests')).toBe(LONG_MS);
     expect(resolveTimeoutMs('/test_sets/abc/generate_outputs')).toBe(LONG_MS);
