@@ -20,7 +20,7 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.schemas.metric import check_metric_config
+from rhesis.backend.app.schemas.metric import check_updated_config
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
@@ -358,11 +358,10 @@ def update_metric(
         organization_id,
         metric.score_type or db_metric.score_type,
     )
-    if not metric.class_name:
-        try:
-            check_metric_config(db_metric.class_name, metric.config)
-        except ValueError as e:
-            raise HTTPException(status_code=422, detail=f"Invalid config: {e}") from e
+    try:
+        metric.config = check_updated_config(metric, db_metric)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=f"Invalid config: {e}") from e
 
     return metric_crud.update_metric(
         db=db, metric_id=metric_id, metric=metric, organization_id=organization_id, user_id=user_id

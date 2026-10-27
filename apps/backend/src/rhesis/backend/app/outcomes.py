@@ -120,11 +120,19 @@ def classify_metrics(
        has no pass/fail verdict to give (e.g. a pure score with no
        threshold).
     6. Otherwise every metric passed -- ``PASS``.
+
+    A metric marked ``not_applicable`` (its target matched nothing in the trace) is left
+    out of all of these; when every metric is, the outcome is ``INCONCLUSIVE``.
     """
     if endpoint_error:
         return Execution.ERROR, None
 
     valid = {k: v for k, v in (metrics or {}).items() if isinstance(v, dict)}
+    # A metric whose target matched nothing in the trace was evaluated and has no say.
+    applied = {k: v for k, v in valid.items() if not v.get("not_applicable")}
+    if valid and not applied:
+        return Execution.OK, Verdict.INCONCLUSIVE
+    valid = applied
     if not valid:
         if no_metrics_applied:
             return Execution.OK, Verdict.INCONCLUSIVE

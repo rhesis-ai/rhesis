@@ -1,7 +1,8 @@
+import json
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import UUID4, ConfigDict, Field, field_validator, model_validator
+from pydantic import UUID4, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.metric_types import ScoreType, ThresholdOperator
@@ -53,21 +54,93 @@ class MetricBase(Base):
     user_id: Optional[UUID4] = None
 
 
+def accepted_params(evaluation_examples: Optional[str]) -> Optional[List[str]]:
+    """The parameters an SDK metric's function declares, which metric sync records under
+    ``sdk_connection`` in ``evaluation_examples``; None for any other metric."""
+    try:
+        data = json.loads(evaluation_examples or "")
+    except (json.JSONDecodeError, TypeError):
+        return None
+    connection = data.get("sdk_connection") if isinstance(data, dict) else None
+    accepted = connection.get("accepted_params") if isinstance(connection, dict) else None
+    return accepted if isinstance(accepted, list) else None
+
+
+def _metric_class(class_name: Optional[str]) -> Optional[type]:
+    """The SDK class a built-in metric is built from, native or DeepEval."""
+    from rhesis.sdk.metrics.providers.native.factory import RhesisMetricFactory
+
+    factory = RhesisMetricFactory()
+    if class_name in factory.list_supported_metrics():
+        return factory.metric_class(class_name)
+    if not class_name or not class_name.startswith(("DeepEval", "DeepTeam")):
+        return None
+    try:
+        from rhesis.sdk.metrics.providers.deepeval.factory import DeepEvalMetricFactory
+    except ImportError:
+        return None
+    return DeepEvalMetricFactory._metrics.get(class_name)
+
+
 def check_metric_config(
-    class_name: Optional[str], config: Optional[Dict[str, Any]]
+    class_name: Optional[str],
+    config: Optional[Dict[str, Any]],
+    *,
+    ground_truth_required: bool = False,
+    accepted: Optional[List[str]] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Refuse settings the metric's class would refuse when the metric runs (ValueError)."""
-    if config is None or not class_name:
+    """Refuse settings the metric's class would refuse when the metric runs (ValueError).
+
+    ``config["target"]`` says what the metric judges; the other keys are the class's own
+    settings. The targets a metric can take come from its class, from ``accepted`` (the
+    parameters of an SDK metric's function), or else are a judge's.
+    """
+    if config is None:
         return config
     try:
-        from rhesis.sdk.metrics.providers.native.factory import RhesisMetricFactory
+        from rhesis.sdk.metrics.targets import Target, check_target, supported_targets, targets_for
     except ImportError:  # a core install, which runs no native metric
         return config
 
-    factory = RhesisMetricFactory()
-    if class_name not in factory.list_supported_metrics():
-        return config
-    return factory.metric_class(class_name).validate_config(config)
+    cls = _metric_class(class_name)
+    settings = {k: v for k, v in config.items() if k != "target"}
+    if hasattr(cls, "validate_config"):
+        settings = cls.validate_config(settings)
+    if config.get("target") is None:
+        return settings
+    compares = ("response",) if ground_truth_required else ()
+    if accepted is not None:
+        supported = targets_for(accepted, compares=compares)
+    elif cls is not None:
+        supported = supported_targets(cls, compares=compares)
+    else:
+        supported = targets_for(("input", "output", "trace"), compares=compares)
+    try:
+        target = check_target(cls, Target.coerce(config["target"]), supported)
+    except ValidationError as e:
+        problems = "; ".join(
+            f"{' -> '.join(str(loc) for loc in err['loc']) or 'target'}: {err['msg']}"
+            for err in e.errors()
+        )
+        raise ValueError(f"Invalid target: {problems}") from None
+    return {**settings, "target": target.to_config()}
+
+
+def check_updated_config(update: "MetricUpdate", stored: Any) -> Optional[Dict[str, Any]]:
+    """``check_metric_config`` for an update, reading what it doesn't send from the stored
+    metric."""
+
+    def current(field: str) -> Any:
+        value = getattr(update, field)
+        sent = field in update.model_fields_set and value is not None
+        return value if sent else getattr(stored, field, None)
+
+    return check_metric_config(
+        current("class_name"),
+        update.config,
+        ground_truth_required=bool(current("ground_truth_required")),
+        accepted=accepted_params(current("evaluation_examples")),
+    )
 
 
 class _ChecksConfig:
@@ -75,7 +148,12 @@ class _ChecksConfig:
 
     @model_validator(mode="after")
     def validate_config(self):
-        self.config = check_metric_config(self.class_name, self.config)
+        self.config = check_metric_config(
+            self.class_name,
+            self.config,
+            ground_truth_required=bool(self.ground_truth_required),
+            accepted=accepted_params(self.evaluation_examples),
+        )
         return self
 
 
@@ -105,8 +183,8 @@ class MetricCreate(_ChecksConfig, MetricBase):
 
 
 class MetricUpdate(_ChecksConfig, MetricBase):
-    """An update sent without ``class_name`` has its ``config`` checked against the stored
-    class by the route."""
+    """The route checks ``config`` again against the stored metric, for the fields the update
+    doesn't send (``check_updated_config``)."""
 
     name: Optional[str] = None
     evaluation_prompt: Optional[str] = None

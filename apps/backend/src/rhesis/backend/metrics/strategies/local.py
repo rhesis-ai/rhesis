@@ -25,7 +25,7 @@ from tenacity import (
 from rhesis.backend.app.usage_attribution import with_usage_attribution
 from rhesis.backend.metrics.applicability import needs_model
 from rhesis.backend.metrics.inputs import EvaluationInputs
-from rhesis.backend.metrics.metric_config import build_metric_evaluate_params, metric_wants_trace
+from rhesis.backend.metrics.metric_config import a_evaluate_metric, evaluate_metric, wants_trace
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.strategies.base import OnMetricComplete
@@ -73,6 +73,11 @@ _EXTRA_DETAIL_KEYS = (
     "recall",
     "expected_tool_calls",
     "actual_tool_calls",
+    "target",
+    "matched",
+    "passed",
+    "spans",
+    "not_applicable",
 )
 
 
@@ -163,7 +168,7 @@ class LocalStrategy:
             return _merge_refused({}, refused)
 
         # Reading the trace is a blocking database read; do it once, off the event loop.
-        if any(metric_wants_trace(metric) for _, metric, _, _ in metric_tasks):
+        if any(wants_trace(metric, config.target) for _, metric, config, _ in metric_tasks):
             await asyncio.to_thread(inputs.load_trace)
 
         metric_keys, results = self._generate_unique_metric_keys(metric_tasks)
@@ -226,31 +231,18 @@ class LocalStrategy:
         last_exc: Optional[Exception] = None
         for attempt in range(1, METRIC_MAX_RETRIES + 2):
             try:
-                kwargs = build_metric_evaluate_params(metric, inputs)
-                result = await metric.a_evaluate(**kwargs)
+                result = await a_evaluate_metric(
+                    metric,
+                    inputs,
+                    metric_config.target,
+                    lambda r: self._is_successful(r, metric_config),
+                )
                 description = metric_config.description or f"{class_name} evaluation metric"
-
-                if result.details.get("inconclusive"):
-                    is_successful = None
-                elif (
-                    "is_successful" in result.details
-                    and result.details["is_successful"] is not None
-                ):
-                    is_successful = result.details["is_successful"]
-                else:
-                    is_successful = self._score_evaluator.evaluate_score(
-                        score=result.score,
-                        threshold=metric_config.threshold,
-                        threshold_operator=metric_config.threshold_operator,
-                        reference_score=metric_config.reference_score,
-                        categories=metric_config.categories,
-                        passing_categories=metric_config.passing_categories,
-                    )
 
                 return unique_key, MetricResultBuilder.success(
                     score=result.score,
                     reason=result.details.get("reason", f"Score: {result.score}"),
-                    is_successful=is_successful,
+                    is_successful=self._is_successful(result, metric_config),
                     backend=backend,
                     name=metric_config.name or class_name,
                     class_name=class_name,
@@ -359,7 +351,10 @@ class LocalStrategy:
             # emits token usage that has to name an org. Without this the
             # judge's tokens land in the unattributed bucket.
             future = executor.submit(
-                with_usage_attribution(self._evaluate_metric_with_retry), metric, inputs
+                with_usage_attribution(self._evaluate_metric_with_retry),
+                metric,
+                metric_config,
+                inputs,
             )
             future_to_metric[future] = (unique_key, class_name, metric_config, backend)
 
@@ -470,8 +465,27 @@ class LocalStrategy:
     # RETRY WRAPPER
     # ============================================================================
 
+    def _is_successful(self, result: MetricResult, metric_config: MetricConfig) -> Optional[bool]:
+        """The metric's own verdict when it gives one, else its score against the threshold.
+        None for an inconclusive result, or a target that matched nothing."""
+        details = result.details
+        if details.get("inconclusive") or details.get("not_applicable"):
+            return None
+        if details.get("is_successful") is not None:
+            return details["is_successful"]
+        if result.score is None and "is_successful" in details:
+            return None
+        return self._score_evaluator.evaluate_score(
+            score=result.score,
+            threshold=metric_config.threshold,
+            threshold_operator=metric_config.threshold_operator,
+            reference_score=metric_config.reference_score,
+            categories=metric_config.categories,
+            passing_categories=metric_config.passing_categories,
+        )
+
     def _evaluate_metric_with_retry(
-        self, metric: BaseMetric, inputs: EvaluationInputs
+        self, metric: BaseMetric, metric_config: MetricConfig, inputs: EvaluationInputs
     ) -> MetricResult:
         @retry(
             retry=retry_if_exception_type((TimeoutError, ConnectionError, OSError)),
@@ -483,7 +497,7 @@ class LocalStrategy:
             reraise=True,
         )
         def _execute_with_retry():
-            return self._evaluate_metric(metric, inputs)
+            return self._evaluate_metric(metric, metric_config, inputs)
 
         try:
             return _execute_with_retry()
@@ -498,11 +512,16 @@ class LocalStrategy:
     # SINGLE METRIC EVALUATION
     # ============================================================================
 
-    def _evaluate_metric(self, metric: BaseMetric, inputs: EvaluationInputs) -> MetricResult:
+    def _evaluate_metric(
+        self, metric: BaseMetric, metric_config: MetricConfig, inputs: EvaluationInputs
+    ) -> MetricResult:
         logger.debug(f"Evaluating metric '{metric.name}'")
-        kwargs = build_metric_evaluate_params(metric, inputs)
-        logger.debug(f"Calling metric '{metric.name}' with parameters: {list(kwargs.keys())}")
-        return metric.evaluate(**kwargs)
+        return evaluate_metric(
+            metric,
+            inputs,
+            metric_config.target,
+            lambda result: self._is_successful(result, metric_config),
+        )
 
     def _process_metric_result(
         self,
@@ -515,33 +534,11 @@ class LocalStrategy:
             result = future.result()
             description = metric_config.description or f"{class_name} evaluation metric"
 
-            if result.details.get("inconclusive"):
-                is_successful = None
-                logger.debug(f"Metric '{class_name}' returned inconclusive result (no score)")
-            elif "is_successful" in result.details and result.details["is_successful"] is not None:
-                is_successful = result.details["is_successful"]
-                logger.debug(
-                    f"Using metric's own is_successful value for '{class_name}': {is_successful}"
-                )
-            else:
-                is_successful = self._score_evaluator.evaluate_score(
-                    score=result.score,
-                    threshold=metric_config.threshold,
-                    threshold_operator=metric_config.threshold_operator,
-                    reference_score=metric_config.reference_score,
-                    categories=metric_config.categories,
-                    passing_categories=metric_config.passing_categories,
-                )
-                logger.debug(
-                    f"Computed is_successful for '{class_name}' using score evaluator: "
-                    f"{is_successful}"
-                )
-
             logger.debug(f"Completed metric '{class_name}' with score {result.score}")
             return MetricResultBuilder.success(
                 score=result.score,
                 reason=result.details.get("reason", f"Score: {result.score}"),
-                is_successful=is_successful,
+                is_successful=self._is_successful(result, metric_config),
                 backend=backend,
                 name=metric_config.name or class_name,
                 class_name=class_name,

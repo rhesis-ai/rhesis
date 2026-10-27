@@ -8,17 +8,27 @@ evaluation logic lives here.
 
 import asyncio
 import concurrent.futures
-import json
 import logging
 import uuid
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
+from rhesis.backend.app.schemas.metric import accepted_params
 from rhesis.backend.app.usage_attribution import with_usage_attribution
 from rhesis.backend.metrics.inputs import EvaluationInputs
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
 from rhesis.backend.metrics.strategies.base import OnMetricComplete
-from rhesis.sdk.metrics import MetricConfig
+from rhesis.sdk.metrics import MetricConfig, MetricResult
+from rhesis.sdk.metrics.targets import (
+    PER_UNIT,
+    Target,
+    Unit,
+    a_judge_units,
+    check_target,
+    judge_units,
+    targets_for,
+    unit_expectations,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -99,18 +109,36 @@ class ConnectorStrategy:
             metric_run_id = str(uuid.uuid4())
 
             try:
-                raw_result = await self._connector_metric_sender(
-                    metric_run_id, class_name, _connector_inputs(config, inputs)
-                )
-                result = _connector_response_to_result(
-                    raw_result,
-                    config,
-                    metric_name,
-                    class_name,
-                    description,
-                    threshold,
-                    self._score_evaluator,
-                )
+                target = _per_unit_target(config)
+                if target is not None:
+                    sender = self._connector_metric_sender
+                    trace = await asyncio.to_thread(inputs.load_trace)
+
+                    async def judge(unit: Unit) -> MetricResult:
+                        raw = await sender(
+                            str(uuid.uuid4()),
+                            class_name,
+                            _unit_inputs(config, target, unit, inputs),
+                        )
+                        return _unit_result(raw, config, self._score_evaluator)
+
+                    combined = await a_judge_units(trace, target, judge, _own_verdict)
+                    result = _targeted_result(
+                        combined, metric_name, class_name, description, threshold
+                    )
+                else:
+                    raw_result = await self._connector_metric_sender(
+                        metric_run_id, class_name, _connector_inputs(config, inputs)
+                    )
+                    result = _connector_response_to_result(
+                        raw_result,
+                        config,
+                        metric_name,
+                        class_name,
+                        description,
+                        threshold,
+                        self._score_evaluator,
+                    )
             except Exception as e:
                 logger.error(
                     f"Async connector metric '{class_name}' error: {e}",
@@ -143,19 +171,18 @@ class ConnectorStrategy:
 # ============================================================================
 
 
-def _wants_trace(config: MetricConfig) -> bool:
-    """Whether the SDK function behind this metric declares ``trace``.
+def _accepted_params(config: MetricConfig) -> Optional[List[str]]:
+    """The parameters the SDK function behind this metric declares, or None when unknown.
 
-    Metric sync records the function's parameters under ``sdk_connection`` in
-    ``evaluation_examples`` (``services/connector/handlers/metric_sync.py``).
+    Metric sync records them under ``sdk_connection`` in ``evaluation_examples``
+    (``services/connector/handlers/metric_sync.py``).
     """
-    try:
-        data = json.loads(config.evaluation_examples or "")
-    except (json.JSONDecodeError, TypeError):
-        return False
-    connection = data.get("sdk_connection") if isinstance(data, dict) else None
-    accepted = connection.get("accepted_params") if isinstance(connection, dict) else None
-    return isinstance(accepted, list) and "trace" in accepted
+    return accepted_params(config.evaluation_examples)
+
+
+def _wants_trace(config: MetricConfig) -> bool:
+    """Whether the SDK function behind this metric declares ``trace``."""
+    return "trace" in (_accepted_params(config) or [])
 
 
 def _connector_inputs(config: MetricConfig, inputs: EvaluationInputs) -> Dict[str, Any]:
@@ -170,6 +197,95 @@ def _connector_inputs(config: MetricConfig, inputs: EvaluationInputs) -> Dict[st
     if _wants_trace(config):
         payload["trace"] = inputs.trace_json()
     return payload
+
+
+#: What a result judged per span carries beside its score, verdict and reason.
+_TARGET_DETAIL_KEYS = ("target", "matched", "passed", "spans", "not_applicable")
+
+
+def _per_unit_target(config: MetricConfig) -> Optional[Target]:
+    """The metric's target when it is judged once per span or turn; else None. A target the
+    function can't take, by the parameters it declares, raises ValueError."""
+    if config.target is None:
+        return None
+    accepted = _accepted_params(config)
+    supported = targets_for(accepted) if accepted is not None else None
+    target = check_target(None, config.target, supported)
+    return target if target.on in PER_UNIT else None
+
+
+def _unit_inputs(
+    config: MetricConfig, target: Target, unit: Unit, inputs: EvaluationInputs
+) -> Dict[str, Any]:
+    """The inputs sent to an SDK metric for one span or turn."""
+    expectations = unit_expectations(target, inputs.expectations)
+    payload: Dict[str, Any] = {
+        "input": unit.input,
+        "output": unit.output,
+        "expectations": expectations.model_dump(exclude_none=True) if expectations else None,
+    }
+    if _wants_trace(config):
+        # A span is judged with the whole trace, dumped once; a turn with its own.
+        whole = unit.trace is inputs.load_trace()
+        payload["trace"] = (
+            inputs.trace_json() if whole else unit.trace.model_dump(mode="json", exclude_none=True)
+        )
+    return payload
+
+
+def _unit_result(
+    raw: Dict[str, Any], config: MetricConfig, score_evaluator: ScoreEvaluator
+) -> MetricResult:
+    """One span's connector response; an error fails the whole metric."""
+    if raw.get("status") == "error" or ("error" in raw and "status" not in raw):
+        raise RuntimeError(raw.get("error") or raw.get("details") or "Connector metric error")
+    score = raw.get("score", 0.0)
+    passed = score_evaluator.evaluate_score(
+        score=score,
+        threshold=config.threshold if config.threshold is not None else 0.0,
+        threshold_operator=config.threshold_operator or ">=",
+    )
+    reason = (raw.get("details") or {}).get("reason")
+    return MetricResult(score=score, details={"reason": reason, "is_successful": passed})
+
+
+def _sync_judge(
+    sender: ConnectorMetricSender,
+    config: MetricConfig,
+    class_name: str,
+    target: Target,
+    inputs: EvaluationInputs,
+    score_evaluator: ScoreEvaluator,
+) -> Callable[[Unit], MetricResult]:
+    """Judge one span or turn through the connector, from a sync context."""
+
+    def judge(unit: Unit) -> MetricResult:
+        payload = _unit_inputs(config, target, unit, inputs)
+        raw = _call_connector_sender(sender, str(uuid.uuid4()), class_name, payload)
+        return _unit_result(raw, config, score_evaluator)
+
+    return judge
+
+
+def _own_verdict(result: MetricResult) -> Optional[bool]:
+    return result.details.get("is_successful")
+
+
+def _targeted_result(
+    result: MetricResult, metric_name: str, class_name: str, description: str, threshold: float
+) -> Dict[str, Any]:
+    details = result.details
+    return MetricResultBuilder.success(
+        score=result.score,
+        reason=details.get("reason") or f"Connector metric score: {result.score}",
+        is_successful=details.get("is_successful"),
+        backend="sdk",
+        name=metric_name,
+        class_name=class_name,
+        description=description,
+        threshold=threshold,
+        extra={key: details[key] for key in _TARGET_DETAIL_KEYS if key in details} or None,
+    )
 
 
 def _evaluate_connector_metrics(
@@ -193,21 +309,29 @@ def _evaluate_connector_metrics(
         metric_run_id = str(uuid.uuid4())
 
         try:
-            raw_result = _call_connector_sender(
-                connector_metric_sender,
-                metric_run_id,
-                class_name,
-                _connector_inputs(config, inputs),
-            )
-            result = _connector_response_to_result(
-                raw_result,
-                config,
-                metric_name,
-                class_name,
-                description,
-                threshold,
-                score_evaluator,
-            )
+            target = _per_unit_target(config)
+            if target is not None:
+                judge = _sync_judge(
+                    connector_metric_sender, config, class_name, target, inputs, score_evaluator
+                )
+                combined = judge_units(inputs.load_trace(), target, judge, _own_verdict)
+                result = _targeted_result(combined, metric_name, class_name, description, threshold)
+            else:
+                raw_result = _call_connector_sender(
+                    connector_metric_sender,
+                    metric_run_id,
+                    class_name,
+                    _connector_inputs(config, inputs),
+                )
+                result = _connector_response_to_result(
+                    raw_result,
+                    config,
+                    metric_name,
+                    class_name,
+                    description,
+                    threshold,
+                    score_evaluator,
+                )
             results[metric_name or class_name] = result
         except Exception as e:
             logger.error(
