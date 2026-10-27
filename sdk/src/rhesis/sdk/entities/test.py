@@ -14,17 +14,39 @@ from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 from rhesis.sdk.entities.endpoint import Endpoint
 from rhesis.sdk.entities.prompt import Prompt
 from rhesis.sdk.enums import TestType
+from rhesis.sdk.metrics.expectations import ExpectedToolCall
 
 ENDPOINT = Endpoints.TESTS
 
+# Test fields that are folded into test_configuration.
+_CONFIGURATION_FIELDS = (
+    "goal",
+    "instructions",
+    "restrictions",
+    "scenario",
+    "max_turns",
+    "min_turns",
+    "expected_tool_calls",
+)
+
 
 class TestConfiguration(BaseModel):
-    goal: str
+    goal: Optional[str] = None  # Required on multi-turn tests; single-turn tests have none
     instructions: str = ""  # Optional - how Penelope should conduct the test
     restrictions: str = ""  # Optional - forbidden requirements for the target
     scenario: str = ""  # Optional - contextual framing for the test
     max_turns: Optional[int] = None  # Maximum conversation turns (default: 10)
     min_turns: Optional[int] = None  # Minimum turns before early stopping
+    # The tools the endpoint should call, in order; read by ToolCallTrajectory
+    expected_tool_calls: Optional[List[ExpectedToolCall]] = None
+
+    def to_payload(self) -> Dict[str, Any]:
+        """The fields that are set: a single-turn test's has no goal, and the backend reads
+        a goal as a multi-turn test."""
+        payload = self.model_dump(mode="json", exclude_none=True)
+        if not self.goal:
+            payload = {key: value for key, value in payload.items() if value != ""}
+        return payload
 
 
 class Test(BaseEntity):
@@ -49,6 +71,7 @@ class Test(BaseEntity):
     scenario: Optional[str] = None
     max_turns: Optional[int] = None
     min_turns: Optional[int] = None
+    expected_tool_calls: Optional[List[Any]] = None
 
     @model_validator(mode="before")
     @classmethod
@@ -63,20 +86,24 @@ class Test(BaseEntity):
 
         # If test_configuration already provided, use it and remove separate fields
         if "test_configuration" in data and data["test_configuration"] is not None:
+            calls = data.get("expected_tool_calls")
+            config = data["test_configuration"]
+            if calls is not None:
+                if isinstance(config, TestConfiguration):
+                    config = config.model_dump(exclude_none=True)
+                if config.get("expected_tool_calls") is not None:
+                    raise ValueError(
+                        "Pass expected_tool_calls either in test_configuration or beside it."
+                    )
+                data["test_configuration"] = {**config, "expected_tool_calls": calls}
             # Remove the separate fields if they exist
-            for field in [
-                "goal",
-                "instructions",
-                "restrictions",
-                "scenario",
-                "max_turns",
-                "min_turns",
-            ]:
+            for field in _CONFIGURATION_FIELDS:
                 data.pop(field, None)
             return data
 
         # Build test_configuration from separate fields if goal is provided
         goal = data.get("goal")
+        config_data: Dict[str, Any] = {}
         if goal:
             config_data = {
                 "goal": goal,
@@ -89,16 +116,11 @@ class Test(BaseEntity):
                 config_data["max_turns"] = data["max_turns"]
             if data.get("min_turns") is not None:
                 config_data["min_turns"] = data["min_turns"]
+        if data.get("expected_tool_calls") is not None:
+            config_data["expected_tool_calls"] = data["expected_tool_calls"]
+        if config_data:
             data["test_configuration"] = config_data
-            # Remove the separate fields
-            for field in [
-                "goal",
-                "instructions",
-                "restrictions",
-                "scenario",
-                "max_turns",
-                "min_turns",
-            ]:
+            for field in _CONFIGURATION_FIELDS:
                 data.pop(field, None)
 
         return data
@@ -160,13 +182,10 @@ class Test(BaseEntity):
         return v
 
     def model_dump(self, **kwargs):
-        """Exclude None turn params from test_configuration."""
+        """Send only the test_configuration fields that are set."""
         d = super().model_dump(**kwargs)
-        config = d.get("test_configuration")
-        if isinstance(config, dict):
-            for key in ("max_turns", "min_turns"):
-                if key in config and config[key] is None:
-                    del config[key]
+        if isinstance(d.get("test_configuration"), dict) and self.test_configuration:
+            d["test_configuration"] = self.test_configuration.to_payload()
         return d
 
     def push(self) -> Optional[Dict[str, Any]]:

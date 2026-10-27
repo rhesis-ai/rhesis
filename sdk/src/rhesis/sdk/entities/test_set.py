@@ -1149,19 +1149,9 @@ class TestSet(BaseEntity):
                 else test_obj.test_type
             )
 
-        # Add test configuration for multi-turn tests
+        # A multi-turn test's goal and instructions, and either type's expected tool calls
         if test_obj.test_configuration:
-            config_dict: Dict[str, Any] = {
-                "goal": test_obj.test_configuration.goal,
-                "instructions": test_obj.test_configuration.instructions,
-                "restrictions": test_obj.test_configuration.restrictions,
-                "scenario": test_obj.test_configuration.scenario,
-            }
-            if test_obj.test_configuration.min_turns is not None:
-                config_dict["min_turns"] = test_obj.test_configuration.min_turns
-            if test_obj.test_configuration.max_turns is not None:
-                config_dict["max_turns"] = test_obj.test_configuration.max_turns
-            test_data["test_configuration"] = config_dict
+            test_data["test_configuration"] = test_obj.test_configuration.to_payload()
 
         # Add metadata if present
         if test_obj.metadata:
