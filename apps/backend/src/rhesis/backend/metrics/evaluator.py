@@ -21,6 +21,11 @@ from rhesis.sdk.metrics import Expectations, MetricConfig
 logger = logging.getLogger(__name__)
 
 
+def _is_conversation(trace: Union[Trace, ResponseTrace]) -> bool:
+    # One response is never a conversation, and isn't read from storage to find out.
+    return isinstance(trace, Trace) and trace.is_conversation
+
+
 class MetricEvaluator:
     """Evaluator that dispatches metric computation to registered backend strategies.
 
@@ -112,6 +117,7 @@ class MetricEvaluator:
         expectations: Optional[Expectations] = None,
         *,
         max_workers: int = 5,
+        conversation: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
         Compute metrics using the configured backends.
@@ -123,6 +129,8 @@ class MetricEvaluator:
                 declares ``trace``.
             expectations: What should have happened, from the test. None in production.
             max_workers: Maximum number of parallel workers for local strategy.
+            conversation: Whether the trace is a conversation, which decides the metrics
+                that apply; read from the trace when not given.
 
         Returns:
             Dictionary containing scores and details for each metric.
@@ -144,7 +152,9 @@ class MetricEvaluator:
             logger.warning("No metrics found at all, returning empty results")
             return {}
 
-        metric_configs = applicable(metric_configs, expectations)
+        if conversation is None:
+            conversation = _is_conversation(trace)
+        metric_configs = applicable(metric_configs, expectations, conversation)
         if not metric_configs:
             return invalid_metric_results
 
@@ -171,6 +181,7 @@ class MetricEvaluator:
         expectations: Optional[Expectations] = None,
         *,
         on_metric_complete: OnMetricComplete = None,
+        conversation: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """Async version of evaluate — dispatches backends concurrently."""
         if not metrics:
@@ -183,7 +194,9 @@ class MetricEvaluator:
             logger.warning("No valid metrics found after parsing (async)")
             return invalid_metric_results or {}
 
-        metric_configs = applicable(metric_configs, expectations)
+        if conversation is None:
+            conversation = _is_conversation(trace)
+        metric_configs = applicable(metric_configs, expectations, conversation)
         if not metric_configs:
             return invalid_metric_results
 

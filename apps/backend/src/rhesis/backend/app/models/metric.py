@@ -1,6 +1,5 @@
 from sqlalchemy import (
     Boolean,
-    CheckConstraint,
     Column,
     Float,
     ForeignKey,
@@ -69,17 +68,10 @@ class Metric(
             "explanation",
             "categories",
             "passing_categories",
-            "metric_scope",
             "config",
         )
     )
-    __table_args__ = (
-        CheckConstraint(
-            "jsonb_typeof(metric_scope) = 'array' AND jsonb_array_length(metric_scope) > 0",
-            name="ck_metric_metric_scope_non_empty",
-        ),
-        Index("ix_metric_org_created", "organization_id", "created_at"),
-    )
+    __table_args__ = (Index("ix_metric_org_created", "organization_id", "created_at"),)
 
     name = Column(String, nullable=False)
     description = Column(Text)
@@ -99,14 +91,8 @@ class Metric(
     context_required = Column(Boolean, default=False)
     class_name = Column(String)  # useful if type is custom code or framework
     evaluation_examples = Column(String)
-    # Array of test types this metric applies to (Single-Turn, Multi-Turn).
-    # Constrained to a non-empty array: execution filters metrics by scope, so an
-    # absent or empty value means the metric is never evaluated by any path and
-    # fails silently. The CHECK also rejects JSONB ``'null'`` and non-array values,
-    # which a plain NOT NULL would let through.
-    metric_scope = Column(JSONB, nullable=False)
     # Settings of the metric's class, passed to it when it is built (e.g. a trajectory
-    # metric's match mode).
+    # metric's match mode), and under "target" what the metric judges.
     config = Column(JSONB)
 
     # Foreign keys

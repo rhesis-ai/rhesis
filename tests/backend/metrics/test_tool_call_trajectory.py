@@ -23,7 +23,6 @@ def trajectory(name="Tool Call Trajectory", **settings):
         backend="rhesis",
         name=name,
         score_type="numeric",
-        metric_scope=["Single-Turn", "Multi-Turn"],
         parameters=settings or None,
     )
 
@@ -34,7 +33,6 @@ def judge():
         backend="rhesis",
         name="helpfulness",
         score_type="numeric",
-        metric_scope=["Single-Turn"],
         parameters={"evaluation_prompt": "p", "min_score": 0, "max_score": 1, "threshold": 0.5},
     )
 
@@ -124,7 +122,6 @@ class TestTheVerdictGrid:
             id=None,
             name=name,
             class_name=class_name,
-            metric_scope=["Single-Turn"],
             backend_type=SimpleNamespace(type_value="rhesis"),
         )
 
@@ -198,12 +195,14 @@ class TestMetricSettings:
             max_score=1,
             threshold=1,
             class_name="ToolCallTrajectory",
-            metric_scope=["Single-Turn"],
             config=config,
         )
 
     def test_valid_settings_are_kept(self):
-        assert self._metric({"match": "superset"}).config == {"match": "superset"}
+        assert self._metric({"match": "superset"}).config == {
+            "match": "superset",
+            "target": {"on": "run"},
+        }
 
     @pytest.mark.parametrize("config", [{"match": "sometimes"}, {"order": "strict"}])
     def test_invalid_settings_are_refused(self, config):

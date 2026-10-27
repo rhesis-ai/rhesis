@@ -795,7 +795,7 @@ tools:
     method: GET
     path: /metrics/
     default_query:
-      $select: "id,name,description,score_type,threshold,metric_scope"
+      $select: "id,name,description,score_type,threshold,config"
     page_size: 20
     description: >
       List available metrics for evaluating test results. ENTITY: Metric.
@@ -934,31 +934,29 @@ tools:
           Criteria text ONLY — do NOT include placeholders like {{prompt}}
           or {{response}}. Nothing substitutes them, so the judge would see
           the literal braces. The engine injects the input, response,
-          context, metadata and tool calls (Single-Turn) or the full
-          transcript and conversation goal (Multi-Turn) before your text.
-      metric_scope:
-        description: >
-          REQUIRED, and rejected if missing or empty. Non-empty list, each
-          entry exactly "Single-Turn" or "Multi-Turn". This decides
-          which tests the metric is evaluated against: a Single-Turn metric
-          is skipped on Multi-Turn tests and vice versa, so a wrong value
-          means the metric silently never runs. Use ["Multi-Turn"] for
-          conversation-level metrics, ["Single-Turn"] for single
-          request-response metrics, and both only when the metric genuinely
-          works either way.
+          context, metadata and tool calls (a metric judging each turn) or
+          the full transcript and conversation goal (a metric judging the
+          conversation) before your text.
       reference_score:
         description: "Deprecated. Omit — use categories instead."
       class_name:
         description: "Omit. Only used by built-in provider-backed metrics."
       config:
         description: >
-          Usually omit. To judge one part of a trace instead of the whole
-          response, send {"target": {"on": ...}}. See update_metric's
-          config for the choices.
+          What the metric judges, as {"target": {"on": ...}}. Omit it for
+          the default, which is stored and returned in the response's
+          config: "turn" (each request and its response, and every turn of
+          a conversation on its own). Send {"target": {"on":
+          "conversation"}} for a metric that judges a whole conversation at
+          once; it does not run on single-turn tests. To judge one part of
+          a trace, such as each tool call, see update_metric's config for
+          every choice.
       ground_truth_required:
         description: >
           Set true only when the metric cannot be scored without the
-          test's expected_response. Defaults to false.
+          test's expected_response. Defaults to false. Such a metric is left
+          out of multi-turn tests, which have no expected response, so it
+          can't take the "conversation" target.
       context_required:
         description: >
           Set true only when the metric needs retrieved context to score
@@ -1088,10 +1086,10 @@ tools:
           match; the default), "exact" or "ignore". Omit to keep. The whole
           object is replaced, so send the settings to keep with a change.
 
-          Any metric's config may hold "target", what it judges in a trace.
-          Without one the metric judges the response, as before. "on" is one
-          of: "turn" (each turn; on a conversation, every turn on its own),
-          "conversation" (the whole conversation once), "run" (the whole
+          Every metric's config holds "target", what it judges in a trace,
+          and so which tests it runs on. "on" is one of: "turn" (each turn; on a conversation, every turn on its own),
+          "conversation" (the whole conversation once; not run on
+          single-turn tests), "run" (the whole
           trace once), "tool_call" (each tool call: arguments as input,
           result as output), "retrieval" (each retrieval: query as input,
           documents as output), "model_call", "agent" or "guardrail" (each

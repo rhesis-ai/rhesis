@@ -28,7 +28,6 @@ from rhesis.backend.jobs.execution.constants import (
     TURN_CONTEXT_KEY,
     TURN_METADATA_KEY,
     TURN_TOOL_CALLS_KEY,
-    MetricScope,
 )
 from rhesis.backend.metrics.applicability import expected_tool_calls
 from rhesis.backend.metrics.evaluator import MetricEvaluator
@@ -59,71 +58,6 @@ def _record_discard_reason(stored_output: Dict[str, Any], reason: str) -> None:
     additionally requires ``status_code >= 400`` -- an ``error`` string alone doesn't trip it.
     """
     stored_output["error"] = reason
-
-
-def _scope_values(mc: Any) -> List[str]:
-    """Return a metric config's declared scopes as plain strings.
-
-    Accepts MetricConfig objects and raw dicts, and tolerates MetricScope enums,
-    bare strings, or a mis-shaped non-list value (treated as undeclared).
-    """
-    scope = mc.get("metric_scope") if isinstance(mc, dict) else getattr(mc, "metric_scope", None)
-    if not scope or not isinstance(scope, (list, tuple, set)):
-        return []
-    return [getattr(s, "value", s) for s in scope]
-
-
-def filter_configs_by_scope(
-    metric_configs: List[Any],
-    scope: MetricScope,
-    test_id: str,
-) -> List[Any]:
-    """Keep only the configs that declare support for ``scope``.
-
-    Config-level counterpart to
-    :func:`~rhesis.backend.jobs.execution.executors.metrics.filter_metrics_by_scope`,
-    which operates on ORM Metric rows. The batch path converts to MetricConfig
-    during prefetch, before it knows each test's turn type, so it has to filter
-    here instead.
-
-    Undeclared scope means dropped, matching the ORM-level filter: a metric that
-    never says which turn types it supports is not evaluated. Skipping this let
-    single-turn metrics run against multi-turn conversations, where they get
-    ``context=[]`` and fail by construction, inflating the metric count and
-    depressing the pass rate.
-
-    Logging follows filter_metrics_by_scope's convention: an explicitly-wrong
-    scope is routine (most requirements mix Single-Turn and Multi-Turn metrics) and
-    logs at debug; no declared scope at all is worth surfacing at warning, since
-    the metric table's CHECK constraint makes that structurally impossible for a
-    real DB row — seeing it means a non-DB caller handed in an unscoped config.
-    """
-    wanted = getattr(scope, "value", scope)
-
-    kept, wrong_scope, no_scope = [], [], []
-    for mc in metric_configs:
-        name = getattr(mc, "name", None) or getattr(mc, "class_name", "?")
-        scopes = _scope_values(mc)
-        if wanted in scopes:
-            kept.append(mc)
-        elif scopes:
-            wrong_scope.append(f"{name}({scopes})")
-        else:
-            no_scope.append(str(name))
-
-    if wrong_scope:
-        logger.debug(
-            f"Excluded {len(wrong_scope)} metric(s) not scoped to {wanted} "
-            f"for test {test_id}: {', '.join(wrong_scope)}"
-        )
-    if no_scope:
-        logger.warning(
-            f"Excluded {len(no_scope)} metric(s) with no declared metric_scope "
-            f"for test {test_id}: {', '.join(no_scope)}. This metric row should "
-            f"not exist — metric_scope is required and non-empty in the database."
-        )
-
-    return kept
 
 
 def _build_conversation_history(
@@ -227,8 +161,9 @@ def evaluate_single_turn_metrics(
         expected_response: The expected response for comparison
         context: List of context strings
         result: The response dictionary from endpoint invocation
-        metrics: List of metric configurations to use for evaluation
-        test_id: Test ID, used only for the scope-filtering debug log
+        metrics: List of metric configurations to use for evaluation; the evaluator leaves
+            out those judging a conversation
+        test_id: Test ID, kept for callers that pass it
         trace_loader: Reads the response's trace, for metrics that declare ``trace``
         expected_tool_calls: The tools the test expects to be called, if it says
 
@@ -236,11 +171,6 @@ def evaluate_single_turn_metrics(
         Dictionary containing the evaluation results
     """
     metrics_results = {}
-
-    # Callers normally already scope-filtered via prepare_metric_configs(...,
-    # scope=MetricScope.SINGLE_TURN) before this runs (see executors/runners.py),
-    # so this is defense in depth for any caller that hands in metrics directly.
-    metrics = filter_configs_by_scope(metrics, MetricScope.SINGLE_TURN, test_id)
 
     if not metrics:
         return metrics_results
@@ -339,7 +269,6 @@ def default_goal_metric_config() -> MetricConfig:
         name=PENELOPE_GOAL_METRIC_KEY,
         score_type="numeric",
         metric_type="conversational",
-        metric_scope=[MetricScope.MULTI_TURN.value],
         threshold=DEFAULT_GOAL_ACHIEVEMENT_THRESHOLD,
     )
 
@@ -425,7 +354,7 @@ def evaluate_multi_turn_metrics(
     if exclude_class_names:
         metrics = [m for m in metrics if m.class_name not in exclude_class_names]
 
-    metric_configs = prepare_metric_configs(metrics, str(test.id), scope=MetricScope.MULTI_TURN)
+    metric_configs = prepare_metric_configs(metrics, str(test.id))
     if score_goal:
         metric_configs = with_default_goal_metric(metric_configs)
 

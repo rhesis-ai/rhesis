@@ -434,14 +434,7 @@ def rescore_test_run_endpoint(
     # Convert metrics from schema to dicts if provided
     metrics = None
     if request and request.metrics:
-        metrics = [
-            {
-                "id": str(m.id),
-                "name": m.name,
-                "scope": m.scope,
-            }
-            for m in request.metrics
-        ]
+        metrics = [{"id": str(m.id), "name": m.name} for m in request.metrics]
 
     evaluation_model_id = None
     if request and request.evaluation_model_id:

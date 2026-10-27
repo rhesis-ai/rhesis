@@ -130,7 +130,6 @@ def test_metric_numeric(test_db, test_org_id, authenticated_user_id):
         backend_type_id=backend_type.id,
         metric_type_id=metric_type.id,
         # Required and NOT NULL: an unscoped metric is never evaluated.
-        metric_scope=["Single-Turn"],
         organization_id=test_org_id,
         user_id=authenticated_user_id,
     )
@@ -176,7 +175,6 @@ def test_metric_categorical(test_db, test_org_id, authenticated_user_id):
         backend_type_id=backend_type.id,
         metric_type_id=metric_type.id,
         # Required and NOT NULL: an unscoped metric is never evaluated.
-        metric_scope=["Single-Turn"],
         organization_id=test_org_id,
         user_id=authenticated_user_id,
     )

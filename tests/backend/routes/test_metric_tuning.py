@@ -29,7 +29,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models
-from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.utils.crud_utils import get_or_create_type_lookup
 
 # The case from the roadmap: a toxicity metric that let an insult through.
@@ -68,7 +67,6 @@ def _make_metric(
         score_type=score_type,
         # NOT NULL since 82881df987af; a tuning case is one judged (input, output)
         # pair, which is exactly the single-turn shape.
-        metric_scope=[MetricScope.SINGLE_TURN.value],
         backend_type_id=backend_type_lookup.id,
         organization_id=organization_id,
         user_id=user_id,

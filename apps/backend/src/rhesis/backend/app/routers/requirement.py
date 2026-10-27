@@ -36,7 +36,7 @@ from rhesis.backend.app.utils.odata import apply_select
 logger = logging.getLogger(__name__)
 
 # Requirement's associated metrics only need Metric's own fields (name, description,
-# backend_type, metric_type, score_type, metric_scope) -- confirmed against actual
+# backend_type, metric_type, score_type, config) -- confirmed against actual
 # frontend usage (RequirementCard/RequirementsClient/RequirementMetricsViewer/RequirementDetailTabs,
 # and the standalone GET /requirements/{id}/metrics/ compare-page caller). None of
 # MetricDetail's relationship fields (status/assignee/owner/model/requirements/

@@ -19,9 +19,9 @@ from rhesis.backend.app.crud.telemetry import (
     update_trace_turn_metrics,
 )
 from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
-from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.services.telemetry.evaluation_trace import load_evaluation_trace
 from rhesis.backend.celery.core import app
+from rhesis.backend.metrics.applicability import metric_target
 from rhesis.backend.metrics.inputs import ResponseTrace, TraceLoader
 from rhesis.sdk.entities.trace import Trace
 
@@ -74,8 +74,8 @@ def _load_project_trace_metrics(
     evaluates nothing.
 
     Args:
-        phase: "turn" loads the Single-Turn metrics (every turn, conversation or
-            not), "conversation" the Multi-Turn ones (the whole conversation).
+        phase: "conversation" loads the metrics that judge the conversation, "turn" the
+            others (judged on every turn, conversation or not).
     """
     metric_ids = config.get("metric_ids")
     if not metric_ids:
@@ -87,10 +87,8 @@ def _load_project_trace_metrics(
         models.Metric.id.in_(metric_ids),
     )
 
-    scope = MetricScope.SINGLE_TURN if phase == "turn" else MetricScope.MULTI_TURN
-    query = query.filter(models.Metric.metric_scope.contains([scope.value]))
-
-    return query.all()
+    wanted = phase == "conversation"
+    return [m for m in query.all() if (metric_target(m) == "conversation") == wanted]
 
 
 def _outcome_from_metrics(
@@ -389,7 +387,7 @@ def evaluate_conversation_trace_metrics(
 
         metrics = _load_project_trace_metrics(db, organization_id, config, phase="conversation")
         if not metrics:
-            logger.info(f"No Multi-Turn project trace metrics for trace {trace_id}")
+            logger.info(f"No conversation project trace metrics for trace {trace_id}")
             return {"status": "no_metrics", "trace_id": trace_id}
 
         root_spans = (
@@ -409,7 +407,8 @@ def evaluate_conversation_trace_metrics(
             return {"status": "no_conversation", "trace_id": trace_id}
         trace.conversation_id = root_spans[0].conversation_id
         start_time = time.time()
-        results = evaluator.evaluate(metrics, trace)
+        # A conversation of one turn so far is still a conversation.
+        results = evaluator.evaluate(metrics, trace, conversation=True)
         execution_time = (time.time() - start_time) * 1000
 
         conversation_metrics = {

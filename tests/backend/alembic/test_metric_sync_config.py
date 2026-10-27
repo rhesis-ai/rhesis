@@ -4,6 +4,7 @@ import uuid
 from unittest.mock import patch
 
 import pytest
+import sqlalchemy as sa
 
 from rhesis.backend.alembic.utils import metric_sync
 from rhesis.backend.app import models
@@ -23,7 +24,6 @@ def definition(name):
         "backend_type": "rhesis",
         "status": "New",
         "requirements": [],
-        "metric_scope": ["Single-Turn"],
         "config": {"match": "exact"},
     }
 
@@ -58,3 +58,20 @@ def test_settings_are_left_out_before_the_column_exists(test_db, test_org_id):
         )
 
     assert synced(test_db, name, test_org_id).config is None
+
+
+@pytest.mark.integration
+def test_revisions_before_the_scope_was_dropped_still_get_one(admin_test_db, test_org_id):
+    """The model has no metric_scope, so a sync at an older revision writes it itself."""
+    admin_test_db.execute(sa.text("ALTER TABLE metric ADD COLUMN metric_scope jsonb"))
+    name = f"conversation-judge-{uuid.uuid4()}"
+    item = {**definition(name), "config": {"target": {"on": "conversation"}}}
+
+    metric_sync.sync_metrics_to_organizations(
+        admin_test_db, metric_definitions=[item], verbose=False
+    )
+
+    scope = admin_test_db.execute(
+        sa.text("SELECT metric_scope FROM metric WHERE name = :name"), {"name": name}
+    ).scalar()
+    assert scope == ["Multi-Turn"]
