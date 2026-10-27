@@ -116,7 +116,10 @@ describe('allMetricsPassed', () => {
 
 describe('applicableMetrics', () => {
   it('leaves out metrics whose target matched nothing', () => {
-    const metrics = {
+    const metrics: Record<
+      string,
+      { is_successful: boolean | null; not_applicable?: boolean }
+    > = {
       relevance: { is_successful: true },
       refunds: { is_successful: null, not_applicable: true },
     };
