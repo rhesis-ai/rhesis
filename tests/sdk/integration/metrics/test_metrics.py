@@ -10,7 +10,6 @@ from rhesis.sdk.metrics import (
     GoalAchievementJudge,
     NumericJudge,
 )
-from rhesis.sdk.metrics.base import MetricScope
 
 # ---------------------------------------------------------------------------
 # NumericJudge
@@ -54,18 +53,18 @@ class TestNumericJudgePush:
         assert pulled.config.max_score == 10.0
         assert pulled.config.threshold == 7.0
 
-    def test_push_pull_preserves_metric_scope(self, docker_compose_test_env, db_cleanup):
-        """metric_scope should survive a push-pull round trip."""
-        name = f"numeric-scope-{int(time.time() * 1000)}"
+    def test_push_pull_preserves_the_target(self, docker_compose_test_env, db_cleanup):
+        """The target should survive a push-pull round trip."""
+        name = f"numeric-target-{int(time.time() * 1000)}"
         judge = NumericJudge(
             name=name,
             evaluation_prompt="prompt",
-            metric_scope=[MetricScope.SINGLE_TURN],
+            target={"on": "tool_call", "name": "issue_refund"},
         )
         judge.push()
 
         pulled = NumericJudge.pull(name=name)
-        assert pulled.config.metric_scope == [MetricScope.SINGLE_TURN]
+        assert pulled.config.target == {"on": "tool_call", "name": "issue_refund"}
 
     def test_push_update_persists_changes(self, docker_compose_test_env, db_cleanup):
         """Modifying a pushed metric and re-pushing should update, not create."""
@@ -153,20 +152,20 @@ class TestCategoricalJudgePush:
         assert pulled.config.categories == ["excellent", "good", "poor"]
         assert pulled.config.passing_categories == ["excellent", "good"]
 
-    def test_push_pull_preserves_metric_scope(self, docker_compose_test_env, db_cleanup):
-        """metric_scope should survive a push-pull round trip."""
-        name = f"categorical-scope-{int(time.time() * 1000)}"
+    def test_push_pull_preserves_the_target(self, docker_compose_test_env, db_cleanup):
+        """The target should survive a push-pull round trip."""
+        name = f"categorical-target-{int(time.time() * 1000)}"
         judge = CategoricalJudge(
             name=name,
             evaluation_prompt="Classify",
             categories=["yes", "no"],
             passing_categories=["yes"],
-            metric_scope=[MetricScope.MULTI_TURN],
+            target="conversation",
         )
         judge.push()
 
         pulled = CategoricalJudge.pull(name=name)
-        assert pulled.config.metric_scope == [MetricScope.MULTI_TURN]
+        assert pulled.config.target == {"on": "conversation"}
 
     def test_push_update_persists_changes(self, docker_compose_test_env, db_cleanup):
         """Modifying a pushed metric and re-pushing should update."""
@@ -238,20 +237,19 @@ class TestGoalAchievementJudgePush:
         assert pulled.min_score == 0.0
         assert pulled.max_score == 1.0
 
-    def test_push_pull_preserves_metric_scope(self, docker_compose_test_env, db_cleanup):
-        """metric_scope should survive a push-pull round trip."""
-        name = f"goal-scope-{int(time.time() * 1000)}"
+    def test_push_pull_preserves_the_target(self, docker_compose_test_env, db_cleanup):
+        """The target should survive a push-pull round trip."""
+        name = f"goal-target-{int(time.time() * 1000)}"
         judge = GoalAchievementJudge(
             name=name,
             evaluation_prompt="Evaluate",
             threshold=0.5,
-            metric_scope=[MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN],
+            target="run",
         )
         judge.push()
 
         pulled = GoalAchievementJudge.pull(name=name)
-        assert MetricScope.SINGLE_TURN in pulled.config.metric_scope
-        assert MetricScope.MULTI_TURN in pulled.config.metric_scope
+        assert pulled.config.target == {"on": "run"}
 
     def test_push_update_persists_changes(self, docker_compose_test_env, db_cleanup):
         """Modifying a pushed metric and re-pushing should update."""
@@ -320,47 +318,37 @@ class TestPullTypeSafety:
 
 
 # ---------------------------------------------------------------------------
-# Metric scope validation
+# Default targets
 # ---------------------------------------------------------------------------
 
 
-class TestMetricScopeDefaults:
-    """Verify metric_scope defaults are applied correctly."""
+class TestDefaultTargets:
+    """A metric pushed without a target is stored with its class's default."""
 
-    def test_numeric_default_scope(self, docker_compose_test_env, db_cleanup):
-        """NumericJudge should default to both scopes."""
-        name = f"numeric-default-scope-{int(time.time() * 1000)}"
-        judge = NumericJudge(name=name, evaluation_prompt="prompt")
-        judge.push()
+    def test_a_judge_judges_each_turn(self, docker_compose_test_env, db_cleanup):
+        name = f"numeric-default-target-{int(time.time() * 1000)}"
+        NumericJudge(name=name, evaluation_prompt="prompt").push()
 
-        pulled = NumericJudge.pull(name=name)
-        assert MetricScope.SINGLE_TURN in pulled.config.metric_scope
-        assert MetricScope.MULTI_TURN in pulled.config.metric_scope
+        assert NumericJudge.pull(name=name).config.target == {"on": "turn"}
 
-    def test_conversational_default_scope(self, docker_compose_test_env, db_cleanup):
-        """GoalAchievementJudge should default to both scopes."""
-        name = f"goal-default-scope-{int(time.time() * 1000)}"
-        judge = GoalAchievementJudge(name=name, evaluation_prompt="prompt", threshold=0.5)
-        judge.push()
+    def test_a_conversational_metric_judges_the_conversation(
+        self, docker_compose_test_env, db_cleanup
+    ):
+        name = f"goal-default-target-{int(time.time() * 1000)}"
+        GoalAchievementJudge(name=name, evaluation_prompt="prompt", threshold=0.5).push()
 
-        pulled = GoalAchievementJudge.pull(name=name)
-        assert MetricScope.SINGLE_TURN in pulled.config.metric_scope
-        assert MetricScope.MULTI_TURN in pulled.config.metric_scope
+        assert GoalAchievementJudge.pull(name=name).config.target == {"on": "conversation"}
 
-    def test_categorical_default_scope(self, docker_compose_test_env, db_cleanup):
-        """CategoricalJudge should default to both scopes."""
-        name = f"cat-default-scope-{int(time.time() * 1000)}"
-        judge = CategoricalJudge(
+    def test_a_categorical_judge_judges_each_turn(self, docker_compose_test_env, db_cleanup):
+        name = f"cat-default-target-{int(time.time() * 1000)}"
+        CategoricalJudge(
             name=name,
             evaluation_prompt="prompt",
             categories=["a", "b"],
             passing_categories=["a"],
-        )
-        judge.push()
+        ).push()
 
-        pulled = CategoricalJudge.pull(name=name)
-        assert MetricScope.SINGLE_TURN in pulled.config.metric_scope
-        assert MetricScope.MULTI_TURN in pulled.config.metric_scope
+        assert CategoricalJudge.pull(name=name).config.target == {"on": "turn"}
 
 
 # ---------------------------------------------------------------------------

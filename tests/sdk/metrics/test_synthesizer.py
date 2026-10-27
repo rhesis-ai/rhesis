@@ -88,7 +88,6 @@ _NUMERIC_RESPONSE = {
     "threshold_operator": ">=",
     "categories": None,
     "passing_categories": None,
-    "metric_scope": ["Single-Turn", "Multi-Turn"],
 }
 
 _CATEGORICAL_RESPONSE = {
@@ -105,7 +104,6 @@ _CATEGORICAL_RESPONSE = {
     "threshold_operator": None,
     "categories": ["appropriate", "inappropriate"],
     "passing_categories": ["appropriate"],
-    "metric_scope": ["Single-Turn"],
 }
 
 
@@ -212,8 +210,8 @@ def test_generate_template_contains_multi_turn_guidance():
     rendered = synth.prompt_template.render(prompt="test")
     assert "Goal achievement" in rendered
     assert "Turn progression" in rendered
-    assert "Single-Turn" in rendered
-    assert "Multi-Turn" in rendered
+    assert '"conversation"' in rendered
+    assert '"turn"' in rendered
 
 
 def test_generate_template_contains_single_turn_guidance():

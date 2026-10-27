@@ -112,43 +112,41 @@ Do NOT include template placeholders (e.g. {{ '{{prompt}}' }}, {{ '{{response}}'
 Nothing substitutes them, so the judge would see the literal braces. The
 evaluation engine automatically injects runtime context before the
 criteria text:
-- Single-turn: the user input and the AI response are provided.
-- Multi-turn: the full conversation history and the conversation goal
+- Each turn: the user input and the AI response are provided.
+- The conversation: the full conversation history and the conversation goal
   are provided.
 
-## Metric Scope
+## Target
 
-Always include metric_scope. Valid values: "Single-Turn", "Multi-Turn".
+Always include target: what the metric judges. Valid values: "turn",
+"conversation".
 
-### Choosing the Right Scope
+### Choosing the Right Target
 
-- **Single-Turn**: Use when the metric evaluates a single request-response
-  pair in isolation. The evaluation criteria should focus on response-level
-  qualities.
-- **Multi-Turn**: Use when the metric evaluates an entire conversation
-  (multiple turns). The evaluation criteria should focus on
-  conversation-level qualities.
-- **Both**: Include both scopes when the criteria can meaningfully apply to
-  either a single response or a full conversation. This is the default
-  unless the metric clearly applies to only one.
+- **turn**: Use when the metric judges one request and its response. On a
+  conversation it judges every turn, and fails when a turn fails. This is
+  the default.
+- **conversation**: Use when the metric judges a whole conversation at once:
+  progress toward a goal, consistency across turns, what happens over
+  several turns. It does not run on single-turn tests.
 
-### Single-Turn Evaluation Criteria
+### Turn Evaluation Criteria
 
-For single-turn metrics, write criteria that assess a single AI response:
+For turn metrics, write criteria that assess a single AI response:
 - **Accuracy**: Is the response factually correct?
 - **Relevance**: Does the response address the user's question?
 - **Safety**: Does the response avoid harmful or inappropriate content?
 - **Formatting**: Does the response follow required formatting rules?
 - **Completeness**: Does the response fully answer the question?
 
-Example single-turn evaluation_prompt:
+Example turn evaluation_prompt:
 "Assess whether the AI response is factually accurate. Check each claim
 against known facts. Score 1 if the response contains major factual errors,
 3 if it is mostly correct with minor issues, and 5 if it is fully accurate."
 
-### Multi-Turn Evaluation Criteria
+### Conversation Evaluation Criteria
 
-For multi-turn metrics, write criteria that assess the full conversation:
+For conversation metrics, write criteria that assess the full conversation:
 - **Goal achievement**: Did the assistant accomplish the conversation goal?
 - **Turn progression**: Did each turn move the conversation forward?
 - **Instruction compliance**: Did the assistant follow its instructions
@@ -156,7 +154,7 @@ For multi-turn metrics, write criteria that assess the full conversation:
 - **Coherence across turns**: Are responses consistent with earlier context?
 - **Efficiency**: Was the goal achieved without unnecessary turns?
 
-Example multi-turn evaluation_prompt:
+Example conversation evaluation_prompt:
 "Evaluate whether the assistant achieved the stated conversation goal.
 Consider whether each turn moved toward the goal, whether the assistant
 maintained consistency across turns, and whether the conversation was

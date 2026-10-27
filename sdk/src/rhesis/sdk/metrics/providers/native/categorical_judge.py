@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.entities.trace import Trace
 from rhesis.sdk.metrics.arguments import evaluation_arguments
-from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
+from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.expectations import ExpectationsLike
 from rhesis.sdk.metrics.providers.native.base import JudgeBase
 from rhesis.sdk.metrics.providers.native.categorical_scorers import Evidence, scorer_for
@@ -37,12 +37,9 @@ class CategoricalJudge(JudgeBase):
         model: Optional[Union[BaseLLM, BaseDecisionModel, str]] = None,
         requires_ground_truth: bool = True,
         requires_context: bool = False,
-        metric_scope: Optional[List[Union[str, "MetricScope"]]] = None,
+        target: Optional[Union[str, Dict[str, Any]]] = None,
         id: Optional[str] = None,
     ):
-        # Set default metric_scope to both Single-Turn and Multi-Turn if not provided
-        if metric_scope is None:
-            metric_scope = [MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN]
         """
         Initialize the categorical prompt metric.
 
@@ -64,9 +61,9 @@ class CategoricalJudge(JudgeBase):
                 for evaluation. Defaults to True.
             requires_context (bool, optional): Whether this metric requires context chunks
                 for evaluation. Defaults to False.
-            metric_scope (Optional[List[Union[str, MetricScope]]], optional): Scope(s) where
-                this metric applies. Can be ["Single-Turn"], ["Multi-Turn"], or both.
-                Defaults to both Single-Turn and Multi-Turn if not specified.
+            target (Optional[Union[str, Dict[str, Any]]], optional): What the metric judges in
+                a trace, such as "turn" or {"on": "tool_call", "name": "issue_refund"}. Kept
+                with the metric when it is pushed. Defaults to the metric's own default.
 
         Raises:
             ValueError: If categories has fewer than 2 items
@@ -87,7 +84,7 @@ class CategoricalJudge(JudgeBase):
             metric_type=METRIC_TYPE,
             requires_ground_truth=requires_ground_truth,
             requires_context=requires_context,
-            metric_scope=metric_scope,
+            target=target,
             class_name=self.__class__.__name__,
             id=id,
         )

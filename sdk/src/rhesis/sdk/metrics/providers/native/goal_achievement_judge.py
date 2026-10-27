@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.entities.trace import Trace
 from rhesis.sdk.metrics.arguments import evaluation_arguments
-from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
+from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import JUDGE_TEMPERATURE, ThresholdOperator
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
 from rhesis.sdk.metrics.expectations import Expectations, ExpectationsLike
@@ -236,7 +236,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
         name: Optional[str] = None,
         description: Optional[str] = None,
         metric_type: Optional[Union[str, MetricType]] = None,
-        metric_scope: Optional[List[Union[str, MetricScope]]] = None,
+        target: Optional[Union[str, Dict[str, Any]]] = None,
         model: Optional[Union[BaseLLM, str]] = None,
         id: Optional[str] = None,
         **kwargs,
@@ -257,7 +257,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             name: Unique name for this metric.
             description: Description of what this metric measures.
             metric_type: Type of metric (defaults to CONVERSATIONAL).
-            metric_scope: Scope(s) where this metric applies.
+            target: What the metric judges in a trace, kept with it when pushed.
             model: Language model to use for evaluation.
             id: ID from backend when pulled.
             **kwargs: Additional keyword arguments.
@@ -270,10 +270,6 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             template will use built-in defaults for goal achievement evaluation. This allows
             for quick setup while still supporting full customization.
         """
-
-        # Set default metric_scope if not provided
-        if metric_scope is None:
-            metric_scope = [MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN]
 
         # Use parent ConversationalNumericConfig which now includes numeric fields
         self.config = ConversationalNumericConfig(
@@ -291,7 +287,7 @@ class GoalAchievementJudge(ConversationalJudge, NumericEvaluationMixin):
             name=name or "goal_achievement",
             description=description or "Evaluates how well a conversation achieves its stated goal",
             metric_type=metric_type or MetricType.CONVERSATIONAL,
-            metric_scope=metric_scope,
+            target=target,
             score_type=SCORE_TYPE,
             class_name=self.__class__.__name__,
             id=id,

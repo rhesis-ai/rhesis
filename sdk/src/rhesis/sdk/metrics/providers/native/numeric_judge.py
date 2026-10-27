@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.entities.trace import Trace
 from rhesis.sdk.metrics.arguments import evaluation_arguments
-from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
+from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.expectations import ExpectationsLike
 from rhesis.sdk.metrics.providers.native.base import JudgeBase
@@ -51,7 +51,7 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
         name: Optional[str] = None,
         description: Optional[str] = None,
         metric_type: Optional[Union[str, MetricType]] = None,
-        metric_scope: Optional[List[Union[str, MetricScope]]] = None,
+        target: Optional[Union[str, Dict[str, Any]]] = None,
         model: Optional[Union[str, BaseLLM]] = None,
         id: Optional[str] = None,
         **kwargs,
@@ -74,9 +74,9 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
                 If None, defaults to midpoint between min_score and max_score. Defaults to None.
             threshold_operator (Union[ThresholdOperator, str], optional): Operator for comparing
                 score to threshold. Can be a ThresholdOperator enum or string. Defaults to None.
-            metric_scope (Optional[List[Union[str, MetricScope]]], optional): Scope(s) where
-                this metric applies. Can be ["Single-Turn"], ["Multi-Turn"], or both.
-                Defaults to both Single-Turn and Multi-Turn if not specified.
+            target (Optional[Union[str, Dict[str, Any]]], optional): What the metric judges in
+                a trace, such as "turn" or {"on": "tool_call", "name": "issue_refund"}. Kept
+                with the metric when it is pushed. Defaults to the metric's own default.
             model (Optional[str], optional): The language model to use for evaluation.
                 If None, uses the default model. Defaults to None.
             **kwargs: Additional keyword arguments passed to the base class
@@ -86,10 +86,6 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
             ValueError: If threshold is outside the [min_score, max_score] range
             ValueError: If threshold_operator string is invalid
         """
-        # Set default metric_scope to both Single-Turn and Multi-Turn if not provided
-        if metric_scope is None:
-            metric_scope = [MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN]
-
         self.config = NumericJudgeConfig(
             evaluation_prompt=evaluation_prompt,
             evaluation_steps=evaluation_steps,
@@ -102,7 +98,7 @@ class NumericJudge(JudgeBase, NumericEvaluationMixin):
             name=name,
             description=description,
             metric_type=metric_type,
-            metric_scope=metric_scope,
+            target=target,
             score_type=SCORE_TYPE,
             class_name=self.__class__.__name__,
             id=id,

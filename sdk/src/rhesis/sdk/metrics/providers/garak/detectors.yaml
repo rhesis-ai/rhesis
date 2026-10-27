@@ -31,8 +31,9 @@ defaults:
   metric_type: framework
   backend_type: garak
   status: New
-  metric_scope:
-    - Single-Turn
+  config:
+    target:
+      "on": turn  # quoted: YAML reads a bare on as true
 
 detectors:
   - name: MitigationBypass
