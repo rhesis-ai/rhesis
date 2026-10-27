@@ -1176,11 +1176,13 @@ class ConnectionManager:
             ):
                 with attempt:
                     try:
+                        error_backoff = 0.0
                         while True:
                             try:
                                 # Use BLPOP to wait for messages on worker-specific queue
                                 # timeout=1 means check every second (allows for graceful shutdown)
                                 result = await redis_manager.client.blpop(worker_channel, timeout=1)
+                                error_backoff = 0.0
 
                                 if result:
                                     # result is a tuple: (channel, message)
@@ -1197,7 +1199,10 @@ class ConnectionManager:
                                 raise
                             except Exception as e:
                                 logger.error(f"Error in RPC listener loop: {e}", exc_info=True)
-                                # Continue listening despite errors
+                                # A dead Redis connection fails blpop instantly, so without a
+                                # pause this spins and writes gigabytes of identical tracebacks.
+                                error_backoff = min(max(error_backoff * 2, 1.0), 30.0)
+                                await asyncio.sleep(error_backoff)
 
                     except asyncio.CancelledError:
                         raise  # Re-raise cancellation
