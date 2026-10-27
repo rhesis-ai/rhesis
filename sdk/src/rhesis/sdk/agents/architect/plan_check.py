@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from rhesis.sdk.agents.architect.plan import ArchitectPlan, MetricSpec
 from rhesis.sdk.agents.architect.tool_registry import PlanCategory
+from rhesis.sdk.metrics.targets import TargetKind
 
 # Which argument carries the Single-Turn/Multi-Turn shape. The two test-set
 # writers spell it differently.
@@ -129,26 +130,31 @@ def check_test_set_shape(
 
     return (
         f"Test set '{spec.name}' is planned as {spec.test_type} but this call "
-        f"sends {argument}='{sent}'. A metric only runs against the test type "
-        f"in its scope, so a set built in the other shape is evaluated by "
-        f"nothing. Send '{spec.test_type}', or call save_plan first."
+        f"sends {argument}='{sent}'. The plan's metrics were chosen for that "
+        f"shape of test, so a set built in the other one may be judged by none "
+        f"of them. Send '{spec.test_type}', or call save_plan first."
     )
 
 
-def _check_scope(spec: MetricSpec, arguments: Dict[str, Any]) -> Optional[str]:
-    if "metric_scope" not in arguments:
+def _check_target(spec: MetricSpec, arguments: Dict[str, Any]) -> Optional[str]:
+    config = arguments.get("config")
+    if config is None:
+        config = {}
+    if not isinstance(config, dict):
+        # A malformed config is the server's to reject, not ours.
         return None
-    sent = arguments["metric_scope"]
-    # An empty or malformed scope is the server's to reject, not ours.
-    if not isinstance(sent, list) or not sent:
+    target = config.get("target")
+    sent = target.get("on") if isinstance(target, dict) else target
+    if sent is not None and not isinstance(sent, str):
         return None
-    if {str(entry) for entry in sent} == set(spec.metric_scope):
+    # A metric created without a target judges each turn.
+    if (sent or TargetKind.TURN.value) == spec.target.value:
         return None
     return (
-        f"Metric '{spec.name}' is planned with metric_scope "
-        f"{list(spec.metric_scope)} but this call sends {sent}. The scope "
-        f"decides which tests the metric runs against, so a wrong one means "
-        f"it silently never runs. Send the planned scope, or call save_plan."
+        f"Metric '{spec.name}' is planned to judge '{spec.target.value}' but this "
+        f"call {'sends ' + repr(sent) if sent else 'sends no target'}. The target "
+        f"decides what the metric judges and which tests it runs on. Send "
+        f'config {{"target": {{"on": "{spec.target.value}"}}}}, or call save_plan.'
     )
 
 
@@ -193,7 +199,7 @@ def check_metric_shape(plan: ArchitectPlan, arguments: Dict[str, Any]) -> Option
         return None
 
     for problem in (
-        _check_scope(spec, arguments),
+        _check_target(spec, arguments),
         _check_threshold(spec, arguments),
         _check_threshold_operator(spec, arguments),
     ):

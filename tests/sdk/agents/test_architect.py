@@ -2218,9 +2218,9 @@ class TestArchitectPlanConstraints:
     def test_allows_test_set_when_all_prereqs_done(self, mock_model):
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            RequirementSpec,
             MappingSpec,
             MetricSpec,
+            RequirementSpec,
             TestSetSpec,
         )
         from rhesis.sdk.agents.schemas import ToolCall
@@ -2383,7 +2383,7 @@ class TestArchitectCompactListRendering:
             "name": f"Metric {idx}",
             "description": "x" * desc_chars,
             "score_type": "binary",
-            "metric_scope": "endpoint",
+            "config": {"target": {"on": "conversation"}},
         }
 
     def test_returns_none_for_non_list_payload(self):
@@ -2504,13 +2504,13 @@ class TestArchitectCompactListRendering:
                 "name": "Quality",
                 "description": "d",
                 "score_type": "numeric",
-                "metric_scope": "endpoint",
+                "config": {"target": {"on": "conversation"}},
             }
         ]
         out = ArchitectAgent._compact_list_result_for_history(json.dumps(items))
         assert out is not None
         assert "score_type=numeric" in out
-        assert "metric_scope=endpoint" in out
+        assert "target=conversation" in out
 
     def test_caps_displayed_items_when_page_huge(self):
         items = [{"id": f"u-{i}", "name": f"Item {i}", "description": "d"} for i in range(80)]
@@ -2542,7 +2542,7 @@ class TestArchitectCompactListRendering:
                 "name": f"Metric {i}",
                 "description": "y" * 200,
                 "score_type": "binary",
-                "metric_scope": "endpoint",
+                "config": {"target": {"on": "conversation"}},
             }
             for i in range(20)
         ]
@@ -2967,9 +2967,9 @@ class TestArchitectMappingMatch:
     def _travel_plan():
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            RequirementSpec,
             MappingSpec,
             MetricSpec,
+            RequirementSpec,
             TestSetSpec,
         )
 
@@ -3201,9 +3201,9 @@ class TestArchitectMappingMatch:
         if the agent never re-calls list_requirements / list_metrics."""
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            RequirementSpec,
             MappingSpec,
             MetricSpec,
+            RequirementSpec,
             TestSetSpec,
         )
         from rhesis.sdk.agents.schemas import ToolCall
@@ -3364,9 +3364,9 @@ class TestArchitectPlanProgress:
     def _ready_plan():
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            RequirementSpec,
             MappingSpec,
             MetricSpec,
+            RequirementSpec,
             TestSetSpec,
         )
 
@@ -3388,9 +3388,9 @@ class TestArchitectPlanProgress:
     def _pending_mapping_plan():
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            RequirementSpec,
             MappingSpec,
             MetricSpec,
+            RequirementSpec,
             TestSetSpec,
         )
 
@@ -3412,8 +3412,8 @@ class TestArchitectPlanProgress:
     def _pending_metric_plan():
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            RequirementSpec,
             MetricSpec,
+            RequirementSpec,
             TestSetSpec,
         )
 
@@ -3517,9 +3517,9 @@ class TestArchitectSavePlanReconciliation:
     def _plan_payload():
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            RequirementSpec,
             MappingSpec,
             MetricSpec,
+            RequirementSpec,
             TestSetSpec,
         )
 
@@ -3611,8 +3611,8 @@ class TestArchitectSavePlanReconciliation:
         ``reuse_status``."""
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            RequirementSpec,
             MetricSpec,
+            RequirementSpec,
             TestSetSpec,
         )
 
@@ -3671,9 +3671,9 @@ class TestArchitectSavePlanReconciliation:
         ``completed=False`` until the second link arrives."""
         from rhesis.sdk.agents.architect.plan import (
             ArchitectPlan,
-            RequirementSpec,
             MappingSpec,
             MetricSpec,
+            RequirementSpec,
             TestSetSpec,
         )
 

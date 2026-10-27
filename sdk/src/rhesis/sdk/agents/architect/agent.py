@@ -75,10 +75,14 @@ HELD_BACK_NEXT_SEED = (
 def _list_item_extras(item: Dict[str, Any]) -> List[str]:
     """The fields a compacted list line keeps beside an item's name."""
     extras: List[str] = []
-    for key in ("score_type", "metric_scope", "requirement_type", "test_type"):
+    for key in ("score_type", "requirement_type", "test_type"):
         val = item.get(key)
         if val not in (None, ""):
             extras.append(f"{key}={val}")
+    config = item.get("config")
+    target = config.get("target") if isinstance(config, dict) else None
+    if isinstance(target, dict) and target.get("on"):
+        extras.append(f"target={target['on']}")
     # Without these a list of runs is only names, so "the last two runs" cannot
     # be told apart and the model kept re-listing.
     for key in ("status", "created_at"):
