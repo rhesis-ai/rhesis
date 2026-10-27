@@ -79,7 +79,7 @@ def phase_include_names(
             [
                 "phases/planning.md",
                 "phases/reuse.md",
-                "metric-scope.md",
+                "metric-targets.md",
                 "metric-authoring.md",
                 "telemachus-save-plan.j2",
             ]
@@ -91,7 +91,7 @@ def phase_include_names(
         includes.extend(
             [
                 "phases/creation.md",
-                "metric-scope.md",
+                "metric-targets.md",
                 "metric-authoring.md",
             ]
         )
