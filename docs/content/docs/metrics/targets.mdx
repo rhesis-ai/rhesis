@@ -1,0 +1,88 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Metric Targets
+
+A metric's **target** says what it judges in a test's trace: the response as a whole, each turn of a conversation, or each span of one kind, such as every tool call or every retrieval. A metric without a target judges the response, as before.
+
+## Choices
+
+| `on` | Judges | The metric reads |
+| --- | --- | --- |
+| `turn` | Each turn: the test's one response, or every turn of a conversation on its own | the turn's input and output, and its trace |
+| `conversation` | The whole conversation, once | the conversation's trace |
+| `run` | The whole trace, once | the trace |
+| `tool_call` | Each tool call | the arguments as input, the result as output |
+| `retrieval` | Each retrieval | the query as input, the documents found as output |
+| `model_call` | Each model call | the prompt as input, the completion as output |
+| `agent` | Each agent run | the task as input, the final answer as output |
+| `guardrail` | Each guardrail check | what it checked as input, its decision as output |
+
+A metric that reads the trace gets the whole trace for a span, and the turn's own trace for a turn.
+
+A span or a turn is held to the test's goal, instructions and restrictions. A span is not held to the test's expected response or expected tool calls, which describe the whole response; a turn of a conversation is not held to the conversation's expected tool calls. So a metric that needs a reference answer can't take a per-span target, and the [Tool Call Trajectory](/docs/metrics/tool-calls) metric takes only `conversation` or `run`.
+
+Otherwise a metric can take the targets that fit what it reads. A judge reads input and output, so it can judge turns and any kind of span. A [code metric](/docs/metrics/code-metrics) that declares only `trace` can judge turns, the conversation or the whole run. A conversational metric judges the conversation. A target the metric can't take is refused when it is saved, with the choices it can take.
+
+The per-span targets take two refinements:
+
+- `name`: only spans with this tool, agent or model name, such as `"issue_refund"`.
+- `within`: only spans inside the agent with this name.
+
+## Combining the verdicts
+
+A per-span target runs the metric once per matching span, then combines the verdicts with `aggregate`:
+
+| `aggregate` | Passes when | Score |
+| --- | --- | --- |
+| `all` (default) | every span passes | the first failing span's, else the first span's |
+| `any` | at least one span passes | the first passing span's, else the first span's |
+| `share` | at least `min_share` (0 to 1) of the spans pass | the share that passed |
+
+The result reads "2 of 3 tool calls passed" and, when the metric fails, names the first span that failed, with its reason. Each span's score and verdict are listed under `spans`. A span the metric gave no verdict is left out of the count; when no span has one, the result is inconclusive. At most 25 spans are judged per metric; the result says when there were more. Turns on a conversation combine the same way.
+
+## When nothing matches
+
+When the trace has no span the target names, the metric is **not applicable** to that test. The result says why ("No tool calls named `issue_refund` were recorded.") and what would report them. It doesn't count towards the test's verdict. A test whose metrics are all not applicable is Inconclusive.
+
+What an endpoint reports decides which targets can match:
+
+- **SDK endpoints** report every span they trace.
+- **REST and WebSocket endpoints** report tool calls and retrievals through the `tool_calls` and `context` fields of their [response mapping](/docs/endpoints/response-mapping), or every span when the service sends its own traces. Map each tool call's `output` too: a tool call reported without one is judged with an empty result. A reported retrieval has no query of its own, so the turn's input is used as its query.
+
+## Setting a target
+
+A metric keeps its target in its `config`. Set it through the API or the MCP `update_metric` tool:
+
+<CodeBlock filename="target.sh" language="bash">
+{`curl -X PUT "$RHESIS_BASE_URL/metrics/$METRIC_ID" \\
+  -H "Authorization: Bearer $RHESIS_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"config": {"target": {"on": "tool_call", "name": "issue_refund"}}}'`}
+</CodeBlock>
+
+The whole `config` is replaced, so send a built-in metric's own settings, such as the [Tool Call Trajectory](/docs/metrics/tool-calls) metric's `match`, along with the target. The metric's [scope](/docs/metrics/metric-scope) still decides which tests it runs on.
+
+## Trying a target locally
+
+Pass `target` to `evaluate()` with a trace, or with the parts a trace is built from:
+
+<CodeBlock filename="targets.py" language="python">
+{`from rhesis.sdk.metrics import NumericJudge
+
+judge = NumericJudge(
+    name="refund_policy",
+    evaluation_prompt="The refund matches the policy: at most one refund per order.",
+    min_score=0,
+    max_score=1,
+    threshold=1,
+)
+result = judge.evaluate(
+    input="Refund order 42",
+    output="Refunded.",
+    tool_calls=[{"name": "issue_refund", "arguments": {"order": 42}, "output": "ok"}],
+    target={"on": "tool_call", "name": "issue_refund"},
+)
+print(result.details["reason"])`}
+</CodeBlock>
+
+A stored trace works the same way: `judge.evaluate(trace=Traces.pull(trace_id), target="retrieval")`.
