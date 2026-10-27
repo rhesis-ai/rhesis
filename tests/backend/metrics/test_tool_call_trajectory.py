@@ -170,6 +170,12 @@ class TestStoringExpectedCalls:
         with pytest.raises(ValidationError, match="expected_tool_calls"):
             TestCreate(test_configuration={"expected_tool_calls": calls})
 
+    def test_the_error_names_the_call_that_is_wrong(self):
+        with pytest.raises(ValidationError, match=r"expected_tool_calls: 1 -> name"):
+            TestCreate(
+                test_configuration={"expected_tool_calls": [{"name": "a"}, {"arguments": {}}]}
+            )
+
     def test_bulk_single_turn_tests_are_checked_too(self):
         with pytest.raises(ValidationError, match="expected_tool_calls"):
             TestBulkCreate(

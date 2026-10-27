@@ -71,6 +71,13 @@ def resolve_test_type(
     )
 
 
+def _described_errors(error: ValidationError) -> str:
+    """Every error with where it is, e.g. ``0 -> name: Field required``."""
+    return "; ".join(
+        f"{' -> '.join(str(loc) for loc in e['loc'])}: {e['msg']}" for e in error.errors()
+    )
+
+
 def validate_test_config_content(v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     """
     Validate test_configuration JSON based on content.
@@ -89,18 +96,14 @@ def validate_test_config_content(v: Optional[Dict[str, Any]]) -> Optional[Dict[s
             return validated_config.model_dump(exclude_none=True)
         except ValidationError as e:
             # Re-raise with more context
-            error_messages = []
-            for error in e.errors():
-                field = " -> ".join(str(loc) for loc in error["loc"])
-                error_messages.append(f"{field}: {error['msg']}")
-            raise ValueError(f"Invalid multi-turn test configuration: {'; '.join(error_messages)}")
+            raise ValueError(f"Invalid multi-turn test configuration: {_described_errors(e)}")
 
     # Other keys are free-form, but expected tool calls are read by metrics.
     if v.get(EXPECTED_TOOL_CALLS_KEY) is not None:
         try:
             calls = _EXPECTED_TOOL_CALLS.validate_python(v[EXPECTED_TOOL_CALLS_KEY])
         except ValidationError as e:
-            raise ValueError(f"Invalid {EXPECTED_TOOL_CALLS_KEY}: {e.errors()[0]['msg']}")
+            raise ValueError(f"Invalid {EXPECTED_TOOL_CALLS_KEY}: {_described_errors(e)}")
         return {
             **v,
             EXPECTED_TOOL_CALLS_KEY: _EXPECTED_TOOL_CALLS.dump_python(calls, exclude_none=True),
