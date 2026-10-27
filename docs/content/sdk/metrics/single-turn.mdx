@@ -92,6 +92,7 @@ Garak is an LLM vulnerability scanner that detects security weaknesses and jailb
 | --- | --- | --- |
 | `NumericJudge` | LLM-based numeric scoring (e.g., 0-10 scale) | Min/max score, threshold, custom prompts |
 | `CategoricalJudge` | LLM-based categorical classification | Categories, passing categories, custom prompts |
+| `ToolCallTrajectory` | Compares the trace's tool calls with `expectations.tool_calls`, without a model ([details](/docs/metrics/tool-calls)) | `match`, `arguments` |
 
 If any metrics are missing from the list, or you would like to use a different provider, please let us know by creating an issue on [GitHub](https://github.com/rhesis-ai/rhesis/issues).
 

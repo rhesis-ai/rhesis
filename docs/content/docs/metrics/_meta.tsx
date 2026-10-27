@@ -6,6 +6,7 @@ const meta: MetaRecord = {
   deepeval: "DeepEval",
   "trace-metrics": "Trace Metrics",
   "code-metrics": "Code Metrics",
+  "tool-calls": "Checking Tool Calls",
 };
 
 export default meta;

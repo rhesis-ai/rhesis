@@ -1,0 +1,77 @@
+import { CodeBlock } from "@/components/CodeBlock";
+
+# Checking Tool Calls
+
+The **Tool Call Trajectory** metric compares the tools an endpoint called with the tools a test expects it to call. It needs no model: it reads the tool calls from the run's [trace](/docs/metrics/code-metrics#checking-what-the-endpoint-did) and the expected ones from the test.
+
+## Giving a test its expected tool calls
+
+A test lists the calls it expects in `test_configuration.expected_tool_calls`, in order. Each call has a `name`, and optionally `arguments` with only the keys that matter. Both single-turn and multi-turn tests can carry them; on a multi-turn test they cover the whole conversation.
+
+<CodeBlock filename="tool_tests.py" language="python">
+{`from rhesis.sdk.entities import Prompt, Test, TestSet
+
+test = Test(
+    category="Refunds",
+    topic="Late orders",
+    requirement="Follows the refund process",
+    prompt=Prompt(content="My order 42 arrived late, I want my money back."),
+    expected_tool_calls=[
+        {"name": "lookup_order", "arguments": {"order_id": 42}},
+        {"name": "issue_refund"},
+    ],
+)
+
+TestSet(name="Refund flow", tests=[test]).push()`}
+</CodeBlock>
+
+Through the API and MCP, send the same list as `test_configuration.expected_tool_calls` when creating or updating a test. An empty list expects no tool calls at all.
+
+## Adding the metric
+
+Every organization has a built-in **Tool Call Trajectory** metric. Add it to a requirement or a test set like any other metric. Tests without expected tool calls are not judged by it: their cell in the results grid shows as not applicable, and the test's result comes from its other metrics. A test with no other metric is Inconclusive. Production traces have no expectations, so the metric never runs on them.
+
+The endpoint has to report its tool calls:
+
+- **SDK endpoints** send them as tool spans when the tools are traced.
+- **REST and WebSocket endpoints** report them through the `tool_calls` field of their [response mapping](/docs/endpoints/response-mapping).
+
+When no tool calls were recorded, the result says so.
+
+## How calls are matched
+
+The metric's `config` sets how the calls must line up. The built-in metric uses `in_order` and `partial`.
+
+| `match` | Passes when |
+| --- | --- |
+| `exact` | The same calls were made in the same order, and no others |
+| `in_order` | The expected calls were made in order; other calls may come between them |
+| `any_order` | The same calls were made in any order, and no others |
+| `subset` | Every call made was expected; some expected calls may be missing |
+| `superset` | Every expected call was made; other calls are allowed |
+
+| `arguments` | A call's arguments match when |
+| --- | --- |
+| `partial` | Every listed key has the listed value; other keys are ignored |
+| `exact` | They equal the listed arguments |
+| `ignore` | Always; only the tool's name is compared |
+
+A call listed without `arguments` matches any arguments. The result scores 1 on a match and 0 otherwise, names the first call that differs ("Expected `lookup_order`; it was never called."), and reports precision and recall: the share of calls made that were expected, and the share of expected calls that were made.
+
+## Running it locally
+
+<CodeBlock filename="trajectory.py" language="python">
+{`from rhesis.sdk.metrics import ToolCallTrajectory
+
+metric = ToolCallTrajectory(match="in_order", arguments="partial")
+result = metric.evaluate(
+    tool_calls=[
+        {"name": "lookup_order", "arguments": {"order_id": 42}},
+        {"name": "issue_refund", "arguments": {"order_id": 42}},
+    ],
+    expectations={"tool_calls": [{"name": "lookup_order"}, {"name": "issue_refund"}]},
+)
+print(result.score, result.details["reason"])`}
+</CodeBlock>
+
+For a check the modes can't express, write a [code metric](/docs/metrics/code-metrics) that reads `trace.tool_calls`.
