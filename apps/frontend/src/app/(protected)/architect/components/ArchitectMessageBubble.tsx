@@ -190,7 +190,11 @@ export default function ArchitectMessageBubble({
               : {}
           }
         >
-          <MarkdownContent content={message.content} variant="body2" />
+          <MarkdownContent
+            content={message.content}
+            variant="body2"
+            entityLinksOnly={!isUser}
+          />
         </Box>
 
         {message.charts?.map((spec, i) => (
