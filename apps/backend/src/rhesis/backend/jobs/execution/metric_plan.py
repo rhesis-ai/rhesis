@@ -7,7 +7,7 @@ before this, the grid could only be built retroactively from recorded
 to for a run dispatched before this shipped.
 
 Lives under ``jobs/`` rather than ``app/services/`` because it needs
-``get_test_metrics`` and ``filter_configs_by_scope``, both jobs-internal --
+``get_test_metrics``, which is jobs-internal --
 see ``apps/backend/AGENTS.md``'s "jobs/ depends on services/utils, never the
 reverse" rule.
 
@@ -61,16 +61,14 @@ from rhesis.backend.app import models
 from rhesis.backend.app.crud.test_run import get_ordered_tests_for_test_set
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_set import TestSet
-from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.services.run_models import metric_backends
 from rhesis.backend.jobs.execution.constants import (
     BUILTIN_GOAL_ROW_KEY,
     PENELOPE_EVALUATED_METRICS,
     PENELOPE_GOAL_METRIC_KEY,
 )
-from rhesis.backend.jobs.execution.evaluation import filter_configs_by_scope
 from rhesis.backend.jobs.execution.executors.data import get_test_metrics
-from rhesis.backend.metrics.applicability import applicable, applies, expected_tool_calls
+from rhesis.backend.metrics.applicability import applicable, expected_tool_calls, metric_class
 from rhesis.sdk.metrics import Expectations
 
 _EMPTY_PLAN: Dict[str, Any] = {
@@ -154,7 +152,7 @@ def _expectations_by_test(
     db: Session, keyed: List[Tuple[str, models.Metric, bool]], test_ids: List[str]
 ) -> Dict[str, Expectations]:
     """What each test expects, read only when one of the metrics depends on it."""
-    if all(applies(metric, None) for _, metric, _ in keyed):
+    if not any(getattr(metric_class(m), "REQUIRED_EXPECTATIONS", ()) for _, m, _ in keyed):
         return {}
     rows = db.query(models.Test.id, models.Test.test_configuration).filter(
         models.Test.id.in_([uuid.UUID(t) for t in test_ids])
@@ -172,18 +170,17 @@ def _cell_keys_for_test(
     expectations: Optional[Expectations] = None,
 ) -> Dict[str, str]:
     row_key_by_metric = {id(m): key for key, m, _ in keyed}
-    # A metric missing what it compares with is not applicable, and keyed without it,
-    # as the evaluator leaves it out.
-    metrics = applicable([m for _, m, _ in keyed], expectations)
+    metrics = [m for _, m, _ in keyed]
+    # A metric that can't judge the test is not applicable, and keyed without it, as the
+    # evaluator leaves it out.
     if not multi_turn:
-        kept = filter_configs_by_scope(metrics, MetricScope.SINGLE_TURN, test_id)
-        return _runtime_keys(kept, row_key_by_metric)
+        return _runtime_keys(applicable(metrics, expectations), row_key_by_metric)
 
     # A listed Goal Achievement metric is never scored on a multi-turn test --
     # Penelope's own judge is, live or re-scored -- so the other metrics are
     # keyed without it, and the goal reads through the built-in row.
-    others = filter_configs_by_scope(
-        [m for m in metrics if not _is_penelope_metric(m)], MetricScope.MULTI_TURN, test_id
+    others = applicable(
+        [m for m in metrics if not _is_penelope_metric(m)], expectations, conversation=True
     )
     per_test = _runtime_keys(others, row_key_by_metric)
     per_test[BUILTIN_GOAL_ROW_KEY] = PENELOPE_GOAL_METRIC_KEY

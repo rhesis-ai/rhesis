@@ -26,13 +26,13 @@ from rhesis.backend.jobs.execution.constants import BUILTIN_GOAL_ROW_KEY
 from rhesis.backend.jobs.execution.metric_plan import build_metric_plan
 
 
-def _metric(db, org_id, user_id, *, name, scope, class_name="AccuracyMetric"):
+def _metric(db, org_id, user_id, *, name, target="turn", class_name="AccuracyMetric"):
     backend_type = get_or_create_type_lookup(db, "BackendType", "rhesis", str(org_id), str(user_id))
     metric_type = get_or_create_type_lookup(
         db, "MetricType", "custom-prompt", str(org_id), str(user_id)
     )
     metric = models.Metric(
-        metric_scope=scope,
+        config={"target": {"on": target}},
         name=name,
         class_name=class_name,
         score_type="numeric",
@@ -119,7 +119,6 @@ def verdict_matrix_setup(test_db: Session, test_organization, db_user, db_endpoi
     )
 
     metric = models.Metric(
-        metric_scope=["Single-Turn"],
         name="Accuracy",
         class_name="AccuracyMetric",
         score_type="numeric",
@@ -241,7 +240,6 @@ def two_requirement_setup(test_db: Session, test_organization, db_user, db_endpo
         test_db.flush()
 
         metric = models.Metric(
-            metric_scope=["Single-Turn"],
             name="Accuracy",
             class_name="AccuracyMetric",
             score_type="numeric",
@@ -578,7 +576,7 @@ class TestSourceResolutionPerGroup:
         )
         test_db.add(requirement)
         test_db.flush()
-        metric = _metric(test_db, org_id, user_id, name="Accuracy", scope=["Single-Turn"])
+        metric = _metric(test_db, org_id, user_id, name="Accuracy")
         _link_metric(test_db, requirement, metric, org_id, user_id)
 
         # Explicit ids: get_ordered_tests_for_test_set orders by Test.id, so
@@ -657,7 +655,7 @@ class TestCustomMetricPoolsAcrossRequirements:
         test_db.add_all([requirement_a, requirement_b])
         test_db.flush()
 
-        metric = _metric(test_db, org_id, user_id, name="Custom Detector", scope=["Single-Turn"])
+        metric = _metric(test_db, org_id, user_id, name="Custom Detector")
         test_db.execute(
             models.test_set_metric_association.insert().values(
                 test_set_id=test_set.id,
@@ -781,7 +779,7 @@ class TestMetriclessRequirementKeepsItsOwnEntry:
         )
         test_db.add_all([requirement_with_metric, requirement_without_metric])
         test_db.flush()
-        metric = _metric(test_db, org_id, user_id, name="Accuracy", scope=["Single-Turn"])
+        metric = _metric(test_db, org_id, user_id, name="Accuracy")
         _link_metric(test_db, requirement_with_metric, metric, org_id, user_id)
 
         test_with_metric = models.Test(
@@ -815,14 +813,14 @@ class TestMetriclessRequirementKeepsItsOwnEntry:
         assert None not in by_id
 
 
-class TestScopeFilteredKeys:
+class TestApplicabilityFilteredKeys:
     """cell_keys must carry the key the runtime will really write, not the
-    plan's own row key. The runtime numbers duplicate names *after* scope
-    filtering, so a survivor takes the bare name even when the plan gave that
+    plan's own row key. The runtime numbers duplicate names *after* leaving out
+    what doesn't apply, so a survivor takes the bare name even when the plan gave that
     metric a suffix.
     """
 
-    def test_survivor_of_scope_filter_maps_to_the_bare_key(
+    def test_survivor_of_applicability_maps_to_the_bare_key(
         self, test_db: Session, test_organization, db_user, db_endpoint, db_status
     ):
         org_id = test_organization.id
@@ -851,7 +849,7 @@ class TestScopeFilteredKeys:
         test_db.add(requirement)
         test_db.flush()
 
-        # Same name, different scopes. Sorted by (name, class_name, id) the
+        # Same name, different targets. Sorted by (name, class_name, id) the
         # multi-turn one wins the bare key in the plan, so a single-turn test
         # must still resolve its own metric to "Accuracy" -- the runtime,
         # having filtered first, has only one metric left to name.
@@ -860,7 +858,7 @@ class TestScopeFilteredKeys:
             org_id,
             user_id,
             name="Accuracy",
-            scope=["Multi-Turn"],
+            target="conversation",
             class_name="AAAMetric",
         )
         single = _metric(
@@ -868,7 +866,7 @@ class TestScopeFilteredKeys:
             org_id,
             user_id,
             name="Accuracy",
-            scope=["Single-Turn"],
+            target="turn",
             class_name="ZZZMetric",
         )
         _link_metric(test_db, requirement, multi, org_id, user_id)
@@ -989,12 +987,8 @@ class TestPassRateIsOverTests:
         requirement = models.Requirement(name="Req Mixed", organization_id=org_id, user_id=user_id)
         test_db.add(requirement)
         test_db.flush()
-        good = _metric(
-            test_db, org_id, user_id, name="Good", scope=["Single-Turn"], class_name="GoodMetric"
-        )
-        bad = _metric(
-            test_db, org_id, user_id, name="Bad", scope=["Single-Turn"], class_name="BadMetric"
-        )
+        good = _metric(test_db, org_id, user_id, name="Good", class_name="GoodMetric")
+        bad = _metric(test_db, org_id, user_id, name="Bad", class_name="BadMetric")
         _link_metric(test_db, requirement, good, org_id, user_id)
         _link_metric(test_db, requirement, bad, org_id, user_id)
 
@@ -1373,9 +1367,7 @@ class TestPenelopeGoalAchievement:
         )
         test_db.add(requirement)
         test_db.flush()
-        accuracy = _metric(
-            test_db, org_id, user_id, name="Accuracy", scope=["Single-Turn", "Multi-Turn"]
-        )
+        accuracy = _metric(test_db, org_id, user_id, name="Accuracy", target="turn")
         _link_metric(test_db, requirement, accuracy, org_id, user_id)
 
         multi_turn_type = get_or_create_type_lookup(
@@ -1518,7 +1510,7 @@ class TestPenelopeGoalAchievement:
             goal_setup["org_id"],
             goal_setup["user_id"],
             name="Booking Goal",
-            scope=["Multi-Turn"],
+            target="conversation",
             class_name="GoalAchievementJudge",
         )
         _link_metric(

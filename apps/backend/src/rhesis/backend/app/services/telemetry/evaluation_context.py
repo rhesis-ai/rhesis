@@ -11,13 +11,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.crud.metric import get_metrics_by_ids_for_scope
+from rhesis.backend.app import models
 from rhesis.backend.app.crud.organization import get_organization
 from rhesis.backend.app.crud.project import find_project
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.quota.enforcement import QuotaExceededError, enforce_quota
-from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.services.telemetry.trace_metrics_config import context_ttl_seconds
+from rhesis.backend.metrics.applicability import metric_target
 from rhesis.backend.app.utils.ttl_cache import TTLCache
 from rhesis.backend.metrics.metric_config import MetricConfig, validate_metric_configs
 
@@ -33,13 +33,25 @@ def load_project_trace_metrics(
     """The metrics a project assigned to its traces (``config["metric_ids"]``) for *phase*.
 
     Args:
-        phase: "turn" loads the Single-Turn metrics (every turn, conversation or not),
-            "conversation" the Multi-Turn ones (the whole conversation).
+        phase: "conversation" loads the metrics that judge the conversation, "turn" the
+            others (judged on every turn, conversation or not).
     """
-    scope = MetricScope.SINGLE_TURN if phase == "turn" else MetricScope.MULTI_TURN
-    return get_metrics_by_ids_for_scope(
-        db, organization_id, config.get("metric_ids") or [], scope.value
+    metric_ids = config.get("metric_ids")
+    if not metric_ids:
+        return []
+
+    metrics = (
+        db.query(models.Metric)
+        .filter(
+            models.Metric.organization_id == organization_id,
+            models.Metric.deleted_at.is_(None),
+            models.Metric.id.in_(metric_ids),
+        )
+        .all()
     )
+
+    wanted = phase == "conversation"
+    return [m for m in metrics if (metric_target(m) == "conversation") == wanted]
 
 
 def project_metric_configs(

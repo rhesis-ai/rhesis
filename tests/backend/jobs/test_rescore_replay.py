@@ -42,7 +42,6 @@ def _config(name: str, class_name: str) -> MagicMock:
     mc = MagicMock()
     mc.name = name
     mc.class_name = class_name
-    mc.metric_scope = ["Multi-Turn"]
     return mc
 
 

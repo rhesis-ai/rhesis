@@ -15,7 +15,6 @@ from celery.exceptions import Retry
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
-from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.services.telemetry.trace_metrics_config import trace_metrics_config
 from rhesis.backend.jobs.telemetry.evaluate import (
     CONVERSATION_INPUT_KEY,
@@ -142,7 +141,6 @@ def _mock_metric_model(name: str = "m1") -> MagicMock:
     m.evaluation_steps = None
     m.reasoning = None
     m.description = None
-    m.metric_scope = [MetricScope.SINGLE_TURN.value]
     m.min_score = 0.0
     m.max_score = 1.0
     m.categories = None
@@ -696,7 +694,6 @@ class TestEvaluateConversationTraceMetrics:
         status = _mock_status_row("conv-status-id")
         db = _db_mock_conversation(project, [span1, span2], status)
         mock_metric = _mock_metric_model("multi")
-        mock_metric.metric_scope = [MetricScope.MULTI_TURN.value]
 
         eval_results = {"multi": {"is_successful": True}}
 
@@ -809,7 +806,6 @@ class TestEvaluateConversationTraceMetrics:
         span1.trace_metrics = {}
         db = _db_mock_conversation(project, [span1], _mock_status_row())
         mock_metric = _mock_metric_model()
-        mock_metric.metric_scope = [MetricScope.MULTI_TURN.value]
 
         with (
             patch(
@@ -852,7 +848,6 @@ class TestEvaluateConversationTraceMetrics:
         span1.trace_metrics = {}
         db = _db_mock_conversation(project, [span1], _mock_status_row())
         mock_metric = _mock_metric_model()
-        mock_metric.metric_scope = [MetricScope.MULTI_TURN.value]
 
         with (
             patch(

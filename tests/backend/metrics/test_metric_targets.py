@@ -55,7 +55,6 @@ def trajectory(target):
         backend="rhesis",
         name="Tool Call Trajectory",
         score_type="numeric",
-        metric_scope=["Multi-Turn"],
         target=target,
     )
 
@@ -70,7 +69,7 @@ class TestStoredTargets:
         row = MagicMock()
         fields = dict.fromkeys(
             ["id", "description", "evaluation_steps", "reasoning", "evaluation_examples"]
-            + ["metric_scope", "backend_type", "model_id", "model", "min_score", "max_score"]
+            + ["backend_type", "model_id", "model", "min_score", "max_score"]
         )
         fields.update(
             name="Tool Call Trajectory",
@@ -140,7 +139,6 @@ class TestStoredTargets:
             min_score=0,
             max_score=1,
             threshold=1,
-            metric_scope=["Single-Turn"],
             config={"target": {"on": "tool_call", "name": "issue_refund"}},
         )
 
@@ -155,7 +153,6 @@ class TestStoredTargets:
                 min_score=0,
                 max_score=1,
                 threshold=1,
-                metric_scope=["Single-Turn"],
                 config={"target": {"on": "tool_call", "aggregate": "share"}},
             )
 

@@ -28,13 +28,14 @@ def coverage(test_db: Session, test_organization, db_user, db_status):
     def lookup(type_name, value):
         return get_or_create_type_lookup(test_db, type_name, value, str(org_id), str(user_id))
 
-    def requirement(name, *, metric_scopes=(), multi_turn=False):
+    def requirement(name, *, targets=(), multi_turn=False, reference=False):
         req = models.Requirement(name=name, organization_id=org_id, user_id=user_id)
         test_db.add(req)
         test_db.flush()
-        for scope in metric_scopes:
+        for target in targets:
             metric = models.Metric(
-                metric_scope=scope,
+                config={"target": {"on": target}},
+                ground_truth_required=reference,
                 name=f"{name} metric",
                 class_name="AccuracyMetric",
                 score_type="numeric",
@@ -80,14 +81,15 @@ def coverage(test_db: Session, test_organization, db_user, db_status):
 class TestRequirementMetricCoverage:
     def test_all_covered(self, coverage):
         requirement, check = coverage
-        requirement("Single", metric_scopes=[["Single-Turn"]])
-        requirement("Multi", metric_scopes=[["Multi-Turn"]], multi_turn=True)
+        requirement("Single", targets=["turn"])
+        requirement("Multi", targets=["conversation"], multi_turn=True)
+        requirement("Each turn of a conversation", targets=["turn"], multi_turn=True)
 
         assert check().status == PreflightCheckStatus.PASSED
 
     def test_requirement_without_metrics_is_flagged_as_unscored(self, coverage):
         requirement, check = coverage
-        requirement("Covered", metric_scopes=[["Single-Turn"]])
+        requirement("Covered", targets=["turn"])
         requirement("Bare")
 
         result = check()
@@ -98,20 +100,26 @@ class TestRequirementMetricCoverage:
         # The run doesn't skip these tests, it runs them unscored.
         assert "won't get a pass/fail verdict" in result.detail
 
-    def test_metrics_of_the_wrong_scope_do_not_cover(self, coverage):
+    def test_a_conversation_metric_does_not_cover_a_single_turn_test(self, coverage):
+        requirement, check = coverage
+        requirement("Single with conversation metric", targets=["conversation"])
+
+        result = check()
+        assert result.status == PreflightCheckStatus.WARNING
+        assert "Single with conversation metric" in result.detail
+
+    def test_a_reference_metric_does_not_cover_a_conversation(self, coverage):
         requirement, check = coverage
         requirement(
-            "Multi with single-turn metric", metric_scopes=[["Single-Turn"]], multi_turn=True
+            "Multi with reference metric", targets=["turn"], multi_turn=True, reference=True
         )
 
         result = check()
         assert result.status == PreflightCheckStatus.WARNING
-        assert "Multi with single-turn metric" in result.detail
+        assert "Multi with reference metric" in result.detail
 
     def test_one_fitting_metric_is_enough(self, coverage):
         requirement, check = coverage
-        requirement(
-            "Mixed", metric_scopes=[["Single-Turn"], ["Multi-Turn", "Single-Turn"]], multi_turn=True
-        )
+        requirement("Mixed", targets=["conversation", "turn"])
 
         assert check().status == PreflightCheckStatus.PASSED
