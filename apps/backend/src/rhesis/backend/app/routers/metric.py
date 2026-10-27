@@ -246,7 +246,10 @@ def improve_metric(
 def read_metric_targets(current_user: User = Depends(require_current_user_or_token)):
     """Every target a metric can have, in the order an editor offers them. Which of them a
     given metric can take is its ``supported_targets``."""
-    from rhesis.sdk.metrics.targets import TARGETS
+    try:
+        from rhesis.sdk.metrics.targets import TARGETS
+    except ImportError:  # a core install, which runs no metric
+        return []
 
     return [
         schemas.TargetChoice(
