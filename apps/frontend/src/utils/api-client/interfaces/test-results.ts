@@ -27,6 +27,8 @@ export interface MetricResult {
   relevant_turns?: number[];
   /** Goal Achievement's breakdown, when this result came from a re-score. */
   criteria_evaluations?: CriterionEvaluation[];
+  /** Set when the metric's target matched nothing in the trace; `reason` says why. */
+  not_applicable?: boolean;
 }
 
 export interface TestMetrics {

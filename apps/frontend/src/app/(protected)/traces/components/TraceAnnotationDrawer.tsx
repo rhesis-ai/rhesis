@@ -5,7 +5,11 @@ import { Box, Chip, Stack, Typography } from '@mui/material';
 import TrackChangesIcon from '@mui/icons-material/TrackChanges';
 import StatusChip from '@/components/common/StatusChip';
 import AnnotationDrawer from '@/components/annotations/AnnotationDrawer';
-import { allMetricsPassed, displayStatusOf } from '@/constants/outcomes';
+import {
+  allMetricsPassed,
+  applicableMetrics,
+  displayStatusOf,
+} from '@/constants/outcomes';
 import {
   ANNOTATION_ENTITY_TYPES,
   ANNOTATION_TARGET_LABELS,
@@ -29,8 +33,17 @@ interface TraceAnnotationDrawerProps {
 }
 
 interface MetricEntry {
-  is_successful?: boolean;
+  is_successful?: boolean | null;
   score?: number;
+  not_applicable?: boolean;
+}
+
+function sectionMetrics(section: unknown): Record<string, MetricEntry> {
+  return applicableMetrics(
+    (section as Record<string, unknown> | undefined)?.metrics as
+      | Record<string, MetricEntry>
+      | undefined
+  );
 }
 
 /** Both metric sections flattened, since a mention names a metric not a section. */
@@ -40,13 +53,7 @@ function allTraceMetrics(
   if (!traceMetrics) return {};
   const result: Record<string, MetricEntry> = {};
   for (const section of ['turn_metrics', 'conversation_metrics']) {
-    const sectionData = traceMetrics[section] as
-      | Record<string, unknown>
-      | undefined;
-    Object.assign(
-      result,
-      (sectionData?.metrics ?? {}) as Record<string, MetricEntry>
-    );
+    Object.assign(result, sectionMetrics(traceMetrics[section]));
   }
   return result;
 }
@@ -84,14 +91,9 @@ export default function TraceAnnotationDrawer({
       const traceMetrics = selectedSpan.trace_metrics as
         | Record<string, unknown>
         | undefined;
-      const turnSection = traceMetrics?.turn_metrics as
-        | Record<string, unknown>
-        | undefined;
-      const turnMetrics = turnSection?.metrics as
-        | Record<string, { is_successful?: boolean }>
-        | undefined;
+      const turnMetrics = sectionMetrics(traceMetrics?.turn_metrics);
       // Per-turn: finer than anything the backend records an outcome for.
-      return turnMetrics && Object.keys(turnMetrics).length > 0
+      return Object.keys(turnMetrics).length > 0
         ? allMetricsPassed(Object.values(turnMetrics))
           ? 'passed'
           : 'failed'

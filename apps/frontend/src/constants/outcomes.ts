@@ -104,6 +104,21 @@ export function allMetricsPassed(
   return metrics.length > 0 && metrics.every(m => m.is_successful === true);
 }
 
+/**
+ * A metric results map without the metrics whose target matched nothing in
+ * the trace. Like the backend's `classify_metrics`, nothing counts them as
+ * passed or failed.
+ */
+export function applicableMetrics<T extends { not_applicable?: boolean }>(
+  metrics: Record<string, T> | null | undefined
+): Record<string, T> {
+  return Object.fromEntries(
+    Object.entries(metrics ?? {}).filter(
+      ([, metric]) => !metric?.not_applicable
+    )
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Pass rate
 // ---------------------------------------------------------------------------

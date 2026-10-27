@@ -8,6 +8,7 @@ import {
   getTestResultLabel,
   isPassedStatusName,
 } from '@/utils/test-result-status';
+import { applicableMetrics } from '@/constants/outcomes';
 import { getEndpointFailure } from '@/utils/endpoint-failure';
 import { getLatestPartAnnotationForResult } from './result-annotations';
 
@@ -52,7 +53,7 @@ export function getEvaluationContent(test: TestResultDetail): string {
 }
 
 export function getFailedMetricNames(test: TestResultDetail): string[] {
-  const metrics = test.test_metrics?.metrics || {};
+  const metrics = applicableMetrics(test.test_metrics?.metrics);
   return Object.entries(metrics)
     .filter(([_, metric]) => !metric.is_successful)
     .map(([name]) => name);
@@ -63,7 +64,7 @@ export function getTestResultDisplayStatus(
   isMultiTurn: boolean
 ): TestResultDisplayStatus {
   if (isMultiTurn && test.test_output?.goal_evaluation) {
-    const allMetrics = test.test_metrics?.metrics || {};
+    const allMetrics = applicableMetrics(test.test_metrics?.metrics);
     const allMetricValues = Object.values(allMetrics);
     const hasTestMetrics = allMetricValues.length > 0;
 
@@ -158,8 +159,8 @@ export function getTestResultDisplayStatus(
     };
   }
 
-  const metrics = test.test_metrics?.metrics || {};
-  const metricValues = Object.values(metrics);
+  const allMetrics = test.test_metrics?.metrics || {};
+  const metricValues = Object.values(applicableMetrics(allMetrics));
   const totalMetrics = metricValues.length;
   // Pre-annotation values: `originalPassed` below is the automated baseline the
   // conflict indicator compares the human verdict against, so a metric an
@@ -167,7 +168,8 @@ export function getTestResultDisplayStatus(
   const passedMetrics = metricValues.filter(
     m => m.override?.original_value ?? m.is_successful
   ).length;
-  const hasExecutionError = !test.test_metrics || totalMetrics === 0;
+  const hasExecutionError =
+    !test.test_metrics || Object.keys(allMetrics).length === 0;
 
   if (hasExecutionError) {
     return {
