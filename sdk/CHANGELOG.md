@@ -91,7 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   requirement could also create metrics and test sets. Work beyond what was shown is held for
   another Accept, and a turn cut off by the iteration limit no longer offers Accept again.
 - Agents no longer resend a tool call that already failed in the same turn, and stop calling a
-  tool after three failures, instead of spending the turn on retries. The Architect also rejects
+  tool after three failures in a row, instead of spending the turn on retries. The Architect also rejects
   placeholder ids before sending them and leaves failures a later call recovered from out of the
   model's history.
 - `ShowChartTool` gives the model the chart's real labels and values (and the true lowest and
@@ -107,6 +107,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   told to compare them side by side with `bar` and a series.
 - `on_tool_end` event handlers receive the call's `arguments`, so a finished tool can be
   described as precisely as a started one.
+- The Architect charts a report on the platform's default model, which often read the
+  insights rows and answered without a chart. A finish without a chart after `get_insights` is
+  turned back once, a chart query that drops a filter its `get_insights` call set (such as
+  `environments=["production"]`) is rejected, and `ShowChartTool` skips a chart already on the
+  reply and rejects a "top N" title over fewer rows.
 - Normalized cached prompt usage for OpenAI and LiteLLM so separately billed cache reads and
   writes stay out of `input_tokens`, while provider-reported totals remain unchanged.
 - Streamed LangChain calls record their cache reads and writes. They carry usage only on

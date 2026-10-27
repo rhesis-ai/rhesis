@@ -161,12 +161,24 @@ A tool is considered mutating if its HTTP method is **not** in `ArchitectConfig.
 
 ## Failed tool calls
 
-`BaseAgent` stops a turn from looping on calls that can't succeed. It refuses, without sending, an identical call (same tool, same arguments) that already failed this turn, and any call to a tool that has failed three times (`_MAX_FAILURES_PER_TOOL`). The refusal comes back to the model as the tool's error and emits no events. The record resets at the start of each turn.
+`BaseAgent` stops a turn from looping on calls that can't succeed. It refuses, without sending, an identical call (same tool, same arguments) that already failed this turn, and any call to a tool that has failed three times in a row (`_MAX_FAILURES_PER_TOOL`); a success clears the count, so a tool called many times a turn can correct a few rejected calls. The refusal comes back to the model as the tool's error and emits no events. The record resets at the start of each turn.
 
 The Architect adds two checks of its own:
 
 - An `*_id` argument that holds a placeholder rather than a real id (for example `pending_id_resolution`) is rejected before dispatch, telling the model to wait for the create to return its id (`find_placeholder_ids` in `arg_validation.py`).
 - A failure that a later call of the same tool recovered from is left out of the tool history in the model's prompt.
+
+## Chart guards
+
+The Architect's charts come from `ShowChartTool` (`chart_tool.py`), which runs a `get_insights` query and keeps a chart spec built from the returned rows. A few checks keep a chart honest about what the reply says:
+
+- **Nudge to chart.** A turn that read `get_insights` rows and tries to finish without calling `show_chart` is turned back once with `CHART_NUDGE`, a failed `finish` result asking for a chart per breakdown. The model may finish again if no chart fits. It never fires on the last iteration.
+- **Kept filters.** Before `show_chart` runs, `_check_chart_filters` compares its query with this turn's latest `get_insights` call for the same breakdown (same entity and `group_by`). A filter that call set and the chart leaves out (`environments`, `endpoint_ids`, `months` and the like) is rejected, since the chart would show other data than the reply describes (`dropped_filters` in `chart_tool.py`).
+- **Counts only in stacks.** `stacked_bar` and `area` add values up, so they take only `count` measures.
+- **No duplicates.** A chart identical to one already on the reply is not added again.
+- **Honest titles.** A title promising "top N" over fewer rows is rejected.
+
+On a turn with a chart, the reply writer (`streaming_response.j2`) gets a chart rule in place of its table rule: the findings in a sentence each, and none of the chart's numbers laid out again.
 
 ## How to add a new MCP tool
 

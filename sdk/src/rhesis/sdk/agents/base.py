@@ -1022,6 +1022,10 @@ class BaseAgent:
                 self._turn_failure_counts[tc.tool_name] = (
                     self._turn_failure_counts.get(tc.tool_name, 0) + 1
                 )
+            else:
+                # Counts failures in a row: a tool called many times a turn (one chart per
+                # breakdown) may correct a few rejected calls without being shut off.
+                self._turn_failure_counts.pop(tc.tool_name, None)
 
             await _emit(
                 self._event_handlers,
@@ -1059,7 +1063,7 @@ class BaseAgent:
             )
         elif failures >= self._MAX_FAILURES_PER_TOOL:
             error = (
-                f"Not sent: {tool_call.tool_name} has already failed {failures} times "
+                f"Not sent: {tool_call.tool_name} has failed {failures} times in a row "
                 "this turn. Stop calling it and tell the user what went wrong."
             )
         else:

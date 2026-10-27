@@ -28,6 +28,7 @@ from rhesis.sdk.agents.architect.tool_registry import PlanCategory, mode_for, pl
 from rhesis.sdk.agents.architect.workflow import WorkflowPath, resolve_workflow_path_update
 from rhesis.sdk.agents.arg_validation import find_missing_arguments, find_placeholder_ids
 from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
+from rhesis.sdk.agents.chart_tool import dropped_filters
 from rhesis.sdk.agents.constants import (
     Action,
     AgentMode,
@@ -53,6 +54,13 @@ _INTERNAL_TOOL_NAMES: FrozenSet[str] = frozenset(t.value for t in InternalTool)
 # Floor on an unnamed record's share of the summary budget. Below this a
 # record is too clipped to be worth showing as a record at all.
 _MIN_RECORD_CHARS = 400
+
+# Sent back once when a turn read insights rows and is finishing without a chart.
+CHART_NUDGE = (
+    "Not finished: this turn read get_insights rows but showed no chart. Call show_chart "
+    "for each breakdown your reply reports (it runs the query itself), then finish. If no "
+    "chart fits this answer, finish again."
+)
 
 # Seed for a turn whose create/update calls were held for approval.
 HELD_BACK_SEED = "Here is what I'll do once you accept. Nothing has been created yet."
@@ -963,6 +971,7 @@ class ArchitectAgent(BaseAgent):
 
         error = (
             self._check_plan_constraints(tool_call)
+            or self._check_chart_filters(tool_call)
             or self._validate_tool_arguments(tool_call)
             or find_placeholder_ids(tool_call.arguments or {})
             or find_missing_arguments(
@@ -2005,6 +2014,20 @@ class ArchitectAgent(BaseAgent):
         self, action: AgentAction, iteration: int
     ) -> Tuple[ExecutionStep, bool]:
         """Stream the final response token-by-token."""
+        if iteration < self.max_iterations and self._should_nudge_chart():
+            logger.info("[Architect] Finish turned back: insights read but nothing charted")
+            return (
+                ExecutionStep(
+                    iteration=iteration,
+                    reasoning=action.reasoning,
+                    action=Action.CALL_TOOL,
+                    tool_calls=[],
+                    tool_results=[
+                        ToolResult(tool_name=InternalTool.FINISH, success=False, error=CHART_NUDGE)
+                    ],
+                ),
+                False,
+            )
         logger.info("[Architect] Streaming final response")
         # Derive confirmation from runtime state — never from
         # ``action.needs_confirmation``. The Accept/Change UI is only
@@ -2084,6 +2107,46 @@ class ArchitectAgent(BaseAgent):
             attachments_text=self._format_attachments(),
             proposed_actions=self._format_blocked_calls(),
             charts_shown=self._charts_shown_this_turn(),
+        )
+
+    def _turn_calls(self, tool_name: str) -> List[Tuple[ToolCall, ToolResult]]:
+        """This turn's calls of one tool, each with its result."""
+        return [
+            (tc, tr)
+            for step in self._execution_history[self._turn_start_step :]
+            for tc, tr in zip(step.tool_calls, step.tool_results, strict=False)
+            if tc.tool_name == tool_name
+        ]
+
+    def _should_nudge_chart(self) -> bool:
+        """Whether a finish that read insights rows but drew no chart goes back once."""
+        if "show_chart" not in self._tool_schemas or self._turn_calls("show_chart"):
+            return False
+        if not any(tr.success for _, tr in self._turn_calls("get_insights")):
+            return False
+        return not any(
+            tr.error == CHART_NUDGE
+            for step in self._execution_history[self._turn_start_step :]
+            for tr in step.tool_results
+        )
+
+    def _check_chart_filters(self, tool_call: ToolCall) -> Optional[str]:
+        """Reject a chart query that drops a filter this turn's insights query set."""
+        if tool_call.tool_name != "show_chart" or not isinstance(tool_call.arguments, dict):
+            return None
+        earlier = [
+            tc.arguments
+            for tc, tr in self._turn_calls("get_insights")
+            if tr.success and isinstance(tc.arguments, dict)
+        ]
+        dropped = dropped_filters(tool_call.arguments.get("query"), earlier)
+        if not dropped:
+            return None
+        shown = ", ".join(f"{k}={json.dumps(v)}" for k, v in dropped.items())
+        return (
+            f"This chart's query leaves out {shown}, which this turn's get_insights call for "
+            "the same breakdown set, so it would chart other data than your reply describes. "
+            "Add them to the query."
         )
 
     def _charts_shown_this_turn(self) -> int:

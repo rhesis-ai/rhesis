@@ -5,11 +5,11 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from rhesis.sdk.agents.architect.agent import HELD_BACK_SEED, ArchitectAgent
+from rhesis.sdk.agents.architect.agent import CHART_NUDGE, HELD_BACK_SEED, ArchitectAgent
 from rhesis.sdk.agents.architect.config import ArchitectConfig
 from rhesis.sdk.agents.architect.plan import ArchitectPlan, MetricSpec, RequirementSpec
 from rhesis.sdk.agents.base import BaseAgent, BaseTool
-from rhesis.sdk.agents.schemas import ExecutionStep, ToolCall, ToolResult
+from rhesis.sdk.agents.schemas import AgentAction, ExecutionStep, ToolCall, ToolResult
 from rhesis.sdk.models.base import BaseLLM
 
 # ── helpers ────────────────────────────────────────────────────────
@@ -4111,6 +4111,75 @@ class TestDocumentRequirements:
 
         assert ("Never lay a chart's numbers out again" in writer) is success
         assert ("tables and lists for numbers" in writer) is not success
+
+    @staticmethod
+    def _insights_step(*extra_calls):
+        calls = [
+            ToolCall(
+                tool_name="get_insights",
+                arguments={
+                    "entity": "trace",
+                    "group_by": ["period"],
+                    "environments": ["production"],
+                },
+            ),
+            *extra_calls,
+        ]
+        return ExecutionStep(
+            iteration=1,
+            reasoning="read the rows",
+            action="call_tool",
+            tool_calls=calls,
+            tool_results=[ToolResult(tool_name=c.tool_name, success=True) for c in calls],
+        )
+
+    @pytest.mark.asyncio
+    async def test_finish_without_a_chart_goes_back_once(self, mock_model):
+        """The platform model read insights rows and finished without charting them."""
+        agent = _make_agent(mock_model)
+        agent._tool_schemas = {"show_chart": {}, "get_insights": {}}
+        agent._execution_history.append(self._insights_step())
+        finish = AgentAction(action="finish", reasoning="done", final_answer="Refunds fell.")
+
+        step, done = await agent._handle_finish_action(finish, iteration=2)
+        agent._execution_history.append(step)
+
+        assert done is False
+        assert step.tool_results[0].error == CHART_NUDGE
+        assert agent._should_nudge_chart() is False
+
+    def test_no_nudge_once_a_chart_was_drawn(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._tool_schemas = {"show_chart": {}, "get_insights": {}}
+        agent._execution_history.append(
+            self._insights_step(ToolCall(tool_name="show_chart", arguments={}))
+        )
+
+        assert agent._should_nudge_chart() is False
+
+    @pytest.mark.asyncio
+    async def test_no_nudge_on_the_last_iteration(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._tool_schemas = {"show_chart": {}, "get_insights": {}}
+        agent._execution_history.append(self._insights_step())
+        agent._stream_final_response = AsyncMock(return_value="Refunds fell.")
+        finish = AgentAction(action="finish", reasoning="done", final_answer="Refunds fell.")
+
+        _, done = await agent._handle_finish_action(finish, iteration=agent.max_iterations)
+
+        assert done is True
+
+    def test_a_chart_dropping_the_turns_filter_is_rejected(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._execution_history.append(self._insights_step())
+        chart = ToolCall(
+            tool_name="show_chart",
+            arguments={"query": {"entity": "trace", "group_by": ["period"]}},
+        )
+
+        error = agent._check_chart_filters(chart)
+
+        assert error and 'environments=["production"]' in error
 
     def test_large_blocked_calls_are_capped(self, mock_model):
         agent = _make_agent(mock_model)

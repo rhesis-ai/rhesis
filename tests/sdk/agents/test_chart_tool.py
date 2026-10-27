@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from rhesis.sdk.agents.chart_tool import MAX_ROWS, ShowChartTool
+from rhesis.sdk.agents.chart_tool import MAX_ROWS, ShowChartTool, dropped_filters
 from rhesis.sdk.agents.schemas import ToolResult
 
 SCHEMA = {
@@ -412,3 +412,58 @@ async def test_kpi_takes_no_group_by():
     assert result.success
     (chart,) = tool.drain()
     assert chart["x"] is None and chart["target"] == 90
+
+
+def test_a_chart_dropping_an_earlier_filter_is_caught():
+    """Production latency was charted over every environment."""
+    earlier = [
+        {"entity": "trace", "group_by": ["period"], "environments": ["production"], "months": 1}
+    ]
+    chart = {"entity": "trace", "group_by": ["period"], "limit": 201}
+
+    assert dropped_filters(chart, earlier) == {"environments": ["production"], "months": 1}
+
+
+def test_nested_chart_filters_count_as_kept():
+    earlier = [{"entity": "test_result", "test_run_ids": ["r1"]}]
+    chart = {"entity": "test_result", "filters": {"test_run_ids": ["r1"]}}
+
+    assert dropped_filters(chart, earlier) == {}
+
+
+def test_filters_on_another_entity_are_not_compared():
+    earlier = [{"entity": "trace", "environments": ["production"]}]
+
+    assert dropped_filters({"entity": "test_result"}, earlier) == {}
+
+
+def test_only_the_same_breakdown_is_compared():
+    """A topic chart was rejected for leaving out the weekly trend query's months."""
+    earlier = [
+        {"entity": "test_result", "group_by": ["topic"]},
+        {"entity": "test_result", "group_by": ["period"], "months": 6},
+    ]
+
+    assert dropped_filters({"entity": "test_result", "group_by": ["topic"]}, earlier) == {}
+
+
+@pytest.mark.asyncio
+async def test_the_same_chart_is_added_once():
+    tool, _ = _tool(TOPIC_ROWS)
+
+    await tool.execute(**BAR)
+    again = await tool.execute(**{**BAR, "title": "Weakest topics, again"})
+
+    assert again.success and "already on the reply" in again.content
+    assert len(tool.drain()) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_title_promising_more_rows_than_returned_is_rejected():
+    """A chart of five topics was titled "Top 10 Topics by Pass Rate"."""
+    tool, _ = _tool(TOPIC_ROWS)
+
+    result = await tool.execute(**{**BAR, "title": "Top 10 topics"})
+
+    assert not result.success and "top 10" in result.error
+    assert tool.drain() == []

@@ -7,6 +7,7 @@ chart is kept on the tool so the host can attach it to the reply.
 
 import json
 import logging
+import re
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from rhesis.sdk.agents.base import BaseTool
@@ -36,6 +37,12 @@ MAX_SERIES = 4
 SERIES_CHART_TYPES = ("line", "area", "bar", "horizontal_bar", "stacked_bar", "radar")
 # These add their values up, so only counts belong in them: two pass rates stacked read as 160%.
 STACKED_CHART_TYPES = ("area", "stacked_bar")
+# get_insights arguments that shape a query; every other argument narrows it to some data.
+QUERY_SHAPE_KEYS = frozenset(
+    {"entity", "group_by", "measures", "time_grain", "order_by", "limit", "min_count", "offset"}
+)
+# "Top 10 topics" over five rows promises more than the chart holds.
+_TOP_N = re.compile(r"\btop\s+(\d+)\b", re.IGNORECASE)
 # Only bars can set an x value apart: its bars keep their color and the others fade.
 X_FOCUS_CHART_TYPES = ("bar", "horizontal_bar", "stacked_bar")
 
@@ -92,7 +99,10 @@ class ShowChartTool(BaseTool):
                 "chart_type": {"type": "string", "enum": list(CHART_TYPES)},
                 "title": {
                     "type": "string",
-                    "description": "Short title stating what the chart shows.",
+                    "description": (
+                        "Short title stating what the chart shows. Name no row count the "
+                        "data may not reach: say 'Weakest topics', not 'Top 10 topics'."
+                    ),
                 },
                 "x": {
                     "type": "string",
@@ -183,6 +193,18 @@ class ShowChartTool(BaseTool):
             "rows": rows[:MAX_ROWS],
             "truncated": len(rows) > MAX_ROWS,
         }
+        if any(_same_chart(chart, shown) for shown in self.charts):
+            return ToolResult(
+                tool_name=self.name,
+                success=True,
+                content="This chart is already on the reply, so it was not added again.",
+            )
+        title_count = _TOP_N.search(chart["title"])
+        if title_count and int(title_count.group(1)) > len(rows):
+            return self._error(
+                f"the title says top {title_count.group(1)} but the query returned "
+                f"{len(rows)} rows; retitle the chart to say what it holds"
+            )
         self.charts.append(chart)
         return ToolResult(
             tool_name=self.name, success=True, content=_summary(chart, spec_args["query"])
@@ -211,10 +233,48 @@ class ShowChartTool(BaseTool):
         return ToolResult(tool_name=self.name, success=False, error=message)
 
 
-def _validate(args: Dict[str, Any]) -> Dict[str, Any]:
-    query = dict(args.get("query") or {})
+def flatten_query(query: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """A get_insights query with nested ``filters`` lifted to the top level."""
+    flat = dict(query or {})
     # get_insights takes filters as top-level arguments; accept them nested too.
-    query.update(query.pop("filters", None) or {})
+    flat.update(flat.pop("filters", None) or {})
+    return flat
+
+
+def dropped_filters(
+    chart_query: Optional[Dict[str, Any]], earlier: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Filters the chart leaves out that the latest earlier query for the same breakdown set.
+
+    A chart query that drops one charts other data than the rows the reply was
+    written from: production latency drawn over every environment. Only a query
+    with the chart's entity and group_by counts, since a reply often reads
+    several breakdowns, each with its own filters.
+    """
+    chart = flatten_query(chart_query)
+
+    def breakdown(query: Dict[str, Any]) -> tuple:
+        return (query.get("entity"), sorted(query.get("group_by") or []))
+
+    same_breakdown = [
+        flat for flat in map(flatten_query, earlier) if breakdown(flat) == breakdown(chart)
+    ]
+    if not same_breakdown:
+        return {}
+    return {
+        key: value
+        for key, value in same_breakdown[-1].items()
+        if key not in QUERY_SHAPE_KEYS and value not in (None, "", [], {}) and key not in chart
+    }
+
+
+def _same_chart(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+    keys = ("chart_type", "entity", "x", "series", "measures", "rows")
+    return all(a.get(k) == b.get(k) for k in keys)
+
+
+def _validate(args: Dict[str, Any]) -> Dict[str, Any]:
+    query = flatten_query(args.get("query"))
     chart_type = args.get("chart_type")
     x, series = args.get("x"), args.get("series")
     y = list(args.get("y") or [])
