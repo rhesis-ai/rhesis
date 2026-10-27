@@ -4169,7 +4169,8 @@ class TestDocumentRequirements:
 
         assert done is True
 
-    def test_a_chart_dropping_the_turns_filter_is_rejected(self, mock_model):
+    def test_a_chart_dropping_the_turns_filter_gets_it_back(self, mock_model):
+        """Production latency was charted over every environment, and rejecting it showed an error."""
         agent = _make_agent(mock_model)
         agent._execution_history.append(self._insights_step())
         chart = ToolCall(
@@ -4177,9 +4178,10 @@ class TestDocumentRequirements:
             arguments={"query": {"entity": "trace", "group_by": ["period"]}},
         )
 
-        error = agent._check_chart_filters(chart)
+        added = agent._fill_chart_filters(chart)
 
-        assert error and 'environments=["production"]' in error
+        assert added == 'environments=["production"]'
+        assert chart.arguments["query"]["environments"] == ["production"]
 
     def test_large_blocked_calls_are_capped(self, mock_model):
         agent = _make_agent(mock_model)

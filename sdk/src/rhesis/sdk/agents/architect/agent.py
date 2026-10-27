@@ -28,7 +28,7 @@ from rhesis.sdk.agents.architect.tool_registry import PlanCategory, mode_for, pl
 from rhesis.sdk.agents.architect.workflow import WorkflowPath, resolve_workflow_path_update
 from rhesis.sdk.agents.arg_validation import find_missing_arguments, find_placeholder_ids
 from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
-from rhesis.sdk.agents.chart_tool import dropped_filters
+from rhesis.sdk.agents.chart_tool import dropped_filters, flatten_query
 from rhesis.sdk.agents.constants import (
     Action,
     AgentMode,
@@ -969,9 +969,9 @@ class ArchitectAgent(BaseAgent):
         if tool_call.tool_name == InternalTool.READ_ATTACHED_FILE:
             return self._execute_read_attached_file(tool_call)
 
+        filled = self._fill_chart_filters(tool_call)
         error = (
             self._check_plan_constraints(tool_call)
-            or self._check_chart_filters(tool_call)
             or self._validate_tool_arguments(tool_call)
             or find_placeholder_ids(tool_call.arguments or {})
             or find_missing_arguments(
@@ -996,6 +996,11 @@ class ArchitectAgent(BaseAgent):
             await self.set_mode_async(target_mode)
 
         result = await super().execute_tool(tool_call)
+        if filled and result.success:
+            result.content = (
+                f"Added {filled} from this turn's get_insights call for the same breakdown, so "
+                f"the chart shows the data your reply describes.\n{result.content or ''}"
+            )
         if result.success:
             self._collect_id_names(result)
             self._collect_typed_entity_names(tool_call, result)
@@ -2130,24 +2135,31 @@ class ArchitectAgent(BaseAgent):
             for tr in step.tool_results
         )
 
-    def _check_chart_filters(self, tool_call: ToolCall) -> Optional[str]:
-        """Reject a chart query that drops a filter this turn's insights query set."""
+    def _fill_chart_filters(self, tool_call: ToolCall) -> str:
+        """Add to a chart query the filters this turn's insights query for it set.
+
+        A chart that drops one charts other data than the reply was written from
+        (production latency drawn over every environment). Filling them in keeps
+        the two in step without a failed call. Returns what was added, or "".
+        """
         if tool_call.tool_name != "show_chart" or not isinstance(tool_call.arguments, dict):
-            return None
+            return ""
         earlier = [
             tc.arguments
             for tc, tr in self._turn_calls("get_insights")
             if tr.success and isinstance(tc.arguments, dict)
         ]
-        dropped = dropped_filters(tool_call.arguments.get("query"), earlier)
+        query = tool_call.arguments.get("query")
+        dropped = dropped_filters(query, earlier)
         if not dropped:
-            return None
-        shown = ", ".join(f"{k}={json.dumps(v)}" for k, v in dropped.items())
-        return (
-            f"This chart's query leaves out {shown}, which this turn's get_insights call for "
-            "the same breakdown set, so it would chart other data than your reply describes. "
-            "Add them to the query."
-        )
+            return ""
+        tool_call.arguments = {
+            **tool_call.arguments,
+            "query": {**flatten_query(query), **dropped},
+        }
+        added = ", ".join(f"{k}={json.dumps(v)}" for k, v in dropped.items())
+        logger.info("[Architect] Added %s to a chart query", added)
+        return added
 
     def _charts_shown_this_turn(self) -> int:
         """How many charts this turn's reply carries; their numbers are not retyped."""

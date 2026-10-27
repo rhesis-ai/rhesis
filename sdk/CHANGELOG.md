@@ -96,22 +96,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   model's history.
 - `ShowChartTool` gives the model the chart's real labels and values (and the true lowest and
   highest when it shortens a long chart), instead of only value ranges, which left it to
-  invent category names and misreport peaks. It also rejects mixing measure kinds, such as
-  latency and cost, on one axis.
+  invent category names and misreport peaks. Measures of different kinds, such as latency
+  and cost, are drawn as one chart per kind rather than on one axis.
 - An agent with an MCP provider listed before a named tool (as the Architect lists its
   `LocalToolProvider` before `ShowChartTool`) sent the named tool's calls to the provider,
   which answered "Tool not available", so the Architect could never show a chart. A call now
   goes to the first tool that serves its name.
-- `ShowChartTool` rejects `stacked_bar` and `area` charts of anything but counts. The Architect
-  stacked two endpoints' pass rates into one bar, drawing an axis that ran to 200%; it is now
-  told to compare them side by side with `bar` and a series.
+- `ShowChartTool` draws `stacked_bar` and `area` charts of anything but counts as `bar` and
+  `line`. The Architect stacked two endpoints' pass rates into one bar, drawing an axis that ran
+  to 200%.
 - `on_tool_end` event handlers receive the call's `arguments`, so a finished tool can be
   described as precisely as a started one.
 - The Architect charts a report on the platform's default model, which often read the
   insights rows and answered without a chart. A finish without a chart after `get_insights` is
   turned back once, a chart query that drops a filter its `get_insights` call set (such as
-  `environments=["production"]`) is rejected, and `ShowChartTool` skips a chart already on the
-  reply and rejects a "top N" title over fewer rows.
+  `environments=["production"]`) gets it back, and `ShowChartTool` skips a chart already on the
+  reply and drops a "top N" from a title over fewer rows. These correct the call rather than
+  reject it, so the user sees no failed tool call.
 - Normalized cached prompt usage for OpenAI and LiteLLM so separately billed cache reads and
   writes stay out of `input_tokens`, while provider-reported totals remain unchanged.
 - Streamed LangChain calls record their cache reads and writes. They carry usage only on

@@ -167,7 +167,8 @@ async def test_summary_labels_a_missing_dimension_value_as_none():
 
 
 @pytest.mark.asyncio
-async def test_measures_of_different_kinds_are_rejected():
+async def test_measures_of_different_kinds_get_a_chart_each():
+    """p95 latency (ms) and cost (USD) on one axis drew cost as a flat line at zero."""
     tool, _ = _tool([{"period": "2026-10-01", "pass_rate": 80.0, "p95_duration_ms": 2100.0}])
 
     result = await tool.execute(
@@ -182,20 +183,25 @@ async def test_measures_of_different_kinds_are_rejected():
         y=["pass_rate", "p95_duration_ms"],
     )
 
-    assert not result.success and "one chart per kind" in result.error
-    assert tool.drain() == []
+    charts = tool.drain()
+    assert result.success and "one chart per measure kind" in result.content
+    assert [c["title"] for c in charts] == ["Mixed (pass rate)", "Mixed (p95 duration ms)"]
+    assert [[m["key"] for m in c["measures"]] for c in charts] == [
+        ["pass_rate"],
+        ["p95_duration_ms"],
+    ]
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("chart_type", ["stacked_bar", "area"])
-async def test_stacked_rates_are_rejected(chart_type):
+@pytest.mark.parametrize(("chart_type", "drawn"), [("stacked_bar", "bar"), ("area", "line")])
+async def test_stacked_rates_are_drawn_side_by_side(chart_type, drawn):
     """Two endpoints' pass rates stacked into one bar drew an axis running to 200%."""
     tool, _ = _tool(_by_run(2))
 
     result = await tool.execute(**SERIES_QUERY, chart_type=chart_type)
 
-    assert not result.success and "use bar with a series" in result.error
-    assert tool.drain() == []
+    assert result.success and f"drawn as {drawn}" in result.content
+    assert tool.drain()[0]["chart_type"] == drawn
 
 
 @pytest.mark.asyncio
@@ -459,11 +465,11 @@ async def test_the_same_chart_is_added_once():
 
 
 @pytest.mark.asyncio
-async def test_a_title_promising_more_rows_than_returned_is_rejected():
+async def test_a_title_promising_more_rows_than_returned_is_retitled():
     """A chart of five topics was titled "Top 10 Topics by Pass Rate"."""
     tool, _ = _tool(TOPIC_ROWS)
 
-    result = await tool.execute(**{**BAR, "title": "Top 10 topics"})
+    result = await tool.execute(**{**BAR, "title": "Top 10 topics by pass rate"})
 
-    assert not result.success and "top 10" in result.error
-    assert tool.drain() == []
+    assert result.success and "titled 'Topics by pass rate'" in result.content
+    assert tool.drain()[0]["title"] == "Topics by pass rate"
