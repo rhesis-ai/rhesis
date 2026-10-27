@@ -109,6 +109,9 @@ class MetricConfig:
     # Extra parameters bucket (e.g. for factory kwargs)
     parameters: Optional[Dict[str, Any]] = None
 
+    # What the metric judges in a trace (see rhesis.sdk.metrics.targets); None judges as before
+    target: Optional[Dict[str, Any]] = None
+
     def __post_init__(self):
         if isinstance(self.backend, str):
             try:
