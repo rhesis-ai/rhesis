@@ -68,6 +68,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   verdict when the judge returns criteria.
 
 ### Added
+- Metric targets: `metric.evaluate(trace=..., target=...)` judges one part of a trace. `target`
+  is `"turn"`, `"conversation"`, `"run"`, or a span kind (`"tool_call"`, `"retrieval"`,
+  `"model_call"`, `"agent"`, `"guardrail"`), or a dict adding `name`, `within` and `aggregate`
+  (`all`, `any`, `share` with `min_share`). A per-span target runs the metric once per matching
+  span and combines the verdicts; one that matches nothing returns a result with
+  `details["not_applicable"]`. A span is held to the test's goal and instructions, not its
+  expected response or tool calls. `rhesis.sdk.metrics.targets` holds the registry (`TARGETS`)
+  and `supported_targets()` / `default_target()` for a metric class.
 - `ToolCallTrajectory` compares the trace's tool calls with `expectations.tool_calls`, without a
   model. `match` is `exact`, `in_order` (default), `any_order`, `subset` or `superset`;
   `arguments` is `partial` (default), `exact` or `ignore`. The result names the first call that

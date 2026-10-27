@@ -711,3 +711,34 @@ class TestMetricConfig(MetricTestMixin):
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["config"] == {"match": "exact"}
+
+    def test_an_update_without_config_keeps_the_stored_one(self, metric_factory):
+        metric = self._trajectory(metric_factory)
+
+        response = metric_factory.client.put(
+            self.endpoints.put(metric["id"]), json={"description": "Checks the refund flow."}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["config"] == {"match": "superset"}
+
+    def test_a_target_the_stored_class_cannot_take_is_refused(self, metric_factory):
+        metric = self._trajectory(metric_factory)
+
+        response = metric_factory.client.put(
+            self.endpoints.put(metric["id"]), json={"config": {"target": {"on": "tool_call"}}}
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert "can't judge 'tool_call'" in response.json()["detail"]
+
+    def test_a_target_is_saved_with_the_settings(self, metric_factory):
+        metric = self._trajectory(metric_factory)
+        config = {"match": "superset", "target": {"on": "run"}}
+
+        response = metric_factory.client.put(
+            self.endpoints.put(metric["id"]), json={"config": config}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["config"] == config

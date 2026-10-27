@@ -1,7 +1,9 @@
+import { applicableMetrics } from '@/constants/outcomes';
 import type { SpanNode } from '@/utils/api-client/interfaces/telemetry';
 
 type MetricEntry = {
-  is_successful?: boolean;
+  is_successful?: boolean | null;
+  not_applicable?: boolean;
   override?: { original_value?: boolean };
 };
 
@@ -27,7 +29,9 @@ export function automatedVerdictFor(span: SpanNode) {
     const sectionData = traceMetrics[section] as
       | Record<string, unknown>
       | undefined;
-    const metrics = (sectionData?.metrics ?? {}) as Record<string, MetricEntry>;
+    const metrics = applicableMetrics(
+      sectionData?.metrics as Record<string, MetricEntry> | undefined
+    );
     for (const metric of Object.values(metrics)) {
       total++;
       if (metric.override?.original_value ?? metric.is_successful) passed++;

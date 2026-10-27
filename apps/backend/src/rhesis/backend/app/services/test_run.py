@@ -47,6 +47,18 @@ _TEST_STATUS_CHAR = {
 _TIMING_MAX_TESTS = 2000
 
 
+def _export_status(metric_result: Dict[str, Any]) -> str:
+    """A metric's verdict as the export writes it. Only a verdict of False is a Fail."""
+    if metric_result.get("not_applicable"):
+        return "Not applicable"
+    if metric_result.get("error"):
+        return "Error"
+    is_successful = metric_result.get("is_successful")
+    if is_successful is None:
+        return "Inconclusive"
+    return "Pass" if is_successful else "Fail"
+
+
 def get_test_results_for_test_run(
     db: Session, test_run_id: uuid.UUID, organization_id: str | None = None
 ) -> List[Dict[str, Any]]:
@@ -135,7 +147,7 @@ def get_test_results_for_test_run(
                 # Get metric result
                 metric_result = test_metrics.get(metric_name)
                 if metric_result:
-                    status = "Pass" if metric_result.get("is_successful") else "Fail"
+                    status = _export_status(metric_result)
                     score = metric_result.get("score", "N/A")
                     threshold = metric_result.get("threshold")
                     reference_score = metric_result.get("reference_score")

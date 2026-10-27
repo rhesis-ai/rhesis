@@ -2,6 +2,7 @@ import {
   outcomeOf,
   displayStatusOf,
   allMetricsPassed,
+  applicableMetrics,
   passRate,
   getReviewBand,
   STATUS_LABEL,
@@ -110,6 +111,26 @@ describe('allMetricsPassed', () => {
   it('does not treat a null/undefined metric verdict as a pass', () => {
     expect(allMetricsPassed([{ is_successful: null }])).toBe(false);
     expect(allMetricsPassed([{}])).toBe(false);
+  });
+});
+
+describe('applicableMetrics', () => {
+  it('leaves out metrics whose target matched nothing', () => {
+    const metrics: Record<
+      string,
+      { is_successful: boolean | null; not_applicable?: boolean }
+    > = {
+      relevance: { is_successful: true },
+      refunds: { is_successful: null, not_applicable: true },
+    };
+
+    expect(applicableMetrics(metrics)).toEqual({
+      relevance: { is_successful: true },
+    });
+  });
+
+  it('reads a missing map as empty', () => {
+    expect(applicableMetrics(undefined)).toEqual({});
   });
 });
 

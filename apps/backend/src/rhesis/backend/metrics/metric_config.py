@@ -1,15 +1,19 @@
 import dataclasses
 import inspect
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
 from rhesis.backend.app.schemas.metric_types import ScoreType
 from rhesis.backend.metrics.inputs import EvaluationInputs
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
 from rhesis.backend.metrics.utils import diagnose_invalid_metric
-from rhesis.sdk.metrics import BaseMetric, Expectations, MetricConfig
+from rhesis.sdk.metrics import BaseMetric, Expectations, MetricConfig, MetricResult
+from rhesis.sdk.metrics.targets import a_evaluate_target, evaluate_target
 from rhesis.sdk.metrics.utils import backend_config_to_sdk_config
+
+#: Where ``metric.config`` keeps the metric's target, beside the metric's own settings.
+TARGET_KEY = "target"
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +40,37 @@ def _get_metric_signature(metric: BaseMetric) -> Any:
 def metric_wants_trace(metric: BaseMetric) -> bool:
     """Whether the metric declares a ``trace`` parameter."""
     return "trace" in _get_metric_signature(metric)
+
+
+def wants_trace(metric: BaseMetric, target: Optional[Dict[str, Any]]) -> bool:
+    """Whether evaluating the metric reads the trace: it declares one, or judges a target."""
+    return target is not None or metric_wants_trace(metric)
+
+
+def evaluate_metric(
+    metric: BaseMetric,
+    inputs: EvaluationInputs,
+    target: Optional[Dict[str, Any]] = None,
+    verdict: Optional[Callable[[MetricResult], Optional[bool]]] = None,
+) -> MetricResult:
+    """Run the metric on what its target names, or as it declares when it has none."""
+    if target is None:
+        return metric.evaluate(**build_metric_evaluate_params(metric, inputs))
+    expectations = _expectations_for(metric, inputs.expectations)
+    return evaluate_target(metric, inputs.load_trace(), target, expectations, verdict)
+
+
+async def a_evaluate_metric(
+    metric: BaseMetric,
+    inputs: EvaluationInputs,
+    target: Optional[Dict[str, Any]] = None,
+    verdict: Optional[Callable[[MetricResult], Optional[bool]]] = None,
+) -> MetricResult:
+    """Async ``evaluate_metric``."""
+    if target is None:
+        return await metric.a_evaluate(**build_metric_evaluate_params(metric, inputs))
+    expectations = _expectations_for(metric, inputs.expectations)
+    return await a_evaluate_target(metric, inputs.load_trace(), target, expectations, verdict)
 
 
 def build_metric_evaluate_params(metric: BaseMetric, inputs: EvaluationInputs) -> Dict[str, Any]:
@@ -131,7 +166,11 @@ def metric_model_to_config(metric: MetricModel) -> MetricConfig:
     # tie deterministically when two distinct metrics happen to share both.
     cfg.id = str(metric.id) if metric.id else None
     if isinstance(metric.config, dict) and metric.config:
-        cfg.parameters = {**(cfg.parameters or {}), **metric.config}
+        # The target says what the metric judges; the rest are its own settings.
+        settings = {k: v for k, v in metric.config.items() if k != TARGET_KEY}
+        cfg.target = metric.config.get(TARGET_KEY)
+        if settings:
+            cfg.parameters = {**(cfg.parameters or {}), **settings}
     if model_id := (str(metric.model_id) if metric.model_id else None):
         cfg.parameters = dict(cfg.parameters or {})
         cfg.parameters["model_id"] = model_id

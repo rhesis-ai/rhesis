@@ -119,12 +119,29 @@ def _prepare(
     return bound
 
 
+def _targeted(args: tuple, kwargs: Dict[str, Any]) -> Tuple[Any, Trace, Any, Any]:
+    """The metric, trace, target and expectations of a call passing ``target=``."""
+    if len(args) != 1:
+        raise TypeError("Pass the trace, target and expectations by name.")
+    target = kwargs.pop("target")
+    expectations = kwargs.pop("expectations", None)
+    trace = kwargs.pop("trace", None)
+    if trace is None:
+        trace = build_trace(kwargs.pop("input", None), kwargs.pop("output", None), **kwargs)
+    elif kwargs:
+        raise ValueError(f"Pass either trace or {', '.join(kwargs)}: the trace already holds them.")
+    if isinstance(trace, dict):
+        trace = Trace.model_validate(trace)
+    return args[0], trace, target, expectations
+
+
 def evaluation_arguments(func: F) -> F:
     """Prepare what a metric's ``evaluate``/``a_evaluate`` receives.
 
     Strings become ``Expectations``. When the method declares ``trace`` and none is passed,
     one is built from ``input``, ``output`` and the shortcuts; ``input`` and ``output`` not
-    passed are read from the trace.
+    passed are read from the trace. Passing ``target=`` judges what it names in the trace
+    instead (see ``rhesis.sdk.metrics.targets``).
     """
     signature = inspect.signature(func)
 
@@ -132,6 +149,11 @@ def evaluation_arguments(func: F) -> F:
 
         @wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            if kwargs.get("target") is not None:
+                from rhesis.sdk.metrics.targets import a_evaluate_target
+
+                return await a_evaluate_target(*_targeted(args, kwargs))
+            kwargs.pop("target", None)
             bound = _prepare(signature, args, kwargs)
             return await func(*bound.args, **bound.kwargs)
 
@@ -139,6 +161,11 @@ def evaluation_arguments(func: F) -> F:
 
     @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
+        if kwargs.get("target") is not None:
+            from rhesis.sdk.metrics.targets import evaluate_target
+
+            return evaluate_target(*_targeted(args, kwargs))
+        kwargs.pop("target", None)
         bound = _prepare(signature, args, kwargs)
         return func(*bound.args, **bound.kwargs)
 
