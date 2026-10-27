@@ -5,13 +5,15 @@ runs on, in place of ``metric_scope``. Every metric without a target gets one fr
 scope and class:
 
 - a conversational class, or a metric scoped to Multi-Turn alone, judges the conversation;
-- Tool Call Trajectory, and a code metric reading only the trace, judge the whole run;
+- Tool Call Trajectory, a code metric reading only the trace, and a metric scoped to both
+  judge the whole run, which is what a metric scoped to both did: one response on a
+  single-turn test, the goal and transcript on a multi-turn one;
 - every other metric judges each turn.
 
-A metric scoped to Multi-Turn alone whose class can't judge a conversation judges each turn.
-A conversation has no reference answer, so a metric judging one no longer requires it; it was
-scored against an empty one before. The MetricScope type lookups go too. The downgrade restores scopes from the targets, not the
-scopes this revision dropped, and not the type lookups.
+A metric whose class can't read the whole trace judges each turn instead. A conversation has
+no reference answer, so a metric judging one no longer requires it; it was scored against an
+empty one before. The MetricScope type lookups go too. The downgrade restores scopes from the
+targets, not the scopes this revision dropped, and not the type lookups.
 
 Revision ID: a7c4e2f9b318
 Revises: f2c8d4e6a913
@@ -116,8 +118,12 @@ def target_for(class_name: Optional[str], scope: Any, evaluation_examples: Optio
         return "conversation"
     if class_name in WHOLE_RUN or not reads_turns:
         return "run"
-    if scope == ["Multi-Turn"] and class_name not in TURN_ONLY and reads_trace:
+    if class_name in TURN_ONLY or not reads_trace:
+        return "turn"
+    if scope == ["Multi-Turn"]:
         return "conversation"
+    if set(scope or ()) == {"Single-Turn", "Multi-Turn"}:
+        return "run"
     return "turn"
 
 

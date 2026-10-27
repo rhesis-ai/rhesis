@@ -118,16 +118,17 @@ class TestReplaceMetricScopeWithTarget:
         _migration.upgrade()
 
         assert _config(conn, single) == {"target": {"on": "turn"}}
-        assert _config(conn, both) == {"target": {"on": "turn"}}
+        assert _config(conn, both) == {"target": {"on": "run"}}
         assert _config(conn, multi) == {"target": {"on": "conversation"}}
         assert _config(conn, conversational) == {"target": {"on": "conversation"}}
         assert _config(conn, trajectory) == {"target": {"on": "run"}}
 
-    def test_a_class_that_cant_read_a_conversation_judges_each_turn(
-        self, conn, make_metric, migration_ops
+    @pytest.mark.parametrize("scope", [["Multi-Turn"], ["Single-Turn", "Multi-Turn"]])
+    def test_a_class_that_cant_read_the_whole_trace_judges_each_turn(
+        self, conn, make_metric, migration_ops, scope
     ):
-        toxicity = make_metric(["Multi-Turn"], "DeepEvalToxicity")
-        io_only = make_metric(["Multi-Turn"], "my_check", examples=_sdk("input", "output"))
+        toxicity = make_metric(scope, "DeepEvalToxicity")
+        io_only = make_metric(scope, "my_check", examples=_sdk("input", "output"))
 
         _migration.upgrade()
 
