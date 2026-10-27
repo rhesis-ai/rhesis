@@ -5,14 +5,19 @@ test without expected tool calls) is not applicable to it: it is left out, the w
 scoped to the other test type is, rather than scored or failed.
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Any, List, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from sqlalchemy import inspect as sa_inspect
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
 from rhesis.backend.app.schemas.multi_turn_test_config import EXPECTED_TOOL_CALLS_KEY
-from rhesis.sdk.metrics import BaseMetric, Expectations
+
+# Imported by run_models, which core installs load without the SDK.
+if TYPE_CHECKING:
+    from rhesis.sdk.metrics import BaseMetric, Expectations
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +54,10 @@ def metric_class(metric: Any) -> Optional[type[BaseMetric]]:
     backend, class_name = _backend_and_class(metric)
     if (backend is not None and backend not in _NATIVE_BACKENDS) or not class_name:
         return None
-    from rhesis.sdk.metrics.providers.native.factory import RhesisMetricFactory
+    try:
+        from rhesis.sdk.metrics.providers.native.factory import RhesisMetricFactory
+    except ImportError:  # a core install, which runs no native metric
+        return None
 
     factory = RhesisMetricFactory()
     if class_name not in factory.list_supported_metrics():

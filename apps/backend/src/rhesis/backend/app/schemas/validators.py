@@ -6,9 +6,9 @@ from pydantic import BeforeValidator, TypeAdapter, ValidationError
 from rhesis.backend.app.constants import TestSetType, TestType
 from rhesis.backend.app.schemas.multi_turn_test_config import (
     EXPECTED_TOOL_CALLS_KEY,
+    ExpectedToolCall,
     validate_multi_turn_config,
 )
-from rhesis.sdk.metrics.expectations import ExpectedToolCall
 
 _EXPECTED_TOOL_CALLS = TypeAdapter(List[ExpectedToolCall])
 

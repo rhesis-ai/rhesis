@@ -59,7 +59,10 @@ def check_metric_config(
     """Refuse settings the metric's class would refuse when the metric runs (ValueError)."""
     if config is None or not class_name:
         return config
-    from rhesis.sdk.metrics.providers.native.factory import RhesisMetricFactory
+    try:
+        from rhesis.sdk.metrics.providers.native.factory import RhesisMetricFactory
+    except ImportError:  # a core install, which runs no native metric
+        return config
 
     factory = RhesisMetricFactory()
     if class_name not in factory.list_supported_metrics():
