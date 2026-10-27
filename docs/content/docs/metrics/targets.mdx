@@ -141,12 +141,12 @@ Stored metrics were given a target from their class and scope:
 
 | Stored metric | Target |
 | --- | --- |
-| A conversational metric, or a metric scoped to Multi-Turn alone that can read a conversation | `conversation` |
-| Tool Call Trajectory, or a code metric that reads only the trace | `run` |
-| Every other metric, including metrics scoped to both | `turn` |
+| A conversational metric, or a metric scoped to Multi-Turn alone | `conversation` |
+| A metric scoped to both, Tool Call Trajectory, or a code metric that reads only the trace | `run` |
+| Every other metric | `turn` |
 
-A metric scoped to Multi-Turn alone can't read a conversation when it reads only a turn's input and output (Garak detectors, the single-turn DeepEval metrics, code metrics that don't read the trace) or always compares with a reference answer (DeepEval's contextual precision and recall). It was given `turn`. A metric that was given `conversation` no longer requires a reference answer: it was scored against an empty one before.
+A metric scoped to both keeps doing what it did: `run` judges a single-turn test's one response, and a multi-turn test once, on its goal and whole transcript. This covers the built-in OWASP metrics, which look for attacks that build up over several turns. To judge each turn of a conversation on its own instead, set the target to `turn`.
 
-A metric that was scoped to both Single-Turn and Multi-Turn used to judge a multi-turn test once, on the whole conversation. It now judges each turn on its own. To keep judging the conversation as a whole, set its target to `conversation`. It then stops running on single-turn tests.
+A metric that can't read the whole trace got `turn` whatever its scope. That is one that reads only a turn's input and output (Garak detectors, the single-turn DeepEval metrics, code metrics that don't read the trace), or always compares with a reference answer (DeepEval's contextual precision and recall). A metric that was given `conversation` no longer requires a reference answer: it was scored against an empty one before.
 
 Single-turn metrics used to be skipped on multi-turn tests. With a `turn` target they now run on every turn of a multi-turn test.
