@@ -10,9 +10,9 @@ Read this file first when routing a request. Do **not** answer platform mechanic
 resolve by name → list_requirements + list_metrics once → plan → user approval → create in order → optional execute → analyze
 ```
 
-Creation order: requirements → metrics (with metric_scope) → mappings → tags (if planned) → generate_test_set → verify.
+Creation order: requirements → metrics (with targets) → mappings → tags (if planned) → generate_test_set → verify.
 
-Details: `phases/creation.md`, `entity-model.md`, `metric-scope.md`, `metric-authoring.md`.
+Details: `phases/creation.md`, `entity-model.md`, `metric-targets.md`, `metric-authoring.md`.
 
 ---
 
@@ -22,7 +22,7 @@ Details: `phases/creation.md`, `entity-model.md`, `metric-scope.md`, `metric-aut
 |---|---|---|---|
 | Vague `/rhesis` or "help me test" | This file → `SKILL.md` intake | Matching path below | — |
 | Named endpoint + explore/test | `phases/discovery.md` | `exploration-strategies.md` → `phases/planning.md` | Spec workflow |
-| Pasted PRD / spec / FRs | `spec-workflow.md` | `use-case-bracketfeld.md` (target shape) → `metric-scope.md` | `explore_endpoint` unless user asks |
+| Pasted PRD / spec / FRs | `spec-workflow.md` | `use-case-bracketfeld.md` (target shape) → `metric-targets.md` | `explore_endpoint` unless user asks |
 | "Run tests" / "analyze" / "compare runs" / Insights summarize | `phases/execution.md` → `phases/analysis.md` | `result-analysis.md`, `insights-summary.md` (Insights handoff) | New plan |
 | Single action ("list test sets", "fix metric X") | `phases/direct-requests.md` | `tool-catalog.md` if needed | Full phases |
 | "Who changed X?" / "what changed since …" / audit log | `audit-log.md` | `odata-patterns.md` | Full phases, menu |
@@ -77,7 +77,7 @@ Skip the menu when intent is already clear. Spec and run/analyze paths skip expl
 | [Glossary](https://docs.rhesis.ai/glossary.md) | Canonical terms — `glossary/requirement.md`, `glossary/test-result.md`, `glossary/tag.md`, … |
 | `definitions.md` | Confusions and PRD traceability only (glossary first) |
 | `entity-model.md` | Entity graph and tool chains |
-| `metric-scope.md` | Single-Turn vs Multi-Turn alignment |
+| `metric-targets.md` | What a metric judges and which test types it runs on |
 | `metric-authoring.md` | Writing metric fields the judge and a reviewer can both use |
 | `spec-workflow.md` | Spec → test foundation pipeline |
 | `use-case-bracketfeld.md` | **Golden example** — full plan shape (fictional spec doc) |
@@ -99,4 +99,4 @@ Skip the menu when intent is already clear. Spec and run/analyze paths skip expl
 
 ## Grounding rule
 
-Before citing **metric_scope**, **creation order**, **field constraints**, or **spec extraction rules**, read the reference above — do not paraphrase from memory. For spec plans, match the section structure in `use-case-bracketfeld.md`.
+Before citing **metric targets**, **creation order**, **field constraints**, or **spec extraction rules**, read the reference above — do not paraphrase from memory. For spec plans, match the section structure in `use-case-bracketfeld.md`.

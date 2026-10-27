@@ -8,16 +8,16 @@ Trace Metrics let you run evaluation metrics against live production traces auto
 
 Trace metrics evaluate at two levels depending on the type of trace.
 
-**Per-turn evaluation** runs immediately after each request, with the project's `Single-Turn` metrics. This is where you catch issues in real time: safety violations, off-topic responses, hallucinations. Every trace gets per-turn evaluation.
+**Per-turn evaluation** runs immediately after each request, with every project metric whose [target](/docs/metrics/targets) isn't `conversation`. This is where you catch issues in real time: safety violations, off-topic responses, hallucinations. Every trace gets per-turn evaluation.
 
-**Conversation evaluation** runs after a multi-turn conversation goes quiet (default: 5 minutes of inactivity). This is where you assess the conversation as a whole: whether the assistant stayed coherent, achieved the user's goal, and retained context across turns. It uses the project's `Multi-Turn` metrics. Only multi-turn traces get conversation evaluation.
+**Conversation evaluation** runs after a multi-turn conversation goes quiet (default: 5 minutes of inactivity). This is where you assess the conversation as a whole: whether the assistant stayed coherent, achieved the user's goal, and retained context across turns. It uses the project's metrics whose target is `conversation`. Only multi-turn traces get conversation evaluation.
 
 *Note: The inactivity timeout is centrally configurable in the backend via the `DEFAULT_CONVERSATION_DEBOUNCE_SECONDS` environment variable.*
 
 ### The "First Turn" Edge Case
 
 Often, the very first message in a chat does not yet have a `conversation_id` attached to it. When this happens:
-1. The backend treats it as a single-turn trace and runs the `Single-Turn` metrics immediately.
+1. The backend treats it as a single-turn trace and runs the per-turn metrics immediately.
 2. When the user replies (Turn 2) and a `conversation_id` is established, the backend recognizes it as a multi-turn conversation.
 3. It stops running "Conversation" metrics on individual turns and starts the debounce timer to wait for the conversation to finish.
 
@@ -25,24 +25,22 @@ Often, the very first message in a chat does not yet have a `conversation_id` at
 
 ### 1. Pick or create metrics
 
-Any metric can evaluate traces. You don't need a special scope. The metric's scope decides which evaluation phase uses it on conversation traces:
+Any metric can evaluate traces. Its [target](/docs/metrics/targets) decides which evaluation phase uses it:
 
-| Scope | Evaluates | Typical use |
+| Target | Evaluates | Typical use |
 | --- | --- | --- |
-| `Single-Turn` | Each turn, immediately | Safety, toxicity, response relevance |
-| `Multi-Turn` | Full conversation, after inactivity | Coherence, goal achievement, knowledge retention |
-| Both | Each turn and the full conversation | General-purpose quality checks |
+| `conversation` | Full conversation, after inactivity | Coherence, goal achievement, knowledge retention |
+| Any other target | Each turn, immediately | Safety, toxicity, response relevance |
 
-A trace without a `conversation_id` only gets per-turn evaluation, so a `Multi-Turn`-only metric never runs on it.
+A trace without a `conversation_id` only gets per-turn evaluation, so a metric that targets `conversation` never runs on it.
 
 <CodeBlock filename="setup_trace_metrics.py" language="python">
-{`from rhesis.sdk.metrics import NumericJudge, MetricScope
+{`from rhesis.sdk.metrics import NumericJudge
 
 # Runs immediately after each turn. Good for guardrails.
 safety = NumericJudge(
     name="safety_check",
     evaluation_prompt="Rate how safe and appropriate the response is.",
-    metric_scope=[MetricScope.SINGLE_TURN],
     min_score=0.0,
     max_score=1.0,
     threshold=0.7,
@@ -53,7 +51,7 @@ safety.push()
 coherence = NumericJudge(
     name="conversation_coherence",
     evaluation_prompt="Rate the overall coherence of this conversation.",
-    metric_scope=[MetricScope.MULTI_TURN],
+    target="conversation",
     min_score=0.0,
     max_score=10.0,
     threshold=6.0,
@@ -157,7 +155,7 @@ If the evaluation task itself fails (for example, the evaluation model is unavai
 
 ## Using Trace Metrics with Test Metrics
 
-The same metric can run in test execution and on live traces. A metric scoped `Single-Turn` and `Multi-Turn` runs on both kinds of tests, and once added to a project it also evaluates that project's traces.
+The same metric can run in test execution and on live traces. A metric that judges each turn runs on both kinds of tests, and once added to a project it also evaluates that project's traces.
 
 ---
 
