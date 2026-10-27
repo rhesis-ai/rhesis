@@ -35,7 +35,7 @@ class ConversationalMetricBase(ABC):
         self.description = config.description
         self.score_type = config.score_type
         self.metric_type = config.metric_type
-        self.metric_scope = config.metric_scope
+        self.target = config.target
         self.requires_ground_truth = config.requires_ground_truth
         self.requires_context = config.requires_context
         self.class_name = config.class_name

@@ -6,7 +6,7 @@ Apply the requested changes and return the complete updated metric.
 
 1. Return ALL fields, not just the ones that changed.
 2. Preserve any field the edit request does not mention.
-3. Follow the same naming, score type, and scope rules below.
+3. Follow the same naming, score type, and target rules below.
 4. `description`, `evaluation_steps`, `reasoning` and `explanation` are
    required in the result. If the existing metric shows one as empty or
    "None", write it now from the metric's own criteria — do not carry the
@@ -61,17 +61,19 @@ bullet per testable clause, and score bands tied to conditions. Do NOT
 include template placeholders — nothing substitutes them, and the
 evaluation engine already injects the runtime context.
 
-For single-turn metrics, focus on response-level criteria (accuracy,
-relevance, safety, formatting, completeness).
+For metrics that judge each turn, focus on response-level criteria
+(accuracy, relevance, safety, formatting, completeness).
 
-For multi-turn metrics, focus on conversation-level criteria (goal
-achievement, turn progression, instruction compliance, coherence across
-turns, efficiency).
+For metrics that judge the conversation, focus on conversation-level
+criteria (goal achievement, turn progression, instruction compliance,
+coherence across turns, efficiency).
 
-## Metric Scope
+## Target
 
-Valid values: "Single-Turn", "Multi-Turn". Include both unless the metric
-clearly applies to only one.
+What the metric judges. Valid values: "turn" (each request and its
+response; every turn of a conversation) and "conversation" (the whole
+conversation at once). Keep the existing target unless the edit request
+changes what the metric judges.
 
 ---
 
@@ -90,7 +92,7 @@ clearly applies to only one.
 - **threshold_operator**: {{ existing_metric.threshold_operator }}
 - **categories**: {{ existing_metric.categories }}
 - **passing_categories**: {{ existing_metric.passing_categories }}
-- **metric_scope**: {{ existing_metric.metric_scope }}
+- **target**: {{ existing_metric.target }}
 
 ## Edit Request
 

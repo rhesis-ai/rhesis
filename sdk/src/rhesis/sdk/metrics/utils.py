@@ -24,12 +24,11 @@ def sdk_config_to_backend_config(config: Dict[str, Any]) -> Dict[str, Any]:
     else:
         config["reference_score"] = None
 
-    # Convert metric_scope enum values to strings for backend
-    if config.get("metric_scope"):
-        config["metric_scope"] = [
-            scope.value if hasattr(scope, "value") else str(scope)
-            for scope in config["metric_scope"]
-        ]
+    # The backend keeps the target in the metric's config. Without one it stores the
+    # metric's default on create and keeps the stored one on update.
+    target = config.pop("target", None)
+    if target is not None:
+        config["config"] = {"target": target}
 
     # Convert backend enum to string for backend API
     if config.get("backend"):
@@ -52,15 +51,9 @@ def backend_config_to_sdk_config(config: Dict[str, Any]) -> Dict[str, Any]:
     config["requires_ground_truth"] = config.pop("ground_truth_required", None)
     config["requires_context"] = config.pop("context_required", None)
 
-    # Convert metric_scope strings back to enum values for SDK
-    if config.get("metric_scope"):
-        from rhesis.sdk.metrics.base import MetricScope
-
-        # An older server can still return a retired scope such as "Trace"; skip it.
-        known = {scope.value for scope in MetricScope}
-        config["metric_scope"] = [
-            MetricScope(scope) for scope in config["metric_scope"] if scope in known
-        ]
+    settings = config.pop("config", None)
+    if isinstance(settings, dict) and settings.get("target") is not None:
+        config["target"] = settings["target"]
 
     # Convert backend_type back to backend enum for SDK
     if config.get("backend_type"):

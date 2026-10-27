@@ -9,7 +9,6 @@ from rhesis.sdk.metrics.base import (
     BaseMetric,
     MetricConfig,
     MetricResult,
-    MetricScope,
     MetricType,
     ScoreType,
 )
@@ -59,7 +58,7 @@ class ToolCallTrajectory(BaseMetric):
         arguments: Union[ArgumentMatch, str] = ArgumentMatch.PARTIAL,
         name: Optional[str] = None,
         description: Optional[str] = None,
-        metric_scope: Optional[List[Union[str, MetricScope]]] = None,
+        target: Optional[Union[str, Dict[str, Any]]] = None,
         id: Optional[str] = None,
         **kwargs: Any,
     ):
@@ -77,7 +76,7 @@ class ToolCallTrajectory(BaseMetric):
                 threshold=1.0,
                 threshold_operator=">=",
                 metric_type=MetricType.CUSTOM_CODE,
-                metric_scope=metric_scope or [MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN],
+                target=target,
                 id=id,
             )
         )
