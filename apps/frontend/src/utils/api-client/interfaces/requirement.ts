@@ -3,7 +3,7 @@ import { TypeLookup } from './type-lookup';
 import { Status } from './status';
 import { User } from './user';
 import { Tag } from './tag';
-import { MetricScope } from './metric';
+import type { MetricConfig } from './metric';
 import type { Annotation } from './annotation';
 
 export interface RequirementBase {
@@ -57,7 +57,8 @@ export interface RequirementMetricRef {
   name: string;
   description?: string | null;
   score_type?: string | null;
-  metric_scope?: MetricScope[] | null;
+  config?: MetricConfig | null;
+  supported_targets?: string[] | null;
   metric_type?: RequirementLookupRef | null;
   backend_type?: RequirementLookupRef | null;
   project_id?: UUID | null;
@@ -140,7 +141,7 @@ export interface MetricWithRelationships {
   name: string;
   description: string;
   score_type: string;
-  metric_scope?: MetricScope[];
+  config?: MetricConfig | null;
 
   // Required relationship objects (now always included from backend)
   metric_type: TypeLookup;

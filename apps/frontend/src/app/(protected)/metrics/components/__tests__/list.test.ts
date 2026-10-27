@@ -49,11 +49,11 @@ describe('metricsList filters', () => {
     ).toBe("requirements/any(x: tolower(x/name) eq tolower('Req A'))");
   });
 
-  it('leaves metricScope out of $filter entirely -- it is a dedicated query param', () => {
+  it('leaves target out of $filter entirely, it is a dedicated query param', () => {
     expect(
       buildListFilter(metricsList, {
         ...empty,
-        metricScope: ['Single-Turn'],
+        target: ['turn'],
       })
     ).toBeUndefined();
   });
@@ -68,17 +68,17 @@ describe('metricsList extraParams', () => {
       filters: empty,
     });
     expect(params.$select).toBe(METRICS_SELECT);
-    expect(params).not.toHaveProperty('metric_scope');
+    expect(params).not.toHaveProperty('target');
   });
 
-  it('joins metricScope into a comma-separated query param, not $filter', () => {
+  it('joins target into a comma-separated query param, not $filter', () => {
     const params = listParams(metricsList, {
       page: 1,
       pageSize: 25,
       sort: metricsList.defaultSort,
-      filters: { ...empty, metricScope: ['Single-Turn', 'Multi-Turn'] },
+      filters: { ...empty, target: ['turn', 'conversation'] },
     });
-    expect(params.metric_scope).toBe('Single-Turn,Multi-Turn');
+    expect(params.target).toBe('turn,conversation');
     expect(params).not.toHaveProperty('$filter');
   });
 });

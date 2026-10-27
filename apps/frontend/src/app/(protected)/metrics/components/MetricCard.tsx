@@ -4,7 +4,6 @@ import EntityCard, {
   type EntityCardFact,
   type EntityCardRelation,
 } from '@/components/common/EntityCard';
-import { TEST_TYPES } from '@/constants/test-types';
 import { RequirementsIcon, TuneIcon } from '@/components/icons';
 
 interface MetricCardProps {
@@ -14,7 +13,8 @@ interface MetricCardProps {
   backend?: string;
   metricType?: string;
   scoreType?: string;
-  metricScope?: string[];
+  /** What the metric judges: its target `on` value and display label. */
+  target?: { on: string; label: string };
   usedIn?: string[];
   /** Custom metrics only; omitted for metrics that can't be tuned. */
   tuningCases?: number;
@@ -55,7 +55,7 @@ export default function MetricCard({
   description,
   backend,
   scoreType,
-  metricScope,
+  target,
   usedIn,
   tuningCases,
   showUsage = false,
@@ -70,9 +70,9 @@ export default function MetricCard({
       label: capitalize(scoreType),
     });
   }
-  (metricScope ?? []).forEach(scope => {
-    facts.push({ key: `scope-${scope}`, kind: 'plain', label: scope });
-  });
+  if (target) {
+    facts.push({ key: 'target', kind: 'plain', label: target.label });
+  }
 
   return (
     <EntityCard
@@ -107,7 +107,7 @@ export function MetricCardPlaceholders() {
           description=""
           backend="rhesis"
           scoreType="numeric"
-          metricScope={[TEST_TYPES.SINGLE_TURN]}
+          target={{ on: 'turn', label: 'Each turn' }}
           usedIn={[]}
           showUsage
         />

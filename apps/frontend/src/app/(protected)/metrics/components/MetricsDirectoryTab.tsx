@@ -36,12 +36,13 @@ import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { OWASP_METRIC_FILTER_VALUE, OWASP_METRIC_TAG_NAME } from './list';
 import { PAGE_HEADERS } from '@/constants/page-headers';
+import { formatMetricTarget, getMetricTarget } from '@/utils/metric-targets';
 export interface FilterState {
   search: string;
   backend: string[];
   type: string[];
   scoreType: string[];
-  metricScope: string[];
+  target: string[];
   requirement: string;
 }
 
@@ -49,7 +50,8 @@ export interface FilterOptions {
   backend: { type_value: string }[];
   type: { type_value: string; description: string }[];
   scoreType: { value: string; label: string }[];
-  metricScope: { value: string; label: string }[];
+  /** Target `on` values with their registry labels. */
+  target: { value: string; label: string }[];
   requirement: { id: string; name: string }[];
 }
 
@@ -151,13 +153,23 @@ export default function MetricsDirectoryTab({
     }));
   };
 
+  const targetChoices = React.useMemo(
+    () => filterOptions.target.map(o => ({ on: o.value, label: o.label })),
+    [filterOptions.target]
+  );
+  const cardTarget = (metric: MetricDetail) => {
+    const target = getMetricTarget(metric);
+    if (!target) return undefined;
+    return { on: target.on, label: formatMetricTarget(target, targetChoices) };
+  };
+
   // Count active advanced filters
   const requirementStr =
     typeof filters.requirement === 'string' ? filters.requirement : '';
   const activeAdvancedFilterCount =
     filters.type.length +
     filters.scoreType.length +
-    filters.metricScope.length +
+    filters.target.length +
     (requirementStr.trim() !== '' ? 1 : 0);
 
   // True empty = server returned zero results and no filters are active
@@ -176,7 +188,7 @@ export default function MetricsDirectoryTab({
       backend: [],
       type: [],
       scoreType: [],
-      metricScope: [],
+      target: [],
       requirement: '',
     });
   };
@@ -414,7 +426,7 @@ export default function MetricsDirectoryTab({
               filters={{
                 type: filters.type,
                 scoreType: filters.scoreType,
-                metricScope: filters.metricScope,
+                target: filters.target,
                 requirement:
                   typeof filters.requirement === 'string'
                     ? filters.requirement
@@ -423,7 +435,7 @@ export default function MetricsDirectoryTab({
               filterOptions={{
                 type: filterOptions.type,
                 scoreType: filterOptions.scoreType,
-                metricScope: filterOptions.metricScope,
+                target: filterOptions.target,
                 requirement: filterOptions.requirement,
               }}
               onApply={drawerFilters => {
@@ -431,7 +443,7 @@ export default function MetricsDirectoryTab({
                   ...prev,
                   type: drawerFilters.type,
                   scoreType: drawerFilters.scoreType,
-                  metricScope: drawerFilters.metricScope,
+                  target: drawerFilters.target,
                   requirement: drawerFilters.requirement,
                 }));
               }}
@@ -493,7 +505,7 @@ export default function MetricsDirectoryTab({
                       backend={metric.backend_type?.type_value}
                       metricType={metric.metric_type?.type_value}
                       scoreType={metric.score_type}
-                      metricScope={metric.metric_scope}
+                      target={cardTarget(metric)}
                       usedIn={requirementNames}
                       tuningCases={
                         backendType === 'custom'

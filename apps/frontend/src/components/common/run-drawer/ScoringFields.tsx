@@ -31,7 +31,6 @@ import {
   drawerOutlinedFieldSx,
 } from '@/components/common/drawerFormFieldSx';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
-import type { MetricScope } from '@/utils/api-client/interfaces/metric';
 import type { LastTestRunSummary } from '@/utils/api-client/interfaces/test-set';
 import { formatDate } from '@/utils/date';
 import { BORDER_RADIUS } from '@/styles/theme';
@@ -74,10 +73,9 @@ interface MetricsFieldProps {
   onAddMetric: (metric: {
     id: UUID;
     name: string;
-    metric_scope?: MetricScope[];
   }) => void;
   onRemoveMetric: (id: UUID) => void;
-  scopeFilter?: string;
+  testType?: string;
 }
 
 export function MetricsField({
@@ -87,7 +85,7 @@ export function MetricsField({
   selectedMetrics,
   onAddMetric,
   onRemoveMetric,
-  scopeFilter,
+  testType,
 }: MetricsFieldProps) {
   const labelId = React.useId();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -186,7 +184,7 @@ export function MetricsField({
             excludeMetricIds={selectedMetrics.map(m => m.id)}
             title="Add Metric to Execution"
             subtitle="Select a metric to use for this test run"
-            scopeFilter={scopeFilter}
+            testType={testType}
             variant="drawer"
           />
         </Box>
