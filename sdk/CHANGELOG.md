@@ -98,17 +98,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   requirement could also create metrics and test sets. Work beyond what was shown is held for
   another Accept, and a turn cut off by the iteration limit no longer offers Accept again.
 - Agents no longer resend a tool call that already failed in the same turn, and stop calling a
-  tool after three failures, instead of spending the turn on retries. The Architect also rejects
+  tool after three failures in a row, instead of spending the turn on retries. The Architect also rejects
   placeholder ids before sending them and leaves failures a later call recovered from out of the
   model's history.
 - `ShowChartTool` gives the model the chart's real labels and values (and the true lowest and
   highest when it shortens a long chart), instead of only value ranges, which left it to
-  invent category names and misreport peaks. It also rejects mixing measure kinds, such as
-  latency and cost, on one axis.
+  invent category names and misreport peaks. Measures of different kinds, such as latency
+  and cost, are drawn as one chart per kind rather than on one axis.
 - An agent with an MCP provider listed before a named tool (as the Architect lists its
   `LocalToolProvider` before `ShowChartTool`) sent the named tool's calls to the provider,
   which answered "Tool not available", so the Architect could never show a chart. A call now
   goes to the first tool that serves its name.
+- `ShowChartTool` draws `stacked_bar` and `area` charts of anything but counts as `bar` and
+  `line`. The Architect stacked two endpoints' pass rates into one bar, drawing an axis that ran
+  to 200%.
+- `on_tool_end` event handlers receive the call's `arguments`, so a finished tool can be
+  described as precisely as a started one.
+- The Architect charts a report on the platform's default model, which often read the
+  insights rows and answered without a chart. A finish without a chart after `get_insights` is
+  turned back once, a chart query that drops a filter its `get_insights` call set (such as
+  `environments=["production"]`) gets it back, and `ShowChartTool` skips a chart already on the
+  reply and drops a "top N" from a title over fewer rows. A trace query with no environment
+  filter gets the environment the user's message names, such as "production". These correct the call rather than
+  reject it, so the user sees no failed tool call.
 - Normalized cached prompt usage for OpenAI and LiteLLM so separately billed cache reads and
   writes stay out of `input_tokens`, while provider-reported totals remain unchanged.
 - Streamed LangChain calls record their cache reads and writes. They carry usage only on

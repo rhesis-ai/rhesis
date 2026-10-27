@@ -138,6 +138,8 @@ export default function ArchitectMessageBubble({
         sx={{
           p: 1.5,
           maxWidth: '75%',
+          // A short reply would otherwise shrink its charts to the width of the text.
+          width: message.charts?.length ? '75%' : undefined,
           bgcolor: isUser
             ? 'primary.main'
             : message.isError
@@ -188,7 +190,11 @@ export default function ArchitectMessageBubble({
               : {}
           }
         >
-          <MarkdownContent content={message.content} variant="body2" />
+          <MarkdownContent
+            content={message.content}
+            variant="body2"
+            entityLinksOnly={!isUser}
+          />
         </Box>
 
         {message.charts?.map((spec, i) => (

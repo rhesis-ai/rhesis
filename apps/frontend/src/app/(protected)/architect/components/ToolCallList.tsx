@@ -126,6 +126,16 @@ export default function ToolCallList({
     ? completedTools.slice(collapsedCount)
     : completedTools;
   const hiddenFailures = hiddenTools.filter(t => !t.success).length;
+  // Successes and failures counted apart, so "1 completed, 1 failed" is two calls.
+  const hiddenSuccesses = collapsedCount - hiddenFailures;
+  const collapsedSummary = [
+    hiddenSuccesses > 0 || hiddenFailures === 0
+      ? collapsedLabel(hiddenSuccesses)
+      : null,
+    hiddenFailures > 0 ? `${hiddenFailures} failed` : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
 
   const toggleReasoning = (startedAt: number) => {
     setExpandedReasoning(prev => {
@@ -278,8 +288,7 @@ export default function ToolCallList({
             <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
           )}
           <Typography variant="caption" color="text.secondary">
-            {collapsedLabel(collapsedCount)}
-            {hiddenFailures > 0 ? `, ${hiddenFailures} failed` : ''}
+            {collapsedSummary}
           </Typography>
           {expandedCompleted ? (
             <ExpandLessIcon sx={{ fontSize: 14, color: 'text.secondary' }} />

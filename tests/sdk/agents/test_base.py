@@ -280,6 +280,16 @@ class FailingTool(BaseTool):
         return ToolResult(tool_name="save_plan", success=False, error="Field required")
 
 
+class SometimesFailingTool(FailingTool):
+    """Fails a call whose x starts with "bad", like a chart rejected for a dropped filter."""
+
+    async def execute(self, **kwargs) -> ToolResult:
+        self.calls += 1
+        if str(kwargs.get("x", "")).startswith("bad"):
+            return ToolResult(tool_name="save_plan", success=False, error="Field required")
+        return ToolResult(tool_name="save_plan", success=True, content="ok")
+
+
 class TestRepeatedFailures:
     """A turn spent six identical save_plan failures before hitting the iteration cap."""
 
@@ -314,6 +324,20 @@ class TestRepeatedFailures:
 
         assert tool.calls == 3
         assert "failed 3 times" in agent._execution_history[3].tool_results[0].error
+
+    @pytest.mark.asyncio
+    async def test_a_success_between_failures_keeps_the_tool_available(self, mock_model):
+        """Two charts, each rejected once and then corrected, shut show_chart off for the turn."""
+        tool = SometimesFailingTool()
+        agent = _make_agent(mock_model, tools=[tool], max_iterations=10)
+        xs = ["bad1", "bad2", "good1", "bad3", "bad4", "good2"]
+        mock_model.a_generate = AsyncMock(
+            side_effect=[_tool_dict("save_plan", {"x": x}) for x in xs] + [_finish_dict()]
+        )
+
+        await agent.run_async("go")
+
+        assert tool.calls == len(xs)
 
     @pytest.mark.asyncio
     async def test_failures_do_not_carry_into_the_next_turn(self, mock_model):

@@ -10,6 +10,10 @@ Common requests and what to expect from each one.
 - [Attaching a spec or requirements document](#attaching-a-spec-or-requirements-document)
 - [Comparing two test runs](#comparing-two-test-runs)
 - [Analyzing a past run](#analyzing-a-past-run)
+- [Asking for a report](#asking-for-a-report)
+- [Checking what people flagged](#checking-what-people-flagged)
+- [Finding out why something failed](#finding-out-why-something-failed)
+- [Approving one step](#approving-one-step)
 - [Auto-approve session](#auto-approve-session)
 
 <Callout type="default">
@@ -100,6 +104,26 @@ Upload a document and let Architect read it before planning. Works well for Open
   <ChatArchitect>{"Run 14 — 78% overall.\n\nBy requirement:\n• Handles Flight Search: 90%\n• Refuses Off-Topic: 60% ← below threshold\n• Handles Cancellations: 83%\n\nOff-Topic refusals are failing primarily on Refusal Correctness. The evaluator notes that the chatbot gives partial answers rather than clean refusals on 6 of the 10 failing tests. Tightening the system prompt for out-of-scope topics should address this."}</ChatArchitect>
 </ChatExchange>
 
+## Asking for a report
+
+Questions across many runs get charts. Architect picks the breakdowns, draws a chart for each, and says what each one shows.
+
+<ChatExchange>
+  <ChatUser>Which requirements fail most often? Rank them against a 90% target and ignore any with fewer than 10 results.</ChatUser>
+  <ChatArchitect>{"Three of four requirements miss the 90% target. Refuses Off-Topic is furthest off at 64%, then Handles Cancellations at 72% and Applies Refund Policy at 79%. Only Handles Flight Search clears it, at 91%."}</ChatArchitect>
+</ChatExchange>
+
+The reply comes with a bar chart of pass rate by requirement, the 90% target drawn as a line, and Refuses Off-Topic highlighted.
+
+Other questions that work the same way:
+
+- "Give me a report on pass rates by topic, and how they changed week by week over the last two months."
+- "Which topics got worse between the last two runs?"
+- "Compare our two endpoints across all metrics."
+- "How have p95 latency and LLM cost moved day by day in production?"
+
+→ [Reports and Charts](/docs/architect/reports) lists every question type and the chart it gets.
+
 ## Checking what people flagged
 
 <ChatExchange>
@@ -113,6 +137,19 @@ Upload a document and let Architect read it before planning. Works well for Open
   <ChatUser>Why did that cancellation test error?</ChatUser>
   <ChatArchitect>{"The trace shows five spans. The retrieval step returned no documents, and the LLM call that followed answered anyway from its own knowledge.\n\n• function.handle_request — 4.2s, OK\n• ai.retrieval — 0.3s, OK, 0 results\n• ai.llm.invoke — 3.8s, ERROR: context length exceeded\n\nThe error is the LLM call, but the cause is upstream: with no retrieved context the prompt fell back to the full conversation history and overflowed. Worth fixing the retrieval first."}</ChatArchitect>
 </ChatExchange>
+
+## Approving one step
+
+**Accept** approves only what Architect showed you. Ask for one thing and that is all it creates.
+
+<ChatExchange>
+  <ChatUser>Add a requirement that the chatbot always answers in English.</ChatUser>
+  <ChatArchitect>{"I'll create the requirement \"Always Answers in English\". Shall I go ahead?"}</ChatArchitect>
+  <ChatUser>[clicks Accept]</ChatUser>
+  <ChatArchitect>{"Created \"Always Answers in English\". Next, I can add a metric to evaluate it, or generate tests for it."}</ChatArchitect>
+</ChatExchange>
+
+→ [Chat Features — What Accept approves](/docs/architect/chat-features#what-accept-approves)
 
 ## Auto-approve session
 

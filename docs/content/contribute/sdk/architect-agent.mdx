@@ -151,11 +151,36 @@ The write guard prevents the agent from creating or modifying platform entities 
 
 **Layer 1 — prompt:** `system_prompt.j2` instructs the LLM to always present a plan and ask for confirmation before calling any mutating tool.
 
-**Layer 2 — structural:** `agent.py` intercepts tool calls at execution time. If a mutating tool is called before `_creation_approved` is `True`, the agent blocks it, records the tool name in `_confirming_tools`, and presents a confirmation prompt to the user. On the next turn, if the user confirms, only the specific blocked tools are unlocked.
+**Layer 2 — structural:** `agent.py` intercepts tool calls at execution time. When it holds a mutating call, it records the approval scope in `_approved_scope`: each held call and each item of the plan as saved at that moment, as `(kind, name)` pairs. A call with no entity name is keyed by its tool and `*_id` arguments, so approving it never approves every call of that tool. On the next turn, if the user confirms, only calls inside that scope run. `add_requirement_to_metric` passes when both the requirement and the metric are in scope. Anything else is held again, including plan items added with `save_plan` during the approved turn.
+
+The scope is part of `guard_state`, so it survives the backend rebuilding the agent for each message.
 
 `_auto_approve_all = True` bypasses layer 2 for the session (set when the UI auto-approve toggle is on). Layer 1 (prompt) is always active.
 
 A tool is considered mutating if its HTTP method is **not** in `ArchitectConfig.readonly_http_methods` (`GET`, `HEAD`, `OPTIONS`).
+
+## Failed tool calls
+
+`BaseAgent` stops a turn from looping on calls that can't succeed. It refuses, without sending, an identical call (same tool, same arguments) that already failed this turn, and any call to a tool that has failed three times in a row (`_MAX_FAILURES_PER_TOOL`); a success clears the count, so a tool called many times a turn can correct a few rejected calls. The refusal comes back to the model as the tool's error and emits no events. The record resets at the start of each turn.
+
+The Architect adds two checks of its own:
+
+- An `*_id` argument that holds a placeholder rather than a real id (for example `pending_id_resolution`) is rejected before dispatch, telling the model to wait for the create to return its id (`find_placeholder_ids` in `arg_validation.py`).
+- A failure that a later call of the same tool recovered from is left out of the tool history in the model's prompt.
+
+## Chart guards
+
+The Architect's charts come from `ShowChartTool` (`chart_tool.py`), which runs a `get_insights` query and keeps a chart spec built from the returned rows. A few checks keep a chart honest about what the reply says. Where the right chart is clear they correct the call instead of rejecting it, and the tool result says what changed: a rejected call shows the user a failed tool row for what is only a drawing choice.
+
+- **Nudge to chart.** A turn that read `get_insights` rows and tries to finish without calling `show_chart` is turned back once with `CHART_NUDGE`, a failed `finish` result asking for a chart per breakdown. The model may finish again if no chart fits. It never fires on the last iteration.
+- **Kept filters.** Before `show_chart` runs, `_fill_chart_filters` compares its query with this turn's latest `get_insights` call for the same breakdown (same entity and `group_by`). A filter that call set and the chart leaves out (`environments`, `endpoint_ids`, `months` and the like) is added to the chart query, so the chart shows the data the reply was written from (`dropped_filters` in `chart_tool.py`).
+- **Named environments.** A trace query (`get_insights` or `show_chart`) with no `environments` filter gets the environments the user's message names, matched as whole words against the project's trace environments (`_scope_to_named_environments`). The names come from one `get_insights` grouped by `environment`, run without events so it shows no tool row.
+- **Counts only in stacks.** `stacked_bar` and `area` add values up, so for any other measure they are drawn as `bar` and `line`.
+- **No duplicates.** A chart identical to one already on the reply is not added again.
+- **Honest titles.** A "top N" over fewer rows is dropped from the title.
+- **One kind per axis.** Measures of different kinds, such as latency and cost, are split into one chart per kind from the same query, titled by measure.
+
+On a turn with a chart, the reply writer (`streaming_response.j2`) gets a chart rule in place of its table rule: the findings in a sentence each, and none of the chart's numbers laid out again.
 
 ## How to add a new MCP tool
 

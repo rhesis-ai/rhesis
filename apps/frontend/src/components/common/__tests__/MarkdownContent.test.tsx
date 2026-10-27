@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import MarkdownContent from '../MarkdownContent';
+import MarkdownContent, { isEntityLink } from '../MarkdownContent';
 
 describe('MarkdownContent', () => {
   it('renders plain text content', () => {
@@ -90,5 +90,31 @@ describe('MarkdownContent', () => {
     render(<MarkdownContent content="**bold text** and *italic text*" />);
     expect(screen.getByText('bold text')).toBeInTheDocument();
     expect(screen.getByText('italic text')).toBeInTheDocument();
+  });
+
+  it('renders a made-up entity id as plain text when entity links only', () => {
+    // The platform model linked metrics to "/metrics/tone-id-placeholder".
+    const { container } = render(
+      <MarkdownContent
+        content="[Tone](/metrics/tone-id-placeholder) and [Brand tone](/requirements/147143f3-f4eb-4b8f-8299-ce3fe3d5bae7)"
+        entityLinksOnly
+      />
+    );
+    expect(
+      screen.queryByRole('link', { name: 'Tone' })
+    ).not.toBeInTheDocument();
+    expect(container).toHaveTextContent('Tone and Brand tone');
+    expect(
+      screen.getByRole('link', { name: 'Brand tone' })
+    ).toBeInTheDocument();
+  });
+
+  it('accepts uuids and nano ids, nothing else', () => {
+    expect(
+      isEntityLink('/test-runs/42fda65d-86b8-4544-9c01-e51ea31dabac')
+    ).toBe(true);
+    expect(isEntityLink('/metrics/aB3dE5fG7hJ9')).toBe(true);
+    expect(isEntityLink('/metrics/answer_relevance_id')).toBe(false);
+    expect(isEntityLink('/metrics/new')).toBe(false);
   });
 });

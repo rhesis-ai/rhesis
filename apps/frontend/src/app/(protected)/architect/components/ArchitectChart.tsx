@@ -38,6 +38,7 @@ import {
   hasGoodDirection,
   heatPosition,
   humanize,
+  labelledAxisMax,
   legendEntries,
   seriesColors,
   seriesMark,
@@ -225,7 +226,16 @@ function CartesianChart({ spec }: ArchitectChartProps) {
         slotProps={barSlotProps}
         grid={{ vertical: true }}
         yAxis={[{ ...bandAxis, width: 160 }]}
-        xAxis={[stacked ? countAxis : valueAxis]}
+        xAxis={[
+          stacked
+            ? countAxis
+            : labelled
+              ? {
+                  ...valueAxis,
+                  max: labelledAxisMax(primary.kind, series[0]?.data ?? []),
+                }
+              : valueAxis,
+        ]}
         series={series.map(s => ({
           ...s,
           stack: stacked ? 'total' : undefined,
@@ -574,7 +584,13 @@ function ExportMenu({ spec, plotRef }: ExportMenuProps) {
           <FileDownloadOutlinedIcon fontSize="small" />
         </IconButton>
       </Tooltip>
-      <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={close}>
+      <Menu
+        anchorEl={anchor}
+        open={Boolean(anchor)}
+        onClose={close}
+        // Sized to the chart's controls, not to the page's body text.
+        slotProps={{ list: { dense: true } }}
+      >
         {plot && (
           <MenuItem onClick={() => exportAs('png')}>Image (PNG)</MenuItem>
         )}

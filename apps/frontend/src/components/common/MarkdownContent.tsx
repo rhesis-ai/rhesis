@@ -10,6 +10,23 @@ interface MarkdownContentProps {
   content: string;
   /** Typography variant to use for body text (default: 'body1') */
   variant?: TypographyProps['variant'];
+  /**
+   * Render an internal link as plain text unless it points at an entity by a
+   * real id. For model-written text, where a link may carry an id it made up.
+   */
+  entityLinksOnly?: boolean;
+}
+
+// A UUID, or the 12-character nano id every entity also carries.
+const ENTITY_ID =
+  /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9A-Za-z]{12})$/i;
+
+/** `/metrics/<uuid>` passes; `/metrics/tone-id-placeholder` does not. */
+export function isEntityLink(href: string): boolean {
+  const [, route, id, ...rest] = href.split(/[?#]/)[0].split('/');
+  return (
+    Boolean(route) && Boolean(id) && rest.length === 0 && ENTITY_ID.test(id)
+  );
 }
 
 function isInternalPath(href: string | undefined): href is string {
@@ -36,8 +53,14 @@ function normalizeMarkdownLinks(content: string): string {
 function SmartLink({
   href,
   children,
+  entityLinksOnly,
   ...props
-}: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
+}: React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+  entityLinksOnly?: boolean;
+}) {
+  if (isInternalPath(href) && entityLinksOnly && !isEntityLink(href)) {
+    return <>{children}</>;
+  }
   if (isInternalPath(href)) {
     return (
       <Link component={NextLink} href={href} target="_blank" {...props}>
@@ -61,6 +84,7 @@ function SmartLink({
 export default function MarkdownContent({
   content,
   variant = 'body1',
+  entityLinksOnly = false,
 }: MarkdownContentProps) {
   const theme = useTheme();
 
@@ -181,6 +205,7 @@ export default function MarkdownContent({
           overrides: {
             a: {
               component: SmartLink,
+              props: { entityLinksOnly },
             },
           },
         }}

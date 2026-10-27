@@ -70,7 +70,7 @@ Colors come from `theme.chartPalettes.architect`, defined per mode: `neutral` an
 The backend can return `needs_confirmation` in `architect.response`.
 When true, the UI attaches **Accept** and **Change** actions to the latest assistant message.
 
-- **Accept** sends a confirmation message (`"Yes, go ahead."`)
+- **Accept** sends a confirmation message (`"Yes, go ahead."`); the agent decides what that approves (see [Write guard](/contribute/sdk/architect-agent#write-guard-two-layer-safety))
 - **Change** focuses the input for user edits
 
 The UI also includes an **Auto-approve** switch. When enabled:
@@ -89,11 +89,11 @@ The UI also includes an **Auto-approve** switch. When enabled:
 
 - thinking dots during `architect.thinking`
 - active tool rows during `architect.tool_start`
-- completed tool rows with success/failure and duration on `architect.tool_end`
+- completed tool rows with success/failure and duration on `architect.tool_end`; a failed row shows the payload's `error` on hover
 - awaited background task rows during `architect.task_progress`
 - optional per-tool reasoning sections
 
-`ToolCallList` prioritizes active tools at the top and collapses completed tools when activity is ongoing.
+`ToolCallList` prioritizes active tools at the top and collapses completed tools when activity is ongoing. Before rendering it drops failures that a later call of the same tool succeeded (`unrecoveredTools`). The collapsed summary counts the rows it hides that succeeded and that failed apart ("2 completed, 1 failed" is three calls; with no successes it reads "1 failed") and shows an error icon instead of the check when any failed.
 
 Task progress uses the Celery task ID as the row key. `started` and `progress` statuses render as active rows; `completed` and `failed` statuses move the row into completed activity. If `step` and `total` are present, the UI appends them to the label as progress counts.
 

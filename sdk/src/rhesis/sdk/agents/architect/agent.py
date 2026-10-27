@@ -7,6 +7,7 @@ plan tracking. Tools are injected by the caller.
 import asyncio
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any, ClassVar, Dict, FrozenSet, List, Optional, Set, Tuple, Union
 
@@ -28,6 +29,7 @@ from rhesis.sdk.agents.architect.tool_registry import PlanCategory, mode_for, pl
 from rhesis.sdk.agents.architect.workflow import WorkflowPath, resolve_workflow_path_update
 from rhesis.sdk.agents.arg_validation import find_missing_arguments, find_placeholder_ids
 from rhesis.sdk.agents.base import BaseAgent, BaseTool, MCPTool
+from rhesis.sdk.agents.chart_tool import dropped_filters, flatten_query
 from rhesis.sdk.agents.constants import (
     Action,
     AgentMode,
@@ -53,6 +55,13 @@ _INTERNAL_TOOL_NAMES: FrozenSet[str] = frozenset(t.value for t in InternalTool)
 # Floor on an unnamed record's share of the summary budget. Below this a
 # record is too clipped to be worth showing as a record at all.
 _MIN_RECORD_CHARS = 400
+
+# Sent back once when a turn read insights rows and is finishing without a chart.
+CHART_NUDGE = (
+    "Not finished: this turn read get_insights rows but showed no chart. Call show_chart "
+    "for each breakdown your reply reports (it runs the query itself), then finish. If no "
+    "chart fits this answer, finish again."
+)
 
 # Seed for a turn whose create/update calls were held for approval.
 HELD_BACK_SEED = "Here is what I'll do once you accept. Nothing has been created yet."
@@ -237,6 +246,8 @@ class ArchitectAgent(BaseAgent):
         # which makes the pre-dispatch check a no-op rather than a false
         # rejection.
         self._tool_schemas: Dict[str, Any] = {}
+        # The project's trace environment names, looked up once a trace query needs them.
+        self._environment_names: Optional[List[str]] = None
         self._auto_approve_all: bool = False
         self._blocked_this_turn: bool = False
         # The calls the guard held back this turn. They are what the user is
@@ -961,6 +972,8 @@ class ArchitectAgent(BaseAgent):
         if tool_call.tool_name == InternalTool.READ_ATTACHED_FILE:
             return self._execute_read_attached_file(tool_call)
 
+        scoped = await self._scope_to_named_environments(tool_call)
+        filled = self._fill_chart_filters(tool_call)
         error = (
             self._check_plan_constraints(tool_call)
             or self._validate_tool_arguments(tool_call)
@@ -987,6 +1000,16 @@ class ArchitectAgent(BaseAgent):
             await self.set_mode_async(target_mode)
 
         result = await super().execute_tool(tool_call)
+        if filled and result.success:
+            result.content = (
+                f"Added {filled} from this turn's get_insights call for the same breakdown, so "
+                f"the chart shows the data your reply describes.\n{result.content or ''}"
+            )
+        if scoped and result.success:
+            result.content = (
+                f"Added {scoped}, the environment the user's message names, so these rows "
+                f"cover only it.\n{result.content or ''}"
+            )
         if result.success:
             self._collect_id_names(result)
             self._collect_typed_entity_names(tool_call, result)
@@ -2005,6 +2028,20 @@ class ArchitectAgent(BaseAgent):
         self, action: AgentAction, iteration: int
     ) -> Tuple[ExecutionStep, bool]:
         """Stream the final response token-by-token."""
+        if iteration < self.max_iterations and self._should_nudge_chart():
+            logger.info("[Architect] Finish turned back: insights read but nothing charted")
+            return (
+                ExecutionStep(
+                    iteration=iteration,
+                    reasoning=action.reasoning,
+                    action=Action.CALL_TOOL,
+                    tool_calls=[],
+                    tool_results=[
+                        ToolResult(tool_name=InternalTool.FINISH, success=False, error=CHART_NUDGE)
+                    ],
+                ),
+                False,
+            )
         logger.info("[Architect] Streaming final response")
         # Derive confirmation from runtime state — never from
         # ``action.needs_confirmation``. The Accept/Change UI is only
@@ -2083,6 +2120,125 @@ class ArchitectAgent(BaseAgent):
             # describes requirements from a document it has never seen.
             attachments_text=self._format_attachments(),
             proposed_actions=self._format_blocked_calls(),
+            charts_shown=self._charts_shown_this_turn(),
+        )
+
+    def _turn_calls(self, tool_name: str) -> List[Tuple[ToolCall, ToolResult]]:
+        """This turn's calls of one tool, each with its result."""
+        return [
+            (tc, tr)
+            for step in self._execution_history[self._turn_start_step :]
+            for tc, tr in zip(step.tool_calls, step.tool_results, strict=False)
+            if tc.tool_name == tool_name
+        ]
+
+    def _should_nudge_chart(self) -> bool:
+        """Whether a finish that read insights rows but drew no chart goes back once."""
+        if "show_chart" not in self._tool_schemas or self._turn_calls("show_chart"):
+            return False
+        if not any(tr.success for _, tr in self._turn_calls("get_insights")):
+            return False
+        return not any(
+            tr.error == CHART_NUDGE
+            for step in self._execution_history[self._turn_start_step :]
+            for tr in step.tool_results
+        )
+
+    async def _scope_to_named_environments(self, tool_call: ToolCall) -> str:
+        """Add the environments the user's message names to a trace query that sets none.
+
+        Asked for production latency and cost, the platform model queried every
+        environment about one time in five, and the chart showed the wrong numbers.
+        Returns what was added, or "".
+        """
+        name = tool_call.tool_name
+        if name not in ("get_insights", "show_chart") or not isinstance(tool_call.arguments, dict):
+            return ""
+        args = tool_call.arguments
+        query = flatten_query(args.get("query")) if name == "show_chart" else dict(args)
+        if query.get("entity") != "trace" or query.get("environments"):
+            return ""
+        message = self._latest_user_message()
+        if not message:
+            return ""
+        named = [
+            env
+            for env in await self._trace_environments()
+            if re.search(rf"(?<!\w){re.escape(env)}(?!\w)", message, re.IGNORECASE)
+        ]
+        if not named:
+            return ""
+        if name == "show_chart":
+            tool_call.arguments = {**args, "query": {**query, "environments": named}}
+        else:
+            tool_call.arguments = {**args, "environments": named}
+        added = f"environments={json.dumps(named)}"
+        logger.info("[Architect] Added %s to a %s query", added, name)
+        return added
+
+    async def _trace_environments(self) -> List[str]:
+        """The environment names the project's traces were sent from, looked up once."""
+        if self._environment_names is not None:
+            return self._environment_names
+        # The base class runs the tool without events, so the lookup shows no tool row.
+        result = await super().execute_tool(
+            ToolCall(
+                tool_name="get_insights",
+                arguments={"entity": "trace", "group_by": ["environment"], "measures": ["count"]},
+            )
+        )
+        if not result.success:
+            return []
+        try:
+            rows = json.loads(result.content or "{}").get("rows") or []
+        except (TypeError, ValueError, AttributeError):
+            return []
+        self._environment_names = [
+            str(row["environment"])
+            for row in rows
+            if isinstance(row, dict) and row.get("environment")
+        ]
+        return self._environment_names
+
+    def _latest_user_message(self) -> str:
+        for entry in reversed(self._conversation_history):
+            if entry.get("role") == Role.USER:
+                return str(entry.get("content") or "")
+        return ""
+
+    def _fill_chart_filters(self, tool_call: ToolCall) -> str:
+        """Add to a chart query the filters this turn's insights query for it set.
+
+        A chart that drops one charts other data than the reply was written from
+        (production latency drawn over every environment). Filling them in keeps
+        the two in step without a failed call. Returns what was added, or "".
+        """
+        if tool_call.tool_name != "show_chart" or not isinstance(tool_call.arguments, dict):
+            return ""
+        earlier = [
+            tc.arguments
+            for tc, tr in self._turn_calls("get_insights")
+            if tr.success and isinstance(tc.arguments, dict)
+        ]
+        query = tool_call.arguments.get("query")
+        dropped = dropped_filters(query, earlier)
+        if not dropped:
+            return ""
+        tool_call.arguments = {
+            **tool_call.arguments,
+            "query": {**flatten_query(query), **dropped},
+        }
+        added = ", ".join(f"{k}={json.dumps(v)}" for k, v in dropped.items())
+        logger.info("[Architect] Added %s to a chart query", added)
+        return added
+
+    def _charts_shown_this_turn(self) -> int:
+        """How many charts this turn's reply carries; their numbers are not retyped."""
+        return sum(
+            1
+            for step in self._execution_history[self._turn_start_step :]
+            for tr in step.tool_results
+            if tr.tool_name == "show_chart" and tr.success
         )
 
     def _format_blocked_calls(self) -> str:

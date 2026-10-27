@@ -5,11 +5,11 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from rhesis.sdk.agents.architect.agent import HELD_BACK_SEED, ArchitectAgent
+from rhesis.sdk.agents.architect.agent import CHART_NUDGE, HELD_BACK_SEED, ArchitectAgent
 from rhesis.sdk.agents.architect.config import ArchitectConfig
 from rhesis.sdk.agents.architect.plan import ArchitectPlan, MetricSpec, RequirementSpec
 from rhesis.sdk.agents.base import BaseAgent, BaseTool
-from rhesis.sdk.agents.schemas import ExecutionStep, ToolCall, ToolResult
+from rhesis.sdk.agents.schemas import AgentAction, ExecutionStep, ToolCall, ToolResult
 from rhesis.sdk.models.base import BaseLLM
 
 # ── helpers ────────────────────────────────────────────────────────
@@ -4090,6 +4090,160 @@ class TestDocumentRequirements:
         assert "None of these has run" in writer
         assert HELD_BACK_SEED in writer
         assert "I will create R1." not in writer
+
+    @pytest.mark.parametrize("success", [True, False])
+    def test_writer_leaves_charted_numbers_to_the_chart(self, mock_model, success):
+        """Told to lay numbers out as tables, the writer retyped every chart as one."""
+        agent = _make_agent(mock_model)
+        agent._execution_history.append(
+            ExecutionStep(
+                iteration=1,
+                reasoning="chart it",
+                action="call_tool",
+                tool_calls=[ToolCall(tool_name="show_chart", arguments={})],
+                tool_results=[
+                    ToolResult(tool_name="show_chart", success=success, content="Charted")
+                ],
+            )
+        )
+
+        writer = agent._build_streaming_prompt("chart it", "Refunds regressed.")
+
+        assert ("Never lay a chart's numbers out again" in writer) is success
+        assert ("tables and lists for numbers" in writer) is not success
+
+    @staticmethod
+    def _insights_step(*extra_calls):
+        calls = [
+            ToolCall(
+                tool_name="get_insights",
+                arguments={
+                    "entity": "trace",
+                    "group_by": ["period"],
+                    "environments": ["production"],
+                },
+            ),
+            *extra_calls,
+        ]
+        return ExecutionStep(
+            iteration=1,
+            reasoning="read the rows",
+            action="call_tool",
+            tool_calls=calls,
+            tool_results=[ToolResult(tool_name=c.tool_name, success=True) for c in calls],
+        )
+
+    @pytest.mark.asyncio
+    async def test_finish_without_a_chart_goes_back_once(self, mock_model):
+        """The platform model read insights rows and finished without charting them."""
+        agent = _make_agent(mock_model)
+        agent._tool_schemas = {"show_chart": {}, "get_insights": {}}
+        agent._execution_history.append(self._insights_step())
+        finish = AgentAction(action="finish", reasoning="done", final_answer="Refunds fell.")
+
+        step, done = await agent._handle_finish_action(finish, iteration=2)
+        agent._execution_history.append(step)
+
+        assert done is False
+        assert step.tool_results[0].error == CHART_NUDGE
+        assert agent._should_nudge_chart() is False
+
+    def test_no_nudge_once_a_chart_was_drawn(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._tool_schemas = {"show_chart": {}, "get_insights": {}}
+        agent._execution_history.append(
+            self._insights_step(ToolCall(tool_name="show_chart", arguments={}))
+        )
+
+        assert agent._should_nudge_chart() is False
+
+    @pytest.mark.asyncio
+    async def test_no_nudge_on_the_last_iteration(self, mock_model):
+        agent = _make_agent(mock_model)
+        agent._tool_schemas = {"show_chart": {}, "get_insights": {}}
+        agent._execution_history.append(self._insights_step())
+        agent._stream_final_response = AsyncMock(return_value="Refunds fell.")
+        finish = AgentAction(action="finish", reasoning="done", final_answer="Refunds fell.")
+
+        _, done = await agent._handle_finish_action(finish, iteration=agent.max_iterations)
+
+        assert done is True
+
+    def test_a_chart_dropping_the_turns_filter_gets_it_back(self, mock_model):
+        """Production latency was charted over every environment; rejecting it showed an error."""
+        agent = _make_agent(mock_model)
+        agent._execution_history.append(self._insights_step())
+        chart = ToolCall(
+            tool_name="show_chart",
+            arguments={"query": {"entity": "trace", "group_by": ["period"]}},
+        )
+
+        added = agent._fill_chart_filters(chart)
+
+        assert added == 'environments=["production"]'
+        assert chart.arguments["query"]["environments"] == ["production"]
+
+    @staticmethod
+    def _asked(agent, message):
+        agent._conversation_history.append({"role": "user", "content": message})
+        agent._environment_names = ["production", "staging"]
+
+    @pytest.mark.asyncio
+    async def test_a_trace_query_gets_the_environment_the_user_named(self, mock_model):
+        """Asked for production cost, the platform model queried every environment."""
+        agent = _make_agent(mock_model)
+        self._asked(agent, "How has LLM cost moved day by day in production?")
+        call = ToolCall(tool_name="get_insights", arguments={"entity": "trace"})
+
+        added = await agent._scope_to_named_environments(call)
+
+        assert added == 'environments=["production"]'
+        assert call.arguments["environments"] == ["production"]
+
+    @pytest.mark.asyncio
+    async def test_a_chart_query_gets_the_environment_the_user_named(self, mock_model):
+        agent = _make_agent(mock_model)
+        self._asked(agent, "Chart p95 latency in Production")
+        call = ToolCall(
+            tool_name="show_chart",
+            arguments={"query": {"entity": "trace", "group_by": ["period"]}},
+        )
+
+        await agent._scope_to_named_environments(call)
+
+        assert call.arguments["query"]["environments"] == ["production"]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("message", "arguments"),
+        [
+            ("How has LLM cost moved day by day?", {"entity": "trace"}),
+            ("Cost in production?", {"entity": "trace", "environments": ["staging"]}),
+            ("Pass rates in production?", {"entity": "test_result"}),
+        ],
+    )
+    async def test_other_queries_are_left_alone(self, mock_model, message, arguments):
+        agent = _make_agent(mock_model)
+        self._asked(agent, message)
+        call = ToolCall(tool_name="get_insights", arguments=dict(arguments))
+
+        assert await agent._scope_to_named_environments(call) == ""
+        assert call.arguments == arguments
+
+    @pytest.mark.asyncio
+    async def test_environment_names_are_looked_up_once(self, mock_model, monkeypatch):
+        agent = _make_agent(mock_model)
+        rows = {"rows": [{"environment": "production", "count": 3}, {"environment": None}]}
+        lookup = AsyncMock(
+            return_value=ToolResult(
+                tool_name="get_insights", success=True, content=json.dumps(rows)
+            )
+        )
+        monkeypatch.setattr(BaseAgent, "execute_tool", lookup)
+
+        assert await agent._trace_environments() == ["production"]
+        assert await agent._trace_environments() == ["production"]
+        lookup.assert_awaited_once()
 
     def test_large_blocked_calls_are_capped(self, mock_model):
         agent = _make_agent(mock_model)

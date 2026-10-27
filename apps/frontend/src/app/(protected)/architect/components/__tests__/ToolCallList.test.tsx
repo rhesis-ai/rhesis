@@ -163,6 +163,24 @@ describe('ToolCallList', () => {
     ];
     render(<ToolCallList completedTools={tools} activeTools={[]} />);
 
-    expect(screen.getByText('2 completed, 1 failed')).toBeInTheDocument();
+    expect(screen.getByText('1 completed, 1 failed')).toBeInTheDocument();
+  });
+
+  it('leaves out a zero completed count when every folded call failed', () => {
+    const tools = [
+      ...makeDone(2).map((t, i) => ({
+        ...t,
+        tool: `broken_${i}`,
+        success: false,
+      })),
+      ...makeDone(2).map((t, i) => ({
+        ...t,
+        tool: `ok_${i}`,
+        startedAt: 10 + i,
+      })),
+    ];
+    render(<ToolCallList completedTools={tools} activeTools={[]} />);
+
+    expect(screen.getByText('2 failed')).toBeInTheDocument();
   });
 });

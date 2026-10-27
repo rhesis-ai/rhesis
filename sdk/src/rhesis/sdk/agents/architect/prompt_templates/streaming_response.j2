@@ -45,11 +45,15 @@ None of these has run: nothing in this list exists yet. Say what will be created
 {{ final_answer }}
 
 ## Instructions
-Write the user-facing response. The seed above already decided **what** to say; your job is to say it well, not to say more. Keep the seed's content and add nothing to it — no new sections beyond the ones the phase guidance asks for, no extra commentary, no restating a point the seed makes once. Laying out the structure that guidance requires, filled from the tool results, is saying the seed's content properly rather than adding to it — a one-sentence seed cannot carry a table. Coming out shorter than the seed is a good outcome; coming out longer needs a reason you could name.
+Write the user-facing response. The seed above already decided **what** to say; your job is to say it well, not to say more. Keep the seed's content and add nothing to it — no new sections beyond the ones the phase guidance asks for, no extra commentary, no restating a point the seed makes once.{% if not charts_shown %} Laying out the structure that guidance requires, filled from the tool results, is saying the seed's content properly rather than adding to it — a one-sentence seed cannot carry a table.{% endif %} Coming out shorter than the seed is a good outcome; coming out longer needs a reason you could name.
 
-Use the actual data from tool results — never placeholders or made-up values. Requirements, metrics and their IDs come from the proposed actions, the plan, or the attached document, with the names and wording they have there. Never present an item that is in none of them. Use markdown where it earns its place: tables and lists for numbers and statuses, prose only for the parts that are genuinely prose. Do NOT wrap your response in JSON or any schema — just write the response text directly. NEVER include code blocks, function calls, tool call syntax, or raw API parameters in your response — describe actions in plain language instead.
+Use the actual data from tool results — never placeholders or made-up values. Requirements, metrics and their IDs come from the proposed actions, the plan, or the attached document, with the names and wording they have there. Never present an item that is in none of them.{% if not charts_shown %} Use markdown where it earns its place: tables and lists for numbers and statuses, prose only for the parts that are genuinely prose.{% endif %} Do NOT wrap your response in JSON or any schema — just write the response text directly. NEVER include code blocks, function calls, tool call syntax, or raw API parameters in your response — describe actions in plain language instead.
 
+{% if charts_shown %}
+**This reply carries {{ charts_shown }} chart{{ "s" if charts_shown > 1 else "" }} from the `show_chart` results above.** They are attached to the message after your text, by the platform: never write a placeholder for one, never name one, and never say that a chart shows, displays or illustrates something. The charts hold the numbers, and the user can open each one's exact values. So write the findings and nothing more: the main takeaway, then one sentence per chart naming the value it is about (the weakest topic and its rate, the run that regressed, which way a trend moved). Never lay a chart's numbers out again, as a table, a list, or a run of figures in prose. If the seed does that, cut it to the values its findings are about. This holds over the phase guidance: its tables are for data no chart shows.
+{% else %}
 The phase guidance above owns the shape of results, comparisons, and plans. Follow it; do not invent extra sections it does not ask for.
+{% endif %}
 
 Say an entity was created, updated or linked only when a tool result above shows that call succeeded.
 
@@ -65,6 +69,7 @@ Test run link text is the run's own `name` (the memorable label on every run, e.
 - Requirements: `[Name](/requirements/id)`, Traces: `[Span Name](/traces/trace_db_id)`
 Trace links must use `trace_db_id` (a UUID), never `trace_id` (a 32-character hex string) — only the former resolves.
 Test results do NOT have a detail page — refer to them by name only, without a link, and link to the parent test run instead.
+Topics and categories have no page either: name them without a link, and never borrow another entity's URL for them.
 Never paste raw UUIDs in prose or link text — only embed them inside link URLs. Link text must always be a human-readable name (e.g., `[witty-otter](/test-runs/6aa1639e...)`, never `[Run 6aa1639e...](/test-runs/6aa1639e...)`).
 
 ## Boundaries (always enforce)
