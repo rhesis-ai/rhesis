@@ -122,19 +122,16 @@ def connect_permission_cache(**kwargs):
 
 @celeryd_init.connect
 def check_storage_configuration(**kwargs):
-    """Build the storage backend once so a broken ``STORAGE_SERVICE_URI`` stops the worker.
+    """Build the storage backend once so a broken storage config stops the worker.
 
-    Celery logs and swallows any ``Exception`` a signal receiver raises, so the
-    error becomes ``SystemExit``, which it lets through.
+    Celery logs and swallows any ``Exception`` a signal receiver raises, so every
+    failure becomes ``SystemExit``, which it lets through.
     """
-    from rhesis.backend.app.services.storage_service import (
-        StorageConfigurationError,
-        StorageService,
-    )
+    from rhesis.backend.app.services.storage_service import StorageService
 
     try:
         StorageService()
-    except StorageConfigurationError as e:
+    except Exception as e:
         logger.critical(f"Storage misconfigured, stopping worker: {e}")
         raise SystemExit(1) from e
 

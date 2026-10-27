@@ -70,3 +70,13 @@ class TestCheckStorageConfiguration:
             # SystemExit, not the original error: Celery swallows Exceptions from receivers.
             with pytest.raises(SystemExit):
                 check_storage_configuration(sender=None)
+
+    def test_any_storage_error_stops_the_worker(self):
+        from rhesis.backend.celery.signals import check_storage_configuration
+
+        with patch(
+            "rhesis.backend.app.services.storage_service.StorageService",
+            side_effect=ValueError("bad settings"),
+        ):
+            with pytest.raises(SystemExit):
+                check_storage_configuration(sender=None)
