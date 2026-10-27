@@ -13,8 +13,8 @@ SCHEMA = {
         "test_result": {
             "measures": {
                 "count": {"kind": "count"},
-                "pass_rate": {"kind": "rate"},
-                "p95_duration_ms": {"kind": "duration"},
+                "pass_rate": {"kind": "rate", "description": "Pass rate"},
+                "p95_duration_ms": {"kind": "duration", "description": "95th percentile duration"},
             },
         }
     }
@@ -176,16 +176,21 @@ async def test_measures_of_different_kinds_get_a_chart_each():
             "entity": "test_result",
             "group_by": ["period"],
             "measures": ["pass_rate", "p95_duration_ms"],
+            "time_grain": "day",
+            "environments": ["production"],
         },
         chart_type="line",
-        title="Mixed",
+        title="Daily pass rate and p95 latency",
         x="period",
         y=["pass_rate", "p95_duration_ms"],
     )
 
     charts = tool.drain()
     assert result.success and "one chart per measure kind" in result.content
-    assert [c["title"] for c in charts] == ["Mixed (pass rate)", "Mixed (p95 duration ms)"]
+    assert [c["title"] for c in charts] == [
+        "Pass rate by day in production",
+        "95th percentile duration by day in production",
+    ]
     assert [[m["key"] for m in c["measures"]] for c in charts] == [
         ["pass_rate"],
         ["p95_duration_ms"],

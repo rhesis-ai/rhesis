@@ -60,6 +60,7 @@ class ShowChartTool(BaseTool):
     def __init__(self, run_tool: RunTool):
         self._run_tool = run_tool
         self._measure_kinds: Optional[Dict[str, Dict[str, str]]] = None
+        self._measure_labels: Dict[str, Dict[str, str]] = {}
         self.charts: List[Dict[str, Any]] = []
 
     @property
@@ -170,7 +171,9 @@ class ShowChartTool(BaseTool):
             return self._error(str(exc))
 
         kinds = await self._kinds(spec_args["query"]["entity"])
-        groups = _by_kind(spec_args, kinds)
+        groups = _by_kind(
+            spec_args, kinds, self._measure_labels.get(spec_args["query"]["entity"], {})
+        )
         parts = []
         if len(groups) > 1:
             parts.append(
@@ -216,8 +219,14 @@ class ShowChartTool(BaseTool):
             except (TypeError, ValueError):
                 schema = {}
             for name, entry in (schema.get("entities") or {}).items():
+                measures = entry.get("measures", {})
                 self._measure_kinds[name] = {
-                    m: meta.get("kind", "count") for m, meta in entry.get("measures", {}).items()
+                    m: meta.get("kind", "count") for m, meta in measures.items()
+                }
+                self._measure_labels[name] = {
+                    m: meta["description"]
+                    for m, meta in measures.items()
+                    if meta.get("description")
                 }
         return self._measure_kinds.get(entity, {})
 
@@ -260,11 +269,15 @@ def dropped_filters(
     }
 
 
-def _by_kind(spec_args: Dict[str, Any], kinds: Dict[str, str]) -> List[Tuple[List[str], str]]:
+def _by_kind(
+    spec_args: Dict[str, Any], kinds: Dict[str, str], labels: Dict[str, str]
+) -> List[Tuple[List[str], str]]:
     """The measures to plot as (y, title) per chart: one chart per measure kind.
 
     Latency in milliseconds and cost in dollars on one axis drew cost as a flat
     line at zero. A scatter plots two measures on two axes, so it stays whole.
+    The model's title names both halves, so each chart is retitled from what it
+    plots: "95th percentile duration by day in production".
     """
     y, title = list(spec_args["y"]), spec_args["title"]
     by_kind: Dict[str, List[str]] = {}
@@ -272,10 +285,21 @@ def _by_kind(spec_args: Dict[str, Any], kinds: Dict[str, str]) -> List[Tuple[Lis
         by_kind.setdefault(kinds.get(measure, "count"), []).append(measure)
     if spec_args["chart_type"] == "scatter" or len(by_kind) < 2:
         return [(y, title)]
-    return [
-        (measures, f"{title} ({', '.join(m.replace('_', ' ') for m in measures)})")
-        for measures in by_kind.values()
-    ]
+    return [(measures, _split_title(spec_args, measures, labels)) for measures in by_kind.values()]
+
+
+def _split_title(spec_args: Dict[str, Any], measures: List[str], labels: Dict[str, str]) -> str:
+    query = flatten_query(spec_args.get("query"))
+    named = " and ".join(labels.get(m) or m.replace("_", " ") for m in measures)
+    x = spec_args.get("x")
+    if x == "period":
+        named += f" by {query.get('time_grain') or 'period'}"
+    elif x:
+        named += f" by {x.replace('_', ' ')}"
+    environments = query.get("environments") or []
+    if environments:
+        named += f" in {', '.join(environments)}"
+    return named[:1].upper() + named[1:]
 
 
 def _adjust(spec_args: Dict[str, Any], y_kinds: set, row_count: int) -> Tuple[str, str, List[str]]:
