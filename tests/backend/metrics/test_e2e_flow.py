@@ -403,7 +403,6 @@ class TestE2EFlow:
 
         # Create a real RhesisPromptMetric in the database
         metric = models.Metric(
-            metric_scope=["Single-Turn"],
             name="Integration Test Metric",
             class_name="RhesisPromptMetric",  # Will be split to NumericJudge by adapter
             score_type="numeric",
@@ -420,7 +419,9 @@ class TestE2EFlow:
         # Link metric to requirement using CRUD function to handle required fields
         from rhesis.backend.app.crud.metric import add_requirement_to_metric
 
-        add_requirement_to_metric(test_db, metric.id, requirement.id, authenticated_user_id, test_org_id)
+        add_requirement_to_metric(
+            test_db, metric.id, requirement.id, authenticated_user_id, test_org_id
+        )
 
         # Update test to use this requirement
         db_test_with_prompt.requirement_id = requirement.id

@@ -418,3 +418,12 @@ def test_a_pass_does_not_name_the_spans_that_failed():
     )
 
     assert result.details["reason"] == "1 of 3 tool calls passed."
+
+
+def test_a_reference_answer_rules_out_the_conversation():
+    """A conversation has no expected response to compare with."""
+    from rhesis.sdk.metrics.providers.deepeval.metrics import DeepEvalContextualRecall
+
+    assert TargetKind.CONVERSATION not in supported_targets(Longer, compares=["response"])
+    assert TargetKind.CONVERSATION not in supported_targets(DeepEvalContextualRecall)
+    assert TargetKind.TURN in supported_targets(DeepEvalContextualRecall)

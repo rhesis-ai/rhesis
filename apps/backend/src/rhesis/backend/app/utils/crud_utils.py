@@ -495,7 +495,7 @@ def get_items_detail(
                         ``explorer_row`` column (Test, TestSet).
         extra_filter: Optional row-selection query transform for entity-specific
             WHERE clauses the generic filters above don't cover -- e.g.
-            ``Metric``'s ``metric_scope`` or ``TestRun``'s experiment/review
+            ``Metric``'s target or ``TestRun``'s experiment/review
             filters. Applied only to the phase-1 id query, same scope as
             ``with_odata_filter`` -- once phase 1 has picked the page's ids,
             there is nothing left to filter in phase 2.

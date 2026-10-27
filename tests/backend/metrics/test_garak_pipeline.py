@@ -58,7 +58,6 @@ def _garak_metric_config(
         parameters=parameters or {},
         # Every Garak metric row in the DB is scoped Single-Turn, and batch
         # evaluation drops configs that declare no scope.
-        metric_scope=["Single-Turn"],
     )
 
 
@@ -70,7 +69,6 @@ def _non_garak_metric_config() -> MetricConfig:
         description="A non-garak metric",
         score_type="numeric",
         threshold=0.5,
-        metric_scope=["Single-Turn"],
     )
 
 

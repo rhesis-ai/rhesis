@@ -23,7 +23,6 @@ class PreflightCheckStatus(str, Enum):
 class PreflightMetricRef(BaseModel):
     id: UUID
     name: str
-    scope: Optional[List[str]] = None
 
 
 class PreflightCheckRequest(BaseModel):

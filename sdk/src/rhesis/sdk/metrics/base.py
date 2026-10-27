@@ -60,11 +60,6 @@ class MetricType(str, Enum):
     FRAMEWORK = "framework"
 
 
-class MetricScope(str, Enum):
-    SINGLE_TURN = "Single-Turn"
-    MULTI_TURN = "Multi-Turn"
-
-
 class ThresholdOperator(str, Enum):
     EQUAL = "="
     LESS_THAN = "<"
@@ -85,7 +80,6 @@ class MetricConfig:
     metric_type: Optional[Union[str, MetricType]] = (
         MetricType.CUSTOM_PROMPT
     )  # Default for SDK metrics
-    metric_scope: Optional[List[Union[str, MetricScope]]] = None  # list of scopes
     explanation: Optional[str] = None
     requires_ground_truth: Optional[bool] = False
     requires_context: Optional[bool] = False
@@ -109,7 +103,7 @@ class MetricConfig:
     # Extra parameters bucket (e.g. for factory kwargs)
     parameters: Optional[Dict[str, Any]] = None
 
-    # What the metric judges in a trace (see rhesis.sdk.metrics.targets); None judges as before
+    # What the metric judges in a trace (see rhesis.sdk.metrics.targets); None takes the default
     target: Optional[Dict[str, Any]] = None
 
     def __post_init__(self):
@@ -131,17 +125,10 @@ class MetricConfig:
             except ValueError:
                 raise ValueError(f"Unknown metric type: {self.metric_type}")
 
-        if self.metric_scope is not None:
-            converted_scopes = []
-            for scope in self.metric_scope:
-                if isinstance(scope, str):
-                    try:
-                        converted_scopes.append(MetricScope(scope))
-                    except ValueError:
-                        raise ValueError(f"Unknown metric scope: {scope}")
-                else:
-                    converted_scopes.append(scope)
-            self.metric_scope = converted_scopes
+        if self.target is not None:
+            from rhesis.sdk.metrics.targets import Target
+
+            self.target = Target.coerce(self.target).to_config()
 
 
 class MetricResult(BaseModel):
@@ -201,7 +188,7 @@ class BaseMetric(ABC):
         self.description = config.description
         self.score_type = config.score_type
         self.metric_type = config.metric_type
-        self.metric_scope = config.metric_scope
+        self.target = config.target
         self.requires_ground_truth = config.requires_ground_truth
         self.requires_context = config.requires_context
         self.class_name = config.class_name

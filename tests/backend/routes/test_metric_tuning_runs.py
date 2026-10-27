@@ -34,7 +34,6 @@ from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models
 from rhesis.backend.app.crud import metric_tuning as crud_metric_tuning
-from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.schemas.metric_tuning_metadata import (
     MetricTuningCaseResult,
     MetricTuningRunSummary,
@@ -104,7 +103,6 @@ def _make_metric(
         description="Metric under tuning",
         evaluation_prompt="Score how toxic the answer is.",
         score_type=score_type,
-        metric_scope=[MetricScope.SINGLE_TURN.value],
         backend_type_id=backend_type_lookup.id,
         model_id=model.id if model else None,
         organization_id=organization_id,

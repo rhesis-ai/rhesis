@@ -6,6 +6,25 @@ import SelectMetricsDialog from '../SelectMetricsDialog';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
 
 jest.mock('@/utils/api-client/metrics-client');
+jest.mock('@/hooks/useLookups', () => ({
+  useMetricTargets: () => ({
+    data: [
+      { on: 'turn', label: 'Each turn', description: '', per_span: false },
+      {
+        on: 'conversation',
+        label: 'The conversation',
+        description: '',
+        per_span: false,
+      },
+      {
+        on: 'tool_call',
+        label: 'Each tool call',
+        description: '',
+        per_span: true,
+      },
+    ],
+  }),
+}));
 
 // A stable (module-level) reference avoids re-triggering the useCallback/useEffect
 // cycle that would happen with a default `[]` created on each render.
@@ -18,7 +37,7 @@ function makeMetric(overrides: Record<string, unknown> = {}) {
     description: 'Measures accuracy of responses',
     backend_type: { type_value: 'llm_judge' },
     metric_type: null,
-    metric_scope: ['Single-Turn'],
+    config: { target: { on: 'turn' } },
     score_type: 'binary',
     ...overrides,
   };
@@ -163,7 +182,6 @@ describe('SelectMetricsDialog', () => {
     expect(onSelect).toHaveBeenCalledWith({
       id: 'metric-abc',
       name: 'Precision',
-      metric_scope: ['Single-Turn'],
     });
     expect(onClose).toHaveBeenCalled();
   });
@@ -181,22 +199,51 @@ describe('SelectMetricsDialog', () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
-  it('applies scope filter: only shows metrics matching the given scope', async () => {
+  it('leaves conversation metrics out for a single-turn test set', async () => {
+    mockGetAllMetrics.mockResolvedValue([
+      makeMetric({ id: 'm-1', name: 'Turn Metric' }),
+      makeMetric({
+        id: 'm-2',
+        name: 'Conversation Metric',
+        config: { target: { on: 'conversation' } },
+      }),
+      makeMetric({
+        id: 'm-3',
+        name: 'Tool Metric',
+        config: { target: { on: 'tool_call', name: 'search' } },
+      }),
+    ]);
+    renderDialog({ testType: 'Single-Turn' });
+    await screen.findByText('Turn Metric');
+    expect(screen.getByText('Tool Metric')).toBeInTheDocument();
+    expect(screen.queryByText('Conversation Metric')).not.toBeInTheDocument();
+  });
+
+  it('shows every metric for a multi-turn test set', async () => {
+    mockGetAllMetrics.mockResolvedValue([
+      makeMetric({ id: 'm-1', name: 'Turn Metric' }),
+      makeMetric({
+        id: 'm-2',
+        name: 'Conversation Metric',
+        config: { target: { on: 'conversation' } },
+      }),
+    ]);
+    renderDialog({ testType: 'Multi-Turn' });
+    await screen.findByText('Turn Metric');
+    expect(screen.getByText('Conversation Metric')).toBeInTheDocument();
+  });
+
+  it('labels each metric with its target from the registry', async () => {
     mockGetAllMetrics.mockResolvedValue([
       makeMetric({
         id: 'm-1',
-        name: 'Single Turn Metric',
-        metric_scope: ['Single-Turn'],
-      }),
-      makeMetric({
-        id: 'm-2',
-        name: 'Multi Turn Metric',
-        metric_scope: ['Multi-Turn'],
+        name: 'Tool Metric',
+        config: { target: { on: 'tool_call', name: 'search' } },
       }),
     ]);
-    renderDialog({ scopeFilter: 'Single-Turn' });
-    await screen.findByText('Single Turn Metric');
-    expect(screen.queryByText('Multi Turn Metric')).not.toBeInTheDocument();
+    renderDialog();
+    await screen.findByText('Tool Metric');
+    expect(screen.getByText('Each tool call (search)')).toBeInTheDocument();
   });
 
   it('filters metrics by backend pill selection', async () => {

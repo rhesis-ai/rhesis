@@ -12,6 +12,7 @@ import {
   testKeys,
   testSetKeys,
   annotationKeys,
+  metricTargetKeys,
 } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
@@ -24,6 +25,7 @@ import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import type { AnnotationFacets } from '@/utils/api-client/interfaces/annotation';
 import type { TestFacets } from '@/utils/api-client/interfaces/tests';
 import { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
+import type { MetricTargetChoice } from '@/utils/api-client/interfaces/metric';
 import { getPriorities } from '@/utils/task-lookup';
 import type { Priority } from '@/utils/api-client/interfaces/task';
 import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -219,5 +221,16 @@ export function usePriorities(enabled = true) {
     queryFn: () => getPriorities(),
     enabled: enabled && isAuthenticated,
     staleTime: STALE_TIME,
+  });
+}
+
+/** The metric target registry, in display order. */
+export function useMetricTargets(enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
+  return useQuery<MetricTargetChoice[]>({
+    queryKey: metricTargetKeys.all(),
+    queryFn: () => new ApiClientFactory().getMetricsClient().getMetricTargets(),
+    enabled: enabled && isAuthenticated,
+    staleTime: Infinity,
   });
 }

@@ -2,13 +2,13 @@
 
 from dataclasses import fields
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TypeVar, Union
+from typing import Any, Dict, Optional, TypeVar, Union
 
 from pydantic import Field
 
 from rhesis.sdk.entities.trace import Trace
 from rhesis.sdk.metrics.arguments import evaluation_arguments
-from rhesis.sdk.metrics.base import MetricResult, MetricScope, MetricType, ScoreType
+from rhesis.sdk.metrics.base import MetricResult, MetricType, ScoreType
 from rhesis.sdk.metrics.constants import OPERATOR_MAP, ThresholdOperator
 from rhesis.sdk.metrics.conversational.base import ConversationalMetricBase
 from rhesis.sdk.metrics.conversational.types import ConversationHistory
@@ -127,7 +127,7 @@ class ConversationalJudge(
         name: Optional[str] = None,
         description: Optional[str] = None,
         metric_type: Optional[Union[str, MetricType]] = None,
-        metric_scope: Optional[List[Union[str, MetricScope]]] = None,
+        target: Optional[Union[str, Dict[str, Any]]] = None,
         model: Optional[Union[BaseLLM, str]] = None,
         id: Optional[str] = None,
         **kwargs,
@@ -157,10 +157,6 @@ class ConversationalJudge(
             individual parameters are ignored. This allows for both legacy usage (with config)
             and modern usage (with direct parameters like GoalAchievementJudge).
         """
-        # Set default metric_scope if not provided
-        if metric_scope is None:
-            metric_scope = [MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN]
-
         # If config is provided, use it directly (legacy mode)
         if config is not None:
             self.config = config
@@ -178,7 +174,7 @@ class ConversationalJudge(
                 name=name or "conversational_judge",
                 description=description or "Evaluates conversational interactions",
                 metric_type=metric_type or MetricType.CONVERSATIONAL,
-                metric_scope=metric_scope,
+                target=target,
                 score_type=ScoreType.NUMERIC,
                 class_name=self.__class__.__name__,
                 id=id,

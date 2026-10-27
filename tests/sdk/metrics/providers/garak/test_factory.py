@@ -189,7 +189,6 @@ class TestFactoryParameterFiltering:
             score_type="numeric",
             metric_type="custom-code",
             backend="garak",
-            metric_scope=["Single-Turn"],
             requires_ground_truth=False,
             requires_context=False,
         )

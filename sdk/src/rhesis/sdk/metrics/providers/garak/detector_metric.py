@@ -17,7 +17,6 @@ from rhesis.sdk.metrics.base import (
     BaseMetric,
     MetricConfig,
     MetricResult,
-    MetricScope,
     MetricType,
     ScoreType,
 )
@@ -122,7 +121,6 @@ class GarakDetectorMetric(BaseMetric):
             description=description or f"Garak detector: {detector_class}",
             score_type=ScoreType.NUMERIC,
             metric_type=MetricType.CUSTOM_CODE,
-            metric_scope=[MetricScope.SINGLE_TURN],
             requires_ground_truth=False,
             requires_context=False,
         )

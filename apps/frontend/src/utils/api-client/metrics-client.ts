@@ -6,6 +6,7 @@ import {
   MetricUpdate,
   MetricDetail,
   MetricQueryParams,
+  MetricTargetChoice,
 } from './interfaces/metric';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 import { UUID } from 'crypto';
@@ -41,6 +42,11 @@ export class MetricsClient extends BaseApiClient {
     return this.fetchAllPages((skip, limit) =>
       this.getMetrics({ ...params, skip, limit })
     );
+  }
+
+  /** The target registry: what a metric can judge, in display order. */
+  async getMetricTargets(): Promise<MetricTargetChoice[]> {
+    return this.fetch<MetricTargetChoice[]>(`${API_ENDPOINTS.metrics}/targets`);
   }
 
   async getMetric(id: UUID): Promise<MetricDetail> {

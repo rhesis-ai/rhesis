@@ -51,6 +51,15 @@ export default withNextra({
       { source: '/docs/mcp/:path*', destination: '/docs/tools/:path*', permanent },
       { source: '/docs/behaviors', destination: '/docs/requirements', permanent },
       { source: '/glossary/behavior', destination: '/glossary/requirement', permanent },
+      { source: '/docs/metrics/metric-scope', destination: '/docs/metrics/targets', permanent },
+      { source: '/glossary/metric-scope', destination: '/glossary/metric-target', permanent },
+      // Agents fetch the raw markdown view, which middleware serves after redirects run
+      {
+        source: '/docs/metrics/metric-scope.md',
+        destination: '/docs/metrics/targets.md',
+        permanent,
+      },
+      { source: '/glossary/metric-scope.md', destination: '/glossary/metric-target.md', permanent },
       { source: '/docs/test-execution', destination: '/docs/test-runs/execution', permanent },
       // Avoid clash with public/static assets under /integrations/* — only the bare path is a doc URL
       { source: '/integrations', destination: '/docs/integrations', permanent },

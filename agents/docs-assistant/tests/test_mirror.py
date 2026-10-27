@@ -9,7 +9,7 @@ from tests.conftest import LLMS_FULL, LLMS_TXT
 
 def test_page_blocks_split_the_full_corpus_by_path():
     blocks = mirror.page_blocks(LLMS_FULL)
-    assert "docs/metrics/metric-scope" in blocks
+    assert "docs/metrics/targets" in blocks
     assert blocks["sdk/installation"].startswith(
         "---\nurl: https://docs.rhesis.ai/sdk/installation"
     )

@@ -522,7 +522,6 @@ class TestListAnnotations:
                 name=f"Metric Filter {uuid.uuid4().hex[:8]}",
                 evaluation_prompt="Score it.",
                 score_type="binary",
-                metric_scope=["single_turn"],
                 organization_id=test_organization.id,
                 user_id=authenticated_user.id,
             )
@@ -686,11 +685,17 @@ class TestAnnotationScoping:
             test_db.commit()
 
             result_ann = _create_annotation(
-                authenticated_client, "TestResult", result.id, pass_status.id,
+                authenticated_client,
+                "TestResult",
+                result.id,
+                pass_status.id,
                 comments="scoped-result",
             )
             trace_ann = _create_annotation(
-                authenticated_client, "Trace", trace.id, pass_status.id,
+                authenticated_client,
+                "Trace",
+                trace.id,
+                pass_status.id,
                 comments="scoped-trace",
                 target={"type": "trace"},
             )
@@ -705,7 +710,9 @@ class TestAnnotationScoping:
             }
 
     def test_scope_by_test_run_id(
-        self, authenticated_client, annotated_run,
+        self,
+        authenticated_client,
+        annotated_run,
     ):
         run_id = annotated_run["test_run"].id
         response = authenticated_client.get(f"/annotations/?test_run_id={run_id}")
@@ -716,7 +723,9 @@ class TestAnnotationScoping:
         assert annotated_run["trace_ann"]["id"] in ids
 
     def test_entity_endpoint(
-        self, authenticated_client, annotated_run,
+        self,
+        authenticated_client,
+        annotated_run,
     ):
         result_id = annotated_run["result"].id
         response = authenticated_client.get(f"/annotations/entity/TestResult/{result_id}")
@@ -752,7 +761,6 @@ class TestStatusFitsTheAnnotation:
                 name=f"Fit {uuid.uuid4().hex[:8]}",
                 evaluation_prompt="Score it.",
                 score_type="binary",
-                metric_scope=["single_turn"],
                 organization_id=test_organization.id,
                 user_id=authenticated_user.id,
             )

@@ -13,7 +13,6 @@ from rhesis.sdk.metrics.base import (
     BaseMetric,
     MetricConfig,
     MetricResult,
-    MetricScope,
     UnsupportedModelType,
 )
 from rhesis.sdk.metrics.config.loader import MetricConfigLoader
@@ -153,7 +152,6 @@ __all__ = [
     "Expectations",
     "ExpectedToolCall",
     "UnsupportedModelType",
-    "MetricScope",
     "Target",
     "TargetKind",
     "Aggregation",

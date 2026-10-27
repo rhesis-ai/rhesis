@@ -57,7 +57,7 @@ _STORED_PLAN_DATA = {
             "explanation": "",
             "threshold": 1.0,
             "threshold_operator": ">=",
-            "metric_scope": ["Single-Turn"],
+            "target": "turn",
             "completed": False,
         }
     ],
@@ -145,7 +145,7 @@ class TestMismatchedKeysFailSilentlyNotLoudly:
     read by a model that has since been renamed -- parses into a plan with the
     matching fields silently emptied, not a validation error. (A plan far enough
     along to have `test_sets` depending on the now-empty mappings *would* raise,
-    caught by `_validate_metric_scope_coverage`; either way `restore_state`'s
+    caught by `_validate_metric_coverage`; either way `restore_state`'s
     blanket `except Exception` swallows it, so the caller never finds out.) This
     is why the `plan_data` backfill is mandatory, not an optional cleanup step."""
 

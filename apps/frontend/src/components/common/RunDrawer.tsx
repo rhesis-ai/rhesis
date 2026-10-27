@@ -52,7 +52,6 @@ import ModelSelector from '@/components/common/ModelSelector';
 import { PreflightDialog } from '@/components/common/PreflightDialog';
 import SelectExperimentsDrawer from '@/components/common/SelectExperimentsDrawer';
 import SelectMetricsDialog from '@/components/common/SelectMetricsDialog';
-import type { MetricScope } from '@/utils/api-client/interfaces/metric';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { safeRandomUUID } from '@/utils/uuid';
 import { Project } from '@/utils/api-client/interfaces/project';
@@ -107,7 +106,6 @@ interface EndpointOption {
 interface SelectedMetric {
   id: UUID;
   name: string;
-  scope?: string[];
 }
 
 type MetricMode = 'use_test_set' | 'use_requirement' | 'define_custom';
@@ -120,7 +118,6 @@ type ScoringTarget = 'fresh' | 'reuse';
 interface OriginalMetric {
   id: string;
   name: string;
-  scope?: string[];
 }
 
 export interface RerunConfig {
@@ -596,7 +593,6 @@ export default function RunDrawer(props: RunDrawerProps) {
         origMetrics.map(m => ({
           id: m.id as UUID,
           name: m.name,
-          scope: m.scope,
         }))
       );
     }
@@ -762,18 +758,11 @@ export default function RunDrawer(props: RunDrawerProps) {
   // Metric helpers
   // -----------------------------------------------------------------------
 
-  const handleAddMetric = (metric: {
-    id: UUID;
-    name: string;
-    metric_scope?: MetricScope[];
-  }) => {
+  const handleAddMetric = (metric: { id: UUID; name: string }) => {
     setSelectedMetrics(prev =>
       prev.some(m => m.id === metric.id)
         ? prev
-        : [
-            ...prev,
-            { id: metric.id, name: metric.name, scope: metric.metric_scope },
-          ]
+        : [...prev, { id: metric.id, name: metric.name }]
     );
   };
 
@@ -862,7 +851,6 @@ export default function RunDrawer(props: RunDrawerProps) {
             ? selectedMetrics.map(m => ({
                 id: m.id,
                 name: m.name,
-                scope: m.scope,
               }))
             : undefined,
         execution_model_id: selectedExecutionModelId || undefined,
@@ -935,7 +923,6 @@ export default function RunDrawer(props: RunDrawerProps) {
         baseAttributes.metrics = selectedMetrics.map(m => ({
           id: m.id,
           name: m.name,
-          scope: m.scope,
         }));
       }
 
@@ -1079,8 +1066,8 @@ export default function RunDrawer(props: RunDrawerProps) {
     return null;
   }, [testSetType, mode, selectedTestSet, rerunConfig]);
 
-  // Effective scope filter for metrics dialog
-  const metricScopeFilter = effectiveTestSetType ?? undefined;
+  // Single-turn test sets leave out conversation metrics in the picker.
+  const metricTestType = effectiveTestSetType ?? undefined;
 
   // -----------------------------------------------------------------------
   // Render helpers
@@ -1718,7 +1705,7 @@ export default function RunDrawer(props: RunDrawerProps) {
               excludeMetricIds={selectedMetrics.map(m => m.id)}
               title="Add Metric to Execution"
               subtitle="Select a metric to use for this test run"
-              scopeFilter={metricScopeFilter}
+              testType={metricTestType}
               variant="drawer"
             />
           </Box>
@@ -1840,7 +1827,7 @@ export default function RunDrawer(props: RunDrawerProps) {
                 excludeMetricIds={selectedMetrics.map(m => m.id)}
                 title="Add Metric to Execution"
                 subtitle="Select a metric to use for this test run"
-                scopeFilter={metricScopeFilter}
+                testType={metricTestType}
                 variant="drawer"
               />
             </Box>

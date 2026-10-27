@@ -20,7 +20,7 @@ from docs_assistant.runner import run_turn
 from docs_assistant.session import TURN_SPAN_NAME, ConversationStore
 from tests.mocks import ScriptedModel, fetch, models, search, submit, verdict
 
-SCOPE = "https://docs.rhesis.ai/docs/metrics/metric-scope"
+SCOPE = "https://docs.rhesis.ai/docs/metrics/targets"
 
 
 @pytest.fixture(scope="module")
@@ -56,10 +56,10 @@ def spans(provider_and_exporter):
 
 
 async def answered_turn(cache, settings):
-    answer_model = ScriptedModel([[search("metric scope")], [fetch(SCOPE)], [submit()]])
+    answer_model = ScriptedModel([[search("metric target")], [fetch(SCOPE)], [submit()]])
     critic_model = ScriptedModel([[verdict(True)]])
     return await run_turn(
-        "What is metric scope?",
+        "What is a metric target?",
         cache=cache,
         models=models(answer_model, critic=critic_model),
         settings=settings,
@@ -150,7 +150,7 @@ async def test_tool_content_is_recorded_as_events(spans, cache, settings):
         if s.attributes.get(AIAttributes.TOOL_NAME) == "fetch_page"
     )
     events = {e.name: e for e in fetch_span.events}
-    assert "metric-scope" in events["ai.tool.input"].attributes["ai.tool.input"]
+    assert "metrics/targets" in events["ai.tool.input"].attributes["ai.tool.input"]
     assert "<doc url=" in events["ai.tool.output"].attributes["ai.tool.output"]
 
 

@@ -8,11 +8,11 @@ from docs_assistant.schemas import Route
 from docs_assistant.terminals import text as reply
 from tests.mocks import ScriptedModel, fetch, models, search, submit
 
-SCOPE = "https://docs.rhesis.ai/docs/metrics/metric-scope"
+SCOPE = "https://docs.rhesis.ai/docs/metrics/targets"
 
 
 async def test_max_turns_ends_in_the_fallback(cache, settings):
-    model = ScriptedModel([[search("metric scope")]], repeat_last=True)
+    model = ScriptedModel([[search("metric target")]], repeat_last=True)
     response = await run_turn(
         "q", cache=cache, models=models(model), settings=replace(settings, max_turns=3)
     )
@@ -23,7 +23,7 @@ async def test_max_turns_ends_in_the_fallback(cache, settings):
 
 
 async def test_timeout_ends_in_the_fallback(cache, settings):
-    model = ScriptedModel([[search("metric scope")], [submit()]], delay=0.2)
+    model = ScriptedModel([[search("metric target")], [submit()]], delay=0.2)
     response = await run_turn(
         "q", cache=cache, models=models(model), settings=replace(settings, turn_timeout=0.1)
     )

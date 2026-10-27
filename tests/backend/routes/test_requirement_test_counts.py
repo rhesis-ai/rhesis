@@ -35,7 +35,6 @@ def count_scenario(test_db: Session, test_organization, db_user, db_status) -> d
     metric = _row(
         models.Metric,
         name=f"ZZCountMetric-{token}",
-        metric_scope=["Single-Turn"],
         evaluation_prompt="Judge it.",
         score_type="numeric",
     )

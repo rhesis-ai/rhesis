@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from jinja2 import Environment, FileSystemLoader
 from pydantic import BaseModel, Field
@@ -102,14 +102,12 @@ class GeneratedMetric(BaseModel):
         default=None,
         description=("Subset of categories that indicate a pass (categorical metrics only)"),
     )
-    metric_scope: Optional[List[str]] = Field(
+    target: Optional[Literal["turn", "conversation"]] = Field(
         default=None,
         description=(
-            'Non-empty list containing "Single-Turn" and/or "Multi-Turn". Always '
-            "provide it. This decides which tests the metric is evaluated against, "
-            'so a wrong value means it silently never runs. Use ["Multi-Turn"] for '
-            'metrics that judge a whole conversation, ["Single-Turn"] for a single '
-            "request-response exchange, and both only when it genuinely works either way."
+            'What the metric judges. "turn" judges one request and its response, and '
+            'every turn of a conversation. "conversation" judges a whole conversation '
+            "at once and does not run on single-turn tests."
         ),
     )
 

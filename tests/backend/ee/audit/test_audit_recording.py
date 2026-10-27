@@ -191,7 +191,6 @@ class TestLinkTables:
             name="Audit metric",
             evaluation_prompt="Is it right?",
             score_type="binary",
-            metric_scope=["Single-Turn"],
             organization_id=test_org_id,
             user_id=authenticated_user_id,
         )

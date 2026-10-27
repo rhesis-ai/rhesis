@@ -38,7 +38,6 @@ def _test_set_with_metric(test_db, organization, user, db_status, backend, multi
         test_db, "MetricType", "custom-prompt", str(org_id), str(user_id)
     )
     metric = models.Metric(
-        metric_scope=["Single-Turn"],
         name=f"{backend} metric",
         class_name="NumericJudge",
         score_type="numeric",
@@ -363,7 +362,6 @@ def _single_turn_test(test_db, organization, user, db_status, backend):
         test_db, "TestType", TestType.SINGLE_TURN.value, str(org_id), str(user_id)
     )
     metric = models.Metric(
-        metric_scope=["Single-Turn"],
         name=f"{backend} requirement metric",
         class_name="NumericJudge",
         score_type="numeric",

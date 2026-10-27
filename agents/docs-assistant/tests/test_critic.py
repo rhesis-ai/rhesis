@@ -7,13 +7,17 @@ from docs_assistant.runner import run_turn
 from docs_assistant.schemas import AnswerDraft, Route
 from tests.mocks import ScriptedModel, draft, fetch, models, submit, text, verdict
 
-SCOPE = "https://docs.rhesis.ai/docs/metrics/metric-scope"
+SCOPE = "https://docs.rhesis.ai/docs/metrics/targets"
 GOOD = {
     "id": "c1",
-    "url": f"{SCOPE}#when-to-use-multi-turn",
-    "quote": "Full transcript required — context retention, multi-step threads",
+    "url": f"{SCOPE}#which-tests-a-metric-runs-on",
+    "quote": "Every other target runs on single-turn and multi-turn tests alike",
 }
-ALSO_GOOD = {"id": "c2", "url": SCOPE, "quote": "One `test_type` per test set."}
+ALSO_GOOD = {
+    "id": "c2",
+    "url": SCOPE,
+    "quote": "On a multi-turn test, `turn` judges every turn of the conversation on its own.",
+}
 TWO_CLAIMS = {
     "answer_md": "Multi-turn needs the transcript [c1]. Use one test type per set [c2].",
     "claims": [
@@ -109,13 +113,16 @@ def test_critic_input_shows_each_quote_in_its_context(snapshot):
     ledger = {SCOPE: snapshot.page(SCOPE)}
     sent = critic_input(AnswerDraft(**draft(**TWO_CLAIMS)), ledger)
     assert "Claim 2: Each test set allows ten test types." in sent
-    assert 'Quote: "One `test_type` per test set."' in sent
-    assert "Requirements listed on each test set" in sent  # the text right after the quote
+    assert (
+        'Quote: "On a multi-turn test, `turn` judges every turn of the conversation on its own."'
+        in sent
+    )
+    assert "The metric fails when a turn fails" in sent  # the text right after the quote
 
 
 def test_surrounding_text_falls_back_to_normalized_matching():
-    body = "Intro. The **metric scope** decides   where it runs. Outro."
-    assert "metric scope decides where it runs" in surrounding_text(
-        body, "the metric scope decides where it runs", chars=5
+    body = "Intro. The **metric target** decides   where it runs. Outro."
+    assert "metric target decides where it runs" in surrounding_text(
+        body, "the metric target decides where it runs", chars=5
     )
     assert surrounding_text(body, "not there at all") == ""
