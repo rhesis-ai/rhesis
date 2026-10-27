@@ -300,14 +300,10 @@ async function getNavigationItems(
       icon: <JobsIcon key="jobs-icon" />,
       requiredPermission: Capability.Job.READ,
     },
-    // CONNECT section — tools and infrastructure. Open until the active project
-    // has an endpoint, so users see where to set one up; collapsed after that.
+    // CONNECT section — tools and infrastructure.
     {
       kind: 'header',
       title: 'CONNECT',
-      collapsible: true,
-      defaultCollapsed: true,
-      openUntilEndpointConfigured: true,
     },
     {
       kind: 'page',

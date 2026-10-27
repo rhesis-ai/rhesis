@@ -69,11 +69,13 @@ import { NavLinkItem } from './NavLinkItem';
 import { SidebarPlanRow } from './SidebarPlanRow';
 import { SidebarOnboardingRow } from './SidebarOnboardingRow';
 import { NavSection } from './NavSection';
+import { NavScrollCue } from './NavScrollCue';
 import { SidebarProjectSwitcher } from './SidebarProjectSwitcher';
 import SupportDrawer from './SupportDrawer';
 import NotificationsDrawer from './NotificationsDrawer';
 import { useNotifications } from '@/contexts/NotificationsContext';
-import { useCanScrollDown } from '@/hooks/useCanScrollDown';
+import { useScrollEdges } from '@/hooks/useScrollEdges';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 // ── Figma "left_panel_close" / "left_panel_open" SVG icons ──────────────────
 // Exact filled path from Figma node 841:38433 (Material Symbols Rounded w300).
@@ -240,8 +242,19 @@ export function Sidebar() {
   // Notifications drawer
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
+  // The nav's scrollbar is hidden, so fade cues show when it can scroll.
   const navScrollRef = useRef<HTMLDivElement>(null);
-  const navCanScrollDown = useCanScrollDown(navScrollRef);
+  const { canScrollUp, canScrollDown } = useScrollEdges(navScrollRef);
+  const reducedMotion = useReducedMotion();
+  // Roughly one screen, keeping a couple of rows of overlap for context.
+  const scrollNavBy = (direction: 1 | -1) => {
+    const el = navScrollRef.current;
+    if (!el) return;
+    el.scrollBy({
+      top: direction * Math.max(el.clientHeight - 60, 0),
+      behavior: reducedMotion ? 'auto' : 'smooth',
+    });
+  };
   const { unreadBySection } = useNotifications();
   const totalUnread = Object.values(unreadBySection).reduce(
     (sum, count) => sum + (count ?? 0),
@@ -430,6 +443,16 @@ export function Sidebar() {
         boxSizing: 'border-box',
       }}
     >
+      {/* Zero-height anchors pin the scroll cues to the nav's top and bottom
+          edges without wrapping the nav. */}
+      <Box sx={{ position: 'relative', flexShrink: 0 }}>
+        <NavScrollCue
+          direction="up"
+          visible={canScrollUp}
+          onClick={() => scrollNavBy(-1)}
+        />
+      </Box>
+
       {/* ── Top section: brand block + main nav ── */}
       <Box
         ref={navScrollRef}
@@ -681,7 +704,7 @@ export function Sidebar() {
         <SidebarProjectSwitcher collapsed={collapsed} />
 
         {/* Main nav groups */}
-        {mainGroups.map((group, groupIndex) => {
+        {mainGroups.map(group => {
           if (group.type === 'standalone') {
             return (
               <Box
@@ -709,26 +732,18 @@ export function Sidebar() {
               header={group.header}
               items={group.items}
               collapsed={collapsed}
-              headersBelow={
-                mainGroups
-                  .slice(groupIndex + 1)
-                  .filter(g => g.type !== 'standalone').length
-              }
             />
           );
         })}
       </Box>
 
-      {/* The scrollbar is hidden, so this line is the only sign more nav
-          items sit below the fold. */}
-      <Divider
-        aria-hidden
-        sx={{
-          flexShrink: 0,
-          opacity: navCanScrollDown ? 1 : 0,
-          transition: 'opacity 0.2s ease',
-        }}
-      />
+      <Box sx={{ position: 'relative', flexShrink: 0 }}>
+        <NavScrollCue
+          direction="down"
+          visible={canScrollDown}
+          onClick={() => scrollNavBy(1)}
+        />
+      </Box>
 
       {/* ── Bottom section: footer link card + user avatar ── */}
       <Box

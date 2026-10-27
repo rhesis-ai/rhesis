@@ -2,21 +2,38 @@
 
 import { type RefObject, useEffect, useState } from 'react';
 
+interface ScrollEdges {
+  canScrollUp: boolean;
+  canScrollDown: boolean;
+}
+
 /**
- * Whether `ref`'s element has content hidden below its visible area. Tracks
- * scrolling and size changes of the element and its direct children (e.g. a
- * section expanding), so it stays right without polling.
+ * Whether `ref`'s element has content hidden above or below its visible area.
+ * Tracks scrolling and size changes of the element and its direct children
+ * (e.g. a section expanding), so it stays right without polling.
  */
-export function useCanScrollDown(ref: RefObject<HTMLElement | null>): boolean {
-  const [canScrollDown, setCanScrollDown] = useState(false);
+export function useScrollEdges(
+  ref: RefObject<HTMLElement | null>
+): ScrollEdges {
+  const [edges, setEdges] = useState<ScrollEdges>({
+    canScrollUp: false,
+    canScrollDown: false,
+  });
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
     const update = () => {
-      // 1px slack: fractional scaling can leave scrollTop just short of the end.
-      setCanScrollDown(el.scrollHeight - el.scrollTop - el.clientHeight > 1);
+      // 1px slack: fractional scaling can leave scrollTop just short of an end.
+      const canScrollUp = el.scrollTop > 1;
+      const canScrollDown =
+        el.scrollHeight - el.scrollTop - el.clientHeight > 1;
+      setEdges(prev =>
+        prev.canScrollUp === canScrollUp && prev.canScrollDown === canScrollDown
+          ? prev
+          : { canScrollUp, canScrollDown }
+      );
     };
 
     const resizeObserver =
@@ -49,5 +66,5 @@ export function useCanScrollDown(ref: RefObject<HTMLElement | null>): boolean {
     };
   }, [ref]);
 
-  return canScrollDown;
+  return edges;
 }
