@@ -13,7 +13,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rhesis.backend.app.services.storage_service import StorageService
+from rhesis.backend.app.services.storage_service import (
+    StorageConfigurationError,
+    StorageService,
+)
 
 from .base import BaseStorageIntegrationTests, StorageIntegrationTestMixin
 
@@ -426,10 +429,14 @@ class TestStorageServiceEnvironmentConfigurations(
 
         # Test each environment configuration
         for env_name, env_vars in configs.items():
-            if env_name == "local":
-                continue  # Skip local as it doesn't use buckets
+            if env_name in ("local", "partial_gcs"):
+                continue  # local has no bucket; partial_gcs raises, see test_gcs_without_key_raises
 
-            with patch.dict(os.environ, env_vars, clear=True):
+            with (
+                patch.dict(os.environ, env_vars, clear=True),
+                # The fixture keys aren't real service-account JSON.
+                patch("rhesis.backend.app.services.storage_service.service_account"),
+            ):
                 get_storage_settings.cache_clear()
                 storage_service = StorageService()
 
@@ -439,8 +446,7 @@ class TestStorageServiceEnvironmentConfigurations(
                     assert storage_service.storage_uri == "gs://sources-rhesis-stg"
                 elif env_name == "production":
                     assert storage_service.storage_uri == "gs://sources-rhesis-prd"
-                elif env_name in ["partial_gcs", "no_gcs"]:
-                    # These should fallback to local storage
+                elif env_name == "no_gcs":
                     assert storage_service.use_cloud_storage is False
 
     def test_local_environment_configuration(self, environment_configurations):
@@ -454,13 +460,10 @@ class TestStorageServiceEnvironmentConfigurations(
             assert storage_service.use_cloud_storage is False
             assert storage_service.storage_path == "/tmp/local-test"
 
-    def test_gcs_fallback_to_local(self, environment_configurations):
-        """Test GCS fallback to local storage when credentials are missing."""
+    def test_gcs_without_key_raises(self, environment_configurations):
+        """A gs:// URI without credentials raises instead of falling back to local storage."""
         config = environment_configurations["partial_gcs"]
 
         with patch.dict(os.environ, config, clear=True):
-            storage_service = StorageService()
-
-            # Should have bucket name but not use GCS due to missing credentials
-            assert storage_service.storage_uri == "gs://sources-rhesis-dev"
-            assert storage_service.use_cloud_storage is False
+            with pytest.raises(StorageConfigurationError):
+                StorageService()

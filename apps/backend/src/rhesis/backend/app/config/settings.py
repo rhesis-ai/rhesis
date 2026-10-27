@@ -326,6 +326,11 @@ class StorageSettings(BaseSettings):
 
     service_uri: str | None = Field(default=None, alias="STORAGE_SERVICE_URI")
     service_account_key: str | None = Field(default=None, alias="STORAGE_SERVICE_ACCOUNT_KEY")
+    # S3 only. Unset values fall through to botocore's default credential chain.
+    endpoint: str | None = Field(default=None, alias="STORAGE_SERVICE_ENDPOINT")
+    access_key: str | None = Field(default=None, alias="STORAGE_SERVICE_ACCESS_KEY")
+    secret_key: str | None = Field(default=None, alias="STORAGE_SERVICE_SECRET_KEY")
+    region: str | None = Field(default=None, alias="STORAGE_SERVICE_REGION")
     local_storage_path: str = Field(
         default_factory=lambda: str(Path(tempfile.gettempdir()) / "rhesis-files"),
         alias="LOCAL_STORAGE_PATH",

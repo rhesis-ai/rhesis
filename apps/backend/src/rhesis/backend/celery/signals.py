@@ -120,6 +120,25 @@ def connect_permission_cache(**kwargs):
     initialize_cache()
 
 
+@celeryd_init.connect
+def check_storage_configuration(**kwargs):
+    """Build the storage backend once so a broken ``STORAGE_SERVICE_URI`` stops the worker.
+
+    Celery logs and swallows any ``Exception`` a signal receiver raises, so the
+    error becomes ``SystemExit``, which it lets through.
+    """
+    from rhesis.backend.app.services.storage_service import (
+        StorageConfigurationError,
+        StorageService,
+    )
+
+    try:
+        StorageService()
+    except StorageConfigurationError as e:
+        logger.critical(f"Storage misconfigured, stopping worker: {e}")
+        raise SystemExit(1) from e
+
+
 def _task_organization_id(task, task_kwargs):
     """Resolve the org for a task that is starting, from the raw message.
 

@@ -12,7 +12,10 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 
-from rhesis.backend.app.services.storage_service import StorageService
+from rhesis.backend.app.services.storage_service import (
+    StorageConfigurationError,
+    StorageService,
+)
 
 from .base import BaseStorageServiceTests, StorageServiceTestMixin
 
@@ -63,7 +66,7 @@ class TestStorageServiceInitialization(StorageServiceTestMixin, BaseStorageServi
             assert storage_service.use_cloud_storage is False
 
     def test_init_partial_gcs_configuration(self):
-        """Test initialization with partial GCS configuration (should fallback to local)."""
+        """A gs:// URI without a service-account key raises instead of falling back to local."""
         with patch.dict(
             os.environ,
             {
@@ -73,11 +76,8 @@ class TestStorageServiceInitialization(StorageServiceTestMixin, BaseStorageServi
             },
             clear=True,
         ):
-            storage_service = StorageService()
-
-            assert storage_service.storage_uri == "gs://sources-rhesis-dev"
-            assert storage_service.service_account_key is None
-            assert storage_service.use_cloud_storage is False
+            with pytest.raises(StorageConfigurationError):
+                StorageService()
 
     @patch("rhesis.backend.app.services.storage_service.fsspec.filesystem")
     def test_file_system_initialization_gcs(self, mock_fsspec):

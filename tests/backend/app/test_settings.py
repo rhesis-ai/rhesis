@@ -63,7 +63,15 @@ AUTH_ENV_VARS = (
     "JWT_ACCESS_TOKEN_EXPIRE_MINUTES",
 )
 REDIS_ENV_VARS = ("BROKER_URL", "BROKER_READ_URL", "CELERY_RESULT_BACKEND")
-STORAGE_ENV_VARS = ("STORAGE_SERVICE_URI", "STORAGE_SERVICE_ACCOUNT_KEY", "LOCAL_STORAGE_PATH")
+STORAGE_ENV_VARS = (
+    "STORAGE_SERVICE_URI",
+    "STORAGE_SERVICE_ACCOUNT_KEY",
+    "STORAGE_SERVICE_ENDPOINT",
+    "STORAGE_SERVICE_ACCESS_KEY",
+    "STORAGE_SERVICE_SECRET_KEY",
+    "STORAGE_SERVICE_REGION",
+    "LOCAL_STORAGE_PATH",
+)
 SMTP_ENV_VARS = ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "FROM_EMAIL")
 MODEL_ENV_VARS = (
     "DEFAULT_GENERATION_MODEL",
@@ -571,6 +579,22 @@ def test_storage_settings_loads_existing_environment_variables(clean_storage_env
     assert settings.service_uri == "gs://rhesis-files"
     assert settings.service_account_key == "encoded-service-account"
     assert settings.local_storage_path == "/var/lib/rhesis-files"
+
+
+@pytest.mark.unit
+def test_storage_settings_loads_s3_settings(clean_storage_env, monkeypatch):
+    monkeypatch.setenv("STORAGE_SERVICE_URI", "s3://rhesis-files")
+    monkeypatch.setenv("STORAGE_SERVICE_ENDPOINT", "http://seaweedfs:8333")
+    monkeypatch.setenv("STORAGE_SERVICE_ACCESS_KEY", "access")
+    monkeypatch.setenv("STORAGE_SERVICE_SECRET_KEY", "secret")
+    monkeypatch.setenv("STORAGE_SERVICE_REGION", "eu-central-1")
+
+    settings = StorageSettings(_env_file=None)
+
+    assert settings.endpoint == "http://seaweedfs:8333"
+    assert settings.access_key == "access"
+    assert settings.secret_key == "secret"
+    assert settings.region == "eu-central-1"
 
 
 @pytest.mark.unit
