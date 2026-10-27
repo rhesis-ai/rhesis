@@ -358,10 +358,11 @@ def update_metric(
         organization_id,
         metric.score_type or db_metric.score_type,
     )
-    try:
-        metric.config = check_updated_config(metric, db_metric)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=f"Invalid config: {e}") from e
+    if metric.config is not None:
+        try:
+            metric.config = check_updated_config(metric, db_metric)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=f"Invalid config: {e}") from e
 
     return metric_crud.update_metric(
         db=db, metric_id=metric_id, metric=metric, organization_id=organization_id, user_id=user_id
