@@ -1212,3 +1212,23 @@ class TestProjectScopeGuidance:
         assert "Not needed before create_endpoint" in desc.replace("\n      ", " ") or (
             "NOT needed before create_endpoint" in desc.replace("\n      ", " ")
         ), "get_project should say create_endpoint does not need it"
+
+
+@pytest.mark.unit
+class TestMetricTargets:
+    """The target choices update_metric describes are the SDK's, all of them."""
+
+    def _config(self, tool_name):
+        tool = next(t for t in load_tool_configs() if t["name"] == tool_name)
+        return " ".join(tool["parameters"]["config"]["description"].split())
+
+    def test_every_target_and_aggregation_is_described(self):
+        from rhesis.sdk.metrics.targets import Aggregation, TargetKind
+
+        described = self._config("update_metric")
+
+        missing = [k.value for k in [*TargetKind, *Aggregation] if f'"{k.value}"' not in described]
+        assert not missing, f"update_metric's config doesn't describe {missing}"
+
+    def test_create_metric_points_at_them(self):
+        assert '{"target": {"on": ...}}' in self._config("create_metric")

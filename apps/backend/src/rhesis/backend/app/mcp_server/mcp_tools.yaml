@@ -952,8 +952,9 @@ tools:
         description: "Omit. Only used by built-in provider-backed metrics."
       config:
         description: >
-          Omit. Settings of a built-in metric's class; change those on the
-          built-in metric with update_metric.
+          Usually omit. To judge one part of a trace instead of the whole
+          response, send {"target": {"on": ...}}. See update_metric's
+          config for the choices.
       ground_truth_required:
         description: >
           Set true only when the metric cannot be scored without the
@@ -1084,7 +1085,30 @@ tools:
           order, others allowed between; the default), "any_order",
           "subset" (every call made was expected) or "superset" (every
           expected call was made); arguments is "partial" (listed keys must
-          match; the default), "exact" or "ignore". Omit to keep.
+          match; the default), "exact" or "ignore". Omit to keep. The whole
+          object is replaced, so send the settings to keep with a change.
+
+          Any metric's config may hold "target", what it judges in a trace.
+          Without one the metric judges the response, as before. "on" is one
+          of: "turn" (each turn; on a conversation, every turn on its own),
+          "conversation" (the whole conversation once), "run" (the whole
+          trace once), "tool_call" (each tool call: arguments as input,
+          result as output), "retrieval" (each retrieval: query as input,
+          documents as output), "model_call", "agent" or "guardrail" (each
+          span of that kind). The per-span targets also take "name" (only
+          spans with that tool, agent or model name) and "within" (only
+          spans inside that agent), and "aggregate": "all" (every span
+          passes; the default), "any", or "share" with "min_share" (0 to 1).
+          For example {"target": {"on": "tool_call", "name":
+          "issue_refund"}}. A span is held to the test's goal and
+          instructions, not its expected response or expected tool calls, so
+          a metric with ground_truth_required takes no per-span target, and
+          Tool Call Trajectory takes only "conversation" or "run". A target
+          the metric can't take is refused with the choices it can. A metric
+          whose target matches nothing in a test's trace is reported as not
+          applicable, with the reason. Only tool calls and retrievals are seen
+          on an endpoint that sends no traces, and only when its response
+          mapping maps tool_calls or context.
 
   - name: add_requirement_to_metric
     label: Linking requirement to metric
