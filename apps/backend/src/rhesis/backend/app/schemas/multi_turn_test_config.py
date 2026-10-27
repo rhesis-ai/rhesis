@@ -5,9 +5,22 @@ This is separate from the TestConfiguration entity - this validates the JSON
 stored in the test's test_configuration attribute for multi-turn tests.
 """
 
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+#: Where a test's expected tool calls live in ``test_configuration``, for either test type.
+EXPECTED_TOOL_CALLS_KEY = "expected_tool_calls"
+
+
+class ExpectedToolCall(BaseModel):
+    """A tool call a test expects. Mirrors the SDK's ``ExpectedToolCall``, which core
+    installs don't have."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    arguments: Optional[Dict[str, Any]] = None
 
 
 class MultiTurnTestConfig(BaseModel):
@@ -50,6 +63,11 @@ class MultiTurnTestConfig(BaseModel):
         ge=1,
         le=50,
         description="Minimum turns before early stopping is allowed (default: 80% of max_turns)",
+    )
+
+    expected_tool_calls: Optional[List[ExpectedToolCall]] = Field(
+        None,
+        description="Tools the target should call over the conversation, in order (optional)",
     )
 
     @field_validator("goal", "instructions", "restrictions", "scenario")

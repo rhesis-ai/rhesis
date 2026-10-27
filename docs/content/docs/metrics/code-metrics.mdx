@@ -108,6 +108,8 @@ def looks_up_the_order_before_refunding(input: str, output: str, trace: Trace) -
     return {"score": 1.0 if ok else 0.0, "details": {"reason": f"Tool calls: {tools}"}}`}
 </CodeBlock>
 
+To compare the calls with the ones a test expects, the built-in [Tool Call Trajectory](/docs/metrics/tool-calls) metric does it without code.
+
 Which spans a trace holds depends on the endpoint:
 
 - **SDK endpoints** send their own spans: model calls, tool calls, retrievals and anything else they trace.

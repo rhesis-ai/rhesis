@@ -21,7 +21,7 @@ Create Date: 2026-08-20
 from typing import Sequence, Union
 
 from alembic import op
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 
 from rhesis.backend.alembic.utils.metric_sync import (
     _list_organizations_with_owner,
@@ -107,7 +107,10 @@ def upgrade() -> None:
 
             for model_cls in (models.Metric, models.Requirement):
                 rows = (
+                    # Only ids are read; loading whole rows would ask for columns that
+                    # later revisions add.
                     session.query(model_cls)
+                    .options(load_only(model_cls.id))
                     .filter(
                         model_cls.name.like(f"{_OWASP_PREFIX}%"),
                         model_cls.organization_id == org_id,

@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import UUID4, ConfigDict, Field, field_validator, model_validator
 
@@ -47,11 +47,39 @@ class MetricBase(Base):
     context_required: Optional[bool] = False
     evaluation_examples: Optional[str] = None
     metric_scope: Optional[List[MetricScope]] = None
+    # Settings of the metric's class, e.g. a trajectory metric's match mode.
+    config: Optional[Dict[str, Any]] = None
     organization_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
 
 
-class MetricCreate(MetricBase):
+def check_metric_config(
+    class_name: Optional[str], config: Optional[Dict[str, Any]]
+) -> Optional[Dict[str, Any]]:
+    """Refuse settings the metric's class would refuse when the metric runs (ValueError)."""
+    if config is None or not class_name:
+        return config
+    try:
+        from rhesis.sdk.metrics.providers.native.factory import RhesisMetricFactory
+    except ImportError:  # a core install, which runs no native metric
+        return config
+
+    factory = RhesisMetricFactory()
+    if class_name not in factory.list_supported_metrics():
+        return config
+    return factory.metric_class(class_name).validate_config(config)
+
+
+class _ChecksConfig:
+    """Checked on writes only: a stored row is read back whatever it holds."""
+
+    @model_validator(mode="after")
+    def validate_config(self):
+        self.config = check_metric_config(self.class_name, self.config)
+        return self
+
+
+class MetricCreate(_ChecksConfig, MetricBase):
     # Required on create, unlike the rest of MetricBase. A metric with no scope is
     # filtered out by every execution path, so accepting one silently creates dead
     # configuration that never evaluates and reports no error. Enforced here rather
@@ -76,7 +104,10 @@ class MetricCreate(MetricBase):
         return self
 
 
-class MetricUpdate(MetricBase):
+class MetricUpdate(_ChecksConfig, MetricBase):
+    """An update sent without ``class_name`` has its ``config`` checked against the stored
+    class by the route."""
+
     name: Optional[str] = None
     evaluation_prompt: Optional[str] = None
     score_type: Optional[ScoreType] = None

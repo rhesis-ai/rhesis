@@ -143,7 +143,7 @@ Check the `metadata` for token counts. A response that uses more than
 
 **Common use cases:**
 - **RAG Groundedness (`context`)** -- check that the model's answer relies only on retrieved knowledge
-- **Tool Correctness (`tool_calls`)** -- verify the AI chose the right tool and passed the correct arguments
+- **Tool Correctness (`tool_calls`)** -- verify the AI chose the right tool and passed the correct arguments. To compare with the calls a test expects, use the built-in [Tool Call Trajectory](/docs/metrics/tool-calls) metric instead of a judge
 - **Token usage (`metadata`)** -- evaluate cost efficiency by checking `prompt_tokens` and `completion_tokens`
 - **Confidence scores (`metadata`)** -- verify the model's self-reported confidence aligns with response quality
 

@@ -25,11 +25,12 @@ class TestFactoryListMetrics:
         """Test that factory lists all supported metrics."""
         metrics = factory.list_supported_metrics()
         assert isinstance(metrics, list)
-        assert len(metrics) == 4
+        assert len(metrics) == 5
         assert "NumericJudge" in metrics
         assert "CategoricalJudge" in metrics
         assert "ConversationalJudge" in metrics
         assert "GoalAchievementJudge" in metrics
+        assert "ToolCallTrajectory" in metrics
 
 
 class TestFactoryCreateNumericJudge:

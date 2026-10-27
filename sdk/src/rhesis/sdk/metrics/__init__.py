@@ -31,7 +31,7 @@ from rhesis.sdk.metrics.conversational import (
     ToolMessage,
     UserMessage,
 )
-from rhesis.sdk.metrics.expectations import Expectations
+from rhesis.sdk.metrics.expectations import Expectations, ExpectedToolCall
 from rhesis.sdk.metrics.factory import MetricFactory
 
 if TYPE_CHECKING:
@@ -44,6 +44,11 @@ if TYPE_CHECKING:
         GoalAchievementScoreResponse,
     )
     from rhesis.sdk.metrics.providers.native.numeric_judge import NumericJudge
+    from rhesis.sdk.metrics.providers.native.tool_call_trajectory import (
+        ArgumentMatch,
+        ToolCallTrajectory,
+        TrajectoryMatch,
+    )
     from rhesis.sdk.metrics.synthesizer import MetricSynthesizer
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
@@ -68,6 +73,18 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "GoalAchievementScoreResponse": (
         "rhesis.sdk.metrics.providers.native.goal_achievement_judge",
         "GoalAchievementScoreResponse",
+    ),
+    "ToolCallTrajectory": (
+        "rhesis.sdk.metrics.providers.native.tool_call_trajectory",
+        "ToolCallTrajectory",
+    ),
+    "TrajectoryMatch": (
+        "rhesis.sdk.metrics.providers.native.tool_call_trajectory",
+        "TrajectoryMatch",
+    ),
+    "ArgumentMatch": (
+        "rhesis.sdk.metrics.providers.native.tool_call_trajectory",
+        "ArgumentMatch",
     ),
     "RhesisMetricFactory": (
         "rhesis.sdk.metrics.providers.native.factory",
@@ -129,6 +146,7 @@ __all__ = [
     "MetricConfig",
     "MetricResult",
     "Expectations",
+    "ExpectedToolCall",
     "UnsupportedModelType",
     "MetricScope",
     "MetricConfigLoader",
@@ -175,4 +193,7 @@ __all__ = [
     "GoalAchievementJudge",
     "CriterionEvaluation",
     "GoalAchievementScoreResponse",
+    "ToolCallTrajectory",
+    "TrajectoryMatch",
+    "ArgumentMatch",
 ]

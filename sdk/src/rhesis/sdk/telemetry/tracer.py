@@ -29,6 +29,9 @@ from rhesis.telemetry.schemas import TestExecutionContext
 
 logger = logging.getLogger(__name__)
 
+# A tool call's arguments by name, which Span.input reads for tool spans.
+_TOOL_ARGUMENTS = "ai.tool.arguments"
+
 # Thread-safe storage for trace_id to pass from tracer to executor
 # Key: id(result), Value: trace_id
 # This solves the issue with Pydantic models not accepting arbitrary attributes
@@ -275,6 +278,35 @@ class Tracer:
             logger.warning(f"Failed to capture function inputs: {e}")
             # Don't fail tracing if serialization fails
 
+    def _capture_tool_arguments(
+        self, span: trace.Span, func: Callable, args: tuple, kwargs: dict, max_length: int = 2000
+    ) -> None:
+        """Record a tool call's arguments by parameter name, positional ones included, so
+        ``trace.tool_calls`` can be compared with the arguments a test expects."""
+        try:
+            bound = inspect.signature(func).bind_partial(*args, **kwargs)
+        except (TypeError, ValueError):
+            return
+        arguments: dict = {}
+        for name, value in bound.arguments.items():
+            kind = bound.signature.parameters[name].kind
+            if kind is inspect.Parameter.VAR_KEYWORD:
+                arguments.update(value)
+            elif name not in ("self", "cls"):
+                arguments[name] = value
+        arguments = {
+            name: self._serialize_arg_for_trace(value)
+            for name, value in arguments.items()
+            if not name.startswith("_rhesis")
+        }
+        try:
+            text = json.dumps(arguments)
+        except (TypeError, ValueError):
+            return
+        # Cut JSON doesn't parse, so arguments too long to keep are left out.
+        if len(text) <= max_length:
+            span.set_attribute(_TOOL_ARGUMENTS, text)
+
     def _capture_function_result(self, span: trace.Span, result: Any) -> None:
         """
         Serialize and capture function result as span attributes.
@@ -308,6 +340,7 @@ class Tracer:
         args: tuple,
         kwargs: dict,
         extra_attributes: Optional[dict] = None,
+        func: Optional[Callable] = None,
     ) -> None:
         """
         Set up all span attributes using AIAttributes constants.
@@ -318,6 +351,7 @@ class Tracer:
             args: Positional arguments
             kwargs: Keyword arguments
             extra_attributes: Optional dictionary of additional span attributes
+            func: The traced function, to name a tool call's positional arguments
         """
         # Set basic attributes with constants
         span.set_attribute(AIAttributes.FUNCTION_NAME, function_name)
@@ -331,6 +365,11 @@ class Tracer:
         if extra_attributes:
             for key, value in extra_attributes.items():
                 span.set_attribute(key, value)
+            if func is not None and (
+                extra_attributes.get(AIAttributes.OPERATION_TYPE)
+                == AIAttributes.OPERATION_TOOL_INVOKE
+            ):
+                self._capture_tool_arguments(span, func, args, kwargs)
 
         # Inject test context if present
         test_context = get_test_execution_context()
@@ -440,7 +479,9 @@ class Tracer:
                     )
 
             # Set up span attributes
-            self._setup_span_attributes(span, function_name, args, kwargs, extra_attributes)
+            self._setup_span_attributes(
+                span, function_name, args, kwargs, extra_attributes, func=func
+            )
 
             try:
                 # Execute function
@@ -553,7 +594,9 @@ class Tracer:
                     )
 
             # Set up span attributes
-            self._setup_span_attributes(span, function_name, args, kwargs, extra_attributes)
+            self._setup_span_attributes(
+                span, function_name, args, kwargs, extra_attributes, func=func
+            )
 
             try:
                 # Execute async function

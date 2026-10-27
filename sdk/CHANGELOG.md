@@ -68,6 +68,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   verdict when the judge returns criteria.
 
 ### Added
+- `ToolCallTrajectory` compares the trace's tool calls with `expectations.tool_calls`, without a
+  model. `match` is `exact`, `in_order` (default), `any_order`, `subset` or `superset`;
+  `arguments` is `partial` (default), `exact` or `ignore`. The result names the first call that
+  differs and reports precision and recall. `Expectations.tool_calls` is a list of
+  `ExpectedToolCall` (`name`, optional `arguments`), and `Test(expected_tool_calls=[...])` stores
+  them on a test of either type. `Test.test_configuration.goal` is now optional, since a
+  single-turn test can carry expected tool calls without one.
 - `Trace.from_response()` and `Trace.from_conversation()` build a trace in memory, to evaluate
   without tracing set up. `trace.messages()` reads a trace as a `ConversationHistory`, with each
   turn's tool calls, context and metadata, and `trace.is_conversation` says whether it records a

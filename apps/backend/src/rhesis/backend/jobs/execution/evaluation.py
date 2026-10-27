@@ -30,6 +30,7 @@ from rhesis.backend.jobs.execution.constants import (
     TURN_TOOL_CALLS_KEY,
     MetricScope,
 )
+from rhesis.backend.metrics.applicability import expected_tool_calls
 from rhesis.backend.metrics.evaluator import MetricEvaluator
 from rhesis.backend.metrics.inputs import ResponseTrace, TraceLoader
 from rhesis.sdk.entities.trace import Trace
@@ -174,13 +175,14 @@ def conversation_expectations(
     instructions: Optional[str] = None,
     contract: Optional[Dict[str, Any]] = None,
 ) -> Expectations:
-    """What a multi-turn test expects: its goal and restrictions, and the instructions and
-    contract the goal judge reads."""
+    """What a multi-turn test expects: its goal, restrictions and tool calls, and the
+    instructions and contract the goal judge reads."""
     return Expectations(
         goal=test_config.get("goal") or None,
         instructions=instructions,
         restrictions=test_config.get("restrictions") or None,
         contract=contract,
+        tool_calls=expected_tool_calls(test_config),
     )
 
 
@@ -211,6 +213,7 @@ def evaluate_single_turn_metrics(
     metrics: List[Union[Dict[str, Any], MetricConfig]],
     test_id: str = "unknown",
     trace_loader: Optional[TraceLoader] = None,
+    expected_tool_calls: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict:
     """
     Evaluate single-turn metrics on a prompt/response pair.
@@ -227,6 +230,7 @@ def evaluate_single_turn_metrics(
         metrics: List of metric configurations to use for evaluation
         test_id: Test ID, used only for the scope-filtering debug log
         trace_loader: Reads the response's trace, for metrics that declare ``trace``
+        expected_tool_calls: The tools the test expects to be called, if it says
 
     Returns:
         Dictionary containing the evaluation results
@@ -245,7 +249,7 @@ def evaluate_single_turn_metrics(
         metrics_results = metrics_evaluator.evaluate(
             metrics,
             response_trace(prompt_content, result, context, trace_loader),
-            Expectations(response=expected_response),
+            Expectations(response=expected_response, tool_calls=expected_tool_calls),
         )
     except Exception as e:
         logger.warning(f"Error evaluating metrics: {str(e)}")

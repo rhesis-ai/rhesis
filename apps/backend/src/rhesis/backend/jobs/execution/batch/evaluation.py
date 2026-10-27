@@ -18,6 +18,7 @@ from rhesis.backend.jobs.execution.evaluation import (
     stored_contract_for_rescore,
     with_default_goal_metric,
 )
+from rhesis.backend.metrics.applicability import expected_tool_calls
 
 logger = logging.getLogger(__name__)
 
@@ -193,7 +194,10 @@ async def _evaluate_single_turn_metrics(
     return await evaluator.a_evaluate(
         metric_configs,
         trace,
-        Expectations(response=expected_response),
+        Expectations(
+            response=expected_response,
+            tool_calls=expected_tool_calls(getattr(test, "test_configuration", None)),
+        ),
         on_metric_complete=on_metric_complete,
     )
 

@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.metric import Metric as MetricModel
+from rhesis.backend.metrics.applicability import applicable
 from rhesis.backend.metrics.inputs import EvaluationInputs, ResponseTrace
 from rhesis.backend.metrics.metric_config import validate_metric_configs
 from rhesis.backend.metrics.score_evaluator import ScoreEvaluator
@@ -143,6 +144,10 @@ class MetricEvaluator:
             logger.warning("No metrics found at all, returning empty results")
             return {}
 
+        metric_configs = applicable(metric_configs, expectations)
+        if not metric_configs:
+            return invalid_metric_results
+
         # Step 2: group configs by backend
         configs_by_backend = self._group_by_backend(metric_configs)
         inputs = EvaluationInputs(trace=trace, expectations=expectations)
@@ -177,6 +182,10 @@ class MetricEvaluator:
         if not metric_configs:
             logger.warning("No valid metrics found after parsing (async)")
             return invalid_metric_results or {}
+
+        metric_configs = applicable(metric_configs, expectations)
+        if not metric_configs:
+            return invalid_metric_results
 
         configs_by_backend = self._group_by_backend(metric_configs)
         inputs = EvaluationInputs(trace=trace, expectations=expectations)

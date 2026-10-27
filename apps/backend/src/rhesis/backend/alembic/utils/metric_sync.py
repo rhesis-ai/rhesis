@@ -21,13 +21,13 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import text
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.utils.crud_utils import (
-    get_or_create_entity,
     get_or_create_requirement,
     get_or_create_status,
     get_or_create_type_lookup,
@@ -161,6 +161,49 @@ def _cached_status(
     return cache[name]
 
 
+def _add_metric(
+    session: Session,
+    metric_item: Dict[str, Any],
+    ids: Dict[str, Any],
+    has_config_column: bool,
+) -> Any:
+    """Add one metric row from its definition and the ids it links to.
+
+    Added directly rather than through get_or_create_entity: the caller has already ruled
+    out an existing row by name, and that lookup selects every column of the current
+    model, including ones later revisions add.
+    """
+    metric_data = {
+        "name": metric_item["name"],
+        "description": metric_item["description"],
+        "evaluation_prompt": metric_item["evaluation_prompt"],
+        "evaluation_steps": metric_item.get("evaluation_steps"),
+        "reasoning": metric_item.get("reasoning"),
+        "score_type": metric_item["score_type"],
+        "min_score": metric_item.get("min_score"),
+        "max_score": metric_item.get("max_score"),
+        "threshold": metric_item.get("threshold"),
+        "explanation": metric_item.get("explanation"),
+        "ground_truth_required": metric_item.get("ground_truth_required", False),
+        "context_required": metric_item.get("context_required", False),
+        "class_name": metric_item.get("class_name"),
+        "evaluation_examples": metric_item.get("evaluation_examples"),
+        "threshold_operator": metric_item.get("threshold_operator", ">="),
+        "reference_score": metric_item.get("reference_score"),
+        "categories": metric_item.get("categories"),
+        "passing_categories": metric_item.get("passing_categories"),
+        "metric_scope": metric_item.get("metric_scope"),
+        **ids,
+    }
+    # Revisions from before metric.config existed sync too.
+    if metric_item.get("config") and has_config_column:
+        metric_data["config"] = metric_item["config"]
+    metric = models.Metric(**metric_data)
+    session.add(metric)
+    session.flush()
+    return metric
+
+
 def sync_metrics_to_organizations(
     session: Session,
     metric_names: List[str] | None = None,
@@ -232,6 +275,9 @@ def sync_metrics_to_organizations(
             print(f"   Found {len(all_metrics)} metric definitions")
 
         org_rows = _list_organizations_with_owner(session, verbose=verbose)
+        has_config_column = "config" in {
+            column["name"] for column in sa_inspect(session.connection()).get_columns("metric")
+        }
 
         if verbose:
             print(f"   Found {len(org_rows)} organization(s)\n")
@@ -240,10 +286,13 @@ def sync_metrics_to_organizations(
             org_id = uuid.UUID(organization_id)
 
             # Get existing metrics for this organization
-            existing_metrics = (
-                session.query(models.Metric).filter(models.Metric.organization_id == org_id).all()
-            )
-            existing_metric_names = {m.name for m in existing_metrics}
+            # Names only: frozen migrations call this before later revisions add columns.
+            existing_metric_names = {
+                name
+                for (name,) in session.query(models.Metric.name).filter(
+                    models.Metric.organization_id == org_id
+                )
+            }
 
             # Preloaded once per org, replacing per-metric lookups inside the loop
             # below. At ~20 metrics per org this is the difference between ~170
@@ -298,42 +347,18 @@ def sync_metrics_to_organizations(
                     # Get or create the status
                     status = cached_status(metric_item["status"])
 
-                    # Create metric data
-                    metric_data = {
-                        "name": metric_item["name"],
-                        "description": metric_item["description"],
-                        "evaluation_prompt": metric_item["evaluation_prompt"],
-                        "evaluation_steps": metric_item.get("evaluation_steps"),
-                        "reasoning": metric_item.get("reasoning"),
-                        "score_type": metric_item["score_type"],
-                        "min_score": metric_item.get("min_score"),
-                        "max_score": metric_item.get("max_score"),
-                        "threshold": metric_item.get("threshold"),
-                        "explanation": metric_item.get("explanation"),
-                        "ground_truth_required": metric_item.get("ground_truth_required", False),
-                        "context_required": metric_item.get("context_required", False),
-                        "class_name": metric_item.get("class_name"),
-                        "evaluation_examples": metric_item.get("evaluation_examples"),
-                        "threshold_operator": metric_item.get("threshold_operator", ">="),
-                        "reference_score": metric_item.get("reference_score"),
-                        "categories": metric_item.get("categories"),
-                        "passing_categories": metric_item.get("passing_categories"),
-                        "metric_scope": metric_item.get("metric_scope"),
-                        "metric_type_id": metric_type.id,
-                        "backend_type_id": backend_type.id,
-                        "status_id": status.id,
-                        "user_id": uuid.UUID(user_id),
-                        "owner_id": uuid.UUID(user_id),
-                    }
-
-                    # Create the metric
-                    metric = get_or_create_entity(
-                        db=session,
-                        model=models.Metric,
-                        entity_data=metric_data,
-                        organization_id=organization_id,
-                        user_id=user_id,
-                        commit=False,
+                    metric = _add_metric(
+                        session,
+                        metric_item,
+                        {
+                            "metric_type_id": metric_type.id,
+                            "backend_type_id": backend_type.id,
+                            "status_id": status.id,
+                            "organization_id": org_id,
+                            "user_id": uuid.UUID(user_id),
+                            "owner_id": uuid.UUID(user_id),
+                        },
+                        has_config_column,
                     )
 
                     # Process requirement associations. Literal keys, not app.constants'
@@ -429,7 +454,10 @@ def remove_metrics_from_organizations(
 
         # Find metrics to delete
         metrics_to_delete = (
-            session.query(models.Metric).filter(models.Metric.name.in_(metric_names)).all()
+            session.query(models.Metric)
+            .options(load_only(models.Metric.id))
+            .filter(models.Metric.name.in_(metric_names))
+            .all()
         )
 
         deleted_count = len(metrics_to_delete)

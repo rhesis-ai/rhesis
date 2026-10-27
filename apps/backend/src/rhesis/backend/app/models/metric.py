@@ -70,6 +70,7 @@ class Metric(
             "categories",
             "passing_categories",
             "metric_scope",
+            "config",
         )
     )
     __table_args__ = (
@@ -104,6 +105,9 @@ class Metric(
     # fails silently. The CHECK also rejects JSONB ``'null'`` and non-array values,
     # which a plain NOT NULL would let through.
     metric_scope = Column(JSONB, nullable=False)
+    # Settings of the metric's class, passed to it when it is built (e.g. a trajectory
+    # metric's match mode).
+    config = Column(JSONB)
 
     # Foreign keys
     metric_type_id = Column(GUID(), ForeignKey("type_lookup.id"))

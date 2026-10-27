@@ -23,6 +23,7 @@ from tenacity import (
 )
 
 from rhesis.backend.app.usage_attribution import with_usage_attribution
+from rhesis.backend.metrics.applicability import needs_model
 from rhesis.backend.metrics.inputs import EvaluationInputs
 from rhesis.backend.metrics.metric_config import build_metric_evaluate_params, metric_wants_trace
 from rhesis.backend.metrics.result_builder import MetricResultBuilder
@@ -47,7 +48,8 @@ METRIC_RETRY_MAX_WAIT = 10
 # MetricResultBuilder's fixed field list drops them, so a re-scored run loses the per-criterion
 # breakdown that the live run displayed. The criteria keys, `adversarial` and `contract` come
 # from GoalAchievementJudge; `relevant_turns` from any judge that scored a conversation, and is
-# what marks the turns a metric failed on.
+# what marks the turns a metric failed on. Precision, recall and the two tool name lists come
+# from ToolCallTrajectory.
 #
 # Deliberately NOT `**result.details`: `_get_base_details(prompt)` puts the entire rendered
 # evaluation prompt in `details["prompt"]`, and that must not be echoed into stored
@@ -67,6 +69,10 @@ _EXTRA_DETAIL_KEYS = (
     "contract",
     "relevant_turns",
     "scoring_backend",
+    "precision",
+    "recall",
+    "expected_tool_calls",
+    "actual_tool_calls",
 )
 
 
@@ -827,7 +833,7 @@ def prepare_metrics(
                     f"[METRIC_MODEL] Using user's default model for '{metric_name_for_log}'"
                 )
 
-            if metric_model is None and require_model:
+            if metric_model is None and require_model and needs_model(metric_config):
                 logger.error(f"[METRIC_MODEL] No model to judge '{metric_name_for_log}' with")
                 if refused is not None:
                     refused.append(_no_model_result(metric_config, backend))
