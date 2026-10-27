@@ -25,6 +25,10 @@ class NotSupportedError(Exception):
     """Raised when an operation is not supported by the current storage backend."""
 
 
+class StorageConfigurationError(RuntimeError):
+    """Raised when ``STORAGE_SERVICE_URI`` names a cloud backend that can't be initialised."""
+
+
 class StorageService:
     """Handles low-level file storage operations.
 
@@ -37,16 +41,15 @@ class StorageService:
         settings = get_storage_settings()
         self.storage_uri = settings.service_uri
         self.service_account_key = settings.service_account_key
+        self._s3_endpoint = settings.endpoint
+        self._s3_access_key = settings.access_key
+        self._s3_secret_key = settings.secret_key
+        self._s3_region = settings.region
         self.storage_path = settings.local_storage_path
 
         self._protocol, self._bucket_or_root = self._parse_uri(self.storage_uri)
         self._credentials = None  # populated for gcs protocol
 
-        # ``_get_file_system`` may downgrade ``_protocol`` to ``"file"`` if the
-        # requested cloud backend can't be initialised (e.g. ``gs://`` with no
-        # service-account key, or boto3 import failure). Compute the public
-        # ``use_cloud_storage`` flag *after* initialisation so it reflects what
-        # the service actually does, not just what was configured.
         self.fs = self._get_file_system()
         self.use_cloud_storage = self._protocol in ("gcs", "gs", "s3", "s3a")
 
@@ -74,6 +77,8 @@ class StorageService:
           - ``s3://bucket-name``        → (s3, bucket-name)
           - ``file:///abs/path``        → (file, /abs/path)
           - None / missing              → (file, self.storage_path)
+
+        Any other scheme raises :class:`StorageConfigurationError`.
         """
         if not uri:
             return ("file", self.storage_path)
@@ -81,6 +86,8 @@ class StorageService:
         parsed = urlparse(uri)
         scheme = parsed.scheme.lower()
 
+        if scheme in ("gs", "gcs", "s3", "s3a") and not parsed.netloc:
+            raise StorageConfigurationError(f"STORAGE_SERVICE_URI {uri} names no bucket.")
         if scheme in ("gs", "gcs"):
             return ("gcs", parsed.netloc)
         if scheme in ("s3", "s3a"):
@@ -89,11 +96,9 @@ class StorageService:
             root = parsed.path or self.storage_path
             return ("file", root)
 
-        # Unknown scheme: fall back to local
-        logger.warning(
-            f"Unknown STORAGE_SERVICE_URI scheme '{scheme}' — falling back to local filesystem"
+        raise StorageConfigurationError(
+            f"STORAGE_SERVICE_URI {uri} has an unsupported scheme; use gs://, s3:// or file://."
         )
-        return ("file", self.storage_path)
 
     # ------------------------------------------------------------------
     # Filesystem initialisation
@@ -102,20 +107,16 @@ class StorageService:
     def _get_file_system(self):
         """Instantiate the fsspec filesystem for the active protocol.
 
-        Downgrades ``self._protocol`` to ``"file"`` on any cloud-init failure
-        (missing credentials, unimportable client library, etc.) so callers
-        relying on ``use_cloud_storage`` see the *effective* backend, not the
-        configured-but-unusable one.
+        A configured cloud URI that can't be initialised raises
+        :class:`StorageConfigurationError` rather than quietly writing to the
+        container's disk, where files are lost on restart.
         """
         if self._protocol == "gcs":
             if not self.service_account_key:
-                logger.warning(
-                    "STORAGE_SERVICE_URI points to GCS but STORAGE_SERVICE_ACCOUNT_KEY is not set."
-                    " Falling back to local filesystem."
+                raise StorageConfigurationError(
+                    f"STORAGE_SERVICE_URI is {self.storage_uri} but"
+                    " STORAGE_SERVICE_ACCOUNT_KEY is not set."
                 )
-                self._protocol = "file"
-                self._bucket_or_root = self.storage_path
-                return fsspec.filesystem("file")
             try:
                 clean_b64 = (
                     self.service_account_key.strip()
@@ -129,31 +130,44 @@ class StorageService:
                     sa_info,
                     scopes=["https://www.googleapis.com/auth/cloud-platform"],
                 )
-                fs = fsspec.filesystem(
+                return fsspec.filesystem(
                     "gcs",
                     project=self._credentials.project_id,
                     token=self._credentials,
                 )
-                return fs
             except Exception as e:
-                logger.error(f"Failed to initialise GCS filesystem: {e}", exc_info=True)
-                logger.warning("Falling back to local filesystem due to GCS error")
-                self._protocol = "file"
-                self._bucket_or_root = self.storage_path
-                return fsspec.filesystem("file")
+                raise StorageConfigurationError(
+                    f"Failed to initialise GCS filesystem for {self.storage_uri}: {e}"
+                ) from e
 
         if self._protocol in ("s3", "s3a"):
-            # boto3/s3fs credentials resolved from env (AWS_ACCESS_KEY_ID etc.)
             try:
-                return fsspec.filesystem("s3")
+                return fsspec.filesystem("s3", **self._s3_options())
             except Exception as e:
-                logger.error(f"Failed to initialise S3 filesystem: {e}", exc_info=True)
-                self._protocol = "file"
-                self._bucket_or_root = self.storage_path
-                return fsspec.filesystem("file")
+                raise StorageConfigurationError(
+                    f"Failed to initialise S3 filesystem for {self.storage_uri}: {e}"
+                ) from e
 
-        # file:// or fallback
         return fsspec.filesystem("file")
+
+    def _s3_options(self) -> dict:
+        """s3fs kwargs from the STORAGE_SERVICE_* settings.
+
+        Only set values are passed, so with none configured s3fs uses
+        botocore's default credential chain (instance roles, etc.).
+        """
+        options: dict = {}
+        if self._s3_access_key:
+            options["key"] = self._s3_access_key
+        if self._s3_secret_key:
+            options["secret"] = self._s3_secret_key
+        if self._s3_region:
+            options["client_kwargs"] = {"region_name": self._s3_region}
+        if self._s3_endpoint:
+            options["endpoint_url"] = self._s3_endpoint
+            # Self-hosted stores (SeaweedFS, MinIO, Ceph) have no per-bucket DNS.
+            options["config_kwargs"] = {"s3": {"addressing_style": "path"}}
+        return options
 
     # ------------------------------------------------------------------
     # Internal path resolution
@@ -458,6 +472,7 @@ class StorageService:
         if self._protocol == "gcs":
             return self._gcs_presigned_url(path, expires_in, response_disposition)
         if self._protocol in ("s3", "s3a"):
+            # TODO: sign with s3fs (``self.fs.sign``) once a deployment needs direct S3 downloads.
             raise NotSupportedError("S3 presigned URLs not yet implemented")
         raise NotSupportedError("Local filesystem does not support presigned URLs")
 

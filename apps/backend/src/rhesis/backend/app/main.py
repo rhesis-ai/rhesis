@@ -388,6 +388,12 @@ async def lifespan(app: FastAPI):
 
     warn_on_unbuildable_default_models()
 
+    # Build the storage backend once so a broken STORAGE_SERVICE_URI stops startup
+    # instead of failing the first upload.
+    from rhesis.backend.app.services.storage_service import StorageService
+
+    StorageService()
+
     # Startup: Initialize local environment + run any registered startup hooks.
     # Hooks must be idempotent; failures abort startup so misconfiguration is loud.
     # The RBAC catalog is now seeded by Alembic data migrations, not a startup hook,

@@ -213,10 +213,17 @@ Email (notifications, invitations) is disabled until `SMTP_HOST` is set.
 
 | Variable | Description | Default |
 |---|---|---|
-| `STORAGE_SERVICE_URI` | Storage backend URI (`file://`, `gs://`, or `s3://`) | *(unset — a local directory at `LOCAL_STORAGE_PATH`)* |
+| `STORAGE_SERVICE_URI` | Storage backend URI (`file://`, `gs://bucket`, or `s3://bucket`) | *(unset — a local directory at `LOCAL_STORAGE_PATH`)* |
 | `LOCAL_STORAGE_PATH` | Directory used when `STORAGE_SERVICE_URI` is unset or `file://` without a path | `rhesis-files` inside the system temp directory |
 | `STORAGE_SERVICE_ACCOUNT_KEY` | Base64 service-account credentials for GCS | *(unset)* |
-| `LOCAL_STORAGE_PATH` | Filesystem path for the `file://` backend | `/tmp/rhesis-files` |
+| `STORAGE_SERVICE_ENDPOINT` | S3-compatible endpoint URL, such as SeaweedFS, MinIO or Ceph. Setting it switches to path-style addressing | *(unset — AWS S3)* |
+| `STORAGE_SERVICE_ACCESS_KEY` | S3 access key ID | *(unset)* |
+| `STORAGE_SERVICE_SECRET_KEY` | S3 secret key | *(unset)* |
+| `STORAGE_SERVICE_REGION` | S3 region | *(unset)* |
+
+S3 settings left unset fall back to the default AWS credential chain, such as an instance role. If
+`STORAGE_SERVICE_URI` has an unknown scheme, names no bucket, or its backend can't be initialised,
+the backend and worker fail at startup instead of writing to local disk.
 
 ## Enterprise features
 

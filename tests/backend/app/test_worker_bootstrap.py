@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from rhesis.backend.app.ee_bootstrap import bootstrap_ee_providers
 
 
@@ -54,3 +56,27 @@ class TestConnectPermissionCache:
             connect_permission_cache(sender=None)
 
         mock_init.assert_called_once()
+
+
+class TestCheckStorageConfiguration:
+    def test_misconfigured_storage_stops_the_worker(self):
+        from rhesis.backend.app.services.storage_service import StorageConfigurationError
+        from rhesis.backend.celery.signals import check_storage_configuration
+
+        with patch(
+            "rhesis.backend.app.services.storage_service.StorageService",
+            side_effect=StorageConfigurationError("bad uri"),
+        ):
+            # SystemExit, not the original error: Celery swallows Exceptions from receivers.
+            with pytest.raises(SystemExit):
+                check_storage_configuration(sender=None)
+
+    def test_any_storage_error_stops_the_worker(self):
+        from rhesis.backend.celery.signals import check_storage_configuration
+
+        with patch(
+            "rhesis.backend.app.services.storage_service.StorageService",
+            side_effect=ValueError("bad settings"),
+        ):
+            with pytest.raises(SystemExit):
+                check_storage_configuration(sender=None)

@@ -194,7 +194,7 @@ def environment_configurations():
         "partial_gcs": {
             "BACKEND_ENV": "development",
             "STORAGE_SERVICE_URI": "gs://sources-rhesis-dev",
-            # Missing STORAGE_SERVICE_ACCOUNT_KEY to test fallback
+            # Missing STORAGE_SERVICE_ACCOUNT_KEY: StorageService must raise
             "LOCAL_STORAGE_PATH": "/tmp/fallback-storage",
         },
         "no_gcs": {
