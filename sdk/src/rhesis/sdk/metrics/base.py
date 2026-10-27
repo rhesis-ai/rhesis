@@ -188,6 +188,10 @@ class BaseMetric(ABC):
 
     # The model kinds this metric can judge with; metrics that can use a decision model add it.
     SUPPORTED_MODEL_TYPES: tuple = (BaseLLM,)
+    # Code metrics that judge without a model set this False.
+    REQUIRES_MODEL: bool = True
+    # Expectations fields a test must have for this metric to apply to it.
+    REQUIRED_EXPECTATIONS: tuple = ()
 
     def __init__(self, config: MetricConfig, model: Optional[Union[JudgeModel, str]] = None):
         self.name = config.name
@@ -216,6 +220,11 @@ class BaseMetric(ABC):
             False by default. Subclasses like GoalAchievementJudge override this.
         """
         return False
+
+    @classmethod
+    def validate_config(cls, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Check the settings stored with this metric, raising ValueError on a bad one."""
+        return config
 
     def set_model(self, model: Optional[Union[JudgeModel, str]]) -> JudgeModel:
         return resolve_metric_model(model, self.name, self.SUPPORTED_MODEL_TYPES)

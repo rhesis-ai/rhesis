@@ -1,8 +1,18 @@
 """What should have happened, which a metric compares the trace with."""
 
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class ExpectedToolCall(BaseModel):
+    """A tool call a test expects: the tool's name, and optionally the arguments that matter."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str = Field(min_length=1)
+    arguments: Optional[Dict[str, Any]] = None
+    """Only the keys that matter. None means any arguments."""
 
 
 class Expectations(BaseModel):
@@ -24,6 +34,9 @@ class Expectations(BaseModel):
     """What the endpoint must not do."""
     contract: Optional[Dict[str, Any]] = None
     """The evaluation contract read from the test: the criteria the endpoint must meet."""
+    tool_calls: Optional[List[ExpectedToolCall]] = None
+    """The tools the endpoint should call, in order. An empty list expects no calls; None
+    means the test doesn't say."""
 
     @classmethod
     def coerce(
