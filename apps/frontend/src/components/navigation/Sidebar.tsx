@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Box from '@mui/material/Box';
@@ -73,6 +73,7 @@ import { SidebarProjectSwitcher } from './SidebarProjectSwitcher';
 import SupportDrawer from './SupportDrawer';
 import NotificationsDrawer from './NotificationsDrawer';
 import { useNotifications } from '@/contexts/NotificationsContext';
+import { useCanScrollDown } from '@/hooks/useCanScrollDown';
 
 // ── Figma "left_panel_close" / "left_panel_open" SVG icons ──────────────────
 // Exact filled path from Figma node 841:38433 (Material Symbols Rounded w300).
@@ -238,6 +239,9 @@ export function Sidebar() {
 
   // Notifications drawer
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  const navScrollRef = useRef<HTMLDivElement>(null);
+  const navCanScrollDown = useCanScrollDown(navScrollRef);
   const { unreadBySection } = useNotifications();
   const totalUnread = Object.values(unreadBySection).reduce(
     (sum, count) => sum + (count ?? 0),
@@ -428,6 +432,7 @@ export function Sidebar() {
     >
       {/* ── Top section: brand block + main nav ── */}
       <Box
+        ref={navScrollRef}
         sx={{
           display: 'flex',
           flexDirection: 'column',
@@ -676,7 +681,7 @@ export function Sidebar() {
         <SidebarProjectSwitcher collapsed={collapsed} />
 
         {/* Main nav groups */}
-        {mainGroups.map(group => {
+        {mainGroups.map((group, groupIndex) => {
           if (group.type === 'standalone') {
             return (
               <Box
@@ -704,10 +709,26 @@ export function Sidebar() {
               header={group.header}
               items={group.items}
               collapsed={collapsed}
+              headersBelow={
+                mainGroups
+                  .slice(groupIndex + 1)
+                  .filter(g => g.type !== 'standalone').length
+              }
             />
           );
         })}
       </Box>
+
+      {/* The scrollbar is hidden, so this line is the only sign more nav
+          items sit below the fold. */}
+      <Divider
+        aria-hidden
+        sx={{
+          flexShrink: 0,
+          opacity: navCanScrollDown ? 1 : 0,
+          transition: 'opacity 0.2s ease',
+        }}
+      />
 
       {/* ── Bottom section: footer link card + user avatar ── */}
       <Box
