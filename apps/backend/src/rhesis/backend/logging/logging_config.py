@@ -418,7 +418,8 @@ def set_logger(worker_role: str | None = None):
         _prune_dev_logs(log_dir, keep=DEV_LOG_KEEP_RUNS - 1)
 
         file_handler = logging.handlers.RotatingFileHandler(
-            os.path.join(LOG_DIR, f"rhesis_{timestamp}.log"),
+            # PID keeps the API and Celery workers, which start together, off one rotating file.
+            os.path.join(LOG_DIR, f"rhesis_{timestamp}_{os.getpid()}.log"),
             maxBytes=DEV_LOG_MAX_BYTES,
             backupCount=DEV_LOG_BACKUP_COUNT,
         )
