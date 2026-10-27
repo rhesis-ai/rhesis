@@ -186,6 +186,15 @@ def _same_value(actual: Any, expected: Any) -> bool:
 
 def _matching(expected, actual, same) -> int:
     """The most expected calls that can each be paired with a different actual call."""
+    return len(expected) - len(_unpaired(expected, actual, same))
+
+
+def _unpaired(expected, actual, same) -> List[int]:
+    """The expected calls left without a different actual call each, in order.
+
+    Pairs them one at a time, keeping the pairing as large as possible for the calls seen
+    so far, so the first index returned is the first call that can't be paired.
+    """
     owner: Dict[int, int] = {}
 
     def assign(i: int, seen: set) -> bool:
@@ -198,7 +207,7 @@ def _matching(expected, actual, same) -> int:
                 return True
         return False
 
-    return sum(assign(i, set()) for i in range(len(expected)))
+    return [i for i in range(len(expected)) if not assign(i, set())]
 
 
 def _first_missing_in_order(expected, actual, same) -> Optional[int]:
@@ -255,17 +264,11 @@ def _unmatched_expected(expected, actual, same, match) -> Optional[int]:
         return _first_missing_in_order(expected, actual, same)
     if match is TrajectoryMatch.SUBSET:
         return None
-    for i in range(len(expected)):
-        if _matching(expected[: i + 1], actual, same) <= i:
-            return i
-    return None
+    return next(iter(_unpaired(expected, actual, same)), None)
 
 
 def _unmatched_actual(expected, actual, same) -> int:
     def flipped(a, e):
         return same(e, a)
 
-    for j in range(len(actual)):
-        if _matching(actual[: j + 1], expected, flipped) <= j:
-            return j
-    return len(actual) - 1
+    return next(iter(_unpaired(actual, expected, flipped)), len(actual) - 1)

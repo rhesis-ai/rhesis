@@ -145,6 +145,15 @@ def test_partial_arguments_pair_each_expected_call_with_a_different_call():
     assert score("any_order", actual, expected)
 
 
+def test_a_long_trace_is_judged_in_one_pass():
+    names = [f"tool_{i}" for i in range(300)]
+    result = ToolCallTrajectory(match="any_order").evaluate(
+        tool_calls=calls(*names[1:], "extra"), expectations=expect(*names)
+    )
+
+    assert result.details["reason"] == "Expected `tool_0`; it was never called."
+
+
 def test_a_test_without_expected_calls_is_refused():
     with pytest.raises(ValueError, match="no expected tool calls"):
         ToolCallTrajectory().evaluate(tool_calls=calls("x"), expectations=Expectations())
