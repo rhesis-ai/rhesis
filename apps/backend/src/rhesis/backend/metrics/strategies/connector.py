@@ -22,6 +22,7 @@ from rhesis.sdk.metrics import MetricConfig, MetricResult
 from rhesis.sdk.metrics.targets import (
     PER_UNIT,
     Target,
+    TargetKind,
     Unit,
     a_judge_units,
     check_target,
@@ -226,9 +227,10 @@ def _unit_inputs(
     }
     if _wants_trace(config):
         # A span is judged with the whole trace, dumped once; a turn with its own.
-        whole = unit.trace is inputs.load_trace()
         payload["trace"] = (
-            inputs.trace_json() if whole else unit.trace.model_dump(mode="json", exclude_none=True)
+            unit.trace.model_dump(mode="json", exclude_none=True)
+            if target.on is TargetKind.TURN
+            else inputs.trace_json()
         )
     return payload
 
