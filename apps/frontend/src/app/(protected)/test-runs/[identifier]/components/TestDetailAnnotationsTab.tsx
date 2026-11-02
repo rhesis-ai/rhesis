@@ -103,6 +103,7 @@ export default function TestDetailAnnotationsTab({
         onSaved={refreshParent}
         initialComment={pendingCommentRef.current?.comment}
         initialStatus={pendingCommentRef.current?.status}
+        initialRequirement={test.test?.requirement ?? null}
         mentionableMetrics={mentionableMetrics}
         mentionableTurns={mentionableTurns}
       />

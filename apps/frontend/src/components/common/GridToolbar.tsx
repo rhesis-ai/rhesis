@@ -30,6 +30,8 @@ export interface GridToolbarProps {
   hasActiveFilters?: boolean;
   /** Number of active filters to display on the filter button badge */
   activeFilterCount?: number;
+  /** Extra controls right after the filter button, e.g. a view switch. */
+  leadingContent?: React.ReactNode;
   middleContent?: React.ReactNode;
   rightContent?: React.ReactNode;
   /** When false, hides the search pill (e.g. insights empty state toolbar). */
@@ -277,6 +279,7 @@ export function GridToolbar({
   onFilterClick,
   hasActiveFilters = false,
   activeFilterCount,
+  leadingContent,
   middleContent,
   rightContent,
   showSearch = true,
@@ -303,6 +306,7 @@ export function GridToolbar({
           activeFilterCount={activeFilterCount}
         />
       ) : null}
+      {leadingContent}
       {showSearch ? (
         searchFullWidth ? (
           <Box sx={{ flex: 1, minWidth: 0 }}>

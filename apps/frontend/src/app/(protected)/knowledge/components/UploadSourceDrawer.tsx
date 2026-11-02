@@ -19,17 +19,21 @@ import {
   FILE_TYPE_CONSTANTS,
   formatFileSize,
 } from '@/constants/knowledge';
+import type { Source } from '@/utils/api-client/interfaces/source';
 
 interface UploadSourceDrawerProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  /** Called with the new source, e.g. to link it somewhere. */
+  onUploaded?: (source: Source) => void | Promise<void>;
 }
 
 export default function UploadSourceDrawer({
   open,
   onClose,
   onSuccess,
+  onUploaded,
 }: UploadSourceDrawerProps) {
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
@@ -100,6 +104,7 @@ export default function UploadSourceDrawer({
         });
       }
 
+      await onUploaded?.(uploadedSource);
       onClose();
       onSuccess?.();
     } catch (err) {
