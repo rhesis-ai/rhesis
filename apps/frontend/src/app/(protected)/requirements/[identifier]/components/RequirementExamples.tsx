@@ -146,7 +146,7 @@ export default function RequirementExamples({
         minWidth: 240,
         sortable: false,
         renderCell: ({ row }: GridRenderCellParams<RequirementExample>) => (
-          <Stack sx={{ py: 1, minWidth: 0 }}>
+          <Stack sx={{ minWidth: 0 }}>
             <Typography
               variant="body2"
               fontWeight="bold"
@@ -222,7 +222,7 @@ export default function RequirementExamples({
           const url = annotationEntityUrl(row.annotation);
           const label = sourceLabel(row.annotation);
           return (
-            <Stack sx={{ py: 1, minWidth: 0 }}>
+            <Stack sx={{ minWidth: 0 }}>
               {url ? (
                 <MuiLink
                   href={url}
@@ -267,7 +267,6 @@ export default function RequirementExamples({
               useFlexGap
               flexWrap="wrap"
               alignItems="center"
-              sx={{ py: 1 }}
             >
               {row.tuning_cases.map(c => (
                 <Chip
@@ -348,6 +347,14 @@ export default function RequirementExamples({
             pageSizeOptions={[10, 25, 50]}
             initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
             autoHeight
+            // Auto-height rows top-align cells by default; centre them all.
+            sx={{
+              '& .MuiDataGrid-cell': {
+                display: 'flex',
+                alignItems: 'center',
+                py: 1,
+              },
+            }}
           />
         </Box>
       )}

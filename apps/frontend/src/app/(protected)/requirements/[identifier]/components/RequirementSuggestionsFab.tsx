@@ -241,15 +241,20 @@ export default function RequirementSuggestionsFab({
     <>
       <Badge
         badgeContent={total}
-        color="secondary"
         invisible={total === 0}
         overlap="circular"
-        sx={theme => ({
+        // Outlined so it reads on both the primary FAB and the page behind it,
+        // and above the FAB, whose own z-index would otherwise cover it.
+        sx={{
           '& .MuiBadge-badge': {
-            top: theme.spacing(0.75),
-            right: theme.spacing(0.75),
+            bgcolor: 'background.paper',
+            color: 'primary.main',
+            border: 1,
+            borderColor: 'primary.main',
+            fontWeight: 700,
+            zIndex: theme => theme.zIndex.fab + 1,
           },
-        })}
+        }}
       >
         <Fab
           icon={<LightbulbOutlinedIcon />}
