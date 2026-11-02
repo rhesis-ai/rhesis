@@ -8,25 +8,64 @@ import {
   filterChipSx,
   useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
+import RequirementAutocomplete from '@/components/requirements/RequirementAutocomplete';
+import type { RequirementOption } from '@/utils/api-client/interfaces/requirement';
+import {
+  useRequirementImpacts,
+  useRequirementTypes,
+} from './requirement-lookups';
 
 export type MetricFilter = 'all' | 'has_metrics' | 'no_metrics';
+export type HierarchyFilter = 'all' | 'top_level' | 'has_parent';
 
 export interface RequirementFilters {
   metricCount: MetricFilter;
   tagNames: string[];
+  typeIds: string[];
+  impactIds: string[];
+  hierarchy: HierarchyFilter;
+  /** Only children of this requirement. Wins over `hierarchy`. */
+  parent: RequirementOption | null;
 }
 
 export const EMPTY_REQUIREMENT_FILTERS: RequirementFilters = {
   metricCount: 'all',
   tagNames: [],
+  typeIds: [],
+  impactIds: [],
+  hierarchy: 'all',
+  parent: null,
 };
 
-export function hasActiveRequirementFilters(f: RequirementFilters): boolean {
-  return f.metricCount !== 'all' || f.tagNames.length > 0;
+export function countActiveRequirementFilters(f: RequirementFilters): number {
+  return (
+    (f.metricCount !== 'all' ? 1 : 0) +
+    f.tagNames.length +
+    f.typeIds.length +
+    f.impactIds.length +
+    (f.parent || f.hierarchy !== 'all' ? 1 : 0)
+  );
 }
 
-export function countActiveRequirementFilters(f: RequirementFilters): number {
-  return (f.metricCount !== 'all' ? 1 : 0) + f.tagNames.length;
+export function hasActiveRequirementFilters(f: RequirementFilters): boolean {
+  return countActiveRequirementFilters(f) > 0;
+}
+
+/** The list's `hierarchy` filter value for the drawer state. */
+export function hierarchyFilterValue(f: RequirementFilters): string {
+  return f.parent ? String(f.parent.id) : f.hierarchy;
+}
+
+const HIERARCHY_OPTIONS: { value: HierarchyFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'top_level', label: 'Top-level only' },
+  { value: 'has_parent', label: 'Has a parent' },
+];
+
+function toggle(list: string[], value: string): string[] {
+  return list.includes(value)
+    ? list.filter(v => v !== value)
+    : [...list, value];
 }
 
 const METRIC_OPTIONS: { value: MetricFilter; label: string }[] = [
@@ -59,13 +98,11 @@ export default function RequirementFilterDrawer({
     onClose
   );
 
+  const { data: typeOptions = [] } = useRequirementTypes(open);
+  const { data: impactOptions = [] } = useRequirementImpacts(open);
+
   const toggleTag = (name: string) => {
-    setDraft(prev => {
-      const next = prev.tagNames.includes(name)
-        ? prev.tagNames.filter(n => n !== name)
-        : [...prev.tagNames, name];
-      return { ...prev, tagNames: next };
-    });
+    setDraft(prev => ({ ...prev, tagNames: toggle(prev.tagNames, name) }));
   };
 
   return (
@@ -90,6 +127,70 @@ export default function RequirementFilterDrawer({
             </Box>
           ))}
         </Box>
+      </FilterSection>
+
+      <FilterSection title="Type">
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {typeOptions.map(option => (
+            <Box
+              key={option.id}
+              component="button"
+              onClick={() =>
+                setDraft(prev => ({
+                  ...prev,
+                  typeIds: toggle(prev.typeIds, String(option.id)),
+                }))
+              }
+              sx={filterChipSx(draft.typeIds.includes(String(option.id)))}
+            >
+              {option.type_value}
+            </Box>
+          ))}
+        </Box>
+      </FilterSection>
+
+      <FilterSection title="Impact">
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {impactOptions.map(option => (
+            <Box
+              key={option.id}
+              component="button"
+              onClick={() =>
+                setDraft(prev => ({
+                  ...prev,
+                  impactIds: toggle(prev.impactIds, String(option.id)),
+                }))
+              }
+              sx={filterChipSx(draft.impactIds.includes(String(option.id)))}
+            >
+              {option.type_value}
+            </Box>
+          ))}
+        </Box>
+      </FilterSection>
+
+      <FilterSection title="Parent">
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+          {HIERARCHY_OPTIONS.map(({ value, label }) => (
+            <Box
+              key={value}
+              component="button"
+              onClick={() =>
+                setDraft(prev => ({ ...prev, hierarchy: value, parent: null }))
+              }
+              sx={filterChipSx(!draft.parent && draft.hierarchy === value)}
+            >
+              {label}
+            </Box>
+          ))}
+        </Box>
+        <RequirementAutocomplete
+          label="Children of"
+          value={draft.parent}
+          onChange={parent =>
+            setDraft(prev => ({ ...prev, parent, hierarchy: 'all' }))
+          }
+        />
       </FilterSection>
 
       <FilterSection title="Tags">

@@ -1,5 +1,6 @@
 'use client';
 
+import { isTunableMetric } from '@/utils/metric-tunable';
 import React, {
   useCallback,
   useEffect,
@@ -84,8 +85,7 @@ export default function MetricDetailPageTabs({
   // This page also serves `rhesis` metrics, and the tuning routes refuse
   // anything that is not custom. Tuning rewrites the prompt, never the backend
   // type, so the server-fetched copy stays authoritative.
-  const showTuning =
-    initialMetric.backend_type?.type_value?.toLowerCase() === 'custom';
+  const showTuning = isTunableMetric(initialMetric);
 
   const navTabs = TAB_KEYS.filter(key => key !== 'tuning' || showTuning).map(
     (key, index) => ({

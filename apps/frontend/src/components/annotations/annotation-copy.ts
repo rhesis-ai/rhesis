@@ -32,6 +32,16 @@ export const ANNOTATION_COPY = {
     `Minimum ${min} characters required (${length}/${min})`,
   saveFailed: 'Failed to save the annotation. Please try again.',
 
+  requirementLabel: 'Requirement',
+  requirementPlaceholder: 'Search requirements…',
+  requirementHelp:
+    'Saved as an example for this requirement. Clear it to keep a plain annotation.',
+  tuningCaseLabel: (metric: string) =>
+    `Also add as a tuning case for ${metric}`,
+  tuningCaseHelp: "Input and output are copied into the metric's tuning set.",
+  tuningCaseFailed:
+    'Annotation saved, but some tuning cases could not be added.',
+
   indicatorNone: 'Not yet annotated',
   indicatorAnnotated: 'Annotated',
   indicatorBy: (name: string) => `Annotated by ${name}`,

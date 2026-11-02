@@ -296,4 +296,45 @@ describe('RequirementCard', () => {
       screen.queryByRole('button', { name: /add metric/i })
     ).not.toBeInTheDocument();
   });
+
+  it('lists type, impact, parent and child count as Details chips, each saying what it is', () => {
+    renderCard({
+      ...DEFAULT_PROPS,
+      requirement: makeRequirement({
+        requirement_type: {
+          id: 't1',
+          type_name: 'RequirementType',
+          type_value: 'Compliance',
+        },
+        impact: {
+          id: 'i1',
+          type_name: 'RequirementImpact',
+          type_value: 'Legal / regulatory',
+        },
+        parent: { id: 'p1', name: 'Regulatory compliance' },
+        children_count: 4,
+      }),
+    });
+    const section = screen.getByTestId('chip-section-details');
+    expect(screen.getByTestId('chip-type')).toHaveTextContent(
+      /^Type: Compliance$/
+    );
+    expect(screen.getByTestId('chip-impact')).toHaveTextContent(
+      /^Impact: Legal \/ regulatory$/
+    );
+    expect(screen.getByTestId('chip-parent')).toHaveTextContent(
+      /^Parent: Regulatory compliance$/
+    );
+    expect(section).toHaveTextContent('Children: 4');
+  });
+
+  it('leaves out the Details section when nothing optional is set', () => {
+    renderCard({
+      ...DEFAULT_PROPS,
+      requirement: makeRequirement({ children_count: 0 }),
+    });
+    expect(
+      screen.queryByTestId('chip-section-details')
+    ).not.toBeInTheDocument();
+  });
 });

@@ -127,6 +127,8 @@ export interface Annotation extends WithPermittedActions {
   created_at: string;
   updated_at: string;
   context?: AnnotationContext | null;
+  /** The requirement this annotation is an example for. */
+  requirement_id?: UUID | null;
 }
 
 /**
@@ -153,6 +155,7 @@ export interface AnnotationCreate {
   comments?: string | null;
   target?: AnnotationTargetInput;
   attributes?: Record<string, unknown> | null;
+  requirement_id?: string | null;
 }
 
 export interface AnnotationUpdate {
@@ -161,6 +164,14 @@ export interface AnnotationUpdate {
   target?: AnnotationTargetInput;
   resolved?: boolean;
   attributes?: Record<string, unknown> | null;
+  /** Null unlinks the requirement. */
+  requirement_id?: string | null;
+}
+
+/** A metric tuning case made from an annotation. */
+export interface AnnotationTuningCase {
+  metric_id: UUID;
+  case_id: UUID;
 }
 
 export interface AnnotationFacets {

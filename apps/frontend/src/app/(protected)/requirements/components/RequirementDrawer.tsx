@@ -9,12 +9,36 @@ import {
   Divider,
   Autocomplete,
   Chip,
+  Link,
+  MenuItem,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import RequirementOptionsDrawer from './RequirementOptionsDrawer';
 import { useFormChangeDetection } from '@/hooks/useFormChangeDetection';
+import RequirementAutocomplete from '@/components/requirements/RequirementAutocomplete';
+import type { RequirementOption } from '@/utils/api-client/interfaces/requirement';
+import type { UUID } from 'crypto';
+import {
+  useRequirementImpacts,
+  useRequirementTypes,
+} from './requirement-lookups';
+
+/** The optional fields, filled in over time. Null means none. */
+export interface RequirementDetailsInput {
+  requirement_type_id: UUID | null;
+  impact_id: UUID | null;
+  parent_id: UUID | null;
+}
+
+const NONE = '';
+
+// Stable default, so the reset-on-open effect does not rerun every render.
+const NO_TAGS: string[] = [];
 
 interface RequirementDrawerProps {
   open: boolean;
@@ -23,7 +47,17 @@ interface RequirementDrawerProps {
   description: string;
   initialTagNames?: string[];
   tagSuggestions?: string[];
-  onSave: (name: string, description: string, tagNames: string[]) => void;
+  initialTypeId?: string | null;
+  initialImpactId?: string | null;
+  initialParent?: RequirementOption | null;
+  /** The requirement being edited, so it is never offered as its own parent. */
+  selfId?: string;
+  onSave: (
+    name: string,
+    description: string,
+    tagNames: string[],
+    details: RequirementDetailsInput
+  ) => void;
   onDuplicate?: () => void;
   onDelete?: () => void;
   isNew?: boolean;
@@ -39,8 +73,12 @@ const RequirementDrawer = ({
   onClose,
   name: initialName,
   description: initialDescription,
-  initialTagNames = [],
+  initialTagNames = NO_TAGS,
   tagSuggestions = [],
+  initialTypeId = null,
+  initialImpactId = null,
+  initialParent = null,
+  selfId,
   onSave,
   onDuplicate,
   onDelete,
@@ -54,6 +92,17 @@ const RequirementDrawer = ({
   const [currentTagNames, setCurrentTagNames] =
     React.useState<string[]>(initialTagNames);
   const [validationError, setValidationError] = React.useState<string>('');
+  const [typeId, setTypeId] = React.useState<string>(initialTypeId ?? NONE);
+  const [impactId, setImpactId] = React.useState<string>(
+    initialImpactId ?? NONE
+  );
+  const [parent, setParent] = React.useState<RequirementOption | null>(
+    initialParent
+  );
+  const [optionsOpen, setOptionsOpen] = React.useState(false);
+  const canManageOptions = useCan(Capability.Requirement.UPDATE);
+  const { data: typeOptions = [] } = useRequirementTypes(open);
+  const { data: impactOptions = [] } = useRequirementImpacts(open);
 
   const initialTagsSorted = React.useMemo(
     () => sortedUnique(initialTagNames),
@@ -69,11 +118,17 @@ const RequirementDrawer = ({
       name: initialName,
       description: initialDescription,
       tags: initialTagsSorted.join('\u0001'),
+      typeId: initialTypeId ?? NONE,
+      impactId: initialImpactId ?? NONE,
+      parentId: initialParent ? String(initialParent.id) : NONE,
     },
     currentData: {
       name: currentName,
       description: currentDescription,
       tags: currentTagsSorted.join('\u0001'),
+      typeId,
+      impactId,
+      parentId: parent ? String(parent.id) : NONE,
     },
   });
 
@@ -82,9 +137,23 @@ const RequirementDrawer = ({
       setCurrentName(initialName);
       setCurrentDescription(initialDescription);
       setCurrentTagNames(initialTagNames);
+      setTypeId(initialTypeId ?? NONE);
+      setImpactId(initialImpactId ?? NONE);
+      setParent(initialParent);
       setValidationError('');
     }
-  }, [initialName, initialDescription, initialTagNames, open]);
+    // Keyed on the parent's id: callers build the object inline, and a new
+    // object each render must not wipe a parent picked in the drawer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
+  }, [
+    initialName,
+    initialDescription,
+    initialTagNames,
+    initialTypeId,
+    initialImpactId,
+    initialParent?.id,
+    open,
+  ]);
 
   const handleSaveInternal = () => {
     setValidationError('');
@@ -108,7 +177,12 @@ const RequirementDrawer = ({
     onSave(
       trimmedName,
       currentDescription.trim(),
-      sortedUnique(currentTagNames)
+      sortedUnique(currentTagNames),
+      {
+        requirement_type_id: (typeId || null) as UUID | null,
+        impact_id: (impactId || null) as UUID | null,
+        parent_id: parent ? (parent.id as UUID) : null,
+      }
     );
   };
 
@@ -188,6 +262,7 @@ const RequirementDrawer = ({
             renderInput={params => (
               <TextField
                 {...params}
+                sx={drawerOutlinedFieldSx}
                 label="Tags"
                 placeholder={
                   currentTagNames.length === 0
@@ -197,6 +272,69 @@ const RequirementDrawer = ({
                 helperText="Press Enter to add. Reuse tags from other requirements to group them."
               />
             )}
+          />
+
+          <TextField
+            select
+            label="Type"
+            value={typeId}
+            onChange={e => setTypeId(e.target.value)}
+            disabled={loading}
+            fullWidth
+            helperText="What kind of rule this is"
+            sx={drawerOutlinedFieldSx}
+          >
+            <MenuItem value={NONE}>None</MenuItem>
+            {typeOptions.map(option => (
+              <MenuItem key={option.id} value={String(option.id)}>
+                {option.type_value}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            label="Impact"
+            value={impactId}
+            onChange={e => setImpactId(e.target.value)}
+            disabled={loading}
+            fullWidth
+            helperText={
+              <>
+                What happens if the assistant gets this wrong
+                {canManageOptions && (
+                  <>
+                    {' · '}
+                    <Link
+                      component="button"
+                      type="button"
+                      variant="caption"
+                      underline="hover"
+                      onClick={() => setOptionsOpen(true)}
+                      sx={{ verticalAlign: 'baseline' }}
+                    >
+                      Manage type and impact options
+                    </Link>
+                  </>
+                )}
+              </>
+            }
+            sx={drawerOutlinedFieldSx}
+          >
+            <MenuItem value={NONE}>None</MenuItem>
+            {impactOptions.map(option => (
+              <MenuItem key={option.id} value={String(option.id)}>
+                {option.type_value}
+              </MenuItem>
+            ))}
+          </TextField>
+          <RequirementAutocomplete
+            label="Parent requirement"
+            value={parent}
+            onChange={setParent}
+            excludeIds={selfId ? [selfId] : []}
+            helperText="Group this requirement under a broader one"
+            disabled={loading}
+            sx={drawerOutlinedFieldSx}
           />
         </Stack>
 
@@ -238,6 +376,10 @@ const RequirementDrawer = ({
           </Stack>
         )}
       </Stack>
+      <RequirementOptionsDrawer
+        open={optionsOpen}
+        onClose={() => setOptionsOpen(false)}
+      />
     </BaseDrawer>
   );
 };

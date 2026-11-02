@@ -4,7 +4,10 @@ import * as React from 'react';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { RequirementClient } from '@/utils/api-client/requirement-client';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
+import EntityCard, {
+  type ChipData,
+  type ChipSection,
+} from '@/components/common/EntityCard';
 import type {
   RequirementTestCounts,
   RequirementWithMetrics,
@@ -34,6 +37,40 @@ export function testCountChips(counts?: RequirementTestCounts | null) {
   ]
     .filter(({ count }) => count > 0)
     .map(({ key, count, label }) => ({ key, label: `${count} ${label}` }));
+}
+
+/**
+ * Type, impact, parent and child count, whichever are set. EntityCard chips
+ * render no icons, and these values look alike ("Compliance" can be a type or
+ * a parent), so each chip says what it is.
+ */
+export function detailChips(
+  requirement: Pick<
+    RequirementWithMetrics,
+    'requirement_type' | 'impact' | 'parent' | 'children_count'
+  >
+): ChipData[] {
+  const chips: ChipData[] = [];
+  if (requirement.requirement_type?.type_value) {
+    chips.push({
+      key: 'type',
+      label: `Type: ${requirement.requirement_type.type_value}`,
+    });
+  }
+  if (requirement.impact?.type_value) {
+    chips.push({
+      key: 'impact',
+      label: `Impact: ${requirement.impact.type_value}`,
+    });
+  }
+  if (requirement.parent?.name) {
+    chips.push({ key: 'parent', label: `Parent: ${requirement.parent.name}` });
+  }
+  const children = requirement.children_count ?? 0;
+  if (children > 0) {
+    chips.push({ key: 'children', label: `Children: ${children}` });
+  }
+  return chips;
 }
 
 export default function RequirementCard({
@@ -76,7 +113,10 @@ export default function RequirementCard({
   const tagsCount = tags.length;
   const MAX_VISIBLE_TAGS = 5;
 
+  const details = detailChips(requirement);
   const chipSections: ChipSection[] = [
+    // Only when something is set, as on MetricCard.
+    ...(details.length > 0 ? [{ label: 'Details', chips: details }] : []),
     {
       label: 'Metrics',
       chips: [
