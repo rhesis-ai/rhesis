@@ -216,8 +216,71 @@ spec:
         },
         {
           "type": "row",
-          "title": "Directory",
+          "title": "Acquisition",
           "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+          "collapsed": false,
+          "panels": []
+        },
+        {
+          "id": 8,
+          "type": "barchart",
+          "title": "Signups by source",
+          "description": "Where users say they heard about Rhesis, from the onboarding profile questions. Everyone who picked Other counts as one bar; their free-text answers are in the Users by creation date table. Not answered covers users who skipped the question or signed up before it existed. Follows the time picker on signup date and the organization filter.",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "axisSoftMin": 0, "fillOpacity": 80, "lineWidth": 1 } },
+            "overrides": []
+          },
+          "options": {
+            "orientation": "horizontal",
+            "xTickLabelRotation": 0,
+            "showValue": "auto",
+            "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COALESCE(u.user_settings #>> '{onboarding,profile,referral_source}', 'Not answered') AS \"Source\",\n  COUNT(*) AS \"Users\"\nFROM public.\"user\" u\nWHERE u.deleted_at IS NULL\n  AND COALESCE(u.organization_id::text, 'none') IN ($org)\n  AND $__timeFilter(u.created_at)\nGROUP BY 1\nORDER BY 2 DESC"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "type": "barchart",
+          "title": "Signups by role",
+          "description": "The job role users give in the onboarding profile questions. Everyone who picked Other counts as one bar; their free-text answers are in the Users by creation date table. Not answered covers users who skipped the question or signed up before it existed. Follows the time picker on signup date and the organization filter.",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+          "fieldConfig": {
+            "defaults": { "unit": "short", "decimals": 0, "custom": { "axisSoftMin": 0, "fillOpacity": 80, "lineWidth": 1 } },
+            "overrides": []
+          },
+          "options": {
+            "orientation": "horizontal",
+            "xTickLabelRotation": 0,
+            "showValue": "auto",
+            "legend": { "displayMode": "hidden", "placement": "bottom", "showLegend": false },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": { "type": "postgres", "uid": "${datasource}" },
+              "editorMode": "code",
+              "rawQuery": true,
+              "format": "table",
+              "rawSql": "SELECT\n  COALESCE(u.user_settings #>> '{onboarding,profile,job_role}', 'Not answered') AS \"Role\",\n  COUNT(*) AS \"Users\"\nFROM public.\"user\" u\nWHERE u.deleted_at IS NULL\n  AND COALESCE(u.organization_id::text, 'none') IN ($org)\n  AND $__timeFilter(u.created_at)\nGROUP BY 1\nORDER BY 2 DESC"
+            }
+          ]
+        },
+        {
+          "type": "row",
+          "title": "Directory",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
           "collapsed": false,
           "panels": []
         },
@@ -225,8 +288,8 @@ spec:
           "id": 6,
           "type": "table",
           "title": "Users by creation date",
-          "description": "One row per user, newest first. Follows the time picker on signup date and the organization filter.",
-          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 24 },
+          "description": "One row per user, newest first. Role and Source are the onboarding profile answers (free text when the user picked Other); empty if the user skipped them. Follows the time picker on signup date and the organization filter.",
+          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 33 },
           "fieldConfig": {
             "defaults": { "custom": { "align": "auto", "filterable": true } },
             "overrides": [
@@ -243,7 +306,7 @@ spec:
               "editorMode": "code",
               "rawQuery": true,
               "format": "table",
-              "rawSql": "SELECT\n  u.created_at AS \"Created\",\n  COALESCE(u.name, u.email) AS \"User\",\n  u.email AS \"Email\",\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  u.provider_type AS \"Provider\",\n  u.is_active AS \"Active\",\n  u.is_email_verified AS \"Email verified\",\n  u.last_login_at AS \"Last login\"\nFROM public.\"user\" u\nLEFT JOIN public.organization o ON o.id = u.organization_id AND o.deleted_at IS NULL\nWHERE u.deleted_at IS NULL\n  AND COALESCE(u.organization_id::text, 'none') IN ($org)\n  AND $__timeFilter(u.created_at)\nORDER BY u.created_at DESC"
+              "rawSql": "SELECT\n  u.created_at AS \"Created\",\n  COALESCE(u.name, u.email) AS \"User\",\n  u.email AS \"Email\",\n  COALESCE(o.display_name, o.name) AS \"Organization\",\n  CASE WHEN u.user_settings #>> '{onboarding,profile,job_role}' = 'other' THEN COALESCE(NULLIF(u.user_settings #>> '{onboarding,profile,job_role_other}', ''), 'other') ELSE u.user_settings #>> '{onboarding,profile,job_role}' END AS \"Role\",\n  CASE WHEN u.user_settings #>> '{onboarding,profile,referral_source}' = 'other' THEN COALESCE(NULLIF(u.user_settings #>> '{onboarding,profile,referral_source_other}', ''), 'other') ELSE u.user_settings #>> '{onboarding,profile,referral_source}' END AS \"Source\",\n  u.provider_type AS \"Provider\",\n  u.is_active AS \"Active\",\n  u.is_email_verified AS \"Email verified\",\n  u.last_login_at AS \"Last login\"\nFROM public.\"user\" u\nLEFT JOIN public.organization o ON o.id = u.organization_id AND o.deleted_at IS NULL\nWHERE u.deleted_at IS NULL\n  AND COALESCE(u.organization_id::text, 'none') IN ($org)\n  AND $__timeFilter(u.created_at)\nORDER BY u.created_at DESC"
             }
           ]
         },
@@ -251,7 +314,7 @@ spec:
           "id": 7,
           "type": "text",
           "title": "What is and is not here",
-          "gridPos": { "h": 6, "w": 24, "x": 0, "y": 34 },
+          "gridPos": { "h": 6, "w": 24, "x": 0, "y": 43 },
           "options": {
             "mode": "markdown",
             "content": "Every number here comes from the application database, so it counts registered users and their rows, not sessions or requests.\n\nSoft-deleted rows (`deleted_at IS NOT NULL`) are excluded everywhere.\n\n`last_login_at` is a single timestamp, not a counter, so this dashboard ranks users by how recently they logged in. For how *often* they log in, and for the cloud vs self-hosted split, see the **Rhesis Telemetry** dashboard, which reads the separate analytics database that receives the phone-home events."
