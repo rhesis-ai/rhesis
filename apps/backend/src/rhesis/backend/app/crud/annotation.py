@@ -101,7 +101,7 @@ def _annotations_query(
         if annotator_id:
             q = q.filter(models.Annotation.user_id == annotator_id)
         if requirement_id:
-            q = q.filter(_in_requirement(requirement_id))
+            q = q.filter(models.Annotation.requirement_id == requirement_id)
         if date_from:
             start = datetime.combine(date_from, datetime.min.time(), tzinfo=timezone.utc)
             q = q.filter(models.Annotation.updated_at >= start)
@@ -235,16 +235,17 @@ def _on_metric(metric: str):
     )
 
 
-def _in_requirement(requirement_id: uuid.UUID):
-    """Annotations whose parent test result belongs to a test linked to the given requirement."""
-    return exists(
-        select(models.TestResult.id).where(
-            models.TestResult.id == models.Annotation.entity_id,
-            models.Annotation.entity_type == EntityType.TEST_RESULT.value,
-            models.TestResult.test_id == models.Test.id,
-            models.Test.requirement_id == requirement_id,
-        )
-    )
+def add_tuning_case_reference(
+    db: Session, annotation: models.Annotation, metric_id: uuid.UUID, case_id: uuid.UUID
+) -> None:
+    """Record a tuning case made from this annotation in ``attributes["tuning_cases"]``."""
+    attributes = dict(annotation.attributes or {})
+    cases = list(attributes.get("tuning_cases") or [])
+    cases.append({"metric_id": str(metric_id), "case_id": str(case_id)})
+    attributes["tuning_cases"] = cases
+    # A new dict, so the JSONB change is seen without flag_modified.
+    annotation.attributes = attributes
+    db.flush()
 
 
 def get_annotations(
@@ -542,25 +543,19 @@ def get_annotation_facets(
         .all()
     )
 
-    # Distinct requirements linked to annotated test results.
+    # Distinct requirements annotations are linked to.
     with bypass_tenant_filter():
         requirement_rows = (
             db.query(
                 distinct(models.Requirement.id).label("id"),
                 models.Requirement.name,
             )
-            .join(models.Test, models.Test.requirement_id == models.Requirement.id)
-            .join(models.TestResult, models.TestResult.test_id == models.Test.id)
             .join(
                 models.Annotation,
-                (models.Annotation.entity_id == models.TestResult.id)
-                & (models.Annotation.entity_type == EntityType.TEST_RESULT.value)
+                (models.Annotation.requirement_id == models.Requirement.id)
                 & (models.Annotation.deleted_at.is_(None)),
             )
-            .filter(
-                models.Annotation.organization_id == organization_id,
-                models.TestResult.deleted_at.is_(None),
-            )
+            .filter(models.Annotation.organization_id == organization_id)
             .order_by(models.Requirement.name)
             .all()
         )

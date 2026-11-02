@@ -229,3 +229,18 @@ def user_agent_test_result_exists(db: Session, organization_id: str) -> bool:
         )
     )
     return bool(db.query(query.exists()).scalar())
+
+
+def get_test_results_with_prompts(
+    db: Session, test_result_ids: List[uuid.UUID]
+) -> Dict[uuid.UUID, models.TestResult]:
+    """Test results by id, with their test's prompt loaded."""
+    if not test_result_ids:
+        return {}
+    rows = (
+        db.query(models.TestResult)
+        .options(include(models.TestResult.test, models.Test.prompt))
+        .filter(models.TestResult.id.in_(test_result_ids))
+        .all()
+    )
+    return {row.id: row for row in rows}
