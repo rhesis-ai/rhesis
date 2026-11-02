@@ -309,3 +309,16 @@ def get_test_facets(
         "topics": _distinct_names(Topic, Test.topic_id),
         "test_types": _distinct_names(TypeLookup, Test.test_type_id, "type_value"),
     }
+
+
+def get_test_requirement_id(db: Session, test_id: uuid.UUID) -> Optional[uuid.UUID]:
+    row = db.query(Test.requirement_id).filter(Test.id == test_id).first()
+    return row[0] if row else None
+
+
+def get_tests_with_prompts(db: Session, test_ids: List[uuid.UUID]) -> Dict[uuid.UUID, Test]:
+    """Tests by id, with their prompt loaded."""
+    if not test_ids:
+        return {}
+    rows = db.query(Test).options(include(Test.prompt)).filter(Test.id.in_(test_ids)).all()
+    return {row.id: row for row in rows}

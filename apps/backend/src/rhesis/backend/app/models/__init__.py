@@ -26,7 +26,7 @@ from .project_membership import ProjectMembership
 from .prompt import Prompt
 from .prompt_template import PromptTemplate
 from .refresh_token import RefreshToken
-from .requirement import Requirement
+from .requirement import Requirement, requirement_source_association
 from .source import Source
 
 # Import stats view models
@@ -104,6 +104,7 @@ __all__ = [
     "ExecutionTrace",
     "behavior_metric_association",
     "requirement_metric_association",
+    "requirement_source_association",
     "test_test_set_association",
     "test_set_metric_association",
     "TestRunStatsView",

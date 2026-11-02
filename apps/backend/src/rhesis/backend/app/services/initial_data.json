@@ -651,6 +651,66 @@
             "type_name": "EmbeddingOrigin",
             "type_value": "imported",
             "description": "Embedding imported from external source"
+        },
+        {
+            "type_name": "RequirementType",
+            "type_value": "Behavior",
+            "description": "How the system should act in a situation"
+        },
+        {
+            "type_name": "RequirementType",
+            "type_value": "Safety",
+            "description": "Keeps people from harm"
+        },
+        {
+            "type_name": "RequirementType",
+            "type_value": "Compliance",
+            "description": "Follows a law, regulation or policy"
+        },
+        {
+            "type_name": "RequirementType",
+            "type_value": "Tone",
+            "description": "How the system sounds"
+        },
+        {
+            "type_name": "RequirementType",
+            "type_value": "Factual accuracy",
+            "description": "Says only what is true"
+        },
+        {
+            "type_name": "RequirementType",
+            "type_value": "Escalation",
+            "description": "Hands over to a person when it should"
+        },
+        {
+            "type_name": "RequirementType",
+            "type_value": "Privacy",
+            "description": "Protects personal data"
+        },
+        {
+            "type_name": "RequirementImpact",
+            "type_value": "Legal / regulatory",
+            "description": "A breach has legal or regulatory consequences"
+        },
+        {
+            "type_name": "RequirementImpact",
+            "type_value": "Financial loss",
+            "description": "A breach costs money"
+        },
+        {
+            "type_name": "RequirementImpact",
+            "type_value": "Customer harm",
+            "description": "A breach harms a customer"
+        },
+        {
+            "type_name": "RequirementImpact",
+            "type_value": "Reputation",
+            "description": "A breach damages trust in the company"
+        },
+        {
+            "type_name": "RequirementImpact",
+            "type_value": "Minor",
+            "description": "A breach is an inconvenience"
         }
     ],
     "requirement": [

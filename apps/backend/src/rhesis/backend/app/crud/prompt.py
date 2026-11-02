@@ -140,3 +140,13 @@ def delete_prompt_template(
     db: Session, prompt_template_id: uuid.UUID, organization_id: str, user_id: str
 ) -> Optional[models.PromptTemplate]:
     return delete_item(db, models.PromptTemplate, prompt_template_id, organization_id, user_id)
+
+
+def get_prompt_contents(db: Session, prompt_ids: List[uuid.UUID]) -> dict:
+    """``{prompt_id: content}`` for the given ids."""
+    if not prompt_ids:
+        return {}
+    rows = db.query(models.Prompt.id, models.Prompt.content).filter(
+        models.Prompt.id.in_(prompt_ids)
+    )
+    return dict(rows.all())

@@ -13,7 +13,7 @@ from fastapi import Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import schemas
-from rhesis.backend.app.auth.capabilities import Permission
+from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.rbac import require_object
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import EntityType
@@ -21,8 +21,10 @@ from rhesis.backend.app.crud import annotation as annotation_crud
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.schemas.annotation import AnnotationTuningCase, AnnotationTuningCaseCreate
 from rhesis.backend.app.services import annotation as annotation_service
 from rhesis.backend.app.services.annotation_context import attach_context
+from rhesis.backend.app.services.annotation_tuning_case import create_tuning_case_from_annotation
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 
 router = RhesisRouter(
@@ -230,3 +232,21 @@ def delete_annotation(
     annotation = _load_or_404(db, annotation_id, organization_id, user_id)
     _authorize_own(request, db, current_user, annotation, Permission.Annotation.DELETE_OWN)
     return annotation_service.delete_annotation(db, annotation_id, current_user)
+
+
+# Writes a case onto the metric, so it takes the capability that creating a tuning
+# case through /metrics/{id}/tuning/cases does.
+@router.post(
+    "/{annotation_id}/tuning-case",
+    response_model=AnnotationTuningCase,
+    **capability(Permission.Metric.CREATE),
+)
+def create_tuning_case(
+    annotation_id: uuid.UUID,
+    body: AnnotationTuningCaseCreate,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    """Copy the exchange this annotation judged into a tuning case on a custom metric."""
+    organization_id, user_id = tenant_context
+    return create_tuning_case_from_annotation(db, annotation_id, body, organization_id, user_id)
