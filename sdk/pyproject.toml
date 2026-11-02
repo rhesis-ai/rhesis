@@ -252,14 +252,14 @@ allow-direct-references = true
 [tool.uv]
 exclude-newer = "1 week"
 # Allow newer versions for packages with recent security patches (CVEs).
-exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false, certifi = false, uv = false, nltk = false, pillow = false, virtualenv = false }
+exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false, certifi = false, uv = false, nltk = false, pillow = false, virtualenv = false, pyasn1 = false }
 constraint-dependencies = [
     "nbconvert>=7.17.2",
     "nltk>=3.10.4",
     "certifi>=2026.10.19",
     "anyio>=4.14.2",
-    "tornado>=6.5.8",
-    "pyasn1>=0.6.4",
+    "tornado>=6.6",
+    "pyasn1>=0.6.5",
     "orjson>=3.11.7",
     "langchain-openai>=1.4.0",
     "mistune>=3.3.0",
@@ -278,7 +278,7 @@ constraint-dependencies = [
     "bleach>=6.4.0",
     "pyarrow>=23.0.1",
     "pydantic-settings>=2.14.2",
-    "setuptools>=83.0.0",
+    "setuptools>=84.1.0",
     "soupsieve>=2.9.0",
     "uv>=0.13.4",
     "httpx2>=2.12.0",
@@ -288,6 +288,10 @@ constraint-dependencies = [
     "transformers>=5.10.0",
     "fsspec>=2026.6.0",
     "multidict>=6.9.1",
+    "authlib>=1.9.1",
+    "joserfc>=1.7.6",
+    "langgraph>=1.2.14",
+    "langgraph-sdk>=0.4.6",
 ]
 override-dependencies = [
     "datasets>=5.0.1",

@@ -55,17 +55,17 @@ asyncio_mode = "auto"
 
 [tool.uv]
 exclude-newer = "1 week"
-exclude-newer-package = { pydantic-settings = false, tornado = false, starlette = false, pyjwt = false, cryptography = false, python-multipart = false, certifi = false, pillow = false }
+exclude-newer-package = { pydantic-settings = false, tornado = false, starlette = false, pyjwt = false, cryptography = false, python-multipart = false, certifi = false, pillow = false, pyasn1 = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
     "opentelemetry-api>=1.45.1",
     "certifi>=2026.10.19",
     "anyio>=4.14.2",
-    "pyasn1>=0.6.4",
+    "pyasn1>=0.6.5",
     "orjson>=3.11.7",
     "tornado>=6.5.7",
     "mako>=1.4.2",
-    "authlib>=1.7.1",
+    "authlib>=1.9.1",
     "urllib3>=2.8.0",
     "idna>=3.15",
     "python-multipart>=0.0.31",
@@ -73,11 +73,12 @@ constraint-dependencies = [
     "pyjwt>=2.15.0",
     "cryptography>=48.0.1",
     "pydantic-settings>=2.14.2",
-    "joserfc>=1.6.8",
+    "joserfc>=1.7.6",
     "mcp>=1.30.0,<2",
     "pillow>=13.0.0",
     "httplib2>=0.32.0",
     "werkzeug>=3.1.9",
+    "dnspython>=2.9.0",
 ]
 
 [tool.uv.sources.rhesis-backend]
