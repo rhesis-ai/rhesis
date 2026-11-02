@@ -1,6 +1,7 @@
 """Shared model-related exceptions, and model failures as text that is safe to show."""
 
 import asyncio
+import ssl
 from typing import Optional
 
 from pydantic import ValidationError
@@ -135,6 +136,23 @@ def provider_status(error: Exception) -> Optional[int]:
     return None
 
 
+def _is_connection_error(error: BaseException) -> bool:
+    """True when the call never reached the provider: refused, DNS, TLS. Checks the causes
+    too, since clients often wrap the socket error in their own type."""
+    seen: set[int] = set()
+    current: Optional[BaseException] = error
+    while current is not None and id(current) not in seen:
+        # ssl.SSLCertVerificationError is also a ValueError, so this must win over the
+        # "unexpected format" branch below.
+        if isinstance(current, (ConnectionError, ssl.SSLError)) or (
+            isinstance(current, OSError) and not isinstance(current, TimeoutError)
+        ):
+            return True
+        seen.add(id(current))
+        current = current.__cause__ or current.__context__
+    return False
+
+
 def describe_model_error(error: Exception) -> str:
     """What went wrong with a model call, for showing or storing.
 
@@ -148,6 +166,11 @@ def describe_model_error(error: Exception) -> str:
     # By name, so this module needs no litellm import. Its status is a plain 400.
     if type(error).__name__ == "ContextWindowExceededError":
         return "The input is too long for this model."
+    if status is None and _is_connection_error(error):
+        return (
+            "Couldn't reach the model provider. Check the network connection and the "
+            "backend's TLS certificates."
+        )
     if status is None and isinstance(error, ModelConfigurationError):
         return "The model isn't set up correctly. Check it in the Models settings."
     if status is None and isinstance(error, (ValidationError, ValueError)):
