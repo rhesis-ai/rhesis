@@ -1554,3 +1554,23 @@ def get_trace_metrics_aggregated(
         "p99_duration_ms": round(float(agg.p99_duration_ms or 0), 2),
         "operation_breakdown": {row.op_type: row.cnt for row in op_rows},
     }
+
+
+def get_spans_by_ids(db: Session, span_ids: List[UUID]) -> Dict[UUID, models.Trace]:
+    """Span rows by their database id."""
+    if not span_ids:
+        return {}
+    rows = db.query(models.Trace).filter(models.Trace.id.in_(span_ids)).all()
+    return {row.id: row for row in rows}
+
+
+def get_root_spans_for_traces(db: Session, trace_ids: List[str]) -> List[models.Trace]:
+    """Every root span of the given OTEL traces, earliest first."""
+    if not trace_ids:
+        return []
+    return (
+        db.query(models.Trace)
+        .filter(models.Trace.trace_id.in_(trace_ids), models.Trace.parent_span_id.is_(None))
+        .order_by(models.Trace.start_time)
+        .all()
+    )

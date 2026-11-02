@@ -14,8 +14,10 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import ENTITY_LEVEL_TARGETS, EntityType
 from rhesis.backend.app.crud import annotation as annotation_crud
+from rhesis.backend.app.crud.requirement import get_requirement_names
 from rhesis.backend.app.crud.status import get_status_with_entity_type
 from rhesis.backend.app.crud.telemetry import get_first_root_id
+from rhesis.backend.app.crud.test import get_test_requirement_id
 from rhesis.backend.app.services.annotation_override import apply_override, revert_override
 from rhesis.backend.app.services.annotation_override.trace import has_metrics
 from rhesis.backend.app.services.metric_tuning.judgement import is_tuning_case, is_tuning_status
@@ -134,6 +136,19 @@ def _snapshot_original_status(db: Session, parent) -> None:
         db.flush()
 
 
+def _validate_requirement(db: Session, requirement_id: uuid.UUID | None) -> None:
+    # The ambient tenant filter keeps another org's requirement out of reach.
+    if requirement_id is not None and not get_requirement_names(db, [requirement_id]):
+        raise HTTPException(status_code=404, detail="Requirement not found")
+
+
+def _default_requirement(db: Session, parent) -> uuid.UUID | None:
+    """A test result's annotation is an example of its test's requirement unless told otherwise."""
+    if isinstance(parent, models.TestResult) and parent.test_id is not None:
+        return get_test_requirement_id(db, parent.test_id)
+    return None
+
+
 def _commit(db: Session, parent) -> None:
     # Explicit commit: FastAPI's dependency cleanup would otherwise race the next
     # request. Cache invalidation follows it so no reader repopulates stale rows.
@@ -176,6 +191,7 @@ def create_annotation(
     target_type = target.type if target else ENTITY_LEVEL_TARGETS[entity_type]
     _refuse_new_tuning_case(entity_type, target_type)
     _validate_status(db, data.status_id, entity_type, target_type)
+    _validate_requirement(db, data.requirement_id)
 
     annotation = annotation_crud.create_annotation(
         db,
@@ -187,6 +203,7 @@ def create_annotation(
             "status_id": data.status_id,
             "comments": data.comments,
             "attributes": data.attributes,
+            "requirement_id": data.requirement_id or _default_requirement(db, parent),
         },
         organization_id=_org_id(current_user),
         user_id=str(current_user.id),
@@ -228,6 +245,9 @@ def update_annotation(
             annotation.entity_type,
             target["type"] if target else annotation.target_type,
         )
+
+    if fields.get("requirement_id") is not None:
+        _validate_requirement(db, fields["requirement_id"])
 
     if target:
         fields["target_type"] = target["type"]

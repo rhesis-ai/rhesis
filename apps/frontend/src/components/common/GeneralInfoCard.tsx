@@ -1,6 +1,6 @@
 import React from 'react';
-import { Box, Paper, Typography, Button } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
+import { Box, Paper, Typography } from '@mui/material';
+import { SectionEditButton } from '@/components/common/SectionCardActions';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
 
 interface GeneralInfoCardProps {
@@ -46,21 +46,7 @@ export function GeneralInfoCard({
           {title}
         </Typography>
 
-        {onEdit && (
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<EditIcon sx={{ fontSize: 16 }} />}
-            onClick={onEdit}
-            sx={{
-              borderRadius: BORDER_RADIUS.sm,
-              fontWeight: 600,
-              textTransform: 'none',
-            }}
-          >
-            Edit
-          </Button>
-        )}
+        {onEdit && <SectionEditButton onClick={onEdit} />}
       </Box>
 
       {children}

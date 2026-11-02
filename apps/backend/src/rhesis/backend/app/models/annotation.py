@@ -26,11 +26,16 @@ class Annotation(Base, ActivityTrackableMixin, ProjectMixin, OrganizationAndUser
     resolved_by_id = Column(GUID(), ForeignKey("user.id"), nullable=True)
 
     attributes = Column(JSONB, nullable=True)
+    # The requirement this judgement is an example of.
+    requirement_id = Column(
+        GUID(), ForeignKey("requirement.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     status = relationship("Status", foreign_keys=[status_id])
     user = relationship("User", back_populates="annotations", foreign_keys="[Annotation.user_id]")
     resolved_by = relationship("User", foreign_keys=[resolved_by_id])
     organization = relationship("Organization", backref="annotations")
+    requirement = relationship("Requirement", foreign_keys=[requirement_id])
 
     __table_args__ = (
         Index("ix_annotation_entity", "entity_type", "entity_id"),

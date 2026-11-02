@@ -51,6 +51,8 @@ export function resolveTimeoutMs(pathname: string): number {
     LONG_RUNNING_PATH_PREFIXES.some(prefix => pathname.startsWith(prefix)) ||
     // Tool extraction can wait for MCP startup and model calls.
     /^\/tools\/[^/]+\/extract$/.test(pathname) ||
+    // A requirement review is one generation call.
+    /^\/requirements\/[^/]+\/review$/.test(pathname) ||
     LONG_RUNNING_PATH_SUFFIXES.some(suffix => pathname.endsWith(suffix));
   return isLongRunning ? LONG_RUNNING_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
 }

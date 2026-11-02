@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.constants import EntityType
+from rhesis.backend.app.crud.requirement import get_requirement_names
 from rhesis.backend.app.models.test import test_test_set_association
 
 
@@ -71,6 +72,10 @@ def attach_context(
         )
         runs = {r.id: r for r in rows}
 
+    requirement_names = get_requirement_names(
+        db, {a.requirement_id for a in annotations if a.requirement_id}
+    )
+
     details = []
     for annotation in annotations:
         detail = schemas.AnnotationDetail.model_validate(annotation, from_attributes=True)
@@ -80,8 +85,19 @@ def attach_context(
             detail.context = _trace_context(traces.get(annotation.entity_id), runs)
         elif annotation.entity_type == EntityType.TEST.value:
             detail.context = _test_context(tests.get(annotation.entity_id), test_set_ids)
+        _prefer_linked_requirement(detail, annotation, requirement_names)
         details.append(detail)
     return details
+
+
+def _prefer_linked_requirement(detail, annotation, requirement_names) -> None:
+    """The annotation's own requirement wins over the one its parent's test names."""
+    if annotation.requirement_id is None:
+        return
+    if detail.context is None:
+        detail.context = schemas.AnnotationContext(project_id=annotation.project_id)
+    detail.context.requirement_id = annotation.requirement_id
+    detail.context.requirement_name = requirement_names.get(str(annotation.requirement_id))
 
 
 def _run_context(parent, runs: Dict[uuid.UUID, models.TestRun]) -> schemas.AnnotationContext:

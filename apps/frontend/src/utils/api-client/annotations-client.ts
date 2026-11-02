@@ -5,6 +5,7 @@ import {
   AnnotationCreate,
   AnnotationFacets,
   AnnotationsQueryParams,
+  AnnotationTuningCase,
   AnnotationUpdate,
 } from './interfaces/annotation';
 import { PaginatedResponse } from './interfaces/pagination';
@@ -68,6 +69,20 @@ export class AnnotationsClient extends BaseApiClient {
     return this.fetch<Annotation>(
       `${API_ENDPOINTS.annotations}/${annotationId}`,
       { method: 'DELETE' }
+    );
+  }
+
+  /** Copies the annotated input and output into a metric's tuning set. */
+  async addAsTuningCase(
+    annotationId: string,
+    metricId: string
+  ): Promise<AnnotationTuningCase> {
+    return this.fetch<AnnotationTuningCase>(
+      `${API_ENDPOINTS.annotations}/${annotationId}/tuning-case`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ metric_id: metricId }),
+      }
     );
   }
 

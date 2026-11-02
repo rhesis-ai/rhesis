@@ -3,7 +3,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Box,
+  Checkbox,
   FormControlLabel,
+  Stack,
   Switch,
   ToggleButton,
   ToggleButtonGroup,
@@ -13,6 +15,7 @@ import { useSession } from 'next-auth/react';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import BaseDrawer from '@/components/common/BaseDrawer';
+import { drawerOutlinedFieldSx } from '@/components/common/drawerFormFieldSx';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import { findStatusByCategory } from '@/utils/test-result-status';
@@ -31,6 +34,16 @@ import {
   type AnnotationUpdate,
 } from '@/utils/api-client/interfaces/annotation';
 import { ANNOTATION_COPY } from './annotation-copy';
+import RequirementAutocomplete from '@/components/requirements/RequirementAutocomplete';
+import { useNotifications } from '@/components/common/NotificationContext';
+import { useCan } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
+import type {
+  MetricWithRelationships,
+  RequirementOption,
+} from '@/utils/api-client/interfaces/requirement';
+import { isTunableMetric } from '@/utils/metric-tunable';
+import type { UUID } from 'crypto';
 
 /** Comments shorter than this are rejected: a bare verdict explains nothing. */
 const MIN_COMMENT_LENGTH = 10;
@@ -74,6 +87,11 @@ export interface AnnotationDrawerProps {
    * Takes the inferred target, since what is being judged depends on it.
    */
   renderContext?: (target: InferredTarget) => React.ReactNode;
+  /**
+   * Requirement to prefill on a new annotation, e.g. the annotated test's own
+   * requirement. Ignored when editing: the annotation's own link wins.
+   */
+  initialRequirement?: RequirementOption | null;
 }
 
 /**
@@ -96,6 +114,7 @@ export default function AnnotationDrawer({
   mentionableMetrics = [],
   mentionableTurns = [],
   renderContext,
+  initialRequirement = null,
 }: AnnotationDrawerProps) {
   const isEditing = annotation !== null;
   const { status: sessionStatus } = useSession();
@@ -106,6 +125,18 @@ export default function AnnotationDrawer({
   const [loadingStatuses, setLoadingStatuses] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [resolved, setResolved] = useState(false);
+  const [requirement, setRequirement] = useState<RequirementOption | null>(
+    null
+  );
+  const [tunableMetrics, setTunableMetrics] = useState<
+    MetricWithRelationships[]
+  >([]);
+  const [tuningMetricIds, setTuningMetricIds] = useState<string[]>([]);
+  const notifications = useNotifications();
+  const canAddTuningCase = useCan(Capability.Metric.UPDATE);
+  const originalRequirementId = annotation?.requirement_id
+    ? String(annotation.requirement_id)
+    : null;
 
   const { create, update } = useAnnotationMutations(entityType, entityId);
 
@@ -172,8 +203,43 @@ export default function AnnotationDrawer({
     setError('');
     setSelectedStatusId(annotation ? String(annotation.status_id) : '');
     setResolved(Boolean(annotation?.resolved));
+    setRequirement(
+      annotation
+        ? annotation.requirement_id
+          ? { id: annotation.requirement_id, name: '' }
+          : null
+        : initialRequirement
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- open only
   }, [open]);
+
+  // Loads the selected requirement: its name when only the id is known, and
+  // which of its linked metrics can take a tuning case.
+  const requirementId = requirement ? String(requirement.id) : null;
+  useEffect(() => {
+    setTuningMetricIds([]);
+    setTunableMetrics([]);
+    if (!open || !requirementId || !isAuthenticated(sessionStatus)) return;
+    let cancelled = false;
+    new ApiClientFactory()
+      .getRequirementClient()
+      .getRequirementWithMetrics(requirementId as UUID)
+      .then(full => {
+        if (cancelled) return;
+        setTunableMetrics((full.metrics ?? []).filter(m => isTunableMetric(m)));
+        setRequirement(prev =>
+          prev && String(prev.id) === requirementId && !prev.name
+            ? { id: prev.id, name: full.name }
+            : prev
+        );
+      })
+      .catch(() => {
+        // The picker still works without its metrics.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, requirementId, sessionStatus]);
 
   useEffect(() => {
     if (!open || selectedStatusId || statuses.length === 0 || !initialStatus) {
@@ -200,6 +266,7 @@ export default function AnnotationDrawer({
     }
     if (!entityId || !isAuthenticated(sessionStatus)) return;
 
+    let saved: Annotation;
     try {
       setSubmitting(true);
       setError('');
@@ -218,20 +285,47 @@ export default function AnnotationDrawer({
           resolved,
         };
         if (targetToSend) changes.target = targetToSend;
-        await update(annotation.id, changes);
+        // Only sent when changed, so an edit never clears a link by accident.
+        if (requirementId !== originalRequirementId) {
+          changes.requirement_id = requirementId;
+        }
+        saved = await update(annotation.id, changes);
       } else {
-        await create({
+        saved = await create({
           statusId: selectedStatusId,
           comments: trimmed,
           target: targetToSend,
+          requirementId,
         });
       }
+      await addTuningCases(String(saved.id));
       await onSaved();
       onClose();
     } catch (_err) {
       setError(ANNOTATION_COPY.saveFailed);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const visibleTuningMetrics =
+    requirementId && canAddTuningCase ? tunableMetrics : [];
+
+  // After the annotation saves: a failure here must not lose the annotation.
+  const addTuningCases = async (annotationId: string) => {
+    const metricIds = tuningMetricIds.filter(id =>
+      visibleTuningMetrics.some(m => String(m.id) === id)
+    );
+    if (metricIds.length === 0) return;
+    const client = new ApiClientFactory().getAnnotationsClient();
+    const results = await Promise.allSettled(
+      metricIds.map(id => client.addAsTuningCase(annotationId, id))
+    );
+    if (results.some(r => r.status === 'rejected')) {
+      notifications.show(ANNOTATION_COPY.tuningCaseFailed, {
+        severity: 'warning',
+        autoHideDuration: 6000,
+      });
     }
   };
 
@@ -349,6 +443,45 @@ export default function AnnotationDrawer({
         }
         minRows={4}
       />
+
+      <RequirementAutocomplete
+        label={ANNOTATION_COPY.requirementLabel}
+        placeholder={ANNOTATION_COPY.requirementPlaceholder}
+        value={requirement}
+        onChange={setRequirement}
+        helperText={ANNOTATION_COPY.requirementHelp}
+        disabled={submitting}
+        sx={drawerOutlinedFieldSx}
+      />
+
+      {visibleTuningMetrics.length > 0 && (
+        <Stack spacing={0.5}>
+          {visibleTuningMetrics.map(metric => {
+            const id = String(metric.id);
+            return (
+              <FormControlLabel
+                key={id}
+                control={
+                  <Checkbox
+                    checked={tuningMetricIds.includes(id)}
+                    onChange={event =>
+                      setTuningMetricIds(prev =>
+                        event.target.checked
+                          ? [...prev, id]
+                          : prev.filter(m => m !== id)
+                      )
+                    }
+                  />
+                }
+                label={ANNOTATION_COPY.tuningCaseLabel(metric.name)}
+              />
+            );
+          })}
+          <Typography variant="caption" color="text.secondary">
+            {ANNOTATION_COPY.tuningCaseHelp}
+          </Typography>
+        </Stack>
+      )}
     </BaseDrawer>
   );
 }

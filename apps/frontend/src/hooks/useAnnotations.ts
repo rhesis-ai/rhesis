@@ -88,6 +88,7 @@ export function useAnnotationMutations(
       statusId: string;
       comments?: string;
       target?: AnnotationTargetInput;
+      requirementId?: string | null;
     }) => {
       if (!entityId) throw new Error('No entity to annotate.');
       const annotation = await new ApiClientFactory()
@@ -98,6 +99,9 @@ export function useAnnotationMutations(
           status_id: input.statusId,
           comments: input.comments,
           target: input.target,
+          ...(input.requirementId
+            ? { requirement_id: input.requirementId }
+            : {}),
         });
       invalidate();
       notifications.show('Annotation saved.', {
