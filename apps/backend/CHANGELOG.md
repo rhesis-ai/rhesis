@@ -39,6 +39,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   anything that referenced them. Recorded metric scores are unaffected: test results and the
   verdict grid read their own JSONB snapshots, not the metric table.
 
+## [0.20.0] - 2026-10-27
+
+### Added
+
+- **S3 Storage Support**: Added native S3 backend storage support via `s3fs`, configured using `STORAGE_SERVICE_*` settings with fail-fast startup validation.
+- **Tool Call Trajectory Metric & Expectations**: Added support for defining `expected_tool_calls` on test configurations and introduced a `Tool Call Trajectory` metric to validate agent tool execution against expectations.
+- **Trace Insights**: Added a `trace` entity to Insights, exposing root-span latency metrics (avg, p50, p95, p99), token counts, cost (USD), and error rates across environments and test runs.
+- **Run Duration Insights**: Added execution duration metrics (avg, p50, p95, max) to test run statistics and Insights views.
+- **Trace Evaluation Targets**: Metrics can now target and evaluate specific segments or spans within a full trace.
+- **Trace Context Propagation**: Added automatic W3C `traceparent` header propagation during REST and WebSocket invocations (configurable via `endpoint_metadata.propagate_trace_context`).
+- **Architect Reply Charts**: Enabled Architect agent responses to generate and attach chart metadata (`metadata_.charts`).
+- **ClickUp MCP Integration**: Integrated ClickUp tool support for MCP integrations.
+- **Jinja `fromjson` Filter**: Added `fromjson` (`from_json`) template filters to allow parsing stringified JSON inputs directly into structured objects.
+- **Insights Schema Endpoint**: Added `GET /insights/schema` to allow dynamic discovery of available Insights dimensions, entities, and metrics.
+
+### Changed
+
+- **Unified Metric Evaluation Signature**: Metric evaluations now pass unified `trace` and `expectations` parameters instead of separate legacy parameters (`expected_output`, `context`, `tool_calls`, `goal`, etc.).
+- **Redesigned Insights Registry**: Standardized dimensions across entities, added `period` bucketing with `time_grain` controls, added support for `order_by`, `limit`, and `min_count` parameters, and renamed `passed`/`pass_rate` metrics on `test_run` to `completed`/`completion_rate`.
+- **Asynchronous Email Sending**: Shifted auth and onboarding email deliveries to FastAPI `BackgroundTasks` to prevent blocking event loops during external SMTP/SendGrid calls.
+- **Architect Agent Reliability**: Reduced retry loops on failing tool calls, improved tool error reporting, and optimized default page ordering (`created_at desc`) when querying test runs.
+
+### Fixed
+
+- **Error Trace Persistence**: Fixed deferred trace serialization during batch test execution errors so endpoint failures persist their true underlying error message.
+- **Dev Logging Growth**: Stopped excessive logging floods in development by capping dev log file sizes, adding PIDs to log filenames, and ensuring RPC listeners stop before Redis connection shutdown.
+- **Run Duration Data Safety**: Added PostgreSQL validation checks (`pg_input_is_valid`) when computing run durations to prevent malformed timestamps from breaking Insights queries.
+
+
 ## [0.19.1] - 2026-10-22
 
 ### Added

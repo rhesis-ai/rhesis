@@ -18,6 +18,42 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
   since January 2026 and carried advisories with no upstream fix. Existing Ragas metrics and their
   associations are deleted by a backend migration; recorded test results keep their scores.
 
+## [0.20.0] - 2026-10-27
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.20.0**
+- **Frontend 0.20.0**
+- **SDK 0.20.0**
+
+### Summary of Changes
+
+**Backend v0.20.0:**
+- Added S3-compatible blob storage support with strict startup configuration validation.
+- Enhanced metric evaluations to pass full trace history and test expectations, enabling targeted span evaluations and tool call trajectory checks.
+- Redesigned the Insights registry to add trace latency, token usage, cost, and execution duration analytics alongside new query-shaping parameters.
+- Introduced ClickUp MCP tool integration, added a `fromjson` Jinja filter for structured inputs, and moved auth email sending to background tasks.
+
+**Frontend v0.20.0:**
+- Introduced interactive charts (line, bar, heat tables) to Architect responses with export options (CSV, SVG, PNG) and layout fixes.
+- Redesigned and compacted the trace drawer with timing bars, filterable span trees, and a new Traces tab in test results.
+- Enhanced the Endpoint Wizard to allow editing test payloads as JSON and creating endpoints without blocking on failed tests.
+- Refreshed sidebar navigation with scroll cues, improved dark mode styling, and updated Insights grouping.
+
+**SDK v0.20.0:**
+- Refactored metric signatures to accept unified `trace` and `expectations` parameters (breaking change), allowing metrics to evaluate full trace spans or build traces in-memory.
+- Introduced metric targets for evaluating specific parts of a trace and added the `ToolCallTrajectory` metric to compare agent execution against expected tool calls.
+- Enhanced Architect agent capabilities with interactive charting tools (`ShowChartTool`), improved tool failure/retry handling, and expanded Insights query shaping (`time_grain`, `order_by`, `limit`).
+- Added ClickUp MCP integration, parameter-name recording on tool spans, and improved cache token calculations for streamed LangChain calls.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.19.1] - 2026-10-22
 
 ### Platform Release
