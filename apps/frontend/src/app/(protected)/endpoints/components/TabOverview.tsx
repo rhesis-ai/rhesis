@@ -32,6 +32,7 @@ import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import JsonMonacoField from '../[identifier]/components/JsonMonacoField';
 import type { FormData } from './EndpointForm';
+import { MAX_TIMEOUT_SECONDS, timeoutSecondsError } from './timeoutSeconds';
 
 const VERSION_INFO_DOCS_URL =
   'https://docs.rhesis.ai/docs/endpoints/management#version-information';
@@ -308,13 +309,18 @@ export default function TabOverview({
         />
         <TextField
           label="Seconds"
-          sx={{ alignSelf: 'flex-start' }}
+          // Fixed width: with a max set, browsers shrink a number input to that many digits.
+          sx={{ alignSelf: 'flex-start', width: theme => theme.spacing(28) }}
           type="number"
           value={formData.timeout_seconds}
           onChange={e => onChange('timeout_seconds', e.target.value)}
           placeholder="30"
+          error={Boolean(timeoutSecondsError(formData.timeout_seconds))}
+          helperText={
+            timeoutSecondsError(formData.timeout_seconds) ?? undefined
+          }
           slotProps={{
-            input: { inputProps: { min: 1 } },
+            htmlInput: { min: 1, max: MAX_TIMEOUT_SECONDS, step: 1 },
           }}
         />
       </Stack>
