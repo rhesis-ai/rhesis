@@ -33,6 +33,12 @@ import TabMapping from './TabMapping';
 import TabTest from './TabTest';
 import type { EndpointTestResult } from './TestResponseCard';
 import {
+  parseTimeoutSeconds,
+  testWaitSeconds,
+  timeoutSecondsError,
+} from './timeoutSeconds';
+import { useTestRun } from './useTestRun';
+import {
   DEFAULT_TEST_VALUES,
   testInputData,
   type TestValues,
@@ -95,12 +101,6 @@ const LAST_STEP = CREATE_STEPS.length - 1;
 
 const INPUT_VAR_RE = /\{\{\s*input\b/;
 
-/** The Basics step's timeout as a number, or undefined for the backend default. */
-function parseTimeoutSeconds(value: string): number | undefined {
-  const parsed = parseInt(value, 10);
-  return !isNaN(parsed) && parsed > 0 ? parsed : undefined;
-}
-
 function hasOutputMapping(resBody: string): boolean {
   try {
     const parsed: unknown = JSON.parse(resBody);
@@ -121,6 +121,19 @@ function validateUrl(url: string) {
   } catch {
     return false;
   }
+}
+
+// A 504 here means a proxy between the browser and the backend gave up waiting:
+// ours after 300s (LONG_RUNNING_TIMEOUT_MS in utils/backend-proxy.ts), or an
+// ingress in front of it sooner. Test runs call the endpoint from the worker,
+// so they still get the endpoint's whole timeout.
+const PROXY_TIMEOUT_MESSAGE =
+  'The test took too long and was stopped before your API answered. Test runs still use your full timeout.';
+
+function testErrorMessage(err: unknown): string {
+  if ((err as { status?: number })?.status === 504)
+    return PROXY_TIMEOUT_MESSAGE;
+  return (err as Error)?.message ?? '';
 }
 
 export interface EndpointFormSubmitState {
@@ -164,13 +177,8 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     const [activeTab, setActiveTab] = useState(0);
     const [reqBody, setReqBody] = useState<string>(DEFAULT_REQ_BODY);
     const [resBody, setResBody] = useState<string>(DEFAULT_RES_BODY);
-    const [testResult, setTestResult] = useState<EndpointTestResult | null>(
-      null
-    );
-    const [isTestingEndpoint, setIsTestingEndpoint] = useState(false);
-    const [tabTestResult, setTabTestResult] =
-      useState<EndpointTestResult | null>(null);
-    const [isTabTestRunning, setIsTabTestRunning] = useState(false);
+    const mappingTest = useTestRun();
+    const tabTest = useTestRun();
     const [testValues, setTestValues] =
       useState<TestValues>(DEFAULT_TEST_VALUES);
     // The setup each passing test ran against; a pass only counts while it still matches.
@@ -308,9 +316,11 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
 
     // A Test step result only describes the setup it ran against; drop it once
     // that changes, so the step shows green only after a new successful send.
+    const resetTabTest = tabTest.reset;
+    const maxWaitSeconds = testWaitSeconds(formData.timeout_seconds);
     useEffect(() => {
-      setTabTestResult(null);
-    }, [fullKey]);
+      resetTabTest();
+    }, [fullKey, resetTabTest]);
 
     const versionInfoError = validateVersionInfoDraft(formData.version_info);
 
@@ -319,7 +329,8 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     const stepsValid = [
       Boolean(formData.name) &&
         Boolean(formData.project_id) &&
-        versionInfoError === null,
+        versionInfoError === null &&
+        timeoutSecondsError(formData.timeout_seconds) === null,
       Boolean(formData.url) && validateUrl(formData.url) && authError === null,
       INPUT_VAR_RE.test(reqBody) && hasOutputMapping(resBody),
       true,
@@ -350,16 +361,10 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
       onSubmitStateChange,
     ]);
 
-    const runTest = async (
-      inputData: Record<string, unknown>,
-      setResult: React.Dispatch<
-        React.SetStateAction<EndpointTestResult | null>
-      >,
-      setTesting: React.Dispatch<React.SetStateAction<boolean>>,
-      onPassed?: () => void
-    ) => {
-      setTesting(true);
-      setResult(null);
+    /** One test call; never throws, so a failure is just another result. */
+    const callTest = async (
+      inputData: Record<string, unknown>
+    ): Promise<EndpointTestResult> => {
       try {
         if (!formData.url || !validateUrl(formData.url)) {
           throw new Error('Enter a valid URL in the Connection step');
@@ -411,34 +416,30 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
         // A failed call to the target comes back as a 200 with the failure in the body.
         const failure = getEndpointFailure(r as unknown as TestOutput);
         const success = !failure && r.success !== false && !r.error;
-        setResult({
+        return {
           success,
           status: failure?.statusCode,
           response: r,
           error: failure ? failure.message || failure.summary : undefined,
-        });
-        if (success) onPassed?.();
+        };
       } catch (err) {
-        setResult({ success: false, error: (err as Error).message ?? '' });
-      } finally {
-        setTesting(false);
+        return { success: false, error: testErrorMessage(err) };
       }
     };
 
     const handleRunTest = () => {
       const key = connectionKey;
-      return runTest(
-        testInputData(testValues),
-        setTestResult,
-        setIsTestingEndpoint,
+      void mappingTest.run(
+        () => callTest(testInputData(testValues)),
         () => setMappingTestKey(key)
       );
     };
 
     const handleTabRunTest = (inputData: Record<string, unknown>) => {
       const key = fullKey;
-      return runTest(inputData, setTabTestResult, setIsTabTestRunning, () =>
-        setTabTestKey(key)
+      void tabTest.run(
+        () => callTest(inputData),
+        () => setTabTestKey(key)
       );
     };
 
@@ -663,10 +664,17 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
               onResBodyChange={setResBody}
               testValues={testValues}
               onTestValuesChange={setTestValues}
-              testResult={testResult}
-              isTestingEndpoint={isTestingEndpoint}
+              testResult={mappingTest.result}
+              isTestingEndpoint={mappingTest.isTesting}
+              testStartedAt={mappingTest.startedAt}
+              isSlowApi={mappingTest.isSlow}
+              maxWaitSeconds={maxWaitSeconds}
+              onCancelTest={mappingTest.cancel}
               onRunTest={handleRunTest}
               resultIsCurrent={mappingTestKey === connectionKey}
+              url={formData.url}
+              method={formData.method}
+              requestHeaders={formData.request_headers}
             />
           </DetailTabPanel>
 
@@ -685,8 +693,11 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
               requestHeaders={formData.request_headers}
               values={testValues}
               onValuesChange={setTestValues}
-              testResult={tabTestResult}
-              isTestingEndpoint={isTabTestRunning}
+              testResult={tabTest.result}
+              isTestingEndpoint={tabTest.isTesting}
+              testStartedAt={tabTest.startedAt}
+              maxWaitSeconds={maxWaitSeconds}
+              onCancelTest={tabTest.cancel}
               onRunTest={handleTabRunTest}
             />
           </DetailTabPanel>

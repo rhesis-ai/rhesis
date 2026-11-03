@@ -154,6 +154,25 @@ describe('Endpoint create drawer — mapping test errors', () => {
       )
     ).toBeInTheDocument();
   });
+
+  it('explains a proxy timeout instead of a bare 504', async () => {
+    mockTestEndpoint.mockRejectedValue(
+      Object.assign(new Error('API error: 504 - Backend request timed out'), {
+        status: 504,
+      })
+    );
+    const user = userEvent.setup({ delay: null });
+    renderDrawer();
+    await fillToMapping(user);
+
+    expect(
+      await screen.findByText(
+        'The test took too long and was stopped before your API answered. Test runs still use your full timeout.',
+        {},
+        AUTO_RUN
+      )
+    ).toBeInTheDocument();
+  });
 });
 
 describe('Endpoint create drawer — steps and submit', () => {
@@ -164,6 +183,25 @@ describe('Endpoint create drawer — steps and submit', () => {
     mockTestEndpoint.mockResolvedValue({ raw_response: { text: 'hi' } });
     mockCreateEndpoint.mockReset();
     mockNotificationsShow.mockClear();
+  });
+
+  it('blocks Next while the timeout is out of range', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderDrawer();
+    await user.type(screen.getByLabelText(/endpoint name/i), 'My Endpoint');
+    fireEvent.change(screen.getByLabelText('Seconds'), {
+      target: { value: '5000' },
+    });
+
+    expect(
+      screen.getByText('Enter whole seconds from 1 to 3600.')
+    ).toBeInTheDocument();
+    expect(nextButton()).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText('Seconds'), {
+      target: { value: '300' },
+    });
+    expect(nextButton()).toBeEnabled();
   });
 
   it('moves to the next step on Enter once the step is complete', async () => {

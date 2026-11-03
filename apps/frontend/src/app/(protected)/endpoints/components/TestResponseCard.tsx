@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Button,
@@ -112,9 +112,61 @@ export function RunTestButton({
   );
 }
 
+const formatSeconds = (total: number) =>
+  `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+
+/** "Waiting for your API… 0:42 of up to 2:00", ticking each second, with Cancel. */
+function WaitingStatus({
+  startedAt,
+  maxWaitSeconds,
+  onCancel,
+}: {
+  startedAt: number;
+  maxWaitSeconds?: number;
+  onCancel?: () => void;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const elapsed = Math.max(0, Math.floor((now - startedAt) / 1000));
+  return (
+    <Box
+      role="status"
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        color: 'text.secondary',
+      }}
+    >
+      <CircularProgress size={16} />
+      <Typography variant="body2" sx={{ flex: 1 }}>
+        Waiting for your API… {formatSeconds(elapsed)}
+        {maxWaitSeconds ? ` of up to ${formatSeconds(maxWaitSeconds)}` : ''}
+      </Typography>
+      {onCancel && (
+        <Button size="small" onClick={onCancel}>
+          Cancel
+        </Button>
+      )}
+    </Box>
+  );
+}
+
 interface TestResponseCardProps {
   result: EndpointTestResult | null;
   isTesting: boolean;
+  /** When the running test started; drives the elapsed time. */
+  startedAt?: number | null;
+  /** The longest the running test can wait, shown beside the elapsed time. */
+  maxWaitSeconds?: number;
+  onCancel?: () => void;
+  /** Shown under the waiting line, e.g. the request being sent. */
+  waitingDetails?: React.ReactNode;
+  /** Shown above the result, e.g. why tests stopped re-sending by themselves. */
+  notice?: React.ReactNode;
   subtitle: string;
   /** Shown before any run, e.g. what to do to get a response. */
   emptyText: string;
@@ -130,6 +182,11 @@ interface TestResponseCardProps {
 export function TestResponseCard({
   result,
   isTesting,
+  startedAt,
+  maxWaitSeconds,
+  onCancel,
+  waitingDetails,
+  notice,
   subtitle,
   emptyText,
   successTitle,
@@ -161,20 +218,34 @@ export function TestResponseCard({
         )
       }
     >
-      {!result ? (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1.5,
-            color: 'text.secondary',
-          }}
-        >
-          {isTesting && <CircularProgress size={16} />}
-          <Typography variant="body2">
-            {isTesting ? 'Waiting for your API…' : emptyText}
-          </Typography>
+      {notice && <Box sx={{ mb: 3 }}>{notice}</Box>}
+      {isTesting ? (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {startedAt ? (
+            <WaitingStatus
+              startedAt={startedAt}
+              maxWaitSeconds={maxWaitSeconds}
+              onCancel={onCancel}
+            />
+          ) : (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                color: 'text.secondary',
+              }}
+            >
+              <CircularProgress size={16} />
+              <Typography variant="body2">Waiting for your API…</Typography>
+            </Box>
+          )}
+          {waitingDetails}
         </Box>
+      ) : !result ? (
+        <Typography variant="body2" color="text.secondary">
+          {emptyText}
+        </Typography>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {!result.success && (

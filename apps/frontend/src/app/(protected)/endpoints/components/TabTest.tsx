@@ -28,12 +28,9 @@ import {
   TestResponseCard,
   type EndpointTestResult,
 } from './TestResponseCard';
+import { applyJsonPath } from './endpoint-template-utils';
 import {
-  applyJsonPath,
-  buildCurl,
-  substituteVars,
-} from './endpoint-template-utils';
-import {
+  buildTestCurl,
   formatTestValue as formatValue,
   testInputData,
   testValueVars,
@@ -51,6 +48,11 @@ interface TabTestProps {
   onValuesChange: (values: TestValues) => void;
   testResult: EndpointTestResult | null;
   isTestingEndpoint: boolean;
+  /** When the running test started, for the elapsed time. */
+  testStartedAt?: number | null;
+  /** The longest a test can wait: the endpoint's timeout, capped by the proxy. */
+  maxWaitSeconds?: number;
+  onCancelTest?: () => void;
   onRunTest: (inputData: Record<string, unknown>) => void;
 }
 
@@ -95,6 +97,9 @@ export default function TabTest({
   onValuesChange: setValues,
   testResult,
   isTestingEndpoint,
+  testStartedAt,
+  maxWaitSeconds,
+  onCancelTest,
   onRunTest,
 }: TabTestProps) {
   const theme = useTheme();
@@ -104,34 +109,19 @@ export default function TabTest({
   const [fileValues, setFileValues] = useState<Record<string, File[]>>({});
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  const resolvedHeaders = useMemo<Record<string, string>>(() => {
-    try {
-      const h = JSON.parse(requestHeaders || '{}') as Record<string, string>;
-      return Object.fromEntries(
-        Object.entries(h).map(([k, v]) => [
-          k,
-          String(v).replace(/\{\{\s*auth_token\s*\}\}/g, '[hidden]'),
-        ])
-      );
-    } catch {
-      return {};
-    }
-  }, [requestHeaders]);
-
   const curlText = useMemo(() => {
-    const previewValues = Object.fromEntries(
-      Object.entries(values).map(([k, v]) => [k, formatValue(v)])
-    );
+    const previewValues: TestValues = { ...values };
     for (const [k, files] of Object.entries(fileValues)) {
       if (files.length) previewValues[k] = files.map(f => f.name).join(', ');
     }
-    return buildCurl(
-      method || 'POST',
-      url || '—',
-      resolvedHeaders,
-      substituteVars(reqBody || '{}', previewValues)
-    );
-  }, [method, url, resolvedHeaders, reqBody, values, fileValues]);
+    return buildTestCurl({
+      method,
+      url,
+      requestHeaders,
+      reqBody,
+      values: previewValues,
+    });
+  }, [method, url, requestHeaders, reqBody, values, fileValues]);
 
   const inputValue = values.input;
   const blockedReason =
@@ -242,6 +232,9 @@ export default function TabTest({
           <TestResponseCard
             result={testResult}
             isTesting={isTestingEndpoint}
+            startedAt={testStartedAt}
+            maxWaitSeconds={maxWaitSeconds}
+            onCancel={onCancelTest}
             subtitle="What your API returned, and the value Rhesis reads for each variable."
             emptyText="Fill in the test values and click Send test request."
             successTitle="Endpoint is ready"

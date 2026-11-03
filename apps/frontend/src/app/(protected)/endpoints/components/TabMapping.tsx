@@ -1,14 +1,23 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, IconButton, Stack, Tooltip } from '@mui/material';
+import { Alert, Box, IconButton, Stack, Tooltip } from '@mui/material';
 import { CloseIcon } from '@/components/icons';
 import RequestMappingCard from './RequestMappingCard';
 import ResponseMappingCard from './ResponseMappingCard';
 import { HelpArticlesPanel, MappingCard, TwoCardRow } from './MappingRows';
 import TestValuesEditor from './TestValuesEditor';
-import { RunTestButton, type EndpointTestResult } from './TestResponseCard';
-import { isFileVar, testValueVars, type TestValues } from './testValues';
+import {
+  RawResponseCollapse,
+  RunTestButton,
+  type EndpointTestResult,
+} from './TestResponseCard';
+import {
+  buildTestCurl,
+  isFileVar,
+  testValueVars,
+  type TestValues,
+} from './testValues';
 
 const INPUT_VAR_RE = /\{\{\s*input\b/;
 const OUTPUT_MAPPED_RE = /"output"\s*:\s*"[^"]+"/;
@@ -28,6 +37,17 @@ interface TabMappingProps {
   onRunTest: () => void;
   /** The last result was run against the current URL, headers, auth and request. */
   resultIsCurrent: boolean;
+  /** When the running test started, for the elapsed time. */
+  testStartedAt?: number | null;
+  /** The last test took long, so edits no longer re-send it by themselves. */
+  isSlowApi?: boolean;
+  /** The longest a test can wait: the endpoint's timeout, capped by the proxy. */
+  maxWaitSeconds?: number;
+  onCancelTest?: () => void;
+  /** For the cURL preview of the request being sent. */
+  url?: string;
+  method?: string;
+  requestHeaders?: string;
 }
 
 export default function TabMapping({
@@ -41,6 +61,13 @@ export default function TabMapping({
   isTestingEndpoint,
   onRunTest,
   resultIsCurrent,
+  testStartedAt,
+  isSlowApi = false,
+  maxWaitSeconds,
+  onCancelTest,
+  url = '',
+  method = 'POST',
+  requestHeaders,
 }: TabMappingProps) {
   const inputMapped = INPUT_VAR_RE.test(reqBody);
   // Green means done: the request once its test passed for this mapping, the
@@ -56,11 +83,12 @@ export default function TabMapping({
 
   // Send the test as soon as the request is mapped, and again after each edit,
   // so the response is there to map without hunting for a button.
+  // A slow API isn't called again on every edit; the button sends it instead.
   useEffect(() => {
-    if (!inputMapped || alreadyRanFor.current === reqBody) return;
+    if (!inputMapped || isSlowApi || alreadyRanFor.current === reqBody) return;
     const timer = setTimeout(() => runRef.current(), AUTO_RUN_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [reqBody, inputMapped]);
+  }, [reqBody, inputMapped, isSlowApi]);
 
   // Files can't be picked here; the Test step has the upload.
   const textVars = useMemo(
@@ -155,6 +183,32 @@ export default function TabMapping({
             isTesting={isTestingEndpoint}
             inputMapped={inputMapped}
             complete={responseDone}
+            waiting={{
+              startedAt: testStartedAt,
+              maxWaitSeconds,
+              onCancel: onCancelTest,
+              waitingDetails: (
+                <RawResponseCollapse
+                  label="Request being sent (cURL)"
+                  value={buildTestCurl({
+                    method,
+                    url,
+                    requestHeaders,
+                    reqBody,
+                    values: testValues,
+                  })}
+                />
+              ),
+            }}
+            notice={
+              isSlowApi &&
+              !isTestingEndpoint && (
+                <Alert severity="info">
+                  Your API is slow, so Rhesis no longer re-sends the test after
+                  every change. Click Send test request when you&apos;re ready.
+                </Alert>
+              )
+            }
           />
         }
       />
