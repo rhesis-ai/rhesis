@@ -55,13 +55,18 @@
 
    --- Caveat: vw/vh ---
 
-   `vw`/`vh` are NOT compensated for zoom, so an uncompensated `height: 100vh`
-   inside the subtree renders at 85% of the screen and leaves a dead strip at
-   the bottom. Anything in the subtree that must track the real viewport
-   divides the viewport term — and only that term — by `--ui-scale`; see
-   `scaledVh` in `viewport-scaling.ts`. Percentages, `inset` and fixed
-   positioning all resolve correctly on their own, and viewport units on
-   body-portalled surfaces are already correct because those are not zoomed.
+   Browsers disagree on `vw`/`vh` under zoom. Chromium does NOT compensate, so
+   an uncompensated `height: 100vh` inside the subtree renders at 85% of the
+   screen and leaves a dead strip at the bottom. Safari (WebKit) does, so there
+   `100vh` already fills the screen. Anything in the subtree that must track
+   the real viewport divides the viewport term — and only that term — by
+   `--ui-vh-scale`; see `scaledVh` in `viewport-scaling.ts`. That var follows
+   `--ui-scale` unless a pre-paint probe (`VH_ZOOM_PROBE_SCRIPT`) finds the
+   browser compensates and sets `data-vh-zoom-aware` on <html>, which pins it
+   to 1. Dividing unconditionally made the whole shell 118% of the window in
+   Safari. Percentages, `inset` and fixed positioning all resolve correctly on
+   their own, and viewport units on body-portalled surfaces are already correct
+   because those are not zoomed.
 
    --- Why @supports, and why the var is not on :root ---
 
@@ -84,6 +89,13 @@
 
 [data-ui-scale-root] {
   --ui-scale: 1;
+  /* Resolved on this element, so it picks up --ui-scale from the media
+     queries below. */
+  --ui-vh-scale: var(--ui-scale);
+}
+
+html[data-vh-zoom-aware] [data-ui-scale-root] {
+  --ui-vh-scale: 1;
 }
 
 @supports (zoom: 1) {
