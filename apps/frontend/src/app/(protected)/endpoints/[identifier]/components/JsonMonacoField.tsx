@@ -132,8 +132,14 @@ export default function JsonMonacoField({
           readOnly,
           minimap: { enabled: false },
           lineNumbers: 'on',
-          scrollBeyondLastLine: true,
-          padding: { bottom: 8 },
+          // No scroll-past-end, current-line box or ruler track: inside a
+          // bordered field they read as a second, one-line input with a
+          // scrollbar it doesn't need.
+          scrollBeyondLastLine: false,
+          renderLineHighlight: 'none',
+          overviewRulerLanes: 0,
+          hideCursorInOverviewRuler: true,
+          padding: { top: 8, bottom: 8 },
           folding: !readOnly,
           automaticLayout: true,
           wordWrap: 'on',

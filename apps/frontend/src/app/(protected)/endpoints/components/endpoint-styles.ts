@@ -54,3 +54,16 @@ export const editorContainerSx = {
   bgcolor: (t: Theme) => t.palette.greyscale.fieldSurface,
   overflow: 'hidden' as const,
 };
+
+/**
+ * Bordered box for a JsonMonacoField, which draws no frame of its own. Without
+ * it the editor's current-line highlight reads as a one-line input.
+ */
+export const jsonFieldSx = {
+  ...editorContainerSx,
+  '&:focus-within': {
+    outline: '2px solid',
+    outlineColor: 'primary.main',
+    outlineOffset: '-1px',
+  },
+};

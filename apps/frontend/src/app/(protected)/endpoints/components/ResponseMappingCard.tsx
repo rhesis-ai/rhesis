@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { Box, MenuItem, Select, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import JsonMonacoField from '../[identifier]/components/JsonMonacoField';
+import { jsonFieldSx } from './endpoint-styles';
 import { OUTPUT_VARIABLES } from './JsonPreview';
 import {
   MappingColumnHeaders,
@@ -163,6 +164,7 @@ export default function ResponseMappingCard({
             <JsonMonacoField
               editorKey="create-response-mapping"
               height="180px"
+              wrapperSx={jsonFieldSx}
               theme={editorTheme}
               value={responseMapping}
               onChange={onResponseMappingChange}

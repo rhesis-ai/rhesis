@@ -32,6 +32,7 @@ import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import JsonMonacoField from '../[identifier]/components/JsonMonacoField';
 import type { FormData } from './EndpointForm';
+import { jsonFieldSx } from './endpoint-styles';
 import { MAX_TIMEOUT_SECONDS, timeoutSecondsError } from './timeoutSeconds';
 
 const VERSION_INFO_DOCS_URL =
@@ -290,7 +291,8 @@ export default function TabOverview({
         <Collapse in={versionInfoExpanded} id="endpoint-version-info-editor">
           <JsonMonacoField
             editorKey="create-version-info"
-            height="160px"
+            height="120px"
+            wrapperSx={jsonFieldSx}
             theme={editorTheme}
             value={formData.version_info}
             onChange={v => onChange('version_info', v)}
