@@ -157,6 +157,7 @@ export interface EndpointTestRequest {
   endpoint_path?: string;
   query_params?: Record<string, unknown>;
   response_format?: 'json' | 'xml' | 'text';
+  timeout_seconds?: number;
 }
 
 export interface EndpointBulkDeleteResponse {

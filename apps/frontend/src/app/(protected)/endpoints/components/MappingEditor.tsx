@@ -15,7 +15,8 @@ import { PlayArrowIcon } from '@/components/icons';
 import RequestBodyEditor from './RequestBodyEditor';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { sectionContainedButtonSx } from '@/components/common/SectionCardActions';
-import { alpha, type Theme } from '@mui/material/styles';
+import { alpha, useTheme, type Theme } from '@mui/material/styles';
+import JsonMonacoField from '../[identifier]/components/JsonMonacoField';
 import { testPreviewSx } from './endpoint-styles';
 import VariableChip from './VariableChip';
 import {
@@ -24,6 +25,33 @@ import {
   responseMappingToPathToVar,
 } from './JsonPreview';
 import { REQUEST_VARIABLES } from './mapping-variables';
+import { ModeLink } from './MappingRows';
+import TestValuesEditor from './TestValuesEditor';
+import {
+  DEFAULT_TEST_VALUES,
+  isFileVar,
+  testInputData,
+  testValueVars,
+  type TestValues,
+} from './testValues';
+
+/** A response mapping typed as JSON, or null while it isn't one yet. */
+function parseResponseMappingJson(text: string): Record<string, string> | null {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      !Array.isArray(parsed) &&
+      Object.values(parsed).every(v => typeof v === 'string')
+    ) {
+      return parsed as Record<string, string>;
+    }
+  } catch {
+    // Mid-edit; the caller keeps the last valid mapping.
+  }
+  return null;
+}
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -217,8 +245,32 @@ export default function MappingEditor({
     onRequestTemplateChange(t);
   };
 
+  const [testValues, setTestValues] = useState<TestValues>(DEFAULT_TEST_VALUES);
+  // Files can't be picked here; the endpoint's Test tab has the upload.
+  const testVars = useMemo(
+    () => testValueVars(requestTemplate).filter(v => !isFileVar(v)),
+    [requestTemplate]
+  );
+
   const handleQuickTest = () => {
-    onTest({ input: 'Hello, how are you?' });
+    onTest(testInputData(testValues));
+  };
+
+  // Typing the mapping covers responses that can't be clicked, e.g. when only an error came back.
+  const theme = useTheme();
+  const [responseMode, setResponseMode] = useState<'click' | 'json'>('click');
+  const [responseJson, setResponseJson] = useState('');
+  const responseJsonValid = parseResponseMappingJson(responseJson) !== null;
+
+  const openResponseJson = () => {
+    setResponseJson(JSON.stringify(responseMapping, null, 2));
+    setResponseMode('json');
+  };
+
+  const handleResponseJsonChange = (text: string) => {
+    setResponseJson(text);
+    const parsed = parseResponseMappingJson(text);
+    if (parsed) onResponseMappingChange(parsed);
   };
 
   const inlineCode = {
@@ -266,6 +318,24 @@ export default function MappingEditor({
           variables={REQUEST_VARIABLES}
           layout="bottom"
         />
+        {testVars.length > 0 && (
+          <Box sx={{ mt: 3 }}>
+            <FormSectionDivider
+              headline="Test values"
+              descriptiveText="What Check connection sends for each variable in the request body."
+            />
+            <Box
+              sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}
+            >
+              <TestValuesEditor
+                vars={testVars}
+                values={testValues}
+                onValuesChange={setTestValues}
+                editorKey="edit-mapping-test-values"
+              />
+            </Box>
+          </Box>
+        )}
       </Box>
 
       <Box>
@@ -274,7 +344,32 @@ export default function MappingEditor({
           descriptiveText="Run a test, then click any key in the response to map it to a Rhesis variable."
         />
         <Box sx={{ mt: 2 }}>
-          {testResponse ? (
+          {responseMode === 'json' ? (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box>
+                <JsonMonacoField
+                  editorKey="edit-response-mapping"
+                  height="180px"
+                  theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
+                  value={responseJson}
+                  onChange={handleResponseJsonChange}
+                />
+                <Typography
+                  variant="caption"
+                  color={responseJsonValid ? 'text.secondary' : 'error'}
+                  component="p"
+                  sx={{ mt: 0.5, mx: 1.75 }}
+                >
+                  {responseJsonValid
+                    ? 'Map each Rhesis variable to a JSONPath in the response, e.g. "output": "$.choices[0].message.content".'
+                    : 'Enter a JSON object whose values are all JSONPath strings.'}
+                </Typography>
+              </Box>
+              <ModeLink onClick={() => setResponseMode('click')}>
+                Map by clicking the response
+              </ModeLink>
+            </Box>
+          ) : testResponse ? (
             <>
               <Typography
                 variant="body2"
@@ -326,6 +421,11 @@ export default function MappingEditor({
                 key to map it.
               </Typography>
               {outputVarGrid}
+            </Box>
+          )}
+          {responseMode === 'click' && (
+            <Box sx={{ mt: 2 }}>
+              <ModeLink onClick={openResponseJson}>Edit as JSON</ModeLink>
             </Box>
           )}
         </Box>

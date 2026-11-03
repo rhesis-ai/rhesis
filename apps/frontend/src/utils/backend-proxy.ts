@@ -51,6 +51,8 @@ export function resolveTimeoutMs(pathname: string): number {
     LONG_RUNNING_PATH_PREFIXES.some(prefix => pathname.startsWith(prefix)) ||
     // Tool extraction can wait for MCP startup and model calls.
     /^\/tools\/[^/]+\/extract$/.test(pathname) ||
+    // Endpoint test calls make the same round-trip as /invoke, with the endpoint's timeout.
+    /^\/endpoints\/(?:[^/]+\/)?test$/.test(pathname) ||
     LONG_RUNNING_PATH_SUFFIXES.some(suffix => pathname.endsWith(suffix));
   return isLongRunning ? LONG_RUNNING_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
 }
