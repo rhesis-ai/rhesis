@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { Box, MenuItem, Select, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import JsonMonacoField from '../[identifier]/components/JsonMonacoField';
+import { jsonFieldSx } from './endpoint-styles';
 import { OUTPUT_VARIABLES } from './JsonPreview';
 import {
   MappingColumnHeaders,
@@ -25,6 +26,12 @@ interface ResponseMappingCardProps {
   isTesting: boolean;
   inputMapped: boolean;
   complete: boolean;
+  /** Elapsed time, Cancel and the request being sent, while a test runs. */
+  waiting?: Pick<
+    React.ComponentProps<typeof TestResponseCard>,
+    'startedAt' | 'maxWaitSeconds' | 'onCancel' | 'waitingDetails'
+  >;
+  notice?: React.ReactNode;
 }
 
 /** Variable → JSONPath, or null when the JSON can't be shown as rows. */
@@ -50,6 +57,8 @@ export default function ResponseMappingCard({
   isTesting,
   inputMapped,
   complete,
+  waiting,
+  notice,
 }: ResponseMappingCardProps) {
   const theme = useTheme();
   const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
@@ -79,6 +88,8 @@ export default function ResponseMappingCard({
     <TestResponseCard
       result={testResult}
       isTesting={isTesting}
+      {...waiting}
+      notice={notice}
       subtitle="Pick which part of your API's response holds each Rhesis variable."
       emptyText={
         inputMapped
@@ -153,6 +164,7 @@ export default function ResponseMappingCard({
             <JsonMonacoField
               editorKey="create-response-mapping"
               height="180px"
+              wrapperSx={jsonFieldSx}
               theme={editorTheme}
               value={responseMapping}
               onChange={onResponseMappingChange}

@@ -241,4 +241,35 @@ describe('TabMapping', () => {
       screen.getByRole('option', { name: '$.usage.tokens' })
     ).toBeInTheDocument();
   });
+
+  it('stops re-sending by itself once the API was slow', () => {
+    jest.useFakeTimers();
+    const onRunTest = jest.fn();
+    render(
+      <WithTabMappingValues {...defaultProps} onRunTest={onRunTest} isSlowApi />
+    );
+    act(() => jest.advanceTimersByTime(2000));
+    expect(onRunTest).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(/no longer re-sends the test after every change/)
+    ).toBeInTheDocument();
+  });
+
+  it('shows the wait, a cancel and the request while a test runs', () => {
+    const onCancelTest = jest.fn();
+    render(
+      <WithTabMappingValues
+        {...defaultProps}
+        isTestingEndpoint
+        testStartedAt={Date.now()}
+        maxWaitSeconds={120}
+        onCancelTest={onCancelTest}
+        url="https://api.example.com/chat"
+      />
+    );
+    expect(screen.getByText(/0:00 of up to 2:00/)).toBeInTheDocument();
+    expect(screen.getByText('Request being sent (cURL)')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(onCancelTest).toHaveBeenCalledTimes(1);
+  });
 });

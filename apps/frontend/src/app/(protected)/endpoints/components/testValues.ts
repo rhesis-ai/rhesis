@@ -1,5 +1,9 @@
 import { AUTO_FILLED_VARS } from './mapping-variables';
-import { extractVars } from './endpoint-template-utils';
+import {
+  buildCurl,
+  extractVars,
+  substituteVars,
+} from './endpoint-template-utils';
 
 export type TestValues = Record<string, unknown>;
 
@@ -33,4 +37,41 @@ export function formatTestValue(value: unknown): string {
   if (value === undefined) return '—';
   if (typeof value === 'string') return value;
   return JSON.stringify(value);
+}
+
+/** The request a test sends, as cURL; the auth token stays hidden. */
+export function buildTestCurl({
+  method,
+  url,
+  requestHeaders,
+  reqBody,
+  values,
+}: {
+  method: string;
+  url: string;
+  requestHeaders?: string;
+  reqBody: string;
+  values: TestValues;
+}): string {
+  let headers: Record<string, unknown> = {};
+  try {
+    headers = JSON.parse(requestHeaders || '{}') as Record<string, unknown>;
+  } catch {
+    // Unparseable headers show as none; the Connection step flags them.
+  }
+  const shownHeaders = Object.fromEntries(
+    Object.entries(headers).map(([k, v]) => [
+      k,
+      String(v).replace(/\{\{\s*auth_token\s*\}\}/g, '[hidden]'),
+    ])
+  );
+  const previewValues = Object.fromEntries(
+    Object.entries(values).map(([k, v]) => [k, formatTestValue(v)])
+  );
+  return buildCurl(
+    method || 'POST',
+    url || '—',
+    shownHeaders,
+    substituteVars(reqBody || '{}', previewValues)
+  );
 }

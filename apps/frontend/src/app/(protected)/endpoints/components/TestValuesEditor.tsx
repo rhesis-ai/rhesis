@@ -5,6 +5,7 @@ import { Box, TextField, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { BORDER_RADIUS } from '@/styles/theme';
 import JsonMonacoField from '../[identifier]/components/JsonMonacoField';
+import { jsonFieldSx } from './endpoint-styles';
 import {
   MappingColumnHeaders,
   MappingRow,
@@ -146,6 +147,7 @@ export default function TestValuesEditor({
                   : editorHeight(valuesJson)
               }
               theme={editorTheme}
+              wrapperSx={jsonFieldSx}
               value={valuesJson}
               onChange={handleJsonChange}
             />
