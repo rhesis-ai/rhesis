@@ -140,14 +140,14 @@ allow-direct-references = true
 [tool.uv]
 exclude-newer = "1 week"
 # Allow newer versions for packages with recent security patches (CVEs).
-exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false, certifi = false, uv = false, pillow = false, virtualenv = false }
+exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false, certifi = false, uv = false, pillow = false, virtualenv = false, pyasn1 = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
     "nbconvert>=7.17.2",
     "certifi>=2026.10.19",
-    "pyasn1>=0.6.4",
+    "pyasn1>=0.6.5",
     "orjson>=3.11.7",
-    "tornado>=6.5.8",
+    "tornado>=6.6",
     "mistune>=3.3.0",
     "jupyterlab>=4.5.11",
     "jupyter-server>=2.20.0",
@@ -166,7 +166,7 @@ constraint-dependencies = [
     "pyarrow>=23.0.1",
     "litellm>=1.95.1",
     "pydantic-settings>=2.14.2",
-    "setuptools>=83.0.0",
+    "setuptools>=84.1.0",
     "soupsieve>=2.9.0",
     "uv>=0.13.4",
     "mcp>=1.30.0",
@@ -177,6 +177,10 @@ constraint-dependencies = [
     "fsspec>=2026.6.0",
     "multidict>=6.9.1",
     "virtualenv>=21.14.9",
+    "authlib>=1.9.1",
+    "joserfc>=1.7.6",
+    "langgraph>=1.2.14",
+    "langgraph-sdk>=0.4.6",
 ]
 # Match sdk: litellm>=1.83.7 metadata vs deepeval/python-dotenv and pydantic pins.
 override-dependencies = [

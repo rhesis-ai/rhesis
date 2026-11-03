@@ -76,4 +76,7 @@ constraint-dependencies = [
     "pyjwt>=2.15.0",
     "urllib3>=2.8.0",
     "multidict>=6.9.1",
+    "authlib>=1.9.1",
+    "joserfc>=1.7.6",
+    "pyasn1>=0.6.5",
 ]

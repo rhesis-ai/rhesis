@@ -25,13 +25,13 @@ dev = [
 
 [tool.uv]
 exclude-newer = "1 week"
-exclude-newer-package = { pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, cryptography = false, python-multipart = false, gitpython = false, certifi = false, pillow = false, streamlit = false }
+exclude-newer-package = { pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, cryptography = false, python-multipart = false, gitpython = false, certifi = false, pillow = false, streamlit = false, pyasn1 = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
     "opentelemetry-api>=1.45.1",
     "certifi>=2026.10.19",
     "anyio>=4.14.2",
-    "pyasn1>=0.6.4",
+    "pyasn1>=0.6.5",
     "orjson>=3.11.7",
     "tornado>=6.5.8",
     "gitpython>=3.1.59",
@@ -48,7 +48,7 @@ constraint-dependencies = [
     "pyarrow>=23.0.1",
     "litellm>=1.95.1",
     "pydantic-settings>=2.14.2",
-    "setuptools>=83.0.0",
+    "setuptools>=84.1.0",
     "soupsieve>=2.9.0",
     "langchain>=1.4.0",
     "langgraph-checkpoint>=4.1.1",
