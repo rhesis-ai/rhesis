@@ -63,6 +63,7 @@ import {
 } from '../config/branding';
 import { readPublicEnv } from '../config/runtime-config';
 import { BACKGROUND_DEFAULT } from '../styles/theme-background';
+import { VH_ZOOM_PROBE_SCRIPT } from '../styles/viewport-scaling';
 import { Capability } from '../constants/capabilities';
 
 // Mark this layout as dynamic since it uses server-side authentication
@@ -520,6 +521,12 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
         <style
           id="rhesis-theme-mode-paint"
           dangerouslySetInnerHTML={{ __html: THEME_MODE_STYLE }}
+        />
+        {/* Before first paint, so the shell's viewport heights are right from
+            the start — see `VH_ZOOM_PROBE_SCRIPT`. */}
+        <script
+          id="rhesis-vh-zoom-probe"
+          dangerouslySetInnerHTML={{ __html: VH_ZOOM_PROBE_SCRIPT }}
         />
         {branding.font?.source === 'google' && (
           <link
