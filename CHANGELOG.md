@@ -18,6 +18,39 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
   since January 2026 and carried advisories with no upstream fix. Existing Ragas metrics and their
   associations are deleted by a backend migration; recorded test results keep their scores.
 
+## [0.20.1] - 2026-11-03
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.20.1**
+- **Frontend 0.20.1**
+- **SDK 0.20.1**
+
+### Summary of Changes
+
+**Backend v0.20.1:**
+- Fixed endpoint test calls to respect custom configured timeouts instead of falling back to default limits.
+- Disabled automatic retries on endpoint read timeouts.
+- Resolved security vulnerabilities by updating Python dependencies.
+
+**Frontend v0.20.1:**
+- Added the ability to view, validate, and cancel long-running endpoint tests
+- Improved endpoint response mapping with editable test values and direct JSON editing
+- Updated npm dependencies to resolve security advisories
+
+**SDK v0.20.1:**
+- Resolved security advisories across npm and Python dependencies
+- Added user role and source fields to Grafana dashboards
+- Fixed E2E workflow compatibility by pinning CI test runners to Ubuntu 24.04
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.20.0] - 2026-10-27
 
 ### Platform Release

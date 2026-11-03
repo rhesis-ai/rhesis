@@ -27,6 +27,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed the Ragas backend from metric icon handling now that the backend no longer serves it.
 
+## [0.20.1] - 2026-11-03
+
+### Added
+
+- Progress indicator and cancellation option for long-running endpoint tests (#3107).
+- Support for editable test values within the Mapping tab (#3109).
+- Ability to edit response mappings directly as raw JSON (#3109).
+
+### Fixed
+
+- Unblocked mapping workflow for slow API endpoints by passing proper timeouts and proxy budgets (#3109).
+- Endpoint timeout validation and state cleanup when test calls encounter errors (#3107).
+- UI formatting for endpoint JSON input fields (#3107).
+
+### Security
+
+- Updated npm dependencies to address security advisories (#3106).
+
 ## [0.20.0] - 2026-10-27
 
 ### Added
