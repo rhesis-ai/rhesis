@@ -230,11 +230,17 @@ class EndpointTestRequest(Base):
     scopes: Optional[List[str]] = None
     audience: Optional[str] = None
     extra_payload: Optional[Dict[str, Any]] = None
+    timeout_seconds: Optional[int] = None
 
     @field_validator("token_url")
     @classmethod
     def _validate_token_url(cls, v: str | None) -> str | None:
         return check_token_url(v)
+
+    @field_validator("timeout_seconds")
+    @classmethod
+    def _validate_timeout_seconds(cls, v: int | None) -> int | None:
+        return _check_timeout_seconds(v)
 
     @field_validator("connection_type")
     @classmethod

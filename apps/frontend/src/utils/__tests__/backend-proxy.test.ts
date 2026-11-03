@@ -53,6 +53,20 @@ describe('resolveTimeoutMs', () => {
     expect(resolveTimeoutMs(pathname)).toBe(CRUD_MS);
   });
 
+  it.each(['/endpoints/test', '/endpoints/abc/test'])(
+    'gives endpoint test call %s the long budget',
+    pathname => {
+      expect(resolveTimeoutMs(pathname)).toBe(LONG_MS);
+    }
+  );
+
+  it.each(['/endpoints', '/endpoints/abc', '/endpoints/abc/test/x'])(
+    'keeps the short budget for %s',
+    pathname => {
+      expect(resolveTimeoutMs(pathname)).toBe(CRUD_MS);
+    }
+  );
+
   it('still recognises the paths that were already long-running', () => {
     expect(resolveTimeoutMs('/services/generate/tests')).toBe(LONG_MS);
     expect(resolveTimeoutMs('/test_sets/abc/generate_outputs')).toBe(LONG_MS);

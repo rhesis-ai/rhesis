@@ -236,6 +236,31 @@ describe('Endpoint create drawer — steps and submit', () => {
     );
   });
 
+  it('sends the Basics timeout with the mapping test', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderDrawer();
+    fireEvent.change(screen.getByLabelText('Seconds'), {
+      target: { value: '120' },
+    });
+    await fillToMapping(user);
+
+    await screen.findByText('Test request successful', {}, AUTO_RUN);
+    expect(mockTestEndpoint).toHaveBeenLastCalledWith(
+      expect.objectContaining({ timeout_seconds: 120 })
+    );
+  });
+
+  it('leaves the timeout to the backend when Basics has none', async () => {
+    const user = userEvent.setup({ delay: null });
+    renderDrawer();
+    await fillToMapping(user);
+
+    await screen.findByText('Test request successful', {}, AUTO_RUN);
+    expect(mockTestEndpoint).toHaveBeenLastCalledWith(
+      expect.objectContaining({ timeout_seconds: undefined })
+    );
+  });
+
   it('creates the endpoint without a passing Test step', async () => {
     mockCreateEndpoint.mockResolvedValue({
       success: true,

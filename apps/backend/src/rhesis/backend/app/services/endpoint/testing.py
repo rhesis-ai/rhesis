@@ -106,6 +106,12 @@ async def test_endpoint(
             extra_payload=test_config.extra_payload,
             environment=EndpointEnvironment.DEVELOPMENT.value,
             config_source=EndpointConfigSource.MANUAL.value,
+            # Endpoint.timeout_seconds reads it from here, as for a saved endpoint.
+            endpoint_metadata=(
+                {"timeout_seconds": test_config.timeout_seconds}
+                if test_config.timeout_seconds
+                else None
+            ),
         )
 
         enriched_input_data = test_config.input_data.copy()
@@ -195,6 +201,8 @@ def build_mapping_test_endpoint(
         last_token_expires_at=endpoint.last_token_expires_at,
         environment=endpoint.environment,
         config_source=endpoint.config_source,
+        # Carries timeout_seconds, so the test waits as long as a real run would.
+        endpoint_metadata=dict(endpoint.endpoint_metadata or {}) or None,
         disable_tracing=True,
     )
 

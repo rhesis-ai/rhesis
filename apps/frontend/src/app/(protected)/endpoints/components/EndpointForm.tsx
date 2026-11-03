@@ -95,6 +95,12 @@ const LAST_STEP = CREATE_STEPS.length - 1;
 
 const INPUT_VAR_RE = /\{\{\s*input\b/;
 
+/** The Basics step's timeout as a number, or undefined for the backend default. */
+function parseTimeoutSeconds(value: string): number | undefined {
+  const parsed = parseInt(value, 10);
+  return !isNaN(parsed) && parsed > 0 ? parsed : undefined;
+}
+
 function hasOutputMapping(resBody: string): boolean {
   try {
     const parsed: unknown = JSON.parse(resBody);
@@ -398,6 +404,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
             | 'json'
             | 'xml'
             | 'text',
+          timeout_seconds: parseTimeoutSeconds(formData.timeout_seconds),
         });
 
         const r = result as Record<string, unknown>;
@@ -520,8 +527,8 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
             endpointData.version_info = parsed;
           }
         }
-        const parsedTimeout = parseInt(formData.timeout_seconds, 10);
-        if (!isNaN(parsedTimeout) && parsedTimeout > 0) {
+        const parsedTimeout = parseTimeoutSeconds(formData.timeout_seconds);
+        if (parsedTimeout) {
           endpointData.timeout_seconds = parsedTimeout;
         }
 
