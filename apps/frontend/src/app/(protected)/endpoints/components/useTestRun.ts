@@ -25,7 +25,16 @@ export function useTestRun() {
       startedAtRef.current = start;
       setStartedAt(start);
       setResult(null);
-      const outcome = await call();
+      let outcome: EndpointTestResult;
+      try {
+        outcome = await call();
+      } catch (err) {
+        // A call that throws is just another failed test, never a stuck "waiting".
+        outcome = {
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
       if (id !== runId.current) return;
       startedAtRef.current = null;
       setStartedAt(null);

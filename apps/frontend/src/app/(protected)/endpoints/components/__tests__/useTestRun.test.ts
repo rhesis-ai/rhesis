@@ -94,6 +94,24 @@ describe('useTestRun', () => {
     expect(result.current.isSlow).toBe(true);
   });
 
+  it('turns a call that throws into a failed result and stops waiting', async () => {
+    const { result } = renderHook(() => useTestRun());
+    const onPassed = jest.fn();
+
+    await act(async () => {
+      await result.current.run(async () => {
+        throw new Error('network down');
+      }, onPassed);
+    });
+
+    expect(result.current.isTesting).toBe(false);
+    expect(result.current.result).toEqual({
+      success: false,
+      error: 'network down',
+    });
+    expect(onPassed).not.toHaveBeenCalled();
+  });
+
   it('does not mark a quick API as slow', async () => {
     const { result } = renderHook(() => useTestRun());
     await act(async () => {
