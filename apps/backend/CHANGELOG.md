@@ -39,6 +39,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   anything that referenced them. Recorded metric scores are unaffected: test results and the
   verdict grid read their own JSONB snapshots, not the metric table.
 
+## [0.20.1] - 2026-11-03
+
+### Fixed
+- Fixed an issue where endpoint test calls dropped custom timeout configurations and metadata, defaulting to the 30-second invoker timeout.
+- Stopped automatic retries on endpoint read timeouts during test execution.
+
+### Security
+- Updated Python dependencies to address known security advisories.
+
+
 ## [0.20.0] - 2026-10-27
 
 ### Added

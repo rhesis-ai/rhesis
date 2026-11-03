@@ -144,6 +144,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DeepEval or Rhesis providers instead. This also drops `diskcache`, `gitpython`, `scipy` and
   `sqlalchemy` from the SDK's dependency tree.
 
+## [0.20.1] - 2026-11-03
+
+### Security
+- Resolved security advisories across Python and npm dependencies (#3106).
+
+### Fixed
+- Fixed end-to-end testing workflow compatibility by pinning CI runners to `ubuntu-24.04` (#3102).
+
+
 ## [0.20.0] - 2026-10-27
 
 ### Added
