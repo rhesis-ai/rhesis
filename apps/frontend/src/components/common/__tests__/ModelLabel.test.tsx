@@ -24,10 +24,14 @@ describe('ModelLabel', () => {
 
     fireEvent.mouseOver(screen.getByText('openai/gpt-4o +1'));
 
-    await waitFor(() =>
-      expect(screen.getByRole('tooltip')).toHaveTextContent(
-        'gpt-4o, claude-sonnet-4'
-      )
+    // The tooltip opens after a delay; on a busy CI runner with coverage the
+    // default 1s wait sometimes runs out before it does.
+    await waitFor(
+      () =>
+        expect(screen.getByRole('tooltip')).toHaveTextContent(
+          'gpt-4o, claude-sonnet-4'
+        ),
+      { timeout: 3000 }
     );
   });
 
