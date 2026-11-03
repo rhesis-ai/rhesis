@@ -948,6 +948,75 @@ class TestEndpointOffLoopRoutes(EndpointTestMixin, BaseEntityTests):
         assert response.json()["output"] == "drafted"
         assert http_client.post.call_args.kwargs["json"] == {"draft_query": "hello"}
 
+    def test_test_endpoint_uses_requested_timeout(self, authenticated_client: TestClient):
+        """POST /endpoints/test waits as long as the timeout set in the form."""
+        http_client = _mock_http_client({"answer": "pong"})
+        test_config = {
+            "connection_type": "REST",
+            "url": "https://api.example.com/v1/echo",
+            "method": "POST",
+            "request_headers": {"Content-Type": "application/json"},
+            "request_mapping": {"query": "{{input}}"},
+            "response_mapping": {"output": "$.answer"},
+            "auth_type": "bearer_token",
+            "auth_token": "test-secret-token",
+            "input_data": {"input": "ping"},
+            "timeout_seconds": 120,
+        }
+
+        with patch(
+            "rhesis.backend.app.services.invokers.rest_invoker._get_http_client",
+            return_value=http_client,
+        ):
+            response = authenticated_client.post("/endpoints/test", json=test_config)
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert http_client.post.call_args.kwargs["timeout"] == 120.0
+
+    def test_test_endpoint_rejects_out_of_range_timeout(self, authenticated_client: TestClient):
+        response = authenticated_client.post(
+            "/endpoints/test",
+            json={
+                "connection_type": "REST",
+                "url": "https://api.example.com/v1/echo",
+                "method": "POST",
+                "request_headers": {},
+                "request_mapping": {"query": "{{input}}"},
+                "response_mapping": {},
+                "auth_type": "bearer_token",
+                "input_data": {"input": "ping"},
+                "timeout_seconds": 0,
+            },
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+
+    def test_test_endpoint_mapping_uses_stored_timeout(
+        self, authenticated_client: TestClient, working_endpoint
+    ):
+        """POST /endpoints/{id}/test waits as long as the saved endpoint would."""
+        update = authenticated_client.put(
+            f"/endpoints/{working_endpoint['id']}", json={"timeout_seconds": 90}
+        )
+        assert update.status_code == status.HTTP_200_OK, update.text
+
+        http_client = _mock_http_client({"data": {"response": "slow"}})
+        with patch(
+            "rhesis.backend.app.services.invokers.rest_invoker._get_http_client",
+            return_value=http_client,
+        ):
+            response = authenticated_client.post(
+                f"/endpoints/{working_endpoint['id']}/test",
+                json={
+                    "request_mapping": {"query": "{{input}}"},
+                    "response_mapping": {"output": "$.data.response"},
+                    "input_data": {"input": "hello"},
+                },
+            )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert http_client.post.call_args.kwargs["timeout"] == 90.0
+
     def test_test_endpoint_mapping_nonexistent_endpoint(self, authenticated_client: TestClient):
         """A mapping test against an unknown endpoint is a 404, raised off the loop."""
         response = authenticated_client.post(
