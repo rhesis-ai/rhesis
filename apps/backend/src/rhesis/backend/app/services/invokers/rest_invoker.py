@@ -8,7 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from tenacity import (
     retry,
-    retry_if_exception_type,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
 )
@@ -412,7 +412,11 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         return headers
 
     @retry(
-        retry=retry_if_exception_type(httpx.HTTPError),
+        # Not a read timeout: the API already had its whole timeout to answer,
+        # and two more tries would triple the wait for the same result.
+        retry=retry_if_exception(
+            lambda e: isinstance(e, httpx.HTTPError) and not isinstance(e, httpx.ReadTimeout)
+        ),
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=10),
         reraise=True,
