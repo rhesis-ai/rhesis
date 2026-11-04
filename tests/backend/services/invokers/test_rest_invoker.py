@@ -179,7 +179,62 @@ class TestRestEndpointInvoker:
 
         host = urlparse(sample_endpoint_rest.url).netloc
         assert result.error_type == "network_error"
-        assert result.output == (f"Could not reach {host}: it did not respond before the timeout.")
+        assert result.output == (
+            f"Could not reach {host}: it did not respond within 30 seconds. "
+            "If the API is just slow, raise the endpoint's Timeout (seconds) setting."
+        )
+
+    @pytest.mark.asyncio
+    async def test_invoke_read_timeout_reports_the_endpoint_timeout(
+        self, mock_db, sample_endpoint_rest, sample_input_data
+    ):
+        sample_endpoint_rest.endpoint_metadata = {"timeout_seconds": 90}
+        invoker = RestEndpointInvoker()
+
+        with patch.object(
+            invoker,
+            "_async_request",
+            new_callable=AsyncMock,
+            side_effect=httpx.ReadTimeout(""),
+        ) as request:
+            result = await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+
+        assert request.await_args.kwargs["timeout"] == 90.0
+        assert "it did not respond within 90 seconds." in result.output
+
+    @pytest.mark.asyncio
+    async def test_invoke_read_timeout_of_one_second_is_singular(
+        self, mock_db, sample_endpoint_rest, sample_input_data
+    ):
+        sample_endpoint_rest.endpoint_metadata = {"timeout_seconds": 1}
+        invoker = RestEndpointInvoker()
+
+        with patch.object(
+            invoker,
+            "_async_request",
+            new_callable=AsyncMock,
+            side_effect=httpx.ReadTimeout(""),
+        ):
+            result = await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+
+        assert "it did not respond within 1 second." in result.output
+
+    @pytest.mark.asyncio
+    async def test_invoke_connect_timeout_keeps_plain_reason(
+        self, mock_db, sample_endpoint_rest, sample_input_data
+    ):
+        invoker = RestEndpointInvoker()
+
+        with patch.object(
+            invoker,
+            "_async_request",
+            new_callable=AsyncMock,
+            side_effect=httpx.ConnectTimeout(""),
+        ):
+            result = await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
+
+        host = urlparse(sample_endpoint_rest.url).netloc
+        assert result.output == f"Could not reach {host}: the connection timed out."
 
     @pytest.mark.asyncio
     async def test_invoke_with_json_parsing_error(

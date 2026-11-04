@@ -36,6 +36,19 @@ logger = logging.getLogger(__name__)
 _tls = threading.local()
 _DEFAULT_HTTP_TIMEOUT = 30.0
 
+
+def _network_error_message(endpoint: Endpoint, exc: Exception) -> str:
+    host = url_host(endpoint.url)
+    if isinstance(exc, httpx.ReadTimeout):
+        waited = float(endpoint.timeout_seconds or _DEFAULT_HTTP_TIMEOUT)
+        unit = "second" if waited == 1 else "seconds"
+        return (
+            f"Could not reach {host}: it did not respond within {waited:g} {unit}. "
+            "If the API is just slow, raise the endpoint's Timeout (seconds) setting."
+        )
+    return f"Could not reach {host}: {describe_connection_error(exc)}."
+
+
 # The event loop holds only a weak reference to a running task. The close below is
 # fire-and-forget, so without a reference here it can be collected before the socket
 # is actually released — the very thing this shutdown path exists to avoid.
@@ -159,8 +172,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             )
 
         except (httpx.HTTPError, httpx.InvalidURL) as e:
-            reason = describe_connection_error(e)
-            message = f"Could not reach {url_host(endpoint.url)}: {reason}."
+            message = _network_error_message(endpoint, e)
             return self._create_error_response(
                 error_type="network_error",
                 output_message=message,

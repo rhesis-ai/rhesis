@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 from unittest.mock import AsyncMock, Mock, patch
 
+import httpx
 import pytest
 from faker import Faker
 from fastapi import status
@@ -972,6 +973,40 @@ class TestEndpointOffLoopRoutes(EndpointTestMixin, BaseEntityTests):
 
         assert response.status_code == status.HTTP_200_OK, response.text
         assert http_client.post.call_args.kwargs["timeout"] == 120.0
+
+    def test_test_endpoint_read_timeout_names_requested_timeout(
+        self, authenticated_client: TestClient
+    ):
+        """An unsaved endpoint's timeout from the form is the one the message reports."""
+        http_client = _mock_http_client({})
+        http_client.post.side_effect = httpx.ReadTimeout("")
+        test_config = {
+            "connection_type": "REST",
+            "url": "https://api.example.com/v1/echo",
+            "method": "POST",
+            "request_headers": {"Content-Type": "application/json"},
+            "request_mapping": {"query": "{{input}}"},
+            "response_mapping": {"output": "$.answer"},
+            "auth_type": "bearer_token",
+            "auth_token": "test-secret-token",
+            "input_data": {"input": "ping"},
+            "timeout_seconds": 120,
+        }
+
+        with patch(
+            "rhesis.backend.app.services.invokers.rest_invoker._get_http_client",
+            return_value=http_client,
+        ):
+            response = authenticated_client.post("/endpoints/test", json=test_config)
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert http_client.post.call_args.kwargs["timeout"] == 120.0
+        body = response.json()
+        assert body["error_type"] == "network_error"
+        assert body["output"] == (
+            "Could not reach api.example.com: it did not respond within 120 seconds. "
+            "If the API is just slow, raise the endpoint's Timeout (seconds) setting."
+        )
 
     def test_test_endpoint_rejects_out_of_range_timeout(self, authenticated_client: TestClient):
         response = authenticated_client.post(
