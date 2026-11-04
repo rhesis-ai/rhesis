@@ -22,6 +22,7 @@ _INVALID_URL = (
 )
 _CONNECT_TIMEOUT = (httpx.ConnectTimeout, requests.exceptions.ConnectTimeout)
 _TIMEOUT = (httpx.TimeoutException, requests.exceptions.Timeout, TimeoutError)
+_SSL_WANT = (ssl.SSLWantReadError, ssl.SSLWantWriteError)
 
 
 def _chain(exc: BaseException) -> Iterator[BaseException]:
@@ -54,7 +55,8 @@ def describe_connection_error(exc: BaseException) -> str:
         if isinstance(cause, ssl.SSLCertVerificationError):
             detail = cause.verify_message or "certificate verification failed"
             return f"its TLS certificate was rejected ({detail})"
-        if isinstance(cause, ssl.SSLError):
+        # Want* only means "no data yet"; a timed-out read over TLS carries one.
+        if isinstance(cause, ssl.SSLError) and not isinstance(cause, _SSL_WANT):
             return "the TLS handshake failed"
         if isinstance(cause, socket.gaierror):
             return "the host name could not be resolved"
