@@ -265,3 +265,43 @@ async def test_the_architects_delegation_token_is_labelled_architect(test_db, rh
     provenance = resolve_provenance(request)
     assert provenance.channel is Channel.ARCHITECT
     assert provenance.actor_type is ActorType.USER
+
+
+def _websocket(headers=None):
+    from starlette.websockets import WebSocket
+
+    scope = {
+        "type": "websocket",
+        "path": "/connector/ws",
+        "headers": [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()],
+        "client": ("10.0.0.5", 1234),
+        "state": {},
+    }
+    return WebSocket(scope, receive=Mock(), send=Mock())
+
+
+@pytest.mark.asyncio
+async def test_sdk_websocket_writes_are_attributed_to_the_token(test_db, rhesis_api_key):
+    # The SDK connector syncs endpoints over this socket; its writes used to be logged as anonymous.
+    from rhesis.backend.app.auth.user_utils import authenticate_websocket
+
+    websocket = _websocket({"Authorization": f"Bearer {rhesis_api_key}", "X-Rhesis-Client": "sdk"})
+    user, _principal = await authenticate_websocket(websocket)
+
+    provenance = resolve_provenance(websocket)
+    assert provenance.actor_type is ActorType.API_TOKEN
+    assert provenance.actor_id == str(user.id)
+    assert provenance.credential_id
+    assert provenance.channel is Channel.SDK
+
+
+@pytest.mark.asyncio
+async def test_frontend_websocket_records_the_user(test_db, rhesis_api_key):
+    from rhesis.backend.app.routers.websocket import authenticate_websocket_token
+
+    websocket = _websocket()
+    user, _principal = await authenticate_websocket_token(websocket, rhesis_api_key)
+
+    provenance = resolve_provenance(websocket)
+    assert provenance.actor_type is ActorType.API_TOKEN
+    assert provenance.actor_id == str(user.id)

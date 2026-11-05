@@ -22,6 +22,7 @@ from rhesis.backend.app.auth.principal import (
 )
 from rhesis.backend.app.auth.user_utils import (
     _load_user_by_id,
+    carry_auth_to_websocket,
     get_authenticated_user_with_context,
     get_secret_key,
     require_current_user_or_token,
@@ -115,6 +116,7 @@ async def authenticate_websocket_token(
             user = await anyio.to_thread.run_sync(_load_ws_token_user, ws_payload["sub"])
             if user:
                 logger.debug(f"WebSocket auth via WS token for user {user.id}")
+                carry_auth_to_websocket(websocket, user)
                 # WS tokens are always issued from session auth — session principal.
                 return user, resolve_principal(user)
         except Exception as e:
@@ -142,6 +144,7 @@ async def authenticate_websocket_token(
             without_context=False,  # Require organization
         )
         if user:
+            carry_auth_to_websocket(websocket, user, mock_request.state)
             return user, resolve_principal_from_request(user, mock_request)
         return None
     except Exception as e:
