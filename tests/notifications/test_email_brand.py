@@ -164,8 +164,6 @@ INJECTABLE = [
     (EmailTemplate.TEST_EXECUTION_SUMMARY, "status_details"),
     (EmailTemplate.TEST_EXECUTION_SUMMARY, "endpoint_name"),
     (EmailTemplate.TASK_COMPLETION, "task_name"),
-    # WELCOME is absent on purpose: it is a founder letter that interpolates no
-    # user-supplied field into its body, so there is nothing to inject into.
 ]
 
 PAYLOAD = '<a href="https://evil.example/reset">Reset your password</a>'

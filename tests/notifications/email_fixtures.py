@@ -16,12 +16,6 @@ NOW = datetime(2026, 8, 3, 14, 30, tzinfo=timezone.utc)
 # One fixture per template. Values are deliberately long in places (names,
 # task titles, URLs) to shake out wrapping problems at 375px.
 FIXTURES: dict[EmailTemplate, dict] = {
-    EmailTemplate.WELCOME: {
-        "recipient_name": "Alex Nguyen",
-        "recipient_email": "alex@example.com",
-        "frontend_url": FRONTEND,
-        "calendar_link": "https://cal.com/rhesis/intro",
-    },
     EmailTemplate.EMAIL_VERIFICATION: {
         "recipient_name": "Alex",
         "verification_url": (
