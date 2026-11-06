@@ -250,7 +250,7 @@ class TestOnboardingEmailService:
         assert result is False
 
     def test_send_day_1_schedules_with_correct_delay(self):
-        """Day 1 must be scheduled for 23h 59m."""
+        """Day 1 replaced the signup welcome email, so it goes out 10 minutes in."""
         service, mock_sg = self._make_service_with_mock_client(is_configured=True)
         mock_sg.send_scheduled_dynamic_template.return_value = True
         env = {
@@ -263,11 +263,11 @@ class TestOnboardingEmailService:
                 recipient_name="Test User",
             )
         call_kwargs = mock_sg.send_scheduled_dynamic_template.call_args.kwargs
-        assert call_kwargs["delay_hours"] == 23
-        assert call_kwargs["delay_minutes"] == 59
+        assert call_kwargs["delay_hours"] == 0
+        assert call_kwargs["delay_minutes"] == 10
 
     def test_send_day_2_schedules_with_correct_delay(self):
-        """Day 2 must be scheduled for 48h."""
+        """Day 2 must be scheduled for 24h."""
         service, mock_sg = self._make_service_with_mock_client(is_configured=True)
         mock_sg.send_scheduled_dynamic_template.return_value = True
         env = {
@@ -280,7 +280,7 @@ class TestOnboardingEmailService:
                 recipient_name="Test User",
             )
         call_kwargs = mock_sg.send_scheduled_dynamic_template.call_args.kwargs
-        assert call_kwargs["delay_hours"] == 48
+        assert call_kwargs["delay_hours"] == 24
 
     def test_send_day_3_schedules_within_sendgrid_72h_limit(self):
         """Day 3 must be scheduled strictly below SendGrid's 72-hour max."""
@@ -346,3 +346,15 @@ class TestOnboardingEmailService:
         assert used_template_ids == ["d-day1", "d-day2", "d-day3"], (
             f"Each day must use its own template ID — got: {used_template_ids}"
         )
+
+    def test_excluded_addresses_get_no_onboarding_emails(self):
+        """Test accounts (new_user_ prefix) must not be scheduled, as with the old welcome email."""
+        service, mock_sg = self._make_service_with_mock_client(is_configured=True)
+        env = {
+            "SENDGRID_API_KEY": "SG.test-key",
+            "SENDGRID_DAY_1_EMAIL_TEMPLATE_ID": "d-day1",
+        }
+        with patch.dict("os.environ", env):
+            result = service.send_day_1_email("new_user_42@example.com", "User")
+        assert result is False
+        mock_sg.send_scheduled_dynamic_template.assert_not_called()

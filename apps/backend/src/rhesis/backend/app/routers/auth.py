@@ -334,21 +334,15 @@ def _load_registered_user(db: Session, email: str) -> tuple[User, str]:
     return user, str(user.id)
 
 
-def _send_welcome_email_bg(email: str, name: str | None) -> None:
-    """Best-effort welcome email, safe for BackgroundTasks."""
-    try:
-        _get_email_service().send_welcome_email(recipient_email=email, recipient_name=name)
-    except Exception:
-        logger.warning("Failed to send welcome email to %s", redact_email(email))
-
-
 def _send_registration_emails(user_id: str, email: str, name: str | None) -> None:
-    """Welcome and verification mail for a fresh registration, both best-effort.
+    """Verification mail for a fresh registration, best-effort.
+
+    The welcome email is sent later, once org onboarding finishes (see
+    ``_send_onboarding_emails_bg`` in the organization router).
 
     Takes plain values so it runs safely as a BackgroundTask after the
     response, with no ORM session access.
     """
-    _send_welcome_email_bg(email, name)
     _send_verification_email_bg(user_id, email, name)
 
 
@@ -386,7 +380,7 @@ def _send_password_reset_email_bg(user_id: str, email: str, name: str | None) ->
 def _send_magic_link_email_bg(
     user_id: str, email: str, name: str | None, is_new_user: bool
 ) -> None:
-    """Best-effort magic-link email (+ welcome for new signups), safe for BackgroundTasks."""
+    """Best-effort magic-link email, safe for BackgroundTasks."""
     try:
         token = create_magic_link_token(user_id, email)
         frontend_url = _get_frontend_url()
@@ -400,9 +394,6 @@ def _send_magic_link_email_bg(
         logger.info("Magic link email sent to: %s", redact_email(email))
     except Exception as e:
         logger.warning("Failed to send magic link email: %s", e)
-
-    if is_new_user:
-        _send_welcome_email_bg(email, name)
 
 
 def _complete_oauth_login(db: Session, auth_user) -> tuple[str, str, str, dict]:

@@ -10,10 +10,9 @@ from typing import Any, ClassVar, Dict, List, Optional
 from urllib.parse import quote
 
 from rhesis.backend.app.config.settings import get_frontend_settings
-
-from .sendgrid_client import SendGridClient
-from .smtp import SMTPService
-from .template_service import EmailTemplate, TemplateService
+from rhesis.backend.notifications.email.sendgrid_client import SendGridClient
+from rhesis.backend.notifications.email.smtp import SMTPService
+from rhesis.backend.notifications.email.template_service import EmailTemplate, TemplateService
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +20,8 @@ logger = logging.getLogger(__name__)
 class EmailService:
     """Main email service for sending HTML notifications."""
 
-    # List of regex patterns for email addresses that should not receive welcome emails
-    WELCOME_EMAIL_EXCLUSION_PATTERNS: ClassVar[List[str]] = [
+    # Regex patterns for email addresses that should not receive onboarding emails
+    ONBOARDING_EMAIL_EXCLUSION_PATTERNS: ClassVar[List[str]] = [
         r"new_user_",  # Exclude test users with new_user_ prefix
         # Add more patterns here as needed, e.g.:
         # r"test@",
@@ -39,7 +38,7 @@ class EmailService:
         """Check if SMTP email service is properly configured."""
         return self.smtp_service.is_configured
 
-    def _should_exclude_from_welcome_email(self, email: str) -> bool:
+    def _should_exclude_from_onboarding_emails(self, email: str) -> bool:
         """
         Check if an email address matches any exclusion pattern.
 
@@ -49,10 +48,11 @@ class EmailService:
         Returns:
             bool: True if the email should be excluded, False otherwise
         """
-        for pattern in self.WELCOME_EMAIL_EXCLUSION_PATTERNS:
+        for pattern in self.ONBOARDING_EMAIL_EXCLUSION_PATTERNS:
             if re.search(pattern, email):
                 logger.info(
-                    f"Email {email} matched exclusion pattern '{pattern}', skipping welcome email"
+                    f"Email {email} matched exclusion pattern '{pattern}', "
+                    "skipping onboarding emails"
                 )
                 return True
         return False
@@ -239,67 +239,6 @@ class EmailService:
             return parts[0]
         return ", ".join(parts[:-1]) + ", or " + parts[-1]
 
-    def send_welcome_email(
-        self,
-        recipient_email: str,
-        recipient_name: Optional[str],
-        frontend_url: Optional[str] = None,
-        calendar_link: Optional[str] = None,
-    ) -> bool:
-        """
-        Send a welcome email to a new user.
-
-        Args:
-            recipient_email: Email address of the new user
-            recipient_name: Name of the new user (optional)
-            frontend_url: URL to the frontend application
-            calendar_link: URL to book a call with the founder
-
-        Returns:
-            bool: True if email was sent successfully, False otherwise
-        """
-        if not self.is_configured:
-            logger.warning(f"Cannot send welcome email to {recipient_email}: SMTP not configured")
-            return False
-
-        # Set default URLs if not provided
-        if not frontend_url:
-            frontend_url = get_frontend_settings().url
-
-        if not calendar_link:
-            calendar_link = os.getenv("WELCOME_CALENDAR_LINK")
-
-        # Get BCC email from environment variable (optional)
-        bcc_email = os.getenv("AGENT_EMAIL_BCC")
-
-        # Get welcome-specific from email (defaults to hello@rhesis.ai for founder emails)
-        welcome_from_email = os.getenv(
-            "WELCOME_FROM_EMAIL", '"Nicolai from Rhesis AI" <hello@rhesis.ai>'
-        )
-
-        subject = "Welcome to Rhesis AI!"
-
-        template_variables = {
-            "recipient_name": recipient_name or "",
-            "recipient_email": recipient_email,
-            "frontend_url": frontend_url,
-            "calendar_link": calendar_link,
-        }
-
-        # Check if email should be excluded based on patterns
-        if self._should_exclude_from_welcome_email(recipient_email):
-            return False
-
-        return self.send_email(
-            template=EmailTemplate.WELCOME,
-            recipient_email=recipient_email,
-            subject=subject,
-            template_variables=template_variables,
-            task_id="welcome",
-            from_email=welcome_from_email,
-            bcc=bcc_email,
-        )
-
     def send_feedback_email(
         self,
         user_name: str,
@@ -350,22 +289,17 @@ class EmailService:
         frontend_url: Optional[str] = None,
     ) -> bool:
         """
-        Internal method to send a scheduled onboarding email using SendGrid Dynamic Templates.
+        Schedule one onboarding email using a SendGrid Dynamic Template.
 
-        Uses SendGrid v3 API (not SMTP) to support Dynamic Templates with scheduling.
-
-        Args:
-            day: Day number (for logging and subject)
-            recipient_email: Email address of the user
-            recipient_name: Name of the user (optional)
-            template_env_var: Environment variable name for the template ID
-            delay_hours: Hours to delay sending
-            delay_minutes: Additional minutes to delay sending
-            frontend_url: URL to the frontend application
+        Uses the SendGrid v3 API (not SMTP), which supports Dynamic Templates with
+        scheduling. The subject line is set on the template in SendGrid.
 
         Returns:
-            bool: True if email was sent successfully, False otherwise
+            bool: True if the email was scheduled, False otherwise
         """
+        if self._should_exclude_from_onboarding_emails(recipient_email):
+            return False
+
         if not self.sendgrid_client.is_configured:
             logger.warning("Cannot send Day %s email: SendGrid API key not configured", day)
             return False
@@ -397,6 +331,7 @@ class EmailService:
             template_id=template_id,
             recipient_email=recipient_email,
             recipient_name=recipient_name,
+            # Ignored by SendGrid: a Dynamic Template's own subject wins.
             subject=f"Day {day} with Rhesis AI",
             from_email=from_email,
             dynamic_template_data=dynamic_template_data,
@@ -411,25 +346,17 @@ class EmailService:
         frontend_url: Optional[str] = None,
     ) -> bool:
         """
-        Send a Day 1 email scheduled for 23 hours and 59 minutes after onboarding.
+        Schedule the first onboarding email (connect your app) 10 minutes after onboarding.
 
-        Uses SendGrid v3 API with Dynamic Templates for scheduling.
-
-        Args:
-            recipient_email: Email address of the user
-            recipient_name: Name of the user (optional)
-            frontend_url: URL to the frontend application
-
-        Returns:
-            bool: True if email was sent successfully, False otherwise
+        This is the welcome email: it replaced the one that used to go out at signup.
         """
         return self._send_scheduled_onboarding_email(
             day=1,
             recipient_email=recipient_email,
             recipient_name=recipient_name,
             template_env_var="SENDGRID_DAY_1_EMAIL_TEMPLATE_ID",
-            delay_hours=23,
-            delay_minutes=59,
+            delay_hours=0,
+            delay_minutes=10,
             frontend_url=frontend_url,
         )
 
@@ -439,25 +366,13 @@ class EmailService:
         recipient_name: Optional[str],
         frontend_url: Optional[str] = None,
     ) -> bool:
-        """
-        Send a Day 2 email scheduled for 48 hours after onboarding.
-
-        Uses SendGrid v3 API with Dynamic Templates for scheduling.
-
-        Args:
-            recipient_email: Email address of the user
-            recipient_name: Name of the user (optional)
-            frontend_url: URL to the frontend application
-
-        Returns:
-            bool: True if email was sent successfully, False otherwise
-        """
+        """Schedule the second onboarding email (requirements, then tests) 24h after onboarding."""
         return self._send_scheduled_onboarding_email(
             day=2,
             recipient_email=recipient_email,
             recipient_name=recipient_name,
             template_env_var="SENDGRID_DAY_2_EMAIL_TEMPLATE_ID",
-            delay_hours=48,
+            delay_hours=24,
             frontend_url=frontend_url,
         )
 
@@ -468,18 +383,9 @@ class EmailService:
         frontend_url: Optional[str] = None,
     ) -> bool:
         """
-        Send a Day 3 email scheduled for 71 hours and 59 minutes after onboarding.
+        Schedule the third onboarding email (reading results) 71h 59m after onboarding.
 
-        SendGrid allows scheduling up to 72 hours in advance, so we schedule for 71h 59min.
-        Uses SendGrid v3 API with Dynamic Templates for scheduling.
-
-        Args:
-            recipient_email: Email address of the user
-            recipient_name: Name of the user (optional)
-            frontend_url: URL to the frontend application
-
-        Returns:
-            bool: True if email was sent successfully, False otherwise
+        SendGrid schedules at most 72 hours ahead, hence one minute short of it.
         """
         return self._send_scheduled_onboarding_email(
             day=3,

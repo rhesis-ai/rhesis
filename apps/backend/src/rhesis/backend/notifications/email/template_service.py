@@ -22,7 +22,6 @@ class EmailTemplate(Enum):
     TEST_EXECUTION_SUMMARY = "test_execution_summary.html.jinja2"
     TEAM_INVITATION = "team_invitation.html.jinja2"
     TASK_ASSIGNMENT = "task_assignment.html.jinja2"
-    WELCOME = "welcome.html.jinja2"
     EMAIL_VERIFICATION = "email_verification.html.jinja2"
     PASSWORD_RESET = "password_reset.html.jinja2"
     MAGIC_LINK = "magic_link.html.jinja2"
@@ -116,12 +115,6 @@ class TemplateService:
                 "created_at",
                 "task_metadata",
                 "frontend_url",
-            },
-            EmailTemplate.WELCOME: {
-                "recipient_name",
-                "recipient_email",
-                "frontend_url",
-                "calendar_link",
             },
             EmailTemplate.EMAIL_VERIFICATION: {
                 "recipient_name",
