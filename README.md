@@ -59,15 +59,24 @@ can act on.
 - **From feedback to CI.** Recurring feedback becomes tests and metrics that run on every change
 
 <p align="center">
-  <img src=".github/images/GH-collaboration-layer.png"
-       loading="lazy"
-       width="1920"
-       alt="Rhesis workflow: requirements and conversations become tests, metrics and expert verdicts evaluate the agent, CI gates releases, traces feed back as new tests">
+  <a href="https://rhesis.ai/?video=open" target="_blank">
+    <img src=".github/images/GH-demo-video.jpg"
+         loading="lazy"
+         width="1920"
+         alt="Watch: how engineers and domain experts test AI agents together">
+  </a>
 </p>
 
 ---
 
 ## How it works
+
+<p align="center">
+  <img src=".github/images/GH-how-it-works.png"
+       loading="lazy"
+       width="1920"
+       alt="Rhesis workflow: requirements and conversations become tests, metrics and expert verdicts evaluate the agent, CI gates releases, traces feed back as new tests">
+</p>
 
 **1. Connect the agent you are building.** Via the SDK or a REST endpoint, no public URL needed
 ([how](#connect-your-agent), [video](https://youtu.be/sCfhabhk6ww)).
@@ -102,13 +111,6 @@ evals that run on every change.
 
 ## Capabilities
 
-<p align="center">
-  <img src=".github/images/GH-capabilities.png"
-       loading="lazy"
-       width="1920"
-       alt="Start with the feedback you already have and expand from there: review test results, inspect annotations, gain insights">
-</p>
-
 Nobody can review every case by hand. Once the first feedback is in, you can grow coverage from it:
 
 - **[Architect](https://docs.rhesis.ai/docs/architect)**: a chat agent that turns a PRD into requirements, metrics, and test sets, runs them, and charts the results
@@ -122,15 +124,6 @@ Generated tests are only as good as the requirements behind them. Instead of ret
 prompt, connect the tools your requirements already live in (Notion, GitHub, Jira, Confluence) and
 Rhesis writes tests from the real thing. See [Tools](https://docs.rhesis.ai/docs/tools).
 
-<p align="center">
-  <a href="https://rhesis.ai/?video=open" target="_blank">
-    <img src=".github/images/GH-demo-video.jpg"
-         loading="lazy"
-         width="1920"
-         alt="Watch: how engineers and domain experts test AI agents together">
-  </a>
-</p>
-
 | Use case | What you validate |
 |----------|-------------------|
 | **Conversational & support agents** | Role adherence, policy citation, escalation |
@@ -139,6 +132,48 @@ Rhesis writes tests from the real thing. See [Tools](https://docs.rhesis.ai/docs
 | **Regulated / high-stakes domains** | Must and must-not behaviors your reviewers defined |
 
 Details: [docs.rhesis.ai](https://docs.rhesis.ai)
+
+---
+
+## Get started
+
+### Cloud
+
+[app.rhesis.ai](https://app.rhesis.ai): managed service, connect your agent and invite your team.
+
+### Local (Docker)
+
+```bash
+git clone https://github.com/rhesis-ai/rhesis.git && cd rhesis && ./rh start
+```
+
+`./rh start` pulls prebuilt images from GHCR. To build from the repo instead, use `./rh start --build` (and `./rh restart --build` after local Dockerfile changes).
+
+**Access:** Frontend at `localhost:3000`, API at `localhost:8080/docs`
+
+**Commands:** `./rh logs` · `./rh stop` · `./rh restart` · `./rh delete`
+
+> Local setup auto-logs you in. Not for production; see below.
+
+Once the platform is running, connect your agent with the SDK:
+
+```bash
+pip install rhesis-sdk
+```
+
+See [sdk/README.md](sdk/README.md).
+
+### Deployment options
+
+| Option | Best for |
+|--------|----------|
+| **[Rhesis Cloud](https://app.rhesis.ai)** | Managed by us, nothing to run |
+| **Local Docker (`./rh start`)** | Development and trying the platform |
+| **[Docker Compose](https://docs.rhesis.ai/self-hosting/docker-compose)** | A single server |
+| **[Kubernetes (Helm)](https://docs.rhesis.ai/self-hosting/kubernetes-helm)** | Production clusters, via ArgoCD and the [`charts/rhesis`](charts/rhesis) chart we run ourselves |
+| **[GCP (Terraform)](https://docs.rhesis.ai/self-hosting/gcp-terraform)** | Provisioning a GKE cluster from scratch |
+
+More: [self-hosting docs](https://docs.rhesis.ai/self-hosting).
 
 ---
 
@@ -200,48 +235,6 @@ Pull test runs, results, and the reviews attached to them from Python, or hit th
 CI in any language: [OpenAPI spec](https://api.rhesis.ai/docs).
 
 > The SDK also handles [tracing](https://docs.rhesis.ai/docs/tracing). LLMs for generation and judges: [Models](https://docs.rhesis.ai/sdk/models).
-
----
-
-## Get started
-
-### Cloud
-
-[app.rhesis.ai](https://app.rhesis.ai): managed service, connect your agent and invite your team.
-
-### Local (Docker)
-
-```bash
-git clone https://github.com/rhesis-ai/rhesis.git && cd rhesis && ./rh start
-```
-
-`./rh start` pulls prebuilt images from GHCR. To build from the repo instead, use `./rh start --build` (and `./rh restart --build` after local Dockerfile changes).
-
-**Access:** Frontend at `localhost:3000`, API at `localhost:8080/docs`
-
-**Commands:** `./rh logs` · `./rh stop` · `./rh restart` · `./rh delete`
-
-> Local setup auto-logs you in. Not for production; see below.
-
-Once the platform is running, connect your agent with the SDK:
-
-```bash
-pip install rhesis-sdk
-```
-
-See [sdk/README.md](sdk/README.md).
-
-### Deployment options
-
-| Option | Best for |
-|--------|----------|
-| **[Rhesis Cloud](https://app.rhesis.ai)** | Managed by us, nothing to run |
-| **Local Docker (`./rh start`)** | Development and trying the platform |
-| **[Docker Compose](https://docs.rhesis.ai/self-hosting/docker-compose)** | A single server |
-| **[Kubernetes (Helm)](https://docs.rhesis.ai/self-hosting/kubernetes-helm)** | Production clusters, via ArgoCD and the [`charts/rhesis`](charts/rhesis) chart we run ourselves |
-| **[GCP (Terraform)](https://docs.rhesis.ai/self-hosting/gcp-terraform)** | Provisioning a GKE cluster from scratch |
-
-More: [self-hosting docs](https://docs.rhesis.ai/self-hosting).
 
 ---
 
