@@ -62,16 +62,15 @@ can act on.
   <img src=".github/images/GH-collaboration-layer.png"
        loading="lazy"
        width="1920"
-       alt="One workspace for the whole team: knowledge, requirements, and real conversations feed tests and simulations against your agent; metrics and expert verdicts evaluate it; a release gate in CI ships only when the bar holds; traces, cost, and experiments feed back into the loop">
+       alt="Rhesis workflow: requirements and conversations become tests, metrics and expert verdicts evaluate the agent, CI gates releases, traces feed back as new tests">
 </p>
 
 ---
 
 ## How it works
 
-**1. Connect the agent you are building.** A few lines of SDK code, or the URL of a REST
-endpoint. Works from your laptop or your VPC, no public URL needed. See
-[Connect your agent](#connect-your-agent) or [watch the walkthrough](https://youtu.be/sCfhabhk6ww).
+**1. Connect the agent you are building.** Via the SDK or a REST endpoint, no public URL needed
+([how](#connect-your-agent), [video](https://youtu.be/sCfhabhk6ww)).
 
 **2. Share the Rhesis link with your stakeholders.** Domain experts, product managers, and
 reviewers open it in a browser. Nothing to install, no code.
@@ -112,12 +111,12 @@ evals that run on every change.
 
 Nobody can review every case by hand. Once the first feedback is in, you can grow coverage from it:
 
-- **[Architect](https://docs.rhesis.ai/docs/architect)**: describe what to test, or hand it a PRD, and it explores your agent, proposes a plan, and builds the requirements, metrics, and test sets once you approve. It runs them and charts the results for you
+- **[Architect](https://docs.rhesis.ai/docs/architect)**: a chat agent that turns a PRD into requirements, metrics, and test sets, runs them, and charts the results
 - **Test generation** from your requirements, a PRD, or an uploaded file
 - **Conversation simulation** with Penelope; **adversarial probing** with Polyphemus and [garak](https://github.com/leondz/garak)
-- **[Requirement coverage](https://docs.rhesis.ai/docs/requirements)**: results roll up by requirement, so you see which expectations pass, which fail, and in which conversations
-- **[Production tracing](https://docs.rhesis.ai/docs/tracing)**: OpenTelemetry, with zero-config auto-instrumentation for LangChain, LangGraph, Microsoft Agent Framework, Pydantic AI, Google ADK, and Haystack. Every step your agent took, with latency, tokens, and cost; experts can annotate traces just like test results
-- **[Experiments](https://docs.rhesis.ai/docs/experiments)**: change one thing (model, prompt, retrieval), run it against the same test set, and compare quality and cost before you promote it
+- **[Requirement coverage](https://docs.rhesis.ai/docs/requirements)**: see which requirements pass or fail, and in which conversations
+- **[Production tracing](https://docs.rhesis.ai/docs/tracing)**: OpenTelemetry traces with latency, tokens, and cost. Auto-instrumentation for LangChain, LangGraph, Microsoft Agent Framework, Pydantic AI, Google ADK, and Haystack
+- **[Experiments](https://docs.rhesis.ai/docs/experiments)**: compare model, prompt, or retrieval changes on the same test set, by quality and cost
 
 Generated tests are only as good as the requirements behind them. Instead of retyping a spec into a
 prompt, connect the tools your requirements already live in (Notion, GitHub, Jira, Confluence) and
@@ -200,8 +199,7 @@ See the [skills README](skills/rhesis/README.md).
 Pull test runs, results, and the reviews attached to them from Python, or hit the API directly from
 CI in any language: [OpenAPI spec](https://api.rhesis.ai/docs).
 
-> The same SDK also carries [tracing](https://docs.rhesis.ai/docs/tracing). LLM providers for
-> test generation and judges are configured separately; see [Models](https://docs.rhesis.ai/sdk/models).
+> The SDK also handles [tracing](https://docs.rhesis.ai/docs/tracing). LLMs for generation and judges: [Models](https://docs.rhesis.ai/sdk/models).
 
 ---
 
@@ -223,7 +221,7 @@ git clone https://github.com/rhesis-ai/rhesis.git && cd rhesis && ./rh start
 
 **Commands:** `./rh logs` · `./rh stop` · `./rh restart` · `./rh delete`
 
-> This setup enables auto-login for local testing. Do not expose it as-is; use one of the production options below.
+> Local setup auto-logs you in. Not for production; see below.
 
 Once the platform is running, connect your agent with the SDK:
 
@@ -239,11 +237,11 @@ See [sdk/README.md](sdk/README.md).
 |--------|----------|
 | **[Rhesis Cloud](https://app.rhesis.ai)** | Managed by us, nothing to run |
 | **Local Docker (`./rh start`)** | Development and trying the platform |
-| **[Docker Compose](https://docs.rhesis.ai/self-hosting/docker-compose)** | A single server you run yourself |
-| **[Kubernetes (Helm)](https://docs.rhesis.ai/self-hosting/kubernetes-helm)** | Production clusters. The [`charts/rhesis`](charts/rhesis) Helm chart, deployed with ArgoCD, the same setup we use for our own environments |
-| **[GCP (Terraform)](https://docs.rhesis.ai/self-hosting/gcp-terraform)** | Provisioning the GKE cluster and supporting services from scratch |
+| **[Docker Compose](https://docs.rhesis.ai/self-hosting/docker-compose)** | A single server |
+| **[Kubernetes (Helm)](https://docs.rhesis.ai/self-hosting/kubernetes-helm)** | Production clusters, via ArgoCD and the [`charts/rhesis`](charts/rhesis) chart we run ourselves |
+| **[GCP (Terraform)](https://docs.rhesis.ai/self-hosting/gcp-terraform)** | Provisioning a GKE cluster from scratch |
 
-All options: [Self-hosting docs](https://docs.rhesis.ai/self-hosting).
+More: [self-hosting docs](https://docs.rhesis.ai/self-hosting).
 
 ---
 
