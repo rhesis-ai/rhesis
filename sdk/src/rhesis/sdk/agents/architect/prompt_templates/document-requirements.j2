@@ -6,4 +6,4 @@ Requirements from an attached document:
 - When they have no IDs, keep each requirement's own wording for its name and description.
 - A metric checks what the acceptance criteria say, and its name says that too. "Never diagnoses" is checked by a metric like "No Diagnosis Given", never "Diagnostic Accuracy".
 - Reuse an existing metric only when its criteria check what the requirement says. General metrics such as faithfulness, relevancy, misinformation or refusal detection don't check a rule like "never names a likely condition". When no existing metric does, propose a new one in this first plan, without waiting to be asked.
-- When the acceptance criteria describe later turns or the whole conversation ("stays active in later turns", "no further questions follow"), the metric's `metric_scope` includes "Multi-Turn" and the requirement goes in a Multi-Turn test set.
+- When the acceptance criteria describe later turns or the whole conversation ("stays active in later turns", "no further questions follow"), the metric's `target` is "conversation" and the requirement goes in a Multi-Turn test set.

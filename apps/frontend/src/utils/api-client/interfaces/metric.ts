@@ -3,7 +3,6 @@ import { TypeLookup } from './type-lookup';
 import { Tag } from './tag';
 import { PaginationParams } from './pagination';
 import { Model } from './model';
-import { MetricScopeValue } from '@/constants/metric-scopes';
 
 // 'binary' is returned by the backend (ScoreType.BINARY) but was missing here.
 // Note src/constants/score-types.ts deliberately still omits it: that constant
@@ -12,7 +11,41 @@ export type ScoreType = 'binary' | 'numeric' | 'categorical';
 
 export type ThresholdOperator = '=' | '<' | '>' | '<=' | '>=' | '!=';
 
-export type MetricScope = MetricScopeValue;
+/** What a metric judges; the choices and labels come from `GET /metrics/targets`. */
+export type MetricTargetOn =
+  | 'turn'
+  | 'conversation'
+  | 'run'
+  | 'tool_call'
+  | 'retrieval'
+  | 'model_call'
+  | 'agent'
+  | 'guardrail';
+
+export type MetricTargetAggregate = 'all' | 'any' | 'share';
+
+export interface MetricTarget {
+  on: MetricTargetOn | string;
+  /** Per-span targets only: only spans with this tool, agent or model name. */
+  name?: string;
+  within?: string;
+  aggregate?: MetricTargetAggregate;
+  min_share?: number;
+}
+
+/** `config` holds the target plus the metric class's own settings. A PUT replaces all of it. */
+export interface MetricConfig {
+  target?: MetricTarget;
+  [key: string]: unknown;
+}
+
+/** One entry of the target registry, in the backend's order. */
+export interface MetricTargetChoice {
+  on: MetricTargetOn | string;
+  label: string;
+  description: string;
+  per_span: boolean;
+}
 
 export interface Metric {
   id: UUID;
@@ -32,7 +65,9 @@ export interface Metric {
   explanation: string;
   ground_truth_required: boolean;
   evaluation_examples?: string;
-  metric_scope?: MetricScope[];
+  config?: MetricConfig | null;
+  /** Targets this metric can take, in registry order; null when unknown. */
+  supported_targets?: string[] | null;
   organization_id?: UUID;
 
   // References (now always included from backend)
@@ -59,7 +94,7 @@ export interface MetricCreate {
   threshold_operator?: ThresholdOperator;
   explanation: string;
   ground_truth_required?: boolean;
-  metric_scope?: MetricScope[];
+  config?: MetricConfig | null;
   // ID-based fields (preferred for frontend)
   metric_type_id?: UUID;
   backend_type_id?: UUID;
@@ -90,7 +125,7 @@ export interface MetricUpdate {
   threshold_operator?: ThresholdOperator;
   explanation?: string;
   ground_truth_required?: boolean;
-  metric_scope?: MetricScope[];
+  config?: MetricConfig | null;
   metric_type_id?: UUID;
   backend_type_id?: UUID;
   status_id?: UUID;
@@ -120,9 +155,6 @@ export interface MetricQueryParams extends PaginationParams {
    * caller renders; see backend utils/odata.py::apply_select.
    */
   $select?: string;
-  /**
-   * Comma-separated metric scopes (JSONB array contains filter).
-   * Matches metrics whose metric_scope array contains any of the values.
-   */
-  metric_scope?: string;
+  /** Comma-separated target `on` values, such as `turn,conversation`. */
+  target?: string;
 }

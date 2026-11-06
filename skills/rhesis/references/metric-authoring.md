@@ -7,7 +7,7 @@ way twice. Filling every field is the floor, not the goal: one thin sentence per
 validation and still produces a metric nobody can defend when it fails a test.
 
 Read this before `create_metric`, `generate_metric`, `improve_metric`, or writing `metrics[]` in
-`save_plan`. Pair it with `metric-scope.md` (which tests the metric runs against) and
+`save_plan`. Pair it with `metric-targets.md` (what the metric judges and which tests it runs on) and
 `prd/metric-design.md` (where the pass condition comes from in a requirements plan).
 
 ---
@@ -132,7 +132,7 @@ citing purchase date, final-sale flag, or open RMA; no speculative alternatives.
 | Field | Value |
 |---|---|
 | `name` | Eligibility Denial Format Compliance |
-| `metric_scope` | `["Single-Turn"]` |
+| target | `turn` (the default) |
 | `score_type` | `categorical` |
 | `categories` | `["Compliant Denial", "Wrong Reason", "Multi-Sentence or Speculative"]` |
 | `passing_categories` | `["Compliant Denial"]` |
@@ -213,7 +213,7 @@ three follow-up turns without re-asking for the order number.
 | Field | Value |
 |---|---|
 | `name` | Order Context Retention Rate |
-| `metric_scope` | `["Multi-Turn"]` |
+| target | `conversation` |
 | `score_type` | `numeric`, `min_score` 0, `max_score` 1, `threshold` 1.0, `threshold_operator` `>=` |
 
 **`description`**
@@ -302,4 +302,4 @@ the context sent on each turn.
 3. Are the steps in the stored step format, one action each, scoring last?
 4. Does `reasoning` name the evidence to quote and the tie-breaker?
 5. Does `explanation` tell a reader what to do about a fail?
-6. Does `metric_scope` match the test sets that will run it (`metric-scope.md`)?
+6. Does the target fit what the requirement is about, and does it run on the test sets that will use it (`metric-targets.md`)?

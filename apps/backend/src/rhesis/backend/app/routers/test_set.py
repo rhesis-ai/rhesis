@@ -599,8 +599,7 @@ def execute_test_set(
         metrics = None
         if test_configuration_attributes and test_configuration_attributes.metrics:
             metrics = [
-                {"id": str(m.id), "name": m.name, "scope": m.scope}
-                for m in test_configuration_attributes.metrics
+                {"id": str(m.id), "name": m.name} for m in test_configuration_attributes.metrics
             ]
 
         reference_test_run_id = None

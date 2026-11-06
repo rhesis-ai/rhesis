@@ -29,11 +29,11 @@ This is the first real paragraph and it is long enough to be picked up by the de
 test('extractDescription: unwraps emphasis, links and inline code', () => {
   const src = `# Heading
 
-Every metric declares **\`metric_scope\`**, and *every* test set declares a [type](/docs/types) that must match.`
+Every metric declares a **\`target\`**, and *every* test set declares a [type](/docs/types) it runs on.`
 
   assert.equal(
     extractDescription(src),
-    'Every metric declares metric_scope, and every test set declares a type that must match.'
+    'Every metric declares a target, and every test set declares a type it runs on.'
   )
 })
 

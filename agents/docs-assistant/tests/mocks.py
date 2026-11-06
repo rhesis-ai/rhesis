@@ -64,8 +64,8 @@ def draft(**overrides: Any) -> dict[str, Any]:
         "citations": [
             {
                 "id": "c1",
-                "url": "https://docs.rhesis.ai/docs/metrics/metric-scope#when-to-use-multi-turn",
-                "quote": "Full transcript required — context retention, multi-step threads",
+                "url": "https://docs.rhesis.ai/docs/metrics/targets#which-tests-a-metric-runs-on",
+                "quote": "Every other target runs on single-turn and multi-turn tests alike",
             }
         ],
         "undocumented": [],

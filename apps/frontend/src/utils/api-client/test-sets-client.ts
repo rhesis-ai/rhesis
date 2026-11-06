@@ -304,7 +304,7 @@ export class TestSetsClient extends BaseApiClient {
     endpointId: string,
     testConfigurationAttributes?: {
       execution_mode?: string;
-      metrics?: Array<{ id: string; name: string; scope?: string[] }>;
+      metrics?: Array<{ id: string; name: string }>;
       reference_test_run_id?: string;
       execution_model_id?: string;
       evaluation_model_id?: string;

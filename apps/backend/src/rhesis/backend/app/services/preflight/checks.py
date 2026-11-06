@@ -18,7 +18,6 @@ from rhesis.backend.app.models.prompt import Prompt
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_set import TestSet, test_test_set_association
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.schemas.preflight import PreflightCheckResult, PreflightCheckStatus
 from rhesis.backend.app.services.preflight.constants import (
     CHECK_ENDPOINT_CONNECTIVITY,
@@ -44,6 +43,7 @@ from rhesis.backend.app.utils.model_errors import (
     ModelNotConfiguredError,
     describe_model_error,
 )
+from rhesis.backend.metrics.applicability import fits
 
 logger = logging.getLogger(__name__)
 
@@ -245,13 +245,10 @@ def _resolve_check_metrics(
     )
 
 
-def _scope_compatible_metrics(metrics: List[Metric], is_multi_turn: bool) -> List[Metric]:
-    required_scope = MetricScope.MULTI_TURN if is_multi_turn else MetricScope.SINGLE_TURN
-    return [
-        m
-        for m in metrics
-        if m.class_name and m.metric_scope and required_scope.value in m.metric_scope
-    ]
+def _fitting_metrics(metrics: List[Metric], is_multi_turn: bool) -> List[Metric]:
+    """The metrics that can judge the test set's type of test; what each test expects is
+    checked when it runs."""
+    return [m for m in metrics if m.class_name and fits(m, conversation=is_multi_turn)]
 
 
 async def check_test_set_not_empty(
@@ -658,13 +655,12 @@ def _metric_compatibility_result(
             "No metrics to check compatibility for",
         )
 
-    required_scope = MetricScope.MULTI_TURN if is_multi_turn else MetricScope.SINGLE_TURN
-    scope_compatible = _scope_compatible_metrics(metrics, is_multi_turn)
-    if not scope_compatible:
+    fitting = _fitting_metrics(metrics, is_multi_turn)
+    if not fitting:
         return _make_result(
             check_id,
             PreflightCheckStatus.SKIPPED,
-            "No scope-compatible metrics to validate",
+            "No metrics that apply to this test set to validate",
         )
 
     capabilities = _infer_endpoint_capabilities(endpoint)
@@ -672,8 +668,8 @@ def _metric_compatibility_result(
     # Ground-truth coverage only applies to single-turn tests: multi-turn tests
     # have prompt_id=NULL so the Prompt join would undercount. Skip the query
     # entirely when no metric needs it.
-    needs_ground_truth = any(m.ground_truth_required for m in scope_compatible)
-    if needs_ground_truth and required_scope == MetricScope.SINGLE_TURN:
+    needs_ground_truth = any(m.ground_truth_required for m in fitting)
+    if needs_ground_truth and not is_multi_turn:
         total_tests = (
             db.query(test_test_set_association.c.test_id)
             .filter(test_test_set_association.c.test_set_id == test_set_id)
@@ -694,9 +690,7 @@ def _metric_compatibility_result(
         total_tests = 0
         missing_ground_truth = 0
 
-    issues = _check_metric_endpoint_issues(
-        scope_compatible, capabilities, missing_ground_truth, total_tests
-    )
+    issues = _check_metric_endpoint_issues(fitting, capabilities, missing_ground_truth, total_tests)
 
     if issues:
         # Dedupe by metric: each metric contributes at most one entry per requirement,
@@ -708,11 +702,11 @@ def _metric_compatibility_result(
             "; ".join(issues[:5]),
         )
 
-    metric_names = [m.name for m in scope_compatible if m.name]
+    metric_names = [m.name for m in fitting if m.name]
     return _make_result(
         check_id,
         PreflightCheckStatus.PASSED,
-        f"All {len(scope_compatible)} metric(s) are compatible with endpoint configuration",
+        f"All {len(fitting)} metric(s) are compatible with endpoint configuration",
         ", ".join(metric_names) if metric_names else None,
     )
 
@@ -775,7 +769,7 @@ def _metric_functionality_metrics(
 ):
     """Resolve the metrics to load-test, or the result that ends the check early.
 
-    Returns ``(scope_compatible, early_result)``; exactly one of the two is set.
+    Returns ``(fitting, early_result)``; exactly one of the two is set.
     """
     check_id = CHECK_METRIC_FUNCTIONALITY
     metrics = _resolve_check_metrics(
@@ -789,21 +783,23 @@ def _metric_functionality_metrics(
             "No metrics found for this configuration",
         )
 
-    scope_compatible = _scope_compatible_metrics(metrics, is_multi_turn)
-    if not scope_compatible:
-        scope_label = (MetricScope.MULTI_TURN if is_multi_turn else MetricScope.SINGLE_TURN).value
+    fitting = _fitting_metrics(metrics, is_multi_turn)
+    if not fitting:
+        kind = "multi-turn" if is_multi_turn else "single-turn"
         has_class = [m for m in metrics if m.class_name]
+        reason = (
+            "they all compare with an expected response, which a conversation has none of"
+            if is_multi_turn
+            else "they all judge the whole conversation"
+        )
         return None, _make_result(
             check_id,
             PreflightCheckStatus.WARNING,
-            f"No metrics support {scope_label} scope",
-            f"This test set requires {scope_label} "
-            f"metrics, but none of the "
-            f"{len(has_class)} resolved metric(s) "
-            f"include that scope.",
+            f"No metrics apply to {kind} tests",
+            f"None of the {len(has_class)} resolved metric(s) can judge this test set: {reason}.",
         )
 
-    return scope_compatible, None
+    return fitting, None
 
 
 async def check_metric_functionality(
@@ -833,7 +829,7 @@ async def check_metric_functionality(
         )
 
     try:
-        scope_compatible, result = await db.run(
+        fitting, result = await db.run(
             _metric_functionality_metrics,
             user,
             test_set_id,
@@ -841,10 +837,8 @@ async def check_metric_functionality(
             selected_metrics,
             is_multi_turn,
         )
-        if scope_compatible is not None:
-            result = await _validate_metrics_loadable(
-                db, user, scope_compatible, evaluation_model_id
-            )
+        if fitting is not None:
+            result = await _validate_metrics_loadable(db, user, fitting, evaluation_model_id)
     except Exception as e:
         result = _make_result(
             check_id,
@@ -917,7 +911,7 @@ def _requirements_without_scorable_metrics(
         requirement_id
         for requirement_id, scopes in scopes_by_requirement.items()
         if not all(
-            _scope_compatible_metrics(metrics_by_requirement.get(requirement_id, []), multi_turn)
+            _fitting_metrics(metrics_by_requirement.get(requirement_id, []), multi_turn)
             for multi_turn in scopes
         )
     ]

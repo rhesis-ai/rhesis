@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Metric Targets Replace Metric Scope**: The metric form, detail view, cards and filters show and set what a metric judges ("Judges: Each turn", "The conversation", "Each tool call" and the rest, fetched from `GET /metrics/targets`) instead of its Single-Turn or Multi-Turn scope. A per-span target can be narrowed by name. Editing offers only the targets the metric supports and keeps its other settings. Picking metrics for a single-turn test set leaves out those judging the conversation. The metrics list filter and its URL parameter are now `target`.
+
 - **Branding Resolution**: Branding now resolves per field as organization setting > `BRAND_*` env var > Rhesis default, so clearing a field in the settings form reveals the deployment default rather than resetting everything. The root layout resolves the organization once per request and shares it with `generateMetadata`.
 
 ### Fixed

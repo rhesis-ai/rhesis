@@ -34,7 +34,6 @@ export function getMetricsSourceLabel(source: MetricsSource | string): string {
 export interface ExecutionMetric {
   id: string;
   name: string;
-  scope?: string[];
 }
 
 /**

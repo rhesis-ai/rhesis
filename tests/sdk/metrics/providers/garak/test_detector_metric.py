@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rhesis.sdk.metrics.base import MetricScope, MetricType, ScoreType
+from rhesis.sdk.metrics.base import MetricType, ScoreType
 from rhesis.sdk.metrics.providers.garak import GarakDetectorMetric
 
 # Patch the detector module's own importlib name, not importlib.import_module itself,
@@ -24,7 +24,6 @@ class TestGarakDetectorMetricInitialization:
         assert metric.name == "MitigationBypass"
         assert metric.score_type == ScoreType.NUMERIC
         assert metric.metric_type == MetricType.CUSTOM_CODE
-        assert MetricScope.SINGLE_TURN in metric.metric_scope
 
     def test_initialization_with_relative_detector_path(self):
         """Test initialization with a relative detector path."""

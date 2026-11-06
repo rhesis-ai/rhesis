@@ -38,51 +38,31 @@ goal_judge.evaluate(conversation=messages, expectations={"goal": "Book a flight 
 
 In a test run, the platform passes the trace of what the endpoint did and the expectations from the test. On production traces there are no expectations.
 
-## Metric Scopes
+## Targets
 
-Every metric has a `metric_scope` that controls where and when it runs. The three scope values are:
+A metric's `target` says what it judges in a trace: each turn, the whole conversation, the whole run, or each span of one kind, such as every tool call. It also decides which tests the metric runs on. A `conversation` target never runs on single-turn tests, and every other target runs on both kinds.
 
-- **`Single-Turn`** — runs during single-turn test evaluation and per-turn trace evaluation
-- **`Multi-Turn`** — runs during multi-turn test evaluation and conversation-level trace evaluation
-- **`Trace`** — enables automatic evaluation against live traces (see below)
+Judges take `target` in their constructor. Without one, the metric gets its default: `turn` for `NumericJudge` and `CategoricalJudge`, `conversation` for `ConversationalJudge` and `GoalAchievementJudge`, and `run` for `ToolCallTrajectory`.
 
-A metric can have any combination of these scopes. Scopes are additive: including more values makes the metric eligible in more contexts.
+<CodeBlock filename="target.py" language="python">
+{`from rhesis.sdk.metrics import NumericJudge
 
-### Default Scopes by Metric Class
-
-| Metric Class | Default Scope | Notes |
-| --- | --- | --- |
-| `NumericJudge` | Single-Turn, Multi-Turn | See note below on multi-turn behavior |
-| `CategoricalJudge` | Single-Turn, Multi-Turn | See note below on multi-turn behavior |
-| `ConversationalJudge` | Single-Turn, Multi-Turn | Reads the conversation turn by turn |
-| `GoalAchievementJudge` | Single-Turn, Multi-Turn | Reads the conversation turn by turn |
-| `GarakDetectorMetric` | Single-Turn only | Operates on individual prompt/response pairs |
-
-<Callout type="info">
-
-**How single-turn metrics work in multi-turn tests**: When a `NumericJudge` or `CategoricalJudge` is used in a multi-turn evaluation, its `output` is the conversation's transcript, with each turn's context, metadata and tool calls, and its `input` is the test's goal. The metric evaluates the conversation as one text, and also returns `relevant_turns`, the turns its verdict rests on. This means the evaluation quality depends entirely on the `evaluation_prompt` you write. For turn-aware evaluation (e.g., analyzing coherence between specific turns), use a `ConversationalJudge` instead, which reads the conversation turn by turn.
-
-</Callout>
-
-You can override the default scope when creating a metric:
-
-<CodeBlock filename="metric_scope.py" language="python">
-{`from rhesis.sdk.metrics import NumericJudge, MetricScope
-
-# Restrict a NumericJudge to single-turn only
+# Judge the conversation as a whole instead of each turn
 metric = NumericJudge(
-    name="response_clarity",
-    evaluation_prompt="Rate how clear the response is.",
-    metric_scope=[MetricScope.SINGLE_TURN],
+    name="conversation_clarity",
+    evaluation_prompt="Rate how clear the assistant stays across the conversation.",
     min_score=0.0,
     max_score=10.0,
     threshold=7.0,
+    target="conversation",
 )`}
 </CodeBlock>
 
+`push()` and `pull()` carry the target in the metric's `config`. A per-span target is a dict with `on` and, when needed, `name`. See [Metric Targets](/docs/metrics/targets) for every choice, which tests each one runs on, and how to try a target locally with `evaluate(trace=..., target=...)`.
+
 ### Trace Evaluation
 
-Any metric can also evaluate live production traces. There is no separate scope for it: add the metric to a project's **Trace Metrics** in the project settings, and that project's traces are evaluated with it. `Single-Turn` metrics run after each turn, and `Multi-Turn` metrics run on the whole conversation once it goes quiet.
+Any metric can also evaluate live production traces. Add it to a project's **Trace Metrics** in the project settings, and that project's traces are evaluated with it. A metric whose target is `conversation` runs on the whole conversation once it goes quiet; every other metric runs after each turn.
 
 <Callout type="info">
 
@@ -154,7 +134,7 @@ The generated fields follow the same metric schema used by custom judges:
 | --- | --- |
 | `score_type` | Must be `numeric` or `categorical`. |
 | `threshold_operator` | Used for numeric metrics; valid values include `=`, `<`, `>`, `<=`, `>=`, and `!=`. |
-| `metric_scope` | Can include `Single-Turn` and `Multi-Turn` depending on the intended evaluation context. |
+| `target` | `turn` or `conversation`, when the description says what the metric judges. Left out, the metric keeps its default. |
 
 ## Platform Integration
 

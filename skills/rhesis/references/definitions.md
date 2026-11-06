@@ -1,7 +1,7 @@
 # Terminology — confusions only
 
 > **Canonical terms:** [Glossary](https://docs.rhesis.ai/glossary.md) — fetch `glossary/<id>.md` per term.
-> Start with: `requirement`, `metric`, `metric-scope`, `test-set`, `endpoint`, `test`, `test-run`, `test-result`, `category`, `topic`, `tag`, `knowledge`.
+> Start with: `requirement`, `metric`, `metric-target`, `test-set`, `endpoint`, `test`, `test-run`, `test-result`, `category`, `topic`, `tag`, `knowledge`.
 
 Use this file when concepts get mixed up. Do **not** duplicate glossary definitions here.
 
@@ -13,7 +13,7 @@ Use this file when concepts get mixed up. Do **not** duplicate glossary definiti
 
 **Requirement vs category/topic** — Categories and topics organize tests. They do not replace requirements or metrics. See glossary: `category`, `topic`, `requirement`.
 
-**Single-Turn test vs metric scope** — A Multi-Turn test set only runs metrics with `"Multi-Turn"` in `metric_scope`. Plan both explicitly — see `metric-scope.md` and glossary `metric-scope`.
+**Test type vs metric target** — A test's type (Single-Turn or Multi-Turn) is how it runs. A metric's target is what it judges. A `conversation` target never runs on Single-Turn tests; every other target runs on both. See `metric-targets.md` and glossary `metric-target`.
 
 **PRD section title vs requirement** — "Security" or "Operate Safely" is not a requirement. Split numbered requirements and acceptance criteria into testable expectations (see `spec-workflow.md`).
 
@@ -37,6 +37,6 @@ Use this file when concepts get mixed up. Do **not** duplicate glossary definiti
 
 | Term | Definition |
 |---|---|
-| **Scope coverage** | Every requirement in a test set must have ≥1 linked metric whose `metric_scope` includes that set's `test_type`. |
+| **Metric coverage** | Every requirement in a test set must have ≥1 linked metric that runs on that set's `test_type`. On a Single-Turn set, that means a metric whose target is not `conversation`. |
 | **Generation prompt** | Text in `generate_test_set` `config` describing what the synthesizer should produce. |
 | **Reuse** | Use an existing requirement/metric (`list_*` + same name) instead of creating a duplicate. |

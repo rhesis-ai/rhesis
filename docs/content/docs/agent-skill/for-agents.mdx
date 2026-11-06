@@ -14,8 +14,8 @@ This page is for **AI agents** (Cursor, Claude Code, Architect, MCP). Humans sho
 ## How to read
 
 1. **Index:** `https://docs.rhesis.ai/llms.txt`
-2. **Single page:** e.g. `https://docs.rhesis.ai/docs/metrics/metric-scope.md`
-3. **Term lookup:** `https://docs.rhesis.ai/glossary/<term-id>.md` (e.g. `requirement`, `metric-scope`, `test-set`)
+2. **Single page:** e.g. `https://docs.rhesis.ai/docs/metrics/targets.md`
+3. **Term lookup:** `https://docs.rhesis.ai/glossary/<term-id>.md` (e.g. `requirement`, `metric-target`, `test-set`)
 4. **Confusions only:** `skills/rhesis/references/definitions.md` in the repo — when terms are mixed up, not for full definitions
 
 ## Workflow routing
@@ -27,7 +27,7 @@ This page is for **AI agents** (Cursor, Claude Code, Architect, MCP). Humans sho
 | Pasted PRD / FRs / spec | [Spec workflow](/docs/agent-skill/spec) |
 | Run / analyze | [Execution and analysis](/docs/architect/execution-and-analysis) |
 | Terminology | [Glossary](/glossary) first (`test-result`, `tag`, `mcp`); repo `definitions.md` for confusions only |
-| `metric_scope` | [Metric scope](/docs/metrics/metric-scope) |
+| Metric `target` | [Metric Targets](/docs/metrics/targets) |
 
 ## Common confusions
 
@@ -40,9 +40,9 @@ This page is for **AI agents** (Cursor, Claude Code, Architect, MCP). Humans sho
 
 | Table | Columns |
 | --- | --- |
-| **Metrics** | Metric, Requirement, AC source, `metric_scope`, Score type, Pass definition |
+| **Metrics** | Metric, Requirement, AC source, Target, Score type, Pass definition |
 | **Test sets** | Test set, `test_type`, Requirements, Metrics expected to run |
-| **Coverage matrix** | Test set, test_type, Requirement, Linked metric, Scope OK? |
+| **Coverage matrix** | Test set, test_type, Requirement, Linked metric, Runs on this type? |
 
 ## Coding agents
 

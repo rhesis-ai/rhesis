@@ -16,15 +16,15 @@ from docs_assistant.tools import (
 )
 from tests.mocks import draft
 
-SCOPE = "https://docs.rhesis.ai/docs/metrics/metric-scope"
+SCOPE = "https://docs.rhesis.ai/docs/metrics/targets"
 
 
 async def test_fetch_adds_the_page_to_the_ledger_but_search_does_not(ctx):
-    result = search_docs_impl(ctx, "metric scope")
+    result = search_docs_impl(ctx, "metric target")
     assert "NOT citable" in result
     assert ctx.ledger == {}
     assert ctx.search_hits
-    page = await fetch_page_impl(ctx, "docs/metrics/metric-scope.md")
+    page = await fetch_page_impl(ctx, "docs/metrics/targets.md")
     assert page.startswith(f'<doc url="{SCOPE}"')
     assert list(ctx.ledger) == [SCOPE]
 
@@ -32,13 +32,13 @@ async def test_fetch_adds_the_page_to_the_ledger_but_search_does_not(ctx):
 async def test_fetch_lists_headings_with_citable_anchors(ctx):
     result = await fetch_page_impl(ctx, SCOPE)
     assert f"cite as {SCOPE}#anchor" in result
-    assert "#when-to-use-multi-turn" in result
+    assert "#which-tests-a-metric-runs-on" in result
     assert "Links on this page:" in result
 
 
 async def test_fetching_the_same_page_twice_counts_one_page(ctx):
     await fetch_page_impl(ctx, SCOPE)
-    await fetch_page_impl(ctx, SCOPE + "#planning-checklist")
+    await fetch_page_impl(ctx, SCOPE + "#setting-a-target")
     assert ctx.budget.pages == 1
     assert ctx.budget.tool_calls == 2
 

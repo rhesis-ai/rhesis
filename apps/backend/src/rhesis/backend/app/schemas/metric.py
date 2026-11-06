@@ -1,19 +1,13 @@
 import json
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
-from pydantic import UUID4, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import UUID4, BaseModel, ConfigDict, ValidationError, model_validator
 
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
 from rhesis.backend.app.schemas.metric_types import ScoreType, ThresholdOperator
 from rhesis.backend.app.schemas.references import RequirementReference
 from rhesis.backend.app.schemas.tag import Tag
 from rhesis.backend.app.schemas.type_lookup import TypeLookup
-
-
-class MetricScope(str, Enum):
-    SINGLE_TURN = "Single-Turn"
-    MULTI_TURN = "Multi-Turn"
 
 
 class MetricBase(Base):
@@ -47,8 +41,8 @@ class MetricBase(Base):
     ground_truth_required: Optional[bool] = False
     context_required: Optional[bool] = False
     evaluation_examples: Optional[str] = None
-    metric_scope: Optional[List[MetricScope]] = None
-    # Settings of the metric's class, e.g. a trajectory metric's match mode.
+    # Settings of the metric's class, e.g. a trajectory metric's match mode, and under
+    # "target" what the metric judges.
     config: Optional[Dict[str, Any]] = None
     organization_id: Optional[UUID4] = None
     user_id: Optional[UUID4] = None
@@ -66,7 +60,7 @@ def accepted_params(evaluation_examples: Optional[str]) -> Optional[List[str]]:
     return accepted if isinstance(accepted, list) else None
 
 
-def _metric_class(class_name: Optional[str]) -> Optional[type]:
+def builtin_metric_class(class_name: Optional[str]) -> Optional[type]:
     """The SDK class a built-in metric is built from, native or DeepEval."""
     from rhesis.sdk.metrics.providers.native.factory import RhesisMetricFactory
 
@@ -82,39 +76,68 @@ def _metric_class(class_name: Optional[str]) -> Optional[type]:
     return DeepEvalMetricFactory._metrics.get(class_name)
 
 
+def metric_targets(
+    class_name: Optional[str],
+    *,
+    ground_truth_required: bool = False,
+    accepted: Optional[List[str]] = None,
+) -> Tuple[List[Any], Any]:
+    """The targets a metric can take, and the one it takes when none is chosen (None when
+    one must be chosen). They come from its class, from ``accepted`` (the parameters of an
+    SDK metric's function), or else are a judge's. Raises ImportError on a core install."""
+    from rhesis.sdk.metrics.targets import (
+        TargetKind,
+        default_target,
+        supported_targets,
+        targets_for,
+    )
+
+    compares = ("response",) if ground_truth_required else ()
+    cls = builtin_metric_class(class_name)
+    if accepted is not None:
+        supported = targets_for(accepted, compares=compares)
+        reads_turns = bool({"input", "output"} & set(accepted))
+        default = TargetKind.TURN if reads_turns else TargetKind.RUN
+    elif cls is not None:
+        supported = supported_targets(cls, compares=compares)
+        default = default_target(cls)
+    else:
+        supported = targets_for(("input", "output", "trace"), compares=compares)
+        default = TargetKind.TURN
+    return supported, default if default in supported else None
+
+
 def check_metric_config(
     class_name: Optional[str],
     config: Optional[Dict[str, Any]],
     *,
     ground_truth_required: bool = False,
     accepted: Optional[List[str]] = None,
+    default_target: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """Refuse settings the metric's class would refuse when the metric runs (ValueError).
 
     ``config["target"]`` says what the metric judges; the other keys are the class's own
-    settings. The targets a metric can take come from its class, from ``accepted`` (the
-    parameters of an SDK metric's function), or else are a judge's.
+    settings. With ``default_target``, a config without a target gets the metric's default.
     """
-    if config is None:
+    if config is None and not default_target:
         return config
     try:
-        from rhesis.sdk.metrics.targets import Target, check_target, supported_targets, targets_for
+        from rhesis.sdk.metrics.targets import Target, check_target
     except ImportError:  # a core install, which runs no native metric
         return config
 
-    cls = _metric_class(class_name)
-    settings = {k: v for k, v in config.items() if k != "target"}
+    cls = builtin_metric_class(class_name)
+    settings = {k: v for k, v in (config or {}).items() if k != "target"}
     if hasattr(cls, "validate_config"):
         settings = cls.validate_config(settings)
-    if config.get("target") is None:
-        return settings
-    compares = ("response",) if ground_truth_required else ()
-    if accepted is not None:
-        supported = targets_for(accepted, compares=compares)
-    elif cls is not None:
-        supported = supported_targets(cls, compares=compares)
-    else:
-        supported = targets_for(("input", "output", "trace"), compares=compares)
+    supported, default = metric_targets(
+        class_name, ground_truth_required=ground_truth_required, accepted=accepted
+    )
+    if (config or {}).get("target") is None:
+        if default_target and default is not None:
+            return {**settings, "target": {"on": default.value}}
+        return settings if config is not None else None
     try:
         target = check_target(cls, Target.coerce(config["target"]), supported)
     except ValidationError as e:
@@ -128,7 +151,8 @@ def check_metric_config(
 
 def check_updated_config(update: "MetricUpdate", stored: Any) -> Optional[Dict[str, Any]]:
     """``check_metric_config`` for an update, reading what it doesn't send from the stored
-    metric."""
+    metric. A config sent without a target gets the metric's default, since the whole config
+    is replaced."""
 
     def current(field: str) -> Any:
         value = getattr(update, field)
@@ -140,11 +164,27 @@ def check_updated_config(update: "MetricUpdate", stored: Any) -> Optional[Dict[s
         update.config,
         ground_truth_required=bool(current("ground_truth_required")),
         accepted=accepted_params(current("evaluation_examples")),
+        default_target=update.config is not None,
     )
 
 
 class _ChecksConfig:
     """Checked on writes only: a stored row is read back whatever it holds."""
+
+    #: Whether a metric sent without a target is stored with its default one.
+    fills_default_target: ClassVar[bool] = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def refuse_metric_scope(cls, data: Any) -> Any:
+        # Ignoring it would quietly turn a Multi-Turn metric into one judging each turn.
+        if isinstance(data, dict) and "metric_scope" in data:
+            raise ValueError(
+                'metric_scope was replaced by the target: send config {"target": {"on": '
+                '"turn"}} for a metric judging each turn, or "conversation" for one judging '
+                "the whole conversation. Upgrade rhesis-sdk if it sent this."
+            )
+        return data
 
     @model_validator(mode="after")
     def validate_config(self):
@@ -153,17 +193,14 @@ class _ChecksConfig:
             self.config,
             ground_truth_required=bool(self.ground_truth_required),
             accepted=accepted_params(self.evaluation_examples),
+            default_target=self.fills_default_target,
         )
         return self
 
 
 class MetricCreate(_ChecksConfig, MetricBase):
-    # Required on create, unlike the rest of MetricBase. A metric with no scope is
-    # filtered out by every execution path, so accepting one silently creates dead
-    # configuration that never evaluates and reports no error. Enforced here rather
-    # than only in the UI so the SDK, MCP, and the Architect agent are covered too;
-    # the metric table also carries a CHECK constraint as a backstop.
-    metric_scope: List[MetricScope] = Field(..., min_length=1)
+    # Stored, so every reader (the response, the UI, MCP) sees what the metric judges.
+    fills_default_target: ClassVar[bool] = True
 
     @model_validator(mode="after")
     def validate_score_type_fields(self) -> "MetricCreate":
@@ -191,14 +228,6 @@ class MetricUpdate(_ChecksConfig, MetricBase):
     score_type: Optional[ScoreType] = None
     threshold_operator: Optional[ThresholdOperator] = None
 
-    @field_validator("metric_scope")
-    @classmethod
-    def scope_cannot_be_emptied(cls, v: Optional[List[MetricScope]]) -> Optional[List[MetricScope]]:
-        """None means "not being updated"; an empty list would disable the metric."""
-        if v is not None and len(v) == 0:
-            raise ValueError("metric_scope cannot be empty")
-        return v
-
 
 class Metric(MetricBase, ServerIdentity):
     id: UUID4
@@ -206,8 +235,32 @@ class Metric(MetricBase, ServerIdentity):
     # Override string fields with relationship objects for response
     backend_type: Optional[TypeLookup] = None
     metric_type: Optional[TypeLookup] = None
+    # The targets the metric can take, for an editor to offer; None on a core install.
+    supported_targets: Optional[List[str]] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode="after")
+    def _read_supported_targets(self):
+        try:
+            supported, _ = metric_targets(
+                self.class_name,
+                ground_truth_required=bool(self.ground_truth_required),
+                accepted=accepted_params(self.evaluation_examples),
+            )
+        except ImportError:
+            return self
+        self.supported_targets = [kind.value for kind in supported]
+        return self
+
+
+class TargetChoice(BaseModel):
+    """One target from the SDK's registry, as an editor offers it."""
+
+    on: str
+    label: str
+    description: str
+    per_span: bool
 
 
 class ModelReference(Base, ServerIdentity):

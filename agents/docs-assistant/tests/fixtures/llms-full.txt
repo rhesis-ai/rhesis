@@ -6,42 +6,154 @@
 > For a curated index with links, see https://docs.rhesis.ai/llms.txt
 
 ---
-url: https://docs.rhesis.ai/docs/metrics/metric-scope
-title: Metric scope
+url: https://docs.rhesis.ai/docs/metrics/targets
+title: Metric Targets
 ---
-# Metric scope
+# Metric Targets
 
-Every metric declares **`metric_scope`**. Every test set declares **`test_type`**. At run time the platform keeps only metrics whose scope includes the test's type. **Mismatches are silently dropped** — no error, empty scores.
+A metric's **target** says what it judges in a test's trace: each turn, the whole conversation, the whole run, or each span of one kind, such as every tool call or every retrieval. The target also decides which tests the metric runs on.
 
-> Set `metric_scope` when creating metrics and check scope coverage in your plan before generating test sets.
+## Choices
 
-> See also the [Metric Scope](/glossary/metric-scope) glossary entry and [Architect planning](/docs/architect/planning).
+| `on` | Label | Judges | The metric reads |
+| --- | --- | --- | --- |
+| `turn` | Each turn | Each turn: the test's one response, or every turn of a conversation on its own | the turn's input and output, and its trace |
+| `conversation` | The conversation | The whole conversation, once | the conversation's trace |
+| `run` | The whole run | The whole trace, once | the trace |
+| `tool_call` | Each tool call | Each tool call | the arguments as input, the result as output |
+| `retrieval` | Each retrieval | Each retrieval | the query as input, the documents found as output |
+| `model_call` | Each model call | Each model call | the prompt as input, the completion as output |
+| `agent` | Each agent | Each agent run | the task as input, the final answer as output |
+| `guardrail` | Each guardrail check | Each guardrail check | what it checked as input, its decision as output |
 
-## When to use `["Single-Turn"]`
+A metric that reads the trace gets the whole trace for a span, and the turn's own trace for a turn.
 
-One prompt → one reply. Use for refusals, one-shot format rules, factual checks, adversarial probes.
+A span or a turn is held to the test's goal, instructions and restrictions. A span is not held to the test's expected response or expected tool calls, which describe the whole response; a turn of a conversation is not held to the conversation's expected tool calls. So a metric that needs a reference answer can't take a per-span target, and the [Tool Call Trajectory](/docs/metrics/tool-calls) metric takes only `conversation` or `run`.
 
-Pair with a **Single-Turn** test set.
+Otherwise a metric can take the targets that fit what it reads. A judge reads input and output, so it can judge turns and any kind of span. A [code metric](/docs/metrics/code-metrics) that declares only `trace` can judge turns, the conversation or the whole run. A conversational metric judges the conversation. A target the metric can't take is refused when it is saved, with the choices it can take. Each metric the API returns lists its `supported_targets`, and `GET /metrics/targets` lists every choice with its label.
 
-## When to use `["Multi-Turn"]`
+The per-span targets take two refinements:
 
-Full transcript required — context retention, multi-step threads, session goals.
+- `name`: only spans with this tool, agent or model name, such as `"issue_refund"`.
+- `within`: only spans inside the agent with this name.
 
-Pair with a **Multi-Turn** test set; `generation_prompt` describes the **thread goal**.
+## Default target
 
-## When to use both
+The target is optional. A metric created without one gets its default, which is stored and returned like any other target:
 
-Rare — same rubric for one reply or full transcript. Prefer two metrics and two test sets when probes differ.
+| Metric | Default |
+| --- | --- |
+| Judges, and other metrics that read input and output | `turn` |
+| Conversational Judge, Goal Achievement, and the DeepEval conversational metrics | `conversation` |
+| Tool Call Trajectory, and code metrics that read only `trace` | `run` |
 
-## Planning checklist
+## Which tests a metric runs on
 
-1. `metric_scope` on every metric (copy from `list_metrics` when reusing).
-2. One `test_type` per test set.
-3. Requirements listed on each test set.
-4. Coverage: every requirement in a set has a linked metric whose scope includes that set's `test_type`.
-5. Split guardrails (Single-Turn) and retention (Multi-Turn) into separate sets when needed.
+- A `conversation` target runs only on multi-turn tests. It never runs on single-turn tests.
+- Every other target runs on single-turn and multi-turn tests alike.
+- On a multi-turn test, `turn` judges every turn of the conversation on its own. The metric fails when a turn fails, and the result reads "2 of 3 turns passed".
+- A metric that needs a reference answer (`ground_truth_required`) is left out of multi-turn tests, since a conversation has no reference answer. For the same reason it can't take the `conversation` target.
 
-→ [Spec workflow](/docs/agent-skill/spec) · [Agent reference](/docs/agent-skill/for-agents) (plan table templates)
+So every requirement on a Single-Turn test set needs at least one linked metric whose target isn't `conversation`, or its tests have nothing to judge them.
+
+On live traces, the target decides when the metric runs. See [Trace Metrics](/docs/metrics/trace-metrics).
+
+## Combining the verdicts
+
+A per-span target runs the metric once per matching span, then combines the verdicts with `aggregate`:
+
+| `aggregate` | Passes when | Score |
+| --- | --- | --- |
+| `all` (default) | every span passes | the first failing span's, else the first span's |
+| `any` | at least one span passes | the first passing span's, else the first span's |
+| `share` | at least `min_share` (0 to 1) of the spans pass | the share that passed |
+
+The result reads "2 of 3 tool calls passed" and, when the metric fails, names the first span that failed, with its reason. Each span's score and verdict are listed under `spans`. A span the metric gave no verdict is left out of the count; when no span has one, the result is inconclusive. At most 25 spans are judged per metric; the result says when there were more. Turns on a conversation combine the same way.
+
+## When nothing matches
+
+When the trace has no span the target names, the metric is **not applicable** to that test. The result says why ("No tool calls named `issue_refund` were recorded.") and what would report them. It doesn't count towards the test's verdict. A test whose metrics are all not applicable is Inconclusive.
+
+What an endpoint reports decides which targets can match:
+
+- **SDK endpoints** report every span they trace.
+- **REST and WebSocket endpoints** report tool calls and retrievals through the `tool_calls` and `context` fields of their [response mapping](/docs/endpoints/response-mapping), or every span when the service sends its own traces. Map each tool call's `output` too: a tool call reported without one is judged with an empty result. A reported retrieval has no query of its own, so the turn's input is used as its query.
+
+## Setting a target
+
+A metric keeps its target in its `config`, as `config.target`. Send it when you create the metric, or change it later through the API or the MCP `update_metric` tool:
+
+```bash
+curl -X PUT "$RHESIS_BASE_URL/metrics/$METRIC_ID" \\
+  -H "Authorization: Bearer $RHESIS_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"config": {"target": {"on": "tool_call", "name": "issue_refund"}}}'
+```
+
+The whole `config` is replaced, so send a built-in metric's own settings, such as the [Tool Call Trajectory](/docs/metrics/tool-calls) metric's `match`, along with the target.
+
+To list metrics by target, pass `target` with one or more choices: `GET /metrics/?target=turn,conversation`.
+
+In the SDK, a judge takes `target` in its constructor, and `push()` and `pull()` carry it in the metric's `config`:
+
+```python
+from rhesis.sdk.metrics import NumericJudge
+
+coherence = NumericJudge(
+    name="conversation_coherence",
+    evaluation_prompt="Rate the overall coherence of this conversation.",
+    min_score=0,
+    max_score=10,
+    threshold=6,
+    target="conversation",
+)
+coherence.push()
+```
+
+A per-span target is a dict with `on` and, when needed, `name`, `within` and `aggregate`, as in the `targets.py` example below.
+
+## Trying a target locally
+
+Pass `target` to `evaluate()` with a trace, or with the parts a trace is built from:
+
+```python
+from rhesis.sdk.metrics import NumericJudge
+
+judge = NumericJudge(
+    name="refund_policy",
+    evaluation_prompt="The refund matches the policy: at most one refund per order.",
+    min_score=0,
+    max_score=1,
+    threshold=1,
+)
+result = judge.evaluate(
+    input="Refund order 42",
+    output="Refunded.",
+    tool_calls=[{"name": "issue_refund", "arguments": {"order": 42}, "output": "ok"}],
+    target={"on": "tool_call", "name": "issue_refund"},
+)
+print(result.details["reason"])
+```
+
+A stored trace works the same way: `judge.evaluate(trace=Traces.pull(trace_id), target="retrieval")`.
+
+## Migrating from metric scope
+
+Targets replace the metric scope (`metric_scope`, a list of `Single-Turn` and `Multi-Turn`). The scope is gone from the API, the SDK (`MetricScope` and `MetricConfig.metric_scope`), the MCP tools, the app and Architect. A request that still sends `metric_scope`, such as one from an older SDK version, gets a 422 error. Upgrade the SDK and send `target` instead.
+
+Stored metrics were given a target from their class and scope:
+
+| Stored metric | Target |
+| --- | --- |
+| A conversational metric, or a metric scoped to Multi-Turn alone | `conversation` |
+| A metric scoped to both, Tool Call Trajectory, or a code metric that reads only the trace | `run` |
+| Every other metric | `turn` |
+
+A metric scoped to both keeps doing what it did: `run` judges a single-turn test's one response, and a multi-turn test once, on its goal and whole transcript. This covers the built-in OWASP metrics, which look for attacks that build up over several turns. To judge each turn of a conversation on its own instead, set the target to `turn`.
+
+A metric that can't read the whole trace got `turn` whatever its scope. That is one that reads only a turn's input and output (Garak detectors, the single-turn DeepEval metrics, code metrics that don't read the trace), or always compares with a reference answer (DeepEval's contextual precision and recall). A metric that was given `conversation` no longer requires a reference answer: it was scored against an empty one before.
+
+Single-turn metrics used to be skipped on multi-turn tests. With a `turn` target they now run on every turn of a multi-turn test.
 
 ---
 url: https://docs.rhesis.ai/docs/endpoints/response-mapping
@@ -555,47 +667,60 @@ The Rhesis SDK evaluates LLM applications with built-in metrics from several fra
 - **[Single-turn metrics](/sdk/metrics/single-turn)** evaluate an individual exchange between a user input and a system output — RAG quality, response quality, safety, and custom checks.
 - **[Conversational metrics](/sdk/metrics/conversational)** evaluate interactions across multiple turns — coherence, goal achievement, role adherence, knowledge retention, and tool usage.
 
-## Metric Scopes
+## What a metric receives
 
-Every metric has a `metric_scope` that controls where and when it runs. The three scope values are:
+Every metric judges what happened against what should have happened. Its `evaluate()` takes up to four arguments:
 
-- **`Single-Turn`** — runs during single-turn test evaluation and per-turn trace evaluation
-- **`Multi-Turn`** — runs during multi-turn test evaluation and conversation-level trace evaluation
-- **`Trace`** — enables automatic evaluation against live traces (see below)
+| Argument | What it is |
+| --- | --- |
+| `input` | What the endpoint was sent |
+| `output` | What it answered |
+| `trace` | Everything the endpoint did to answer, as a `rhesis.sdk.entities.Trace`: `trace.context`, `trace.tool_calls`, `trace.metadata`, and `trace.messages()` for a conversation |
+| `expectations` | What should have happened: `response` (the reference answer), `goal`, `instructions`, `restrictions`, `contract`. A string is read as the reference answer |
 
-A metric can have any combination of these scopes. Scopes are additive: including more values makes the metric eligible in more contexts.
-
-### Default Scopes by Metric Class
-
-| Metric Class | Default Scope | Notes |
-| --- | --- | --- |
-| `NumericJudge` | Single-Turn, Multi-Turn | See note below on multi-turn behavior |
-| `CategoricalJudge` | Single-Turn, Multi-Turn | See note below on multi-turn behavior |
-| `ConversationalJudge` | Single-Turn, Multi-Turn | Receives structured `ConversationHistory` |
-| `GoalAchievementJudge` | Single-Turn, Multi-Turn | Receives structured `ConversationHistory` |
-| `GarakDetectorMetric` | Single-Turn only | Operates on individual prompt/response pairs |
-
-> **How single-turn metrics work in multi-turn tests**: When a `NumericJudge` or `CategoricalJudge` is used in a multi-turn evaluation, the full conversation is serialized to plain text and passed as the `output` parameter. The metric evaluates the conversation as a single text blob. It is also passed the `conversation_history`, but only to return `relevant_turns`, the turns its verdict rests on. This means the evaluation quality depends entirely on the `evaluation_prompt` you write. For turn-aware evaluation (e.g., analyzing coherence between specific turns), use a `ConversationalJudge` instead, which receives the full structured conversation with individual turns.
-
-You can override the default scope when creating a metric:
+Locally you rarely build a trace yourself. Pass the parts you have, and the SDK builds the trace from them:
 
 ```python
-from rhesis.sdk.metrics import NumericJudge, MetricScope
+# A judge with a reference answer
+judge.evaluate(input="What is the capital of France?", output="Paris.", expectations="Paris")
 
-# Restrict a NumericJudge to single-turn only
+# A RAG check: the documents the answer should rest on
+faithfulness.evaluate(input=question, output=answer, context=documents)
+
+# Tool calls and metadata the response reported
+judge.evaluate(input=question, output=answer, tool_calls=calls, metadata={"latency_ms": 840})
+
+# A conversation, as a list of messages or a ConversationHistory
+goal_judge.evaluate(conversation=messages, expectations={"goal": "Book a flight to Paris"})
+```
+
+In a test run, the platform passes the trace of what the endpoint did and the expectations from the test. On production traces there are no expectations.
+
+## Targets
+
+A metric's `target` says what it judges in a trace: each turn, the whole conversation, the whole run, or each span of one kind, such as every tool call. It also decides which tests the metric runs on. A `conversation` target never runs on single-turn tests, and every other target runs on both kinds.
+
+Judges take `target` in their constructor. Without one, the metric gets its default: `turn` for `NumericJudge` and `CategoricalJudge`, `conversation` for `ConversationalJudge` and `GoalAchievementJudge`, and `run` for `ToolCallTrajectory`.
+
+```python
+from rhesis.sdk.metrics import NumericJudge
+
+# Judge the conversation as a whole instead of each turn
 metric = NumericJudge(
-    name="response_clarity",
-    evaluation_prompt="Rate how clear the response is.",
-    metric_scope=[MetricScope.SINGLE_TURN],
+    name="conversation_clarity",
+    evaluation_prompt="Rate how clear the assistant stays across the conversation.",
     min_score=0.0,
     max_score=10.0,
     threshold=7.0,
+    target="conversation",
 )
 ```
 
+`push()` and `pull()` carry the target in the metric's `config`. A per-span target is a dict with `on` and, when needed, `name`. See [Metric Targets](/docs/metrics/targets) for every choice, which tests each one runs on, and how to try a target locally with `evaluate(trace=..., target=...)`.
+
 ### Trace Evaluation
 
-Any metric can also evaluate live production traces. There is no separate scope for it: add the metric to a project's **Trace Metrics** in the project settings, and that project's traces are evaluated with it. `Single-Turn` metrics run after each turn, and `Multi-Turn` metrics run on the whole conversation once it goes quiet.
+Any metric can also evaluate live production traces. Add it to a project's **Trace Metrics** in the project settings, and that project's traces are evaluated with it. A metric whose target is `conversation` runs on the whole conversation once it goes quiet; every other metric runs after each turn.
 
 > For full details on how trace metrics evaluation works — including the two-phase pipeline, debounce timing, project configuration, and first-turn handling — see the [Trace Metrics](/docs/metrics/trace-metrics) documentation.
 
@@ -659,7 +784,7 @@ The generated fields follow the same metric schema used by custom judges:
 | --- | --- |
 | `score_type` | Must be `numeric` or `categorical`. |
 | `threshold_operator` | Used for numeric metrics; valid values include `=`, `<`, `>`, `<=`, `>=`, and `!=`. |
-| `metric_scope` | Can include `Single-Turn` and `Multi-Turn` depending on the intended evaluation context. |
+| `target` | `turn` or `conversation`, when the description says what the metric judges. Left out, the metric keeps its default. |
 
 ## Platform Integration
 

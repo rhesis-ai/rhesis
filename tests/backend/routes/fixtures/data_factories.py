@@ -47,15 +47,11 @@ def find_or_create_type_lookup_id(client, type_name: str, type_value: str) -> st
     # sort_order=asc: these rows are seeded once at org bootstrap (initial_data.json),
     # so they're among the oldest -- robust regardless of how many type_lookups
     # accumulate later in the same test, unlike relying on the default desc order.
-    existing = client.get(
-        "/type_lookups/", params={"limit": 100, "sort_order": "asc"}
-    ).json()
+    existing = client.get("/type_lookups/", params={"limit": 100, "sort_order": "asc"}).json()
     for row in existing:
         if row["type_name"] == type_name and row["type_value"] == type_value:
             return row["id"]
-    created = client.post(
-        "/type_lookups/", json={"type_name": type_name, "type_value": type_value}
-    )
+    created = client.post("/type_lookups/", json={"type_name": type_name, "type_value": type_value})
     return created.json()["id"]
 
 
@@ -343,7 +339,6 @@ class MetricDataFactory(BaseDataFactory):
             data.setdefault("threshold", 5)
         # Required on create and NOT NULL in the table: a metric with no scope is
         # never evaluated by any execution path.
-        data.setdefault("metric_scope", ["Single-Turn"])
         # Real metrics always have these set (crud/metric.py resolves the string to a
         # type_lookup row); leaving them unset here made every test metric's
         # metric_type_id/backend_type_id NULL, masking N+1s that only fire when populated.
@@ -355,9 +350,7 @@ class MetricDataFactory(BaseDataFactory):
     _add_score_type_fields = _add_required_fields
 
     @classmethod
-    def orm_data(
-        cls, db, organization_id, user_id, **overrides: Any
-    ) -> Dict[str, Any]:
+    def orm_data(cls, db, organization_id, user_id, **overrides: Any) -> Dict[str, Any]:
         """sample_data(), with metric_type/backend_type resolved to real
         metric_type_id/backend_type_id via type_lookup rows, and organization_id/
         user_id set to match -- ready to pass straight into models.Metric(**data).

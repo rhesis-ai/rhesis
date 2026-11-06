@@ -19,8 +19,10 @@ import functools
 import json
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from types import SimpleNamespace
+from typing import Any, Dict, List, Set, Tuple
 
+import sqlalchemy as sa
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import text
 from sqlalchemy.orm import Session, load_only
@@ -165,13 +167,14 @@ def _add_metric(
     session: Session,
     metric_item: Dict[str, Any],
     ids: Dict[str, Any],
-    has_config_column: bool,
+    columns: Set[str],
 ) -> Any:
     """Add one metric row from its definition and the ids it links to.
 
     Added directly rather than through get_or_create_entity: the caller has already ruled
     out an existing row by name, and that lookup selects every column of the current
-    model, including ones later revisions add.
+    model, including ones later revisions add. ``columns`` are the metric table's columns
+    at the revision being run.
     """
     metric_data = {
         "name": metric_item["name"],
@@ -192,16 +195,33 @@ def _add_metric(
         "reference_score": metric_item.get("reference_score"),
         "categories": metric_item.get("categories"),
         "passing_categories": metric_item.get("passing_categories"),
-        "metric_scope": metric_item.get("metric_scope"),
         **ids,
     }
     # Revisions from before metric.config existed sync too.
-    if metric_item.get("config") and has_config_column:
+    if metric_item.get("config") and "config" in columns:
         metric_data["config"] = metric_item["config"]
-    metric = models.Metric(**metric_data)
-    session.add(metric)
-    session.flush()
-    return metric
+    if "metric_scope" not in columns:
+        metric = models.Metric(**metric_data)
+        session.add(metric)
+        session.flush()
+        return metric
+
+    # Revisions from before metric_scope was dropped require it, and the model no longer
+    # has it, so the row is inserted into the table as it is at that revision.
+    metric_data["metric_scope"] = metric_item.get("metric_scope") or _scope_of(metric_item)
+    metric_data["nano_id"] = models.Metric.nano_id.default.arg(None)
+    table = sa.Table("metric", sa.MetaData(), autoload_with=session.connection())
+    inserted = session.execute(
+        table.insert().values(**{k: v for k, v in metric_data.items() if k in columns})
+    )
+    metric_id = inserted.inserted_primary_key[0]
+    return SimpleNamespace(id=metric_id)
+
+
+def _scope_of(metric_item: Dict[str, Any]) -> List[str]:
+    """The scope a definition with a target had before targets replaced scopes."""
+    target = (metric_item.get("config") or {}).get("target") or {}
+    return ["Multi-Turn"] if target.get("on") == "conversation" else ["Single-Turn"]
 
 
 def sync_metrics_to_organizations(
@@ -275,7 +295,7 @@ def sync_metrics_to_organizations(
             print(f"   Found {len(all_metrics)} metric definitions")
 
         org_rows = _list_organizations_with_owner(session, verbose=verbose)
-        has_config_column = "config" in {
+        columns = {
             column["name"] for column in sa_inspect(session.connection()).get_columns("metric")
         }
 
@@ -358,7 +378,7 @@ def sync_metrics_to_organizations(
                             "user_id": uuid.UUID(user_id),
                             "owner_id": uuid.UUID(user_id),
                         },
-                        has_config_column,
+                        columns,
                     )
 
                     # Process requirement associations. Literal keys, not app.constants'

@@ -136,7 +136,6 @@ def metric_model_to_config(metric: MetricModel) -> MetricConfig:
         "score_type",
         "ground_truth_required",
         "context_required",
-        "metric_scope",
     ]
     config = {field: getattr(metric, field, None) for field in common_fields}
     config["backend"] = metric.backend_type.type_value if metric.backend_type else "rhesis"

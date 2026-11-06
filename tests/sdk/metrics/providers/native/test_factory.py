@@ -62,7 +62,6 @@ class TestFactoryCreateNumericJudge:
             name="custom_numeric",
             description="Custom numeric judge",
             metric_type="rag",
-            metric_scope=["Single-Turn"],
             model="gemini",
         )
         assert isinstance(metric, NumericJudge)
@@ -71,35 +70,17 @@ class TestFactoryCreateNumericJudge:
         assert metric.min_score == 0.0
         assert metric.max_score == 10.0
         assert metric.threshold == 5.0
-        assert metric.metric_scope == ["Single-Turn"]
 
-    def test_create_numeric_judge_with_multi_turn_scope(self, factory):
-        """Test creating NumericJudge with Multi-Turn scope."""
+    def test_create_numeric_judge_with_a_target(self, factory):
         metric = factory.create(
             "NumericJudge",
             evaluation_prompt="Test prompt",
-            name="multi_turn_numeric",
-            metric_scope=["Multi-Turn"],
+            name="conversation_numeric",
+            target="conversation",
             model="gemini",
         )
         assert isinstance(metric, NumericJudge)
-        assert metric.name == "multi_turn_numeric"
-        assert metric.metric_scope == ["Multi-Turn"]
-
-    def test_create_numeric_judge_with_both_scopes(self, factory):
-        """Test creating NumericJudge with both Single-Turn and Multi-Turn scopes."""
-        metric = factory.create(
-            "NumericJudge",
-            evaluation_prompt="Test prompt",
-            name="both_scopes_numeric",
-            metric_scope=["Single-Turn", "Multi-Turn"],
-            model="gemini",
-        )
-        assert isinstance(metric, NumericJudge)
-        assert metric.name == "both_scopes_numeric"
-        assert len(metric.metric_scope) == 2
-        assert "Single-Turn" in metric.metric_scope
-        assert "Multi-Turn" in metric.metric_scope
+        assert metric.target == {"on": "conversation"}
 
     def test_create_numeric_judge_missing_required_param(self, factory):
         """Test that creating NumericJudge without required params raises error."""

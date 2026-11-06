@@ -58,7 +58,6 @@ class TestDatabaseIntegration:
             threshold_operator=">=",
             backend_type_id=backend_type.id,
             metric_type_id=metric_type.id,
-            metric_scope=["Single-Turn"],
         )
 
         metric = create_metric(
@@ -127,7 +126,6 @@ class TestDatabaseIntegration:
         )
 
         metric = models.Metric(
-            metric_scope=["Single-Turn"],
             name="Metric to Delete",
             class_name="RhesisPromptMetric",
             score_type="numeric",
@@ -173,7 +171,6 @@ class TestDatabaseIntegration:
         )
 
         metric = models.Metric(
-            metric_scope=["Single-Turn"],
             name="Metric with Model",
             class_name="RhesisPromptMetric",
             score_type="numeric",

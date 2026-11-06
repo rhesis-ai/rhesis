@@ -39,8 +39,8 @@ import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
   MetricDetail,
+  MetricTargetChoice,
   ScoreType,
-  MetricScope,
   ThresholdOperator,
 } from '@/utils/api-client/interfaces/metric';
 import { Model } from '@/utils/api-client/interfaces/model';
@@ -54,7 +54,17 @@ import {
   formatEvaluationSteps,
   parseEvaluationSteps,
 } from '@/utils/evaluation-steps';
-import { TEST_TYPES } from '@/constants/test-types';
+import { useMetricTargets } from '@/hooks/useLookups';
+import {
+  editedTarget,
+  formatMetricTarget,
+  getMetricTarget,
+  getMetricTargetIcon,
+  offeredTargets,
+} from '@/utils/metric-targets';
+import MetricTargetPicker, {
+  type MetricTargetValue,
+} from '../components/MetricTargetPicker';
 import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -170,8 +180,10 @@ interface EditData {
   threshold?: number;
   threshold_operator?: ThresholdOperator;
   explanation?: string;
-  metric_scope?: MetricScope[];
+  target?: MetricTargetValue;
 }
+
+const NO_TARGETS: MetricTargetChoice[] = [];
 
 interface StepWithId {
   id: string;
@@ -240,6 +252,13 @@ export function MetricDetailView({
     !!judgeModel &&
     isDecisionModel(judgeModel) &&
     (editData.score_type || metric?.score_type) !== SCORE_TYPES.CATEGORICAL;
+  const { data: allTargets = NO_TARGETS } = useMetricTargets();
+  const supportedTargets = metric?.supported_targets;
+  const targetChoices = React.useMemo(
+    () => offeredTargets(allTargets, { supported: supportedTargets }),
+    [allTargets, supportedTargets]
+  );
+  const storedTarget = metric ? getMetricTarget(metric) : null;
   const [isSaving, setIsSaving] = useState(false);
   const dataFetchedRef = useRef(initialMetric !== undefined);
   // The reset effects below must not fire for the values we mounted with, or
@@ -461,13 +480,14 @@ export function MetricDetailView({
         return true;
       }
 
-      const currentScope = editData.metric_scope || metric.metric_scope || [];
-      const originalScope = metric.metric_scope || [];
-      if (
-        currentScope.length !== originalScope.length ||
-        !currentScope.every(scope => originalScope.includes(scope))
-      ) {
-        return true;
+      if (editData.target) {
+        const stored = getMetricTarget(metric);
+        if (
+          editData.target.on !== stored?.on ||
+          editData.target.name.trim() !== (stored?.name ?? '')
+        ) {
+          return true;
+        }
       }
     }
 
@@ -657,20 +677,6 @@ export function MetricDetailView({
   const handleConfirmEdit = React.useCallback(async () => {
     if (!isAuthenticated(status) || !metric) return;
 
-    // Validate metric scope - at least one must be selected
-    const currentMetricScope =
-      editData.metric_scope || metric.metric_scope || [];
-    if (currentMetricScope.length === 0) {
-      notifications.show(
-        'Please select at least one metric scope (Single-Turn or Multi-Turn)',
-        {
-          severity: 'error',
-          autoHideDuration: 4000,
-        }
-      );
-      return;
-    }
-
     if (judgeModelMismatch && judgeModel) {
       notifications.show(
         `${judgeModel.name} can only judge categorical metrics. Pick a different evaluation model first.`,
@@ -728,7 +734,17 @@ export function MetricDetailView({
         ...(editData.threshold_operator && {
           threshold_operator: editData.threshold_operator,
         }),
-        ...(editData.metric_scope && { metric_scope: editData.metric_scope }),
+        // A PUT replaces the whole config, so the class settings go back too.
+        ...(editData.target && {
+          config: {
+            ...(metric.config ?? {}),
+            target: editedTarget(
+              getMetricTarget(metric),
+              editData.target,
+              allTargets
+            ),
+          },
+        }),
       };
 
       // Handle evaluation steps
@@ -779,6 +795,7 @@ export function MetricDetailView({
     status,
     judgeModelMismatch,
     judgeModel,
+    allTargets,
   ]);
 
   const addStep = React.useCallback(() => {
@@ -825,7 +842,7 @@ export function MetricDetailView({
         threshold_operator: metric.threshold_operator,
         explanation: metric.explanation || '',
         ground_truth_required: metric.ground_truth_required,
-        metric_scope: metric.metric_scope,
+        config: metric.config,
         metric_type_id: metric.metric_type?.id as UUID,
         backend_type_id: metric.backend_type?.id as UUID,
         model_id: metric.model_id,
@@ -1542,83 +1559,31 @@ export function MetricDetailView({
               </>
             )}
 
-            <InfoRow label="Metric Scope">
-              {isEditing === 'configuration' ? (
-                <Box>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 1 }}
-                  >
-                    Select which test types this metric applies to (at least one
-                    required):
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {(
-                      [
-                        TEST_TYPES.SINGLE_TURN,
-                        TEST_TYPES.MULTI_TURN,
-                      ] as MetricScope[]
-                    ).map(scope => {
-                      const currentScope =
-                        editData.metric_scope || metric.metric_scope || [];
-                      const isSelected = currentScope.includes(scope);
-
-                      return (
-                        <Chip
-                          key={scope}
-                          label={scope}
-                          clickable
-                          color={isSelected ? 'primary' : 'default'}
-                          variant={isSelected ? 'filled' : 'outlined'}
-                          onClick={() => {
-                            const newScope = isSelected
-                              ? currentScope.filter(s => s !== scope)
-                              : [...currentScope, scope];
-                            setEditData(prev => ({
-                              ...prev,
-                              metric_scope: newScope as MetricScope[],
-                            }));
-                          }}
-                          sx={{
-                            '&:hover': {
-                              backgroundColor: isSelected
-                                ? 'primary.dark'
-                                : 'action.hover',
-                            },
-                          }}
-                        />
-                      );
-                    })}
-                  </Box>
-                </Box>
+            <InfoRow label="Judges">
+              {isEditing === 'configuration' && targetChoices.length > 0 ? (
+                <MetricTargetPicker
+                  choices={targetChoices}
+                  value={
+                    editData.target ?? {
+                      on: storedTarget?.on ?? '',
+                      name: storedTarget?.name ?? '',
+                    }
+                  }
+                  onChange={target =>
+                    setEditData(prev => ({ ...prev, target }))
+                  }
+                />
+              ) : storedTarget ? (
+                <Chip
+                  icon={getMetricTargetIcon(storedTarget.on)}
+                  label={formatMetricTarget(storedTarget, allTargets)}
+                  color="primary"
+                  size="small"
+                />
               ) : (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {metric.metric_scope && metric.metric_scope.length > 0 ? (
-                    metric.metric_scope.map(scope => (
-                      <Typography
-                        key={scope}
-                        sx={{
-                          bgcolor: 'primary.main',
-                          color: 'primary.contrastText',
-                          px: 1.5,
-                          py: 0.5,
-                          borderRadius: theme =>
-                            theme.shape.borderRadius * 0.25,
-                          fontSize:
-                            theme?.typography?.caption?.fontSize || '0.75rem',
-                          fontWeight: 'medium',
-                        }}
-                      >
-                        {scope}
-                      </Typography>
-                    ))
-                  ) : (
-                    <Typography variant="body1" color="text.secondary">
-                      No scope defined
-                    </Typography>
-                  )}
-                </Box>
+                <Typography variant="body1" color="text.secondary">
+                  No target set
+                </Typography>
               )}
             </InfoRow>
 
