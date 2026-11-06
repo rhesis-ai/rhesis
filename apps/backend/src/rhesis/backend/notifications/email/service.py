@@ -413,6 +413,7 @@ class EmailService:
         return self.send_email(
             template=EmailTemplate.EMAIL_VERIFICATION,
             recipient_email=recipient_email,
+            subject="Verify your email - Rhesis AI",
             template_variables={
                 "recipient_name": recipient_name or "",
                 "verification_url": verification_url,
@@ -436,6 +437,7 @@ class EmailService:
         return self.send_email(
             template=EmailTemplate.PASSWORD_RESET,
             recipient_email=recipient_email,
+            subject="Reset your password - Rhesis AI",
             template_variables={
                 "recipient_name": recipient_name or "",
                 "reset_url": reset_url,
@@ -460,6 +462,7 @@ class EmailService:
         return self.send_email(
             template=EmailTemplate.MIGRATION_PASSWORD_SETUP,
             recipient_email=recipient_email,
+            subject="Set up your new password - Rhesis AI",
             template_variables={
                 "recipient_name": recipient_name or "",
                 "reset_url": reset_url,
