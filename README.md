@@ -33,13 +33,15 @@
 </p>
 
 <p align="center">
+  <a href="#get-started"><strong>Quickstart</strong></a> ·
+  <a href="https://youtu.be/sCfhabhk6ww"><strong>Connect your agent (video)</strong></a> ·
   <a href="https://rhesis.ai"><strong>Website</strong></a> ·
   <a href="https://docs.rhesis.ai"><strong>Docs</strong></a> ·
   <a href="https://discord.rhesis.ai"><strong>Discord</strong></a> ·
   <a href="https://github.com/rhesis-ai/rhesis/blob/main/CHANGELOG.md"><strong>Changelog</strong></a>
 </p>
 
-<h3 align="center">Structured feedback and evals for AI agents.<br>
+<h3 align="center">The open-source collaboration layer for teams building AI agents.<br>
 <strong>Open source · SaaS or self-hosted · UI, SDK, and MCP</strong></h3>
 
 <p align="center">
@@ -58,6 +60,13 @@ can act on.
 - **One pass/fail bar** — The whole team reviews against the same tests, and you measure against them
 - **UI for reviewers, SDK and MCP for builders** — Same data, three ways in
 - **From feedback to CI** — Recurring feedback becomes tests and metrics that run on every change
+
+<p align="center">
+  <img src=".github/images/GH-collaboration-layer.png"
+       loading="lazy"
+       width="1920"
+       alt="One workspace for the whole team: knowledge, requirements, and real conversations feed tests and simulations against your agent; metrics and expert verdicts evaluate it; a release gate in CI ships only when the bar holds; traces, cost, and experiments feed back into the loop">
+</p>
 
 ---
 
@@ -106,10 +115,13 @@ evals that run on every change.
 
 Nobody can review every case by hand. Once the first feedback is in, you can grow coverage from it:
 
+- **[Architect](https://docs.rhesis.ai/docs/architect)** — describe what to test, or hand it a PRD, and it explores your agent, proposes a plan, and builds the requirements, metrics, and test sets once you approve. It runs them and charts the results for you
 - **Test generation** from your requirements, a PRD, or an uploaded file
 - **Conversation simulation** with Penelope; **adversarial probing** with Polyphemus and [garak](https://github.com/leondz/garak)
 - **60+ metrics** — DeepEval, garak, and custom LLM-as-Judge evaluators
-- **Traces** linked to test results via OpenTelemetry
+- **[Requirement coverage](https://docs.rhesis.ai/docs/requirements)** — results roll up by requirement, so you see which expectations pass, which fail, and in which conversations
+- **[Production tracing](https://docs.rhesis.ai/docs/tracing)** — OpenTelemetry, with zero-config auto-instrumentation for LangChain, LangGraph, Microsoft Agent Framework, Pydantic AI, Google ADK, and Haystack. Every step your agent took, with latency, tokens, and cost; experts can annotate traces just like test results
+- **[Experiments](https://docs.rhesis.ai/docs/experiments)** — change one thing (model, prompt, retrieval), run it against the same test set, and compare quality and cost before you promote it
 
 Generated tests are only as good as the requirements behind them. Instead of retyping a spec into a
 prompt, connect the tools your requirements already live in (Notion, GitHub, Jira, Confluence) and
@@ -192,9 +204,8 @@ See the [skills README](skills/rhesis/README.md).
 Pull test runs, results, and the reviews attached to them from Python, or hit the API directly from
 CI in any language: [OpenAPI spec](https://api.rhesis.ai/docs).
 
-> Tracing (OpenTelemetry) and LLM providers for synthesis and judges are documented separately. See
-> [Tracing](https://docs.rhesis.ai/docs/tracing) and [Models](https://docs.rhesis.ai/sdk/models).
-> Neither is how you connect the agent under test.
+> The same SDK also carries [tracing](https://docs.rhesis.ai/docs/tracing). LLM providers for
+> test generation and judges are configured separately; see [Models](https://docs.rhesis.ai/sdk/models).
 
 ---
 
