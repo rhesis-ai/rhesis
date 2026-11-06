@@ -129,10 +129,10 @@ Rhesis writes tests from the real thing. See [Tools](https://docs.rhesis.ai/docs
 
 <p align="center">
   <a href="https://rhesis.ai/?video=open" target="_blank">
-    <img src=".github/images/GH_Short_Demo.png"
+    <img src=".github/images/GH-demo-video.jpg"
          loading="lazy"
          width="1920"
-         alt="Rhesis Platform Overview - Click to watch demo">
+         alt="Watch: how engineers and domain experts test AI agents together">
   </a>
 </p>
 
