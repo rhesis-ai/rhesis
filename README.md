@@ -124,12 +124,16 @@ Generated tests are only as good as the requirements behind them. Instead of ret
 prompt, connect the tools your requirements already live in (Notion, GitHub, Jira, Confluence) and
 Rhesis writes tests from the real thing. See [Tools](https://docs.rhesis.ai/docs/tools).
 
-| Use case | What you validate |
-|----------|-------------------|
-| **Conversational & support agents** | Role adherence, policy citation, escalation |
-| **RAG / document Q&A** | Faithfulness, grounding, retrieval quality |
-| **Tool-using & multi-agent systems** | Tool choice, goal completion, handoffs |
-| **Regulated / high-stakes domains** | Must and must-not behaviors your reviewers defined |
+### From what your experts know to what runs in CI
+
+| Who knows it | What they know | What Rhesis checks |
+|---|---|---|
+| **Legal** | "Bookings more than 24 h before departure are fully refundable." | The agent quotes the right refund terms for this booking's dates, across multi-turn conversations |
+| **Support lead** | "Business accounts always escalate to a named contact." | Escalation is offered on the business tier, never on the consumer tier, and the contact is named |
+| **Product** | "If the customer changes topic, the agent still finishes the cancellation." | Simulated users interrupt and rephrase; the agent keeps the booking reference and completes the task |
+| **Marketing** | "We never promise delivery dates." | Adversarial prompts try to get a promise out of it; the brand-voice metric flags any that work |
+
+None of these come from a metric library. Your team writes them once as requirements, and they run on every change.
 
 Details: [docs.rhesis.ai](https://docs.rhesis.ai)
 
