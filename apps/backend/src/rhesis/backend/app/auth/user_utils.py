@@ -68,7 +68,6 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
         raise TypeError(f"Expected AuthUser, got {type(auth_user)}")
 
     current_time = datetime.now(timezone.utc)
-    is_new_user = False
 
     # Normalize email for lookup (no DNS check on login)
     normalized_email = validate_and_normalize_email(auth_user.email)
@@ -115,48 +114,9 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
         last_login_at=current_time,
     )
     user = user_crud.create_user(db, user_data)
-    is_new_user = True
     mark_user_joined_if_needed(user, when=current_time)
 
-    # Send welcome email to new users
-    if is_new_user:
-        _send_welcome_email(user)
-
     return user
-
-
-def _send_welcome_email(user: User) -> None:
-    """
-    Send welcome email to a new user.
-
-    Args:
-        user: The newly created user
-    """
-    try:
-        from rhesis.backend.notifications.email.service import EmailService
-
-        email_service = EmailService()
-
-        if email_service.is_configured:
-            logger.info(f"Sending welcome email to new user: {user.email}")
-
-            success = email_service.send_welcome_email(
-                recipient_email=user.email,
-                recipient_name=user.name or user.given_name,
-            )
-
-            if success:
-                logger.info(f"Successfully sent welcome email to {user.email}")
-            else:
-                logger.warning(f"Failed to send welcome email to {user.email}")
-        else:
-            logger.info(f"Email service not configured, skipping welcome email for {user.email}")
-
-    except Exception as e:
-        # Log the error but don't fail user creation
-
-        logger.error(f"Error sending welcome email to {user.email}: {str(e)}")
-        logger.error(f"Error type: {type(e).__name__}")
 
 
 def _load_user_by_id(user_id) -> Optional[User]:
