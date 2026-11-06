@@ -72,9 +72,9 @@ can act on.
 
 ## How it works
 
-**1. Connect the agent you are building.** If it already serves a public REST endpoint, paste the
-URL and you are done. Otherwise, and for most projects, use the SDK connector: your process opens
-an outbound WebSocket, so the agent works from your laptop or your VPC with no public URL.
+**1. Connect the agent you are building.** A few lines of SDK code, or the URL of a REST
+endpoint. Works from your laptop or your VPC, no public URL needed. See
+[Connect your agent](#connect-your-agent) or [watch the walkthrough](https://youtu.be/sCfhabhk6ww).
 
 **2. Share the Rhesis link with your stakeholders.** Domain experts, product managers, and
 reviewers open it in a browser. Nothing to install, no code.
@@ -188,7 +188,7 @@ Feedback lands in Rhesis, but you do not have to leave your editor to act on it.
 
 ### MCP and skills
 
-Use Rhesis from MCP-capable clients (Cursor, Claude Code, and others): design suites, pull sets and
+Use Rhesis from MCP-capable clients (Cursor, Claude Code, and others): build test sets, pull
 results, trigger runs, and read the feedback in the tools you already work in. Install with the
 [skills](https://github.com/vercel-labs/skills) CLI:
 
@@ -226,7 +226,7 @@ git clone https://github.com/rhesis-ai/rhesis.git && cd rhesis && ./rh start
 
 **Commands:** `./rh logs` · `./rh stop` · `./rh restart` · `./rh delete`
 
-> This setup enables auto-login for local testing. For production self-hosting, see [Self-hosting docs](https://docs.rhesis.ai/self-hosting).
+> This setup enables auto-login for local testing. Do not expose it as-is; use one of the production options below.
 
 Once the platform is running, connect your agent with the SDK:
 
@@ -236,11 +236,17 @@ pip install rhesis-sdk
 
 See [sdk/README.md](sdk/README.md).
 
+### Deployment options
+
 | Option | Best for |
 |--------|----------|
-| **[Rhesis Cloud](https://app.rhesis.ai)** | Managed deployment |
+| **[Rhesis Cloud](https://app.rhesis.ai)** | Managed by us, nothing to run |
 | **Local Docker (`./rh start`)** | Development and trying the platform |
-| **Self-hosted** | Production deployment — [docs](https://docs.rhesis.ai/self-hosting) |
+| **[Docker Compose](https://docs.rhesis.ai/self-hosting/docker-compose)** | A single server you run yourself |
+| **[Kubernetes (Helm)](https://docs.rhesis.ai/self-hosting/kubernetes-helm)** | Production clusters. The [`charts/rhesis`](charts/rhesis) Helm chart, deployed with ArgoCD, the same setup we use for our own environments |
+| **[GCP (Terraform)](https://docs.rhesis.ai/self-hosting/gcp-terraform)** | Provisioning the GKE cluster and supporting services from scratch |
+
+All options: [Self-hosting docs](https://docs.rhesis.ai/self-hosting).
 
 ---
 
@@ -253,6 +259,8 @@ See [sdk/README.md](sdk/README.md).
 | [`apps/backend/`](apps/backend/README.md) | API and workers |
 | [`apps/frontend/`](apps/frontend/README.md) | Web UI |
 | [`docs/`](docs/README.md) | Documentation site source |
+| [`charts/rhesis/`](charts/rhesis) | Helm chart for Kubernetes deployments |
+| [`terraform/`](terraform) | Infrastructure as code for GCP |
 
 ---
 
