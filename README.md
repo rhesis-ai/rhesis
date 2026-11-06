@@ -118,7 +118,6 @@ Nobody can review every case by hand. Once the first feedback is in, you can gro
 - **[Architect](https://docs.rhesis.ai/docs/architect)** — describe what to test, or hand it a PRD, and it explores your agent, proposes a plan, and builds the requirements, metrics, and test sets once you approve. It runs them and charts the results for you
 - **Test generation** from your requirements, a PRD, or an uploaded file
 - **Conversation simulation** with Penelope; **adversarial probing** with Polyphemus and [garak](https://github.com/leondz/garak)
-- **60+ metrics** — DeepEval, garak, and custom LLM-as-Judge evaluators
 - **[Requirement coverage](https://docs.rhesis.ai/docs/requirements)** — results roll up by requirement, so you see which expectations pass, which fail, and in which conversations
 - **[Production tracing](https://docs.rhesis.ai/docs/tracing)** — OpenTelemetry, with zero-config auto-instrumentation for LangChain, LangGraph, Microsoft Agent Framework, Pydantic AI, Google ADK, and Haystack. Every step your agent took, with latency, tokens, and cost; experts can annotate traces just like test results
 - **[Experiments](https://docs.rhesis.ai/docs/experiments)** — change one thing (model, prompt, retrieval), run it against the same test set, and compare quality and cost before you promote it
