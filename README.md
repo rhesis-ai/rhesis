@@ -24,22 +24,21 @@
   <a href="https://www.linkedin.com/company/rhesis-ai">
     <img src="https://img.shields.io/badge/LinkedIn-Rhesis_AI-blue?logo=linkedin" alt="LinkedIn">
   </a>
-  <a href="https://huggingface.co/rhesis">
-    <img src="https://img.shields.io/badge/🤗-Rhesis-yellow" alt="Hugging Face">
-  </a>
   <a href="https://docs.rhesis.ai">
     <img src="https://img.shields.io/badge/docs-rhesis.ai-blue" alt="Documentation">
   </a>
 </p>
 
 <p align="center">
+  <a href="#get-started"><strong>Quickstart</strong></a> ·
+  <a href="https://youtu.be/sCfhabhk6ww"><strong>Connect your agent (video)</strong></a> ·
   <a href="https://rhesis.ai"><strong>Website</strong></a> ·
   <a href="https://docs.rhesis.ai"><strong>Docs</strong></a> ·
   <a href="https://discord.rhesis.ai"><strong>Discord</strong></a> ·
   <a href="https://github.com/rhesis-ai/rhesis/blob/main/CHANGELOG.md"><strong>Changelog</strong></a>
 </p>
 
-<h3 align="center">Structured feedback and evals for AI agents.<br>
+<h3 align="center">The open-source collaboration layer for teams building AI agents.<br>
 <strong>Open source · SaaS or self-hosted · UI, SDK, and MCP</strong></h3>
 
 <p align="center">
@@ -54,18 +53,33 @@ Most tools start with tests or traces. Rhesis starts one step earlier: the peopl
 agent should answer are not the people building it, and their feedback rarely arrives in a form you
 can act on.
 
-- **Feedback that stays attached** — Every review sits on the test case and the agent version that produced it, not in a Slack thread
-- **One pass/fail bar** — The whole team reviews against the same tests, and you measure against them
-- **UI for reviewers, SDK and MCP for builders** — Same data, three ways in
-- **From feedback to CI** — Recurring feedback becomes tests and metrics that run on every change
+- **Feedback that stays attached.** Every review sits on the test case and the agent version that produced it, not in a Slack thread
+- **One pass/fail bar.** The whole team reviews against the same tests, and you measure against them
+- **UI for reviewers, SDK and MCP for builders.** Same data, three ways in
+- **From feedback to CI.** Recurring feedback becomes tests and metrics that run on every change
+
+<p align="center">
+  <a href="https://rhesis.ai/?video=open" target="_blank">
+    <img src=".github/images/GH-demo-video.jpg"
+         loading="lazy"
+         width="1920"
+         alt="Watch: how engineers and domain experts test AI agents together">
+  </a>
+</p>
 
 ---
 
 ## How it works
 
-**1. Connect the agent you are building.** If it already serves a public REST endpoint, paste the
-URL and you are done. Otherwise, and for most projects, use the SDK connector: your process opens
-an outbound WebSocket, so the agent works from your laptop or your VPC with no public URL.
+<p align="center">
+  <img src=".github/images/GH-how-it-works.png"
+       loading="lazy"
+       width="1920"
+       alt="Rhesis workflow: requirements and conversations become tests, metrics and expert verdicts evaluate the agent, CI gates releases, traces feed back as new tests">
+</p>
+
+**1. Connect the agent you are building.** Via the SDK or a REST endpoint, no public URL needed
+([how](#connect-your-agent), [video](https://youtu.be/sCfhabhk6ww)).
 
 **2. Share the Rhesis link with your stakeholders.** Domain experts, product managers, and
 reviewers open it in a browser. Nothing to install, no code.
@@ -97,41 +111,73 @@ evals that run on every change.
 
 ## Capabilities
 
-<p align="center">
-  <img src=".github/images/GH-capabilities.png"
-       loading="lazy"
-       width="1920"
-       alt="Start with the feedback you already have and expand from there — review test results, inspect annotations, gain insights">
-</p>
-
 Nobody can review every case by hand. Once the first feedback is in, you can grow coverage from it:
 
+- **[Architect](https://docs.rhesis.ai/docs/architect)**: a chat agent that turns a PRD into requirements, metrics, and test sets, runs them, and charts the results
 - **Test generation** from your requirements, a PRD, or an uploaded file
 - **Conversation simulation** with Penelope; **adversarial probing** with Polyphemus and [garak](https://github.com/leondz/garak)
-- **60+ metrics** — DeepEval, garak, and custom LLM-as-Judge evaluators
-- **Traces** linked to test results via OpenTelemetry
+- **[Requirement coverage](https://docs.rhesis.ai/docs/requirements)**: see which requirements pass or fail, and in which conversations
+- **[Production tracing](https://docs.rhesis.ai/docs/tracing)**: OpenTelemetry traces with latency, tokens, and cost. Auto-instrumentation for LangChain, LangGraph, Microsoft Agent Framework, Pydantic AI, Google ADK, and Haystack
+- **[Experiments](https://docs.rhesis.ai/docs/experiments)**: compare model, prompt, or retrieval changes on the same test set, by quality and cost
 
 Generated tests are only as good as the requirements behind them. Instead of retyping a spec into a
 prompt, connect the tools your requirements already live in (Notion, GitHub, Jira, Confluence) and
 Rhesis writes tests from the real thing. See [Tools](https://docs.rhesis.ai/docs/tools).
 
-<p align="center">
-  <a href="https://rhesis.ai/?video=open" target="_blank">
-    <img src=".github/images/GH_Short_Demo.png"
-         loading="lazy"
-         width="1920"
-         alt="Rhesis Platform Overview - Click to watch demo">
-  </a>
-</p>
+### From what your experts know to what runs in CI
 
-| Use case | What you validate |
-|----------|-------------------|
-| **Conversational & support agents** | Role adherence, policy citation, escalation |
-| **RAG / document Q&A** | Faithfulness, grounding, retrieval quality |
-| **Tool-using & multi-agent systems** | Tool choice, goal completion, handoffs |
-| **Regulated / high-stakes domains** | Must and must-not behaviors your reviewers defined |
+| Who knows it | What they know | What Rhesis checks |
+|---|---|---|
+| **Legal** | "Bookings more than 24 h before departure are fully refundable." | The agent quotes the right refund terms for this booking's dates, across multi-turn conversations |
+| **Support lead** | "Business accounts always escalate to a named contact." | Escalation is offered on the business tier, never on the consumer tier, and the contact is named |
+| **Product** | "If the customer changes topic, the agent still finishes the cancellation." | Simulated users interrupt and rephrase; the agent keeps the booking reference and completes the task |
+| **Marketing** | "We never promise delivery dates." | Adversarial prompts try to get a promise out of it; the brand-voice metric flags any that work |
+
+None of these come from a metric library. Your team writes them once as requirements, and they run on every change.
 
 Details: [docs.rhesis.ai](https://docs.rhesis.ai)
+
+---
+
+## Get started
+
+### Cloud
+
+[app.rhesis.ai](https://app.rhesis.ai): managed service, connect your agent and invite your team.
+
+### Local (Docker)
+
+```bash
+git clone https://github.com/rhesis-ai/rhesis.git && cd rhesis && ./rh start
+```
+
+`./rh start` pulls prebuilt images from GHCR. To build from the repo instead, use `./rh start --build` (and `./rh restart --build` after local Dockerfile changes).
+
+**Access:** Frontend at `localhost:3000`, API at `localhost:8080/docs`
+
+**Commands:** `./rh logs` · `./rh stop` · `./rh restart` · `./rh delete`
+
+> Local setup auto-logs you in. Not for production; see below.
+
+Once the platform is running, connect your agent with the SDK:
+
+```bash
+pip install rhesis-sdk
+```
+
+See [sdk/README.md](sdk/README.md).
+
+### Deployment options
+
+| Option | Best for |
+|--------|----------|
+| **[Rhesis Cloud](https://app.rhesis.ai)** | Managed by us, nothing to run |
+| **Local Docker (`./rh start`)** | Development and trying the platform |
+| **[Docker Compose](https://docs.rhesis.ai/self-hosting/docker-compose)** | A single server |
+| **[Kubernetes (Helm)](https://docs.rhesis.ai/self-hosting/kubernetes-helm)** | Production clusters, via ArgoCD and the [`charts/rhesis`](charts/rhesis) chart we run ourselves |
+| **[GCP (Terraform)](https://docs.rhesis.ai/self-hosting/gcp-terraform)** | Provisioning a GKE cluster from scratch |
+
+More: [self-hosting docs](https://docs.rhesis.ai/self-hosting).
 
 ---
 
@@ -177,7 +223,7 @@ Feedback lands in Rhesis, but you do not have to leave your editor to act on it.
 
 ### MCP and skills
 
-Use Rhesis from MCP-capable clients (Cursor, Claude Code, and others): design suites, pull sets and
+Use Rhesis from MCP-capable clients (Cursor, Claude Code, and others): build test sets, pull
 results, trigger runs, and read the feedback in the tools you already work in. Install with the
 [skills](https://github.com/vercel-labs/skills) CLI:
 
@@ -192,45 +238,7 @@ See the [skills README](skills/rhesis/README.md).
 Pull test runs, results, and the reviews attached to them from Python, or hit the API directly from
 CI in any language: [OpenAPI spec](https://api.rhesis.ai/docs).
 
-> Tracing (OpenTelemetry) and LLM providers for synthesis and judges are documented separately. See
-> [Tracing](https://docs.rhesis.ai/docs/tracing) and [Models](https://docs.rhesis.ai/sdk/models).
-> Neither is how you connect the agent under test.
-
----
-
-## Get started
-
-### Cloud
-
-[app.rhesis.ai](https://app.rhesis.ai) — managed service, connect your agent and invite your team.
-
-### Local (Docker)
-
-```bash
-git clone https://github.com/rhesis-ai/rhesis.git && cd rhesis && ./rh start
-```
-
-`./rh start` pulls prebuilt images from GHCR. To build from the repo instead, use `./rh start --build` (and `./rh restart --build` after local Dockerfile changes).
-
-**Access:** Frontend at `localhost:3000`, API at `localhost:8080/docs`
-
-**Commands:** `./rh logs` · `./rh stop` · `./rh restart` · `./rh delete`
-
-> This setup enables auto-login for local testing. For production self-hosting, see [Self-hosting docs](https://docs.rhesis.ai/self-hosting).
-
-Once the platform is running, connect your agent with the SDK:
-
-```bash
-pip install rhesis-sdk
-```
-
-See [sdk/README.md](sdk/README.md).
-
-| Option | Best for |
-|--------|----------|
-| **[Rhesis Cloud](https://app.rhesis.ai)** | Managed deployment |
-| **Local Docker (`./rh start`)** | Development and trying the platform |
-| **Self-hosted** | Production deployment — [docs](https://docs.rhesis.ai/self-hosting) |
+> The SDK also handles [tracing](https://docs.rhesis.ai/docs/tracing). LLMs for generation and judges: [Models](https://docs.rhesis.ai/sdk/models).
 
 ---
 
@@ -238,11 +246,13 @@ See [sdk/README.md](sdk/README.md).
 
 | Path | What it covers |
 |------|----------------|
-| [`sdk/`](sdk/README.md) | Python SDK — connector, synthesizers, metrics, tracing |
+| [`sdk/`](sdk/README.md) | Python SDK: connector, synthesizers, metrics, tracing |
 | [`skills/rhesis/`](skills/rhesis/README.md) | Agent skill + MCP workflows for Cursor, Claude Code, and others |
 | [`apps/backend/`](apps/backend/README.md) | API and workers |
 | [`apps/frontend/`](apps/frontend/README.md) | Web UI |
 | [`docs/`](docs/README.md) | Documentation site source |
+| [`charts/rhesis/`](charts/rhesis) | Helm chart for Kubernetes deployments |
+| [`terraform/`](terraform) | Infrastructure as code for GCP |
 
 ---
 
@@ -264,9 +274,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Support
 
-- **[Documentation](https://docs.rhesis.ai)** — Guides and API reference
-- **[Discord](https://discord.rhesis.ai)** — Community support
-- **[GitHub Issues](https://github.com/rhesis-ai/rhesis/issues)** — Bug reports and feature requests
+- **[Documentation](https://docs.rhesis.ai)**: Guides and API reference
+- **[Discord](https://discord.rhesis.ai)**: Community support
+- **[GitHub Issues](https://github.com/rhesis-ai/rhesis/issues)**: Bug reports and feature requests
 
 ---
 
