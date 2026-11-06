@@ -24,9 +24,6 @@
   <a href="https://www.linkedin.com/company/rhesis-ai">
     <img src="https://img.shields.io/badge/LinkedIn-Rhesis_AI-blue?logo=linkedin" alt="LinkedIn">
   </a>
-  <a href="https://huggingface.co/rhesis">
-    <img src="https://img.shields.io/badge/🤗-Rhesis-yellow" alt="Hugging Face">
-  </a>
   <a href="https://docs.rhesis.ai">
     <img src="https://img.shields.io/badge/docs-rhesis.ai-blue" alt="Documentation">
   </a>
@@ -56,10 +53,10 @@ Most tools start with tests or traces. Rhesis starts one step earlier: the peopl
 agent should answer are not the people building it, and their feedback rarely arrives in a form you
 can act on.
 
-- **Feedback that stays attached** — Every review sits on the test case and the agent version that produced it, not in a Slack thread
-- **One pass/fail bar** — The whole team reviews against the same tests, and you measure against them
-- **UI for reviewers, SDK and MCP for builders** — Same data, three ways in
-- **From feedback to CI** — Recurring feedback becomes tests and metrics that run on every change
+- **Feedback that stays attached.** Every review sits on the test case and the agent version that produced it, not in a Slack thread
+- **One pass/fail bar.** The whole team reviews against the same tests, and you measure against them
+- **UI for reviewers, SDK and MCP for builders.** Same data, three ways in
+- **From feedback to CI.** Recurring feedback becomes tests and metrics that run on every change
 
 <p align="center">
   <img src=".github/images/GH-collaboration-layer.png"
@@ -110,17 +107,17 @@ evals that run on every change.
   <img src=".github/images/GH-capabilities.png"
        loading="lazy"
        width="1920"
-       alt="Start with the feedback you already have and expand from there — review test results, inspect annotations, gain insights">
+       alt="Start with the feedback you already have and expand from there: review test results, inspect annotations, gain insights">
 </p>
 
 Nobody can review every case by hand. Once the first feedback is in, you can grow coverage from it:
 
-- **[Architect](https://docs.rhesis.ai/docs/architect)** — describe what to test, or hand it a PRD, and it explores your agent, proposes a plan, and builds the requirements, metrics, and test sets once you approve. It runs them and charts the results for you
+- **[Architect](https://docs.rhesis.ai/docs/architect)**: describe what to test, or hand it a PRD, and it explores your agent, proposes a plan, and builds the requirements, metrics, and test sets once you approve. It runs them and charts the results for you
 - **Test generation** from your requirements, a PRD, or an uploaded file
 - **Conversation simulation** with Penelope; **adversarial probing** with Polyphemus and [garak](https://github.com/leondz/garak)
-- **[Requirement coverage](https://docs.rhesis.ai/docs/requirements)** — results roll up by requirement, so you see which expectations pass, which fail, and in which conversations
-- **[Production tracing](https://docs.rhesis.ai/docs/tracing)** — OpenTelemetry, with zero-config auto-instrumentation for LangChain, LangGraph, Microsoft Agent Framework, Pydantic AI, Google ADK, and Haystack. Every step your agent took, with latency, tokens, and cost; experts can annotate traces just like test results
-- **[Experiments](https://docs.rhesis.ai/docs/experiments)** — change one thing (model, prompt, retrieval), run it against the same test set, and compare quality and cost before you promote it
+- **[Requirement coverage](https://docs.rhesis.ai/docs/requirements)**: results roll up by requirement, so you see which expectations pass, which fail, and in which conversations
+- **[Production tracing](https://docs.rhesis.ai/docs/tracing)**: OpenTelemetry, with zero-config auto-instrumentation for LangChain, LangGraph, Microsoft Agent Framework, Pydantic AI, Google ADK, and Haystack. Every step your agent took, with latency, tokens, and cost; experts can annotate traces just like test results
+- **[Experiments](https://docs.rhesis.ai/docs/experiments)**: change one thing (model, prompt, retrieval), run it against the same test set, and compare quality and cost before you promote it
 
 Generated tests are only as good as the requirements behind them. Instead of retyping a spec into a
 prompt, connect the tools your requirements already live in (Notion, GitHub, Jira, Confluence) and
@@ -212,7 +209,7 @@ CI in any language: [OpenAPI spec](https://api.rhesis.ai/docs).
 
 ### Cloud
 
-[app.rhesis.ai](https://app.rhesis.ai) — managed service, connect your agent and invite your team.
+[app.rhesis.ai](https://app.rhesis.ai): managed service, connect your agent and invite your team.
 
 ### Local (Docker)
 
@@ -254,7 +251,7 @@ All options: [Self-hosting docs](https://docs.rhesis.ai/self-hosting).
 
 | Path | What it covers |
 |------|----------------|
-| [`sdk/`](sdk/README.md) | Python SDK — connector, synthesizers, metrics, tracing |
+| [`sdk/`](sdk/README.md) | Python SDK: connector, synthesizers, metrics, tracing |
 | [`skills/rhesis/`](skills/rhesis/README.md) | Agent skill + MCP workflows for Cursor, Claude Code, and others |
 | [`apps/backend/`](apps/backend/README.md) | API and workers |
 | [`apps/frontend/`](apps/frontend/README.md) | Web UI |
@@ -282,9 +279,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## Support
 
-- **[Documentation](https://docs.rhesis.ai)** — Guides and API reference
-- **[Discord](https://discord.rhesis.ai)** — Community support
-- **[GitHub Issues](https://github.com/rhesis-ai/rhesis/issues)** — Bug reports and feature requests
+- **[Documentation](https://docs.rhesis.ai)**: Guides and API reference
+- **[Discord](https://discord.rhesis.ai)**: Community support
+- **[GitHub Issues](https://github.com/rhesis-ai/rhesis/issues)**: Bug reports and feature requests
 
 ---
 
