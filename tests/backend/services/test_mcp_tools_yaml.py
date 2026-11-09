@@ -304,7 +304,11 @@ class TestToolsReturningWhatAPersonWrote:
     # Tools whose response carries free text a person wrote, attributed to
     # them. Add to this when a new one is exposed rather than relaxing the
     # assertion -- the point is that the list grows with the surface.
-    PERSON_AUTHORED: ClassVar[set[str]] = {"list_annotations", "get_annotation"}
+    PERSON_AUTHORED: ClassVar[set[str]] = {
+        "list_annotations",
+        "get_annotation",
+        "list_requirement_examples",
+    }
 
     def _cfg(self, name):
         return {tc["name"]: tc for tc in load_tool_configs()}[name]

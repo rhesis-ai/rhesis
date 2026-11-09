@@ -119,6 +119,8 @@ List available requirements. Requirements define what an endpoint should do.
 
 **Always call at the start of planning** with `$select=name,id,description` to avoid creating duplicates.
 
+Requirements nest one level deep: `parent_id` points at a top-level requirement that groups this one. Use `$filter=parent_id eq null` for the top level, or `parent_id eq <uuid>` for one group's children. Rows also carry `impact`, `children_count` and `examples_count`.
+
 ---
 
 ### `list_categories`
@@ -252,6 +254,8 @@ Call this **before** `create_test_set_bulk` so that when test objects reference 
 **Key parameters:**
 - `name` (required) — Title Case, e.g. `"Refuses Harmful Requests"`
 - `description` (required) — explain what the requirement means and how it should be evaluated
+- `parent_id` — UUID of a top-level requirement to group this one under (requirements nest one level deep). Omit for a top-level requirement.
+- `impact_id` — what a failure costs, from `list_requirement_impacts`. Set it only when the spec or the user says what is at stake.
 
 **Common mistakes:** Requirement names are unique per organization, so creating one that already exists fails with "Requirement with this name already exists". Resolve it with `list_requirements` and reuse its id. Never retry with a suffixed name like `"Refuses Harmful Requests 2"`.
 
@@ -266,6 +270,40 @@ Useful for adding a description to a requirement that was auto-created without o
 - `requirement_id` (required, path parameter)
 - `name` — optional, omit to keep unchanged
 - `description`
+- `parent_id` — `null` makes it top-level. The parent must be top-level, and a requirement with children of its own cannot get a parent.
+- `impact_id` — from `list_requirement_impacts`; `null` clears it
+
+---
+
+### `list_requirement_impacts`
+List the organization's impact options: what it costs when the assistant gets a requirement wrong (e.g. "Legal / regulatory", "Customer harm", "Minor"). Each organization can edit these, so look the id up here instead of guessing.
+
+**CHAIN:** before `create_requirement` or `update_requirement` with `impact_id`.
+
+---
+
+### `link_source_to_requirement`
+Record where a requirement comes from: link a knowledge source (a policy, a spec, a regulation) to it. **Requires confirmation.**
+
+**Key parameters:**
+- `requirement_id` (required, path parameter)
+- `source_id` (required, path parameter) — from `list_sources` or `create_source`
+- `note` — which part of the source, e.g. `"Section 4.2, data retention"`
+
+Linking the same pair again updates the note. Read the links back with `get_requirement` (`sources`).
+
+**CHAIN:** after creating requirements from a spec, link the spec as their source.
+
+---
+
+### `list_requirement_examples`
+List a requirement's examples: human annotations linked to it, newest first, each with the input and output it judged. A Pass annotation is a good example of the requirement, a Fail one a bad example. `tuning_cases` lists the metrics that already use the example to check their own judgement.
+
+Report only the rows this returns. Quote comments as written and name the author from `annotation.user.name`. An empty result means nobody has linked an example yet, and that is the answer.
+
+**Key parameters:** `requirement_id` (required)
+
+**CHAIN:** to add an example, `create_annotation` with `requirement_id`.
 
 ---
 
@@ -606,6 +644,7 @@ A Pass/Fail annotation on a test result or trace **overrides that parent's autom
 - `status_id` (required) — the Pass or Fail status UUID, from `list_statuses(entity_type="TestResult")`. Never guess it.
 - `comments` — the person's reasoning in their words. An annotation with no comment explains nothing later.
 - `target` — optional `{"type": "metric", "reference": "Answer Fluency"}` or `{"type": "turn", "reference": "Turn 2"}`. Omit for a verdict on the whole entity.
+- `requirement_id` — the requirement this verdict is an example of. A test result annotation without one takes its test's requirement. Set it on a trace annotation to make it an example.
 
 **Turn targets:** only meaningful on a multi-turn result or trace. Take the number from `test_output.conversation_summary` on `get_test_result`, where each turn carries its own, and write it exactly as `"Turn 2"`. The platform groups judgements by this reference, so `"2"` reads as a different target and would sit beside the turn's other annotations rather than superseding them.
 
@@ -890,6 +929,8 @@ Get one project by ID.
 
 ### `get_requirement`
 Get one requirement including linked metrics.
+
+Also returns `parent`, `impact`, `sources` (each with an optional `note`), `children_count`, `examples_count`, `test_counts`, and `review` (the last stored AI review of the wording, or null).
 
 **CHAIN:** complement `get_metric_requirements` — requirement-centric view of metric links.
 
