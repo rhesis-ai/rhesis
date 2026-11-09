@@ -13,14 +13,14 @@ import { BORDER_RADIUS } from '@/styles/theme';
 export interface MetricDrawerFilters {
   type: string[];
   scoreType: string[];
-  metricScope: string[];
+  target: string[];
   requirement: string;
 }
 
 export const EMPTY_METRIC_DRAWER_FILTERS: MetricDrawerFilters = {
   type: [],
   scoreType: [],
-  metricScope: [],
+  target: [],
   requirement: '',
 };
 
@@ -28,7 +28,7 @@ export function hasActiveMetricDrawerFilters(f: MetricDrawerFilters): boolean {
   return (
     f.type.length > 0 ||
     f.scoreType.length > 0 ||
-    f.metricScope.length > 0 ||
+    f.target.length > 0 ||
     f.requirement !== ''
   );
 }
@@ -37,7 +37,7 @@ export function countActiveMetricDrawerFilters(f: MetricDrawerFilters): number {
   return (
     f.type.length +
     f.scoreType.length +
-    f.metricScope.length +
+    f.target.length +
     (f.requirement !== '' ? 1 : 0)
   );
 }
@@ -53,7 +53,7 @@ const METRIC_TYPE_LABELS: Record<string, string> = {
 export interface MetricFilterOptions {
   type: { type_value: string; description: string }[];
   scoreType: { value: string; label: string }[];
-  metricScope: { value: string; label: string }[];
+  target: { value: string; label: string }[];
   requirement: { id: string; name: string }[];
 }
 
@@ -89,7 +89,7 @@ export default function MetricFilterDrawer({
   );
 
   const toggleMulti = (
-    key: keyof Pick<MetricDrawerFilters, 'type' | 'scoreType' | 'metricScope'>,
+    key: keyof Pick<MetricDrawerFilters, 'type' | 'scoreType' | 'target'>,
     value: string
   ) => {
     setDraft(prev => {
@@ -144,15 +144,15 @@ export default function MetricFilterDrawer({
         </FilterSection>
       )}
 
-      {filterOptions.metricScope.length > 0 && (
-        <FilterSection title="Metric Scope">
+      {filterOptions.target.length > 0 && (
+        <FilterSection title="Judges">
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {filterOptions.metricScope.map(opt => (
+            {filterOptions.target.map(opt => (
               <Box
                 key={opt.value}
                 component="button"
-                onClick={() => toggleMulti('metricScope', opt.value)}
-                sx={filterChipSx(draft.metricScope.includes(opt.value))}
+                onClick={() => toggleMulti('target', opt.value)}
+                sx={filterChipSx(draft.target.includes(opt.value))}
               >
                 {opt.label}
               </Box>

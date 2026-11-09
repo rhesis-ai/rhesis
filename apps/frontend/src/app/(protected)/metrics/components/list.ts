@@ -19,7 +19,7 @@ export const OWASP_METRIC_FILTER_VALUE = 'owasp';
  * (subsequent pagination/filter fetches) so both request the same shape.
  */
 export const METRICS_SELECT =
-  'name,description,score_type,metric_scope,metric_type,backend_type,requirements,tags';
+  'name,description,score_type,config,metric_type,backend_type,requirements,tags';
 
 const METRICS_FILTERS = {
   search: { kind: 'search', columns: ['name', 'description'] },
@@ -42,9 +42,9 @@ const METRICS_FILTERS = {
   type: { kind: 'multiEnum', column: 'metric_type/type_value' },
   scoreType: { kind: 'multiEnum', column: 'score_type' },
   requirement: { kind: 'navAny', nav: 'requirements', column: 'x/name' },
-  // Not an OData clause -- filters a Postgres JSONB array via a dedicated
-  // query param instead, see `extraParams` below.
-  metricScope: { kind: 'raw', multi: true },
+  // Not an OData clause: the backend filters `config.target.on` through a
+  // dedicated query param, see `extraParams` below.
+  target: { kind: 'raw', multi: true },
 } as const;
 
 export const metricsList = defineList({
@@ -58,8 +58,6 @@ export const metricsList = defineList({
     factory.getMetricsClient().getMetrics(params),
   extraParams: (filters: FiltersOf<typeof METRICS_FILTERS>) => ({
     $select: METRICS_SELECT,
-    ...(filters.metricScope.length > 0
-      ? { metric_scope: filters.metricScope.join(',') }
-      : {}),
+    ...(filters.target.length > 0 ? { target: filters.target.join(',') } : {}),
   }),
 });

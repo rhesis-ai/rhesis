@@ -41,7 +41,7 @@ async def test_unchanged_docs_keep_the_same_snapshot_but_a_new_timestamp(cache, 
 
 async def test_changed_docs_rebuild_the_snapshot(cache, site, clock):
     first = await cache.get()
-    site.llms_full = site.llms_full.replace("Metric scope", "Metric scopes", 1)
+    site.llms_full = site.llms_full.replace("Metric Targets", "Metric Target", 1)
     assert await cache.refresh()
     assert cache.snapshot is not first
 

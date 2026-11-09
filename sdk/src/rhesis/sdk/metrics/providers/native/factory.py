@@ -27,7 +27,7 @@ class RhesisMetricFactory(BaseMetricFactory):
         "name",
         "description",
         "metric_type",
-        "metric_scope",
+        "target",
         "score_type",
         "requires_ground_truth",
         "requires_context",
@@ -58,6 +58,7 @@ class RhesisMetricFactory(BaseMetricFactory):
         "description",
         "requires_ground_truth",
         "requires_context",
+        "target",
     }
 
     # Metric-specific parameters (in addition to common, base metric, and base judge params)
@@ -71,7 +72,7 @@ class RhesisMetricFactory(BaseMetricFactory):
         "ConversationalJudge": _base_metric_params | _base_judge_params | _numeric_params,
         "NumericJudge": _base_metric_params | _base_judge_params | _numeric_params,
         "GoalAchievementJudge": _base_metric_params | _base_judge_params | _numeric_params,
-        "ToolCallTrajectory": {"name", "description", "metric_scope", "match", "arguments"},
+        "ToolCallTrajectory": {"name", "description", "target", "match", "arguments"},
     }
 
     # Define required parameters for each metric class

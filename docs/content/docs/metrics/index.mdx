@@ -32,10 +32,10 @@ The platform includes pre-built metrics from multiple providers:
 
 Here are some examples:
 
-| Metric Name | Provider | Score Type | Scope | Description |
-|-------------|----------|------------|-------|-------------|
-| Role Adherence | DeepEval | Numeric | Multi-Turn | Evaluates whether the assistant maintains its assigned role throughout the conversation. |
-| Knowledge Retention | Rhesis | Numeric | Multi-Turn | Measures memory consistency and correct use of information introduced earlier in the conversation. |
+| Metric Name | Provider | Score Type | Target | Description |
+|-------------|----------|------------|--------|-------------|
+| Role Adherence | DeepEval | Numeric | The conversation | Evaluates whether the assistant maintains its assigned role throughout the conversation. |
+| Knowledge Retention | Rhesis | Numeric | The conversation | Measures memory consistency and correct use of information introduced earlier in the conversation. |
 
 ## Creating Custom Metrics
 
@@ -176,16 +176,11 @@ Define custom categories for classification:
 
 </details>
 
-### 3. Metric Scope
+### 3. Target
 
-Select at least one scope:
-
-- **Single-Turn**: individual question-answer pairs
-- **Multi-Turn**: multi-exchange conversations
-- **Trace**: live production traffic evaluated in real-time (see [Trace Metrics](/docs/metrics/trace-metrics))
-
-Scope must include the test's type or the metric is silently skipped at run time — see
-[Metric scope](/docs/metrics/metric-scope).
+Choose what the metric judges, such as **Each turn** or **The conversation**. A metric that judges
+the conversation never runs on single-turn tests. When you don't choose, the metric keeps its
+default. See [Metric Targets](/docs/metrics/targets).
 
 ### 4. Result Explanation
 
@@ -202,7 +197,7 @@ the current metric definition, applies your natural-language edit instructions w
 generation model, and updates the metric in place.
 
 Use this workflow when a metric is close to what you need but the threshold, prompt, scoring
-criteria, or scope needs to change.
+criteria, or target needs to change.
 
 <CodeBlock filename="improve-metric.sh" language="bash">
 {`curl -X POST "$RHESIS_BASE_URL/metrics/$METRIC_ID/improve" \\
@@ -221,7 +216,7 @@ The request body has one field:
 
 <Callout type="info">
   The improved metric replaces the existing metric definition. Review the updated evaluation prompt,
-  score type, threshold, categories, and metric scope before using it in a critical test run.
+  score type, threshold, categories, and target before using it in a critical test run.
 </Callout>
 
 ## Next steps

@@ -101,7 +101,6 @@ def generate_metric(
         MetricBackendType,
         MetricType,
     )
-    from rhesis.backend.app.schemas.metric import MetricScope
     from rhesis.sdk.metrics.synthesizer import MetricSynthesizer
 
     organization_id, user_id = tenant_context
@@ -109,16 +108,9 @@ def generate_metric(
     try:
         synthesizer = MetricSynthesizer(model=get_model_settings().generation_model)
         generated = synthesizer.generate(request.prompt)
-
-        # metric_scope is required by MetricCreate but only requested of the LLM, so
-        # fall back rather than failing the whole generation. Single-Turn matches the
-        # historical default; the user can change it before saving.
-        if not generated.get("metric_scope"):
-            logger.warning(
-                "Generated metric %r omitted metric_scope; defaulting to Single-Turn",
-                generated.get("name"),
-            )
-            generated["metric_scope"] = [MetricScope.SINGLE_TURN.value]
+        # Without a proposed target, the metric gets its default one.
+        if target := generated.pop("target", None):
+            generated["config"] = {"target": {"on": target}}
 
         metric_data = schemas.MetricCreate(**generated)
         metric_data.metric_type = MetricType.CUSTOM_PROMPT
@@ -209,15 +201,16 @@ def improve_metric(
             ),
             "categories": db_metric.categories,
             "passing_categories": db_metric.passing_categories,
-            "metric_scope": (
-                [s.value if hasattr(s, "value") else s for s in db_metric.metric_scope]
-                if db_metric.metric_scope
-                else None
-            ),
+            "target": ((db_metric.config or {}).get("target") or {}).get("on"),
         }
 
         synthesizer = MetricSynthesizer(model=get_model_settings().generation_model)
         improved = synthesizer.improve(existing, request.prompt)
+        # The model chooses only between a turn and the conversation; any other target stays.
+        target = improved.pop("target", None)
+        if target and existing["target"] in (None, "turn", "conversation"):
+            if target != existing["target"]:
+                improved["config"] = {**(db_metric.config or {}), "target": {"on": target}}
 
         update_data = schemas.MetricUpdate(**improved)
         result = metric_crud.update_metric(
@@ -249,6 +242,26 @@ def improve_metric(
         raise internal_error(e, context=f"improving metric {metric_id}") from e
 
 
+@router.get("/targets", response_model=list[schemas.TargetChoice])
+def read_metric_targets(current_user: User = Depends(require_current_user_or_token)):
+    """Every target a metric can have, in the order an editor offers them. Which of them a
+    given metric can take is its ``supported_targets``."""
+    try:
+        from rhesis.sdk.metrics.targets import TARGETS
+    except ImportError:  # a core install, which runs no metric
+        return []
+
+    return [
+        schemas.TargetChoice(
+            on=kind.value,
+            label=preset.label,
+            description=preset.description,
+            per_span=preset.span_kind is not None,
+        )
+        for kind, preset in TARGETS.items()
+    ]
+
+
 @router.get("/", response_model=list[schemas.MetricDetail])
 @with_count_header(model=models.Metric)
 def read_metrics(
@@ -263,9 +276,9 @@ def read_metrics(
         alias="$select",
         description="Comma-separated list of fields to return",
     ),
-    metric_scope: str | None = Query(
+    target: str | None = Query(
         None,
-        description="Comma-separated metric scopes to filter by (JSONB array contains)",
+        description="Comma-separated targets to filter by, such as turn,conversation",
     ),
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
@@ -280,15 +293,15 @@ def read_metrics(
         sort_by=sort_by,
         sort_order=sort_order,
         filter=filter,
-        metric_scope=metric_scope,
+        target=target,
         organization_id=organization_id,
         user_id=user_id,
     )
 
     # The @with_count_header decorator computes a count using only the OData
-    # $filter.  When metric_scope is also active, override the header with an
+    # $filter.  When target is also active, override the header with an
     # accurate count that includes the JSONB filter.
-    if metric_scope:
+    if target:
         from rhesis.backend.app.utils.crud_utils import count_items
 
         response.headers["X-Total-Count"] = str(
@@ -298,7 +311,7 @@ def read_metrics(
                 filter,
                 organization_id,
                 user_id,
-                extra_filter=metric_crud._metric_scope_filter(metric_scope),
+                extra_filter=metric_crud.metric_target_filter(target),
             )
         )
 

@@ -25,9 +25,6 @@ PENELOPE_GOAL_METRIC_KEY = "Goal Achievement"
 # name, so it can't collide with a real metric keyed "Goal Achievement".
 BUILTIN_GOAL_ROW_KEY = "builtin:goal_achievement"
 
-# Canonical definition lives in schemas.metric; re-export for convenience.
-from rhesis.backend.app.schemas.metric import MetricScope  # noqa: E402
-
 __all__ = [
     "CONVERSATION_SUMMARY_KEY",
     "PENELOPE_MESSAGE_KEY",
@@ -38,7 +35,6 @@ __all__ = [
     "PENELOPE_EVALUATED_METRICS",
     "PENELOPE_GOAL_METRIC_KEY",
     "BUILTIN_GOAL_ROW_KEY",
-    "MetricScope",
 ]
 
 #: Reported on a multi-turn test the run had no execution model for. Penelope would

@@ -10,7 +10,7 @@ const empty: FilterState = {
   backend: [],
   type: [],
   scoreType: [],
-  metricScope: [],
+  target: [],
   requirement: '',
 };
 
@@ -19,7 +19,7 @@ const full: FilterState = {
   backend: ['custom', 'owasp'],
   type: ['custom-prompt'],
   scoreType: ['numeric'],
-  metricScope: ['Single-Turn', 'Multi-Turn'],
+  target: ['turn', 'tool_call'],
   requirement: 'Safety & tone',
 };
 
@@ -27,6 +27,14 @@ describe('metric URL state', () => {
   it('round-trips every filter', () => {
     const params = withMetricUrlState(new URLSearchParams(), full);
     expect(filtersFromSearchParams(params)).toEqual(full);
+  });
+
+  it('writes targets under the target param', () => {
+    const params = withMetricUrlState(new URLSearchParams(), {
+      ...empty,
+      target: ['conversation'],
+    });
+    expect(params.toString()).toBe('target=conversation');
   });
 
   it('reads a quick filter link', () => {
@@ -64,7 +72,7 @@ describe('metric URL state', () => {
 
   it('drops values that do not parse', () => {
     const filters = filtersFromSearchParams(
-      new URLSearchParams('score_type=bogus&scope=Three-Turn&backend=')
+      new URLSearchParams('score_type=bogus&target=Three-Turn&backend=')
     );
     expect(filters).toEqual(empty);
   });
@@ -81,7 +89,7 @@ describe('metric URL state', () => {
   it('does not flag empty or invalid filter values', () => {
     expect(
       hasMetricUrlFilters(
-        new URLSearchParams('requirement=&scope=Three-Turn&backend=')
+        new URLSearchParams('requirement=&target=Three-Turn&backend=')
       )
     ).toBe(false);
   });

@@ -32,7 +32,6 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import AnnotationTarget, EntityType
-from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.schemas.metric_tuning import TuningDecision
 from rhesis.backend.app.services import metric_tuning as service
 from rhesis.backend.app.services.metric_tuning.improve import (
@@ -126,7 +125,6 @@ def _make_metric(
         reasoning="Say which phrase decided it.",
         explanation="A fail means the answer is toxic.",
         score_type=score_type,
-        metric_scope=[MetricScope.SINGLE_TURN.value],
         backend_type_id=backend_type_lookup.id,
         model_id=model.id,
         organization_id=organization_id,

@@ -4,13 +4,19 @@ import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
-import { MetricDetail } from '@/utils/api-client/interfaces/metric';
+import type {
+  MetricDetail,
+  MetricTargetChoice,
+} from '@/utils/api-client/interfaces/metric';
 import type { RequirementOption } from '@/utils/api-client/interfaces/requirement';
 import type { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import type { UUID } from 'crypto';
-import { TEST_TYPES } from '@/constants/test-types';
 import { useList } from '@/hooks/useList';
-import { useTypeLookups, useRequirements } from '@/hooks/useLookups';
+import {
+  useTypeLookups,
+  useRequirements,
+  useMetricTargets,
+} from '@/hooks/useLookups';
 import { metricsList } from './list';
 import {
   filtersFromSearchParams,
@@ -28,16 +34,13 @@ const STATIC_FILTER_OPTIONS = {
     { value: 'numeric', label: 'Numeric' },
     { value: 'categorical', label: 'Categorical' },
   ],
-  metricScope: [
-    { value: TEST_TYPES.SINGLE_TURN, label: TEST_TYPES.SINGLE_TURN },
-    { value: TEST_TYPES.MULTI_TURN, label: TEST_TYPES.MULTI_TURN },
-  ],
-} satisfies Pick<FilterOptions, 'scoreType' | 'metricScope'>;
+} satisfies Pick<FilterOptions, 'scoreType'>;
 
 // Stable identities: an inline `data = []` default would mint a fresh array
 // each render while a query is pending, so the memo below would never hold.
 const NO_TYPE_LOOKUPS: TypeLookup[] = [];
 const NO_REQUIREMENTS: RequirementOption[] = [];
+const NO_TARGETS: MetricTargetChoice[] = [];
 
 /** Drops duplicate `type_value` rows so repeated options can't collide as React keys. */
 function uniqueByTypeValue(types: TypeLookup[]): TypeLookup[] {
@@ -115,6 +118,7 @@ export default function MetricsClientComponent({
     ready
   );
   const { data: allRequirements = NO_REQUIREMENTS } = useRequirements(ready);
+  const { data: targets = NO_TARGETS } = useMetricTargets(ready);
 
   const filterOptions = React.useMemo<FilterOptions>(
     () => ({
@@ -130,8 +134,9 @@ export default function MetricsClientComponent({
       requirement: allRequirements
         .filter(b => b.name?.trim())
         .map(b => ({ id: b.id, name: b.name })),
+      target: targets.map(t => ({ value: t.on, label: t.label })),
     }),
-    [backendTypes, metricTypes, allRequirements]
+    [backendTypes, metricTypes, allRequirements, targets]
   );
 
   if (!ready) return gateNode;

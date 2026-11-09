@@ -198,7 +198,7 @@ async def fetch_page(
     """Read a docs page as markdown. Only pages read with this tool may be cited.
 
     Args:
-        url_or_path: A docs URL or path, e.g. "https://docs.rhesis.ai/sdk/metrics#metric-scopes".
+        url_or_path: A docs URL or path, e.g. "https://docs.rhesis.ai/sdk/metrics#targets".
             An #anchor reads just that section and its neighbours.
         section_anchor: A heading anchor to read just that part of a long page, or null.
     """

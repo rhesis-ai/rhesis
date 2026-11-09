@@ -3,7 +3,7 @@ import { TypeLookup } from './type-lookup';
 import { Status } from './status';
 import { User } from './user';
 import { Tag } from './tag';
-import { MetricScope } from './metric';
+import type { MetricConfig } from './metric';
 
 export interface RequirementBase {
   name: string;
@@ -51,7 +51,7 @@ export interface MetricWithRelationships {
   name: string;
   description: string;
   score_type: string;
-  metric_scope?: MetricScope[];
+  config?: MetricConfig | null;
 
   // Required relationship objects (now always included from backend)
   metric_type: TypeLookup;

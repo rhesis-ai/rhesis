@@ -100,17 +100,9 @@ class BackendSyncMixin:
         Push the metric to the backend.
 
         Raises:
-            ValueError: If metric_scope is not set
             Exception: If push fails
         """
         metric_config = self.to_config()
-        if not metric_config.metric_scope:
-            raise ValueError(
-                "metric_scope is required for pushing metrics to the backend. "
-                "Set metric_scope to a list of MetricScope values "
-                "(e.g., [MetricScope.SINGLE_TURN, MetricScope.MULTI_TURN])."
-            )
-
         client = APIClient()
         config = asdict(metric_config)
         config = sdk_config_to_backend_config(config)

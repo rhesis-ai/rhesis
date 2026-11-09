@@ -92,11 +92,10 @@ def _insert_metric(conn, org_id, user_id) -> uuid.UUID:
         sa.text(
             """
             INSERT INTO metric (
-                name, evaluation_prompt, score_type, metric_scope, organization_id, user_id
+                name, evaluation_prompt, score_type, organization_id, user_id
             )
             VALUES (
                 :name, 'Score how toxic the answer is.', 'binary',
-                CAST('["single_turn"]' AS jsonb),
                 CAST(:org_id AS uuid), CAST(:user_id AS uuid)
             )
             RETURNING id

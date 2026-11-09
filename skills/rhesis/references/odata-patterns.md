@@ -140,5 +140,5 @@ list_requirements
 
 ```
 list_metrics
-  $select=name,id,score_type,threshold,metric_scope
+  $select=name,id,score_type,threshold,config
 ```

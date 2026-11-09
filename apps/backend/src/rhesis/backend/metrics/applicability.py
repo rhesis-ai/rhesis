@@ -1,8 +1,10 @@
-"""Which metrics apply to a test, by the expectations the test carries.
+"""Which metrics apply to a test, by their target and the expectations the test carries.
 
-A metric that compares with an expectation the test doesn't have (a trajectory metric on a
-test without expected tool calls) is not applicable to it: it is left out, the way a metric
-scoped to the other test type is, rather than scored or failed.
+A metric that can't judge a test is not applicable to it: it is left out rather than scored
+or failed. That is a metric judging the conversation on a single-turn test, a metric
+comparing with a reference answer on a conversation (which has none), and a metric
+comparing with an expectation the test doesn't have (a trajectory metric on a test without
+expected tool calls).
 """
 
 from __future__ import annotations
@@ -70,19 +72,88 @@ def needs_model(metric: Any) -> bool:
     return getattr(cls, "REQUIRES_MODEL", True)
 
 
-def applies(metric: Any, expectations: Optional[Expectations]) -> bool:
-    """Whether the test's expectations hold every field the metric compares with."""
-    cls = metric_class(metric)
-    required = getattr(cls, "REQUIRED_EXPECTATIONS", ())
-    return all(getattr(expectations, field, None) is not None for field in required)
+def _stored_target(metric: Any) -> Any:
+    if isinstance(metric, dict):
+        return metric.get("target") or (metric.get("config") or {}).get("target")
+    if isinstance(metric, MetricModel):
+        if "config" in sa_inspect(metric).unloaded:
+            return None
+        return (metric.config or {}).get("target")
+    return getattr(metric, "target", None)
 
 
-def applicable(metrics: List[Any], expectations: Optional[Expectations]) -> List[Any]:
+def metric_target(metric: Any) -> Optional[str]:
+    """What the metric judges (``"turn"``, ``"conversation"``, ...): its own target, else its
+    class's default; None when neither is known."""
+    target = _stored_target(metric)
+    if isinstance(target, dict):
+        target = target.get("on")
+    target = getattr(target, "value", target)
+    if isinstance(target, str) and target:
+        return target
+    cls = _builtin_class(metric)
+    if cls is None:
+        return None
+    from rhesis.sdk.metrics.targets import default_target
+
+    default = default_target(cls)
+    return default.value if default is not None else None
+
+
+def _builtin_class(metric: Any) -> Any:
+    """The native or DeepEval class a metric is built from, or None."""
+    _, class_name = _backend_and_class(metric)
+    if not isinstance(class_name, str):
+        return None
+    try:
+        from rhesis.backend.app.schemas.metric import builtin_metric_class
+
+        return builtin_metric_class(class_name)
+    except ImportError:  # a core install, which runs no metric
+        return None
+
+
+def _compares_with_response(metric: Any) -> bool:
+    cls = _builtin_class(metric)
+    if "response" in getattr(cls, "REQUIRED_EXPECTATIONS", ()):
+        return True
+    # A class can compare with one whatever its row says (DeepEval's contextual recall).
+    if getattr(cls, "requires_ground_truth", False) is True:
+        return True
+    if isinstance(metric, dict):
+        return bool(metric.get("ground_truth_required") or metric.get("requires_ground_truth"))
+    if isinstance(metric, MetricModel):
+        return bool(metric.ground_truth_required)
+    return getattr(metric, "requires_ground_truth", False) is True
+
+
+def fits(metric: Any, conversation: bool) -> bool:
+    """Whether the metric can judge a conversation (``conversation``) or a single turn,
+    whatever the test expects."""
+    if conversation:
+        # A conversation has no expected response to compare with.
+        return not _compares_with_response(metric)
+    return metric_target(metric) != "conversation"
+
+
+def applies(metric: Any, expectations: Optional[Expectations], conversation: bool = False) -> bool:
+    """Whether the metric can judge a test with these expectations; ``conversation`` says
+    whether the test is one."""
+    required = getattr(metric_class(metric), "REQUIRED_EXPECTATIONS", ())
+    if not all(getattr(expectations, field, None) is not None for field in required):
+        return False
+    return fits(metric, conversation)
+
+
+def applicable(
+    metrics: List[Any], expectations: Optional[Expectations], conversation: bool = False
+) -> List[Any]:
     """The metrics that apply to a test with these expectations."""
     kept, skipped = [], []
     for metric in metrics:
-        (kept if applies(metric, expectations) else skipped).append(metric)
+        (kept if applies(metric, expectations, conversation) else skipped).append(metric)
     if skipped:
         names = [getattr(m, "name", None) or "?" for m in skipped]
-        logger.debug(f"Not applicable, the test lacks what they compare with: {names}")
+        kind = "conversation" if conversation else "single-turn test"
+        logger.debug(f"Not applicable to this {kind}: {names}")
     return kept

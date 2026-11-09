@@ -66,26 +66,19 @@ def get_metric(
     )
 
 
-def _metric_scope_filter(metric_scope: str | None):
-    """Build a query transform filtering Metric.metric_scope by a comma-separated scope list.
+def metric_target_filter(target: str | None):
+    """Build a query transform keeping metrics whose target is one of a comma-separated list
+    of target kinds (``turn,conversation``).
 
     Returns None when there's nothing to filter, so callers can pass the result straight
     through as get_items_detail's extra_filter without an extra None-check.
     """
-    if not metric_scope:
-        return None
-    from sqlalchemy import or_
-    from sqlalchemy.dialects.postgresql import JSONB as PG_JSONB
-    from sqlalchemy.sql.expression import cast
-
-    scopes = [s.strip() for s in metric_scope.split(",") if s.strip()]
-    if not scopes:
+    kinds = [k.strip() for k in (target or "").split(",") if k.strip()]
+    if not kinds:
         return None
 
     def _filter(q):
-        return q.filter(
-            or_(*[models.Metric.metric_scope.op("@>")(cast([s], PG_JSONB)) for s in scopes])
-        )
+        return q.filter(models.Metric.config["target"]["on"].astext.in_(kinds))
 
     return _filter
 
@@ -97,7 +90,7 @@ def get_metrics(
     sort_by: str = "created_at",
     sort_order: str = "desc",
     filter: str | None = None,
-    metric_scope: str | None = None,
+    target: str | None = None,
     organization_id: str | None = None,
     user_id: str | None = None,
 ) -> List[models.Metric]:
@@ -113,7 +106,7 @@ def get_metrics(
         related_fields=_METRIC_RELATED_FIELDS,
         organization_id=organization_id,
         user_id=user_id,
-        extra_filter=_metric_scope_filter(metric_scope),
+        extra_filter=metric_target_filter(target),
     )
 
 

@@ -59,7 +59,7 @@ def test_thanks(message):
 
 @pytest.mark.parametrize(
     "message",
-    ["hi, how do I install the SDK?", "hello, what is metric scope?", "thanks, and helm?"],
+    ["hi, how do I install the SDK?", "hello, what is a metric target?", "thanks, and helm?"],
 )
 def test_greeting_with_a_question_goes_to_triage(message):
     assert safety.precheck(message) is None
@@ -81,8 +81,10 @@ def test_clip():
 
 
 def test_status_lines_are_removed():
-    text = "Metric scope sets the turns.\nREJECTED. Fix these\nBUDGET_EXHAUSTED: stop\nDone."
-    assert safety.strip_status_lines(text) == "Metric scope sets the turns.\nDone."
+    text = (
+        "A metric target sets what is judged.\nREJECTED. Fix these\nBUDGET_EXHAUSTED: stop\nDone."
+    )
+    assert safety.strip_status_lines(text) == "A metric target sets what is judged.\nDone."
 
 
 def test_a_reply_repeating_the_prompt_is_a_leak():

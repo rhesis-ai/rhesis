@@ -1,32 +1,58 @@
+---
+description: What a metric judges in a trace, and so which tests it runs on.
+keywords: [target, turn, conversation, tool call, single-turn, multi-turn, metric_scope]
+---
+
 import { CodeBlock } from "@/components/CodeBlock";
 
 # Metric Targets
 
-A metric's **target** says what it judges in a test's trace: the response as a whole, each turn of a conversation, or each span of one kind, such as every tool call or every retrieval. A metric without a target judges the response, as before.
+A metric's **target** says what it judges in a test's trace: each turn, the whole conversation, the whole run, or each span of one kind, such as every tool call or every retrieval. The target also decides which tests the metric runs on.
 
 ## Choices
 
-| `on` | Judges | The metric reads |
-| --- | --- | --- |
-| `turn` | Each turn: the test's one response, or every turn of a conversation on its own | the turn's input and output, and its trace |
-| `conversation` | The whole conversation, once | the conversation's trace |
-| `run` | The whole trace, once | the trace |
-| `tool_call` | Each tool call | the arguments as input, the result as output |
-| `retrieval` | Each retrieval | the query as input, the documents found as output |
-| `model_call` | Each model call | the prompt as input, the completion as output |
-| `agent` | Each agent run | the task as input, the final answer as output |
-| `guardrail` | Each guardrail check | what it checked as input, its decision as output |
+| `on` | Label | Judges | The metric reads |
+| --- | --- | --- | --- |
+| `turn` | Each turn | Each turn: the test's one response, or every turn of a conversation on its own | the turn's input and output, and its trace |
+| `conversation` | The conversation | The whole conversation, once | the conversation's trace |
+| `run` | The whole run | The whole trace, once | the trace |
+| `tool_call` | Each tool call | Each tool call | the arguments as input, the result as output |
+| `retrieval` | Each retrieval | Each retrieval | the query as input, the documents found as output |
+| `model_call` | Each model call | Each model call | the prompt as input, the completion as output |
+| `agent` | Each agent | Each agent run | the task as input, the final answer as output |
+| `guardrail` | Each guardrail check | Each guardrail check | what it checked as input, its decision as output |
 
 A metric that reads the trace gets the whole trace for a span, and the turn's own trace for a turn.
 
 A span or a turn is held to the test's goal, instructions and restrictions. A span is not held to the test's expected response or expected tool calls, which describe the whole response; a turn of a conversation is not held to the conversation's expected tool calls. So a metric that needs a reference answer can't take a per-span target, and the [Tool Call Trajectory](/docs/metrics/tool-calls) metric takes only `conversation` or `run`.
 
-Otherwise a metric can take the targets that fit what it reads. A judge reads input and output, so it can judge turns and any kind of span. A [code metric](/docs/metrics/code-metrics) that declares only `trace` can judge turns, the conversation or the whole run. A conversational metric judges the conversation. A target the metric can't take is refused when it is saved, with the choices it can take.
+Otherwise a metric can take the targets that fit what it reads. A judge reads input and output, so it can judge turns and any kind of span. A [code metric](/docs/metrics/code-metrics) that declares only `trace` can judge turns, the conversation or the whole run. A conversational metric judges the conversation. A target the metric can't take is refused when it is saved, with the choices it can take. Each metric the API returns lists its `supported_targets`, and `GET /metrics/targets` lists every choice with its label.
 
 The per-span targets take two refinements:
 
 - `name`: only spans with this tool, agent or model name, such as `"issue_refund"`.
 - `within`: only spans inside the agent with this name.
+
+## Default target
+
+The target is optional. A metric created without one gets its default, which is stored and returned like any other target:
+
+| Metric | Default |
+| --- | --- |
+| Judges, and other metrics that read input and output | `turn` |
+| Conversational Judge, Goal Achievement, and the DeepEval conversational metrics | `conversation` |
+| Tool Call Trajectory, and code metrics that read only `trace` | `run` |
+
+## Which tests a metric runs on
+
+- A `conversation` target runs only on multi-turn tests. It never runs on single-turn tests.
+- Every other target runs on single-turn and multi-turn tests alike.
+- On a multi-turn test, `turn` judges every turn of the conversation on its own. The metric fails when a turn fails, and the result reads "2 of 3 turns passed".
+- A metric that needs a reference answer (`ground_truth_required`) is left out of multi-turn tests, since a conversation has no reference answer. For the same reason it can't take the `conversation` target.
+
+So every requirement on a Single-Turn test set needs at least one linked metric whose target isn't `conversation`, or its tests have nothing to judge them.
+
+On live traces, the target decides when the metric runs. See [Trace Metrics](/docs/metrics/trace-metrics).
 
 ## Combining the verdicts
 
@@ -51,7 +77,7 @@ What an endpoint reports decides which targets can match:
 
 ## Setting a target
 
-A metric keeps its target in its `config`. Set it through the API or the MCP `update_metric` tool:
+A metric keeps its target in its `config`, as `config.target`. Send it when you create the metric, or change it later through the API or the MCP `update_metric` tool:
 
 <CodeBlock filename="target.sh" language="bash">
 {`curl -X PUT "$RHESIS_BASE_URL/metrics/$METRIC_ID" \\
@@ -60,7 +86,27 @@ A metric keeps its target in its `config`. Set it through the API or the MCP `up
   -d '{"config": {"target": {"on": "tool_call", "name": "issue_refund"}}}'`}
 </CodeBlock>
 
-The whole `config` is replaced, so send a built-in metric's own settings, such as the [Tool Call Trajectory](/docs/metrics/tool-calls) metric's `match`, along with the target. The metric's [scope](/docs/metrics/metric-scope) still decides which tests it runs on.
+The whole `config` is replaced, so send a built-in metric's own settings, such as the [Tool Call Trajectory](/docs/metrics/tool-calls) metric's `match`, along with the target.
+
+To list metrics by target, pass `target` with one or more choices: `GET /metrics/?target=turn,conversation`.
+
+In the SDK, a judge takes `target` in its constructor, and `push()` and `pull()` carry it in the metric's `config`:
+
+<CodeBlock filename="target.py" language="python">
+{`from rhesis.sdk.metrics import NumericJudge
+
+coherence = NumericJudge(
+    name="conversation_coherence",
+    evaluation_prompt="Rate the overall coherence of this conversation.",
+    min_score=0,
+    max_score=10,
+    threshold=6,
+    target="conversation",
+)
+coherence.push()`}
+</CodeBlock>
+
+A per-span target is a dict with `on` and, when needed, `name`, `within` and `aggregate`, as in the `targets.py` example below.
 
 ## Trying a target locally
 
@@ -86,3 +132,21 @@ print(result.details["reason"])`}
 </CodeBlock>
 
 A stored trace works the same way: `judge.evaluate(trace=Traces.pull(trace_id), target="retrieval")`.
+
+## Migrating from metric scope
+
+Targets replace the metric scope (`metric_scope`, a list of `Single-Turn` and `Multi-Turn`). The scope is gone from the API, the SDK (`MetricScope` and `MetricConfig.metric_scope`), the MCP tools, the app and Architect. A request that still sends `metric_scope`, such as one from an older SDK version, gets a 422 error. Upgrade the SDK and send `target` instead.
+
+Stored metrics were given a target from their class and scope:
+
+| Stored metric | Target |
+| --- | --- |
+| A conversational metric, or a metric scoped to Multi-Turn alone | `conversation` |
+| A metric scoped to both, Tool Call Trajectory, or a code metric that reads only the trace | `run` |
+| Every other metric | `turn` |
+
+A metric scoped to both keeps doing what it did: `run` judges a single-turn test's one response, and a multi-turn test once, on its goal and whole transcript. This covers the built-in OWASP metrics, which look for attacks that build up over several turns. To judge each turn of a conversation on its own instead, set the target to `turn`.
+
+A metric that can't read the whole trace got `turn` whatever its scope. That is one that reads only a turn's input and output (Garak detectors, the single-turn DeepEval metrics, code metrics that don't read the trace), or always compares with a reference answer (DeepEval's contextual precision and recall). A metric that was given `conversation` no longer requires a reference answer: it was scored against an empty one before.
+
+Single-turn metrics used to be skipped on multi-turn tests. With a `turn` target they now run on every turn of a multi-turn test.

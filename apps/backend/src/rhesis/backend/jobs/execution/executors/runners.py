@@ -16,7 +16,7 @@ from rhesis.backend.app.utils.response_extractor import (
     is_unfinished_conversation,
     normalize_context_to_list,
 )
-from rhesis.backend.jobs.execution.constants import PENELOPE_EVALUATED_METRICS, MetricScope
+from rhesis.backend.jobs.execution.constants import PENELOPE_EVALUATED_METRICS
 from rhesis.backend.jobs.execution.evaluation import (
     evaluate_multi_turn_metrics,
     evaluate_single_turn_metrics,
@@ -219,7 +219,7 @@ class SingleTurnRunner(BaseRunner):
                 test_set=test_set,
                 test_configuration=test_configuration,
             )
-            metric_configs = prepare_metric_configs(metrics, test_id, scope=MetricScope.SINGLE_TURN)
+            metric_configs = prepare_metric_configs(metrics, test_id)
             logger.debug(f"Prepared {len(metric_configs)} metrics for test {test_id}")
 
         # --- Entity 1: Get output ---

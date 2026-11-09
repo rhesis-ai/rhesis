@@ -51,6 +51,37 @@ jest.mock('@/components/common/Can', () => ({
   Can: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+jest.mock('@/hooks/useLookups', () => ({
+  useMetricTargets: () => ({
+    data: [
+      {
+        on: 'turn',
+        label: 'Each turn',
+        description: 'Each exchange.',
+        per_span: false,
+      },
+      {
+        on: 'conversation',
+        label: 'The conversation',
+        description: 'The whole conversation.',
+        per_span: false,
+      },
+      {
+        on: 'tool_call',
+        label: 'Each tool call',
+        description: 'Each tool call.',
+        per_span: true,
+      },
+      {
+        on: 'retrieval',
+        label: 'Each retrieval',
+        description: 'Each retrieval.',
+        per_span: true,
+      },
+    ],
+  }),
+}));
+
 jest.mock('@/hooks/useDocumentTitle', () => ({
   useDocumentTitle: jest.fn(),
 }));
@@ -79,7 +110,8 @@ const mockMetric = {
   updated_at: '2024-01-01T00:00:00Z',
   metric_type: { id: 'mt-1', type_name: 'MetricType', type_value: 'numeric' },
   backend_type: { id: 'bt-1', type_name: 'BackendType', type_value: 'rhesis' },
-  metric_scope: ['Single-Turn'],
+  config: { target: { on: 'turn' } },
+  supported_targets: ['turn', 'conversation', 'tool_call'],
   categories: [],
   passing_categories: [],
   model_id: 'model-1',
@@ -299,6 +331,73 @@ describe('MetricDetailView — evaluation step formats (issue #3011)', () => {
     await waitFor(() => expect(mockUpdateMetric).toHaveBeenCalled());
     expect(mockUpdateMetric.mock.calls[0][1]).toMatchObject({
       evaluation_steps: 'Step 1:\nFirst step\n---\nStep 2:\nEdited second step',
+    });
+  });
+});
+
+describe('MetricDetailView — target', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetModels.mockResolvedValue({ data: [] });
+    mockUpdateMetric.mockResolvedValue({});
+  });
+
+  function configurationCard(): HTMLElement {
+    const card = screen
+      .getByText('Result Configuration')
+      .closest('.MuiPaper-root');
+    if (!card) throw new Error('Result Configuration card not found');
+    return card as HTMLElement;
+  }
+
+  it('shows the target label and name', async () => {
+    mockGetMetric.mockResolvedValue({
+      ...mockMetric,
+      config: { target: { on: 'tool_call', name: 'search' } },
+    });
+    await renderAndViewMetric();
+
+    expect(screen.getByText('Each tool call (search)')).toBeInTheDocument();
+  });
+
+  it('offers only the supported targets and keeps other config keys on save', async () => {
+    mockGetMetric.mockResolvedValue({
+      ...mockMetric,
+      config: {
+        match: 'exact',
+        target: { on: 'turn', aggregate: 'all' },
+      },
+    });
+    await renderAndViewMetric();
+
+    const card = configurationCard();
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: /^edit$/i }));
+    });
+
+    expect(
+      within(card).getByRole('radio', { name: 'Each tool call' })
+    ).toBeInTheDocument();
+    expect(
+      within(card).queryByRole('radio', { name: 'Each retrieval' })
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(
+        within(card).getByRole('radio', { name: 'Each tool call' })
+      );
+    });
+    fireEvent.change(within(card).getByLabelText('Name'), {
+      target: { value: 'search' },
+    });
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: /save/i }));
+    });
+
+    await waitFor(() => expect(mockUpdateMetric).toHaveBeenCalled());
+    expect(mockUpdateMetric.mock.calls[0][1].config).toEqual({
+      match: 'exact',
+      target: { on: 'tool_call', name: 'search' },
     });
   });
 });

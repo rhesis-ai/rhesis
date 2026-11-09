@@ -66,6 +66,15 @@ def upgrade() -> None:
     try:
         print("\n🔧 Fixing Garak metrics with missing fields...")
 
+        # The Metric model no longer has metric_scope, which a later revision drops.
+        bind.execute(
+            text(
+                "UPDATE metric SET metric_scope = '[\"Single-Turn\"]'::jsonb "
+                "WHERE class_name = 'GarakDetectorMetric' "
+                "AND (metric_scope IS NULL OR metric_scope = '[]'::jsonb)"
+            )
+        )
+
         # project_id column is guaranteed to exist at this point (see comment above)
         garak_metrics = (
             session.query(models.Metric)
@@ -83,7 +92,6 @@ def upgrade() -> None:
             user_id = str(metric.user_id)
 
             # Check what fields need fixing
-            needs_scope = not metric.metric_scope
             needs_backend = not metric.backend_type_id
             needs_type = not metric.metric_type_id
             needs_status = not metric.status_id
@@ -98,7 +106,6 @@ def upgrade() -> None:
 
             if not any(
                 [
-                    needs_scope,
                     needs_backend,
                     needs_type,
                     needs_status,
@@ -112,10 +119,6 @@ def upgrade() -> None:
 
             # Build update data - CRUD handles string -> ID conversions
             update_data = schemas.MetricUpdate()
-
-            if needs_scope:
-                update_data.metric_scope = ["Single-Turn"]
-                print(f"   → Fixing metric_scope for '{metric.name}'")
 
             if needs_backend:
                 update_data.backend_type = "garak"

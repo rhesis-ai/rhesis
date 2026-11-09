@@ -58,19 +58,19 @@ Architect looks up the matching source in your platform knowledge library, passe
   Knowledge source grounding only applies to **single-turn** test sets. Multi-turn test generation does not consume sources.
 </Callout>
 
-## Metric scope
+## Metric targets
 
-Every metric declares which test shapes it can score. At run time the platform **only applies metrics whose `metric_scope` includes the test's type** — mismatches are silently dropped.
+Each metric in the plan has a target: what it judges. The default is `turn`, which judges a single-turn test's response and every turn of a multi-turn test on its own.
 
-| Scope | Use when | Test set type |
+| Target | Use when | Runs on |
 | --- | --- | --- |
-| `Single-Turn` | One prompt → one response (refusals, one-shot format, factual checks) | Single-Turn |
-| `Multi-Turn` | Full conversation needed (context retention, multi-step threads) | Multi-Turn |
-| Both | Same rubric works for either shape (rare — prefer splitting) | Matching sets |
+| `turn` | Each reply must hold up on its own (refusals, format, factual checks) | Single-Turn and Multi-Turn tests |
+| `conversation` | Only the whole conversation shows it (context retention, goal reached) | Multi-Turn tests only |
+| A per-span target, such as `tool_call` | One step of an agent must hold up (tool-call policy, retrieval quality) | Single-Turn and Multi-Turn tests |
 
-When planning, Architect shows each metric's scope and validates that every requirement in a test set has at least one linked metric with a compatible scope. If you need both one-shot guardrails and conversational retention tests, expect **two test sets** with separately scoped metrics.
+The plan shows what each metric judges. Before saving, Architect checks that every requirement of a Single-Turn test set has at least one linked metric whose target isn't `conversation`. When it creates a metric, the target sent must match the one in the plan.
 
-→ Full rules: [Metric scope](/docs/metrics/metric-scope)
+→ Every choice and how runs combine verdicts: [Metric Targets](/docs/metrics/targets)
 
 ## Iterating on the plan
 

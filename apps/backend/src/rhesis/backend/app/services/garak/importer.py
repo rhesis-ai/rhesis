@@ -289,7 +289,7 @@ class GarakImporter:
         Get or create a Garak detector metric.
 
         Uses the existing CRUD infrastructure to ensure all required fields
-        are properly set including metric_scope, backend_type, and status.
+        are properly set including the target, backend_type, and status.
 
         Args:
             detector_class: Full class path of the Garak detector
@@ -322,16 +322,13 @@ class GarakImporter:
             # Update existing metric if missing critical fields or has incorrect score_type
             # Fix categorical -> numeric scoring to match initial_data.json pattern
             needs_update = (
-                not existing_metric.metric_scope
-                or not existing_metric.backend_type_id
-                or existing_metric.score_type == "categorical"
+                not existing_metric.backend_type_id or existing_metric.score_type == "categorical"
             )
             if needs_update:
                 # Build update dict conditionally to avoid clearing existing values
                 # Only include fields that need to be updated (exclude_unset=True
                 # only excludes fields not passed to constructor, not fields set to None)
                 update_fields = {}
-                update_fields["metric_scope"] = existing_metric.metric_scope or ["Single-Turn"]
 
                 # Only set backend_type if it's missing
                 if not existing_metric.backend_type_id:
@@ -380,7 +377,7 @@ class GarakImporter:
             ground_truth_required=False,
             context_required=False,
             class_name=self.GARAK_METRIC_CLASS_NAME,
-            metric_scope=["Single-Turn"],  # Garak detectors are single-turn
+            config={"target": {"on": "turn"}},  # Garak detectors judge one response
             backend_type=MetricBackendType.GARAK,  # Will be converted to backend_type_id by CRUD
             metric_type="framework",  # Will be converted to metric_type_id by CRUD
             owner_id=user_uuid,

@@ -125,7 +125,7 @@ def test_endpoint_mappings_render_the_turn():
     response = _response(
         route=Route.PARTIALLY_ANSWERED,
         citations=[
-            {"title": "Metric scope", "url": "https://docs.rhesis.ai/docs/metrics/metric-scope"}
+            {"title": "Metric Targets", "url": "https://docs.rhesis.ai/docs/metrics/targets"}
         ],
         limits_hit=["page_budget"],
     )
@@ -138,7 +138,7 @@ def test_endpoint_mappings_render_the_turn():
     assert rendered["session_id"] == "c1"
     metadata = json.loads(rendered["metadata"])
     assert metadata["route"] == "partially_answered"
-    assert metadata["citations"] == ["https://docs.rhesis.ai/docs/metrics/metric-scope"]
+    assert metadata["citations"] == ["https://docs.rhesis.ai/docs/metrics/targets"]
     assert metadata["limits_hit"] == ["page_budget"]
     assert metadata["docs_as_of"].startswith("2026-09-30")
 

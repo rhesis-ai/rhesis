@@ -229,8 +229,8 @@ class ImprovedMetricFields(BaseModel):
     """The metric fields a model may rewrite from a reviewer's rejections.
 
     Deliberately narrow: the evaluation fields and nothing else. No ids, no
-    relations, no ``metric_scope`` -- a rejection says the metric judged one case
-    wrongly, which is not an opinion about which turn shapes it applies to.
+    relations, no target -- a rejection says the metric judged one case wrongly,
+    which is not an opinion about what in a trace it should judge.
 
     Every field is required but nullable rather than optional-with-a-default, so
     the JSON schema handed to the model lists them all: a provider running strict

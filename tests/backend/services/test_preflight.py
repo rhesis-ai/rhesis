@@ -767,7 +767,6 @@ class TestCheckMetricCompatibility:
         metric = MagicMock()
         metric.name = "Accuracy"
         metric.class_name = "AccuracyMetric"
-        metric.metric_scope = ["Single-Turn"]  # real DB value
         metric.context_required = False
         metric.ground_truth_required = False
 
@@ -797,7 +796,6 @@ class TestCheckMetricCompatibility:
         metric = MagicMock()
         metric.name = "Faithfulness"
         metric.class_name = "FaithfulnessMetric"
-        metric.metric_scope = ["Single-Turn"]  # real DB value
         metric.context_required = True
         metric.ground_truth_required = False
 
@@ -828,7 +826,6 @@ class TestCheckMetricCompatibility:
         metric = MagicMock()
         metric.name = "Correctness"
         metric.class_name = "CorrectnessMetric"
-        metric.metric_scope = ["Single-Turn"]  # real DB value
         metric.context_required = False
         metric.ground_truth_required = True
 
@@ -865,7 +862,6 @@ class TestCheckMetricCompatibility:
         metric = MagicMock()
         metric.name = "ConvJudge"
         metric.class_name = "ConversationalJudge"
-        metric.metric_scope = ["Multi-Turn"]  # real DB value
         metric.context_required = False
         metric.ground_truth_required = True  # even if set, should not trigger query
 

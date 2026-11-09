@@ -12,7 +12,7 @@ import CategoryIcon from '@mui/icons-material/Category';
 import ToggleOnIcon from '@mui/icons-material/ToggleOn';
 import BugReportIcon from '@mui/icons-material/BugReport';
 import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
-import { getMetricScopeIcon } from '@/constants/metric-scopes';
+import { getMetricTargetIcon } from '@/utils/metric-targets';
 
 // Custom Rhesis AI icon component using inline SVG
 const RhesisAIIcon = ({
@@ -41,7 +41,8 @@ interface MetricCardProps {
   backend?: string;
   metricType?: string;
   scoreType?: string;
-  metricScope?: string[];
+  /** What the metric judges: its target `on` value and display label. */
+  target?: { on: string; label: string };
   usedIn?: string[];
   showUsage?: boolean;
   onDelete?: () => void;
@@ -122,7 +123,7 @@ export default function MetricCard({
   backend,
   metricType: _metricType,
   scoreType,
-  metricScope,
+  target,
   type: _type,
   usedIn,
   showUsage = false,
@@ -181,13 +182,11 @@ export default function MetricCard({
     });
   }
 
-  if (metricScope && metricScope.length > 0) {
-    metricScope.forEach((scope, index) => {
-      metricPropertyChips.push({
-        key: `scope-${index}`,
-        icon: getMetricScopeIcon(scope),
-        label: scope,
-      });
+  if (target) {
+    metricPropertyChips.push({
+      key: 'target',
+      icon: getMetricTargetIcon(target.on),
+      label: target.label,
     });
   }
 
