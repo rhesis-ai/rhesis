@@ -138,6 +138,11 @@ function HintCard({
 
   const save = async () => {
     if (draft === null) return;
+    // Nothing changed: close the editor without writing.
+    if (draft === description) {
+      setDraft(null);
+      return;
+    }
     if (await onApply({ description: draft })) setDraft(null);
   };
 
@@ -213,7 +218,7 @@ function HintCard({
               <Button
                 size="small"
                 onClick={() => void save()}
-                disabled={busy || !draft.trim() || draft === description}
+                disabled={busy || !draft.trim()}
               >
                 Save
               </Button>
@@ -417,12 +422,20 @@ export default function RequirementSuggestionsFab({
         title="Suggestions"
         closeButtonText="Close"
       >
-        <Typography variant="body2" color="text.secondary" sx={{ mt: -3 }}>
-          Ways to make this requirement clearer and easier to test. Nothing
-          changes until you apply it.
-        </Typography>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        {/* The intro shares a box with the first section: a negative margin
+            would pull it above the drawer's scroll area and clip it. */}
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 1.5,
+            flexShrink: 0,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Ways to make this requirement clearer and easier to test. Nothing
+            changes until you apply it.
+          </Typography>
           <SectionHeader
             headline="AI review"
             caption={reviewCaption}
@@ -465,7 +478,7 @@ export default function RequirementSuggestionsFab({
           )}
         </Box>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
           <SectionHeader
             headline="Missing"
             caption="Checked on this page, no model involved"
