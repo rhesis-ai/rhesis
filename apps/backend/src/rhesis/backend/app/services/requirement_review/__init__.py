@@ -18,8 +18,6 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.crud.requirement import set_requirement_review
-from rhesis.backend.app.crud.type_lookup import get_type_values
-from rhesis.backend.app.services.requirement import REQUIREMENT_TYPE
 from rhesis.backend.app.utils.user_model_utils import resolve_model
 
 logger = logging.getLogger(__name__)
@@ -49,16 +47,13 @@ def description_hash(name: Optional[str], description: Optional[str]) -> str:
 
 
 def _clean(
-    hints: List[schemas.RequirementReviewHint], description: str, types: List[str]
+    hints: List[schemas.RequirementReviewHint], description: str
 ) -> List[schemas.RequirementReviewHint]:
-    """Drop what the client could not use: a quote not in the text, an unknown type."""
-    cleaned = []
-    for hint in hints[:MAX_HINTS]:
+    """Cap the hints and drop any quote that is not in the text."""
+    cleaned = hints[:MAX_HINTS]
+    for hint in cleaned:
         if hint.quote and hint.quote not in description:
             hint.quote = None
-        if hint.kind == "suggest_type" and hint.suggestion not in types:
-            continue
-        cleaned.append(hint)
     return cleaned
 
 
@@ -78,22 +73,15 @@ def _ask_model(db: Session, user: models.User, prompt: str) -> _ModelHints:
 
 
 def review_requirement(
-    db: Session, requirement: models.Requirement, user: models.User, organization_id: str
+    db: Session, requirement: models.Requirement, user: models.User
 ) -> schemas.RequirementReview:
     """Review the requirement, store the result on it, and return it."""
-    types = get_type_values(db, REQUIREMENT_TYPE, organization_id)
-    current_type = requirement.requirement_type.type_value if requirement.requirement_type else None
-    prompt = _load_template().render(
-        name=requirement.name,
-        description=requirement.description,
-        current_type=current_type,
-        types=types,
-    )
+    prompt = _load_template().render(name=requirement.name, description=requirement.description)
     answer = _ask_model(db, user, prompt)
     review = schemas.RequirementReview(
         reviewed_at=datetime.now(timezone.utc).isoformat(),
         description_hash=description_hash(requirement.name, requirement.description),
-        hints=_clean(answer.hints, requirement.description or "", types),
+        hints=_clean(answer.hints, requirement.description or ""),
     )
     set_requirement_review(db, requirement, review.model_dump(mode="json"))
     db.commit()

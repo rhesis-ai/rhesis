@@ -16,7 +16,6 @@ class RequirementBase(Base):
     user_id: Optional[UUID4] = None
     organization_id: Optional[UUID4] = None
     parent_id: Optional[UUID4] = None
-    requirement_type_id: Optional[UUID4] = None
     impact_id: Optional[UUID4] = None
 
 
@@ -31,6 +30,7 @@ class RequirementUpdate(RequirementBase):
 class Requirement(RequirementBase, ServerIdentity):
     tags: List[Tag] = Field(default_factory=list)
     created_at: Optional[Union[datetime, str]] = None
+    updated_at: Optional[Union[datetime, str]] = None
     user: Optional[UserReference] = None
 
 
@@ -82,7 +82,7 @@ RequirementTuningCaseRef = AnnotationTuningCase
 
 
 class RequirementReviewHint(BaseModel):
-    kind: Literal["vague_wording", "unclear_behavior", "suggest_type", "split", "other"]
+    kind: Literal["vague_wording", "unclear_behavior", "split", "other"]
     message: str
     quote: Optional[str] = None
     suggestion: Optional[str] = None

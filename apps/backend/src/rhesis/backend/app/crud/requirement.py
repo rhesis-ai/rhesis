@@ -32,7 +32,6 @@ from rhesis.backend.app.utils.query_utils import include
 _REQUIREMENT_RELATED_FIELDS = (
     include(models.Requirement.user),
     include(models.Requirement.parent),
-    include(models.Requirement.requirement_type),
     include(models.Requirement.impact),
     include(models.Requirement.metrics),
     include(models.Requirement.metrics, models.Metric.metric_type),

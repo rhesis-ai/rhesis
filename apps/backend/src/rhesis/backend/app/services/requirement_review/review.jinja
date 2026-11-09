@@ -7,16 +7,12 @@ Requirement description:
 """
 {{ description or "(no description)" }}
 """
-{% if current_type %}Current type: {{ current_type }}{% else %}No type is set.{% endif %}
-Available types: {{ types | join(", ") if types else "(none)" }}
-
 Return at most 5 hints, only for real problems. Return no hints if the requirement
 is already clear. Each hint has:
 - kind: one of
   - "vague_wording": a word or phrase that cannot be checked (e.g. "appropriate",
     "quickly", "be helpful")
   - "unclear_behavior": it is not clear what the system should actually do
-  - "suggest_type": no type is set, or a different available type fits clearly better
   - "split": the requirement mixes separate concerns that should be separate requirements
   - "other": anything else important
 - message: one short sentence in plain, everyday language for a domain expert.
@@ -24,5 +20,4 @@ is already clear. Each hint has:
 - quote: the exact text from the description the hint is about, copied character for
   character, or null.
 - suggestion: for "vague_wording" and "unclear_behavior", the full rewritten description
-  with the problem fixed and nothing else changed; for "suggest_type", exactly one of
-  the available types; otherwise null.
+  with the problem fixed and nothing else changed; otherwise null.

@@ -57,7 +57,6 @@ RequirementWithMetricsSchema = create_model(
     tags=(List[TagRead], []),
     test_counts=(schemas.RequirementTestCounts | None, None),
     parent=(schemas.RequirementParentRef | None, None),
-    requirement_type=(schemas.RequirementLookupRef | None, None),
     impact=(schemas.RequirementLookupRef | None, None),
     # Filled by requirement_service.attach_details; the ORM relationship carries no note.
     sources=(
@@ -359,7 +358,7 @@ def review_requirement_wording(
     if db_requirement is None:
         raise HTTPException(status_code=404, detail="Requirement not found")
     try:
-        return review_requirement(db, db_requirement, current_user, organization_id)
+        return review_requirement(db, db_requirement, current_user)
     except ReviewUnavailable as e:
         raise internal_error(
             e,

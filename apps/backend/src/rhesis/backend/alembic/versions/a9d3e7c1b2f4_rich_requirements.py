@@ -1,12 +1,11 @@
-"""Richer requirements: hierarchy, type, impact, sources, review and examples
+"""Richer requirements: hierarchy, impact, sources, review and examples
 
-- ``requirement.parent_id`` (self-FK, SET NULL), ``requirement_type_id`` and ``impact_id``
-  (type_lookup), ``review`` (the last AI quality review, JSONB).
+- ``requirement.parent_id`` (self-FK, SET NULL), ``impact_id`` (type_lookup), ``review`` (the last AI quality review, JSONB).
 - ``requirement_source``: requirement <-> source links with a ``note``. Org-scoped, no
   ``project_id``, so ``tenant_isolation`` only, as on ``requirement_metric``.
 - ``annotation.requirement_id``, backfilled for TestResult annotations from the
   result's test.
-- ``RequirementType`` and ``RequirementImpact`` lookups for every organization.
+- ``RequirementImpact`` lookups for every organization.
 
 Revision ID: a9d3e7c1b2f4
 Revises: f2c8d4e6a913
@@ -40,13 +39,6 @@ USING (organization_id = (SELECT NULLIF(current_setting('app.current_organizatio
 """
 
 _TYPE_LOOKUPS = """
-    ('RequirementType', 'Behavior', 'How the system should act in a situation'),
-    ('RequirementType', 'Safety', 'Keeps people from harm'),
-    ('RequirementType', 'Compliance', 'Follows a law, regulation or policy'),
-    ('RequirementType', 'Tone', 'How the system sounds'),
-    ('RequirementType', 'Factual accuracy', 'Says only what is true'),
-    ('RequirementType', 'Escalation', 'Hands over to a person when it should'),
-    ('RequirementType', 'Privacy', 'Protects personal data'),
     ('RequirementImpact', 'Legal / regulatory', 'A breach has legal or regulatory consequences'),
     ('RequirementImpact', 'Financial loss', 'A breach costs money'),
     ('RequirementImpact', 'Customer harm', 'A breach harms a customer'),
@@ -54,9 +46,6 @@ _TYPE_LOOKUPS = """
     ('RequirementImpact', 'Minor', 'A breach is an inconvenience')
 """
 _TYPE_VALUES = {
-    "RequirementType": (
-        "'Behavior', 'Safety', 'Compliance', 'Tone', 'Factual accuracy', 'Escalation', 'Privacy'"
-    ),
     "RequirementImpact": (
         "'Legal / regulatory', 'Financial loss', 'Customer harm', 'Reputation', 'Minor'"
     ),
@@ -79,7 +68,6 @@ _BACKFILL_ANNOTATIONS = sa.text("""
 def _add_requirement_columns() -> None:
     guid = postgresql.UUID(as_uuid=True)
     op.add_column("requirement", sa.Column("parent_id", guid, nullable=True))
-    op.add_column("requirement", sa.Column("requirement_type_id", guid, nullable=True))
     op.add_column("requirement", sa.Column("impact_id", guid, nullable=True))
     op.add_column(
         "requirement", sa.Column("review", postgresql.JSONB(astext_type=sa.Text()), nullable=True)
@@ -93,13 +81,6 @@ def _add_requirement_columns() -> None:
         ondelete="SET NULL",
     )
     op.create_index("ix_requirement_parent_id", "requirement", ["parent_id"])
-    op.create_foreign_key(
-        "fk_requirement_requirement_type_id",
-        "requirement",
-        "type_lookup",
-        ["requirement_type_id"],
-        ["id"],
-    )
     op.create_foreign_key(
         "fk_requirement_impact_id", "requirement", "type_lookup", ["impact_id"], ["id"]
     )
@@ -172,10 +153,9 @@ def downgrade() -> None:
     op.drop_table(_LINK_TABLE)
 
     op.drop_constraint("fk_requirement_impact_id", "requirement", type_="foreignkey")
-    op.drop_constraint("fk_requirement_requirement_type_id", "requirement", type_="foreignkey")
     op.drop_index("ix_requirement_parent_id", table_name="requirement")
     op.drop_constraint("fk_requirement_parent_id", "requirement", type_="foreignkey")
-    for column in ("review", "impact_id", "requirement_type_id", "parent_id"):
+    for column in ("review", "impact_id", "parent_id"):
         op.drop_column("requirement", column)
 
     conn = op.get_bind()

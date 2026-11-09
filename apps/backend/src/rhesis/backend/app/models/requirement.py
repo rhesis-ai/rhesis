@@ -60,7 +60,6 @@ class Requirement(
     parent_id = Column(
         GUID(), ForeignKey("requirement.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    requirement_type_id = Column(GUID(), ForeignKey("type_lookup.id"), nullable=True)
     impact_id = Column(GUID(), ForeignKey("type_lookup.id"), nullable=True)
     review = Column(JSONB, nullable=True)
 
@@ -71,7 +70,6 @@ class Requirement(
     parent = relationship("Requirement", remote_side="Requirement.id", back_populates="children")
     # The FK's ON DELETE SET NULL unlinks children; don't load them to do it.
     children = relationship("Requirement", back_populates="parent", passive_deletes=True)
-    requirement_type = relationship("TypeLookup", foreign_keys=[requirement_type_id])
     impact = relationship("TypeLookup", foreign_keys=[impact_id])
     # viewonly: a link carries a note and tenant columns, so crud.requirement writes it.
     sources = relationship("Source", secondary=requirement_source_association, viewonly=True)

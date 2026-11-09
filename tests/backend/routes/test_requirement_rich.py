@@ -61,8 +61,6 @@ def _source(db: Session, org_id, user_id, title: str = "Policy handbook") -> mod
 @pytest.fixture
 def lookups(test_db: Session, test_org_id, authenticated_user_id) -> dict:
     return {
-        "safety": _lookup(test_db, "RequirementType", "Safety", test_org_id, authenticated_user_id),
-        "tone": _lookup(test_db, "RequirementType", "Tone", test_org_id, authenticated_user_id),
         "legal": _lookup(
             test_db, "RequirementImpact", "Legal / regulatory", test_org_id, authenticated_user_id
         ),
@@ -70,19 +68,16 @@ def lookups(test_db: Session, test_org_id, authenticated_user_id) -> dict:
 
 
 class TestRequirementHierarchyAndLookups:
-    def test_create_with_parent_type_and_impact(self, authenticated_client, lookups):
+    def test_create_with_parent_and_impact(self, authenticated_client, lookups):
         parent = _create(authenticated_client, name=f"Parent {uuid.uuid4().hex[:6]}")
         child = _create(
             authenticated_client,
             parent_id=parent["id"],
-            requirement_type_id=str(lookups["safety"].id),
             impact_id=str(lookups["legal"].id),
         )
 
         assert child["parent_id"] == parent["id"]
         assert child["parent"] == {"id": parent["id"], "name": parent["name"]}
-        assert child["requirement_type"]["type_value"] == "Safety"
-        assert child["requirement_type"]["type_name"] == "RequirementType"
         assert child["impact"]["type_value"] == "Legal / regulatory"
         assert child["sources"] == []
         assert child["examples_count"] == 0
@@ -115,16 +110,38 @@ class TestRequirementHierarchyAndLookups:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "own parent" in response.json()["detail"]
 
-    def test_a_descendant_cannot_become_the_parent(self, authenticated_client):
+    def test_a_child_cannot_be_a_parent(self, authenticated_client):
         top = _create(authenticated_client)
-        middle = _create(authenticated_client, parent_id=top["id"])
-        bottom = _create(authenticated_client, parent_id=middle["id"])
+        child = _create(authenticated_client, parent_id=top["id"])
 
-        response = authenticated_client.put(
-            f"/requirements/{top['id']}", json={"parent_id": bottom["id"]}
+        response = authenticated_client.post(
+            "/requirements/",
+            json={"name": f"Grandchild {uuid.uuid4().hex[:6]}", "parent_id": child["id"]},
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "loop" in response.json()["detail"]
+        assert "one level deep" in response.json()["detail"]
+
+    def test_a_parent_cannot_be_grouped_under_another(self, authenticated_client):
+        top = _create(authenticated_client)
+        _create(authenticated_client, parent_id=top["id"])
+        other = _create(authenticated_client)
+
+        response = authenticated_client.put(
+            f"/requirements/{top['id']}", json={"parent_id": other["id"]}
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "has its own children" in response.json()["detail"]
+
+    def test_a_child_can_move_to_another_parent(self, authenticated_client):
+        first = _create(authenticated_client)
+        second = _create(authenticated_client)
+        child = _create(authenticated_client, parent_id=first["id"])
+
+        response = authenticated_client.put(
+            f"/requirements/{child['id']}", json={"parent_id": second["id"]}
+        )
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.json()["parent_id"] == second["id"]
 
     def test_unknown_parent_is_refused(self, authenticated_client):
         response = authenticated_client.post(
@@ -132,10 +149,12 @@ class TestRequirementHierarchyAndLookups:
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_impact_lookup_is_not_accepted_as_a_type(self, authenticated_client, lookups):
+    def test_impact_must_be_an_impact_lookup(
+        self, test_db, authenticated_client, test_org_id, authenticated_user_id
+    ):
+        other = _lookup(test_db, "ProviderType", "openai", test_org_id, authenticated_user_id)
         response = authenticated_client.post(
-            "/requirements/",
-            json={"name": "Wrong lookup", "requirement_type_id": str(lookups["legal"].id)},
+            "/requirements/", json={"name": "Wrong lookup", "impact_id": str(other.id)}
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
@@ -170,24 +189,17 @@ class TestRequirementHierarchyAndLookups:
         assert selected.json() == [{"id": child["id"], "name": child["name"]}]
 
     def test_create_with_explicit_nulls(self, authenticated_client):
-        created = _create(
-            authenticated_client, parent_id=None, requirement_type_id=None, impact_id=None
-        )
+        created = _create(authenticated_client, parent_id=None, impact_id=None)
         assert created["parent_id"] is None
-        assert created["requirement_type"] is None
+        assert created["impact"] is None
 
-    def test_update_clears_type_and_impact(self, authenticated_client, lookups):
-        requirement = _create(
-            authenticated_client,
-            requirement_type_id=str(lookups["tone"].id),
-            impact_id=str(lookups["legal"].id),
-        )
+    def test_update_clears_impact(self, authenticated_client, lookups):
+        requirement = _create(authenticated_client, impact_id=str(lookups["legal"].id))
         response = authenticated_client.put(
             f"/requirements/{requirement['id']}",
-            json={"requirement_type_id": None, "impact_id": None, "parent_id": None},
+            json={"impact_id": None, "parent_id": None},
         )
         assert response.status_code == status.HTTP_200_OK, response.text
-        assert response.json()["requirement_type"] is None
         assert response.json()["impact"] is None
 
 
@@ -447,8 +459,7 @@ class TestRequirementReview:
                     "quote": "appropriately",
                     "suggestion": "The bot stays calm and offers a refund or a person.",
                 },
-                {"kind": "suggest_type", "message": "This is about tone.", "suggestion": "Tone"},
-                {"kind": "suggest_type", "message": "Unknown.", "suggestion": "Nonsense"},
+                {"kind": "split", "message": "Two rules in one."},
                 {"kind": "other", "message": "Quote not in text.", "quote": "not there"},
             ]
         }
@@ -461,10 +472,9 @@ class TestRequirementReview:
         assert picked.call_args.args[2] == "generation"
         prompt = model.generate.call_args.args[0]
         assert description in prompt
-        assert "Tone" in prompt
         expected_hash = hashlib.sha256(f"{requirement['name']}\n{description}".encode()).hexdigest()
         assert review["description_hash"] == expected_hash
-        assert [h["kind"] for h in review["hints"]] == ["vague_wording", "suggest_type", "other"]
+        assert [h["kind"] for h in review["hints"]] == ["vague_wording", "split", "other"]
         assert review["hints"][2]["quote"] is None
 
         stored = authenticated_client.get(f"/requirements/{requirement['id']}").json()["review"]

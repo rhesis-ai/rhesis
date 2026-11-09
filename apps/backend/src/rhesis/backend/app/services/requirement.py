@@ -1,6 +1,6 @@
 """Requirement rules that sit above plain CRUD.
 
-The hierarchy check, the type/impact lookups, linked sources, and the annotations
+The hierarchy check, the impact lookup, linked sources, and the annotations
 that serve as a requirement's examples.
 """
 
@@ -18,33 +18,34 @@ from rhesis.backend.app.crud.type_lookup import get_type_lookup
 from rhesis.backend.app.services.annotation_context import attach_context
 from rhesis.backend.app.services.annotation_exchange import exchanges_for
 
-REQUIREMENT_TYPE = "RequirementType"
 REQUIREMENT_IMPACT = "RequirementImpact"
 
-_LOOKUP_FIELDS = {"requirement_type_id": REQUIREMENT_TYPE, "impact_id": REQUIREMENT_IMPACT}
+_LOOKUP_FIELDS = {"impact_id": REQUIREMENT_IMPACT}
 
 
 def _check_parent(db: Session, parent_id: uuid.UUID, requirement_id: Optional[uuid.UUID]) -> None:
-    """The parent must exist and must not sit at or below the requirement itself."""
+    """Requirements nest one level deep: a parent is top-level, a child has no children."""
     if requirement_id is not None and str(parent_id) == str(requirement_id):
         raise HTTPException(status_code=400, detail="A requirement cannot be its own parent.")
-    current: Optional[str] = str(parent_id)
-    seen: set = set()
-    while current is not None and current not in seen:
-        seen.add(current)
-        parents = requirement_crud.get_parent_ids(db, [current])
-        if current not in parents:
-            if current == str(parent_id):
-                raise HTTPException(status_code=400, detail="Parent requirement not found.")
-            return
-        if requirement_id is not None and parents[current] == str(requirement_id):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "The chosen parent is nested under this requirement, which would make a loop."
-                ),
-            )
-        current = parents[current]
+    parents = requirement_crud.get_parent_ids(db, [parent_id])
+    if str(parent_id) not in parents:
+        raise HTTPException(status_code=400, detail="Parent requirement not found.")
+    if parents[str(parent_id)] is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "The chosen parent is itself grouped under another requirement. "
+                "Requirements nest one level deep."
+            ),
+        )
+    if requirement_id is not None and requirement_crud.get_children_counts(db, [requirement_id]):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "This requirement has its own children, so it cannot be grouped under "
+                "another one. Requirements nest one level deep."
+            ),
+        )
 
 
 def _check_lookup(db: Session, field: str, lookup_id: uuid.UUID, organization_id: str) -> None:
@@ -60,7 +61,7 @@ def validate_requirement_links(
     organization_id: str,
     requirement_id: Optional[uuid.UUID] = None,
 ) -> None:
-    """Check parent, type and impact on a create or update body. Raises 400."""
+    """Check parent and impact on a create or update body. Raises 400."""
     fields = data.model_dump(exclude_unset=True)
     if fields.get("parent_id") is not None:
         _check_parent(db, fields["parent_id"], requirement_id)
