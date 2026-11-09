@@ -38,7 +38,8 @@ export class InsightsPage extends BasePage {
       name: /no endpoints in this project/i,
     });
     const noTestResults = this.page.getByRole('heading', {
-      name: /no test results yet/i,
+      // "No test results yet" or "No test results for <endpoint> yet"
+      name: /no test results (for .+ )?yet/i,
     });
     const passRateMetric = this.page.getByText(/\d+\.\d+%\s*pass rate/i);
     const loadingResults = this.page.getByText(/loading results/i);
