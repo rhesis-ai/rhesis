@@ -44,4 +44,74 @@ describe('InsightsEmptyState', () => {
     await user.click(screen.getByRole('button', { name: 'Go to Test Sets' }));
     expect(mockPush).toHaveBeenCalledWith('/test-sets');
   });
+
+  it('names the endpoint and offers to switch to one with results', async () => {
+    const user = userEvent.setup();
+    const onSelectEndpoint = jest.fn();
+    render(
+      <InsightsEmptyState
+        variant="no-test-results"
+        endpointName="Internal Policy Agent"
+        endpointsWithResults={[{ id: 'ep-2', name: 'Standards Agent' }]}
+        hasOtherEndpoints
+        onSelectEndpoint={onSelectEndpoint}
+      />
+    );
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'No test results for Internal Policy Agent yet',
+      })
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Show Standards Agent' })
+    );
+    expect(onSelectEndpoint).toHaveBeenCalledWith('ep-2');
+  });
+
+  it('offers to switch endpoint when other endpoints have no results either', async () => {
+    const user = userEvent.setup();
+    const onSwitchEndpoint = jest.fn();
+    render(
+      <InsightsEmptyState
+        variant="no-test-results"
+        endpointName="Internal Policy Agent"
+        hasOtherEndpoints
+        onSelectEndpoint={jest.fn()}
+        onSwitchEndpoint={onSwitchEndpoint}
+      />
+    );
+
+    expect(
+      screen.getByText(/or switch to another endpoint/)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /^Show / })
+    ).not.toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: 'Go to Test Sets' })).toHaveClass(
+      'MuiButton-contained'
+    );
+    expect(screen.getByRole('button', { name: 'Switch endpoint' })).toHaveClass(
+      'MuiButton-outlined'
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Switch endpoint' }));
+    expect(onSwitchEndpoint).toHaveBeenCalled();
+  });
+
+  it('hides switch endpoint when the project has only one endpoint', () => {
+    render(
+      <InsightsEmptyState
+        variant="no-test-results"
+        endpointName="Standards Agent"
+        onSwitchEndpoint={jest.fn()}
+      />
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Switch endpoint' })
+    ).not.toBeInTheDocument();
+  });
 });

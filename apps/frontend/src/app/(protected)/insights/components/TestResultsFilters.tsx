@@ -31,6 +31,9 @@ interface TestResultsFiltersProps {
    * requirement search — used on the no-test-results empty state.
    */
   variant?: 'full' | 'compact';
+  /** Controls the filter drawer from outside; uncontrolled when omitted. */
+  filterDrawerOpen?: boolean;
+  onFilterDrawerOpenChange?: (open: boolean) => void;
 }
 
 export default function TestResultsFilters({
@@ -45,9 +48,16 @@ export default function TestResultsFilters({
   allExpanded = false,
   onToggleAll,
   variant = 'full',
+  filterDrawerOpen: controlledDrawerOpen,
+  onFilterDrawerOpenChange,
 }: TestResultsFiltersProps) {
   const isCompact = variant === 'compact';
-  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [uncontrolledDrawerOpen, setUncontrolledDrawerOpen] = useState(false);
+  const filterDrawerOpen = controlledDrawerOpen ?? uncontrolledDrawerOpen;
+  const setFilterDrawerOpen = (open: boolean) => {
+    setUncontrolledDrawerOpen(open);
+    onFilterDrawerOpenChange?.(open);
+  };
 
   const drawerFilters = useMemo<InsightsDrawerFilters>(
     () => ({

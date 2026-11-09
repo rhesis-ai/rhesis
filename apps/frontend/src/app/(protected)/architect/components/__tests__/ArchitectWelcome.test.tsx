@@ -53,9 +53,11 @@ describe('ArchitectWelcome', () => {
     render(<ArchitectWelcome onSubmit={jest.fn()} />);
 
     expect(screen.queryByText(CHIP_LABEL)).not.toBeInTheDocument();
-    // The input stays available regardless.
+    // The input stays available, and asks about the agent to connect.
     expect(
-      screen.getByPlaceholderText('Describe what you want to test...')
+      screen.getByPlaceholderText(
+        'Describe your agent, or paste its API URL or docs...'
+      )
     ).toBeInTheDocument();
   });
 
@@ -70,7 +72,7 @@ describe('ArchitectWelcome', () => {
     expect(screen.queryByText(CHIP_LABEL)).not.toBeInTheDocument();
   });
 
-  it('keeps the heading visible in every state', () => {
+  it('asks to connect an agent when the project has no endpoint', () => {
     mockUseProjectNeedsEndpoint.mockReturnValue({
       pending: false,
       needsEndpoint: true,
@@ -79,7 +81,28 @@ describe('ArchitectWelcome', () => {
     render(<ArchitectWelcome onSubmit={jest.fn()} />);
 
     expect(
+      screen.getByText(
+        "Let's connect your agent and build your test foundation"
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('What would you like to test?')
+    ).not.toBeInTheDocument();
+  });
+
+  it('asks what to test once the project has an endpoint', () => {
+    mockUseProjectNeedsEndpoint.mockReturnValue({
+      pending: false,
+      needsEndpoint: false,
+    });
+
+    render(<ArchitectWelcome onSubmit={jest.fn()} />);
+
+    expect(
       screen.getByText('What would you like to test?')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText('Describe what you want to test...')
     ).toBeInTheDocument();
   });
 });

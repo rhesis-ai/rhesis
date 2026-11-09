@@ -55,6 +55,8 @@ export default function ArchitectWelcome({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const inputDisabled = isSubmitting || !canCreate;
+  // Nothing can run without an endpoint, so the opening ask is to connect one.
+  const showConnectCopy = !endpointCheckPending && needsEndpoint;
 
   // Not `autoFocus`: on a full page load the browser focuses the server HTML
   // before hydration, MUI never sees the focus event, and the focus border
@@ -129,7 +131,9 @@ export default function ArchitectWelcome({
               textAlign: 'center',
             }}
           >
-            What would you like to test?
+            {showConnectCopy
+              ? "Let's connect your agent and build your test foundation"
+              : 'What would you like to test?'}
           </Typography>
 
           <TextField
@@ -138,9 +142,11 @@ export default function ArchitectWelcome({
             multiline
             maxRows={6}
             placeholder={
-              canCreate
-                ? 'Describe what you want to test...'
-                : 'View-only access — you cannot start new Architect sessions'
+              !canCreate
+                ? 'View-only access — you cannot start new Architect sessions'
+                : showConnectCopy
+                  ? 'Describe your agent, or paste its API URL or docs...'
+                  : 'Describe what you want to test...'
             }
             value={inputValue}
             onChange={e => setInputValue(e.target.value)}
