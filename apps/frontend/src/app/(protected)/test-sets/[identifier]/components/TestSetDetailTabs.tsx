@@ -56,7 +56,7 @@ export default function TestSetDetailTabs({
         : key === 'linked'
           ? 'Tests'
           : 'Tasks',
-    ...(key === 'linked' && { icon: <LinkIcon titleAccess="Linked" /> }),
+    ...(key === 'linked' && { icon: <LinkIcon /> }),
     id: `test-set-detail-tab-${index}`,
     'aria-controls': `test-set-detail-tabpanel-${index}`,
   }));

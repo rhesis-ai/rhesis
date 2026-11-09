@@ -67,7 +67,7 @@ export default function RequirementDetailTabs({
       key,
       label: NAV_LABELS[key],
       ...(key !== 'basic' && {
-        icon: <LinkIcon titleAccess="Linked" />,
+        icon: <LinkIcon />,
       }),
       ...(count !== undefined && {
         badge: <GridBadge label={String(count)} />,

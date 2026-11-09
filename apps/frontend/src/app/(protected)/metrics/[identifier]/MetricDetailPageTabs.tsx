@@ -96,7 +96,7 @@ export default function MetricDetailPageTabs({
       // feature, and in the panel header it read as a label on the buttons.
       ...(key === 'tuning' && { badge: <BetaBadge /> }),
       ...(key === 'linked-requirements' && {
-        icon: <LinkIcon titleAccess="Linked" />,
+        icon: <LinkIcon />,
       }),
       id: `metric-detail-tab-${index}`,
       'aria-controls': `metric-detail-tabpanel-${index}`,

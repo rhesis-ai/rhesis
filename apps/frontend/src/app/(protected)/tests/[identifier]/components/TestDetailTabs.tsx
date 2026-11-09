@@ -61,7 +61,7 @@ export default function TestDetailTabs({
           : key === 'history'
             ? 'Execution History'
             : 'Tasks',
-    ...(key === 'linked' && { icon: <LinkIcon titleAccess="Linked" /> }),
+    ...(key === 'linked' && { icon: <LinkIcon /> }),
     id: `test-detail-tab-${index}`,
     'aria-controls': `test-detail-tabpanel-${index}`,
   }));

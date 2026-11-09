@@ -24,4 +24,22 @@ describe('DetailTabNav', () => {
       screen.getByRole('tab', { name: 'Basic Information' })
     ).not.toHaveTextContent('beta');
   });
+
+  it('keeps a tab icon out of the tab name', () => {
+    render(
+      <DetailTabNav
+        tabs={[
+          {
+            key: 'linked',
+            label: 'Tests',
+            icon: <svg role="img" aria-label="Linked" />,
+          },
+        ]}
+        activeIndex={0}
+        onChange={() => {}}
+      />
+    );
+
+    expect(screen.getByRole('tab', { name: /^tests$/i })).toBeInTheDocument();
+  });
 });
