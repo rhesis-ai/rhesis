@@ -21,10 +21,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import DownloadIcon from '@mui/icons-material/Download';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import EditIcon from '@mui/icons-material/Edit';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import CancelIcon from '@mui/icons-material/Cancel';
-import CheckIcon from '@mui/icons-material/Check';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useRouter } from 'next/navigation';
@@ -36,6 +33,11 @@ import {
   truncateFilename,
 } from '@/constants/knowledge';
 import { formatDate } from '@/utils/date';
+import {
+  SectionEditButton,
+  SectionSaveCancelActions,
+  sectionEditButtonSx,
+} from '@/components/common/SectionCardActions';
 import SourceTagsCard from './SourceTagsCard';
 import CommentsWrapper from '@/components/comments/CommentsWrapper';
 import { useCan } from '@/components/common/Can';
@@ -460,16 +462,7 @@ export default function SourcePreviewClientWrapper({
                           variant="outlined"
                           size="small"
                           disabled={isUpdating || isConnectionInvalid}
-                          sx={{
-                            color: theme.palette.text.secondary,
-                            borderColor: theme.palette.divider,
-                            '&:hover': {
-                              borderColor: theme.palette.text.secondary,
-                            },
-                            '&:disabled': {
-                              opacity: 0.6,
-                            },
-                          }}
+                          sx={sectionEditButtonSx}
                         >
                           {isUpdating ? 'Updating...' : 'Update'}
                         </Button>
@@ -483,13 +476,7 @@ export default function SourcePreviewClientWrapper({
                             rel="noopener noreferrer"
                             variant="outlined"
                             size="small"
-                            sx={{
-                              color: theme.palette.text.secondary,
-                              borderColor: theme.palette.divider,
-                              '&:hover': {
-                                borderColor: theme.palette.text.secondary,
-                              },
-                            }}
+                            sx={sectionEditButtonSx}
                           >
                             View in{' '}
                             {localSource.source_metadata.provider
@@ -505,34 +492,13 @@ export default function SourcePreviewClientWrapper({
                       onClick={handleDownloadFile}
                       variant="outlined"
                       size="small"
-                      sx={{
-                        color: theme.palette.text.secondary,
-                        borderColor: theme.palette.divider,
-                        '&:hover': {
-                          borderColor: theme.palette.text.secondary,
-                        },
-                      }}
+                      sx={sectionEditButtonSx}
                     >
                       Download
                     </Button>
                   )}
                   {canEditSource && (
-                    <Button
-                      startIcon={<EditIcon />}
-                      onClick={() => handleEdit('general')}
-                      variant="outlined"
-                      size="small"
-                      sx={{
-                        color: theme.palette.primary.main,
-                        borderColor: theme.palette.primary.main,
-                        '&:hover': {
-                          backgroundColor: theme.palette.primary.light,
-                          borderColor: theme.palette.primary.main,
-                        },
-                      }}
-                    >
-                      Edit Section
-                    </Button>
+                    <SectionEditButton onClick={() => handleEdit('general')} />
                   )}
                 </>
               )}
@@ -586,37 +552,11 @@ export default function SourcePreviewClientWrapper({
                   mb: theme.spacing(3),
                 }}
               >
-                <Button
-                  variant="outlined"
-                  color="error"
-                  startIcon={<CancelIcon />}
-                  onClick={handleCancelEdit}
-                  disabled={isSaving}
-                  sx={{
-                    borderColor: theme.palette.error.main,
-                    '&:hover': {
-                      backgroundColor: theme.palette.error.light,
-                      borderColor: theme.palette.error.main,
-                    },
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<CheckIcon />}
-                  onClick={handleConfirmEdit}
-                  disabled={isSaving}
-                  sx={{
-                    bgcolor: theme.palette.primary.main,
-                    '&:hover': {
-                      bgcolor: theme.palette.primary.dark,
-                    },
-                  }}
-                >
-                  {isSaving ? 'Saving...' : 'Save Section'}
-                </Button>
+                <SectionSaveCancelActions
+                  onSave={handleConfirmEdit}
+                  onCancel={handleCancelEdit}
+                  isSaving={isSaving}
+                />
               </Box>
             </Box>
           ) : (
