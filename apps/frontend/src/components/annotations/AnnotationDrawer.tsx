@@ -133,7 +133,8 @@ export default function AnnotationDrawer({
   >([]);
   const [tuningMetricIds, setTuningMetricIds] = useState<string[]>([]);
   const notifications = useNotifications();
-  const canAddTuningCase = useCan(Capability.Metric.UPDATE);
+  // The tuning-case route takes metric:create, like adding a case on the metric.
+  const canAddTuningCase = useCan(Capability.Metric.CREATE);
   const originalRequirementId = annotation?.requirement_id
     ? String(annotation.requirement_id)
     : null;

@@ -72,7 +72,8 @@ export default function RequirementExamples({
   const theme = useTheme();
   const notifications = useNotifications();
   const isAuthenticated = useIsAuthenticated();
-  const canAddCase = useCan(Capability.Metric.UPDATE);
+  // The tuning-case route takes metric:create, like adding a case on the metric.
+  const canAddCase = useCan(Capability.Metric.CREATE);
   const [examples, setExamples] = useState<RequirementExample[] | null>(
     initialExamples ?? null
   );
