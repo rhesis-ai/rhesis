@@ -1,5 +1,4 @@
 import type {
-  RequirementLookupRef,
   RequirementReview,
   RequirementReviewHint,
   RequirementUpdate,
@@ -14,10 +13,9 @@ export interface RuleHint {
 }
 
 export const RULE_HINT_MESSAGES: Record<RuleHintId, string> = {
-  no_source: 'No source. Where does this rule come from?',
-  no_examples:
-    'No examples yet. Annotate a test result or trace and pick this requirement.',
-  no_metric: 'No metric linked.',
+  no_source: 'No source yet',
+  no_examples: 'No examples yet',
+  no_metric: 'No metric linked yet',
 };
 
 /** Gaps the page can spot on its own, without asking a model. */
@@ -65,27 +63,21 @@ export function isReviewOutdated(
   return review.description_hash !== currentHash;
 }
 
+// Only these kinds carry a rewritten description. Older stored reviews can
+// hold other kinds with a suggestion (e.g. a type name) that must not be applied.
+const REWRITE_KINDS = new Set<string>(['vague_wording', 'unclear_behavior']);
+
 /**
- * The update a hint's suggestion makes, or null when it has nothing to apply.
- *
- * `suggest_type` names a type, matched to the project's options by value. Any
- * other suggestion replaces its quote in the description, or the whole
- * description when there is no quote to find.
+ * The description a hint's rewrite gives, or null when it has nothing to apply.
+ * The rewrite replaces its quote, or the whole description when the quote is
+ * not found.
  */
 export function hintUpdate(
   hint: RequirementReviewHint,
-  description: string | null | undefined,
-  typeOptions: Pick<RequirementLookupRef, 'id' | 'type_value'>[]
+  description: string | null | undefined
 ): RequirementUpdate | null {
   const suggestion = hint.suggestion?.trim();
-  if (!suggestion) return null;
-
-  if (hint.kind === 'suggest_type') {
-    const match = typeOptions.find(
-      option => option.type_value.toLowerCase() === suggestion.toLowerCase()
-    );
-    return match ? { requirement_type_id: match.id } : null;
-  }
+  if (!suggestion || !REWRITE_KINDS.has(hint.kind)) return null;
 
   const current = description ?? '';
   if (hint.quote && current.includes(hint.quote)) {

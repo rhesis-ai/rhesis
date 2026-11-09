@@ -2,25 +2,13 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import {
-  Badge,
-  Box,
-  Button,
-  IconButton,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+import { Badge, Box, Button, TextField, Typography } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import LightbulbOutlinedIcon from '@mui/icons-material/LightbulbOutlined';
-import CloseIcon from '@mui/icons-material/Close';
-import CheckIcon from '@mui/icons-material/Check';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import AddLinkIcon from '@mui/icons-material/AddLink';
-import { AddIcon } from '@/components/icons';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import FormSectionDivider from '@/components/common/FormSectionDivider';
 import { Fab } from '@/components/common/Fab';
-import { drawerSectionSx } from '@/components/common/drawerFormFieldSx';
-import { sectionEditButtonSx } from '@/components/common/SectionCardActions';
+import { BORDER_RADIUS } from '@/styles/theme';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -31,7 +19,6 @@ import type {
 } from '@/utils/api-client/interfaces/requirement';
 import { RequirementClient } from '@/utils/api-client/requirement-client';
 import type { UUID } from 'crypto';
-import { useRequirementTypes } from '../../components/requirement-lookups';
 import {
   hintKey,
   hintUpdate,
@@ -42,102 +29,254 @@ import {
 } from './requirement-suggestions';
 import { useRequirementActions } from './useRequirementActions';
 
-const RULE_ACTIONS: Partial<
-  Record<RuleHintId, { label: string; icon: React.ReactNode }>
-> = {
-  no_source: { label: 'Add source', icon: <AddIcon fontSize="small" /> },
-  no_examples: {
-    label: 'View examples',
-    icon: <ArrowForwardIcon fontSize="small" />,
-  },
-  no_metric: { label: 'Link metric', icon: <AddLinkIcon fontSize="small" /> },
+const RULE_ACTION_LABELS: Partial<Record<RuleHintId, string>> = {
+  no_source: 'Add source',
+  no_examples: 'View examples',
+  no_metric: 'Link metric',
 };
 
-/** A row action, sized like the models drawer's row icon buttons. */
-function RowAction({
-  label,
-  icon,
-  onClick,
-  disabled,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <Tooltip title={label}>
-      <span>
-        <IconButton
-          size="small"
-          aria-label={label}
-          onClick={onClick}
-          disabled={disabled}
-          color="primary"
-        >
-          {icon}
-        </IconButton>
-      </span>
-    </Tooltip>
-  );
-}
+const ICON_SIZE = 22;
 
-/** One hint, laid out like the model drawer's settings rows. */
-function HintRow({
-  message,
-  quote,
-  suggestion,
+/** Heading of a drawer section, with an optional action on the right. */
+function SectionHeader({
+  headline,
+  caption,
   action,
-  onDismiss,
 }: {
-  message: string;
-  quote?: string | null;
-  suggestion?: string | null;
+  headline: string;
+  caption: React.ReactNode;
   action?: React.ReactNode;
-  onDismiss: () => void;
 }) {
   return (
     <Box
       sx={{
-        borderTop: 1,
-        borderColor: theme => theme.palette.greyscale.border,
-        py: 2.5,
         display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'flex-start',
         gap: 1.5,
+        pb: 1.25,
+        borderBottom: 1,
+        borderColor: theme => theme.palette.greyscale.border,
       }}
     >
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography variant="body1">{message}</Typography>
-        {quote && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            In the description:{' '}
-            <Box
-              component="mark"
-              sx={{
-                bgcolor: 'warning.light',
-                color: 'inherit',
-                borderBottom: 2,
-                borderColor: 'warning.main',
-                borderBottomStyle: 'dotted',
-              }}
-            >
-              {quote}
-            </Box>
+      <FormSectionDivider headline={headline} descriptiveText={caption} />
+      {action}
+    </Box>
+  );
+}
+
+function WarnIcon() {
+  return (
+    <Box
+      aria-hidden
+      sx={{
+        width: ICON_SIZE,
+        height: ICON_SIZE,
+        flexShrink: 0,
+        borderRadius: '50%',
+        display: 'grid',
+        placeItems: 'center',
+        typography: 'caption',
+        fontWeight: 700,
+        bgcolor: theme => alpha(theme.palette.warning.main, 0.14),
+        color: 'warning.main',
+      }}
+    >
+      !
+    </Box>
+  );
+}
+
+function MissingIcon() {
+  return (
+    <Box
+      aria-hidden
+      sx={{
+        width: ICON_SIZE,
+        height: ICON_SIZE,
+        flexShrink: 0,
+        borderRadius: '50%',
+        border: 1.5,
+        borderStyle: 'dashed',
+        borderColor: theme => theme.palette.greyscale.border,
+      }}
+    />
+  );
+}
+
+interface HintCardProps {
+  hint: RequirementReviewHint;
+  /** Hidden for an outdated review: the words may no longer be there. */
+  showQuote: boolean;
+  /** The update "Use suggestion" makes, or null when there is none. */
+  changes: RequirementUpdate | null;
+  /** Today's description, the starting text for "Edit description". */
+  description: string;
+  canEdit: boolean;
+  busy: boolean;
+  onApply: (changes: RequirementUpdate) => Promise<boolean>;
+  onDismiss: () => void;
+}
+
+/**
+ * One AI hint. "Edit first" and "Edit description" open a field inside the
+ * card; Save writes straight away, like "Use suggestion".
+ */
+function HintCard({
+  hint,
+  showQuote,
+  changes,
+  description,
+  canEdit,
+  busy,
+  onApply,
+  onDismiss,
+}: HintCardProps) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const editing = draft !== null;
+  const rewrite = changes ? hint.suggestion?.trim() : null;
+
+  const save = async () => {
+    if (draft === null) return;
+    if (await onApply({ description: draft })) setDraft(null);
+  };
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        gap: 1.25,
+        p: 1.5,
+        border: 1,
+        borderRadius: BORDER_RADIUS.sm,
+        borderColor: editing
+          ? 'primary.main'
+          : theme => theme.palette.greyscale.border,
+        boxShadow: theme =>
+          editing
+            ? `0 0 0 3px ${alpha(theme.palette.primary.main, 0.18)}`
+            : 'none',
+      }}
+    >
+      <WarnIcon />
+      <Box
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0.75,
+        }}
+      >
+        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+          {hint.message}
+        </Typography>
+        {showQuote && hint.quote && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{
+              borderLeft: 3,
+              borderColor: 'warning.main',
+              pl: 1,
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
+            {hint.quote}
           </Typography>
         )}
-        {suggestion && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Suggested: “{suggestion}”
-          </Typography>
+
+        {editing ? (
+          <>
+            <TextField
+              label="New description"
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              multiline
+              minRows={3}
+              autoFocus
+              fullWidth
+              sx={{ mt: 1 }}
+            />
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+              <Button
+                size="small"
+                color="inherit"
+                onClick={() => setDraft(null)}
+                disabled={busy}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="small"
+                onClick={() => void save()}
+                disabled={busy || !draft.trim() || draft === description}
+              >
+                Save
+              </Button>
+            </Box>
+          </>
+        ) : (
+          <>
+            {rewrite && (
+              <Box
+                sx={{
+                  bgcolor: theme => theme.palette.greyscale.surface2,
+                  borderRadius: BORDER_RADIUS.xs,
+                  px: 1.25,
+                  py: 1,
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{
+                    display: 'block',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    fontWeight: 600,
+                  }}
+                >
+                  Suggested rewrite
+                </Typography>
+                <Typography variant="body2">{rewrite}</Typography>
+              </Box>
+            )}
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, ml: -1 }}>
+              {changes && (
+                <Button
+                  size="small"
+                  disabled={busy}
+                  onClick={() => void onApply(changes)}
+                >
+                  Use suggestion
+                </Button>
+              )}
+              {canEdit && (
+                <Button
+                  size="small"
+                  disabled={busy}
+                  onClick={() =>
+                    setDraft(
+                      changes?.description !== undefined
+                        ? (changes.description ?? '')
+                        : description
+                    )
+                  }
+                >
+                  {changes ? 'Edit first' : 'Edit description'}
+                </Button>
+              )}
+              <Button size="small" color="inherit" onClick={onDismiss}>
+                Dismiss
+              </Button>
+            </Box>
+          </>
         )}
       </Box>
-      {action}
-      <Tooltip title="Dismiss">
-        <IconButton size="small" onClick={onDismiss} aria-label="Dismiss">
-          <CloseIcon fontSize="small" />
-        </IconButton>
-      </Tooltip>
     </Box>
   );
 }
@@ -160,7 +299,6 @@ export default function RequirementSuggestionsFab({
 }: RequirementSuggestionsFabProps) {
   const notifications = useNotifications();
   const canEdit = useCan(Capability.Requirement.UPDATE);
-  const { data: typeOptions = [] } = useRequirementTypes();
   const { refresh, update } = useRequirementActions(
     requirement.id as UUID,
     onUpdated
@@ -213,29 +351,38 @@ export default function RequirementSuggestionsFab({
     }
   };
 
+  /** Writes the change and closes the hint. Returns whether it worked. */
   const apply = async (
     hint: RequirementReviewHint,
     changes: RequirementUpdate
-  ) => {
+  ): Promise<boolean> => {
     setApplying(true);
     try {
       await update(changes);
       dismiss(`ai:${hintKey(hint)}`);
+      return true;
     } catch {
-      notifications.show('Failed to apply the suggestion', {
-        severity: 'error',
-      });
+      notifications.show('Failed to save the change', { severity: 'error' });
+      return false;
     } finally {
       setApplying(false);
     }
   };
 
-  const reviewLine = review
-    ? `Reviewed with your generation model · ${formatDistanceToNow(
-        new Date(review.reviewed_at),
-        { addSuffix: true }
-      )}`
-    : 'Not reviewed yet. A review asks your generation model for vague wording and missing details.';
+  const reviewCaption = review ? (
+    <>
+      Generation model ·{' '}
+      {formatDistanceToNow(new Date(review.reviewed_at), { addSuffix: true })}
+      {outdated && (
+        <Box component="span" sx={{ color: 'warning.main' }}>
+          {' '}
+          · outdated, the text changed since
+        </Box>
+      )}
+    </>
+  ) : (
+    'Not reviewed yet. A review asks your generation model for vague wording and missing details.'
+  );
 
   return (
     <>
@@ -270,103 +417,97 @@ export default function RequirementSuggestionsFab({
         title="Suggestions"
         closeButtonText="Close"
       >
-        <Box sx={drawerSectionSx}>
-          <FormSectionDivider
+        <Typography variant="body2" color="text.secondary" sx={{ mt: -3 }}>
+          Ways to make this requirement clearer and easier to test. Nothing
+          changes until you apply it.
+        </Typography>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <SectionHeader
             headline="AI review"
-            descriptiveText={
-              <>
-                {reviewLine}
-                {outdated && (
-                  <Box component="span" sx={{ color: 'warning.main' }}>
-                    {' '}
-                    · outdated, the text changed since
-                  </Box>
-                )}
-              </>
+            caption={reviewCaption}
+            action={
+              canEdit ? (
+                <Button
+                  size="small"
+                  onClick={() => void handleReview()}
+                  disabled={reviewing}
+                  sx={{ flexShrink: 0 }}
+                >
+                  {reviewing
+                    ? 'Reviewing…'
+                    : review
+                      ? 'Review again'
+                      : 'Review'}
+                </Button>
+              ) : undefined
             }
           />
-          {canEdit && (
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => void handleReview()}
-              disabled={reviewing}
-              sx={[sectionEditButtonSx, { alignSelf: 'flex-start' }]}
-            >
-              {reviewing ? 'Reviewing…' : review ? 'Review again' : 'Review'}
-            </Button>
-          )}
-          {(aiHints.length > 0 || review) && (
-            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-              {aiHints.map(hint => {
-                const changes = canEdit
-                  ? hintUpdate(hint, requirement.description, typeOptions)
-                  : null;
-                const isType = hint.kind === 'suggest_type';
-                return (
-                  <HintRow
-                    key={`ai:${hintKey(hint)}`}
-                    message={hint.message}
-                    // Quotes from an outdated review may no longer be there.
-                    quote={outdated ? null : hint.quote}
-                    suggestion={isType ? null : hint.suggestion}
-                    action={
-                      changes ? (
-                        <RowAction
-                          label={isType ? 'Set type' : 'Use suggestion'}
-                          icon={<CheckIcon fontSize="small" />}
-                          disabled={applying}
-                          onClick={() => void apply(hint, changes)}
-                        />
-                      ) : undefined
-                    }
-                    onDismiss={() => dismiss(`ai:${hintKey(hint)}`)}
-                  />
-                );
-              })}
-              {review && aiHints.length === 0 && (
-                <Typography variant="body2" color="text.secondary">
-                  Nothing to fix from the review.
-                </Typography>
-              )}
-            </Box>
+          {aiHints.map(hint => (
+            <HintCard
+              key={`ai:${hintKey(hint)}`}
+              hint={hint}
+              showQuote={!outdated}
+              changes={
+                canEdit ? hintUpdate(hint, requirement.description) : null
+              }
+              description={requirement.description ?? ''}
+              canEdit={canEdit}
+              busy={applying}
+              onApply={changes => apply(hint, changes)}
+              onDismiss={() => dismiss(`ai:${hintKey(hint)}`)}
+            />
+          ))}
+          {review && aiHints.length === 0 && (
+            <Typography variant="body2" color="text.secondary">
+              Nothing to fix from the review.
+            </Typography>
           )}
         </Box>
 
-        <Box sx={drawerSectionSx}>
-          <FormSectionDivider
-            headline="Checks"
-            descriptiveText="What this requirement is still missing."
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+          <SectionHeader
+            headline="Missing"
+            caption="Checked on this page, no model involved"
           />
-          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-            {rules.map(hint => {
-              const ruleAction = RULE_ACTIONS[hint.id];
-              return (
-                <HintRow
-                  key={`rule:${hint.id}`}
-                  message={hint.message}
-                  action={
-                    ruleAction && (canEdit || hint.id !== 'no_source') ? (
-                      <RowAction
-                        label={ruleAction.label}
-                        icon={ruleAction.icon}
-                        onClick={() => {
-                          setOpen(false);
-                          onRuleAction(hint.id);
-                        }}
-                      />
-                    ) : undefined
-                  }
-                  onDismiss={() => dismiss(`rule:${hint.id}`)}
-                />
-              );
-            })}
-            {rules.length === 0 && (
-              <Typography variant="body2" color="text.secondary">
-                All clear.
-              </Typography>
-            )}
-          </Box>
+          {rules.map(hint => {
+            const label = RULE_ACTION_LABELS[hint.id];
+            const showAction = label && (canEdit || hint.id !== 'no_source');
+            return (
+              <Box
+                key={`rule:${hint.id}`}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.25,
+                  py: 1.25,
+                  borderBottom: 1,
+                  borderColor: theme => theme.palette.greyscale.border,
+                }}
+              >
+                <MissingIcon />
+                <Typography variant="body1" sx={{ flex: 1, minWidth: 0 }}>
+                  {hint.message}
+                </Typography>
+                {showAction && (
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      setOpen(false);
+                      onRuleAction(hint.id);
+                    }}
+                  >
+                    {label}
+                  </Button>
+                )}
+              </Box>
+            );
+          })}
+          {rules.length === 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ pt: 1.5 }}>
+              Nothing missing.
+            </Typography>
+          )}
         </Box>
       </BaseDrawer>
     </>

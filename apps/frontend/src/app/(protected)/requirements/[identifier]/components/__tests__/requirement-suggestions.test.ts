@@ -87,9 +87,6 @@ describe('requirementTextHash / isReviewOutdated', () => {
 });
 
 describe('hintUpdate', () => {
-  const types = [
-    { id: 't1', type_value: 'Compliance' },
-  ] as unknown as Parameters<typeof hintUpdate>[2];
   const hint = (
     over: Partial<RequirementReviewHint>
   ): RequirementReviewHint => ({
@@ -104,32 +101,29 @@ describe('hintUpdate', () => {
     expect(
       hintUpdate(
         hint({ quote: 'appropriately', suggestion: 'by offering an advisor' }),
-        'respond appropriately.',
-        types
+        'respond appropriately.'
       )
     ).toEqual({ description: 'respond by offering an advisor.' });
   });
 
   it('replaces the whole description when there is no quote to find', () => {
-    expect(
-      hintUpdate(hint({ suggestion: 'New text' }), 'Old text', types)
-    ).toEqual({ description: 'New text' });
+    expect(hintUpdate(hint({ suggestion: 'New text' }), 'Old text')).toEqual({
+      description: 'New text',
+    });
   });
 
-  it('sets a type by matching its name, or does nothing when none matches', () => {
+  it('ignores a suggestion on a kind that carries no rewrite', () => {
+    const stale = {
+      ...hint({ suggestion: 'Tone' }),
+      kind: 'suggest_type',
+    } as unknown as RequirementReviewHint;
+    expect(hintUpdate(stale, 'x')).toBeNull();
     expect(
-      hintUpdate(
-        hint({ kind: 'suggest_type', suggestion: 'compliance' }),
-        'x',
-        types
-      )
-    ).toEqual({ requirement_type_id: 't1' });
-    expect(
-      hintUpdate(hint({ kind: 'suggest_type', suggestion: 'Tone' }), 'x', types)
+      hintUpdate(hint({ kind: 'split', suggestion: 'x' }), 'x')
     ).toBeNull();
   });
 
   it('has nothing to apply without a suggestion', () => {
-    expect(hintUpdate(hint({ quote: 'x' }), 'x', types)).toBeNull();
+    expect(hintUpdate(hint({ quote: 'x' }), 'x')).toBeNull();
   });
 });

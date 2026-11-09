@@ -18,8 +18,9 @@ jest.mock('@/components/common/NotificationContext', () => ({
   useNotifications: () => ({ show: jest.fn() }),
 }));
 
-jest.mock('../../../components/requirement-lookups', () => ({
-  useRequirementTypes: () => ({ data: [] }),
+const mockUpdate = jest.fn().mockResolvedValue(undefined);
+jest.mock('../useRequirementActions', () => ({
+  useRequirementActions: () => ({ refresh: jest.fn(), update: mockUpdate }),
 }));
 
 const base = {
@@ -91,5 +92,73 @@ describe('RequirementSuggestionsFab', () => {
 
     await user.click(screen.getByRole('button', { name: 'Link metric' }));
     expect(onRuleAction).toHaveBeenCalledWith('no_metric');
+  });
+
+  const reviewed = (hint: Record<string, unknown>) =>
+    ({
+      ...base,
+      review: {
+        reviewed_at: '2026-10-20T10:00:00Z',
+        description_hash: 'x',
+        hints: [{ kind: 'vague_wording', message: 'Too vague.', ...hint }],
+      },
+    }) as any;
+
+  async function openDrawer() {
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /Suggestions/ }));
+    await screen.findByText('Too vague.');
+    return user;
+  }
+
+  beforeEach(() => mockUpdate.mockClear());
+
+  it('edits a suggestion inside its card before saving', async () => {
+    renderFab(
+      reviewed({ quote: 'appropriately', suggestion: 'without legal advice' })
+    );
+    const user = await openDrawer();
+
+    expect(screen.getByText('without legal advice')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Edit first' }));
+
+    const field = screen.getByLabelText('New description');
+    expect(field).toHaveValue('Respond without legal advice.');
+    await user.clear(field);
+    await user.type(field, 'Never give legal advice.');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(mockUpdate).toHaveBeenCalledWith({
+      description: 'Never give legal advice.',
+    });
+  });
+
+  it('offers "Edit description" with today\'s text when there is no rewrite', async () => {
+    renderFab(reviewed({ quote: 'appropriately', suggestion: null }));
+    const user = await openDrawer();
+
+    expect(
+      screen.queryByRole('button', { name: 'Use suggestion' })
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Edit description' }));
+    expect(screen.getByLabelText('New description')).toHaveValue(
+      'Respond appropriately.'
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByLabelText('New description')).not.toBeInTheDocument();
+    expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('applies a suggestion straight away', async () => {
+    renderFab(
+      reviewed({ quote: 'appropriately', suggestion: 'without legal advice' })
+    );
+    const user = await openDrawer();
+
+    await user.click(screen.getByRole('button', { name: 'Use suggestion' }));
+    expect(mockUpdate).toHaveBeenCalledWith({
+      description: 'Respond without legal advice.',
+    });
   });
 });
