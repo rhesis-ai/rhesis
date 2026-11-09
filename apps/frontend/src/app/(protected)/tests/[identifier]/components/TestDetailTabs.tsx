@@ -1,5 +1,6 @@
 'use client';
 
+import LinkIcon from '@mui/icons-material/Link';
 import React, { useCallback } from 'react';
 import { Box } from '@mui/material';
 import DetailTabNav from '@/components/common/DetailTabNav';
@@ -56,10 +57,11 @@ export default function TestDetailTabs({
       key === 'basic'
         ? 'Overview'
         : key === 'linked'
-          ? 'Linked Test Sets'
+          ? 'Test Sets'
           : key === 'history'
             ? 'Execution History'
             : 'Tasks',
+    ...(key === 'linked' && { icon: <LinkIcon titleAccess="Linked" /> }),
     id: `test-detail-tab-${index}`,
     'aria-controls': `test-detail-tabpanel-${index}`,
   }));

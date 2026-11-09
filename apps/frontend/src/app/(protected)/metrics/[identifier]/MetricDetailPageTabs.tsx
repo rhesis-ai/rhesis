@@ -16,6 +16,7 @@ import {
 } from './metric-data';
 import { useRouter } from 'next/navigation';
 import { Box, Typography } from '@mui/material';
+import LinkIcon from '@mui/icons-material/Link';
 import { useSession } from 'next-auth/react';
 import {
   GridColDef,
@@ -56,7 +57,7 @@ const TAB_KEYS = ['basic', 'linked-requirements', 'tuning'] as const;
 
 const NAV_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
   basic: 'Basic Information',
-  'linked-requirements': 'Linked Requirements',
+  'linked-requirements': 'Requirements',
   tuning: 'Tuning',
 };
 
@@ -94,6 +95,9 @@ export default function MetricDetailPageTabs({
       // Beta belongs on the tab, not inside the panel: it qualifies the whole
       // feature, and in the panel header it read as a label on the buttons.
       ...(key === 'tuning' && { badge: <BetaBadge /> }),
+      ...(key === 'linked-requirements' && {
+        icon: <LinkIcon titleAccess="Linked" />,
+      }),
       id: `metric-detail-tab-${index}`,
       'aria-controls': `metric-detail-tabpanel-${index}`,
     })

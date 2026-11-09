@@ -2,6 +2,7 @@
 
 import React, { useCallback } from 'react';
 import { Box } from '@mui/material';
+import LinkIcon from '@mui/icons-material/Link';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
 import { useDetailTabNav } from '@/hooks/useDetailTabNav';
@@ -55,6 +56,7 @@ export default function TestSetDetailTabs({
         : key === 'linked'
           ? 'Tests'
           : 'Tasks',
+    ...(key === 'linked' && { icon: <LinkIcon titleAccess="Linked" /> }),
     id: `test-set-detail-tab-${index}`,
     'aria-controls': `test-set-detail-tabpanel-${index}`,
   }));
