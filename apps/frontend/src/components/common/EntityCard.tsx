@@ -70,9 +70,9 @@ export interface EntityCardProps {
 const DESCRIPTION_LINE_HEIGHT = 22;
 const DESCRIPTION_MAX_LINES = 2;
 /** Line heights the optional slots reserve, so cards in a grid row line up. */
-const CONTEXT_LINE_HEIGHT = 18;
+const CONTEXT_LINE_HEIGHT = 20;
 const FACTS_LINE_HEIGHT = 24;
-const RELATIONS_LINE_HEIGHT = 20;
+const RELATIONS_LINE_HEIGHT = 22;
 
 function toneColor(tone: EntityCardTone, theme: Theme): string {
   switch (tone) {
@@ -88,8 +88,8 @@ function toneColor(tone: EntityCardTone, theme: Theme): string {
 }
 
 const smallMutedSx = {
-  fontSize: 12,
-  lineHeight: '18px',
+  fontSize: 13,
+  lineHeight: '20px',
   color: 'text.secondary',
   whiteSpace: 'nowrap',
 } as const;
@@ -411,7 +411,7 @@ export default function EntityCard({
           flexWrap: 'wrap',
           columnGap: 2,
           rowGap: 0.5,
-          fontSize: 13,
+          fontSize: 14,
           lineHeight: `${RELATIONS_LINE_HEIGHT}px`,
           minHeight: `${RELATIONS_LINE_HEIGHT}px`,
           color: 'text.secondary',
