@@ -85,10 +85,17 @@ export default function InsightsEmptyState({
     variant === 'no-test-results' && hasOtherEndpoints && !!onSwitchEndpoint;
   const secondaryActions = [
     ...(showSwitch && onSwitchEndpoint
-      ? [{ label: 'Switch endpoint', onAction: onSwitchEndpoint }]
+      ? [
+          {
+            id: 'switch-endpoint',
+            label: 'Switch endpoint',
+            onAction: onSwitchEndpoint,
+          },
+        ]
       : []),
     ...(onSelectEndpoint
       ? endpointsWithResults.map(endpoint => ({
+          id: `show-${endpoint.id}`,
           label: `Show ${endpoint.name}`,
           onAction: () => onSelectEndpoint(endpoint.id),
         }))

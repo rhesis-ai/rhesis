@@ -70,6 +70,8 @@ export interface EntityEmptyStateProps {
 }
 
 export interface EntityEmptyStateSecondaryAction {
+  /** Stable React key; labels can repeat. */
+  id: string;
   label: string;
   onAction: () => void;
 }
@@ -170,7 +172,7 @@ export default function EntityEmptyState({
         {primaryAction}
         {secondaryActions.map(action => (
           <Button
-            key={action.label}
+            key={action.id}
             variant="outlined"
             onClick={action.onAction}
             sx={
