@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Alert, Box, Button, CircularProgress } from '@mui/material';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useEndpoints } from '@/hooks/useEndpoints';
@@ -27,8 +27,10 @@ import {
 import {
   resolveEndpointId,
   chunkRequirementColumns,
+  findEndpointIdsWithRuns,
   isRequirementRowExpandable,
 } from '../utils/requirement-insights-utils';
+import { writeInsightsEndpointId } from '@/utils/insights-endpoint';
 import {
   useRequirementInsightsData,
   type RequirementInsightsSeed,
@@ -66,6 +68,7 @@ export default function InsightsPage({
       : undefined
   );
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const {
     data: endpoints = [],
@@ -215,6 +218,40 @@ export default function InsightsPage({
     noRuns,
   });
 
+  // Insights show one endpoint at a time, so an empty one shouldn't hide that
+  // a sibling endpoint has results.
+  const otherEndpoints = useMemo(
+    () => projectEndpoints.filter(e => e.id !== filters.endpointId),
+    [projectEndpoints, filters.endpointId]
+  );
+  const { data: endpointIdsWithRuns = [] } = useQuery({
+    queryKey: [
+      'insights-endpoints-with-runs',
+      otherEndpoints.map(e => e.id),
+      filters.timeRange,
+    ],
+    queryFn: () =>
+      findEndpointIdsWithRuns(
+        otherEndpoints.map(e => e.id),
+        filters.timeRange
+      ),
+    enabled: pageView === 'empty-no-test-results' && otherEndpoints.length > 0,
+  });
+  const endpointsWithResults = useMemo(
+    () =>
+      otherEndpoints
+        .filter(e => endpointIdsWithRuns.includes(e.id))
+        .map(e => ({ id: e.id, name: e.name })),
+    [otherEndpoints, endpointIdsWithRuns]
+  );
+
+  const handleSelectEndpoint = useCallback((endpointId: string) => {
+    writeInsightsEndpointId(endpointId);
+    setFilters(prev =>
+      normalizeInsightsFilters({ ...prev, endpointId, testRunIds: [] })
+    );
+  }, []);
+
   // Counts as reviewed only once real results are on screen, not an empty state
   const showsResults =
     pageView === 'content' &&
@@ -251,6 +288,8 @@ export default function InsightsPage({
     requirementOptions,
     searchQuery,
     onSearchChange: setSearchQuery,
+    filterDrawerOpen,
+    onFilterDrawerOpenChange: setFilterDrawerOpen,
   } as const;
 
   if (permsLoading) return <PageLoadingState />;
@@ -312,7 +351,14 @@ export default function InsightsPage({
         ) : pageView === 'empty-no-test-results' ? (
           <>
             <TestResultsFilters {...filterBarProps} variant="compact" />
-            <InsightsEmptyState variant="no-test-results" />
+            <InsightsEmptyState
+              variant="no-test-results"
+              endpointName={selectedEndpointName}
+              endpointsWithResults={endpointsWithResults}
+              hasOtherEndpoints={otherEndpoints.length > 0}
+              onSelectEndpoint={handleSelectEndpoint}
+              onSwitchEndpoint={() => setFilterDrawerOpen(true)}
+            />
           </>
         ) : (
           <>

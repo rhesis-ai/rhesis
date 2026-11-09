@@ -202,6 +202,26 @@ export async function fetchTestRunsForEndpoint(
   return runs;
 }
 
+/** The ids among `endpointIds` with at least one test run in `timeRange`. */
+export async function findEndpointIdsWithRuns(
+  endpointIds: string[],
+  timeRange?: InsightsTimeRange,
+  factory: ApiClientFactory = new ApiClientFactory()
+): Promise<string[]> {
+  const client = factory.getTestRunsClient();
+  const timeFilter = timeRange ? buildTestRunTimeFilter(timeRange) : '';
+  const hasRuns = await Promise.all(
+    endpointIds.map(async id => {
+      const filter = [buildEndpointRunFilter(id), timeFilter]
+        .filter(Boolean)
+        .join(' and ');
+      const response = await client.getTestRuns({ filter, skip: 0, limit: 1 });
+      return response.data.length > 0;
+    })
+  );
+  return endpointIds.filter((_id, i) => hasRuns[i]);
+}
+
 export async function fetchTestRunIdsForEndpoint(
   endpointId: string,
   timeRange?: InsightsTimeRange,

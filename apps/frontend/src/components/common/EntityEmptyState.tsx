@@ -65,6 +65,13 @@ export interface EntityEmptyStateProps {
   showAddIcon?: boolean;
   /** Cloud-only enrichment (video, help articles, community). Unset = basic. */
   enrichment?: EntityEmptyStateEnrichment;
+  /** More buttons beside the main action, in the basic (non-enriched) layout. */
+  secondaryActions?: EntityEmptyStateSecondaryAction[];
+}
+
+export interface EntityEmptyStateSecondaryAction {
+  label: string;
+  onAction: () => void;
 }
 
 /**
@@ -90,6 +97,7 @@ export default function EntityEmptyState({
   iconSize,
   showAddIcon,
   enrichment,
+  secondaryActions = [],
 }: EntityEmptyStateProps) {
   const isEnriched = hasEnrichmentContent(enrichment);
   const useCompactLayout = card || isEnriched || embedded;
@@ -134,10 +142,15 @@ export default function EntityEmptyState({
     </Typography>
   );
 
-  const basicAction =
+  const primaryAction =
     actionLabel && onAction ? (
       <Button
-        variant={useCompactLayout ? 'outlined' : 'contained'}
+        // Filled once there are other buttons, so the main action stands out.
+        variant={
+          useCompactLayout && secondaryActions.length === 0
+            ? 'outlined'
+            : 'contained'
+        }
         startIcon={resolvedShowAddIcon ? <AddIcon /> : undefined}
         onClick={onAction}
         disabled={actionDisabled}
@@ -150,6 +163,29 @@ export default function EntityEmptyState({
         {actionLabel}
       </Button>
     ) : null;
+
+  const basicAction =
+    secondaryActions.length > 0 ? (
+      <Box sx={emptyStateActionsRowSx}>
+        {primaryAction}
+        {secondaryActions.map(action => (
+          <Button
+            key={action.label}
+            variant="outlined"
+            onClick={action.onAction}
+            sx={
+              useCompactLayout
+                ? emptyStateOutlinedActionSx
+                : emptyStateStandaloneContainedActionSx
+            }
+          >
+            {action.label}
+          </Button>
+        ))}
+      </Box>
+    ) : (
+      primaryAction
+    );
 
   const enrichedActions =
     isEnriched && enrichment ? (
