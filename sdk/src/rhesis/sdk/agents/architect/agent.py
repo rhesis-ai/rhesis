@@ -75,7 +75,7 @@ HELD_BACK_NEXT_SEED = (
 def _list_item_extras(item: Dict[str, Any]) -> List[str]:
     """The fields a compacted list line keeps beside an item's name."""
     extras: List[str] = []
-    for key in ("score_type", "metric_scope", "requirement_type", "test_type"):
+    for key in ("score_type", "metric_scope", "test_type"):
         val = item.get(key)
         if val not in (None, ""):
             extras.append(f"{key}={val}")
