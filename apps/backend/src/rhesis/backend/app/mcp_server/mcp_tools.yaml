@@ -804,8 +804,9 @@ tools:
       $select: "id,type_value,description"
     description: >
       List the organization's impact options for requirements: what it
-      costs when the assistant gets a requirement wrong (e.g. "Legal /
-      regulatory", "Customer harm", "Minor"). Each organization can edit
+      costs when the assistant gets a requirement wrong (e.g. "Safety",
+      "Privacy & security", "Customer experience"). When several apply, pick
+      the worst. Each organization can edit
       these, so look the id up here rather than guessing one. CHAIN: before
       create_requirement or update_requirement with impact_id.
 

@@ -39,15 +39,16 @@ USING (organization_id = (SELECT NULLIF(current_setting('app.current_organizatio
 """
 
 _TYPE_LOOKUPS = """
-    ('RequirementImpact', 'Legal / regulatory', 'A breach has legal or regulatory consequences'),
-    ('RequirementImpact', 'Financial loss', 'A breach costs money'),
-    ('RequirementImpact', 'Customer harm', 'A breach harms a customer'),
-    ('RequirementImpact', 'Reputation', 'A breach damages trust in the company'),
-    ('RequirementImpact', 'Minor', 'A breach is an inconvenience')
+    ('RequirementImpact', 'Safety', 'Someone could get hurt'),
+    ('RequirementImpact', 'Legal & compliance', 'Breaks a law, regulation, contract or internal policy'),
+    ('RequirementImpact', 'Privacy & security', 'Exposes personal data or secrets, or opens a security hole'),
+    ('RequirementImpact', 'Financial', 'Costs money'),
+    ('RequirementImpact', 'Reputation', 'Damages trust in the company'),
+    ('RequirementImpact', 'Customer experience', 'The user doesn''t get what they came for')
 """
 _TYPE_VALUES = {
     "RequirementImpact": (
-        "'Legal / regulatory', 'Financial loss', 'Customer harm', 'Reputation', 'Minor'"
+        "'Safety', 'Legal & compliance', 'Privacy & security', 'Financial', 'Reputation', 'Customer experience'"
     ),
 }
 

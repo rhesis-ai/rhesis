@@ -276,7 +276,7 @@ Useful for adding a description to a requirement that was auto-created without o
 ---
 
 ### `list_requirement_impacts`
-List the organization's impact options: what it costs when the assistant gets a requirement wrong (e.g. "Legal / regulatory", "Customer harm", "Minor"). Each organization can edit these, so look the id up here instead of guessing.
+List the organization's impact options: what it costs when the assistant gets a requirement wrong (e.g. "Safety", "Privacy & security", "Customer experience"). When several apply, pick the worst. Each organization can edit these, so look the id up here instead of guessing.
 
 **CHAIN:** before `create_requirement` or `update_requirement` with `impact_id`.
 

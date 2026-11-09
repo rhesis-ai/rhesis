@@ -654,28 +654,33 @@
         },
         {
             "type_name": "RequirementImpact",
-            "type_value": "Legal / regulatory",
-            "description": "A breach has legal or regulatory consequences"
+            "type_value": "Safety",
+            "description": "Someone could get hurt"
         },
         {
             "type_name": "RequirementImpact",
-            "type_value": "Financial loss",
-            "description": "A breach costs money"
+            "type_value": "Legal & compliance",
+            "description": "Breaks a law, regulation, contract or internal policy"
         },
         {
             "type_name": "RequirementImpact",
-            "type_value": "Customer harm",
-            "description": "A breach harms a customer"
+            "type_value": "Privacy & security",
+            "description": "Exposes personal data or secrets, or opens a security hole"
+        },
+        {
+            "type_name": "RequirementImpact",
+            "type_value": "Financial",
+            "description": "Costs money"
         },
         {
             "type_name": "RequirementImpact",
             "type_value": "Reputation",
-            "description": "A breach damages trust in the company"
+            "description": "Damages trust in the company"
         },
         {
             "type_name": "RequirementImpact",
-            "type_value": "Minor",
-            "description": "A breach is an inconvenience"
+            "type_value": "Customer experience",
+            "description": "The user doesn't get what they came for"
         }
     ],
     "requirement": [

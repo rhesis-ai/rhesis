@@ -62,7 +62,7 @@ def _source(db: Session, org_id, user_id, title: str = "Policy handbook") -> mod
 def lookups(test_db: Session, test_org_id, authenticated_user_id) -> dict:
     return {
         "legal": _lookup(
-            test_db, "RequirementImpact", "Legal / regulatory", test_org_id, authenticated_user_id
+            test_db, "RequirementImpact", "Legal & compliance", test_org_id, authenticated_user_id
         ),
     }
 
@@ -78,7 +78,7 @@ class TestRequirementHierarchyAndLookups:
 
         assert child["parent_id"] == parent["id"]
         assert child["parent"] == {"id": parent["id"], "name": parent["name"]}
-        assert child["impact"]["type_value"] == "Legal / regulatory"
+        assert child["impact"]["type_value"] == "Legal & compliance"
         assert child["sources"] == []
         assert child["examples_count"] == 0
         assert child["review"] is None
