@@ -10,10 +10,7 @@ import {
 } from '@/components/common/FilterDrawer';
 import RequirementAutocomplete from '@/components/requirements/RequirementAutocomplete';
 import type { RequirementOption } from '@/utils/api-client/interfaces/requirement';
-import {
-  useRequirementImpacts,
-  useRequirementTypes,
-} from './requirement-lookups';
+import { useRequirementImpacts } from './requirement-lookups';
 
 export type MetricFilter = 'all' | 'has_metrics' | 'no_metrics';
 export type HierarchyFilter = 'all' | 'top_level' | 'has_parent';
@@ -21,7 +18,6 @@ export type HierarchyFilter = 'all' | 'top_level' | 'has_parent';
 export interface RequirementFilters {
   metricCount: MetricFilter;
   tagNames: string[];
-  typeIds: string[];
   impactIds: string[];
   hierarchy: HierarchyFilter;
   /** Only children of this requirement. Wins over `hierarchy`. */
@@ -31,7 +27,6 @@ export interface RequirementFilters {
 export const EMPTY_REQUIREMENT_FILTERS: RequirementFilters = {
   metricCount: 'all',
   tagNames: [],
-  typeIds: [],
   impactIds: [],
   hierarchy: 'all',
   parent: null,
@@ -41,7 +36,6 @@ export function countActiveRequirementFilters(f: RequirementFilters): number {
   return (
     (f.metricCount !== 'all' ? 1 : 0) +
     f.tagNames.length +
-    f.typeIds.length +
     f.impactIds.length +
     (f.parent || f.hierarchy !== 'all' ? 1 : 0)
   );
@@ -98,7 +92,6 @@ export default function RequirementFilterDrawer({
     onClose
   );
 
-  const { data: typeOptions = [] } = useRequirementTypes(open);
   const { data: impactOptions = [] } = useRequirementImpacts(open);
 
   const toggleTag = (name: string) => {
@@ -124,26 +117,6 @@ export default function RequirementFilterDrawer({
               sx={filterChipSx(draft.metricCount === value)}
             >
               {label}
-            </Box>
-          ))}
-        </Box>
-      </FilterSection>
-
-      <FilterSection title="Type">
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {typeOptions.map(option => (
-            <Box
-              key={option.id}
-              component="button"
-              onClick={() =>
-                setDraft(prev => ({
-                  ...prev,
-                  typeIds: toggle(prev.typeIds, String(option.id)),
-                }))
-              }
-              sx={filterChipSx(draft.typeIds.includes(String(option.id)))}
-            >
-              {option.type_value}
             </Box>
           ))}
         </Box>
@@ -186,6 +159,7 @@ export default function RequirementFilterDrawer({
         </Box>
         <RequirementAutocomplete
           label="Children of"
+          topLevelOnly
           value={draft.parent}
           onChange={parent =>
             setDraft(prev => ({ ...prev, parent, hierarchy: 'all' }))

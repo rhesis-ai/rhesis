@@ -206,13 +206,19 @@ export default function RequirementLinkedRequirements({
     setAssignOpen(true);
     setLoadingAvailable(true);
     try {
-      setAvailable(
-        await new RequirementClient().getAllRequirements<PickerRow>({
-          $select: 'id,name,description',
-          sort_by: 'name',
-          sort_order: 'asc',
-        })
+      const all = await new RequirementClient().getAllRequirements<
+        PickerRow & { parent_id?: string | null }
+      >({
+        $select: 'id,name,description,parent_id',
+        sort_by: 'name',
+        sort_order: 'asc',
+      });
+      // Requirements nest one level deep: only a top-level requirement
+      // without children of its own can become a child.
+      const parents = new Set(
+        all.flatMap(r => (r.parent_id ? [String(r.parent_id)] : []))
       );
+      setAvailable(all.filter(r => !r.parent_id && !parents.has(String(r.id))));
     } catch {
       setAvailable([]);
     } finally {
@@ -282,7 +288,10 @@ export default function RequirementLinkedRequirements({
         loading={loading}
         getRowId={row => String(row.id)}
         onRowClick={params => router.push(`/requirements/${String(params.id)}`)}
-        onAssignClick={canEdit ? handleAssignClick : undefined}
+        // A child cannot hold children of its own.
+        onAssignClick={
+          canEdit && !requirement.parent ? handleAssignClick : undefined
+        }
         searchPlaceholder="Search requirements…"
         emptyState={
           <Box

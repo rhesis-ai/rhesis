@@ -173,10 +173,10 @@ export class RequirementsPage extends BasePage {
     await card.locator('button').click();
   }
 
-  /** Assign metrics from the requirement detail Linked Metrics tab. */
+  /** Assign metrics from the requirement detail's linked Metrics tab. */
   async clickAddMetricOnCard(name: string) {
     await this.openRequirementDetail(name);
-    await this.page.getByRole('tab', { name: /linked metrics/i }).click();
+    await this.page.getByRole('tab', { name: /metrics/i }).click();
     await this.page.getByRole('button', { name: /^assign$/i }).click();
   }
 

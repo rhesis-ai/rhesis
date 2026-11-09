@@ -13,7 +13,6 @@ export interface RequirementBase {
   organization_id?: UUID | null;
   /** Null clears the field on update. */
   parent_id?: UUID | null;
-  requirement_type_id?: UUID | null;
   impact_id?: UUID | null;
 }
 
@@ -38,13 +37,13 @@ export interface RequirementWithMetrics extends RequirementBase {
   user_id?: UUID | null;
   organization_id: UUID;
   created_at?: string | null;
+  updated_at?: string | null;
   user?: User | null;
   metrics: MetricWithRelationships[]; // Full metric objects with type relationships
   tags?: Tag[];
   /** Linked tests by type. Only the read endpoints fill it. */
   test_counts?: RequirementTestCounts | null;
   parent?: RequirementParentRef | null;
-  requirement_type?: RequirementLookupRef | null;
   impact?: RequirementLookupRef | null;
   sources?: RequirementSourceLink[];
   children_count?: number;
@@ -76,7 +75,6 @@ export interface RequirementSourceLink {
 export type RequirementReviewHintKind =
   | 'vague_wording'
   | 'unclear_behavior'
-  | 'suggest_type'
   | 'split'
   | 'other';
 
@@ -85,7 +83,7 @@ export interface RequirementReviewHint {
   message: string;
   /** Words from the description the hint is about. */
   quote: string | null;
-  /** Replacement text: a new description, or a type name for `suggest_type`. */
+  /** The rewritten description, for `vague_wording` and `unclear_behavior`. */
   suggestion: string | null;
 }
 

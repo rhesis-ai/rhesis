@@ -167,18 +167,6 @@ export default function RequirementsTable({
         ),
       },
       {
-        field: 'type',
-        headerName: 'Type',
-        width: 150,
-        sortable: false,
-        renderCell: ({ row }: GridRenderCellParams<TableRow>) =>
-          row.requirement.requirement_type?.type_value ? (
-            <GridBadge label={row.requirement.requirement_type.type_value} />
-          ) : (
-            '—'
-          ),
-      },
-      {
         field: 'impact',
         headerName: 'Impact',
         width: 160,

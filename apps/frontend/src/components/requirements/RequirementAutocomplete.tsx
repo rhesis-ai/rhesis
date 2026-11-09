@@ -17,6 +17,8 @@ interface RequirementAutocompleteProps {
   onChange: (value: RequirementOption | null) => void;
   /** Ids never offered, e.g. the requirement being edited. */
   excludeIds?: string[];
+  /** Offer only requirements without a parent, i.e. ones that can be a parent. */
+  topLevelOnly?: boolean;
   helperText?: string;
   placeholder?: string;
   disabled?: boolean;
@@ -30,6 +32,7 @@ export default function RequirementAutocomplete({
   value,
   onChange,
   excludeIds = [],
+  topLevelOnly = false,
   helperText,
   placeholder = 'Search requirements…',
   disabled = false,
@@ -51,6 +54,12 @@ export default function RequirementAutocomplete({
         // The input shows the selected name; searching for it would hide
         // every other option.
         const searching = term && term !== value?.name;
+        const clauses = [
+          ...(searching
+            ? [`contains(tolower(name), tolower('${escapeODataValue(term)}'))`]
+            : []),
+          ...(topLevelOnly ? ['parent_id eq null'] : []),
+        ];
         const rows = await new ApiClientFactory()
           .getRequirementClient()
           .getRequirements<RequirementOption>({
@@ -58,11 +67,7 @@ export default function RequirementAutocomplete({
             sort_by: 'name',
             sort_order: 'asc',
             $select: 'id,name',
-            ...(searching
-              ? {
-                  $filter: `contains(tolower(name), tolower('${escapeODataValue(term)}'))`,
-                }
-              : {}),
+            ...(clauses.length > 0 ? { $filter: clauses.join(' and ') } : {}),
           });
         if (!cancelled) setOptions(rows);
       } catch {
@@ -75,7 +80,7 @@ export default function RequirementAutocomplete({
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [open, input, isAuthenticated, value?.name]);
+  }, [open, input, isAuthenticated, value?.name, topLevelOnly]);
 
   const visible = options.filter(o => !excludeIds.includes(String(o.id)));
 

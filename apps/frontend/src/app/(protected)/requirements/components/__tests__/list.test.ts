@@ -60,15 +60,15 @@ describe('requirementsList filters', () => {
     );
   });
 
-  it('ORs type and impact ids, dropping anything that is not a UUID', () => {
+  it('ORs impact ids, dropping anything that is not a UUID', () => {
     const a = '11111111-1111-1111-1111-111111111111';
     const b = '22222222-2222-2222-2222-222222222222';
     expect(
       buildListFilter(requirementsList, {
         ...empty,
-        typeIds: [a, "x' or 1 eq 1"],
+        impactIds: [a, "x' or 1 eq 1"],
       })
-    ).toBe(`requirement_type_id eq ${a}`);
+    ).toBe(`impact_id eq ${a}`);
     expect(
       buildListFilter(requirementsList, { ...empty, impactIds: [a, b] })
     ).toBe(`(impact_id eq ${a} or impact_id eq ${b})`);

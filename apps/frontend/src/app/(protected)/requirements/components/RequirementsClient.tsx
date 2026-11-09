@@ -137,7 +137,6 @@ export default function RequirementsClient({
       search: searchQuery,
       metricCount: metricCountFilter,
       tagNames: drawerFilters.tagNames,
-      typeIds: drawerFilters.typeIds,
       impactIds: drawerFilters.impactIds,
       hierarchy: hierarchyFilterValue(drawerFilters),
     }),
@@ -730,9 +729,9 @@ export default function RequirementsClient({
       {editingRequirement && (
         <RequirementDrawer
           selfId={editingRequirementId ?? undefined}
-          initialTypeId={editingRow?.requirement_type_id ?? null}
           initialImpactId={editingRow?.impact_id ?? null}
           initialParent={editingRow?.parent ?? null}
+          hasChildren={(editingRow?.children_count ?? 0) > 0}
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           name={editingRequirement.name}

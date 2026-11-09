@@ -15,10 +15,8 @@ import type { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import { typeLookupKeys } from '@/constants/query-keys';
 import {
   REQUIREMENT_IMPACT_NAME,
-  REQUIREMENT_TYPE_NAME,
   lookupFilter,
   useRequirementImpacts,
-  useRequirementTypes,
 } from './requirement-lookups';
 
 interface DraftOption {
@@ -158,22 +156,17 @@ interface RequirementOptionsDrawerProps {
   onClose: () => void;
 }
 
-/** Add, rename and remove the project's requirement types and impacts. */
+/** Add, rename and remove the project's requirement impacts. */
 export default function RequirementOptionsDrawer({
   open,
   onClose,
 }: RequirementOptionsDrawerProps) {
   const queryClient = useQueryClient();
-  const { data: types = NO_OPTIONS } = useRequirementTypes(open);
   const { data: impacts = NO_OPTIONS } = useRequirementImpacts(open);
-  const [typeDraft, setTypeDraft] = useState<DraftOption[]>([]);
   const [impactDraft, setImpactDraft] = useState<DraftOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
-  useEffect(() => {
-    if (open) setTypeDraft(toDraft(types));
-  }, [open, types]);
   useEffect(() => {
     if (open) setImpactDraft(toDraft(impacts));
   }, [open, impacts]);
@@ -184,18 +177,13 @@ export default function RequirementOptionsDrawer({
   const handleSave = async () => {
     setSaving(true);
     setError(undefined);
-    const results = await Promise.allSettled([
-      ...diffWrites(REQUIREMENT_TYPE_NAME, types, typeDraft),
-      ...diffWrites(REQUIREMENT_IMPACT_NAME, impacts, impactDraft),
-    ]);
-    // Refetch either way: a partial save still changed the lists.
-    await Promise.all(
-      [REQUIREMENT_TYPE_NAME, REQUIREMENT_IMPACT_NAME].map(name =>
-        queryClient.invalidateQueries({
-          queryKey: typeLookupKeys.list(lookupFilter(name)),
-        })
-      )
+    const results = await Promise.allSettled(
+      diffWrites(REQUIREMENT_IMPACT_NAME, impacts, impactDraft)
     );
+    // Refetch either way: a partial save still changed the list.
+    await queryClient.invalidateQueries({
+      queryKey: typeLookupKeys.list(lookupFilter(REQUIREMENT_IMPACT_NAME)),
+    });
     setSaving(false);
     if (results.some(r => r.status === 'rejected')) {
       setError(
@@ -210,20 +198,12 @@ export default function RequirementOptionsDrawer({
     <BaseDrawer
       open={open}
       onClose={onClose}
-      title="Requirement Options"
+      title="Impact Options"
       onSave={handleSave}
       saveButtonText="Save"
       loading={saving}
       error={error}
     >
-      <OptionsSection
-        headline="Types"
-        description="What kind of rule a requirement is."
-        addLabel="Add type"
-        draft={typeDraft}
-        setDraft={setTypeDraft}
-        disabled={saving}
-      />
       <OptionsSection
         headline="Impacts"
         description="What it costs when the assistant gets a requirement wrong."

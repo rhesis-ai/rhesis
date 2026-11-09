@@ -116,22 +116,10 @@ export default function RequirementBasicInfo({
                 value={requirement.description || undefined}
                 multiline
               />
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                  gap: 3,
-                }}
-              >
-                <ViewField
-                  label="Type"
-                  value={requirement.requirement_type?.type_value}
-                />
-                <ViewField
-                  label="Impact"
-                  value={requirement.impact?.type_value}
-                />
-              </Box>
+              <ViewField
+                label="Impact"
+                value={requirement.impact?.type_value}
+              />
               {requirement.parent ? (
                 <ViewField label="Parent requirement">
                   <MuiLink
@@ -187,16 +175,12 @@ export default function RequirementBasicInfo({
         description={requirement.description ?? ''}
         initialTagNames={tagNames}
         tagSuggestions={tagNames}
-        initialTypeId={
-          requirement.requirement_type_id ??
-          requirement.requirement_type?.id ??
-          null
-        }
         initialImpactId={
           requirement.impact_id ?? requirement.impact?.id ?? null
         }
         initialParent={parentOption}
         selfId={requirementId}
+        hasChildren={(requirement.children_count ?? 0) > 0}
         onSave={handleSave}
         isNew={false}
         loading={saving}

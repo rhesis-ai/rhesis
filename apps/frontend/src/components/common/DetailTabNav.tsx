@@ -10,6 +10,8 @@ export interface DetailTabNavItem {
   /** Rendered beside the label, e.g. a BetaBadge. Kept out of the label's
    * <span>, since Chip renders a <div> and a div inside a span is invalid. */
   badge?: React.ReactNode;
+  /** Rendered before the label, in the label's colour. */
+  icon?: React.ReactNode;
   id?: string;
   'aria-controls'?: string;
 }
@@ -140,6 +142,22 @@ export function DetailTabNav({
                 minWidth: 0,
               }}
             >
+              {tab.icon && (
+                <Box
+                  component="span"
+                  sx={{
+                    display: 'inline-flex',
+                    mr: -0.5,
+                    color: theme =>
+                      selected
+                        ? theme.palette.greyscale.title
+                        : theme.palette.greyscale.subtitle,
+                    '& .MuiSvgIcon-root': { fontSize: compact ? 16 : 20 },
+                  }}
+                >
+                  {tab.icon}
+                </Box>
+              )}
               <Typography
                 component="span"
                 variant={compact ? 'body2' : undefined}

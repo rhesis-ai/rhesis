@@ -23,14 +23,10 @@ import { useFormChangeDetection } from '@/hooks/useFormChangeDetection';
 import RequirementAutocomplete from '@/components/requirements/RequirementAutocomplete';
 import type { RequirementOption } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
-import {
-  useRequirementImpacts,
-  useRequirementTypes,
-} from './requirement-lookups';
+import { useRequirementImpacts } from './requirement-lookups';
 
 /** The optional fields, filled in over time. Null means none. */
 export interface RequirementDetailsInput {
-  requirement_type_id: UUID | null;
   impact_id: UUID | null;
   parent_id: UUID | null;
 }
@@ -47,11 +43,12 @@ interface RequirementDrawerProps {
   description: string;
   initialTagNames?: string[];
   tagSuggestions?: string[];
-  initialTypeId?: string | null;
   initialImpactId?: string | null;
   initialParent?: RequirementOption | null;
   /** The requirement being edited, so it is never offered as its own parent. */
   selfId?: string;
+  /** A requirement with children stays top-level: requirements nest one level deep. */
+  hasChildren?: boolean;
   onSave: (
     name: string,
     description: string,
@@ -75,10 +72,10 @@ const RequirementDrawer = ({
   description: initialDescription,
   initialTagNames = NO_TAGS,
   tagSuggestions = [],
-  initialTypeId = null,
   initialImpactId = null,
   initialParent = null,
   selfId,
+  hasChildren = false,
   onSave,
   onDuplicate,
   onDelete,
@@ -92,7 +89,6 @@ const RequirementDrawer = ({
   const [currentTagNames, setCurrentTagNames] =
     React.useState<string[]>(initialTagNames);
   const [validationError, setValidationError] = React.useState<string>('');
-  const [typeId, setTypeId] = React.useState<string>(initialTypeId ?? NONE);
   const [impactId, setImpactId] = React.useState<string>(
     initialImpactId ?? NONE
   );
@@ -101,7 +97,6 @@ const RequirementDrawer = ({
   );
   const [optionsOpen, setOptionsOpen] = React.useState(false);
   const canManageOptions = useCan(Capability.Requirement.UPDATE);
-  const { data: typeOptions = [] } = useRequirementTypes(open);
   const { data: impactOptions = [] } = useRequirementImpacts(open);
 
   const initialTagsSorted = React.useMemo(
@@ -118,7 +113,6 @@ const RequirementDrawer = ({
       name: initialName,
       description: initialDescription,
       tags: initialTagsSorted.join('\u0001'),
-      typeId: initialTypeId ?? NONE,
       impactId: initialImpactId ?? NONE,
       parentId: initialParent ? String(initialParent.id) : NONE,
     },
@@ -126,7 +120,6 @@ const RequirementDrawer = ({
       name: currentName,
       description: currentDescription,
       tags: currentTagsSorted.join('\u0001'),
-      typeId,
       impactId,
       parentId: parent ? String(parent.id) : NONE,
     },
@@ -137,7 +130,6 @@ const RequirementDrawer = ({
       setCurrentName(initialName);
       setCurrentDescription(initialDescription);
       setCurrentTagNames(initialTagNames);
-      setTypeId(initialTypeId ?? NONE);
       setImpactId(initialImpactId ?? NONE);
       setParent(initialParent);
       setValidationError('');
@@ -149,7 +141,6 @@ const RequirementDrawer = ({
     initialName,
     initialDescription,
     initialTagNames,
-    initialTypeId,
     initialImpactId,
     initialParent?.id,
     open,
@@ -179,7 +170,6 @@ const RequirementDrawer = ({
       currentDescription.trim(),
       sortedUnique(currentTagNames),
       {
-        requirement_type_id: (typeId || null) as UUID | null,
         impact_id: (impactId || null) as UUID | null,
         parent_id: parent ? (parent.id as UUID) : null,
       }
@@ -239,6 +229,57 @@ const RequirementDrawer = ({
             helperText="Describe what this requirement measures and why it matters"
           />
 
+          <TextField
+            select
+            label="Impact"
+            value={impactId}
+            onChange={e => setImpactId(e.target.value)}
+            disabled={loading}
+            fullWidth
+            helperText={
+              <>
+                What happens if the assistant gets this wrong
+                {canManageOptions && (
+                  <>
+                    {' · '}
+                    <Link
+                      component="button"
+                      type="button"
+                      variant="caption"
+                      underline="hover"
+                      onClick={() => setOptionsOpen(true)}
+                      sx={{ verticalAlign: 'baseline' }}
+                    >
+                      Manage impact options
+                    </Link>
+                  </>
+                )}
+              </>
+            }
+            sx={drawerOutlinedFieldSx}
+          >
+            <MenuItem value={NONE}>None</MenuItem>
+            {impactOptions.map(option => (
+              <MenuItem key={option.id} value={String(option.id)}>
+                {option.type_value}
+              </MenuItem>
+            ))}
+          </TextField>
+          <RequirementAutocomplete
+            label="Parent requirement"
+            value={parent}
+            onChange={setParent}
+            excludeIds={selfId ? [selfId] : []}
+            topLevelOnly
+            helperText={
+              hasChildren
+                ? 'It has its own children, so it stays at the top level'
+                : 'Group this requirement under a broader one'
+            }
+            disabled={loading || hasChildren}
+            sx={drawerOutlinedFieldSx}
+          />
+
           <Autocomplete
             multiple
             freeSolo
@@ -272,69 +313,6 @@ const RequirementDrawer = ({
                 helperText="Press Enter to add. Reuse tags from other requirements to group them."
               />
             )}
-          />
-
-          <TextField
-            select
-            label="Type"
-            value={typeId}
-            onChange={e => setTypeId(e.target.value)}
-            disabled={loading}
-            fullWidth
-            helperText="What kind of rule this is"
-            sx={drawerOutlinedFieldSx}
-          >
-            <MenuItem value={NONE}>None</MenuItem>
-            {typeOptions.map(option => (
-              <MenuItem key={option.id} value={String(option.id)}>
-                {option.type_value}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            label="Impact"
-            value={impactId}
-            onChange={e => setImpactId(e.target.value)}
-            disabled={loading}
-            fullWidth
-            helperText={
-              <>
-                What happens if the assistant gets this wrong
-                {canManageOptions && (
-                  <>
-                    {' · '}
-                    <Link
-                      component="button"
-                      type="button"
-                      variant="caption"
-                      underline="hover"
-                      onClick={() => setOptionsOpen(true)}
-                      sx={{ verticalAlign: 'baseline' }}
-                    >
-                      Manage type and impact options
-                    </Link>
-                  </>
-                )}
-              </>
-            }
-            sx={drawerOutlinedFieldSx}
-          >
-            <MenuItem value={NONE}>None</MenuItem>
-            {impactOptions.map(option => (
-              <MenuItem key={option.id} value={String(option.id)}>
-                {option.type_value}
-              </MenuItem>
-            ))}
-          </TextField>
-          <RequirementAutocomplete
-            label="Parent requirement"
-            value={parent}
-            onChange={setParent}
-            excludeIds={selfId ? [selfId] : []}
-            helperText="Group this requirement under a broader one"
-            disabled={loading}
-            sx={drawerOutlinedFieldSx}
           />
         </Stack>
 

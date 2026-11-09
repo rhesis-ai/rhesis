@@ -38,11 +38,6 @@ const REQUIREMENTS_FILTERS = {
     column: 'x/tag/name',
     multi: true,
   },
-  typeIds: {
-    kind: 'raw',
-    multi: true,
-    toOData: (value: string[]) => anyIdClause('requirement_type_id', value),
-  },
   impactIds: {
     kind: 'raw',
     multi: true,

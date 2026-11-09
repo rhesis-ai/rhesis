@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Box } from '@mui/material';
+import LinkIcon from '@mui/icons-material/Link';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
 import GridBadge from '@/components/common/GridBadge';
@@ -26,9 +27,9 @@ export type RequirementTabKey = (typeof REQUIREMENT_TAB_KEYS)[number];
 const NAV_LABELS: Record<RequirementTabKey, string> = {
   basic: 'Basic Information',
   examples: 'Examples',
-  'linked-metrics': 'Linked Metrics',
-  'linked-tests': 'Linked Tests',
-  'linked-requirements': 'Linked Requirements',
+  'linked-metrics': 'Metrics',
+  'linked-tests': 'Tests',
+  'linked-requirements': 'Requirements',
 };
 
 /** Parent (if any) plus children: the rows of the Linked Requirements tab. */
@@ -65,6 +66,9 @@ export default function RequirementDetailTabs({
     return {
       key,
       label: NAV_LABELS[key],
+      ...(key !== 'basic' && {
+        icon: <LinkIcon titleAccess="Linked" />,
+      }),
       ...(count !== undefined && {
         badge: <GridBadge label={String(count)} />,
       }),
