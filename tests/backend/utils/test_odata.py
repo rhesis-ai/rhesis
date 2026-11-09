@@ -95,3 +95,60 @@ def test_like_wildcards_in_a_literal_match_only_themselves(
     query = apply_odata_filter(test_db.query(models.Status), models.Status, filter_expr)
 
     assert {row.name for row in query.all()} & set(LIKE_NAMES) == expected
+
+
+TAG_FILTER = "_tags_relationship/any(x: x/tag/name eq '{}')"
+
+
+@pytest.mark.unit
+def test_a_nested_path_inside_any_is_joined_within_the_subquery():
+    query = apply_odata_filter(
+        Query(models.Requirement), models.Requirement, TAG_FILTER.format("a")
+    )
+    sql = str(query.statement.compile(dialect=postgresql.psycopg.dialect()))
+
+    exists = sql[sql.index("EXISTS") :]
+    assert "tag.id = tagged_item.tag_id" in exists
+
+
+@pytest.fixture
+def tagged_requirements(test_db, test_organization, db_user):
+    def requirement(name: str, tag_name: str) -> models.Requirement:
+        req = models.Requirement(
+            name=name, organization_id=test_organization.id, user_id=db_user.id
+        )
+        tag = models.Tag(name=tag_name, organization_id=test_organization.id, user_id=db_user.id)
+        test_db.add_all([req, tag])
+        test_db.flush()
+        test_db.add(
+            models.TaggedItem(
+                tag_id=tag.id,
+                entity_id=req.id,
+                entity_type="Requirement",
+                organization_id=test_organization.id,
+                user_id=db_user.id,
+            )
+        )
+        return req
+
+    reqs = [requirement("Cites the reference", "odata-a"), requirement("Flags gaps", "odata-b")]
+    test_db.commit()
+    return reqs
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "filter_expr, expected",
+    [
+        (TAG_FILTER.format("odata-a"), {"Cites the reference"}),
+        (TAG_FILTER.format("odata-b"), {"Flags gaps"}),
+        ("_tags_relationship/all(x: x/tag/name eq 'odata-a')", {"Cites the reference"}),
+    ],
+)
+def test_a_tag_filter_matches_only_rows_with_that_tag(
+    test_db, tagged_requirements, filter_expr, expected
+):
+    query = apply_odata_filter(test_db.query(models.Requirement), models.Requirement, filter_expr)
+    names = {r.name for r in tagged_requirements}
+
+    assert {row.name for row in query.all()} & names == expected

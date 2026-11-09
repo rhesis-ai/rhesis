@@ -3,9 +3,11 @@ from typing import Any, Dict, List, Type, Union
 from fastapi import HTTPException
 from odata_query import ast
 from odata_query import typing as odata_typing
+from odata_query import utils as odata_utils
 from odata_query.grammar import ODataLexer, ODataParser
 from odata_query.sqlalchemy import AstToSqlAlchemyOrmVisitor, functions_ext
 from odata_query.sqlalchemy.shorthand import _get_joined_attrs
+from sqlalchemy import and_, inspect
 from sqlalchemy.orm import Query
 from sqlalchemy.sql import visitors
 from sqlalchemy.sql.elements import BinaryExpression, BindParameter, ClauseElement
@@ -57,7 +59,29 @@ def _escape_like(text: str) -> str:
 
 class _OrmVisitor(AstToSqlAlchemyOrmVisitor):
     """odata_query's ORM visitor, with ``startswith``/``endswith``/``contains``
-    matching their literal as plain text instead of as a LIKE pattern."""
+    matching their literal as plain text instead of as a LIKE pattern, and
+    navigation inside ``any``/``all`` joined within the subquery."""
+
+    def visit_CollectionLambda(self, node: ast.CollectionLambda) -> ClauseElement:
+        # odata_query drops the joins a nested path needs inside the lambda, so
+        # `_tags_relationship/any(x: x/tag/name eq 'a')` put `tag` in the EXISTS
+        # uncorrelated and matched every tagged row while any tag 'a' existed.
+        if not node.lambda_:
+            return super().visit_CollectionLambda(node)
+
+        owner_prop = self.visit(node.owner)
+        collection_model = inspect(owner_prop).property.entity.class_
+        subq_ast = odata_utils.expression_relative_to_identifier(
+            node.lambda_.identifier, node.lambda_.expression
+        )
+        subq_transformer = self.__class__(collection_model)
+        subquery_filter = subq_transformer.visit(subq_ast)
+        joins = [rel.expression for rel in subq_transformer.join_relationships]
+
+        if isinstance(node.operator, ast.Any):
+            return owner_prop.any(and_(subquery_filter, *joins))
+        # ALL: no row in the collection may fail the condition.
+        return ~owner_prop.any(and_(~subquery_filter, *joins))
 
     def _substr_function(self, field: ast._Node, substr: ast._Node, func: str) -> ClauseElement:
         odata_typing.typecheck(field, (ast.Identifier, ast.String), "field")
