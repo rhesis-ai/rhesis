@@ -11,6 +11,12 @@ import EntityCard, {
 import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 import { useCan } from '@/components/common/Can';
+import {
+  AutoGraphIcon,
+  KnowledgeIcon,
+  RateReviewIcon,
+  ScienceIcon,
+} from '@/components/icons';
 import { Capability } from '@/constants/capabilities';
 
 interface RequirementCardProps {
@@ -24,6 +30,19 @@ interface RequirementCardProps {
   /** Retained for backward compatibility — no longer used in the card UI. */
   onViewMetrics?: () => void;
 }
+
+/** One dot colour per default impact; an organization's own get warning orange. */
+const IMPACT_COLORS: Record<string, string> = {
+  safety: 'error.main',
+  'privacy & security': 'warning.main',
+  'legal & compliance': 'primary.main',
+  financial: 'success.main',
+  reputation: 'secondary.light',
+  'customer experience': 'text.disabled',
+};
+
+export const impactColor = (impact: string) =>
+  IMPACT_COLORS[impact.trim().toLowerCase()] ?? 'warning.main';
 
 const plural = (n: number, one: string, many = `${one}s`) =>
   n === 1 ? one : many;
@@ -52,7 +71,7 @@ export function requirementCardSlots(
       key: 'impact',
       kind: 'state',
       label: `${impact} impact`,
-      tone: impact.toLowerCase() === 'minor' ? 'neutral' : 'warning',
+      color: impactColor(impact),
     });
   }
   const children = requirement.children_count ?? 0;
@@ -64,21 +83,43 @@ export function requirementCardSlots(
     });
   }
 
-  const counts: [string, number, string][] = [
-    ['metrics', requirement.metrics?.length ?? 0, 'metric'],
-    ['tests', requirement.test_counts?.total ?? 0, 'test'],
-    ['examples', requirement.examples_count ?? 0, 'example'],
-    ['sources', requirement.sources?.length ?? 0, 'source'],
+  // The sidebar's icons, in the sidebar's order.
+  const counts: [string, number, string, React.ReactNode][] = [
+    [
+      'sources',
+      requirement.sources?.length ?? 0,
+      'source',
+      <KnowledgeIcon key="i" />,
+    ],
+    [
+      'metrics',
+      requirement.metrics?.length ?? 0,
+      'metric',
+      <AutoGraphIcon key="i" />,
+    ],
+    [
+      'tests',
+      requirement.test_counts?.total ?? 0,
+      'test',
+      <ScienceIcon key="i" />,
+    ],
+    [
+      'examples',
+      requirement.examples_count ?? 0,
+      'example',
+      <RateReviewIcon key="i" />,
+    ],
   ];
   return {
     context: requirement.parent?.name
       ? `${requirement.parent.name} ›`
       : undefined,
     facts,
-    relations: counts.map(([key, count, noun]) => ({
+    relations: counts.map(([key, count, noun, icon]) => ({
       key,
       count,
       label: plural(count, noun),
+      icon,
     })),
   };
 }

@@ -24,7 +24,14 @@ export type EntityCardTone = 'neutral' | 'success' | 'warning' | 'error';
  */
 export type EntityCardFact =
   | { key: string; kind: 'type'; label: string }
-  | { key: string; kind: 'state'; label: string; tone?: EntityCardTone }
+  | {
+      key: string;
+      kind: 'state';
+      label: string;
+      tone?: EntityCardTone;
+      /** Dot colour as a palette path (e.g. 'info.main'); wins over `tone`. */
+      color?: string;
+    }
   | { key: string; kind: 'plain'; label: string; mono?: boolean };
 
 /**
@@ -35,6 +42,8 @@ export interface EntityCardRelation {
   key: string;
   label: string;
   count?: number;
+  /** With a count, shown instead of the label, which moves to a tooltip. */
+  icon?: React.ReactNode;
   /** Greys the entry out. Defaults to true when `count` is 0. */
   muted?: boolean;
 }
@@ -127,7 +136,7 @@ function Fact({ fact }: { fact: EntityCardFact }) {
             height: 7,
             borderRadius: '50%',
             flexShrink: 0,
-            bgcolor: toneColor(fact.tone ?? 'neutral', theme),
+            bgcolor: fact.color ?? toneColor(fact.tone ?? 'neutral', theme),
           }}
         />
         {fact.label}
@@ -161,6 +170,32 @@ function Relation({ relation }: { relation: EntityCardRelation }) {
       >
         {relation.label}
       </Box>
+    );
+  }
+  if (relation.icon) {
+    const text = `${relation.count} ${relation.label}`;
+    return (
+      <Tooltip title={text}>
+        <Box
+          component="span"
+          aria-label={text}
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.5,
+            color: muted ? 'text.disabled' : 'text.primary',
+            '& .MuiSvgIcon-root': {
+              fontSize: 16,
+              color: muted ? 'inherit' : 'text.secondary',
+            },
+          }}
+        >
+          {relation.icon}
+          <Box component="b" sx={{ fontWeight: muted ? 400 : 600 }}>
+            {relation.count}
+          </Box>
+        </Box>
+      </Tooltip>
     );
   }
   return (

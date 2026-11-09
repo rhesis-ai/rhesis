@@ -73,6 +73,26 @@ describe('EntityCard', () => {
     expect(screen.getByText('0')).toHaveStyle({ fontWeight: 400 });
   });
 
+  it('shows an icon and the count, with the words as its name', () => {
+    render(
+      <EntityCard
+        {...defaultProps}
+        relations={[
+          {
+            key: 'metrics',
+            count: 7,
+            label: 'metrics',
+            icon: <span data-testid="metric-icon" />,
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByTestId('metric-icon')).toBeInTheDocument();
+    expect(screen.getByLabelText('7 metrics')).toHaveTextContent('7');
+    expect(screen.queryByText('metrics')).not.toBeInTheDocument();
+  });
+
   it('shows the owner and when it was updated in the footer', () => {
     render(
       <EntityCard

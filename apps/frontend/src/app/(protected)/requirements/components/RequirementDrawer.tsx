@@ -238,7 +238,8 @@ const RequirementDrawer = ({
             fullWidth
             helperText={
               <>
-                What happens if the assistant gets this wrong
+                What it costs if the assistant gets this wrong. If several
+                apply, pick the worst
                 {canManageOptions && (
                   <>
                     {' · '}

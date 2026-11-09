@@ -4,7 +4,10 @@ import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import lightTheme from '@/styles/theme';
-import RequirementCard, { requirementCardSlots } from '../RequirementCard';
+import RequirementCard, {
+  impactColor,
+  requirementCardSlots,
+} from '../RequirementCard';
 import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 
 const mockDeleteRequirement = jest.fn().mockResolvedValue(undefined);
@@ -214,7 +217,7 @@ describe('requirementCardSlots', () => {
         key: 'impact',
         kind: 'state',
         label: 'Reputation impact',
-        tone: 'warning',
+        color: 'secondary.light',
       },
       { key: 'children', kind: 'plain', label: '1 child' },
     ]);
@@ -239,6 +242,12 @@ describe('requirementCardSlots', () => {
 
     expect(
       slots.relations.map(({ count, label }) => `${count} ${label}`)
-    ).toEqual(['7 metrics', '1 test', '1 example', '0 sources']);
+    ).toEqual(['0 sources', '7 metrics', '1 test', '1 example']);
+  });
+
+  it('colours each default impact, and an unknown one orange', () => {
+    expect(impactColor('Safety')).toBe('error.main');
+    expect(impactColor('Customer experience')).toBe('text.disabled');
+    expect(impactColor('Our own impact')).toBe('warning.main');
   });
 });
