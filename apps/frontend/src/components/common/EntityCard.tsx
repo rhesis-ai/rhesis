@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { formatDistanceToNow } from 'date-fns';
 import { alpha, useTheme, type Theme } from '@mui/material/styles';
 import {
   Box,
@@ -11,97 +12,170 @@ import {
   Tooltip,
 } from '@mui/material';
 import { DeleteIcon } from '@/components/icons';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { BORDER_RADIUS, ELEVATION, GRID_CARD_INSET } from '@/styles/theme';
 import GridBadge from '@/components/common/GridBadge';
 
-export interface ChipData {
+export type EntityCardTone = 'neutral' | 'success' | 'warning' | 'error';
+
+/**
+ * One fact in the line under the title. `type` is what kind of thing this is
+ * (one blue chip), `state` a status or weight (a coloured dot and a word), and
+ * `plain` anything else (muted text, joined by "·").
+ */
+export type EntityCardFact =
+  | { key: string; kind: 'type'; label: string }
+  | { key: string; kind: 'state'; label: string; tone?: EntityCardTone }
+  | { key: string; kind: 'plain'; label: string; mono?: boolean };
+
+/**
+ * A linked thing below the divider. With `count`, renders "**7** metrics" and
+ * greys out at zero; without, renders `label` as one line (e.g. a list of names).
+ */
+export interface EntityCardRelation {
   key: string;
   label: string;
-  icon?: React.ReactNode;
-  variant?: 'filled' | 'outlined';
-  maxWidth?: string | number;
-  tooltip?: string;
-}
-
-export interface ChipSection {
-  label?: string;
-  chips: ChipData[];
-  emptyText?: string;
-  /** Renders instead of chips when set (e.g. status badge on project cards). */
-  customContent?: React.ReactNode;
+  count?: number;
+  /** Greys the entry out. Defaults to true when `count` is 0. */
+  muted?: boolean;
 }
 
 export interface EntityCardProps {
   icon?: React.ReactNode;
   title: string;
-  description?: string;
+  description?: string | null;
   onClick?: () => void;
   onDelete?: () => void;
   /** When set, the delete button renders disabled with this as its tooltip. */
   deleteDisabledReason?: string;
   /** Accessible name for the delete button, and its tooltip when enabled. */
   deleteLabel?: string;
+  /** Where it lives: a parent, a provider, a repository. One muted line. */
+  context?: React.ReactNode;
+  /** At most three; see {@link EntityCardFact}. */
+  facts?: EntityCardFact[];
+  relations?: EntityCardRelation[];
   userAvatar?: string;
   userName?: string;
-  status?: 'active' | 'inactive' | string;
-  chipSections?: ChipSection[];
+  /** ISO timestamp, shown as "Updated 3 days ago" in the footer. */
+  updatedAt?: string | null;
+  /** Right side of the footer, e.g. a "Request access" button. */
+  footerAction?: React.ReactNode;
   topRightActions?: React.ReactNode;
-  captionText?: string;
   /** Overrides the default card border color (e.g. 'warning.main' for validation errors) */
   borderColor?: string;
-  /** Optional content rendered inside the card after chip sections */
-  footer?: React.ReactNode;
   /** Lines the description is clamped to and always reserves. */
   descriptionLines?: number;
 }
 
-function getStatusChipStyles(
-  status: string,
-  theme: Theme
-): { bg: string; color: string } {
-  const isDark = theme.palette.mode === 'dark';
-  const lower = status.toLowerCase();
+const DESCRIPTION_LINE_HEIGHT = 22;
+const DESCRIPTION_MAX_LINES = 2;
+/** Line heights the optional slots reserve, so cards in a grid row line up. */
+const CONTEXT_LINE_HEIGHT = 18;
+const FACTS_LINE_HEIGHT = 24;
+const RELATIONS_LINE_HEIGHT = 20;
 
-  if (lower === 'active') {
-    return {
-      bg: alpha(theme.palette.success.main, 0.14),
-      color: theme.palette.success.main,
-    };
+function toneColor(tone: EntityCardTone, theme: Theme): string {
+  switch (tone) {
+    case 'success':
+      return theme.palette.success.main;
+    case 'warning':
+      return theme.palette.warning.main;
+    case 'error':
+      return theme.palette.error.main;
+    default:
+      return theme.palette.text.disabled;
   }
-  if (lower === 'inactive') {
-    return {
-      bg: alpha(theme.palette.error.main, 0.12),
-      color: theme.palette.error.main,
-    };
-  }
-
-  return {
-    bg: isDark ? theme.palette.grey[900] : theme.palette.greyscale.surface2,
-    color: isDark ? theme.palette.grey[300] : theme.palette.greyscale.body,
-  };
 }
 
-const DESCRIPTION_FONT_SIZE = 14;
-const DESCRIPTION_LINE_HEIGHT = 22;
-const DESCRIPTION_MAX_LINES = 3;
+const smallMutedSx = {
+  fontSize: 12,
+  lineHeight: '18px',
+  color: 'text.secondary',
+  whiteSpace: 'nowrap',
+} as const;
 
-/** Status badge on entity cards — pill shape; semantic tint for active/inactive. */
-export function EntityCardStatusBadge({ status }: { status: string }) {
+function Fact({ fact }: { fact: EntityCardFact }) {
   const theme = useTheme();
-  const { bg, color } = getStatusChipStyles(status, theme);
-  const statusLabel =
-    status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-
+  if (fact.kind === 'type') {
+    return (
+      <GridBadge
+        label={fact.label}
+        sx={{
+          bgcolor: alpha(theme.palette.primary.main, 0.12),
+          color: 'primary.main',
+          fontWeight: 600,
+        }}
+      />
+    );
+  }
+  if (fact.kind === 'state') {
+    return (
+      <Box
+        component="span"
+        sx={{
+          ...smallMutedSx,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 0.75,
+        }}
+      >
+        <Box
+          component="span"
+          aria-hidden
+          sx={{
+            width: 7,
+            height: 7,
+            borderRadius: '50%',
+            flexShrink: 0,
+            bgcolor: toneColor(fact.tone ?? 'neutral', theme),
+          }}
+        />
+        {fact.label}
+      </Box>
+    );
+  }
   return (
-    <GridBadge
-      size="detail"
-      label={statusLabel}
+    <Box
+      component="span"
+      data-fact="plain"
       sx={{
-        alignSelf: 'flex-start',
-        bgcolor: bg,
-        color,
+        ...smallMutedSx,
+        fontFamily: fact.mono ? 'monospace' : undefined,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        minWidth: 0,
       }}
-    />
+    >
+      {fact.label}
+    </Box>
+  );
+}
+
+function Relation({ relation }: { relation: EntityCardRelation }) {
+  const muted = relation.muted ?? relation.count === 0;
+  if (relation.count === undefined) {
+    return (
+      <Box
+        component="span"
+        sx={{ color: muted ? 'text.disabled' : 'text.primary' }}
+      >
+        {relation.label}
+      </Box>
+    );
+  }
+  return (
+    <Box component="span" sx={{ color: muted ? 'text.disabled' : undefined }}>
+      <Box
+        component="b"
+        sx={{
+          fontWeight: muted ? 400 : 600,
+          color: muted ? 'inherit' : 'text.primary',
+        }}
+      >
+        {relation.count}
+      </Box>{' '}
+      {relation.label}
+    </Box>
   );
 }
 
@@ -113,31 +187,50 @@ export default function EntityCard({
   onDelete,
   deleteDisabledReason,
   deleteLabel = 'Delete',
+  context,
+  facts = [],
+  relations = [],
   userAvatar,
   userName,
-  status,
-  chipSections,
+  updatedAt,
+  footerAction,
   topRightActions,
-  captionText,
   borderColor: borderColorProp,
-  footer,
   descriptionLines = DESCRIPTION_MAX_LINES,
 }: EntityCardProps) {
   const theme = useTheme();
 
-  const firstName = userName
-    ? userName.split(' ')[0]
-    : (captionText ?? undefined);
+  const firstName = userName ? userName.split(' ')[0] : undefined;
   const hasTopRightContent = !!topRightActions || !!onDelete;
-
-  const hasChipContent = !!(chipSections && chipSections.length > 0);
-  const hasFurtherInfo = !!status || hasChipContent;
+  const updatedText = updatedAt
+    ? `Updated ${formatDistanceToNow(new Date(updatedAt), { addSuffix: true })}`
+    : null;
+  const hasFooter = !!firstName || !!updatedText || !!footerAction;
 
   const isDark = theme.palette.mode === 'dark';
   const defaultBorderColor = isDark
     ? theme.palette.divider
     : theme.palette.greyscale.border;
   const resolvedBorderColor = borderColorProp ?? defaultBorderColor;
+
+  // Plain facts are joined by "·"; chips and dots stand on their own.
+  const factNodes: React.ReactNode[] = [];
+  facts.forEach((fact, i) => {
+    if (fact.kind === 'plain' && facts[i - 1]?.kind === 'plain') {
+      factNodes.push(
+        <Box
+          component="span"
+          key={`${fact.key}-sep`}
+          aria-hidden
+          sx={{ ...smallMutedSx, color: 'text.disabled' }}
+        >
+          ·
+        </Box>
+      );
+    }
+    factNodes.push(<Fact key={fact.key} fact={fact} />);
+  });
+
   return (
     <ButtonBase
       component="div"
@@ -154,10 +247,10 @@ export default function EntityCard({
         bgcolor: 'background.paper',
         border: `1px solid ${resolvedBorderColor}`,
         borderRadius: BORDER_RADIUS.md,
-        p: '30px',
+        p: GRID_CARD_INSET,
         boxShadow: ELEVATION.xs,
         position: 'relative',
-        gap: '20px',
+        gap: 1.25,
         cursor: onClick ? 'pointer' : 'inherit',
         height: '100%',
         boxSizing: 'border-box',
@@ -167,7 +260,6 @@ export default function EntityCard({
           : {},
       }}
     >
-      {/* Top-right actions */}
       {hasTopRightContent && (
         <Box
           sx={{
@@ -216,165 +308,153 @@ export default function EntityCard({
         </Box>
       )}
 
-      {/* Header section */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {/* Icon + Title row */}
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: icon ? '10px' : 0,
-          }}
-        >
-          {icon && (
-            <Box
-              sx={{
-                width: 24,
-                height: 24,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'text.primary',
-                flexShrink: 0,
-                '& .MuiSvgIcon-root': { fontSize: 20 },
-                '& svg:not(.MuiSvgIcon-root)': { width: 20, height: 20 },
-              }}
-            >
-              {icon}
-            </Box>
-          )}
-          <Typography
+      {/* 1 Context */}
+      <Typography
+        component="div"
+        data-testid="entity-card-context"
+        sx={{
+          ...smallMutedSx,
+          minHeight: `${CONTEXT_LINE_HEIGHT}px`,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          pr: hasTopRightContent ? '36px' : 0,
+        }}
+      >
+        {context}
+      </Typography>
+
+      {/* 2 Title row */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: icon ? '10px' : 0,
+        }}
+      >
+        {icon && (
+          <Box
             sx={{
-              fontSize: 18,
-              fontWeight: 700,
-              lineHeight: '25px',
+              width: 24,
+              height: 24,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               color: 'text.primary',
-              wordBreak: 'break-word',
-              flex: 1,
-              pr: hasTopRightContent ? '36px' : 0,
+              flexShrink: 0,
+              '& .MuiSvgIcon-root': { fontSize: 20 },
+              '& svg:not(.MuiSvgIcon-root)': { width: 20, height: 20 },
             }}
           >
-            {title}
-          </Typography>
-        </Box>
-
-        {/* Description — always reserves its full height so card footers align */}
+            {icon}
+          </Box>
+        )}
         <Typography
-          data-testid="entity-card-description"
           sx={{
-            fontSize: DESCRIPTION_FONT_SIZE,
-            fontWeight: 400,
-            lineHeight: `${DESCRIPTION_LINE_HEIGHT}px`,
-            minHeight: `${DESCRIPTION_LINE_HEIGHT * descriptionLines}px`,
-            color: 'text.secondary',
-            display: '-webkit-box',
-            WebkitLineClamp: descriptionLines,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
+            fontSize: 18,
+            fontWeight: 700,
+            lineHeight: '25px',
+            color: 'text.primary',
+            wordBreak: 'break-word',
+            flex: 1,
+            pr: hasTopRightContent ? '36px' : 0,
           }}
         >
-          {description ?? ''}
+          {title}
         </Typography>
       </Box>
 
-      {/* User row */}
-      {firstName && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <Avatar src={userAvatar} sx={{ width: 24, height: 24, fontSize: 11 }}>
-            {!userAvatar && firstName ? firstName[0].toUpperCase() : undefined}
-          </Avatar>
-          <Typography
-            sx={{ fontSize: 12, fontWeight: 400, color: 'text.secondary' }}
-          >
-            {firstName}
-          </Typography>
+      {/* 3 Facts */}
+      <Box
+        data-testid="entity-card-facts"
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          columnGap: 1.25,
+          rowGap: 0.75,
+          minHeight: `${FACTS_LINE_HEIGHT}px`,
+        }}
+      >
+        {factNodes}
+      </Box>
+
+      <Typography
+        data-testid="entity-card-description"
+        sx={{
+          fontSize: 14,
+          fontWeight: 400,
+          lineHeight: `${DESCRIPTION_LINE_HEIGHT}px`,
+          minHeight: `${DESCRIPTION_LINE_HEIGHT * descriptionLines}px`,
+          color: 'text.primary',
+          display: '-webkit-box',
+          WebkitLineClamp: descriptionLines,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+        }}
+      >
+        {description ?? ''}
+      </Typography>
+      <Box
+        sx={{
+          height: '1px',
+          bgcolor: resolvedBorderColor,
+          width: '100%',
+          my: 0.75,
+        }}
+      />
+
+      {/* 4 Relations */}
+      <Box
+        data-testid="entity-card-relations"
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          columnGap: 2,
+          rowGap: 0.5,
+          fontSize: 13,
+          lineHeight: `${RELATIONS_LINE_HEIGHT}px`,
+          minHeight: `${RELATIONS_LINE_HEIGHT}px`,
+          color: 'text.secondary',
+        }}
+      >
+        {relations.map(relation => (
+          <Relation key={relation.key} relation={relation} />
+        ))}
+      </Box>
+
+      {/* 5 Footer */}
+      {hasFooter && (
+        <Box
+          sx={{
+            ...smallMutedSx,
+            mt: 'auto',
+            pt: 1.25,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 1,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            {firstName && (
+              <>
+                <Avatar
+                  src={userAvatar}
+                  sx={{ width: 20, height: 20, fontSize: 11 }}
+                >
+                  {!userAvatar ? firstName[0].toUpperCase() : undefined}
+                </Avatar>
+                {firstName}
+              </>
+            )}
+          </Box>
+          {footerAction ? (
+            <Box onClick={e => e.stopPropagation()}>{footerAction}</Box>
+          ) : (
+            updatedText
+          )}
         </Box>
       )}
-
-      {/* Further info section */}
-      {hasFurtherInfo && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-          {/* Status chip — shown above divider when not placed in a chip section */}
-          {status && (
-            <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-              <EntityCardStatusBadge status={status} />
-            </Box>
-          )}
-
-          {/* Divider — separates status/user info from chip sections */}
-          {hasChipContent && (
-            <Box
-              sx={{
-                height: '1px',
-                bgcolor: resolvedBorderColor,
-                width: '100%',
-              }}
-            />
-          )}
-
-          {/* Chip sections */}
-          {hasChipContent &&
-            chipSections?.map((section, idx) => (
-              <Box
-                key={section.label ?? `section-${idx}`}
-                sx={{ display: 'flex', flexDirection: 'column', gap: '6px' }}
-              >
-                {section.label && (
-                  <Typography
-                    sx={{
-                      fontSize: 12,
-                      color: theme => theme.palette.greyscale.subtitle,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.04em',
-                      lineHeight: '18px',
-                      fontWeight: 400,
-                    }}
-                  >
-                    {section.label}
-                  </Typography>
-                )}
-
-                {section.customContent ? (
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                    {section.customContent}
-                  </Box>
-                ) : section.chips.length > 0 ? (
-                  <Box sx={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    {section.chips.map(chip => (
-                      <GridBadge
-                        size="detail"
-                        key={chip.key}
-                        label={chip.label}
-                        sx={
-                          chip.maxWidth
-                            ? {
-                                maxWidth: chip.maxWidth,
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }
-                            : undefined
-                        }
-                      />
-                    ))}
-                  </Box>
-                ) : (
-                  <Typography
-                    sx={{
-                      fontSize: 12,
-                      fontWeight: 400,
-                      color: 'text.secondary',
-                    }}
-                  >
-                    {section.emptyText ?? 'No entity assigned yet'}
-                  </Typography>
-                )}
-              </Box>
-            ))}
-        </Box>
-      )}
-
-      {/* Footer slot — model-specific content (status chip, action buttons) */}
-      {footer && <Box sx={{ mt: 'auto' }}>{footer}</Box>}
     </ButtonBase>
   );
 }

@@ -5,8 +5,7 @@ import { Box, Skeleton, useTheme } from '@mui/material';
 import GridBadge from '@/components/common/GridBadge';
 import { useRouter } from 'next/navigation';
 import EntityCard, {
-  EntityCardStatusBadge,
-  type ChipSection,
+  type EntityCardFact,
 } from '@/components/common/EntityCard';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { BORDER_RADIUS } from '@/styles/theme';
@@ -33,6 +32,9 @@ import ScienceIcon from '@mui/icons-material/Science';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import DevicesIcon from '@mui/icons-material/Devices';
+
+const capitalize = (value: string) =>
+  value.charAt(0).toUpperCase() + value.slice(1);
 
 const ICON_MAP: Record<string, React.ComponentType> = {
   SmartToy: SmartToyIcon,
@@ -126,31 +128,20 @@ const ProjectCard = React.memo(
       return <ProjectCardSkeleton />;
     }
 
-    const chipSections: ChipSection[] = [];
-
-    const projectStatus =
-      project.is_active === true
-        ? 'active'
-        : project.is_active === false
-          ? 'inactive'
-          : undefined;
-
-    chipSections.push({
-      label: 'Status',
-      chips: [],
-      customContent: projectStatus ? (
-        <EntityCardStatusBadge status={projectStatus} />
-      ) : undefined,
-      emptyText: 'No status set',
-    });
-
-    if (project.environment !== undefined) {
-      chipSections.push({
-        label: 'Environment',
-        chips: project.environment
-          ? [{ key: 'env', label: project.environment }]
-          : [],
-        emptyText: 'No environment set',
+    const facts: EntityCardFact[] = [];
+    if (project.is_active !== undefined) {
+      facts.push({
+        key: 'status',
+        kind: 'state',
+        label: project.is_active ? 'Active' : 'Inactive',
+        tone: project.is_active ? 'success' : 'error',
+      });
+    }
+    if (project.environment) {
+      facts.push({
+        key: 'environment',
+        kind: 'plain',
+        label: capitalize(project.environment),
       });
     }
 
@@ -180,7 +171,7 @@ const ProjectCard = React.memo(
         borderColor={isActive ? theme.palette.primary.main : undefined}
         userAvatar={project.owner?.picture}
         userName={project.owner?.name}
-        chipSections={chipSections}
+        facts={facts}
       />
     );
   }

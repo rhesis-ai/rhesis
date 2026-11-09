@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import lightTheme from '@/styles/theme';
-import RequirementCard from '../RequirementCard';
+import RequirementCard, { requirementCardSlots } from '../RequirementCard';
 import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 
 const mockDeleteRequirement = jest.fn().mockResolvedValue(undefined);
@@ -31,37 +31,14 @@ jest.mock('@/components/common/EntityCard', () => ({
     title,
     description,
     onDelete,
-    chipSections,
   }: {
     title: string;
     description: string;
     onDelete?: () => void;
-    chipSections?: Array<{
-      label?: string;
-      chips: Array<{ key: string; label: string }>;
-      emptyText?: string;
-    }>;
   }) => (
     <div data-testid="entity-card">
       <h3>{title}</h3>
       <p>{description}</p>
-      {chipSections?.map((section, idx) => (
-        <div
-          key={section.label ?? `section-${idx}`}
-          data-testid={`chip-section-${(section.label ?? `section-${idx}`).toLowerCase()}`}
-        >
-          {section.label && <h4>{section.label}</h4>}
-          {section.chips.length > 0 ? (
-            section.chips.map(chip => (
-              <span key={chip.key} data-testid={`chip-${chip.key}`}>
-                {chip.label}
-              </span>
-            ))
-          ) : (
-            <span data-testid="chip-empty">{section.emptyText}</span>
-          )}
-        </div>
-      ))}
       {onDelete && (
         <button aria-label="delete requirement" onClick={onDelete}>
           delete
@@ -199,87 +176,6 @@ describe('RequirementCard', () => {
     expect(screen.queryByTestId('delete-modal')).not.toBeInTheDocument();
   });
 
-  it('renders a Tags section with each tag chip when tags are present', () => {
-    renderCard({
-      ...DEFAULT_PROPS,
-      requirement: makeRequirement({
-        tags: [
-          { id: 't1', name: 'Marketing' },
-          { id: 't2', name: 'US 1' },
-        ],
-      }),
-    });
-
-    const section = screen.getByTestId('chip-section-tags');
-    expect(section).toBeInTheDocument();
-    expect(section).toHaveTextContent('Marketing');
-    expect(section).toHaveTextContent('US 1');
-  });
-
-  it('renders Tags section empty text when requirement has no tags', () => {
-    renderCard();
-    const section = screen.getByTestId('chip-section-tags');
-    expect(section).toBeInTheDocument();
-    expect(section).toHaveTextContent('No tags assigned');
-  });
-
-  it('caps visible tag chips at 5 and shows a +N more pill', () => {
-    const manyTags = Array.from({ length: 7 }, (_, i) => ({
-      id: `t${i + 1}`,
-      name: `Tag ${i + 1}`,
-    }));
-    renderCard({
-      ...DEFAULT_PROPS,
-      requirement: makeRequirement({ tags: manyTags }),
-    });
-
-    const section = screen.getByTestId('chip-section-tags');
-    expect(section).toHaveTextContent('Tag 1');
-    expect(section).toHaveTextContent('Tag 5');
-    expect(section).not.toHaveTextContent('Tag 6');
-    expect(section).toHaveTextContent('+2 more');
-  });
-
-  it('splits the Tests section by type when both types have tests', () => {
-    renderCard({
-      ...DEFAULT_PROPS,
-      requirement: makeRequirement({
-        test_counts: { total: 45, multi_turn: 40, single_turn: 5 },
-      }),
-    });
-
-    const section = screen.getByTestId('chip-section-tests');
-    expect(section).toHaveTextContent('40 Multi-turn');
-    expect(section).toHaveTextContent('5 Single-turn');
-  });
-
-  it('shows only the type that has tests', () => {
-    renderCard({
-      ...DEFAULT_PROPS,
-      requirement: makeRequirement({
-        test_counts: { total: 45, multi_turn: 45, single_turn: 0 },
-      }),
-    });
-
-    const section = screen.getByTestId('chip-section-tests');
-    expect(section).toHaveTextContent('45 Multi-turn');
-    expect(section).not.toHaveTextContent('Single-turn');
-  });
-
-  it.each([
-    ['no tests', { total: 0, multi_turn: 0, single_turn: 0 }],
-    ['no counts', undefined],
-  ])('shows Tests empty text with %s', (_, test_counts) => {
-    renderCard({
-      ...DEFAULT_PROPS,
-      requirement: makeRequirement({ test_counts }),
-    });
-
-    expect(screen.getByTestId('chip-section-tests')).toHaveTextContent(
-      'No tests linked'
-    );
-  });
-
   it('does not render edit, duplicate, view metrics or add metric icons', () => {
     renderCard();
 
@@ -296,45 +192,53 @@ describe('RequirementCard', () => {
       screen.queryByRole('button', { name: /add metric/i })
     ).not.toBeInTheDocument();
   });
+});
 
-  it('lists type, impact, parent and child count as Details chips, each saying what it is', () => {
-    renderCard({
-      ...DEFAULT_PROPS,
-      requirement: makeRequirement({
-        requirement_type: {
-          id: 't1',
-          type_name: 'RequirementType',
-          type_value: 'Compliance',
-        },
+describe('requirementCardSlots', () => {
+  it('puts the parent in context and impact as a state', () => {
+    const slots = requirementCardSlots(
+      makeRequirement({
         impact: {
           id: 'i1',
           type_name: 'RequirementImpact',
-          type_value: 'Legal / regulatory',
+          type_value: 'Reputation',
         },
-        parent: { id: 'p1', name: 'Regulatory compliance' },
-        children_count: 4,
-      }),
-    });
-    const section = screen.getByTestId('chip-section-details');
-    expect(screen.getByTestId('chip-type')).toHaveTextContent(
-      /^Type: Compliance$/
+        parent: { id: 'p1', name: 'Reliability' },
+        children_count: 1,
+      })
     );
-    expect(screen.getByTestId('chip-impact')).toHaveTextContent(
-      /^Impact: Legal \/ regulatory$/
-    );
-    expect(screen.getByTestId('chip-parent')).toHaveTextContent(
-      /^Parent: Regulatory compliance$/
-    );
-    expect(section).toHaveTextContent('Children: 4');
+
+    expect(slots.context).toBe('Reliability ›');
+    expect(slots.facts).toEqual([
+      {
+        key: 'impact',
+        kind: 'state',
+        label: 'Reputation impact',
+        tone: 'warning',
+      },
+      { key: 'children', kind: 'plain', label: '1 child' },
+    ]);
   });
 
-  it('leaves out the Details section when nothing optional is set', () => {
-    renderCard({
-      ...DEFAULT_PROPS,
-      requirement: makeRequirement({ children_count: 0 }),
-    });
+  it('leaves out what is not set', () => {
+    const slots = requirementCardSlots(makeRequirement());
+
+    expect(slots.context).toBeUndefined();
+    expect(slots.facts).toEqual([]);
+  });
+
+  it('counts metrics, tests, examples and sources, keeping zeros', () => {
+    const slots = requirementCardSlots(
+      makeRequirement({
+        metrics: Array.from({ length: 7 }, (_, i) => ({ id: `m${i}` })),
+        test_counts: { total: 1, single_turn: 1, multi_turn: 0 },
+        examples_count: 1,
+        sources: [],
+      })
+    );
+
     expect(
-      screen.queryByTestId('chip-section-details')
-    ).not.toBeInTheDocument();
+      slots.relations.map(({ count, label }) => `${count} ${label}`)
+    ).toEqual(['7 metrics', '1 test', '1 example', '0 sources']);
   });
 });

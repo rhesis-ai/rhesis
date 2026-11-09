@@ -5,13 +5,10 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { RequirementClient } from '@/utils/api-client/requirement-client';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import EntityCard, {
-  type ChipData,
-  type ChipSection,
+  type EntityCardFact,
+  type EntityCardRelation,
 } from '@/components/common/EntityCard';
-import type {
-  RequirementTestCounts,
-  RequirementWithMetrics,
-} from '@/utils/api-client/interfaces/requirement';
+import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -28,49 +25,62 @@ interface RequirementCardProps {
   onViewMetrics?: () => void;
 }
 
-/** One chip per test type that has tests, multi-turn first. */
-export function testCountChips(counts?: RequirementTestCounts | null) {
-  if (!counts) return [];
-  return [
-    { key: 'multi-turn', count: counts.multi_turn, label: 'Multi-turn' },
-    { key: 'single-turn', count: counts.single_turn, label: 'Single-turn' },
-  ]
-    .filter(({ count }) => count > 0)
-    .map(({ key, count, label }) => ({ key, label: `${count} ${label}` }));
-}
+const plural = (n: number, one: string, many = `${one}s`) =>
+  n === 1 ? one : many;
 
-/**
- * Type, impact, parent and child count, whichever are set. EntityCard chips
- * render no icons, and these values look alike ("Compliance" can be a type or
- * a parent), so each chip says what it is.
- */
-export function detailChips(
+/** The parent, impact and linked counts, laid out for EntityCard. */
+export function requirementCardSlots(
   requirement: Pick<
     RequirementWithMetrics,
-    'requirement_type' | 'impact' | 'parent' | 'children_count'
+    | 'impact'
+    | 'parent'
+    | 'children_count'
+    | 'metrics'
+    | 'test_counts'
+    | 'examples_count'
+    | 'sources'
   >
-): ChipData[] {
-  const chips: ChipData[] = [];
-  if (requirement.requirement_type?.type_value) {
-    chips.push({
-      key: 'type',
-      label: `Type: ${requirement.requirement_type.type_value}`,
-    });
-  }
-  if (requirement.impact?.type_value) {
-    chips.push({
+): {
+  context?: string;
+  facts: EntityCardFact[];
+  relations: EntityCardRelation[];
+} {
+  const facts: EntityCardFact[] = [];
+  const impact = requirement.impact?.type_value;
+  if (impact) {
+    facts.push({
       key: 'impact',
-      label: `Impact: ${requirement.impact.type_value}`,
+      kind: 'state',
+      label: `${impact} impact`,
+      tone: impact.toLowerCase() === 'minor' ? 'neutral' : 'warning',
     });
-  }
-  if (requirement.parent?.name) {
-    chips.push({ key: 'parent', label: `Parent: ${requirement.parent.name}` });
   }
   const children = requirement.children_count ?? 0;
   if (children > 0) {
-    chips.push({ key: 'children', label: `Children: ${children}` });
+    facts.push({
+      key: 'children',
+      kind: 'plain',
+      label: `${children} ${plural(children, 'child', 'children')}`,
+    });
   }
-  return chips;
+
+  const counts: [string, number, string][] = [
+    ['metrics', requirement.metrics?.length ?? 0, 'metric'],
+    ['tests', requirement.test_counts?.total ?? 0, 'test'],
+    ['examples', requirement.examples_count ?? 0, 'example'],
+    ['sources', requirement.sources?.length ?? 0, 'source'],
+  ];
+  return {
+    context: requirement.parent?.name
+      ? `${requirement.parent.name} ›`
+      : undefined,
+    facts,
+    relations: counts.map(([key, count, noun]) => ({
+      key,
+      count,
+      label: plural(count, noun),
+    })),
+  };
 }
 
 export default function RequirementCard({
@@ -109,62 +119,21 @@ export default function RequirementCard({
   const metricsCount = requirement.metrics?.length || 0;
   const canDelete = canDeleteRequirement && metricsCount === 0;
 
-  const tags = requirement.tags ?? [];
-  const tagsCount = tags.length;
-  const MAX_VISIBLE_TAGS = 5;
-
-  const details = detailChips(requirement);
-  const chipSections: ChipSection[] = [
-    // Only when something is set, as on MetricCard.
-    ...(details.length > 0 ? [{ label: 'Details', chips: details }] : []),
-    {
-      label: 'Metrics',
-      chips: [
-        ...(requirement.metrics || []).slice(0, 3).map(metric => ({
-          key: metric.id,
-          label: metric.name,
-        })),
-        ...(metricsCount > 3
-          ? [{ key: 'more', label: `+${metricsCount - 3} more` }]
-          : []),
-      ],
-      emptyText: 'No metrics assigned',
-    },
-    {
-      label: 'Tests',
-      chips: testCountChips(requirement.test_counts),
-      emptyText: 'No tests linked',
-    },
-    {
-      label: 'Tags',
-      chips: [
-        ...tags.slice(0, MAX_VISIBLE_TAGS).map(tag => ({
-          key: tag.id,
-          label: tag.name,
-        })),
-        ...(tagsCount > MAX_VISIBLE_TAGS
-          ? [
-              {
-                key: 'more-tags',
-                label: `+${tagsCount - MAX_VISIBLE_TAGS} more`,
-              },
-            ]
-          : []),
-      ],
-      emptyText: 'No tags assigned',
-    },
-  ];
+  const slots = requirementCardSlots(requirement);
 
   return (
     <>
       <EntityCard
         title={requirement.name}
-        description={requirement.description || 'No description provided'}
+        description={requirement.description}
         onClick={onClick}
         onDelete={canDelete ? () => setDeleteDialogOpen(true) : undefined}
         userName={requirement.user?.name}
-        chipSections={chipSections}
-        descriptionLines={2}
+        userAvatar={requirement.user?.picture ?? undefined}
+        updatedAt={requirement.updated_at}
+        context={slots.context}
+        facts={slots.facts}
+        relations={slots.relations}
       />
 
       <DeleteModal

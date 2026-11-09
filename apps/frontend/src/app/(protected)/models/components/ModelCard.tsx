@@ -1,19 +1,30 @@
 import React from 'react';
-import { Box, Chip, Tooltip, Button } from '@mui/material';
+import { Box, Tooltip, Button } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
-import CloseIcon from '@mui/icons-material/Close';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import WarningIcon from '@mui/icons-material/Warning';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import SendIcon from '@mui/icons-material/Send';
-import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
+import EntityCard, {
+  type EntityCardFact,
+} from '@/components/common/EntityCard';
 import { can } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { Model } from '@/utils/api-client/interfaces/model';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
-import { PROVIDER_ICONS } from '@/config/model-providers';
+import {
+  PROVIDER_ICONS,
+  getProviderDisplayName,
+} from '@/config/model-providers';
+import type { ModelType } from '@/constants/model-types';
 import { getAvailabilityReasonCopy, type ValidationStatus } from '../types';
 import { useIsLocalMode } from '@/contexts/FeaturesContext';
+
+const MODEL_TYPE_LABELS: Record<ModelType, string> = {
+  language: 'Language',
+  embedding: 'Embedding',
+  decision: 'Decision',
+};
 
 interface ConnectedModelCardProps {
   model: Model;
@@ -47,11 +58,6 @@ export function ConnectedModelCard({
     userSettings?.models?.execution?.model_id === model.id;
   const isEmbeddingDefault =
     userSettings?.models?.embedding?.model_id === model.id;
-  const isAnyDefault =
-    isGenerationDefault ||
-    isEvaluationDefault ||
-    isExecutionDefault ||
-    isEmbeddingDefault;
 
   // Backend-reported availability takes precedence over the client-side
   // validation/polyphemus states below, so we never surface two conflicting
@@ -91,64 +97,45 @@ export function ConnectedModelCard({
     Capability.Polyphemus.REQUEST
   );
 
-  // Chip sections
-  const chipSections: ChipSection[] = [];
+  const defaultFor = [
+    isGenerationDefault && 'Generation',
+    isEvaluationDefault && 'Evaluation',
+    isExecutionDefault && 'Execution',
+    isEmbeddingDefault && 'Embedding',
+  ].filter((label): label is string => !!label);
 
-  if (model.model_name) {
-    chipSections.push({
-      label: 'Model',
-      chips: [{ key: 'model-name', label: model.model_name }],
+  const facts: EntityCardFact[] = [];
+  if (model.model_type) {
+    facts.push({
+      key: 'model-type',
+      kind: 'type',
+      label: MODEL_TYPE_LABELS[model.model_type] ?? model.model_type,
+    });
+  }
+  if (showPolyphemusRestricted) {
+    facts.push({ key: 'access', kind: 'state', label: 'Access needed' });
+  } else if (model.model_name) {
+    facts.push({
+      key: 'model-name',
+      kind: 'plain',
+      label: model.model_name,
+      mono: true,
     });
   }
 
-  if (isAnyDefault) {
-    const defaultChips = [
-      isGenerationDefault ? { key: 'gen', label: 'Generation' } : null,
-      isEvaluationDefault ? { key: 'eval', label: 'Evaluation' } : null,
-      isExecutionDefault ? { key: 'exec', label: 'Execution' } : null,
-      isEmbeddingDefault ? { key: 'embed', label: 'Embedding' } : null,
-    ].filter((c): c is { key: string; label: string } => c !== null);
-
-    chipSections.push({
-      label: 'Default for',
-      chips: defaultChips,
-    });
-  }
-
-  // Footer: Polyphemus access button + "Access Required" badge (only when restricted)
-  const footer = showPolyphemusRestricted ? (
-    <Box
-      sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
-      onClick={e => e.stopPropagation()}
-    >
-      {onRequestAccess && canRequestPolyphemusAccess && (
-        <Button
-          variant="outlined"
-          size="small"
-          fullWidth
-          disabled={hasRequestedAccess}
-          onClick={() => onRequestAccess(model)}
-          color={hasRequestedAccess ? 'info' : 'primary'}
-          startIcon={hasRequestedAccess ? <SendIcon /> : <VpnKeyIcon />}
-        >
-          {hasRequestedAccess ? 'Request Submitted' : 'Request Access'}
-        </Button>
-      )}
-
-      <Chip
-        icon={<CloseIcon />}
-        label="Access Required"
+  const footerAction =
+    showPolyphemusRestricted &&
+    onRequestAccess &&
+    canRequestPolyphemusAccess ? (
+      <Button
         size="small"
-        variant="outlined"
-        sx={{
-          width: '100%',
-          color: 'warning.main',
-          borderColor: 'warning.main',
-          '& .MuiChip-icon': { color: 'warning.main', opacity: 0.7 },
-        }}
-      />
-    </Box>
-  ) : undefined;
+        disabled={hasRequestedAccess}
+        onClick={() => onRequestAccess(model)}
+        startIcon={hasRequestedAccess ? <SendIcon /> : <VpnKeyIcon />}
+      >
+        {hasRequestedAccess ? 'Request submitted' : 'Request access'}
+      </Button>
+    ) : undefined;
 
   const topRightActions = showValidationError ? (
     <WarningIcon sx={{ fontSize: 16, color: 'warning.main', flexShrink: 0 }} />
@@ -177,8 +164,21 @@ export function ConnectedModelCard({
         !model.is_protected && onDelete ? () => onDelete(model) : undefined
       }
       topRightActions={topRightActions}
-      chipSections={chipSections}
-      footer={footer}
+      context={
+        model.provider_type
+          ? getProviderDisplayName(model.provider_type)
+          : undefined
+      }
+      facts={facts}
+      relations={[
+        defaultFor.length > 0
+          ? {
+              key: 'default-for',
+              label: `Default for ${defaultFor.join(', ')}`,
+            }
+          : { key: 'default-for', label: 'Not a default', muted: true },
+      ]}
+      footerAction={footerAction}
       borderColor={warningBorderColor}
     />
   );
