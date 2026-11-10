@@ -35,9 +35,11 @@ from sqlalchemy.engine import Connection
 logger = logging.getLogger("alembic.runtime.migration")
 
 # Member rather than owner: a member of the owning role may alter the table too.
+# Only public, where the app's tables live, so nothing else is touched.
 _OWNED_FORCED = """
     SELECT c.oid, c.oid::regclass::text FROM pg_class c
-    WHERE c.relkind IN ('r', 'p') AND c.relforcerowsecurity
+    WHERE c.relnamespace = 'public'::regnamespace
+      AND c.relkind IN ('r', 'p') AND c.relforcerowsecurity
       AND pg_has_role(current_user, c.relowner, 'MEMBER')
 """
 

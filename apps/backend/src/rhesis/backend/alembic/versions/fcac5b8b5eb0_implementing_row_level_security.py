@@ -36,11 +36,13 @@ def upgrade() -> None:
     BEGIN
         -- Loop through all tables in the public schema
         FOR r IN
-            -- Ordinary tables only: views and extension relations (e.g.
-            -- pg_stat_statements, which RDS puts in public) can't take RLS.
+            -- Ordinary tables this role may alter: views and extension relations
+            -- (e.g. pg_stat_statements, which RDS puts in public) can't take RLS,
+            -- and on a fresh install every app table was created by this role.
             SELECT c.relname AS table_name FROM pg_class c
             WHERE c.relnamespace = 'public'::regnamespace
             AND c.relkind IN ('r', 'p')
+            AND pg_has_role(current_user, c.relowner, 'MEMBER')
             AND NOT EXISTS (
                 SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e'
             )
@@ -62,11 +64,13 @@ def upgrade() -> None:
         -- Loop through all tables in the public schema, except alembic_version, 
         -- organization and token
         FOR r IN
-            -- Ordinary tables only: views and extension relations (e.g.
-            -- pg_stat_statements, which RDS puts in public) can't take RLS.
+            -- Ordinary tables this role may alter: views and extension relations
+            -- (e.g. pg_stat_statements, which RDS puts in public) can't take RLS,
+            -- and on a fresh install every app table was created by this role.
             SELECT c.relname AS table_name FROM pg_class c
             WHERE c.relnamespace = 'public'::regnamespace
             AND c.relkind IN ('r', 'p')
+            AND pg_has_role(current_user, c.relowner, 'MEMBER')
             AND NOT EXISTS (
                 SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e'
             )
@@ -102,11 +106,13 @@ def downgrade() -> None:
         -- Loop through all tables in the public schema, except alembic_version, 
         -- organization and token
         FOR r IN
-            -- Ordinary tables only: views and extension relations (e.g.
-            -- pg_stat_statements, which RDS puts in public) can't take RLS.
+            -- Ordinary tables this role may alter: views and extension relations
+            -- (e.g. pg_stat_statements, which RDS puts in public) can't take RLS,
+            -- and on a fresh install every app table was created by this role.
             SELECT c.relname AS table_name FROM pg_class c
             WHERE c.relnamespace = 'public'::regnamespace
             AND c.relkind IN ('r', 'p')
+            AND pg_has_role(current_user, c.relowner, 'MEMBER')
             AND NOT EXISTS (
                 SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e'
             )
@@ -133,11 +139,13 @@ def downgrade() -> None:
     BEGIN
         -- Loop through all tables in the public schema
         FOR r IN
-            -- Ordinary tables only: views and extension relations (e.g.
-            -- pg_stat_statements, which RDS puts in public) can't take RLS.
+            -- Ordinary tables this role may alter: views and extension relations
+            -- (e.g. pg_stat_statements, which RDS puts in public) can't take RLS,
+            -- and on a fresh install every app table was created by this role.
             SELECT c.relname AS table_name FROM pg_class c
             WHERE c.relnamespace = 'public'::regnamespace
             AND c.relkind IN ('r', 'p')
+            AND pg_has_role(current_user, c.relowner, 'MEMBER')
             AND NOT EXISTS (
                 SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e'
             )
