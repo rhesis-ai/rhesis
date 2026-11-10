@@ -61,7 +61,7 @@ def _test_result_stats(secure: bool) -> str:
         return _org(alias, "trs", secure)
 
     return f"""
-CREATE VIEW v_test_result_stats{_with(secure)} AS
+CREATE OR REPLACE VIEW v_test_result_stats{_with(secure)} AS
 SELECT trs.id AS test_result_id,
     trs.organization_id,
     trs.created_at,
@@ -113,7 +113,7 @@ def _metric_stats(secure: bool) -> str:
         return _org(alias, "trs", secure)
 
     return f"""
-CREATE VIEW v_metric_stats{_with(secure)} AS
+CREATE OR REPLACE VIEW v_metric_stats{_with(secure)} AS
 WITH unnested AS (
     SELECT trs.id AS test_result_id,
         trs.organization_id,
@@ -184,7 +184,7 @@ def _test_run_stats(secure: bool) -> str:
         return _org(alias, "tr", secure)
 
     return f"""
-CREATE VIEW v_test_run_stats{_with(secure)} AS
+CREATE OR REPLACE VIEW v_test_run_stats{_with(secure)} AS
 SELECT tr.id AS test_run_id,
     tr.organization_id,
     tr.created_at,
@@ -222,7 +222,7 @@ def _test_stats(secure: bool) -> str:
     agg_org = "\n        results.organization_id," if secure else ""
     group_org = ", results.organization_id" if secure else ""
     return f"""
-CREATE VIEW v_test_stats{_with(secure)} AS
+CREATE OR REPLACE VIEW v_test_stats{_with(secure)} AS
 WITH results AS (
     SELECT trs.test_id,{result_org}
         trs.created_at,
@@ -272,16 +272,18 @@ WHERE t.deleted_at IS NULL
 """
 
 
-def _recreate(secure: bool) -> None:
-    for view in _VIEWS:
-        op.execute(f"DROP VIEW IF EXISTS {view}")
-    for build in (_test_result_stats, _metric_stats, _test_run_stats, _test_stats):
-        op.execute(build(secure))
+_BUILDERS = (_test_result_stats, _metric_stats, _test_run_stats, _test_stats)
 
 
+# Replaced in place, not dropped: the output columns are unchanged, and a
+# replace keeps the existing grants on the views.
 def upgrade() -> None:
-    _recreate(secure=True)
+    for build in _BUILDERS:
+        op.execute(build(secure=True))
 
 
 def downgrade() -> None:
-    _recreate(secure=False)
+    for build in _BUILDERS:
+        op.execute(build(secure=False))
+    for view in _VIEWS:
+        op.execute(f"ALTER VIEW {view} RESET (security_invoker)")
