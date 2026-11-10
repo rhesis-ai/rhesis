@@ -119,6 +119,37 @@ set_db_ownership() {
     fi
 }
 
+# Create the app's runtime role when the app and migrations use different roles
+# and it does not exist yet (docker-compose: ADMIN_DB_USER is the Postgres
+# superuser). Runs before alembic so the default privileges cover new tables.
+# A no-op where the role is provisioned elsewhere (CNPG, external databases).
+ensure_app_role() {
+    if [ -z "${ADMIN_DB_USER:-}" ] || [ -z "${APP_DB_USER:-}" ] || [ "$ADMIN_DB_USER" = "$APP_DB_USER" ]; then
+        return 0
+    fi
+
+    local psql_admin=(psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$ADMIN_USER" -d "$DB_NAME")
+    local exists
+    if ! exists=$(echo "SELECT 1 FROM pg_roles WHERE rolname = :'app_user';" \
+        | PGPASSWORD="$ADMIN_PASS" "${psql_admin[@]}" -tA -v app_user="$APP_DB_USER"); then
+        log "${YELLOW}⚠️  Could not look up database role $APP_DB_USER, skipping role setup${NC}"
+        return 0
+    fi
+    if [ "$exists" = "1" ]; then
+        log "${BLUE}ℹ️  App database role $APP_DB_USER exists${NC}"
+        return 0
+    fi
+
+    log "${YELLOW}🔧 Creating app database role $APP_DB_USER...${NC}"
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PGPASSWORD="$ADMIN_PASS" "${psql_admin[@]}" -q --single-transaction -v ON_ERROR_STOP=1 \
+        -v app_user="$APP_DB_USER" -v app_pass="$APP_DB_PASS" -v admin_user="$ADMIN_USER" \
+        -f "$script_dir/src/rhesis/backend/alembic/create_app_role.sql" \
+        || handle_error "Could not create database role $APP_DB_USER (ADMIN_DB_USER needs CREATEROLE)"
+    log "${GREEN}✅ App database role $APP_DB_USER created${NC}"
+}
+
 # Main execution
 main() {
     log "${BLUE}🔄 Starting database migration process...${NC}"
@@ -136,7 +167,9 @@ main() {
     maybe_wait_for_database
 
     set_db_ownership
-    
+
+    ensure_app_role
+
     # Run migrations
     run_migrations
     

@@ -136,10 +136,13 @@ services:
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-}
       DB_NAME: ${DB_NAME:-rhesis-db}
-      APP_DB_USER: ${APP_DB_USER:-rhesis-user}
-      APP_DB_PASS: ${APP_DB_PASS:-rhesis-password}
-      ADMIN_DB_USER: ${ADMIN_DB_USER:-}
-      ADMIN_DB_PASS: ${ADMIN_DB_PASS:-}
+      # The app runs as rhesis-app (NOSUPERUSER NOBYPASSRLS, DML only) so row-level
+      # security applies; migrate.sh creates it as the admin role on first start.
+      # The admin role is the postgres service's superuser and only runs migrations.
+      APP_DB_USER: ${APP_DB_USER:-rhesis-app}
+      APP_DB_PASS: ${APP_DB_PASS:-rhesis-app-password}
+      ADMIN_DB_USER: ${ADMIN_DB_USER:-rhesis-user}
+      ADMIN_DB_PASS: ${ADMIN_DB_PASS:-rhesis-password}
       DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY:?DB_ENCRYPTION_KEY is required, no safe default}
       BROKER_URL: ${BROKER_URL:-redis://:rhesis-redis-pass@redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://:rhesis-redis-pass@redis:6379/1}
@@ -182,10 +185,8 @@ services:
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-}
       DB_NAME: ${DB_NAME:-rhesis-db}
-      APP_DB_USER: ${APP_DB_USER:-rhesis-user}
-      APP_DB_PASS: ${APP_DB_PASS:-rhesis-password}
-      ADMIN_DB_USER: ${ADMIN_DB_USER:-}
-      ADMIN_DB_PASS: ${ADMIN_DB_PASS:-}
+      APP_DB_USER: ${APP_DB_USER:-rhesis-app}
+      APP_DB_PASS: ${APP_DB_PASS:-rhesis-app-password}
       DB_ENCRYPTION_KEY: ${DB_ENCRYPTION_KEY:?DB_ENCRYPTION_KEY is required, no safe default}
       BROKER_URL: ${BROKER_URL:-redis://:rhesis-redis-pass@redis:6379/0}
       CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://:rhesis-redis-pass@redis:6379/1}
@@ -202,6 +203,9 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      # The backend runs migrations and creates the app role the worker connects as.
+      backend:
         condition: service_healthy
     networks:
       - rhesis-network
