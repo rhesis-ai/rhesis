@@ -5,6 +5,7 @@ import anyio
 from fastapi import Depends, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from starlette.background import BackgroundTask
 
 from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
@@ -478,10 +479,6 @@ def test_pipeline_endpoint(
     """Stream config and test generation as NDJSON events."""
     organization_id, _ = tenant_context
     model_id_str = str(request.model_id) if request.model_id else None
-    # Before the 200 is sent, so a request that does not fit still gets a 402.
-    reservation = reserve_quota(
-        db, str(organization_id), _quota_gate, QuotaResource.TEST_GENERATION, request.num_tests
-    )
 
     async def _stream():
         generated = 0
@@ -504,7 +501,21 @@ def test_pipeline_endpoint(
         finally:
             await anyio.to_thread.run_sync(reservation.settle, db, generated)
 
-    return StreamingResponse(_stream(), media_type="application/x-ndjson")
+    # Before the 200 is sent, so a request that does not fit still gets a 402.
+    reservation = reserve_quota(
+        db, str(organization_id), _quota_gate, QuotaResource.TEST_GENERATION, request.num_tests
+    )
+    try:
+        # The background task releases the claim if the stream never started;
+        # once the stream's own finally has settled it, this is a no-op.
+        return StreamingResponse(
+            _stream(),
+            media_type="application/x-ndjson",
+            background=BackgroundTask(reservation.settle, db, 0),
+        )
+    except BaseException:
+        reservation.settle(db, 0)
+        raise
 
 
 @router.post("/generate/test_config", response_model=TestConfigResponse)

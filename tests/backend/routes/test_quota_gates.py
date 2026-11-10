@@ -593,6 +593,108 @@ class TestSyncGenerationAccrual:
 
 
 @pytest.fixture
+def fake_pipeline(monkeypatch):
+    """Stub the test pipeline stream with two generated tests."""
+    from rhesis.backend.app.routers import services as services_router
+    from rhesis.backend.app.services.streaming_utils import ndjson
+
+    async def _stream(**kwargs):
+        for i in range(2):
+            yield ndjson({"type": "test", "index": i, "test": {}, "test_type": "Single-Turn"})
+        yield ndjson({"type": "tests_done", "total": 2})
+        yield ndjson({"type": "done"})
+
+    monkeypatch.setattr(services_router, "test_generation_pipeline_stream", _stream)
+
+
+class TestPipelineReservation:
+    """`POST /services/generate/test_pipeline` claims `num_tests` before the
+    stream starts; the claim must end up matching what was streamed even when
+    the stream never runs."""
+
+    def test_keeps_only_the_streamed_tests(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        fake_pipeline,
+    ):
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: 100}, overage=OveragePolicy.HARD)
+        )
+        before = _generation_used(test_db, test_org_id)
+
+        response = authenticated_client.post(
+            "/services/generate/test_pipeline", json={"prompt": "p", "num_tests": 5}
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert _generation_used(test_db, test_org_id) == before + 2
+
+    def test_releases_the_claim_when_the_response_cannot_be_built(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        fake_pipeline,
+        monkeypatch,
+    ):
+        from rhesis.backend.app.routers import services as services_router
+
+        def _broken(*args, **kwargs):
+            raise RuntimeError("response construction failed")
+
+        monkeypatch.setattr(services_router, "StreamingResponse", _broken)
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: 100}, overage=OveragePolicy.HARD)
+        )
+        before = _generation_used(test_db, test_org_id)
+
+        with pytest.raises(RuntimeError):
+            authenticated_client.post(
+                "/services/generate/test_pipeline", json={"prompt": "p", "num_tests": 5}
+            )
+
+        assert _generation_used(test_db, test_org_id) == before
+
+    def test_releases_the_claim_when_the_stream_never_starts(
+        self,
+        test_db,
+        test_org_id,
+        authenticated_user_id,
+        authenticated_org,
+        clean_registry,
+        fake_pipeline,
+    ):
+        import anyio
+
+        from rhesis.backend.app.routers.services import test_pipeline_endpoint
+        from rhesis.backend.app.schemas.services import TestPipelineRequest
+
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: 100}, overage=OveragePolicy.HARD)
+        )
+        before = _generation_used(test_db, test_org_id)
+
+        response = test_pipeline_endpoint(
+            request=TestPipelineRequest(prompt="p", num_tests=5),
+            db=test_db,
+            tenant_context=(test_org_id, authenticated_user_id),
+            current_user=None,
+            _quota_gate=authenticated_org,
+        )
+        assert _generation_used(test_db, test_org_id) == before + 5
+
+        # What Starlette runs after the response when the body was never iterated.
+        anyio.run(response.background)
+        assert _generation_used(test_db, test_org_id) == before
+        anyio.run(response.background)
+        assert _generation_used(test_db, test_org_id) == before
+
+
+@pytest.fixture
 def three_test_configuration(test_db, test_organization, db_user, db_status, db_test_configuration):
     """A test configuration whose test set holds three tests."""
     from rhesis.backend.app.models.test import Test, test_test_set_association

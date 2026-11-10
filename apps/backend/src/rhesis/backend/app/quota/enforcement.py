@@ -20,7 +20,7 @@ should not pay for six resources to answer a question about one.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Optional
 
@@ -314,9 +314,16 @@ class QuotaReservation:
     resource: QuotaResource
     amount: int
     period_start: Optional[date]
+    _settled: bool = field(default=False, init=False, repr=False)
 
     def settle(self, db: Session, consumed: int) -> None:
-        """Record that *consumed* units were really used, committing *db*. Never raises."""
+        """Record that *consumed* units were really used, committing *db*. Never raises.
+
+        Only the first call counts, so a fallback path can settle unconditionally.
+        """
+        if self._settled:
+            return
+        self._settled = True
         consumed = max(consumed, 0)
         if self.period_start is None:
             dispatch_accrual(self.org_id, self.resource, consumed)
