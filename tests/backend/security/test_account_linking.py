@@ -331,8 +331,17 @@ class TestSSOLinksUnverifiedAccount:
         [
             ({"email_verified": False}, True),
             ({"email_verified": "false"}, True),
+            ({"email_verified": " FALSE "}, True),
+            ({"email_verified": "0"}, True),
+            ({"email_verified": "no"}, True),
+            ({"email_verified": "unexpected"}, True),
+            ({"email_verified": 0}, True),
             ({"email_verified": True}, False),
+            ({"email_verified": "True"}, False),
+            ({"email_verified": "1"}, False),
+            ({"email_verified": 1}, False),
             ({}, False),
+            ({"email_verified": None}, False),
         ],
     )
     def test_oidc_email_verified_claim(self, claims, unverified):

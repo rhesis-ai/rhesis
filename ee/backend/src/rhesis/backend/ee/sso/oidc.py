@@ -258,16 +258,22 @@ def verify_signed_state(state: str) -> dict:
     )
 
 
+_VERIFIED_STRINGS = frozenset({"true", "1", "yes"})
+
+
 def email_marked_unverified(claims: Mapping[str, Any]) -> bool:
-    """True when the IdP explicitly says the email is not verified.
+    """True when the IdP sends an ``email_verified`` claim that is not a clear yes.
 
     A missing claim is accepted: many enterprise IdPs omit it, and the org that
     configured the IdP vouches for its users (domain allowlist, org-scoped lookup).
+    The spec says boolean, but some IdPs send strings or 0/1.
     """
     value = claims.get("email_verified")
+    if value is None or value is True:
+        return False
     if isinstance(value, str):
-        return value.strip().lower() == "false"
-    return value is False
+        return value.strip().lower() not in _VERIFIED_STRINGS
+    return value == 0
 
 
 class OIDCProvider(AuthProvider):
