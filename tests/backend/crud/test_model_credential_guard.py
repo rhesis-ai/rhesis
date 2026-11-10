@@ -43,22 +43,30 @@ def _row(*, key="", endpoint=None, provider_type_id=PROVIDER_TYPE_ID):
 
 @pytest.mark.parametrize("key", ["", "   "])
 def test_rejects_a_row_with_no_key_and_no_endpoint(key):
-    with pytest.raises(ValueError, match="either an API key or an endpoint"):
+    with pytest.raises(ValueError, match="needs an API key"):
         _reject_rows_without_own_credentials(_db_returning("openai"), _row(key=key, endpoint=None))
 
 
 @pytest.mark.parametrize(
-    "key,endpoint",
+    "provider,key,endpoint",
     [
-        ("sk-org-owned", None),
-        ("", "http://vllm.internal:8000"),
-        (None, "http://vllm.internal:8000"),
+        ("openai", "sk-org-owned", None),
+        ("vllm", "", "http://vllm.internal:8000"),
+        ("vllm", None, "http://vllm.internal:8000"),
     ],
 )
-def test_allows_a_row_that_can_stand_on_its_own(key, endpoint):
-    """A key, or an endpoint. Self-hosted servers commonly need no key at all,
-    which is why an endpoint alone is enough."""
-    _reject_rows_without_own_credentials(_db_returning("openai"), _row(key=key, endpoint=endpoint))
+def test_allows_a_row_that_can_stand_on_its_own(provider, key, endpoint):
+    """A key, or for a self-hosted server an endpoint: those commonly need no
+    key at all, which is why an endpoint alone is enough there."""
+    _reject_rows_without_own_credentials(_db_returning(provider), _row(key=key, endpoint=endpoint))
+
+
+def test_rejects_an_endpoint_standing_in_for_a_key():
+    """OpenAI reads its key from env when the row has none; the endpoint is ignored."""
+    with pytest.raises(ValueError, match="needs an API key"):
+        _reject_rows_without_own_credentials(
+            _db_returning("openai"), _row(key="", endpoint="http://anything.example")
+        )
 
 
 @pytest.mark.parametrize("provider", ["rhesis", "polyphemus"])

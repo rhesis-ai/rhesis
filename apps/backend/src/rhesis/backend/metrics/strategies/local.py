@@ -633,11 +633,12 @@ def _resolve_metric_model(
         )
 
         if model_record and model_record.provider_type:
-            from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
-            from rhesis.backend.app.utils.user_model_utils import (
-                _is_hosted_model,
+            from rhesis.backend.app.utils.model_credentials import (
                 has_own_credentials,
+                tenant_model_kwargs,
             )
+            from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
+            from rhesis.backend.app.utils.user_model_utils import _is_hosted_model
 
             provider = model_record.provider_type.type_value
             # Same normalization as _fetch_and_configure_model: a whitespace-only
@@ -649,23 +650,20 @@ def _resolve_metric_model(
                 # Returning None drops to the default judge, which is a better
                 # outcome than silently evaluating on our own account.
                 logger.warning(
-                    f"[METRIC_MODEL] Model {model_id} for metric '{metric_name_for_log}' has "
-                    f"neither an API key nor an endpoint; using the default judge instead of "
+                    f"[METRIC_MODEL] Model {model_id} for metric '{metric_name_for_log}' lacks "
+                    f"the credential its provider reads; using the default judge instead of "
                     f"running it on this deployment's credentials"
                 )
                 return None
 
-            extra_params = {}
             if model_record.endpoint and model_record.endpoint.strip():
                 # SSRFError lands in the except below, which falls back to the default judge.
                 validate_outbound_url(model_record.endpoint.strip(), allow_unresolved=True)
-                extra_params["api_base"] = model_record.endpoint.strip()
             llm = stamp_usage_provenance(
                 get_model(
                     provider=provider,
                     model_name=model_record.model_name,
-                    api_key=api_key,
-                    **extra_params,
+                    **tenant_model_kwargs(provider, api_key, model_record.endpoint),
                 ),
                 metered=_is_hosted_model(provider, api_key),
             )

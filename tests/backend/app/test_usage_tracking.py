@@ -328,20 +328,20 @@ class TestRowsThatWouldBorrowOurCredentials:
     """
 
     @pytest.mark.parametrize(
-        "api_key,endpoint",
+        "provider,api_key,endpoint",
         [
-            ("sk-org-owned", None),
-            (None, "http://vllm.internal:8000"),
-            ("", "http://vllm.internal:8000"),
-            ("   ", "http://vllm.internal:8000"),
+            ("openai", "sk-org-owned", None),
+            ("vllm", None, "http://vllm.internal:8000"),
+            ("vllm", "", "http://vllm.internal:8000"),
+            ("vllm", "   ", "http://vllm.internal:8000"),
         ],
     )
-    def test_a_row_that_can_stand_on_its_own_is_allowed(self, api_key, endpoint):
-        """A key of its own, or an endpoint of its own. Self-hosted servers
-        commonly need no key at all, so an endpoint alone is enough."""
+    def test_a_row_that_can_stand_on_its_own_is_allowed(self, provider, api_key, endpoint):
+        """A key of its own, or for a self-hosted server an endpoint of its own:
+        those commonly need no key at all."""
         from rhesis.backend.app.utils.user_model_utils import has_own_credentials
 
-        assert has_own_credentials("openai", api_key, endpoint) is True
+        assert has_own_credentials(provider, api_key, endpoint) is True
 
     @pytest.mark.parametrize("api_key", [None, "", "   "])
     def test_a_row_with_neither_is_not_allowed(self, api_key):
@@ -362,7 +362,7 @@ class TestRowsThatWouldBorrowOurCredentials:
         from rhesis.backend.app.utils.model_errors import ModelConfigurationError
         from rhesis.backend.app.utils.user_model_utils import _require_own_credentials
 
-        with pytest.raises(ModelConfigurationError, match="neither an API key nor an endpoint"):
+        with pytest.raises(ModelConfigurationError, match="needs an API key"):
             _require_own_credentials("openai", None, None, "my-model")
 
     def test_resolution_allows_a_row_with_an_endpoint(self):
@@ -413,7 +413,7 @@ class TestConfiguredModelProvenance:
         """Rather than quietly resolving and running on our provider keys."""
         from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 
-        with pytest.raises(ModelConfigurationError, match="neither an API key nor an endpoint"):
+        with pytest.raises(ModelConfigurationError, match="needs an API key"):
             configured_model(provider="openai", key=key, endpoint=None)
 
     def test_a_keyless_self_hosted_row_is_not_metered(self, configured_model):

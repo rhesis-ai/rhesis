@@ -10,6 +10,11 @@ from typing import Literal
 
 import anyio
 
+from rhesis.backend.app.utils.model_credentials import (
+    credential_requirement,
+    has_own_credentials,
+    tenant_model_kwargs,
+)
 from rhesis.backend.app.utils.ssrf_http_client import (
     BLOCKED_TARGET_MESSAGE,
     SSRFError,
@@ -107,6 +112,17 @@ class ModelConnectionService:
                         model_name=model_name,
                     )
 
+            if not has_own_credentials(provider, api_key, endpoint):
+                # The provider would fall back to this server's own credentials, so a
+                # success here would say nothing about the user's configuration.
+                return ModelConnectionTestResult(
+                    success=False,
+                    message=f"Configuration error: {provider} needs "
+                    f"{credential_requirement(provider)}.",
+                    provider=provider,
+                    model_name=model_name,
+                )
+
             if endpoint and endpoint.strip():
                 try:
                     await anyio.to_thread.run_sync(
@@ -165,20 +181,7 @@ class ModelConnectionService:
         """Test a language model connection."""
         try:
             from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
-            from rhesis.sdk.models.factory import ModelConfig, get_model
-
-            # Build extra params for providers that need them
-            extra_params = {}
-            if endpoint:
-                extra_params["api_base"] = endpoint
-
-            # Create model config
-            config = ModelConfig(
-                provider=provider,
-                model_name=model_name,
-                api_key=api_key,
-                extra_params=extra_params,
-            )
+            from rhesis.sdk.models.factory import get_model
 
             # Try to create the model instance
             try:
@@ -186,7 +189,14 @@ class ModelConnectionService:
                 # credentials the user just supplied to be tested. Those
                 # tokens are billed to them by their provider, so charging
                 # them to their Rhesis quota as well would be double billing.
-                model = stamp_usage_provenance(get_model(config=config), metered=False)
+                model = stamp_usage_provenance(
+                    get_model(
+                        provider=provider,
+                        model_name=model_name,
+                        **tenant_model_kwargs(provider, api_key, endpoint),
+                    ),
+                    metered=False,
+                )
             except ValueError as e:
                 # Provider not supported or invalid configuration
                 logger.warning(f"Language model configuration error: {str(e)}")
@@ -258,9 +268,8 @@ class ModelConnectionService:
                 get_model(
                     provider,
                     model_name,
-                    api_key,
                     model_type="decision",
-                    **({"api_base": endpoint} if endpoint else {}),
+                    **tenant_model_kwargs(provider, api_key, endpoint),
                 ),
                 metered=False,
             )
@@ -290,24 +299,16 @@ class ModelConnectionService:
     ) -> ModelConnectionTestResult:
         """Test an embedding model connection."""
         try:
-            from rhesis.sdk.models.factory import EmbeddingModelConfig, get_model
-
-            # Build extra params for providers that need them
-            extra_params = {}
-            if endpoint:
-                extra_params["api_base"] = endpoint
-
-            # Create embedder config
-            config = EmbeddingModelConfig(
-                provider=provider,
-                model_name=model_name,
-                api_key=api_key,
-                extra_params=extra_params,
-            )
+            from rhesis.sdk.models.factory import get_model
 
             # Try to create the embedder instance
             try:
-                embedder = get_model(config=config, model_type="embedding")
+                embedder = get_model(
+                    provider=provider,
+                    model_name=model_name,
+                    model_type="embedding",
+                    **tenant_model_kwargs(provider, api_key, endpoint),
+                )
             except ValueError as e:
                 # Provider not supported or invalid configuration
                 logger.warning(f"Embedding model configuration error: {str(e)}")
