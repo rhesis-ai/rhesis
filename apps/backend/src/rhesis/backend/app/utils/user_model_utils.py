@@ -849,7 +849,7 @@ def _build_configured_model(
     subject = "embedder" if embedding else "user model"
     if isinstance(model.endpoint, str) and model.endpoint.strip():
         try:
-            # Unresolvable names pass: the provider call reports those itself.
+            # Where private targets are allowed, an unresolvable name is left to the provider.
             validate_outbound_url(model.endpoint.strip(), allow_unresolved=True)
         except SSRFError as e:
             raise ModelConfigurationError(

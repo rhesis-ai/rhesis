@@ -34,6 +34,7 @@ from rhesis.backend.app.utils.ssrf_http_client import (
     guarded_async_client,
     guarded_ws_connect,
     is_blocked_address,
+    validate_outbound_url,
 )
 from rhesis.backend.app.utils.user_model_utils import _build_configured_model
 
@@ -221,6 +222,28 @@ async def test_model_connection_test_refuses_blocked_api_base(host, strict_egres
     assert result.success is False
     assert "not allowed" in result.message
     get_model.assert_not_called()
+
+
+def test_unresolvable_api_base_is_rejected_when_private_targets_are_off():
+    with pytest.raises(SSRFError):
+        validate_outbound_url("http://nowhere.invalid/v1", allow_unresolved=True)
+
+
+def test_unresolvable_api_base_passes_only_where_private_targets_are_allowed():
+    validate_outbound_url("http://nowhere.invalid/v1", allow_private=True, allow_unresolved=True)
+    with pytest.raises(SSRFError):
+        validate_outbound_url("http://nowhere.invalid/v1", allow_private=True)
+
+
+@pytest.mark.asyncio
+async def test_no_connectable_address_raises_an_ssrf_error(monkeypatch):
+    from rhesis.backend.app.utils import ssrf_http_client
+
+    monkeypatch.setattr(ssrf_http_client, "resolve_checked", lambda *args: [])
+
+    async with guarded_async_client() as client:
+        with pytest.raises(SSRFError, match="No connectable address"):
+            await client.get("http://public.example/")
 
 
 def test_stored_model_with_blocked_api_base_is_not_built():

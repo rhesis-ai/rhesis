@@ -150,18 +150,23 @@ def validate_outbound_url(
 
     For a check up front, before the URL is handed to a client this module does
     not control (LiteLLM for a model ``api_base``). The guarded clients below
-    check again at connect time. ``allow_unresolved`` lets a name that does not
-    resolve through, for callers where the later request fails on its own.
+    check again at connect time.
+
+    ``allow_unresolved`` lets a name that does not resolve through, but only
+    where private targets are allowed (local development, self-hosting): there
+    the name may resolve only where the call runs. Elsewhere it stays an error,
+    since the later client could resolve it differently.
     """
     parsed = urlparse(url or "")
     if parsed.scheme not in ("http", "https", "ws", "wss"):
         raise SSRFError(f"URL uses disallowed scheme: {parsed.scheme or 'none'}")
     if not parsed.hostname:
         raise SSRFError("URL has no hostname")
+    allowed = _allow(allow_private)
     try:
-        resolve_checked(parsed.hostname, None, _allow(allow_private))
+        resolve_checked(parsed.hostname, None, allowed)
     except UnresolvableHostError:
-        if not allow_unresolved:
+        if not (allow_unresolved and allowed):
             raise
 
 
@@ -189,7 +194,7 @@ class _GuardedAsyncBackend(httpcore.AsyncNetworkBackend):
                 )
             except (httpcore.ConnectError, httpcore.ConnectTimeout) as exc:
                 error = exc
-        raise error  # type: ignore[misc]
+        raise error or SSRFError("No connectable address")
 
     async def connect_unix_socket(self, path, timeout=None, socket_options=None):
         raise SSRFError("Unix sockets are not allowed for outbound requests")
@@ -213,7 +218,7 @@ class _GuardedSyncBackend(httpcore.NetworkBackend):
                 return self._inner.connect_tcp(ip, port, timeout, local_address, socket_options)
             except (httpcore.ConnectError, httpcore.ConnectTimeout) as exc:
                 error = exc
-        raise error  # type: ignore[misc]
+        raise error or SSRFError("No connectable address")
 
     def connect_unix_socket(self, path, timeout=None, socket_options=None):
         raise SSRFError("Unix sockets are not allowed for outbound requests")
@@ -308,7 +313,7 @@ class guarded_ws_connect(_ws_connect):
                     error = exc
         finally:
             self.connection_kwargs = base_kwargs
-        raise error  # type: ignore[misc]
+        raise error or SSRFError("No connectable address")
 
 
 # ---------------------------------------------------------------------------
