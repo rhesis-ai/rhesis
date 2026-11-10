@@ -44,6 +44,7 @@ def fake_receiver(
     real_client = httpx.Client
 
     def client(**kwargs):
+        kwargs.pop("transport", None)  # the guarded transport; replaced by the fake wire
         received.client_options.append(kwargs)
         return real_client(transport=httpx.MockTransport(handle), **kwargs)
 

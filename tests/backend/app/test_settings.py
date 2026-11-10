@@ -49,6 +49,7 @@ APPLICATION_ENV_VARS = (
     "GOOGLE_CLOUD_PROJECT",
     "K_SERVICE",
     "K_REVISION",
+    "OUTBOUND_ALLOW_PRIVATE_NETWORKS",
 )
 AUTH_ENV_VARS = (
     "AUTH_EMAIL_PASSWORD_ENABLED",
@@ -782,6 +783,29 @@ def test_application_settings_is_production(
 
     assert settings.is_production is expected_is_production
     assert settings.is_development is (not expected_is_production)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "backend_env,flag,expected",
+    [
+        ("local", None, True),
+        ("development", None, True),
+        ("staging", None, False),
+        ("production", None, False),
+        ("production", "true", True),
+        ("local", "false", False),
+    ],
+)
+def test_application_settings_allow_private_outbound(
+    minimal_application_env, monkeypatch, backend_env, flag, expected
+):
+    """Private outbound targets default on only for local/development."""
+    monkeypatch.setenv("BACKEND_ENV", backend_env)
+    if flag is not None:
+        monkeypatch.setenv("OUTBOUND_ALLOW_PRIVATE_NETWORKS", flag)
+
+    assert ApplicationSettings(_env_file=None).allow_private_outbound is expected
 
 
 @pytest.mark.unit

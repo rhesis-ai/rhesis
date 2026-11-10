@@ -98,5 +98,10 @@ class TestPost:
         with fake_receiver() as received:
             webhooks.post(URL, b"{}", {})
         assert received.client_options == [
-            {"timeout": webhooks.TIMEOUT_SECONDS, "verify": True, "follow_redirects": False}
+            {
+                "timeout": webhooks.TIMEOUT_SECONDS,
+                "verify": True,
+                "follow_redirects": False,
+                "trust_env": False,
+            }
         ]

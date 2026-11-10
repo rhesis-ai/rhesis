@@ -112,6 +112,10 @@ class ApplicationSettings(BaseSettings):
     json_logger_enabled: bool = Field(default=False, alias="JSON_LOGGER_ENABLED")
     api_base_url: str = Field(default="http://localhost:8080", alias="API_BASE_URL")
     enable_rhesis_key: bool = Field(default=False, alias="ENABLE_RHESIS_KEY")
+    # Unset means on for BACKEND_ENV=local/development, off for staging/production.
+    outbound_allow_private_networks: bool | None = Field(
+        default=None, alias="OUTBOUND_ALLOW_PRIVATE_NETWORKS"
+    )
 
     @field_validator("api_base_url")
     @classmethod
@@ -136,6 +140,13 @@ class ApplicationSettings(BaseSettings):
     def is_local(self) -> bool:
         """Whether the deployment runs in local/self-hosted mode (BACKEND_ENV=local)."""
         return self.backend_env == "local"
+
+    @property
+    def allow_private_outbound(self) -> bool:
+        """Whether tenant-supplied URLs may target loopback or private networks."""
+        if self.outbound_allow_private_networks is not None:
+            return self.outbound_allow_private_networks
+        return self.backend_env in ("local", "development")
 
     @property
     def is_google_cloud(self) -> bool:
