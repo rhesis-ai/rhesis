@@ -19,6 +19,7 @@ from rhesis.backend.app.auth.principal import (
 )
 from rhesis.backend.app.auth.token_utils import get_secret_key, verify_jwt_token
 from rhesis.backend.app.auth.token_validation import validate_token
+from rhesis.backend.app.config.settings import get_auth_settings
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.crud.token import get_token_by_value
 from rhesis.backend.app.database import get_db
@@ -96,7 +97,13 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
     normalized_email = validate_and_normalize_email(auth_user.email, check_deliverability=False)
 
     # Only reached when no user matched above, so this is a first login — existing
-    # accounts on a disposable domain keep working.
+    # and invited accounts keep working when sign-up is off.
+    if not get_auth_settings().registration_enabled:
+        logger.info("Refused OAuth sign-up via %s: registration disabled", auth_user.provider_type)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User registration is disabled",
+        )
     screen_signup_email(normalized_email, source=f"oauth:{auth_user.provider_type}")
 
     # Create new user
@@ -117,6 +124,50 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
     mark_user_joined_if_needed(user, when=current_time)
 
     return user
+
+
+def find_or_create_magic_link_user(db: Session, email: str) -> Tuple[Optional[User], bool]:
+    """Resolve the account a magic link goes to, creating it on first use.
+
+    Returns ``(user, is_new_user)``, or ``(None, False)`` when no account should
+    get a link. The caller answers the same either way, so the response never
+    says whether an address has an account.
+
+    Raises DisposableEmailError for a refused sign-up address.
+    """
+    from rhesis.backend.app.auth.constants import AuthProviderType
+    from rhesis.backend.app.auth.disposable_email import screen_signup_email
+    from rhesis.backend.app.utils.redact import redact_email
+
+    user = user_crud.get_user_by_email(db, email)
+    if user:
+        return user, False
+
+    # Invited users already have a row (POST /users/), so they never reach here.
+    if not get_auth_settings().registration_enabled:
+        logger.info("Refused magic-link sign-up for %s: registration disabled", redact_email(email))
+        return None, False
+
+    # Sign-up branch only, so existing accounts on a disposable domain keep working.
+    screen_signup_email(email, source="magic_link")
+
+    try:
+        user = user_crud.create_user(
+            db,
+            UserCreate(
+                email=email,
+                provider_type=AuthProviderType.EMAIL,
+                is_email_verified=False,
+                is_active=True,
+            ),
+        )
+        db.commit()
+        db.refresh(user)
+    except Exception as e:
+        logger.warning(f"Failed to create user for magic link: {e}")
+        return None, False
+    logger.info("New user created via magic link: %s", redact_email(email))
+    return user, True
 
 
 def _load_user_by_id(user_id) -> Optional[User]:

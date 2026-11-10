@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
 from rhesis.backend.app.auth.constants import AuthProviderType
-from rhesis.backend.app.auth.disposable_email import DisposableEmailError, screen_signup_email
+from rhesis.backend.app.auth.disposable_email import DisposableEmailError
 from rhesis.backend.app.auth.password_policy import get_password_policy, validate_password
 from rhesis.backend.app.auth.provider_hooks import apply_enrichers
 from rhesis.backend.app.auth.providers import ProviderRegistry
@@ -53,6 +53,7 @@ from rhesis.backend.app.auth.used_token_store import (
     claim_token_jti,
 )
 from rhesis.backend.app.auth.user_utils import (
+    find_or_create_magic_link_user,
     find_or_create_user_from_auth,
     mark_user_joined_if_needed,
     require_current_user_or_token_without_context,
@@ -147,6 +148,8 @@ class ProvidersResponse(BaseModel):
 
     providers: List[ProviderInfo]
     password_policy: PasswordPolicyResponse
+    # Covers every self-sign-up path (password, magic link, OAuth first login).
+    registration_enabled: bool = True
     quick_start: bool = False
 
 
@@ -613,6 +616,7 @@ def get_providers(
             max_length=policy.max_length,
             min_strength_score=policy.min_strength_score,
         ),
+        registration_enabled=get_auth_settings().registration_enabled,
         quick_start=is_quick_start_enabled(
             hostname=request.url.hostname,
             headers=dict(request.headers),
@@ -1187,7 +1191,9 @@ def request_magic_link(
 ):
     """
     Send a magic link email. Creates a new account if the email
-    doesn't exist yet (unified sign-in / sign-up flow).
+    doesn't exist yet (unified sign-in / sign-up flow), unless
+    AUTH_REGISTRATION_ENABLED is off: then only existing and invited
+    accounts get a link.
 
     Returns 200 whether or not the account exists, to prevent email
     enumeration. The one exception is a disposable domain under
@@ -1195,42 +1201,14 @@ def request_magic_link(
     sign-up branch — so for those domains, and only those, the response
     does reveal whether an account already exists.
     """
-    from rhesis.backend.app.crud import user as user_crud
-    from rhesis.backend.app.schemas.user import UserCreate
-
-    user = user_crud.get_user_by_email(db, body.email)
-    is_new_user = False
-
-    if not user:
-        # Sign-up branch only, so existing accounts on a disposable domain keep
-        # working. A 400 here does reveal that the address has no account yet,
-        # but only for domains we are refusing to register anyway.
-        try:
-            screen_signup_email(body.email, source="magic_link")
-        except DisposableEmailError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e),
-            )
-
-        try:
-            user_data = UserCreate(
-                email=body.email,
-                provider_type=AuthProviderType.EMAIL,
-                is_email_verified=False,
-                is_active=True,
-            )
-            user = user_crud.create_user(db, user_data)
-            db.commit()
-            db.refresh(user)
-            is_new_user = True
-            logger.info(
-                "New user created via magic link: %s",
-                redact_email(body.email),
-            )
-        except Exception as e:
-            logger.warning(f"Failed to create user for magic link: {e}")
-            return _MAGIC_LINK_SUCCESS_RESPONSE
+    try:
+        user, is_new_user = find_or_create_magic_link_user(db, body.email)
+    except DisposableEmailError as e:
+        # A 400 does reveal that the address has no account yet, but only for
+        # domains we are refusing to register anyway.
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    if user is None:
+        return _MAGIC_LINK_SUCCESS_RESPONSE
 
     background_tasks.add_task(
         _send_magic_link_email_bg, str(user.id), user.email, user.name, is_new_user
