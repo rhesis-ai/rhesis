@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
@@ -29,27 +29,27 @@ conflicts = [[
 ]]
 
 [options]
-exclude-newer = "2026-10-26T21:08:50.382474Z"
+exclude-newer = "0001-01-01T00:00:00Z" # This has no effect and is included for backwards compatibility when using relative exclude-newer values.
 exclude-newer-span = "P1W"
 
 [options.exclude-newer-package]
-pillow = false
-langchain-core = false
-pydantic-ai-slim = false
-pydantic-ai = false
-pyasn1 = false
-starlette = false
-litellm = false
 aiohttp = false
-cryptography = false
-uv = false
-nltk = false
-langsmith = false
-python-multipart = false
-pydantic-settings = false
 certifi = false
+cryptography = false
 langchain = false
+langchain-core = false
+langsmith = false
+litellm = false
+nltk = false
+pillow = false
+pyasn1 = false
+pydantic-ai = false
+pydantic-ai-slim = false
+pydantic-settings = false
+python-multipart = false
+starlette = false
 tornado = false
+uv = false
 
 [manifest]
 constraints = [
@@ -140,7 +140,7 @@ dependencies = [
     { name = "frozenlist" },
     { name = "multidict" },
     { name = "propcache" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
     { name = "yarl" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6c/4c/bdccd81e9ee225b69c60e7766c9a5b05364f118f4d383713b89a682d772d/aiohttp-3.14.5.tar.gz", hash = "sha256:5558a7f5a05af9ecf744af91e5baefc436f93c9333e656c27ec253f9a6bbe178", size = 8078052, upload-time = "2026-10-11T01:05:12.408Z" }
@@ -277,7 +277,7 @@ version = "1.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "frozenlist" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/62/06741b579156360248d1ec624842ad0edf697050bbaf7c3e46394e106ad1/aiosignal-1.4.0.tar.gz", hash = "sha256:f47eecd9468083c2029cc99945502cb7708b082c232f9aca65da147157b251c7", size = 25007, upload-time = "2025-07-03T22:54:43.528Z" }
 wheels = [
@@ -323,7 +323,7 @@ dependencies = [
     { name = "docstring-parser" },
     { name = "httpx2" },
     { name = "jiter", version = "0.13.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "jiter", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
+    { name = "jiter", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
     { name = "pydantic" },
     { name = "sniffio" },
     { name = "typing-extensions" },
@@ -339,7 +339,7 @@ version = "4.14.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "idna" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/cc/a381afa6efea9f496eff839d4a6a1aed3bfafc7b3ab4b0d1b243a12573dd/anyio-4.14.2.tar.gz", hash = "sha256:cfa139f3ed1a23ee8f88a145ddb5ac7605b8bbfd8592baacd7ce3d8bb4313c7f", size = 260176, upload-time = "2026-07-12T20:29:07.082Z" }
 wheels = [
@@ -561,7 +561,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -733,7 +733,7 @@ name = "click"
 version = "8.1.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b9/2e/0090cbf739cee7d23781ad4b89a9894a41538e4fcf4c31dcdd705b78eb8b/click-8.1.8.tar.gz", hash = "sha256:ed53c9d8990d83c2a27deae68e4ee337473f6330c040a31d4225c9574d16096a", size = 226593, upload-time = "2024-12-21T18:38:44.339Z" }
 wheels = [
@@ -851,7 +851,7 @@ name = "cryptography"
 version = "50.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cffi", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "cffi", marker = "platform_python_implementation != 'PyPy'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/de/41/6cbdcf9142d00fe82836fbb51e503e58088575cf7a0fe1dbff6695bf0840/cryptography-50.0.0.tar.gz", hash = "sha256:eeac2acb5a20ed25e0ad6d1df9891a520b78b404266b6d11778f25d5d691a6c9", size = 880201, upload-time = "2026-07-31T14:25:10.11Z" }
 wheels = [
@@ -1050,7 +1050,7 @@ client = [
     { name = "httpx" },
     { name = "mcp" },
     { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" } },
-    { name = "py-key-value-aio", extra = ["filetree", "keyring", "memory"], marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "py-key-value-aio", extra = ["filetree", "keyring", "memory"], marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
     { name = "starlette" },
 ]
 
@@ -1285,16 +1285,16 @@ resolution-markers = [
     "python_full_version < '3.14'",
 ]
 dependencies = [
-    { name = "anyio", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
-    { name = "distro", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
-    { name = "google-auth", extra = ["requests"], marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
-    { name = "httpx", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
-    { name = "pydantic", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
-    { name = "requests", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
-    { name = "sniffio", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
-    { name = "tenacity", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
-    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
-    { name = "websockets", marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
+    { name = "anyio", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "distro", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "google-auth", extra = ["requests"], marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "httpx", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "pydantic", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "requests", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "sniffio", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "tenacity", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "typing-extensions", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "websockets", marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/71/84/1d8817ac6999730ba0ce92cd2f0d373300ca8bafd0b3a432b8694737904e/google_genai-2.30.0.tar.gz", hash = "sha256:bd370da8366cef7efebdb4cee959b2180b402cb81ebd7a7fcfe0f00869dae73a", size = 736285, upload-time = "2026-10-13T00:38:19.253Z" }
 wheels = [
@@ -1531,7 +1531,7 @@ dependencies = [
     { name = "networkx" },
     { name = "numpy" },
     { name = "openai", version = "2.54.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
-    { name = "openai", version = "3.29.0", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "openai", version = "3.29.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
     { name = "posthog" },
     { name = "pydantic" },
     { name = "python-dateutil" },
@@ -1668,12 +1668,12 @@ name = "httpx2"
 version = "2.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "anyio", marker = "sys_platform != 'emscripten' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "httpcore2", marker = "sys_platform != 'emscripten' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "httpx2-jsfetch", marker = "sys_platform == 'emscripten' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "anyio", marker = "sys_platform != 'emscripten'" },
+    { name = "httpcore2", marker = "sys_platform != 'emscripten'" },
+    { name = "httpx2-jsfetch", marker = "sys_platform == 'emscripten'" },
     { name = "idna" },
-    { name = "truststore", marker = "sys_platform != 'emscripten' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "truststore", marker = "sys_platform != 'emscripten'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7f/f8/579a8b51e42e38ee32647df9f08aa25643ae788e275cc625b199829c4671/httpx2-2.12.0.tar.gz", hash = "sha256:7631fe9887a8a2275f4a2540e053aa670fcc50742864a9ae7c66e609fdcf12cf", size = 100040, upload-time = "2026-08-18T13:22:09.086Z" }
 wheels = [
@@ -2229,7 +2229,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filetype" },
     { name = "google-genai", version = "1.65.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "google-genai", version = "2.30.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or extra != 'extra-25-rhesis-telemetry-examples-crewai'" },
+    { name = "google-genai", version = "2.30.0", source = { registry = "https://pypi.org/simple" }, marker = "extra != 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
     { name = "langchain-core" },
     { name = "pydantic" },
 ]
@@ -2317,7 +2317,7 @@ dependencies = [
     { name = "anyio" },
     { name = "distro" },
     { name = "httpx2" },
-    { name = "orjson", marker = "platform_python_implementation != 'PyPy' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "orjson", marker = "platform_python_implementation != 'PyPy'" },
     { name = "packaging" },
     { name = "pydantic" },
     { name = "requests" },
@@ -2406,7 +2406,7 @@ version = "0.5.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "google-genai", version = "1.65.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "google-genai", version = "2.30.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-llamaindex') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "google-genai", version = "2.30.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
     { name = "llama-index-core" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a9/46/3feca634e00f138c8a794dbe0f2ac5c7c1dcbf16fe810418d6c97a7ff9d7/llama_index_embeddings_google_genai-0.5.1.tar.gz", hash = "sha256:c40d09eb9b981949db59a361d3227453c22e98e9e18d35c72bd264967bddd944", size = 5964, upload-time = "2026-05-19T09:44:40.109Z" }
@@ -2446,7 +2446,7 @@ version = "0.9.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "google-genai", version = "1.65.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "google-genai", version = "2.30.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-llamaindex') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "google-genai", version = "2.30.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
     { name = "llama-index-core" },
     { name = "pillow" },
 ]
@@ -2996,11 +2996,11 @@ wheels = [
 
 [[package]]
 name = "oauthlib"
-version = "4.0.0"
+version = "4.0.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/7a/d8/a1bcc8ba112a627f8ffbdc212a78ce18d3ac07e91a5ca65d27918eee25a1/oauthlib-4.0.0.tar.gz", hash = "sha256:efb274799819440f95b4ab3b818869f1ce9ae26c5beacba0201d1a1b76b54f86", size = 187232, upload-time = "2026-09-28T06:01:18.77Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/33/17/2bb072de0b990303c985f26869fd47bb179024a051f47e7f9d208eb92f8e/oauthlib-4.0.1.tar.gz", hash = "sha256:3d73febdb6faa00f277c81fb04be7b7586fb96fc3b7f0b9c772dada69a25ede7", size = 191219, upload-time = "2026-10-31T09:52:58.008Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d9/f4/78229a1066068ca14fc60fb26cf7381cabe4382261392b90e5f9552722d4/oauthlib-4.0.0-py3-none-any.whl", hash = "sha256:624c28c13a0a59cabf9747dfa52af63be3e512a7f2714df16e91b5b3a145e6cd", size = 159715, upload-time = "2026-09-28T06:01:17.008Z" },
+    { url = "https://files.pythonhosted.org/packages/df/ef/3b8adde1b32a6f540758bff734d3442c621734c83708e5f02b0ba2f43b84/oauthlib-4.0.1-py3-none-any.whl", hash = "sha256:498a298876e996301950a5b053d12c31628bb7b895db03666430c69ce182eb61", size = 161934, upload-time = "2026-10-31T09:52:56.206Z" },
 ]
 
 [[package]]
@@ -3055,7 +3055,7 @@ dependencies = [
     { name = "distro", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
     { name = "httpx", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
     { name = "jiter", version = "0.13.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "jiter", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-llamaindex') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "jiter", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
     { name = "pydantic", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
     { name = "sniffio", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
     { name = "tqdm", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
@@ -3075,12 +3075,12 @@ resolution-markers = [
     "python_full_version < '3.14'",
 ]
 dependencies = [
-    { name = "anyio", marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "httpx2", marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "jiter", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "pydantic", marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "sniffio", marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "typing-extensions", marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "anyio", marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
+    { name = "httpx2", marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
+    { name = "jiter", version = "0.17.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
+    { name = "pydantic", marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
+    { name = "sniffio", marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e4/99/5f6206494a87edbaa67b35c5212a2cb5e6f414bee5efb0f0672c4704315a/openai-3.29.0.tar.gz", hash = "sha256:bc70a46d97b70ba64daedfcb3227f610a395f297ec68d39f735676190a92be94", size = 1828914, upload-time = "2026-10-11T17:39:41.895Z" }
 wheels = [
@@ -3132,7 +3132,7 @@ resolution-markers = [
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
 ]
 dependencies = [
-    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ee/8b/aa9e2d8b8dfa7c946f7dec5d1f8f6ba8eca062f43509a06bdb5ce93d26c0/opentelemetry_api-1.44.0.tar.gz", hash = "sha256:67647e5e9566edcf421166fdf022b3537f818635daa852b289e34604dc6fb33a", size = 72406, upload-time = "2026-07-16T15:25:32.678Z" }
 wheels = [
@@ -3171,7 +3171,7 @@ resolution-markers = [
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
 ]
 dependencies = [
-    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/61/09/4d717852c1cf3f854b76c7110a5d00883bc3c99288b9b0dbcbeb9e306eb6/opentelemetry_exporter_otlp_proto_common-1.44.0.tar.gz", hash = "sha256:dc87a5a5bc58f149a56d1547e4691588fa12994cdc3bc039a694ccb3375862ac", size = 20202, upload-time = "2026-07-16T15:25:37.658Z" }
 wheels = [
@@ -3234,13 +3234,13 @@ resolution-markers = [
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
 ]
 dependencies = [
-    { name = "googleapis-common-protos", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "opentelemetry-exporter-otlp-proto-common", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "opentelemetry-sdk", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "requests", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "googleapis-common-protos", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "opentelemetry-exporter-otlp-proto-common", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "opentelemetry-proto", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "opentelemetry-sdk", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "requests", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1a/87/95e2a5aaa795b4e2260d74e16df2d5541deb2ea9de010bcd615f4dee2654/opentelemetry_exporter_otlp_proto_http-1.44.0.tar.gz", hash = "sha256:c633d7270ad6b57cd4cfbe8b0007a9e2e7c0cb50bd6c50fe2a7b245f721a09d8", size = 25806, upload-time = "2026-07-16T15:25:39.162Z" }
 wheels = [
@@ -3310,7 +3310,7 @@ resolution-markers = [
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
 ]
 dependencies = [
-    { name = "protobuf", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "protobuf", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/64/01/40ac4ae9a149263cc52c2cee200ddd80cb6d8db1a4610abf8eabce0fe771/opentelemetry_proto-1.44.0.tar.gz", hash = "sha256:c547a79c2f8c0c515d31509154682e5921c7cfd5ca67b70e1f9266e2c3e103f3", size = 46488, upload-time = "2026-07-16T15:25:45.34Z" }
 wheels = [
@@ -3351,9 +3351,9 @@ resolution-markers = [
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "opentelemetry-semantic-conventions", version = "0.65b0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5d/77/a6592cbc7c8d9bcc9d6757a9df45e04a7c585e3e6e7a13456da522b21109/opentelemetry_sdk-1.44.0.tar.gz", hash = "sha256:cebe7f65dc12f26ead75c6064de12fd2a9052e5060c0272d402cfa203aae123b", size = 208624, upload-time = "2026-07-16T15:25:46.078Z" }
 wheels = [
@@ -3393,8 +3393,8 @@ resolution-markers = [
     "python_full_version < '3.14' and extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'",
 ]
 dependencies = [
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
+    { name = "typing-extensions", marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8f/73/0cbdebcb4cf545fdd328da14f5137e37d0770c3f26185e478b0d15d94f50/opentelemetry_semantic_conventions-0.65b0.tar.gz", hash = "sha256:f9b2b81e9d5b64f11bc952075e7e9c7fb0aab075c7fd1c46d597f1b919852d60", size = 148774, upload-time = "2026-07-16T15:25:46.902Z" }
 wheels = [
@@ -4052,7 +4052,7 @@ name = "pydantic-ai"
 version = "2.55.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pydantic-ai-slim", extra = ["anthropic", "cli", "evals", "google", "logfire", "mcp", "openai", "web"], marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "pydantic-ai-slim", extra = ["anthropic", "cli", "evals", "google", "logfire", "mcp", "openai", "web"], marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/52/a1/fe269bcb0ed07c00c549128095ccc62ccff6ec4eed36e68b6f7a164c57e7/pydantic_ai-2.55.0.tar.gz", hash = "sha256:b57057025a49392096821dccb6df5261880f558c9a99c470bcb0e946de10f47e", size = 28022, upload-time = "2026-10-09T19:40:48.347Z" }
 wheels = [
@@ -4096,11 +4096,11 @@ google = [
     { name = "google-genai", version = "2.30.0", source = { registry = "https://pypi.org/simple" } },
 ]
 logfire = [
-    { name = "logfire", extra = ["httpx"], marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "logfire", extra = ["httpx"], marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
     { name = "opentelemetry-instrumentation-httpx" },
 ]
 mcp = [
-    { name = "fastmcp-slim", extra = ["client"], marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "fastmcp-slim", extra = ["client"], marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
 ]
 openai = [
     { name = "openai", version = "3.29.0", source = { registry = "https://pypi.org/simple" } },
@@ -4422,7 +4422,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "rpds-py" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/22/f5/df4e9027acead3ecc63e50fe1e36aca1523e1719559c499951bb4b53188f/referencing-0.37.0.tar.gz", hash = "sha256:44aefc3142c5b842538163acb373e24cce6632bd54bdb01b21ad5863489f50d8", size = 78036, upload-time = "2025-10-13T15:30:48.871Z" }
 wheels = [
@@ -4569,11 +4569,11 @@ dependencies = [
 [package.optional-dependencies]
 telemetry = [
     { name = "opentelemetry-api", version = "1.39.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "opentelemetry-api", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
     { name = "opentelemetry-exporter-otlp-proto-http", version = "1.39.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "opentelemetry-exporter-otlp-proto-http", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "opentelemetry-exporter-otlp-proto-http", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
     { name = "opentelemetry-sdk", version = "1.39.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
-    { name = "opentelemetry-sdk", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "opentelemetry-sdk", version = "1.44.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra != 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
 ]
 
 [package.metadata]
@@ -4594,7 +4594,7 @@ provides-extras = ["all", "sdk", "telemetry"]
 
 [[package]]
 name = "rhesis-sdk"
-version = "0.20.0"
+version = "0.20.1"
 source = { editable = "../../sdk" }
 dependencies = [
     { name = "aiohttp" },
@@ -4744,7 +4744,7 @@ llamaindex = [
 openai-sdk = [
     { name = "anthropic" },
     { name = "openai", version = "2.54.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-crewai' or extra == 'extra-25-rhesis-telemetry-examples-google-adk' or extra == 'extra-25-rhesis-telemetry-examples-llamaindex' or extra != 'extra-25-rhesis-telemetry-examples-pydantic-ai'" },
-    { name = "openai", version = "3.29.0", source = { registry = "https://pypi.org/simple" }, marker = "(extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra != 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra != 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "openai", version = "3.29.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk')" },
 ]
 pydantic-ai = [
     { name = "pydantic-ai" },
@@ -5013,7 +5013,7 @@ version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/e3/7c1dc7381d9f8ab7d854328ebfa884e62cb3f3d8549ddfd37c7814f42afa/starlette-1.3.1.tar.gz", hash = "sha256:05d0213193f2fbaae60e2ecb593b4add4262ad4e46536b54abe36f11a71724e0", size = 2703240, upload-time = "2026-06-12T09:23:11.602Z" }
 wheels = [
@@ -5152,7 +5152,7 @@ name = "tqdm"
 version = "4.68.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/06/b3/36c8ecf72e8925200671613332db156d84b99b3aee742a41c1938ebb0808/tqdm-4.68.1.tar.gz", hash = "sha256:fc163d96b287bd031e1aa24421ce4411b25559bd0a1be4fe649bdaa4d2c02bf5", size = 171236, upload-time = "2026-06-05T17:23:15.267Z" }
 wheels = [
@@ -5366,11 +5366,11 @@ wheels = [
 
 [package.optional-dependencies]
 standard = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
     { name = "httptools" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
-    { name = "uvloop", marker = "(platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32') or (platform_python_implementation == 'PyPy' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (platform_python_implementation == 'PyPy' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (platform_python_implementation == 'PyPy' and extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (platform_python_implementation == 'PyPy' and extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (sys_platform == 'cygwin' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (sys_platform == 'cygwin' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (sys_platform == 'cygwin' and extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (sys_platform == 'cygwin' and extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-google-adk') or (sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-crewai' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-google-adk' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai') or (sys_platform == 'win32' and extra == 'extra-25-rhesis-telemetry-examples-llamaindex' and extra == 'extra-25-rhesis-telemetry-examples-pydantic-ai')" },
+    { name = "uvloop", marker = "platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'" },
     { name = "watchfiles" },
     { name = "websockets" },
 ]
