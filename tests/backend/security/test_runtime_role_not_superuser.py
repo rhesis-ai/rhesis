@@ -12,7 +12,7 @@ import uuid
 import pytest
 from sqlalchemy import text
 
-from rhesis.backend.app.config.settings import ApplicationSettings
+from rhesis.backend.app.config.settings import ApplicationSettings, get_database_settings
 from rhesis.backend.app.database import (
     PrivilegedDatabaseRoleError,
     assert_runtime_role_restricted,
@@ -34,7 +34,7 @@ def _role_flags(conn) -> tuple[str, bool, bool]:
 def test_runtime_engine_role_is_not_superuser_and_not_bypassrls():
     with engine.connect() as conn:
         role, is_superuser, bypasses_rls = _role_flags(conn)
-    assert role == "rhesis-app"
+    assert role == get_database_settings().app_user
     assert not is_superuser
     assert not bypasses_rls
 
