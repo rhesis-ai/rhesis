@@ -742,6 +742,24 @@ def project_id_from_scope(db: Session) -> Optional[UUID]:
         return None
 
 
+def authorization_project_id(request: Request, db: Session) -> Optional[UUID]:
+    """Return the project a request's capability check is evaluated against.
+
+    A ``{project_id}`` path parameter names the resource, so it wins over the
+    ambient scope from ``X-Project-Id``. The header is the UI's active project and
+    legitimately differs from the path (e.g. the team page managing every
+    project's members), so a mismatch is not an error. Routes without the path
+    parameter use the ambient scope.
+    """
+    raw = request.path_params.get("project_id")
+    if raw is None:
+        return project_id_from_scope(db)
+    try:
+        return UUID(str(raw))
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid project_id: must be a UUID") from None
+
+
 def enforced_capability_for_route(route: object) -> Optional[str]:
     """Return the capability ``apply_authz_backstop`` enforces on *route*, or ``None``.
 
@@ -769,8 +787,10 @@ def require_permission(capability: "str | Permission"):
 
     Returns a parameterless dependency that:
     1. Resolves the ``Principal`` from the authenticated user.
-    2. Reads ``project_id`` from the ambient request scope
-       (``db.info['_scope']``, written by ``get_db_with_tenant_variables``).
+    2. Resolves the project via :func:`authorization_project_id`: the
+       ``{project_id}`` path parameter when the route has one, else the ambient
+       request scope (``db.info['_scope']``, written by
+       ``get_db_with_tenant_variables``).
     3. Calls :func:`authorize`; raises ``HTTP 403`` on denial.
 
     Usage (direct annotation before the PEP wires it automatically in SP4)::
@@ -795,8 +815,7 @@ def require_permission(capability: "str | Permission"):
     ) -> None:
         principal = resolve_principal_from_request(current_user, request)
 
-        # Read project_id from the ambient scope written by get_db_with_tenant_variables.
-        project_id = project_id_from_scope(db)
+        project_id = authorization_project_id(request, db)
 
         if not authorize(principal, capability, project_id=project_id, db=db):
             # SP12: GitHub-style X-Accepted-Permissions header so callers
@@ -818,6 +837,7 @@ __all__ = [
     "DefaultAuthorizationProvider",
     "Permission",
     "authorize",
+    "authorization_project_id",
     "authorize_object",
     "denial",
     "enforced_capability_for_route",

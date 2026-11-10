@@ -27,6 +27,7 @@ cannot creep back.
 from __future__ import annotations
 
 import importlib
+import uuid
 
 import pytest
 from fastapi.routing import APIRoute
@@ -112,6 +113,86 @@ class TestAuthzCoverage:
             f"AUTHZ_EXEMPT_ROUTES contains entries that don't match any registered route "
             f"(remove or update them):\n" + "\n".join(f"  {s}" for s in stale)
         )
+
+
+# ---------------------------------------------------------------------------
+# Path-project guard: {project_id} routes authorize against the path project
+# ---------------------------------------------------------------------------
+
+
+def _project_path_routes() -> list[tuple[APIRoute, str]]:
+    from rhesis.backend.app.auth.rbac import enforced_capability_for_route
+
+    found = []
+    for route in app.router.routes:
+        if not isinstance(route, APIRoute):
+            continue
+        if "project_id" not in {p.name for p in route.dependant.path_params}:
+            continue
+        cap = enforced_capability_for_route(route)
+        if cap is not None:
+            found.append((route, cap))
+    return found
+
+
+def _backstop_dependency(route: APIRoute):
+    for sub in route.dependant.dependencies:
+        call = getattr(sub, "call", None)
+        if getattr(call, "__qualname__", "") == "require_permission.<locals>._dependency":
+            return call
+    return None
+
+
+@pytest.mark.security
+class TestPathProjectAuthorization:
+    """The backstop on every ``{project_id}`` route evaluates the capability on the
+    path project, not on the ambient ``X-Project-Id`` scope."""
+
+    def test_member_routes_are_covered(self):
+        paths = {(m, r.path) for r, _ in _project_path_routes() for m in r.methods}
+        for expected in [
+            ("GET", "/projects/{project_id}/members"),
+            ("POST", "/projects/{project_id}/members"),
+            ("DELETE", "/projects/{project_id}/members/{user_id}"),
+            ("POST", "/projects/{project_id}/experiments"),
+        ]:
+            assert expected in paths
+
+    @pytest.mark.parametrize(
+        "route,cap",
+        _project_path_routes(),
+        ids=lambda v: f"{sorted(v.methods)} {v.path}" if isinstance(v, APIRoute) else v,
+    )
+    def test_capability_is_evaluated_on_path_project(self, route, cap):
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock, patch
+
+        from rhesis.backend.app.auth import rbac
+        from rhesis.backend.app.scope import RequestScope
+
+        dependency = _backstop_dependency(route)
+        assert dependency is not None, f"no backstop on {route.path}"
+
+        path_project, header_project = uuid.uuid4(), uuid.uuid4()
+        request = SimpleNamespace(
+            path_params={"project_id": str(path_project)},
+            method=sorted(route.methods)[0],
+            state=SimpleNamespace(),
+        )
+        db = SimpleNamespace(info={"_scope": RequestScope(project_id=str(header_project))})
+        seen: list = []
+
+        def fake_authorize(principal, permission, *, project_id, db):
+            seen.append((str(permission), project_id))
+            return True
+
+        with (
+            patch.object(rbac, "resolve_principal_from_request", return_value=MagicMock()),
+            patch.object(rbac, "authorize", side_effect=fake_authorize),
+        ):
+            dependency(request=request, db=db, current_user=MagicMock())
+
+        assert seen == [(cap, path_project)]
 
 
 # ---------------------------------------------------------------------------
