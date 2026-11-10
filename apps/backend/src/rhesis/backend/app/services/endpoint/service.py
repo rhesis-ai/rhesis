@@ -18,6 +18,7 @@ from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
 from rhesis.backend.app.services.invokers.context import InvocationContext
 from rhesis.backend.app.services.invokers.conversation import (
     ConversationTracker,
+    conversation_scope,
     find_conversation_id,
     get_conversation_store,
 )
@@ -201,23 +202,26 @@ class EndpointService:
 
             if is_stateless and "messages" not in enriched_input_data:
                 store = get_conversation_store()
+                scope = conversation_scope(endpoint)
                 incoming_cid = enriched_input_data.get("conversation_id")
                 # Read input *after* any file injection so file content is
                 # included in the user message appended to the messages list.
                 stateless_user_input = enriched_input_data.get("input", "")
 
-                if incoming_cid and store.exists(incoming_cid):
+                if incoming_cid and store.exists(incoming_cid, scope=scope):
                     stateless_conversation_id = incoming_cid
                 else:
                     system_prompt = ConversationTracker.extract_system_prompt(endpoint)
-                    stateless_conversation_id = store.create(system_prompt=system_prompt)
+                    stateless_conversation_id = store.create(
+                        system_prompt=system_prompt, scope=scope
+                    )
                     if incoming_cid:
                         logger.warning(
                             f"Conversation {incoming_cid} not found, "
                             f"created new: {stateless_conversation_id}"
                         )
 
-                messages = store.get_messages(stateless_conversation_id)
+                messages = store.get_messages(stateless_conversation_id, scope=scope)
                 if stateless_user_input:
                     messages.append({"role": "user", "content": stateless_user_input})
                 enriched_input_data["messages"] = messages
@@ -298,8 +302,11 @@ class EndpointService:
                 result_dict = result if isinstance(result, dict) else None
                 if result_dict is not None:
                     store = get_conversation_store()
+                    scope = conversation_scope(endpoint)
                     if stateless_user_input:
-                        store.add_user_message(stateless_conversation_id, stateless_user_input)
+                        store.add_user_message(
+                            stateless_conversation_id, stateless_user_input, scope=scope
+                        )
                     output = result_dict.get("output", "")
                     if output:
                         output_text = (
@@ -309,6 +316,7 @@ class EndpointService:
                             stateless_conversation_id,
                             output_text,
                             tool_calls=result_dict.get("tool_calls"),
+                            scope=scope,
                         )
                     result_dict["conversation_id"] = stateless_conversation_id
 
@@ -325,6 +333,7 @@ class EndpointService:
             # ------------------------------------------------------------------
             if not trace_conversation_id and isinstance(result, dict) and result.get("trace_id"):
                 response_conversation_id = find_conversation_id(result)
+                endpoint_project_id = str(endpoint.project_id) if endpoint.project_id else None
                 if response_conversation_id:
                     if deferred_trace:
                         deferred_data = result.get("_deferred_trace")
@@ -342,6 +351,7 @@ class EndpointService:
                                 trace_id=result["trace_id"],
                                 conversation_id=response_conversation_id,
                                 organization_id=organization_id,
+                                project_id=endpoint_project_id,
                             )
                     elif db:
                         self._link_first_turn_trace(
@@ -349,6 +359,7 @@ class EndpointService:
                             trace_id=result["trace_id"],
                             conversation_id=response_conversation_id,
                             organization_id=organization_id,
+                            project_id=endpoint_project_id,
                         )
 
             logger.debug(f"Endpoint invocation completed: {endpoint.name}")
@@ -387,6 +398,7 @@ class EndpointService:
         trace_id: str,
         conversation_id: str,
         organization_id: str,
+        project_id: str | None,
     ) -> None:
         """Retroactively set conversation_id on a first-turn trace.
 
@@ -413,6 +425,7 @@ class EndpointService:
                 trace_id=trace_id,
                 conversation_id=conversation_id,
                 organization_id=organization_id,
+                project_id=project_id,
             )
 
     def _get_endpoint(

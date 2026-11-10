@@ -43,7 +43,7 @@ gap by parking the output/files and injecting them when the spans arrive.
 import json
 import logging
 import time
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -63,7 +63,7 @@ _MAX_IO_LENGTH = 10000  # synced with ConversationConstants.MAX_IO_LENGTH
 
 
 # ---------------------------------------------------------------
-# Data classes (kept for backward compatibility with tests)
+# Data classes
 # ---------------------------------------------------------------
 
 
@@ -71,7 +71,6 @@ class PendingConversationLink(NamedTuple):
     """A deferred conversation-id-to-trace mapping awaiting span arrival."""
 
     conversation_id: str
-    organization_id: str
     registered_at: float
 
 
@@ -86,25 +85,48 @@ class PendingFiles(NamedTuple):
     """Input files waiting to be linked to a Trace when SDK spans arrive."""
 
     files_json: str
-    organization_id: str
     registered_at: float
+
+
+# In-memory entries are keyed by (organization_id, project_id, trace_id).
+ScopedKey = Tuple[str, str, str]
 
 
 # ---------------------------------------------------------------
 # Redis key prefixes
 # ---------------------------------------------------------------
 
-_PREFIX_PENDING = "convlink:pending:"
-_PREFIX_REVERSE = "convlink:reverse:"
-_PREFIX_OUTPUT = "convlink:output:"
-_PREFIX_FILES = "convlink:files:"
+# Every key carries the owning org and project, so tenants that reuse a
+# conversation or trace id never see each other's entries. The "v2" segment
+# keeps these apart from the un-scoped keys written by older releases.
+_PREFIX_PENDING = "convlink:v2:pending:"
+_PREFIX_REVERSE = "convlink:v2:reverse:"
+_PREFIX_OUTPUT = "convlink:v2:output:"
+_PREFIX_FILES = "convlink:v2:files:"
+
+
+def _key(prefix: str, organization_id: str, project_id: str, item_id: str) -> str:
+    return f"{prefix}{organization_id}:{project_id}:{item_id}"
+
+
+def _scope(organization_id: Any, project_id: Any) -> Optional[Tuple[str, str]]:
+    """Stringify a tenant scope, or None when either part is missing.
+
+    Callers pass raw ids (UUID, str or None), so a missing id never becomes
+    the literal string "None" and a shared fake scope.
+    """
+    if not organization_id or not project_id:
+        return None
+    return str(organization_id), str(project_id)
 
 
 class ConversationLinkingCache(RedisBackedCache):
     """Redis-backed cache with in-memory fallback for conversation linking.
 
     Uses synchronous redis.Redis (not asyncio) because all callers are sync.
-    Falls back to process-local dicts when Redis is unavailable.
+    Falls back to process-local dicts when Redis is unavailable. Every entry
+    is scoped to an (organization_id, project_id) pair; lookups only see
+    entries in the caller's scope.
     """
 
     def __init__(self) -> None:
@@ -113,10 +135,9 @@ class ConversationLinkingCache(RedisBackedCache):
             cache_name="conversation-linking",
             ttl=_CACHE_TTL,
         )
-        # Backward-compatible in-memory dicts (used by tests and in-memory fallback)
-        self._pending_links: Dict[str, PendingConversationLink] = {}
-        self._pending_outputs: Dict[str, PendingOutput] = {}
-        self._pending_files: Dict[str, PendingFiles] = {}
+        self._pending_links: Dict[ScopedKey, PendingConversationLink] = {}
+        self._pending_outputs: Dict[ScopedKey, PendingOutput] = {}
+        self._pending_files: Dict[ScopedKey, PendingFiles] = {}
 
     def _on_reconnect(self) -> None:
         # Pops read Redis now, so entries parked here would never be found.
@@ -126,12 +147,12 @@ class ConversationLinkingCache(RedisBackedCache):
             links, self._pending_links = self._pending_links, {}
             outputs, self._pending_outputs = self._pending_outputs, {}
             files, self._pending_files = self._pending_files, {}
-        for trace_id, link in links.items():
-            self.register_link(trace_id, link.conversation_id, link.organization_id)
-        for trace_id, output in outputs.items():
-            self.register_output(trace_id, output.mapped_output)
-        for trace_id, entry in files.items():
-            self.register_files(trace_id, entry.files_json, entry.organization_id)
+        for (org, project, trace_id), link in links.items():
+            self.register_link(org, project, trace_id, link.conversation_id)
+        for (org, project, trace_id), output in outputs.items():
+            self.register_output(org, project, trace_id, output.mapped_output)
+        for (org, project, trace_id), entry in files.items():
+            self.register_files(org, project, trace_id, entry.files_json)
 
     # -----------------------------------------------------------
     # Conversation link methods
@@ -139,27 +160,22 @@ class ConversationLinkingCache(RedisBackedCache):
 
     def register_link(
         self,
+        organization_id: str,
+        project_id: str,
         trace_id: str,
         conversation_id: str,
-        organization_id: str,
     ) -> None:
         """Park a conversation-id link for deferred application."""
         if self._using_redis:
             try:
-                payload = json.dumps(
-                    {
-                        "conversation_id": conversation_id,
-                        "organization_id": organization_id,
-                    }
-                )
                 pipe = self._redis.pipeline()
                 pipe.set(
-                    f"{_PREFIX_PENDING}{trace_id}",
-                    payload,
+                    _key(_PREFIX_PENDING, organization_id, project_id, trace_id),
+                    json.dumps({"conversation_id": conversation_id}),
                     ex=_CACHE_TTL,
                 )
                 pipe.set(
-                    f"{_PREFIX_REVERSE}{conversation_id}",
+                    _key(_PREFIX_REVERSE, organization_id, project_id, conversation_id),
                     trace_id,
                     ex=_CACHE_TTL,
                 )
@@ -171,18 +187,24 @@ class ConversationLinkingCache(RedisBackedCache):
                 )
 
         with self._lock:
-            self._pending_links[trace_id] = PendingConversationLink(
+            self._pending_links[(organization_id, project_id, trace_id)] = PendingConversationLink(
                 conversation_id=conversation_id,
-                organization_id=organization_id,
                 registered_at=time.monotonic(),
             )
             _evict_stale(self._pending_links)
 
-    def get_trace_id_for_conversation(self, conversation_id: str) -> Optional[str]:
-        """Reverse-lookup: find the trace_id parked for a conversation."""
+    def get_trace_id_for_conversation(
+        self,
+        organization_id: str,
+        project_id: str,
+        conversation_id: str,
+    ) -> Optional[str]:
+        """Reverse-lookup: find the trace_id parked for a conversation in this scope."""
         if self._using_redis:
             try:
-                result = self._redis.get(f"{_PREFIX_REVERSE}{conversation_id}")
+                result = self._redis.get(
+                    _key(_PREFIX_REVERSE, organization_id, project_id, conversation_id)
+                )
                 if result is not None:
                     return result
             except Exception as exc:
@@ -192,19 +214,28 @@ class ConversationLinkingCache(RedisBackedCache):
                 )
 
         with self._lock:
-            for tid, link in self._pending_links.items():
-                if link.conversation_id == conversation_id:
+            for (org, project, tid), link in self._pending_links.items():
+                if (
+                    org == organization_id
+                    and project == project_id
+                    and link.conversation_id == conversation_id
+                ):
                     return tid
         return None
 
-    def pop_links_for_traces(self, trace_ids: List[str]) -> List[tuple]:
-        """Pop and return pending links matching any of the given trace_ids.
+    def pop_links_for_traces(
+        self,
+        organization_id: str,
+        project_id: str,
+        trace_ids: List[str],
+    ) -> List[Tuple[str, str]]:
+        """Pop pending links in this scope for any of the given trace_ids.
 
-        Returns list of (trace_id, conversation_id, organization_id) tuples.
+        Returns a list of (trace_id, conversation_id) tuples.
         """
         if self._using_redis:
             try:
-                return self._pop_links_redis(trace_ids)
+                return self._pop_links_redis(organization_id, project_id, trace_ids)
             except Exception as exc:
                 logger.warning(
                     f"Redis read failed for pop_links_for_traces, falling back to memory: {exc}"
@@ -213,25 +244,30 @@ class ConversationLinkingCache(RedisBackedCache):
         matched = []
         with self._lock:
             for tid in trace_ids:
-                link = self._pending_links.pop(tid, None)
+                link = self._pending_links.pop((organization_id, project_id, tid), None)
                 if link is not None:
-                    matched.append((tid, link.conversation_id, link.organization_id))
+                    matched.append((tid, link.conversation_id))
         return matched
 
-    def _pop_links_redis(self, trace_ids: List[str]) -> List[tuple]:
-        """Atomically fetch and delete pending link keys from Redis."""
-        keys = [f"{_PREFIX_PENDING}{tid}" for tid in trace_ids]
+    def _pop_links_redis(
+        self,
+        organization_id: str,
+        project_id: str,
+        trace_ids: List[str],
+    ) -> List[Tuple[str, str]]:
+        """Fetch and delete pending link keys from Redis."""
+        keys = [_key(_PREFIX_PENDING, organization_id, project_id, tid) for tid in trace_ids]
         values = self._redis.mget(keys)
 
         matched = []
         delete_keys: List[str] = []
-        for tid, val in zip(trace_ids, values, strict=True):
+        for tid, key, val in zip(trace_ids, keys, values, strict=True):
             if val is None:
                 continue
-            data = json.loads(val)
-            matched.append((tid, data["conversation_id"], data["organization_id"]))
-            delete_keys.append(f"{_PREFIX_PENDING}{tid}")
-            delete_keys.append(f"{_PREFIX_REVERSE}{data['conversation_id']}")
+            conversation_id = json.loads(val)["conversation_id"]
+            matched.append((tid, conversation_id))
+            delete_keys.append(key)
+            delete_keys.append(_key(_PREFIX_REVERSE, organization_id, project_id, conversation_id))
 
         if delete_keys:
             self._redis.delete(*delete_keys)
@@ -242,12 +278,18 @@ class ConversationLinkingCache(RedisBackedCache):
     # Output methods
     # -----------------------------------------------------------
 
-    def register_output(self, trace_id: str, mapped_output: str) -> None:
+    def register_output(
+        self,
+        organization_id: str,
+        project_id: str,
+        trace_id: str,
+        mapped_output: str,
+    ) -> None:
         """Park a mapped output for injection when SDK spans arrive."""
         if self._using_redis:
             try:
                 self._redis.set(
-                    f"{_PREFIX_OUTPUT}{trace_id}",
+                    _key(_PREFIX_OUTPUT, organization_id, project_id, trace_id),
                     mapped_output[:_MAX_IO_LENGTH],
                     ex=_CACHE_TTL,
                 )
@@ -258,20 +300,25 @@ class ConversationLinkingCache(RedisBackedCache):
                 )
 
         with self._lock:
-            self._pending_outputs[trace_id] = PendingOutput(
+            self._pending_outputs[(organization_id, project_id, trace_id)] = PendingOutput(
                 mapped_output=mapped_output,
                 registered_at=time.monotonic(),
             )
             _evict_stale(self._pending_outputs)
 
-    def pop_outputs_for_traces(self, trace_ids: List[str]) -> Dict[str, str]:
-        """Pop and return pending outputs matching any of the given trace_ids.
+    def pop_outputs_for_traces(
+        self,
+        organization_id: str,
+        project_id: str,
+        trace_ids: List[str],
+    ) -> Dict[str, str]:
+        """Pop pending outputs in this scope for any of the given trace_ids.
 
         Returns dict of {trace_id: mapped_output}.
         """
         if self._using_redis:
             try:
-                return self._pop_outputs_redis(trace_ids)
+                return self._pop_plain_redis(_PREFIX_OUTPUT, organization_id, project_id, trace_ids)
             except Exception as exc:
                 logger.warning(
                     f"Redis read failed for pop_outputs_for_traces, falling back to memory: {exc}"
@@ -280,22 +327,28 @@ class ConversationLinkingCache(RedisBackedCache):
         matched = {}
         with self._lock:
             for tid in trace_ids:
-                entry = self._pending_outputs.pop(tid, None)
+                entry = self._pending_outputs.pop((organization_id, project_id, tid), None)
                 if entry is not None:
                     matched[tid] = entry.mapped_output
         return matched
 
-    def _pop_outputs_redis(self, trace_ids: List[str]) -> Dict[str, str]:
-        """Atomically fetch and delete pending output keys from Redis."""
-        keys = [f"{_PREFIX_OUTPUT}{tid}" for tid in trace_ids]
+    def _pop_plain_redis(
+        self,
+        prefix: str,
+        organization_id: str,
+        project_id: str,
+        trace_ids: List[str],
+    ) -> Dict[str, str]:
+        """Fetch and delete string values stored per trace_id in this scope."""
+        keys = [_key(prefix, organization_id, project_id, tid) for tid in trace_ids]
         values = self._redis.mget(keys)
 
         matched = {}
         delete_keys = []
-        for tid, val in zip(trace_ids, values, strict=True):
+        for tid, key, val in zip(trace_ids, keys, values, strict=True):
             if val is not None:
                 matched[tid] = val
-                delete_keys.append(f"{_PREFIX_OUTPUT}{tid}")
+                delete_keys.append(key)
 
         if delete_keys:
             self._redis.delete(*delete_keys)
@@ -308,22 +361,17 @@ class ConversationLinkingCache(RedisBackedCache):
 
     def register_files(
         self,
+        organization_id: str,
+        project_id: str,
         trace_id: str,
         files_json: str,
-        organization_id: str,
     ) -> None:
         """Park input files for deferred creation when SDK spans arrive."""
         if self._using_redis:
             try:
-                payload = json.dumps(
-                    {
-                        "files": files_json,
-                        "organization_id": organization_id,
-                    }
-                )
                 self._redis.set(
-                    f"{_PREFIX_FILES}{trace_id}",
-                    payload,
+                    _key(_PREFIX_FILES, organization_id, project_id, trace_id),
+                    files_json,
                     ex=_CACHE_TTL,
                 )
                 return
@@ -333,21 +381,25 @@ class ConversationLinkingCache(RedisBackedCache):
                 )
 
         with self._lock:
-            self._pending_files[trace_id] = PendingFiles(
+            self._pending_files[(organization_id, project_id, trace_id)] = PendingFiles(
                 files_json=files_json,
-                organization_id=organization_id,
                 registered_at=time.monotonic(),
             )
             _evict_stale(self._pending_files)
 
-    def pop_files_for_traces(self, trace_ids: List[str]) -> Dict[str, tuple]:
-        """Pop and return pending files matching any of the given trace_ids.
+    def pop_files_for_traces(
+        self,
+        organization_id: str,
+        project_id: str,
+        trace_ids: List[str],
+    ) -> Dict[str, str]:
+        """Pop pending files in this scope for any of the given trace_ids.
 
-        Returns dict of {trace_id: (files_json, organization_id)}.
+        Returns dict of {trace_id: files_json}.
         """
         if self._using_redis:
             try:
-                return self._pop_files_redis(trace_ids)
+                return self._pop_plain_redis(_PREFIX_FILES, organization_id, project_id, trace_ids)
             except Exception as exc:
                 logger.warning(
                     f"Redis read failed for pop_files_for_traces, falling back to memory: {exc}"
@@ -356,33 +408,9 @@ class ConversationLinkingCache(RedisBackedCache):
         matched = {}
         with self._lock:
             for tid in trace_ids:
-                entry = self._pending_files.pop(tid, None)
+                entry = self._pending_files.pop((organization_id, project_id, tid), None)
                 if entry is not None:
-                    matched[tid] = (
-                        entry.files_json,
-                        entry.organization_id,
-                    )
-        return matched
-
-    def _pop_files_redis(self, trace_ids: List[str]) -> Dict[str, tuple]:
-        """Atomically fetch and delete pending file keys from Redis."""
-        keys = [f"{_PREFIX_FILES}{tid}" for tid in trace_ids]
-        values = self._redis.mget(keys)
-
-        matched = {}
-        delete_keys = []
-        for tid, val in zip(trace_ids, values, strict=True):
-            if val is not None:
-                data = json.loads(val)
-                matched[tid] = (
-                    data["files"],
-                    data["organization_id"],
-                )
-                delete_keys.append(f"{_PREFIX_FILES}{tid}")
-
-        if delete_keys:
-            self._redis.delete(*delete_keys)
-
+                    matched[tid] = entry.files_json
         return matched
 
 
@@ -411,14 +439,18 @@ def _get_cache() -> ConversationLinkingCache:
 def register_pending_conversation_link(
     trace_id: str,
     conversation_id: str,
-    organization_id: str,
+    organization_id: Any,
+    project_id: Any,
 ) -> None:
     """Park a conversation-id link for deferred application.
 
     Called when ``update_conversation_id_for_trace()`` returns 0
     because the SDK's spans have not been ingested yet.
     """
-    _get_cache().register_link(trace_id, conversation_id, organization_id)
+    scope = _scope(organization_id, project_id)
+    if scope is None:
+        return
+    _get_cache().register_link(*scope, trace_id, conversation_id)
     logger.debug(
         f"[CONVERSATION_LINKING] Parked pending link: "
         f"trace_id={trace_id}, conversation_id={conversation_id}"
@@ -427,6 +459,8 @@ def register_pending_conversation_link(
 
 def get_trace_id_from_pending_links(
     conversation_id: str,
+    organization_id: Any,
+    project_id: Any,
 ) -> Optional[str]:
     """Look up a trace_id from the pending conversation links cache.
 
@@ -437,9 +471,24 @@ def get_trace_id_from_pending_links(
     does a reverse lookup so Turn 2 can find and reuse Turn 1's
     trace_id without waiting for span ingestion.
 
-    Returns the trace_id if found, None otherwise.
+    Only links parked under the caller's organization and project are
+    visible. Returns the trace_id if found, None otherwise.
     """
-    return _get_cache().get_trace_id_for_conversation(conversation_id)
+    scope = _scope(organization_id, project_id)
+    if scope is None:
+        return None
+    return _get_cache().get_trace_id_for_conversation(*scope, conversation_id)
+
+
+def _trace_ids_by_scope(stored_spans: List[models.Trace]) -> Dict[Tuple[str, str], List[str]]:
+    """Group trace_ids by the (organization_id, project_id) on the stored rows."""
+    grouped: Dict[Tuple[str, str], set] = {}
+    for span in stored_spans:
+        if span.organization_id is None or span.project_id is None:
+            continue
+        scope = (str(span.organization_id), str(span.project_id))
+        grouped.setdefault(scope, set()).add(span.trace_id)
+    return {scope: list(trace_ids) for scope, trace_ids in grouped.items()}
 
 
 def apply_pending_conversation_links(
@@ -448,42 +497,27 @@ def apply_pending_conversation_links(
 ) -> int:
     """Apply parked conversation-id links for recently stored spans.
 
-    Called by the telemetry ingest endpoint after spans are committed.
+    Called by the post-ingest job after spans are committed, with ``db``
+    already bound to the ingesting tenant. The cache scope comes from the
+    stored trace rows, never from the cache entry.
     Returns the total number of span rows updated.
-
-    RLS note: We switch the DB session's tenant context per-link so
-    the UPDATE is visible through the RLS policy on the ``trace``
-    table.
     """
     if not stored_spans:
         return 0
 
-    unique_trace_ids = list({span.trace_id for span in stored_spans})
-    matched = _get_cache().pop_links_for_traces(unique_trace_ids)
-
-    if not matched:
-        return 0
-
-    from rhesis.backend.app.database import bind_scope_to_session
-
-    # Derive the project per trace from the stored spans so project RLS / filtering
-    # applies to the UPDATE (traces are project-scoped).
-    project_by_trace = {
-        span.trace_id: str(span.project_id) for span in stored_spans if span.project_id is not None
-    }
-
+    cache = _get_cache()
     total = 0
-    for trace_id, conversation_id, organization_id in matched:
-        bind_scope_to_session(db, organization_id, "", project_by_trace.get(trace_id, ""))
-
-        count = update_conversation_id_for_trace(db, trace_id, conversation_id, organization_id)
-        total += count
-        logger.info(
-            f"[CONVERSATION_LINKING] Applied pending link: "
-            f"trace_id={trace_id}, "
-            f"conversation_id={conversation_id}, "
-            f"updated={count} spans"
-        )
+    for (organization_id, project_id), trace_ids in _trace_ids_by_scope(stored_spans).items():
+        matched = cache.pop_links_for_traces(organization_id, project_id, trace_ids)
+        for trace_id, conversation_id in matched:
+            count = update_conversation_id_for_trace(db, trace_id, conversation_id, organization_id)
+            total += count
+            logger.info(
+                f"[CONVERSATION_LINKING] Applied pending link: "
+                f"trace_id={trace_id}, "
+                f"conversation_id={conversation_id}, "
+                f"updated={count} spans"
+            )
 
     return total
 
@@ -496,20 +530,28 @@ def apply_pending_conversation_links(
 def register_pending_output(
     trace_id: str,
     mapped_output: str,
+    organization_id: Any,
+    project_id: Any,
 ) -> None:
     """Park a mapped output for injection when SDK spans arrive.
 
     Called by ``SdkEndpointInvoker.invoke()`` after response mapping.
     The SDK tracer already stamps ``rhesis.conversation.input`` on
     each root span — only the output needs to be added by the
-    backend.
+    backend. ``organization_id``/``project_id`` must be the scope the
+    spans will be ingested under.
     """
-    _get_cache().register_output(trace_id, mapped_output)
+    scope = _scope(organization_id, project_id)
+    if scope is None:
+        return
+    _get_cache().register_output(*scope, trace_id, mapped_output)
     logger.debug(f"[CONVERSATION_IO] Parked pending output for trace_id={trace_id}")
 
 
 def inject_pending_output(
     spans: List[Any],
+    organization_id: Any,
+    project_id: Any,
 ) -> int:
     """Inject parked mapped output into span attributes before storage.
 
@@ -523,6 +565,8 @@ def inject_pending_output(
     Args:
         spans: Mutable list of OTELSpan / OTELSpanCreate objects
                whose ``attributes`` dict will be mutated in place.
+        organization_id: The authenticated ingesting organization.
+        project_id: The project the spans are being stored under.
 
     Returns:
         Number of spans that received an output injection.
@@ -531,13 +575,16 @@ def inject_pending_output(
         ConversationContext as ConversationConstants,
     )
 
+    scope = _scope(organization_id, project_id)
+    if not spans or scope is None:
+        return 0
+
     input_key = ConversationConstants.SpanAttributes.CONVERSATION_INPUT
     output_key = ConversationConstants.SpanAttributes.CONVERSATION_OUTPUT
 
-    # Collect unique trace_ids from the batch
     trace_ids = list({span.trace_id for span in spans})
 
-    matched = _get_cache().pop_outputs_for_traces(trace_ids)
+    matched = _get_cache().pop_outputs_for_traces(*scope, trace_ids)
 
     if not matched:
         return 0
@@ -572,7 +619,8 @@ def inject_pending_output(
 def register_pending_files(
     trace_id: str,
     files,
-    organization_id: str,
+    organization_id: Any,
+    project_id: Any,
 ) -> None:
     """Park FileReference metadata for deferred entity linking when SDK spans arrive.
 
@@ -580,6 +628,9 @@ def register_pending_files(
     List[Dict] (legacy inline-base64 dicts from the playground path).
     Only metadata is serialised to the cache — no base64 bytes.
     """
+    scope = _scope(organization_id, project_id)
+    if scope is None:
+        return
     try:
         from rhesis.sdk.connector.types import FileReference
 
@@ -588,7 +639,7 @@ def register_pending_files(
         serialisable = files
 
     files_json = json.dumps(serialisable)
-    _get_cache().register_files(trace_id, files_json, organization_id)
+    _get_cache().register_files(*scope, trace_id, files_json)
     logger.debug(f"[FILE_LINKING] Parked {len(files)} pending file(s) for trace_id={trace_id}")
 
 
@@ -605,39 +656,37 @@ def apply_pending_files(
     For legacy inline-base64 dicts (playground path): creates a File row with
     storage upload (backward compat until the playground migrates to upload-first).
 
-    Returns the total number of files linked or created.
+    ``db`` is already bound to the ingesting tenant; the cache scope comes
+    from the stored trace rows. Returns the total number of files linked or created.
     """
     if not stored_spans:
         return 0
 
-    unique_trace_ids = list({span.trace_id for span in stored_spans})
-    matched = _get_cache().pop_files_for_traces(unique_trace_ids)
+    cache = _get_cache()
+    matched: Dict[Tuple[str, str, str], str] = {}
+    for (organization_id, project_id), trace_ids in _trace_ids_by_scope(stored_spans).items():
+        for tid, files_json in cache.pop_files_for_traces(
+            organization_id, project_id, trace_ids
+        ).items():
+            matched[(organization_id, project_id, tid)] = files_json
 
     if not matched:
         return 0
 
     from rhesis.backend.app import schemas
-    from rhesis.backend.app.database import bind_scope_to_session
 
     total = 0
     for span in stored_spans:
-        entry = matched.get(span.trace_id)
-        if entry is None:
-            continue
-
         # Only process files on the root span (no parent)
-        if span.parent_span_id:
+        if span.parent_span_id or span.organization_id is None or span.project_id is None:
             continue
 
-        files_json, organization_id = entry
-        files = json.loads(files_json)
+        organization_id = str(span.organization_id)
+        files_json = matched.get((organization_id, str(span.project_id), span.trace_id))
+        if files_json is None:
+            continue
 
-        bind_scope_to_session(
-            db,
-            organization_id,
-            "",
-            str(span.project_id) if span.project_id is not None else "",
-        )
+        files = json.loads(files_json)
 
         for idx, file_data in enumerate(files):
             if not isinstance(file_data, dict):

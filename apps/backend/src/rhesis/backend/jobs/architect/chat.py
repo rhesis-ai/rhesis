@@ -112,13 +112,18 @@ def architect_chat_task(
                 from rhesis.backend.app.services.telemetry.conversation_linking import (
                     register_pending_output,
                 )
+                from rhesis.backend.app.utils.observability import sdk_ingest_scope
                 from rhesis.sdk.telemetry.tracer import pop_result_trace_id
 
                 turn_trace_id = pop_result_trace_id(result)
-                if turn_trace_id:
+                # Our spans are ingested under the SDK client's tenant, not the user's.
+                ingest_scope = sdk_ingest_scope() if turn_trace_id else None
+                if ingest_scope:
                     register_pending_output(
                         trace_id=turn_trace_id,
                         mapped_output=result.content,
+                        organization_id=ingest_scope[0],
+                        project_id=ingest_scope[1],
                     )
                     logger.debug(
                         "Parked conversation output for trace_id=%s",

@@ -857,7 +857,7 @@ class TestScheduleDebounceSkipsWhenComplete:
         ):
             _schedule_debounced_conversation_eval(TRACE_ID, PROJECT_ID, ORG_ID)
 
-        mock_complete.assert_called_once_with(TRACE_ID)
+        mock_complete.assert_called_once_with(TRACE_ID, PROJECT_ID, ORG_ID)
         mock_schedule.assert_not_called()
 
     def test_schedules_when_not_complete(self):
@@ -874,7 +874,7 @@ class TestScheduleDebounceSkipsWhenComplete:
         ):
             _schedule_debounced_conversation_eval(TRACE_ID, PROJECT_ID, ORG_ID)
 
-        mock_complete.assert_called_once_with(TRACE_ID)
+        mock_complete.assert_called_once_with(TRACE_ID, PROJECT_ID, ORG_ID)
         mock_schedule.assert_called_once_with(TRACE_ID, PROJECT_ID, ORG_ID)
 
 

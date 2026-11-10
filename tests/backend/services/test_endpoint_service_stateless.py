@@ -23,6 +23,8 @@ from rhesis.backend.app.services.invokers.conversation.store import (
 # Helpers
 # ---------------------------------------------------------------------------
 
+_SCOPE = ("org-1", "proj-1")
+
 
 def _make_stateless_endpoint(**overrides) -> Endpoint:
     """Create a stateless endpoint stub."""
@@ -47,6 +49,7 @@ def _make_stateless_endpoint(**overrides) -> Endpoint:
     ep.request_headers = {"Content-Type": "application/json"}
     ep.auth_type = "bearer_token"
     ep.auth_token = "test-token"
+    ep.organization_id = "org-1"
     ep.project_id = "proj-1"
     ep.environment = "development"
     ep.config_source = "manual"
@@ -122,7 +125,7 @@ class TestStatelessConversationManagement:
 
         # The store should have the user + assistant committed
         store = get_conversation_store()
-        msgs = store.get_messages(result["conversation_id"])
+        msgs = store.get_messages(result["conversation_id"], scope=_SCOPE)
         assert msgs is not None
         assert len(msgs) == 3  # system + user + assistant
         assert msgs[0]["role"] == "system"
@@ -184,7 +187,7 @@ class TestStatelessConversationManagement:
 
         # Verify final store state
         store = get_conversation_store()
-        stored = store.get_messages(cid)
+        stored = store.get_messages(cid, scope=_SCOPE)
         assert len(stored) == 5  # system + u + a + u + a
 
     @pytest.mark.asyncio
@@ -304,7 +307,7 @@ class TestStatelessConversationManagement:
 
         cid = result["conversation_id"]
         store = get_conversation_store()
-        msgs = store.get_messages(cid)
+        msgs = store.get_messages(cid, scope=_SCOPE)
         # Only system prompt + assistant (no empty user message)
         user_msgs = [m for m in msgs if m["role"] == "user"]
         assert len(user_msgs) == 0
@@ -397,7 +400,7 @@ class TestStatelessConversationManagement:
 
         cid = result["conversation_id"]
         store = get_conversation_store()
-        msgs = store.get_messages(cid)
+        msgs = store.get_messages(cid, scope=_SCOPE)
 
         assistant_msgs = [m for m in msgs if m["role"] == "assistant"]
         assert len(assistant_msgs) == 1
@@ -425,7 +428,7 @@ class TestStatelessConversationManagement:
 
         cid = result["conversation_id"]
         store = get_conversation_store()
-        msgs = store.get_messages(cid)
+        msgs = store.get_messages(cid, scope=_SCOPE)
 
         assistant_msgs = [m for m in msgs if m["role"] == "assistant"]
         assert len(assistant_msgs) == 1
@@ -503,7 +506,7 @@ class TestStatelessConversationManagement:
 
         cid = result["conversation_id"]
         store = get_conversation_store()
-        msgs = store.get_messages(cid)
+        msgs = store.get_messages(cid, scope=_SCOPE)
         # No system prompt -> user + assistant only
         assert len(msgs) == 2
         assert msgs[0]["role"] == "user"

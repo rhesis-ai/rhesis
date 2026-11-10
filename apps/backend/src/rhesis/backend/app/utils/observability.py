@@ -2,6 +2,8 @@
 
 import logging
 import os
+import uuid
+from typing import Dict, Optional, Tuple
 
 from rhesis.sdk.clients import RhesisClient
 
@@ -53,3 +55,47 @@ try:
 except Exception as e:
     logger.debug(f"RhesisClient initialization deferred (will retry in lifespan): {e}")
     rhesis_client = None
+
+
+# api_key -> (organization_id, project_id), or None when the key is not one of ours.
+_ingest_scopes: Dict[str, Optional[Tuple[str, str]]] = {}
+
+
+def sdk_ingest_scope() -> Optional[Tuple[str, str]]:
+    """The (organization_id, project_id) this process's own SDK spans are ingested under.
+
+    Mirrors what ``POST /telemetry/traces`` derives from the client's API key, so
+    the backend can park data for its own spans in the right tenant scope.
+    Returns None when tracing is off or the key belongs to another instance.
+    """
+    from rhesis.sdk.decorators._state import get_default_client
+
+    client = get_default_client()
+    api_key = getattr(client, "api_key", None)
+    project_id = getattr(client, "project_id", None)
+    if not api_key or not project_id:
+        return None
+    if api_key not in _ingest_scopes:
+        organization_id = _organization_for_api_key(api_key)
+        # Same form the ingest route keys by (str of a parsed UUID).
+        try:
+            project_id = str(uuid.UUID(str(project_id)))
+        except ValueError:
+            organization_id = None
+        _ingest_scopes[api_key] = (
+            (organization_id, project_id) if organization_id is not None else None
+        )
+    return _ingest_scopes[api_key]
+
+
+def _organization_for_api_key(api_key: str) -> Optional[str]:
+    from rhesis.backend.app.crud import user as user_crud
+    from rhesis.backend.app.crud.token import get_token_by_value
+    from rhesis.backend.app.database import get_db
+
+    with get_db() as db:
+        token = get_token_by_value(db, api_key)
+        user = user_crud.get_user_by_id(db, token.user_id) if token else None
+        if user is None or user.organization_id is None:
+            return None
+        return str(user.organization_id)

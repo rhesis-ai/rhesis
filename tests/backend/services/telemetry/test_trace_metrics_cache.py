@@ -41,32 +41,32 @@ class TestTraceMetricsDebounceCache:
 
     def test_register_returns_none_when_no_previous(self):
         assert isinstance(_cache, TraceMetricsDebounceCache)
-        assert _cache.register_pending_eval("trace-1", "task-first") is None
+        assert _cache.register_pending_eval("org-1", "project-1", "trace-1", "task-first") is None
 
     def test_register_returns_previous_task_id(self):
-        _cache.register_pending_eval("trace-1", "task-a")
-        previous = _cache.register_pending_eval("trace-1", "task-b")
+        _cache.register_pending_eval("org-1", "project-1", "trace-1", "task-a")
+        previous = _cache.register_pending_eval("org-1", "project-1", "trace-1", "task-b")
 
         assert previous == "task-a"
-        assert _cache.pop_pending_eval("trace-1") == "task-b"
+        assert _cache.pop_pending_eval("org-1", "project-1", "trace-1") == "task-b"
 
     def test_pop_returns_task_id(self):
-        _cache.register_pending_eval("trace-1", "task-x")
+        _cache.register_pending_eval("org-1", "project-1", "trace-1", "task-x")
 
-        assert _cache.pop_pending_eval("trace-1") == "task-x"
+        assert _cache.pop_pending_eval("org-1", "project-1", "trace-1") == "task-x"
 
     def test_pop_returns_none_for_unknown(self):
-        assert _cache.pop_pending_eval("unknown-trace") is None
+        assert _cache.pop_pending_eval("org-1", "project-1", "unknown-trace") is None
 
     def test_pop_deletes_entry(self):
-        _cache.register_pending_eval("trace-1", "task-y")
-        assert _cache.pop_pending_eval("trace-1") == "task-y"
-        assert _cache.pop_pending_eval("trace-1") is None
+        _cache.register_pending_eval("org-1", "project-1", "trace-1", "task-y")
+        assert _cache.pop_pending_eval("org-1", "project-1", "trace-1") == "task-y"
+        assert _cache.pop_pending_eval("org-1", "project-1", "trace-1") is None
 
     def test_debounce_reset(self):
         """Second register yields first task id (caller revokes it)."""
-        assert _cache.register_pending_eval("trace-1", "task-1") is None
-        assert _cache.register_pending_eval("trace-1", "task-2") == "task-1"
+        assert _cache.register_pending_eval("org-1", "project-1", "trace-1", "task-1") is None
+        assert _cache.register_pending_eval("org-1", "project-1", "trace-1", "task-2") == "task-1"
 
 
 @pytest.mark.unit
@@ -77,8 +77,7 @@ class TestScheduleConversationEval:
         mock_result = MagicMock(id="new-task-id")
         with (
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate."
-                "evaluate_conversation_trace_metrics"
+                "rhesis.backend.jobs.telemetry.evaluate.evaluate_conversation_trace_metrics"
             ) as mock_task,
             patch("rhesis.backend.worker.app.control.revoke") as mock_revoke,
         ):
@@ -97,12 +96,11 @@ class TestScheduleConversationEval:
         mock_revoke.assert_not_called()
 
     def test_revokes_previous_task(self):
-        _cache.register_pending_eval("trace-1", "previous-celery-id")
+        _cache.register_pending_eval("org-1", "project-1", "trace-1", "previous-celery-id")
         mock_result = MagicMock(id="new-task-id")
         with (
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate."
-                "evaluate_conversation_trace_metrics"
+                "rhesis.backend.jobs.telemetry.evaluate.evaluate_conversation_trace_metrics"
             ) as mock_task,
             patch("rhesis.backend.worker.app.control.revoke") as mock_revoke,
         ):
@@ -117,24 +115,29 @@ class TestConversationComplete:
     """mark_complete / is_complete flag on TraceMetricsDebounceCache."""
 
     def test_is_complete_false_for_unknown(self):
-        assert _cache.is_complete("unknown-trace") is False
+        assert _cache.is_complete("org-1", "project-1", "unknown-trace") is False
 
     def test_mark_complete_sets_flag(self):
-        _cache.mark_complete("trace-1")
-        assert _cache.is_complete("trace-1") is True
+        _cache.mark_complete("org-1", "project-1", "trace-1")
+        assert _cache.is_complete("org-1", "project-1", "trace-1") is True
 
     def test_is_complete_false_before_mark(self):
-        assert _cache.is_complete("trace-1") is False
+        assert _cache.is_complete("org-1", "project-1", "trace-1") is False
+
+    def test_scoped_to_org_and_project(self):
+        _cache.mark_complete("org-1", "project-1", "trace-1")
+        assert _cache.is_complete("org-2", "project-1", "trace-1") is False
+        assert _cache.is_complete("org-1", "project-2", "trace-1") is False
 
     def test_separate_traces_independent(self):
-        _cache.mark_complete("trace-1")
-        assert _cache.is_complete("trace-1") is True
-        assert _cache.is_complete("trace-2") is False
+        _cache.mark_complete("org-1", "project-1", "trace-1")
+        assert _cache.is_complete("org-1", "project-1", "trace-1") is True
+        assert _cache.is_complete("org-1", "project-1", "trace-2") is False
 
     def test_module_level_helper(self):
-        _cache.mark_complete("trace-1")
-        assert is_conversation_complete("trace-1") is True
-        assert is_conversation_complete("trace-other") is False
+        _cache.mark_complete("org-1", "project-1", "trace-1")
+        assert is_conversation_complete("trace-1", "project-1", "org-1") is True
+        assert is_conversation_complete("trace-other", "project-1", "org-1") is False
 
 
 @pytest.mark.unit
@@ -144,37 +147,31 @@ class TestSignalConversationComplete:
     def test_marks_complete_and_dispatches(self):
         with (
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate."
-                "evaluate_conversation_trace_metrics"
+                "rhesis.backend.jobs.telemetry.evaluate.evaluate_conversation_trace_metrics"
             ) as mock_task,
             patch("rhesis.backend.worker.app.control.revoke") as mock_revoke,
         ):
             signal_conversation_complete("trace-1", "project-1", "org-1")
 
-        assert _cache.is_complete("trace-1") is True
-        mock_task.delay.assert_called_once_with(
-            "trace-1", "project-1", "org-1"
-        )
+        assert _cache.is_complete("org-1", "project-1", "trace-1") is True
+        mock_task.delay.assert_called_once_with("trace-1", "project-1", "org-1")
         mock_revoke.assert_not_called()
 
     def test_revokes_pending_task(self):
-        _cache.register_pending_eval("trace-1", "old-celery-id")
+        _cache.register_pending_eval("org-1", "project-1", "trace-1", "old-celery-id")
 
         with (
             patch(
-                "rhesis.backend.jobs.telemetry.evaluate."
-                "evaluate_conversation_trace_metrics"
+                "rhesis.backend.jobs.telemetry.evaluate.evaluate_conversation_trace_metrics"
             ) as mock_task,
             patch("rhesis.backend.worker.app.control.revoke") as mock_revoke,
         ):
             signal_conversation_complete("trace-1", "project-1", "org-1")
 
         mock_revoke.assert_called_once_with("old-celery-id")
-        mock_task.delay.assert_called_once_with(
-            "trace-1", "project-1", "org-1"
-        )
-        assert _cache.is_complete("trace-1") is True
-        assert _cache.pop_pending_eval("trace-1") is None
+        mock_task.delay.assert_called_once_with("trace-1", "project-1", "org-1")
+        assert _cache.is_complete("org-1", "project-1", "trace-1") is True
+        assert _cache.pop_pending_eval("org-1", "project-1", "trace-1") is None
 
 
 @pytest.mark.unit
@@ -191,7 +188,7 @@ class TestReconnect:
             side_effect=ConnectionError("unavailable"),
         ):
             cache.initialize()
-        cache.register_pending_eval("trace-1", "task-a")
+        cache.register_pending_eval("org-1", "project-1", "trace-1", "task-a")
 
         mock_redis = MagicMock()
         mock_redis.get.return_value = "1"
@@ -199,10 +196,10 @@ class TestReconnect:
         with patch(
             "rhesis.backend.app.services.cache._create_redis_client", return_value=mock_redis
         ):
-            assert is_conversation_complete("trace-1") is True
+            assert is_conversation_complete("trace-1", "project-1", "org-1") is True
 
         mock_redis.pipeline.return_value.set.assert_called_once_with(
-            "tracemetrics:pending:trace-1", "task-a", ex=600
+            "tracemetrics:v2:pending:org-1:project-1:trace-1", "task-a", ex=600
         )
         assert cache._memory == {}
-        mock_redis.get.assert_called_once_with("tracemetrics:complete:trace-1")
+        mock_redis.get.assert_called_once_with("tracemetrics:v2:complete:org-1:project-1:trace-1")

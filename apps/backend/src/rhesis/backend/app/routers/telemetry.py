@@ -147,7 +147,7 @@ def ingest_trace(
     )
 
     try:
-        output_injected = inject_pending_output(trace_batch.spans)
+        output_injected = inject_pending_output(trace_batch.spans, organization_id, str(project_id))
         if output_injected > 0:
             logger.info(
                 f"Injected mapped output into {output_injected} span(s) for trace_id={trace_id}"

@@ -82,7 +82,7 @@ class TestDeferredSdkFirstTurnLink:
 
     def test_persist_applies_link(self):
         db = MagicMock()
-        link = DeferredConversationLink(TRACE_ID, CONVERSATION_ID, "org-1")
+        link = DeferredConversationLink(TRACE_ID, CONVERSATION_ID, "org-1", "project-1")
 
         with patch.object(EndpointService, "_link_first_turn_trace") as link_turn:
             persist_deferred_trace(db, link)
@@ -92,6 +92,7 @@ class TestDeferredSdkFirstTurnLink:
             trace_id=TRACE_ID,
             conversation_id=CONVERSATION_ID,
             organization_id="org-1",
+            project_id="project-1",
         )
 
 

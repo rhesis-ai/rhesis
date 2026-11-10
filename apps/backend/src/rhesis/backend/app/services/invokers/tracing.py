@@ -52,6 +52,7 @@ class DeferredConversationLink:
     trace_id: str
     conversation_id: str
     organization_id: str
+    project_id: Optional[str] = None
 
 
 def pop_deferred_trace(result: Any) -> Any:
@@ -81,6 +82,7 @@ def persist_deferred_trace(
             trace_id=trace_data.trace_id,
             conversation_id=trace_data.conversation_id,
             organization_id=trace_data.organization_id,
+            project_id=trace_data.project_id,
         )
         return
 
@@ -105,6 +107,7 @@ def persist_deferred_trace(
             trace_id=trace_data.first_turn_link["trace_id"],
             conversation_id=trace_data.first_turn_link["conversation_id"],
             organization_id=trace_data.organization_id,
+            project_id=trace_data.project_id,
         )
 
 
@@ -265,7 +268,9 @@ async def create_invocation_trace(
                 get_trace_id_from_pending_links,
             )
 
-            existing_trace_id = get_trace_id_from_pending_links(conversation_id)
+            existing_trace_id = get_trace_id_from_pending_links(
+                conversation_id, organization_id, endpoint.project_id
+            )
             if existing_trace_id:
                 logger.debug(f"Found trace_id from pending links cache: {existing_trace_id}")
 
