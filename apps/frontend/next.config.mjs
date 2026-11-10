@@ -302,6 +302,13 @@ const nextConfig = {
             key: 'X-Frame-Options',
             value: 'DENY',
           },
+          // Directives that need no script/style allowlist. A full policy
+          // (script-src without 'unsafe-inline') needs per-request nonces
+          // for Next's inline bootstrap scripts and MUI's emotion styles.
+          {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
+          },
           // Development: Disable caching for HTML pages
           ...(isDev
             ? [
