@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { CircularProgress, Box, Typography } from '@mui/material';
 import AuthPageShell from '@/components/auth/AuthPageShell';
+import { RETURN_TO_PARAM, safeReturnTo } from '@/utils/return-to';
 
 export default function SignIn() {
   const searchParams = useSearchParams();
@@ -51,17 +52,18 @@ export default function SignIn() {
           }
 
           setStatus('Authentication successful, redirecting...');
-          const returnTo = searchParams.get('return_to') || '/architect';
-          window.location.href = returnTo;
+          window.location.href = safeReturnTo(
+            searchParams.get(RETURN_TO_PARAM)
+          );
           return;
         }
 
-        const returnTo = searchParams.get('return_to');
+        const returnTo = searchParams.get(RETURN_TO_PARAM);
         setStatus('Redirecting to login...');
 
         const homeUrl = new URL('/', window.location.origin);
         if (returnTo) {
-          homeUrl.searchParams.set('return_to', returnTo);
+          homeUrl.searchParams.set(RETURN_TO_PARAM, safeReturnTo(returnTo));
         }
         window.location.replace(homeUrl.toString());
       } catch (_error) {
