@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import experiment as experiment_crud
 from rhesis.backend.app.crud.project import get_project
-from rhesis.backend.app.database import bind_scope_to_session
+from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
@@ -380,28 +380,22 @@ def create_project_experiment(
     """
     organization_id, user_id = tenant_context
 
-    # The project_isolation RLS policy's USING clause also acts as WITH CHECK
-    # on INSERT. The new row's project_id must equal app.current_project or the
-    # INSERT is rejected with InsufficientPrivilege. get_tenant_db_session sets
-    # app.current_project from X-Project-Id (the active-project cookie), which
-    # can differ from the path's project_id when the user navigates across
-    # projects. Override the session scope here so the GUC always matches the
-    # row being written.
-    bind_scope_to_session(db, organization_id, user_id or "", str(project_id))
-
     _load_project(project_id, db, organization_id, user_id)
 
-    db_experiment = experiment_crud.create_experiment(
-        db,
-        project_id=project_id,
-        organization_id=uuid.UUID(organization_id),
-        owner_user_id=current_user.id,
-        name=payload.name,
-        description=payload.description,
-        visibility=payload.visibility,
-        versions=[],
-    )
-    return to_read(db_experiment)
+    # project_isolation RLS rejects an INSERT whose project_id differs from
+    # app.current_project, which comes from X-Project-Id and can name another project.
+    with temporary_project_scope(db, organization_id, user_id or "", str(project_id)):
+        db_experiment = experiment_crud.create_experiment(
+            db,
+            project_id=project_id,
+            organization_id=uuid.UUID(organization_id),
+            owner_user_id=current_user.id,
+            name=payload.name,
+            description=payload.description,
+            visibility=payload.visibility,
+            versions=[],
+        )
+        return to_read(db_experiment)
 
 
 __all__ = ["router", "project_experiments_router"]
