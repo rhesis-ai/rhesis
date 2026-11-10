@@ -193,7 +193,7 @@ Without OAuth credentials, only email/password authentication is available.
 | Variable | Description | Default |
 |---|---|---|
 | `AUTH_EMAIL_PASSWORD_ENABLED` | Allow email/password sign-in | `true` |
-| `AUTH_REGISTRATION_ENABLED` | Allow new-user registration | `true` |
+| `AUTH_REGISTRATION_ENABLED` | Allow self-sign-up. `false` makes the instance invite-only: password registration, magic-link sign-up and first sign-in with Google or GitHub no longer create accounts. Invited and existing users still sign in, including through invitation links. SSO auto-provisioning is set per organization and is not affected | `true` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Enable Google sign-in (set both) | *(unset)* |
 | `GH_CLIENT_ID`, `GH_CLIENT_SECRET` | Enable GitHub sign-in (set both) | *(unset)* |
 

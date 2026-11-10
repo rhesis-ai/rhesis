@@ -90,6 +90,18 @@ The database name and user are **fixed** — some scripts reference them by name
 | `DB_HOST`, `DB_PORT` | your values | Where your database is reachable |
 | `ADMIN_DB_USER`, `ADMIN_DB_PASS` | optional | Separate migration role; falls back to the app role |
 
+#### Managed PostgreSQL
+
+Managed services such as Amazon RDS, Aurora, Cloud SQL and Azure Database for PostgreSQL are supported.
+The migration role needs no `SUPERUSER` and no `BYPASSRLS`; it must own `rhesis-db`. Create these
+extensions in `rhesis-db` with the service's admin user before the first start, because the migration
+role usually cannot:
+
+<CodeBlock filename="psql" language="sql">
+{`CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS vector;`}
+</CodeBlock>
+
 To use an external Redis, set `BROKER_URL` and `CELERY_RESULT_BACKEND`.
 
 ### AI Models
