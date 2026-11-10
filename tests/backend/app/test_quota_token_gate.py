@@ -13,12 +13,22 @@ single predicate deciding that for every branch of
 
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 
 import pytest
 
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.quota.enforcement import QuotaExceededError, QuotaVerdict
+
+_SERVICE_ACCOUNT_JSON = json.dumps(
+    {
+        "type": "service_account",
+        "project_id": "org-project",
+        "private_key": "not-a-key",
+        "client_email": "org@org-project.iam",
+    }
+)
 
 
 def _always_blocks(db, organization_id):
@@ -64,7 +74,12 @@ def configured_model(monkeypatch):
             name="configured",
             model_name="gpt-4o",
             key=key,
-            endpoint="http://self-hosted.internal:8000" if not key else None,
+            # Self-hosted providers always need their own endpoint.
+            endpoint=(
+                "http://self-hosted.internal:8000"
+                if not key or provider in ("ollama", "vllm")
+                else None
+            ),
             provider_type=SimpleNamespace(type_value=provider),
         )
         monkeypatch.setattr(
@@ -112,7 +127,9 @@ class TestTokenGateFiresOnlyForHostedModels:
         """The regression that matters most: an org's own provider key must
         never be blocked by our token quota, whatever it is -- their call
         was never going to cost us anything."""
-        model = configured_model(provider=provider, key="sk-org-owned")
+        # Vertex reads a service account, not an API key.
+        key = _SERVICE_ACCOUNT_JSON if provider == "vertex_ai" else "sk-org-owned"
+        model = configured_model(provider=provider, key=key)
 
         assert model.model_name == "gpt-4o"
 

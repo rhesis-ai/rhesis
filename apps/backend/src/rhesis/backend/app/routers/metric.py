@@ -25,7 +25,11 @@ from rhesis.backend.app.utils.database_exceptions import handle_database_excepti
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.app.utils.user_model_utils import check_metric_model_fits
+from rhesis.backend.app.utils.user_model_utils import (
+    check_metric_model_fits,
+    resolve_default_hosted_model,
+)
+from rhesis.sdk.models.base import BaseLLM
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +84,33 @@ def create_metric(
         raise
 
 
+def _generation_model(
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+) -> BaseLLM:
+    """The system generation model, gated on the org's MODEL_TOKENS quota.
+
+    A dependency so a QuotaExceededError reaches the global 402 handler instead
+    of the bare `except Exception` in @handle_database_exceptions.
+    """
+    organization_id, _ = tenant_context
+    try:
+        return resolve_default_hosted_model(
+            get_model_settings().generation_model, db, organization_id
+        )
+    except (ValueError, ImportError) as e:
+        # Same answer the handlers gave when the synthesizer built the model itself.
+        raise internal_error(
+            e,
+            context="building the metric generation model",
+            status_code=400,
+            public_detail=(
+                "The generation model could not be used. Check the model configured "
+                "for your organization."
+            ),
+        ) from e
+
+
 @router.post("/generate", response_model=schemas.Metric)
 @handle_database_exceptions(
     entity_name="metric",
@@ -90,6 +121,7 @@ def generate_metric(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    generation_model: BaseLLM = Depends(_generation_model),
 ):
     """Generate a metric from a natural-language prompt.
 
@@ -107,7 +139,7 @@ def generate_metric(
     organization_id, user_id = tenant_context
 
     try:
-        synthesizer = MetricSynthesizer(model=get_model_settings().generation_model)
+        synthesizer = MetricSynthesizer(model=generation_model)
         generated = synthesizer.generate(request.prompt)
 
         # metric_scope is required by MetricCreate but only requested of the LLM, so
@@ -172,6 +204,7 @@ def improve_metric(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    generation_model: BaseLLM = Depends(_generation_model),
 ):
     """Improve an existing metric using natural-language instructions.
 
@@ -216,7 +249,7 @@ def improve_metric(
             ),
         }
 
-        synthesizer = MetricSynthesizer(model=get_model_settings().generation_model)
+        synthesizer = MetricSynthesizer(model=generation_model)
         improved = synthesizer.improve(existing, request.prompt)
 
         update_data = schemas.MetricUpdate(**improved)

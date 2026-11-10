@@ -26,6 +26,11 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.quota.enforcement import QuotaExceededError, enforce_quota
 from rhesis.backend.app.services.platform_key import get_platform_api_key
+from rhesis.backend.app.utils.model_credentials import (
+    credential_requirement,
+    has_own_credentials,
+    tenant_model_kwargs,
+)
 from rhesis.backend.app.utils.model_errors import (
     ModelConfigurationError,
     ModelNotConfiguredError,
@@ -508,46 +513,26 @@ def _is_hosted_model(provider: str, api_key: Optional[str]) -> bool:
     return provider in ("rhesis", "polyphemus") and not (api_key or "").strip()
 
 
-def has_own_credentials(provider: str, api_key: Optional[str], endpoint: Optional[str]) -> bool:
-    """Whether a Model row can be served without reaching for our credentials.
-
-    A tenant row needs either a key of its own or an endpoint of its own.
-    With neither, every provider falls back to reading its key from the
-    process environment (``litellm/main.py``: ``api_key or ... or
-    get_secret("OPENAI_API_KEY")``), so the row would quietly run on whatever
-    this deployment holds -- billed to us, attributed to nobody, and looking
-    to the tenant like a working configuration.
-
-    ``rhesis``/``polyphemus`` rows are exempt: running on our credentials with
-    no key is exactly what picking them means, and they are billed for it.
-    """
-    if provider in ("rhesis", "polyphemus"):
-        return True
-    return bool((api_key or "").strip() or (endpoint or "").strip())
-
-
 def _require_own_credentials(
     provider: str, api_key: Optional[str], endpoint: Optional[str], model_name: str
 ) -> None:
     """Refuse to build a tenant model that would borrow our provider keys.
 
     Raising beats warning here because the fallback is silent and succeeds:
-    without this the tenant gets working inference on our account and nobody
-    finds out. Refusing costs only rows that are already misconfigured, since
-    a row with no key of its own always has an endpoint in practice.
+    without this the tenant gets working inference on our account, unmetered.
     """
     if has_own_credentials(provider, api_key, endpoint):
         return
     logger.error(
-        "Refusing to build model '%s' (provider '%s'): no API key and no endpoint, so it would "
-        "run on this deployment's environment credentials",
+        "Refusing to build model '%s' (provider '%s'): it lacks the credential that provider "
+        "reads, so it would run on this deployment's environment credentials",
         model_name,
         provider,
     )
     raise ModelConfigurationError(
-        f"Your configured model '{model_name}' ({provider}) has neither an API key nor an "
-        f"endpoint. Add an API key, or an endpoint if it is a self-hosted model, in the "
-        f"Models settings."
+        f"Your configured model '{model_name}' ({provider}) needs "
+        f"{credential_requirement(provider)}. Without it the model would run on the server's "
+        f"own provider credentials. Update it in the Models settings."
     )
 
 
@@ -858,19 +843,16 @@ def _build_configured_model(
                 original_error=e,
             )
     try:
-        extra_params = {}
-        if model.endpoint and model.endpoint.strip():
-            extra_params["api_base"] = model.endpoint.strip()
         return get_model(
             provider=provider,
             model_name=model_name,
-            api_key=api_key,
             model_type=model_type,
-            **extra_params,
+            **tenant_model_kwargs(provider, api_key, model.endpoint),
         )
-    except (ValueError, ImportError) as e:
+    except (ValueError, ImportError, TypeError) as e:
         error_msg = str(e)
-        error_msg_lower = error_msg.lower()
+        # A TypeError names a constructor argument, not a missing key; skip the text matching.
+        error_msg_lower = "" if isinstance(e, TypeError) else error_msg.lower()
 
         # Provide specific error messages based on the type of configuration issue
         if "api_key" in error_msg_lower or "not set" in error_msg_lower:
@@ -1046,7 +1028,8 @@ def _fetch_and_configure_embedder(
     # Get provider configuration
     provider = model.provider_type.type_value
     model_name = model.model_name
-    api_key = model.key
+    api_key = (model.key or "").strip() or None
+    _require_own_credentials(provider, api_key, model.endpoint, model.name)
 
     # Special handling for Rhesis system models
     if _is_rhesis_system_model(provider, api_key):

@@ -15,14 +15,13 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.config.settings import get_model_settings
+from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.services.tool.mcp import (
     _get_mcp_client_from_params,
     _get_mcp_tool_config,
     handle_mcp_exception,
     query_mcp,
 )
-from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.sdk.agents.mcp.exceptions import (
     MCPApplicationError,
     MCPConfigurationError,
@@ -31,6 +30,8 @@ from rhesis.sdk.agents.mcp.exceptions import (
     MCPValidationError,
 )
 from rhesis.sdk.context import EndpointContext
+
+_DEFAULT_MODEL = Mock(model_name="default-generation-model")
 
 
 def _make_ctx(org_id="test-org-id", user_id="test-user-id", db=None):
@@ -323,6 +324,15 @@ class TestGetMCPClientFromParams:
 class TestQueryMCP:
     """Test query_mcp function"""
 
+    @pytest.fixture(autouse=True)
+    def _default_model(self):
+        # The quota-gated default model is covered in security/test_model_metering.py.
+        with patch(
+            "rhesis.backend.app.services.tool.mcp.operations._gated_generation_model",
+            return_value=_DEFAULT_MODEL,
+        ):
+            yield
+
     @patch("rhesis.backend.app.services.tool.mcp.config.tool_crud")
     @patch(
         "rhesis.backend.app.services.tool.mcp.operations.get_agent_event_handlers", return_value=[]
@@ -365,7 +375,7 @@ class TestQueryMCP:
         assert result["success"] is True
         mock_template.render.assert_called_once()
         mock_mcp_agent.assert_called_once_with(
-            model=get_model_settings().generation_model,
+            model=_DEFAULT_MODEL,
             mcp_client=mock_client,
             system_prompt="Default query prompt",
             max_iterations=10,
@@ -408,7 +418,7 @@ class TestQueryMCP:
 
         # Assert
         mock_mcp_agent.assert_called_once_with(
-            model=get_model_settings().generation_model,
+            model=_DEFAULT_MODEL,
             mcp_client=mock_client,
             system_prompt=custom_prompt,
             max_iterations=10,
@@ -455,7 +465,7 @@ class TestQueryMCP:
 
         # Assert
         mock_mcp_agent.assert_called_once_with(
-            model=get_model_settings().generation_model,
+            model=_DEFAULT_MODEL,
             mcp_client=mock_client,
             system_prompt="Default query prompt",
             max_iterations=20,

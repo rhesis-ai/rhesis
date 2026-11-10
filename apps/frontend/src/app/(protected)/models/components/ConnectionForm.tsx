@@ -47,6 +47,7 @@ import {
   isDecisionProvider,
   providerSupportsModelListing,
   getProviderDisplayName,
+  getApiKeyFieldHint,
 } from '@/config/model-providers';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
@@ -664,7 +665,8 @@ export const ConnectionForm = forwardRef<
                       setApiKey('************');
                   }}
                   helperText={
-                    isEditMode
+                    getApiKeyFieldHint(currentProviderType) ??
+                    (isEditMode
                       ? apiKey !== '************' && apiKey !== ''
                         ? 'New API key will replace the current one'
                         : 'Click to update the API key'
@@ -672,7 +674,7 @@ export const ConnectionForm = forwardRef<
                         ? 'Optional authentication key for the proxy server'
                         : isCustomProvider
                           ? 'Authentication key for your deployment (if required)'
-                          : "Your API key from the model provider's dashboard"
+                          : "Your API key from the model provider's dashboard")
                   }
                   sx={drawerOutlinedFieldSx}
                   InputProps={{

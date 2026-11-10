@@ -174,13 +174,14 @@ class TestResolveModelAlwaysReturnsAModel:
         ``_build_configured_model`` used to catch only ValueError. Escaping as
         itself, it reached ``model_setup_http_exception`` and was reported as a
         broken DEFAULT_*_MODEL -- blaming the deployment for a model the
-        organization picked."""
+        organization picked. (huggingface rows are now refused before the build, so a
+        keyed provider stands in for one whose module fails to import.)"""
         _configure(mock_user, "generation", "model-789")
         row = Mock(
-            provider_type=Mock(type_value="huggingface"),
-            model_name="meta-llama/Llama-3-8B",
-            key="",
-            endpoint="https://hf.example.com",
+            provider_type=Mock(type_value="openai"),
+            model_name="gpt-4o",
+            key="sk-org-owned",
+            endpoint=None,
         )
         row.name = "my-hf-model"  # `name` is taken by the Mock constructor
 

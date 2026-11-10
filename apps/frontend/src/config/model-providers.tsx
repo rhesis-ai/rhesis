@@ -132,6 +132,19 @@ export const DEFAULT_MODEL_NAMES: Record<string, string> = {
 // Providers where the API key is optional (proxy servers that may not require auth)
 export const PROVIDERS_WITH_OPTIONAL_API_KEY = ['litellm_proxy'];
 
+// Providers whose key field takes something other than a plain API key.
+// Vertex AI authenticates with a service account; the backend rejects anything else.
+export const API_KEY_FIELD_HINTS: Record<string, string> = {
+  vertex_ai:
+    'Paste your Google Cloud service-account JSON key, as raw JSON or base64-encoded',
+};
+
+export function getApiKeyFieldHint(
+  provider: string | undefined
+): string | undefined {
+  return provider ? API_KEY_FIELD_HINTS[provider] : undefined;
+}
+
 /**
  * TypeSafe AI's mark for Jev, drawn here because `react-simple-icons` has none.
  * Sized like the Simple Icons (24px default) and filled with currentColor so it

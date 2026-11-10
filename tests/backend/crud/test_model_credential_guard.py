@@ -43,22 +43,30 @@ def _row(*, key="", endpoint=None, provider_type_id=PROVIDER_TYPE_ID):
 
 @pytest.mark.parametrize("key", ["", "   "])
 def test_rejects_a_row_with_no_key_and_no_endpoint(key):
-    with pytest.raises(ValueError, match="either an API key or an endpoint"):
+    with pytest.raises(ValueError, match="needs an API key"):
         _reject_rows_without_own_credentials(_db_returning("openai"), _row(key=key, endpoint=None))
 
 
 @pytest.mark.parametrize(
-    "key,endpoint",
+    "provider,key,endpoint",
     [
-        ("sk-org-owned", None),
-        ("", "http://vllm.internal:8000"),
-        (None, "http://vllm.internal:8000"),
+        ("openai", "sk-org-owned", None),
+        ("vllm", "", "http://vllm.internal:8000"),
+        ("vllm", None, "http://vllm.internal:8000"),
     ],
 )
-def test_allows_a_row_that_can_stand_on_its_own(key, endpoint):
-    """A key, or an endpoint. Self-hosted servers commonly need no key at all,
-    which is why an endpoint alone is enough."""
-    _reject_rows_without_own_credentials(_db_returning("openai"), _row(key=key, endpoint=endpoint))
+def test_allows_a_row_that_can_stand_on_its_own(provider, key, endpoint):
+    """A key, or for a self-hosted server an endpoint: those commonly need no
+    key at all, which is why an endpoint alone is enough there."""
+    _reject_rows_without_own_credentials(_db_returning(provider), _row(key=key, endpoint=endpoint))
+
+
+def test_rejects_an_endpoint_standing_in_for_a_key():
+    """OpenAI reads its key from env when the row has none; the endpoint is ignored."""
+    with pytest.raises(ValueError, match="needs an API key"):
+        _reject_rows_without_own_credentials(
+            _db_returning("openai"), _row(key="", endpoint="http://anything.example")
+        )
 
 
 @pytest.mark.parametrize("provider", ["rhesis", "polyphemus"])
@@ -76,3 +84,48 @@ def test_skips_the_check_when_no_provider_is_set():
 def test_skips_the_check_when_the_provider_row_is_missing():
     """A dangling provider_type_id is a different error; do not mask it here."""
     _reject_rows_without_own_credentials(_db_returning(None), _row(key="", endpoint=None))
+
+
+class TestUpdate:
+    """The same check on the row an update would leave behind."""
+
+    def _existing(self, **overrides):
+        fields = {"name": "my-model", "key": "sk-org-owned", "endpoint": None}
+        return SimpleNamespace(provider_type_id=PROVIDER_TYPE_ID, **{**fields, **overrides})
+
+    def test_clearing_the_key_is_rejected(self):
+        from rhesis.backend.app.crud.model import _reject_updates_without_own_credentials
+        from rhesis.backend.app.schemas.model import ModelUpdate
+
+        with pytest.raises(ValueError, match="needs an API key"):
+            _reject_updates_without_own_credentials(
+                _db_returning("openai"), self._existing(), ModelUpdate(key="")
+            )
+
+    def test_switching_to_vertex_with_an_api_key_is_rejected(self):
+        from rhesis.backend.app.crud.model import _reject_updates_without_own_credentials
+        from rhesis.backend.app.schemas.model import ModelUpdate
+
+        with pytest.raises(ValueError, match="service-account"):
+            _reject_updates_without_own_credentials(
+                _db_returning("vertex_ai"),
+                self._existing(),
+                ModelUpdate(provider_type_id="44444444-4444-4444-8444-444444444444"),
+            )
+
+    def test_an_update_that_leaves_credentials_alone_is_not_checked(self):
+        """A rename must not fail on a row that predates the check."""
+        from rhesis.backend.app.crud.model import _reject_updates_without_own_credentials
+        from rhesis.backend.app.schemas.model import ModelUpdate
+
+        _reject_updates_without_own_credentials(
+            _db_returning("openai"), self._existing(key=""), ModelUpdate(name="renamed")
+        )
+
+    def test_the_stored_key_counts_when_only_the_endpoint_changes(self):
+        from rhesis.backend.app.crud.model import _reject_updates_without_own_credentials
+        from rhesis.backend.app.schemas.model import ModelUpdate
+
+        _reject_updates_without_own_credentials(
+            _db_returning("openai"), self._existing(), ModelUpdate(endpoint="http://x.example")
+        )
