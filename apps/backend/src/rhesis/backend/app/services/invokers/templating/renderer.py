@@ -5,9 +5,13 @@ import logging
 import re
 from typing import Any, Dict
 
-from jinja2 import ChainableUndefined, Environment
+from jinja2 import ChainableUndefined
 
 from rhesis.backend.app.services.invokers.templating.filters import FILE_FILTERS
+from rhesis.backend.app.services.invokers.templating.sandbox import (
+    TemplateSandbox,
+    resolve_dotted_path,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +25,7 @@ class TemplateRenderer:
     """Handles template rendering using Jinja2."""
 
     def __init__(self):
-        self.env = Environment(undefined=ChainableUndefined)
+        self.env = TemplateSandbox(undefined=ChainableUndefined)
         self.env.filters.update(FILE_FILTERS)
         self.env.filters["to_json"] = self.env.filters["tojson"]
 
@@ -177,19 +181,7 @@ class TemplateRenderer:
 
         if match:
             var_path = match.group(1)
-
-            # Navigate dotted path to get value
-            parts = var_path.split(".")
-            value = render_context
-            found = True
-            for part in parts:
-                if isinstance(value, dict) and part in value:
-                    value = value[part]
-                elif hasattr(value, part):
-                    value = getattr(value, part)
-                else:
-                    found = False
-                    break
+            found, value = resolve_dotted_path(self.env, render_context, var_path)
 
             if found:
                 # Check if value is a Pydantic model - convert to dict for serialization

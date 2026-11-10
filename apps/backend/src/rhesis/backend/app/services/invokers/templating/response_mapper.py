@@ -6,7 +6,11 @@ import re
 from typing import Any, Dict
 
 import jsonpath_ng
-from jinja2 import Template
+
+from rhesis.backend.app.services.invokers.templating.sandbox import (
+    TemplateSandbox,
+    resolve_dotted_path,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,20 +22,15 @@ _SIMPLE_VAR_PATTERN = re.compile(r"^\{\{\s*([A-Za-z0-9_.]+)\s*\}\}$")
 class ResponseMapper:
     """Handles response mapping using Jinja2 templates (with optional JSONPath)."""
 
+    def __init__(self):
+        self.env = TemplateSandbox()
+
     def _resolve_dotted_path(self, response_data: Dict[str, Any], path: str) -> Any:
         """Resolve a dotted path (e.g. "metadata.id") against response_data.
 
         Returns None if any segment along the path is missing.
         """
-        value: Any = response_data
-        for part in path.split("."):
-            if isinstance(value, dict) and part in value:
-                value = value[part]
-            elif hasattr(value, part):
-                value = getattr(value, part)
-            else:
-                return None
-        return value
+        return resolve_dotted_path(self.env, response_data, path)[1]
 
     def _jsonpath_extract(self, response_data: Dict[str, Any], path: str) -> Any:
         """
@@ -79,7 +78,7 @@ class ResponseMapper:
 
         # Step 1: Render as Jinja2 template with response_data as context
         # Also provide jsonpath() function for extracting nested fields
-        template = Template(mapping_value)
+        template = self.env.from_string(mapping_value)
 
         # Build template context: merge response_data fields with jsonpath function
         template_context = dict(response_data)
