@@ -631,6 +631,8 @@ async def query_mcp_server(
             max_iterations=request.max_iterations,
         )
         return result
+    except QuotaExceededError:
+        raise
     except Exception as e:
         raise handle_mcp_exception(e, "query") from e
 

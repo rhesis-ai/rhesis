@@ -109,3 +109,97 @@ def test_the_allowlist_contains_no_stale_entries():
         if not _imports_language_model_factory(ast.parse((_BACKEND_SRC / relative).read_text()))
     ]
     assert not stale, f"{stale} no longer import the factory; remove from _ALLOWED_IMPORTERS"
+
+
+# The second way to skip the gate: hand a ``DEFAULT_*_MODEL`` string straight to an
+# SDK class (``MetricSynthesizer(model=get_model_settings().generation_model)``). The
+# SDK builds it itself, so it is never stamped and never checked against MODEL_TOKENS.
+
+_DEFAULT_MODEL_SETTINGS = {
+    "generation_model",
+    "evaluation_model",
+    "execution_model",
+    "embedding_model",
+}
+
+#: Callables a default-model setting may be handed to: they gate on the quota.
+_GATED_WRAPPERS = {"resolve_default_hosted_model"}
+
+#: Files allowed to read a default-model setting outside a gated wrapper.
+_DEFAULT_SETTING_READERS = {
+    # The resolution layer itself.
+    "app/utils/user_model_utils.py",
+    # Compares the default's provider; builds nothing from it.
+    "app/services/model_connection.py",
+    # Polyphemus-user fallbacks behind the route-level TEST_GENERATION gate.
+    "app/services/test_config_generator.py",
+    "app/services/test_generation_pipeline.py",
+}
+
+
+def _is_default_setting(node: ast.AST) -> bool:
+    """``get_model_settings().<purpose>_model``."""
+    return (
+        isinstance(node, ast.Attribute)
+        and node.attr in _DEFAULT_MODEL_SETTINGS
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "get_model_settings"
+    )
+
+
+def _call_name(call: ast.Call) -> str | None:
+    if isinstance(call.func, ast.Name):
+        return call.func.id
+    if isinstance(call.func, ast.Attribute):
+        return call.func.attr
+    return None
+
+
+def _ungated_default_setting_reads(tree: ast.Module) -> list[int]:
+    gated = {
+        id(arg)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and _call_name(node) in _GATED_WRAPPERS
+        for arg in [*node.args, *(kw.value for kw in node.keywords)]
+    }
+    return [
+        node.lineno
+        for node in ast.walk(tree)
+        if _is_default_setting(node) and id(node) not in gated
+    ]
+
+
+def _default_setting_offenders(source_by_file):
+    for relative, source in source_by_file:
+        if relative.startswith("app/config/") or relative in _DEFAULT_SETTING_READERS:
+            continue
+        for line in _ungated_default_setting_reads(ast.parse(source)):
+            yield f"{relative}:{line}"
+
+
+def _backend_sources():
+    for path in _BACKEND_SRC.rglob("*.py"):
+        yield str(path.relative_to(_BACKEND_SRC)), path.read_text()
+
+
+def test_default_models_are_only_built_through_the_quota_gate():
+    offenders = sorted(_default_setting_offenders(_backend_sources()))
+    assert not offenders, (
+        f"{offenders} read a DEFAULT_*_MODEL setting outside resolve_default_hosted_model(). "
+        f"Handing that string to an SDK class builds an unstamped model that never checks "
+        f"the MODEL_TOKENS quota. Pass resolve_default_hosted_model(setting, db, org_id) instead."
+    )
+
+
+def test_the_default_setting_gate_catches_a_string_handed_to_an_sdk_class():
+    bad = (
+        "synthesizer = MetricSynthesizer(model=get_model_settings().generation_model)\n"
+        "model = get_model_settings().generation_model\n"
+    )
+    good = "m = resolve_default_hosted_model(get_model_settings().generation_model, db, org)\n"
+    assert sorted(_default_setting_offenders([("app/routers/x.py", bad)])) == [
+        "app/routers/x.py:1",
+        "app/routers/x.py:2",
+    ]
+    assert list(_default_setting_offenders([("app/routers/x.py", good)])) == []

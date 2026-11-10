@@ -9,6 +9,7 @@ from rhesis.backend.app.config.settings import get_model_settings
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.services.tool.exceptions import ToolConfigurationError
 from rhesis.backend.app.services.tool.rest.schemas import FetchedSource
+from rhesis.backend.app.utils.user_model_utils import resolve_default_hosted_model
 from rhesis.sdk.agents.mcp import MCPAgent
 from rhesis.sdk.context import EndpointContext
 
@@ -64,15 +65,32 @@ def _parse_mcp_auth_response(result: Dict[str, Any]) -> Dict[str, str]:
     return {"is_authenticated": "No", "message": str(failure_message).strip()[:200]}
 
 
+def _gated_generation_model(organization_id: str, user_id: str, project_id: Optional[str]):
+    """The system generation model, gated on the org's MODEL_TOKENS quota.
+
+    Opens its own session; call it through ``anyio.to_thread.run_sync``.
+    """
+    with get_db_with_tenant_variables(organization_id, user_id, project_id or "") as db:
+        return resolve_default_hosted_model(
+            get_model_settings().generation_model, db, organization_id
+        )
+
+
 async def _run_agent(
     client: Any,
     query: str,
     system_prompt: str,
     max_iterations: int,
     agent_name: str,
+    *,
+    organization_id: str,
+    user_id: str,
+    project_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Run an MCP agent turn and return its serialized result."""
-    model = get_model_settings().generation_model
+    model = await anyio.to_thread.run_sync(
+        _gated_generation_model, organization_id, user_id, project_id
+    )
     agent = MCPAgent(
         model=model,
         mcp_client=client,
@@ -172,7 +190,16 @@ async def query_mcp(
             **_mcp_template_scope_kwargs(provider, scope_context),
         )
 
-    return await _run_agent(client, query, system_prompt, max_iterations, "mcp-query")
+    return await _run_agent(
+        client,
+        query,
+        system_prompt,
+        max_iterations,
+        "mcp-query",
+        organization_id=ctx.organization_id,
+        user_id=ctx.user_id,
+        project_id=ctx.project_id,
+    )
 
 
 def _strip_code_fence(text: str) -> str:
@@ -251,7 +278,16 @@ async def mcp_extract(
             repair=repair,
             **_mcp_template_scope_kwargs(provider, scope_context),
         )
-        result = await _run_agent(client, query, system_prompt, max_iterations, "mcp-extract")
+        result = await _run_agent(
+            client,
+            query,
+            system_prompt,
+            max_iterations,
+            "mcp-extract",
+            organization_id=organization_id,
+            user_id=user_id,
+            project_id=project_id,
+        )
         try:
             return _parse_fetched_sources(result.get("final_answer", ""))
         except (json.JSONDecodeError, ValueError, TypeError) as e:
@@ -316,6 +352,13 @@ async def mcp_health_check(
         **_mcp_template_scope_kwargs(provider, scope_context),
     )
     result = await _run_agent(
-        client, "Verify authentication and report the result.", system_prompt, 3, "mcp-health"
+        client,
+        "Verify authentication and report the result.",
+        system_prompt,
+        3,
+        "mcp-health",
+        organization_id=organization_id,
+        user_id=user_id,
+        project_id=project_id,
     )
     return _parse_mcp_auth_response(result)

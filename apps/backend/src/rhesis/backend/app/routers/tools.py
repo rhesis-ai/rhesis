@@ -21,6 +21,7 @@ from rhesis.backend.app.dependencies import (
 )
 from rhesis.backend.app.error_handlers import UpstreamHTTPException
 from rhesis.backend.app.models.user import User
+from rhesis.backend.app.quota.enforcement import QuotaExceededError
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.services import (
     CreateJiraTicketFromTaskRequest,
@@ -404,7 +405,7 @@ async def extract_tool_item(
                 {"id": d.id, "title": d.title, "content": d.content, "url": d.url} for d in docs
             ]
         )
-    except HTTPException:
+    except (HTTPException, QuotaExceededError):
         raise
     except (ToolConfigurationError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
