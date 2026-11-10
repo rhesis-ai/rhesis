@@ -36,7 +36,8 @@ def secret_column_keys(model: type) -> frozenset[str]:
     """Attribute keys of *model* that must never leave the API in recycle-bin responses.
 
     A column is secret when it is an ``EncryptedString``, is listed in the model's
-    ``__audit__.secret``, or its name matches ``_SECRET_NAME_PATTERN``.
+    ``__audit__.secret``, or its name matches ``_SECRET_NAME_PATTERN``. Names are
+    checked as both the DB column name and the ORM attribute key, in case they differ.
     """
     declared = set(getattr(getattr(model, "__audit__", None), "secret", ()))
     return frozenset(
@@ -44,8 +45,8 @@ def secret_column_keys(model: type) -> frozenset[str]:
         for prop in inspect(model).column_attrs
         for column in prop.columns[:1]
         if isinstance(column.type, EncryptedString)
-        or column.name in declared
-        or _SECRET_NAME_PATTERN.search(column.name)
+        or {column.name, prop.key} & declared
+        or any(_SECRET_NAME_PATTERN.search(n) for n in (column.name, prop.key))
     )
 
 
