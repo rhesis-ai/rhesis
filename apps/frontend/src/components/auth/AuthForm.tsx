@@ -24,6 +24,7 @@ import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { signIn } from 'next-auth/react';
 import { getClientApiBaseUrl } from '../../utils/url-resolver';
+import { RETURN_TO_PARAM, safeReturnTo } from '@/utils/return-to';
 import {
   DEFAULT_PASSWORD_POLICY,
   validatePassword,
@@ -144,11 +145,11 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
   const handleOAuthLogin = async (provider: ProviderInfo) => {
     const searchParams = new URLSearchParams(window.location.search);
-    const returnTo = searchParams.get('return_to') || '/architect';
+    const returnTo = safeReturnTo(searchParams.get(RETURN_TO_PARAM));
 
     if (provider.login_url) {
       const loginUrl = new URL(provider.login_url, getClientApiBaseUrl());
-      loginUrl.searchParams.set('return_to', returnTo);
+      loginUrl.searchParams.set(RETURN_TO_PARAM, returnTo);
       window.location.href = loginUrl.toString();
       return;
     }
@@ -156,7 +157,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     const loginUrl = new URL(
       `${getClientApiBaseUrl()}/auth/login/${provider.name}`
     );
-    loginUrl.searchParams.set('return_to', returnTo);
+    loginUrl.searchParams.set(RETURN_TO_PARAM, returnTo);
     window.location.href = loginUrl.toString();
   };
 
@@ -233,10 +234,8 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
           throw new Error(result.error);
         }
 
-        // Redirect to dashboard or return_to URL
         const searchParams = new URLSearchParams(window.location.search);
-        const returnTo = searchParams.get('return_to') || '/architect';
-        window.location.href = returnTo;
+        window.location.href = safeReturnTo(searchParams.get(RETURN_TO_PARAM));
       }
     } catch (err) {
       setFormError(

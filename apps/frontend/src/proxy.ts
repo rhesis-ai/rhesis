@@ -11,6 +11,7 @@ import {
   ONBOARDING_PATH,
 } from './constants/paths';
 import { publicEnv } from '@/config/runtime-config';
+import { RETURN_TO_PARAM } from '@/utils/return-to';
 import {
   getServerBackendUrl,
   shouldUseSecureCookies,
@@ -158,7 +159,7 @@ export async function proxy(request: NextRequest) {
     // If this is a post-logout redirect, force return_to to root
     if (isPostLogout) {
       const signInUrl = new URL('/auth/signin', request.url);
-      signInUrl.searchParams.set('return_to', '/');
+      signInUrl.searchParams.set(RETURN_TO_PARAM, '/');
       return await createSessionClearingResponse(signInUrl); // No backend logout needed (already logged out)
     }
     return NextResponse.next();
@@ -189,7 +190,7 @@ export async function proxy(request: NextRequest) {
     // For users accessing protected routes without any authentication,
     // redirect to home page which has the unified login experience
     const homeUrl = new URL('/', request.url);
-    homeUrl.searchParams.set('return_to', pathname);
+    homeUrl.searchParams.set(RETURN_TO_PARAM, pathname);
     homeUrl.searchParams.set('session_expired', 'true');
     return NextResponse.redirect(homeUrl);
   }

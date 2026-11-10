@@ -47,7 +47,7 @@ from rhesis.backend.app.auth.token_utils import (
     verify_email_flow_token,
     verify_jwt_token,
 )
-from rhesis.backend.app.auth.url_utils import build_redirect_url
+from rhesis.backend.app.auth.url_utils import build_redirect_url, safe_return_path
 from rhesis.backend.app.auth.used_token_store import (
     TokenStoreUnavailableError,
     claim_token_jti,
@@ -714,7 +714,7 @@ async def login_with_provider(
     origin = request.headers.get("origin") or request.headers.get("referer")
     if origin:
         request.session["original_frontend"] = origin
-    request.session["return_to"] = return_to
+    request.session["return_to"] = safe_return_path(return_to)
     request.session["auth_provider"] = provider
 
     callback_url = get_callback_url(request, provider)
