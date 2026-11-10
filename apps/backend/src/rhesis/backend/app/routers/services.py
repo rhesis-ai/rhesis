@@ -47,7 +47,11 @@ from rhesis.backend.app.services.generation import (
     generate_tests,
     validate_model_override,
 )
-from rhesis.backend.app.services.github import read_repo_contents
+from rhesis.backend.app.services.github import (
+    InvalidGitHubURL,
+    RepositoryTooLarge,
+    read_repo_contents,
+)
 from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
 from rhesis.backend.app.services.test_generation_pipeline import (
     test_generation_pipeline_stream,
@@ -157,18 +161,20 @@ async def get_exchange_rates(
 @router.get("/github/contents")
 def get_github_contents(repo_url: str):
     """
-    Get the contents of a GitHub repository.
+    Get the contents of a public GitHub repository.
 
     Args:
-        repo_url: The URL of the GitHub repository to read
+        repo_url: An https://github.com/<owner>/<repo> URL, optionally with
+            /tree/<branch>/<subfolder>
 
     Returns:
         str: The contents of the repository
     """
-    logger.info(f"Getting GitHub contents for {repo_url}")
+    logger.info("Getting GitHub contents for %s", repo_url)
     try:
-        contents = read_repo_contents(repo_url)
-        return contents
+        return read_repo_contents(repo_url)
+    except (InvalidGitHubURL, RepositoryTooLarge) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         # GitHub's own answers never reach here: read_repo_contents swallows a
         # failed download and returns "". What is left is ours -- temp directory,
