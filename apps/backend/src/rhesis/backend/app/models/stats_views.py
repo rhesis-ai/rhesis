@@ -1,8 +1,11 @@
 """Read-only SQLAlchemy models mapped to PostgreSQL stats views.
 
 These models back v_test_run_stats, v_test_result_stats, v_metric_stats and
-v_test_stats, last redefined by migration b3e7c91d4a20. They are intentionally
+v_test_stats, last redefined by migration c47fd570587b. They are intentionally
 thin -- all join and classification logic lives in the view DDL.
+
+The views are security_invoker: the underlying tables' RLS applies to the
+caller, so read them from a session with the request scope GUCs bound.
 """
 
 from typing import ClassVar
