@@ -632,6 +632,42 @@ class TestPipelineReservation:
         assert response.status_code == status.HTTP_200_OK, response.text
         assert _generation_used(test_db, test_org_id) == before + 2
 
+    def test_releases_the_claim_after_the_stream_left_the_session_failed(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        monkeypatch,
+    ):
+        """The release runs on the request session after the pipeline, which may
+        have left that session in a failed transaction."""
+        from sqlalchemy import text
+
+        from rhesis.backend.app.routers import services as services_router
+        from rhesis.backend.app.services.streaming_utils import ndjson
+
+        async def _stream(db, **kwargs):
+            yield ndjson({"type": "test", "index": 0, "test": {}, "test_type": "Single-Turn"})
+            try:
+                db.execute(text("SELECT 1 / 0"))
+            except Exception:
+                pass  # swallowed, so the session is left needing a rollback
+            yield ndjson({"type": "done"})
+
+        monkeypatch.setattr(services_router, "test_generation_pipeline_stream", _stream)
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: 100}, overage=OveragePolicy.HARD)
+        )
+        before = _generation_used(test_db, test_org_id)
+
+        response = authenticated_client.post(
+            "/services/generate/test_pipeline", json={"prompt": "p", "num_tests": 5}
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert _generation_used(test_db, test_org_id) == before + 1
+
     def test_releases_the_claim_when_the_response_cannot_be_built(
         self,
         authenticated_client: TestClient,

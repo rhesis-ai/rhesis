@@ -317,14 +317,27 @@ class QuotaReservation:
     _settled: bool = field(default=False, init=False, repr=False)
 
     def settle(self, db: Session, consumed: int) -> None:
-        """Record that *consumed* units were really used, committing *db*. Never raises.
+        """Record that *consumed* units were really used. Logs failures instead of raising.
 
         Only the first call counts, so a fallback path can settle unconditionally.
+        *db* is the request session, used after the work on it is done; a
+        release commits it.
         """
         if self._settled:
             return
         self._settled = True
-        consumed = max(consumed, 0)
+        try:
+            self._settle(db, max(consumed, 0))
+        except Exception:
+            logger.warning(
+                "Failed to settle %s reservation of %s for org %s",
+                self.resource.value,
+                self.amount,
+                self.org_id,
+                exc_info=True,
+            )
+
+    def _settle(self, db: Session, consumed: int) -> None:
         if self.period_start is None:
             dispatch_accrual(self.org_id, self.resource, consumed)
             return
@@ -336,14 +349,10 @@ class QuotaReservation:
             release_usage(db, self.org_id, self.resource, unused, self.period_start)
             db.commit()
         except Exception:
+            # The work may have left the session in a failed transaction; retry on a clean one.
             db.rollback()
-            logger.warning(
-                "Failed to release %s unused %s for org %s",
-                unused,
-                self.resource.value,
-                self.org_id,
-                exc_info=True,
-            )
+            release_usage(db, self.org_id, self.resource, unused, self.period_start)
+            db.commit()
 
 
 def reserve_quota(
