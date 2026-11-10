@@ -46,7 +46,6 @@ TENANT_POLICY_EXEMPT_TABLES = frozenset()
 PROJECT_POLICY_EXEMPT_TABLES = frozenset({"project_membership", "audit_event"})
 
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -101,9 +100,7 @@ def _get_policies(db) -> dict[str, list[dict]]:
     ).fetchall()
     result: dict[str, list] = {}
     for tablename, policyname, permissive in rows:
-        result.setdefault(tablename, []).append(
-            {"name": policyname, "permissive": permissive}
-        )
+        result.setdefault(tablename, []).append({"name": policyname, "permissive": permissive})
     return result
 
 
@@ -131,9 +128,7 @@ class TestRLSCoverage:
             if not state.get("force_rls"):
                 missing_force.append(table)
 
-        assert not missing_rls, (
-            f"Tables with organization_id missing RLS ENABLED: {missing_rls}"
-        )
+        assert not missing_rls, f"Tables with organization_id missing RLS ENABLED: {missing_rls}"
         assert not missing_force, (
             f"Tables with organization_id missing FORCE ROW LEVEL SECURITY: {missing_force}"
         )
@@ -176,18 +171,14 @@ class TestRLSCoverage:
         missing = []
         not_restrictive = []
 
-        for table in sorted(
-            tables - RLS_EXEMPT_TABLES - PROJECT_POLICY_EXEMPT_TABLES
-        ):
+        for table in sorted(tables - RLS_EXEMPT_TABLES - PROJECT_POLICY_EXEMPT_TABLES):
             table_policies = {p["name"]: p for p in policies.get(table, [])}
             if "project_isolation" not in table_policies:
                 missing.append(table)
             elif table_policies["project_isolation"]["permissive"] != "RESTRICTIVE":
                 not_restrictive.append(table)
 
-        assert not missing, (
-            f"Tables with project_id missing project_isolation policy: {missing}"
-        )
+        assert not missing, f"Tables with project_id missing project_isolation policy: {missing}"
         assert not not_restrictive, (
             f"Tables whose project_isolation policy is not RESTRICTIVE: {not_restrictive}"
         )
@@ -207,9 +198,51 @@ class TestRLSCoverage:
             if not state.get("force_rls"):
                 missing_force.append(table)
 
-        assert not missing_rls, (
-            f"Tables with project_id missing RLS ENABLED: {missing_rls}"
-        )
+        assert not missing_rls, f"Tables with project_id missing RLS ENABLED: {missing_rls}"
         assert not missing_force, (
             f"Tables with project_id missing FORCE ROW LEVEL SECURITY: {missing_force}"
         )
+
+
+def _get_views(db) -> dict[str, list[str]]:
+    """Return {viewname: reloptions} for every view in the public schema."""
+    rows = db.execute(
+        text(
+            """
+            SELECT relname, COALESCE(reloptions, '{}')
+            FROM pg_class
+            WHERE relnamespace = 'public'::regnamespace
+              AND relkind = 'v'
+            """
+        )
+    ).fetchall()
+    return {r[0]: list(r[1]) for r in rows}
+
+
+@pytest.mark.security
+class TestViewRLSCoverage:
+    """Views run as their owner by default, which skips the RLS of the tables they read."""
+
+    def test_views_run_as_invoker(self, test_db):
+        views = _get_views(test_db)
+        assert views, "expected the stats views to exist"
+        missing = sorted(
+            name for name, options in views.items() if "security_invoker=true" not in options
+        )
+        assert not missing, (
+            f"Views without security_invoker = true: {missing}\n"
+            "Create views WITH (security_invoker = true) so the underlying tables' "
+            "RLS policies apply to the caller, not to the (BYPASSRLS) owner."
+        )
+
+    def test_app_role_can_select_views(self, test_db):
+        """The app role (NOBYPASSRLS) still has SELECT on every view after recreation."""
+        denied = [
+            name
+            for name in sorted(_get_views(test_db))
+            if not test_db.execute(
+                text("SELECT has_table_privilege(current_user, :v, 'SELECT')"),
+                {"v": f"public.{name}"},
+            ).scalar_one()
+        ]
+        assert not denied, f"App role lacks SELECT on views: {denied}"
