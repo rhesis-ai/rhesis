@@ -124,6 +124,8 @@ def list_tasks(
             organization_id=organization_id,
             user_id=user_id,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error listing tasks: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -178,6 +180,8 @@ def get_tasks_by_entity(
             organization_id=organization_id,
             user_id=user_id,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting tasks by entity {entity_type}/{entity_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

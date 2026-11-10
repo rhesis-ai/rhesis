@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy import inspect
 from sqlalchemy.orm import RelationshipProperty
 
+from rhesis.backend.app.utils.column_access import secret_column_keys, sortable_field_error
 from rhesis.backend.app.utils.count_sort import (
     VIRTUAL_COUNT_SORT_FIELDS,
     model_supports_count_sort,
@@ -46,8 +47,9 @@ def validate_sort_field(model: Type, sort_by: str) -> None:
             )
         return
 
-    if not hasattr(model, sort_by) and sort_by not in inspect(model).columns.keys():
-        model_columns = inspect(model).columns.keys()
+    if sortable_field_error(model, sort_by):
+        secrets = secret_column_keys(model)
+        model_columns = [key for key in inspect(model).columns.keys() if key not in secrets]
         raise HTTPException(
             status_code=400,
             detail=f"Invalid sort field: {sort_by}. Must be one of: {', '.join(model_columns)}",
