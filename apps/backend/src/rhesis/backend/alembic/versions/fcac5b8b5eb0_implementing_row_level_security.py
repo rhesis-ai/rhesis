@@ -36,9 +36,13 @@ def upgrade() -> None:
     BEGIN
         -- Loop through all tables in the public schema
         FOR r IN
-            SELECT table_name FROM information_schema.tables
-            WHERE table_schema = 'public'
-            AND table_name NOT IN ('alembic_version', 'organization', 'token', 'user')
+            -- Ordinary tables we own: views and extension-owned relations (e.g.
+            -- pg_stat_statements on RDS) can't take RLS and aren't ours to alter.
+            SELECT c.relname AS table_name FROM pg_class c
+            WHERE c.relnamespace = 'public'::regnamespace
+            AND c.relkind IN ('r', 'p')
+            AND pg_get_userbyid(c.relowner) = current_user
+            AND c.relname NOT IN ('alembic_version', 'organization', 'token', 'user')
         LOOP
             -- Enable RLS for each table
             EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', r.table_name);
@@ -56,9 +60,13 @@ def upgrade() -> None:
         -- Loop through all tables in the public schema, except alembic_version, 
         -- organization and token
         FOR r IN
-            SELECT table_name FROM information_schema.tables
-            WHERE table_schema = 'public'
-            AND table_name NOT IN ('alembic_version', 'organization', 'token', 'user')
+            -- Ordinary tables we own: views and extension-owned relations (e.g.
+            -- pg_stat_statements on RDS) can't take RLS and aren't ours to alter.
+            SELECT c.relname AS table_name FROM pg_class c
+            WHERE c.relnamespace = 'public'::regnamespace
+            AND c.relkind IN ('r', 'p')
+            AND pg_get_userbyid(c.relowner) = current_user
+            AND c.relname NOT IN ('alembic_version', 'organization', 'token', 'user')
         LOOP
             -- Drop the existing organization isolation policy if it exists
             BEGIN
@@ -90,9 +98,13 @@ def downgrade() -> None:
         -- Loop through all tables in the public schema, except alembic_version, 
         -- organization and token
         FOR r IN
-            SELECT table_name FROM information_schema.tables
-            WHERE table_schema = 'public'
-            AND table_name NOT IN ('alembic_version', 'organization', 'token', 'user')
+            -- Ordinary tables we own: views and extension-owned relations (e.g.
+            -- pg_stat_statements on RDS) can't take RLS and aren't ours to alter.
+            SELECT c.relname AS table_name FROM pg_class c
+            WHERE c.relnamespace = 'public'::regnamespace
+            AND c.relkind IN ('r', 'p')
+            AND pg_get_userbyid(c.relowner) = current_user
+            AND c.relname NOT IN ('alembic_version', 'organization', 'token', 'user')
         LOOP
             -- Drop the organization isolation policy for each table
             BEGIN
@@ -115,9 +127,13 @@ def downgrade() -> None:
     BEGIN
         -- Loop through all tables in the public schema
         FOR r IN
-            SELECT table_name FROM information_schema.tables
-            WHERE table_schema = 'public'
-            AND table_name NOT IN ('alembic_version', 'organization', 'token', 'user')
+            -- Ordinary tables we own: views and extension-owned relations (e.g.
+            -- pg_stat_statements on RDS) can't take RLS and aren't ours to alter.
+            SELECT c.relname AS table_name FROM pg_class c
+            WHERE c.relnamespace = 'public'::regnamespace
+            AND c.relkind IN ('r', 'p')
+            AND pg_get_userbyid(c.relowner) = current_user
+            AND c.relname NOT IN ('alembic_version', 'organization', 'token', 'user')
         LOOP
             -- Disable RLS for each table
             EXECUTE format('ALTER TABLE public.%I DISABLE ROW LEVEL SECURITY;', r.table_name);
