@@ -99,8 +99,13 @@ def find_or_create_sso_user(
         user_in_org.provider_type = auth_user.provider_type
         user_in_org.external_provider_id = auth_user.external_id
         user_in_org.last_login_at = current_time
+        from rhesis.backend.app.auth.user_utils import (
+            drop_credentials_of_unverified_account,
+            mark_user_joined_if_needed,
+        )
+
+        drop_credentials_of_unverified_account(db, user_in_org)
         user_in_org.is_email_verified = True
-        from rhesis.backend.app.auth.user_utils import mark_user_joined_if_needed
 
         mark_user_joined_if_needed(user_in_org, when=current_time)
         return user_in_org

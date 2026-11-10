@@ -112,42 +112,38 @@ class GitHubProvider(AuthProvider):
         oauth = self._get_oauth()
         return await oauth.github.authorize_redirect(request, redirect_uri)
 
-    async def _get_primary_email(self, oauth: OAuth, token: dict) -> Optional[str]:
+    async def _get_verified_email(
+        self, oauth: OAuth, token: dict, profile_email: Optional[str]
+    ) -> Optional[str]:
         """
-        Fetch the user's primary email from GitHub's emails endpoint.
+        Pick a verified email from GitHub's emails endpoint.
 
-        GitHub users can have their email set to private, in which case
-        we need to fetch it separately from the /user/emails endpoint.
+        Accounts are matched by email, so only an address GitHub has verified may
+        log in. The public profile email is kept when it is verified; otherwise the
+        primary verified email, then any verified one.
 
         Args:
             oauth: The OAuth client instance
             token: The access token
+            profile_email: The email on the public profile, if any
 
         Returns:
-            The user's primary email, or None if not found
+            A verified email, or None if the account has none
         """
         try:
             resp = await oauth.github.get("user/emails", token=token)
             emails = resp.json()
-
-            # Find primary email
-            for email_data in emails:
-                if email_data.get("primary") and email_data.get("verified"):
-                    return email_data.get("email")
-
-            # Fallback to first verified email
-            for email_data in emails:
-                if email_data.get("verified"):
-                    return email_data.get("email")
-
-            # Last resort: any email
-            if emails:
-                return emails[0].get("email")
-
         except Exception as e:
             logger.warning(f"Failed to fetch GitHub emails: {e}")
+            return None
 
-        return None
+        verified = [e.get("email") for e in emails if e.get("verified") and e.get("email")]
+        if profile_email and profile_email.lower() in {e.lower() for e in verified}:
+            return profile_email
+        for email_data in emails:
+            if email_data.get("primary") and email_data.get("verified"):
+                return email_data.get("email")
+        return verified[0] if verified else None
 
     async def authenticate(self, request: Request, **kwargs) -> AuthUser:
         """
@@ -183,10 +179,7 @@ class GitHubProvider(AuthProvider):
                     detail="Failed to get user information from GitHub",
                 )
 
-            # Get email - may need to fetch separately if private
-            email = userinfo.get("email")
-            if not email:
-                email = await self._get_primary_email(oauth, token)
+            email = await self._get_verified_email(oauth, token, userinfo.get("email"))
 
             if not email:
                 raise HTTPException(

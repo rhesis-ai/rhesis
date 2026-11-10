@@ -155,6 +155,13 @@ class GoogleProvider(AuthProvider):
                     detail="Google account does not have an email address",
                 )
 
+            # Accounts are matched by email, so an unverified address must not log in.
+            if userinfo.get("email_verified") is not True:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Google account email address is not verified",
+                )
+
             logger.info(f"Successful Google OAuth login for: {email}")
 
             return AuthUser(

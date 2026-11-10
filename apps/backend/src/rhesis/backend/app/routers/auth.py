@@ -54,6 +54,7 @@ from rhesis.backend.app.auth.used_token_store import (
 )
 from rhesis.backend.app.auth.user_utils import (
     RegistrationDisabledError,
+    drop_credentials_of_unverified_account,
     find_or_create_magic_link_user,
     find_or_create_user_from_auth,
     mark_user_joined_if_needed,
@@ -516,6 +517,7 @@ def _consume_magic_link(db: Session, email: str) -> tuple[User, str]:
 
     # Mark email as verified (user clicked a link in their email)
     if not user.is_email_verified:
+        drop_credentials_of_unverified_account(db, user)
         user.is_email_verified = True
 
     # Update last login and stamp first org join when applicable

@@ -7,7 +7,7 @@ with the org's SSOConfig. Works with any OIDC-compliant IdP (Keycloak, Okta, Azu
 import asyncio
 import logging
 import time
-from typing import Any, Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Mapping, Optional, Tuple, Union
 from urllib.parse import urlencode
 
 import jwt as pyjwt
@@ -256,6 +256,18 @@ def verify_signed_state(state: str) -> dict:
         purpose=SSO_STATE_PURPOSE,
         max_age_seconds=STATE_MAX_AGE_SECONDS,
     )
+
+
+def email_marked_unverified(claims: Mapping[str, Any]) -> bool:
+    """True when the IdP explicitly says the email is not verified.
+
+    A missing claim is accepted: many enterprise IdPs omit it, and the org that
+    configured the IdP vouches for its users (domain allowlist, org-scoped lookup).
+    """
+    value = claims.get("email_verified")
+    if isinstance(value, str):
+        return value.strip().lower() == "false"
+    return value is False
 
 
 class OIDCProvider(AuthProvider):
@@ -511,6 +523,7 @@ class OIDCProvider(AuthProvider):
             claims = self._validate_id_token(id_token_str, jwks, nonce)
 
         email = claims.get("email")
+        email_source = claims
         if not email:
             logger.warning(
                 "email claim missing from ID token for issuer %s; "
@@ -536,11 +549,14 @@ class OIDCProvider(AuthProvider):
                     userinfo = ui_resp.json()
                     logger.debug("Userinfo response keys: %s", list(userinfo.keys()))
                     email = userinfo.get("email")
+                    email_source = userinfo
                 except Exception as ue:
                     logger.error("Userinfo endpoint call failed: %s", ue)
 
         if not email:
             raise ValueError("Could not determine user email from IdP")
+        if email_marked_unverified(email_source):
+            raise ValueError("IdP reports the user email as unverified")
 
         logger.info(
             "SSO OIDC authentication successful: provider=%s, org_config_issuer=%s",
