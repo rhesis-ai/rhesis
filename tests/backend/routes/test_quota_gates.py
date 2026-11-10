@@ -438,6 +438,298 @@ class TestFlowResourceQuotaGate:
         assert body["resource"] == QuotaResource.TEST_GENERATION.value
 
 
+def _generated_test(i: int) -> dict:
+    return {
+        "prompt": {"content": f"prompt {i}"},
+        "requirement": "Accuracy",
+        "category": "Harmless",
+        "topic": "General",
+        "metadata": {"generated_by": "test"},
+    }
+
+
+def _generation_used(db, org_id) -> int:
+    from rhesis.backend.app.models.usage import Usage
+    from rhesis.backend.app.services.usage import _current_period
+
+    db.expire_all()
+    used = (
+        db.query(Usage.used)
+        .filter(
+            Usage.organization_id == org_id,
+            Usage.resource == QuotaResource.TEST_GENERATION.value,
+            Usage.period_start == _current_period()[0],
+        )
+        .scalar()
+    )
+    return used or 0
+
+
+@pytest.fixture
+def fake_generation(monkeypatch):
+    """Stub the LLM side of sync generation; returns a setter for how many tests come back."""
+    from rhesis.backend.app.routers import services as services_router
+
+    produced = {"n": 0}
+
+    async def _generate_tests(**kwargs):
+        return [_generated_test(i) for i in range(produced["n"])]
+
+    monkeypatch.setattr(services_router, "generate_tests", _generate_tests)
+    monkeypatch.setattr(services_router, "validate_model_override", lambda *a, **k: None)
+
+    def set_produced(n: int) -> None:
+        produced["n"] = n
+
+    return set_produced
+
+
+class TestSyncGenerationAccrual:
+    """`POST /services/generate/tests` claims the requested number of tests up
+    front and keeps only what was really generated."""
+
+    def test_accrues_the_generated_count(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        _bypass_model_validation,
+        fake_generation,
+    ):
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: 100}, overage=OveragePolicy.HARD)
+        )
+        before = _generation_used(test_db, test_org_id)
+        fake_generation(4)
+
+        response = authenticated_client.post(
+            "/services/generate/tests",
+            json={"config": {"requirements": ["Accuracy"]}, "num_tests": 4},
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert _generation_used(test_db, test_org_id) == before + 4
+
+    def test_gives_back_what_was_not_generated(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        _bypass_model_validation,
+        fake_generation,
+    ):
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: 100}, overage=OveragePolicy.HARD)
+        )
+        before = _generation_used(test_db, test_org_id)
+        fake_generation(1)
+
+        response = authenticated_client.post(
+            "/services/generate/tests",
+            json={"config": {"requirements": ["Accuracy"]}, "num_tests": 4},
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert _generation_used(test_db, test_org_id) == before + 1
+
+    def test_request_larger_than_what_is_left_returns_402(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        _bypass_model_validation,
+        fake_generation,
+    ):
+        before = _generation_used(test_db, test_org_id)
+        limit = before + 10
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: limit}, overage=OveragePolicy.HARD)
+        )
+        increment_usage(test_db, test_org_id, QuotaResource.TEST_GENERATION, 8)
+        fake_generation(5)
+
+        response = authenticated_client.post(
+            "/services/generate/tests",
+            json={"config": {"requirements": ["Accuracy"]}, "num_tests": 5},
+        )
+
+        assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED, response.text
+        body = response.json()
+        assert body["requested"] == 5
+        assert body["remaining"] == 2
+        assert _generation_used(test_db, test_org_id) == before + 8
+
+    def test_unlimited_accrues_without_reserving(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        _bypass_model_validation,
+        fake_generation,
+        monkeypatch,
+    ):
+        from rhesis.backend.app.quota import enforcement
+
+        accrued = []
+        monkeypatch.setattr(
+            enforcement, "dispatch_accrual", lambda org, res, amount: accrued.append(amount)
+        )
+        _install(QuotaPolicy(limits={QuotaResource.TEST_GENERATION: None}))
+        before = _generation_used(test_db, test_org_id)
+        fake_generation(3)
+
+        response = authenticated_client.post(
+            "/services/generate/tests",
+            json={"config": {"requirements": ["Accuracy"]}, "num_tests": 5},
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert accrued == [3]
+        assert _generation_used(test_db, test_org_id) == before
+
+
+@pytest.fixture
+def fake_pipeline(monkeypatch):
+    """Stub the test pipeline stream with two generated tests."""
+    from rhesis.backend.app.routers import services as services_router
+    from rhesis.backend.app.services.streaming_utils import ndjson
+
+    async def _stream(**kwargs):
+        for i in range(2):
+            yield ndjson({"type": "test", "index": i, "test": {}, "test_type": "Single-Turn"})
+        yield ndjson({"type": "tests_done", "total": 2})
+        yield ndjson({"type": "done"})
+
+    monkeypatch.setattr(services_router, "test_generation_pipeline_stream", _stream)
+
+
+class TestPipelineReservation:
+    """`POST /services/generate/test_pipeline` claims `num_tests` before the
+    stream starts; the claim must end up matching what was streamed even when
+    the stream never runs."""
+
+    def test_keeps_only_the_streamed_tests(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        fake_pipeline,
+    ):
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: 100}, overage=OveragePolicy.HARD)
+        )
+        before = _generation_used(test_db, test_org_id)
+
+        response = authenticated_client.post(
+            "/services/generate/test_pipeline", json={"prompt": "p", "num_tests": 5}
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert _generation_used(test_db, test_org_id) == before + 2
+
+    def test_releases_the_claim_after_the_stream_left_the_session_failed(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        monkeypatch,
+    ):
+        """The release runs on the request session after the pipeline, which may
+        have left that session in a failed transaction."""
+        from sqlalchemy import text
+
+        from rhesis.backend.app.routers import services as services_router
+        from rhesis.backend.app.services.streaming_utils import ndjson
+
+        async def _stream(db, **kwargs):
+            yield ndjson({"type": "test", "index": 0, "test": {}, "test_type": "Single-Turn"})
+            try:
+                db.execute(text("SELECT 1 / 0"))
+            except Exception:
+                pass  # swallowed, so the session is left needing a rollback
+            yield ndjson({"type": "done"})
+
+        monkeypatch.setattr(services_router, "test_generation_pipeline_stream", _stream)
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: 100}, overage=OveragePolicy.HARD)
+        )
+        before = _generation_used(test_db, test_org_id)
+
+        response = authenticated_client.post(
+            "/services/generate/test_pipeline", json={"prompt": "p", "num_tests": 5}
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert _generation_used(test_db, test_org_id) == before + 1
+
+    def test_releases_the_claim_when_the_response_cannot_be_built(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        fake_pipeline,
+        monkeypatch,
+    ):
+        from rhesis.backend.app.routers import services as services_router
+
+        def _broken(*args, **kwargs):
+            raise RuntimeError("response construction failed")
+
+        monkeypatch.setattr(services_router, "StreamingResponse", _broken)
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: 100}, overage=OveragePolicy.HARD)
+        )
+        before = _generation_used(test_db, test_org_id)
+
+        with pytest.raises(RuntimeError):
+            authenticated_client.post(
+                "/services/generate/test_pipeline", json={"prompt": "p", "num_tests": 5}
+            )
+
+        assert _generation_used(test_db, test_org_id) == before
+
+    def test_releases_the_claim_when_the_stream_never_starts(
+        self,
+        test_db,
+        test_org_id,
+        authenticated_user_id,
+        authenticated_org,
+        clean_registry,
+        fake_pipeline,
+    ):
+        import anyio
+
+        from rhesis.backend.app.routers.services import test_pipeline_endpoint
+        from rhesis.backend.app.schemas.services import TestPipelineRequest
+
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: 100}, overage=OveragePolicy.HARD)
+        )
+        before = _generation_used(test_db, test_org_id)
+
+        response = test_pipeline_endpoint(
+            request=TestPipelineRequest(prompt="p", num_tests=5),
+            db=test_db,
+            tenant_context=(test_org_id, authenticated_user_id),
+            current_user=None,
+            _quota_gate=authenticated_org,
+        )
+        assert _generation_used(test_db, test_org_id) == before + 5
+
+        # What Starlette runs after the response when the body was never iterated.
+        anyio.run(response.background)
+        assert _generation_used(test_db, test_org_id) == before
+        anyio.run(response.background)
+        assert _generation_used(test_db, test_org_id) == before
+
+
 @pytest.fixture
 def three_test_configuration(test_db, test_organization, db_user, db_status, db_test_configuration):
     """A test configuration whose test set holds three tests."""

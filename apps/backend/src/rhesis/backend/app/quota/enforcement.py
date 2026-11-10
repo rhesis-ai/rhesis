@@ -19,9 +19,12 @@ should not pay for six resources to answer a question about one.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import logging
+from dataclasses import dataclass, field
+from datetime import date
 from typing import Optional
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.organization import Organization
@@ -33,7 +36,12 @@ from rhesis.backend.app.services.usage import (
     FLOW_KIND,
     STOCK_KIND,
     _current_period,
+    dispatch_accrual,
+    release_usage,
+    reserve_usage,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -187,6 +195,20 @@ def _read_usage(db: Session, org_id: str, resource: QuotaResource) -> int:
     return used or 0
 
 
+def _lock_quota(db: Session, org_id: str, resource: QuotaResource) -> None:
+    """Serialize check-and-create of *resource* for *org_id* until *db* commits.
+
+    Transaction-scoped, so it is released by the commit that makes the new
+    row visible to the next counter (or by the rollback of a failed request).
+    Re-entrant within one session, so a nested check on the same session
+    does not wait on itself.
+    """
+    db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": f"quota:{org_id}:{resource.value}"},
+    )
+
+
 def check_quota(
     db: Session,
     org_id: str,
@@ -194,6 +216,7 @@ def check_quota(
     resource: QuotaResource,
     amount: int = 1,
     reserved: int = 0,
+    serialize: bool = False,
 ) -> QuotaVerdict:
     """Return whether *org_id* may consume *amount* more of *resource*. Never raises.
 
@@ -209,9 +232,14 @@ def check_quota(
     rather than allowed to start and end far past the ceiling. *reserved*
     is work already started but not yet recorded in ``usage`` (test runs
     still queued or running), so two runs can't each claim the same room.
+
+    *serialize* takes :func:`_lock_quota` before reading, for a caller that
+    creates the counted row in the same transaction. Skipped when unlimited.
     """
     policy = QuotaRegistry.get_policy(org)
     limit = policy.limits.get(resource)
+    if serialize and limit is not None:
+        _lock_quota(db, org_id, resource)
     used = _read_usage(db, org_id, resource)
     is_stock = resource in _STOCK_COUNTERS
     kind = STOCK_KIND if is_stock else FLOW_KIND
@@ -259,12 +287,121 @@ def enforce_quota(
     grace band (``verdict.over_limit``) can still act on it (a warning
     response header, say) without a second query.
 
+    A stock resource is checked under :func:`_lock_quota`: its usage is a
+    live count, and the row the caller is about to insert only counts once
+    committed, so concurrent creates must not all read the same count. The
+    caller has to insert on this same session before its next commit.
+
     :raises QuotaExceededError: if the verdict is not allowed.
     """
-    verdict = check_quota(db, org_id, org, resource, amount, reserved)
+    serialize = resource in _STOCK_COUNTERS
+    verdict = check_quota(db, org_id, org, resource, amount, reserved, serialize=serialize)
     if not verdict.allowed:
         raise QuotaExceededError(verdict)
     return verdict
+
+
+@dataclass
+class QuotaReservation:
+    """Units of a flow resource claimed up front by :func:`reserve_quota`.
+
+    *period_start* is ``None`` when nothing was reserved (the resource is
+    unlimited), in which case :meth:`settle` accrues the consumed amount the
+    usual way instead of giving back the remainder.
+    """
+
+    org_id: str
+    resource: QuotaResource
+    amount: int
+    period_start: Optional[date]
+    _settled: bool = field(default=False, init=False, repr=False)
+
+    def settle(self, db: Session, consumed: int) -> None:
+        """Record that *consumed* units were really used. Logs failures instead of raising.
+
+        Only the first call counts, so a fallback path can settle unconditionally.
+        *db* is the request session, used after the work on it is done; a
+        release commits it.
+        """
+        if self._settled:
+            return
+        self._settled = True
+        try:
+            self._settle(db, max(consumed, 0))
+        except Exception:
+            logger.warning(
+                "Failed to settle %s reservation of %s for org %s",
+                self.resource.value,
+                self.amount,
+                self.org_id,
+                exc_info=True,
+            )
+
+    def _settle(self, db: Session, consumed: int) -> None:
+        if self.period_start is None:
+            dispatch_accrual(self.org_id, self.resource, consumed)
+            return
+        if consumed > self.amount:
+            dispatch_accrual(self.org_id, self.resource, consumed - self.amount)
+            return
+        unused = self.amount - consumed
+        try:
+            release_usage(db, self.org_id, self.resource, unused, self.period_start)
+            db.commit()
+        except Exception:
+            # The work may have left the session in a failed transaction; retry on a clean one.
+            db.rollback()
+            release_usage(db, self.org_id, self.resource, unused, self.period_start)
+            db.commit()
+
+
+def reserve_quota(
+    db: Session,
+    org_id: str,
+    org: Optional[Organization],
+    resource: QuotaResource,
+    amount: int,
+) -> QuotaReservation:
+    """Claim *amount* of a flow resource before doing the work, or raise.
+
+    For work done inside the request whose size is known up front (sync test
+    generation). The check and the increment are one statement, so
+    concurrent requests cannot all pass a check against the same total.
+    Commits *db* so the usage row is not locked while the work runs; call
+    with nothing else pending on it. Pass what was really used to
+    :meth:`QuotaReservation.settle` afterwards.
+
+    :raises QuotaExceededError: if *amount* does not fit under the ceiling.
+    """
+    policy = QuotaRegistry.get_policy(org)
+    limit = policy.limits.get(resource)
+    if limit is None:
+        return QuotaReservation(org_id, resource, amount, None)
+
+    ceiling = policy.ceiling_for(limit)
+    period = _current_period()
+    new_used = reserve_usage(db, org_id, resource, amount, ceiling, period)
+    if new_used is None:
+        used = _read_usage(db, org_id, resource)
+        raise QuotaExceededError(
+            QuotaVerdict(
+                resource=resource,
+                used=used,
+                limit=limit,
+                allowed=False,
+                over_limit=used >= limit,
+                kind=FLOW_KIND,
+                period_end=period[1].isoformat(),
+                requested=amount,
+                remaining=max(ceiling - used, 0),
+            )
+        )
+    db.commit()
+    # Local import: usage_notifications pulls in the notification service graph.
+    from rhesis.backend.app.services.usage_notifications import notify_flow_crossing
+
+    notify_flow_crossing(db, org_id, resource, previous_used=new_used - amount, new_used=new_used)
+    return QuotaReservation(org_id, resource, amount, period[0])
 
 
 BACKSTOP_MULTIPLIER = 10
@@ -316,9 +453,11 @@ def check_backstop(
 __all__ = [
     "BACKSTOP_MULTIPLIER",
     "QuotaExceededError",
+    "QuotaReservation",
     "QuotaVerdict",
     "check_backstop",
     "check_quota",
     "enforce_quota",
     "quota_exceeded_response_body",
+    "reserve_quota",
 ]
