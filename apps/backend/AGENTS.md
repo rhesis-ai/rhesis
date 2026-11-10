@@ -54,6 +54,12 @@ Nothing warns you until the statement runs. Guarded by
 need superuser, which the migration role doesn't have on CNPG. `tests/backend/security/test_rls_coverage.py`
 fails when one is missing; a table that is exempt on purpose goes in its `EXEMPT_*` sets with a reason.
 
+**Migrations must also run as an owner without BYPASSRLS** (managed Postgres: RDS, Cloud SQL,
+Azure). `alembic/env.py` lifts FORCE RLS on the owner's tables while migrating and restores it before
+every commit (`alembic/utils/force_rls.py`), so unscoped seed writes work there too. The
+`managed-postgres-migrations` CI job runs `scripts/check_managed_postgres_migrations.py`, which
+migrates with and without BYPASSRLS and fails if RLS flags, policies or seed data differ.
+
 **A data migration over a table with `project_id` walks projects, not just orgs.** With the org bound
 and `app.current_project` blank, `project_isolation` hides every project row from a non-BYPASSRLS
 role. Loop over `iter_tenant_scopes(conn)` from `alembic/utils/tenant_scope.py` instead.
