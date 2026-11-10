@@ -25,6 +25,7 @@ from rhesis.backend.app.utils.crud_utils import (
     get_or_create_type_lookup,
 )
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
+from rhesis.backend.app.utils.foreign_refs import validate_foreign_references
 from rhesis.backend.app.utils.user_model_utils import build_model_or_raise
 from rhesis.backend.app.utils.uuid_utils import (
     ensure_owner_id,
@@ -854,6 +855,9 @@ def bulk_create_tests(
             # Map "metadata" to "test_metadata" (SDK uses "metadata" but DB uses "test_metadata")
             if "metadata" in test_params and "test_metadata" not in test_params:
                 test_params["test_metadata"] = test_params.pop("metadata")
+
+            # stage_test skips create_item, so check the caller-supplied ids here.
+            validate_foreign_references(db, models.Test, test_params, organization_id, user_id)
 
             try:
                 _pending_tests.append(test_crud.stage_test(db, test_params))

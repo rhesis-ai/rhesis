@@ -98,6 +98,11 @@ needed.
 - `auto_stamp` (`Session.before_flush`) — fills `organization_id`, `user_id`, `project_id` on new
   ORM objects when the column is `None`
 
+Stamping never checks a value the client supplied: validate every foreign id against the
+caller's scope. `create_item`/`update_item` force the caller's `organization_id` and run
+`utils/foreign_refs.validate_foreign_references` (user references, `project_id`); a write that
+builds ORM objects itself, like `stage_test`, must call it too.
+
 ### Using the scope
 
 ```python
