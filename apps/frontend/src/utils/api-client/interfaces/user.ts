@@ -136,13 +136,11 @@ export interface UserCreate {
   send_invite?: boolean;
 }
 
+/** PUT /users/{id} accepts profile fields only; the backend rejects anything else. */
 export interface UserUpdate {
-  email?: string;
   name?: string;
   given_name?: string;
   family_name?: string;
-  auth0_id?: string;
   picture?: string;
-  is_active?: boolean;
   organization_id?: UUID;
 }
