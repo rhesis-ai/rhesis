@@ -22,6 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.organization import Organization
@@ -187,6 +188,20 @@ def _read_usage(db: Session, org_id: str, resource: QuotaResource) -> int:
     return used or 0
 
 
+def _lock_quota(db: Session, org_id: str, resource: QuotaResource) -> None:
+    """Serialize check-and-create of *resource* for *org_id* until *db* commits.
+
+    Transaction-scoped, so it is released by the commit that makes the new
+    row visible to the next counter (or by the rollback of a failed request).
+    Re-entrant within one session, so a nested check on the same session
+    does not wait on itself.
+    """
+    db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": f"quota:{org_id}:{resource.value}"},
+    )
+
+
 def check_quota(
     db: Session,
     org_id: str,
@@ -194,6 +209,7 @@ def check_quota(
     resource: QuotaResource,
     amount: int = 1,
     reserved: int = 0,
+    serialize: bool = False,
 ) -> QuotaVerdict:
     """Return whether *org_id* may consume *amount* more of *resource*. Never raises.
 
@@ -209,9 +225,14 @@ def check_quota(
     rather than allowed to start and end far past the ceiling. *reserved*
     is work already started but not yet recorded in ``usage`` (test runs
     still queued or running), so two runs can't each claim the same room.
+
+    *serialize* takes :func:`_lock_quota` before reading, for a caller that
+    creates the counted row in the same transaction. Skipped when unlimited.
     """
     policy = QuotaRegistry.get_policy(org)
     limit = policy.limits.get(resource)
+    if serialize and limit is not None:
+        _lock_quota(db, org_id, resource)
     used = _read_usage(db, org_id, resource)
     is_stock = resource in _STOCK_COUNTERS
     kind = STOCK_KIND if is_stock else FLOW_KIND
@@ -259,9 +280,15 @@ def enforce_quota(
     grace band (``verdict.over_limit``) can still act on it (a warning
     response header, say) without a second query.
 
+    A stock resource is checked under :func:`_lock_quota`: its usage is a
+    live count, and the row the caller is about to insert only counts once
+    committed, so concurrent creates must not all read the same count. The
+    caller has to insert on this same session before its next commit.
+
     :raises QuotaExceededError: if the verdict is not allowed.
     """
-    verdict = check_quota(db, org_id, org, resource, amount, reserved)
+    serialize = resource in _STOCK_COUNTERS
+    verdict = check_quota(db, org_id, org, resource, amount, reserved, serialize=serialize)
     if not verdict.allowed:
         raise QuotaExceededError(verdict)
     return verdict
