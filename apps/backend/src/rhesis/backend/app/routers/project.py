@@ -145,9 +145,9 @@ def read_project_members(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """List all members of a project."""
-    organization_id, _user_id = tenant_context
+    organization_id, user_id = tenant_context
     db_project = project_crud.get_project(
-        db, project_id=project_id, organization_id=organization_id
+        db, project_id=project_id, organization_id=organization_id, user_id=user_id
     )
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -170,9 +170,9 @@ def add_project_member(
     current_user: User = Depends(require_current_user_or_token),
 ):
     """Add a user as a member of a project."""
-    organization_id, _user_id = tenant_context
+    organization_id, user_id = tenant_context
     db_project = project_crud.get_project(
-        db, project_id=project_id, organization_id=organization_id
+        db, project_id=project_id, organization_id=organization_id, user_id=user_id
     )
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -235,9 +235,9 @@ def remove_project_member(
         ProjectSelfRemovalError,
     )
 
-    organization_id, _tenant_user_id = tenant_context
+    organization_id, requester_id = tenant_context
     db_project = project_crud.get_project(
-        db, project_id=project_id, organization_id=organization_id
+        db, project_id=project_id, organization_id=organization_id, user_id=requester_id
     )
     if db_project is None:
         raise HTTPException(status_code=404, detail="Project not found")

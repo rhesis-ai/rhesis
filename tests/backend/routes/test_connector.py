@@ -27,6 +27,8 @@ _TEST_PROJECT_ID = str(uuid.uuid4())
 # Path to the membership guard so tests can bypass it when they are
 # exercising connection-manager behaviour rather than authorization.
 _MEMBERSHIP_GUARD = "rhesis.backend.app.routers.connector._assert_project_membership"
+# Authorization parses the path project as a UUID, so status lookups need one.
+_STATUS_PROJECT_ID = "6f1c0a52-3c1e-4d2b-9a57-0f8e2b7d4c11"
 
 
 @pytest.fixture
@@ -246,7 +248,7 @@ class TestConnectorHTTPEndpoints:
         from rhesis.backend.app.services.connector.schemas import ConnectionStatus, FunctionMetadata
 
         mock_status = ConnectionStatus(
-            project_id="test-project",
+            project_id=_STATUS_PROJECT_ID,
             environment="development",
             connected=True,
             functions=[
@@ -266,12 +268,12 @@ class TestConnectorHTTPEndpoints:
             mock_mgr.get_connection_status = Mock(return_value=mock_status)
 
             response = authenticated_client.get(
-                "/connector/status/test-project", params={"environment": "development"}
+                f"/connector/status/{_STATUS_PROJECT_ID}", params={"environment": "development"}
             )
 
             assert response.status_code == status.HTTP_200_OK
             data = response.json()
-            assert data["project_id"] == "test-project"
+            assert data["project_id"] == _STATUS_PROJECT_ID
             assert data["environment"] == "development"
             assert data["connected"] is True
             assert len(data["functions"]) == 1
@@ -282,7 +284,7 @@ class TestConnectorHTTPEndpoints:
         from rhesis.backend.app.services.connector.schemas import ConnectionStatus
 
         mock_status = ConnectionStatus(
-            project_id="test-project",
+            project_id=_STATUS_PROJECT_ID,
             environment="development",
             connected=False,
             functions=[],
@@ -294,7 +296,7 @@ class TestConnectorHTTPEndpoints:
         ):
             mock_mgr.get_connection_status = Mock(return_value=mock_status)
 
-            response = authenticated_client.get("/connector/status/test-project")
+            response = authenticated_client.get(f"/connector/status/{_STATUS_PROJECT_ID}")
 
             assert response.status_code == status.HTTP_200_OK
             data = response.json()
@@ -619,7 +621,7 @@ class TestConnectorEdgeCases:
         from rhesis.backend.app.services.connector.schemas import ConnectionStatus
 
         mock_status = ConnectionStatus(
-            project_id="nonexistent",
+            project_id=_STATUS_PROJECT_ID,
             environment="development",
             connected=False,
             functions=[],
@@ -631,7 +633,7 @@ class TestConnectorEdgeCases:
         ):
             mock_mgr.get_connection_status = Mock(return_value=mock_status)
 
-            response = authenticated_client.get("/connector/status/nonexistent")
+            response = authenticated_client.get(f"/connector/status/{_STATUS_PROJECT_ID}")
 
             assert response.status_code == status.HTTP_200_OK
             data = response.json()

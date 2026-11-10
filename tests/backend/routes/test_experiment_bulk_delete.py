@@ -157,8 +157,8 @@ class TestBulkDeleteExperimentsEndpoint:
         db_user,
     ):
         """One owned, one forbidden, one not found. Each lands in its bucket."""
-        owned = _create_experiment(authenticated_client, db_project.id, name="mine")
-
+        # Seed the direct row before calling the create route: it restores the
+        # connection's project GUC on exit, which this test_db insert cannot pass RLS under.
         other_experiment = Experiment(
             name="Someone else's",
             owner_user_id=db_user.id,
@@ -170,6 +170,7 @@ class TestBulkDeleteExperimentsEndpoint:
         test_db.flush()
         test_db.refresh(other_experiment)
 
+        owned = _create_experiment(authenticated_client, db_project.id, name="mine")
         fake_id = str(uuid.uuid4())
 
         response = authenticated_client.request(
