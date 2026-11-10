@@ -8,11 +8,13 @@ from odata_query.grammar import ODataLexer, ODataParser
 from odata_query.sqlalchemy import AstToSqlAlchemyOrmVisitor, functions_ext
 from odata_query.sqlalchemy.shorthand import _get_joined_attrs
 from sqlalchemy import and_, inspect
-from sqlalchemy.orm import Query
+from sqlalchemy.orm import Query, RelationshipProperty
 from sqlalchemy.sql import visitors
 from sqlalchemy.sql.elements import BinaryExpression, BindParameter, ClauseElement
 from sqlalchemy.sql.expression import literal
 from sqlalchemy.types import NullType, String
+
+from rhesis.backend.app.utils.column_access import queryable_field_error
 
 _LIKE_ESCAPE = "/"
 _CASE_FUNCTIONS = {"tolower": functions_ext.lower, "toupper": functions_ext.upper}
@@ -59,8 +61,29 @@ def _escape_like(text: str) -> str:
 
 class _OrmVisitor(AstToSqlAlchemyOrmVisitor):
     """odata_query's ORM visitor, with ``startswith``/``endswith``/``contains``
-    matching their literal as plain text instead of as a LIKE pattern, and
-    navigation inside ``any``/``all`` joined within the subquery."""
+    matching their literal as plain text instead of as a LIKE pattern,
+    navigation inside ``any``/``all`` joined within the subquery, and every
+    field checked against ``column_access`` before it is resolved."""
+
+    def __init__(self, root_model: Type, via_relationship: bool = False):
+        super().__init__(root_model)
+        # True for the model of an any/all lambda, which is reached by navigation.
+        self.via_relationship = via_relationship
+
+    def visit_Identifier(self, node: ast.Identifier) -> ClauseElement:
+        _check_field(self.root_model, node.name, self.via_relationship)
+        return super().visit_Identifier(node)
+
+    def visit_Attribute(self, node: ast.Attribute) -> ClauseElement:
+        # The parent's body, with the check before the related attribute is read.
+        rel_attr = self.visit(node.owner)
+        prop = inspect(rel_attr).property
+        if not isinstance(prop, RelationshipProperty):
+            raise ValueError(f"Not a relationship: {node.owner}")
+        related_model = prop.entity.class_
+        _check_field(related_model, node.attr, via_relationship=True)
+        self.join_relationships.append(rel_attr)
+        return getattr(related_model, node.attr)
 
     def visit_CollectionLambda(self, node: ast.CollectionLambda) -> ClauseElement:
         # odata_query drops the joins a nested path needs inside the lambda, so
@@ -74,7 +97,7 @@ class _OrmVisitor(AstToSqlAlchemyOrmVisitor):
         subq_ast = odata_utils.expression_relative_to_identifier(
             node.lambda_.identifier, node.lambda_.expression
         )
-        subq_transformer = self.__class__(collection_model)
+        subq_transformer = self.__class__(collection_model, via_relationship=True)
         subquery_filter = subq_transformer.visit(subq_ast)
         joins = [rel.expression for rel in subq_transformer.join_relationships]
 
@@ -103,6 +126,12 @@ class _OrmVisitor(AstToSqlAlchemyOrmVisitor):
             return None
         inner = self._escaped_literal(node.args[0])
         return None if inner is None else case_function(inner)
+
+
+def _check_field(model: Type, name: str, via_relationship: bool) -> None:
+    error = queryable_field_error(model, name, via_relationship)
+    if error:
+        raise ValueError(error)
 
 
 def _type_literals_as_their_columns(clause) -> None:
