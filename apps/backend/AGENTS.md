@@ -206,6 +206,23 @@ Two rules for new code:
 Usage that arrives with no org bound is logged as `usage.unattributed` rather than dropped —
 a nonzero rate there means a code path is missing its binding.
 
+## Outbound requests to tenant URLs
+
+Any request to a URL a tenant supplies (endpoint URLs, model `api_base`, OAuth `token_url`,
+auto-configure, Jira/Confluence base URLs) goes through `app/utils/ssrf_http_client.py`:
+`guarded_async_client` / `guarded_client` for HTTP, `guarded_ws_connect` for WebSockets,
+`validate_outbound_url` when the request is made by a library we don't control (LiteLLM). The
+guard resolves the host, refuses blocked addresses, and connects to the address it checked, on
+every redirect hop. Never build a bare `httpx`/`requests`/`websockets` client for these;
+`tests/backend/security/test_ssrf_egress.py` has a gate for the invoker paths.
+
+`OUTBOUND_ALLOW_PRIVATE_NETWORKS` lets those URLs reach loopback and private networks. Unset, it is
+on for `BACKEND_ENV=local`/`development` and off for `staging`/`production`; the Helm chart sets it
+`false`. Jira/Confluence/GitLab base URLs follow it too. Link-local and cloud metadata addresses
+are blocked regardless. SSO and webhook targets
+(`SafeHttpClient`) stay public-only, with only `localhost` let through when the flag is on. There
+is no egress `NetworkPolicy` in `charts/` yet, so this guard is the only layer.
+
 ## Affordances — backend side
 
 The backend resolves permitted actions per object and exposes them as `permitted_actions: string[]`
