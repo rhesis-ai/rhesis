@@ -109,8 +109,15 @@ def _key(prefix: str, organization_id: str, project_id: str, item_id: str) -> st
     return f"{prefix}{organization_id}:{project_id}:{item_id}"
 
 
-def _has_scope(organization_id: Optional[str], project_id: Optional[str]) -> bool:
-    return bool(organization_id) and bool(project_id)
+def _scope(organization_id: Any, project_id: Any) -> Optional[Tuple[str, str]]:
+    """Stringify a tenant scope, or None when either part is missing.
+
+    Callers pass raw ids (UUID, str or None), so a missing id never becomes
+    the literal string "None" and a shared fake scope.
+    """
+    if not organization_id or not project_id:
+        return None
+    return str(organization_id), str(project_id)
 
 
 class ConversationLinkingCache(RedisBackedCache):
@@ -432,17 +439,18 @@ def _get_cache() -> ConversationLinkingCache:
 def register_pending_conversation_link(
     trace_id: str,
     conversation_id: str,
-    organization_id: str,
-    project_id: str,
+    organization_id: Any,
+    project_id: Any,
 ) -> None:
     """Park a conversation-id link for deferred application.
 
     Called when ``update_conversation_id_for_trace()`` returns 0
     because the SDK's spans have not been ingested yet.
     """
-    if not _has_scope(organization_id, project_id):
+    scope = _scope(organization_id, project_id)
+    if scope is None:
         return
-    _get_cache().register_link(organization_id, project_id, trace_id, conversation_id)
+    _get_cache().register_link(*scope, trace_id, conversation_id)
     logger.debug(
         f"[CONVERSATION_LINKING] Parked pending link: "
         f"trace_id={trace_id}, conversation_id={conversation_id}"
@@ -451,8 +459,8 @@ def register_pending_conversation_link(
 
 def get_trace_id_from_pending_links(
     conversation_id: str,
-    organization_id: Optional[str],
-    project_id: Optional[str],
+    organization_id: Any,
+    project_id: Any,
 ) -> Optional[str]:
     """Look up a trace_id from the pending conversation links cache.
 
@@ -466,11 +474,10 @@ def get_trace_id_from_pending_links(
     Only links parked under the caller's organization and project are
     visible. Returns the trace_id if found, None otherwise.
     """
-    if not _has_scope(organization_id, project_id):
+    scope = _scope(organization_id, project_id)
+    if scope is None:
         return None
-    return _get_cache().get_trace_id_for_conversation(
-        str(organization_id), str(project_id), conversation_id
-    )
+    return _get_cache().get_trace_id_for_conversation(*scope, conversation_id)
 
 
 def _trace_ids_by_scope(stored_spans: List[models.Trace]) -> Dict[Tuple[str, str], List[str]]:
@@ -523,8 +530,8 @@ def apply_pending_conversation_links(
 def register_pending_output(
     trace_id: str,
     mapped_output: str,
-    organization_id: str,
-    project_id: str,
+    organization_id: Any,
+    project_id: Any,
 ) -> None:
     """Park a mapped output for injection when SDK spans arrive.
 
@@ -534,16 +541,17 @@ def register_pending_output(
     backend. ``organization_id``/``project_id`` must be the scope the
     spans will be ingested under.
     """
-    if not _has_scope(organization_id, project_id):
+    scope = _scope(organization_id, project_id)
+    if scope is None:
         return
-    _get_cache().register_output(organization_id, project_id, trace_id, mapped_output)
+    _get_cache().register_output(*scope, trace_id, mapped_output)
     logger.debug(f"[CONVERSATION_IO] Parked pending output for trace_id={trace_id}")
 
 
 def inject_pending_output(
     spans: List[Any],
-    organization_id: str,
-    project_id: str,
+    organization_id: Any,
+    project_id: Any,
 ) -> int:
     """Inject parked mapped output into span attributes before storage.
 
@@ -567,7 +575,8 @@ def inject_pending_output(
         ConversationContext as ConversationConstants,
     )
 
-    if not spans or not _has_scope(organization_id, project_id):
+    scope = _scope(organization_id, project_id)
+    if not spans or scope is None:
         return 0
 
     input_key = ConversationConstants.SpanAttributes.CONVERSATION_INPUT
@@ -575,7 +584,7 @@ def inject_pending_output(
 
     trace_ids = list({span.trace_id for span in spans})
 
-    matched = _get_cache().pop_outputs_for_traces(str(organization_id), str(project_id), trace_ids)
+    matched = _get_cache().pop_outputs_for_traces(*scope, trace_ids)
 
     if not matched:
         return 0
@@ -610,8 +619,8 @@ def inject_pending_output(
 def register_pending_files(
     trace_id: str,
     files,
-    organization_id: str,
-    project_id: str,
+    organization_id: Any,
+    project_id: Any,
 ) -> None:
     """Park FileReference metadata for deferred entity linking when SDK spans arrive.
 
@@ -619,7 +628,8 @@ def register_pending_files(
     List[Dict] (legacy inline-base64 dicts from the playground path).
     Only metadata is serialised to the cache — no base64 bytes.
     """
-    if not _has_scope(organization_id, project_id):
+    scope = _scope(organization_id, project_id)
+    if scope is None:
         return
     try:
         from rhesis.sdk.connector.types import FileReference
@@ -629,7 +639,7 @@ def register_pending_files(
         serialisable = files
 
     files_json = json.dumps(serialisable)
-    _get_cache().register_files(organization_id, project_id, trace_id, files_json)
+    _get_cache().register_files(*scope, trace_id, files_json)
     logger.debug(f"[FILE_LINKING] Parked {len(files)} pending file(s) for trace_id={trace_id}")
 
 

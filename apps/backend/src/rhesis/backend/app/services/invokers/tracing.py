@@ -269,7 +269,7 @@ async def create_invocation_trace(
             )
 
             existing_trace_id = get_trace_id_from_pending_links(
-                conversation_id, organization_id, str(endpoint.project_id)
+                conversation_id, organization_id, endpoint.project_id
             )
             if existing_trace_id:
                 logger.debug(f"Found trace_id from pending links cache: {existing_trace_id}")

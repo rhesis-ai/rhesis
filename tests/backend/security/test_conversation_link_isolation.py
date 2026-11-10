@@ -207,6 +207,27 @@ class TestPendingFilesIsolation:
 
 
 @pytest.mark.unit
+class TestMissingScope:
+    def test_missing_org_or_project_parks_nothing(self, redis_cache, orgs):
+        cl.register_pending_output(orgs.trace_id, "x", None, orgs.a.project)
+        cl.register_pending_conversation_link(orgs.trace_id, orgs.conversation_id, orgs.a.org, None)
+
+        span = _root_span(orgs.trace_id, orgs.a.project)
+        assert cl.inject_pending_output([span], "None", orgs.a.project) == 0
+        assert cl.get_trace_id_from_pending_links(orgs.conversation_id, orgs.a.org, "None") is None
+        assert cl.get_trace_id_from_pending_links(orgs.conversation_id, orgs.a.org, None) is None
+
+    def test_uuid_and_str_ids_share_one_scope(self, redis_cache, orgs):
+        trace_a = uuid.uuid4().hex
+        cl.register_pending_conversation_link(
+            trace_a, orgs.conversation_id, uuid.UUID(orgs.a.org), uuid.UUID(orgs.a.project)
+        )
+
+        found = cl.get_trace_id_from_pending_links(orgs.conversation_id, orgs.a.org, orgs.a.project)
+        assert found == trace_a
+
+
+@pytest.mark.unit
 class TestUnscopedLegacyEntries:
     def test_keys_from_older_releases_are_ignored(self, redis_cache, orgs):
         redis_cache._redis.set(f"convlink:reverse:{orgs.conversation_id}", "legacy", ex=60)
