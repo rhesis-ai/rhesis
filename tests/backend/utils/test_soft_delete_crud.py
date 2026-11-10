@@ -215,32 +215,24 @@ class TestSoftDeletion:
         assert restored.id == requirement_id
         assert restored.deleted_at is None
 
-    def test_hard_delete_item_permanently_deletes(self, test_db: Session, test_org_id):
-        """Test that hard_delete_item permanently removes record from database."""
-        # Create a requirement
+    def test_hard_delete_item_refuses_live_record(self, test_db: Session, test_org_id):
+        """hard_delete_item only removes rows that are already soft-deleted."""
         requirement_data = RequirementDataFactory.sample_data()
         requirement = crud_utils.create_item(
             test_db, models.Requirement, requirement_data, organization_id=test_org_id
         )
         requirement_id = requirement.id
 
-        # Hard delete the requirement
         success = crud_utils.hard_delete_item(
             test_db, models.Requirement, requirement_id, organization_id=test_org_id
         )
 
-        assert success is True
-
-        # Verify item is completely gone
-        with without_soft_delete_filter():
-            found = crud_utils.get_item(
-                test_db,
-                models.Requirement,
-                requirement_id,
-                organization_id=test_org_id,
-                include_deleted=True,
-            )
-            assert found is None
+        assert success is False
+        found = crud_utils.get_item(
+            test_db, models.Requirement, requirement_id, organization_id=test_org_id
+        )
+        assert found is not None
+        assert found.deleted_at is None
 
     def test_hard_delete_soft_deleted_item(self, test_db: Session, test_org_id):
         """Test that hard_delete_item can delete already soft-deleted items."""

@@ -227,8 +227,10 @@ class TestUserUpdateAuthorization:
 
 
 class TestRecycleBinOrgScoped:
-    """Recycle bin endpoints are org-scoped for all authenticated members.
+    """Recycle bin endpoints are org-scoped and need no superuser.
     require_superuser was confirmed dead code (never wired) and has been removed.
+    ``authenticated_client`` is the org owner; reading deleted rows needs
+    recycle:view (see tests/backend/security/test_recycle_authz.py).
     """
 
     def test_recycle_models_accessible_to_regular_user(self, authenticated_client):
@@ -237,7 +239,7 @@ class TestRecycleBinOrgScoped:
         assert response.status_code == status.HTTP_200_OK
 
     def test_recycle_list_accessible_to_regular_user(self, authenticated_client):
-        """GET /recycle/{model_name} is org-scoped for all authenticated users."""
+        """GET /recycle/{model_name} works for the org owner without superuser."""
         response = authenticated_client.get("/recycle/test")
         # 200 (possibly empty list) or 400 for unknown model — either way NOT 403/401
         assert response.status_code in (

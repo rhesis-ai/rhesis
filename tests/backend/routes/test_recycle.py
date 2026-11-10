@@ -7,7 +7,10 @@ These tests verify the recycle bin API functionality including:
 - Restoring deleted records
 - Permanently deleting records
 - Bulk operations
-- Superuser authentication
+- Owner-only access to reads and permanent deletes
+
+``authenticated_client`` is the org owner. Non-owner members are covered with
+``_member_headers`` here and in tests/backend/security/test_recycle_authz.py.
 """
 
 import pytest
@@ -22,6 +25,13 @@ from tests.backend.routes.fixtures.data_factories import (
     RequirementDataFactory,
     TopicDataFactory,
 )
+from tests.backend.security.test_authz_http_enforcement import _make_context
+
+
+def _member_headers(test_db) -> dict:
+    """Auth headers for a plain (non-owner) member of a fresh org."""
+    _org, _user, token = _make_context(test_db, owner=False)
+    return {"Authorization": f"Bearer {token.token}"}
 
 
 @pytest.mark.integration
@@ -78,13 +88,17 @@ class TestRecycleModelsEndpoint:
 class TestRecycleGetDeletedEndpoint:
     """Test the GET /recycle/{model_name} endpoint."""
 
-    def test_get_deleted_accessible_to_all_users(
+    def test_get_deleted_accessible_to_owner(
         self, authenticated_client: TestClient, test_db, test_org_id
     ):
-        """Test that getting deleted records is accessible to all authenticated users."""
+        """The org owner can list deleted records."""
         response = authenticated_client.get("/recycle/requirement")
-        # Should succeed (200) or return empty list, not 403
         assert response.status_code == status.HTTP_200_OK
+
+    def test_get_deleted_forbidden_for_member(self, client: TestClient, test_db):
+        """A non-owner member cannot list deleted records (recycle:view)."""
+        response = client.get("/recycle/requirement", headers=_member_headers(test_db))
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_get_deleted_invalid_model_name(self, owner_client: TestClient, test_db):
         """Test that invalid model name returns 400."""
@@ -289,20 +303,35 @@ class TestRecycleRestoreEndpoint:
 class TestRecyclePermanentDeleteEndpoint:
     """Test the DELETE /recycle/{model_name}/{item_id} endpoint."""
 
-    def test_permanent_delete_requires_superuser(
-        self, authenticated_client: TestClient, test_db, test_org_id, authenticated_user_id
-    ):
-        """Test that permanent deletion is accessible to all authenticated users."""
+    def test_permanent_delete_forbidden_for_member(self, client: TestClient, test_db):
+        """A non-owner member cannot permanently delete (recycle:purge)."""
+        import uuid
 
-        # Create and delete a requirement
-        requirement = crud_utils.create_item(
-            test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
+        response = client.delete(
+            f"/recycle/requirement/{uuid.uuid4()}?confirm=true", headers=_member_headers(test_db)
         )
-        crud_utils.delete_item(test_db, models.Requirement, requirement.id, organization_id=test_org_id)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
-        # Regular user can now permanently delete (superuser requirement removed)
-        response = authenticated_client.delete(f"/recycle/requirement/{requirement.id}?confirm=true")
-        assert response.status_code == status.HTTP_200_OK
+    def test_permanent_delete_refuses_live_record(
+        self, authenticated_client: TestClient, test_db, test_org_id
+    ):
+        """Only soft-deleted records can be permanently deleted."""
+        requirement = crud_utils.create_item(
+            test_db,
+            models.Requirement,
+            RequirementDataFactory.sample_data(),
+            organization_id=test_org_id,
+        )
+
+        response = authenticated_client.delete(
+            f"/recycle/requirement/{requirement.id}?confirm=true"
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        test_db.expire_all()
+        assert crud_utils.get_item(
+            test_db, models.Requirement, requirement.id, organization_id=test_org_id
+        )
 
     def test_permanent_delete_requires_confirmation(
         self, authenticated_client: TestClient, test_db, test_org_id
@@ -361,14 +390,17 @@ class TestRecyclePermanentDeleteEndpoint:
 class TestRecycleStatsEndpoint:
     """Test the GET /recycle/stats/counts endpoint."""
 
-    def test_stats_accessible_to_all_users(
+    def test_stats_accessible_to_owner(
         self, authenticated_client: TestClient, test_db, authenticated_user_id
     ):
-        """Test that stats endpoint is accessible to all authenticated users."""
-
+        """The org owner can read recycle bin counts."""
         response = authenticated_client.get("/recycle/stats/counts")
-        # Non-superuser can now access stats (with org filtering for security)
         assert response.status_code == status.HTTP_200_OK
+
+    def test_stats_forbidden_for_member(self, client: TestClient, test_db):
+        """A non-owner member cannot read recycle bin counts (recycle:view)."""
+        response = client.get("/recycle/stats/counts", headers=_member_headers(test_db))
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     def test_stats_returns_counts(self, authenticated_client: TestClient, test_db, test_org_id):
         """Test that stats endpoint returns deletion counts."""
@@ -490,12 +522,15 @@ class TestRecycleBulkRestoreEndpoint:
 class TestRecycleEmptyBinEndpoint:
     """Test the DELETE /recycle/empty/{model_name} endpoint."""
 
-    def test_empty_bin_requires_superuser(
-        self, authenticated_client: TestClient, test_db, authenticated_user_id
-    ):
-        """Test that emptying bin is accessible to all authenticated users."""
+    def test_empty_bin_forbidden_for_member(self, client: TestClient, test_db):
+        """A non-owner member cannot empty the bin (recycle:purge)."""
+        response = client.delete(
+            "/recycle/empty/requirement?confirm=true", headers=_member_headers(test_db)
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
-        # Regular user can now empty bin (superuser requirement removed)
+    def test_empty_bin_allowed_for_owner(self, authenticated_client: TestClient, test_db):
+        """The org owner can empty the bin."""
         response = authenticated_client.delete("/recycle/empty/requirement?confirm=true")
         assert response.status_code == status.HTTP_200_OK
 
