@@ -38,7 +38,6 @@ interface ProviderInfo {
   display_name: string;
   type: 'oauth' | 'credentials';
   enabled: boolean;
-  registration_enabled?: boolean;
   login_url?: string;
 }
 
@@ -69,7 +68,8 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
   const productName = branding?.productName ?? DEFAULT_PRODUCT_NAME;
 
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
-  const [registrationEnabled, setRegistrationEnabled] = useState(false);
+  // Matches the backend default; the backend enforces the flag either way.
+  const [registrationEnabled, setRegistrationEnabled] = useState(true);
   const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicy | null>(
     null
   );
@@ -129,7 +129,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
         }
         const data = await response.json();
         setProviders(data.providers || []);
-        setRegistrationEnabled(data.registration_enabled ?? false);
+        setRegistrationEnabled(data.registration_enabled ?? true);
         setPasswordPolicy(data.password_policy || null);
       } catch (err) {
         console.error('Error fetching providers:', err);
