@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, ClassVar, Optional
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -252,6 +252,7 @@ class UserSettingsUpdate(BaseModel):
 
 # User schemas
 class UserBase(Base):
+    is_user_schema: ClassVar[bool] = True
     email: str = Field(..., min_length=1, description="Email address cannot be empty")
     name: Optional[str] = None
     given_name: Optional[str] = None
@@ -304,6 +305,7 @@ class User(UserBase, ServerIdentity):
 
 # For use in responses where we need minimal user info
 class UserReference(Base, ServerIdentity):
+    is_user_schema: ClassVar[bool] = True
     id: UUID4
     name: Optional[str] = ""  # Default to empty string to avoid validation errors
     given_name: Optional[str] = ""  # Default to empty string to avoid validation errors
