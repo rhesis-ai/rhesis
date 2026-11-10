@@ -17,6 +17,7 @@ rather than carried over.
 """
 
 import uuid
+from types import SimpleNamespace
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -131,6 +132,24 @@ def get_default_candidates(db: Session, organization_id: str) -> List[models.Mod
             bool(row.is_protected),
             _DEFAULT_CANDIDATE_TYPE_ORDER.get(row.model_type or "language", 3),
         ),
+    )
+
+
+_CREDENTIAL_FIELDS = {"provider_type_id", "key", "endpoint"}
+
+
+def _reject_updates_without_own_credentials(
+    db: Session, existing: models.Model, update: schemas.ModelUpdate
+) -> None:
+    """The create-time credential check, on the row as this update would leave it."""
+    if not (_CREDENTIAL_FIELDS & update.model_fields_set):
+        return
+    merged = {
+        field: getattr(update if field in update.model_fields_set else existing, field)
+        for field in _CREDENTIAL_FIELDS
+    }
+    _reject_rows_without_own_credentials(
+        db, SimpleNamespace(name=update.name or existing.name, **merged)
     )
 
 
@@ -252,6 +271,9 @@ def update_model(
                 f"Cannot update protected fields ({fields_str}) on system model. "
                 "Only tags, status, owner, and assignee can be modified."
             )
+
+    if existing_model and not getattr(existing_model, "is_protected", False):
+        _reject_updates_without_own_credentials(db, existing_model, model)
 
     if existing_model and ({"model_type", "provider_type_id"} & model.model_fields_set):
         _fit_model_type_to_provider(
