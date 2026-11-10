@@ -89,15 +89,9 @@ const InfoRow = React.memo(
         >
           {label}
         </Typography>
-        <Box
-          sx={{
-            '& .MuiTypography-root': {
-              color: theme.palette.text.primary,
-            },
-          }}
-        >
-          {children}
-        </Box>
+        {/* Inherited, not forced on every Typography: the score type and
+            scope badges set their own white text. */}
+        <Box sx={{ color: theme.palette.text.primary }}>{children}</Box>
       </Box>
     );
   }

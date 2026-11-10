@@ -15,6 +15,8 @@ export interface FilterButtonProps extends Omit<
   /** Number of active filters to display on the badge (overrides plain dot when > 0) */
   activeFilterCount?: number;
   tooltip?: string;
+  /** Replaces the tune icon, for other toolbar actions styled the same way. */
+  icon?: React.ReactNode;
 }
 
 /**
@@ -27,6 +29,7 @@ export function FilterButton({
   tooltip = 'Filters',
   'aria-label': ariaLabel = 'Filters',
   size = 'small',
+  icon,
   sx,
   ...props
 }: FilterButtonProps) {
@@ -50,7 +53,7 @@ export function FilterButton({
       }}
       {...props}
     >
-      <TuneOutlinedIcon sx={{ fontSize: 20 }} />
+      {icon ?? <TuneOutlinedIcon sx={{ fontSize: 20 }} />}
       {showBadge && (
         <Box
           component="span"

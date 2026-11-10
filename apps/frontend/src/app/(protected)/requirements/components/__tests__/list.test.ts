@@ -59,4 +59,34 @@ describe('requirementsList filters', () => {
       "metrics/any() and _tags_relationship/any(x: tolower(x/tag/name) eq tolower('red'))"
     );
   });
+
+  it('ORs impact ids, dropping anything that is not a UUID', () => {
+    const a = '11111111-1111-1111-1111-111111111111';
+    const b = '22222222-2222-2222-2222-222222222222';
+    expect(
+      buildListFilter(requirementsList, {
+        ...empty,
+        impactIds: [a, "x' or 1 eq 1"],
+      })
+    ).toBe(`impact_id eq ${a}`);
+    expect(
+      buildListFilter(requirementsList, { ...empty, impactIds: [a, b] })
+    ).toBe(`(impact_id eq ${a} or impact_id eq ${b})`);
+  });
+
+  it('maps the hierarchy filter to parent_id clauses', () => {
+    const parent = '33333333-3333-3333-3333-333333333333';
+    expect(
+      buildListFilter(requirementsList, { ...empty, hierarchy: 'top_level' })
+    ).toBe('parent_id eq null');
+    expect(
+      buildListFilter(requirementsList, { ...empty, hierarchy: 'has_parent' })
+    ).toBe('parent_id ne null');
+    expect(
+      buildListFilter(requirementsList, { ...empty, hierarchy: parent })
+    ).toBe(`parent_id eq ${parent}`);
+    expect(
+      buildListFilter(requirementsList, { ...empty, hierarchy: 'all' })
+    ).toBeUndefined();
+  });
 });

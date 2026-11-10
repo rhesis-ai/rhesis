@@ -39,23 +39,24 @@ const CARD_GRID = {
   marginBottom: 4,
 } as const;
 
-/** EntityCard internals: title row, clamped description, footer meta. */
+/** EntityCard internals: context, title, facts, description, relations, footer. */
 const CARD = {
-  /** Vertical gap between the card's sections. */
-  gap: '20px',
-  /** Gap inside the title block. */
+  /** Vertical gap between the card's slots, in MUI spacing units. */
+  gap: 1.25,
   titleGap: '10px',
   iconSize: 24,
   titleWidth: '62%',
-  /** Description is clamped to 3 lines at 22px, so it reserves 66px. */
-  descriptionLines: 3,
+  contextWidth: 88,
+  /** Kind chip and one plain fact. */
+  chipHeight: 22,
+  chipWidth: 80,
+  factWidth: 72,
+  /** Description is clamped to 2 lines at 22px. */
+  descriptionLines: 2,
   descriptionLineHeight: 22,
-  /** Avatar in the footer meta row. */
-  avatarSize: 24,
-  avatarLabelWidth: 96,
-  /** Chip row under the divider. */
-  chipHeight: 24,
-  chipWidths: [64, 88, 52],
+  relationWidths: [64, 52, 72],
+  avatarSize: 20,
+  avatarLabelWidth: 64,
 } as const;
 
 export interface PageCardGridSkeletonProps {
@@ -116,35 +117,44 @@ export default function PageCardGridSkeleton({
               p: GRID_CARD_INSET,
             }}
           >
+            {/* Context */}
+            <Skeleton
+              variant="text"
+              width={CARD.contextWidth}
+              sx={skeletonTextSx('bodyMReg')}
+            />
+
             {/* Title row: icon plus name */}
             <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: CARD.titleGap,
-              }}
+              sx={{ display: 'flex', alignItems: 'center', gap: CARD.titleGap }}
             >
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: CARD.titleGap,
-                }}
-              >
-                <Skeleton
-                  variant="circular"
-                  width={CARD.iconSize}
-                  height={CARD.iconSize}
-                />
-                <Skeleton
-                  variant="text"
-                  width={CARD.titleWidth}
-                  sx={skeletonTextSx('h6')}
-                />
-              </Box>
+              <Skeleton
+                variant="circular"
+                width={CARD.iconSize}
+                height={CARD.iconSize}
+              />
+              <Skeleton
+                variant="text"
+                width={CARD.titleWidth}
+                sx={skeletonTextSx('h6')}
+              />
             </Box>
 
-            {/* Description, clamped to 3 lines in the real card */}
+            {/* Facts: kind chip plus one plain fact */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+              <Skeleton
+                variant="rounded"
+                width={CARD.chipWidth}
+                height={CARD.chipHeight}
+                sx={{ borderRadius: BORDER_RADIUS.pill }}
+              />
+              <Skeleton
+                variant="text"
+                width={CARD.factWidth}
+                sx={skeletonTextSx('bodyMReg')}
+              />
+            </Box>
+
             <Box>
               {descriptionKeys.map((lineKey, idx) => (
                 <Skeleton
@@ -156,8 +166,22 @@ export default function PageCardGridSkeleton({
               ))}
             </Box>
 
-            {/* Footer meta: avatar plus name */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <Box sx={{ height: '1px', bgcolor: 'divider' }} />
+
+            {/* Relations */}
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              {CARD.relationWidths.map(width => (
+                <Skeleton
+                  key={width}
+                  variant="text"
+                  width={width}
+                  sx={skeletonTextSx('bodyMReg')}
+                />
+              ))}
+            </Box>
+
+            {/* Footer: avatar plus name */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <Skeleton
                 variant="circular"
                 width={CARD.avatarSize}
@@ -168,19 +192,6 @@ export default function PageCardGridSkeleton({
                 width={CARD.avatarLabelWidth}
                 sx={skeletonTextSx('bodyMReg')}
               />
-            </Box>
-
-            {/* Chip section */}
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              {CARD.chipWidths.map(width => (
-                <Skeleton
-                  key={width}
-                  variant="rounded"
-                  width={width}
-                  height={CARD.chipHeight}
-                  sx={{ borderRadius: BORDER_RADIUS.pill }}
-                />
-              ))}
             </Box>
           </Box>
         ))}

@@ -8,6 +8,19 @@ import CircularProgress from '@mui/material/CircularProgress';
 import LinearProgress from '@mui/material/LinearProgress';
 import Alert from '@mui/material/Alert';
 import TablePagination from '@mui/material/TablePagination';
+import Button from '@mui/material/Button';
+import type { Theme } from '@mui/material/styles';
+import ButtonGroup from '@mui/material/ButtonGroup';
+import ViewModuleIcon from '@mui/icons-material/ViewModule';
+import TableRowsIcon from '@mui/icons-material/TableRows';
+import { FilterButton } from '@/components/common/FilterButton';
+import RequirementsTable from './RequirementsTable';
+import RequirementOptionsDrawer from './RequirementOptionsDrawer';
+import {
+  readRequirementsView,
+  storeRequirementsView,
+  type RequirementsView,
+} from './requirements-table';
 import GridToolbar, {
   ToolbarPillTabs,
   directoryToolbarProps,
@@ -20,12 +33,14 @@ import { EntityType, type Tag } from '@/utils/api-client/interfaces/tag';
 import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 import RequirementCard from './RequirementCard';
-import RequirementDrawer from './RequirementDrawer';
+import RequirementDrawer, {
+  type RequirementDetailsInput,
+} from './RequirementDrawer';
 import RequirementMetricsViewer from './RequirementMetricsViewer';
 import { generateCopyName } from '@/utils/entity-helpers';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
-import { PsychologyIcon } from '@/components/icons';
+import { PsychologyIcon, SettingsIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { Can, useCan } from '@/components/common/Can';
@@ -36,6 +51,7 @@ import RequirementFilterDrawer, {
   EMPTY_REQUIREMENT_FILTERS,
   hasActiveRequirementFilters,
   countActiveRequirementFilters,
+  hierarchyFilterValue,
 } from './RequirementFilterDrawer';
 import { useList } from '@/hooks/useList';
 import { requirementsList } from './list';
@@ -48,6 +64,13 @@ interface RequirementsClientProps {
   initialTotalCount?: number;
 }
 
+// Same height as the 36px filter and settings buttons beside it.
+const toggleButtonSx = {
+  minWidth: 'auto',
+  px: 1.5,
+  height: (theme: Theme) => theme.spacing(4.5),
+};
+
 export default function RequirementsClient({
   organizationId,
   userId,
@@ -57,6 +80,16 @@ export default function RequirementsClient({
   const router = useRouter();
   const notifications = useNotifications();
   const canCreateRequirement = useCan(Capability.Requirement.CREATE);
+  const canManageOptions = useCan(Capability.Requirement.UPDATE);
+  const [optionsOpen, setOptionsOpen] = React.useState(false);
+  // Cards on the server render; the stored choice is read after mount so
+  // hydration matches.
+  const [view, setView] = React.useState<RequirementsView>('cards');
+  React.useEffect(() => setView(readRequirementsView()), []);
+  const changeView = (next: RequirementsView) => {
+    setView(next);
+    storeRequirementsView(next);
+  };
 
   // Accumulate tag names seen across page navigations for the filter drawer
   const tagNamesRef = React.useRef(new Set<string>());
@@ -104,8 +137,10 @@ export default function RequirementsClient({
       search: searchQuery,
       metricCount: metricCountFilter,
       tagNames: drawerFilters.tagNames,
+      impactIds: drawerFilters.impactIds,
+      hierarchy: hierarchyFilterValue(drawerFilters),
     }),
-    [searchQuery, metricCountFilter, drawerFilters.tagNames]
+    [searchQuery, metricCountFilter, drawerFilters]
   );
 
   const {
@@ -261,7 +296,8 @@ export default function RequirementsClient({
   const handleSaveRequirement = async (
     name: string,
     description: string,
-    tagNames: string[]
+    tagNames: string[],
+    details: RequirementDetailsInput
   ) => {
     try {
       setDrawerLoading(true);
@@ -275,6 +311,7 @@ export default function RequirementsClient({
           name: name.trim(),
           description: description?.trim() || null,
           organization_id: organizationId,
+          ...details,
         });
 
         if (tagNames.length > 0) {
@@ -301,9 +338,10 @@ export default function RequirementsClient({
       } else if (editingRequirement && editingRequirement.id) {
         const editingId = editingRequirement.id;
         const existing = requirements.find(b => b.id === editingId);
-        const updated = await requirementClient.updateRequirement(editingId, {
+        await requirementClient.updateRequirement(editingId, {
           name: name.trim(),
           description: description?.trim() || null,
+          ...details,
         });
 
         try {
@@ -316,16 +354,7 @@ export default function RequirementsClient({
           await requirementClient.getRequirementWithMetrics(editingId);
         setRequirements(prev =>
           prev
-            .map(b =>
-              b.id === editingId
-                ? {
-                    ...b,
-                    name: updated.name,
-                    description: updated.description,
-                    tags: refreshed.tags ?? [],
-                  }
-                : b
-            )
+            .map(b => (b.id === editingId ? { ...b, ...refreshed } : b))
             .sort((a, b) => a.name.localeCompare(b.name))
         );
 
@@ -475,6 +504,9 @@ export default function RequirementsClient({
     searchQuery.trim() !== '' ||
     metricCountFilter !== 'all' ||
     hasActiveRequirementFilters(drawerFilters);
+  const editingRow = requirements.find(
+    b => !isNewRequirement && b.id === editingRequirement?.id
+  );
   const editingRequirementId = !isNewRequirement
     ? editingRequirement?.id
     : null;
@@ -542,12 +574,43 @@ export default function RequirementsClient({
         hasActiveFilters={hasActiveRequirementFilters(drawerFilters)}
         activeFilterCount={countActiveRequirementFilters(drawerFilters)}
         {...directoryToolbarProps}
+        leadingContent={
+          canManageOptions && (
+            <FilterButton
+              icon={<SettingsIcon sx={{ fontSize: 20 }} />}
+              tooltip="Requirement options"
+              aria-label="Requirement options"
+              onClick={() => setOptionsOpen(true)}
+            />
+          )
+        }
         middleContent={
           <ToolbarPillTabs
             tabs={metricOptions}
             activeValue={metricCountFilter}
             onChange={v => setMetricCountFilter(v as MetricFilter)}
           />
+        }
+        // Same switch as the test run's Split/Table toggle.
+        rightContent={
+          <ButtonGroup size="small" variant="outlined">
+            <Button
+              onClick={() => changeView('cards')}
+              variant={view === 'cards' ? 'contained' : 'outlined'}
+              startIcon={<ViewModuleIcon fontSize="small" />}
+              sx={toggleButtonSx}
+            >
+              Cards
+            </Button>
+            <Button
+              onClick={() => changeView('table')}
+              variant={view === 'table' ? 'contained' : 'outlined'}
+              startIcon={<TableRowsIcon fontSize="small" />}
+              sx={toggleButtonSx}
+            >
+              Table
+            </Button>
+          </ButtonGroup>
         }
       />
 
@@ -593,6 +656,18 @@ export default function RequirementsClient({
             enrichment={getEntityEmptyStateEnrichment('requirements')}
           />
         )
+      ) : view === 'table' ? (
+        <Box sx={{ mb: 4 }}>
+          <RequirementsTable
+            requirements={requirements}
+            loading={isLoading}
+            totalCount={totalCount}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            onPageChange={setPage}
+            onRowsPerPageChange={handleRowsPerPageChange}
+          />
+        </Box>
       ) : (
         <Box
           sx={theme => ({
@@ -653,6 +728,10 @@ export default function RequirementsClient({
       {/* Requirement Edit Drawer */}
       {editingRequirement && (
         <RequirementDrawer
+          selfId={editingRequirementId ?? undefined}
+          initialImpactId={editingRow?.impact_id ?? null}
+          initialParent={editingRow?.parent ?? null}
+          hasChildren={(editingRow?.children_count ?? 0) > 0}
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           name={editingRequirement.name}
@@ -689,6 +768,11 @@ export default function RequirementsClient({
         onClose={handleMetricsViewerClose}
         requirement={viewingRequirement}
         onRefresh={handleMetricsViewerRefresh}
+      />
+
+      <RequirementOptionsDrawer
+        open={optionsOpen}
+        onClose={() => setOptionsOpen(false)}
       />
 
       <RequirementFilterDrawer

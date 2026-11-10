@@ -41,7 +41,6 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.constants import MetricBackendType
 from rhesis.backend.app.crud.metric import get_metric
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.error_handlers import internal_error
@@ -91,8 +90,7 @@ def _resolve_metric_or_raise(
     if metric is None:
         raise HTTPException(status_code=404, detail="Metric not found")
 
-    backend_type = getattr(metric.backend_type, "type_value", None)
-    if (backend_type or "").lower() != MetricBackendType.CUSTOM:
+    if not service.is_tunable(metric):
         raise HTTPException(
             status_code=400,
             detail="Only custom metrics can be tuned.",

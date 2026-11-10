@@ -2,7 +2,7 @@ import datetime
 from typing import Any, ClassVar, Dict, Optional, Union
 from uuid import UUID
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from rhesis.backend.app.auth.capabilities import ResourceType
 from rhesis.backend.app.constants import AnnotationTarget, EntityType
@@ -71,6 +71,9 @@ class AnnotationCreate(Base):
     attributes: Optional[Dict[str, Any]] = Field(
         None, description="Extra structured fields carried by the annotation"
     )
+    requirement_id: Optional[UUID] = Field(
+        None, description="Requirement this annotation is an example of"
+    )
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
@@ -101,6 +104,9 @@ class AnnotationUpdate(Base):
     target: Optional[AnnotationTargetSchema] = Field(None, description="Updated target")
     resolved: Optional[bool] = Field(None, description="Mark as resolved or reopen")
     attributes: Optional[Dict[str, Any]] = Field(None, description="Updated attributes")
+    requirement_id: Optional[UUID] = Field(
+        None, description="Requirement this annotation is an example of; null unlinks it"
+    )
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -132,6 +138,7 @@ class Annotation(Base, WithPermittedActions, ServerIdentity):
     resolved_by_id: Optional[UUID] = None
     resolved_by: Optional[UserReference] = None
     attributes: Optional[Dict[str, Any]] = None
+    requirement_id: Optional[UUID] = None
     created_at: Union[datetime.datetime, str]
     updated_at: Union[datetime.datetime, str]
 
@@ -158,3 +165,14 @@ class AnnotationContext(Base):
 
 class AnnotationDetail(Annotation):
     context: Optional[AnnotationContext] = None
+
+
+class AnnotationTuningCaseCreate(BaseModel):
+    metric_id: UUID = Field(..., description="Custom metric to add the tuning case to")
+
+
+class AnnotationTuningCase(BaseModel):
+    """A tuning case made from an annotation, as kept in its ``tuning_cases`` attribute."""
+
+    metric_id: UUID
+    case_id: UUID

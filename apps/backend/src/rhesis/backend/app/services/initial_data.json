@@ -651,6 +651,36 @@
             "type_name": "EmbeddingOrigin",
             "type_value": "imported",
             "description": "Embedding imported from external source"
+        },
+        {
+            "type_name": "RequirementImpact",
+            "type_value": "Safety",
+            "description": "Someone could get hurt"
+        },
+        {
+            "type_name": "RequirementImpact",
+            "type_value": "Legal & compliance",
+            "description": "Breaks a law, regulation, contract or internal policy"
+        },
+        {
+            "type_name": "RequirementImpact",
+            "type_value": "Privacy & security",
+            "description": "Exposes personal data or secrets, or opens a security hole"
+        },
+        {
+            "type_name": "RequirementImpact",
+            "type_value": "Financial",
+            "description": "Costs money"
+        },
+        {
+            "type_name": "RequirementImpact",
+            "type_value": "Reputation",
+            "description": "Damages trust in the company"
+        },
+        {
+            "type_name": "RequirementImpact",
+            "type_value": "Customer experience",
+            "description": "The user doesn't get what they came for"
         }
     ],
     "requirement": [

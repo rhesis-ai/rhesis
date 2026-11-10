@@ -31,6 +31,7 @@ from typing import List, Optional, Sequence
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from rhesis.backend.app.constants import MetricBackendType
 from rhesis.backend.app.crud import metric_tuning as crud_metric_tuning
 from rhesis.backend.app.crud.annotation import get_annotations_for_tests
 from rhesis.backend.app.crud.test import delete_test
@@ -59,6 +60,12 @@ from rhesis.backend.app.services.metric_tuning.test_sets import (
 from rhesis.backend.app.services.test import create_test_set_associations
 
 logger = logging.getLogger(__name__)
+
+
+def is_tunable(metric: models.Metric) -> bool:
+    """Only custom metrics can be tuned: a framework metric's prompt is not the org's."""
+    backend_type = getattr(metric.backend_type, "type_value", None)
+    return (backend_type or "").lower() == MetricBackendType.CUSTOM
 
 
 def to_api(

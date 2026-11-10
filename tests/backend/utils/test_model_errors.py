@@ -1,6 +1,7 @@
 """describe_model_error: model failures as text that never includes the provider's message."""
 
 import asyncio
+import ssl
 
 import pytest
 from pydantic import BaseModel, ValidationError
@@ -31,6 +32,17 @@ def _validation_error() -> ValidationError:
     raise AssertionError("expected a ValidationError")
 
 
+def _wrapped_cert_error() -> Exception:
+    try:
+        try:
+            raise ssl.SSLCertVerificationError(f"certificate verify failed for {KEY}")
+        except ssl.SSLCertVerificationError as e:
+            raise RuntimeError(f"request to provider failed: {KEY}") from e
+    except RuntimeError as e:
+        return e
+    raise AssertionError("expected a RuntimeError")
+
+
 def _context_window_error() -> Exception:
     from litellm import ContextWindowExceededError
 
@@ -54,6 +66,10 @@ def _context_window_error() -> Exception:
         (ModelConfigurationError(f"User model initialization failed: {KEY}"), "set up correctly"),
         (RuntimeError(f"Authorization: Bearer {KEY}"), "failed (RuntimeError)"),
         (_context_window_error(), "too long for this model"),
+        # A certificate error is also a ValueError; it must not read as a bad answer.
+        (ssl.SSLCertVerificationError(f"verify failed: {KEY}"), "Couldn't reach"),
+        (ConnectionRefusedError(f"refused: {KEY}"), "Couldn't reach"),
+        (_wrapped_cert_error(), "Couldn't reach"),
     ],
 )
 def test_describes_the_failure_without_the_providers_text(error, expected):

@@ -7,7 +7,6 @@ const defaultProps = {
   icon: <span data-testid="icon">★</span>,
   title: 'My Entity',
   description: 'A helpful description',
-  chipSections: [],
 };
 
 describe('EntityCard', () => {
@@ -31,18 +30,95 @@ describe('EntityCard', () => {
     expect(screen.queryByTestId('icon')).not.toBeInTheDocument();
   });
 
-  it('renders caption text when provided', () => {
-    render(
-      <EntityCard {...defaultProps} captionText="Last run: Jan 1, 2024" />
-    );
+  it('renders the context line', () => {
+    render(<EntityCard {...defaultProps} context="Reliability ›" />);
 
-    expect(screen.getByText('Last run: Jan 1, 2024')).toBeInTheDocument();
+    expect(screen.getByTestId('entity-card-context')).toHaveTextContent(
+      'Reliability ›'
+    );
   });
 
-  it('does not render caption area when captionText is not provided', () => {
-    render(<EntityCard {...defaultProps} />);
+  it('joins plain facts with a dot, but not chips or states', () => {
+    render(
+      <EntityCard
+        {...defaultProps}
+        facts={[
+          { key: 'type', kind: 'type', label: 'Compliance' },
+          { key: 'impact', kind: 'state', label: 'Reputation impact' },
+          { key: 'a', kind: 'plain', label: 'Single-turn' },
+          { key: 'b', kind: 'plain', label: 'Multi-turn' },
+        ]}
+      />
+    );
 
-    expect(screen.queryByText('Last run:')).not.toBeInTheDocument();
+    expect(screen.getByTestId('entity-card-facts')).toHaveTextContent(
+      'ComplianceReputation impactSingle-turn·Multi-turn'
+    );
+  });
+
+  it('renders counted relations and greys out zero counts', () => {
+    render(
+      <EntityCard
+        {...defaultProps}
+        relations={[
+          { key: 'metrics', count: 7, label: 'metrics' },
+          { key: 'sources', count: 0, label: 'sources' },
+        ]}
+      />
+    );
+
+    const relations = screen.getByTestId('entity-card-relations');
+    expect(relations).toHaveTextContent('7 metrics');
+    expect(screen.getByText('7')).not.toHaveStyle({ fontWeight: 400 });
+    expect(screen.getByText('0')).toHaveStyle({ fontWeight: 400 });
+  });
+
+  it('shows an icon and the count, with the words as its name', () => {
+    render(
+      <EntityCard
+        {...defaultProps}
+        relations={[
+          {
+            key: 'metrics',
+            count: 7,
+            label: 'metrics',
+            icon: <span data-testid="metric-icon" />,
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByTestId('metric-icon')).toBeInTheDocument();
+    expect(screen.getByLabelText('7 metrics')).toHaveTextContent('7');
+    expect(screen.queryByText('metrics')).not.toBeInTheDocument();
+  });
+
+  it('shows the owner and when it was updated in the footer', () => {
+    render(
+      <EntityCard
+        {...defaultProps}
+        userName="Local User"
+        updatedAt={new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString()}
+      />
+    );
+
+    expect(screen.getByText('Local')).toBeInTheDocument();
+    expect(screen.getByText('Updated 3 days ago')).toBeInTheDocument();
+  });
+
+  it('puts a footer action in place of the updated time', () => {
+    render(
+      <EntityCard
+        {...defaultProps}
+        updatedAt={new Date().toISOString()}
+        footerAction={<button>Request access</button>}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Request access' })
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/^Updated/)).not.toBeInTheDocument();
   });
 
   it('renders topRightActions when provided', () => {
@@ -56,51 +132,11 @@ describe('EntityCard', () => {
     expect(screen.getByTestId('edit-btn')).toBeInTheDocument();
   });
 
-  it('renders chips in a single section', () => {
-    render(
-      <EntityCard
-        {...defaultProps}
-        chipSections={[
-          {
-            chips: [
-              { key: 'status', label: 'Active' },
-              { key: 'type', label: 'REST' },
-            ],
-          },
-        ]}
-      />
-    );
-
-    expect(screen.getByText('Active')).toBeInTheDocument();
-    expect(screen.getByText('REST')).toBeInTheDocument();
-  });
-
-  it('renders chips across multiple sections', () => {
-    render(
-      <EntityCard
-        {...defaultProps}
-        chipSections={[
-          { chips: [{ key: 'env', label: 'Production' }] },
-          { chips: [{ key: 'type', label: 'Multi-Turn' }] },
-        ]}
-      />
-    );
-
-    expect(screen.getByText('Production')).toBeInTheDocument();
-    expect(screen.getByText('Multi-Turn')).toBeInTheDocument();
-  });
-
-  it('renders empty state with no chips', () => {
-    render(<EntityCard {...defaultProps} chipSections={[{ chips: [] }]} />);
-
-    expect(screen.getByText('My Entity')).toBeInTheDocument();
-  });
-
-  it('reserves min height for three description lines when text is short', () => {
+  it('reserves min height for two description lines when text is short', () => {
     render(<EntityCard {...defaultProps} description="Short text" />);
 
     expect(screen.getByTestId('entity-card-description')).toHaveStyle({
-      minHeight: '66px',
+      minHeight: '44px',
     });
   });
 
@@ -110,7 +146,7 @@ describe('EntityCard', () => {
     render(<EntityCard {...propsWithoutDescription} />);
 
     expect(screen.getByTestId('entity-card-description')).toHaveStyle({
-      minHeight: '66px',
+      minHeight: '44px',
     });
   });
 

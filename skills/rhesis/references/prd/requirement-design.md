@@ -117,6 +117,17 @@ Source: [Story ID or FR-#].
 Example: [concrete user message] → [expected response pattern].
 ```
 
+## Parent, impact and source
+
+These fields are optional. Fill them when the PRD gives you the answer; leave them empty rather than guess.
+
+- **Parent:** when an existing requirement already covers a broader goal (e.g. the user has a "Refund Policy" requirement), pass its id as `parent_id` so the new, specific requirements sit under it. Don't create a parent just to group: a section title is still not a requirement (see above). Tests and metrics attach to the specific requirements, not the parent.
+- **Impact:** set `impact_id` when the PRD says what a failure costs — someone's safety, a legal or policy duty, private data, money, reputation, or only the customer's experience. When several apply, pick the worst. Look the options up with `list_requirement_impacts`; organizations edit them.
+- **Source:** after creating requirements from a PRD, link the PRD (or the policy it cites) with `link_source_to_requirement`, and put the section in `note` (e.g. `"FR-4.1"`). Create the source with `create_source` if it isn't in `list_sources` yet.
+- **Examples:** a person's Pass/Fail annotation linked to a requirement is an example of it. Read them with `list_requirement_examples`; they show what the people who own the requirement count as right and wrong.
+
+Ask before writing any of these during plan execution, the same as for the requirement itself.
+
 ## Tag assignment
 
 - **functional** — product workflows (status, refund, search)

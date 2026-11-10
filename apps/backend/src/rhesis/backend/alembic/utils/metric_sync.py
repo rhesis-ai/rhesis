@@ -28,7 +28,6 @@ from sqlalchemy.orm import Session, load_only
 from rhesis.backend.app import models
 from rhesis.backend.app.constants import EntityType
 from rhesis.backend.app.utils.crud_utils import (
-    get_or_create_requirement,
     get_or_create_status,
     get_or_create_type_lookup,
 )
@@ -300,9 +299,11 @@ def sync_metrics_to_organizations(
             # of orgs (the v0.13.0 OWASP resync hit ~291).
             from rhesis.backend.app.models.metric import requirement_metric_association
 
+            # Columns only: this runs inside old migrations, before later requirement
+            # columns exist, so loading whole Requirement rows would fail there.
             requirements_by_name = {
                 r.name: r
-                for r in session.query(models.Requirement)
+                for r in session.query(models.Requirement.id, models.Requirement.name)
                 .filter(models.Requirement.organization_id == org_id)
                 .all()
             }
@@ -480,6 +481,33 @@ def remove_metrics_from_organizations(
         raise
 
 
+def _insert_requirement(
+    session: Session, item: Dict[str, Any], organization_id: str, user_id: str
+) -> None:
+    """Insert one requirement naming only the columns it sets.
+
+    Old migrations call this before later requirement columns exist, so it can't go
+    through the ORM, whose inserts and lookups use the model's current columns.
+    """
+    values = {
+        "id": uuid.uuid4(),
+        "name": item["name"],
+        "description": item.get("description"),
+        "organization_id": uuid.UUID(organization_id),
+        "user_id": uuid.UUID(user_id),
+    }
+    if item.get("status"):
+        values["status_id"] = get_or_create_status(
+            db=session,
+            name=item["status"],
+            entity_type=EntityType.GENERAL,
+            organization_id=organization_id,
+            user_id=user_id,
+            commit=False,
+        ).id
+    session.execute(models.Requirement.__table__.insert().values(**values))
+
+
 def sync_requirements_to_organizations(
     session: Session,
     requirement_names: List[str] | None = None,
@@ -541,13 +569,12 @@ def sync_requirements_to_organizations(
         for organization_id, user_id in org_rows:
             org_id = uuid.UUID(organization_id)
 
-            # Get existing requirements for this organization
-            existing_requirements = (
-                session.query(models.Requirement)
-                .filter(models.Requirement.organization_id == org_id)
-                .all()
-            )
-            existing_requirement_names = {r.name for r in existing_requirements}
+            existing_requirement_names = {
+                name
+                for (name,) in session.query(models.Requirement.name).filter(
+                    models.Requirement.organization_id == org_id
+                )
+            }
 
             org_created = 0
             org_skipped = 0
@@ -562,15 +589,7 @@ def sync_requirements_to_organizations(
                     continue
 
                 try:
-                    get_or_create_requirement(
-                        db=session,
-                        name=requirement_item["name"],
-                        description=requirement_item.get("description"),
-                        status=requirement_item.get("status"),
-                        organization_id=organization_id,
-                        user_id=user_id,
-                        commit=False,
-                    )
+                    _insert_requirement(session, requirement_item, organization_id, user_id)
                     org_created += 1
 
                 except Exception as e:
@@ -640,6 +659,8 @@ def remove_requirements_from_organizations(
         # Find requirements to delete
         requirements_to_delete = (
             session.query(models.Requirement)
+            # Only ids: old downgrades run this after later columns are dropped.
+            .options(load_only(models.Requirement.id))
             .filter(models.Requirement.name.in_(requirement_names))
             .all()
         )

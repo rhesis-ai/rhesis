@@ -19,6 +19,7 @@ import {
   ANNOTATION_TARGET_LABELS,
 } from '@/utils/api-client/interfaces/annotation';
 import AnnotationDrawer from '@/components/annotations/AnnotationDrawer';
+import { annotationEntityUrl } from '@/components/annotations/annotation-links';
 import { annotationsList } from './list';
 import { isPassedStatusName } from '@/utils/test-result-status';
 import AnnotationFilterDrawer, {
@@ -244,34 +245,7 @@ export default function AnnotationsGrid({
   // An annotation hangs off another entity — a click opens that entity where
   // the annotation was left, in a new tab so the list isn't lost.
   const handleRowClick = useCallback((params: GridRowParams) => {
-    const row = params.row as Annotation;
-    const ctx = row.context;
-    let url: string | null = null;
-    if (row.entity_type === 'TestResult' && ctx?.test_run_id) {
-      url =
-        `/test-runs/${encodeURIComponent(ctx.test_run_id)}` +
-        `?selectedresult=${encodeURIComponent(ctx.test_result_id ?? row.entity_id)}` +
-        `&detailTab=annotations`;
-    } else if (
-      row.entity_type === 'Trace' &&
-      ctx?.trace_id &&
-      ctx?.project_id
-    ) {
-      url =
-        `/traces?open_trace=${encodeURIComponent(ctx.trace_id)}` +
-        `&project_id=${encodeURIComponent(ctx.project_id)}`;
-    } else if (row.entity_type === 'Test') {
-      // Two kinds of annotated test, reached two different ways: a metric's
-      // tuning case through the metric that owns it, an explorer test through
-      // its test set. `metric_id` is what tells them apart.
-      if (ctx?.metric_id) {
-        url = `/metrics/${encodeURIComponent(ctx.metric_id)}?tab=tuning`;
-      } else if (ctx?.test_set_id) {
-        url =
-          `/explorer/${encodeURIComponent(ctx.test_set_id)}` +
-          `?test=${encodeURIComponent(row.entity_id)}`;
-      }
-    }
+    const url = annotationEntityUrl(params.row as Annotation);
     if (url) {
       window.open(url, '_blank', 'noopener,noreferrer');
     }

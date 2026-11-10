@@ -681,6 +681,12 @@ tools:
       by name here, then get_requirement for full detail including linked
       metrics.
 
+      Requirements can be nested one level deep: parent_id points at a
+      top-level requirement that groups this one. Filter with "parent_id eq null" for the top
+      level, or "parent_id eq <uuid>" for one group's children. Each row also
+      carries impact (what a failure costs, or null), children_count and
+      examples_count.
+
   - name: get_requirement
     label: Retrieving requirement
     method: GET
@@ -691,6 +697,13 @@ tools:
       requirement→metric links from the requirement side; complement
       get_metric_requirements (metric-centric view). Use during planning
       to confirm reuse candidates include the right metrics.
+
+      Besides metrics the response carries: parent (id and name of the
+      requirement it is grouped under), impact (what a failure costs),
+      sources (the documents it comes from, each with an optional note on
+      why), children_count, examples_count (annotations linked to it; read
+      them with list_requirement_examples), test_counts, and review (the
+      last stored AI review of the wording, or null).
     parameters:
       requirement_id:
         description: "REQUIRED. UUID of the requirement."
@@ -717,6 +730,16 @@ tools:
         description: "REQUIRED. Requirement name (string, e.g. 'Refuses harmful requests')."
       description:
         description: "REQUIRED. Explain what this requirement means and how it should be evaluated."
+      parent_id:
+        description: >
+          UUID of a broader requirement to group this one under, from
+          list_requirements. It must be top-level itself: requirements nest
+          one level deep. Omit for a top-level requirement.
+      impact_id:
+        description: >
+          UUID of what a failure costs, from list_requirement_impacts. Set it
+          only when the spec or the user says what is at stake; omit it
+          otherwise rather than guessing.
       project_id:
         description: >
           Omit. The project scope is taken from the request, not from
@@ -760,6 +783,81 @@ tools:
         description: "Requirement name (string). Omit to keep unchanged."
       description:
         description: "Requirement description (string). Explain what this requirement means and how it should be evaluated."
+      parent_id:
+        description: >
+          UUID of the broader requirement to group this one under. Send null
+          to make it top-level; omit to keep unchanged. Requirements nest one
+          level deep, so the parent must be top-level and a requirement with
+          children of its own cannot get a parent (both 400).
+      impact_id:
+        description: >
+          UUID from list_requirement_impacts. Send null to clear it; omit to
+          keep unchanged.
+
+  - name: list_requirement_impacts
+    label: Listing impact options
+    method: GET
+    path: /type_lookups/
+    page_size: 50
+    default_query:
+      $filter: "type_name eq 'RequirementImpact'"
+      $select: "id,type_value,description"
+    description: >
+      List the organization's impact options for requirements: what it
+      costs when the assistant gets a requirement wrong (e.g. "Safety",
+      "Privacy & security", "Customer experience"). When several apply, pick
+      the worst. Each organization can edit
+      these, so look the id up here rather than guessing one. CHAIN: before
+      create_requirement or update_requirement with impact_id.
+
+  - name: list_requirement_examples
+    label: Reading requirement examples
+    method: GET
+    path: /requirements/{requirement_id}/examples
+    description: >
+      List a requirement's examples: human annotations linked to it, newest
+      first, each with the input and output of the exchange it judged. A Pass
+      annotation is a good example of the requirement, a Fail one a bad
+      example. tuning_cases lists the metrics that already use the example to
+      check their own judgement.
+
+      Report only the rows this returns. Every verdict, comment and author you
+      attribute to a person must come from a row you received here: quote
+      comments rather than paraphrasing it into something they did not say, and
+      name the author from annotation.user.name. An empty result means nobody
+      has linked an example yet, and saying so is the answer.
+
+      ENTITY: Requirement → Annotation. PREREQUISITES: requirement_id from
+      list_requirements. CHAIN: use when checking whether a requirement's
+      metric agrees with what people judged. To add an example, call
+      create_annotation with requirement_id. And never report an annotation
+      that is not in the response.
+    parameters:
+      requirement_id:
+        description: "REQUIRED. UUID of the requirement."
+
+  - name: link_source_to_requirement
+    label: Linking source to requirement
+    method: POST
+    path: /requirements/{requirement_id}/sources/{source_id}
+    requires_confirmation: true
+    description: >
+      Record where a requirement comes from: link a knowledge source (a
+      policy, a spec, a regulation) to it, with an optional note saying which
+      part. Linking the same pair again updates the note. ENTITY: Requirement
+      ↔ Source. PREREQUISITES: requirement_id from list_requirements,
+      source_id from list_sources or create_source. CHAIN: after creating
+      requirements from a spec, link the spec as their source. Read the
+      links back with get_requirement (sources).
+    parameters:
+      requirement_id:
+        description: "REQUIRED. UUID of the requirement."
+      source_id:
+        description: "REQUIRED. UUID of the source."
+      note:
+        description: >
+          Which part of the source the requirement comes from, e.g.
+          "Section 4.2, data retention". Optional.
 
   - name: list_models
     label: Listing models
@@ -1767,6 +1865,12 @@ tools:
           write it exactly as "Turn 2": the platform groups judgements by this
           reference, so "2" reads as a different target and would sit beside
           the turn's other annotations instead of superseding them.
+      requirement_id:
+        description: >
+          UUID of the requirement this verdict is an example of. Optional: a
+          TestResult annotation without one takes its test's requirement.
+          Set it on a Trace annotation to make it an example, readable with
+          list_requirement_examples.
 
   - name: update_annotation
     label: Updating annotation

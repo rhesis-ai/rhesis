@@ -14,7 +14,7 @@ eager-loads the relationships, which is why the list endpoint calls the detail v
 import uuid
 from typing import Dict, Iterable, List, Optional
 
-from sqlalchemy import func, or_
+from sqlalchemy import delete, func, or_, update
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
@@ -31,6 +31,8 @@ from rhesis.backend.app.utils.query_utils import include
 
 _REQUIREMENT_RELATED_FIELDS = (
     include(models.Requirement.user),
+    include(models.Requirement.parent),
+    include(models.Requirement.impact),
     include(models.Requirement.metrics),
     include(models.Requirement.metrics, models.Metric.metric_type),
     include(models.Requirement.metrics, models.Metric.backend_type),
@@ -241,3 +243,157 @@ def get_scorable_metrics_by_requirement(
     for requirement_id, metric in rows:
         by_requirement.setdefault(str(requirement_id), []).append(metric)
     return by_requirement
+
+
+def get_parent_ids(db: Session, requirement_ids: Iterable[uuid.UUID]) -> Dict[str, Optional[str]]:
+    """``{requirement_id: parent_id}`` for the given ids; unknown or deleted ids are left out."""
+    ids = [uuid.UUID(str(r)) for r in requirement_ids]
+    if not ids:
+        return {}
+    rows = db.query(models.Requirement.id, models.Requirement.parent_id).filter(
+        models.Requirement.id.in_(ids), models.Requirement.deleted_at.is_(None)
+    )
+    return {str(rid): (str(pid) if pid else None) for rid, pid in rows.all()}
+
+
+def get_children_counts(db: Session, requirement_ids: Iterable[uuid.UUID]) -> Dict[str, int]:
+    """Live child requirements per requirement id."""
+    ids = [uuid.UUID(str(r)) for r in requirement_ids]
+    if not ids:
+        return {}
+    rows = (
+        db.query(models.Requirement.parent_id, func.count(models.Requirement.id))
+        .filter(models.Requirement.parent_id.in_(ids), models.Requirement.deleted_at.is_(None))
+        .group_by(models.Requirement.parent_id)
+    )
+    return {str(pid): count for pid, count in rows.all()}
+
+
+def get_example_counts(db: Session, requirement_ids: Iterable[uuid.UUID]) -> Dict[str, int]:
+    """Live annotations linked to each requirement."""
+    ids = [uuid.UUID(str(r)) for r in requirement_ids]
+    if not ids:
+        return {}
+    rows = (
+        db.query(models.Annotation.requirement_id, func.count(models.Annotation.id))
+        .filter(models.Annotation.requirement_id.in_(ids), models.Annotation.deleted_at.is_(None))
+        .group_by(models.Annotation.requirement_id)
+    )
+    return {str(rid): count for rid, count in rows.all()}
+
+
+def get_sources_by_requirement(
+    db: Session, requirement_ids: Iterable[uuid.UUID]
+) -> Dict[str, List[schemas.RequirementSourceRef]]:
+    """Each requirement's linked sources, with the note stored on the link, by title."""
+    ids = [uuid.UUID(str(r)) for r in requirement_ids]
+    if not ids:
+        return {}
+    link = models.requirement_source_association
+    rows = (
+        db.query(
+            link.c.requirement_id,
+            link.c.note,
+            models.Source.id,
+            models.Source.title,
+            models.Source.url,
+            models.Source.source_metadata,
+            models.TypeLookup.id,
+            models.TypeLookup.type_value,
+        )
+        .join(models.Source, models.Source.id == link.c.source_id)
+        .outerjoin(models.TypeLookup, models.TypeLookup.id == models.Source.source_type_id)
+        .filter(link.c.requirement_id.in_(ids), models.Source.deleted_at.is_(None))
+        .order_by(models.Source.title)
+        .all()
+    )
+    by_requirement: Dict[str, List[schemas.RequirementSourceRef]] = {}
+    for requirement_id, note, source_id, title, url, metadata, type_id, type_value in rows:
+        # A website source added by link keeps it in its metadata, not the url column.
+        if not url and isinstance(metadata, dict):
+            url = metadata.get("url")
+        source_type = (
+            schemas.RequirementSourceTypeRef(id=type_id, type_value=type_value) if type_id else None
+        )
+        by_requirement.setdefault(str(requirement_id), []).append(
+            schemas.RequirementSourceRef(
+                id=source_id, title=title, url=url, source_type=source_type, note=note
+            )
+        )
+    return by_requirement
+
+
+def link_source(
+    db: Session,
+    requirement_id: uuid.UUID,
+    source_id: uuid.UUID,
+    note: Optional[str],
+    organization_id: str,
+    user_id: str,
+) -> bool:
+    """Link a source to a requirement, or update the note if already linked.
+
+    Returns True when a new link was made.
+    """
+    link = models.requirement_source_association
+    existing = (
+        db.query(link.c.requirement_id)
+        .filter(link.c.requirement_id == requirement_id, link.c.source_id == source_id)
+        .first()
+    )
+    if existing:
+        db.execute(
+            update(link)
+            .where(link.c.requirement_id == requirement_id, link.c.source_id == source_id)
+            .values(note=note)
+        )
+        return False
+    db.execute(
+        link.insert().values(
+            requirement_id=requirement_id,
+            source_id=source_id,
+            note=note,
+            user_id=user_id,
+            organization_id=organization_id,
+        )
+    )
+    return True
+
+
+def unlink_source(db: Session, requirement_id: uuid.UUID, source_id: uuid.UUID) -> bool:
+    """Remove a source link. Returns False when there was none."""
+    link = models.requirement_source_association
+    linked = (
+        db.query(link.c.requirement_id)
+        .filter(link.c.requirement_id == requirement_id, link.c.source_id == source_id)
+        .first()
+    )
+    if linked is None:
+        return False
+    db.execute(
+        delete(link).where(link.c.requirement_id == requirement_id, link.c.source_id == source_id)
+    )
+    return True
+
+
+def get_example_annotations(db: Session, requirement_id: uuid.UUID) -> List[models.Annotation]:
+    """Live annotations linked to a requirement, newest first."""
+    return (
+        db.query(models.Annotation)
+        .options(
+            include(models.Annotation.user),
+            include(models.Annotation.status),
+            include(models.Annotation.resolved_by),
+        )
+        .filter(
+            models.Annotation.requirement_id == requirement_id,
+            models.Annotation.deleted_at.is_(None),
+        )
+        .order_by(models.Annotation.created_at.desc(), models.Annotation.id.desc())
+        .all()
+    )
+
+
+def set_requirement_review(db: Session, requirement: models.Requirement, review: dict) -> None:
+    requirement.review = review
+    db.flush()

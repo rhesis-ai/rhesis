@@ -91,3 +91,17 @@ def get_type_lookup_by_name_and_value(
         )
         .first()
     )
+
+
+def get_type_values(db: Session, type_name: str, organization_id: str) -> List[str]:
+    """Every value of one lookup type in the organization, alphabetically."""
+    rows = (
+        db.query(models.TypeLookup.type_value)
+        .filter(
+            models.TypeLookup.type_name == type_name,
+            models.TypeLookup.organization_id == uuid.UUID(str(organization_id)),
+        )
+        .distinct()
+        .order_by(models.TypeLookup.type_value)
+    )
+    return [value for (value,) in rows.all()]

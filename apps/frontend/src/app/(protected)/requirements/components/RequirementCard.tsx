@@ -4,13 +4,19 @@ import * as React from 'react';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { RequirementClient } from '@/utils/api-client/requirement-client';
 import { DeleteModal } from '@/components/common/DeleteModal';
-import EntityCard, { type ChipSection } from '@/components/common/EntityCard';
-import type {
-  RequirementTestCounts,
-  RequirementWithMetrics,
-} from '@/utils/api-client/interfaces/requirement';
+import EntityCard, {
+  type EntityCardFact,
+  type EntityCardRelation,
+} from '@/components/common/EntityCard';
+import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 import { useCan } from '@/components/common/Can';
+import {
+  AutoGraphIcon,
+  KnowledgeIcon,
+  RateReviewIcon,
+  ScienceIcon,
+} from '@/components/icons';
 import { Capability } from '@/constants/capabilities';
 
 interface RequirementCardProps {
@@ -25,15 +31,97 @@ interface RequirementCardProps {
   onViewMetrics?: () => void;
 }
 
-/** One chip per test type that has tests, multi-turn first. */
-export function testCountChips(counts?: RequirementTestCounts | null) {
-  if (!counts) return [];
-  return [
-    { key: 'multi-turn', count: counts.multi_turn, label: 'Multi-turn' },
-    { key: 'single-turn', count: counts.single_turn, label: 'Single-turn' },
-  ]
-    .filter(({ count }) => count > 0)
-    .map(({ key, count, label }) => ({ key, label: `${count} ${label}` }));
+/** One dot colour per default impact; an organization's own get warning orange. */
+const IMPACT_COLORS: Record<string, string> = {
+  safety: 'error.main',
+  'privacy & security': 'warning.main',
+  'legal & compliance': 'primary.main',
+  financial: 'success.main',
+  reputation: 'secondary.light',
+  'customer experience': 'text.disabled',
+};
+
+export const impactColor = (impact: string) =>
+  IMPACT_COLORS[impact.trim().toLowerCase()] ?? 'warning.main';
+
+const plural = (n: number, one: string, many = `${one}s`) =>
+  n === 1 ? one : many;
+
+/** The parent, impact and linked counts, laid out for EntityCard. */
+export function requirementCardSlots(
+  requirement: Pick<
+    RequirementWithMetrics,
+    | 'impact'
+    | 'parent'
+    | 'children_count'
+    | 'metrics'
+    | 'test_counts'
+    | 'examples_count'
+    | 'sources'
+  >
+): {
+  context?: string;
+  facts: EntityCardFact[];
+  relations: EntityCardRelation[];
+} {
+  const facts: EntityCardFact[] = [];
+  const impact = requirement.impact?.type_value;
+  if (impact) {
+    facts.push({
+      key: 'impact',
+      kind: 'state',
+      label: `${impact} impact`,
+      color: impactColor(impact),
+    });
+  }
+  const children = requirement.children_count ?? 0;
+  if (children > 0) {
+    facts.push({
+      key: 'children',
+      kind: 'plain',
+      label: `${children} ${plural(children, 'child', 'children')}`,
+    });
+  }
+
+  // The sidebar's icons, in the sidebar's order.
+  const counts: [string, number, string, React.ReactNode][] = [
+    [
+      'sources',
+      requirement.sources?.length ?? 0,
+      'source',
+      <KnowledgeIcon key="i" />,
+    ],
+    [
+      'metrics',
+      requirement.metrics?.length ?? 0,
+      'metric',
+      <AutoGraphIcon key="i" />,
+    ],
+    [
+      'tests',
+      requirement.test_counts?.total ?? 0,
+      'test',
+      <ScienceIcon key="i" />,
+    ],
+    [
+      'examples',
+      requirement.examples_count ?? 0,
+      'example',
+      <RateReviewIcon key="i" />,
+    ],
+  ];
+  return {
+    context: requirement.parent?.name
+      ? `${requirement.parent.name} ›`
+      : undefined,
+    facts,
+    relations: counts.map(([key, count, noun, icon]) => ({
+      key,
+      count,
+      label: plural(count, noun),
+      icon,
+    })),
+  };
 }
 
 export default function RequirementCard({
@@ -72,59 +160,21 @@ export default function RequirementCard({
   const metricsCount = requirement.metrics?.length || 0;
   const canDelete = canDeleteRequirement && metricsCount === 0;
 
-  const tags = requirement.tags ?? [];
-  const tagsCount = tags.length;
-  const MAX_VISIBLE_TAGS = 5;
-
-  const chipSections: ChipSection[] = [
-    {
-      label: 'Metrics',
-      chips: [
-        ...(requirement.metrics || []).slice(0, 3).map(metric => ({
-          key: metric.id,
-          label: metric.name,
-        })),
-        ...(metricsCount > 3
-          ? [{ key: 'more', label: `+${metricsCount - 3} more` }]
-          : []),
-      ],
-      emptyText: 'No metrics assigned',
-    },
-    {
-      label: 'Tests',
-      chips: testCountChips(requirement.test_counts),
-      emptyText: 'No tests linked',
-    },
-    {
-      label: 'Tags',
-      chips: [
-        ...tags.slice(0, MAX_VISIBLE_TAGS).map(tag => ({
-          key: tag.id,
-          label: tag.name,
-        })),
-        ...(tagsCount > MAX_VISIBLE_TAGS
-          ? [
-              {
-                key: 'more-tags',
-                label: `+${tagsCount - MAX_VISIBLE_TAGS} more`,
-              },
-            ]
-          : []),
-      ],
-      emptyText: 'No tags assigned',
-    },
-  ];
+  const slots = requirementCardSlots(requirement);
 
   return (
     <>
       <EntityCard
         title={requirement.name}
-        description={requirement.description || 'No description provided'}
+        description={requirement.description}
         onClick={onClick}
         onDelete={canDelete ? () => setDeleteDialogOpen(true) : undefined}
         userName={requirement.user?.name}
-        chipSections={chipSections}
-        descriptionLines={2}
+        userAvatar={requirement.user?.picture ?? undefined}
+        updatedAt={requirement.updated_at}
+        context={slots.context}
+        facts={slots.facts}
+        relations={slots.relations}
       />
 
       <DeleteModal

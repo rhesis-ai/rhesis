@@ -53,6 +53,8 @@ export function resolveTimeoutMs(pathname: string): number {
     /^\/tools\/[^/]+\/extract$/.test(pathname) ||
     // Endpoint test calls make the same round-trip as /invoke, with the endpoint's timeout.
     /^\/endpoints\/(?:[^/]+\/)?test$/.test(pathname) ||
+    // A requirement review is one generation call.
+    /^\/requirements\/[^/]+\/review$/.test(pathname) ||
     LONG_RUNNING_PATH_SUFFIXES.some(suffix => pathname.endsWith(suffix));
   return isLongRunning ? LONG_RUNNING_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
 }

@@ -6,6 +6,9 @@ import {
   RequirementUpdate,
   RequirementsQueryParams,
   RequirementWithMetrics,
+  RequirementExample,
+  RequirementReview,
+  RequirementOption,
 } from './interfaces/requirement';
 import { PaginatedResponse } from './interfaces/pagination';
 import { UUID } from 'crypto';
@@ -154,5 +157,60 @@ export class RequirementClient extends BaseApiClient {
     return this.fetch<MetricDetail[]>(url, {
       cache: 'no-store',
     });
+  }
+
+  /** Direct children of a requirement: id, name and description. */
+  async getChildRequirements(
+    id: UUID
+  ): Promise<(RequirementOption & { description?: string | null })[]> {
+    return this.getAllRequirements<
+      RequirementOption & { description?: string | null }
+    >({
+      $filter: `parent_id eq ${id}`,
+      $select: 'id,name,description',
+      sort_by: 'name',
+      sort_order: 'asc',
+    });
+  }
+
+  /** Links a knowledge source. Linking again replaces the note. */
+  async linkSource(
+    id: UUID,
+    sourceId: UUID | string,
+    note: string | null = null
+  ): Promise<void> {
+    return this.fetch<void>(
+      `${API_ENDPOINTS.requirements}/${id}/sources/${sourceId}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ note }),
+      }
+    );
+  }
+
+  async unlinkSource(id: UUID, sourceId: UUID | string): Promise<void> {
+    return this.fetch<void>(
+      `${API_ENDPOINTS.requirements}/${id}/sources/${sourceId}`,
+      { method: 'DELETE' }
+    );
+  }
+
+  /** Annotations that name this requirement, with the conversation they judged. */
+  async getExamples(id: UUID): Promise<RequirementExample[]> {
+    return this.fetch<RequirementExample[]>(
+      `${API_ENDPOINTS.requirements}/${id}/examples`,
+      { cache: 'no-store' }
+    );
+  }
+
+  /**
+   * Asks the generation model to review the name and description. One LLM
+   * call, so only ever from an explicit action. The result is also stored.
+   */
+  async reviewRequirement(id: UUID): Promise<RequirementReview> {
+    return this.fetch<RequirementReview>(
+      `${API_ENDPOINTS.requirements}/${id}/review`,
+      { method: 'POST' }
+    );
   }
 }

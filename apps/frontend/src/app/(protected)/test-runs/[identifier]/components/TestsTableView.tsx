@@ -766,6 +766,7 @@ export default function TestsTableView({
         entityType={ANNOTATION_ENTITY_TYPES.TEST_RESULT}
         entityId={testToOverrule?.id}
         onSaved={() => handleOverruleSave(testToOverrule?.id ?? '')}
+        initialRequirement={testToOverrule?.test?.requirement ?? null}
       />
     </Box>
   );
