@@ -197,7 +197,7 @@ class ModelConnectionService:
                     ),
                     metered=False,
                 )
-            except ValueError as e:
+            except (ValueError, TypeError) as e:
                 # Provider not supported or invalid configuration
                 logger.warning(f"Language model configuration error: {str(e)}")
                 return ModelConnectionTestResult(
@@ -273,7 +273,7 @@ class ModelConnectionService:
                 ),
                 metered=False,
             )
-        except ValueError as e:
+        except (ValueError, TypeError) as e:
             return result(False, f"Configuration error: {e}")
 
         try:
@@ -309,7 +309,7 @@ class ModelConnectionService:
                     model_type="embedding",
                     **tenant_model_kwargs(provider, api_key, endpoint),
                 )
-            except ValueError as e:
+            except (ValueError, TypeError) as e:
                 # Provider not supported or invalid configuration
                 logger.warning(f"Embedding model configuration error: {str(e)}")
                 return ModelConnectionTestResult(

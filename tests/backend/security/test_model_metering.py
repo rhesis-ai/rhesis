@@ -162,6 +162,43 @@ class TestSelfHostedProviders:
             _resolve(monkeypatch, _row("vllm", key="tenant-key", model_name="m"))
 
 
+class TestInProcessProviders:
+    @pytest.mark.parametrize("provider", ["huggingface", "lmformatenforcer"])
+    def test_no_endpoint_makes_an_in_process_provider_the_tenants(self, provider):
+        """These load the model inside this server and never use the row's endpoint."""
+        assert has_own_credentials(provider, "", "http://tenant.example") is False
+
+    def test_a_huggingface_row_gets_a_configuration_error_not_a_crash(self, monkeypatch):
+        with pytest.raises(ModelConfigurationError, match="inside the Rhesis server"):
+            _resolve(monkeypatch, _row("huggingface", endpoint="http://tenant.example"))
+
+
+class TestConstructorMismatch:
+    def test_an_unexpected_kwarg_is_a_configuration_error(self, monkeypatch):
+        """A provider class that rejects a kwarg must not surface as a 500."""
+
+        def _reject(**kwargs):
+            raise TypeError("__init__() got an unexpected keyword argument 'api_key'")
+
+        monkeypatch.setattr("rhesis.backend.app.utils.user_model_utils.get_model", _reject)
+        with pytest.raises(ModelConfigurationError, match="Failed to initialize"):
+            _resolve(monkeypatch, _row("openai", key="sk-tenant", model_name="gpt-4o"))
+
+    async def test_connection_test_reports_it_as_a_configuration_error(self):
+        from rhesis.backend.app.services.model_connection import ModelConnectionService
+
+        with patch(
+            "rhesis.sdk.models.factory.get_model",
+            side_effect=TypeError("__init__() got an unexpected keyword argument 'api_base'"),
+        ):
+            result = await ModelConnectionService.test_connection(
+                provider="openai", model_name="gpt-4o", api_key="sk-tenant"
+            )
+
+        assert result.success is False
+        assert result.message.startswith("Configuration error")
+
+
 @pytest.mark.integration
 class TestConnectionTest:
     def test_vertex_with_a_bogus_key_does_not_succeed_on_platform_credentials(

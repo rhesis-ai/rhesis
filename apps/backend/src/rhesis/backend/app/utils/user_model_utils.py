@@ -849,9 +849,10 @@ def _build_configured_model(
             model_type=model_type,
             **tenant_model_kwargs(provider, api_key, model.endpoint),
         )
-    except (ValueError, ImportError) as e:
+    except (ValueError, ImportError, TypeError) as e:
         error_msg = str(e)
-        error_msg_lower = error_msg.lower()
+        # A TypeError names a constructor argument, not a missing key; skip the text matching.
+        error_msg_lower = "" if isinstance(e, TypeError) else error_msg.lower()
 
         # Provide specific error messages based on the type of configuration issue
         if "api_key" in error_msg_lower or "not set" in error_msg_lower:

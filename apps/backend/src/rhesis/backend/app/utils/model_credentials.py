@@ -17,9 +17,10 @@ HOSTED_PROVIDERS = frozenset({"rhesis", "polyphemus"})
 
 # Served from the tenant's own server: the endpoint is what makes the row theirs, and
 # without one these fall back to an env or localhost base on our side.
-ENDPOINT_PROVIDERS = frozenset(
-    {"ollama", "vllm", "litellm_proxy", "huggingface", "lmformatenforcer"}
-)
+ENDPOINT_PROVIDERS = frozenset({"ollama", "vllm", "litellm_proxy"})
+
+# Load the model inside this server's process: no endpoint of the tenant's is ever used.
+IN_PROCESS_PROVIDERS = frozenset({"huggingface", "lmformatenforcer"})
 
 # Endpoint providers that read an env key when given none (HOSTED_VLLM_API_KEY,
 # LITELLM_PROXY_API_KEY) and would send it to the tenant's endpoint.
@@ -72,6 +73,8 @@ def has_own_credentials(provider: str, api_key: Optional[str], endpoint: Optiona
         return True
     if provider in SERVICE_ACCOUNT_PROVIDERS:
         return vertex_service_account(api_key) is not None
+    if provider in IN_PROCESS_PROVIDERS:
+        return False
     if provider in ENDPOINT_PROVIDERS:
         return _clean(endpoint) is not None
     # Every other provider ignores ``api_base`` for auth and reads its key from env.
@@ -82,6 +85,8 @@ def credential_requirement(provider: str) -> str:
     """What a row for *provider* must carry, for error messages."""
     if provider in SERVICE_ACCOUNT_PROVIDERS:
         return "a service-account JSON key (as JSON or base64) in the API key field"
+    if provider in IN_PROCESS_PROVIDERS:
+        return "a server of its own, but it loads the model inside the Rhesis server"
     if provider in ENDPOINT_PROVIDERS:
         return "an endpoint"
     return "an API key"
