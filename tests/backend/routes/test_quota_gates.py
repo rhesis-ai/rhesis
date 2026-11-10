@@ -438,6 +438,160 @@ class TestFlowResourceQuotaGate:
         assert body["resource"] == QuotaResource.TEST_GENERATION.value
 
 
+def _generated_test(i: int) -> dict:
+    return {
+        "prompt": {"content": f"prompt {i}"},
+        "requirement": "Accuracy",
+        "category": "Harmless",
+        "topic": "General",
+        "metadata": {"generated_by": "test"},
+    }
+
+
+def _generation_used(db, org_id) -> int:
+    from rhesis.backend.app.models.usage import Usage
+    from rhesis.backend.app.services.usage import _current_period
+
+    db.expire_all()
+    used = (
+        db.query(Usage.used)
+        .filter(
+            Usage.organization_id == org_id,
+            Usage.resource == QuotaResource.TEST_GENERATION.value,
+            Usage.period_start == _current_period()[0],
+        )
+        .scalar()
+    )
+    return used or 0
+
+
+@pytest.fixture
+def fake_generation(monkeypatch):
+    """Stub the LLM side of sync generation; returns a setter for how many tests come back."""
+    from rhesis.backend.app.routers import services as services_router
+
+    produced = {"n": 0}
+
+    async def _generate_tests(**kwargs):
+        return [_generated_test(i) for i in range(produced["n"])]
+
+    monkeypatch.setattr(services_router, "generate_tests", _generate_tests)
+    monkeypatch.setattr(services_router, "validate_model_override", lambda *a, **k: None)
+
+    def set_produced(n: int) -> None:
+        produced["n"] = n
+
+    return set_produced
+
+
+class TestSyncGenerationAccrual:
+    """`POST /services/generate/tests` claims the requested number of tests up
+    front and keeps only what was really generated."""
+
+    def test_accrues_the_generated_count(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        _bypass_model_validation,
+        fake_generation,
+    ):
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: 100}, overage=OveragePolicy.HARD)
+        )
+        before = _generation_used(test_db, test_org_id)
+        fake_generation(4)
+
+        response = authenticated_client.post(
+            "/services/generate/tests",
+            json={"config": {"requirements": ["Accuracy"]}, "num_tests": 4},
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert _generation_used(test_db, test_org_id) == before + 4
+
+    def test_gives_back_what_was_not_generated(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        _bypass_model_validation,
+        fake_generation,
+    ):
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: 100}, overage=OveragePolicy.HARD)
+        )
+        before = _generation_used(test_db, test_org_id)
+        fake_generation(1)
+
+        response = authenticated_client.post(
+            "/services/generate/tests",
+            json={"config": {"requirements": ["Accuracy"]}, "num_tests": 4},
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert _generation_used(test_db, test_org_id) == before + 1
+
+    def test_request_larger_than_what_is_left_returns_402(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        _bypass_model_validation,
+        fake_generation,
+    ):
+        before = _generation_used(test_db, test_org_id)
+        limit = before + 10
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: limit}, overage=OveragePolicy.HARD)
+        )
+        increment_usage(test_db, test_org_id, QuotaResource.TEST_GENERATION, 8)
+        fake_generation(5)
+
+        response = authenticated_client.post(
+            "/services/generate/tests",
+            json={"config": {"requirements": ["Accuracy"]}, "num_tests": 5},
+        )
+
+        assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED, response.text
+        body = response.json()
+        assert body["requested"] == 5
+        assert body["remaining"] == 2
+        assert _generation_used(test_db, test_org_id) == before + 8
+
+    def test_unlimited_accrues_without_reserving(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        _bypass_model_validation,
+        fake_generation,
+        monkeypatch,
+    ):
+        from rhesis.backend.app.quota import enforcement
+
+        accrued = []
+        monkeypatch.setattr(
+            enforcement, "dispatch_accrual", lambda org, res, amount: accrued.append(amount)
+        )
+        _install(QuotaPolicy(limits={QuotaResource.TEST_GENERATION: None}))
+        before = _generation_used(test_db, test_org_id)
+        fake_generation(3)
+
+        response = authenticated_client.post(
+            "/services/generate/tests",
+            json={"config": {"requirements": ["Accuracy"]}, "num_tests": 5},
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert accrued == [3]
+        assert _generation_used(test_db, test_org_id) == before
+
+
 @pytest.fixture
 def three_test_configuration(test_db, test_organization, db_user, db_status, db_test_configuration):
     """A test configuration whose test set holds three tests."""

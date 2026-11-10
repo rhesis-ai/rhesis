@@ -24,7 +24,7 @@ from calendar import monthrange
 from datetime import date, datetime, timezone
 from typing import Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -192,6 +192,61 @@ def increment_usage(
     from rhesis.backend.app.services.usage_notifications import notify_flow_crossing
 
     notify_flow_crossing(db, org_id, resource, previous_used=new_used - amount, new_used=new_used)
+
+
+def reserve_usage(
+    db: Session,
+    org_id: str,
+    resource: QuotaResource,
+    amount: int,
+    ceiling: int,
+    period: tuple[date, date],
+) -> Optional[int]:
+    """Add *amount* to the counter only if it stays within *ceiling*; return the new total.
+
+    One conditional upsert, so concurrent reservations cannot both claim the
+    last units: Postgres re-checks the ``WHERE`` against the locked row.
+    Returns ``None`` when the reservation does not fit. Does not commit.
+    """
+    if amount > ceiling:
+        return None
+    table = Usage.__table__
+    period_start, period_end = period
+    stmt = (
+        pg_insert(table)
+        .values(
+            organization_id=org_id,
+            resource=resource.value,
+            period_start=period_start,
+            period_end=period_end,
+            used=amount,
+        )
+        .on_conflict_do_update(
+            index_elements=_USAGE_CONFLICT_INDEX,
+            set_={"used": table.c.used + amount, "updated_at": func.now()},
+            where=table.c.used + amount <= ceiling,
+        )
+        .returning(table.c.used)
+    )
+    return db.execute(stmt).scalar_one_or_none()
+
+
+def release_usage(
+    db: Session, org_id: str, resource: QuotaResource, amount: int, period_start: date
+) -> None:
+    """Give back *amount* reserved by :func:`reserve_usage` but not consumed. Does not commit."""
+    if amount <= 0:
+        return
+    table = Usage.__table__
+    db.execute(
+        update(table)
+        .where(
+            table.c.organization_id == org_id,
+            table.c.resource == resource.value,
+            table.c.period_start == period_start,
+        )
+        .values(used=func.greatest(table.c.used - amount, 0), updated_at=func.now())
+    )
 
 
 def _count_org_rows(db: Session, model, org_id: str, *, exclude_deleted: bool) -> int:

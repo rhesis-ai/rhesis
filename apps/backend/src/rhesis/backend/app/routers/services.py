@@ -19,6 +19,11 @@ from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota.enforcement import (
+    QuotaExceededError,
+    QuotaReservation,
+    reserve_quota,
+)
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.services import (
     ExchangeRatesResponse,
@@ -108,6 +113,21 @@ def _handle_generation_error(error: Exception) -> None:
     # Convert the error to HTTPException and raise it
     http_exception = handle_execution_error(error, operation="generate tests", purpose="generation")
     raise http_exception
+
+
+async def _reserve_test_generation(
+    db: OffLoopSession, tenant_context, org: Organization, num_tests: int
+) -> QuotaReservation:
+    """Claim *num_tests* of the org's test generation quota before generating."""
+    organization_id, _ = tenant_context
+    return await anyio.to_thread.run_sync(
+        reserve_quota, db, str(organization_id), org, QuotaResource.TEST_GENERATION, num_tests
+    )
+
+
+def _is_test_event(chunk: bytes) -> bool:
+    """Whether a pipeline NDJSON line is a generated test."""
+    return json.loads(chunk).get("type") == "test"
 
 
 @router.get("/exchange-rates", response_model=ExchangeRatesResponse)
@@ -350,6 +370,8 @@ async def generate_tests_endpoint(
     Returns:
         GenerateTestsResponse: The generated test cases
     """
+    reservation = None
+    tests = []
     try:
         # config.requirements is enforced by GenerationConfig, so it arrives non-empty.
 
@@ -357,7 +379,9 @@ async def generate_tests_endpoint(
         model_id_str = str(request.model_id) if request.model_id else None
         await anyio.to_thread.run_sync(validate_model_override, db, current_user, model_id_str)
 
-        # Generate tests synchronously
+        reservation = await _reserve_test_generation(
+            db, tenant_context, _quota_gate, request.num_tests
+        )
         tests = await generate_tests(
             db=db,
             user=current_user,
@@ -369,10 +393,13 @@ async def generate_tests_endpoint(
 
         # Return Pydantic model - FastAPI handles serialization
         return GenerateTestsResponse(tests=tests)
-    except HTTPException:
+    except (HTTPException, QuotaExceededError):
         raise
     except Exception as e:
         _handle_generation_error(e)
+    finally:
+        if reservation is not None:
+            await anyio.to_thread.run_sync(reservation.settle, db, len(tests))
 
 
 @router.post("/generate/multiturn-tests", response_model=GenerateMultiTurnTestsResponse)
@@ -404,10 +431,15 @@ async def generate_multiturn_tests_endpoint(
     Returns:
         GenerateMultiTurnTestsResponse: The generated multi-turn test cases
     """
+    reservation = None
+    generated = []
     try:
         # Validate per-request model override exists and belongs to user's org
         model_id_str = str(request.model_id) if request.model_id else None
         await anyio.to_thread.run_sync(validate_model_override, db, current_user, model_id_str)
+        reservation = await _reserve_test_generation(
+            db, tenant_context, _quota_gate, request.num_tests
+        )
 
         config = {
             "generation_prompt": request.generation_prompt,
@@ -424,11 +456,15 @@ async def generate_multiturn_tests_endpoint(
             model_id=model_id_str,
         )
         # test_cases is a TestSet dict with a "tests" key containing the array
-        return {"tests": test_cases.get("tests", [])}
-    except HTTPException:
+        generated = test_cases.get("tests", [])
+        return {"tests": generated}
+    except (HTTPException, QuotaExceededError):
         raise
     except Exception as e:
         _handle_generation_error(e)
+    finally:
+        if reservation is not None:
+            await anyio.to_thread.run_sync(reservation.settle, db, len(generated))
 
 
 @router.post("/generate/test_pipeline")
@@ -442,22 +478,31 @@ def test_pipeline_endpoint(
     """Stream config and test generation as NDJSON events."""
     organization_id, _ = tenant_context
     model_id_str = str(request.model_id) if request.model_id else None
+    # Before the 200 is sent, so a request that does not fit still gets a 402.
+    reservation = reserve_quota(
+        db, str(organization_id), _quota_gate, QuotaResource.TEST_GENERATION, request.num_tests
+    )
 
     async def _stream():
-        async for chunk in test_generation_pipeline_stream(
-            db=db,
-            user=current_user,
-            prompt=request.prompt,
-            organization_id=organization_id,
-            project_id=(str(request.project_id) if request.project_id else None),
-            previous_messages=request.previous_messages,
-            test_type=request.test_type,
-            num_tests=request.num_tests,
-            sources=request.sources,
-            model_id=model_id_str,
-            config=request.config,
-        ):
-            yield chunk
+        generated = 0
+        try:
+            async for chunk in test_generation_pipeline_stream(
+                db=db,
+                user=current_user,
+                prompt=request.prompt,
+                organization_id=organization_id,
+                project_id=(str(request.project_id) if request.project_id else None),
+                previous_messages=request.previous_messages,
+                test_type=request.test_type,
+                num_tests=request.num_tests,
+                sources=request.sources,
+                model_id=model_id_str,
+                config=request.config,
+            ):
+                generated += _is_test_event(chunk)
+                yield chunk
+        finally:
+            await anyio.to_thread.run_sync(reservation.settle, db, generated)
 
     return StreamingResponse(_stream(), media_type="application/x-ndjson")
 

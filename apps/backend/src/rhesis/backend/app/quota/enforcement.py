@@ -19,7 +19,9 @@ should not pay for six resources to answer a question about one.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
+from datetime import date
 from typing import Optional
 
 from sqlalchemy import text
@@ -34,7 +36,12 @@ from rhesis.backend.app.services.usage import (
     FLOW_KIND,
     STOCK_KIND,
     _current_period,
+    dispatch_accrual,
+    release_usage,
+    reserve_usage,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -294,6 +301,93 @@ def enforce_quota(
     return verdict
 
 
+@dataclass
+class QuotaReservation:
+    """Units of a flow resource claimed up front by :func:`reserve_quota`.
+
+    *period_start* is ``None`` when nothing was reserved (the resource is
+    unlimited), in which case :meth:`settle` accrues the consumed amount the
+    usual way instead of giving back the remainder.
+    """
+
+    org_id: str
+    resource: QuotaResource
+    amount: int
+    period_start: Optional[date]
+
+    def settle(self, db: Session, consumed: int) -> None:
+        """Record that *consumed* units were really used, committing *db*. Never raises."""
+        consumed = max(consumed, 0)
+        if self.period_start is None:
+            dispatch_accrual(self.org_id, self.resource, consumed)
+            return
+        if consumed > self.amount:
+            dispatch_accrual(self.org_id, self.resource, consumed - self.amount)
+            return
+        unused = self.amount - consumed
+        try:
+            release_usage(db, self.org_id, self.resource, unused, self.period_start)
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.warning(
+                "Failed to release %s unused %s for org %s",
+                unused,
+                self.resource.value,
+                self.org_id,
+                exc_info=True,
+            )
+
+
+def reserve_quota(
+    db: Session,
+    org_id: str,
+    org: Optional[Organization],
+    resource: QuotaResource,
+    amount: int,
+) -> QuotaReservation:
+    """Claim *amount* of a flow resource before doing the work, or raise.
+
+    For work done inside the request whose size is known up front (sync test
+    generation). The check and the increment are one statement, so
+    concurrent requests cannot all pass a check against the same total.
+    Commits *db* so the usage row is not locked while the work runs; call
+    with nothing else pending on it. Pass what was really used to
+    :meth:`QuotaReservation.settle` afterwards.
+
+    :raises QuotaExceededError: if *amount* does not fit under the ceiling.
+    """
+    policy = QuotaRegistry.get_policy(org)
+    limit = policy.limits.get(resource)
+    if limit is None:
+        return QuotaReservation(org_id, resource, amount, None)
+
+    ceiling = policy.ceiling_for(limit)
+    period = _current_period()
+    new_used = reserve_usage(db, org_id, resource, amount, ceiling, period)
+    if new_used is None:
+        used = _read_usage(db, org_id, resource)
+        raise QuotaExceededError(
+            QuotaVerdict(
+                resource=resource,
+                used=used,
+                limit=limit,
+                allowed=False,
+                over_limit=used >= limit,
+                kind=FLOW_KIND,
+                period_end=period[1].isoformat(),
+                requested=amount,
+                remaining=max(ceiling - used, 0),
+            )
+        )
+    db.commit()
+    # Local import: usage_notifications pulls in the notification service graph.
+    from rhesis.backend.app.services.usage_notifications import notify_flow_crossing
+
+    notify_flow_crossing(db, org_id, resource, previous_used=new_used - amount, new_used=new_used)
+    return QuotaReservation(org_id, resource, amount, period[0])
+
+
 BACKSTOP_MULTIPLIER = 10
 
 
@@ -343,9 +437,11 @@ def check_backstop(
 __all__ = [
     "BACKSTOP_MULTIPLIER",
     "QuotaExceededError",
+    "QuotaReservation",
     "QuotaVerdict",
     "check_backstop",
     "check_quota",
     "enforce_quota",
     "quota_exceeded_response_body",
+    "reserve_quota",
 ]

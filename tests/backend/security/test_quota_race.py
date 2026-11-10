@@ -17,9 +17,10 @@ from sqlalchemy import text
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.project import Project
+from rhesis.backend.app.models.usage import Usage
 from rhesis.backend.app.quota import OveragePolicy, QuotaPolicy, QuotaRegistry, QuotaResource
 from rhesis.backend.app.quota.enforcement import QuotaExceededError, enforce_quota
-from rhesis.backend.app.services.usage import count_org_projects
+from rhesis.backend.app.services.usage import _current_period, count_org_projects
 from tests.backend.fixtures.database import AdminSessionLocal
 
 _ADVISORY_LOCKS_HELD_BY_ME = text(
@@ -146,3 +147,33 @@ class TestStockQuotaRace:
             held = db.execute(_ADVISORY_LOCKS_HELD_BY_ME).scalar()
 
         assert held == 0
+
+
+@pytest.mark.integration
+class TestFlowQuotaReservationRace:
+    def test_concurrent_reservations_never_pass_the_ceiling(self, race_org, quota_policy):
+        from rhesis.backend.app.quota.enforcement import reserve_quota
+
+        quota_policy(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: 10}, overage=OveragePolicy.HARD)
+        )
+
+        def reserve():
+            with get_db_with_tenant_variables(race_org) as db:
+                reserve_quota(db, race_org, None, QuotaResource.TEST_GENERATION, 3)
+
+        outcomes = _race(reserve)
+
+        assert outcomes.count("ok") == 3, outcomes
+        assert outcomes.count("quota") == N_REQUESTS - 3, outcomes
+        with get_db_with_tenant_variables(race_org) as db:
+            used = (
+                db.query(Usage.used)
+                .filter(
+                    Usage.organization_id == race_org,
+                    Usage.resource == QuotaResource.TEST_GENERATION.value,
+                    Usage.period_start == _current_period()[0],
+                )
+                .scalar()
+            )
+        assert used == 9
