@@ -15,10 +15,10 @@ Note:
 import logging
 import threading
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
-from .history import MessageHistoryManager
+from rhesis.backend.app.services.invokers.conversation.history import MessageHistoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -28,13 +28,27 @@ _DEFAULT_TTL_SECONDS = 3600
 # Default sweep interval: run every 5 minutes
 _DEFAULT_SWEEP_INTERVAL_SECONDS = 300
 
+# (organization_id, project_id) that owns a conversation.
+Scope = Tuple[str, str]
+_NO_SCOPE: Scope = ("", "")
+_Key = Tuple[Scope, str]
+
+
+def conversation_scope(endpoint: Any) -> Scope:
+    """The tenant scope a stateless endpoint's conversations are stored under."""
+    organization_id = getattr(endpoint, "organization_id", None)
+    project_id = getattr(endpoint, "project_id", None)
+    return (str(organization_id or ""), str(project_id or ""))
+
 
 class ConversationHistoryStore:
     """Thread-safe in-memory store for conversation histories.
 
     Manages :class:`MessageHistoryManager` instances keyed by
-    ``conversation_id``.  Entries are automatically evicted after
-    *ttl_seconds* of inactivity (last access).
+    ``(scope, conversation_id)``, where *scope* is the owning
+    ``(organization_id, project_id)``.  A conversation is only reachable
+    with the scope it was created under.  Entries are automatically
+    evicted after *ttl_seconds* of inactivity (last access).
 
     All public methods that read or mutate a conversation hold the
     internal lock for the entire operation, so callers never need to
@@ -54,8 +68,8 @@ class ConversationHistoryStore:
         ttl_seconds: int = _DEFAULT_TTL_SECONDS,
         sweep_interval_seconds: int = _DEFAULT_SWEEP_INTERVAL_SECONDS,
     ) -> None:
-        self._histories: Dict[str, MessageHistoryManager] = {}
-        self._timestamps: Dict[str, float] = {}
+        self._histories: Dict[_Key, MessageHistoryManager] = {}
+        self._timestamps: Dict[_Key, float] = {}
         self._ttl_seconds = ttl_seconds
         self._lock = threading.Lock()
 
@@ -70,39 +84,39 @@ class ConversationHistoryStore:
     # Public API
     # ------------------------------------------------------------------
 
-    def create(self, system_prompt: Optional[str] = None) -> str:
+    def create(self, system_prompt: Optional[str] = None, *, scope: Scope = _NO_SCOPE) -> str:
         """Create a new conversation and return its ``conversation_id``."""
         conversation_id = str(uuid4())
+        key = (scope, conversation_id)
         with self._lock:
-            self._histories[conversation_id] = MessageHistoryManager(
+            self._histories[key] = MessageHistoryManager(
                 system_prompt=system_prompt,
             )
-            self._timestamps[conversation_id] = time.monotonic()
+            self._timestamps[key] = time.monotonic()
         logger.debug(f"Created conversation history: {conversation_id}")
         return conversation_id
 
-    def get(self, conversation_id: str) -> Optional[MessageHistoryManager]:
+    def get(
+        self, conversation_id: str, *, scope: Scope = _NO_SCOPE
+    ) -> Optional[MessageHistoryManager]:
         """Return the history for *conversation_id*, or ``None`` if expired."""
         with self._lock:
             self._evict_expired()
-            history = self._histories.get(conversation_id)
-            if history is not None:
-                # Touch -- reset the TTL clock on access
-                self._timestamps[conversation_id] = time.monotonic()
-            return history
+            return self._touch((scope, conversation_id))
 
-    def exists(self, conversation_id: str) -> bool:
-        """Check whether *conversation_id* has a live (non-expired) history."""
-        return self.get(conversation_id) is not None
+    def exists(self, conversation_id: str, *, scope: Scope = _NO_SCOPE) -> bool:
+        """Check whether *conversation_id* has a live (non-expired) history in *scope*."""
+        return self.get(conversation_id, scope=scope) is not None
 
-    def add_user_message(self, conversation_id: str, content: str) -> bool:
+    def add_user_message(
+        self, conversation_id: str, content: str, *, scope: Scope = _NO_SCOPE
+    ) -> bool:
         """Append a user message.  Returns ``False`` if not found."""
         with self._lock:
             self._evict_expired()
-            history = self._histories.get(conversation_id)
+            history = self._touch((scope, conversation_id))
             if history is None:
                 return False
-            self._timestamps[conversation_id] = time.monotonic()
             history.add_user_message(content)
         return True
 
@@ -112,51 +126,60 @@ class ConversationHistoryStore:
         content: str,
         *,
         tool_calls: Optional[List[Dict[str, Any]]] = None,
+        scope: Scope = _NO_SCOPE,
         **extra: Any,
     ) -> bool:
         """Append an assistant message.  Returns ``False`` if not found."""
         with self._lock:
             self._evict_expired()
-            history = self._histories.get(conversation_id)
+            history = self._touch((scope, conversation_id))
             if history is None:
                 return False
-            self._timestamps[conversation_id] = time.monotonic()
             history.add_assistant_message(content, tool_calls=tool_calls, **extra)
         return True
 
-    def add_message(self, conversation_id: str, message: Dict[str, Any]) -> bool:
+    def add_message(
+        self, conversation_id: str, message: Dict[str, Any], *, scope: Scope = _NO_SCOPE
+    ) -> bool:
         """Append an arbitrary message dict.  Returns ``False`` if not found."""
         with self._lock:
             self._evict_expired()
-            history = self._histories.get(conversation_id)
+            history = self._touch((scope, conversation_id))
             if history is None:
                 return False
-            self._timestamps[conversation_id] = time.monotonic()
             history.add_message(message)
         return True
 
-    def get_messages(self, conversation_id: str) -> Optional[List[Dict[str, Any]]]:
+    def get_messages(
+        self, conversation_id: str, *, scope: Scope = _NO_SCOPE
+    ) -> Optional[List[Dict[str, Any]]]:
         """Return all messages for *conversation_id*, or ``None``."""
         with self._lock:
             self._evict_expired()
-            history = self._histories.get(conversation_id)
+            history = self._touch((scope, conversation_id))
             if history is None:
                 return None
-            self._timestamps[conversation_id] = time.monotonic()
             return history.get_messages()
 
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
 
+    def _touch(self, key: _Key) -> Optional[MessageHistoryManager]:
+        """Return the history for *key* and reset its TTL.  Caller holds ``_lock``."""
+        history = self._histories.get(key)
+        if history is not None:
+            self._timestamps[key] = time.monotonic()
+        return history
+
     def _evict_expired(self) -> None:
         """Remove expired entries.  **Must** be called with ``_lock`` held."""
         now = time.monotonic()
-        expired = [cid for cid, ts in self._timestamps.items() if now - ts > self._ttl_seconds]
-        for cid in expired:
-            del self._histories[cid]
-            del self._timestamps[cid]
-            logger.debug(f"Evicted expired conversation: {cid}")
+        expired = [key for key, ts in self._timestamps.items() if now - ts > self._ttl_seconds]
+        for key in expired:
+            del self._histories[key]
+            del self._timestamps[key]
+            logger.debug(f"Evicted expired conversation: {key[1]}")
 
     def _start_sweeper(self) -> None:
         """Start a daemon thread that periodically evicts expired entries."""

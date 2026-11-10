@@ -8,12 +8,18 @@ each other's entries. Runs against the testcontainers Redis.
 import json
 import uuid
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from rhesis.backend.app.config.settings import get_redis_settings
+from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.services.endpoint import off_loop
+from rhesis.backend.app.services.endpoint.service import EndpointService
+from rhesis.backend.app.services.invokers.conversation.store import (
+    _reset_conversation_store,
+    get_conversation_store,
+)
 from rhesis.backend.app.services.invokers.sdk_invoker import SdkEndpointInvoker
 from rhesis.backend.app.services.telemetry import conversation_linking as cl
 from rhesis.backend.app.services.telemetry.trace_metrics_cache import (
@@ -245,3 +251,77 @@ class TestTraceMetricsDebounceIsolation:
         metrics_cache.mark_complete(b.org, b.project, trace)
         assert metrics_cache.is_complete(a.org, a.project, trace) is False
         assert metrics_cache.pop_pending_eval(a.org, a.project, trace) == "task-a"
+
+
+def _stateless_endpoint(tenant) -> MagicMock:
+    endpoint = MagicMock(spec=Endpoint)
+    endpoint.name = "stateless"
+    endpoint.connection_type = "REST"
+    endpoint.disable_tracing = False
+    endpoint.organization_id = tenant.org
+    endpoint.project_id = tenant.project
+    endpoint.request_mapping = {"messages": "{{ messages }}"}
+    return endpoint
+
+
+@pytest.mark.unit
+class TestStatelessHistoryIsolation:
+    @pytest.fixture(autouse=True)
+    def _fresh_store(self):
+        _reset_conversation_store()
+        yield
+        _reset_conversation_store()
+
+    @staticmethod
+    async def _invoke(tenant, input_data, reply):
+        """Invoke a stateless endpoint as *tenant*; return (result, messages sent)."""
+        sent = {}
+
+        def _create(context):
+            sent["messages"] = list(context.input_data["messages"])
+            invoker = AsyncMock()
+            invoker.automatic_tracing = True
+            invoker.invoke.return_value = {"output": reply}
+            return invoker
+
+        with patch(
+            "rhesis.backend.app.services.endpoint.service.create_invoker", side_effect=_create
+        ):
+            result = await EndpointService().invoke_endpoint(
+                db=None,
+                endpoint_id="ep",
+                input_data=input_data,
+                organization_id=tenant.org,
+                endpoint=_stateless_endpoint(tenant),
+            )
+        return result, sent["messages"]
+
+    @pytest.mark.asyncio
+    async def test_other_org_cannot_resume_conversation(self, orgs):
+        first, _ = await self._invoke(orgs.a, {"input": "org A private question"}, "org A reply")
+        cid_a = first["conversation_id"]
+
+        result_b, sent_b = await self._invoke(
+            orgs.b, {"input": "hi", "conversation_id": cid_a}, "org B reply"
+        )
+
+        contents = [m.get("content") for m in sent_b]
+        assert "org A private question" not in contents
+        assert "org A reply" not in contents
+        assert result_b["conversation_id"] != cid_a
+
+        # Org A's history is untouched and still resumable by org A.
+        _, sent_a = await self._invoke(
+            orgs.a, {"input": "follow-up", "conversation_id": cid_a}, "ok"
+        )
+        assert [m.get("content") for m in sent_a][-3:] == [
+            "org A private question",
+            "org A reply",
+            "follow-up",
+        ]
+
+    def test_off_loop_does_not_trace_under_other_org_conversation(self, orgs):
+        cid_a = get_conversation_store().create(scope=(orgs.a.org, orgs.a.project))
+        endpoint_b = _stateless_endpoint(orgs.b)
+
+        assert off_loop._conversation_id_for_trace(endpoint_b, {"conversation_id": cid_a}) is None

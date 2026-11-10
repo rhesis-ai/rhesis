@@ -28,6 +28,7 @@ from rhesis.backend.app.services.invokers.auth import AuthenticationManager
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
 from rhesis.backend.app.services.invokers.conversation import (
     ConversationTracker,
+    conversation_scope,
     find_conversation_id,
     get_conversation_store,
 )
@@ -52,7 +53,9 @@ def _conversation_id_for_trace(endpoint: Endpoint, input_data: Dict[str, Any]) -
     """
     if ConversationTracker.detect_stateless_mode(endpoint) and "messages" not in input_data:
         incoming = input_data.get("conversation_id")
-        if incoming and get_conversation_store().exists(incoming):
+        if incoming and get_conversation_store().exists(
+            incoming, scope=conversation_scope(endpoint)
+        ):
             return str(incoming)
         return None
     return find_conversation_id(input_data)
