@@ -71,6 +71,10 @@ class SSRFError(Exception):
     pass
 
 
+class UnresolvableHostError(SSRFError):
+    """The host name did not resolve, so nothing could be checked or reached."""
+
+
 def private_targets_allowed() -> bool:
     """Whether tenant URLs may point at loopback or private networks."""
     return get_application_settings().allow_private_outbound
@@ -120,9 +124,9 @@ def resolve_checked(
     try:
         addr_infos = socket.getaddrinfo(name, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
     except (socket.gaierror, UnicodeError):
-        raise SSRFError(f"DNS resolution failed for: {host}")
+        raise UnresolvableHostError(f"DNS resolution failed for: {host}")
     if not addr_infos:
-        raise SSRFError(f"DNS resolution returned no results for: {host}")
+        raise UnresolvableHostError(f"DNS resolution returned no results for: {host}")
 
     ips: List[str] = []
     for _family, _, _, _, sockaddr in addr_infos:
@@ -139,19 +143,26 @@ def _allow(allow_private: Optional[bool]) -> bool:
     return private_targets_allowed() if allow_private is None else allow_private
 
 
-def validate_outbound_url(url: str, allow_private: Optional[bool] = None) -> None:
+def validate_outbound_url(
+    url: str, allow_private: Optional[bool] = None, *, allow_unresolved: bool = False
+) -> None:
     """Raise ``SSRFError`` unless ``url`` is http(s)/ws(s) to an allowed address.
 
     For a check up front, before the URL is handed to a client this module does
     not control (LiteLLM for a model ``api_base``). The guarded clients below
-    check again at connect time.
+    check again at connect time. ``allow_unresolved`` lets a name that does not
+    resolve through, for callers where the later request fails on its own.
     """
     parsed = urlparse(url or "")
     if parsed.scheme not in ("http", "https", "ws", "wss"):
         raise SSRFError(f"URL uses disallowed scheme: {parsed.scheme or 'none'}")
     if not parsed.hostname:
         raise SSRFError("URL has no hostname")
-    resolve_checked(parsed.hostname, None, _allow(allow_private))
+    try:
+        resolve_checked(parsed.hostname, None, _allow(allow_private))
+    except UnresolvableHostError:
+        if not allow_unresolved:
+            raise
 
 
 # ---------------------------------------------------------------------------

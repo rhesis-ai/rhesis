@@ -847,9 +847,10 @@ def _build_configured_model(
     embedding = model_type == "embedding"
     label = "embedding model" if embedding else "model"
     subject = "embedder" if embedding else "user model"
-    if model.endpoint and model.endpoint.strip():
+    if isinstance(model.endpoint, str) and model.endpoint.strip():
         try:
-            validate_outbound_url(model.endpoint.strip())
+            # Unresolvable names pass: the provider call reports those itself.
+            validate_outbound_url(model.endpoint.strip(), allow_unresolved=True)
         except SSRFError as e:
             raise ModelConfigurationError(
                 f"Your configured {label} '{model.name}' has an endpoint URL that is not "

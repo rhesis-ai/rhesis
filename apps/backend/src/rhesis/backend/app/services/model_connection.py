@@ -109,7 +109,9 @@ class ModelConnectionService:
 
             if endpoint and endpoint.strip():
                 try:
-                    await anyio.to_thread.run_sync(validate_outbound_url, endpoint.strip())
+                    await anyio.to_thread.run_sync(
+                        lambda: validate_outbound_url(endpoint.strip(), allow_unresolved=True)
+                    )
                 except SSRFError:
                     return ModelConnectionTestResult(
                         success=False,
