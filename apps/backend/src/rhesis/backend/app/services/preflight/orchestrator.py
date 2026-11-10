@@ -103,7 +103,7 @@ def _load_endpoint_for_probe(
     """Everything the connectivity probe needs from the database, in one thread hop.
 
     The load, and the auth token: a client-credentials endpoint with an expired token
-    refreshes it with a blocking ``requests.post`` and writes the new one back to the
+    refreshes it with a blocking HTTP POST and writes the new one back to the
     row. Done here, both stay in the worker thread; done inside the awaited probe, both
     would run on the event loop.
     """

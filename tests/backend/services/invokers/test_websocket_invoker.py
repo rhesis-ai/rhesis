@@ -82,7 +82,7 @@ class TestWebSocketEndpointInvoker:
         mock_websocket.__aiter__ = lambda self: mock_iter()
 
         with patch(
-            "rhesis.backend.app.services.invokers.websocket_invoker.connect",
+            "rhesis.backend.app.services.invokers.websocket_invoker.guarded_ws_connect",
             return_value=mock_websocket,
         ):
             result = await invoker._async_invoke(
@@ -119,7 +119,7 @@ class TestWebSocketEndpointInvoker:
         mock_websocket.__aiter__ = lambda self: mock_iter()
 
         with patch(
-            "rhesis.backend.app.services.invokers.websocket_invoker.connect",
+            "rhesis.backend.app.services.invokers.websocket_invoker.guarded_ws_connect",
             return_value=mock_websocket,
         ):
             result = await invoker._async_invoke(
@@ -152,7 +152,7 @@ class TestWebSocketEndpointInvoker:
         mock_websocket.__aiter__ = lambda self: mock_iter()
 
         with patch(
-            "rhesis.backend.app.services.invokers.websocket_invoker.connect",
+            "rhesis.backend.app.services.invokers.websocket_invoker.guarded_ws_connect",
             return_value=mock_websocket,
         ):
             result = await invoker._async_invoke(
@@ -177,7 +177,7 @@ class TestWebSocketEndpointInvoker:
         invalid_status = InvalidStatus(mock_response)
 
         with patch(
-            "rhesis.backend.app.services.invokers.websocket_invoker.connect",
+            "rhesis.backend.app.services.invokers.websocket_invoker.guarded_ws_connect",
             side_effect=invalid_status,
         ):
             result = await invoker._async_invoke(
@@ -202,7 +202,9 @@ class TestWebSocketEndpointInvoker:
         invoker = WebSocketEndpointInvoker()
         sample_endpoint_websocket.request_mapping = {"inputs": "{{ input | fromjson }}"}
 
-        with patch("rhesis.backend.app.services.invokers.websocket_invoker.connect") as connect:
+        with patch(
+            "rhesis.backend.app.services.invokers.websocket_invoker.guarded_ws_connect"
+        ) as connect:
             result = await invoker._async_invoke(
                 mock_db, sample_endpoint_websocket, {"input": "A-2048"}
             )
@@ -334,7 +336,7 @@ class TestWebSocketEndpointInvoker:
         mock_websocket.__aiter__ = lambda self: mock_iter()
 
         with patch(
-            "rhesis.backend.app.services.invokers.websocket_invoker.connect",
+            "rhesis.backend.app.services.invokers.websocket_invoker.guarded_ws_connect",
             return_value=mock_websocket,
         ):
             result = await invoker._async_invoke(mock_db, sample_endpoint_websocket, input_data)
@@ -375,7 +377,7 @@ class TestWebSocketEndpointInvoker:
         mock_websocket.__aiter__ = lambda self: mock_iter()
 
         with patch(
-            "rhesis.backend.app.services.invokers.websocket_invoker.connect",
+            "rhesis.backend.app.services.invokers.websocket_invoker.guarded_ws_connect",
             return_value=mock_websocket,
         ):
             result = await invoker._async_invoke(

@@ -3,6 +3,7 @@
 from rhesis.backend.app.services.tool.providers._common import (
     ApiTokenAuth,
     api_token_field,
+    base_url_field,
     must_be_namespace,
 )
 from rhesis.backend.app.services.tool.providers.spec import (
@@ -26,13 +27,11 @@ MANIFEST = ProviderManifest(
     ),
     fields=(
         api_token_field("GITLAB_PERSONAL_ACCESS_TOKEN", label="Personal access token"),
-        ProviderField(
-            key="GITLAB_API_URL",
-            label="GitLab API URL",
-            store=FieldStore.CREDENTIALS,
-            required=False,
-            preserve_on_update=True,
+        base_url_field(
+            "GITLAB_API_URL",
+            "GitLab API URL",
             help_text="Self-managed instances only. Leave blank for gitlab.com.",
+            require_https=False,
         ),
         ProviderField(
             key="project.namespace",

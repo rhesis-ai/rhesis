@@ -21,6 +21,11 @@ from rhesis.backend.app.services.invokers.common.connection_errors import (
 )
 from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
 from rhesis.backend.app.services.invokers.templating.filters import TemplateInputError
+from rhesis.backend.app.utils.ssrf_http_client import (
+    BLOCKED_TARGET_MESSAGE,
+    SSRFError,
+    guarded_async_client,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +78,7 @@ def _get_http_client() -> httpx.AsyncClient:
                 current_loop.create_task(client.aclose())
             except Exception:
                 pass
-        client = httpx.AsyncClient(timeout=_DEFAULT_HTTP_TIMEOUT)
+        client = guarded_async_client(timeout=_DEFAULT_HTTP_TIMEOUT)
         _tls.http_client = client
         _tls.http_client_loop = current_loop
     return client
@@ -173,6 +178,14 @@ class RestEndpointInvoker(BaseEndpointInvoker):
 
         except (httpx.HTTPError, httpx.InvalidURL) as e:
             message = _network_error_message(endpoint, e)
+            return self._create_error_response(
+                error_type="network_error",
+                output_message=message,
+                message=message,
+                request_details=self._safe_request_details(locals(), "REST"),
+            )
+        except SSRFError:
+            message = f"Could not reach {url_host(endpoint.url)}: {BLOCKED_TARGET_MESSAGE}."
             return self._create_error_response(
                 error_type="network_error",
                 output_message=message,

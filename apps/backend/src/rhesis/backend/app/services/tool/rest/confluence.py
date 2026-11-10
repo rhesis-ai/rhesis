@@ -2,9 +2,8 @@
 
 from typing import Any, Dict
 
-import httpx
-
 from rhesis.backend.app.services.tool.url_validation import validate_base_url
+from rhesis.backend.app.utils.ssrf_http_client import guarded_async_client
 
 
 class ConfluenceRestClient:
@@ -15,7 +14,7 @@ class ConfluenceRestClient:
 
     async def health_check(self, tool_metadata: Dict[str, Any] | None = None) -> Dict[str, Any]:
         url = self._base_url + "/wiki/rest/api/user/current"
-        async with httpx.AsyncClient() as client:
+        async with guarded_async_client() as client:
             resp = await client.get(url, auth=self._auth)
         if resp.status_code == 200:
             display = resp.json().get("displayName", "")
