@@ -19,8 +19,14 @@ from rhesis.backend.app.services.redis_constants import RedisDatabase
 
 logger = logging.getLogger(__name__)
 
-_PREFIX = "tracemetrics:pending:"
-_COMPLETE_PREFIX = "tracemetrics:complete:"
+# Keys carry org and project so two tenants with the same trace id never revoke or
+# complete each other's evaluation. "v2" keeps them apart from older un-scoped keys.
+_PREFIX = "tracemetrics:v2:pending:"
+_COMPLETE_PREFIX = "tracemetrics:v2:complete:"
+
+
+def _key(prefix: str, organization_id: str, project_id: str, trace_id: str) -> str:
+    return f"{prefix}{organization_id}:{project_id}:{trace_id}"
 
 
 class TraceMetricsDebounceCache(RedisBackedCache):
@@ -33,27 +39,31 @@ class TraceMetricsDebounceCache(RedisBackedCache):
             ttl=600,
         )
 
-    def register_pending_eval(self, trace_id: str, task_id: str) -> Optional[str]:
+    def register_pending_eval(
+        self, organization_id: str, project_id: str, trace_id: str, task_id: str
+    ) -> Optional[str]:
         """Store the Celery task ID for a scheduled conversation eval.
 
         Returns the previous task ID if one existed (caller should revoke it).
         """
-        key = f"{_PREFIX}{trace_id}"
+        key = _key(_PREFIX, organization_id, project_id, trace_id)
         previous = self._getdel(key)
         self._set(key, task_id)
         return previous
 
-    def pop_pending_eval(self, trace_id: str) -> Optional[str]:
+    def pop_pending_eval(
+        self, organization_id: str, project_id: str, trace_id: str
+    ) -> Optional[str]:
         """Retrieve and delete the pending task ID for a trace."""
-        return self._getdel(f"{_PREFIX}{trace_id}")
+        return self._getdel(_key(_PREFIX, organization_id, project_id, trace_id))
 
-    def mark_complete(self, trace_id: str) -> None:
+    def mark_complete(self, organization_id: str, project_id: str, trace_id: str) -> None:
         """Mark a conversation as complete to prevent further debounce scheduling."""
-        self._set(f"{_COMPLETE_PREFIX}{trace_id}", "1")
+        self._set(_key(_COMPLETE_PREFIX, organization_id, project_id, trace_id), "1")
 
-    def is_complete(self, trace_id: str) -> bool:
+    def is_complete(self, organization_id: str, project_id: str, trace_id: str) -> bool:
         """Check if a conversation has been marked complete."""
-        return self._get(f"{_COMPLETE_PREFIX}{trace_id}") == "1"
+        return self._get(_key(_COMPLETE_PREFIX, organization_id, project_id, trace_id)) == "1"
 
     def _on_reconnect(self) -> None:
         # Reads go to Redis now; pending task IDs left here would never be revoked.
@@ -105,7 +115,9 @@ def schedule_conversation_eval(
     )
 
     # Register and get previous task ID (if any)
-    previous_task_id = _get_cache().register_pending_eval(trace_id, result.id)
+    previous_task_id = _get_cache().register_pending_eval(
+        organization_id, project_id, trace_id, result.id
+    )
     if previous_task_id:
         celery_app.control.revoke(previous_task_id)
         logger.debug(
@@ -151,10 +163,10 @@ def signal_conversation_complete(
     )
 
     # Mark complete so in-flight turns skip debounce scheduling.
-    _get_cache().mark_complete(trace_id)
+    _get_cache().mark_complete(organization_id, project_id, trace_id)
 
     # Revoke the pending debounced task (no longer needed).
-    previous_task_id = _get_cache().pop_pending_eval(trace_id)
+    previous_task_id = _get_cache().pop_pending_eval(organization_id, project_id, trace_id)
     if previous_task_id:
         celery_app.control.revoke(previous_task_id)
         logger.debug(
@@ -164,6 +176,6 @@ def signal_conversation_complete(
         )
 
 
-def is_conversation_complete(trace_id: str) -> bool:
+def is_conversation_complete(trace_id: str, project_id: str, organization_id: str) -> bool:
     """Check whether a conversation has been marked complete."""
-    return _get_cache().is_complete(trace_id)
+    return _get_cache().is_complete(organization_id, project_id, trace_id)
