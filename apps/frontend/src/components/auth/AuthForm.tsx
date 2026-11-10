@@ -69,6 +69,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
   const productName = branding?.productName ?? DEFAULT_PRODUCT_NAME;
 
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [registrationEnabled, setRegistrationEnabled] = useState(false);
   const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicy | null>(
     null
   );
@@ -128,6 +129,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
         }
         const data = await response.json();
         setProviders(data.providers || []);
+        setRegistrationEnabled(data.registration_enabled ?? false);
         setPasswordPolicy(data.password_policy || null);
       } catch (err) {
         console.error('Error fetching providers:', err);
@@ -290,7 +292,8 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
   const oauthProviders = providers.filter(p => p.type === 'oauth' && p.enabled);
   const emailProvider = providers.find(p => p.name === 'email' && p.enabled);
-  const registrationEnabled = emailProvider?.registration_enabled ?? false;
+  // The register page is a dead end when the instance is invite-only.
+  const registrationClosed = isRegistration && !registrationEnabled;
 
   if (loading) {
     return (
@@ -339,6 +342,13 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
           </Typography>
         </Box>
 
+        {registrationClosed && (
+          <Alert severity="info">
+            Sign-up is turned off for this instance. Ask an administrator to
+            invite you.
+          </Alert>
+        )}
+
         {/* ── Initial view: "Continue with email" button ── */}
         {emailProvider && !isRegistration && !emailFormActive && (
           <Button
@@ -355,6 +365,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
         {/* ── Expanded email/password form ── */}
         {emailProvider &&
+          !registrationClosed &&
           (isRegistration || showEmailForm) &&
           !showMagicLink &&
           !magicLinkSent && (
@@ -638,45 +649,47 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
         )}
 
         {/* ── OAuth Providers (hidden when email form is active) ── */}
-        {oauthProviders.length > 0 && !emailFormActive && (
-          <>
-            {emailProvider && (
-              <Divider sx={{ borderColor: t.hairline }}>
-                <Typography
-                  sx={{
-                    fontFamily: AUTH_FONT_SANS,
-                    fontSize: 12,
-                    color: t.muted,
-                  }}
-                >
-                  or
-                </Typography>
-              </Divider>
-            )}
+        {oauthProviders.length > 0 &&
+          !emailFormActive &&
+          !registrationClosed && (
+            <>
+              {emailProvider && (
+                <Divider sx={{ borderColor: t.hairline }}>
+                  <Typography
+                    sx={{
+                      fontFamily: AUTH_FONT_SANS,
+                      fontSize: 12,
+                      color: t.muted,
+                    }}
+                  >
+                    or
+                  </Typography>
+                </Divider>
+              )}
 
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 1.25,
-              }}
-            >
-              {oauthProviders.map(provider => (
-                <Button
-                  key={provider.name}
-                  variant="outlined"
-                  fullWidth
-                  size="large"
-                  startIcon={getProviderIcon(provider.name)}
-                  onClick={() => handleOAuthLogin(provider)}
-                  sx={outlinedButtonSx}
-                >
-                  Continue with {provider.display_name}
-                </Button>
-              ))}
-            </Box>
-          </>
-        )}
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1.25,
+                }}
+              >
+                {oauthProviders.map(provider => (
+                  <Button
+                    key={provider.name}
+                    variant="outlined"
+                    fullWidth
+                    size="large"
+                    startIcon={getProviderIcon(provider.name)}
+                    onClick={() => handleOAuthLogin(provider)}
+                    sx={outlinedButtonSx}
+                  >
+                    Continue with {provider.display_name}
+                  </Button>
+                ))}
+              </Box>
+            </>
+          )}
 
         {/* ── Create account (expanded email form only, login) ── */}
         {!isRegistration &&
