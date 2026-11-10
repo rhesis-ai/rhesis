@@ -970,9 +970,10 @@ def hard_delete_item(
     user_id: str | None = None,
 ) -> bool:
     """
-    Permanently delete an item from the database.
+    Permanently delete a soft-deleted item from the database.
 
-    WARNING: This cannot be undone. Use with caution.
+    Only rows already in the recycle bin qualify; a live row is left alone and
+    reported as not found. WARNING: This cannot be undone.
 
     Args:
         db: Database session
@@ -982,12 +983,11 @@ def hard_delete_item(
         user_id: User ID for filtering
 
     Returns:
-        True if deleted, False if not found
+        True if deleted, False if not found or not soft-deleted
     """
-    # Get item including deleted ones
     item = get_item(db, model, item_id, organization_id, user_id, include_deleted=True)
 
-    if not item:
+    if not item or item.deleted_at is None:
         return False
 
     db.delete(item)

@@ -171,11 +171,12 @@ _VIEWER_EXCLUDED_READS: frozenset[str] = frozenset({"role:read", "token:read", "
 
 def _viewer_permissions(cap_set: set[str]) -> set[str]:
     """Read-only baseline: every ``:read`` capability except sensitive org-admin
-    reads (:data:`_VIEWER_EXCLUDED_READS`), plus ``recycle:view``."""
-    reads = {c for c in cap_set if c.endswith(":read")} - _VIEWER_EXCLUDED_READS
-    if "recycle:view" in cap_set:
-        reads.add("recycle:view")
-    return reads
+    reads (:data:`_VIEWER_EXCLUDED_READS`).
+
+    ``recycle:view`` is not part of it: the recycle bin lists deleted rows from
+    every project in the org, so it stays with Owner, Admin and Auditor (and the
+    org owner in community, see ``_OWNER_ONLY_CAPABILITIES``)."""
+    return {c for c in cap_set if c.endswith(":read")} - _VIEWER_EXCLUDED_READS
 
 
 def _auditor_permissions(cap_set: set[str]) -> set[str]:
@@ -240,8 +241,8 @@ def permissions_for_built_in_role(role_name: str, capabilities: list[str]) -> se
       project-scoped resource except project:delete, plus their own API tokens
       (token:create/read/update/delete).
     - **Viewer** (level 40): every :read except role:read, token:read and
-      audit_log:read, plus recycle:view (covers organization:read and
-      member:read for org context).
+      audit_log:read (covers organization:read and member:read for org
+      context).
     - **None**   (level 0): no permissions.
 
     The definitions nest (Owner ⊇ Admin ⊇ Member ⊇ Viewer ⊇ None) so a

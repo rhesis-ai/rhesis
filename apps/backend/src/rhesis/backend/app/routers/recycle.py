@@ -2,9 +2,12 @@
 Recycle bin management endpoints for soft-deleted records.
 
 These endpoints allow org admins to:
-- View soft-deleted records in the recycle bin
-- Restore soft-deleted records from the recycle bin
-- Permanently delete records (empty recycle bin)
+- View soft-deleted records in the recycle bin (``recycle:view``)
+- Restore soft-deleted records from the recycle bin (``recycle:restore``)
+- Permanently delete soft-deleted records (``recycle:purge``)
+
+Rows are returned without secret columns (see
+``services.recycle.serialize_recycled_item``).
 """
 
 import logging
@@ -36,9 +39,8 @@ router = RhesisRouter(prefix="/recycle", tags=["recycle"], resource="recycle")
 # even though they inherit deleted_at from Base like every other model.
 #
 # usage: a billing counter, not user content. Reachable here it would let an
-# org member zero their own metered usage (hard delete has no "already
-# soft-deleted" precondition -- see hard_delete_item/get_item(include_deleted=True))
-# or, via restore, resurrect a row that the increment path's raw-SQL upsert
+# org admin zero their own metered usage (soft-delete, then purge) or, via
+# restore, resurrect a row that the increment path's raw-SQL upsert
 # would keep updating invisibly (the ORM soft-delete filter hides it from
 # GET /usage's SELECT while accrual still lands on it). There is no
 # legitimate soft-delete/restore workflow for a counter row.
@@ -137,7 +139,7 @@ def list_available_models(
     return {"count": len(model_info), "models": model_info}
 
 
-@router.get("/{model_name}")
+@router.get("/{model_name}", **capability(Permission.Recycle.VIEW))
 def get_recycled_records(
     model_name: str,
     skip: int = Query(0, ge=0),
@@ -149,7 +151,7 @@ def get_recycled_records(
     """
     Get soft-deleted records in the recycle bin for a specific model.
 
-    Users can view deleted records from their organization.
+    Secret columns (encrypted values, credentials, hashes) are never returned.
 
     Args:
         model_name: Name of the model (e.g., 'user', 'test', 'project')
@@ -172,7 +174,7 @@ def get_recycled_records(
     return {
         "model": model_name,
         "count": len(deleted_items),
-        "items": deleted_items,
+        "items": [recycle_service.serialize_recycled_item(item) for item in deleted_items],
         "has_more": len(deleted_items) == limit,
     }
 
@@ -221,11 +223,11 @@ def restore_from_recycle_bin(
 
     return {
         "message": f"{model_name} restored successfully from recycle bin",
-        "item": restored_item,
+        "item": recycle_service.serialize_recycled_item(restored_item),
     }
 
 
-@router.delete("/empty/{model_name}")
+@router.delete("/empty/{model_name}", **capability(Permission.Recycle.PURGE))
 def empty_recycle_bin_for_model(
     model_name: str,
     confirm: bool = Query(False, description="Must be true to confirm"),
@@ -293,7 +295,7 @@ def empty_recycle_bin_for_model(
     }
 
 
-@router.delete("/{model_name}/{item_id}")
+@router.delete("/{model_name}/{item_id}", **capability(Permission.Recycle.PURGE))
 def permanently_delete_record(
     model_name: str,
     item_id: UUID,
@@ -303,7 +305,9 @@ def permanently_delete_record(
     tenant_context=Depends(get_tenant_context),
 ):
     """
-    Permanently delete a record from the recycle bin (admin only).
+    Permanently delete a soft-deleted record from the recycle bin (admin only).
+
+    Live (not soft-deleted) records are refused with 404.
 
     WARNING: This action cannot be undone! The record will be permanently
     removed from the database.
@@ -344,7 +348,7 @@ def permanently_delete_record(
     }
 
 
-@router.get("/stats/counts")
+@router.get("/stats/counts", **capability(Permission.Recycle.VIEW))
 def get_recycle_bin_counts(
     db: Session = Depends(get_tenant_db_session),
     current_user: models.User = Depends(require_current_user_or_token),
@@ -353,7 +357,7 @@ def get_recycle_bin_counts(
     """
     Get counts of soft-deleted records in the recycle bin for all models.
 
-    Users can see counts for deleted records in their organization.
+    Counts for deleted records in the caller's organization.
     This can take a while for large databases as it queries every table.
 
     Returns:

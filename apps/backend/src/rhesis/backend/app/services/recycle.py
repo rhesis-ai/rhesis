@@ -11,16 +11,54 @@ This service handles:
 """
 
 import logging
-from typing import Optional, Type, TypeVar
+import re
+from functools import lru_cache
+from typing import Any, Dict, Optional, Type, TypeVar
 from uuid import UUID
 
+from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.utils.crud_utils import restore_item
+from rhesis.backend.app.utils.encryption import EncryptedString
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+# Backstop for secret columns that are neither encrypted nor declared in the
+# model's audit policy (e.g. refresh_token.token_hash on an unaudited model).
+_SECRET_NAME_PATTERN = re.compile(r"password|secret|credential|api_key|token_hash")
+
+
+@lru_cache(maxsize=None)
+def secret_column_keys(model: type) -> frozenset[str]:
+    """Attribute keys of *model* that must never leave the API in recycle-bin responses.
+
+    A column is secret when it is an ``EncryptedString``, is listed in the model's
+    ``__audit__.secret``, or its name matches ``_SECRET_NAME_PATTERN``. Names are
+    checked as both the DB column name and the ORM attribute key, in case they differ.
+    """
+    declared = set(getattr(getattr(model, "__audit__", None), "secret", ()))
+    return frozenset(
+        prop.key
+        for prop in inspect(model).column_attrs
+        for column in prop.columns[:1]
+        if isinstance(column.type, EncryptedString)
+        or {column.name, prop.key} & declared
+        or any(_SECRET_NAME_PATTERN.search(n) for n in (column.name, prop.key))
+    )
+
+
+def serialize_recycled_item(item: Any) -> Dict[str, Any]:
+    """Column values of a recycle-bin row, minus secret columns and relationships."""
+    model = type(item)
+    hidden = secret_column_keys(model)
+    return {
+        prop.key: getattr(item, prop.key)
+        for prop in inspect(model).column_attrs
+        if prop.key not in hidden
+    }
 
 
 def restore_item_with_cascade(

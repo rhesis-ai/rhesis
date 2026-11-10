@@ -207,6 +207,9 @@ _OWNER_ONLY_CAPABILITIES: frozenset[str] = frozenset(
         str(Permission.Role.READ),
         str(Permission.SSO.MANAGE),
         str(Permission.ApiClients.MANAGE),
+        # The bin spans every project and table in the org, and its rows are
+        # beyond the reach of per-project membership checks.
+        str(Permission.Recycle.VIEW),
         str(Permission.Recycle.RESTORE),
         str(Permission.Recycle.PURGE),
         # Local-mode platform key: mutating it affects every member's ability

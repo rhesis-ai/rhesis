@@ -6,7 +6,7 @@ Exit criteria (updated after sync removal):
 3. No ``role_permission`` rows exist for built-in roles (permissions computed from code).
 4. ``FeatureName.RBAC`` is registered in the EE feature registry.
 5. Built-in level rules hold: Owner has all, Viewer has :read (minus sensitive
-   org-admin reads) + recycle:view, None has nothing, Admin excludes EE
+   org-admin reads), None has nothing, Admin excludes EE
    management perms — verified from code, not DB.
 6. RLS policy on ``role`` permits NULL-org built-ins globally.
 7. Built-in roles nest monotonically (Owner ⊇ Admin ⊇ Member ⊇ Viewer ⊇ None)
@@ -342,12 +342,12 @@ class TestPermissionsForBuiltInRole:
         result = permissions_for_built_in_role("Superuser", self._CAPS)
         assert result == set()
 
-    def test_viewer_only_read_and_recycle_view(self):
+    def test_viewer_only_read(self):
         from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
 
         result = permissions_for_built_in_role("Viewer", self._CAPS)
         assert "test_set:read" in result
-        assert "recycle:view" in result
+        assert "recycle:view" not in result
         assert "test_set:create" not in result
         assert "test_set:export" not in result
         assert "playground:use" not in result
@@ -381,6 +381,7 @@ class TestPermissionsForBuiltInRole:
         assert "organization:update" not in result
         assert "member:manage" not in result
         assert "recycle:restore" not in result
+        assert "recycle:view" not in result
         assert "role:manage" not in result
 
     def test_member_manages_own_tokens_but_cannot_delete_projects(self):
@@ -397,7 +398,7 @@ class TestPermissionsForBuiltInRole:
         assert not tokens & permissions_for_built_in_role("Viewer", caps)
 
     def test_viewer_excludes_sensitive_org_reads(self):
-        """Viewer gets org-context reads but never role:read / token:read."""
+        """Viewer gets org-context reads but never role:read / token:read / recycle:view."""
         from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
 
         caps = [
@@ -411,7 +412,7 @@ class TestPermissionsForBuiltInRole:
         viewer = permissions_for_built_in_role("Viewer", caps)
         assert "organization:read" in viewer
         assert "member:read" in viewer
-        assert "recycle:view" in viewer
+        assert "recycle:view" not in viewer
         assert "role:read" not in viewer
         assert "token:read" not in viewer
 
