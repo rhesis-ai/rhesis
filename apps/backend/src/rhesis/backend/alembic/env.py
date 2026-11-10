@@ -3,7 +3,8 @@ import os
 import time
 from logging.config import fileConfig
 
-from alembic import context
+from alembic import context, util
+from alembic.runtime.migration import MigrationContext
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 
@@ -188,6 +189,20 @@ def run_migrations_offline():
         context.run_migrations()
 
 
+def _has_pending_migrations(connection) -> bool:
+    """False when this command applies no migration: not an upgrade/downgrade, or already there."""
+    try:
+        target = context.get_revision_argument()
+    except KeyError:
+        # `current` and other read-only commands set no destination.
+        return False
+    current = MigrationContext.configure(connection).get_current_heads()
+    # End the transaction autobegun above, so Alembic starts its own.
+    connection.rollback()
+    # `base` resolves to None, which only a downgrade asks for.
+    return target is None or set(util.to_tuple(target)) != set(current)
+
+
 def run_migrations_online():
     """Run migrations in 'online' mode.
 
@@ -206,8 +221,13 @@ def run_migrations_online():
     lock_connection = _acquire_migration_advisory_lock(connectable)
     try:
         with connectable.connect() as connection:
-            # Managed Postgres (RDS etc.) can't give the owner BYPASSRLS.
-            suspend_force_rls = suspend_force_rls_for_owner(connection)
+            # Managed Postgres (RDS etc.) can't give the owner BYPASSRLS. Skipped
+            # when nothing will run, so a startup `upgrade head` locks no tables.
+            suspend_force_rls = (
+                suspend_force_rls_for_owner(connection)
+                if _has_pending_migrations(connection)
+                else None
+            )
             context.configure(
                 connection=connection,
                 target_metadata=target_metadata,

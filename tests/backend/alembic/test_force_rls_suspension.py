@@ -108,18 +108,39 @@ def test_mid_run_commit_restores_force_and_next_transaction_lifts_it(owner):
     assert _forced(superuser, f"{schema}.t")
 
 
-def test_table_forced_by_a_migration_is_lifted_by_the_after_step_hook(owner):
+def test_table_a_migration_forces_can_be_seeded_in_the_same_migration(owner):
+    """New tables FORCE RLS in their own migration and may seed straight after."""
     engine, schema, superuser = owner
+    with engine.connect() as conn:
+        suspend_force_rls_for_owner(conn)
+        with conn.begin():
+            conn.execute(sa.text(f"CREATE TABLE {schema}.new (organization_id uuid)"))
+            conn.execute(sa.text(f"ALTER TABLE {schema}.new ENABLE ROW LEVEL SECURITY"))
+            conn.execute(sa.text(f"ALTER TABLE {schema}.new FORCE ROW LEVEL SECURITY"))
+            _seed(conn, f"{schema}.new")
+            conn.execute(sa.text(f"ALTER TABLE {schema}.new RENAME TO renamed"))
+    assert _forced(superuser, f"{schema}.renamed")
+
+
+def test_after_step_hook_catches_force_the_statement_text_hides(owner):
+    engine, schema, superuser = owner
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text(
+                f"CREATE FUNCTION {schema}.lock_down() RETURNS void LANGUAGE plpgsql AS "
+                f"$$ BEGIN EXECUTE 'ALTER TABLE {schema}.new ' || 'FORCE ROW LEVEL ' || "
+                "'SECURITY'; END $$"
+            )
+        )
     with engine.connect() as conn:
         after_step = suspend_force_rls_for_owner(conn)
         with conn.begin():
             conn.execute(sa.text(f"CREATE TABLE {schema}.new (organization_id uuid)"))
             conn.execute(sa.text(f"ALTER TABLE {schema}.new ENABLE ROW LEVEL SECURITY"))
-            conn.execute(sa.text(f"ALTER TABLE {schema}.new FORCE ROW LEVEL SECURITY"))
+            conn.execute(sa.text(f"SELECT {schema}.lock_down()"))
             after_step()
             _seed(conn, f"{schema}.new")
-            conn.execute(sa.text(f"ALTER TABLE {schema}.new RENAME TO renamed"))
-    assert _forced(superuser, f"{schema}.renamed")
+    assert _forced(superuser, f"{schema}.new")
 
 
 def test_explicit_no_force_in_a_migration_is_kept(owner):
@@ -129,6 +150,34 @@ def test_explicit_no_force_in_a_migration_is_kept(owner):
         with conn.begin():
             conn.execute(sa.text(f"ALTER TABLE {schema}.t NO FORCE ROW LEVEL SECURITY"))
     assert not _forced(superuser, f"{schema}.t")
+
+
+def test_no_force_from_dynamic_sql_is_kept(owner):
+    engine, schema, superuser = owner
+    with engine.connect() as conn:
+        suspend_force_rls_for_owner(conn)
+        with conn.begin():
+            conn.execute(
+                sa.text(
+                    "DO $$ BEGIN EXECUTE format("
+                    f"'ALTER TABLE %I.%I NO FORCE ROW LEVEL SECURITY', '{schema}', 't'); END $$"
+                )
+            )
+    assert not _forced(superuser, f"{schema}.t")
+
+
+def test_no_force_on_one_table_leaves_the_others_restored(owner):
+    engine, schema, superuser = owner
+    with engine.connect() as conn:
+        suspend_force_rls_for_owner(conn)
+        with conn.begin():
+            conn.execute(sa.text(f"CREATE TABLE {schema}.other (organization_id uuid)"))
+            conn.execute(sa.text(f"ALTER TABLE {schema}.other ENABLE ROW LEVEL SECURITY"))
+            conn.execute(sa.text(f"ALTER TABLE {schema}.other FORCE ROW LEVEL SECURITY"))
+            conn.execute(sa.text(f"ALTER TABLE {schema}.t NO FORCE ROW LEVEL SECURITY"))
+            _seed(conn, f"{schema}.other")
+    assert not _forced(superuser, f"{schema}.t")
+    assert _forced(superuser, f"{schema}.other")
 
 
 def test_role_that_bypasses_rls_is_left_alone():

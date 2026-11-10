@@ -14,8 +14,8 @@ Both get the extensions a managed-Postgres admin pre-creates (``uuid-ossp``,
 
 - ``relrowsecurity`` / ``relforcerowsecurity`` of every table
 - ``pg_policies``
-- row count and a content digest of every table (uuid and timestamp columns
-  left out, since those differ between any two installs)
+- row count and a content digest of every table (uuid and timestamp values
+  differ between any two installs, so those count only as set or NULL)
 
 Exits non-zero if either upgrade fails or anything differs.
 
@@ -160,21 +160,22 @@ def _snapshot(scenario: str) -> dict[str, list[str]]:
 
 
 def _table_digest(conn: psycopg.Connection, table: str) -> str:
-    columns = [
-        row[0]
-        for row in conn.execute(
-            "SELECT column_name FROM information_schema.columns "
-            "WHERE table_schema = 'public' AND table_name = %s "
-            "AND data_type <> ALL(%s) AND column_name <> ALL(%s) ORDER BY column_name",
-            (table, list(_VOLATILE_TYPES), list(_VOLATILE_COLUMNS)),
-        )
+    columns = conn.execute(
+        "SELECT column_name, data_type FROM information_schema.columns "
+        "WHERE table_schema = 'public' AND table_name = %s AND column_name <> ALL(%s) "
+        "ORDER BY column_name",
+        (table, list(_VOLATILE_COLUMNS)),
+    ).fetchall()
+    # A volatile value only counts as set or NULL, so a seed row whose foreign key
+    # came out NULL under RLS still shows up.
+    parts = [
+        sql.SQL("CASE WHEN {} IS NULL THEN 'NULL' ELSE 'set' END").format(sql.Identifier(name))
+        if data_type in _VOLATILE_TYPES
+        else sql.SQL("coalesce({}::text, 'NULL')").format(sql.Identifier(name))
+        for name, data_type in columns
     ]
     row_text = (
-        sql.SQL("concat_ws('|', {})").format(
-            sql.SQL(", ").join(sql.SQL("{}::text").format(sql.Identifier(c)) for c in columns)
-        )
-        if columns
-        else sql.SQL("''")
+        sql.SQL("concat_ws('|', {})").format(sql.SQL(", ").join(parts)) if parts else sql.SQL("''")
     )
     query = sql.SQL(
         "SELECT count(*), coalesce(md5(string_agg(r, E'\\n' ORDER BY r)), '-') "

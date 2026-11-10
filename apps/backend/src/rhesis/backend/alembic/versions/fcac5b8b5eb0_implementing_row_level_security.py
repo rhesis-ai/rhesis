@@ -36,12 +36,14 @@ def upgrade() -> None:
     BEGIN
         -- Loop through all tables in the public schema
         FOR r IN
-            -- Ordinary tables we own: views and extension-owned relations (e.g.
-            -- pg_stat_statements on RDS) can't take RLS and aren't ours to alter.
+            -- Ordinary tables only: views and extension relations (e.g.
+            -- pg_stat_statements, which RDS puts in public) can't take RLS.
             SELECT c.relname AS table_name FROM pg_class c
             WHERE c.relnamespace = 'public'::regnamespace
             AND c.relkind IN ('r', 'p')
-            AND pg_get_userbyid(c.relowner) = current_user
+            AND NOT EXISTS (
+                SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e'
+            )
             AND c.relname NOT IN ('alembic_version', 'organization', 'token', 'user')
         LOOP
             -- Enable RLS for each table
@@ -60,12 +62,14 @@ def upgrade() -> None:
         -- Loop through all tables in the public schema, except alembic_version, 
         -- organization and token
         FOR r IN
-            -- Ordinary tables we own: views and extension-owned relations (e.g.
-            -- pg_stat_statements on RDS) can't take RLS and aren't ours to alter.
+            -- Ordinary tables only: views and extension relations (e.g.
+            -- pg_stat_statements, which RDS puts in public) can't take RLS.
             SELECT c.relname AS table_name FROM pg_class c
             WHERE c.relnamespace = 'public'::regnamespace
             AND c.relkind IN ('r', 'p')
-            AND pg_get_userbyid(c.relowner) = current_user
+            AND NOT EXISTS (
+                SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e'
+            )
             AND c.relname NOT IN ('alembic_version', 'organization', 'token', 'user')
         LOOP
             -- Drop the existing organization isolation policy if it exists
@@ -98,12 +102,14 @@ def downgrade() -> None:
         -- Loop through all tables in the public schema, except alembic_version, 
         -- organization and token
         FOR r IN
-            -- Ordinary tables we own: views and extension-owned relations (e.g.
-            -- pg_stat_statements on RDS) can't take RLS and aren't ours to alter.
+            -- Ordinary tables only: views and extension relations (e.g.
+            -- pg_stat_statements, which RDS puts in public) can't take RLS.
             SELECT c.relname AS table_name FROM pg_class c
             WHERE c.relnamespace = 'public'::regnamespace
             AND c.relkind IN ('r', 'p')
-            AND pg_get_userbyid(c.relowner) = current_user
+            AND NOT EXISTS (
+                SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e'
+            )
             AND c.relname NOT IN ('alembic_version', 'organization', 'token', 'user')
         LOOP
             -- Drop the organization isolation policy for each table
@@ -127,12 +133,14 @@ def downgrade() -> None:
     BEGIN
         -- Loop through all tables in the public schema
         FOR r IN
-            -- Ordinary tables we own: views and extension-owned relations (e.g.
-            -- pg_stat_statements on RDS) can't take RLS and aren't ours to alter.
+            -- Ordinary tables only: views and extension relations (e.g.
+            -- pg_stat_statements, which RDS puts in public) can't take RLS.
             SELECT c.relname AS table_name FROM pg_class c
             WHERE c.relnamespace = 'public'::regnamespace
             AND c.relkind IN ('r', 'p')
-            AND pg_get_userbyid(c.relowner) = current_user
+            AND NOT EXISTS (
+                SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e'
+            )
             AND c.relname NOT IN ('alembic_version', 'organization', 'token', 'user')
         LOOP
             -- Disable RLS for each table
