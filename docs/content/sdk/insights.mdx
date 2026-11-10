@@ -2,7 +2,7 @@ import { CodeBlock } from '@/components/CodeBlock'
 
 # Insights
 
-`Insights` runs aggregation queries against your organization's test results, metrics, test runs, tests, and traces directly.
+`Insights` runs aggregation queries against the test results, metrics, test runs, tests, and traces of the client's project (see [Project ID Resolution](/sdk/client#project-id-resolution)). Without a project, only rows that belong to no project are counted.
 
 <CodeBlock filename="insights.py" language="python">
 {`from rhesis.sdk.entities import Insights
