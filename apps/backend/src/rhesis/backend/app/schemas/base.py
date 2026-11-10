@@ -41,6 +41,7 @@ class Base(BaseModel):
     def _drop_other_org_users(cls, data: Any, handler: Any) -> Any:
         # The user table has no RLS, so a stale cross-org user reference would load
         # and serialize that user's record. Never return it inside another org's row.
+        # Only direct user fields are checked: no schema nests users in a list or dict.
         obj = handler(data)
         org = _organization_of(data) or _organization_of(obj)
         if org is None:

@@ -158,6 +158,21 @@ class TestOrganizationAndProjectIds:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         _assert_no_org_b(response, org_b)
 
+    def test_soft_deleted_project_id_is_rejected(
+        self, authenticated_client, test_db, test_org_id, authenticated_user_id
+    ):
+        project = _create_row(
+            test_db, models.Project, test_org_id, authenticated_user_id, name="gone"
+        )
+        project.soft_delete()
+        test_db.flush()
+
+        response = authenticated_client.post(
+            "/sources/", json={"title": "x", "project_id": str(project.id)}
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
     def test_same_org_project_requires_membership(
         self, client, test_db, test_org_id, authenticated_user_id
     ):

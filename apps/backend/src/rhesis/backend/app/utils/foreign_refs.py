@@ -37,7 +37,12 @@ def _reference_columns(model: type) -> tuple[tuple[str, str], ...]:
 
 
 def _row_in_org(db: Session, model: type, row_id: uuid.UUID, organization_id: str) -> bool:
-    stmt = select(model.id).where(model.id == row_id, model.organization_id == organization_id)
+    # Core select() skips the Query-based soft-delete filter, so exclude deleted rows here.
+    stmt = select(model.id).where(
+        model.id == row_id,
+        model.organization_id == organization_id,
+        model.deleted_at.is_(None),
+    )
     return db.execute(stmt).first() is not None
 
 
@@ -62,7 +67,10 @@ def _may_use_project(
     if not user_id:
         return True
     membership = select(ProjectMembership.id).where(
-        ProjectMembership.project_id == project_id, ProjectMembership.user_id == user_id
+        ProjectMembership.project_id == project_id,
+        ProjectMembership.user_id == user_id,
+        ProjectMembership.organization_id == organization_id,
+        ProjectMembership.deleted_at.is_(None),
     )
     if db.execute(membership).first() is not None:
         return True
