@@ -2,6 +2,7 @@
 
 from typing import Any, Tuple
 
+from jinja2.runtime import Context
 from jinja2.sandbox import ImmutableSandboxedEnvironment, SecurityError
 
 from rhesis.backend.app.services.invokers.templating.filters import TemplateInputError
@@ -12,12 +13,17 @@ class UnsafeTemplateError(SecurityError, TemplateInputError):
 
 
 class TemplateSandbox(ImmutableSandboxedEnvironment):
-    """Raises on unsafe attribute access instead of rendering it as an empty string."""
+    """Reports sandbox refusals as input errors instead of rendering unsafe access as blank."""
 
     def unsafe_undefined(self, obj: Any, attribute: str) -> Any:
         raise UnsafeTemplateError(
             f"access to attribute {attribute!r} of {type(obj).__name__!r} object is not allowed"
         )
+
+    def call(__self, __context: Context, __obj: Any, *args: Any, **kwargs: Any) -> Any:
+        if not __self.is_safe_callable(__obj):
+            raise UnsafeTemplateError(f"calling {__obj!r} is not allowed")
+        return super().call(__context, __obj, *args, **kwargs)
 
 
 def resolve_dotted_path(env: TemplateSandbox, root: Any, path: str) -> Tuple[bool, Any]:

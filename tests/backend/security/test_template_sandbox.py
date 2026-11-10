@@ -9,10 +9,11 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from jinja2.sandbox import ImmutableSandboxedEnvironment, SecurityError
+from jinja2.sandbox import ImmutableSandboxedEnvironment, SecurityError, unsafe
 from pydantic import BaseModel
 
 from rhesis.backend.app.services.invokers.templating import ResponseMapper, TemplateRenderer
+from rhesis.backend.app.services.invokers.templating.filters import TemplateInputError
 
 ESCAPE_PAYLOADS = [
     "{{ cycler.__init__.__globals__.os.name }}",
@@ -76,6 +77,14 @@ class TestRendererSandbox:
     def test_mutating_methods_are_refused(self):
         with pytest.raises(SecurityError):
             TemplateRenderer().render("{{ messages.append(1) }}", {"messages": []})
+
+    def test_unsafe_callable_is_a_template_input_error(self):
+        @unsafe
+        def secret():
+            return "called"
+
+        with pytest.raises(TemplateInputError):
+            TemplateRenderer().render("{{ secret() }}", {"secret": secret})
 
     def test_simple_reference_does_not_walk_dunder_attributes(self):
         """A bare ``{{ a.b }}`` reference is resolved by hand; it must not reach dunders."""
