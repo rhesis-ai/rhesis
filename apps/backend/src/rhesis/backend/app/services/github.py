@@ -44,8 +44,8 @@ def _check_segments(segments: list[str]) -> None:
 def parse_github_url(github_url: str) -> tuple[str, str, str, str]:
     """Parse an https://github.com URL into (owner, repo, branch, subfolder).
 
-    Anything else -- a local path, another scheme or host, credentials or a port
-    in the URL -- raises InvalidGitHubURL.
+    Anything else -- a local path, another scheme or host, credentials, a port,
+    a query or a fragment -- raises InvalidGitHubURL.
     """
     try:
         parts = urlsplit(github_url)
@@ -58,6 +58,8 @@ def parse_github_url(github_url: str) -> tuple[str, str, str, str]:
         or parts.username is not None
         or parts.password is not None
         or port is not None
+        or parts.query
+        or parts.fragment
     ):
         raise InvalidGitHubURL("Only https://github.com/<owner>/<repo> URLs are supported")
 
@@ -121,6 +123,20 @@ def _select_blobs(tree: list[dict], subfolder: str) -> list[tuple[str, str]]:
     return selected
 
 
+def _download_file(url: str) -> bytes | None:
+    """Return the file body, or None if it is missing or over _MAX_FILE_BYTES."""
+    # The tree's size can be stale if the branch moves, so cap the body itself too.
+    with requests.get(url, timeout=_GITHUB_TIMEOUT_SECONDS, stream=True) as response:
+        if response.status_code != 200:
+            return None
+        body = bytearray()
+        for chunk in response.iter_content(chunk_size=65536):
+            body.extend(chunk)
+            if len(body) > _MAX_FILE_BYTES:
+                return None
+        return bytes(body)
+
+
 def download_github_repo(github_url: str, local_path: Path) -> None:
     """Download GitHub repository contents into local_path."""
     owner, repo, branch, subfolder = parse_github_url(github_url)
@@ -137,14 +153,14 @@ def download_github_repo(github_url: str, local_path: Path) -> None:
         if not file_path.is_relative_to(root) or file_path == root:
             raise ValueError(f"Refusing to write outside the download directory: {path}")
 
-        response = requests.get(f"{base_url}/{path}", timeout=_GITHUB_TIMEOUT_SECONDS)
-        if response.status_code != 200:
+        content = _download_file(f"{base_url}/{path}")
+        if content is None:
             continue
-        total_bytes += len(response.content)
+        total_bytes += len(content)
         if total_bytes > _MAX_TOTAL_BYTES:
             raise RepositoryTooLarge(f"Repository is larger than {_MAX_TOTAL_BYTES} bytes")
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_bytes(response.content)
+        file_path.write_bytes(content)
         downloaded_files += 1
 
     logger.debug("Downloaded %d files from %s", downloaded_files, github_url)
@@ -277,6 +293,7 @@ def read_repo_contents(github_url: str) -> str:
     return "".
     """
     parse_github_url(github_url)
+    logger.info("Getting GitHub contents for %s", github_url)
     temp_dir = Path(tempfile.mkdtemp(prefix="rhesis-github-"))
     try:
         try:

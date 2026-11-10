@@ -170,7 +170,6 @@ def get_github_contents(repo_url: str):
     Returns:
         str: The contents of the repository
     """
-    logger.info("Getting GitHub contents for %s", repo_url)
     try:
         return read_repo_contents(repo_url)
     except (InvalidGitHubURL, RepositoryTooLarge) as e:

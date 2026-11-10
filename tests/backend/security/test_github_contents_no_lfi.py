@@ -40,6 +40,8 @@ REJECTED = [
     "https://github.com/owner/repo/tree/main/../../x",
     "ftp://github.com/owner/repo",
     "httpsx://github.com/owner/repo",
+    "https://github.com/owner/repo?token=abc",
+    "https://github.com/owner/repo#frag",
     "",
 ]
 
@@ -65,17 +67,22 @@ def test_local_directory_is_never_read(authenticated_client, tmp_path):
 
 
 def _fake_github(tree, files):
-    def fake_get(url, timeout):
+    def fake_get(url, timeout, **kwargs):
         assert timeout
         resp = MagicMock()
+        resp.__enter__.return_value = resp
         if url.startswith("https://api.github.com/"):
             resp.status_code = 200
             resp.json.return_value = {"tree": tree}
             resp.raise_for_status.return_value = None
         else:
+            assert kwargs.get("stream") is True
             path = url.split("/main/", 1)[1]
             resp.status_code = 200 if path in files else 404
-            resp.content = files.get(path, b"")
+            body = files.get(path, b"")
+            resp.iter_content.side_effect = lambda chunk_size: iter(
+                [body[i : i + chunk_size] for i in range(0, len(body), chunk_size)]
+            )
         return resp
 
     return fake_get
@@ -163,3 +170,20 @@ def test_route_requires_service_read_capability():
 def test_route_requires_authentication(client):
     response = client.get(ROUTE, params={"repo_url": "https://github.com/owner/repo"})
     assert response.status_code in (401, 403)
+
+
+@pytest.mark.security
+def test_file_body_over_cap_is_skipped(monkeypatch):
+    # The tree reports a small size, but the body served is larger than the cap.
+    monkeypatch.setattr(github, "_MAX_FILE_BYTES", 10)
+    tree = [
+        {"type": "blob", "path": "big.py", "size": 1},
+        {"type": "blob", "path": "ok.py", "size": 1},
+    ]
+    fake = _fake_github(tree, {"big.py": b"x" * 100, "ok.py": b"y = 1\n"})
+
+    with patch.object(github.requests, "get", side_effect=fake):
+        contents = github.read_repo_contents("https://github.com/owner/repo")
+
+    assert "ok.py" in contents
+    assert "big.py" not in contents
