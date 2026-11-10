@@ -1,9 +1,11 @@
-#!/usr/bin/env python3
-
+import logging
 import os
-import sys
+import re
+import shutil
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlsplit
 
 import chardet
 from pathspec import PathSpec
@@ -11,96 +13,171 @@ from pathspec.patterns import GitWildMatchPattern
 
 from rhesis.backend.app.utils.ssrf_http_client import guarded_client
 
+logger = logging.getLogger(__name__)
+
 # read_repo_contents runs on a sync route, so it holds an anyio threadpool slot for
 # the whole download. Without a timeout an unresponsive GitHub holds it forever and
 # enough of those starve every sync route in the process.
 _GITHUB_TIMEOUT_SECONDS = 30
 
+_ALLOWED_HOSTS = frozenset({"github.com"})
+# GitHub owner/repo/ref segment characters; also rules out "." and "..".
+_SEGMENT_RE = re.compile(r"^(?!\.{1,2}$)[A-Za-z0-9._-]+$")
 
-def _http_get(url):
+# Caps per download, so one request cannot fill the disk or hold a worker for long.
+_MAX_FILES = 500
+_MAX_FILE_BYTES = 1_000_000
+_MAX_TOTAL_BYTES = 10_000_000
+
+
+class InvalidGitHubURL(ValueError):
+    """The value is not an https://github.com/<owner>/<repo> URL."""
+
+
+class RepositoryTooLarge(ValueError):
+    """The repository exceeds the download caps."""
+
+
+def _check_segments(segments: list[str]) -> None:
+    if not all(_SEGMENT_RE.match(s) for s in segments):
+        raise InvalidGitHubURL("Invalid GitHub URL")
+
+
+def parse_github_url(github_url: str) -> tuple[str, str, str, str]:
+    """Parse an https://github.com URL into (owner, repo, branch, subfolder).
+
+    Anything else -- a local path, another scheme or host, credentials, a port,
+    a query or a fragment -- raises InvalidGitHubURL.
+    """
+    try:
+        parts = urlsplit(github_url)
+        port = parts.port
+    except ValueError as e:
+        raise InvalidGitHubURL("Invalid GitHub URL") from e
+    if (
+        parts.scheme != "https"
+        or (parts.hostname or "").lower() not in _ALLOWED_HOSTS
+        or parts.username is not None
+        or parts.password is not None
+        or port is not None
+        or parts.query
+        or parts.fragment
+    ):
+        raise InvalidGitHubURL("Only https://github.com/<owner>/<repo> URLs are supported")
+
+    segments = [s for s in parts.path.split("/") if s]
+    if len(segments) < 2:
+        raise InvalidGitHubURL("Invalid GitHub URL")
+    _check_segments(segments)
+
+    owner = segments[0]
+    repo = segments[1].removesuffix(".git")
+    _check_segments([repo])
+    branch = "main"
+    subfolder = ""
+
+    remaining = segments[2:]
+    if remaining and remaining[0] in ("tree", "blob"):
+        # Format: /owner/repo/tree/branch/subfolder
+        if len(remaining) > 1:
+            branch = remaining[1]
+            subfolder = "/".join(remaining[2:])
+    elif remaining:
+        # Format: /owner/repo/subfolder
+        subfolder = "/".join(remaining)
+
+    return owner, repo, branch, subfolder
+
+
+def _http_get(url: str):
     with guarded_client(follow_redirects=True, timeout=_GITHUB_TIMEOUT_SECONDS) as client:
         return client.get(url)
 
 
-def parse_github_url(github_url):
-    """Parse GitHub URL into components"""
-    parts = urlparse(github_url).path.strip("/").split("/")
-    if len(parts) < 2:
-        raise ValueError("Invalid GitHub URL")
-
-    owner = parts[0]
-    repo = parts[1]
-
-    # Default values
-    branch = "main"
-    subfolder = ""
-
-    remaining_parts = parts[2:]
-    if remaining_parts:
-        if remaining_parts[0] in ("tree", "blob"):
-            # Format: /owner/repo/tree/branch/subfolder
-            if len(remaining_parts) > 1:
-                branch = remaining_parts[1]
-                subfolder = "/".join(remaining_parts[2:]) if len(remaining_parts) > 2 else ""
-        else:
-            # Format: /owner/repo/subfolder
-            subfolder = "/".join(remaining_parts)
-
-    print(
-        f"Parsed URL - Owner: {owner}, Repo: {repo}, Branch: {branch}, Subfolder: {subfolder}"
-    )  # Debug line
-    return owner, repo, branch, subfolder
+@contextmanager
+def _http_stream(url: str):
+    with guarded_client(follow_redirects=True, timeout=_GITHUB_TIMEOUT_SECONDS) as client:
+        with client.stream("GET", url) as response:
+            yield response
 
 
-def download_github_repo(github_url, local_path):
-    """Download GitHub repository contents"""
-    owner, repo, branch, subfolder = parse_github_url(github_url)
-
-    # Try to get contents using the specified branch, fallback to 'master' if needed
-    base_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}"
-
-    # Create local directory
-    os.makedirs(local_path, exist_ok=True)
-
-    # Get the tree using GitHub API
+def _fetch_tree(owner: str, repo: str, branch: str) -> tuple[str, list[dict]]:
+    """Return (branch, tree), falling back from main to master."""
     api_url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}?recursive=1"
     response = _http_get(api_url)
     if response.status_code == 404 and branch == "main":
-        # Fallback to master if main doesn't exist
         branch = "master"
-        base_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}"
         api_url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}?recursive=1"
         response = _http_get(api_url)
-
     response.raise_for_status()
+    return branch, response.json()["tree"]
 
-    downloaded_files = 0  # Debug counter
-    tree = response.json()["tree"]
+
+def _select_blobs(tree: list[dict], subfolder: str) -> list[tuple[str, str]]:
+    """Return (repo path, path relative to subfolder) for each file to download."""
+    selected = []
     for item in tree:
-        if item["type"] != "blob":
+        if item.get("type") != "blob":
             continue
-
-        # Check if file is in the specified subfolder
+        path = item["path"]
         if subfolder:
-            if not item["path"].startswith(subfolder):
+            if path == subfolder:
+                relative = Path(path).name  # a /blob/<branch>/<file> URL
+            elif path.startswith(subfolder + "/"):
+                relative = path[len(subfolder) + 1 :]
+            else:
                 continue
-            # Adjust the path to be relative to the subfolder
-            relative_path = item["path"][len(subfolder) :].lstrip("/")
         else:
-            relative_path = item["path"]
+            relative = path
+        if item.get("size", 0) > _MAX_FILE_BYTES:
+            continue
+        selected.append((path, relative))
+    if len(selected) > _MAX_FILES:
+        raise RepositoryTooLarge(f"Repository has more than {_MAX_FILES} files")
+    return selected
 
-        file_path = Path(local_path) / relative_path
+
+def _download_file(url: str) -> bytes | None:
+    """Return the file body, or None if it is missing or over _MAX_FILE_BYTES."""
+    # The tree's size can be stale if the branch moves, so cap the body itself too.
+    with _http_stream(url) as response:
+        if response.status_code != 200:
+            return None
+        body = bytearray()
+        for chunk in response.iter_bytes(chunk_size=65536):
+            body.extend(chunk)
+            if len(body) > _MAX_FILE_BYTES:
+                return None
+        return bytes(body)
+
+
+def download_github_repo(github_url: str, local_path: Path) -> None:
+    """Download GitHub repository contents into local_path."""
+    owner, repo, branch, subfolder = parse_github_url(github_url)
+    branch, tree = _fetch_tree(owner, repo, branch)
+    base_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}"
+
+    root = Path(local_path).resolve()
+    root.mkdir(parents=True, exist_ok=True)
+
+    downloaded_files = 0
+    total_bytes = 0
+    for path, relative in _select_blobs(tree, subfolder):
+        file_path = (root / relative).resolve()
+        if not file_path.is_relative_to(root) or file_path == root:
+            raise ValueError(f"Refusing to write outside the download directory: {path}")
+
+        content = _download_file(f"{base_url}/{path}")
+        if content is None:
+            continue
+        total_bytes += len(content)
+        if total_bytes > _MAX_TOTAL_BYTES:
+            raise RepositoryTooLarge(f"Repository is larger than {_MAX_TOTAL_BYTES} bytes")
         file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_bytes(content)
+        downloaded_files += 1
 
-        # Download file content
-        file_url = f"{base_url}/{item['path']}"
-        print(f"Downloading: {file_url}")  # Debug line
-        response = _http_get(file_url)
-        if response.status_code == 200:
-            file_path.write_bytes(response.content)
-            downloaded_files += 1
-
-    print(f"Downloaded {downloaded_files} files")  # Debug line
+    logger.debug("Downloaded %d files from %s", downloaded_files, github_url)
     if downloaded_files == 0:
         raise ValueError(f"No files were downloaded from {github_url}")
 
@@ -186,24 +263,8 @@ def should_skip_file(file_path):
     return any(pattern in path_str for pattern in skip_patterns)
 
 
-def read_repo_contents(repo_path):
-    """Read repository contents, skipping binary and ignored files, and return as string"""
-    # Handle GitHub URLs
-    if repo_path.startswith("http"):
-        temp_dir = Path("temp_repo")
-        try:
-            download_github_repo(repo_path, temp_dir)
-            repo_path = temp_dir
-        except Exception as e:
-            print(f"Error downloading repository: {e}")
-            return ""
-    else:
-        repo_path = Path(repo_path)
-
-    if not Path(repo_path).exists():
-        print(f"Error: Repository path {repo_path} does not exist!")
-        return ""
-
+def _render_tree(repo_path: Path) -> str:
+    """Concatenate the text files under repo_path, skipping binary and ignored files."""
     gitignore = get_gitignore_spec(repo_path)
     output = []
 
@@ -235,23 +296,27 @@ def read_repo_contents(repo_path):
             except Exception as e:
                 output.append(f"[Error reading file {file}]: {str(e)}\n")
 
-    # Cleanup if we downloaded a repo
-    if repo_path.name == "temp_repo":
-        import shutil
-
-        shutil.rmtree(repo_path)
-
     return "".join(output)
 
 
-def main():
-    if len(sys.argv) != 2:
-        print("Usage: python git_contents_reader.py <repo_path_or_url>")
-        sys.exit(1)
+def read_repo_contents(github_url: str) -> str:
+    """Download a GitHub repository and return its text contents as one string.
 
-    contents = read_repo_contents(sys.argv[1])
-    print(contents)
-
-
-if __name__ == "__main__":
-    main()
+    Only https://github.com URLs are accepted (InvalidGitHubURL otherwise); a
+    repository over the caps raises RepositoryTooLarge. Other download failures
+    return "".
+    """
+    parse_github_url(github_url)
+    logger.info("Getting GitHub contents for %s", github_url)
+    temp_dir = Path(tempfile.mkdtemp(prefix="rhesis-github-"))
+    try:
+        try:
+            download_github_repo(github_url, temp_dir)
+        except RepositoryTooLarge:
+            raise
+        except Exception as e:
+            logger.warning("Error downloading repository %s: %s", github_url, e)
+            return ""
+        return _render_tree(temp_dir)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
