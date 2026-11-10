@@ -1765,6 +1765,160 @@ class TestDisposableEmailSignupBlocking:
 
 
 @pytest.mark.unit
+class TestRegistrationDisabled:
+    """AUTH_REGISTRATION_ENABLED=false closes every self-sign-up path, not just /register.
+
+    Existing and invited accounts (POST /users/) keep signing in.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _no_rate_limit(self, monkeypatch):
+        # /auth/magic-link allows 5/hour per client, and the suite shares one.
+        from rhesis.backend.app.utils.rate_limit import limiter
+
+        monkeypatch.setattr(limiter, "enabled", False)
+
+    @pytest.fixture
+    def registration(self, monkeypatch):
+        from rhesis.backend.app.config.settings import get_auth_settings
+
+        def _set(enabled: bool) -> None:
+            monkeypatch.setenv("AUTH_REGISTRATION_ENABLED", "true" if enabled else "false")
+            get_auth_settings.cache_clear()
+
+        yield _set
+        get_auth_settings.cache_clear()
+
+    @pytest.fixture
+    def sent_links(self):
+        with patch("rhesis.backend.app.routers.auth._send_magic_link_email_bg") as send:
+            yield send
+
+    def test_magic_link_unknown_email_creates_nothing(
+        self, client: TestClient, test_db, registration, sent_links
+    ):
+        from rhesis.backend.app.crud import user as user_crud
+
+        registration(False)
+        email = _unique_email("no-signup")
+
+        response = client.post("/auth/magic-link", json={"email": email})
+
+        # Same answer as for a real account, so it doesn't reveal which exist.
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["success"] is True
+        assert user_crud.get_user_by_email(test_db, email) is None
+        sent_links.assert_not_called()
+
+    def test_magic_link_invited_user_still_gets_a_link(
+        self, authenticated_client: TestClient, registration, sent_links
+    ):
+        registration(False)
+        email = _unique_email("invited")
+        with patch(
+            "rhesis.backend.app.routers.user.validate_and_normalize_email",
+            side_effect=lambda email, check_deliverability=False: email,
+        ):
+            invite = authenticated_client.post(
+                "/users/", json={"email": email, "name": "Invited Colleague"}
+            )
+        assert invite.status_code in (status.HTTP_200_OK, status.HTTP_201_CREATED)
+
+        response = authenticated_client.post("/auth/magic-link", json={"email": email})
+
+        assert response.status_code == status.HTTP_200_OK
+        sent_links.assert_called_once()
+        user_id, sent_to, _name, is_new_user = sent_links.call_args.args
+        assert (user_id, sent_to, is_new_user) == (invite.json()["id"], email, False)
+
+    def test_magic_link_unknown_email_signs_up_when_enabled(
+        self, client: TestClient, test_db, registration, sent_links
+    ):
+        from rhesis.backend.app.crud import user as user_crud
+
+        registration(True)
+        email = _unique_email("signup")
+
+        response = client.post("/auth/magic-link", json={"email": email})
+
+        assert response.status_code == status.HTTP_200_OK
+        user = user_crud.get_user_by_email(test_db, email)
+        assert user is not None
+        sent_links.assert_called_once()
+        assert sent_links.call_args.args == (str(user.id), email, None, True)
+
+    def test_oauth_first_login_is_refused(self, test_db, registration):
+        from rhesis.backend.app.auth.providers.base import AuthUser
+        from rhesis.backend.app.auth.user_utils import (
+            RegistrationDisabledError,
+            find_or_create_user_from_auth,
+        )
+        from rhesis.backend.app.crud import user as user_crud
+
+        registration(False)
+        email = _unique_email("oauth-new")
+        auth_user = AuthUser(
+            email=email,
+            name="New OAuth User",
+            provider_type=AuthProviderType.GITHUB,
+            external_id="github-new",
+        )
+
+        with pytest.raises(RegistrationDisabledError):
+            find_or_create_user_from_auth(test_db, auth_user)
+
+        assert user_crud.get_user_by_email(test_db, email) is None
+
+    @pytest.mark.asyncio
+    async def test_oauth_callback_redirects_to_the_invite_only_page(self, monkeypatch):
+        """A refused first login lands on the register page, not a raw JSON error."""
+        from rhesis.backend.app.auth.providers.base import AuthUser
+        from rhesis.backend.app.auth.user_utils import RegistrationDisabledError
+        from rhesis.backend.app.routers import auth as auth_router
+
+        provider = Mock()
+        provider.authenticate = AsyncMock(
+            return_value=AuthUser(
+                email=_unique_email("oauth-refused"),
+                provider_type=AuthProviderType.GOOGLE,
+                external_id="google-refused",
+            )
+        )
+        monkeypatch.setattr(auth_router.ProviderRegistry, "initialize", lambda: None)
+        monkeypatch.setattr(auth_router.ProviderRegistry, "get_provider", lambda _name: provider)
+        monkeypatch.setattr(auth_router, "_get_frontend_url", lambda: "https://app.example.com")
+
+        def refuse(_db, _auth_user):
+            raise RegistrationDisabledError()
+
+        monkeypatch.setattr(auth_router, "_complete_oauth_login", refuse)
+        request = Mock(session={"auth_provider": "google"})
+
+        response = await auth_router.auth_callback(request, db=Mock())
+
+        assert response.status_code == status.HTTP_302_FOUND
+        assert response.headers["location"] == "https://app.example.com/auth/register"
+
+    def test_oauth_existing_user_still_signs_in(self, test_db, registration):
+        from rhesis.backend.app.auth.providers.base import AuthUser
+        from rhesis.backend.app.auth.user_utils import find_or_create_user_from_auth
+
+        registration(False)
+        email = _unique_email("oauth-existing")
+        org = create_test_organization(test_db, "Invite Only Org")
+        existing = create_test_user(test_db, org.id, email, "Existing OAuth User")
+        test_db.commit()
+        auth_user = AuthUser(
+            email=email,
+            name="Existing OAuth User",
+            provider_type=AuthProviderType.GOOGLE,
+            external_id="google-existing",
+        )
+
+        assert find_or_create_user_from_auth(test_db, auth_user).id == existing.id
+
+
+@pytest.mark.unit
 class TestEmailRegisterAndLoginHappyPath:
     """End-to-end register-then-login over the real handlers.
 

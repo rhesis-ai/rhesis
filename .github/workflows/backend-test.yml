@@ -108,3 +108,58 @@ jobs:
         # and the full fixture stack); the boundary test is pure source-text
         # AST analysis and needs nothing beyond the standard library + pytest.
         run: pytest tests/backend/test_ee_boundary.py --noconftest -v --no-header -p no:cacheprovider
+
+  # Fresh install as a migration owner without SUPERUSER or BYPASSRLS, which is
+  # all managed Postgres (RDS, Cloud SQL, Azure) offers. Compared against a
+  # BYPASSRLS install: RLS flags, policies and seed data must match.
+  managed-postgres-migrations:
+    name: Migrations without BYPASSRLS (managed Postgres)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: mirror.gcr.io/pgvector/pgvector:pg16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+
+      - name: Cache uv dependencies
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-backend-${{ hashFiles('apps/backend/uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-backend-
+
+      - name: Install dependencies
+        run: uv sync --extra all --extra cpu --extra ee
+        working-directory: apps/backend
+
+      - name: Migrate with and without BYPASSRLS and compare
+        run: uv run --extra all --extra cpu --extra ee python scripts/check_managed_postgres_migrations.py
+        working-directory: apps/backend
+        env:
+          PGHOST: localhost
+          PGPORT: '5432'
+          PGUSER: postgres
+          PGPASSWORD: postgres

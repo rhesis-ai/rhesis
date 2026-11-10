@@ -31,6 +31,7 @@ const makeProvidersResponse = (overrides: Record<string, unknown> = {}) => ({
     },
   ],
   password_policy: { min_length: 12, max_length: 128, min_strength_score: 2 },
+  registration_enabled: true,
   ...overrides,
 });
 
@@ -230,5 +231,53 @@ describe('AuthForm — registration mode', () => {
     await waitFor(() => {
       expect(screen.getByRole('alert')).toBeInTheDocument();
     });
+  });
+});
+
+describe('AuthForm — registration disabled', () => {
+  async function renderClosed(props: { isRegistration?: boolean } = {}) {
+    mockFetch(makeProvidersResponse({ registration_enabled: false }));
+    render(<AuthForm {...props} />);
+    await screen.findByRole('heading', {
+      name: props.isRegistration ? 'Create your account' : 'Sign in',
+    });
+  }
+
+  it('hides "Create an account" on the sign-in form', async () => {
+    const user = userEvent.setup();
+    await renderClosed();
+
+    await user.click(
+      screen.getByRole('button', { name: /continue with email/i })
+    );
+
+    expect(
+      screen.queryByRole('link', { name: /create an account/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('replaces the register form with an invite-only notice', async () => {
+    await renderClosed({ isRegistration: true });
+
+    expect(screen.getByText(/sign-up is turned off/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /create account/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /continue with google/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('still shows "Create an account" when sign-up is on', async () => {
+    const user = userEvent.setup();
+    await renderAndWaitForLoad();
+
+    await user.click(
+      screen.getByRole('button', { name: /continue with email/i })
+    );
+
+    expect(
+      screen.getByRole('link', { name: /create an account/i })
+    ).toBeInTheDocument();
   });
 });

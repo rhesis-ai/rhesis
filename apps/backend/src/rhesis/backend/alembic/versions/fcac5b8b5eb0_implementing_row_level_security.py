@@ -36,9 +36,17 @@ def upgrade() -> None:
     BEGIN
         -- Loop through all tables in the public schema
         FOR r IN
-            SELECT table_name FROM information_schema.tables
-            WHERE table_schema = 'public'
-            AND table_name NOT IN ('alembic_version', 'organization', 'token', 'user')
+            -- Ordinary tables this role may alter: views and extension relations
+            -- (e.g. pg_stat_statements, which RDS puts in public) can't take RLS,
+            -- and on a fresh install every app table was created by this role.
+            SELECT c.relname AS table_name FROM pg_class c
+            WHERE c.relnamespace = 'public'::regnamespace
+            AND c.relkind IN ('r', 'p')
+            AND pg_has_role(current_user, c.relowner, 'MEMBER')
+            AND NOT EXISTS (
+                SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e'
+            )
+            AND c.relname NOT IN ('alembic_version', 'organization', 'token', 'user')
         LOOP
             -- Enable RLS for each table
             EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', r.table_name);
@@ -56,9 +64,17 @@ def upgrade() -> None:
         -- Loop through all tables in the public schema, except alembic_version, 
         -- organization and token
         FOR r IN
-            SELECT table_name FROM information_schema.tables
-            WHERE table_schema = 'public'
-            AND table_name NOT IN ('alembic_version', 'organization', 'token', 'user')
+            -- Ordinary tables this role may alter: views and extension relations
+            -- (e.g. pg_stat_statements, which RDS puts in public) can't take RLS,
+            -- and on a fresh install every app table was created by this role.
+            SELECT c.relname AS table_name FROM pg_class c
+            WHERE c.relnamespace = 'public'::regnamespace
+            AND c.relkind IN ('r', 'p')
+            AND pg_has_role(current_user, c.relowner, 'MEMBER')
+            AND NOT EXISTS (
+                SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e'
+            )
+            AND c.relname NOT IN ('alembic_version', 'organization', 'token', 'user')
         LOOP
             -- Drop the existing organization isolation policy if it exists
             BEGIN
@@ -90,9 +106,17 @@ def downgrade() -> None:
         -- Loop through all tables in the public schema, except alembic_version, 
         -- organization and token
         FOR r IN
-            SELECT table_name FROM information_schema.tables
-            WHERE table_schema = 'public'
-            AND table_name NOT IN ('alembic_version', 'organization', 'token', 'user')
+            -- Ordinary tables this role may alter: views and extension relations
+            -- (e.g. pg_stat_statements, which RDS puts in public) can't take RLS,
+            -- and on a fresh install every app table was created by this role.
+            SELECT c.relname AS table_name FROM pg_class c
+            WHERE c.relnamespace = 'public'::regnamespace
+            AND c.relkind IN ('r', 'p')
+            AND pg_has_role(current_user, c.relowner, 'MEMBER')
+            AND NOT EXISTS (
+                SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e'
+            )
+            AND c.relname NOT IN ('alembic_version', 'organization', 'token', 'user')
         LOOP
             -- Drop the organization isolation policy for each table
             BEGIN
@@ -115,9 +139,17 @@ def downgrade() -> None:
     BEGIN
         -- Loop through all tables in the public schema
         FOR r IN
-            SELECT table_name FROM information_schema.tables
-            WHERE table_schema = 'public'
-            AND table_name NOT IN ('alembic_version', 'organization', 'token', 'user')
+            -- Ordinary tables this role may alter: views and extension relations
+            -- (e.g. pg_stat_statements, which RDS puts in public) can't take RLS,
+            -- and on a fresh install every app table was created by this role.
+            SELECT c.relname AS table_name FROM pg_class c
+            WHERE c.relnamespace = 'public'::regnamespace
+            AND c.relkind IN ('r', 'p')
+            AND pg_has_role(current_user, c.relowner, 'MEMBER')
+            AND NOT EXISTS (
+                SELECT 1 FROM pg_depend d WHERE d.objid = c.oid AND d.deptype = 'e'
+            )
+            AND c.relname NOT IN ('alembic_version', 'organization', 'token', 'user')
         LOOP
             -- Disable RLS for each table
             EXECUTE format('ALTER TABLE public.%I DISABLE ROW LEVEL SECURITY;', r.table_name);
