@@ -3,13 +3,15 @@ import os
 import re
 import shutil
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlsplit
 
 import chardet
-import requests
 from pathspec import PathSpec
 from pathspec.patterns import GitWildMatchPattern
+
+from rhesis.backend.app.utils.ssrf_http_client import guarded_client
 
 logger = logging.getLogger(__name__)
 
@@ -87,14 +89,26 @@ def parse_github_url(github_url: str) -> tuple[str, str, str, str]:
     return owner, repo, branch, subfolder
 
 
+def _http_get(url: str):
+    with guarded_client(follow_redirects=True, timeout=_GITHUB_TIMEOUT_SECONDS) as client:
+        return client.get(url)
+
+
+@contextmanager
+def _http_stream(url: str):
+    with guarded_client(follow_redirects=True, timeout=_GITHUB_TIMEOUT_SECONDS) as client:
+        with client.stream("GET", url) as response:
+            yield response
+
+
 def _fetch_tree(owner: str, repo: str, branch: str) -> tuple[str, list[dict]]:
     """Return (branch, tree), falling back from main to master."""
     api_url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}?recursive=1"
-    response = requests.get(api_url, timeout=_GITHUB_TIMEOUT_SECONDS)
+    response = _http_get(api_url)
     if response.status_code == 404 and branch == "main":
         branch = "master"
         api_url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}?recursive=1"
-        response = requests.get(api_url, timeout=_GITHUB_TIMEOUT_SECONDS)
+        response = _http_get(api_url)
     response.raise_for_status()
     return branch, response.json()["tree"]
 
@@ -126,11 +140,11 @@ def _select_blobs(tree: list[dict], subfolder: str) -> list[tuple[str, str]]:
 def _download_file(url: str) -> bytes | None:
     """Return the file body, or None if it is missing or over _MAX_FILE_BYTES."""
     # The tree's size can be stale if the branch moves, so cap the body itself too.
-    with requests.get(url, timeout=_GITHUB_TIMEOUT_SECONDS, stream=True) as response:
+    with _http_stream(url) as response:
         if response.status_code != 200:
             return None
         body = bytearray()
-        for chunk in response.iter_content(chunk_size=65536):
+        for chunk in response.iter_bytes(chunk_size=65536):
             body.extend(chunk)
             if len(body) > _MAX_FILE_BYTES:
                 return None

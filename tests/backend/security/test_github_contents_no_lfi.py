@@ -5,6 +5,7 @@ return the text of every file under it. It must now accept only an
 ``https://github.com/<owner>/<repo>`` URL and never touch the server's filesystem.
 """
 
+from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -49,11 +50,11 @@ REJECTED = [
 @pytest.mark.security
 @pytest.mark.parametrize("repo_url", REJECTED)
 def test_non_github_values_are_rejected(authenticated_client, repo_url):
-    with patch.object(github.requests, "get") as get:
+    with _patch_http() as calls:
         response = authenticated_client.get(ROUTE, params={"repo_url": repo_url})
 
     assert response.status_code == 400, response.text
-    get.assert_not_called()
+    assert calls == []
 
 
 @pytest.mark.security
@@ -67,8 +68,7 @@ def test_local_directory_is_never_read(authenticated_client, tmp_path):
 
 
 def _fake_github(tree, files):
-    def fake_get(url, timeout, **kwargs):
-        assert timeout
+    def fake_get(url):
         resp = MagicMock()
         resp.__enter__.return_value = resp
         if url.startswith("https://api.github.com/"):
@@ -76,16 +76,31 @@ def _fake_github(tree, files):
             resp.json.return_value = {"tree": tree}
             resp.raise_for_status.return_value = None
         else:
-            assert kwargs.get("stream") is True
             path = url.split("/main/", 1)[1]
             resp.status_code = 200 if path in files else 404
             body = files.get(path, b"")
-            resp.iter_content.side_effect = lambda chunk_size: iter(
+            resp.iter_bytes.side_effect = lambda chunk_size: iter(
                 [body[i : i + chunk_size] for i in range(0, len(body), chunk_size)]
             )
         return resp
 
     return fake_get
+
+
+@contextmanager
+def _patch_http(fake=None):
+    """Patch both HTTP helpers; yields the list of requested URLs."""
+    calls = []
+
+    def record(url):
+        calls.append(url)
+        return fake(url) if fake else MagicMock()
+
+    with (
+        patch.object(github, "_http_get", side_effect=record),
+        patch.object(github, "_http_stream", side_effect=record),
+    ):
+        yield calls
 
 
 @pytest.mark.security
@@ -104,12 +119,11 @@ def test_valid_github_url_is_read(authenticated_client, repo_url):
     ]
     fake = _fake_github(tree, {"src/app.py": b"print('hi')\n"})
 
-    with patch.object(github.requests, "get", side_effect=fake) as get:
+    with _patch_http(fake) as called:
         response = authenticated_client.get(ROUTE, params={"repo_url": repo_url})
 
     assert response.status_code == 200, response.text
     assert "print('hi')" in response.json()
-    called = [c.args[0] for c in get.call_args_list]
     assert called[0] == "https://api.github.com/repos/owner/repo/git/trees/main?recursive=1"
     assert all(
         u.startswith(("https://api.github.com/", "https://raw.githubusercontent.com/"))
@@ -123,7 +137,7 @@ def test_tree_paths_cannot_escape_the_download_dir(tmp_path):
     fake = _fake_github(tree, {"../../escaped.txt": b"bad"})
     dest = tmp_path / "dl"
 
-    with patch.object(github.requests, "get", side_effect=fake):
+    with _patch_http(fake):
         with pytest.raises(ValueError):
             github.download_github_repo("https://github.com/owner/repo", dest)
 
@@ -136,7 +150,7 @@ def test_oversized_repository_is_rejected(authenticated_client, monkeypatch):
     tree = [{"type": "blob", "path": f"f{i}.py", "size": 1} for i in range(5)]
     fake = _fake_github(tree, {f"f{i}.py": b"x" for i in range(5)})
 
-    with patch.object(github.requests, "get", side_effect=fake):
+    with _patch_http(fake):
         response = authenticated_client.get(
             ROUTE, params={"repo_url": "https://github.com/owner/repo"}
         )
@@ -182,7 +196,7 @@ def test_file_body_over_cap_is_skipped(monkeypatch):
     ]
     fake = _fake_github(tree, {"big.py": b"x" * 100, "ok.py": b"y = 1\n"})
 
-    with patch.object(github.requests, "get", side_effect=fake):
+    with _patch_http(fake):
         contents = github.read_repo_contents("https://github.com/owner/repo")
 
     assert "ok.py" in contents
