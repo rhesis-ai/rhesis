@@ -129,10 +129,12 @@ ensure_app_role() {
     fi
 
     local psql_admin=(psql -h "$DB_HOST" -p "${DB_PORT:-5432}" -U "$ADMIN_USER" -d "$DB_NAME")
+    # A failed lookup only warns: alembic below uses the same credentials and
+    # fails loudly if they are wrong, and stg/prd must not depend on this step.
     local exists
     if ! exists=$(echo "SELECT 1 FROM pg_roles WHERE rolname = :'app_user';" \
-        | PGPASSWORD="$ADMIN_PASS" "${psql_admin[@]}" -tA -v app_user="$APP_DB_USER"); then
-        log "${YELLOW}⚠️  Could not look up database role $APP_DB_USER, skipping role setup${NC}"
+        | PGPASSWORD="$ADMIN_PASS" "${psql_admin[@]}" -tA -v app_user="$APP_DB_USER" 2>&1); then
+        log "${YELLOW}⚠️  Could not look up database role $APP_DB_USER, skipping role setup: ${exists}${NC}"
         return 0
     fi
     if [ "$exists" = "1" ]; then
