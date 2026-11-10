@@ -15,10 +15,19 @@ from typing import Any, Optional
 # Rhesis-hosted: running on our credentials is what picking them means, and they are metered.
 HOSTED_PROVIDERS = frozenset({"rhesis", "polyphemus"})
 
-# Served from the tenant's own server, so an endpoint alone makes the row theirs.
+# Served from the tenant's own server: the endpoint is what makes the row theirs, and
+# without one these fall back to an env or localhost base on our side.
 ENDPOINT_PROVIDERS = frozenset(
     {"ollama", "vllm", "litellm_proxy", "huggingface", "lmformatenforcer"}
 )
+
+# Endpoint providers that read an env key when given none (HOSTED_VLLM_API_KEY,
+# LITELLM_PROXY_API_KEY) and would send it to the tenant's endpoint.
+_ENV_KEY_ENDPOINT_PROVIDERS = frozenset({"vllm", "litellm_proxy"})
+
+# LiteLLM's own stand-in for a keyless server (litellm/llms/hosted_vllm); any non-empty
+# value stops the env read.
+KEYLESS_SERVER_KEY = "fake-api-key"
 
 # VertexAILLM/VertexAIEmbedder drop ``api_key`` and read a service-account JSON from
 # ``credentials``, falling back to GOOGLE_APPLICATION_CREDENTIALS.
@@ -64,7 +73,7 @@ def has_own_credentials(provider: str, api_key: Optional[str], endpoint: Optiona
     if provider in SERVICE_ACCOUNT_PROVIDERS:
         return vertex_service_account(api_key) is not None
     if provider in ENDPOINT_PROVIDERS:
-        return bool(_clean(api_key) or _clean(endpoint))
+        return _clean(endpoint) is not None
     # Every other provider ignores ``api_base`` for auth and reads its key from env.
     return _clean(api_key) is not None
 
@@ -74,7 +83,7 @@ def credential_requirement(provider: str) -> str:
     if provider in SERVICE_ACCOUNT_PROVIDERS:
         return "a service-account JSON key (as JSON or base64) in the API key field"
     if provider in ENDPOINT_PROVIDERS:
-        return "an API key or an endpoint"
+        return "an endpoint"
     return "an API key"
 
 
@@ -95,7 +104,10 @@ def tenant_model_kwargs(
             "credentials": base64.b64encode(json.dumps(info).encode("utf-8")).decode("ascii"),
             "project": info["project_id"],
         }
-    kwargs: dict[str, Any] = {"api_key": _clean(api_key)}
+    key = _clean(api_key)
+    if key is None and provider in _ENV_KEY_ENDPOINT_PROVIDERS:
+        key = KEYLESS_SERVER_KEY
+    kwargs: dict[str, Any] = {"api_key": key}
     if _clean(endpoint):
         kwargs["api_base"] = _clean(endpoint)
     return kwargs

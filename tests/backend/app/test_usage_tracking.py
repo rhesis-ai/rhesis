@@ -427,14 +427,16 @@ class TestConfiguredModelProvenance:
         assert model.usage_metered is False
 
     def test_a_whitespace_key_does_not_reach_the_provider(self, configured_model):
-        """Normalized to None so it cannot be sent as a real credential. With an
+        """Normalized to "no key" so it cannot be sent as a real credential. With an
         endpoint present the row is legitimate, so it resolves rather than being
-        refused."""
+        refused; vllm then gets the keyless placeholder rather than our env key."""
+        from rhesis.backend.app.utils.model_credentials import KEYLESS_SERVER_KEY
+
         seen = configured_model(
             provider="vllm", key="   ", endpoint="http://vllm.internal:8000", capture=True
         )
 
-        assert seen["api_key"] is None
+        assert seen["api_key"] == KEYLESS_SERVER_KEY
 
 
 class TestPlatformKeyModelProvenance:

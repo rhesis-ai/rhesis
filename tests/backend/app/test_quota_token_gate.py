@@ -74,7 +74,12 @@ def configured_model(monkeypatch):
             name="configured",
             model_name="gpt-4o",
             key=key,
-            endpoint="http://self-hosted.internal:8000" if not key else None,
+            # Self-hosted providers always need their own endpoint.
+            endpoint=(
+                "http://self-hosted.internal:8000"
+                if not key or provider in ("ollama", "vllm")
+                else None
+            ),
             provider_type=SimpleNamespace(type_value=provider),
         )
         monkeypatch.setattr(

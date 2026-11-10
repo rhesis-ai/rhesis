@@ -398,6 +398,8 @@ class TestModelEndpointConfiguration:
 
         from rhesis.backend.app.utils.user_model_utils import _fetch_and_configure_model
 
+        # A keyed cloud provider: a self-hosted one is refused without its endpoint.
+        mock_db_model.provider_type.type_value = "openai"
         mock_db_model.endpoint = None
         mock_db = Mock(spec=Session)
         mock_get_model.return_value = mock_db_model
@@ -411,7 +413,7 @@ class TestModelEndpointConfiguration:
         )
 
         mock_sdk_get_model.assert_called_once_with(
-            provider="litellm_proxy",
+            provider="openai",
             model_name="gemini",
             api_key="test-key",
             model_type="language",

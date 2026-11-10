@@ -117,12 +117,49 @@ class TestKeyedProviders:
     @pytest.mark.parametrize("provider", ["vllm", "ollama", "litellm_proxy"])
     def test_self_hosted_providers_may_rely_on_the_endpoint(self, provider):
         assert has_own_credentials(provider, "", "http://vllm.internal:8000") is True
+        assert has_own_credentials(provider, "tenant-key", None) is False
 
     def test_openai_row_with_only_an_endpoint_is_refused(self, monkeypatch, platform_env):
         with pytest.raises(ModelConfigurationError, match="needs an API key"):
             _resolve(
                 monkeypatch, _row("openai", endpoint="http://anything.example", model_name="gpt-4o")
             )
+
+
+class TestSelfHostedProviders:
+    @pytest.fixture
+    def server_keys(self, monkeypatch):
+        monkeypatch.setenv("HOSTED_VLLM_API_KEY", "platform-vllm-key")
+        monkeypatch.setenv("LITELLM_PROXY_API_KEY", "platform-proxy-key")
+
+    def test_keyless_vllm_row_does_not_send_our_env_key(self, monkeypatch, server_keys):
+        model = _resolve(
+            monkeypatch, _row("vllm", endpoint="http://tenant.example:8000", model_name="m")
+        )
+
+        assert model.api_key != "platform-vllm-key"
+        assert model.api_base == "http://tenant.example:8000"
+
+    def test_keyless_proxy_row_does_not_send_our_env_key(self, monkeypatch, server_keys):
+        model = _resolve(
+            monkeypatch,
+            _row("litellm_proxy", endpoint="http://tenant.example:4000", model_name="m"),
+        )
+
+        assert "platform-proxy-key" not in model._build_headers().get("Authorization", "")
+
+    def test_the_tenant_key_is_still_sent(self, monkeypatch, server_keys):
+        model = _resolve(
+            monkeypatch,
+            _row("vllm", key="tenant-key", endpoint="http://tenant.example:8000", model_name="m"),
+        )
+
+        assert model.api_key == "tenant-key"
+
+    def test_a_key_without_an_endpoint_is_refused(self, monkeypatch, server_keys):
+        """No endpoint means our own env or localhost base, not the tenant's server."""
+        with pytest.raises(ModelConfigurationError, match="needs an endpoint"):
+            _resolve(monkeypatch, _row("vllm", key="tenant-key", model_name="m"))
 
 
 @pytest.mark.integration
