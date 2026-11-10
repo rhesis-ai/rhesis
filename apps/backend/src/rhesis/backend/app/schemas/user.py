@@ -291,8 +291,21 @@ class UserCreate(UserBase):
     )
 
 
-class UserUpdate(UserBase):
-    email: Optional[str] = None
+class UserUpdate(Base):
+    """PUT /users/{id}: profile fields only.
+
+    Email, verification, activation, provider and login fields are server-managed and
+    rejected here. There is no email-change flow yet; one must verify the new address.
+    ``organization_id`` is accepted for onboarding and checked by the route.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Optional[str] = None
+    given_name: Optional[str] = None
+    family_name: Optional[str] = None
+    picture: Optional[str] = None
+    organization_id: Optional[UUID4] = None
 
 
 class User(UserBase, ServerIdentity):

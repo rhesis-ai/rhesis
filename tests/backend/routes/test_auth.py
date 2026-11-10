@@ -1610,15 +1610,15 @@ class TestTermsAcceptance:
             "has_prior_acceptance": False,
         }
 
-    def test_update_user_strips_user_settings_terms(
-        self, authenticated_client, authenticated_user_id
+    def test_update_user_rejects_user_settings_terms(
+        self, authenticated_client, authenticated_user_id, test_db
     ):
-        """PUT /users silently strips the server-managed ``terms`` key from the
-        writable ``user_settings`` payload so callers cannot forge their own
-        acceptance record. The response schema always includes a ``terms`` key
-        (server-managed, read-only) — it must be absent/null here, not the
-        forged value, since this user never legitimately accepted terms."""
+        """PUT /users does not accept ``user_settings`` at all (settings go through
+        PATCH /users/settings), so callers cannot forge their own terms acceptance
+        record through it."""
         from datetime import datetime, timezone
+
+        from rhesis.backend.app import models
 
         response = authenticated_client.put(
             f"/users/{authenticated_user_id}",
@@ -1632,10 +1632,10 @@ class TestTermsAcceptance:
                 }
             },
         )
-        assert response.status_code == status.HTTP_200_OK
-        data = response.json()
-        settings = data.get("user", data).get("user_settings", {})
-        assert not settings.get("terms")
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        user = test_db.query(models.User).filter_by(id=authenticated_user_id).one()
+        test_db.refresh(user)
+        assert not (user.user_settings or {}).get("terms")
 
 
 # =============================================================================

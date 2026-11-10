@@ -245,6 +245,57 @@ class TestProviderMustVerifyEmail:
 
 @pytest.mark.unit
 @pytest.mark.security
+class TestSelfUpdateCannotSetServerFields:
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"is_email_verified": True},
+            {"email": "someone-else@example.com"},
+            {"is_active": False},
+            {"provider_type": "google", "external_provider_id": "x"},
+            {"last_login_at": "2020-01-01T00:00:00Z"},
+        ],
+    )
+    def test_server_managed_fields_are_rejected(
+        self,
+        authenticated_client: TestClient,
+        authenticated_user_id: str,
+        test_db: Session,
+        payload,
+    ):
+        user = test_db.query(models.User).filter_by(id=authenticated_user_id).one()
+        before = (user.email, user.is_email_verified, user.is_active, user.provider_type)
+        user.is_email_verified = False
+        test_db.flush()
+
+        response = authenticated_client.put(f"/users/{authenticated_user_id}", json=payload)
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        test_db.refresh(user)
+        assert user.is_email_verified is False
+        assert (user.email, user.is_active, user.provider_type) == (
+            before[0],
+            before[2],
+            before[3],
+        )
+
+    def test_profile_fields_still_update(
+        self, authenticated_client: TestClient, authenticated_user_id: str, test_db: Session
+    ):
+        new_name = f"Renamed {uuid.uuid4().hex[:6]}"
+        response = authenticated_client.put(
+            f"/users/{authenticated_user_id}",
+            json={"name": new_name, "given_name": "Re", "family_name": "Named"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        user = test_db.query(models.User).filter_by(id=authenticated_user_id).one()
+        test_db.refresh(user)
+        assert user.name == new_name
+
+
+@pytest.mark.unit
+@pytest.mark.security
 @pytest.mark.ee
 class TestSSOLinksUnverifiedAccount:
     def test_sso_login_drops_credentials_set_before_verification(
