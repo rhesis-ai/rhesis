@@ -54,6 +54,7 @@ from rhesis.backend.app.provenance import ProvenanceMiddleware
 from rhesis.backend.app.quota.enforcement import QuotaExceededError, quota_exceeded_response_body
 from rhesis.backend.app.routers import routers
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
+from rhesis.backend.app.utils.foreign_refs import ForeignReferenceError
 from rhesis.backend.app.utils.git_utils import get_version_info
 from rhesis.backend.app.utils.request_context import RequestIDMiddleware
 from rhesis.backend.local_init import initialize_local_environment
@@ -696,6 +697,13 @@ async def not_found_item_exception_handler(request: Request, exc: ItemNotFoundEx
     }
 
     return JSONResponse(status_code=404, content=response_content)
+
+
+# A foreign id the caller may not use. Most routers already map ValueError to 400;
+# this covers the ones that let it propagate.
+@app.exception_handler(ForeignReferenceError)
+async def foreign_reference_exception_handler(request: Request, exc: ForeignReferenceError):
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
 # Global exception handler for quota-exceeded errors

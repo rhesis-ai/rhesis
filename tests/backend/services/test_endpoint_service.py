@@ -396,14 +396,15 @@ class TestSDKEndpointSync:
     """Test SDK endpoint syncing functionality"""
 
     @pytest.fixture
-    def sdk_project_context(self, test_organization, db_user, db_project):
+    def sdk_project_context(self, test_organization, db_project, authenticated_user_id):
         """Create project context with real database entities"""
+        # The connector only syncs for a project member; db_project enrolls the session user.
         return {
             "project_id": str(db_project.id),
             "project_name": db_project.name,
             "environment": "development",
             "organization_id": str(test_organization.id),
-            "user_id": str(db_user.id),
+            "user_id": authenticated_user_id,
         }
 
     @pytest.fixture

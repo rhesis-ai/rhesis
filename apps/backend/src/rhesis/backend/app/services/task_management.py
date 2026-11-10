@@ -5,6 +5,7 @@ Service for task-related business logic and validation.
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from rhesis.backend.app.utils.foreign_refs import ensure_user_in_organization
 
 
 def validate_task_organization_constraints(
@@ -27,16 +28,7 @@ def validate_task_organization_constraints(
 
     # Validate assignee is in the same organization (SECURITY CRITICAL)
     if task.assignee_id:
-        assignee = (
-            db.query(models.User)
-            .filter(
-                models.User.id == task.assignee_id,
-                models.User.organization_id == user_organization_id,
-            )
-            .first()
-        )
-        if not assignee:
-            raise ValueError("Assignee not found or not in same organization")
+        ensure_user_in_organization(db, task.assignee_id, user_organization_id, "assignee_id")
 
     # Validate status is in the same organization (SECURITY CRITICAL)
     if task.status_id:

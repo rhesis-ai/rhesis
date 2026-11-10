@@ -18,6 +18,7 @@ from rhesis.backend.app.constants import EntityType
 # Removed unused imports - legacy tenant functions no longer needed
 from rhesis.backend.app.models import Category, Model, Requirement, Status, Topic, TypeLookup
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
+from rhesis.backend.app.utils.foreign_refs import validate_foreign_references
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.app.utils.uuid_utils import safe_uuid_convert
 
@@ -114,10 +115,9 @@ def _auto_populate_tenant_fields(
     columns = inspect(model).columns.keys()
     populated_data = item_data.copy()
 
-    # Auto-populate organization_id (direct - no DB queries, no session variables!)
+    # The caller's org always wins: a body organization_id is never trusted.
     if (
         "organization_id" in columns
-        and not populated_data.get("organization_id")
         and organization_id
         and (
             isinstance(organization_id, str)
@@ -595,6 +595,7 @@ def create_item(
 
     # Prepare data for creation using direct tenant context
     prepared_data = _prepare_item_data(model, item_data, organization_id, user_id)
+    validate_foreign_references(db, model, prepared_data, organization_id, user_id)
 
     # Create item directly without session variable overhead
     return _create_db_item_with_transaction(db, model, prepared_data, commit=commit)
@@ -660,6 +661,8 @@ def update_item(
             if user_uuid:
                 update_data["user_id"] = user_uuid
                 logger.debug(f"update_item - Auto-populating user_id: '{user_id}' for update")
+
+    validate_foreign_references(db, model, update_data, organization_id, user_id)
 
     # Apply updates
     for key, value in update_data.items():
