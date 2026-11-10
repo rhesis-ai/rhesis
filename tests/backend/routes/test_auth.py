@@ -1848,10 +1848,11 @@ class TestRegistrationDisabled:
         assert sent_links.call_args.args == (str(user.id), email, None, True)
 
     def test_oauth_first_login_is_refused(self, test_db, registration):
-        from fastapi import HTTPException
-
         from rhesis.backend.app.auth.providers.base import AuthUser
-        from rhesis.backend.app.auth.user_utils import find_or_create_user_from_auth
+        from rhesis.backend.app.auth.user_utils import (
+            RegistrationDisabledError,
+            find_or_create_user_from_auth,
+        )
         from rhesis.backend.app.crud import user as user_crud
 
         registration(False)
@@ -1863,11 +1864,40 @@ class TestRegistrationDisabled:
             external_id="github-new",
         )
 
-        with pytest.raises(HTTPException) as exc:
+        with pytest.raises(RegistrationDisabledError):
             find_or_create_user_from_auth(test_db, auth_user)
 
-        assert exc.value.status_code == status.HTTP_403_FORBIDDEN
         assert user_crud.get_user_by_email(test_db, email) is None
+
+    @pytest.mark.asyncio
+    async def test_oauth_callback_redirects_to_the_invite_only_page(self, monkeypatch):
+        """A refused first login lands on the register page, not a raw JSON error."""
+        from rhesis.backend.app.auth.providers.base import AuthUser
+        from rhesis.backend.app.auth.user_utils import RegistrationDisabledError
+        from rhesis.backend.app.routers import auth as auth_router
+
+        provider = Mock()
+        provider.authenticate = AsyncMock(
+            return_value=AuthUser(
+                email=_unique_email("oauth-refused"),
+                provider_type=AuthProviderType.GOOGLE,
+                external_id="google-refused",
+            )
+        )
+        monkeypatch.setattr(auth_router.ProviderRegistry, "initialize", lambda: None)
+        monkeypatch.setattr(auth_router.ProviderRegistry, "get_provider", lambda _name: provider)
+        monkeypatch.setattr(auth_router, "_get_frontend_url", lambda: "https://app.example.com")
+
+        def refuse(_db, _auth_user):
+            raise RegistrationDisabledError()
+
+        monkeypatch.setattr(auth_router, "_complete_oauth_login", refuse)
+        request = Mock(session={"auth_provider": "google"})
+
+        response = await auth_router.auth_callback(request, db=Mock())
+
+        assert response.status_code == status.HTTP_302_FOUND
+        assert response.headers["location"] == "https://app.example.com/auth/register"
 
     def test_oauth_existing_user_still_signs_in(self, test_db, registration):
         from rhesis.backend.app.auth.providers.base import AuthUser

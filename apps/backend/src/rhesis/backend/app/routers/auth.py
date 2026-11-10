@@ -53,6 +53,7 @@ from rhesis.backend.app.auth.used_token_store import (
     claim_token_jti,
 )
 from rhesis.backend.app.auth.user_utils import (
+    RegistrationDisabledError,
     find_or_create_magic_link_user,
     find_or_create_user_from_auth,
     mark_user_joined_if_needed,
@@ -797,6 +798,9 @@ async def auth_callback(request: Request, db: OffLoopSession = Depends(get_off_l
 
     except HTTPException:
         raise
+    except RegistrationDisabledError:
+        # A browser mid-redirect: send it to the page that explains invite-only.
+        return RedirectResponse(url=f"{_get_frontend_url()}/auth/register", status_code=302)
     except DisposableEmailError as e:
         # Policy rejection, not a failure — already logged by the screener.
         raise HTTPException(

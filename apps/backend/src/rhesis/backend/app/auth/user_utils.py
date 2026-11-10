@@ -35,6 +35,10 @@ if TYPE_CHECKING:
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+class RegistrationDisabledError(Exception):
+    """A first login would create an account while AUTH_REGISTRATION_ENABLED is off."""
+
+
 def mark_user_joined_if_needed(user: User, when: datetime | None = None) -> bool:
     """Stamp ``joined_at`` the first time a user becomes an active org member.
 
@@ -100,10 +104,7 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
     # and invited accounts keep working when sign-up is off.
     if not get_auth_settings().registration_enabled:
         logger.info("Refused OAuth sign-up via %s: registration disabled", auth_user.provider_type)
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User registration is disabled",
-        )
+        raise RegistrationDisabledError()
     screen_signup_email(normalized_email, source=f"oauth:{auth_user.provider_type}")
 
     # Create new user
@@ -164,7 +165,8 @@ def find_or_create_magic_link_user(db: Session, email: str) -> Tuple[Optional[Us
         db.commit()
         db.refresh(user)
     except Exception as e:
-        logger.warning(f"Failed to create user for magic link: {e}")
+        db.rollback()
+        logger.warning("Failed to create user for magic link: %s", e)
         return None, False
     logger.info("New user created via magic link: %s", redact_email(email))
     return user, True
