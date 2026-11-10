@@ -457,6 +457,41 @@ def is_soft_delete_disabled() -> bool:
     return _soft_delete_disabled.get(False)
 
 
+class PrivilegedDatabaseRoleError(RuntimeError):
+    """The runtime role skips row-level security (superuser or BYPASSRLS)."""
+
+
+_RUNTIME_ROLE_SQL = text(
+    "SELECT current_user, rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user"
+)
+
+
+def runtime_role_check_required(settings) -> bool:
+    """Whether boot must refuse a privileged runtime role.
+
+    Skipped for BACKEND_ENV=development (bare source checkouts) and DEV_MODE
+    (the ./rh dev stack), which connect as the Postgres superuser.
+    """
+    return settings.backend_env != "development" and not settings.dev_mode
+
+
+def assert_runtime_role_restricted(db) -> None:
+    """Raise unless the connected role is subject to row-level security.
+
+    ``db`` is a Session or Connection opened with the runtime (APP_DB_USER) credentials.
+    """
+    role, is_superuser, bypasses_rls = db.execute(_RUNTIME_ROLE_SQL).one()
+    problem = "a superuser" if is_superuser else "BYPASSRLS" if bypasses_rls else None
+    if problem is None:
+        return
+    raise PrivilegedDatabaseRoleError(
+        f"Database role {role!r} (APP_DB_USER) is {problem}, so row-level security does not "
+        "apply to it and tenant data is not isolated. Run the app as a NOSUPERUSER "
+        "NOBYPASSRLS role with DML-only grants, and keep the privileged role in ADMIN_DB_USER "
+        "for migrations. See https://docs.rhesis.ai/self-hosting/docker-compose#database"
+    )
+
+
 @contextmanager
 def get_db() -> Generator[Session, None, None]:
     """
