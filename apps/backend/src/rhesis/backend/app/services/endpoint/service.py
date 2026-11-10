@@ -325,6 +325,7 @@ class EndpointService:
             # ------------------------------------------------------------------
             if not trace_conversation_id and isinstance(result, dict) and result.get("trace_id"):
                 response_conversation_id = find_conversation_id(result)
+                endpoint_project_id = str(endpoint.project_id) if endpoint.project_id else None
                 if response_conversation_id:
                     if deferred_trace:
                         deferred_data = result.get("_deferred_trace")
@@ -342,6 +343,7 @@ class EndpointService:
                                 trace_id=result["trace_id"],
                                 conversation_id=response_conversation_id,
                                 organization_id=organization_id,
+                                project_id=endpoint_project_id,
                             )
                     elif db:
                         self._link_first_turn_trace(
@@ -349,6 +351,7 @@ class EndpointService:
                             trace_id=result["trace_id"],
                             conversation_id=response_conversation_id,
                             organization_id=organization_id,
+                            project_id=endpoint_project_id,
                         )
 
             logger.debug(f"Endpoint invocation completed: {endpoint.name}")
@@ -387,6 +390,7 @@ class EndpointService:
         trace_id: str,
         conversation_id: str,
         organization_id: str,
+        project_id: str | None,
     ) -> None:
         """Retroactively set conversation_id on a first-turn trace.
 
@@ -413,6 +417,7 @@ class EndpointService:
                 trace_id=trace_id,
                 conversation_id=conversation_id,
                 organization_id=organization_id,
+                project_id=project_id,
             )
 
     def _get_endpoint(

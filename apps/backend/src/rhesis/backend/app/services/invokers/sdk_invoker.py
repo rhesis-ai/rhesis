@@ -450,7 +450,11 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                         get_trace_id_from_pending_links,
                     )
 
-                    existing_trace_id = get_trace_id_from_pending_links(conversation_id)
+                    existing_trace_id = get_trace_id_from_pending_links(
+                        conversation_id,
+                        str(endpoint.organization_id),
+                        str(endpoint.project_id),
+                    )
                     if existing_trace_id:
                         logger.debug(
                             f"Found trace_id from pending links cache: {existing_trace_id}"
@@ -521,6 +525,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             register_pending_output(
                 trace_id=result["trace_id"],
                 mapped_output=mapped_output,
+                organization_id=str(endpoint.organization_id),
+                project_id=str(endpoint.project_id),
             )
 
     def _park_input_files(
@@ -547,6 +553,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 trace_id=result["trace_id"],
                 files=files,
                 organization_id=str(endpoint.organization_id),
+                project_id=str(endpoint.project_id),
             )
 
     async def invoke(

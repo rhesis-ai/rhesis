@@ -437,12 +437,19 @@ def test_task_parks_conversation_output_when_trace_id_available():
 
         trace_id = pop_result_trace_id(fake_result)
         if trace_id:
-            register_pending_output(trace_id=trace_id, mapped_output=fake_result.content)
+            register_pending_output(
+                trace_id=trace_id,
+                mapped_output=fake_result.content,
+                organization_id="ingest-org",
+                project_id="ingest-project",
+            )
 
         mock_pop.assert_called_once_with(fake_result)
         mock_register.assert_called_once_with(
             trace_id=_TRACE_ID,
             mapped_output="Hello from architect",
+            organization_id="ingest-org",
+            project_id="ingest-project",
         )
 
 
@@ -468,7 +475,9 @@ def test_task_skips_parking_when_no_trace_id():
                 register_pending_output,
             )
 
-            register_pending_output(trace_id=trace_id, mapped_output="x")
+            register_pending_output(
+                trace_id=trace_id, mapped_output="x", organization_id="o", project_id="p"
+            )
 
         mock_register.assert_not_called()
 

@@ -88,7 +88,9 @@ def _existing_trace_id(
         organization_id=organization_id,
     )
     # Turn 1's spans may not be ingested yet; the id is then still in the cache.
-    return trace_id or get_trace_id_from_pending_links(conversation_id)
+    return trace_id or get_trace_id_from_pending_links(
+        conversation_id, str(endpoint.organization_id), str(endpoint.project_id)
+    )
 
 
 def _enriched_files(db: Session, input_data: Dict[str, Any], user_id: str | None) -> Optional[list]:
