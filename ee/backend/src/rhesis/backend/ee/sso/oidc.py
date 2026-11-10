@@ -269,11 +269,12 @@ def email_marked_unverified(claims: Mapping[str, Any]) -> bool:
     The spec says boolean, but some IdPs send strings or 0/1.
     """
     value = claims.get("email_verified")
-    if value is None or value is True:
+    if value is None:
         return False
     if isinstance(value, str):
         return value.strip().lower() not in _VERIFIED_STRINGS
-    return value == 0
+    # True == 1, so this accepts True and 1 and rejects every other value.
+    return value != 1
 
 
 class OIDCProvider(AuthProvider):

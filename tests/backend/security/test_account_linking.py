@@ -336,6 +336,8 @@ class TestSSOLinksUnverifiedAccount:
             ({"email_verified": "no"}, True),
             ({"email_verified": "unexpected"}, True),
             ({"email_verified": 0}, True),
+            ({"email_verified": 2}, True),
+            ({"email_verified": []}, True),
             ({"email_verified": True}, False),
             ({"email_verified": "True"}, False),
             ({"email_verified": "1"}, False),
