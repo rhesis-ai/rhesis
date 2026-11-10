@@ -188,6 +188,16 @@ GUCs while ORM changes are still unflushed. A deferred write flushed under a bla
 deferred writes _before_ `reset_session_context()` runs. Any new side-channel caller that resets or
 blanks GUCs must commit/flush first.
 
+## Database roles
+
+The app connects as `APP_DB_USER`, a `NOSUPERUSER NOBYPASSRLS` role with DML-only grants:
+`rhesis-user` on CNPG (stg/prd), `rhesis-app` in docker-compose, the minikube chart and the test
+harness. Migrations run as `ADMIN_DB_USER`. Startup refuses a superuser or `BYPASSRLS` runtime role
+unless `BACKEND_ENV=development` or `DEV_MODE=true` (the `./rh dev` stack still runs as the
+superuser): `assert_runtime_role_restricted` in `app/database.py`. When the two roles differ and
+the app role is missing, `migrate.sh` creates it from `alembic/create_app_role.sql`. Never give the
+runtime role `BYPASSRLS` to make a query work; bind the scope instead.
+
 ## Usage attribution (LLM token accrual)
 
 `MODEL_TOKENS` accrual is automatic. There is nothing to wire at a call site, and adding one is

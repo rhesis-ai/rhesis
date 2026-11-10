@@ -77,7 +77,7 @@ key permanently undecryptable. Back it up and keep it stable.
 </Callout>
 
 Everything else in the file already has a working local default or is safely disabled —
-`APP_DB_PASS`/`REDIS_PASSWORD` (in-cluster Postgres/Redis), `RHESIS_API_KEY` (placeholder, so
+`APP_DB_PASS`/`ADMIN_DB_PASS`/`REDIS_PASSWORD` (in-cluster Postgres/Redis), `RHESIS_API_KEY` (placeholder, so
 generation/evaluation calls fail closed until you set a real key or connect a model in the app's
 **Connect a model** step), `STORAGE_SERVICE_URI`
 (bind-mounted local storage), `CHATBOT_API_KEY` (optional — the bundled chatbot demo falls back
@@ -96,6 +96,12 @@ Non-sensitive configuration (model names, ports, URLs) lives separately in
 `manifests/configmaps/rhesis-config.yaml`. `./k8s-deploy.sh apply`/`reset` creates it from
 `rhesis-config.yaml.example` if it doesn't exist yet; edit it directly afterward — no encoding
 needed.
+
+The database uses the same two roles as [Docker Compose](/self-hosting/docker-compose#database):
+the app connects as `rhesis-app` and `rhesis-user` runs migrations. If your `rhesis-config.yaml`
+or `rhesis-secrets.yaml` predates this, add `ADMIN_DB_USER: "rhesis-user"`, set
+`APP_DB_USER: "rhesis-app"`, and add `ADMIN_DB_PASS` (copy it and `APP_DB_PASS` from the example
+files).
 
 Apply either file after editing:
 
