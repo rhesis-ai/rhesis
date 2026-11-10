@@ -428,6 +428,19 @@ async def require_current_user_or_token_without_context(
     return user
 
 
+def carry_auth_to_websocket(websocket: WebSocket, user: "User", auth_state=None) -> None:
+    """Put the authenticated user (and what auth recorded) on the real WebSocket's state.
+
+    WebSocket auth runs against a stand-in request, but sessions opened while
+    handling the socket read provenance from the socket itself. Without this the
+    audit log records every write as anonymous.
+    """
+    if auth_state is not None:
+        for key, value in vars(auth_state).items():
+            setattr(websocket.state, key, value)
+    websocket.state.user = user
+
+
 async def authenticate_websocket(websocket: WebSocket) -> tuple["User", Principal]:
     """
     Authenticate WebSocket connection using Bearer token.
@@ -483,6 +496,7 @@ async def authenticate_websocket(websocket: WebSocket) -> tuple["User", Principa
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication failed"
         )
 
+    carry_auth_to_websocket(websocket, user, mock_request.state)
     # get_authenticated_user_with_context stored the token's scopes and project
     # on the mock request state.
     return user, resolve_principal_from_request(user, mock_request)
