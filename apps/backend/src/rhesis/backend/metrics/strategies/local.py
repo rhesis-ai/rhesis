@@ -23,6 +23,7 @@ from tenacity import (
 )
 
 from rhesis.backend.app.usage_attribution import with_usage_attribution
+from rhesis.backend.app.utils.ssrf_http_client import validate_outbound_url
 from rhesis.backend.metrics.applicability import needs_model
 from rhesis.backend.metrics.inputs import EvaluationInputs
 from rhesis.backend.metrics.metric_config import a_evaluate_metric, evaluate_metric, wants_trace
@@ -656,6 +657,8 @@ def _resolve_metric_model(
 
             extra_params = {}
             if model_record.endpoint and model_record.endpoint.strip():
+                # SSRFError lands in the except below, which falls back to the default judge.
+                validate_outbound_url(model_record.endpoint.strip(), allow_unresolved=True)
                 extra_params["api_base"] = model_record.endpoint.strip()
             llm = stamp_usage_provenance(
                 get_model(

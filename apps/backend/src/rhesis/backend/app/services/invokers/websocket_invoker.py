@@ -5,15 +5,19 @@ import unicodedata
 from typing import Any, Dict, Optional, Union
 
 from sqlalchemy.orm import Session
-from websockets.asyncio.client import connect
 from websockets.exceptions import InvalidStatus
 
 from rhesis.backend.app.models.endpoint import Endpoint
+from rhesis.backend.app.services.invokers.base import BaseEndpointInvoker
+from rhesis.backend.app.services.invokers.common.connection_errors import url_host
+from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
+from rhesis.backend.app.services.invokers.context import InvocationContext
 from rhesis.backend.app.services.invokers.templating.filters import TemplateInputError
-
-from .base import BaseEndpointInvoker
-from .common.schemas import ErrorResponse
-from .context import InvocationContext
+from rhesis.backend.app.utils.ssrf_http_client import (
+    BLOCKED_TARGET_MESSAGE,
+    SSRFError,
+    guarded_ws_connect,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -242,7 +246,9 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 logger.info(f"Attempting WebSocket connection to: {uri}")
                 connection_start_time = time.time()
 
-                async with connect(uri, additional_headers=additional_headers) as websocket:
+                async with guarded_ws_connect(
+                    uri, additional_headers=additional_headers
+                ) as websocket:
                     connection_duration = time.time() - connection_start_time
                     logger.info(f"WebSocket connection established in {connection_duration:.2f}s")
                     logger.debug(f"WebSocket state: {websocket.state}")
@@ -465,6 +471,20 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                             )
 
                     return mapped_response
+
+            except SSRFError:
+                message = f"Could not reach {url_host(uri)}: {BLOCKED_TARGET_MESSAGE}."
+                return self._create_error_response(
+                    error_type="websocket_connection_error",
+                    output_message=message,
+                    message=message,
+                    request_details={
+                        "connection_type": "WebSocket",
+                        "uri": uri,
+                        "headers": self._sanitize_headers(additional_headers or {}),
+                        "body": message_data,
+                    },
+                )
 
             except InvalidStatus as status_err:
                 connection_duration = (

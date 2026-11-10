@@ -4,65 +4,54 @@ Lives apart from ``rest/config.py`` so the REST clients that need it do not
 have to import from the module that builds them. That cycle is why
 ``config.py`` used to import its client classes at the bottom of the file.
 
-The blocklist covers the addresses an attacker would aim a tenant-supplied
-"workspace URL" at: RFC 1918 space, loopback, and the link-local range that
-carries the cloud instance-metadata endpoint.
+The address check is the shared one in ``app/utils/ssrf_http_client.py``:
+private networks follow ``OUTBOUND_ALLOW_PRIVATE_NETWORKS`` (on-prem Jira or
+GitLab is a real setup), link-local and cloud metadata are always refused.
 """
 
 import ipaddress
-import socket
 from urllib.parse import urlparse
 
-_BLOCKED_NETS = [
-    ipaddress.ip_network("0.0.0.0/8"),  # wildcard; routes to localhost on Linux
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("169.254.0.0/16"),  # link-local / AWS metadata
-    ipaddress.ip_network("::1/128"),
-    ipaddress.ip_network("fc00::/7"),
-]
+from rhesis.backend.app.utils.ssrf_http_client import (
+    SSRFError,
+    private_targets_allowed,
+    resolve_checked,
+)
 
 
-def validate_base_url(url: str, field: str = "URL") -> None:
-    """Raise ValueError if *url* is not a safe, public HTTPS endpoint.
+def validate_base_url(url: str, field: str = "URL", *, require_https: bool = True) -> None:
+    """Raise ValueError if *url* is not a safe endpoint.
 
     Checks:
-    - scheme must be https
-    - host must not be an IP literal
-    - hostname must not resolve to a private/loopback/link-local address
+    - scheme must be https (http too when ``require_https`` is False)
+    - host must not be an IP literal (only when ``require_https``)
+    - hostname must not resolve to a blocked address
+
+    ``require_https=False`` is for fields that never had the HTTPS and
+    hostname rules (``GITLAB_API_URL``), so adding the address check does not
+    also reject URLs that used to be accepted.
     """
     if not url:
         raise ValueError(f"{field} must not be empty.")
     parsed = urlparse(url)
-    if parsed.scheme != "https":
-        raise ValueError(f"{field} must use HTTPS (got '{parsed.scheme}').")
+    allowed_schemes = ("https",) if require_https else ("https", "http")
+    if parsed.scheme not in allowed_schemes:
+        expected = "HTTPS" if require_https else "http or https"
+        raise ValueError(f"{field} must use {expected} (got '{parsed.scheme}').")
     host = parsed.hostname or ""
     if not host:
         raise ValueError(f"{field} has no hostname.")
-    # Reject raw IP literals
+    if require_https and _is_ip_literal(host):
+        raise ValueError(f"{field} must be a hostname, not an IP address ({host}).")
+    try:
+        resolve_checked(host, None, allow_private=private_targets_allowed())
+    except SSRFError as exc:
+        raise ValueError(f"{field} is not allowed: {exc}.") from exc
+
+
+def _is_ip_literal(host: str) -> bool:
     try:
         ipaddress.ip_address(host)
-        raise ValueError(f"{field} must be a hostname, not an IP address ({host}).")
-    except ValueError as exc:
-        # ip_address() raises ValueError for non-IP strings — that's expected
-        if "must be a hostname" in str(exc):
-            raise
-    # DNS resolution check
-    try:
-        resolved = socket.getaddrinfo(host, None)
-    except OSError:
-        raise ValueError(f"{field} hostname '{host}' could not be resolved.")
-    for _family, _type, _proto, _canonname, sockaddr in resolved:
-        ip_str = sockaddr[0]
-        try:
-            ip = ipaddress.ip_address(ip_str)
-        except ValueError:
-            continue
-        for net in _BLOCKED_NETS:
-            if ip in net:
-                raise ValueError(
-                    f"{field} hostname '{host}' resolves to a private/internal address "
-                    f"({ip_str}) which is not allowed."
-                )
+    except ValueError:
+        return False
+    return True

@@ -6,14 +6,20 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import chardet
-import requests
 from pathspec import PathSpec
 from pathspec.patterns import GitWildMatchPattern
+
+from rhesis.backend.app.utils.ssrf_http_client import guarded_client
 
 # read_repo_contents runs on a sync route, so it holds an anyio threadpool slot for
 # the whole download. Without a timeout an unresponsive GitHub holds it forever and
 # enough of those starve every sync route in the process.
 _GITHUB_TIMEOUT_SECONDS = 30
+
+
+def _http_get(url):
+    with guarded_client(follow_redirects=True, timeout=_GITHUB_TIMEOUT_SECONDS) as client:
+        return client.get(url)
 
 
 def parse_github_url(github_url):
@@ -58,13 +64,13 @@ def download_github_repo(github_url, local_path):
 
     # Get the tree using GitHub API
     api_url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}?recursive=1"
-    response = requests.get(api_url, timeout=_GITHUB_TIMEOUT_SECONDS)
+    response = _http_get(api_url)
     if response.status_code == 404 and branch == "main":
         # Fallback to master if main doesn't exist
         branch = "master"
         base_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}"
         api_url = f"https://api.github.com/repos/{owner}/{repo}/git/trees/{branch}?recursive=1"
-        response = requests.get(api_url, timeout=_GITHUB_TIMEOUT_SECONDS)
+        response = _http_get(api_url)
 
     response.raise_for_status()
 
@@ -89,7 +95,7 @@ def download_github_repo(github_url, local_path):
         # Download file content
         file_url = f"{base_url}/{item['path']}"
         print(f"Downloading: {file_url}")  # Debug line
-        response = requests.get(file_url, timeout=_GITHUB_TIMEOUT_SECONDS)
+        response = _http_get(file_url)
         if response.status_code == 200:
             file_path.write_bytes(response.content)
             downloaded_files += 1

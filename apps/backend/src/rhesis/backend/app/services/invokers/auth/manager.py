@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import quote_plus
 
-import requests
+import httpx
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -18,18 +18,21 @@ from rhesis.backend.app.services.invokers.common.connection_errors import (
     describe_connection_error,
     url_host,
 )
+from rhesis.backend.app.utils.ssrf_http_client import (
+    BLOCKED_TARGET_MESSAGE,
+    SSRFError,
+    guarded_client,
+)
 
 logger = logging.getLogger(__name__)
 
-# Shared session so TCP+TLS connections to token URLs are pooled across
-# token refreshes rather than re-established on every expiry.
-_token_session = requests.Session()
+# Shared client so TCP+TLS connections to token URLs are pooled across token
+# refreshes. Redirects are not followed: a 307 would replay the client secret.
+_token_session = guarded_client(follow_redirects=False)
 
-# (connect, read) for the OAuth token request. ``requests`` waits forever without
-# one, and this call happens while a worker thread -- or, in the worst case, the
-# event loop -- is held: an unresponsive token URL would never give it back.
-# Ruff's S113 does not see it: the call goes through a Session, not ``requests.post``.
-TOKEN_REQUEST_TIMEOUT = (5.0, 20.0)
+# The OAuth token request's timeouts. An unresponsive token URL must not hold a
+# worker thread -- or, in the worst case, the event loop -- forever.
+TOKEN_REQUEST_TIMEOUT = httpx.Timeout(20.0, connect=5.0)
 
 # Cap on the server's error_description we echo back.
 _MAX_ERROR_DESCRIPTION = 300
@@ -39,7 +42,7 @@ def _basic_auth_header(client_id: str, client_secret: str) -> str:
     """client_secret_basic, which RFC 6749 2.3.1 requires every token server to accept.
 
     Both parts are form-urlencoded before base64, as that section requires;
-    requests' own HTTPBasicAuth skips that, which breaks secrets with "+" or ":".
+    a plain HTTP basic-auth helper skips that, which breaks secrets with "+" or ":".
     """
     raw = f"{quote_plus(client_id)}:{quote_plus(client_secret)}"
     return "Basic " + base64.b64encode(raw.encode()).decode()
@@ -47,7 +50,9 @@ def _basic_auth_header(client_id: str, client_secret: str) -> str:
 
 def _token_failure_reason(exc: Exception) -> str:
     """Say why a token request failed, without echoing anything we sent."""
-    if isinstance(exc, requests.HTTPError) and exc.response is not None:
+    if isinstance(exc, SSRFError):
+        return BLOCKED_TARGET_MESSAGE
+    if isinstance(exc, httpx.HTTPStatusError):
         reason = f"HTTP {exc.response.status_code}"
         try:
             body = exc.response.json()
@@ -61,7 +66,7 @@ def _token_failure_reason(exc: Exception) -> str:
                 reason += f": {description[:_MAX_ERROR_DESCRIPTION]}"
             reason += ")"
         return reason
-    if isinstance(exc, requests.RequestException):
+    if isinstance(exc, httpx.HTTPError):
         return describe_connection_error(exc)
     if isinstance(exc, (KeyError, ValueError, TypeError)):
         return "the response did not contain an access_token"

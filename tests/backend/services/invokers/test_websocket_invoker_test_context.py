@@ -50,7 +50,7 @@ class TestWebSocketInvokerTestContext:
         mock_websocket.__aiter__ = lambda self: mock_iter()
 
         with patch(
-            "rhesis.backend.app.services.invokers.websocket_invoker.connect",
+            "rhesis.backend.app.services.invokers.websocket_invoker.guarded_ws_connect",
             return_value=mock_websocket,
         ):
             # Should not raise error when test_execution_context is provided
@@ -87,7 +87,7 @@ class TestWebSocketInvokerTestContext:
         mock_websocket.__aiter__ = lambda self: mock_iter()
 
         with patch(
-            "rhesis.backend.app.services.invokers.websocket_invoker.connect",
+            "rhesis.backend.app.services.invokers.websocket_invoker.guarded_ws_connect",
             return_value=mock_websocket,
         ):
             # Test with None

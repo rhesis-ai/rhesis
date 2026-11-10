@@ -30,6 +30,11 @@ from rhesis.backend.app.utils.model_errors import (
     ModelConfigurationError,
     ModelNotConfiguredError,
 )
+from rhesis.backend.app.utils.ssrf_http_client import (
+    BLOCKED_TARGET_MESSAGE,
+    SSRFError,
+    validate_outbound_url,
+)
 from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
 from rhesis.sdk.models.base import BaseDecisionModel, BaseEmbedder, BaseLLM
 from rhesis.sdk.models.base import BaseModel as SdkModel
@@ -842,6 +847,16 @@ def _build_configured_model(
     embedding = model_type == "embedding"
     label = "embedding model" if embedding else "model"
     subject = "embedder" if embedding else "user model"
+    if isinstance(model.endpoint, str) and model.endpoint.strip():
+        try:
+            # Where private targets are allowed, an unresolvable name is left to the provider.
+            validate_outbound_url(model.endpoint.strip(), allow_unresolved=True)
+        except SSRFError as e:
+            raise ModelConfigurationError(
+                f"Your configured {label} '{model.name}' has an endpoint URL that is not "
+                f"allowed: {BLOCKED_TARGET_MESSAGE}. Please update it in the Models settings.",
+                original_error=e,
+            )
     try:
         extra_params = {}
         if model.endpoint and model.endpoint.strip():

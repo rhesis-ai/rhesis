@@ -8,6 +8,14 @@ model providers before saving them to the database.
 import logging
 from typing import Literal
 
+import anyio
+
+from rhesis.backend.app.utils.ssrf_http_client import (
+    BLOCKED_TARGET_MESSAGE,
+    SSRFError,
+    validate_outbound_url,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -95,6 +103,19 @@ class ModelConnectionService:
                             "Rhesis model configured. The system is currently "
                             "using a different default provider."
                         ),
+                        provider=provider,
+                        model_name=model_name,
+                    )
+
+            if endpoint and endpoint.strip():
+                try:
+                    await anyio.to_thread.run_sync(
+                        lambda: validate_outbound_url(endpoint.strip(), allow_unresolved=True)
+                    )
+                except SSRFError:
+                    return ModelConnectionTestResult(
+                        success=False,
+                        message=f"Endpoint URL rejected: {BLOCKED_TARGET_MESSAGE}.",
                         provider=provider,
                         model_name=model_name,
                     )

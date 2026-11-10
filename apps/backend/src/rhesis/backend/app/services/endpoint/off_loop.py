@@ -124,7 +124,7 @@ def _prefetch(
     """
     endpoint = service._get_endpoint(db, endpoint_id, organization_id, project_id)
     # A client-credentials endpoint whose cached token expired would otherwise fetch a
-    # new one from inside the awaited invocation -- a blocking ``requests.post`` on the
+    # new one from inside the awaited invocation -- a blocking HTTP POST on the
     # event loop, for as long as the token URL takes to answer.
     AuthenticationManager.prefetch_token(db, endpoint)
     trace_id = _existing_trace_id(db, endpoint, input_data, organization_id)

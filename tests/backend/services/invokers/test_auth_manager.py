@@ -4,8 +4,8 @@ import base64
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
 
+import httpx
 import pytest
-import requests
 from fastapi import HTTPException
 
 from rhesis.backend.app.error_handlers import UpstreamHTTPException
@@ -281,7 +281,9 @@ class TestAuthenticationManager:
             "error_description": "Client authentication failed",
         }
         mock_response = Mock()
-        mock_response.raise_for_status.side_effect = requests.HTTPError(response=error_response)
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "error", request=Mock(), response=error_response
+        )
 
         with patch(
             "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
@@ -298,7 +300,9 @@ class TestAuthenticationManager:
         error_response = Mock(status_code=503)
         error_response.json.side_effect = ValueError("not json")
         mock_response = Mock()
-        mock_response.raise_for_status.side_effect = requests.HTTPError(response=error_response)
+        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+            "error", request=Mock(), response=error_response
+        )
 
         with patch(
             "rhesis.backend.app.services.invokers.auth.manager._token_session.post",
@@ -310,7 +314,7 @@ class TestAuthenticationManager:
         assert str(exc_info.value.detail).endswith("failed: HTTP 503")
 
     def test_unreachable_token_url_says_why(self, mock_db, sample_endpoint_oauth):
-        refused = requests.ConnectionError("Max retries exceeded")
+        refused = httpx.ConnectError("Max retries exceeded")
         refused.__cause__ = ConnectionRefusedError(61, "Connection refused")
 
         with patch(
@@ -373,7 +377,7 @@ class TestAuthenticationManager:
 class TestTokenRequestTimeout:
     """The OAuth token request must never wait forever.
 
-    ``requests`` has no default timeout, and this call is made while a worker
+    The client's timeout is set explicitly, since this call is made while a worker
     thread -- or, on the rare mid-await refresh, the event loop -- is held.
     """
 
@@ -391,9 +395,8 @@ class TestTokenRequestTimeout:
             AuthenticationManager.get_client_credentials_token(mock_db, sample_endpoint_oauth)
 
         assert mock_post.call_args[1]["timeout"] == TOKEN_REQUEST_TIMEOUT
-        connect, read = TOKEN_REQUEST_TIMEOUT
-        assert 0 < connect <= 10
-        assert 0 < read <= 30
+        assert 0 < TOKEN_REQUEST_TIMEOUT.connect <= 10
+        assert 0 < TOKEN_REQUEST_TIMEOUT.read <= 30
 
 
 class TestPrefetchToken:

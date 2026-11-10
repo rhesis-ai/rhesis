@@ -38,7 +38,7 @@ def _no_dns():
     they assert.
     """
     with patch(
-        "rhesis.backend.app.services.tool.url_validation.socket.getaddrinfo",
+        "rhesis.backend.app.utils.ssrf_http_client.socket.getaddrinfo",
         return_value=[(None, None, None, None, ("93.184.216.34", 0))],
     ):
         yield
@@ -398,7 +398,7 @@ def test_normalize_does_not_invent_absent_keys():
 def test_ssrf_blocklist_applies_to_instance_urls(_no_dns):
     with (
         patch(
-            "rhesis.backend.app.services.tool.url_validation.socket.getaddrinfo",
+            "rhesis.backend.app.utils.ssrf_http_client.socket.getaddrinfo",
             return_value=[(None, None, None, None, ("169.254.169.254", 0))],
         ),
         pytest.raises(ProviderFieldError),

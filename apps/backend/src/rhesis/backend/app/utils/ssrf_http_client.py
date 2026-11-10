@@ -1,31 +1,35 @@
-"""SSRF-safe HTTP client for outbound requests to addresses a tenant supplies.
+"""SSRF-safe outbound HTTP and WebSocket clients for addresses a tenant supplies.
 
-Anywhere a customer names the host we call -- an OIDC issuer, a self-managed
-GitLab, an OAuth token endpoint -- the address is untrusted input, and the
-obvious target is something only the server can reach: a VPC neighbour, a
-Kubernetes service, or the cloud metadata endpoint on 169.254.169.254.
+Anywhere a customer names the host we call -- an endpoint URL, a model
+``api_base``, an OAuth token URL, an OIDC issuer, a self-managed Jira -- the
+address is untrusted input, and the obvious target is something only the
+server can reach: a VPC neighbour, a Kubernetes service, or the cloud metadata
+endpoint on 169.254.169.254.
 
-DNS is resolved once and every address it returns is checked against the
-blocklist. Closing the window between that check and the connection takes a
-different move per scheme, because a name that passes the check can point
-somewhere else by the time we connect, which is what makes DNS rebinding work.
-Over HTTP the resolved IP is pinned into the request and the hostname moves to
-a ``Host`` header. Over HTTPS the URL keeps its hostname, since pinning would
-send the wrong SNI and break certificate verification, and that verification is
-what catches the swap instead. ``SafeHttpClient`` below has the detail.
+The guard sits at the connection, not the URL. The transports below resolve
+the host, check every address it returns, and then connect to one of those
+checked IPs, so a name cannot resolve to a public address for the check and a
+private one for the connect (DNS rebinding). The URL keeps its hostname, so
+``Host``, SNI and certificate verification are unchanged. Every redirect hop
+opens a new connection and goes through the same check.
 
-Moved here from ``ee/sso/http_client.py``. It was never SSO-specific, and core
-had only ``services/tool/url_validation.py``, which checks a URL at rest and
-leaves the connection itself to re-resolve.
+Private targets (loopback, RFC 1918, CGNAT, ULA) are allowed only when
+``OUTBOUND_ALLOW_PRIVATE_NETWORKS`` is on, which is the default for local
+development and self-hosting. Link-local, multicast and the cloud metadata
+addresses stay blocked either way.
 """
 
 import ipaddress
 import logging
 import socket
-from typing import List, Tuple
-from urllib.parse import urlparse, urlunparse
+from typing import Any, List, Optional, Tuple
+from urllib.parse import urlparse
 
+import anyio
+import httpcore
 import httpx
+from websockets.asyncio.client import connect as _ws_connect
+from websockets.uri import parse_uri
 
 from rhesis.backend.app.config.settings import get_application_settings
 
@@ -33,57 +37,32 @@ logger = logging.getLogger(__name__)
 
 _LOCALHOST_NAMES = {"localhost", "127.0.0.1", "::1"}
 
-_BLOCKED_NETWORKS = [
-    # RFC 1918 private address space -- VPCs, Kubernetes pods, Docker networks,
-    # home/office LANs.  The primary SSRF target in cloud environments.
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    # Link-local (RFC 3927) -- includes 169.254.169.254, the instance metadata
-    # endpoint on AWS, GCP, and Azure.
+# Blocked even when private targets are allowed: nothing legitimate lives here.
+_METADATA_NETWORKS = [
     ipaddress.ip_network("169.254.0.0/16"),
-    # Loopback -- prevents requests to services bound to localhost.
-    ipaddress.ip_network("127.0.0.0/8"),
-    # "This network" (RFC 1122) -- 0.0.0.0 on Linux resolves to all local
-    # interfaces, effectively reaching localhost services.
-    ipaddress.ip_network("0.0.0.0/8"),
-    # Carrier-grade NAT (RFC 6598) -- used internally by some cloud providers
-    # (AWS VPC endpoints, Tailscale) and must not be reachable.
-    ipaddress.ip_network("100.64.0.0/10"),
-    # IETF protocol assignments (RFC 6890).
-    ipaddress.ip_network("192.0.0.0/24"),
-    # Benchmarking (RFC 2544) -- sometimes used in internal test infra.
-    ipaddress.ip_network("198.18.0.0/15"),
-    # IPv6 loopback.
-    ipaddress.ip_network("::1/128"),
-    # IPv6 Unique Local Addresses (RFC 4193) -- the IPv6 equivalent of
-    # RFC 1918 private space.
-    ipaddress.ip_network("fc00::/7"),
-    # IPv6 link-local.
     ipaddress.ip_network("fe80::/10"),
+    ipaddress.ip_network("fd00:ec2::254/128"),  # AWS IMDS over IPv6
+    ipaddress.ip_network("100.100.100.200/32"),  # Alibaba Cloud metadata
+    ipaddress.ip_network("168.63.129.16/32"),  # Azure WireServer
 ]
-"""IP networks that must never be contacted by outbound SSO requests.
 
-Covers RFC 1918 private space, loopback, link-local (cloud metadata),
-carrier-grade NAT, IETF reserved, benchmarking, and IPv6 equivalents.
-Any hostname that resolves to an address within these ranges is rejected
-to prevent Server-Side Request Forgery (SSRF).
-"""
+# Carrier-grade NAT; neither ``is_private`` nor ``is_global`` in Python.
+_CGNAT = ipaddress.ip_network("100.64.0.0/10")
+_NAT64 = ipaddress.ip_network("64:ff9b::/96")
 
 _BLOCKED_HOSTNAMES = {
-    # GCP metadata service -- resolved by name so it is caught even if GCP
-    # maps it to a non-link-local IP in some configurations.
     "metadata.google.internal",
     "metadata.internal",
-    # AWS IMDSv2 IPv6 endpoint (fd00:ec2::254 falls inside fc00::/7 above,
-    # but the hostname is listed explicitly for defense-in-depth).
+    "metadata",
+    "instance-data",
     "fd00:ec2::254",
 }
-"""Hostnames blocked regardless of what IP they resolve to.
+"""Hostnames blocked regardless of what IP they resolve to."""
 
-Primarily targets cloud instance metadata services that may not always
-resolve to the link-local 169.254.x.x range.
-"""
+BLOCKED_TARGET_MESSAGE = (
+    "the address is not allowed: requests to private, loopback, link-local "
+    "or cloud metadata addresses are blocked"
+)
 
 
 class SSRFError(Exception):
@@ -92,91 +71,264 @@ class SSRFError(Exception):
     pass
 
 
-def _resolve_and_validate(hostname: str) -> List[Tuple]:
-    """Resolve hostname, validate all IPs against the blocklist, and return
-    the raw getaddrinfo results so the caller can pin one if its scheme allows.
+class UnresolvableHostError(SSRFError):
+    """The host name did not resolve, so nothing could be checked or reached."""
 
-    In development environments (BACKEND_ENV=local/development/staging), localhost
-    is allowed through the blocklist so that local IdP instances (e.g. Keycloak
-    on localhost:8180) can be reached.
 
-    Raises SSRFError if the hostname resolves to a blocked IP or cannot be
-    resolved.
+def private_targets_allowed() -> bool:
+    """Whether tenant URLs may point at loopback or private networks."""
+    return get_application_settings().allow_private_outbound
+
+
+def _embedded_ipv4(addr: ipaddress.IPv6Address) -> Optional[ipaddress.IPv4Address]:
+    """The IPv4 address an IPv6 address tunnels to (mapped, 6to4, NAT64), if any."""
+    if addr.ipv4_mapped:
+        return addr.ipv4_mapped
+    if addr.sixtofour:
+        return addr.sixtofour
+    if addr in _NAT64:
+        return ipaddress.IPv4Address(int(addr) & 0xFFFFFFFF)
+    return None
+
+
+def is_blocked_address(ip: str, allow_private: bool = False) -> bool:
+    """Whether connecting to ``ip`` must be refused."""
+    addr = ipaddress.ip_address(ip.split("%", 1)[0])
+    if isinstance(addr, ipaddress.IPv6Address):
+        addr = _embedded_ipv4(addr) or addr
+    if addr.is_link_local or addr.is_multicast:
+        return True
+    if any(addr in network for network in _METADATA_NETWORKS):
+        return True
+    if addr.is_global:
+        return False
+    if not allow_private:
+        return True
+    return not (addr.is_loopback or addr.is_private or addr.is_unspecified or addr in _CGNAT)
+
+
+def resolve_checked(
+    host: str, port: Optional[int] = None, allow_private: bool = False
+) -> List[str]:
+    """Resolve ``host`` and return its addresses, or raise if any is blocked.
+
+    One blocked address fails the whole name, so a multi-record answer cannot
+    smuggle an internal address in next to a public one.
     """
-    if hostname.lower() in _BLOCKED_HOSTNAMES:
-        raise SSRFError(f"Blocked hostname: {hostname}")
-
-    skip_blocklist = (
-        get_application_settings().is_development and hostname.lower() in _LOCALHOST_NAMES
-    )
+    name = (host or "").strip("[]").rstrip(".").lower()
+    if not name:
+        raise SSRFError("URL has no hostname")
+    if name in _BLOCKED_HOSTNAMES:
+        raise SSRFError(f"Blocked hostname: {host}")
 
     try:
-        addr_infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
-    except socket.gaierror:
-        raise SSRFError(f"DNS resolution failed for: {hostname}")
-
+        addr_infos = socket.getaddrinfo(name, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
+    except (socket.gaierror, UnicodeError):
+        raise UnresolvableHostError(f"DNS resolution failed for: {host}")
     if not addr_infos:
-        raise SSRFError(f"DNS resolution returned no results for: {hostname}")
+        raise UnresolvableHostError(f"DNS resolution returned no results for: {host}")
 
-    if not skip_blocklist:
-        for _family, _, _, _, sockaddr in addr_infos:
-            ip_str = sockaddr[0]
-            try:
-                addr = ipaddress.ip_address(ip_str)
-            except ValueError:
-                continue
-            for network in _BLOCKED_NETWORKS:
-                if addr in network:
-                    logger.warning(
-                        "SSRF block: %s resolved to %s (in %s)",
-                        hostname,
-                        ip_str,
-                        network,
-                    )
-                    raise SSRFError(f"Hostname {hostname} resolves to a blocked address")
-    else:
-        logger.info(
-            "SSRF blocklist bypassed for localhost in dev environment: %s",
-            hostname,
-        )
-
-    return addr_infos
+    ips: List[str] = []
+    for _family, _, _, _, sockaddr in addr_infos:
+        ip = sockaddr[0]
+        if is_blocked_address(ip, allow_private):
+            logger.warning("SSRF block: %s resolved to %s", host, ip)
+            raise SSRFError(f"Hostname {host} resolves to a blocked address")
+        if ip not in ips:
+            ips.append(ip)
+    return ips
 
 
-def _pin_url_to_ip(url: str, addr_infos: List[Tuple]) -> Tuple[str, str]:
-    """Replace the hostname in the URL with a validated resolved IP.
+def _allow(allow_private: Optional[bool]) -> bool:
+    return private_targets_allowed() if allow_private is None else allow_private
 
-    Returns (pinned_url, original_hostname) so the caller can set the
-    Host header correctly.
+
+def validate_outbound_url(
+    url: str, allow_private: Optional[bool] = None, *, allow_unresolved: bool = False
+) -> None:
+    """Raise ``SSRFError`` unless ``url`` is http(s)/ws(s) to an allowed address.
+
+    For a check up front, before the URL is handed to a client this module does
+    not control (LiteLLM for a model ``api_base``). The guarded clients below
+    check again at connect time.
+
+    ``allow_unresolved`` lets a name that does not resolve through, but only
+    where private targets are allowed (local development, self-hosting): there
+    the name may resolve only where the call runs. Elsewhere it stays an error,
+    since the later client could resolve it differently.
     """
-    parsed = urlparse(url)
-    hostname = parsed.hostname
-    port = parsed.port
+    parsed = urlparse(url or "")
+    if parsed.scheme not in ("http", "https", "ws", "wss"):
+        raise SSRFError(f"URL uses disallowed scheme: {parsed.scheme or 'none'}")
+    if not parsed.hostname:
+        raise SSRFError("URL has no hostname")
+    allowed = _allow(allow_private)
+    try:
+        resolve_checked(parsed.hostname, None, allowed)
+    except UnresolvableHostError:
+        if not (allow_unresolved and allowed):
+            raise
 
-    ip_str = addr_infos[0][4][0]
-    addr = ipaddress.ip_address(ip_str)
 
-    if isinstance(addr, ipaddress.IPv6Address):
-        ip_host = f"[{ip_str}]"
-    else:
-        ip_host = ip_str
+# ---------------------------------------------------------------------------
+# Guarded transports
+# ---------------------------------------------------------------------------
 
-    if port:
-        new_netloc = f"{ip_host}:{port}"
-    else:
-        new_netloc = ip_host
 
-    pinned = urlunparse(
-        (
-            parsed.scheme,
-            new_netloc,
-            parsed.path,
-            parsed.params,
-            parsed.query,
-            parsed.fragment,
+class _GuardedAsyncBackend(httpcore.AsyncNetworkBackend):
+    """Resolves and checks the host, then connects to a checked IP."""
+
+    def __init__(self, allow_private: Optional[bool]):
+        self._allow_private = allow_private
+        self._inner = httpcore.AnyIOBackend()
+
+    async def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
+        ips = await anyio.to_thread.run_sync(
+            resolve_checked, host, port, _allow(self._allow_private)
         )
-    )
-    return pinned, hostname
+        error: Optional[Exception] = None
+        for ip in ips:
+            try:
+                return await self._inner.connect_tcp(
+                    ip, port, timeout, local_address, socket_options
+                )
+            except (httpcore.ConnectError, httpcore.ConnectTimeout) as exc:
+                error = exc
+        raise error or SSRFError("No connectable address")
+
+    async def connect_unix_socket(self, path, timeout=None, socket_options=None):
+        raise SSRFError("Unix sockets are not allowed for outbound requests")
+
+    async def sleep(self, seconds: float) -> None:
+        await self._inner.sleep(seconds)
+
+
+class _GuardedSyncBackend(httpcore.NetworkBackend):
+    """Sync twin of ``_GuardedAsyncBackend``."""
+
+    def __init__(self, allow_private: Optional[bool]):
+        self._allow_private = allow_private
+        self._inner = httpcore.SyncBackend()
+
+    def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
+        ips = resolve_checked(host, port, _allow(self._allow_private))
+        error: Optional[Exception] = None
+        for ip in ips:
+            try:
+                return self._inner.connect_tcp(ip, port, timeout, local_address, socket_options)
+            except (httpcore.ConnectError, httpcore.ConnectTimeout) as exc:
+                error = exc
+        raise error or SSRFError("No connectable address")
+
+    def connect_unix_socket(self, path, timeout=None, socket_options=None):
+        raise SSRFError("Unix sockets are not allowed for outbound requests")
+
+
+class GuardedAsyncTransport(httpx.AsyncHTTPTransport):
+    """``httpx.AsyncHTTPTransport`` whose connections go through the SSRF check."""
+
+    def __init__(
+        self,
+        *,
+        verify: bool = True,
+        limits: httpx.Limits = httpx.Limits(max_connections=100, max_keepalive_connections=20),
+        allow_private: Optional[bool] = None,
+    ):
+        # Built directly: httpx's own __init__ has no way to pass a network backend.
+        self._pool = httpcore.AsyncConnectionPool(
+            ssl_context=httpx.create_ssl_context(verify=verify),
+            max_connections=limits.max_connections,
+            max_keepalive_connections=limits.max_keepalive_connections,
+            keepalive_expiry=limits.keepalive_expiry,
+            network_backend=_GuardedAsyncBackend(allow_private),
+        )
+
+
+class GuardedTransport(httpx.HTTPTransport):
+    """Sync twin of ``GuardedAsyncTransport``."""
+
+    def __init__(
+        self,
+        *,
+        verify: bool = True,
+        limits: httpx.Limits = httpx.Limits(max_connections=100, max_keepalive_connections=20),
+        allow_private: Optional[bool] = None,
+    ):
+        self._pool = httpcore.ConnectionPool(
+            ssl_context=httpx.create_ssl_context(verify=verify),
+            max_connections=limits.max_connections,
+            max_keepalive_connections=limits.max_keepalive_connections,
+            keepalive_expiry=limits.keepalive_expiry,
+            network_backend=_GuardedSyncBackend(allow_private),
+        )
+
+
+def guarded_async_client(
+    *, allow_private: Optional[bool] = None, verify: bool = True, **kwargs: Any
+) -> httpx.AsyncClient:
+    """An ``httpx.AsyncClient`` for tenant-supplied URLs.
+
+    ``allow_private=None`` follows ``OUTBOUND_ALLOW_PRIVATE_NETWORKS``. Env
+    proxies are ignored: through a proxy the check would see the proxy's address.
+    """
+    transport = GuardedAsyncTransport(verify=verify, allow_private=allow_private)
+    return httpx.AsyncClient(transport=transport, trust_env=False, **kwargs)
+
+
+def guarded_client(
+    *, allow_private: Optional[bool] = None, verify: bool = True, **kwargs: Any
+) -> httpx.Client:
+    """Sync twin of ``guarded_async_client``."""
+    transport = GuardedTransport(verify=verify, allow_private=allow_private)
+    return httpx.Client(transport=transport, trust_env=False, **kwargs)
+
+
+class guarded_ws_connect(_ws_connect):
+    """``websockets`` ``connect`` that checks each hop's address and connects to it.
+
+    Redirects re-enter ``create_connection`` with the new URI, so each hop is
+    checked. Env proxies are off for the same reason as the HTTP clients.
+    """
+
+    def __init__(self, uri: str, *, allow_private: Optional[bool] = None, **kwargs: Any):
+        kwargs.setdefault("proxy", None)
+        super().__init__(uri, **kwargs)
+        self._allow_private = allow_private
+
+    async def create_connection(self):
+        ws_uri = parse_uri(self.uri)
+        ips = await anyio.to_thread.run_sync(
+            resolve_checked, ws_uri.host, ws_uri.port, _allow(self._allow_private)
+        )
+        base_kwargs = self.connection_kwargs
+        error: Optional[Exception] = None
+        try:
+            for ip in ips:
+                # Swapped in per attempt only: a host left in connection_kwargs
+                # would make websockets refuse cross-origin redirects.
+                self.connection_kwargs = {**base_kwargs, "host": ip, "port": ws_uri.port}
+                try:
+                    return await super().create_connection()
+                except OSError as exc:
+                    error = exc
+        finally:
+            self.connection_kwargs = base_kwargs
+        raise error or SSRFError("No connectable address")
+
+
+# ---------------------------------------------------------------------------
+# SSO / webhook helpers
+# ---------------------------------------------------------------------------
+
+
+def _localhost_allowed(hostname: str) -> bool:
+    """SSO and webhooks allow only the local machine, and only when private targets are."""
+    return private_targets_allowed() and hostname.lower() in _LOCALHOST_NAMES
+
+
+def _resolve_and_validate(hostname: str) -> List[str]:
+    """Resolve ``hostname`` under the strict SSO/webhook policy and return its IPs."""
+    return resolve_checked(hostname, None, allow_private=_localhost_allowed(hostname))
 
 
 def validate_url_safety(url: str) -> None:
@@ -220,90 +372,50 @@ validate_jwks_uri_origin = validate_endpoint_origin
 
 
 class SafeHttpClient:
-    """HTTP client that will not be talked into reaching an internal address.
+    """HTTP client for SSO and webhook targets, which must be public addresses.
 
-    Used for outbound calls whose target a user or an administrator supplies:
-    an IdP issuer for SSO, a provider endpoint for an OAuth flow. Protection
-    differs by scheme:
-
-    * **HTTPS**: Resolve the hostname, validate all resolved IPs against the
-      blocklist, then make the request with the *original* hostname URL.
-      TLS handles SNI and certificate verification correctly because the
-      hostname is preserved.  IP pinning (replacing the URL hostname with a
-      raw IP) is intentionally avoided for HTTPS: httpx sets SNI to the URL
-      host, so connecting to an IP would break TLS certificate verification.
-
-    * **HTTP**: After DNS validation, replace the hostname with the resolved
-      IP and inject a ``Host`` header.  This eliminates TOCTOU/DNS-rebinding
-      risk for plain-text connections where TLS cannot provide a second layer
-      of protection.
+    Stricter than the endpoint clients above: private networks are never
+    allowed, only the local machine, and only when private targets are allowed
+    (a local Keycloak on localhost:8180). The address is checked up front for a
+    clear error, then again at connect time by the guarded transport.
 
     Set ``verify_ssl=False`` only for a host with a self-signed or internal-CA
-    certificate, such as an on-premise Keycloak. It costs more than the
-    certificate check: the HTTPS path above leans on TLS to catch a hostname
-    that resolves to one address during the preflight check and another at
-    connect time, so turning verification off reopens that window. Use it only
-    where the network between Rhesis and the host is itself trusted.
+    certificate, such as an on-premise Keycloak. Use it only where the network
+    between Rhesis and the host is itself trusted.
     """
 
     def __init__(self, timeout: float = 10.0, verify_ssl: bool = True):
         self._timeout = timeout
         self._verify_ssl = verify_ssl
 
-    def _prepare(self, url: str, kwargs: dict) -> Tuple[str, bool]:
-        """Resolve, validate, and conditionally pin the URL.
-
-        For HTTPS: validates DNS but keeps the hostname URL so TLS SNI and
-        certificate verification work correctly.
-        For HTTP: pins the resolved IP to eliminate TOCTOU DNS rebinding.
-
-        Returns (request_url, skip_tls).
-        """
-        parsed = urlparse(url)
-        hostname = parsed.hostname
+    def _prepare(self, url: str) -> Tuple[bool, bool]:
+        """Check the URL; return (allow_private, verify) for the transport."""
+        hostname = urlparse(url).hostname
         if not hostname:
             raise SSRFError("URL has no hostname")
+        _resolve_and_validate(hostname)
+        localhost = _localhost_allowed(hostname)
+        return localhost, self._verify_ssl and not localhost
 
-        addr_infos = _resolve_and_validate(hostname)
-
-        is_https = parsed.scheme == "https"
-        is_localhost_dev = (
-            get_application_settings().is_development and hostname.lower() in _LOCALHOST_NAMES
-        )
-
-        if is_https:
-            # Keep hostname URL intact so httpx presents the correct SNI and
-            # can verify the server certificate against the hostname.
-            request_url = url
-        else:
-            # For HTTP, pin to the validated IP to close the TOCTOU window.
-            pinned_url, original_host = _pin_url_to_ip(url, addr_infos)
-            request_url = pinned_url
-            headers = dict(kwargs.pop("headers", {}) or {})
-            port = parsed.port
-            if port and port not in (80, 443):
-                headers.setdefault("Host", f"{original_host}:{port}")
-            else:
-                headers.setdefault("Host", original_host)
-            kwargs["headers"] = headers
-
-        skip_tls = is_localhost_dev or (not self._verify_ssl)
-        return request_url, skip_tls
+    def _client_kwargs(self, url: str, transport_cls: type) -> dict:
+        allow_private, verify = self._prepare(url)
+        return {
+            "timeout": self._timeout,
+            "verify": verify,
+            "follow_redirects": False,
+            "trust_env": False,
+            "transport": transport_cls(verify=verify, allow_private=allow_private),
+        }
 
     async def get(self, url: str, **kwargs) -> httpx.Response:
-        request_url, skip_tls = self._prepare(url, kwargs)
-        async with httpx.AsyncClient(timeout=self._timeout, verify=not skip_tls) as client:
-            return await client.get(request_url, **kwargs)
+        async with httpx.AsyncClient(**self._client_kwargs(url, GuardedAsyncTransport)) as client:
+            return await client.get(url, **kwargs)
 
     async def post(self, url: str, **kwargs) -> httpx.Response:
-        request_url, skip_tls = self._prepare(url, kwargs)
-        async with httpx.AsyncClient(timeout=self._timeout, verify=not skip_tls) as client:
-            return await client.post(request_url, **kwargs)
+        async with httpx.AsyncClient(**self._client_kwargs(url, GuardedAsyncTransport)) as client:
+            return await client.post(url, **kwargs)
 
     def post_sync(self, url: str, **kwargs) -> httpx.Response:
         """``post`` for sync callers such as Celery jobs. Never follows redirects."""
-        request_url, skip_tls = self._prepare(url, kwargs)
-        with httpx.Client(
-            timeout=self._timeout, verify=not skip_tls, follow_redirects=False
-        ) as client:
-            return client.post(request_url, **kwargs)
+        with httpx.Client(**self._client_kwargs(url, GuardedTransport)) as client:
+            return client.post(url, **kwargs)

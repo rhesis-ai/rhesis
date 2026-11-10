@@ -6,13 +6,13 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, NamedTuple
 
 import anyio
-import httpx
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import schemas
 from rhesis.backend.app.crud import task as task_crud
 from rhesis.backend.app.crud import tool as tool_crud
 from rhesis.backend.app.services.tool.url_validation import validate_base_url
+from rhesis.backend.app.utils.ssrf_http_client import guarded_async_client
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ class JiraRestClient:
         project list, returned as ``additional_metadata.spaces`` so the
         frontend space selector is populated.
         """
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with guarded_async_client(timeout=30.0) as client:
             me_resp = await client.get(f"{self._base_url}/rest/api/3/myself", auth=self._auth)
             if me_resp.status_code != 200:
                 return {
@@ -117,7 +117,7 @@ class JiraRestClient:
             }
         }
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with guarded_async_client(timeout=30.0) as client:
             resp = await client.post(url, json=payload, auth=self._auth)
 
         if resp.status_code == 401:

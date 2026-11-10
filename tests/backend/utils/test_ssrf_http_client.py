@@ -8,7 +8,6 @@ import pytest
 from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.utils.ssrf_http_client import (
     SSRFError,
-    _pin_url_to_ip,
     validate_endpoint_origin,
     validate_jwks_uri_origin,
     validate_url_safety,
@@ -108,22 +107,6 @@ class TestValidateUrlSafety:
         """The exception message says 'blocked address' without the actual IP."""
         with pytest.raises(SSRFError, match="blocked address"):
             validate_url_safety("https://10.0.0.1/path")
-
-
-class TestPinUrlToIp:
-    """Test that URL pinning produces correct results."""
-
-    def test_pin_replaces_hostname(self):
-        pinned, original = _pin_url_to_ip("https://accounts.google.com/path?q=1", PUBLIC_ADDR_INFO)
-        assert original == "accounts.google.com"
-        assert "accounts.google.com" not in pinned
-        assert "/path?q=1" in pinned
-
-    def test_pin_preserves_port(self):
-        fake_addr = [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("93.184.216.34", 0))]
-        pinned, original = _pin_url_to_ip("https://example.com:8443/path", fake_addr)
-        assert ":8443" in pinned
-        assert original == "example.com"
 
 
 class TestValidateEndpointOrigin:

@@ -31,7 +31,14 @@ def api_token_field(
     )
 
 
-def base_url_field(key: str, label: str, *, required: bool = False) -> ProviderField:
+def base_url_field(
+    key: str,
+    label: str,
+    *,
+    required: bool = False,
+    help_text: str = "",
+    require_https: bool = True,
+) -> ProviderField:
     """A user-supplied instance URL, checked against the SSRF blocklist.
 
     ``validate_base_url`` raises ``ValueError``; the validation layer converts
@@ -43,7 +50,10 @@ def base_url_field(key: str, label: str, *, required: bool = False) -> ProviderF
         store=FieldStore.CREDENTIALS,
         required=required,
         preserve_on_update=True,
-        validate=lambda value, _field=key: validate_base_url(value, _field),
+        help_text=help_text,
+        validate=lambda value, _field=key: validate_base_url(
+            value, _field, require_https=require_https
+        ),
     )
 
 
