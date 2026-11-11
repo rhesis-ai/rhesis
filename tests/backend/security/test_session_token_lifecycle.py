@@ -34,6 +34,7 @@ from rhesis.backend.app.auth.token_utils import (
 )
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.schemas import UserCreate
+from rhesis.backend.app.services.websocket.token_service import WebSocketTokenService
 from rhesis.backend.app.utils.encryption import hash_password
 from tests.backend.fixtures.fake_redis import FakeRedis, fake_redis_manager
 from tests.backend.fixtures.test_setup import create_test_api_token
@@ -369,3 +370,26 @@ class TestEmailVerificationLinkIsSingleUse:
         assert "auth_code" not in response.json()
         test_db.refresh(user)
         assert user.is_email_verified is True
+
+
+@pytest.mark.unit
+@pytest.mark.security
+class TestWebSocketTokenSingleUseAcrossProcesses:
+    @pytest.mark.asyncio
+    async def test_token_used_on_one_process_is_rejected_on_another(self):
+        pod_a = WebSocketTokenService(secret_key="ws-secret")
+        pod_b = WebSocketTokenService(secret_key="ws-secret")
+        token = pod_a.create_ws_token(user_id=str(uuid.uuid4()), org_id=str(uuid.uuid4()))
+
+        with fake_redis_manager():
+            assert await pod_a.validate_ws_token(token) is not None
+            assert await pod_b.validate_ws_token(token) is None
+
+    @pytest.mark.asyncio
+    async def test_redis_down_still_single_use_per_process(self):
+        service = WebSocketTokenService(secret_key="ws-secret")
+        token = service.create_ws_token(user_id=str(uuid.uuid4()), org_id=str(uuid.uuid4()))
+
+        with fake_redis_manager(available=False):
+            assert await service.validate_ws_token(token) is not None
+            assert await service.validate_ws_token(token) is None

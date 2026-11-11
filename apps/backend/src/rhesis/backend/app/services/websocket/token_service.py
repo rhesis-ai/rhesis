@@ -16,6 +16,7 @@ from typing import Optional
 
 import jwt
 
+from rhesis.backend.app.auth.used_token_store import TokenStoreUnavailableError, claim_token_jti
 from rhesis.backend.app.auth.user_utils import get_secret_key
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,8 @@ class WebSocketTokenService:
     - Have a short TTL (default 60 seconds)
     - Are purpose-specific (purpose="websocket")
     - Include a unique JTI to prevent reuse
-    - Are single-use (tracked to prevent replay)
+    - Are single-use across processes (claimed in Redis, with a per-process
+      fallback while Redis is down)
 
     Example usage:
         service = get_ws_token_service()
@@ -37,7 +39,7 @@ class WebSocketTokenService:
         token = service.create_ws_token(user_id="...", org_id="...")
 
         # Validate token (during WebSocket connection)
-        payload = service.validate_ws_token(token)
+        payload = await service.validate_ws_token(token)
         if payload:
             # Token is valid, proceed with connection
     """
@@ -54,8 +56,7 @@ class WebSocketTokenService:
                        If not provided, uses the application secret key.
         """
         self._secret_key = secret_key or get_secret_key()
-        # Track used tokens to prevent replay (in-memory, resets on restart)
-        # For production, this should be Redis-backed for multi-instance support
+        # Replay guard while Redis is unreachable; Redis is the shared one.
         self._used_tokens: set[str] = set()
 
     def create_ws_token(self, user_id: str, org_id: str) -> str:
@@ -84,7 +85,7 @@ class WebSocketTokenService:
         logger.debug(f"Created WebSocket token for user {user_id}")
         return token
 
-    def validate_ws_token(self, token: str) -> Optional[dict]:
+    async def validate_ws_token(self, token: str) -> Optional[dict]:
         """Validate a WebSocket-specific token.
 
         Checks:
@@ -117,17 +118,9 @@ class WebSocketTokenService:
                 logger.warning("WebSocket token missing JTI")
                 return None
 
-            # Check if token was already used (prevent replay)
-            if jti in self._used_tokens:
+            if not await self._claim(jti):
                 logger.warning(f"WebSocket token already used: {jti[:8]}...")
                 return None
-
-            # Mark token as used
-            self._used_tokens.add(jti)
-
-            # Clean up old tokens periodically (simple cleanup)
-            if len(self._used_tokens) > 10000:
-                self._cleanup_used_tokens()
 
             logger.debug(f"Validated WebSocket token for user {payload.get('sub')}")
             return payload
@@ -138,6 +131,20 @@ class WebSocketTokenService:
         except jwt.InvalidTokenError as e:
             logger.warning(f"Invalid WebSocket token: {e}")
             return None
+
+    async def _claim(self, jti: str) -> bool:
+        """Mark ``jti`` used; False if it already was, here or on another process."""
+        if jti in self._used_tokens:
+            return False
+        try:
+            claimed = await claim_token_jti(jti, self.WS_TOKEN_TTL_SECONDS, namespace="ws")
+        except TokenStoreUnavailableError:
+            # Single-use per process only, as before Redis was used here.
+            claimed = True
+        self._used_tokens.add(jti)
+        if len(self._used_tokens) > 10000:
+            self._cleanup_used_tokens()
+        return claimed
 
     def _cleanup_used_tokens(self) -> None:
         """Clean up old used tokens.
