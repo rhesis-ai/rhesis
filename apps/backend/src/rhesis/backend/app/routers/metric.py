@@ -21,6 +21,7 @@ from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.metric import check_updated_config
+from rhesis.backend.app.services.metric_tuning import attach_tuning_case_counts
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
@@ -334,6 +335,8 @@ def read_metrics(
                 extra_filter=metric_crud._metric_scope_filter(metric_scope),
             )
         )
+
+    attach_tuning_case_counts(db, results, organization_id)
 
     if select:
         serialized = jsonable_encoder(results)

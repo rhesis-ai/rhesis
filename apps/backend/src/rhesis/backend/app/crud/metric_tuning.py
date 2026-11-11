@@ -12,8 +12,9 @@ category and a topic and ``get_or_create``s each one, which would file rows like
 
 import logging
 import uuid
-from typing import List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models
@@ -93,6 +94,30 @@ def set_run_summary(
 
 
 # --- Tuning cases --------------------------------------------------------------------
+
+
+def get_tuning_case_counts(
+    db: Session, metric_ids: Iterable[uuid.UUID], organization_id: str
+) -> Dict[str, int]:
+    """How many tuning cases each metric has, by metric id. Metrics without any are absent."""
+    ids = [uuid.UUID(str(metric_id)) for metric_id in metric_ids]
+    if not ids:
+        return {}
+    rows = (
+        db.query(models.TestSet.metric_id, func.count(models.Test.id))
+        .join(
+            test_test_set_association,
+            models.TestSet.id == test_test_set_association.c.test_set_id,
+        )
+        .join(models.Test, models.Test.id == test_test_set_association.c.test_id)
+        .filter(
+            models.TestSet.metric_id.in_(ids),
+            models.TestSet.organization_id == organization_id,
+            models.Test.organization_id == organization_id,
+        )
+        .group_by(models.TestSet.metric_id)
+    )
+    return {str(metric_id): count for metric_id, count in rows.all()}
 
 
 def get_tuning_cases(

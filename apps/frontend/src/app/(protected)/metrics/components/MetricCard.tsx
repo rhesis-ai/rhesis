@@ -3,6 +3,7 @@ import EntityCard, {
   type EntityCardFact,
   type EntityCardRelation,
 } from '@/components/common/EntityCard';
+import { RequirementsIcon, TuneIcon } from '@/components/icons';
 
 interface MetricCardProps {
   type?: 'custom-prompt' | 'api-call' | 'custom-code' | 'grading';
@@ -13,6 +14,8 @@ interface MetricCardProps {
   scoreType?: string;
   metricScope?: string[];
   usedIn?: string[];
+  /** Custom metrics only; omitted for metrics that can't be tuned. */
+  tuningCases?: number;
   showUsage?: boolean;
   onDelete?: () => void;
   onClick?: () => void;
@@ -21,19 +24,28 @@ interface MetricCardProps {
 const capitalize = (value: string) =>
   value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 
-/** "Used in A, B", or a count once there are more than two. */
+/** Requirement icon + count, like the requirement card's relations; names in the tooltip. */
 export function usedInRelation(usedIn: string[] = []): EntityCardRelation {
-  if (usedIn.length === 0) {
-    return {
-      key: 'used-in',
-      label: 'Not used in any requirement',
-      muted: true,
-    };
-  }
-  if (usedIn.length > 2) {
-    return { key: 'used-in', label: `Used in ${usedIn.length} requirements` };
-  }
-  return { key: 'used-in', label: `Used in ${usedIn.join(', ')}` };
+  const count = usedIn.length;
+  const label = count === 1 ? 'requirement' : 'requirements';
+  return {
+    key: 'used-in',
+    label,
+    count,
+    icon: <RequirementsIcon />,
+    tooltip:
+      count > 0 ? `${count} ${label}: ${usedIn.join(', ')}` : `0 ${label}`,
+  };
+}
+
+/** Tuning icon + count, same style as the requirements relation. */
+export function tuningCasesRelation(count: number): EntityCardRelation {
+  return {
+    key: 'tuning-cases',
+    label: count === 1 ? 'tuning case' : 'tuning cases',
+    count,
+    icon: <TuneIcon />,
+  };
 }
 
 export default function MetricCard({
@@ -43,6 +55,7 @@ export default function MetricCard({
   scoreType,
   metricScope,
   usedIn,
+  tuningCases,
   showUsage = false,
   onDelete,
   onClick,
@@ -65,7 +78,16 @@ export default function MetricCard({
       description={description}
       context={backend ? capitalize(backend) : undefined}
       facts={facts}
-      relations={showUsage ? [usedInRelation(usedIn)] : []}
+      relations={
+        showUsage
+          ? [
+              usedInRelation(usedIn),
+              ...(tuningCases === undefined
+                ? []
+                : [tuningCasesRelation(tuningCases)]),
+            ]
+          : []
+      }
       onDelete={onDelete}
       onClick={onClick}
     />

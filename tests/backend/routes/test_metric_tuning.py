@@ -724,3 +724,65 @@ class TestTuningRowsAreUnreachable:
         after = authenticated_client.get("/tests/?limit=100")
         assert int(after.headers["X-Total-Count"]) == before_count
         assert len(after.json()) == len(before.json())
+
+
+def _listed_count(client: TestClient, metric: models.Metric):
+    response = client.get(f"/metrics/?limit=100&$filter=name eq '{metric.name}'")
+    assert response.status_code == status.HTTP_200_OK, response.text
+    (row,) = response.json()
+    return row["tuning_cases_count"]
+
+
+@pytest.mark.integration
+class TestTuningCaseCountOnMetricList:
+    """GET /metrics/ carries each metric's case count, which the metric cards show."""
+
+    def test_zero_before_any_case_exists(
+        self, authenticated_client: TestClient, tuning_metric: models.Metric
+    ):
+        assert _listed_count(authenticated_client, tuning_metric) == 0
+
+    def test_counts_each_metrics_own_cases(
+        self,
+        authenticated_client: TestClient,
+        tuning_metric: models.Metric,
+        other_metric: models.Metric,
+    ):
+        _create_case(authenticated_client, tuning_metric.id)
+        _create_case(authenticated_client, tuning_metric.id)
+        _create_case(authenticated_client, other_metric.id)
+
+        assert _listed_count(authenticated_client, tuning_metric) == 2
+        assert _listed_count(authenticated_client, other_metric) == 1
+
+    def test_drops_when_a_case_is_deleted(
+        self, authenticated_client: TestClient, tuning_metric: models.Metric
+    ):
+        created = _create_case(authenticated_client, tuning_metric.id)
+        _create_case(authenticated_client, tuning_metric.id)
+
+        response = authenticated_client.delete(
+            f"/metrics/{tuning_metric.id}/tuning/cases/{created['id']}"
+        )
+        assert response.status_code in (status.HTTP_200_OK, status.HTTP_204_NO_CONTENT)
+
+        assert _listed_count(authenticated_client, tuning_metric) == 1
+
+    def test_survives_select(self, authenticated_client: TestClient, tuning_metric: models.Metric):
+        _create_case(authenticated_client, tuning_metric.id)
+
+        response = authenticated_client.get(
+            f"/metrics/?$select=name,tuning_cases_count&$filter=name eq '{tuning_metric.name}'"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()[0]["tuning_cases_count"] == 1
+
+    def test_absent_from_the_single_metric_route(
+        self, authenticated_client: TestClient, tuning_metric: models.Metric
+    ):
+        """Only the list fills it; elsewhere it is None rather than a misleading 0."""
+        response = authenticated_client.get(f"/metrics/{tuning_metric.id}")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["tuning_cases_count"] is None

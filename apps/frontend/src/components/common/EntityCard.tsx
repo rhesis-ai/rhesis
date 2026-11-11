@@ -44,6 +44,8 @@ export interface EntityCardRelation {
   count?: number;
   /** With a count, shown instead of the label, which moves to a tooltip. */
   icon?: React.ReactNode;
+  /** Replaces that tooltip's "7 metrics", e.g. to list the names. */
+  tooltip?: string;
   /** Greys the entry out. Defaults to true when `count` is 0. */
   muted?: boolean;
 }
@@ -175,7 +177,7 @@ function Relation({ relation }: { relation: EntityCardRelation }) {
   if (relation.icon) {
     const text = `${relation.count} ${relation.label}`;
     return (
-      <Tooltip title={text}>
+      <Tooltip title={relation.tooltip ?? text}>
         <Box
           component="span"
           aria-label={text}

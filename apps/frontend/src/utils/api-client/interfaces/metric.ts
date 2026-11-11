@@ -109,6 +109,8 @@ export interface RequirementReference {
 export interface MetricDetail extends Metric {
   requirements?: RequirementReference[];
   model?: Model;
+  /** Set by the list endpoint only; null elsewhere. */
+  tuning_cases_count?: number | null;
 }
 
 export interface MetricQueryParams extends PaginationParams {
