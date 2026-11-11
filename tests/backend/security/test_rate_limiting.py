@@ -33,6 +33,7 @@ from rhesis.backend.app.utils.rate_limit import (
     get_user_identifier,
     hit_post_parse_limit,
     limiter,
+    rate_limit_ip_key,
 )
 
 BACKEND_DIR = Path(__file__).resolve().parents[3] / "apps" / "backend"
@@ -198,7 +199,7 @@ def test_default_limit_applies_to_undecorated_routes(limiter_on, monkeypatch):
     monkeypatch.setattr(
         limiter,
         "_default_limits",
-        [LimitGroup("2/minute", get_real_ip, None, False, None, None, None, 1, False)],
+        [LimitGroup("2/minute", rate_limit_ip_key, None, False, None, None, None, 1, False)],
     )
     headers = {"X-Forwarded-For": _fresh_ip()}
     with TestClient(app) as c:
@@ -212,7 +213,7 @@ def test_health_and_trace_ingest_skip_the_default_limit(limiter_on, monkeypatch)
     monkeypatch.setattr(
         limiter,
         "_default_limits",
-        [LimitGroup("1/minute", get_real_ip, None, False, None, None, None, 1, False)],
+        [LimitGroup("1/minute", rate_limit_ip_key, None, False, None, None, None, 1, False)],
     )
     headers = {"X-Forwarded-For": _fresh_ip()}
     with TestClient(app) as c:
@@ -345,3 +346,62 @@ def test_user_identifier_keys_on_the_signed_in_account():
     assert get_user_identifier(_request_as(a)) == f"user:{a}"
     assert get_user_identifier(_request_as(a)) != get_user_identifier(_request_as(b))
     assert get_user_identifier(_request_as(None)) == "10.0.0.5"
+
+
+# --- IPv6 keys -------------------------------------------------------------------
+
+
+def _request_from(xff: str) -> StarletteRequest:
+    return StarletteRequest(
+        {
+            "type": "http",
+            "headers": [(b"x-forwarded-for", xff.encode())],
+            "client": ("203.0.113.9", 443),
+            "state": {},
+        }
+    )
+
+
+def test_ipv6_addresses_in_one_slash_64_share_a_key():
+    a = rate_limit_ip_key(_request_from("2001:db8:1:2::1"))
+    b = rate_limit_ip_key(_request_from("2001:db8:1:2:ffff:abcd:1234:5678"))
+    assert a == b == "2001:db8:1:2::/64"
+
+
+def test_different_ipv6_slash_64s_get_different_keys():
+    a = rate_limit_ip_key(_request_from("2001:db8:1:2::1"))
+    b = rate_limit_ip_key(_request_from("2001:db8:1:3::1"))
+    assert a != b
+
+
+def test_ipv4_keys_are_unchanged():
+    assert rate_limit_ip_key(_request_from("198.51.100.7")) == "198.51.100.7"
+    assert rate_limit_ip_key(_request_from("198.51.100.8")) == "198.51.100.8"
+    # IPv4-mapped IPv6 keys on the IPv4 address, not on the shared ::ffff:0:0/64.
+    assert rate_limit_ip_key(_request_from("::ffff:198.51.100.7")) == "198.51.100.7"
+
+
+def test_get_real_ip_still_returns_the_full_address():
+    assert get_real_ip(_request_from("2001:db8:1:2::1")) == "2001:db8:1:2::1"
+    assert get_real_ip(_request_from("198.51.100.7")) == "198.51.100.7"
+
+
+def test_ipv6_rotation_within_a_slash_64_shares_one_bucket(limiter_on, monkeypatch):
+    monkeypatch.setattr(
+        limiter,
+        "_default_limits",
+        [LimitGroup("2/minute", rate_limit_ip_key, None, False, None, None, None, 1, False)],
+    )
+    prefix = f"2001:db8:{uuid.uuid4().int % 65536:x}:{uuid.uuid4().int % 65536:x}"
+    with TestClient(app) as c:
+        codes = [
+            c.get(
+                "/auth/providers", headers={"X-Forwarded-For": f"{prefix}::{i + 1:x}"}
+            ).status_code
+            for i in range(3)
+        ]
+    assert codes == [200, 200, 429]
+
+
+def test_invite_key_falls_back_to_the_ipv6_slash_64():
+    assert get_user_identifier(_request_from("2001:db8:1:2::1")) == "2001:db8:1:2::/64"

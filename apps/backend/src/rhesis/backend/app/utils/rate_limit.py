@@ -72,6 +72,25 @@ def get_real_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def rate_limit_ip_key(request: Request) -> str:
+    """The client IP as a rate-limit key, with IPv6 collapsed to its /64.
+
+    One IPv6 subscriber usually holds a whole /64, so keying on the full
+    address would hand them a fresh bucket per address. ``get_real_ip`` keeps
+    the full address for the audit log.
+    """
+    ip = get_real_ip(request)
+    try:
+        address = ipaddress.ip_address(ip)
+    except ValueError:
+        return ip
+    if address.version == 4:
+        return ip
+    if address.ipv4_mapped:
+        return str(address.ipv4_mapped)
+    return str(ipaddress.ip_network(f"{address}/64", strict=False))
+
+
 #: Applied by DefaultRateLimitMiddleware, per client IP and per route, to every route
 #: without its own limit. A flood guard sized well above polling, SDK and NAT
 #: traffic; costly routes carry tighter per-user limits.
@@ -107,7 +126,7 @@ def build_limiter(storage_uri: Optional[str] = None) -> Limiter:
             "socket_timeout": _REDIS_TIMEOUT_SECONDS,
         }
     return Limiter(
-        key_func=get_real_ip,
+        key_func=rate_limit_ip_key,
         default_limits=[DEFAULT_RATE_LIMIT],
         storage_uri=uri,
         storage_options=options,
@@ -156,7 +175,7 @@ def get_user_identifier(request: Request) -> str:
     user_id = getattr(user, "id", None)
     if user_id:
         return f"user:{user_id}"
-    return get_real_ip(request)
+    return rate_limit_ip_key(request)
 
 
 # Rate limits for different operations
