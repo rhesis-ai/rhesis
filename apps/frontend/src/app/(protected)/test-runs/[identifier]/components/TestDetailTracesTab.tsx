@@ -125,6 +125,7 @@ export default function TestDetailTracesTab({
           embedded
           traceId={first.traceId}
           projectId={first.projectId}
+          defaultView="tree"
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}

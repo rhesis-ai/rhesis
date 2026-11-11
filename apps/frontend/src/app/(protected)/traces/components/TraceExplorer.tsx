@@ -55,6 +55,11 @@ interface TraceExplorerProps {
   initialTurnIndex?: number;
   /** OTel span_id to select on open; takes precedence over initialTurnIndex. */
   initialSpanId?: string;
+  /**
+   * The view a conversation trace opens on. 'tree' where the conversation is already shown
+   * next to it, e.g. a test result's Traces tab beside its Conversation tab.
+   */
+  defaultView?: 'conversation' | 'tree';
   currentUserId?: string;
   currentUserName?: string;
   currentUserPicture?: string;
@@ -73,6 +78,7 @@ export default function TraceExplorer({
   projectId,
   initialTurnIndex,
   initialSpanId,
+  defaultView = 'conversation',
   currentUserId = '',
   currentUserName = '',
   currentUserPicture,
@@ -179,7 +185,7 @@ export default function TraceExplorer({
       );
       setSelectedSpan(span);
       // Moving between turns keeps the tab the reader is on.
-      if (openTree && !turnTarget) {
+      if ((openTree || defaultView === 'tree') && !turnTarget) {
         setViewTab(treeTabIndex(!!data.conversation_id));
       }
     } catch (err: unknown) {
@@ -197,6 +203,7 @@ export default function TraceExplorer({
     turnTarget,
     initialTurnIndex,
     initialSpanId,
+    defaultView,
   ]);
 
   const refreshTrace = useCallback(async () => {
