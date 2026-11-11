@@ -7,7 +7,11 @@ from fastapi import Depends, HTTPException, Request, WebSocket, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.auth.constants import UNAUTHORIZED_MESSAGE, AuthenticationMethod
+from rhesis.backend.app.auth.constants import (
+    UNAUTHORIZED_MESSAGE,
+    AuthenticationMethod,
+    AuthProviderType,
+)
 from rhesis.backend.app.auth.oauth_scope import capabilities_for_oauth_scope
 from rhesis.backend.app.auth.principal import (
     REQUEST_STATE_API_TOKEN_PROJECT_ID,
@@ -52,6 +56,53 @@ def mark_user_joined_if_needed(user: User, when: datetime | None = None) -> bool
     return True
 
 
+def drop_credentials_of_unverified_account(db: Session, user: User) -> None:
+    """Clear the password and revoke every token of a not-yet-verified account.
+
+    Call this right before a login that proves ownership of the email (OAuth, SSO,
+    magic link) marks the account verified. Until then anyone could have registered
+    the address, so credentials set on it may belong to someone else.
+    """
+    from rhesis.backend.app.auth.refresh_token_utils import revoke_all_for_user
+    from rhesis.backend.app.crud.token import revoke_user_tokens
+
+    if user.is_email_verified:
+        return
+
+    had_password = user.password_hash is not None
+    user.password_hash = None
+    refresh_count = revoke_all_for_user(db, str(user.id))
+    api_count = revoke_user_tokens(db, user.id)
+    if had_password or refresh_count or api_count:
+        logger.warning(
+            "Verified login on unverified account %s: cleared password=%s, "
+            "revoked %d refresh and %d API tokens",
+            user.id,
+            had_password,
+            refresh_count,
+            api_count,
+        )
+
+
+def _apply_login_to_existing_user(
+    db: Session, user: User, auth_user: "AuthUser", when: datetime
+) -> None:
+    """Update a matched user from a provider login."""
+    user.name = auth_user.name or user.name
+    user.given_name = auth_user.given_name or user.given_name
+    user.family_name = auth_user.family_name or user.family_name
+    user.picture = auth_user.picture or user.picture
+    user.provider_type = auth_user.provider_type
+    user.external_provider_id = auth_user.external_id
+    user.last_login_at = when
+    # A password login proves nothing about the address; the other providers
+    # only return addresses they have verified.
+    if auth_user.provider_type != AuthProviderType.EMAIL:
+        drop_credentials_of_unverified_account(db, user)
+        user.is_email_verified = True
+    mark_user_joined_if_needed(user, when=when)
+
+
 def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
     """
     Find existing user or create a new one from provider-agnostic AuthUser.
@@ -81,18 +132,8 @@ def find_or_create_user_from_auth(db: Session, auth_user: "AuthUser") -> User:
     user = user_crud.get_user_by_email(db, normalized_email)
 
     if user:
-        # Found user by email - update profile info and provider details
         logger.info(f"Found existing user by email: {normalized_email}")
-        user.name = auth_user.name or user.name
-        user.given_name = auth_user.given_name or user.given_name
-        user.family_name = auth_user.family_name or user.family_name
-        user.picture = auth_user.picture or user.picture
-        user.provider_type = auth_user.provider_type
-        user.external_provider_id = auth_user.external_id
-        user.last_login_at = current_time
-        # Authenticating via any provider confirms email ownership
-        user.is_email_verified = True
-        mark_user_joined_if_needed(user, when=current_time)
+        _apply_login_to_existing_user(db, user, auth_user, current_time)
         return user
 
     # OAuth providers verify email ownership themselves; skip MX deliverability

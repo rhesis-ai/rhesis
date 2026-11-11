@@ -105,7 +105,11 @@ from rhesis.backend.ee.api_clients.audit import (
     token_exchange_audit_log,
 )
 from rhesis.backend.ee.api_clients.clients import authenticate_client
-from rhesis.backend.ee.sso.oidc import SubjectTokenError, verify_oidc_jwt
+from rhesis.backend.ee.sso.oidc import (
+    SubjectTokenError,
+    email_marked_unverified,
+    verify_oidc_jwt,
+)
 from rhesis.backend.ee.sso.schemas import SSOConfig
 from rhesis.backend.ee.sso.token_exchange.schemas import (
     GRANT_TYPE_TOKEN_EXCHANGE,
@@ -948,6 +952,15 @@ def _resolve_user(
         deny(
             "invalid_grant",
             "subject_missing_email",
+            org_id=str(org.id),
+            iss=sso_config.issuer_url,
+            jti=claims.get("jti"),
+        )
+
+    if email_marked_unverified(claims):
+        deny(
+            "invalid_grant",
+            "subject_email_unverified",
             org_id=str(org.id),
             iss=sso_config.issuer_url,
             jti=claims.get("jti"),

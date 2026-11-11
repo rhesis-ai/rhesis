@@ -83,6 +83,16 @@ class _FakeQuery:
 
 
 class TestFindOrCreateSSOUser:
+    @pytest.fixture(autouse=True)
+    def _drop_credentials(self):
+        # Revocation needs a real session; tests/backend/security/test_account_linking.py
+        # covers it against the database.
+        with patch(
+            "rhesis.backend.app.auth.user_utils.drop_credentials_of_unverified_account"
+        ) as drop:
+            self.drop_credentials = drop
+            yield
+
     def _mock_db(self, query_results=None):
         """Return a mock db where query(...) returns sequential results."""
         db = MagicMock()
@@ -152,6 +162,7 @@ class TestFindOrCreateSSOUser:
         assert user.name == "Alice Updated"
         assert user.provider_type == AuthProviderType.OIDC
         assert user.is_email_verified is True
+        self.drop_credentials.assert_called_once_with(db, existing_user)
 
     # ── Cross-org collision ──
 
