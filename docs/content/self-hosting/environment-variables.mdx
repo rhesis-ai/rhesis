@@ -252,6 +252,23 @@ See [Telemetry System Documentation](/contribute/telemetry) for what is collecte
 | `CELERY_WORKER_CONCURRENCY` | Worker process concurrency | `8` |
 | `CELERY_WORKER_PREFETCH_MULTIPLIER` | Tasks prefetched per worker process | `4` |
 
+## Background job limits
+
+Ceilings on the work one request can start. Test run options above a ceiling are lowered to it, not
+rejected.
+
+| Variable | Description | Default |
+|---|---|---|
+| `MAX_BATCH_CONCURRENCY` | Most tests a run sends to its endpoint at once | `50` |
+| `MAX_PER_TEST_TIMEOUT` | Longest time one test may take, in seconds | `3600` |
+| `MAX_INVOKE_ATTEMPTS` | Most attempts per endpoint call, first try included | `10` |
+| `MAX_INVOKE_RETRY_WAIT` | Longest wait between endpoint call attempts, in seconds | `300` |
+| `MAX_RECOVERY_ROUNDS` | Most extra passes over tests that failed with a transient error | `3` |
+| `EXECUTION_TIME_LIMIT` | Seconds after which a test run stops; unfinished tests are recorded as errors | `6600` |
+| `EXPLORATION_TIME_LIMIT` | Seconds after which an endpoint exploration stops | `3600` |
+| `MAX_ACTIVE_JOBS_PER_ORG` | Test runs, generations, Garak imports, explorations and tuning runs an organization may have queued or running at once (`0` turns the cap off) | `10` |
+| `IMPORT_MAX_SESSIONS_PER_ORG` | File imports an organization may have open at once | `5` |
+
 ## Data retention
 
 Two scheduled sweeps hard-delete rows past a retention window: one for `job` and `activity_log`
