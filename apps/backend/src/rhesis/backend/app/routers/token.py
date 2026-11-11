@@ -338,12 +338,6 @@ def refresh_token(
     """Refresh token with new value and expiration"""
     organization_id, user_id = tenant_context
 
-    token = token_crud.get_token(
-        db=db, token_id=token_id, organization_id=organization_id, user_id=user_id
-    )
-    if not token:
-        raise HTTPException(status_code=404, detail="Token not found")
-
     new_token_value = generate_api_token()
     expires_in_days = data.get("expires_in_days")
 
@@ -361,7 +355,7 @@ def refresh_token(
 
     updated_token = token_crud.update_token(
         db=db,
-        token_id=token.id,
+        token_id=token_id,
         token=token_update,
         organization_id=organization_id,
         user_id=user_id,
