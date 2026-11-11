@@ -475,6 +475,38 @@ async def require_current_user_or_token_without_context(
     return user
 
 
+def _is_interactive_session_jwt(token: str, secret_key: str) -> bool:
+    """A UI sign-in JWT: not an API token, a token-exchange JWT or a service delegation."""
+    if token.startswith("rh-"):
+        return False
+    try:
+        payload = verify_jwt_token(token, secret_key)
+    except Exception:
+        return False
+    return payload.get("type") == "session" and "azp" not in payload
+
+
+async def require_interactive_user(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    secret_key: str = Depends(get_secret_key),
+) -> User:
+    """Require a person signed in through the UI, for account-credential changes.
+
+    API tokens and delegated JWTs are refused even when valid, so a narrowly
+    scoped credential can't be turned into a password login.
+    """
+    user = await require_current_user_or_token_without_context(request, credentials, secret_key)
+    if "user_id" in request.session:
+        return user
+    if credentials and _is_interactive_session_jwt(credentials.credentials, secret_key):
+        return user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="This action requires signing in to the application",
+    )
+
+
 def carry_auth_to_websocket(websocket: WebSocket, user: "User", auth_state=None) -> None:
     """Put the authenticated user (and what auth recorded) on the real WebSocket's state.
 

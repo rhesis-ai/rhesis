@@ -26,6 +26,7 @@ from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
 from rhesis.backend.app.auth.token_utils import (
     create_password_reset_token,
+    create_service_delegation_token,
     create_session_token,
     get_jwt_algorithm,
     get_secret_key,
@@ -34,6 +35,7 @@ from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.schemas import UserCreate
 from rhesis.backend.app.utils.encryption import hash_password
 from tests.backend.fixtures.fake_redis import FakeRedis, fake_redis_manager
+from tests.backend.fixtures.test_setup import create_test_api_token
 
 PASSWORD = "Correct-Horse-Battery-9"
 NEW_PASSWORD = "Another-Long-Passphrase-42"
@@ -230,3 +232,46 @@ class TestPasswordResetAndChangeRevokeTokens:
             assert _api_ok(client, exchanged["session_token"]) == status.HTTP_200_OK
             assert _refresh(client, exchanged["refresh_token"]) == status.HTTP_200_OK
             assert _api_ok(client, body["session_token"]) == status.HTTP_200_OK
+
+
+@pytest.mark.unit
+@pytest.mark.security
+class TestChangePasswordNeedsInteractiveSession:
+    def _set_password(self, client: TestClient, token: str):
+        return client.post(
+            "/auth/change-password", headers=_bearer(token), json={"new_password": NEW_PASSWORD}
+        )
+
+    def test_api_token_cannot_set_a_password(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        user = _user(test_db, test_org_id, password=False)
+        api_token = create_test_api_token(test_db, user, name="scoped").token
+        response = self._set_password(client, api_token)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        test_db.refresh(user)
+        assert user.password_hash is None
+
+    def test_exchanged_jwt_cannot_set_a_password(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        user = _user(test_db, test_org_id, password=False)
+        token = create_session_token(user, azp="test-client", epoch=0, scope="openid")
+        assert self._set_password(client, token).status_code == status.HTTP_403_FORBIDDEN
+
+    def test_service_delegation_jwt_cannot_set_a_password(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        user = _user(test_db, test_org_id, password=False)
+        token = create_service_delegation_token(user, "backend")
+        assert self._set_password(client, token).status_code == status.HTTP_403_FORBIDDEN
+
+    def test_session_jwt_can_set_a_password(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        user = _user(test_db, test_org_id, password=False)
+        with fake_redis_manager():
+            response = self._set_password(client, create_session_token(user))
+        assert response.status_code == status.HTTP_200_OK
+        test_db.refresh(user)
+        assert user.password_hash is not None

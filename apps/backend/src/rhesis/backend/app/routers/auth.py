@@ -58,6 +58,7 @@ from rhesis.backend.app.auth.user_utils import (
     find_or_create_user_from_auth,
     mark_user_joined_if_needed,
     require_current_user_or_token_without_context,
+    require_interactive_user,
 )
 from rhesis.backend.app.config.settings import (
     get_application_settings,
@@ -1157,7 +1158,7 @@ async def change_password(
     request: Request,
     body: ChangePasswordRequest,
     db: OffLoopSession = Depends(get_off_loop_db_session),
-    current_user: User = Depends(require_current_user_or_token_without_context),
+    current_user: User = Depends(require_interactive_user),
 ):
     """
     Change or set a password for the currently authenticated user.
