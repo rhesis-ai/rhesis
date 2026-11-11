@@ -34,6 +34,7 @@ from rhesis.backend.app.auth.terms import (
     user_has_prior_terms_acceptance,
 )
 from rhesis.backend.app.auth.token_utils import (
+    EMAIL_VERIFICATION_EXPIRE_MINUTES,
     MAGIC_LINK_EXPIRE_MINUTES,
     PASSWORD_RESET_EXPIRE_MINUTES,
     create_auth_code,
@@ -416,8 +417,11 @@ def _complete_oauth_login(db: Session, auth_user) -> tuple[str, str, str, dict]:
     return user_id, session_token, refresh_tok, _user_summary(user)
 
 
-def _mark_email_verified(db: Session, email: str) -> Optional[tuple[str, str]]:
-    """Flag the address as verified and mint tokens; ``None`` if no such user."""
+def _mark_email_verified(db: Session, email: str, sign_in: bool) -> Optional[tuple[str, str]]:
+    """Flag the address as verified and, if ``sign_in``, mint tokens.
+
+    Returns ``None`` when no tokens were minted, including when there is no such user.
+    """
     from rhesis.backend.app.crud import user as user_crud
 
     user = user_crud.get_user_by_email(db, email)
@@ -429,6 +433,10 @@ def _mark_email_verified(db: Session, email: str) -> Optional[tuple[str, str]]:
     if not user.is_email_verified:
         user.is_email_verified = True
         logger.info("Email verified for user: %s", redact_email(user.email))
+
+    if not sign_in:
+        db.commit()
+        return None
 
     access_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
@@ -1006,6 +1014,22 @@ async def register_with_email(
 # =============================================================================
 
 
+async def _claim_verification_link(payload: dict) -> bool:
+    """Whether this verification link may also sign the user in: its first use only.
+
+    Verifying again is harmless, so a reused, legacy (no ``jti``) or unclaimable
+    link still verifies the address; it just doesn't start a session.
+    """
+    jti = payload.get("jti")
+    if not jti:
+        return False
+    try:
+        return await claim_token_jti(jti, EMAIL_VERIFICATION_EXPIRE_MINUTES * 60)
+    except TokenStoreUnavailableError:
+        logger.warning("Token store unavailable; verifying email without signing in")
+        return False
+
+
 @router.post("/verify-email")
 async def verify_email(
     body: VerifyEmailRequest,
@@ -1016,7 +1040,8 @@ async def verify_email(
     email.
     """
     payload = verify_email_flow_token(body.token, "email_verification")
-    tokens = await anyio.to_thread.run_sync(_mark_email_verified, db, payload["email"])
+    sign_in = await _claim_verification_link(payload)
+    tokens = await anyio.to_thread.run_sync(_mark_email_verified, db, payload["email"], sign_in)
 
     # Enumeration-safe: return success even if user no longer exists
     if tokens is None:

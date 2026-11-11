@@ -10,7 +10,7 @@
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
 import anyio
@@ -25,6 +25,7 @@ from rhesis.backend.app.auth import session_invalidation
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
 from rhesis.backend.app.auth.token_utils import (
+    create_email_verification_token,
     create_password_reset_token,
     create_service_delegation_token,
     create_session_token,
@@ -306,3 +307,65 @@ class TestScopedTokenMint:
         assert response.status_code == status.HTTP_200_OK, response.text
         child = test_db.query(models.Token).filter(models.Token.id == response.json()["id"]).one()
         assert child.scopes is None
+
+
+@pytest.mark.unit
+@pytest.mark.security
+class TestEmailVerificationLinkIsSingleUse:
+    def _unverified(self, db: Session, org_id: str) -> models.User:
+        user = _user(db, org_id)
+        user.is_email_verified = False
+        db.flush()
+        return user
+
+    def test_second_use_does_not_sign_in(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        user = self._unverified(test_db, test_org_id)
+        token = create_email_verification_token(str(user.id), user.email)
+        with fake_redis_manager():
+            first = client.post("/auth/verify-email", json={"token": token})
+            second = client.post("/auth/verify-email", json={"token": token})
+
+        assert first.status_code == status.HTTP_200_OK
+        assert first.json().get("auth_code")
+        assert second.status_code == status.HTTP_200_OK
+        assert "auth_code" not in second.json()
+        test_db.refresh(user)
+        assert user.is_email_verified is True
+
+    def test_link_without_jti_verifies_but_does_not_sign_in(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        """Links mailed before single-use existed still verify the address."""
+        user = self._unverified(test_db, test_org_id)
+        now = datetime.now(timezone.utc)
+        legacy = jwt.encode(
+            {
+                "sub": str(user.id),
+                "email": user.email,
+                "type": "email_verification",
+                "iat": now,
+                "exp": now + timedelta(hours=1),
+            },
+            get_secret_key(),
+            algorithm=get_jwt_algorithm(),
+        )
+        with fake_redis_manager():
+            response = client.post("/auth/verify-email", json={"token": legacy})
+        assert response.status_code == status.HTTP_200_OK
+        assert "auth_code" not in response.json()
+        test_db.refresh(user)
+        assert user.is_email_verified is True
+
+    def test_redis_down_verifies_but_does_not_sign_in(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        user = self._unverified(test_db, test_org_id)
+        token = create_email_verification_token(str(user.id), user.email)
+        with fake_redis_manager(available=False):
+            response = client.post("/auth/verify-email", json={"token": token})
+        assert response.status_code == status.HTTP_200_OK
+        assert "auth_code" not in response.json()
+        test_db.refresh(user)
+        assert user.is_email_verified is True
