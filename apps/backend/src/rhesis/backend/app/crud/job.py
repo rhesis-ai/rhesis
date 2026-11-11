@@ -12,7 +12,7 @@ unlike its predecessor it covers every job type rather than only test runs.
 
 import logging
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy import and_, func, or_, type_coerce
@@ -175,16 +175,15 @@ def count_active_jobs(
     db: Session,
     organization_id: str,
     project_id: Optional[UUID],
-    job_types: List[str],
     queued_since: datetime,
-    started_since: datetime,
+    started_since: Dict[str, datetime],
 ) -> int:
-    """Jobs of *job_types* in one project that are queued or running.
+    """Jobs of the types in *started_since* in one project that are queued or running.
 
     A queued job counts while it was queued after *queued_since*, a running one while
-    it started after *started_since*. ``project_id=None`` counts the org's project-less
-    jobs. Project RLS still applies underneath, so the session must be scoped to
-    *project_id*.
+    it started after its type's entry in *started_since*. ``project_id=None`` counts the
+    org's project-less jobs. Project RLS still applies underneath, so the session must
+    be scoped to *project_id*.
     """
     from rhesis.backend.app.scope import bypass_tenant_filter
 
@@ -193,18 +192,19 @@ def count_active_jobs(
         job.project_id.is_(None) if project_id is None else job.project_id == project_id
     )
     running = [JobStatus.RUNNING.value, JobStatus.CANCELLING.value]
+    started = func.coalesce(job.started_at, job.queued_at)
     with bypass_tenant_filter():
         return (
             db.query(func.count(job.id))
             .filter(
                 job.organization_id == UUID(str(organization_id)),
                 project_filter,
-                job.job_type.in_(job_types),
+                job.job_type.in_(list(started_since)),
                 or_(
                     and_(job.status == JobStatus.QUEUED.value, job.queued_at >= queued_since),
-                    and_(
-                        job.status.in_(running),
-                        func.coalesce(job.started_at, job.queued_at) >= started_since,
+                    *(
+                        and_(job.job_type == job_type, job.status.in_(running), started >= since)
+                        for job_type, since in started_since.items()
                     ),
                 ),
             )

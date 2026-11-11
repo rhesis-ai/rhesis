@@ -116,6 +116,23 @@ def test_long_waits_and_long_runs_still_count(test_db, test_org_id, db_user):
         enforce_job_capacity(test_db, test_org_id, str(db_user.id))
 
 
+def test_untimed_job_types_keep_counting_while_they_run(test_db, test_org_id, db_user):
+    long_ago = datetime.now(timezone.utc) - running_job_window() - timedelta(hours=1)
+    # No in-job limit yet, so still holding a worker past the timed window.
+    for _ in range(LIMIT):
+        _add_job(
+            test_db,
+            test_org_id,
+            job_type="generate_and_save_test_set",
+            status=JobStatus.RUNNING.value,
+            queued_at=long_ago,
+            started_at=long_ago,
+        )
+
+    with pytest.raises(JobCapacityExceededError):
+        enforce_job_capacity(test_db, test_org_id, str(db_user.id))
+
+
 def test_running_window_follows_the_time_limits(monkeypatch):
     monkeypatch.setenv("EXECUTION_TIME_LIMIT", str(5 * 3600))
     settings.get_job_limit_settings.cache_clear()

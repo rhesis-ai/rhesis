@@ -33,11 +33,12 @@ CAPPED_JOB_TYPES = frozenset(
 # Rows whose job never reached a terminal status (a worker died, a message was lost)
 # must stop counting at some point, or the organization stays at its cap for good.
 # A queued job may wait behind a backlog, so it counts for a day, like the test-run
-# quota's in-flight window. A running one counts for the longest in-job time limit
-# plus a margin. Generation, Garak and tuning jobs have no limit of their own yet, so
-# one that runs longer than that stops counting while it still runs.
+# quota's in-flight window. A running test run or exploration stops itself at its
+# time limit, so it counts for that limit plus a margin. The other types have no
+# in-job limit yet and count for the same day as a queued job.
 QUEUED_JOB_WINDOW = timedelta(hours=24)
 RUNNING_JOB_MARGIN = timedelta(minutes=30)
+TIMED_JOB_TYPES = frozenset({"execute_test_configuration", "endpoint.explore.run_exploration_task"})
 
 
 class JobCapacityExceededError(HTTPException):
@@ -58,16 +59,18 @@ def running_job_window() -> timedelta:
 
 
 def _count_org_active_jobs(db: Session, organization_id: str, user_id: str) -> int:
-    job_types = sorted(CAPPED_JOB_TYPES)
     now = datetime.now(timezone.utc)
     queued_since = now - QUEUED_JOB_WINDOW
-    started_since = now - running_job_window()
+    started_since = {
+        job_type: now - (running_job_window() if job_type in TIMED_JOB_TYPES else QUEUED_JOB_WINDOW)
+        for job_type in sorted(CAPPED_JOB_TYPES)
+    }
     return sum_over_org_projects(
         db,
         organization_id,
         user_id,
         lambda project_id: count_active_jobs(
-            db, organization_id, project_id, job_types, queued_since, started_since
+            db, organization_id, project_id, queued_since, started_since
         ),
     )
 
