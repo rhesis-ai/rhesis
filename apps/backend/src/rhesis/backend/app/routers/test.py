@@ -21,6 +21,7 @@ from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
+    per_user_rate_limit,
 )
 from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.organization import Organization
@@ -43,6 +44,7 @@ from rhesis.backend.app.utils.execution_validation import (
 from rhesis.backend.app.utils.hidden_rows import exclude_metric_owned
 from rhesis.backend.app.utils.model_errors import ModelNotConfiguredError
 from rhesis.backend.app.utils.odata import apply_select
+from rhesis.backend.app.utils.rate_limit import EXECUTION_RATE_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -451,6 +453,7 @@ def _check_execution_prerequisites(
     "/execute",
     response_model=schemas.TestExecuteResponse,
     **capability(Permission.TestSet.EXECUTE),
+    dependencies=[per_user_rate_limit(EXECUTION_RATE_LIMIT)],
 )
 async def execute_test_endpoint(
     request: schemas.TestExecuteRequest,

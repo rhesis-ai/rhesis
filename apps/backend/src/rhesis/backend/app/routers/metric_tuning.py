@@ -42,7 +42,11 @@ from rhesis.backend.app import models
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud.metric import get_metric
-from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
+from rhesis.backend.app.dependencies import (
+    get_tenant_context,
+    get_tenant_db_session,
+    per_user_rate_limit,
+)
 from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.metric_tuning import (
@@ -65,6 +69,7 @@ from rhesis.backend.app.services.metric_tuning.improve import (
 )
 from rhesis.backend.app.services.metric_tuning.invoke import MetricModelNotConfigured
 from rhesis.backend.app.services.metric_tuning.runs import NoTuningCases, TuningRunInFlight
+from rhesis.backend.app.utils.rate_limit import GENERATION_RATE_LIMIT
 from rhesis.backend.jobs import launch_job
 from rhesis.backend.jobs.metric_tuning import run_metric_tuning
 
@@ -274,6 +279,7 @@ def read_tuning_run(
     response_model=MetricTuningRun,
     status_code=202,
     **capability(Permission.Metric.UPDATE),
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
 )
 def start_tuning_run(
     metric_id: UUID,
@@ -325,6 +331,7 @@ def start_tuning_run(
     "/{metric_id}/tuning/improve",
     response_model=MetricTuningImprovement,
     **capability(Permission.Metric.UPDATE),
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
 )
 def improve_metric_from_annotations(
     metric_id: UUID,

@@ -21,6 +21,7 @@ from rhesis.backend.app.database import get_db, get_db_with_tenant_variables
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.services.endpoint import EndpointService
+from rhesis.backend.app.utils.rate_limit import hit_post_parse_limit, limiter
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,23 @@ def get_endpoint_service() -> EndpointService:
         EndpointService: The endpoint service instance
     """
     return EndpointService()
+
+
+def per_user_rate_limit(rate: str):
+    """Route dependency limiting each account to *rate* on that route.
+
+    Keyed on the authenticated user rather than the IP, so it holds behind a
+    shared NAT or proxy. Runs as a dependency because the handlers name their
+    body parameter ``request``, which slowapi's decorator needs for itself.
+    """
+
+    def check(request: Request, current_user: User = Depends(require_current_user_or_token)):
+        if not limiter.enabled:
+            return
+        route_path = getattr(request.scope.get("route"), "path", None) or request.url.path
+        hit_post_parse_limit(rate, namespace=f"user:{route_path}", key=str(current_user.id))
+
+    return Depends(check)
 
 
 def get_tenant_context(current_user: User = Depends(require_current_user_or_token)):

@@ -20,6 +20,7 @@ from rhesis.backend.app.dependencies import (
     get_off_loop_tenant_session,
     get_tenant_context,
     get_tenant_db_session,
+    per_user_rate_limit,
 )
 from rhesis.backend.app.error_handlers import UpstreamHTTPException, internal_error
 from rhesis.backend.app.models.organization import Organization
@@ -45,6 +46,7 @@ from rhesis.backend.app.utils.database_exceptions import handle_database_excepti
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import validate_generation_model
 from rhesis.backend.app.utils.odata import apply_select
+from rhesis.backend.app.utils.rate_limit import GENERATION_RATE_LIMIT, PROBE_RATE_LIMIT
 from rhesis.backend.jobs import launch_job
 from rhesis.backend.jobs.endpoint.explore import run_exploration_task
 
@@ -163,7 +165,10 @@ def read_endpoint_setup_status(
 # The session is never used below -- a transient REST config runs no queries --
 # but the dependency stays: it is what binds usage attribution and validates
 # X-Project-Id against a project-scoped token for this request.
-@router.post("/test", dependencies=[Depends(get_off_loop_tenant_session)])
+@router.post(
+    "/test",
+    dependencies=[per_user_rate_limit(PROBE_RATE_LIMIT), Depends(get_off_loop_tenant_session)],
+)
 async def test_endpoint(
     test_config: schemas.EndpointTestRequest,
     tenant_context=Depends(get_tenant_context),
@@ -210,7 +215,11 @@ async def test_endpoint(
     return result
 
 
-@router.post("/auto-configure", response_model=AutoConfigureResult)
+@router.post(
+    "/auto-configure",
+    response_model=AutoConfigureResult,
+    dependencies=[per_user_rate_limit(PROBE_RATE_LIMIT)],
+)
 async def auto_configure_endpoint(
     request: AutoConfigureRequest,
     db: OffLoopSession = Depends(get_off_loop_tenant_session),
@@ -403,7 +412,11 @@ def update_endpoint(
     return db_endpoint
 
 
-@router.post("/{endpoint_id}/invoke", **capability(Permission.Endpoint.UPDATE))
+@router.post(
+    "/{endpoint_id}/invoke",
+    **capability(Permission.Endpoint.UPDATE),
+    dependencies=[per_user_rate_limit(PROBE_RATE_LIMIT)],
+)
 async def invoke_endpoint(
     endpoint_id: uuid.UUID,
     input_data: Dict[str, Any],
@@ -474,7 +487,7 @@ async def invoke_endpoint(
 @router.post(
     "/{endpoint_id}/explore",
     response_model=ExploreEndpointResponse,
-    dependencies=[Depends(validate_generation_model)],
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT), Depends(validate_generation_model)],
 )
 def explore_endpoint_route(
     endpoint_id: uuid.UUID,

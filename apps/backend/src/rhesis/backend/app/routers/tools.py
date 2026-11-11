@@ -18,6 +18,7 @@ from rhesis.backend.app.dependencies import (
     get_project_context,
     get_tenant_context,
     get_tenant_db_session,
+    per_user_rate_limit,
 )
 from rhesis.backend.app.error_handlers import UpstreamHTTPException
 from rhesis.backend.app.models.user import User
@@ -58,6 +59,7 @@ from rhesis.backend.app.services.tool.rest import (
     run_rest_health_check,
 )
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.rate_limit import PROBE_RATE_LIMIT
 from rhesis.sdk.agents.mcp.exceptions import MCPError
 
 logger = logging.getLogger(__name__)
@@ -508,7 +510,11 @@ def _resolve_connection_target(
     )
 
 
-@router.post("/test-connection", response_model=TestToolConnectionResponse)
+@router.post(
+    "/test-connection",
+    response_model=TestToolConnectionResponse,
+    dependencies=[per_user_rate_limit(PROBE_RATE_LIMIT)],
+)
 async def test_tool_connection(
     request: TestToolConnectionRequest,
     db: OffLoopSession = Depends(get_off_loop_tenant_session),

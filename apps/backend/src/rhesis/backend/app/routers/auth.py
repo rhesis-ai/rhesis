@@ -88,10 +88,14 @@ from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
 from rhesis.backend.app.utils.rate_limit import (
     AUTH_CHANGE_PASSWORD_LIMIT,
     AUTH_FORGOT_PASSWORD_LIMIT,
+    AUTH_LOCAL_LOGIN_LIMIT,
     AUTH_LOGIN_EMAIL_LIMIT,
     AUTH_MAGIC_LINK_LIMIT,
+    AUTH_MAGIC_LINK_VERIFY_LIMIT,
+    AUTH_REFRESH_LIMIT,
     AUTH_REGISTER_LIMIT,
     AUTH_RESEND_VERIFICATION_LIMIT,
+    AUTH_RESET_PASSWORD_LIMIT,
     AUTH_TERMS_STATUS_LIMIT,
     limiter,
 )
@@ -1087,7 +1091,9 @@ def forgot_password(
 
 
 @router.post("/reset-password")
+@limiter.limit(AUTH_RESET_PASSWORD_LIMIT)
 async def reset_password(
+    request: Request,
     body: ResetPasswordRequest,
     db: OffLoopSession = Depends(get_off_loop_db_session),
 ):
@@ -1224,6 +1230,7 @@ def request_magic_link(
 
 
 @router.post("/magic-link/verify")
+@limiter.limit(AUTH_MAGIC_LINK_VERIFY_LIMIT)
 async def verify_magic_link(
     request: Request,
     body: MagicLinkVerifyRequest,
@@ -1454,6 +1461,7 @@ def _refresh_token_owner(db: Session, raw_token: str) -> Optional[User]:
 
 
 @router.post("/refresh")
+@limiter.limit(AUTH_REFRESH_LIMIT)
 def refresh_tokens(
     body: RefreshTokenRequest,
     request: Request,
@@ -1757,6 +1765,7 @@ def verify_auth(
 
 
 @router.post("/local-login")
+@limiter.limit(AUTH_LOCAL_LOGIN_LIMIT)
 async def local_login(request: Request, db: OffLoopSession = Depends(get_off_loop_db_session)):
     """
     Quick Start mode authentication endpoint.

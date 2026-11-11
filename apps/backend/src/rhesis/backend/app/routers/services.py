@@ -15,6 +15,7 @@ from rhesis.backend.app.dependencies import (
     get_off_loop_tenant_session,
     get_tenant_context,
     get_tenant_db_session,
+    per_user_rate_limit,
 )
 from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.organization import Organization
@@ -66,6 +67,11 @@ from rhesis.backend.app.utils.model_errors import (
     ModelConfigurationError,
     describe_model_error,
     provider_status,
+)
+from rhesis.backend.app.utils.rate_limit import (
+    GENERATION_RATE_LIMIT,
+    INFERENCE_RATE_LIMIT,
+    PROBE_RATE_LIMIT,
 )
 from rhesis.sdk.context import EndpointContext
 from rhesis.sdk.models.providers.native import USAGE_HEADER
@@ -158,7 +164,7 @@ async def get_exchange_rates(
     )
 
 
-@router.get("/github/contents")
+@router.get("/github/contents", dependencies=[per_user_rate_limit(PROBE_RATE_LIMIT)])
 def get_github_contents(repo_url: str):
     """
     Get the contents of a public GitHub repository.
@@ -188,7 +194,7 @@ def _resolve_content_generation_model(db: Session, current_user: User):
     return resolve_model(db, current_user, "generation")
 
 
-@router.post("/generate/content")
+@router.post("/generate/content", dependencies=[per_user_rate_limit(INFERENCE_RATE_LIMIT)])
 async def generate_content_endpoint(
     request: GenerateContentRequest,
     http_response: Response,
@@ -305,7 +311,7 @@ async def generate_content_endpoint(
         ) from e
 
 
-@router.post("/generate/embedding")
+@router.post("/generate/embedding", dependencies=[per_user_rate_limit(INFERENCE_RATE_LIMIT)])
 def generate_embedding_endpoint(
     request: GenerateEmbeddingRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -353,7 +359,11 @@ def generate_embedding_endpoint(
         ) from e
 
 
-@router.post("/generate/tests", response_model=GenerateTestsResponse)
+@router.post(
+    "/generate/tests",
+    response_model=GenerateTestsResponse,
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
+)
 async def generate_tests_endpoint(
     request: GenerateTestsRequest,
     db: OffLoopSession = Depends(get_off_loop_tenant_session),
@@ -408,7 +418,11 @@ async def generate_tests_endpoint(
             await anyio.to_thread.run_sync(reservation.settle, db, len(tests))
 
 
-@router.post("/generate/multiturn-tests", response_model=GenerateMultiTurnTestsResponse)
+@router.post(
+    "/generate/multiturn-tests",
+    response_model=GenerateMultiTurnTestsResponse,
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
+)
 async def generate_multiturn_tests_endpoint(
     request: GenerateMultiTurnTestsRequest,
     db: OffLoopSession = Depends(get_off_loop_tenant_session),
@@ -473,7 +487,7 @@ async def generate_multiturn_tests_endpoint(
             await anyio.to_thread.run_sync(reservation.settle, db, len(generated))
 
 
-@router.post("/generate/test_pipeline")
+@router.post("/generate/test_pipeline", dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)])
 def test_pipeline_endpoint(
     request: TestPipelineRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -523,7 +537,11 @@ def test_pipeline_endpoint(
         raise
 
 
-@router.post("/generate/test_config", response_model=TestConfigResponse)
+@router.post(
+    "/generate/test_config",
+    response_model=TestConfigResponse,
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
+)
 async def generate_test_config(
     request: TestConfigRequest,
     db: OffLoopSession = Depends(get_off_loop_tenant_session),
@@ -586,7 +604,11 @@ async def generate_test_config(
         raise internal_error(e, context="generating test configuration") from e
 
 
-@router.post("/mcp/query", response_model=QueryMCPResponse)
+@router.post(
+    "/mcp/query",
+    response_model=QueryMCPResponse,
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
+)
 async def query_mcp_server(
     request: QueryMCPRequest,
     tenant_context=Depends(get_tenant_context),

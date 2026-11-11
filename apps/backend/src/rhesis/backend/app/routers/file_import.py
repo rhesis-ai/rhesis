@@ -19,6 +19,7 @@ from rhesis.backend.app.dependencies import (
     get_off_loop_tenant_session,
     get_tenant_context,
     get_tenant_db_session,
+    per_user_rate_limit,
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
@@ -32,6 +33,7 @@ from rhesis.backend.app.schemas.file_import import (
 )
 from rhesis.backend.app.services.file_import import ImportService
 from rhesis.backend.app.services.file_import.exceptions import FileImportError
+from rhesis.backend.app.utils.rate_limit import GENERATION_RATE_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +88,11 @@ def _analyze_file(
         raise HTTPException(status_code=500, detail=IMPORT_ERROR_GENERIC)
 
 
-@router.post("/analyze", response_model=AnalyzeResponse)
+@router.post(
+    "/analyze",
+    response_model=AnalyzeResponse,
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
+)
 async def analyze_file(
     file: UploadFile = File(...),
     db: OffLoopSession = Depends(get_off_loop_tenant_session),
