@@ -21,7 +21,7 @@ export default function TeamTab() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [inviteDrawerOpen, setInviteDrawerOpen] = useState(false);
   const { markStepComplete, progress, activeTour } = useOnboarding();
-  const { initialTeam } = useOrgSettings();
+  const { organization, initialTeam } = useOrgSettings();
 
   const handleTotalCountChange = React.useCallback(
     (count: number) => {
@@ -79,6 +79,9 @@ export default function TeamTab() {
             onTotalCountChange={handleTotalCountChange}
             initialData={initialTeam?.data}
             initialTotalCount={initialTeam?.totalCount}
+            ownerId={
+              organization.owner_id ? String(organization.owner_id) : undefined
+            }
           />
         </Box>
       </SectionCard>

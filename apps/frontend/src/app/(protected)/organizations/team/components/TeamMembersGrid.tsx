@@ -37,6 +37,8 @@ interface TeamMembersGridProps {
   /** Server-fetched first page -- when present, skips the initial client fetch. */
   initialData?: User[];
   initialTotalCount?: number;
+  /** The org owner cannot be removed, so their row gets no Remove action. */
+  ownerId?: string;
 }
 
 function getDisplayName(user: User): string {
@@ -78,6 +80,7 @@ export default function TeamMembersGrid({
   onTotalCountChange,
   initialData,
   initialTotalCount,
+  ownerId,
 }: TeamMembersGridProps) {
   const { data: session, status } = useSession();
   const canDeleteMember = useCan(Capability.Member.DELETE);
@@ -152,7 +155,7 @@ export default function TeamMembersGrid({
   }, []);
 
   // Removal is org-specific ("remove from organization", name in the confirm
-  // text, self-removal blocked), so it stays a grid-local extra action rather
+  // text, self and owner removal blocked), so it stays a grid-local extra action rather
   // than a descriptor delete spec.
   const extraRowActions = useMemo(
     () => [
@@ -163,11 +166,13 @@ export default function TeamMembersGrid({
         onClick: (_id: string, row: Record<string, unknown>) =>
           setUserToDelete(row as unknown as User),
         can: (row: Record<string, unknown>) =>
-          canDeleteMember && String(row.id) !== currentUserId,
+          canDeleteMember &&
+          String(row.id) !== currentUserId &&
+          String(row.id) !== ownerId,
         hoverColor: 'error.main' as const,
       },
     ],
-    [canDeleteMember, currentUserId]
+    [canDeleteMember, currentUserId, ownerId]
   );
 
   const columns: GridColDef[] = useMemo(() => {
