@@ -142,14 +142,23 @@ def test_cache_filled_before_ee_import_picks_up_ee_models():
     _require_ee()
     script = textwrap.dedent(
         """
+        from sqlalchemy.orm import configure_mappers
+
         from rhesis.backend.app.models import scope_events
-        before = {m.__tablename__ for m, _ in scope_events.tenant_classes()}
-        assert "role" not in before, before
+        stale = scope_events.tenant_classes()
+        assert "role" not in {m.__tablename__ for m, _ in stale}
+
         import rhesis.backend.ee.rbac.models  # noqa: F401
         import rhesis.backend.ee.audit.streaming.models  # noqa: F401
         after = {m.__tablename__ for m, _ in scope_events.tenant_classes()}
         missing = {"role", "organization_member", "audit_destination"} - after
         assert not missing, missing
+
+        # A set rebuilt while a class was half-mapped is replaced when mappers configure,
+        # which happens before any of the new classes can be queried.
+        scope_events._tenant_classes = stale
+        configure_mappers()
+        assert "role" in {m.__tablename__ for m, _ in scope_events.tenant_classes()}
         """
     )
     env = {**os.environ, "APP_DB_USER": os.environ.get("APP_DB_USER", "x")}

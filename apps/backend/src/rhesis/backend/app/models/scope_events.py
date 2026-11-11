@@ -238,7 +238,10 @@ def setup_scope_listeners():
         return
 
     # A class mapped later (EE models) resets the cached set; rebuilt on next statement.
+    # instrument_class fires before the class is in registry.mappers, so a rebuild in
+    # between can miss it; after_configured runs before the class can be queried.
     event.listen(Mapper, "instrument_class", _invalidate_tenant_classes)
+    event.listen(Mapper, "after_configured", _invalidate_tenant_classes)
 
     # Listener 1: auto_filter - see module docstring for what it covers.
     @event.listens_for(Session, "do_orm_execute")
