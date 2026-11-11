@@ -3,6 +3,7 @@ import { act, render, screen, waitFor, within } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import TraceDrawer from '../TraceDrawer';
+import TraceExplorer from '../TraceExplorer';
 import type {
   SpanNode,
   TraceDetailResponse,
@@ -219,6 +220,31 @@ describe('TraceDrawer initial selection', () => {
 
     expect(await selectedDetails()).toBe('t1-llm');
     expect(selectedTab()).toBe('Tree');
+  });
+});
+
+describe('TraceExplorer default view', () => {
+  it('opens a conversation trace on the Tree tab when asked to', async () => {
+    // A test result's Traces tab: the conversation is already one tab over.
+    render(
+      <TraceExplorer
+        active
+        embedded
+        traceId="trace-1"
+        projectId="project-1"
+        defaultView="tree"
+      />
+    );
+
+    expect(await selectedDetails()).toBe('turn-1');
+    expect(selectedTab()).toBe('Tree');
+  });
+
+  it('keeps the Conversation tab as the default elsewhere', async () => {
+    render(<TraceExplorer active traceId="trace-1" projectId="project-1" />);
+
+    expect(await selectedDetails()).toBe('turn-1');
+    expect(selectedTab()).toBe('Conversation');
   });
 });
 
