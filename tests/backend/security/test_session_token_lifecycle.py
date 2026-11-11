@@ -414,6 +414,37 @@ class TestCookieSessionRevocation:
             self._login(client, user)
             assert client.get("/users/settings").status_code == status.HTTP_200_OK
 
+    def test_revocation_outlives_every_cookie_session(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        """The cookie slides while in use, so the mark must last as long as its cap."""
+        from rhesis.backend.app.auth.constants import AUTH_ABSOLUTE_SESSION_MAX_DAYS
+
+        user = _user(test_db, test_org_id)
+        token = _aged(create_session_token(user))
+        with fake_redis_manager() as redis:
+            _logout(client, token)
+        key = f"{session_invalidation.KEY_PREFIX}{user.id}"
+        assert redis.ttls[key] >= AUTH_ABSOLUTE_SESSION_MAX_DAYS * 86400
+
+    @pytest.mark.asyncio
+    async def test_cookie_session_past_its_absolute_cap_is_rejected(
+        self, test_db: Session, test_org_id: str
+    ):
+        from types import SimpleNamespace
+
+        from rhesis.backend.app.auth import user_utils
+        from rhesis.backend.app.auth.constants import AUTH_ABSOLUTE_SESSION_MAX_DAYS
+
+        user = _user(test_db, test_org_id)
+        too_old = int(datetime.now(timezone.utc).timestamp()) - (
+            AUTH_ABSOLUTE_SESSION_MAX_DAYS * 86400 + 60
+        )
+        request = SimpleNamespace(session={"user_id": str(user.id), "iat": too_old})
+        with fake_redis_manager():
+            assert await user_utils.get_current_user(request) is None
+        assert request.session == {}
+
     @pytest.mark.asyncio
     async def test_cookie_without_issue_time_is_stamped_not_dropped(
         self, test_db: Session, test_org_id: str

@@ -15,6 +15,7 @@ from typing import Optional
 
 import anyio
 
+from rhesis.backend.app.auth.constants import AUTH_ABSOLUTE_SESSION_MAX_DAYS
 from rhesis.backend.app.config.settings import get_auth_settings
 
 logger = logging.getLogger(__name__)
@@ -39,8 +40,14 @@ def _key(user_id: str) -> str:
     return f"{KEY_PREFIX}{user_id}"
 
 
+# A cookie session slides while in use, so it is capped at this age instead.
+COOKIE_SESSION_MAX_AGE_SECONDS = AUTH_ABSOLUTE_SESSION_MAX_DAYS * 86400
+
+
 def _ttl_seconds() -> int:
-    return get_auth_settings().jwt_access_token_expire_minutes * 60 + _TTL_MARGIN_SECONDS
+    """Outlive everything the mark can match: session JWTs and capped cookie sessions."""
+    jwt_lifetime = get_auth_settings().jwt_access_token_expire_minutes * 60
+    return max(jwt_lifetime, COOKIE_SESSION_MAX_AGE_SECONDS) + _TTL_MARGIN_SECONDS
 
 
 def _warn_unavailable(action: str, error: Optional[BaseException] = None) -> None:

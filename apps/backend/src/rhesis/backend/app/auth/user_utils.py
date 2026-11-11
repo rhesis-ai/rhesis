@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, NamedTuple, Optional, Tuple
 
@@ -21,7 +22,11 @@ from rhesis.backend.app.auth.principal import (
     Principal,
     resolve_principal_from_request,
 )
-from rhesis.backend.app.auth.session_invalidation import PROCESS_STARTED_AT, is_session_revoked
+from rhesis.backend.app.auth.session_invalidation import (
+    COOKIE_SESSION_MAX_AGE_SECONDS,
+    PROCESS_STARTED_AT,
+    is_session_revoked,
+)
 from rhesis.backend.app.auth.session_utils import SESSION_ISSUED_AT_KEY
 from rhesis.backend.app.auth.token_utils import get_secret_key, verify_jwt_token
 from rhesis.backend.app.auth.token_validation import validate_token
@@ -277,11 +282,14 @@ async def _cookie_session_valid(session: dict, user_id: str) -> bool:
 
     A cookie from before issue times were stored gets the process start time:
     no one is signed out by the deploy, and any revocation after it still applies.
+    The cookie's expiry slides while it is used, so its age is capped here.
     """
     issued_at = session.get(SESSION_ISSUED_AT_KEY)
     if not isinstance(issued_at, int):
         issued_at = PROCESS_STARTED_AT
         session[SESSION_ISSUED_AT_KEY] = issued_at
+    if time.time() - issued_at > COOKIE_SESSION_MAX_AGE_SECONDS:
+        return False
     return not await is_session_revoked(user_id, issued_at)
 
 
