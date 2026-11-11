@@ -6,9 +6,9 @@ hits *after* the body is parsed (so we can key on ``client_id`` /
 decorator runs before any handler-side code, this helper is the
 only sanctioned mechanism for that.
 
-We exercise it against the real shared limiter (memory storage by
-default in the test environment) so the tests pin the actual
-behaviour callers depend on.
+We exercise it against the real shared limiter (Redis storage, the
+test container) so the tests pin the actual behaviour callers depend
+on. The suite runs with the limiter off, so each test here turns it on.
 """
 
 from __future__ import annotations
@@ -18,7 +18,12 @@ import uuid
 import pytest
 from fastapi import HTTPException
 
-from rhesis.backend.app.utils.rate_limit import hit_post_parse_limit
+from rhesis.backend.app.utils.rate_limit import hit_post_parse_limit, limiter
+
+
+@pytest.fixture(autouse=True)
+def _limiter_on(monkeypatch):
+    monkeypatch.setattr(limiter, "enabled", True)
 
 
 def _unique_key() -> str:
@@ -27,9 +32,7 @@ def _unique_key() -> str:
 
 
 def test_first_hit_does_not_raise() -> None:
-    hit_post_parse_limit(
-        "5/minute", namespace="post-parse-test", key=_unique_key()
-    )
+    hit_post_parse_limit("5/minute", namespace="post-parse-test", key=_unique_key())
 
 
 def test_repeated_hits_under_limit_pass() -> None:
@@ -45,9 +48,7 @@ def test_exceeding_limit_raises_429() -> None:
         hit_post_parse_limit("3/minute", namespace="post-parse-test", key=key)
 
     with pytest.raises(HTTPException) as exc:
-        hit_post_parse_limit(
-            "3/minute", namespace="post-parse-test", key=key
-        )
+        hit_post_parse_limit("3/minute", namespace="post-parse-test", key=key)
     assert exc.value.status_code == 429
     # The detail string is intentionally generic so a 429 cannot serve
     # as an oracle for whether the keying value (e.g. a particular
@@ -77,3 +78,11 @@ def test_distinct_namespaces_have_independent_counters() -> None:
         hit_post_parse_limit("3/minute", namespace="ns-a", key=shared_key)
     # ns-b's counter for the same key starts fresh.
     hit_post_parse_limit("3/minute", namespace="ns-b", key=shared_key)
+
+
+def test_disabled_limiter_never_raises(monkeypatch) -> None:
+    """RATELIMIT_ENABLED=false turns the post-parse limits off too."""
+    monkeypatch.setattr(limiter, "enabled", False)
+    key = _unique_key()
+    for _ in range(3):
+        hit_post_parse_limit("1/minute", namespace="post-parse-test", key=key)

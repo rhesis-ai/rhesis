@@ -249,6 +249,8 @@ def hit_post_parse_limit(
     key:
         The post-parse value being throttled (e.g. ``client_id``).
 
+    Does nothing while the limiter is disabled (``RATELIMIT_ENABLED=false``).
+
     Raises
     ------
     fastapi.HTTPException
@@ -264,6 +266,8 @@ def hit_post_parse_limit(
     infrastructure surface for one feature; the calls we make
     (``RateLimiter.hit``) are the very stable ``limits`` library API.
     """
+    if not limiter.enabled:
+        return
     full_key = f"{namespace}:{key}"
     # ``hit`` returns True when the request is permitted (counter
     # incremented) and False when the limit was already exceeded.
