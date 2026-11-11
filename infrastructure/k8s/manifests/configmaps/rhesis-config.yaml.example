@@ -63,7 +63,11 @@ data:
   DB_DRIVER: "postgresql+psycopg"
   DB_PORT: "5432"
   DB_NAME: "rhesis-db"
-  APP_DB_USER: "rhesis-user"
+  # The app runs as rhesis-app (NOSUPERUSER NOBYPASSRLS), which the backend's
+  # migrate.sh creates on first start; rhesis-user is the Postgres superuser and
+  # only runs migrations.
+  APP_DB_USER: "rhesis-app"
+  ADMIN_DB_USER: "rhesis-user"
   # Note: the application builds its database URL from these + APP_DB_PASS (secret)
 
   # =============================================================================

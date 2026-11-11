@@ -44,8 +44,12 @@ x-sdk-backend-config: &sdk-backend-config
 
 x-java-database-config: &java-database-config
   DB_NAME: rhesis-db
-  APP_DB_USER: rhesis-user
-  APP_DB_PASS: your-secured-password # trufflehog:ignore
+  # Same two roles as docker-compose.yml: migrate.sh creates rhesis-app, and the
+  # backend refuses to boot as the superuser under BACKEND_ENV=local.
+  APP_DB_USER: rhesis-app
+  APP_DB_PASS: rhesis-app-password # trufflehog:ignore
+  ADMIN_DB_USER: rhesis-user
+  ADMIN_DB_PASS: your-secured-password # trufflehog:ignore
   DB_PORT: 5432
   DB_DRIVER: postgresql+psycopg
   DB_HOST: java-test-postgres

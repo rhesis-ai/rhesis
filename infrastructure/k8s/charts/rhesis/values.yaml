@@ -53,9 +53,10 @@ database:
     auth:
       existingSecret: "rhesis-secrets"
       secretKeys:
-        password: "APP_DB_PASS"
+        # The Postgres superuser runs migrations only; the app connects as APP_DB_USER.
+        password: "ADMIN_DB_PASS"
         database: "DB_NAME"
-        username: "APP_DB_USER"
+        username: "ADMIN_DB_USER"
 
 # Redis configuration
 redis:

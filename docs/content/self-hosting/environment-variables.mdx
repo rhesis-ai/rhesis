@@ -118,19 +118,18 @@ On Kubernetes, set these through the chart instead — see
 ## Database
 
 Defaults point at the built-in `postgres` container. Set these to use your own database (see
-[Database](/self-hosting/docker-compose#database)). `DB_NAME` and `APP_DB_USER` are **fixed** and
-cannot be changed — SQL scripts reference them by name, so your database and role must use exactly these
-values.
+[Database](/self-hosting/docker-compose#database), which also covers the grants the runtime role
+needs). `DB_NAME` is **fixed** because SQL scripts reference it by name.
 
 | Variable | Description | Default |
 |---|---|---|
 | `DB_HOST` | Database host | `postgres` |
 | `DB_PORT` | Database port | `5432` |
-| `DB_NAME` | Database name — fixed, cannot be changed | `rhesis-db` |
-| `APP_DB_USER` | Runtime backend and worker role — fixed, cannot be changed | `rhesis-user` |
-| `APP_DB_PASS` | Password for the runtime role | `rhesis-password` |
-| `ADMIN_DB_USER` | Migration role; falls back to the app role when unset | *(unset)* |
-| `ADMIN_DB_PASS` | Password for the migration role | *(unset)* |
+| `DB_NAME` | Database name, fixed | `rhesis-db` |
+| `APP_DB_USER` | Runtime backend and worker role. Must not be a superuser or have `BYPASSRLS`, or the backend refuses to start | `rhesis-app` |
+| `APP_DB_PASS` | Password for the runtime role | `rhesis-app-password` |
+| `ADMIN_DB_USER` | Migration role. Creates `APP_DB_USER` on start if it is missing | `rhesis-user` |
+| `ADMIN_DB_PASS` | Password for the migration role | `rhesis-password` |
 
 ## Redis and Celery
 

@@ -78,17 +78,20 @@ API_BASE_URL=https://api.example.com`}
 
 ### Database
 
-By default the stack runs a built-in `postgres` container. To use your own PostgreSQL instead, set the variables below and grant the role read/write privileges on the database.
+By default the stack runs a built-in `postgres` container and uses two database roles. The backend and worker connect as `rhesis-app`, a role without superuser or `BYPASSRLS`, so the row-level security policies that separate organizations apply to every query. `rhesis-user`, the container's superuser, runs migrations only. The backend creates `rhesis-app` on start if it does not exist, including on an existing installation that ran as `rhesis-user` before.
 
-The database name and user are **fixed** — some scripts reference them by name — so when you provision your own database you must create it with exactly these names:
+The backend refuses to start when its runtime role is a superuser or has `BYPASSRLS`. If your `.env.docker` sets `APP_DB_USER=rhesis-user`, remove that line.
+
+To use your own PostgreSQL instead, set the variables below. The database name is **fixed** because some scripts reference it by name.
 
 | Variable | Value | Notes |
 | --- | --- | --- |
 | `DB_NAME` | `rhesis-db` (fixed) | Create your database with this exact name |
-| `APP_DB_USER` | `rhesis-user` (fixed) | Create the runtime role with this exact name |
-| `APP_DB_PASS` | your choice | Password for the runtime role |
+| `ADMIN_DB_USER`, `ADMIN_DB_PASS` | your values | Owns the schema and runs migrations |
+| `APP_DB_USER`, `APP_DB_PASS` | your values | Runtime role: `NOSUPERUSER NOBYPASSRLS`, `SELECT, INSERT, UPDATE, DELETE` on the tables and `USAGE, SELECT` on the sequences |
 | `DB_HOST`, `DB_PORT` | your values | Where your database is reachable |
-| `ADMIN_DB_USER`, `ADMIN_DB_PASS` | optional | Separate migration role; falls back to the app role |
+
+If `APP_DB_USER` does not exist and `ADMIN_DB_USER` has `CREATEROLE`, the backend creates it with those grants on start. Otherwise create it yourself before the first start.
 
 #### Managed PostgreSQL
 

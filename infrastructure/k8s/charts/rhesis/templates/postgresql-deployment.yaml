@@ -58,7 +58,7 @@ spec:
               valueFrom:
                 configMapKeyRef:
                   name: {{ .Values.secrets.configMaps.existingConfigMap }}
-                  key: APP_DB_USER
+                  key: {{ .Values.database.postgresql.auth.secretKeys.username }}
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:

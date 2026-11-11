@@ -43,7 +43,13 @@ from rhesis.backend.app.config.settings import (
     get_auth_settings,
     get_frontend_settings,
 )
-from rhesis.backend.app.database import Base, engine, get_db
+from rhesis.backend.app.database import (
+    Base,
+    assert_runtime_role_restricted,
+    engine,
+    get_db,
+    runtime_role_check_required,
+)
 from rhesis.backend.app.error_handlers import (
     create_validation_error_response,
     http_exception_handler,
@@ -410,6 +416,8 @@ async def lifespan(app: FastAPI):
     from rhesis.backend.app.startup_hooks import run_startup_hooks
 
     with get_db() as db:
+        if runtime_role_check_required(get_application_settings()):
+            assert_runtime_role_restricted(db)
         initialize_local_environment(db)
         run_startup_hooks(db)
         _validate_test_identity_override(db)
