@@ -111,11 +111,15 @@ resource "google_compute_firewall" "gke_lb_health_checks" {
   target_tags   = ["gke-${var.environment}"]
 }
 
-# Public ingress-nginx-external LoadBalancer traffic (web only). Without this,
-# GKE's auto-created per-Service allow rule for the external LB ties in priority
-# with deny_ingress (both 1000) and GCP breaks the tie in favor of deny — so the
-# LB is unreachable from the internet until this explicit, lower-priority allow
-# exists. Opt-in per environment via enable_public_ingress_firewall.
+# Public ingress-nginx-external LoadBalancer traffic (web only). Before GKE
+# 1.35.1-gke.1473000, GKE's auto-created k8s-fw-* allow rule for the LB ties in
+# priority with deny_ingress (both 1000) and GCP breaks the tie in favor of deny,
+# so the LB is unreachable until this lower-priority allow exists. From that
+# version GKE's rule is 999 and wins on its own, taking its sources from the
+# Service's loadBalancerSourceRanges (0.0.0.0/0 when unset); this rule then adds
+# nothing, so it must never be wider than those ranges.
+# https://cloud.google.com/kubernetes-engine/docs/concepts/firewall-rules
+# Opt-in per environment via enable_public_ingress_firewall.
 resource "google_compute_firewall" "gke_public_ingress" {
   count = var.enable_public_ingress_firewall ? 1 : 0
 
