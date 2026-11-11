@@ -2,7 +2,9 @@
 Sequential execution implementation for test cases.
 """
 
+import asyncio
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
@@ -20,6 +22,7 @@ from rhesis.backend.jobs.execution.shared import (
     create_execution_result,
     create_failure_result,
     is_task_revoked,
+    run_deadline,
     run_on_thread_loop,
     trigger_results_collection,
     update_test_run_start,
@@ -136,9 +139,17 @@ def execute_tests_sequentially(
     # either the test-run cancel endpoint or the job cancel endpoint.
     celery_task_id = (test_run.attributes or {}).get("task_id")
     was_cancelled = False
+    deadline = run_deadline()
 
     # Execute tests one by one
     for i, test in enumerate(tests, 1):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            logger.warning(f"Run time limit reached before test {i}/{len(tests)}, stopping")
+            if on_emit:
+                on_emit(f"Run time limit reached, {len(tests) - i + 1} tests not run")
+            break
+
         if is_task_revoked(celery_task_id):
             logger.info(
                 f"Revoke detected before test {i}/{len(tests)} — "
@@ -164,21 +175,24 @@ def execute_tests_sequentially(
             session.commit()
 
             result = run_on_thread_loop(
-                execute_test(
-                    db=session,
-                    test_config_id=str(test_config.id),
-                    test_run_id=str(test_run.id),
-                    test_id=str(test.id),
-                    endpoint_id=str(test_config.endpoint_id),
-                    organization_id=str(test_config.organization_id)
-                    if test_config.organization_id
-                    else None,
-                    user_id=str(test_config.user_id) if test_config.user_id else None,
-                    execution_model=run_models.execution,
-                    evaluation_model=run_models.evaluation,
-                    reference_test_run_id=reference_test_run_id,
-                    trace_id=trace_id,
-                    on_test_phase=on_test_phase,
+                asyncio.wait_for(
+                    execute_test(
+                        db=session,
+                        test_config_id=str(test_config.id),
+                        test_run_id=str(test_run.id),
+                        test_id=str(test.id),
+                        endpoint_id=str(test_config.endpoint_id),
+                        organization_id=str(test_config.organization_id)
+                        if test_config.organization_id
+                        else None,
+                        user_id=str(test_config.user_id) if test_config.user_id else None,
+                        execution_model=run_models.execution,
+                        evaluation_model=run_models.evaluation,
+                        reference_test_run_id=reference_test_run_id,
+                        trace_id=trace_id,
+                        on_test_phase=on_test_phase,
+                    ),
+                    timeout=remaining,
                 )
             )
             results.append(result)

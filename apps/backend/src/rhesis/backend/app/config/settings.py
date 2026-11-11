@@ -428,6 +428,27 @@ class TraceRetentionSettings(BaseSettings):
     override_days: int | None = Field(default=None, alias="TRACE_RETENTION_DAYS", gt=0)
 
 
+class JobLimitSettings(BaseSettings):
+    """Server-side ceilings on background work a request can ask for.
+
+    Requests asking for more are clamped to these, not refused. The defaults sit
+    at or above the values the platform itself uses.
+    """
+
+    model_config = SettingsConfigDict(env_ignore_empty=True)
+
+    max_batch_concurrency: int = Field(default=50, alias="MAX_BATCH_CONCURRENCY", ge=1)
+    max_per_test_timeout: int = Field(default=3600, alias="MAX_PER_TEST_TIMEOUT", ge=1)
+    max_invoke_attempts: int = Field(default=10, alias="MAX_INVOKE_ATTEMPTS", ge=1)
+    max_invoke_retry_wait: float = Field(default=300.0, alias="MAX_INVOKE_RETRY_WAIT", gt=0)
+    max_recovery_rounds: int = Field(default=3, alias="MAX_RECOVERY_ROUNDS", ge=0)
+    # Wall-clock limits enforced inside the job; Celery's own are inert on the thread pool.
+    execution_time_limit: int = Field(default=6600, alias="EXECUTION_TIME_LIMIT", gt=0)
+    exploration_time_limit: int = Field(default=3600, alias="EXPLORATION_TIME_LIMIT", gt=0)
+    # Queued or running heavy jobs per organization; 0 turns the cap off.
+    max_active_jobs_per_org: int = Field(default=10, alias="MAX_ACTIVE_JOBS_PER_ORG", ge=0)
+
+
 @lru_cache
 def get_database_settings() -> DatabaseSettings:
     return DatabaseSettings()
@@ -496,3 +517,8 @@ def get_job_retention_settings() -> JobRetentionSettings:
 @lru_cache
 def get_trace_retention_settings() -> TraceRetentionSettings:
     return TraceRetentionSettings()
+
+
+@lru_cache
+def get_job_limit_settings() -> JobLimitSettings:
+    return JobLimitSettings()

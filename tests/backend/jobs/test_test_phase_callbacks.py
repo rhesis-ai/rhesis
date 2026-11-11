@@ -19,6 +19,8 @@ def _ctx(test_ids, *, recovery_rounds=0):
     ctx.per_test_timeout = 60
     ctx.recovery_rounds = recovery_rounds
     ctx.celery_task_id = None
+    ctx.deadline = None
+    ctx.deadline_exceeded = False
     ctx.existing_result_ids = set()
     ctx.test_data = {tid: {"test": MagicMock(category=None)} for tid in test_ids}
     ctx.input_files = {}

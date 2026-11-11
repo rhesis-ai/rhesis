@@ -29,7 +29,7 @@ from rhesis.backend.jobs.execution.batch.profiling import (
     log_batch_report,
 )
 from rhesis.backend.jobs.execution.batch.runner import run_batch
-from rhesis.backend.jobs.execution.shared import run_on_thread_loop
+from rhesis.backend.jobs.execution.shared import run_deadline, run_on_thread_loop
 
 __all__ = ["execute_tests_as_batch", "ExecutionContext"]
 
@@ -166,6 +166,7 @@ def execute_tests_as_batch(
     )
 
     start_time = datetime.now(timezone.utc)
+    deadline = run_deadline()
     total_tests = len(tests)
 
     update_test_run_start(
@@ -188,6 +189,7 @@ def execute_tests_as_batch(
     )
     # Capture the Celery task ID for cooperative cancellation in the async loop.
     ctx.celery_task_id = (test_run.attributes or {}).get("task_id")
+    ctx.deadline = deadline
 
     # Flush any pending writes (e.g. auth token refresh) and release the DB
     # connection back to the pool.  All needed data lives in ctx (models are
@@ -228,6 +230,8 @@ def execute_tests_as_batch(
     # cancelled) never ticked, so this settles the counter at the total.
     if on_progress:
         on_progress(total_tests, total_tests)
+    if on_emit and ctx.deadline_exceeded:
+        on_emit("Run time limit reached, remaining tests stopped")
     if on_emit:
         parts = [f"{succeeded} succeeded", f"{failed} failed"]
         # Counted separately from both: the test ran and produced a row, but the endpoint

@@ -13,12 +13,13 @@ import logging
 import time
 from typing import Any, ClassVar, Dict, List, Literal, Optional
 
+from rhesis.backend.app.config.settings import get_job_limit_settings
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.utils.user_model_utils import resolve_model
 from rhesis.backend.celery.core import app
 from rhesis.backend.jobs.architect.progress import publish_task_progress
-from rhesis.backend.jobs.base import SilentJob
+from rhesis.backend.jobs.base import JobTimeLimitExceeded, SilentJob
 from rhesis.backend.jobs.endpoint.target import make_target_factory
 
 # ExploreEndpointTool is imported lazily inside the task to avoid pulling
@@ -174,18 +175,26 @@ def run_exploration_task(
         # silently drop the entire progress trail.
         event_handlers: List[Any] = [_PenelopeProgressHandler(_emit)]
 
-        result = run_sync(
-            tool.execute(
-                endpoint_id=endpoint_id,
-                strategy=strategy,
-                goal=goal or "",
-                instructions=instructions,
-                scenario=scenario,
-                restrictions=restrictions,
-                previous_findings=previous_findings,
-                _event_handlers=event_handlers,
+        time_limit = get_job_limit_settings().exploration_time_limit
+        try:
+            result = run_sync(
+                tool.execute(
+                    endpoint_id=endpoint_id,
+                    strategy=strategy,
+                    goal=goal or "",
+                    instructions=instructions,
+                    scenario=scenario,
+                    restrictions=restrictions,
+                    previous_findings=previous_findings,
+                    _event_handlers=event_handlers,
+                ),
+                # Celery's time limits are inert under --pool threads; enforce here.
+                timeout=time_limit,
             )
-        )
+        except TimeoutError as exc:
+            if time.monotonic() - start < time_limit:
+                raise  # raised by the exploration itself, not the limit
+            raise JobTimeLimitExceeded(f"Exploration stopped after {time_limit}s") from exc
 
     duration_ms = int((time.monotonic() - start) * 1000)
 
