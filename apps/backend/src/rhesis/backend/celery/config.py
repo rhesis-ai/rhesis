@@ -9,8 +9,8 @@ job_limits = get_job_limit_settings()
 # execute_test_configuration stops itself at EXECUTION_TIME_LIMIT (see
 # jobs/execution/shared.run_deadline); the hard limit leaves room to wrap up.
 EXECUTION_HARD_LIMIT = job_limits.execution_time_limit + 300
-# Must outlast every task (see broker_transport_options below), so it follows
-# the execution limit up when an operator raises that.
+# Must outlast test runs and explorations, which stop themselves (see
+# broker_transport_options below), so it follows the execution limit up.
 VISIBILITY_TIMEOUT = max(7200, EXECUTION_HARD_LIMIT + 300)
 
 # Worker-context config: retry aggressively to ensure task delivery
@@ -42,8 +42,9 @@ CELERY_CONFIG = {
         # Must exceed the longest task run, or Redis redelivers a still-running
         # task to a second worker and it runs twice: with task_acks_late the
         # message is only acked on completion. The worker's thread pool ignores
-        # time_limit, so what bounds a run is the job's own deadline
-        # (EXECUTION_TIME_LIMIT), and this stays above it.
+        # time_limit, so a test run is bounded by its own deadline
+        # (EXECUTION_TIME_LIMIT) and this stays above it. Generation, Garak and
+        # tuning jobs have no in-job limit yet and can still outlast it.
         "visibility_timeout": VISIBILITY_TIMEOUT,
         "connection_pool_kwargs": {
             "max_connections": 10,

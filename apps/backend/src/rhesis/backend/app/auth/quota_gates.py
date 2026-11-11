@@ -47,6 +47,7 @@ from rhesis.backend.app.quota.enforcement import (
     check_backstop,
     enforce_quota,
 )
+from rhesis.backend.app.services.job_capacity import enforce_job_capacity
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +155,7 @@ def require_backstop(resource: QuotaResourceLike):
     return _dep
 
 
-__all__ = ["QUOTA_WARNING_HEADER", "require_backstop", "require_quota"]
+__all__ = ["QUOTA_WARNING_HEADER", "require_backstop", "require_job_capacity", "require_quota"]
 
 
 def require_job_capacity(
@@ -166,7 +167,5 @@ def require_job_capacity(
     A point check, so the route does not create rows for a job that would be refused;
     ``launch_job`` checks again under a lock before dispatch.
     """
-    from rhesis.backend.app.services.job_capacity import enforce_job_capacity
-
     organization_id, user_id = tenant_context
     enforce_job_capacity(db, organization_id, user_id)

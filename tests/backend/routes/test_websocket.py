@@ -233,7 +233,7 @@ class TestMessageSizeLimits:
         mock_ws_manager,
     ):
         """Test that messages within the size limit are accepted."""
-        with patch("rhesis.backend.app.routers.websocket.MAX_MESSAGE_SIZE", self.TEST_MAX_SIZE):
+        with patch("rhesis.backend.app.routers.websocket.WS_MAX_MESSAGE_SIZE", self.TEST_MAX_SIZE):
             with authenticated_client.websocket_connect("/ws?token=valid_token") as ws:
                 # Receive connected message
                 ws.receive_json()
@@ -257,7 +257,7 @@ class TestMessageSizeLimits:
         mock_ws_manager,
     ):
         """Test that messages exceeding the size limit are rejected."""
-        with patch("rhesis.backend.app.routers.websocket.MAX_MESSAGE_SIZE", self.TEST_MAX_SIZE):
+        with patch("rhesis.backend.app.routers.websocket.WS_MAX_MESSAGE_SIZE", self.TEST_MAX_SIZE):
             with authenticated_client.websocket_connect("/ws?token=valid_token") as ws:
                 # Receive connected message
                 ws.receive_json()
@@ -284,7 +284,7 @@ class TestMessageSizeLimits:
         mock_ws_manager,
     ):
         """Test that server remains stable after receiving oversized message."""
-        with patch("rhesis.backend.app.routers.websocket.MAX_MESSAGE_SIZE", self.TEST_MAX_SIZE):
+        with patch("rhesis.backend.app.routers.websocket.WS_MAX_MESSAGE_SIZE", self.TEST_MAX_SIZE):
             with authenticated_client.websocket_connect("/ws?token=valid_token") as ws:
                 # Receive connected message
                 ws.receive_json()

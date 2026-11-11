@@ -37,8 +37,6 @@ logger = logging.getLogger(__name__)
 
 router = RhesisRouter(tags=["websocket"], resource="websocket")
 
-MAX_MESSAGE_SIZE = WS_MAX_MESSAGE_SIZE
-
 
 class WebSocketTokenResponse(BaseModel):
     """Response model for WebSocket token endpoint."""
@@ -215,7 +213,7 @@ async def websocket_endpoint(websocket: WebSocket):
             raw_data = await websocket.receive_text()
 
             # Security: Check message size before parsing
-            if len(raw_data) > MAX_MESSAGE_SIZE:
+            if len(raw_data) > WS_MAX_MESSAGE_SIZE:
                 logger.warning(f"Message too large from {conn_id}: {len(raw_data)} bytes")
                 try:
                     await websocket.send_json(
