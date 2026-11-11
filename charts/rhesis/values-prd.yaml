@@ -48,10 +48,9 @@ config:
   architectHelpArticleUrls: "https://docs.rhesis.ai/docs/getting-started/connecting-application,https://docs.rhesis.ai/docs/endpoints,https://docs.rhesis.ai/docs/endpoints/sdk-endpoints,https://docs.rhesis.ai/docs/concepts"
   # Backend
   # Hosted-model calls from our own pods (SDK RhesisLLM in worker/backend, chatbot,
-  # platform key checks) go to the in-cluster Services, not the public hosts: through
+  # platform key checks) go to the in-cluster backend, not the public host: through
   # Cloudflare they would all share the Cloud NAT IP's rate-limit bucket.
   rhesisBaseUrl: "http://backend:8080"
-  polyphemusUrl: "http://polyphemus:8081"
   frontendUrl: "https://app.rhesis.ai"
   backendUrl: "http://backend:8080"
   # Disposable-email screening: off | log | enforce. Ran as log from #2511 so the
