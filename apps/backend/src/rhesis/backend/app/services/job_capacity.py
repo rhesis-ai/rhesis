@@ -41,8 +41,8 @@ class JobCapacityExceededError(HTTPException):
         super().__init__(
             status_code=429,
             detail=(
-                f"Your organization already has {limit} jobs queued or running. "
-                "Wait for one to finish and try again."
+                f"Your organization has reached its limit of {limit} jobs queued or "
+                "running at once. Wait for one to finish and try again."
             ),
         )
 
