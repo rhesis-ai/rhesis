@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from rhesis.backend.app.schemas.base import Base, ServerIdentity
+from rhesis.backend.app.schemas.base import Base, BulkIds, ServerIdentity
 
 
 class NotificationRead(Base, ServerIdentity):
@@ -56,4 +56,4 @@ class NotificationMarkReadRequest(BaseModel):
     """
 
     section: Optional[str] = None
-    notification_ids: Optional[list[UUID]] = None
+    notification_ids: Optional[BulkIds] = None

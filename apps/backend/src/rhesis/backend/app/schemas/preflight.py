@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
+from rhesis.backend.app.schemas.base import BulkIds
+
 
 class PreflightMode(str, Enum):
     ASYNC = "async"
@@ -28,7 +30,7 @@ class PreflightMetricRef(BaseModel):
 
 class PreflightCheckRequest(BaseModel):
     test_set_id: Optional[UUID] = None
-    test_set_ids: Optional[List[UUID]] = None
+    test_set_ids: Optional[BulkIds] = None
     endpoint_id: UUID
     correlation_id: Optional[str] = None
     scoring_target: str = "fresh"

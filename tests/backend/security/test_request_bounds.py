@@ -71,6 +71,15 @@ class TestBulkListCap:
         )
         assert response.status_code == 422, response.text
 
+    def test_other_request_id_lists_are_capped(self):
+        from rhesis.backend.app.schemas.notification import NotificationMarkReadRequest
+        from rhesis.backend.app.schemas.preflight import PreflightCheckRequest
+
+        with pytest.raises(ValidationError):
+            NotificationMarkReadRequest(notification_ids=_ids(MAX_BULK_ITEMS + 1))
+        with pytest.raises(ValidationError):
+            PreflightCheckRequest(test_set_ids=_ids(MAX_BULK_ITEMS + 1), endpoint_id=uuid.uuid4())
+
     def test_oversized_restore_is_rejected(self, authenticated_client):
         response = authenticated_client.post(
             "/recycle/bulk-restore/test", json=_ids(MAX_BULK_ITEMS + 1)
