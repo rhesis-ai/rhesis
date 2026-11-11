@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, SecretStr, field_validator
 
-from rhesis.backend.app.auth.url_utils import _LOOPBACK_HOSTS
+from rhesis.backend.app.auth.url_utils import LOOPBACK_HOSTS
 from rhesis.backend.app.config.settings import get_application_settings
 
 _BLOCKED_NETWORKS = [
@@ -48,7 +48,7 @@ class SSOConfig(BaseModel):
         if parsed.scheme != "https":
             if not (
                 parsed.scheme == "http"
-                and hostname.lower() in _LOOPBACK_HOSTS
+                and hostname.lower() in LOOPBACK_HOSTS
                 and get_application_settings().is_local_development
             ):
                 raise ValueError("issuer_url must use HTTPS")
