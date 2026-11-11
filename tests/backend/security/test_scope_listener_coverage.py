@@ -18,9 +18,6 @@ from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.models.scope_events import EXEMPT_TABLES
 from rhesis.backend.app.scope import RequestScope, bind_scope, bypass_tenant_filter, reset_scope
 from rhesis.backend.app.utils.query_utils import has_organization_id
-from rhesis.backend.ee.audit.streaming import crud as destination_crud
-from rhesis.backend.ee.audit.streaming.models import AuditDestination
-from rhesis.backend.ee.rbac.models import Role
 from tests.backend.fixtures.rls import as_org
 
 EE_TABLES = {"audit_destination", "auth_client", "organization_member", "role"}
@@ -52,8 +49,14 @@ def _emitted_sql(db, stmt, organization_id) -> str:
     return "\n".join(statements)
 
 
+def _require_ee():
+    pytest.importorskip("rhesis.backend.ee", reason="EE package not installed")
+
+
 @pytest.mark.security
+@pytest.mark.ee
 def test_ee_models_are_in_the_checked_set():
+    _require_ee()
     assert EE_TABLES <= {m.__tablename__ for m in _tenant_models()}
 
 
@@ -67,7 +70,11 @@ def test_select_carries_org_predicate(test_db, test_org_id, model):
 
 
 @pytest.mark.security
+@pytest.mark.ee
 def test_built_in_roles_stay_visible_and_foreign_roles_do_not(test_db, test_org_id):
+    _require_ee()
+    from rhesis.backend.ee.rbac.models import Role
+
     foreign_org = uuid.uuid4()
     with bypass_tenant_filter():
         test_db.execute(
@@ -95,8 +102,13 @@ def test_built_in_roles_stay_visible_and_foreign_roles_do_not(test_db, test_org_
 
 
 @pytest.mark.security
+@pytest.mark.ee
 def test_destination_lookup_filters_on_org_without_rls(admin_test_db, test_org_id):
     """Run as the superuser so only the explicit predicate stands between the orgs."""
+    _require_ee()
+    from rhesis.backend.ee.audit.streaming import crud as destination_crud
+    from rhesis.backend.ee.audit.streaming.models import AuditDestination
+
     db = admin_test_db
     foreign_org = uuid.uuid4()
     db.execute(
@@ -124,8 +136,10 @@ def test_destination_lookup_filters_on_org_without_rls(admin_test_db, test_org_i
 
 
 @pytest.mark.security
+@pytest.mark.ee
 def test_cache_filled_before_ee_import_picks_up_ee_models():
     """In a fresh process: fill the filter set first, then map the EE models."""
+    _require_ee()
     script = textwrap.dedent(
         """
         from rhesis.backend.app.models import scope_events

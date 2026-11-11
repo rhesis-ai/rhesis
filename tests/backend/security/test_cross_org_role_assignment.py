@@ -9,8 +9,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
+pytest.importorskip("rhesis.backend.ee", reason="EE package not installed")
+
 from rhesis.backend.ee.rbac.models import SCOPE_ORGANIZATION, SCOPE_PROJECT
-from rhesis.backend.ee.rbac.router import assign_org_role, check_project_role_assignment
+from rhesis.backend.ee.rbac.router import (
+    assign_org_role,
+    check_project_role_assignment,
+)
 from rhesis.backend.ee.rbac.schemas import OrgRoleAssign
 from tests.backend.ee.rbac._rbac_helpers import (
     _create_org,
@@ -20,7 +25,7 @@ from tests.backend.ee.rbac._rbac_helpers import (
     _user,
 )
 
-pytestmark = pytest.mark.security
+pytestmark = [pytest.mark.security, pytest.mark.ee]
 
 
 @pytest.fixture
