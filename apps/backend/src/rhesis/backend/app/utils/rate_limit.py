@@ -3,13 +3,19 @@ Rate limiting utilities for the application.
 """
 
 import ipaddress
+import logging
 import os
 from typing import Optional
+from urllib.parse import urlparse, urlunparse
 
 from fastapi import HTTPException, Request, status
-from limits import parse as parse_rate_limit
+from limits import RateLimitItem, parse_many
 from slowapi import Limiter
-from slowapi.util import get_remote_address
+
+from rhesis.backend.app.config.settings import get_redis_settings
+from rhesis.backend.app.services.redis_constants import RedisDatabase
+
+logger = logging.getLogger(__name__)
 
 TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "1"))
 
@@ -64,30 +70,76 @@ def get_real_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-# Create limiter instance with trusted-proxy-aware IP extraction
-limiter = Limiter(key_func=get_real_ip, default_limits=["1000/day", "100/hour"])
+#: Applied by SlowAPIMiddleware, per client IP and per route, to every route
+#: without its own limit. A flood guard sized well above polling, SDK and NAT
+#: traffic; costly routes carry tighter per-user limits.
+DEFAULT_RATE_LIMIT = "1200/minute"
+
+#: The middleware calls Redis on the event loop, so a stalled Redis must fail
+#: fast and drop to the memory fallback rather than hold up the whole worker.
+_REDIS_TIMEOUT_SECONDS = 0.5
+
+
+def rate_limit_storage_uri() -> str:
+    """Counters live in Redis, so every worker and pod shares one count."""
+    parsed = urlparse(get_redis_settings().broker_url)
+    return urlunparse(parsed._replace(path=f"/{RedisDatabase.RATE_LIMITS}"))
+
+
+def build_limiter(storage_uri: Optional[str] = None) -> Limiter:
+    """A limiter on shared storage.
+
+    If Redis is unreachable it falls back to per-process memory with a warning
+    and probes Redis again with backoff (fail open, but still bounded per
+    process). Failing closed would make Redis an outage for login and every
+    other route; the monthly quotas stay enforced either way.
+    """
+    uri = storage_uri or rate_limit_storage_uri()
+    options = {}
+    if uri.startswith(("redis://", "rediss://")):
+        options = {
+            "socket_connect_timeout": _REDIS_TIMEOUT_SECONDS,
+            "socket_timeout": _REDIS_TIMEOUT_SECONDS,
+        }
+    return Limiter(
+        key_func=get_real_ip,
+        default_limits=[DEFAULT_RATE_LIMIT],
+        storage_uri=uri,
+        storage_options=options,
+        in_memory_fallback_enabled=True,
+        # One bucket per route function, so path ids cannot spread the count.
+        key_style="endpoint",
+    )
+
+
+limiter = build_limiter()
 
 
 def get_user_identifier(request: Request) -> str:
+    """Key on the signed-in account, else on the client IP.
+
+    Use with ``@limiter.limit(..., key_func=get_user_identifier)``: the
+    decorator runs after the route's auth dependency has set ``request.state.user``.
     """
-    Get a unique identifier for rate limiting.
-    Uses user ID if available, otherwise falls back to IP address.
-    """
-    # Try to get user ID from request state (set by auth middleware)
-    user_id = getattr(request.state, "user_id", None)
+    user = getattr(request.state, "user", None)
+    user_id = getattr(user, "id", None)
     if user_id:
         return f"user:{user_id}"
+    return get_real_ip(request)
 
-    # Fall back to IP address
-    return get_remote_address(request)
-
-
-# Create user-aware limiter
-user_limiter = Limiter(key_func=get_user_identifier, default_limits=["1000/day", "100/hour"])
 
 # Rate limits for different operations
 INVITATION_RATE_LIMIT = "10/hour"  # Max 10 invitations per hour per user
 BULK_INVITATION_RATE_LIMIT = "3/hour"  # Max 3 bulk invitations per hour per user
+
+# Per-user limits for routes that call an LLM, call a user's endpoint, or
+# start a job (applied with ``dependencies.per_user_rate_limit``).
+GENERATION_RATE_LIMIT = "20/minute;300/hour"
+EXECUTION_RATE_LIMIT = "30/minute;500/hour"
+PROBE_RATE_LIMIT = "60/minute;1000/hour"
+# Hosted-model calls (the SDK's default model and self-host relays use these);
+# token quotas meter the cost, this only stops one account fanning out over IPs.
+INFERENCE_RATE_LIMIT = "1200/minute"
 
 # Feedback endpoint rate limits (per IP, public endpoint)
 FEEDBACK_RATE_LIMIT = "5/hour"  # Max 5 feedback submissions per hour per IP
@@ -100,6 +152,11 @@ AUTH_LOGIN_EMAIL_LIMIT = "20/hour"
 AUTH_REGISTER_LIMIT = "10/hour"
 AUTH_TERMS_STATUS_LIMIT = "30/hour"
 AUTH_CHANGE_PASSWORD_LIMIT = "5/hour"
+AUTH_RESET_PASSWORD_LIMIT = "10/hour"
+AUTH_MAGIC_LINK_VERIFY_LIMIT = "30/hour"
+AUTH_LOCAL_LOGIN_LIMIT = "60/hour"
+# Every signed-in browser refreshes a few times an hour; sized for an office NAT.
+AUTH_REFRESH_LIMIT = "600/hour"
 
 # EE features that need their own rate-limit constants define them
 # alongside their routers and decorate handlers with the shared
@@ -129,7 +186,8 @@ def hit_post_parse_limit(
     Parameters
     ----------
     rate_string:
-        Standard ``limits`` rate string (e.g. ``"60/minute"``). Parsed
+        ``limits`` rate string (e.g. ``"60/minute"`` or
+        ``"20/minute;300/hour"``). Parsed
         on every call -- callers SHOULD treat *rate_string* as a
         constant and pass the same value each time so the parser
         result is cache-friendly.
@@ -150,19 +208,30 @@ def hit_post_parse_limit(
 
     Notes
     -----
-    Reaches into ``limiter._limiter`` and ``limiter._storage``, which
-    are slowapi-private. We accept that coupling because the
+    Reaches into slowapi-private limiter state (``limiter.limiter`` and
+    ``_storage_dead``). We accept that coupling because the
     alternative (a parallel redis-keyed counter) doubles the
-    infrastructure surface for one feature; the slowapi internals
-    we touch (``MovingWindowRateLimiter.hit``) are themselves
-    re-exports of the very stable ``limits`` library API.
+    infrastructure surface for one feature; the calls we make
+    (``RateLimiter.hit``) are the very stable ``limits`` library API.
     """
-    item = parse_rate_limit(rate_string)
     full_key = f"{namespace}:{key}"
     # ``hit`` returns True when the request is permitted (counter
     # incremented) and False when the limit was already exceeded.
-    if not limiter._limiter.hit(item, full_key):
+    if not all(_hit(item, full_key) for item in parse_many(rate_string)):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many requests",
         )
+
+
+def _hit(item: RateLimitItem, key: str) -> bool:
+    """Count one hit, moving to the in-memory fallback if Redis is down."""
+    try:
+        return limiter.limiter.hit(item, key)
+    except Exception:
+        if limiter._storage_dead:
+            raise
+        logger.warning("Rate limit storage unreachable, using per-process memory")
+        # slowapi probes Redis again on its next request check and switches back.
+        limiter._storage_dead = True
+        return limiter.limiter.hit(item, key)
