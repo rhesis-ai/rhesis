@@ -178,6 +178,19 @@ def launch_job(
     except Exception as exc:
         logger.warning(f"Could not establish trace context for dispatch: {exc}", exc_info=True)
 
+    if db is not None:
+        # Not best-effort like the bookkeeping below: this is the cap's authoritative check,
+        # serialized per org until the job row it counts is committed.
+        from rhesis.backend.app.services.job_capacity import (
+            CAPPED_JOB_TYPES,
+            enforce_job_capacity,
+        )
+
+        if tracking.job_type_for(getattr(task, "name", "") or "") in CAPPED_JOB_TYPES:
+            enforce_job_capacity(
+                db, headers.get("organization_id"), headers.get("user_id"), serialize=True
+            )
+
     job_id = None
     if db is not None and celery_task_id:
         # Guarded here as well as inside create_job: the invariant is that

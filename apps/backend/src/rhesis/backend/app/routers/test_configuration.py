@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
-from rhesis.backend.app.auth.quota_gates import require_quota
+from rhesis.backend.app.auth.quota_gates import require_job_capacity, require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import test_configuration as test_configuration_crud
 from rhesis.backend.app.dependencies import (
@@ -191,6 +191,7 @@ def execute_test_configuration_endpoint(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_EXECUTIONS)),
+    _job_capacity: None = Depends(require_job_capacity),
 ):
     """
     Execute a test configuration by running its test set.
@@ -274,6 +275,8 @@ def execute_test_configuration_endpoint(
                 error="Failed to submit the test run for execution.",
             )
             db.commit()
+            if isinstance(exc, HTTPException):  # the job cap, re-checked at dispatch
+                raise
             raise internal_error(exc, context="submitting test configuration task") from exc
 
         return {

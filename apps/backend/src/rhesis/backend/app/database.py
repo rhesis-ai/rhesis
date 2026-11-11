@@ -395,6 +395,7 @@ def temporary_project_scope(
     from rhesis.backend.app.scope import RequestScope
 
     prev_scope = db.info.get(_SCOPE_KEY)
+    prev_vars = db.info.get(_TENANT_VARS_KEY)
 
     temp_scope = RequestScope(
         organization_id=organization_id or None,
@@ -409,7 +410,12 @@ def temporary_project_scope(
     finally:
         if prev_scope is None:
             db.info.pop(_SCOPE_KEY, None)
-            _set_session_variables(db, organization_id, user_id, "")
+            if prev_vars is not None:  # a side-channel scope; put back its project too
+                _set_session_variables(
+                    db, prev_vars["org_id"], prev_vars["user_id"], prev_vars["project_id"]
+                )
+            else:
+                _set_session_variables(db, organization_id, user_id, "")
         else:
             db.info[_SCOPE_KEY] = prev_scope
             _apply_scope_variables(db, prev_scope)

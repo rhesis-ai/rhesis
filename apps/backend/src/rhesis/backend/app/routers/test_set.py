@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
-from rhesis.backend.app.auth.quota_gates import require_quota
+from rhesis.backend.app.auth.quota_gates import require_job_capacity, require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import metric as metric_crud
 from rhesis.backend.app.crud import test_set as test_set_crud
@@ -115,6 +115,7 @@ def generate_test_set(
     scoped_project_id: Optional[str] = Depends(get_project_context),
     _validate_model=Depends(validate_generation_model),
     _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_GENERATION)),
+    _job_capacity: None = Depends(require_job_capacity),
 ):
     """
     Generate test set using ConfigSynthesizer.
@@ -581,6 +582,7 @@ def execute_test_set(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_EXECUTIONS)),
+    _job_capacity: None = Depends(require_job_capacity),
 ):
     """Submit a test set for execution against an endpoint.
 

@@ -169,3 +169,37 @@ def request_cancel(db: Session, job: models.Job) -> models.Job:
     db.add(job)
     db.flush()
     return job
+
+
+def count_active_jobs(
+    db: Session,
+    organization_id: str,
+    project_id: Optional[UUID],
+    job_types: List[str],
+    queued_since: datetime,
+) -> int:
+    """Jobs of *job_types* in one project that are not finished yet.
+
+    ``project_id=None`` counts the org's project-less jobs. Project RLS still applies
+    underneath the explicit filters, so the session must be scoped to *project_id*.
+    """
+    from rhesis.backend.app.scope import bypass_tenant_filter
+
+    project_filter = (
+        models.Job.project_id.is_(None)
+        if project_id is None
+        else models.Job.project_id == project_id
+    )
+    unfinished = [s.value for s in JobStatus if not s.is_terminal]
+    with bypass_tenant_filter():
+        return (
+            db.query(func.count(models.Job.id))
+            .filter(
+                models.Job.organization_id == UUID(str(organization_id)),
+                project_filter,
+                models.Job.job_type.in_(job_types),
+                models.Job.status.in_(unfinished),
+                models.Job.queued_at >= queued_since,
+            )
+            .scalar()
+        ) or 0

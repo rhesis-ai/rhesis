@@ -40,6 +40,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.auth.capabilities import Permission, capability
+from rhesis.backend.app.auth.quota_gates import require_job_capacity
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud.metric import get_metric
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
@@ -280,6 +281,7 @@ def start_tuning_run(
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: models.User = Depends(require_current_user_or_token),
+    _job_capacity: None = Depends(require_job_capacity),
 ):
     """Start a run over the metric's cases and hand back the in-progress summary.
 
