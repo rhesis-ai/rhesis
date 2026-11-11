@@ -27,7 +27,7 @@ from rhesis.backend.app.auth.session_invalidation import (
     invalidate_user_sessions,
     is_session_revoked,
 )
-from rhesis.backend.app.auth.session_utils import regenerate_session
+from rhesis.backend.app.auth.session_utils import regenerate_session, set_session_user
 from rhesis.backend.app.auth.terms import (
     record_terms_acceptance,
     user_has_accepted_current_terms,
@@ -886,7 +886,7 @@ async def login_with_email(
         # Set up session and create tokens. The refresh token is wrapped
         # in a short-lived, single-use auth code so it never reaches the
         # browser: the client exchanges the code via NextAuth server-side.
-        request.session["user_id"] = user_id
+        set_session_user(request, user_id)
         access_token, refresh_tok, user_info = await anyio.to_thread.run_sync(
             _issue_login_tokens, db, user
         )
@@ -969,7 +969,7 @@ async def register_with_email(
         # Set up session and create tokens. Refresh token wrapped in a
         # single-use auth code (see /auth/login/email) so it stays out of
         # the browser.
-        request.session["user_id"] = user_id
+        set_session_user(request, user_id)
         access_token, refresh_tok, user_info = await anyio.to_thread.run_sync(
             _issue_login_tokens, db, user
         )
@@ -1209,6 +1209,9 @@ async def change_password(
     await anyio.to_thread.run_sync(_apply_password_change, db, db_user, body.new_password)
     # Before minting, so the replacement token is not caught by the revocation.
     await invalidate_user_sessions(str(current_user.id))
+    if "user_id" in request.session:
+        # Keep the caller's own cookie session, like the token pair below.
+        set_session_user(request, str(current_user.id))
     session_token, refresh_tok = await anyio.to_thread.run_sync(
         _issue_replacement_tokens, db, db_user
     )
@@ -1319,7 +1322,7 @@ async def verify_magic_link(
 
     # Set up session and create tokens. Refresh token wrapped in a
     # single-use auth code so it stays out of the browser.
-    request.session["user_id"] = user_id
+    set_session_user(request, user_id)
     access_token, refresh_tok, user_info = await anyio.to_thread.run_sync(
         _issue_login_tokens, db, user
     )
@@ -1826,7 +1829,7 @@ async def local_login(request: Request, db: OffLoopSession = Depends(get_off_loo
 
     user, user_id = await anyio.to_thread.run_sync(_load_quick_start_user, db)
 
-    request.session["user_id"] = user_id
+    set_session_user(request, user_id)
     access_token, refresh_tok, user_info = await anyio.to_thread.run_sync(
         _issue_login_tokens, db, user
     )

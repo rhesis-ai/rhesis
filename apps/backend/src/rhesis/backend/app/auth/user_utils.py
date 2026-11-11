@@ -21,7 +21,8 @@ from rhesis.backend.app.auth.principal import (
     Principal,
     resolve_principal_from_request,
 )
-from rhesis.backend.app.auth.session_invalidation import is_session_revoked
+from rhesis.backend.app.auth.session_invalidation import PROCESS_STARTED_AT, is_session_revoked
+from rhesis.backend.app.auth.session_utils import SESSION_ISSUED_AT_KEY
 from rhesis.backend.app.auth.token_utils import get_secret_key, verify_jwt_token
 from rhesis.backend.app.auth.token_validation import validate_token
 from rhesis.backend.app.config.settings import get_auth_settings
@@ -271,6 +272,19 @@ def _store_api_token_state(request, project_id: Optional[str], scopes: Optional[
     setattr(request.state, REQUEST_STATE_AUTH_KIND, AuthKind.TOKEN)
 
 
+async def _cookie_session_valid(session: dict, user_id: str) -> bool:
+    """Whether a cookie session survives logout and password-change revocation.
+
+    A cookie from before issue times were stored gets the process start time:
+    no one is signed out by the deploy, and any revocation after it still applies.
+    """
+    issued_at = session.get(SESSION_ISSUED_AT_KEY)
+    if not isinstance(issued_at, int):
+        issued_at = PROCESS_STARTED_AT
+        session[SESSION_ISSUED_AT_KEY] = issued_at
+    return not await is_session_revoked(user_id, issued_at)
+
+
 async def get_current_user(request: Request) -> Optional[User]:
     """
     Get current user from session using org-aware database session.
@@ -286,6 +300,9 @@ async def get_current_user(request: Request) -> Optional[User]:
         return None
 
     user_id = request.session.get("user_id")
+    if not await _cookie_session_valid(request.session, str(user_id)):
+        request.session.clear()
+        return None
     user = await anyio.to_thread.run_sync(_load_user_by_id, user_id)
 
     # User must have an organization_id to proceed

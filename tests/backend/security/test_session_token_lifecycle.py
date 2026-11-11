@@ -379,6 +379,77 @@ class TestScopedTokenRefresh:
 
 @pytest.mark.unit
 @pytest.mark.security
+class TestCookieSessionRevocation:
+    def _login(self, client: TestClient, user: models.User):
+        response = client.post(
+            "/auth/login/email", json={"email": user.email, "password": PASSWORD}
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert client.cookies.get("session")
+
+    def _revoke_after_now(self, redis: FakeRedis, user: models.User):
+        later = int(datetime.now(timezone.utc).timestamp()) + 5
+        redis.data[f"{session_invalidation.KEY_PREFIX}{user.id}"] = str(later)
+
+    def test_revoked_cookie_session_is_rejected_and_cleared(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        user = _user(test_db, test_org_id)
+        with fake_redis_manager() as redis:
+            self._login(client, user)
+            assert client.get("/users/settings").status_code == status.HTTP_200_OK
+
+            self._revoke_after_now(redis, user)
+            assert client.get("/users/settings").status_code == status.HTTP_401_UNAUTHORIZED
+
+            redis.data.clear()
+            # The session was cleared, so lifting the mark doesn't bring it back.
+            assert client.get("/users/settings").status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_cookie_session_survives_when_nothing_was_revoked(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        user = _user(test_db, test_org_id)
+        with fake_redis_manager():
+            self._login(client, user)
+            assert client.get("/users/settings").status_code == status.HTTP_200_OK
+
+    @pytest.mark.asyncio
+    async def test_cookie_without_issue_time_is_stamped_not_dropped(
+        self, test_db: Session, test_org_id: str
+    ):
+        """A cookie from before issue times existed keeps working and gets one."""
+        from types import SimpleNamespace
+
+        from rhesis.backend.app.auth import user_utils
+
+        user = _user(test_db, test_org_id)
+        request = SimpleNamespace(session={"user_id": str(user.id)})
+        with fake_redis_manager():
+            assert (await user_utils.get_current_user(request)).id == user.id
+        assert request.session["iat"] == session_invalidation.PROCESS_STARTED_AT
+
+    @pytest.mark.asyncio
+    async def test_cookie_without_issue_time_honours_later_revocation(
+        self, test_db: Session, test_org_id: str
+    ):
+        from types import SimpleNamespace
+
+        from rhesis.backend.app.auth import user_utils
+
+        user = _user(test_db, test_org_id)
+        request = SimpleNamespace(session={"user_id": str(user.id)})
+        redis = FakeRedis()
+        redis.data[f"{session_invalidation.KEY_PREFIX}{user.id}"] = str(
+            session_invalidation.PROCESS_STARTED_AT + 1
+        )
+        with fake_redis_manager(redis):
+            assert await user_utils.get_current_user(request) is None
+        assert request.session == {}
+
+
+@pytest.mark.unit
+@pytest.mark.security
 class TestEmailVerificationLinkIsSingleUse:
     def _unverified(self, db: Session, org_id: str) -> models.User:
         user = _user(db, org_id)

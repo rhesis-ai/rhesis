@@ -1,6 +1,17 @@
 """Session management utilities for authentication flows."""
 
+import time
+
 from fastapi import Request
+
+SESSION_USER_KEY = "user_id"
+SESSION_ISSUED_AT_KEY = "iat"
+
+
+def set_session_user(request: Request, user_id: str) -> None:
+    """Sign ``user_id`` in on the cookie session, stamped for revocation checks."""
+    request.session[SESSION_USER_KEY] = user_id
+    request.session[SESSION_ISSUED_AT_KEY] = int(time.time())
 
 
 def regenerate_session(request: Request, new_data: dict) -> None:
@@ -20,3 +31,5 @@ def regenerate_session(request: Request, new_data: dict) -> None:
     """
     request.session.clear()
     request.session.update(new_data)
+    if SESSION_USER_KEY in new_data:
+        request.session[SESSION_ISSUED_AT_KEY] = int(time.time())

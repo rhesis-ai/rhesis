@@ -21,6 +21,10 @@ logger = logging.getLogger(__name__)
 
 KEY_PREFIX = "session_revoked_before:"
 
+# Issue time assumed for a cookie session that predates issue times: it was
+# issued no later than this, and any revocation written from now on is newer.
+PROCESS_STARTED_AT = int(time.time())
+
 # Upper bound on the per-request lookup, so a hung Redis can't stall every request.
 LOOKUP_TIMEOUT_SECONDS = 0.25
 
