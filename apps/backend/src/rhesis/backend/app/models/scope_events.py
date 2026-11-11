@@ -28,18 +28,21 @@ not reach at all.
 
 TENANT-SCOPED CLASSES
 ----------------------
-The set of classes to filter is derived once, at listener-registration time, from
-the actual mapped columns (has_organization_id / has_project_id in query_utils.py) -
-not a hand-maintained per-model registry. A new model with an organization_id column
-is covered automatically the next time the process starts; nobody has to remember to
-add it anywhere. EXEMPT_TABLES is the one deliberate override: Token has a real
-organization_id column but must stay queryable by its raw value before any scope is
-known, so it is force-excluded despite otherwise matching. User and Organization
-need no override - they are excluded because they lack the column outright (User's
-organization_id is a plain FK, not something the identity lookup path filters on;
-Organization has no such column since it's the org table itself). Keeping all three
-in EXEMPT_TABLES matches the original design intent even though only Token is load
-bearing today.
+The set of classes to filter is derived from the actual mapped columns
+(has_organization_id / has_project_id in query_utils.py) - not a hand-maintained
+per-model registry. It is rebuilt lazily whenever a new class is mapped, so models
+imported after this module registers its listeners (the EE models, mapped during EE
+bootstrap) are covered too; nobody has to remember to add them anywhere.
+SHARED_ROW_TABLES lists tables whose NULL-organization rows are global (built-in
+roles) and stay visible to every org, matching their RLS policy.
+
+EXEMPT_TABLES is the one deliberate override: Token has a real organization_id column
+but must stay queryable by its raw value before any scope is known, so it is
+force-excluded despite otherwise matching. User and Organization need no override - they
+are excluded because they lack the column outright (User's organization_id is a plain
+FK, not something the identity lookup path filters on; Organization has no such column
+since it's the org table itself). Keeping all three in EXEMPT_TABLES matches the
+original design intent even though only Token is load bearing today.
 
 PRODUCTION KNOBS
 ----------------
@@ -71,7 +74,7 @@ import logging
 import os
 
 from sqlalchemy import and_, event, or_
-from sqlalchemy.orm import Session, with_loader_criteria
+from sqlalchemy.orm import Mapper, Session, with_loader_criteria
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +93,12 @@ EXEMPT_TABLES = frozenset({"user", "organization", "token"})
 # filter here would make membership invisible whenever the active project does
 # not match, breaking project resolution. It carries org isolation only.
 PROJECT_FILTER_EXEMPT_TABLES = frozenset({"project_membership"})
+
+# Tables whose organization_id IS NULL rows are shared by every org (built-in roles).
+SHARED_ROW_TABLES = frozenset({"role"})
+
+# (model_cls, criteria kind) pairs; None until the first statement or after a new mapping.
+_tenant_classes = None
 
 # Guard against duplicate listener registration (e.g. test reloads, hot-reload)
 _listeners_registered: bool = False
@@ -126,7 +135,7 @@ def _build_tenant_classes():
     """
     Enumerate mapped classes needing the org/project WHERE predicate.
 
-    Returns a list of (model_cls, needs_project_filter) tuples.
+    Returns a list of (model_cls, kind) tuples, kind being "project", "shared" or "org".
     """
     from rhesis.backend.app.models.base import Base
     from rhesis.backend.app.utils.query_utils import has_organization_id, has_project_id
@@ -139,11 +148,27 @@ def _build_tenant_classes():
             continue
         if not has_organization_id(model_cls):
             continue
-        needs_project_filter = (
-            has_project_id(model_cls) and tablename not in PROJECT_FILTER_EXEMPT_TABLES
-        )
-        tenant_classes.append((model_cls, needs_project_filter))
+        if has_project_id(model_cls) and tablename not in PROJECT_FILTER_EXEMPT_TABLES:
+            kind = "project"
+        elif tablename in SHARED_ROW_TABLES:
+            kind = "shared"
+        else:
+            kind = "org"
+        tenant_classes.append((model_cls, kind))
     return tenant_classes
+
+
+def _invalidate_tenant_classes(*_args):
+    global _tenant_classes
+    _tenant_classes = None
+
+
+def tenant_classes():
+    """The (model_cls, kind) pairs auto_filter applies, rebuilt after any new mapping."""
+    global _tenant_classes
+    if _tenant_classes is None:
+        _tenant_classes = _build_tenant_classes()
+    return _tenant_classes
 
 
 # ----------------------------------------------------------------------------
@@ -162,6 +187,13 @@ def _build_tenant_classes():
 def _org_only_criteria(organization_id):
     def _criteria(cls):
         return cls.organization_id == organization_id
+
+    return _criteria
+
+
+def _org_or_shared_criteria(organization_id):
+    def _criteria(cls):
+        return or_(cls.organization_id == organization_id, cls.organization_id.is_(None))
 
     return _criteria
 
@@ -205,7 +237,8 @@ def setup_scope_listeners():
         )
         return
 
-    tenant_classes = _build_tenant_classes()
+    # A class mapped later (EE models) resets the cached set; rebuilt on next statement.
+    event.listen(Mapper, "instrument_class", _invalidate_tenant_classes)
 
     # Listener 1: auto_filter - see module docstring for what it covers.
     @event.listens_for(Session, "do_orm_execute")
@@ -238,11 +271,15 @@ def setup_scope_listeners():
             )
         else:
             project_criteria = _org_and_null_project_criteria(scope.organization_id)
-        org_only_criteria = _org_only_criteria(scope.organization_id)
+        criteria_by_kind = {
+            "project": project_criteria,
+            "org": _org_only_criteria(scope.organization_id),
+            "shared": _org_or_shared_criteria(scope.organization_id),
+        }
 
         stmt = orm_execute_state.statement
-        for model_cls, needs_project_filter in tenant_classes:
-            criteria = project_criteria if needs_project_filter else org_only_criteria
+        for model_cls, kind in tenant_classes():
+            criteria = criteria_by_kind[kind]
             stmt = stmt.options(with_loader_criteria(model_cls, criteria, include_aliases=True))
         orm_execute_state.statement = stmt
 

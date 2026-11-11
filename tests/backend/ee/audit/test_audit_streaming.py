@@ -231,7 +231,7 @@ class TestDelivery:
         finally:
             db.rollback()
             scope_to_org(db, test_org_id)
-            crud.delete_destination(db, crud.get_destination(db, destination_id))
+            crud.delete_destination(db, crud.get_destination(db, destination_id, test_org_id))
             db.commit()
 
 
@@ -620,5 +620,5 @@ class TestTenantIsolation:
         scope_to_org(test_db, org_id)
 
         with bypass_tenant_filter():
-            assert crud.get_destination(test_db, foreign_id) is None
+            assert crud.get_destination(test_db, foreign_id, org_id) is None
             assert foreign_id not in crud.due_destination_ids(test_db)
