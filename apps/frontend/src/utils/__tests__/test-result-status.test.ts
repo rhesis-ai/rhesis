@@ -5,6 +5,7 @@ import {
   hasConflictingAnnotation,
   isPassedStatusName,
   findStatusByCategory,
+  getTestEvaluationDetails,
   getTestEvaluationSummary,
   matchesStatusFilter,
   TEST_RESULT_STATUS_NAMES,
@@ -265,74 +266,120 @@ describe('testResultStatus', () => {
   });
 
   describe('getTestEvaluationSummary', () => {
-    it('prefers goal_evaluation reason', () => {
-      const test: Partial<TestResultDetail> = {
-        test_output: {
-          goal_evaluation: {
-            all_criteria_met: false,
-            confidence: 0.5,
-            reason: 'Goal not met due to missing confirmation.',
-            evidence: [],
-            criteria_evaluations: [],
+    const withMetrics = (
+      metrics: Record<string, MetricResult>,
+      goalReason?: string
+    ): TestResultDetail =>
+      ({
+        test_metrics: { metrics, execution_time: 1 },
+        ...(goalReason && {
+          test_output: {
+            goal_evaluation: {
+              all_criteria_met: true,
+              confidence: 1,
+              reason: goalReason,
+              evidence: [],
+              criteria_evaluations: [],
+            },
           },
-        } as unknown as TestResultDetail['test_output'],
-        test_metrics: {
-          metrics: {
-            'Goal Evaluation': createMetricResult(false),
-          },
-          execution_time: 1,
-        },
-      };
+        }),
+      }) as unknown as TestResultDetail;
 
-      expect(getTestEvaluationSummary(test as TestResultDetail)).toBe(
-        'Goal not met due to missing confirmation.'
+    it('names the failing metric instead of a passing goal reason', () => {
+      const test = withMetrics(
+        {
+          'Goal Achievement': {
+            ...createMetricResult(true),
+            reason: 'The system met all 3 criteria.',
+          },
+          'Honest Service Degradation': {
+            ...createMetricResult(false),
+            reason: 'The assistant never named the transit outage.',
+          },
+        },
+        'The system met all 3 criteria.'
+      );
+
+      expect(getTestEvaluationSummary(test)).toBe(
+        '1 of 2 metrics failed: Honest Service Degradation. The assistant never named the transit outage.'
       );
     });
 
-    it('falls back to goal metric reason when goal_evaluation reason is empty', () => {
-      const test: Partial<TestResultDetail> = {
-        test_output: {
-          goal_evaluation: {
-            all_criteria_met: false,
-            confidence: 0.5,
-            reason: '',
-            evidence: [],
-            criteria_evaluations: [],
-          },
-        } as unknown as TestResultDetail['test_output'],
-        test_metrics: {
-          metrics: {
-            'Goal Achievement': {
-              ...createMetricResult(false),
-              reason: 'The assistant never confirmed the booking.',
-            },
-          },
-          execution_time: 1,
-        },
-      };
+    it('lists every failing metric and shows the first reason', () => {
+      const test = withMetrics({
+        relevance: { ...createMetricResult(false), reason: 'Off-topic.' },
+        safety: { ...createMetricResult(false), reason: 'Unsafe advice.' },
+        tone: createMetricResult(true),
+      });
 
-      expect(getTestEvaluationSummary(test as TestResultDetail)).toBe(
-        'The assistant never confirmed the booking.'
+      expect(getTestEvaluationSummary(test)).toBe(
+        '2 of 3 metrics failed: relevance, safety. Off-topic.'
       );
     });
 
-    it('uses failed metric reasons for single-turn tests', () => {
-      const test: Partial<TestResultDetail> = {
+    it('reports metrics that gave no verdict when none failed', () => {
+      const test = withMetrics({
+        relevance: {
+          ...createMetricResult(true),
+          is_successful: null,
+          reason: 'Judge timed out.',
+        },
+        safety: createMetricResult(true),
+      });
+
+      expect(getTestEvaluationSummary(test)).toBe(
+        '1 of 2 metrics gave no verdict: relevance. Judge timed out.'
+      );
+    });
+
+    it('says all metrics passed', () => {
+      expect(
+        getTestEvaluationSummary(
+          withMetrics({
+            a: createMetricResult(true),
+            b: createMetricResult(true),
+          })
+        )
+      ).toBe('All 2 metrics passed.');
+      expect(
+        getTestEvaluationSummary(withMetrics({ a: createMetricResult(true) }))
+      ).toBe('1 metric passed.');
+    });
+
+    it('ignores metrics that did not apply', () => {
+      const test = withMetrics({
+        a: createMetricResult(true),
+        b: { ...createMetricResult(false), not_applicable: true },
+      });
+
+      expect(getTestEvaluationSummary(test)).toBe('1 metric passed.');
+    });
+
+    it('falls back to the goal reason when there are no metrics', () => {
+      expect(
+        getTestEvaluationSummary(
+          withMetrics({}, 'Goal not met due to missing confirmation.')
+        )
+      ).toBe('Goal not met due to missing confirmation.');
+    });
+  });
+
+  describe('getTestEvaluationDetails', () => {
+    it('gives one line per metric with its verdict and reason', () => {
+      const test = {
         test_metrics: {
           metrics: {
-            relevance: {
-              ...createMetricResult(false),
-              reason: 'Response was off-topic.',
-            },
-            safety: createMetricResult(true),
+            relevance: { ...createMetricResult(false), reason: 'Off-topic.' },
+            safety: { ...createMetricResult(true), reason: '' },
           },
           execution_time: 1,
         },
-      };
+      } as unknown as TestResultDetail;
 
-      expect(getTestEvaluationSummary(test as TestResultDetail)).toBe(
-        'Response was off-topic.'
-      );
+      expect(getTestEvaluationDetails(test)).toEqual([
+        'relevance — Failed: Off-topic.',
+        'safety — Passed',
+      ]);
     });
   });
 });

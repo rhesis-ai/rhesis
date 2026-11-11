@@ -44,6 +44,7 @@ import AnnotationDrawer from '@/components/annotations/AnnotationDrawer';
 import {
   findStatusByCategory,
   getEffectiveTestResultStatus,
+  getTestEvaluationDetails,
 } from '@/utils/test-result-status';
 import {
   getEvaluationContent,
@@ -412,13 +413,28 @@ export default function TestsTableView({
         sortable: false,
         disableColumnMenu: true,
         valueGetter: (_, row) => getEvaluationContent(row),
-        renderCell: params => (
-          <Tooltip title={String(params.value ?? '')} enterDelay={500}>
-            <Typography variant="body2" sx={cellTextSx}>
-              {truncateText(String(params.value ?? ''), 150)}
-            </Typography>
-          </Tooltip>
-        ),
+        renderCell: params => {
+          const summary = String(params.value ?? '');
+          const details = getTestEvaluationDetails(params.row);
+          return (
+            <Tooltip
+              title={
+                details.length > 0 ? (
+                  <Box sx={{ whiteSpace: 'pre-line' }}>
+                    {details.join('\n\n')}
+                  </Box>
+                ) : (
+                  summary
+                )
+              }
+              enterDelay={500}
+            >
+              <Typography variant="body2" sx={cellTextSx}>
+                {truncateText(summary, 150)}
+              </Typography>
+            </Tooltip>
+          );
+        },
       },
       {
         field: 'tags',

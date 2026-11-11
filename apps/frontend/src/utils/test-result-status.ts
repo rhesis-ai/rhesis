@@ -2,9 +2,13 @@
  * Utility functions for determining test result status
  */
 
-import { TestResultDetail } from './api-client/interfaces/test-results';
+import type {
+  MetricResult,
+  TestResultDetail,
+} from './api-client/interfaces/test-results';
 import { Status } from './api-client/interfaces/status';
 import {
+  applicableMetrics,
   displayStatusOf,
   STATUS_LABEL,
   type TestResultStatus,
@@ -196,40 +200,55 @@ export function isGoalMetricName(name: string): boolean {
   );
 }
 
+function countMetrics(count: number): string {
+  return `${count} metric${count === 1 ? '' : 's'}`;
+}
+
+function metricVerdictLabel(metric: MetricResult): string {
+  if (metric.is_successful === true) return 'Passed';
+  if (metric.is_successful === false) return 'Failed';
+  return 'No verdict';
+}
+
 /**
  * Summary text for the Evaluation column in test run result tables.
- * Prefers goal evaluation / metric reasons over raw model output.
+ *
+ * Describes the whole test: how many metrics failed (or gave no verdict), which ones,
+ * and the first failing reason. It states facts about the metrics rather than the
+ * test's verdict, so it stays true when a person overrules the result.
  */
 export function getTestEvaluationSummary(test: TestResultDetail): string {
-  const metrics = test.test_metrics?.metrics ?? {};
-  const goalEvaluation = test.test_output?.goal_evaluation;
+  const metrics = Object.entries(applicableMetrics(test.test_metrics?.metrics));
 
+  if (metrics.length > 0) {
+    const total = metrics.length;
+    const failed = metrics.filter(([, m]) => m.is_successful === false);
+    const noVerdict = metrics.filter(([, m]) => m.is_successful == null);
+    const [headline, cause] =
+      failed.length > 0
+        ? [`${failed.length} of ${countMetrics(total)} failed`, failed]
+        : noVerdict.length > 0
+          ? [
+              `${noVerdict.length} of ${countMetrics(total)} gave no verdict`,
+              noVerdict,
+            ]
+          : [
+              total === 1 ? '1 metric passed' : `All ${total} metrics passed`,
+              [],
+            ];
+
+    if (cause.length === 0) return `${headline}.`;
+    const names = cause.map(([name]) => name).join(', ');
+    const reason = cause[0][1].reason?.trim();
+    return reason
+      ? `${headline}: ${names}. ${reason}`
+      : `${headline}: ${names}.`;
+  }
+
+  const goalEvaluation = test.test_output?.goal_evaluation;
   const goalReason = goalEvaluation?.reason?.trim();
   if (goalReason) {
     return goalReason;
-  }
-
-  const goalMetric = Object.entries(metrics).find(([name]) =>
-    isGoalMetricName(name)
-  )?.[1];
-  const goalMetricReason = goalMetric?.reason?.trim();
-  if (goalMetricReason) {
-    return goalMetricReason;
-  }
-
-  const failedMetricReasons = Object.values(metrics)
-    .filter(metric => !metric.is_successful)
-    .map(metric => metric.reason?.trim())
-    .filter(Boolean);
-  if (failedMetricReasons.length > 0) {
-    return failedMetricReasons.join(' · ');
-  }
-
-  const metricReasons = Object.values(metrics)
-    .map(metric => metric.reason?.trim())
-    .filter(Boolean);
-  if (metricReasons.length > 0) {
-    return metricReasons.join(' · ');
   }
 
   const evidence = goalEvaluation?.evidence
@@ -248,4 +267,17 @@ export function getTestEvaluationSummary(test: TestResultDetail): string {
   }
 
   return '';
+}
+
+/** One line per metric — "Name — Failed: reason" — for the Evaluation tooltip and search. */
+export function getTestEvaluationDetails(test: TestResultDetail): string[] {
+  return Object.entries(applicableMetrics(test.test_metrics?.metrics)).map(
+    ([name, metric]) => {
+      const reason = metric.reason?.trim();
+      const verdict = metricVerdictLabel(metric);
+      return reason
+        ? `${name} — ${verdict}: ${reason}`
+        : `${name} — ${verdict}`;
+    }
+  );
 }
