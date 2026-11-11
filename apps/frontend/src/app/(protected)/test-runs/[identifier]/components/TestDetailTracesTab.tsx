@@ -80,10 +80,19 @@ export default function TestDetailTracesTab({
     };
   }, [active, status, test.id, loadedFor]);
 
+  // Same size and place as TraceExplorer's own spinner, so the handover doesn't jump.
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-        <CircularProgress size={28} />
+      <Box
+        sx={{
+          height: '100%',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          p: 4,
+        }}
+      >
+        <CircularProgress />
       </Box>
     );
   }

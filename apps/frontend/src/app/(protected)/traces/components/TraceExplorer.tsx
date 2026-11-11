@@ -395,11 +395,16 @@ export default function TraceExplorer({
     onTraceUpdated?.();
   }, [refreshTrace, onTraceUpdated]);
 
+  // The fetch that last ran, so an embedded explorer shown again keeps what it loaded.
+  const fetchedWith = useRef<typeof fetchTrace | null>(null);
+
   useEffect(() => {
-    if (active && loadedTraceId && loadedProjectId) {
-      fetchTrace();
-    }
-  }, [active, loadedTraceId, loadedProjectId, fetchTrace]);
+    if (!active || !loadedTraceId || !loadedProjectId) return;
+    // A tab hidden and shown again would blank the trace and reset the view for the same data.
+    if (embedded && fetchedWith.current === fetchTrace) return;
+    fetchedWith.current = fetchTrace;
+    fetchTrace();
+  }, [active, embedded, loadedTraceId, loadedProjectId, fetchTrace]);
 
   // Reopening, or the parent opening another trace, starts from what the parent asks for.
   useEffect(() => {
@@ -500,7 +505,8 @@ export default function TraceExplorer({
   );
 
   const drawerContent = () => {
-    if (loading) {
+    // Before the first fetch starts there is no trace yet; that is loading, not empty.
+    if (loading || (active && loadedTraceId && !trace && !error)) {
       return (
         <>
           {bareCloseBar}
