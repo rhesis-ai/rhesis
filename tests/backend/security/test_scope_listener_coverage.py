@@ -4,6 +4,10 @@ EE models are mapped after the scope listeners register, so a filter set built o
 registration missed them and left those tables to RLS alone.
 """
 
+import os
+import subprocess
+import sys
+import textwrap
 import uuid
 
 import pytest
@@ -117,3 +121,26 @@ def test_destination_lookup_filters_on_org_without_rls(admin_test_db, test_org_i
 
     assert found is None
     assert destination.id not in {d.id for d in listed}
+
+
+@pytest.mark.security
+def test_cache_filled_before_ee_import_picks_up_ee_models():
+    """In a fresh process: fill the filter set first, then map the EE models."""
+    script = textwrap.dedent(
+        """
+        from rhesis.backend.app.models import scope_events
+        before = {m.__tablename__ for m, _ in scope_events.tenant_classes()}
+        assert "role" not in before, before
+        import rhesis.backend.ee.rbac.models  # noqa: F401
+        import rhesis.backend.ee.audit.streaming.models  # noqa: F401
+        after = {m.__tablename__ for m, _ in scope_events.tenant_classes()}
+        missing = {"role", "organization_member", "audit_destination"} - after
+        assert not missing, missing
+        """
+    )
+    env = {**os.environ, "APP_DB_USER": os.environ.get("APP_DB_USER", "x")}
+    env.setdefault("APP_DB_PASS", "x")
+    result = subprocess.run(
+        [sys.executable, "-c", script], env=env, capture_output=True, text=True, timeout=120
+    )
+    assert result.returncode == 0, result.stderr[-2000:]

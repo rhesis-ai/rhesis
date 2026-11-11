@@ -335,6 +335,17 @@ class TestTokenOwnerScoping:
         }
         assert _token_row(test_db, colleague_token.id).deleted_at is None
 
+    def test_update_rejects_scopes(self, authenticated_client, test_db, authenticated_user_id):
+        from rhesis.backend.app.models.user import User
+        from tests.backend.fixtures.test_setup import create_test_api_token
+
+        own = create_test_api_token(test_db, test_db.get(User, uuid.UUID(authenticated_user_id)))
+
+        response = authenticated_client.put(f"/tokens/{own.id}", json={"scopes": ["x:read"]})
+
+        assert response.status_code == 422
+        assert _token_row(test_db, own.id).scopes is None
+
     def test_update_ignores_secret_fields(
         self, authenticated_client, test_db, authenticated_user_id
     ):
