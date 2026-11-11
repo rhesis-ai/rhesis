@@ -15,8 +15,10 @@ from rhesis.backend.ee.rbac.models import SCOPE_ORGANIZATION, SCOPE_PROJECT
 from rhesis.backend.ee.rbac.router import (
     assign_org_role,
     check_project_role_assignment,
+    delete_role,
+    update_role,
 )
-from rhesis.backend.ee.rbac.schemas import OrgRoleAssign
+from rhesis.backend.ee.rbac.schemas import OrgRoleAssign, RoleUpdate
 from tests.backend.ee.rbac._rbac_helpers import (
     _create_org,
     _create_project,
@@ -92,3 +94,31 @@ def test_unknown_role_is_404(orgs):
         check_project_role_assignment(orgs["db"], orgs["actor"], uuid.uuid4(), orgs["project_a"])
 
     assert exc.value.status_code == 404
+
+
+def test_update_other_orgs_role_is_404(orgs):
+    foreign = _custom_role(orgs["db"], orgs["org_b"], name="B edit", scope=SCOPE_PROJECT)
+
+    with pytest.raises(HTTPException) as exc:
+        update_role(
+            role_id=foreign.id,
+            body=RoleUpdate(display_name="taken"),
+            db=orgs["db"],
+            current_user=orgs["actor"],
+            _org=None,
+        )
+
+    assert exc.value.status_code == 404
+    orgs["db"].refresh(foreign)
+    assert foreign.display_name == "B edit"
+
+
+def test_delete_other_orgs_role_is_404(orgs):
+    foreign = _custom_role(orgs["db"], orgs["org_b"], name="B delete", scope=SCOPE_PROJECT)
+
+    with pytest.raises(HTTPException) as exc:
+        delete_role(role_id=foreign.id, db=orgs["db"], current_user=orgs["actor"], _org=None)
+
+    assert exc.value.status_code == 404
+    orgs["db"].refresh(foreign)
+    assert foreign.deleted_at is None

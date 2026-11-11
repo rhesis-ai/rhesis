@@ -608,8 +608,6 @@ def update_role(
     role = _get_role_or_404(role_id, db, current_user.organization_id)
     if role.is_built_in:
         raise HTTPException(status_code=400, detail="Built-in roles are immutable")
-    if role.organization_id != current_user.organization_id:
-        raise HTTPException(status_code=404, detail="Role not found")
 
     principal = resolve_principal(current_user)
     actor_permissions = _get_actor_permissions(principal, project_id=None, db=db)
@@ -668,8 +666,6 @@ def delete_role(
     role = _get_role_or_404(role_id, db, current_user.organization_id)
     if role.is_built_in:
         raise HTTPException(status_code=400, detail="Built-in roles cannot be deleted")
-    if role.organization_id != current_user.organization_id:
-        raise HTTPException(status_code=404, detail="Role not found")
 
     org_id = current_user.organization_id
 
