@@ -322,6 +322,63 @@ class TestScopedTokenMint:
 
 @pytest.mark.unit
 @pytest.mark.security
+class TestScopedTokenRefresh:
+    def _tokens(self, db: Session, org_id: str, target_scopes):
+        user = _user(db, org_id)
+        caller = create_test_api_token(db, user, name="caller")
+        caller.scopes = ["token:create", "token:read"]
+        target = create_test_api_token(db, user, name="target")
+        target.scopes = target_scopes
+        db.flush()
+        return caller, target
+
+    def _refresh_token(self, client: TestClient, caller, target):
+        return client.post(f"/tokens/{target.id}/refresh", headers=_bearer(caller.token), json={})
+
+    def test_scoped_token_cannot_refresh_an_unscoped_token(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        caller, target = self._tokens(test_db, test_org_id, None)
+        old_hash = target.token_hash
+
+        response = self._refresh_token(client, caller, target)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        test_db.refresh(target)
+        assert target.token_hash == old_hash
+
+    def test_scoped_token_cannot_refresh_a_wider_token(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        caller, target = self._tokens(test_db, test_org_id, ["token:create", "token:delete"])
+        response = self._refresh_token(client, caller, target)
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_scoped_token_can_refresh_a_token_within_its_scopes(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        caller, target = self._tokens(test_db, test_org_id, ["token:read"])
+        response = self._refresh_token(client, caller, target)
+        assert response.status_code == status.HTTP_200_OK, response.text
+
+    def test_project_bound_token_cannot_refresh_another_projects_token(self):
+        from fastapi import HTTPException
+
+        from rhesis.backend.app.auth.principal import AuthKind, Principal
+        from rhesis.backend.app.routers.token import _check_refresh_allowed
+
+        principal = Principal(
+            uuid.uuid4(), uuid.uuid4(), AuthKind.TOKEN, scopes=None, token_project_id=uuid.uuid4()
+        )
+        for project_id in (None, uuid.uuid4()):
+            target = models.Token(scopes=None, project_id=project_id)
+            with pytest.raises(HTTPException) as exc:
+                _check_refresh_allowed(target, principal, db=None)
+            assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.unit
+@pytest.mark.security
 class TestEmailVerificationLinkIsSingleUse:
     def _unverified(self, db: Session, org_id: str) -> models.User:
         user = _user(db, org_id)

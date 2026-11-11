@@ -131,6 +131,24 @@ def _requested_scopes(data: dict, principal: "Principal") -> list | None:
     return None
 
 
+def _check_refresh_allowed(token, principal: "Principal", db: Session) -> None:
+    """A scoped or project-bound token may only refresh tokens no wider than itself.
+
+    Refreshing returns the new token value, so it is the same as minting it.
+    """
+    if principal.kind != AuthKind.TOKEN:
+        return
+    if principal.token_project_id is not None and token.project_id != principal.token_project_id:
+        raise HTTPException(status_code=403, detail="Token belongs to a different project")
+    if principal.scopes is None:
+        return
+    if token.scopes is None:
+        raise HTTPException(
+            status_code=403, detail="A scoped token cannot refresh an unscoped token"
+        )
+    _validate_token_scopes(list(token.scopes), principal, db)
+
+
 def _validate_token_scopes(scopes: list[str], principal: "Principal", db: Session) -> None:
     """Raise 422 when any requested scope exceeds the caller's own permissions.
 
@@ -342,6 +360,7 @@ def update_token(
 
 @router.post("/{token_id}/refresh", response_model=TokenCreateResponse)
 def refresh_token(
+    request: Request,
     token_id: uuid.UUID,
     data: dict = Body(...),
     db: Session = Depends(get_tenant_db_session),
@@ -350,6 +369,13 @@ def refresh_token(
 ):
     """Refresh token with new value and expiration"""
     organization_id, user_id = tenant_context
+
+    token = token_crud.get_token(
+        db=db, token_id=token_id, organization_id=organization_id, user_id=user_id
+    )
+    if not token:
+        raise HTTPException(status_code=404, detail="Token not found")
+    _check_refresh_allowed(token, resolve_principal_from_request(current_user, request), db)
 
     new_token_value = generate_api_token()
     expires_in_days = data.get("expires_in_days")
