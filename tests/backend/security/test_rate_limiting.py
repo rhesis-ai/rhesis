@@ -15,7 +15,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
@@ -277,6 +277,66 @@ def _request_as(user_id: str | None) -> StarletteRequest:
     if user_id:
         request.state.user = SimpleNamespace(id=user_id)
     return request
+
+
+def test_ratelimit_enabled_env_turns_the_limiter_off(monkeypatch):
+    monkeypatch.setenv("RATELIMIT_ENABLED", "false")
+    assert not rate_limit.build_limiter("memory://").enabled
+    monkeypatch.setenv("RATELIMIT_ENABLED", "true")
+    assert rate_limit.build_limiter("memory://").enabled
+
+
+def test_user_key_is_read_after_auth_dependencies_run():
+    """The decorator's key_func sees request.state.user set by the auth dependency."""
+    memory = rate_limit.build_limiter("memory://")
+    memory.enabled = True
+    mini = FastAPI()
+    mini.state.limiter = memory
+    mini.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    def fake_auth(request: Request, x_user: str = Header()):
+        request.state.user = SimpleNamespace(id=x_user)
+
+    @mini.post("/invite", dependencies=[Depends(fake_auth)])
+    @memory.limit("1/minute", key_func=get_user_identifier)
+    def invite(request: Request):
+        return {"ok": True}
+
+    with TestClient(mini) as c:
+        assert c.post("/invite", headers={"x-user": "a"}).status_code == 200
+        assert c.post("/invite", headers={"x-user": "b"}).status_code == 200
+        assert c.post("/invite", headers={"x-user": "a"}).status_code == 429
+
+
+def test_invite_route_limit_keys_on_the_inviter(
+    limiter_on, monkeypatch, authenticated_client, authenticated_user_id, quotas_disabled
+):
+    """POST /users/ counts against the signed-in user, not the client IP."""
+    from unittest.mock import patch
+
+    name = "rhesis.backend.app.routers.user.create_user"
+    one_per_minute = list(
+        LimitGroup("1/minute", get_user_identifier, None, False, None, None, None, 1, True)
+    )
+    monkeypatch.setitem(limiter._route_limits, name, one_per_minute)
+    headers = {"X-Forwarded-For": _fresh_ip()}
+
+    def invite() -> int:
+        body = {"email": f"invite_{uuid.uuid4().hex[:10]}@rhesis-test.com", "name": "Invitee"}
+        return authenticated_client.post("/users/", json=body, headers=headers).status_code
+
+    # Earlier tests in this worker may have used the window; start from a clean one.
+    limiter.limiter.clear(one_per_minute[0].limit, f"user:{authenticated_user_id}", name)
+    with patch(
+        "rhesis.backend.app.routers.user.validate_and_normalize_email",
+        side_effect=lambda email, check_deliverability=False: email,
+    ):
+        assert invite() in (200, 201)
+        assert invite() == 429
+    stats = limiter.limiter.get_window_stats(
+        one_per_minute[0].limit, f"user:{authenticated_user_id}", name
+    )
+    assert stats.remaining == 0
 
 
 def test_user_identifier_keys_on_the_signed_in_account():

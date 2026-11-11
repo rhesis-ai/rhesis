@@ -95,6 +95,9 @@ def build_limiter(storage_uri: Optional[str] = None) -> Limiter:
     and probes Redis again with backoff (fail open, but still bounded per
     process). Failing closed would make Redis an outage for login and every
     other route; the monthly quotas stay enforced either way.
+
+    slowapi itself reads ``RATELIMIT_ENABLED`` from the environment (or ``.env``)
+    here, so ``RATELIMIT_ENABLED=false`` turns every limit off.
     """
     uri = storage_uri or rate_limit_storage_uri()
     options = {}
