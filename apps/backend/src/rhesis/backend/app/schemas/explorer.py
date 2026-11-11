@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import UUID4, BaseModel, ConfigDict, Field, computed_field
 
 from rhesis.backend.app.schemas import Base
+from rhesis.backend.app.schemas.base import BulkIds
 from rhesis.backend.app.schemas.explorer_metadata import ExplorerLabel, ExplorerMetricEvalDetail
 from rhesis.backend.app.schemas.test_set import TestSet as TestSetSchema
 
@@ -145,7 +146,7 @@ class ExportExplorerTestSetResponse(Base):
 class ExplorerTestSetBulkDeleteRequest(BaseModel):
     """Request for DELETE /explorer/bulk."""
 
-    test_set_ids: List[UUID4]
+    test_set_ids: BulkIds
 
 
 class ExplorerTestSetBulkDeleteResponse(BaseModel):
@@ -164,7 +165,7 @@ class GenerateOutputsRequest(Base):
     """Request body for generating test outputs via endpoint invocation."""
 
     endpoint_id: Optional[UUID4] = None
-    test_ids: Optional[List[UUID4]] = None
+    test_ids: Optional[BulkIds] = None
     topic: Optional[str] = None
     include_subtopics: bool = True
     overwrite: bool = False
@@ -202,7 +203,7 @@ class EvaluateRequest(Base):
     """Request body for evaluating explorer tests with specified metrics."""
 
     metric_names: Optional[List[str]] = None
-    test_ids: Optional[List[UUID4]] = None
+    test_ids: Optional[BulkIds] = None
     topic: Optional[str] = None
     include_subtopics: bool = True
     overwrite: bool = False

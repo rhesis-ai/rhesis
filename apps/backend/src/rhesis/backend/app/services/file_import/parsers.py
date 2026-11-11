@@ -8,6 +8,7 @@ import csv
 import io
 import json
 import logging
+import zipfile
 from typing import Any, Dict, List, Tuple
 
 logger = logging.getLogger(__name__)
@@ -15,6 +16,20 @@ logger = logging.getLogger(__name__)
 
 # Maximum sample rows returned during the analyze step
 MAX_SAMPLE_ROWS = 5
+
+# Largest total uncompressed size of an .xlsx archive; uploads are capped at 10 MB
+# compressed, but a zip can expand far beyond that.
+MAX_XLSX_UNCOMPRESSED_BYTES = 200 * 1024 * 1024
+
+
+def _check_xlsx_size(file_bytes: bytes) -> None:
+    try:
+        with zipfile.ZipFile(io.BytesIO(file_bytes)) as archive:
+            total = sum(info.file_size for info in archive.infolist())
+    except zipfile.BadZipFile as exc:
+        raise ValueError("File is not a valid Excel workbook") from exc
+    if total > MAX_XLSX_UNCOMPRESSED_BYTES:
+        raise ValueError("Excel file expands to more data than an import allows")
 
 
 def detect_format(filename: str) -> str:
@@ -174,6 +189,7 @@ def _parse_xlsx(file_bytes: bytes) -> List[Dict[str, Any]]:
             "openpyxl is required for Excel import. Install it with: pip install openpyxl"
         ) from exc
 
+    _check_xlsx_size(file_bytes)
     wb = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
 
     # Try the active sheet first, then fall back to the others

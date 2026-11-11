@@ -11,10 +11,10 @@ Rows are returned without secret columns (see
 """
 
 import logging
-from typing import Dict, List
+from typing import Annotated, Dict, List
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, Query
+from fastapi import Body, Depends, HTTPException, Query
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import UnmappedClassError
@@ -25,6 +25,7 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.base import Base
 from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.schemas.base import MAX_BULK_ITEMS
 from rhesis.backend.app.services import recycle as recycle_service
 from rhesis.backend.app.utils.crud_utils import (
     get_deleted_items,
@@ -403,7 +404,7 @@ def get_recycle_bin_counts(
 @router.post("/bulk-restore/{model_name}", **capability(Permission.Recycle.RESTORE))
 def bulk_restore_from_recycle_bin(
     model_name: str,
-    item_ids: List[UUID],
+    item_ids: Annotated[List[UUID], Body(max_length=MAX_BULK_ITEMS)],
     db: Session = Depends(get_tenant_db_session),
     current_user: models.User = Depends(require_current_user_or_token),
     tenant_context=Depends(get_tenant_context),

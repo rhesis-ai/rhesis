@@ -1,9 +1,9 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import UUID4, BaseModel, ConfigDict, field_validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator
 
-from rhesis.backend.app.schemas.base import Base, ServerIdentity
+from rhesis.backend.app.schemas.base import MAX_BULK_ITEMS, Base, BulkIds, ServerIdentity
 from rhesis.backend.app.schemas.references import (
     CategoryReference,
     PromptReference,
@@ -184,7 +184,7 @@ class TestBulkCreate(BaseModel):
 
 
 class TestBulkCreateRequest(BaseModel):
-    tests: List[TestBulkCreate]
+    tests: List[TestBulkCreate] = Field(max_length=MAX_BULK_ITEMS)
     test_set_id: Optional[UUID4] = None
 
 
@@ -195,7 +195,7 @@ class TestBulkCreateResponse(BaseModel):
 
 
 class TestBulkDeleteRequest(BaseModel):
-    test_ids: List[UUID4]
+    test_ids: BulkIds
 
 
 class TestBulkDeleteResponse(BaseModel):

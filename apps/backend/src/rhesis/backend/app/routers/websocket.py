@@ -27,6 +27,7 @@ from rhesis.backend.app.auth.user_utils import (
     get_secret_key,
     require_current_user_or_token,
 )
+from rhesis.backend.app.constants import WS_MAX_MESSAGE_SIZE
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.websocket import EventType, WebSocketMessage
@@ -36,8 +37,7 @@ logger = logging.getLogger(__name__)
 
 router = RhesisRouter(tags=["websocket"], resource="websocket")
 
-# Security: Maximum message size (10MB) to accommodate base64-encoded file attachments
-MAX_MESSAGE_SIZE = 10 * 1024 * 1024
+MAX_MESSAGE_SIZE = WS_MAX_MESSAGE_SIZE
 
 
 class WebSocketTokenResponse(BaseModel):

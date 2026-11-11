@@ -1,6 +1,12 @@
 import os
 from enum import Enum
 
+# Largest WebSocket message accepted, sized for base64-encoded file attachments. The
+# server (uvicorn_worker.py, start.sh) refuses bigger frames before buffering them.
+WS_MAX_MESSAGE_SIZE = 10 * 1024 * 1024
+# Messages the server buffers per connection before the app reads them.
+WS_MAX_QUEUE = 4
+
 
 # Entity Types Enum - Unified for all entities including comments
 class EntityType(Enum):

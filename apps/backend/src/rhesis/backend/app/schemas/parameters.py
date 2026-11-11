@@ -38,6 +38,7 @@ from pydantic import (
 
 from rhesis.backend.app.auth.capabilities import ResourceType
 from rhesis.backend.app.schemas.affordances import WithPermittedActions
+from rhesis.backend.app.schemas.base import BulkIds
 
 # --------------------------------------------------------------------------- #
 # Built-in environments                                                      #
@@ -722,7 +723,7 @@ class EnvironmentRegisterRequest(BaseModel):
 
 
 class ExperimentBulkDeleteRequest(BaseModel):
-    experiment_ids: list[UUID4]
+    experiment_ids: BulkIds
 
 
 class ExperimentBulkDeleteResponse(BaseModel):

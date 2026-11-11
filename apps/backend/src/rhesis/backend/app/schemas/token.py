@@ -3,7 +3,7 @@ from typing import ClassVar, List, Optional, Set
 
 from pydantic import UUID4, BaseModel
 
-from rhesis.backend.app.schemas.base import Base, ServerIdentity
+from rhesis.backend.app.schemas.base import Base, BulkIds, ServerIdentity
 
 
 class TokenBase(Base):
@@ -82,7 +82,7 @@ class TokenCreateResponse(Base, ServerIdentity):
 
 
 class TokenBulkDeleteRequest(BaseModel):
-    token_ids: List[UUID4]
+    token_ids: BulkIds
 
 
 class TokenBulkDeleteResponse(BaseModel):
