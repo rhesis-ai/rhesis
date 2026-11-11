@@ -37,7 +37,9 @@ def fetch_ranges() -> tuple[list[str], list[str]]:
     result = body["result"]
     v4 = sorted(result["ipv4_cidrs"], key=ipaddress.ip_network)
     v6 = sorted(result["ipv6_cidrs"], key=ipaddress.ip_network)
-    # A short list means a broken response, and writing it would lock visitors out.
+    # A short list means a broken response. Writing it would stop nginx trusting
+    # CF-Connecting-IP from the missing ranges, so those visitors would be logged
+    # and rate-limited by the Cloudflare edge IP.
     if len(v4) < 10 or len(v6) < 5:
         raise SystemExit(f"Refusing suspiciously short list: {len(v4)} v4, {len(v6)} v6")
     return v4, v6
@@ -47,10 +49,10 @@ def render_block(fmt: str, indent: str, old: list[str], v4: list[str], v6: list[
     if fmt == "list-v4":
         return [f"{indent}- {cidr}\n" for cidr in v4]
     if fmt == "csv":
-        if len(old) != 1 or not CSV_LINE.match(old[0]):
+        match = CSV_LINE.match(old[0]) if len(old) == 1 else None
+        if not match:
             raise SystemExit(f'csv block must hold exactly one `key: "..."` line, got {old!r}')
-        prefix = CSV_LINE.match(old[0]).group("prefix")
-        return [f'{prefix}"{",".join(v4 + v6)}"\n']
+        return [f'{match["prefix"]}"{",".join(v4 + v6)}"\n']
     raise SystemExit(f"Unknown cloudflare-ips block format: {fmt}")
 
 
