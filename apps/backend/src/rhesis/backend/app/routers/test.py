@@ -3,7 +3,7 @@ from typing import List, Optional
 from uuid import UUID
 
 import anyio
-from fastapi import Depends, HTTPException, Query, Response
+from fastapi import Depends, HTTPException, Query, Request, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
@@ -44,9 +44,18 @@ from rhesis.backend.app.utils.execution_validation import (
 from rhesis.backend.app.utils.hidden_rows import exclude_metric_owned
 from rhesis.backend.app.utils.model_errors import ModelNotConfiguredError
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.app.utils.rate_limit import EXECUTION_RATE_LIMIT
+from rhesis.backend.app.utils.rate_limit import (
+    EXECUTION_RATE_LIMIT,
+    GENERATION_RATE_LIMIT,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _forced(request: Request) -> bool:
+    """Only a forced re-interpretation is sure to call the LLM."""
+    return request.query_params.get("force", "").lower() in ("1", "true", "yes", "on")
+
 
 router = RhesisRouter(
     prefix="/tests", tags=["tests"], responses={404: {"description": "Not found"}}, resource="test"
@@ -179,6 +188,7 @@ def bulk_delete_tests(
 @router.post(
     "/extract-from-conversation",
     response_model=schemas.ConversationTestExtractionResponse,
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
 )
 def extract_test_from_conversation_endpoint(
     request: schemas.ConversationToTestRequest,
@@ -356,6 +366,7 @@ def read_test_interpretation(
     "/{test_id}/interpretation",
     response_model=EvaluationContractStatus,
     **capability(Permission.Test.UPDATE),
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT, when=_forced)],
 )
 def interpret_test(
     test_id: UUID,

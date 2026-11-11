@@ -8,6 +8,8 @@ the shared Redis never carries counts between tests.
 
 from __future__ import annotations
 
+import ast
+import os
 import subprocess
 import sys
 import uuid
@@ -67,6 +69,46 @@ COSTLY_ROUTES = [
     ("POST", "/metrics/{metric_id}/improve"),
     ("POST", "/metrics/{metric_id}/tuning/run"),
     ("POST", "/metrics/{metric_id}/tuning/improve"),
+    ("POST", "/explorer/{test_set_identifier}/generate_outputs"),
+    ("POST", "/explorer/{test_set_identifier}/evaluate"),
+    ("POST", "/explorer/{test_set_identifier}/generate_suggestions"),
+    ("POST", "/explorer/{test_set_identifier}/generate_suggestion_outputs"),
+    ("POST", "/explorer/{test_set_identifier}/suggestion_pipeline"),
+    ("POST", "/explorer/{test_set_identifier}/evaluate_suggestions"),
+    ("POST", "/tests/{test_id}/interpretation"),
+    ("POST", "/tests/extract-from-conversation"),
+    ("POST", "/test_runs/{test_run_id}/rescore"),
+    ("POST", "/preflight-checks"),
+    ("POST", "/connector/trigger"),
+    ("POST", "/sources/{source_id}/embeddings/compute-graph"),
+    ("POST", "/test_sets/{test_set_identifier}/embeddings/compute-graph"),
+    ("POST", "/tools/{tool_id}/extract"),
+]
+
+# Handlers that call one of these directly start a job, call a model or call a
+# user's endpoint. A new one fails the gate below until it gets a per-user limit
+# or a reason here.
+COSTLY_CALLS = {
+    "launch_job",
+    "delay",
+    "apply_async",
+    "invoke_endpoint",
+    "invoke_endpoint_off_loop",
+    "invoke_endpoint_for_suggestions_stream",
+    "resolve_model",
+    "build_model_or_raise",
+    "a_generate",
+    "generate",
+}
+COSTLY_CALL_EXEMPT = {
+    # Text extraction for uploaded files, bounded by the upload size cap.
+    "routers/file.py:upload_files",
+    # SDK span export, metered by the tracing quota.
+    "routers/telemetry.py:ingest_trace",
+}
+ROUTER_DIRS = [
+    BACKEND_DIR / "src" / "rhesis" / "backend" / "app" / "routers",
+    BACKEND_DIR.parents[1] / "ee" / "backend" / "src" / "rhesis" / "backend" / "ee",
 ]
 
 AUTH_ROUTE_FUNCTIONS = [
@@ -118,7 +160,7 @@ def test_limiter_counts_live_in_redis():
     assert rate_limit.rate_limit_storage_uri().endswith("/11")
 
 
-def test_counts_are_shared_across_processes():
+def test_counts_are_shared_across_processes(limiter_on):
     """A second process (another gunicorn worker or pod) sees the same count."""
     namespace = "shared-count-test"
     key = uuid.uuid4().hex
@@ -127,7 +169,10 @@ def test_counts_are_shared_across_processes():
         f"for _ in range(3): hit_post_parse_limit('3/minute', namespace={namespace!r}, "
         f"key={key!r})\n"
     )
-    subprocess.run([sys.executable, "-c", script], cwd=BACKEND_DIR, check=True, timeout=120)
+    env = {**os.environ, "RATELIMIT_ENABLED": "true"}
+    subprocess.run(
+        [sys.executable, "-c", script], cwd=BACKEND_DIR, env=env, check=True, timeout=120
+    )
 
     with pytest.raises(HTTPException) as exc:
         hit_post_parse_limit("3/minute", namespace=namespace, key=key)
@@ -137,6 +182,7 @@ def test_counts_are_shared_across_processes():
 def test_unreachable_redis_falls_back_to_memory(monkeypatch):
     """Requests keep working with Redis down, still limited per process."""
     offline = rate_limit.build_limiter("redis://127.0.0.1:1/11")
+    offline.enabled = True
     monkeypatch.setattr(rate_limit, "limiter", offline)
     key = uuid.uuid4().hex
 
@@ -266,6 +312,44 @@ def test_per_user_limit_keys_on_the_account(limiter_on):
     with pytest.raises(HTTPException) as exc:
         check(request, alice)
     assert exc.value.status_code == 429
+
+
+def _route_handlers(tree):
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        for dec in node.decorator_list:
+            func = getattr(dec, "func", None)
+            if (
+                isinstance(func, ast.Attribute)
+                and isinstance(func.value, ast.Name)
+                and func.value.id == "router"
+                and func.attr in {"get", "post", "put", "patch", "delete"}
+            ):
+                yield node, dec
+
+
+def _called_names(node):
+    for call in ast.walk(node):
+        if isinstance(call, ast.Call):
+            func = call.func
+            yield func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+
+
+def test_every_route_with_a_costly_call_has_a_per_user_limit():
+    missing = []
+    for root in ROUTER_DIRS:
+        assert root.is_dir(), root
+        for path in root.rglob("*.py"):
+            for handler, decorator in _route_handlers(ast.parse(path.read_text())):
+                if not COSTLY_CALLS.intersection(_called_names(handler)):
+                    continue
+                label = f"{path.parent.name}/{path.name}:{handler.name}"
+                if label in COSTLY_CALL_EXEMPT:
+                    continue
+                if "per_user_rate_limit" not in ast.unparse(decorator):
+                    missing.append(label)
+    assert not missing, f"costly routes without per_user_rate_limit: {missing}"
 
 
 # --- user_limiter key -------------------------------------------------------------

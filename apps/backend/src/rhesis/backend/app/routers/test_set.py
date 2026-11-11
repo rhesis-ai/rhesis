@@ -53,7 +53,10 @@ from rhesis.backend.app.utils.execution_validation import (
     validate_generation_model,
 )
 from rhesis.backend.app.utils.odata import apply_select
-from rhesis.backend.app.utils.rate_limit import EXECUTION_RATE_LIMIT, GENERATION_RATE_LIMIT
+from rhesis.backend.app.utils.rate_limit import (
+    EXECUTION_RATE_LIMIT,
+    GENERATION_RATE_LIMIT,
+)
 from rhesis.backend.events.audit_actions import audit_action
 from rhesis.backend.jobs import launch_job
 from rhesis.backend.jobs.embedding.graph import compute_test_set_graph_task
@@ -888,6 +891,7 @@ def remove_metric_from_test_set(
     "/{test_set_identifier}/embeddings/compute-graph",
     response_model=EmbeddingGraphComputeResponse,
     **capability(Permission.TestSet.EXECUTE),
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
 )
 def compute_test_set_embedding_graph(
     test_set_identifier: str,

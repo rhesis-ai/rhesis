@@ -15,6 +15,7 @@ from rhesis.backend.app.dependencies import (
     get_off_loop_tenant_session,
     get_tenant_context,
     get_tenant_db_session,
+    per_user_rate_limit,
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
@@ -36,6 +37,7 @@ from rhesis.backend.app.services.source import (
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
+from rhesis.backend.app.utils.rate_limit import GENERATION_RATE_LIMIT
 from rhesis.backend.jobs.embedding.graph import compute_source_graph_task
 
 router = RhesisRouter(
@@ -309,6 +311,7 @@ def read_source_with_content(
     "/{source_id}/embeddings/compute-graph",
     response_model=EmbeddingGraphComputeResponse,
     **capability("source:update"),
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
 )
 def compute_source_embedding_graph(
     source_id: uuid.UUID,

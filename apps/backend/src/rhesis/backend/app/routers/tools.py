@@ -59,7 +59,9 @@ from rhesis.backend.app.services.tool.rest import (
     run_rest_health_check,
 )
 from rhesis.backend.app.utils.decorators import with_count_header
-from rhesis.backend.app.utils.rate_limit import PROBE_RATE_LIMIT
+from rhesis.backend.app.utils.rate_limit import (
+    PROBE_RATE_LIMIT,
+)
 from rhesis.sdk.agents.mcp.exceptions import MCPError
 
 logger = logging.getLogger(__name__)
@@ -354,7 +356,11 @@ def update_tool(
     return db_tool
 
 
-@router.post("/{tool_id}/extract", response_model=ExtractToolResponse)
+@router.post(
+    "/{tool_id}/extract",
+    response_model=ExtractToolResponse,
+    dependencies=[per_user_rate_limit(PROBE_RATE_LIMIT)],
+)
 async def extract_tool_item(
     tool_id: uuid.UUID,
     request: ExtractToolRequest,
