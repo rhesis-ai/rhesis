@@ -133,6 +133,18 @@ def _annotation_to_api(
     )
 
 
+def attach_tuning_case_counts(
+    db: Session, metrics: Sequence[models.Metric], organization_id: str
+) -> Sequence[models.Metric]:
+    """Set ``tuning_cases_count`` on each metric, read by ``MetricDetail``, in one query."""
+    counts = crud_metric_tuning.get_tuning_case_counts(
+        db, [metric.id for metric in metrics], organization_id
+    )
+    for metric in metrics:
+        metric.tuning_cases_count = counts.get(str(metric.id), 0)
+    return metrics
+
+
 def list_tuning_cases(
     db: Session, metric: models.Metric, organization_id: str
 ) -> List[MetricTuningCase]:

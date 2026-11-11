@@ -24,6 +24,7 @@ from rhesis.backend.app.services.metric_tuning.annotations import (
     annotate_case,
 )
 from rhesis.backend.app.services.metric_tuning.cases import (
+    attach_tuning_case_counts,
     create_tuning_case,
     delete_tuning_case,
     get_tuning_case,
@@ -82,6 +83,7 @@ __all__ = [
     "agreement_over",
     "annotate_case",
     "annotation_still_stands",
+    "attach_tuning_case_counts",
     "case_outcome",
     "create_tuning_case",
     "delete_tuning_case",

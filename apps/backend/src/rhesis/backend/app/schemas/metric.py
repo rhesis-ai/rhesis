@@ -222,6 +222,8 @@ class MetricDetail(Metric):
     name: Optional[str] = None
     model: Optional[ModelReference] = None
     requirements: Optional[List[RequirementReference]] = []
+    # Filled by the list endpoint only; None elsewhere rather than a misleading 0.
+    tuning_cases_count: Optional[int] = None
 
 
 class GenerateMetricRequest(Base):
