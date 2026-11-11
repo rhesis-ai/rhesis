@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import pytest
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from opentelemetry.trace import StatusCode
 
 from travel_agent.state import (
     UNPLACEABLE_REASONS,
@@ -328,3 +332,24 @@ def test_a_geocoder_outage_leaves_the_name_alone(reason):
     assert not needs_a_real_city(brief)
     assert missing_slots(brief) == ["interests", "budget"]
     assert needs_resolution(brief), "a service that was down is worth another go"
+
+
+def test_marking_a_service_unavailable_fails_the_current_span():
+    """A tool that degrades still returns normally, so the span must carry the failure."""
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+
+    with provider.get_tracer(__name__).start_as_current_span("ai.tool.invoke"):
+        mark_unavailable(tokyo(), "dining", "request timed out")
+
+    (span,) = exporter.get_finished_spans()
+    assert span.status.status_code is StatusCode.ERROR
+    assert span.status.description == "dining unavailable: request timed out"
+    assert span.attributes["travel_agent.degraded_service"] == "dining"
+
+
+def test_marking_unavailable_outside_a_span_only_updates_the_brief():
+    brief = tokyo()
+    mark_unavailable(brief, "weather", "  ")
+    assert brief.unavailable == {"weather": "unavailable"}

@@ -16,10 +16,11 @@ from opentelemetry import trace as otel_trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from opentelemetry.trace import StatusCode
 from rhesis.telemetry.attributes import AIAttributes
 
 from rhesis.sdk.telemetry.integrations.agent_framework import MAFIntegration
-from tests.mocks import FakeHTTP, back, call, client_for, handoff, landmarks, ok, text
+from tests.mocks import FakeHTTP, back, call, client_for, handoff, landmarks, ok, text, timeout
 from travel_agent.runner import run_turn
 from travel_agent.state import TripBrief, TripLeg
 
@@ -112,6 +113,30 @@ async def test_turn_emits_the_expected_span_kinds(spans, monkeypatch):
     assert "ai.agent.invoke" in names, "per-agent activation spans are the graph's nodes"
     assert "ai.llm.invoke" in names
     assert "ai.tool.invoke" in names, "domain tool calls must still be traced"
+
+
+async def test_a_degraded_service_fails_its_tool_span(spans, monkeypatch):
+    """The tool returns normally on an outage, so only the span status can show it failed."""
+    FakeHTTP({"weather": timeout()}).install(monkeypatch)
+    brief = TripBrief(legs=[TripLeg(city="Tokyo", days=3, lat=35.68, lon=139.69)])
+
+    await run_turn(
+        brief,
+        "What's the weather in Tokyo?",
+        client=client_for(
+            handoff("conditions_scout"),
+            call("get_weather", city="Tokyo"),
+            back(),
+            text("The forecast is unavailable right now."),
+        ),
+    )
+
+    tool_spans = [s for s in spans() if s.name == "ai.tool.invoke"]
+    weather = [s for s in tool_spans if "weather" in str(s.attributes.get("ai.tool.name", ""))]
+    assert weather, f"no get_weather span; saw {[dict(s.attributes) for s in tool_spans]}"
+    assert weather[0].status.status_code is StatusCode.ERROR
+    assert weather[0].attributes["travel_agent.degraded_service"] == "weather"
+    assert all(s.status.status_code is not StatusCode.ERROR for s in spans() if s not in weather)
 
 
 async def test_conversational_turn_produces_no_handoff_edges(spans):
