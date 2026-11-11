@@ -248,6 +248,40 @@ describe('TraceExplorer default view', () => {
   });
 });
 
+describe('TraceExplorer when shown again', () => {
+  const explorer = (active: boolean, embedded: boolean) => (
+    <TraceExplorer
+      active={active}
+      embedded={embedded}
+      traceId="trace-1"
+      projectId="project-1"
+      defaultView="tree"
+    />
+  );
+
+  it('keeps an embedded trace instead of reloading it', async () => {
+    const { rerender } = render(explorer(true, true));
+    expect(await selectedDetails()).toBe('turn-1');
+
+    rerender(explorer(false, true));
+    rerender(explorer(true, true));
+
+    expect(screen.getByTestId('span-details')).toHaveTextContent('turn-1');
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    expect(getTrace).toHaveBeenCalledTimes(1);
+  });
+
+  it('reloads in the drawer, where reopening should show fresh data', async () => {
+    const { rerender } = render(explorer(true, false));
+    expect(await selectedDetails()).toBe('turn-1');
+
+    rerender(explorer(false, false));
+    rerender(explorer(true, false));
+
+    await waitFor(() => expect(getTrace).toHaveBeenCalledTimes(2));
+  });
+});
+
 function summary(trace_id: string, second: number) {
   return {
     trace_id,
