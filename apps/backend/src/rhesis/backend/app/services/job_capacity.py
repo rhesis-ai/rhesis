@@ -9,12 +9,11 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.config.settings import get_job_limit_settings
 from rhesis.backend.app.crud.job import count_active_jobs
-from rhesis.backend.app.crud.project import list_org_project_ids
+from rhesis.backend.app.database import advisory_xact_lock, sum_over_org_projects
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +30,14 @@ CAPPED_JOB_TYPES = frozenset(
     }
 )
 
-# Longer than any capped job's own time limit, so the row of a job whose worker
-# died without finishing it stops counting.
-ACTIVE_JOB_WINDOW = timedelta(hours=3)
+# Rows whose job never reached a terminal status (a worker died, a message was lost)
+# must stop counting at some point, or the organization stays at its cap for good.
+# A queued job may wait behind a backlog, so it counts for a day, like the test-run
+# quota's in-flight window. A running one counts for the longest in-job time limit
+# plus a margin. Generation, Garak and tuning jobs have no limit of their own yet, so
+# one that runs longer than that stops counting while it still runs.
+QUEUED_JOB_WINDOW = timedelta(hours=24)
+RUNNING_JOB_MARGIN = timedelta(minutes=30)
 
 
 class JobCapacityExceededError(HTTPException):
@@ -47,17 +51,25 @@ class JobCapacityExceededError(HTTPException):
         )
 
 
-def _count_org_active_jobs(db: Session, organization_id: str, user_id: str) -> int:
-    from rhesis.backend.app.database import temporary_project_scope
+def running_job_window() -> timedelta:
+    limits = get_job_limit_settings()
+    longest = max(limits.execution_time_limit, limits.exploration_time_limit)
+    return timedelta(seconds=longest) + RUNNING_JOB_MARGIN
 
+
+def _count_org_active_jobs(db: Session, organization_id: str, user_id: str) -> int:
     job_types = sorted(CAPPED_JOB_TYPES)
-    since = datetime.now(timezone.utc) - ACTIVE_JOB_WINDOW
-    # Project RLS shows one project's rows at a time, so count project by project.
-    total = count_active_jobs(db, organization_id, None, job_types, since)
-    for project_id in list_org_project_ids(db, organization_id):
-        with temporary_project_scope(db, organization_id, user_id, str(project_id)):
-            total += count_active_jobs(db, organization_id, project_id, job_types, since)
-    return total
+    now = datetime.now(timezone.utc)
+    queued_since = now - QUEUED_JOB_WINDOW
+    started_since = now - running_job_window()
+    return sum_over_org_projects(
+        db,
+        organization_id,
+        user_id,
+        lambda project_id: count_active_jobs(
+            db, organization_id, project_id, job_types, queued_since, started_since
+        ),
+    )
 
 
 def enforce_job_capacity(
@@ -72,10 +84,7 @@ def enforce_job_capacity(
     if not limit or not organization_id:
         return
     if serialize:
-        db.execute(
-            text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
-            {"key": f"job-capacity:{organization_id}"},
-        )
+        advisory_xact_lock(db, f"job-capacity:{organization_id}")
     active = _count_org_active_jobs(db, str(organization_id), str(user_id or ""))
     if active >= limit:
         logger.warning(f"Organization {organization_id} at its job cap ({active}/{limit})")

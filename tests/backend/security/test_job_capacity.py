@@ -18,9 +18,10 @@ from rhesis.backend.app.models.enums import JobStatus
 from rhesis.backend.app.models.job import Job
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.services.job_capacity import (
-    ACTIVE_JOB_WINDOW,
+    QUEUED_JOB_WINDOW,
     JobCapacityExceededError,
     enforce_job_capacity,
+    running_job_window,
 )
 from rhesis.backend.jobs import launch_job
 from tests.backend.fixtures.rls import scope_to_project
@@ -80,13 +81,46 @@ def test_jobs_in_every_project_count_toward_the_cap(test_db, test_org_id, db_use
 
 
 def test_finished_light_and_stale_jobs_do_not_count(test_db, test_org_id, db_user):
-    stale = datetime.now(timezone.utc) - ACTIVE_JOB_WINDOW - timedelta(minutes=1)
+    now = datetime.now(timezone.utc)
     for status in (JobStatus.COMPLETED, JobStatus.FAILED, JobStatus.CANCELLED):
         _add_job(test_db, test_org_id, status=status.value)
     _add_job(test_db, test_org_id, job_type="count_test_sets")
-    _add_job(test_db, test_org_id, status=JobStatus.RUNNING.value, queued_at=stale)
+    # Never reached a terminal status: a dead worker, a lost message.
+    _add_job(
+        test_db,
+        test_org_id,
+        status=JobStatus.RUNNING.value,
+        queued_at=now - running_job_window() - timedelta(hours=1),
+        started_at=now - running_job_window() - timedelta(minutes=1),
+    )
+    _add_job(test_db, test_org_id, queued_at=now - QUEUED_JOB_WINDOW - timedelta(minutes=1))
 
     enforce_job_capacity(test_db, test_org_id, str(db_user.id))
+
+
+def test_long_waits_and_long_runs_still_count(test_db, test_org_id, db_user):
+    now = datetime.now(timezone.utc)
+    # Waited hours behind a backlog: the case the cap exists for.
+    _add_job(test_db, test_org_id, queued_at=now - timedelta(hours=5))
+    _add_job(test_db, test_org_id, queued_at=now - timedelta(hours=6))
+    # Queued long ago, started recently: counts from when it started.
+    _add_job(
+        test_db,
+        test_org_id,
+        status=JobStatus.RUNNING.value,
+        queued_at=now - timedelta(hours=10),
+        started_at=now - running_job_window() + timedelta(minutes=5),
+    )
+
+    with pytest.raises(JobCapacityExceededError):
+        enforce_job_capacity(test_db, test_org_id, str(db_user.id))
+
+
+def test_running_window_follows_the_time_limits(monkeypatch):
+    monkeypatch.setenv("EXECUTION_TIME_LIMIT", str(5 * 3600))
+    settings.get_job_limit_settings.cache_clear()
+
+    assert running_job_window() > timedelta(hours=5)
 
 
 def test_zero_turns_the_cap_off(test_db, test_org_id, db_user, monkeypatch):

@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import func, or_, type_coerce
+from sqlalchemy import and_, func, or_, type_coerce
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session, joinedload
 
@@ -177,29 +177,36 @@ def count_active_jobs(
     project_id: Optional[UUID],
     job_types: List[str],
     queued_since: datetime,
+    started_since: datetime,
 ) -> int:
-    """Jobs of *job_types* in one project that are not finished yet.
+    """Jobs of *job_types* in one project that are queued or running.
 
-    ``project_id=None`` counts the org's project-less jobs. Project RLS still applies
-    underneath the explicit filters, so the session must be scoped to *project_id*.
+    A queued job counts while it was queued after *queued_since*, a running one while
+    it started after *started_since*. ``project_id=None`` counts the org's project-less
+    jobs. Project RLS still applies underneath, so the session must be scoped to
+    *project_id*.
     """
     from rhesis.backend.app.scope import bypass_tenant_filter
 
+    job = models.Job
     project_filter = (
-        models.Job.project_id.is_(None)
-        if project_id is None
-        else models.Job.project_id == project_id
+        job.project_id.is_(None) if project_id is None else job.project_id == project_id
     )
-    unfinished = [s.value for s in JobStatus if not s.is_terminal]
+    running = [JobStatus.RUNNING.value, JobStatus.CANCELLING.value]
     with bypass_tenant_filter():
         return (
-            db.query(func.count(models.Job.id))
+            db.query(func.count(job.id))
             .filter(
-                models.Job.organization_id == UUID(str(organization_id)),
+                job.organization_id == UUID(str(organization_id)),
                 project_filter,
-                models.Job.job_type.in_(job_types),
-                models.Job.status.in_(unfinished),
-                models.Job.queued_at >= queued_since,
+                job.job_type.in_(job_types),
+                or_(
+                    and_(job.status == JobStatus.QUEUED.value, job.queued_at >= queued_since),
+                    and_(
+                        job.status.in_(running),
+                        func.coalesce(job.started_at, job.queued_at) >= started_since,
+                    ),
+                ),
             )
             .scalar()
         ) or 0

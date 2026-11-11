@@ -908,9 +908,9 @@ def count_test_set_tests(db: Session, test_set_id: uuid.UUID) -> int:
     ) or 0
 
 
-#: Queued or running runs older than this stop holding quota back. A run
-#: can't execute past Celery's ~65 min hard limit, so an older one is almost
-#: always a crashed run whose status never left "Progress".
+#: Queued or running runs older than this stop holding quota back. A run stops
+#: itself at EXECUTION_TIME_LIMIT, so an older one is almost always a crashed run
+#: whose status never left "Progress".
 IN_FLIGHT_RUN_WINDOW = timedelta(hours=24)
 
 
@@ -921,18 +921,18 @@ def _in_flight_run_tests(db: Session, organization_id: str, user_id: str) -> int
     project's runs (plus project-less ones) at a time, and no scope sees them
     all. So this sums project by project, each under its own scope.
     """
-    from rhesis.backend.app.crud.project import list_org_project_ids
     from rhesis.backend.app.crud.test_run import sum_run_test_counts
-    from rhesis.backend.app.database import temporary_project_scope
+    from rhesis.backend.app.database import sum_over_org_projects
     from rhesis.backend.jobs.enums import RunStatus
 
     statuses = [RunStatus.QUEUED.value, RunStatus.PROGRESS.value]
     since = datetime.now(timezone.utc) - IN_FLIGHT_RUN_WINDOW
-    total = sum_run_test_counts(db, organization_id, None, statuses, since)
-    for project_id in list_org_project_ids(db, organization_id):
-        with temporary_project_scope(db, organization_id, user_id, str(project_id)):
-            total += sum_run_test_counts(db, organization_id, project_id, statuses, since)
-    return total
+    return sum_over_org_projects(
+        db,
+        organization_id,
+        user_id,
+        lambda project_id: sum_run_test_counts(db, organization_id, project_id, statuses, since),
+    )
 
 
 def enforce_test_run_quota(
