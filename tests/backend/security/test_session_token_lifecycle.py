@@ -275,3 +275,34 @@ class TestChangePasswordNeedsInteractiveSession:
         assert response.status_code == status.HTTP_200_OK
         test_db.refresh(user)
         assert user.password_hash is not None
+
+
+@pytest.mark.unit
+@pytest.mark.security
+class TestScopedTokenMint:
+    def test_omitted_scopes_inherit_the_callers_scopes(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        user = _user(test_db, test_org_id)
+        parent = create_test_api_token(test_db, user, name="parent")
+        parent.scopes = ["token:create", "token:read"]
+        test_db.flush()
+
+        response = client.post("/tokens/", headers=_bearer(parent.token), json={"name": "child"})
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        child = test_db.query(models.Token).filter(models.Token.id == response.json()["id"]).one()
+        assert child.scopes is not None
+        assert set(child.scopes) == {"token:create", "token:read"}
+
+    def test_unscoped_caller_still_mints_unscoped(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        user = _user(test_db, test_org_id)
+        parent = create_test_api_token(test_db, user, name="parent")
+
+        response = client.post("/tokens/", headers=_bearer(parent.token), json={"name": "child"})
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        child = test_db.query(models.Token).filter(models.Token.id == response.json()["id"]).one()
+        assert child.scopes is None

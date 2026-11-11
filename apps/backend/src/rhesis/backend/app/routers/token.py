@@ -66,10 +66,12 @@ def create_token(
     """
     name = data.get("name")
     expires_in_days = data.get("expires_in_days")
-    requested_scopes: list | None = data.get("scopes")
 
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
+
+    principal = resolve_principal_from_request(current_user, request)
+    requested_scopes = _requested_scopes(data, principal)
 
     # SP9: scopes ⊆ issuer check — a token may not exceed the creator's
     # own effective permissions.  We check unconditionally so a downgraded
@@ -79,9 +81,7 @@ def create_token(
             isinstance(s, str) for s in requested_scopes
         ):
             raise HTTPException(status_code=422, detail="scopes must be a list of strings")
-        _validate_token_scopes(
-            requested_scopes, resolve_principal_from_request(current_user, request), db
-        )
+        _validate_token_scopes(requested_scopes, principal, db)
 
     organization_id, user_id = tenant_context
     token_value = generate_api_token()
@@ -116,6 +116,19 @@ def create_token(
         name=created_token.name,
         project_id=created_token.project_id,
     )
+
+
+def _requested_scopes(data: dict, principal: "Principal") -> list | None:
+    """The scopes for the new token; omitted means the caller's own.
+
+    For a session that is ``None`` (the owner's full access). A scoped token
+    passes its scopes on, so leaving ``scopes`` out can't mint a wider child.
+    """
+    if "scopes" in data and data["scopes"] is not None:
+        return data["scopes"]
+    if principal.kind == AuthKind.TOKEN and principal.scopes is not None:
+        return sorted(principal.scopes)
+    return None
 
 
 def _validate_token_scopes(scopes: list[str], principal: "Principal", db: Session) -> None:
