@@ -230,6 +230,66 @@ class TestSequentialRunStopsAtItsDeadline:
         assert results[0]["error"] == RUN_TIME_LIMIT_ERROR
 
 
+class TestSequentialDeadlineLeavesErrorRows:
+    """Results are counted from rows, so tests cut off or never started need one each."""
+
+    def _tests(self, test_db, test_organization, db_user, db_status, n):
+        from rhesis.backend.app.models.test import Test
+
+        tests = []
+        for _ in range(n):
+            test = Test(
+                user_id=db_user.id, organization_id=test_organization.id, status_id=db_status.id
+            )
+            test_db.add(test)
+            tests.append(test)
+        test_db.flush()
+        return tests
+
+    def test_unrun_tests_are_counted_as_errors(
+        self, test_db, test_organization, db_user, db_status, db_test_configuration, db_test_run
+    ):
+        from rhesis.backend.jobs.execution.result_processor import get_test_statistics
+        from rhesis.backend.jobs.execution.sequential import _record_time_limit_errors
+
+        tests = self._tests(test_db, test_organization, db_user, db_status, 2)
+
+        _record_time_limit_errors(test_db, db_test_configuration, db_test_run, tests)
+        # A second pass over the same tests adds nothing.
+        _record_time_limit_errors(test_db, db_test_configuration, db_test_run, tests)
+
+        total, passed, failed, errors = get_test_statistics(db_test_run, test_db)
+        assert (total, passed, failed, errors) == (2, 0, 0, 2)
+
+    def test_deadline_stop_records_the_cut_off_and_unrun_tests(self):
+        from rhesis.backend.jobs.execution.sequential import execute_tests_sequentially
+
+        async def _hangs(**kwargs):
+            await asyncio.sleep(60)
+
+        test_config = MagicMock(user_id=None, organization_id="org-1", attributes={})
+        test_run = MagicMock(attributes={"task_id": "task-1"})
+        tests = [MagicMock(id="t1"), MagicMock(id="t2"), MagicMock(id="t3")]
+
+        with (
+            patch("rhesis.backend.jobs.execution.sequential.update_test_run_start"),
+            patch("rhesis.backend.jobs.execution.sequential.resolve_run_models"),
+            patch("rhesis.backend.jobs.execution.sequential.get_live_metric_backends"),
+            patch(
+                "rhesis.backend.jobs.execution.sequential.run_deadline",
+                return_value=time.monotonic() + 0.2,
+            ),
+            patch("rhesis.backend.jobs.execution.sequential.execute_test", side_effect=_hangs),
+            patch("rhesis.backend.jobs.execution.sequential.trigger_results_collection"),
+            patch(
+                "rhesis.backend.jobs.execution.sequential._record_time_limit_errors"
+            ) as mock_record,
+        ):
+            execute_tests_sequentially(MagicMock(), test_config, test_run, tests)
+
+        assert [t.id for t in mock_record.call_args.args[3]] == ["t1", "t2", "t3"]
+
+
 class TestCeleryLimitsFollowTheExecutionLimit:
     def test_visibility_timeout_outlasts_the_in_job_limit(self):
         from rhesis.backend.celery.config import CELERY_CONFIG

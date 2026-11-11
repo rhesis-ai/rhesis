@@ -29,7 +29,11 @@ from rhesis.backend.jobs.execution.batch.profiling import (
     log_batch_report,
 )
 from rhesis.backend.jobs.execution.batch.runner import run_batch
-from rhesis.backend.jobs.execution.shared import run_deadline, run_on_thread_loop
+from rhesis.backend.jobs.execution.shared import (
+    error_test_output,
+    run_deadline,
+    run_on_thread_loop,
+)
 
 __all__ = ["execute_tests_as_batch", "ExecutionContext"]
 
@@ -93,11 +97,7 @@ def _persist_failed_results(ctx: "ExecutionContext", results: List[Dict[str, Any
         #
         # ``output`` matters because the detail views read it: a record setting only
         # ``error`` renders as "No response available".
-        error_output: Dict[str, Any] = {
-            "output": message,
-            "message": message,
-            "error": True,
-        }
+        error_output = error_test_output(message)
         # ...but only when the target is actually to blame. EndpointService tags its own
         # unexpected exceptions error_type="internal_error", status_code=500; attributing
         # those would have the UI tell the user their endpoint returned HTTP 500 and send

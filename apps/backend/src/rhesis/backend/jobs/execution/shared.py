@@ -33,6 +33,16 @@ _thread_local = threading.local()
 RUN_TIME_LIMIT_ERROR = "Run time limit reached"
 
 
+def error_test_output(message: str) -> Dict[str, Any]:
+    """``test_output`` for a test that produced no response, in the invoker's error shape.
+
+    ``error`` is a flag and the text sits in ``output``/``message``, which is what the
+    detail views read. ``status: error`` keeps the row an execution error even for a
+    test with no planned metrics (see executors.results._no_metrics_applied).
+    """
+    return {"output": message, "message": message, "error": True, "status": "error"}
+
+
 def run_deadline() -> float:
     """The time.monotonic() value at which a test run starting now must stop.
 
