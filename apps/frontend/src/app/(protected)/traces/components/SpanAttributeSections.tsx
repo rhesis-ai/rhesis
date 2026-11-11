@@ -232,7 +232,10 @@ export default function SpanAttributeSections({
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {span.events.map((event, idx) => (
               <Box
-                key={`${event.name}-${event.timestamp || idx}`}
+                // Name + timestamp isn't unique: one call can emit two ai.prompt events at the
+                // same instant. The list is display-only and never reorders.
+                // eslint-disable-next-line react/no-array-index-key
+                key={`${event.name}-${event.timestamp}-${idx}`}
                 component="pre"
                 sx={theme => ({
                   ...monoCaptionSx(theme),
