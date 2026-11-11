@@ -140,3 +140,15 @@ variable "bind9_allowed_names" {
   type        = map(list(string))
   default     = {}
 }
+
+variable "bind9_public_names" {
+  description = "Hostnames under rhesis.ai that BIND9 must not answer from its own zone. Each gets a static-stub zone pointing at bind9_public_name_servers, so VPN clients and cluster pods get the public answer (the Cloudflare proxy) instead of an internal record."
+  type        = list(string)
+  default     = []
+}
+
+variable "bind9_public_name_servers" {
+  description = "Authoritative public name servers for rhesis.ai, used by the bind9_public_names static-stub zones. These are the zone's assigned Cloudflare name servers (dig NS rhesis.ai)."
+  type        = list(string)
+  default     = ["dee.ns.cloudflare.com", "emerson.ns.cloudflare.com"]
+}

@@ -180,6 +180,17 @@ module "wireguard_server" {
     } : {}
   )
 
+  # prd's public hosts are proxied through Cloudflare and its origin admits only
+  # Cloudflare, so BIND9 must hand out the public answer for them, not the LB IP.
+  bind9_public_names = local.prd_enabled ? [
+    "api.rhesis.ai",
+    "app.rhesis.ai",
+    "docs.rhesis.ai",
+    "chatbot.rhesis.ai",
+    "polyphemus.rhesis.ai",
+    "telemetry.rhesis.ai",
+  ] : []
+
   depends_on = [module.wireguard]
 }
 
