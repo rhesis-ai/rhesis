@@ -267,6 +267,26 @@ def test_health_and_trace_ingest_skip_the_default_limit(limiter_on, monkeypatch)
     assert 429 not in codes
 
 
+def test_in_process_calls_skip_the_default_limit(limiter_on, monkeypatch):
+    """Architect/MCP tool calls come from 127.0.0.1 for every tenant; the outer
+    request was already counted, so they skip the default bucket. A forged
+    marker does not."""
+    from rhesis.backend.app.provenance import IN_PROCESS_HEADER, Channel, in_process_headers
+
+    monkeypatch.setattr(
+        limiter,
+        "_default_limits",
+        [LimitGroup("1/minute", rate_limit_ip_key, None, False, None, None, None, 1, False)],
+    )
+    ip = _fresh_ip()
+    inner = {**in_process_headers(Channel.ARCHITECT), "X-Forwarded-For": ip}
+    forged = {IN_PROCESS_HEADER: "guess", "X-Forwarded-For": ip}
+    with TestClient(app) as c:
+        assert [c.get("/auth/providers", headers=inner).status_code for _ in range(3)] == [200] * 3
+        codes = [c.get("/auth/providers", headers=forged).status_code for _ in range(2)]
+    assert codes == [200, 429]
+
+
 # --- auth routes ------------------------------------------------------------------
 
 

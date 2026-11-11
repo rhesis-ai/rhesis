@@ -150,12 +150,13 @@ def client_channel(request: HTTPConnection) -> Channel:
         return Channel.API
     if claimed in _CLAIMABLE_CHANNELS:
         return claimed
-    if claimed in _IN_PROCESS_CHANNELS and _is_in_process(request):
+    if claimed in _IN_PROCESS_CHANNELS and is_in_process(request):
         return claimed
     return Channel.API
 
 
-def _is_in_process(request: HTTPConnection) -> bool:
+def is_in_process(request: HTTPConnection) -> bool:
+    """True for a call this process made to itself (MCP, the Architect's tools)."""
     presented = request.headers.get(IN_PROCESS_HEADER, "")
     return hmac.compare_digest(presented.encode(), _IN_PROCESS_SECRET.encode())
 

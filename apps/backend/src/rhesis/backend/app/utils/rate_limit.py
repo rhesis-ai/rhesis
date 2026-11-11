@@ -139,13 +139,26 @@ def build_limiter(storage_uri: Optional[str] = None) -> Limiter:
 limiter = build_limiter()
 
 
+def _in_process(request: Request) -> bool:
+    """An MCP or Architect tool call: the outer request was already counted.
+
+    Without this every tenant's in-process calls would share the 127.0.0.1
+    bucket. The marker is a per-process secret, so outside callers cannot send it.
+    """
+    # provenance imports this module, so import it here.
+    from rhesis.backend.app.provenance import is_in_process
+
+    return is_in_process(request)
+
+
 class DefaultRateLimitMiddleware:
     """Apply the limiter's default limit to every route without its own.
 
     Used instead of slowapi's ``SlowAPIASGIMiddleware``, which re-sends
     ``http.response.start`` before each body chunk and so breaks streamed
     responses. This one checks the limit and leaves ``send`` alone (rate limit
-    headers are off, so there is nothing to inject).
+    headers are off, so there is nothing to inject). In-process calls skip the
+    default limit; per-user limits still apply to them.
     """
 
     def __init__(self, app: ASGIApp) -> None:
@@ -156,8 +169,8 @@ class DefaultRateLimitMiddleware:
         active = getattr(getattr(app, "state", None), "limiter", None)
         if scope["type"] == "http" and active is not None and active.enabled:
             handler = _find_route_handler(app.routes, scope)
-            if not _should_exempt(active, handler):
-                request = Request(scope, receive=receive, send=send)
+            request = Request(scope, receive=receive, send=send)
+            if not _should_exempt(active, handler) and not _in_process(request):
                 error_response, _ = await async_check_limits(active, request, handler, app)
                 if error_response is not None:
                     await error_response(scope, receive, send)
