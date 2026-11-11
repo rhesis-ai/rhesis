@@ -41,7 +41,8 @@ export const SEMANTIC_LAYER_ICONS = {
  */
 export const SEMANTIC_LAYER_COLORS = {
   'ai.llm.invoke': 'success.main', // Green - AI/LLM (vibrant)
-  'ai.tool.invoke': 'warning.main', // Orange - Tools (vibrant)
+  // Neutral, not warning.main: warning means "needs attention", and a tool call doesn't.
+  'ai.tool.invoke': 'greyscale.subtitle',
   'ai.retrieval': 'info.main', // Blue - Search/Retrieval (vibrant)
   'ai.embedding': 'secondary.main', // Purple - Embeddings (vibrant)
   'ai.agent.invoke': 'info.dark', // Dark Blue - Agent execution
