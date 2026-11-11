@@ -21,6 +21,7 @@ from rhesis.backend.app.auth.principal import (
     Principal,
     resolve_principal_from_request,
 )
+from rhesis.backend.app.auth.session_invalidation import is_session_revoked
 from rhesis.backend.app.auth.token_utils import get_secret_key, verify_jwt_token
 from rhesis.backend.app.auth.token_validation import validate_token
 from rhesis.backend.app.config.settings import get_auth_settings
@@ -307,6 +308,11 @@ async def get_user_from_jwt(token: str, secret_key: str) -> Optional[User]:
         user_id = user_info.get("id")
 
         if user_id:
+            # Service delegation tokens back running jobs, so logout leaves them be.
+            if payload.get("type") == "session" and await is_session_revoked(
+                user_id, payload["iat"]
+            ):
+                return None
             return await anyio.to_thread.run_sync(_load_user_by_id, user_id)
 
     except Exception:

@@ -24,9 +24,8 @@ from rhesis.backend.app.auth.refresh_token_utils import (
     verify_and_refresh_token,
 )
 from rhesis.backend.app.auth.session_invalidation import (
-    clear_user_logout,
     invalidate_user_sessions,
-    is_session_valid,
+    is_session_revoked,
 )
 from rhesis.backend.app.auth.session_utils import regenerate_session
 from rhesis.backend.app.auth.terms import (
@@ -301,12 +300,11 @@ def _user_summary(user: User) -> dict:
 
 
 def _issue_login_tokens(db: Session, user: User) -> tuple[str, str, dict]:
-    """Clear the logout marker and mint the session and refresh tokens.
+    """Mint the session and refresh tokens.
 
     The commit lands before the caller mints the auth code, so the code is
     only ever handed out once the refresh token row is durable.
     """
-    clear_user_logout(str(user.id))
     access_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
     db.commit()
@@ -409,7 +407,6 @@ def _complete_oauth_login(db: Session, auth_user) -> tuple[str, str, str, dict]:
     """Find or create the OAuth user and mint their tokens."""
     user = find_or_create_user_from_auth(db, auth_user)
     user_id = str(user.id)
-    clear_user_logout(user_id)
     session_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, user_id)
     db.commit()
@@ -497,12 +494,10 @@ def _load_user_for_password_change(
     return db_user, db_user.email, db_user.name or ""
 
 
-def _apply_password_change(db: Session, db_user: User, new_password: str) -> str:
-    """Store the new password, drop every other session, and mint a fresh token."""
+def _apply_password_change(db: Session, db_user: User, new_password: str) -> None:
+    """Store the new password."""
     email = _store_new_password(db, db_user, new_password, PASSWORD_CHANGED)
-    invalidate_user_sessions(str(db_user.id))
     logger.info("Password changed for user: %s", redact_email(email))
-    return create_session_token(db_user)
 
 
 def _consume_magic_link(db: Session, email: str) -> tuple[User, str]:
@@ -1172,9 +1167,10 @@ async def change_password(
         context={"email": email, "name": name},
     )
 
-    session_token = await anyio.to_thread.run_sync(
-        _apply_password_change, db, db_user, body.new_password
-    )
+    await anyio.to_thread.run_sync(_apply_password_change, db, db_user, body.new_password)
+    # Before minting, so the replacement token is not caught by the revocation.
+    await invalidate_user_sessions(str(current_user.id))
+    session_token = await anyio.to_thread.run_sync(create_session_token, db_user)
 
     return {
         "success": True,
@@ -1624,10 +1620,11 @@ def logout(
                 logger.info(f"Logout called for user {user_id} via JWT token")
 
                 # Invalidate all sessions and refresh tokens
-                invalidate_user_sessions(user_id)
                 revoke_all_for_user(db, user_id)
                 org_id = user_info.get("organization_id")
                 db.commit()
+                # This sync route runs in a worker thread; the Redis client lives on the loop.
+                anyio.from_thread.run(invalidate_user_sessions, user_id)
                 # On its own session, after the revocation commits: a failed audit write
                 # must not undo a logout.
                 record_audit_event(
@@ -1706,7 +1703,7 @@ def logout(
 
 
 @router.post("/verify")
-def verify_auth(
+async def verify_auth(
     request: Request,
     body: VerifyTokenRequest,
     secret_key: str = Depends(get_secret_key),
@@ -1722,13 +1719,8 @@ def verify_auth(
         user_id = payload.get("user", {}).get("id")
         iat = payload.get("iat")
 
-        if user_id and iat:
-            from datetime import datetime, timezone
-
-            # Convert iat (Unix timestamp) to datetime
-            issued_at = datetime.fromtimestamp(iat, tz=timezone.utc)
-
-            if not is_session_valid(user_id, issued_at):
+        if user_id and iat and payload.get("type") == "session":
+            if await is_session_revoked(user_id, iat):
                 logger.info(f"Session for user {user_id} was invalidated (logged out)")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,

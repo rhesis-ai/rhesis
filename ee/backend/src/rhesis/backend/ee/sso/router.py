@@ -23,7 +23,6 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.pkce import generate_pkce
 from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
-from rhesis.backend.app.auth.session_invalidation import clear_user_logout
 from rhesis.backend.app.auth.session_utils import regenerate_session
 from rhesis.backend.app.auth.token_utils import create_session_token
 from rhesis.backend.app.auth.url_utils import build_redirect_url
@@ -202,7 +201,6 @@ def _complete_sso_login(db: Session, auth_user, org, sso_config):
 
     user = find_or_create_sso_user(db, auth_user, org, sso_config)
 
-    clear_user_logout(str(user.id))
     session_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
     db.commit()
