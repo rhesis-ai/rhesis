@@ -19,7 +19,7 @@ export const OWASP_METRIC_FILTER_VALUE = 'owasp';
  * (subsequent pagination/filter fetches) so both request the same shape.
  */
 export const METRICS_SELECT =
-  'name,description,score_type,metric_scope,metric_type,backend_type,requirements,tags';
+  'name,description,score_type,metric_scope,metric_type,backend_type,requirements,tags,tuning_cases_count';
 
 const METRICS_FILTERS = {
   search: { kind: 'search', columns: ['name', 'description'] },

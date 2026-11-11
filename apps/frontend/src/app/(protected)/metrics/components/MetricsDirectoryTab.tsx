@@ -478,6 +478,11 @@ export default function MetricsDirectoryTab({
                     scoreType={metric.score_type}
                     metricScope={metric.metric_scope}
                     usedIn={requirementNames}
+                    tuningCases={
+                      backendType === 'custom'
+                        ? (metric.tuning_cases_count ?? undefined)
+                        : undefined
+                    }
                     showUsage={true}
                     onClick={
                       assignMode
