@@ -160,6 +160,8 @@ export default function TraceExplorer({
   // A refresh can still be in flight when the reader moves to another turn; only the latest
   // getTrace may update the drawer.
   const traceRequestRef = useRef(0);
+  // The fetch that last ran, so an embedded explorer shown again keeps what it loaded.
+  const fetchedWith = useRef<(() => Promise<void>) | null>(null);
 
   const fetchTrace = useCallback(async () => {
     if (!loadedTraceId || !loadedProjectId) return;
@@ -193,6 +195,8 @@ export default function TraceExplorer({
       const errorMsg =
         err instanceof Error ? err.message : 'Failed to fetch trace details';
       setError(errorMsg);
+      // Let showing the tab again retry; the error state has no retry button of its own.
+      fetchedWith.current = null;
       console.error('Failed to fetch trace:', err);
     } finally {
       if (requestId === traceRequestRef.current) setLoading(false);
@@ -394,9 +398,6 @@ export default function TraceExplorer({
     await refreshTrace();
     onTraceUpdated?.();
   }, [refreshTrace, onTraceUpdated]);
-
-  // The fetch that last ran, so an embedded explorer shown again keeps what it loaded.
-  const fetchedWith = useRef<typeof fetchTrace | null>(null);
 
   useEffect(() => {
     if (!active || !loadedTraceId || !loadedProjectId) return;
