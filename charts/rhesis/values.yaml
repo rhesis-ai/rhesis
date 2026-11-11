@@ -103,6 +103,9 @@ config:
   rhesisBaseUrl: ""
   frontendUrl: ""
   backendUrl: ""
+  # Polyphemus API for hosted-model calls (DEFAULT_POLYPHEMUS_URL). Empty keeps the
+  # code default, https://polyphemus.rhesis.ai.
+  polyphemusUrl: ""
   quickStart: "false"
   # Disposable-email screening on self-serve sign-up: off | log | enforce.
   # Admin invites are never screened. Extra domains are comma-separated and

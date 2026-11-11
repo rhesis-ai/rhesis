@@ -63,6 +63,9 @@ data:
   RHESIS_BASE_URL: {{ .Values.config.rhesisBaseUrl | quote }}
   FRONTEND_URL: {{ .Values.config.frontendUrl | quote }}
   BACKEND_URL: {{ .Values.config.backendUrl | quote }}
+  {{- with .Values.config.polyphemusUrl }}
+  DEFAULT_POLYPHEMUS_URL: {{ . | quote }}
+  {{- end }}
   QUICK_START: {{ .Values.config.quickStart | quote }}
   USAGE_QUOTAS_ENABLED: {{ .Values.config.usageQuotasEnabled | quote }}
   OUTBOUND_ALLOW_PRIVATE_NETWORKS: {{ .Values.config.outboundAllowPrivateNetworks | quote }}
