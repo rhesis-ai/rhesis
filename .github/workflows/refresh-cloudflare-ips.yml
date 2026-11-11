@@ -22,27 +22,20 @@ jobs:
         with:
           app-id: ${{ vars.RHEO_APP_ID }}
           private-key: ${{ secrets.RHEO_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
 
       - name: Checkout code
         uses: actions/checkout@v6
         with:
-          persist-credentials: true
-          token: ${{ steps.generate-token.outputs.token }}
+          # create-pull-request sets up its own auth from the token below.
+          persist-credentials: false
 
       - name: Sync committed ranges with Cloudflare's list
         run: python3 -I scripts/refresh-cloudflare-ips.py
 
-      - name: Check for changes
-        id: diff
-        run: |
-          if git diff --quiet kubernetes/; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
+      # Exits without opening a PR when the script changed nothing.
       - name: Create pull request
-        if: steps.diff.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ steps.generate-token.outputs.token }}
@@ -57,8 +50,7 @@ jobs:
             no longer match the ranges committed under `kubernetes/`.
 
             Until this merges, requests arriving through the new ranges are logged
-            with the Cloudflare edge IP instead of the visitor's, and are refused
-            wherever a committed block is also used as an origin allowlist.
+            with the Cloudflare edge IP instead of the visitor's.
             prd picks this up at its next release pin, so consider a prd release soon
             after merging.
 
