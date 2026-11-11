@@ -450,7 +450,7 @@ function MarkovStateNode({ data }: NodeProps) {
   const isAgent = state.type === 'agent';
   const stateColor = isAgent
     ? theme.palette.info.main
-    : theme.palette.warning.main;
+    : theme.palette.greyscale.subtitle;
   const handleStyle = {
     background: stateColor,
     border: 'none',
@@ -1078,7 +1078,7 @@ export default function SpanGraphView({
       timeRange,
     } = extractMarkovChain(effectiveSpans, turnBoundaries);
     const agentEdgeColor = theme.palette.info.main;
-    const toolEdgeColor = theme.palette.warning.main;
+    const toolEdgeColor = theme.palette.greyscale.subtitle;
     const { nodes, edges } = convertToFlowElements(
       states,
       transitions,
@@ -1199,7 +1199,7 @@ export default function SpanGraphView({
   }, [
     effectiveSpans,
     theme.palette.info.main,
-    theme.palette.warning.main,
+    theme.palette.greyscale.subtitle,
     isConversationTrace,
     rootSpans,
   ]);
@@ -1798,7 +1798,7 @@ export default function SpanGraphView({
               if (node.hidden) return 'transparent';
               const state = node.data?.state as MarkovState | undefined;
               return state?.type === 'tool'
-                ? theme.palette.warning.main
+                ? theme.palette.greyscale.subtitle
                 : theme.palette.info.main;
             }}
             maskColor={
