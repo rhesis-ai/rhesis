@@ -50,11 +50,13 @@ def _warn_unavailable(action: str, error: Optional[BaseException] = None) -> Non
     logger.warning("Session revocation %s skipped (%s); failing open", action, reason)
 
 
-async def _client():
+async def _client(*, connect: bool):
+    """The shared client, or None. Only ``connect=True`` may try to (re)connect."""
     from rhesis.backend.app.services.connector.redis_client import redis_manager
 
-    # No-op once connected; throttled internally after a failure.
-    await redis_manager.initialize()
+    if connect:
+        # No-op once connected; throttled internally after a failure.
+        await redis_manager.initialize()
     return redis_manager.client if redis_manager.is_available else None
 
 
@@ -65,7 +67,7 @@ async def invalidate_user_sessions(user_id: str) -> None:
     (the fresh token after a password change) stays valid.
     """
     try:
-        client = await _client()
+        client = await _client(connect=True)
         if client is None:
             _warn_unavailable("write")
             return
@@ -76,9 +78,13 @@ async def invalidate_user_sessions(user_id: str) -> None:
 
 
 async def is_session_revoked(user_id: str, issued_at: int) -> bool:
-    """Whether a session JWT with ``iat`` = ``issued_at`` was revoked. One Redis GET."""
+    """Whether a session JWT with ``iat`` = ``issued_at`` was revoked. One Redis GET.
+
+    Never connects: a connect attempt has no tight timeout, so it stays off the
+    per-request path. Startup, logins and logouts reconnect the shared client.
+    """
     try:
-        client = await _client()
+        client = await _client(connect=False)
         if client is None:
             _warn_unavailable("check")
             return False

@@ -182,6 +182,16 @@ class TestLogoutRevokesSessionJwts:
         ):
             assert _api_ok(client, token) == status.HTTP_200_OK
 
+    @pytest.mark.asyncio
+    async def test_check_never_waits_on_a_reconnect(self):
+        """A down Redis is reported unavailable at once, without a connect attempt."""
+        with fake_redis_manager(available=False):
+            from rhesis.backend.app.services.connector.redis_client import redis_manager
+
+            with patch.object(redis_manager, "initialize", new_callable=AsyncMock) as connect:
+                assert await session_invalidation.is_session_revoked("user-1", 0) is False
+            connect.assert_not_called()
+
 
 @pytest.mark.unit
 @pytest.mark.security
