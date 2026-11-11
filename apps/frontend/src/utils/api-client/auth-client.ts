@@ -40,6 +40,7 @@ export interface ChangePasswordResponse {
   success: boolean;
   message: string;
   session_token: string;
+  auth_code?: string;
 }
 
 export async function changePassword(

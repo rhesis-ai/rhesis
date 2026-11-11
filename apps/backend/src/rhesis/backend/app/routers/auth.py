@@ -453,9 +453,10 @@ def _load_user_for_reset(db: Session, email: str) -> tuple[User, str, str]:
 
 
 def _store_new_password(db: Session, user: User, new_password: str, action: str) -> str:
-    """Hash and persist a new password, returning the user's email for logging.
+    """Hash and persist a new password and revoke every refresh token.
 
-    ``action`` is the audit action: ``password.reset`` or ``password.changed``.
+    Returns the user's email for logging. ``action`` is the audit action:
+    ``password.reset`` or ``password.changed``.
     """
     from rhesis.backend.app.utils.encryption import hash_password
 
@@ -464,6 +465,7 @@ def _store_new_password(db: Session, user: User, new_password: str, action: str)
     # not a provider migration. Users can log in via either method.
     if not user.provider_type:
         user.provider_type = AuthProviderType.EMAIL
+    revoke_all_for_user(db, str(user.id))
     record_user_event(action, user, db=db)
     db.commit()
     return user.email
@@ -498,6 +500,14 @@ def _apply_password_change(db: Session, db_user: User, new_password: str) -> Non
     """Store the new password."""
     email = _store_new_password(db, db_user, new_password, PASSWORD_CHANGED)
     logger.info("Password changed for user: %s", redact_email(email))
+
+
+def _issue_replacement_tokens(db: Session, db_user: User) -> tuple[str, str]:
+    """Mint the caller's new session and refresh token after a password change."""
+    session_token = create_session_token(db_user)
+    refresh_tok = create_refresh_token(db, str(db_user.id))
+    db.commit()
+    return session_token, refresh_tok
 
 
 def _consume_magic_link(db: Session, email: str) -> tuple[User, str]:
@@ -1119,12 +1129,14 @@ async def reset_password(
         )
 
     user, email, name = await anyio.to_thread.run_sync(_load_user_for_reset, db, payload["email"])
+    user_id = str(user.id)
 
     await validate_password(
         body.new_password,
         context={"email": email, "name": name},
     )
     await anyio.to_thread.run_sync(_store_new_password, db, user, body.new_password, PASSWORD_RESET)
+    await invalidate_user_sessions(user_id)
 
     logger.info("Password reset for user: %s", redact_email(email))
 
@@ -1155,8 +1167,9 @@ async def change_password(
     omitting ``current_password``. Setting a password is additive -- it
     does not change the user's primary authentication provider.
 
-    On success, all other sessions are invalidated and a fresh session
-    token is returned so the current session survives.
+    On success, every session and refresh token is revoked and the caller
+    gets a fresh pair through ``auth_code`` so the current session survives.
+    ``session_token`` is the same fresh access token, for older clients.
     """
     db_user, email, name = await anyio.to_thread.run_sync(
         _load_user_for_password_change, db, current_user.id, body.current_password
@@ -1170,12 +1183,16 @@ async def change_password(
     await anyio.to_thread.run_sync(_apply_password_change, db, db_user, body.new_password)
     # Before minting, so the replacement token is not caught by the revocation.
     await invalidate_user_sessions(str(current_user.id))
-    session_token = await anyio.to_thread.run_sync(create_session_token, db_user)
+    session_token, refresh_tok = await anyio.to_thread.run_sync(
+        _issue_replacement_tokens, db, db_user
+    )
+    auth_code = await create_auth_code(session_token, refresh_tok)
 
     return {
         "success": True,
         "message": "Password updated successfully.",
         "session_token": session_token,
+        "auth_code": auth_code,
     }
 
 

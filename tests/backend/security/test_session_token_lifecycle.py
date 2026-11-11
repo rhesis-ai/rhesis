@@ -11,7 +11,7 @@
 
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import anyio
 import jwt
@@ -23,7 +23,9 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models
 from rhesis.backend.app.auth import session_invalidation
 from rhesis.backend.app.auth.constants import AuthProviderType
+from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
 from rhesis.backend.app.auth.token_utils import (
+    create_password_reset_token,
     create_session_token,
     get_jwt_algorithm,
     get_secret_key,
@@ -175,3 +177,56 @@ class TestLogoutRevokesSessionJwts:
             patch.object(session_invalidation, "LOOKUP_TIMEOUT_SECONDS", 0.05),
         ):
             assert _api_ok(client, token) == status.HTTP_200_OK
+
+
+@pytest.mark.unit
+@pytest.mark.security
+class TestPasswordResetAndChangeRevokeTokens:
+    def test_reset_revokes_refresh_tokens_and_sessions(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        user = _user(test_db, test_org_id)
+        refresh = create_refresh_token(test_db, str(user.id))
+        session = _aged(create_session_token(user))
+        test_db.flush()
+        reset = create_password_reset_token(str(user.id), user.email)
+
+        with (
+            fake_redis_manager(),
+            patch(
+                "rhesis.backend.app.routers.auth.claim_token_jti",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+        ):
+            response = client.post(
+                "/auth/reset-password", json={"token": reset, "new_password": NEW_PASSWORD}
+            )
+            assert response.status_code == status.HTTP_200_OK
+            assert _refresh(client, refresh) == status.HTTP_401_UNAUTHORIZED
+            assert _api_ok(client, session) == status.HTTP_401_UNAUTHORIZED
+
+    def test_change_revokes_other_refresh_tokens_and_keeps_caller_signed_in(
+        self, client: TestClient, test_db: Session, test_org_id: str
+    ):
+        user = _user(test_db, test_org_id)
+        other_refresh = create_refresh_token(test_db, str(user.id))
+        session = _aged(create_session_token(user))
+        test_db.flush()
+
+        with fake_redis_manager():
+            response = client.post(
+                "/auth/change-password",
+                headers=_bearer(session),
+                json={"current_password": PASSWORD, "new_password": NEW_PASSWORD},
+            )
+            assert response.status_code == status.HTTP_200_OK
+            body = response.json()
+
+            assert _refresh(client, other_refresh) == status.HTTP_401_UNAUTHORIZED
+            assert _api_ok(client, session) == status.HTTP_401_UNAUTHORIZED
+
+            exchanged = client.post("/auth/exchange-code", json={"code": body["auth_code"]}).json()
+            assert _api_ok(client, exchanged["session_token"]) == status.HTTP_200_OK
+            assert _refresh(client, exchanged["refresh_token"]) == status.HTTP_200_OK
+            assert _api_ok(client, body["session_token"]) == status.HTTP_200_OK
