@@ -140,6 +140,16 @@ Defaults point at the built-in `redis` container. Set these to use an external R
 | `BROKER_URL` | Celery broker connection URL | `redis://:rhesis-redis-pass@redis:6379/0` |
 | `CELERY_RESULT_BACKEND` | Celery result backend URL | `redis://:rhesis-redis-pass@redis:6379/1` |
 
+## Rate limiting
+
+Request counters are stored in database 11 of the Redis that `BROKER_URL` points at, so every
+backend worker and replica shares one count. If Redis is unreachable, each worker counts in its own
+memory until Redis is back.
+
+| Variable | Description | Default |
+|---|---|---|
+| `RATELIMIT_ENABLED` | Set `false` to turn off every API rate limit | `true` |
+
 ## AI models
 
 Generation, evaluation, execution, and embeddings use Rhesis-hosted models by default, which require a
