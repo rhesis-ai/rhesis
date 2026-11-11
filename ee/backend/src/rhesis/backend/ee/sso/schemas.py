@@ -24,6 +24,16 @@ _BLOCKED_HOSTNAMES = {
     "metadata.internal",
 }
 
+_LOOPBACK_HOSTNAMES = {"localhost", "127.0.0.1", "::1"}
+
+
+def is_local_development() -> bool:
+    """Local or development backend, where dev-only SSO shortcuts are allowed.
+
+    Narrower than ``is_development``, which is also true on staging.
+    """
+    return get_application_settings().backend_env in ("local", "development")
+
 
 class SSOConfig(BaseModel):
     enabled: bool = False
@@ -41,12 +51,16 @@ class SSOConfig(BaseModel):
     @classmethod
     def issuer_must_be_https_and_not_internal(cls, v: str) -> str:
         """Validate issuer URL: HTTPS required, no internal/private destinations."""
-        if not v.startswith("https://"):
-            if not (get_application_settings().is_development and "localhost" in v):
-                raise ValueError("issuer_url must use HTTPS")
-
         parsed = urlparse(v)
         hostname = parsed.hostname or ""
+
+        if parsed.scheme != "https":
+            if not (
+                parsed.scheme == "http"
+                and hostname.lower() in _LOOPBACK_HOSTNAMES
+                and is_local_development()
+            ):
+                raise ValueError("issuer_url must use HTTPS")
 
         if hostname.lower() in _BLOCKED_HOSTNAMES:
             raise ValueError("issuer_url cannot point to cloud metadata services")
@@ -64,10 +78,10 @@ class SSOConfig(BaseModel):
             # hostname is not an IP literal -- DNS resolution
             # is validated at connect time by SafeHttpClient
 
-        if not get_application_settings().is_development:
+        if not is_local_development():
             port = parsed.port
             if port is not None and port != 443:
-                raise ValueError("issuer_url must use port 443 in production")
+                raise ValueError("issuer_url must use port 443 outside local development")
 
         return v.rstrip("/")
 

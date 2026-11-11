@@ -25,7 +25,11 @@ from rhesis.backend.app.auth.pkce import generate_pkce
 from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
 from rhesis.backend.app.auth.session_utils import regenerate_session
 from rhesis.backend.app.auth.token_utils import create_session_token
-from rhesis.backend.app.auth.url_utils import build_redirect_url
+from rhesis.backend.app.auth.url_utils import (
+    DEFAULT_RETURN_TO,
+    build_redirect_url,
+    safe_return_path,
+)
 from rhesis.backend.app.config.settings import (
     get_application_settings,
     get_frontend_settings,
@@ -55,7 +59,7 @@ from rhesis.backend.ee.sso.rate_limits import (
     SSO_TEST_CONNECTION_RATE_LIMIT,
 )
 from rhesis.backend.ee.sso.runtime_check import sso_runtime_check
-from rhesis.backend.ee.sso.schemas import SSOConfig
+from rhesis.backend.ee.sso.schemas import SSOConfig, is_local_development
 from rhesis.backend.ee.sso.user_utils import SSOLoginError, find_or_create_sso_user
 
 logger = logging.getLogger(__name__)
@@ -99,10 +103,10 @@ def _get_sso_config(organization: Organization) -> Optional[SSOConfig]:
             try:
                 config_data["client_secret"] = sso_decrypt(config_data["client_secret"])
             except Exception:
-                if get_application_settings().is_development:
+                if is_local_development():
                     logger.warning(
                         "SSO client_secret decryption failed for org %s; "
-                        "allowing plaintext fallback in local/test",
+                        "allowing plaintext fallback in local development",
                         organization.id,
                     )
                 else:
@@ -147,21 +151,10 @@ def _validate_return_to(return_to: Optional[str]) -> str:
     from urllib.parse import unquote
 
     if not return_to:
-        return "/architect"
+        return DEFAULT_RETURN_TO
 
-    # Decode percent-encoding before running blocklist checks to prevent
-    # bypasses via %2f%2f, %6Aavascript:, etc.
-    decoded = unquote(unquote(return_to))
-
-    if not decoded.startswith("/"):
-        return "/architect"
-
-    blocked = ["//", "javascript:", "data:", "http:", "https:", "\\"]
-    for pattern in blocked:
-        if pattern in decoded.lower():
-            return "/architect"
-
-    return decoded
+    # Validate the decoded form so %2F%2F, %5C or %09 can't slip past.
+    return safe_return_path(unquote(unquote(return_to)))
 
 
 def _get_sso_callback_url() -> str:
