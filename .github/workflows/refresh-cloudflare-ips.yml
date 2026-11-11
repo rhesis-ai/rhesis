@@ -1,0 +1,66 @@
+name: Refresh Cloudflare IPs
+
+# ingress-nginx-external trusts CF-Connecting-IP only from Cloudflare's edge ranges,
+# and prd's external LoadBalancer admits only those ranges. Both lists are committed
+# in kubernetes/, so open a PR whenever Cloudflare publishes a change.
+on:
+  workflow_dispatch:
+  schedule:
+    # Mondays at 07:00 UTC.
+    - cron: "0 7 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RHEO_APP_ID }}
+          private-key: ${{ secrets.RHEO_APP_PRIVATE_KEY }}
+
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: true
+          token: ${{ steps.generate-token.outputs.token }}
+
+      - name: Sync committed ranges with Cloudflare's list
+        run: python3 -I scripts/refresh-cloudflare-ips.py
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet kubernetes/; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create pull request
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+          committer: rheo-app[bot] <237771051+rheo-app[bot]@users.noreply.github.com>
+          author: rheo-app[bot] <237771051+rheo-app[bot]@users.noreply.github.com>
+          branch: chore/refresh-cloudflare-ips
+          commit-message: "chore(dev): refresh Cloudflare edge IP ranges"
+          title: "chore(dev): refresh Cloudflare edge IP ranges"
+          signoff: true
+          body: |
+            Cloudflare's published edge ranges (https://api.cloudflare.com/client/v4/ips)
+            no longer match the ranges committed under `kubernetes/`.
+
+            Until this merges, requests from the new ranges are refused by prd's
+            external LoadBalancer and logged with the edge IP instead of the visitor's.
+            prd picks this up at its next release pin, so consider a prd release soon
+            after merging.
+
+            Triggered by the `refresh-cloudflare-ips` workflow.
+          labels: dependencies
+          delete-branch: true
