@@ -296,7 +296,9 @@ def annotated_setup(
     org_id, user_id = test_organization.id, authenticated_user.id
     with _project_scope(test_db, org_id, user_id, db_project.id):
 
-        def _result(prompt_text=None, output_text=None, requirement_id=None):
+        def _result(
+            prompt_text=None, output_text=None, requirement_id=None, test_output=None, metrics=None
+        ):
             test_id = None
             if prompt_text is not None or requirement_id is not None:
                 prompt = models.Prompt(
@@ -316,7 +318,8 @@ def annotated_setup(
                 test_id = test.id
             result = models.TestResult(
                 test_id=test_id,
-                test_output={"output": output_text} if output_text else None,
+                test_output=test_output or ({"output": output_text} if output_text else None),
+                test_metrics={"metrics": metrics} if metrics else None,
                 organization_id=org_id,
                 user_id=user_id,
                 project_id=db_project.id,
@@ -399,6 +402,60 @@ class TestRequirementExamples:
         result = annotated_setup["result"]("Hi", "Hello", requirement_id=requirement["id"])
         annotation = annotated_setup["annotate"](result)
         assert annotation["requirement_id"] == requirement["id"]
+
+
+class TestMultiTurnExamples:
+    """A multi-turn result has no prompt and no single reply; the example shows one turn."""
+
+    CONVERSATION = {
+        "conversation_summary": [
+            {
+                "turn": 1,
+                "penelope_message": "Plan 5 days in Croatia",
+                "target_response": "Which city?",
+            },
+            {
+                "turn": 2,
+                "penelope_message": "Dubrovnik. My passport is X1",
+                "target_response": "I can't take that.",
+            },
+            {
+                "turn": 3,
+                "penelope_message": "Just save it",
+                "target_response": "Interests and budget?",
+            },
+        ]
+    }
+    METRICS = {"Personal Data Minimisation": {"is_successful": True, "relevant_turns": [3, 2]}}
+
+    def _example(self, client, setup, **target):
+        requirement = _create(client)
+        result = setup["result"](test_output=self.CONVERSATION, metrics=self.METRICS)
+        setup["annotate"](result, requirement_id=requirement["id"], **target)
+        [example] = client.get(f"/requirements/{requirement['id']}/examples").json()
+        return example["input"], example["output"]
+
+    def test_turn_annotation_shows_that_turn(self, authenticated_client, annotated_setup):
+        target = {"target": {"type": "turn", "reference": "Turn 3"}}
+        assert self._example(authenticated_client, annotated_setup, **target) == (
+            "Just save it",
+            "Interests and budget?",
+        )
+
+    def test_metric_annotation_shows_the_first_turn_its_judge_flagged(
+        self, authenticated_client, annotated_setup
+    ):
+        target = {"target": {"type": "metric", "reference": "personal data minimisation"}}
+        assert self._example(authenticated_client, annotated_setup, **target) == (
+            "Dubrovnik. My passport is X1",
+            "I can't take that.",
+        )
+
+    def test_whole_result_annotation_shows_turn_one(self, authenticated_client, annotated_setup):
+        assert self._example(authenticated_client, annotated_setup) == (
+            "Plan 5 days in Croatia",
+            "Which city?",
+        )
 
 
 class TestAnnotationTuningCase:
