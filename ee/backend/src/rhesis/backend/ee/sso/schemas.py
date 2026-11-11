@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, SecretStr, field_validator
 
+from rhesis.backend.app.auth.url_utils import _LOOPBACK_HOSTS
 from rhesis.backend.app.config.settings import get_application_settings
 
 _BLOCKED_NETWORKS = [
@@ -23,16 +24,6 @@ _BLOCKED_HOSTNAMES = {
     "metadata.google.internal",
     "metadata.internal",
 }
-
-_LOOPBACK_HOSTNAMES = {"localhost", "127.0.0.1", "::1"}
-
-
-def is_local_development() -> bool:
-    """Local or development backend, where dev-only SSO shortcuts are allowed.
-
-    Narrower than ``is_development``, which is also true on staging.
-    """
-    return get_application_settings().backend_env in ("local", "development")
 
 
 class SSOConfig(BaseModel):
@@ -57,8 +48,8 @@ class SSOConfig(BaseModel):
         if parsed.scheme != "https":
             if not (
                 parsed.scheme == "http"
-                and hostname.lower() in _LOOPBACK_HOSTNAMES
-                and is_local_development()
+                and hostname.lower() in _LOOPBACK_HOSTS
+                and get_application_settings().is_local_development
             ):
                 raise ValueError("issuer_url must use HTTPS")
 
@@ -78,7 +69,7 @@ class SSOConfig(BaseModel):
             # hostname is not an IP literal -- DNS resolution
             # is validated at connect time by SafeHttpClient
 
-        if not is_local_development():
+        if not get_application_settings().is_local_development:
             port = parsed.port
             if port is not None and port != 443:
                 raise ValueError("issuer_url must use port 443 outside local development")

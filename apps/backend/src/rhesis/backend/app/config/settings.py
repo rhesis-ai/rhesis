@@ -142,11 +142,16 @@ class ApplicationSettings(BaseSettings):
         return self.backend_env == "local"
 
     @property
+    def is_local_development(self) -> bool:
+        """Local or development backend; ``is_development`` also covers staging."""
+        return self.backend_env in ("local", "development")
+
+    @property
     def allow_private_outbound(self) -> bool:
         """Whether tenant-supplied URLs may target loopback or private networks."""
         if self.outbound_allow_private_networks is not None:
             return self.outbound_allow_private_networks
-        return self.backend_env in ("local", "development")
+        return self.is_local_development
 
     @property
     def is_google_cloud(self) -> bool:

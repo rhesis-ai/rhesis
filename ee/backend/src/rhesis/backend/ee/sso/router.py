@@ -59,7 +59,7 @@ from rhesis.backend.ee.sso.rate_limits import (
     SSO_TEST_CONNECTION_RATE_LIMIT,
 )
 from rhesis.backend.ee.sso.runtime_check import sso_runtime_check
-from rhesis.backend.ee.sso.schemas import SSOConfig, is_local_development
+from rhesis.backend.ee.sso.schemas import SSOConfig
 from rhesis.backend.ee.sso.user_utils import SSOLoginError, find_or_create_sso_user
 
 logger = logging.getLogger(__name__)
@@ -103,7 +103,7 @@ def _get_sso_config(organization: Organization) -> Optional[SSOConfig]:
             try:
                 config_data["client_secret"] = sso_decrypt(config_data["client_secret"])
             except Exception:
-                if is_local_development():
+                if get_application_settings().is_local_development:
                     logger.warning(
                         "SSO client_secret decryption failed for org %s; "
                         "allowing plaintext fallback in local development",
