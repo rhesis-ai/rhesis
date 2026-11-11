@@ -29,6 +29,10 @@ logger = logging.getLogger(__name__)
 _thread_local = threading.local()
 
 
+# Recorded for tests stopped because the run reached its wall-clock limit.
+RUN_TIME_LIMIT_ERROR = "Run time limit reached"
+
+
 def run_deadline() -> float:
     """The time.monotonic() value at which a test run starting now must stop.
 

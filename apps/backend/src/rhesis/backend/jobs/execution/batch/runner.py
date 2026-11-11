@@ -21,7 +21,7 @@ from rhesis.backend.app.utils.response_extractor import (
 from rhesis.backend.jobs.execution.batch.context import ExecutionContext
 from rhesis.backend.jobs.execution.batch.evaluation import evaluate_metrics
 from rhesis.backend.jobs.execution.batch.invocation import is_multi_turn_test, run_test
-from rhesis.backend.jobs.execution.shared import is_task_revoked
+from rhesis.backend.jobs.execution.shared import RUN_TIME_LIMIT_ERROR, is_task_revoked
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +32,6 @@ _NARRATED_FAILURE_STATUSES = frozenset({"failed", "endpoint_error"})
 # endpoint rejects every test in a large run, which is otherwise one ActivityLogged row
 # (and one DB session) per test -- ~4,000 for a 4,000-test run.
 _MAX_UNTHROTTLED_FAILURE_EMITS = 20
-
-# Recorded for tests stopped because the run reached its wall-clock limit.
-RUN_TIME_LIMIT_ERROR = "Run time limit reached"
 
 # How a per-test status reads in the activity log. "endpoint_error" would otherwise
 # surface as a bare enum value to someone reading the Jobs page.

@@ -116,7 +116,8 @@ def _ctx(deadline):
 
 class TestBatchRunStopsAtItsDeadline:
     def test_tests_still_running_at_the_deadline_fail_with_the_reason(self):
-        from rhesis.backend.jobs.execution.batch.runner import RUN_TIME_LIMIT_ERROR, _run_gather
+        from rhesis.backend.jobs.execution.batch.runner import _run_gather
+        from rhesis.backend.jobs.execution.shared import RUN_TIME_LIMIT_ERROR
 
         async def _hangs(*args, **kwargs):
             await asyncio.sleep(60)
@@ -135,11 +136,8 @@ class TestBatchRunStopsAtItsDeadline:
         assert all(r["error"] == RUN_TIME_LIMIT_ERROR for r in results)
 
     def test_no_recovery_pass_after_the_deadline(self):
-        from rhesis.backend.jobs.execution.batch.runner import (
-            RUN_TIME_LIMIT_ERROR,
-            _is_retriable_failure,
-            run_batch,
-        )
+        from rhesis.backend.jobs.execution.batch.runner import _is_retriable_failure, run_batch
+        from rhesis.backend.jobs.execution.shared import RUN_TIME_LIMIT_ERROR
 
         assert not _is_retriable_failure({"status": "failed", "error": RUN_TIME_LIMIT_ERROR})
 
@@ -218,11 +216,18 @@ class TestSequentialRunStopsAtItsDeadline:
                 return_value=time.monotonic() + 0.2,
             ),
             patch("rhesis.backend.jobs.execution.sequential.execute_test", side_effect=_hangs),
-            patch("rhesis.backend.jobs.execution.sequential.trigger_results_collection"),
+            patch(
+                "rhesis.backend.jobs.execution.sequential.trigger_results_collection"
+            ) as mock_trigger,
         ):
             execute_tests_sequentially(MagicMock(), test_config, test_run, [MagicMock(id="t1")])
 
+        from rhesis.backend.jobs.execution.shared import RUN_TIME_LIMIT_ERROR
+
         assert time.monotonic() - started < 10
+        results = mock_trigger.call_args.args[2]
+        assert results[0]["status"] == "failed"
+        assert results[0]["error"] == RUN_TIME_LIMIT_ERROR
 
 
 class TestCeleryLimitsFollowTheExecutionLimit:

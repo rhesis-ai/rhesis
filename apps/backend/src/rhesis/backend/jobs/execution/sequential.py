@@ -19,6 +19,7 @@ from rhesis.backend.jobs.execution.executors.data import get_live_metric_backend
 from rhesis.backend.jobs.execution.modes import is_multi_turn_test
 from rhesis.backend.jobs.execution.run import update_test_run_status
 from rhesis.backend.jobs.execution.shared import (
+    RUN_TIME_LIMIT_ERROR,
     create_execution_result,
     create_failure_result,
     is_task_revoked,
@@ -201,6 +202,8 @@ def execute_tests_sequentially(
 
         except Exception as e:
             _rollback_after_failure(session)
+            if isinstance(e, TimeoutError) and time.monotonic() >= deadline:
+                e = TimeoutError(RUN_TIME_LIMIT_ERROR)  # wait_for's own error has no message
             logger.error(f"Test {i}/{len(tests)} failed: {str(e)}")
             # Create failure result using shared utility
             failure_result = create_failure_result(str(test.id), e)
