@@ -1,8 +1,8 @@
 name: Refresh Cloudflare IPs
 
-# ingress-nginx-external trusts CF-Connecting-IP only from Cloudflare's edge ranges,
-# and prd's external LoadBalancer admits only those ranges. Both lists are committed
-# in kubernetes/, so open a PR whenever Cloudflare publishes a change.
+# Cloudflare's edge ranges are committed under kubernetes/ in every
+# `# cloudflare-ips:begin` block (today the ingress-nginx-external real-IP trust
+# list), so open a PR whenever Cloudflare publishes a change.
 on:
   workflow_dispatch:
   schedule:
@@ -56,8 +56,9 @@ jobs:
             Cloudflare's published edge ranges (https://api.cloudflare.com/client/v4/ips)
             no longer match the ranges committed under `kubernetes/`.
 
-            Until this merges, requests from the new ranges are refused by prd's
-            external LoadBalancer and logged with the edge IP instead of the visitor's.
+            Until this merges, requests arriving through the new ranges are logged
+            with the Cloudflare edge IP instead of the visitor's, and are refused
+            wherever a committed block is also used as an origin allowlist.
             prd picks this up at its next release pin, so consider a prd release soon
             after merging.
 
