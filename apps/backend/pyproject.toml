@@ -41,7 +41,7 @@ dependencies = [
     "uvicorn",
     "gunicorn>=21.2.0",
     "python-multipart>=0.0.31",
-    "slowapi>=0.1.9",
+    "slowapi>=0.1.9,<0.2",
     "itsdangerous",
     "authlib>=1.7.1",
     "celery[redis]==5.5.2",
