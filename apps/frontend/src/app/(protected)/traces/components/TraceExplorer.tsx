@@ -55,6 +55,11 @@ interface TraceExplorerProps {
   initialTurnIndex?: number;
   /** OTel span_id to select on open; takes precedence over initialTurnIndex. */
   initialSpanId?: string;
+  /**
+   * The view a conversation trace opens on. 'tree' where the conversation is already shown
+   * next to it, e.g. a test result's Traces tab beside its Conversation tab.
+   */
+  defaultView?: 'conversation' | 'tree';
   currentUserId?: string;
   currentUserName?: string;
   currentUserPicture?: string;
@@ -73,6 +78,7 @@ export default function TraceExplorer({
   projectId,
   initialTurnIndex,
   initialSpanId,
+  defaultView = 'conversation',
   currentUserId = '',
   currentUserName = '',
   currentUserPicture,
@@ -154,6 +160,8 @@ export default function TraceExplorer({
   // A refresh can still be in flight when the reader moves to another turn; only the latest
   // getTrace may update the drawer.
   const traceRequestRef = useRef(0);
+  // The fetch that last ran, so an embedded explorer shown again keeps what it loaded.
+  const fetchedWith = useRef<(() => Promise<void>) | null>(null);
 
   const fetchTrace = useCallback(async () => {
     if (!loadedTraceId || !loadedProjectId) return;
@@ -179,7 +187,7 @@ export default function TraceExplorer({
       );
       setSelectedSpan(span);
       // Moving between turns keeps the tab the reader is on.
-      if (openTree && !turnTarget) {
+      if ((openTree || defaultView === 'tree') && !turnTarget) {
         setViewTab(treeTabIndex(!!data.conversation_id));
       }
     } catch (err: unknown) {
@@ -187,6 +195,8 @@ export default function TraceExplorer({
       const errorMsg =
         err instanceof Error ? err.message : 'Failed to fetch trace details';
       setError(errorMsg);
+      // Let showing the tab again retry; the error state has no retry button of its own.
+      fetchedWith.current = null;
       console.error('Failed to fetch trace:', err);
     } finally {
       if (requestId === traceRequestRef.current) setLoading(false);
@@ -197,6 +207,7 @@ export default function TraceExplorer({
     turnTarget,
     initialTurnIndex,
     initialSpanId,
+    defaultView,
   ]);
 
   const refreshTrace = useCallback(async () => {
@@ -389,10 +400,12 @@ export default function TraceExplorer({
   }, [refreshTrace, onTraceUpdated]);
 
   useEffect(() => {
-    if (active && loadedTraceId && loadedProjectId) {
-      fetchTrace();
-    }
-  }, [active, loadedTraceId, loadedProjectId, fetchTrace]);
+    if (!active || !loadedTraceId || !loadedProjectId) return;
+    // A tab hidden and shown again would blank the trace and reset the view for the same data.
+    if (embedded && fetchedWith.current === fetchTrace) return;
+    fetchedWith.current = fetchTrace;
+    fetchTrace();
+  }, [active, embedded, loadedTraceId, loadedProjectId, fetchTrace]);
 
   // Reopening, or the parent opening another trace, starts from what the parent asks for.
   useEffect(() => {
@@ -493,7 +506,8 @@ export default function TraceExplorer({
   );
 
   const drawerContent = () => {
-    if (loading) {
+    // Before the first fetch starts there is no trace yet; that is loading, not empty.
+    if (loading || (active && loadedTraceId && !trace && !error)) {
       return (
         <>
           {bareCloseBar}

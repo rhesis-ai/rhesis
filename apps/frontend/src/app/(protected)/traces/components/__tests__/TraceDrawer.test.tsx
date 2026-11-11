@@ -3,6 +3,7 @@ import { act, render, screen, waitFor, within } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import TraceDrawer from '../TraceDrawer';
+import TraceExplorer from '../TraceExplorer';
 import type {
   SpanNode,
   TraceDetailResponse,
@@ -219,6 +220,77 @@ describe('TraceDrawer initial selection', () => {
 
     expect(await selectedDetails()).toBe('t1-llm');
     expect(selectedTab()).toBe('Tree');
+  });
+});
+
+describe('TraceExplorer default view', () => {
+  it('opens a conversation trace on the Tree tab when asked to', async () => {
+    // A test result's Traces tab: the conversation is already one tab over.
+    render(
+      <TraceExplorer
+        active
+        embedded
+        traceId="trace-1"
+        projectId="project-1"
+        defaultView="tree"
+      />
+    );
+
+    expect(await selectedDetails()).toBe('turn-1');
+    expect(selectedTab()).toBe('Tree');
+  });
+
+  it('keeps the Conversation tab as the default elsewhere', async () => {
+    render(<TraceExplorer active traceId="trace-1" projectId="project-1" />);
+
+    expect(await selectedDetails()).toBe('turn-1');
+    expect(selectedTab()).toBe('Conversation');
+  });
+});
+
+describe('TraceExplorer when shown again', () => {
+  const explorer = (active: boolean, embedded: boolean) => (
+    <TraceExplorer
+      active={active}
+      embedded={embedded}
+      traceId="trace-1"
+      projectId="project-1"
+      defaultView="tree"
+    />
+  );
+
+  it('keeps an embedded trace instead of reloading it', async () => {
+    const { rerender } = render(explorer(true, true));
+    expect(await selectedDetails()).toBe('turn-1');
+
+    rerender(explorer(false, true));
+    rerender(explorer(true, true));
+
+    expect(screen.getByTestId('span-details')).toHaveTextContent('turn-1');
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    expect(getTrace).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries an embedded trace that failed to load when shown again', async () => {
+    getTrace.mockRejectedValueOnce(new Error('Network down'));
+    const { rerender } = render(explorer(true, true));
+    expect(await screen.findByText('Network down')).toBeInTheDocument();
+
+    rerender(explorer(false, true));
+    rerender(explorer(true, true));
+
+    expect(await selectedDetails()).toBe('turn-1');
+    expect(getTrace).toHaveBeenCalledTimes(2);
+  });
+
+  it('reloads in the drawer, where reopening should show fresh data', async () => {
+    const { rerender } = render(explorer(true, false));
+    expect(await selectedDetails()).toBe('turn-1');
+
+    rerender(explorer(false, false));
+    rerender(explorer(true, false));
+
+    await waitFor(() => expect(getTrace).toHaveBeenCalledTimes(2));
   });
 });
 
