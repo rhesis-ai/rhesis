@@ -14,6 +14,8 @@ from __future__ import annotations
 from enum import Enum
 from typing import Literal
 
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 from pydantic import BaseModel, Field
 
 BudgetLevel = Literal["budget", "mid_range", "luxury"]
@@ -273,8 +275,16 @@ def exclude_interests(brief: TripBrief, unwanted: list[str]) -> None:
 
 
 def mark_unavailable(brief: TripBrief, service: str, reason: str) -> None:
-    """Remember that a service could not be reached, so the plan can say so and move on."""
-    brief.unavailable[service] = reason.strip() or "unavailable"
+    """Remember that a service could not be reached, so the plan can say so and move on.
+
+    Also fails the current span (the tool call). The tool still returns normally, so without
+    this a timed-out lookup reads as OK in the trace.
+    """
+    detail = reason.strip() or "unavailable"
+    brief.unavailable[service] = detail
+    span = trace.get_current_span()
+    span.set_status(Status(StatusCode.ERROR, f"{service} unavailable: {detail}"))
+    span.set_attribute("travel_agent.degraded_service", service)
 
 
 def clear_unavailable(brief: TripBrief, service: str) -> None:
