@@ -42,6 +42,7 @@ import { useTestRunDetailData } from '../hooks/useTestRunDetailData';
 import { useLiveTestRun } from '../hooks/useLiveTestRun';
 import { useTestRunAnnotations } from '../hooks/useTestRunAnnotations';
 import {
+  getTestEvaluationDetails,
   getTestEvaluationSummary,
   getEffectiveTestResultStatus,
   matchesStatusFilter,
@@ -224,7 +225,12 @@ export default function TestRunMainView({
         ).toLowerCase();
         const goalContent =
           test.test_output?.test_configuration?.goal?.toLowerCase() || '';
-        const evaluationContent = getTestEvaluationSummary(test).toLowerCase();
+        const evaluationContent = [
+          getTestEvaluationSummary(test),
+          ...getTestEvaluationDetails(test),
+        ]
+          .join(' ')
+          .toLowerCase();
         return (
           promptContent.includes(query) ||
           goalContent.includes(query) ||
