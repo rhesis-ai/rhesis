@@ -20,6 +20,7 @@ from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
+from rhesis.backend.app.services.job_capacity import JobCapacityExceededError
 from rhesis.backend.app.services.test_set import enforce_test_run_quota
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
@@ -275,7 +276,7 @@ def execute_test_configuration_endpoint(
                 error="Failed to submit the test run for execution.",
             )
             db.commit()
-            if isinstance(exc, HTTPException):  # the job cap, re-checked at dispatch
+            if isinstance(exc, JobCapacityExceededError):  # re-checked at dispatch
                 raise
             raise internal_error(exc, context="submitting test configuration task") from exc
 

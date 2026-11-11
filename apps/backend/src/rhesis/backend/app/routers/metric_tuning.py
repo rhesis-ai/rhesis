@@ -56,6 +56,7 @@ from rhesis.backend.app.schemas.metric_tuning import (
 )
 from rhesis.backend.app.schemas.metric_tuning_metadata import MetricTuningRunSummary
 from rhesis.backend.app.services import metric_tuning as service
+from rhesis.backend.app.services.job_capacity import JobCapacityExceededError
 from rhesis.backend.app.services.metric_tuning.annotations import (
     AnnotationCommentRequired,
     NothingToAnnotate,
@@ -312,6 +313,8 @@ def start_tuning_run(
         # knows for certain that no run is coming.
         logger.exception("Failed to queue tuning run for metric %s", metric_id)
         service.fail_tuning_run(db, metric, organization_id, "it could not be queued.")
+        if isinstance(e, JobCapacityExceededError):
+            raise
         raise HTTPException(
             status_code=503, detail="The run could not be queued. Please try again."
         ) from e
