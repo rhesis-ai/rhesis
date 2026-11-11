@@ -75,7 +75,9 @@ config:
   azureOpenAiApiVersion: "2024-02-01"
 
 # ---------------------------------------------------------------------------
-# Ingress — prd (internal class for VPN-only testing; switch to external for go-live)
+# Ingress — prd: public, on the external class, behind the Cloudflare proxy.
+# external-dns owns the proxied flag (cloudflare-proxied annotation), so a toggle in
+# the Cloudflare UI gets reverted.
 # ---------------------------------------------------------------------------
 backend:
   replicas: 2
@@ -111,6 +113,7 @@ backend:
     className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
       nginx.ingress.kubernetes.io/proxy-body-size: "25m"
   # Covers boot only (imports, probe cache pre-warm): migrations run in the
@@ -155,6 +158,7 @@ frontend:
     className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 workers:
@@ -199,6 +203,7 @@ docs:
     className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 chatbot:
@@ -222,6 +227,7 @@ chatbot:
     className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 otelCollector:
@@ -231,6 +237,7 @@ otelCollector:
     className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 telemetryProcessor:
@@ -260,6 +267,7 @@ polyphemus:
     className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
   livenessProbe:
     httpGet:
