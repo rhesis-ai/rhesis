@@ -28,6 +28,7 @@ from rhesis.backend.app.schemas.token import (
     TokenBulkDeleteResponse,
     TokenCreate,
     TokenCreateResponse,
+    TokenEdit,
     TokenInfoResponse,
     TokenRead,
     TokenUpdate,
@@ -299,7 +300,7 @@ def delete_token(
 @router.put("/{token_id}", response_model=TokenRead)
 def update_token(
     token_id: uuid.UUID,
-    token: TokenUpdate,
+    token: TokenEdit,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
@@ -317,8 +318,9 @@ def update_token(
         )
 
     organization_id, user_id = tenant_context
+    edit = TokenUpdate(**token.model_dump(include={"name", "expires_at"}, exclude_unset=True))
     db_token = token_crud.update_token(
-        db, token_id=token_id, token=token, organization_id=organization_id, user_id=user_id
+        db, token_id=token_id, token=edit, organization_id=organization_id, user_id=user_id
     )
     if db_token is None:
         raise HTTPException(status_code=404, detail="Token not found")

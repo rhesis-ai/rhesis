@@ -36,8 +36,11 @@ logger = logging.getLogger(__name__)
 def get_token(
     db: Session, token_id: uuid.UUID, organization_id: str | None = None, user_id: str | None = None
 ) -> Optional[models.Token]:
-    """Get token."""
-    return get_item(db, models.Token, token_id, organization_id, user_id)
+    """The caller's own token, or None. Tokens are personal: same-org members get None."""
+    token = get_item(db, models.Token, token_id, organization_id, user_id)
+    if token is None or str(token.user_id) != str(user_id):
+        return None
+    return token
 
 
 def get_tokens(
@@ -166,14 +169,18 @@ def update_token(
     organization_id: str | None = None,
     user_id: str | None = None,
 ) -> Optional[models.Token]:
-    """Update token."""
+    """Update the caller's own token."""
+    if get_token(db, token_id, organization_id, user_id) is None:
+        return None
     return update_item(db, models.Token, token_id, token, organization_id, user_id)
 
 
 def revoke_token(
     db: Session, token_id: uuid.UUID, organization_id: str | None = None, user_id: str | None = None
 ) -> Optional[models.Token]:
-    """Delete token."""
+    """Revoke the caller's own token."""
+    if get_token(db, token_id, organization_id, user_id) is None:
+        return None
     return delete_item(db, models.Token, token_id, organization_id, user_id)
 
 
@@ -183,18 +190,20 @@ def bulk_revoke_tokens(
     organization_id: str | None = None,
     user_id: str | None = None,
 ) -> Dict[str, List[str]]:
-    """Soft delete (revoke) multiple tokens in one transaction.
+    """Soft delete (revoke) several of the caller's own tokens in one transaction.
 
-    No owner-only rule on token delete, so this is a direct wrapper around
-    the generic bulk helper.
+    Other members' tokens are reported as not found, like ids that do not exist.
     """
-    return bulk_delete_by_ids(
+    result = bulk_delete_by_ids(
         db,
         models.Token,
         token_ids,
         organization_id=organization_id,
         user_id=user_id,
+        owner_attr="user_id",
     )
+    result["not_found_ids"] += result.pop("forbidden_ids")
+    return result
 
 
 def revoke_user_tokens(db: Session, user_id: uuid.UUID, organization_id: str | None = None) -> int:
