@@ -271,6 +271,18 @@ describe('TraceExplorer when shown again', () => {
     expect(getTrace).toHaveBeenCalledTimes(1);
   });
 
+  it('retries an embedded trace that failed to load when shown again', async () => {
+    getTrace.mockRejectedValueOnce(new Error('Network down'));
+    const { rerender } = render(explorer(true, true));
+    expect(await screen.findByText('Network down')).toBeInTheDocument();
+
+    rerender(explorer(false, true));
+    rerender(explorer(true, true));
+
+    expect(await selectedDetails()).toBe('turn-1');
+    expect(getTrace).toHaveBeenCalledTimes(2);
+  });
+
   it('reloads in the drawer, where reopening should show fresh data', async () => {
     const { rerender } = render(explorer(true, false));
     expect(await selectedDetails()).toBe('turn-1');
