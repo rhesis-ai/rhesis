@@ -452,6 +452,20 @@ async def run_batch(
 # ---------------------------------------------------------------------------
 
 
+async def _persist_to_completion(persist: Any, *args: Any) -> None:
+    """Run *persist* in a thread and let it finish even if this task is cancelled.
+
+    A cancel (revoke or run deadline) would otherwise return while the thread is still
+    writing the row, and the error sweep in batch/__init__ could then add a second one.
+    """
+    write = asyncio.ensure_future(asyncio.to_thread(persist, *args))
+    try:
+        await asyncio.shield(write)
+    except asyncio.CancelledError:
+        await asyncio.gather(write, return_exceptions=True)
+        raise
+
+
 async def _execute_single_test(
     ctx: ExecutionContext,
     test_id: str,
@@ -580,7 +594,7 @@ async def _execute_single_test(
             try:
                 from rhesis.backend.jobs.execution.batch.persist import persist_result
 
-                await asyncio.to_thread(
+                await _persist_to_completion(
                     persist_result,
                     ctx,
                     test_id,

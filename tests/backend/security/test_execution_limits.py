@@ -174,6 +174,32 @@ class TestBatchRunStopsAtItsDeadline:
         assert before + limit <= ctx.deadline <= time.monotonic() + limit
 
 
+class TestCancelledPersistStillLands:
+    def test_a_cancel_waits_for_the_row_being_written(self):
+        import threading
+
+        from rhesis.backend.jobs.execution.batch.runner import _persist_to_completion
+
+        started, written = threading.Event(), threading.Event()
+
+        def _slow_persist():
+            started.set()
+            time.sleep(0.3)
+            written.set()
+
+        async def _main():
+            task = asyncio.create_task(_persist_to_completion(_slow_persist))
+            while not started.is_set():
+                await asyncio.sleep(0.01)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+            # The task only ends once the write is done, so the sweep sees the row.
+            assert written.is_set()
+
+        asyncio.run(_main())
+
+
 class TestSequentialRunStopsAtItsDeadline:
     def test_no_test_starts_after_the_deadline(self):
         from rhesis.backend.jobs.execution.sequential import execute_tests_sequentially
