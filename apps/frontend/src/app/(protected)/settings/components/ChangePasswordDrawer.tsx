@@ -110,12 +110,16 @@ export default function ChangePasswordDrawer({
       // The change revokes every refresh token, including this session's, so
       // swap in the new pair; updateSession alone would only replace the
       // access token.
+      let signedIn = false;
       if (result.auth_code) {
-        await signIn('credentials', {
+        const signInResult = await signIn('credentials', {
           code: result.auth_code,
           redirect: false,
         });
-      } else if (result.session_token) {
+        // A failed exchange comes back as `error`, not a throw.
+        signedIn = !signInResult?.error;
+      }
+      if (!signedIn && result.session_token) {
         await updateSession({ session_token: result.session_token });
       }
 
