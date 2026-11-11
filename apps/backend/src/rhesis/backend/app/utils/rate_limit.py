@@ -11,6 +11,8 @@ from urllib.parse import urlparse, urlunparse
 from fastapi import HTTPException, Request, status
 from limits import RateLimitItem, parse_many
 from slowapi import Limiter
+from slowapi.middleware import _find_route_handler, _should_exempt, async_check_limits
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from rhesis.backend.app.config.settings import get_redis_settings
 from rhesis.backend.app.services.redis_constants import RedisDatabase
@@ -70,7 +72,7 @@ def get_real_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-#: Applied by SlowAPIMiddleware, per client IP and per route, to every route
+#: Applied by DefaultRateLimitMiddleware, per client IP and per route, to every route
 #: without its own limit. A flood guard sized well above polling, SDK and NAT
 #: traffic; costly routes carry tighter per-user limits.
 DEFAULT_RATE_LIMIT = "1200/minute"
@@ -113,6 +115,32 @@ def build_limiter(storage_uri: Optional[str] = None) -> Limiter:
 
 
 limiter = build_limiter()
+
+
+class DefaultRateLimitMiddleware:
+    """Apply the limiter's default limit to every route without its own.
+
+    Used instead of slowapi's ``SlowAPIASGIMiddleware``, which re-sends
+    ``http.response.start`` before each body chunk and so breaks streamed
+    responses. This one checks the limit and leaves ``send`` alone (rate limit
+    headers are off, so there is nothing to inject).
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        app = scope.get("app")
+        active = getattr(getattr(app, "state", None), "limiter", None)
+        if scope["type"] == "http" and active is not None and active.enabled:
+            handler = _find_route_handler(app.routes, scope)
+            if not _should_exempt(active, handler):
+                request = Request(scope, receive=receive, send=send)
+                error_response, _ = await async_check_limits(active, request, handler, app)
+                if error_response is not None:
+                    await error_response(scope, receive, send)
+                    return
+        await self.app(scope, receive, send)
 
 
 def get_user_identifier(request: Request) -> str:

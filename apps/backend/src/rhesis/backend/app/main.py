@@ -637,12 +637,11 @@ app = FastAPI(
 )
 
 # Rate limits: per-route decorators, plus DEFAULT_RATE_LIMIT on every other
-# route through SlowAPIASGIMiddleware (registered below, inside CORS).
+# route through DefaultRateLimitMiddleware (registered below, inside CORS).
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIASGIMiddleware
 
-from rhesis.backend.app.utils.rate_limit import limiter
+from rhesis.backend.app.utils.rate_limit import DefaultRateLimitMiddleware, limiter
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -763,7 +762,7 @@ app.add_exception_handler(Exception, unhandled_exception_handler)
 
 
 # Added before CORS so a 429 still carries CORS headers.
-app.add_middleware(SlowAPIASGIMiddleware)
+app.add_middleware(DefaultRateLimitMiddleware)
 
 # Configure CORS
 _frontend_settings = get_frontend_settings()

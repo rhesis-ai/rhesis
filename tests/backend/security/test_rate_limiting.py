@@ -16,18 +16,19 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from limits.storage import RedisStorage
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIASGIMiddleware
 from slowapi.wrappers import LimitGroup
 from starlette.requests import Request as StarletteRequest
 
 from rhesis.backend.app.main import app
 from rhesis.backend.app.utils import rate_limit
 from rhesis.backend.app.utils.rate_limit import (
+    DefaultRateLimitMiddleware,
     get_real_ip,
     get_user_identifier,
     hit_post_parse_limit,
@@ -151,7 +152,7 @@ def test_unreachable_redis_keeps_routes_serving():
     mini = FastAPI()
     mini.state.limiter = offline
     mini.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-    mini.add_middleware(SlowAPIASGIMiddleware)
+    mini.add_middleware(DefaultRateLimitMiddleware)
 
     @mini.get("/limited")
     @offline.limit("2/minute")
@@ -171,8 +172,26 @@ def test_unreachable_redis_keeps_routes_serving():
 # --- default limit on every route ------------------------------------------------
 
 
-def test_slowapi_middleware_is_registered():
-    assert SlowAPIASGIMiddleware in [m.cls for m in app.user_middleware]
+def test_default_limit_middleware_is_registered():
+    assert DefaultRateLimitMiddleware in [m.cls for m in app.user_middleware]
+
+
+def test_default_limit_middleware_passes_streamed_responses_through():
+    """A response sent in several chunks arrives whole (file downloads, SSE)."""
+    memory = rate_limit.build_limiter("memory://")
+    memory.enabled = True
+    mini = FastAPI()
+    mini.state.limiter = memory
+    mini.add_middleware(DefaultRateLimitMiddleware)
+
+    @mini.get("/stream")
+    def stream():
+        return StreamingResponse(iter([b"a", b"b", b"c"]))
+
+    with TestClient(mini) as c:
+        response = c.get("/stream")
+    assert response.status_code == 200
+    assert response.content == b"abc"
 
 
 def test_default_limit_applies_to_undecorated_routes(limiter_on, monkeypatch):
