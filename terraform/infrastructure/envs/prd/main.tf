@@ -71,6 +71,17 @@ data "cloudflare_zone" "rhesis_ai" {
 # is because other proxied records can't pass strict origin checks: the
 # SendGrid link-tracking CNAMEs (url2123, 47569266 -> sendgrid.net) and the
 # discord/notion/rtd redirects to www.rhesis.ai.
+locals {
+  prd_strict_ssl_hosts = [
+    "api.rhesis.ai",
+    "app.rhesis.ai",
+    "docs.rhesis.ai",
+    "chatbot.rhesis.ai",
+    "telemetry.rhesis.ai",
+    "polyphemus.rhesis.ai",
+  ]
+}
+
 resource "cloudflare_ruleset" "prd_ssl_strict" {
   provider    = cloudflare.rules
   zone_id     = data.cloudflare_zone.rhesis_ai.id
@@ -83,7 +94,7 @@ resource "cloudflare_ruleset" "prd_ssl_strict" {
     action      = "set_config"
     description = "Full (strict) SSL for prd public hosts"
     enabled     = true
-    expression  = "(http.host in {\"api.rhesis.ai\" \"app.rhesis.ai\" \"docs.rhesis.ai\" \"chatbot.rhesis.ai\" \"telemetry.rhesis.ai\" \"polyphemus.rhesis.ai\"})"
+    expression  = "(http.host in {${join(" ", [for h in local.prd_strict_ssl_hosts : "\"${h}\""])}})"
 
     action_parameters {
       ssl = "strict"
@@ -242,6 +253,12 @@ resource "google_secret_manager_secret" "cloudflare_rules_token" {
     environment = "prd"
     managed-by  = "terraform"
     component   = "cloudflare-rules"
+  }
+
+  # Destroying the container deletes the real token, which tf-setup reads
+  # before `terraform init`, so every prd plan would fail.
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
