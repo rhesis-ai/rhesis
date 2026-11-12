@@ -39,6 +39,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   anything that referenced them. Recorded metric scores are unaffected: test results and the
   verdict grid read their own JSONB snapshots, not the metric table.
 
+## [0.21.0] - 2026-11-12
+
+### Security
+
+- **Session & Token Lifecycle Hardening**: Introduced per-request Redis session revocation checks, revoked all active tokens on password change or reset, and required single-use `jti` validation for email verification links and WebSocket tokens.
+- **Outbound Request Guard (SSRF Prevention)**: Routed tenant outbound REST and WebSocket connections through a guarded client that blocks private/loopback network targets by default (`OUTBOUND_ALLOW_PRIVATE_NETWORKS`).
+- **Sandboxed Template Rendering**: Isolated endpoint request/response mapping template execution inside a sandboxed Jinja environment to prevent unsafe attribute access.
+- **Global & Shared Rate Limiting**: Added Redis-backed shared rate limiting across backend instances, adding specific limits for authentication, LLM calls, and background job dispatches.
+- **Restricted Database Role**: Enforced DML-only execution for runtime self-hosted database connections, disallowing superuser and `BYPASSRLS` privileges outside development.
+- **Authentication & OAuth Safeguards**: Required verified email ownership before linking OAuth/SSO accounts to existing user profiles, and added strict same-origin checks to post-login `return_to` redirects.
+- **Sensitive Data & Field Protection**: Restricted OData filtering and sorting from accessing sensitive or internal credential columns, and scrubbed sensitive data from recycle bin API payloads.
+
+### Added
+
+- **Rich Requirements System**: Added support for requirement impact classification, single-level hierarchy (parent-child linking), source links, and metric tuning examples derived from annotations. Added corresponding MCP tools.
+- **Tuning Case Metrics**: Added `tuning_cases_count` to metric responses.
+- **Invite-Only Registration Controls**: Extended `AUTH_REGISTRATION_ENABLED=false` to block uninvited magic-link and first-time OAuth account creations.
+
+### Changed
+
+- **Path-Based Project Authorization**: Endpoints carrying `{project_id}` now evaluate user permissions against the path project rather than the active project header context.
+- **Background Job Boundaries & Quota Serialization**: Enforced organization job execution caps (`MAX_ACTIVE_JOBS_PER_ORG`), execution time limits, and request payload size boundaries. Serialized quota checks using database advisory locks to prevent concurrent race conditions.
+- **Recycle Bin Authorization**: Restricted recycle bin view and purge capabilities exclusively to organization owners.
+- **User Endpoint Constraints**: Restricted `PUT /users` strictly to profile fields (name, picture, structure), preventing modification of system-managed auth attributes.
+- **Onboarding Email Schedule**: Replaced immediate signup confirmation emails with post-onboarding sequence emails (sent 10 minutes and 24 hours after organization onboarding).
+
+### Fixed
+
+- **Tenant Scope Isolation**: Scoped conversation caches, trace metrics debounce queues, and stateless history stores by tenant and project.
+- **Security-Invoker Database Views**: Recreated stats views with `security_invoker = true` and tenant joins to ensure PostgreSQL Row-Level Security (RLS) applies to callers.
+- **Managed Postgres Migrations**: Fixed database schema migrations on managed PostgreSQL services (RDS, Cloud SQL) that do not grant `BYPASSRLS` to migration roles.
+- **OData Nested Tag Filters**: Resolved issue where nested OData `any`/`all` tag filter queries dropped internal joins and returned mismatched results.
+- **WebSocket Audit Actor Logging**: Fixed an issue where WebSocket actions were recorded as anonymous actors in audit logs.
+- **HTTPS Read Timeout Error Reporting**: Differentiated socket read timeouts from TLS handshake failures in endpoint connectivity diagnosis.
+
+
 ## [0.20.1] - 2026-11-03
 
 ### Fixed
