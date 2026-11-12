@@ -8,6 +8,206 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.20.1] - 2026-11-03
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.20.1**
+- **Frontend 0.20.1**
+- **SDK 0.20.1**
+
+### Summary
+
+A fix release. Endpoint test calls now respect **custom timeout configurations** instead of falling back to the 30-second default. The endpoint wizard supports **editable test values** and **raw JSON response mapping**, with a progress indicator and cancel option for slow endpoints.
+
+### Backend Highlights
+- Fixed endpoint test calls dropping custom timeout configurations and metadata
+- Stopped automatic retries on endpoint read timeouts during test execution
+- Security dependency updates
+
+### Frontend Highlights
+- Progress indicator and cancellation option for long-running endpoint tests
+- Editable test values and raw JSON editing in the Mapping tab
+- Proper timeout and proxy budget handling for slow API endpoints
+
+### SDK Highlights
+- Security dependency updates across Python and npm packages
+- Fixed E2E workflow compatibility by pinning CI runners to Ubuntu 24.04
+
+## [0.20.0] - 2026-10-27
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.20.0**
+- **Frontend 0.20.0**
+- **SDK 0.20.0**
+
+### Summary
+
+Metrics can now target **specific spans in a trace**, and a built-in **Tool Call Trajectory** metric validates that agents call the right tools in the right order. The Architect answers data questions with **interactive charts**. The **Insights registry** is redesigned with trace latency, cost, and duration analytics, time-grain bucketing, and query shaping. The backend adds **S3 storage** support.
+
+### Breaking Changes
+
+**Metric evaluation signature**
+
+- `evaluate()` and `a_evaluate()` now take `(input, output, trace, expectations)` across all metrics. The individual parameters (`expected_output`, `context`, `tool_calls`, `goal`, `instructions`, `contract`) are removed in favor of the `expectations` and `trace` objects.
+- `@metric` functions using legacy parameter names must update their signatures.
+
+**Insights registry redesign**
+
+- `GET /insights` and `POST /insights/query` group by one dimension per entity. `requirement_id`, `topic_id`, `category_id` and `test_run_id` are no longer separate dimensions. `year`/`month` are replaced by a `period` dimension with `time_grain` (`day`, `week`, `month`, `quarter`, `year`). On `test_run`, `passed`/`pass_rate` are renamed `completed`/`completion_rate`. Old names return a 400 listing the valid ones.
+
+### Featured Capabilities
+
+**Tool Call Trajectory metric**
+
+- **Expected tool calls**: define `expected_tool_calls` on a test configuration as `{name, arguments}` pairs
+- **Built-in metric**: the Tool Call Trajectory metric compares the trace's tool calls against the expected sequence, without a model
+- **Not-applicable handling**: a metric whose expectation the test lacks is left out of the run, not failed
+
+See [Metrics](/docs/metrics).
+
+**Metric targets**
+
+- **Span-level evaluation**: a metric's `config.target` says what it judges in a trace: each turn, the conversation, the whole run, or each tool call, retrieval, model call, agent run, or guardrail check
+- **Name and agent scoping**: targets can be narrowed by span name and by enclosing agent
+- **Not-applicable results**: a target that matches nothing gives a not-applicable result, left out of the test's verdict
+
+**Architect charts**
+
+- **Interactive charts**: Architect responses can include bar, line, heat table, and radar charts, built from Insights query results
+- **Export**: CSV, SVG, and PNG export from any chart
+- **Data inspection**: raw data modal for every chart
+
+**Insights redesign**
+
+- **Trace insights**: latency metrics (avg, p50, p95, p99), token counts, cost in USD, and error rates across environments and test runs
+- **Run duration**: execution duration metrics (avg, p50, p95, max) on test run statistics
+- **Query shaping**: `order_by`, `limit`, `min_count`, and `time_grain` parameters
+- **Schema endpoint**: `GET /insights/schema` for dynamic discovery of available dimensions, entities, and metrics
+
+### Backend Highlights
+- S3-compatible storage support via `s3fs`, configured using `STORAGE_SERVICE_*` settings
+- W3C `traceparent` header propagation during REST and WebSocket invocations
+- ClickUp MCP integration
+- Jinja `fromjson` filter for parsing stringified JSON inputs into structured objects
+- Auth and onboarding emails sent asynchronously via `BackgroundTasks`
+
+### Frontend Highlights
+- Interactive charts in Architect responses with CSV/SVG/PNG export
+- Redesigned trace drawer with timing bars, filterable span trees, and a Traces tab in test results
+- Editable JSON test payloads in the endpoint wizard
+- Scroll cues on the sidebar navigation
+- Insights view aligned with the redesigned registry, grouping by ID to support duplicate entity names
+
+### SDK Highlights
+- `ToolCallTrajectory` metric and `Test(expected_tool_calls=[...])` support
+- `Trace.from_response()` and `Trace.from_conversation()` for in-memory trace construction without active telemetry
+- Code metrics (`@metric`) can declare a `trace` parameter to inspect spans
+- `ShowChartTool` for agent charting from Insights queries
+- `Insights.describe()` for schema introspection
+- Corrected cache token calculations on streamed LangChain calls
+
+## [0.19.1] - 2026-10-22
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.19.1**
+- **Frontend 0.19.1**
+- **SDK 0.19.1**
+
+### Summary
+
+A fix release. The endpoint creation flow is redesigned as a **four-step wizard**. Conversation traces get **turn navigation** for stepping through multi-turn interactions. The dark mode toggle returns to the user menu with automatic browser theme matching. SDK multi-turn runs no longer split turns into separate traces.
+
+### Backend Highlights
+- Task API responses now include `created_at` and `updated_at` timestamps
+- Fixed SDK multi-turn runs splitting conversation turns into separate traces
+- Security dependency updates (`certifi`, `uv`, `nltk`, `pillow`)
+
+### Frontend Highlights
+- Endpoint creation redesigned as a four-step wizard with step navigation, connection testing, and raw JSON response previews
+- Turn navigation on conversation traces: step through "Turn n of N" and open specific turns from replies
+- Dark mode toggle restored in the user menu with automatic browser theme matching
+- Empty state view when metric filters yield no results
+- Tags section moved to the bottom of the metric detail page
+
+### SDK Highlights
+- Fixed authentication fields not being preserved when caching settings
+- Dark mode follows browser system theme by default
+- Trace metrics grid automatically refreshes on change
+- Security dependency updates (`certifi`, `nltk`)
+
+## [0.19.0] - 2026-10-21
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.19.0**
+- **Frontend 0.19.0**
+- **SDK 0.19.0**
+
+### Summary
+
+The platform adds a full **audit logging system** with streaming to external destinations and an export API. Endpoints support **OAuth 2.0 Client Credentials** for authenticated targets. **Perspective API is replaced** by Google Cloud Natural Language `moderateText` for toxicity scoring. The sidebar gets a **project switcher**, and test generation uses **requirement acceptance criteria** to produce better tests.
+
+### Featured Capabilities
+
+**Audit logging**
+
+- **Append-only event log**: every write operation is recorded with actor, credentials, IP, client channel, and user agent
+- **Streaming destinations**: forward events to Webhooks, Splunk, or Datadog in real time
+- **Export API**: export logs as files with automated 7-day retention
+- **Auditor role**: a built-in role for read-only audit access
+- **Architect integration**: MCP tools let the Architect query and answer questions about audit logs
+
+See [Audit Log](/docs/organizations/audit-log).
+
+**Endpoint OAuth 2.0**
+
+- **Client Credentials grant**: configure `client_secret_basic` or `client_secret_post` authentication on target endpoints
+- **Token management**: the backend handles token acquisition and refresh transparently
+
+See [Endpoint Management](/docs/endpoints/management).
+
+**Google Cloud Natural Language for toxicity**
+
+- **`moderateText` backend**: replaces Perspective API with an EU-region-compatible alternative
+- **LLM judge fallback**: when the Cloud NL API is unavailable, toxicity metrics fall back to an LLM judge
+- **`scoring_backend` tracking**: each score records which backend produced it
+
+### Backend Highlights
+- Audit logging with append-only events, streaming to external destinations, and an export API
+- Endpoint OAuth 2.0 Client Credentials support
+- Google Cloud NL `moderateText` replacing Perspective API, with LLM judge fallback
+- Requirement-based test generation using descriptions and acceptance criteria
+- Feature-flag and role-based MCP tool filtering by subscription plan
+- API key scope enforcement: requests with an unreachable `X-Project-Id` now return 403
+- Token rotation and revocation races fixed with advisory locking on refresh token families
+- Celery Beat converted to a singleton service with Redis heartbeat monitoring
+
+### Frontend Highlights
+- Sidebar project switcher with quick access to project settings and creation
+- Evaluation tab grouping test results into check cards by goals, restrictions, and metrics
+- Audit Log view with events tab, details drawer, capabilities settings, and export
+- Endpoint OAuth 2.0 configuration in endpoint forms
+- Onboarding enhancements: optional job role and referral source questions
+- Getting Started checklist moved from a floating overlay into a compact sidebar footer widget
+- Redesigned turn headers, findings cards, and result headers in multi-turn test views
+- Runtime deployment config: environment variables read at runtime instead of inlined at build time
+
+### SDK Highlights
+- Automatic request scoping to `RHESIS_PROJECT_ID` via `X-Project-Id` header on all API requests
+- Google Cloud NL `moderateText` support with LLM judge fallback
+- Persistent file context across multi-turn Architect conversations
+- Audit log reference and tool support in the Architect agent
+- Fixed 502/503/504 gateway timeouts in `RhesisLLM.a_generate` being swallowed instead of retried
+- Fixed thread-safety race in background event loop initialization
+- Optimized SDK dependencies by switching to `pydantic-ai-slim`
+
 ## [0.18.0] - 2026-10-08
 
 ### Platform Release
