@@ -13,6 +13,14 @@ from rhesis.backend.app.services.websocket.token_service import (
     WebSocketTokenService,
     get_ws_token_service,
 )
+from tests.backend.fixtures.fake_redis import fake_redis_manager
+
+
+@pytest.fixture(autouse=True)
+def _redis():
+    """Each test gets its own Redis, so claims don't leak between tests."""
+    with fake_redis_manager() as redis:
+        yield redis
 
 
 @pytest.fixture
@@ -36,18 +44,20 @@ def org_id():
 class TestWebSocketTokenSecurity:
     """Security tests for WebSocket token issuance and validation."""
 
-    def test_valid_token_is_accepted(self, token_service, user_id, org_id):
+    @pytest.mark.asyncio
+    async def test_valid_token_is_accepted(self, token_service, user_id, org_id):
         """Test that a valid token is accepted."""
         token = token_service.create_ws_token(user_id, org_id)
 
-        payload = token_service.validate_ws_token(token)
+        payload = await token_service.validate_ws_token(token)
 
         assert payload is not None
         assert payload["sub"] == user_id
         assert payload["org"] == org_id
         assert payload["purpose"] == "websocket"
 
-    def test_expired_token_is_rejected(self, user_id, org_id):
+    @pytest.mark.asyncio
+    async def test_expired_token_is_rejected(self, user_id, org_id):
         """Test that expired tokens are rejected."""
         # Create service with very short TTL
         short_ttl_service = WebSocketTokenService(secret_key="test_secret")
@@ -58,11 +68,12 @@ class TestWebSocketTokenSecurity:
         # Wait for token to expire
         time.sleep(1.5)
 
-        payload = short_ttl_service.validate_ws_token(token)
+        payload = await short_ttl_service.validate_ws_token(token)
 
         assert payload is None
 
-    def test_token_with_wrong_purpose_is_rejected(self, token_service, user_id, org_id):
+    @pytest.mark.asyncio
+    async def test_token_with_wrong_purpose_is_rejected(self, token_service, user_id, org_id):
         """Test that tokens with wrong purpose are rejected.
 
         This prevents regular JWT tokens from being used as WebSocket tokens.
@@ -84,11 +95,12 @@ class TestWebSocketTokenSecurity:
             algorithm="HS256",
         )
 
-        result = token_service.validate_ws_token(wrong_purpose_token)
+        result = await token_service.validate_ws_token(wrong_purpose_token)
 
         assert result is None
 
-    def test_token_cannot_be_reused(self, token_service, user_id, org_id):
+    @pytest.mark.asyncio
+    async def test_token_cannot_be_reused(self, token_service, user_id, org_id):
         """Test that tokens cannot be reused (single-use).
 
         This prevents replay attacks.
@@ -96,28 +108,31 @@ class TestWebSocketTokenSecurity:
         token = token_service.create_ws_token(user_id, org_id)
 
         # First use should succeed
-        payload1 = token_service.validate_ws_token(token)
+        payload1 = await token_service.validate_ws_token(token)
         assert payload1 is not None
 
         # Second use should fail
-        payload2 = token_service.validate_ws_token(token)
+        payload2 = await token_service.validate_ws_token(token)
         assert payload2 is None
 
 
 class TestWebSocketTokenEdgeCases:
     """Edge case tests for WebSocket token service."""
 
-    def test_invalid_token_format_is_rejected(self, token_service):
+    @pytest.mark.asyncio
+    async def test_invalid_token_format_is_rejected(self, token_service):
         """Test that invalid token formats are rejected."""
-        result = token_service.validate_ws_token("not_a_valid_jwt")
+        result = await token_service.validate_ws_token("not_a_valid_jwt")
         assert result is None
 
-    def test_empty_token_is_rejected(self, token_service):
+    @pytest.mark.asyncio
+    async def test_empty_token_is_rejected(self, token_service):
         """Test that empty tokens are rejected."""
-        result = token_service.validate_ws_token("")
+        result = await token_service.validate_ws_token("")
         assert result is None
 
-    def test_token_missing_jti_is_rejected(self, token_service, user_id, org_id):
+    @pytest.mark.asyncio
+    async def test_token_missing_jti_is_rejected(self, token_service, user_id, org_id):
         """Test that tokens without JTI are rejected."""
         import jwt
 
@@ -136,11 +151,12 @@ class TestWebSocketTokenEdgeCases:
             algorithm="HS256",
         )
 
-        result = token_service.validate_ws_token(no_jti_token)
+        result = await token_service.validate_ws_token(no_jti_token)
 
         assert result is None
 
-    def test_token_with_wrong_secret_is_rejected(self, user_id, org_id):
+    @pytest.mark.asyncio
+    async def test_token_with_wrong_secret_is_rejected(self, user_id, org_id):
         """Test that tokens signed with wrong secret are rejected."""
         # Create token with one secret
         service1 = WebSocketTokenService(secret_key="secret_one")
@@ -148,7 +164,7 @@ class TestWebSocketTokenEdgeCases:
 
         # Try to validate with different secret
         service2 = WebSocketTokenService(secret_key="secret_two")
-        result = service2.validate_ws_token(token)
+        result = await service2.validate_ws_token(token)
 
         assert result is None
 
@@ -156,7 +172,8 @@ class TestWebSocketTokenEdgeCases:
 class TestWebSocketTokenServiceOperations:
     """Tests for token service operations."""
 
-    def test_invalidate_token_prevents_use(self, token_service, user_id, org_id):
+    @pytest.mark.asyncio
+    async def test_invalidate_token_prevents_use(self, token_service, user_id, org_id):
         """Test that manually invalidated tokens cannot be used."""
         import jwt
 
@@ -174,7 +191,7 @@ class TestWebSocketTokenServiceOperations:
         token_service.invalidate_token(jti)
 
         # Now the original token should be rejected
-        result = token_service.validate_ws_token(token)
+        result = await token_service.validate_ws_token(token)
         assert result is None
 
     def test_each_token_has_unique_jti(self, token_service, user_id, org_id):

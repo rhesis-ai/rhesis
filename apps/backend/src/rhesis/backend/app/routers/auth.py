@@ -24,17 +24,17 @@ from rhesis.backend.app.auth.refresh_token_utils import (
     verify_and_refresh_token,
 )
 from rhesis.backend.app.auth.session_invalidation import (
-    clear_user_logout,
     invalidate_user_sessions,
-    is_session_valid,
+    is_session_revoked,
 )
-from rhesis.backend.app.auth.session_utils import regenerate_session
+from rhesis.backend.app.auth.session_utils import regenerate_session, set_session_user
 from rhesis.backend.app.auth.terms import (
     record_terms_acceptance,
     user_has_accepted_current_terms,
     user_has_prior_terms_acceptance,
 )
 from rhesis.backend.app.auth.token_utils import (
+    EMAIL_VERIFICATION_EXPIRE_MINUTES,
     MAGIC_LINK_EXPIRE_MINUTES,
     PASSWORD_RESET_EXPIRE_MINUTES,
     create_auth_code,
@@ -59,6 +59,7 @@ from rhesis.backend.app.auth.user_utils import (
     find_or_create_user_from_auth,
     mark_user_joined_if_needed,
     require_current_user_or_token_without_context,
+    require_interactive_user,
 )
 from rhesis.backend.app.config.settings import (
     get_application_settings,
@@ -301,12 +302,11 @@ def _user_summary(user: User) -> dict:
 
 
 def _issue_login_tokens(db: Session, user: User) -> tuple[str, str, dict]:
-    """Clear the logout marker and mint the session and refresh tokens.
+    """Mint the session and refresh tokens.
 
     The commit lands before the caller mints the auth code, so the code is
     only ever handed out once the refresh token row is durable.
     """
-    clear_user_logout(str(user.id))
     access_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
     db.commit()
@@ -409,7 +409,6 @@ def _complete_oauth_login(db: Session, auth_user) -> tuple[str, str, str, dict]:
     """Find or create the OAuth user and mint their tokens."""
     user = find_or_create_user_from_auth(db, auth_user)
     user_id = str(user.id)
-    clear_user_logout(user_id)
     session_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, user_id)
     db.commit()
@@ -418,8 +417,11 @@ def _complete_oauth_login(db: Session, auth_user) -> tuple[str, str, str, dict]:
     return user_id, session_token, refresh_tok, _user_summary(user)
 
 
-def _mark_email_verified(db: Session, email: str) -> Optional[tuple[str, str]]:
-    """Flag the address as verified and mint tokens; ``None`` if no such user."""
+def _mark_email_verified(db: Session, email: str, sign_in: bool) -> Optional[tuple[str, str]]:
+    """Flag the address as verified and, if ``sign_in``, mint tokens.
+
+    Returns ``None`` when no tokens were minted, including when there is no such user.
+    """
     from rhesis.backend.app.crud import user as user_crud
 
     user = user_crud.get_user_by_email(db, email)
@@ -431,6 +433,10 @@ def _mark_email_verified(db: Session, email: str) -> Optional[tuple[str, str]]:
     if not user.is_email_verified:
         user.is_email_verified = True
         logger.info("Email verified for user: %s", redact_email(user.email))
+
+    if not sign_in:
+        db.commit()
+        return None
 
     access_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
@@ -456,9 +462,10 @@ def _load_user_for_reset(db: Session, email: str) -> tuple[User, str, str]:
 
 
 def _store_new_password(db: Session, user: User, new_password: str, action: str) -> str:
-    """Hash and persist a new password, returning the user's email for logging.
+    """Hash and persist a new password and revoke every refresh token.
 
-    ``action`` is the audit action: ``password.reset`` or ``password.changed``.
+    Returns the user's email for logging. ``action`` is the audit action:
+    ``password.reset`` or ``password.changed``.
     """
     from rhesis.backend.app.utils.encryption import hash_password
 
@@ -467,6 +474,7 @@ def _store_new_password(db: Session, user: User, new_password: str, action: str)
     # not a provider migration. Users can log in via either method.
     if not user.provider_type:
         user.provider_type = AuthProviderType.EMAIL
+    revoke_all_for_user(db, str(user.id))
     record_user_event(action, user, db=db)
     db.commit()
     return user.email
@@ -497,12 +505,18 @@ def _load_user_for_password_change(
     return db_user, db_user.email, db_user.name or ""
 
 
-def _apply_password_change(db: Session, db_user: User, new_password: str) -> str:
-    """Store the new password, drop every other session, and mint a fresh token."""
+def _apply_password_change(db: Session, db_user: User, new_password: str) -> None:
+    """Store the new password."""
     email = _store_new_password(db, db_user, new_password, PASSWORD_CHANGED)
-    invalidate_user_sessions(str(db_user.id))
     logger.info("Password changed for user: %s", redact_email(email))
-    return create_session_token(db_user)
+
+
+def _issue_replacement_tokens(db: Session, db_user: User) -> tuple[str, str]:
+    """Mint the caller's new session and refresh token after a password change."""
+    session_token = create_session_token(db_user)
+    refresh_tok = create_refresh_token(db, str(db_user.id))
+    db.commit()
+    return session_token, refresh_tok
 
 
 def _consume_magic_link(db: Session, email: str) -> tuple[User, str]:
@@ -872,7 +886,7 @@ async def login_with_email(
         # Set up session and create tokens. The refresh token is wrapped
         # in a short-lived, single-use auth code so it never reaches the
         # browser: the client exchanges the code via NextAuth server-side.
-        request.session["user_id"] = user_id
+        set_session_user(request, user_id)
         access_token, refresh_tok, user_info = await anyio.to_thread.run_sync(
             _issue_login_tokens, db, user
         )
@@ -955,7 +969,7 @@ async def register_with_email(
         # Set up session and create tokens. Refresh token wrapped in a
         # single-use auth code (see /auth/login/email) so it stays out of
         # the browser.
-        request.session["user_id"] = user_id
+        set_session_user(request, user_id)
         access_token, refresh_tok, user_info = await anyio.to_thread.run_sync(
             _issue_login_tokens, db, user
         )
@@ -1000,6 +1014,22 @@ async def register_with_email(
 # =============================================================================
 
 
+async def _claim_verification_link(payload: dict) -> bool:
+    """Whether this verification link may also sign the user in: its first use only.
+
+    Verifying again is harmless, so a reused, legacy (no ``jti``) or unclaimable
+    link still verifies the address; it just doesn't start a session.
+    """
+    jti = payload.get("jti")
+    if not jti:
+        return False
+    try:
+        return await claim_token_jti(jti, EMAIL_VERIFICATION_EXPIRE_MINUTES * 60)
+    except TokenStoreUnavailableError:
+        logger.warning("Token store unavailable; verifying email without signing in")
+        return False
+
+
 @router.post("/verify-email")
 async def verify_email(
     body: VerifyEmailRequest,
@@ -1010,7 +1040,8 @@ async def verify_email(
     email.
     """
     payload = verify_email_flow_token(body.token, "email_verification")
-    tokens = await anyio.to_thread.run_sync(_mark_email_verified, db, payload["email"])
+    sign_in = await _claim_verification_link(payload)
+    tokens = await anyio.to_thread.run_sync(_mark_email_verified, db, payload["email"], sign_in)
 
     # Enumeration-safe: return success even if user no longer exists
     if tokens is None:
@@ -1124,12 +1155,14 @@ async def reset_password(
         )
 
     user, email, name = await anyio.to_thread.run_sync(_load_user_for_reset, db, payload["email"])
+    user_id = str(user.id)
 
     await validate_password(
         body.new_password,
         context={"email": email, "name": name},
     )
     await anyio.to_thread.run_sync(_store_new_password, db, user, body.new_password, PASSWORD_RESET)
+    await invalidate_user_sessions(user_id)
 
     logger.info("Password reset for user: %s", redact_email(email))
 
@@ -1150,7 +1183,7 @@ async def change_password(
     request: Request,
     body: ChangePasswordRequest,
     db: OffLoopSession = Depends(get_off_loop_db_session),
-    current_user: User = Depends(require_current_user_or_token_without_context),
+    current_user: User = Depends(require_interactive_user),
 ):
     """
     Change or set a password for the currently authenticated user.
@@ -1160,8 +1193,9 @@ async def change_password(
     omitting ``current_password``. Setting a password is additive -- it
     does not change the user's primary authentication provider.
 
-    On success, all other sessions are invalidated and a fresh session
-    token is returned so the current session survives.
+    On success, every session and refresh token is revoked and the caller
+    gets a fresh pair through ``auth_code`` so the current session survives.
+    ``session_token`` is the same fresh access token, for older clients.
     """
     db_user, email, name = await anyio.to_thread.run_sync(
         _load_user_for_password_change, db, current_user.id, body.current_password
@@ -1172,14 +1206,22 @@ async def change_password(
         context={"email": email, "name": name},
     )
 
-    session_token = await anyio.to_thread.run_sync(
-        _apply_password_change, db, db_user, body.new_password
+    await anyio.to_thread.run_sync(_apply_password_change, db, db_user, body.new_password)
+    # Before minting, so the replacement token is not caught by the revocation.
+    await invalidate_user_sessions(str(current_user.id))
+    if "user_id" in request.session:
+        # Keep the caller's own cookie session, like the token pair below.
+        set_session_user(request, str(current_user.id))
+    session_token, refresh_tok = await anyio.to_thread.run_sync(
+        _issue_replacement_tokens, db, db_user
     )
+    auth_code = await create_auth_code(session_token, refresh_tok)
 
     return {
         "success": True,
         "message": "Password updated successfully.",
         "session_token": session_token,
+        "auth_code": auth_code,
     }
 
 
@@ -1280,7 +1322,7 @@ async def verify_magic_link(
 
     # Set up session and create tokens. Refresh token wrapped in a
     # single-use auth code so it stays out of the browser.
-    request.session["user_id"] = user_id
+    set_session_user(request, user_id)
     access_token, refresh_tok, user_info = await anyio.to_thread.run_sync(
         _issue_login_tokens, db, user
     )
@@ -1624,10 +1666,11 @@ def logout(
                 logger.info(f"Logout called for user {user_id} via JWT token")
 
                 # Invalidate all sessions and refresh tokens
-                invalidate_user_sessions(user_id)
                 revoke_all_for_user(db, user_id)
                 org_id = user_info.get("organization_id")
                 db.commit()
+                # This sync route runs in a worker thread; the Redis client lives on the loop.
+                anyio.from_thread.run(invalidate_user_sessions, user_id)
                 # On its own session, after the revocation commits: a failed audit write
                 # must not undo a logout.
                 record_audit_event(
@@ -1706,7 +1749,7 @@ def logout(
 
 
 @router.post("/verify")
-def verify_auth(
+async def verify_auth(
     request: Request,
     body: VerifyTokenRequest,
     secret_key: str = Depends(get_secret_key),
@@ -1722,13 +1765,8 @@ def verify_auth(
         user_id = payload.get("user", {}).get("id")
         iat = payload.get("iat")
 
-        if user_id and iat:
-            from datetime import datetime, timezone
-
-            # Convert iat (Unix timestamp) to datetime
-            issued_at = datetime.fromtimestamp(iat, tz=timezone.utc)
-
-            if not is_session_valid(user_id, issued_at):
+        if user_id and iat and payload.get("type") == "session":
+            if await is_session_revoked(user_id, iat):
                 logger.info(f"Session for user {user_id} was invalidated (logged out)")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -1791,7 +1829,7 @@ async def local_login(request: Request, db: OffLoopSession = Depends(get_off_loo
 
     user, user_id = await anyio.to_thread.run_sync(_load_quick_start_user, db)
 
-    request.session["user_id"] = user_id
+    set_session_user(request, user_id)
     access_token, refresh_tok, user_info = await anyio.to_thread.run_sync(
         _issue_login_tokens, db, user
     )

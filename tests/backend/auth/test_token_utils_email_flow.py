@@ -38,7 +38,8 @@ class TestEmailFlowTokenCreation:
         assert payload["email"] == "test@example.com"
         assert "exp" in payload
         assert "iat" in payload
-        assert "jti" not in payload
+        # Single-use: the link signs the user in only on its first use.
+        assert payload["jti"]
 
     @patch("rhesis.backend.app.auth.token_utils.get_secret_key", return_value=SECRET)
     def test_create_password_reset_token_has_jti(self, mock_secret):

@@ -358,6 +358,7 @@ def create_email_verification_token(user_id: str, email: str) -> str:
         email=email,
         token_type="email_verification",
         expire_minutes=EMAIL_VERIFICATION_EXPIRE_MINUTES,
+        with_jti=True,
     )
 
 

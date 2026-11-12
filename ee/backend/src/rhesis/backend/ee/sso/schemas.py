@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, SecretStr, field_validator
 
+from rhesis.backend.app.auth.url_utils import LOOPBACK_HOSTS
 from rhesis.backend.app.config.settings import get_application_settings
 
 _BLOCKED_NETWORKS = [
@@ -41,12 +42,16 @@ class SSOConfig(BaseModel):
     @classmethod
     def issuer_must_be_https_and_not_internal(cls, v: str) -> str:
         """Validate issuer URL: HTTPS required, no internal/private destinations."""
-        if not v.startswith("https://"):
-            if not (get_application_settings().is_development and "localhost" in v):
-                raise ValueError("issuer_url must use HTTPS")
-
         parsed = urlparse(v)
         hostname = parsed.hostname or ""
+
+        if parsed.scheme != "https":
+            if not (
+                parsed.scheme == "http"
+                and hostname.lower() in LOOPBACK_HOSTS
+                and get_application_settings().is_local_development
+            ):
+                raise ValueError("issuer_url must use HTTPS")
 
         if hostname.lower() in _BLOCKED_HOSTNAMES:
             raise ValueError("issuer_url cannot point to cloud metadata services")
@@ -64,10 +69,10 @@ class SSOConfig(BaseModel):
             # hostname is not an IP literal -- DNS resolution
             # is validated at connect time by SafeHttpClient
 
-        if not get_application_settings().is_development:
+        if not get_application_settings().is_local_development:
             port = parsed.port
             if port is not None and port != 443:
-                raise ValueError("issuer_url must use port 443 in production")
+                raise ValueError("issuer_url must use port 443 outside local development")
 
         return v.rstrip("/")
 

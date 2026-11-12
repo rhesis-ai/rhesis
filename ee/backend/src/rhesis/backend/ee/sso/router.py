@@ -23,10 +23,13 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.pkce import generate_pkce
 from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
-from rhesis.backend.app.auth.session_invalidation import clear_user_logout
 from rhesis.backend.app.auth.session_utils import regenerate_session
 from rhesis.backend.app.auth.token_utils import create_session_token
-from rhesis.backend.app.auth.url_utils import build_redirect_url
+from rhesis.backend.app.auth.url_utils import (
+    DEFAULT_RETURN_TO,
+    build_redirect_url,
+    safe_return_path,
+)
 from rhesis.backend.app.config.settings import (
     get_application_settings,
     get_frontend_settings,
@@ -100,10 +103,10 @@ def _get_sso_config(organization: Organization) -> Optional[SSOConfig]:
             try:
                 config_data["client_secret"] = sso_decrypt(config_data["client_secret"])
             except Exception:
-                if get_application_settings().is_development:
+                if get_application_settings().is_local_development:
                     logger.warning(
                         "SSO client_secret decryption failed for org %s; "
-                        "allowing plaintext fallback in local/test",
+                        "allowing plaintext fallback in local development",
                         organization.id,
                     )
                 else:
@@ -148,21 +151,10 @@ def _validate_return_to(return_to: Optional[str]) -> str:
     from urllib.parse import unquote
 
     if not return_to:
-        return "/architect"
+        return DEFAULT_RETURN_TO
 
-    # Decode percent-encoding before running blocklist checks to prevent
-    # bypasses via %2f%2f, %6Aavascript:, etc.
-    decoded = unquote(unquote(return_to))
-
-    if not decoded.startswith("/"):
-        return "/architect"
-
-    blocked = ["//", "javascript:", "data:", "http:", "https:", "\\"]
-    for pattern in blocked:
-        if pattern in decoded.lower():
-            return "/architect"
-
-    return decoded
+    # Validate the decoded form so %2F%2F, %5C or %09 can't slip past.
+    return safe_return_path(unquote(unquote(return_to)))
 
 
 def _get_sso_callback_url() -> str:
@@ -202,7 +194,6 @@ def _complete_sso_login(db: Session, auth_user, org, sso_config):
 
     user = find_or_create_sso_user(db, auth_user, org, sso_config)
 
-    clear_user_logout(str(user.id))
     session_token = create_session_token(user)
     refresh_tok = create_refresh_token(db, str(user.id))
     db.commit()

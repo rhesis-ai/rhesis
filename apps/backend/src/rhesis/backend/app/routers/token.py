@@ -66,10 +66,12 @@ def create_token(
     """
     name = data.get("name")
     expires_in_days = data.get("expires_in_days")
-    requested_scopes: list | None = data.get("scopes")
 
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
+
+    principal = resolve_principal_from_request(current_user, request)
+    requested_scopes = _requested_scopes(data, principal)
 
     # SP9: scopes ⊆ issuer check — a token may not exceed the creator's
     # own effective permissions.  We check unconditionally so a downgraded
@@ -79,9 +81,7 @@ def create_token(
             isinstance(s, str) for s in requested_scopes
         ):
             raise HTTPException(status_code=422, detail="scopes must be a list of strings")
-        _validate_token_scopes(
-            requested_scopes, resolve_principal_from_request(current_user, request), db
-        )
+        _validate_token_scopes(requested_scopes, principal, db)
 
     organization_id, user_id = tenant_context
     token_value = generate_api_token()
@@ -116,6 +116,37 @@ def create_token(
         name=created_token.name,
         project_id=created_token.project_id,
     )
+
+
+def _requested_scopes(data: dict, principal: "Principal") -> list | None:
+    """The scopes for the new token; omitted means the caller's own.
+
+    For a session that is ``None`` (the owner's full access). A scoped token
+    passes its scopes on, so leaving ``scopes`` out can't mint a wider child.
+    """
+    if "scopes" in data and data["scopes"] is not None:
+        return data["scopes"]
+    if principal.kind == AuthKind.TOKEN and principal.scopes is not None:
+        return sorted(principal.scopes)
+    return None
+
+
+def _check_refresh_allowed(token, principal: "Principal", db: Session) -> None:
+    """A scoped or project-bound token may only refresh tokens no wider than itself.
+
+    Refreshing returns the new token value, so it is the same as minting it.
+    """
+    if principal.kind != AuthKind.TOKEN:
+        return
+    if principal.token_project_id is not None and token.project_id != principal.token_project_id:
+        raise HTTPException(status_code=403, detail="Token belongs to a different project")
+    if principal.scopes is None:
+        return
+    if token.scopes is None:
+        raise HTTPException(
+            status_code=403, detail="A scoped token cannot refresh an unscoped token"
+        )
+    _validate_token_scopes(list(token.scopes), principal, db)
 
 
 def _validate_token_scopes(scopes: list[str], principal: "Principal", db: Session) -> None:
@@ -329,6 +360,7 @@ def update_token(
 
 @router.post("/{token_id}/refresh", response_model=TokenCreateResponse)
 def refresh_token(
+    request: Request,
     token_id: uuid.UUID,
     data: dict = Body(...),
     db: Session = Depends(get_tenant_db_session),
@@ -337,6 +369,13 @@ def refresh_token(
 ):
     """Refresh token with new value and expiration"""
     organization_id, user_id = tenant_context
+
+    token = token_crud.get_token(
+        db=db, token_id=token_id, organization_id=organization_id, user_id=user_id
+    )
+    if not token:
+        raise HTTPException(status_code=404, detail="Token not found")
+    _check_refresh_allowed(token, resolve_principal_from_request(current_user, request), db)
 
     new_token_value = generate_api_token()
     expires_in_days = data.get("expires_in_days")

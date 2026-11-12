@@ -1,165 +1,103 @@
-"""
-Session Invalidation Module.
+"""Revoke a user's session JWTs on logout and password change.
 
-Tracks invalidated user sessions to properly implement logout.
-JWT tokens are stateless, so we need to track when a user logged out
-and reject tokens issued before that time.
+JWTs are stateless, so revocation is a per-user "revoked before" timestamp in
+Redis: a session JWT whose ``iat`` is older than the mark is rejected. Redis is
+shared by every backend pod, so the mark applies everywhere at once, and the key
+expires once every JWT it could match has expired on its own.
 
-For production deployments, consider using Redis for this.
-For single-instance deployments, in-memory storage is sufficient.
+When Redis is unreachable the check fails open (logged): the session JWT then
+lives out its short TTL, while refresh tokens are still revoked in the database.
 """
 
 import logging
-import threading
-from datetime import datetime, timezone
-from typing import Dict, Optional
+import time
+from typing import Optional
+
+import anyio
+
+from rhesis.backend.app.auth.constants import AUTH_ABSOLUTE_SESSION_MAX_DAYS
+from rhesis.backend.app.config.settings import get_auth_settings
 
 logger = logging.getLogger(__name__)
 
+KEY_PREFIX = "session_revoked_before:"
 
-class SessionInvalidationStore:
+# Upper bound on the per-request lookup, so a hung Redis can't stall every request.
+LOOKUP_TIMEOUT_SECONDS = 0.25
+
+# Clock skew allowance on top of the session JWT lifetime.
+_TTL_MARGIN_SECONDS = 60
+
+_WARN_INTERVAL_SECONDS = 60
+_last_warned_at = 0.0
+
+
+def _key(user_id: str) -> str:
+    return f"{KEY_PREFIX}{user_id}"
+
+
+# A cookie session slides while in use, so it is capped at this age instead.
+COOKIE_SESSION_MAX_AGE_SECONDS = AUTH_ABSOLUTE_SESSION_MAX_DAYS * 86400
+
+
+def _ttl_seconds() -> int:
+    """Outlive everything the mark can match: session JWTs and capped cookie sessions."""
+    jwt_lifetime = get_auth_settings().jwt_access_token_expire_minutes * 60
+    return max(jwt_lifetime, COOKIE_SESSION_MAX_AGE_SECONDS) + _TTL_MARGIN_SECONDS
+
+
+def _warn_unavailable(action: str, error: Optional[BaseException] = None) -> None:
+    """Log at most once a minute: this path runs on every request while Redis is down."""
+    global _last_warned_at
+    now = time.monotonic()
+    if now - _last_warned_at < _WARN_INTERVAL_SECONDS:
+        return
+    _last_warned_at = now
+    reason = type(error).__name__ if error else "Redis unavailable"
+    logger.warning("Session revocation %s skipped (%s); failing open", action, reason)
+
+
+async def _client(*, connect: bool):
+    """The shared client, or None. Only ``connect=True`` may try to (re)connect."""
+    from rhesis.backend.app.services.connector.redis_client import redis_manager
+
+    if connect:
+        # No-op once connected; throttled internally after a failure.
+        await redis_manager.initialize()
+    return redis_manager.client if redis_manager.is_available else None
+
+
+async def invalidate_user_sessions(user_id: str) -> None:
+    """Reject every session JWT issued to ``user_id`` before now.
+
+    Second precision, like JWT ``iat``: a token minted later in the same second
+    (the fresh token after a password change) stays valid.
     """
-    Tracks user logout timestamps to invalidate old session tokens.
+    try:
+        client = await _client(connect=True)
+        if client is None:
+            _warn_unavailable("write")
+            return
+        await client.set(_key(user_id), str(int(time.time())), ex=_ttl_seconds())
+        logger.info("Revoked session tokens issued before now for user %s", user_id)
+    except Exception as e:
+        _warn_unavailable("write", e)
 
-    When a user logs out, we record the timestamp. Any JWT token
-    with an 'iat' (issued at) before this timestamp is considered invalid.
 
-    Thread-safe for concurrent access.
+async def is_session_revoked(user_id: str, issued_at: int) -> bool:
+    """Whether a session JWT with ``iat`` = ``issued_at`` was revoked. One Redis GET.
+
+    Never connects: a connect attempt has no tight timeout, so it stays off the
+    per-request path. Startup, logins and logouts reconnect the shared client.
     """
-
-    def __init__(self):
-        # Maps user_id -> logout timestamp
-        self._logout_times: Dict[str, datetime] = {}
-        self._lock = threading.Lock()
-
-    def invalidate_user_sessions(self, user_id: str) -> None:
-        """
-        Mark all current sessions for a user as invalid.
-
-        Args:
-            user_id: The user ID whose sessions should be invalidated
-        """
-        with self._lock:
-            # Truncate to second precision so the comparison with JWT iat
-            # (a Unix epoch integer) is on the same scale.
-            now = datetime.now(timezone.utc).replace(microsecond=0)
-            self._logout_times[user_id] = now
-            logger.info(f"Invalidated all sessions for user {user_id}")
-
-    def is_session_valid(self, user_id: str, issued_at: datetime) -> bool:
-        """
-        Check if a session token is still valid (not logged out).
-
-        Args:
-            user_id: The user ID from the token
-            issued_at: The 'iat' timestamp from the JWT
-
-        Returns:
-            True if the session is valid, False if it was invalidated
-        """
-        with self._lock:
-            logout_time = self._logout_times.get(user_id)
-
-            if logout_time is None:
-                # User never logged out, session is valid
-                return True
-
-            # Ensure issued_at is timezone-aware
-            if issued_at.tzinfo is None:
-                issued_at = issued_at.replace(tzinfo=timezone.utc)
-
-            # Session is valid if it was issued AT or AFTER the logout.
-            # JWT iat and the stored logout time are both at second precision,
-            # so a token minted in the same second as invalidation is valid.
-            is_valid = issued_at >= logout_time
-
-            if not is_valid:
-                logger.debug(
-                    f"Session for user {user_id} rejected: "
-                    f"issued at {issued_at}, logged out at {logout_time}"
-                )
-
-            return is_valid
-
-    def clear_user_logout(self, user_id: str) -> None:
-        """
-        Clear logout tracking for a user (e.g., after successful login).
-
-        This allows tokens issued at any time to be valid again.
-        Useful if you want login to reset the invalidation.
-
-        Args:
-            user_id: The user ID to clear
-        """
-        with self._lock:
-            self._logout_times.pop(user_id, None)
-
-    def cleanup_old_entries(self, max_age_hours: int = 24) -> int:
-        """
-        Remove logout entries older than max_age_hours.
-
-        This prevents unbounded memory growth. Tokens older than max_age
-        would have expired anyway (assuming JWT expiry < max_age_hours).
-
-        Args:
-            max_age_hours: Remove entries older than this
-
-        Returns:
-            Number of entries removed
-        """
-        from datetime import timedelta
-
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
-        removed = 0
-
-        with self._lock:
-            expired_users = [
-                user_id
-                for user_id, logout_time in self._logout_times.items()
-                if logout_time < cutoff
-            ]
-            for user_id in expired_users:
-                del self._logout_times[user_id]
-                removed += 1
-
-        if removed > 0:
-            logger.info(f"Cleaned up {removed} old logout entries")
-
-        return removed
-
-    def get_stats(self) -> Dict[str, int]:
-        """Get statistics about the store."""
-        with self._lock:
-            return {
-                "tracked_users": len(self._logout_times),
-            }
-
-
-# Global singleton instance
-_store: Optional[SessionInvalidationStore] = None
-_store_lock = threading.Lock()
-
-
-def get_session_store() -> SessionInvalidationStore:
-    """Get the global session invalidation store instance."""
-    global _store
-    if _store is None:
-        with _store_lock:
-            if _store is None:
-                _store = SessionInvalidationStore()
-    return _store
-
-
-def invalidate_user_sessions(user_id: str) -> None:
-    """Convenience function to invalidate user sessions."""
-    get_session_store().invalidate_user_sessions(user_id)
-
-
-def is_session_valid(user_id: str, issued_at: datetime) -> bool:
-    """Convenience function to check session validity."""
-    return get_session_store().is_session_valid(user_id, issued_at)
-
-
-def clear_user_logout(user_id: str) -> None:
-    """Convenience function to clear user logout tracking."""
-    get_session_store().clear_user_logout(user_id)
+    try:
+        client = await _client(connect=False)
+        if client is None:
+            _warn_unavailable("check")
+            return False
+        with anyio.fail_after(LOOKUP_TIMEOUT_SECONDS):
+            revoked_before = await client.get(_key(user_id))
+        return revoked_before is not None and int(issued_at) < int(revoked_before)
+    except Exception as e:
+        _warn_unavailable("check", e)
+        return False

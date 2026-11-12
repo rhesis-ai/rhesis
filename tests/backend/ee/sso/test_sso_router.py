@@ -272,7 +272,6 @@ class TestSSOCallbackTenantContext:
         monkeypatch.setattr(sso_router, "audit_log", _record("audit_log"))
         monkeypatch.setattr(sso_router, "record_user_event", _record("record_user_event"))
         monkeypatch.setattr(sso_router, "record_failed_sign_in", _record("record_failed_sign_in"))
-        monkeypatch.setattr(sso_router, "clear_user_logout", _record("clear_user_logout"))
         monkeypatch.setattr(
             sso_router, "create_session_token", _record("create_session_token", "sess")
         )

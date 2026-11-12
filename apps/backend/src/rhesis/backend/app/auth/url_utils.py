@@ -3,7 +3,7 @@ from urllib.parse import parse_qs, quote, urlparse, urlsplit
 from rhesis.backend.app.auth.token_utils import create_auth_code
 from rhesis.backend.app.config.settings import get_frontend_settings
 
-_LOOPBACK_HOSTS = frozenset(("localhost", "127.0.0.1", "::1"))
+LOOPBACK_HOSTS = frozenset(("localhost", "127.0.0.1", "::1"))
 
 DEFAULT_RETURN_TO = "/architect"
 
@@ -43,7 +43,7 @@ async def build_redirect_url(request, session_token, refresh_token=None):
         configured = urlparse(frontend_settings.url)
         if parsed_origin.netloc == frontend_settings.allowed_domain:
             frontend_url = f"{parsed_origin.scheme}://{parsed_origin.netloc}"
-        elif configured.hostname in _LOOPBACK_HOSTS and parsed_origin.hostname in _LOOPBACK_HOSTS:
+        elif configured.hostname in LOOPBACK_HOSTS and parsed_origin.hostname in LOOPBACK_HOSTS:
             # Dev/worktree: the browser's port may differ from the configured
             # FRONTEND_URL when a port offset is active. Both are loopback, so
             # this cannot redirect off-box.

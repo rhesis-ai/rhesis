@@ -3,7 +3,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { TextField, Alert, Box } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { signIn, useSession } from 'next-auth/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { changePassword } from '@/utils/api-client/auth-client';
 import { useNotifications } from '@/components/common/NotificationContext';
@@ -107,7 +107,19 @@ export default function ChangePasswordDrawer({
         new_password: newPassword,
       });
 
-      if (result.session_token) {
+      // The change revokes every refresh token, including this session's, so
+      // swap in the new pair; updateSession alone would only replace the
+      // access token.
+      let signedIn = false;
+      if (result.auth_code) {
+        const signInResult = await signIn('credentials', {
+          code: result.auth_code,
+          redirect: false,
+        });
+        // A failed exchange comes back as `error`, not a throw.
+        signedIn = !signInResult?.error;
+      }
+      if (!signedIn && result.session_token) {
         await updateSession({ session_token: result.session_token });
       }
 

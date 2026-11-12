@@ -107,7 +107,7 @@ async def authenticate_websocket_token(
 
     # First, try WebSocket-specific token (short-lived, single-use)
     ws_token_service = get_ws_token_service()
-    ws_payload = ws_token_service.validate_ws_token(token)
+    ws_payload = await ws_token_service.validate_ws_token(token)
     if ws_payload:
         # WebSocket token is valid - look up user (in a worker thread, off the loop)
         try:

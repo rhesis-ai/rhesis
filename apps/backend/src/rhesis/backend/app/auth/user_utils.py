@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, NamedTuple, Optional, Tuple
 
@@ -21,6 +22,11 @@ from rhesis.backend.app.auth.principal import (
     Principal,
     resolve_principal_from_request,
 )
+from rhesis.backend.app.auth.session_invalidation import (
+    COOKIE_SESSION_MAX_AGE_SECONDS,
+    is_session_revoked,
+)
+from rhesis.backend.app.auth.session_utils import SESSION_ISSUED_AT_KEY
 from rhesis.backend.app.auth.token_utils import get_secret_key, verify_jwt_token
 from rhesis.backend.app.auth.token_validation import validate_token
 from rhesis.backend.app.config.settings import get_auth_settings
@@ -270,6 +276,25 @@ def _store_api_token_state(request, project_id: Optional[str], scopes: Optional[
     setattr(request.state, REQUEST_STATE_AUTH_KIND, AuthKind.TOKEN)
 
 
+async def _cookie_session_valid(session: dict, user_id: str) -> bool:
+    """Whether a cookie session survives logout and password-change revocation.
+
+    A cookie from before issue times were stored has an unknown age, so any
+    revocation mark ends it; without one it is stamped now and kept, so the
+    deploy signs nobody out. The cookie's expiry slides while it is used, so
+    its age is capped here.
+    """
+    issued_at = session.get(SESSION_ISSUED_AT_KEY)
+    if not isinstance(issued_at, int):
+        if await is_session_revoked(user_id, 0):
+            return False
+        session[SESSION_ISSUED_AT_KEY] = int(time.time())
+        return True
+    if time.time() - issued_at > COOKIE_SESSION_MAX_AGE_SECONDS:
+        return False
+    return not await is_session_revoked(user_id, issued_at)
+
+
 async def get_current_user(request: Request) -> Optional[User]:
     """
     Get current user from session using org-aware database session.
@@ -285,6 +310,9 @@ async def get_current_user(request: Request) -> Optional[User]:
         return None
 
     user_id = request.session.get("user_id")
+    if not await _cookie_session_valid(request.session, str(user_id)):
+        request.session.clear()
+        return None
     user = await anyio.to_thread.run_sync(_load_user_by_id, user_id)
 
     # User must have an organization_id to proceed
@@ -307,6 +335,11 @@ async def get_user_from_jwt(token: str, secret_key: str) -> Optional[User]:
         user_id = user_info.get("id")
 
         if user_id:
+            # Service delegation tokens back running jobs, so logout leaves them be.
+            if payload.get("type") == "session" and await is_session_revoked(
+                user_id, payload["iat"]
+            ):
+                return None
             return await anyio.to_thread.run_sync(_load_user_by_id, user_id)
 
     except Exception:
@@ -467,6 +500,38 @@ async def require_current_user_or_token_without_context(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     return user
+
+
+def _is_interactive_session_jwt(token: str, secret_key: str) -> bool:
+    """A UI sign-in JWT: not an API token, a token-exchange JWT or a service delegation."""
+    if token.startswith("rh-"):
+        return False
+    try:
+        payload = verify_jwt_token(token, secret_key)
+    except Exception:
+        return False
+    return payload.get("type") == "session" and "azp" not in payload
+
+
+async def require_interactive_user(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    secret_key: str = Depends(get_secret_key),
+) -> User:
+    """Require a person signed in through the UI, for account-credential changes.
+
+    API tokens and delegated JWTs are refused even when valid, so a narrowly
+    scoped credential can't be turned into a password login.
+    """
+    user = await require_current_user_or_token_without_context(request, credentials, secret_key)
+    if "user_id" in request.session:
+        return user
+    if credentials and _is_interactive_session_jwt(credentials.credentials, secret_key):
+        return user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="This action requires signing in to the application",
+    )
 
 
 def carry_auth_to_websocket(websocket: WebSocket, user: "User", auth_state=None) -> None:
