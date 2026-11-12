@@ -144,6 +144,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DeepEval or Rhesis providers instead. This also drops `diskcache`, `gitpython`, `scipy` and
   `sqlalchemy` from the SDK's dependency tree.
 
+## [0.21.0] - 2026-11-12
+
+### Added
+- Support for rich requirement attributes, including impact classifications, single-level parent hierarchy, linked sources, and example annotations.
+- Documented and enforced per-request payload limits (up to 10,000 items) for bulk operations and `TestSet.push()`.
+
+### Changed
+- Removed `requirement_type` field from requirement payload extras in favor of simplified impact and hierarchy fields.
+- Updated dependencies (`litellm` to 1.108.4, `oauthlib` to 4.0.1, `filelock` to 4.2.7) for security patches and stability improvements.
+
+### Fixed
+- Improved client handling and error reporting for organization-level background job concurrency limits and rate limiting (HTTP 429).
+- Resolved a race condition where canceled or timed-out test runs could result in duplicate error entries or inaccurate run completion statuses.
+- Standardized timeout and deadline reporting for sequential test executions.
+
+
 ## [0.20.1] - 2026-11-03
 
 ### Security

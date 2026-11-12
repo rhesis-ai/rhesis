@@ -27,6 +27,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed the Ragas backend from metric icon handling now that the backend no longer serves it.
 
+## [0.21.0] - 2026-11-12
+
+### Added
+
+- **Rich Requirements UI**: Introduced an enhanced requirements management interface supporting impact levels, single-level hierarchy (parents), linked sources, annotation examples, and an in-drawer AI suggestion editor.
+- **Metric Card Relation Counters**: Added requirement link indicators and custom metric tuning case counts with hover tooltips directly on metric cards.
+- **Invite-Only Registration Notice**: Added an informative state to the registration screen when public registration is disabled on the instance.
+
+### Changed
+
+- **Comprehensive Test Evaluation Summaries**: Updated the Evaluation column in test results to summarize overall test status—showing total failed or missing metric verdicts and primary failure reasons in tooltips.
+- **Trace Explorer Improvements**: Set the default view for test result traces to Tree view and cached loaded trace data when switching tabs to prevent reload spinners.
+- **Entity Card Layouts**: Restructured entity cards (Requirements, Metrics, Models, Tools, and Projects) with standard slot layouts for context, facts, and relations.
+- **Tool Span Visuals**: Updated tool execution spans in trace trees, sequence diagrams, and graph views to use subtler neutral tones instead of warning highlights.
+
+### Fixed
+
+- **Architect Screen Flashing**: Eliminated visual flashes on Architect page loads by streaming layout HTML immediately, rendering suggestion chips optimistically, and maintaining static focus borders.
+- **Insights Empty States**: Enhanced empty state displays to explicitly name selected endpoints, provide direct switching options, and link directly to endpoints with results.
+- **Trace Explorer Fetching & Retries**: Fixed trace explorer re-fetch behavior when switching tabs and added auto-retry logic for transient trace loading failures.
+- **Safari Display Bug**: Prevented duplicate zoom calculations in Safari.
+- **Organization Settings**: Hidden member removal actions for Organization Owners in team settings.
+- **Span Event Keys**: Resolved duplicate React key warnings when rendering simultaneous span events.
+- **Password-Change Authentication Fallback**: Added graceful fallback handling when session token exchange fails during password changes.
+
+### Security
+
+- **Post-Login Redirect Validation**: Enforced strict same-origin path validation on post-login redirect targets to prevent open redirects.
+- **Content Security Policy**: Added baseline Content Security Policy (CSP) rules across the application.
+
 ## [0.20.1] - 2026-11-03
 
 ### Added

@@ -18,6 +18,41 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
   since January 2026 and carried advisories with no upstream fix. Existing Ragas metrics and their
   associations are deleted by a backend migration; recorded test results keep their scores.
 
+## [0.21.0] - 2026-11-12
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.21.0**
+- **Frontend 0.21.0**
+- **SDK 0.21.0**
+
+### Summary of Changes
+
+**Backend v0.21.0:**
+- Hardened platform security with global rate limiting via Redis, per-request session revocation, strict outbound request/SSRF guarding, and mandatory email verification.
+- Expanded requirement management with impact tracking, source links, parent-child hierarchies, and integrated metric tuning cases.
+- Implemented background job concurrency caps, duration controls, and request size limits per organization to improve system stability.
+- Strengthened multi-tenant data isolation and updated self-hosted deployments to execute using restricted, least-privilege database roles.
+
+**Frontend v0.21.0:**
+- Added rich Requirements UI featuring impact ratings, single-level hierarchy, source links, and interactive AI suggestions.
+- Updated test evaluation summary columns to display overall test metrics and verdicts with detailed tooltips.
+- Enhanced trace exploration with a default Tree view, reduced revisit flickering, and neutral styling for tool spans.
+- Improved page loading performance and empty states across the Architect, Insights, and registration flows.
+
+**SDK v0.21.0:**
+- Added support for rich requirement metadata, including impact categories, single-level parent hierarchy, and linked sources.
+- Enforced a maximum per-request limit of 10,000 items for `TestSet.push()` and bulk backend operations.
+- Updated core dependencies, including `litellm` and `oauthlib`, to apply security and CVE fixes.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.20.1] - 2026-11-03
 
 ### Platform Release
