@@ -19,6 +19,7 @@ from rhesis.backend.app.dependencies import (
     get_off_loop_tenant_session,
     get_tenant_context,
     get_tenant_db_session,
+    per_user_rate_limit,
 )
 from rhesis.backend.app.error_handlers import PublicHTTPException
 from rhesis.backend.app.models.organization import Organization
@@ -47,6 +48,7 @@ from rhesis.backend.app.services.garak import (
     GarakTaxonomy,
 )
 from rhesis.backend.app.services.garak.taxonomy import resolve_requirement
+from rhesis.backend.app.utils.rate_limit import GENERATION_RATE_LIMIT
 from rhesis.backend.jobs import launch_job
 from rhesis.backend.jobs.garak import import_garak_probes_task, sync_garak_test_set_task
 from rhesis.backend.jobs.test_set import generate_and_save_test_set
@@ -282,7 +284,12 @@ async def preview_import(
     )
 
 
-@router.post("/import", response_model=GarakImportTaskResponse, status_code=202)
+@router.post(
+    "/import",
+    response_model=GarakImportTaskResponse,
+    status_code=202,
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
+)
 def import_probes(
     request: GarakImportRequest,
     db: Session = Depends(get_tenant_db_session),
@@ -380,7 +387,12 @@ async def preview_sync(
         ) from e
 
 
-@router.post("/sync/{test_set_id}", response_model=GarakSyncTaskResponse, status_code=202)
+@router.post(
+    "/sync/{test_set_id}",
+    response_model=GarakSyncTaskResponse,
+    status_code=202,
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
+)
 def sync_test_set(
     test_set_id: str,
     db: Session = Depends(get_tenant_db_session),
@@ -431,7 +443,12 @@ def sync_test_set(
         ) from e
 
 
-@router.post("/generate", response_model=GarakGenerateResponse, status_code=202)
+@router.post(
+    "/generate",
+    response_model=GarakGenerateResponse,
+    status_code=202,
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
+)
 def generate_dynamic_probe(
     request: GarakGenerateRequest,
     current_user: User = Depends(require_current_user_or_token),

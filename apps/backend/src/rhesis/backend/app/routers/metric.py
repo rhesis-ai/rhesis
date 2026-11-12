@@ -16,6 +16,7 @@ from rhesis.backend.app.crud import metric as metric_crud
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
+    per_user_rate_limit,
 )
 from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.user import User
@@ -26,6 +27,7 @@ from rhesis.backend.app.utils.database_exceptions import handle_database_excepti
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.app.utils.odata import apply_select
+from rhesis.backend.app.utils.rate_limit import GENERATION_RATE_LIMIT
 from rhesis.backend.app.utils.user_model_utils import (
     check_metric_model_fits,
     resolve_default_hosted_model,
@@ -112,7 +114,11 @@ def _generation_model(
         ) from e
 
 
-@router.post("/generate", response_model=schemas.Metric)
+@router.post(
+    "/generate",
+    response_model=schemas.Metric,
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
+)
 @handle_database_exceptions(
     entity_name="metric",
     custom_unique_message="Metric with this name already exists",
@@ -194,7 +200,11 @@ def generate_metric(
         raise internal_error(e, context="generating metric") from e
 
 
-@router.post("/{metric_id}/improve", response_model=schemas.Metric)
+@router.post(
+    "/{metric_id}/improve",
+    response_model=schemas.Metric,
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
+)
 @handle_database_exceptions(
     entity_name="metric",
     custom_unique_message="Metric with this name already exists",

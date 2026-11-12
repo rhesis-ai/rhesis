@@ -6724,7 +6724,7 @@ requires-dist = [
     { name = "s3fs", marker = "extra == 'all'", specifier = "==2026.6.0" },
     { name = "sendgrid", specifier = ">=6.12.5" },
     { name = "sendgrid", marker = "extra == 'all'", specifier = ">=6.12.5" },
-    { name = "slowapi", specifier = ">=0.1.9" },
+    { name = "slowapi", specifier = ">=0.1.9,<0.2" },
     { name = "sqlalchemy" },
     { name = "tenacity", specifier = "==8.2.3" },
     { name = "tomli", specifier = ">=2.0.0" },

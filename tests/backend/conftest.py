@@ -110,6 +110,10 @@ _TEST_ENV_VARS = {
     "RHESIS_LICENSE_PUBLIC_KEY": _LICENSE_TEST_PUBLIC_KEY_PEM,
     "RHESIS_LICENSE": _LICENSE_TEST_TOKEN,
     "LITELLM_LOCAL_MODEL_COST_MAP": "true",
+    # Workers share one Redis and one session user, so live limits would make
+    # unrelated tests 429 each other. tests/backend/security/test_rate_limiting.py
+    # turns the limiter back on where it is under test.
+    "RATELIMIT_ENABLED": "false",
 }
 
 

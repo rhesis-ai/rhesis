@@ -54,6 +54,7 @@ from rhesis.backend.app.services.telemetry.token_totals import (
     trace_summary_usage,
     trace_token_totals,
 )
+from rhesis.backend.app.utils.rate_limit import limiter
 
 # Legacy alias for backward compatibility
 TraceResponse = TraceIngestResponse
@@ -69,7 +70,9 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
+# SDK span export; metered by the tracing quota instead of the default limit.
 @router.post("/traces", response_model=TraceResponse)
+@limiter.exempt
 def ingest_trace(
     request: Request,
     trace_batch: OTELTraceBatch,

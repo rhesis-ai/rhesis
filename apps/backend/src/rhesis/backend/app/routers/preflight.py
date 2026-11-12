@@ -13,7 +13,11 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.constants import TestSetType
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.database import _SCOPE_KEY
-from rhesis.backend.app.dependencies import OffLoopSession, get_off_loop_tenant_session
+from rhesis.backend.app.dependencies import (
+    OffLoopSession,
+    get_off_loop_tenant_session,
+    per_user_rate_limit,
+)
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
@@ -38,6 +42,7 @@ from rhesis.backend.app.services.preflight import (
 )
 from rhesis.backend.app.services.preflight.utils import open_tenant_session_off_loop
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
+from rhesis.backend.app.utils.rate_limit import PROBE_RATE_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -245,7 +250,7 @@ async def _run_preflight_background(
         await _publish_failure_complete(correlation_id, "Preflight checks failed unexpectedly")
 
 
-@router.post("")
+@router.post("", dependencies=[per_user_rate_limit(PROBE_RATE_LIMIT)])
 async def run_preflight(
     request: PreflightCheckRequest,
     db: OffLoopSession = Depends(get_off_loop_tenant_session),

@@ -15,6 +15,7 @@ from rhesis.backend.app.crud.telemetry import query_traces
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
+    per_user_rate_limit,
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
@@ -31,6 +32,7 @@ from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import model_setup_http_exception
 from rhesis.backend.app.utils.model_errors import ModelNotConfiguredError
 from rhesis.backend.app.utils.odata import apply_select
+from rhesis.backend.app.utils.rate_limit import EXECUTION_RATE_LIMIT
 from rhesis.backend.jobs.enums import RunStatus
 
 router = RhesisRouter(
@@ -412,7 +414,11 @@ def cancel_test_run(
     )
 
 
-@router.post("/{test_run_id}/rescore", **capability(Permission.TestRun.UPDATE))
+@router.post(
+    "/{test_run_id}/rescore",
+    **capability(Permission.TestRun.UPDATE),
+    dependencies=[per_user_rate_limit(EXECUTION_RATE_LIMIT)],
+)
 def rescore_test_run_endpoint(
     test_run_id: UUID,
     request: schemas.TestRunRescoreRequest = None,

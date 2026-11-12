@@ -14,6 +14,7 @@ from rhesis.backend.app.crud import test_configuration as test_configuration_cru
 from rhesis.backend.app.dependencies import (
     get_tenant_context,
     get_tenant_db_session,
+    per_user_rate_limit,
 )
 from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.organization import Organization
@@ -25,6 +26,7 @@ from rhesis.backend.app.utils.database_exceptions import handle_database_excepti
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import handle_execution_error
 from rhesis.backend.app.utils.odata import apply_select
+from rhesis.backend.app.utils.rate_limit import EXECUTION_RATE_LIMIT
 from rhesis.backend.jobs import launch_job
 from rhesis.backend.jobs.enums import RunStatus
 from rhesis.backend.jobs.execution.run import (
@@ -183,7 +185,11 @@ def delete_test_configuration(
     )
 
 
-@router.post("/{test_configuration_id}/execute", **capability(Permission.TestRun.EXECUTE))
+@router.post(
+    "/{test_configuration_id}/execute",
+    **capability(Permission.TestRun.EXECUTE),
+    dependencies=[per_user_rate_limit(EXECUTION_RATE_LIMIT)],
+)
 def execute_test_configuration_endpoint(
     test_configuration_id: UUID,
     execution_request: schemas.TestConfigurationExecutionRequest = None,

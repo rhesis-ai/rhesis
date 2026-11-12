@@ -14,6 +14,7 @@ from rhesis.backend.app.dependencies import (
     get_off_loop_tenant_session,
     get_tenant_context,
     get_tenant_db_session,
+    per_user_rate_limit,
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
@@ -30,6 +31,7 @@ from rhesis.backend.app.services.model_setup import (
 from rhesis.backend.app.services.platform_key import annotate_model_availability
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.rate_limit import PROBE_RATE_LIMIT
 from rhesis.sdk.models.factory import get_available_embedding_models, get_available_language_models
 
 logger = logging.getLogger(__name__)
@@ -77,7 +79,11 @@ def _read_stored_model_credentials(
     return db_model.key or "", db_model.endpoint
 
 
-@router.post("/test-connection", response_model=TestModelConnectionResponse)
+@router.post(
+    "/test-connection",
+    response_model=TestModelConnectionResponse,
+    dependencies=[per_user_rate_limit(PROBE_RATE_LIMIT)],
+)
 async def test_model_connection_endpoint(
     request: TestModelConnectionRequest,
     db: OffLoopSession = Depends(get_off_loop_tenant_session),

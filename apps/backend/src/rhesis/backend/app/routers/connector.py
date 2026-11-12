@@ -17,6 +17,9 @@ from rhesis.backend.app.auth.principal import Principal
 from rhesis.backend.app.auth.user_utils import authenticate_websocket, require_current_user_or_token
 from rhesis.backend.app.crud import execution_trace as execution_trace_crud
 from rhesis.backend.app.database import get_db_with_tenant_variables
+from rhesis.backend.app.dependencies import (
+    per_user_rate_limit,
+)
 from rhesis.backend.app.error_handlers import PublicHTTPException
 from rhesis.backend.app.models.project import Project
 from rhesis.backend.app.models.project_membership import ProjectMembership
@@ -33,6 +36,7 @@ from rhesis.backend.app.services.connector.manager import connection_manager
 from rhesis.backend.app.services.connector.schemas import (
     WebSocketConnectionContext,
 )
+from rhesis.backend.app.utils.rate_limit import PROBE_RATE_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -254,7 +258,11 @@ async def _message_loop(
             await websocket.send_json(response)
 
 
-@router.post("/trigger", response_model=TriggerTestResponse)
+@router.post(
+    "/trigger",
+    response_model=TriggerTestResponse,
+    dependencies=[per_user_rate_limit(PROBE_RATE_LIMIT)],
+)
 async def trigger_test(
     request: TriggerTestRequest,
     current_user: User = Depends(require_current_user_or_token),

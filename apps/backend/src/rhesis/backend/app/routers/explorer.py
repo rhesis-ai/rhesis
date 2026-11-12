@@ -26,6 +26,7 @@ from rhesis.backend.app.dependencies import (
     get_off_loop_tenant_session,
     get_tenant_context,
     get_tenant_db_session,
+    per_user_rate_limit,
 )
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
@@ -77,6 +78,7 @@ from rhesis.backend.app.services.explorer import (
     update_topic_node,
 )
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.rate_limit import EXECUTION_RATE_LIMIT, GENERATION_RATE_LIMIT
 
 logger = logging.getLogger(__name__)
 
@@ -683,6 +685,7 @@ def delete_explorer_test(
 @router.post(
     "/{test_set_identifier}/generate_outputs",
     response_model=GenerateOutputsResponse,
+    dependencies=[per_user_rate_limit(EXECUTION_RATE_LIMIT)],
 )
 async def generate_outputs(
     test_set_identifier: str,
@@ -729,6 +732,7 @@ async def generate_outputs(
 @router.post(
     "/{test_set_identifier}/evaluate",
     response_model=EvaluateResponse,
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
 )
 async def evaluate_tests(
     test_set_identifier: str,
@@ -782,6 +786,7 @@ async def evaluate_tests(
 @router.post(
     "/{test_set_identifier}/generate_suggestions",
     response_model=GenerateSuggestionsResponse,
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
 )
 async def generate_suggestions_endpoint(
     test_set_identifier: str,
@@ -817,6 +822,7 @@ async def generate_suggestions_endpoint(
 
 @router.post(
     "/{test_set_identifier}/generate_suggestion_outputs",
+    dependencies=[per_user_rate_limit(EXECUTION_RATE_LIMIT)],
 )
 def generate_suggestion_outputs_endpoint(
     test_set_identifier: str,
@@ -865,6 +871,7 @@ def generate_suggestion_outputs_endpoint(
 
 @router.post(
     "/{test_set_identifier}/suggestion_pipeline",
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
 )
 def suggestion_pipeline_endpoint(
     test_set_identifier: str,
@@ -925,6 +932,7 @@ def suggestion_pipeline_endpoint(
 
 @router.post(
     "/{test_set_identifier}/evaluate_suggestions",
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
 )
 def evaluate_suggestions_endpoint(
     test_set_identifier: str,

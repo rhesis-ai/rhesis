@@ -18,6 +18,7 @@ from rhesis.backend.app.dependencies import (
     get_project_context,
     get_tenant_context,
     get_tenant_db_session,
+    per_user_rate_limit,
 )
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.test_set import TestSet
@@ -52,6 +53,10 @@ from rhesis.backend.app.utils.execution_validation import (
     validate_generation_model,
 )
 from rhesis.backend.app.utils.odata import apply_select
+from rhesis.backend.app.utils.rate_limit import (
+    EXECUTION_RATE_LIMIT,
+    GENERATION_RATE_LIMIT,
+)
 from rhesis.backend.events.audit_actions import audit_action
 from rhesis.backend.jobs import launch_job
 from rhesis.backend.jobs.embedding.graph import compute_test_set_graph_task
@@ -105,7 +110,10 @@ def resolve_test_set_or_raise(
 
 
 @router.post(
-    "/generate", response_model=TestSetGenerationResponse, **capability(Permission.TestSet.GENERATE)
+    "/generate",
+    response_model=TestSetGenerationResponse,
+    **capability(Permission.TestSet.GENERATE),
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
 )
 def generate_test_set(
     request: services_schemas.TestSetGenerationRequest,
@@ -571,7 +579,9 @@ def get_test_set_tests(
 
 
 @router.post(
-    "/{test_set_identifier}/execute/{endpoint_id}", **capability(Permission.TestSet.EXECUTE)
+    "/{test_set_identifier}/execute/{endpoint_id}",
+    **capability(Permission.TestSet.EXECUTE),
+    dependencies=[per_user_rate_limit(EXECUTION_RATE_LIMIT)],
 )
 def execute_test_set(
     test_set_identifier: str,
@@ -881,6 +891,7 @@ def remove_metric_from_test_set(
     "/{test_set_identifier}/embeddings/compute-graph",
     response_model=EmbeddingGraphComputeResponse,
     **capability(Permission.TestSet.EXECUTE),
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
 )
 def compute_test_set_embedding_graph(
     test_set_identifier: str,

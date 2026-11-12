@@ -26,3 +26,4 @@ class RedisDatabase:
     VERDICT_MATRIX_CACHE = 8  # encoded verdict grid for a terminal (finished) test run
     AUDIT_REPEATS = 9  # one row a minute: audit_log.viewed, denied reads, failed refreshes
     BEAT_HEARTBEAT = 10  # set by each beat heartbeat; its absence means scheduled jobs stopped
+    RATE_LIMITS = 11  # slowapi request counters, shared by every worker and pod

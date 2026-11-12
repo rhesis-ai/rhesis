@@ -13,7 +13,10 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.dependencies import get_tenant_db_session
+from rhesis.backend.app.dependencies import (
+    get_tenant_db_session,
+    per_user_rate_limit,
+)
 from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
@@ -27,6 +30,7 @@ from rhesis.backend.app.schemas.owasp import (
     OwaspGenerateResponse,
 )
 from rhesis.backend.app.services.owasp import OWASP_FRAMEWORKS, list_category_summaries
+from rhesis.backend.app.utils.rate_limit import GENERATION_RATE_LIMIT
 from rhesis.backend.jobs import launch_job
 from rhesis.backend.jobs.test_set import generate_and_save_owasp_test_set
 
@@ -78,7 +82,12 @@ def get_categories(
         ) from e
 
 
-@router.post("/generate", response_model=OwaspGenerateResponse, status_code=202)
+@router.post(
+    "/generate",
+    response_model=OwaspGenerateResponse,
+    status_code=202,
+    dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
+)
 def generate_test_set(
     request: OwaspGenerateRequest,
     current_user: User = Depends(require_current_user_or_token),

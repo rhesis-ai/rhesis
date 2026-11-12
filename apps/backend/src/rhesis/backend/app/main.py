@@ -636,11 +636,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Register rate limiter for slowapi (used by auth and user routers)
+# Rate limits: per-route decorators, plus DEFAULT_RATE_LIMIT on every other
+# route through DefaultRateLimitMiddleware (registered below, inside CORS).
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from rhesis.backend.app.utils.rate_limit import limiter
+from rhesis.backend.app.utils.rate_limit import DefaultRateLimitMiddleware, limiter
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -759,6 +760,9 @@ app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(FastAPIHTTPException, http_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
+
+# Added before CORS so a 429 still carries CORS headers.
+app.add_middleware(DefaultRateLimitMiddleware)
 
 # Configure CORS
 _frontend_settings = get_frontend_settings()
@@ -892,6 +896,7 @@ bootstrap_ee(app)
 
 
 @app.get("/", include_in_schema=True)
+@limiter.exempt
 async def root():
     """Welcome endpoint with API status"""
     version_info = get_version_info()
@@ -928,6 +933,7 @@ async def root():
 
 
 @app.get("/health")
+@limiter.exempt
 async def health_check():
     """Liveness + lightweight dependency surfacing.
 
@@ -983,6 +989,7 @@ def _ping_database() -> None:
 
 
 @app.get("/ready")
+@limiter.exempt
 async def readiness_check():
     """Readiness: 503 once the database has been out of reach for a while.
 

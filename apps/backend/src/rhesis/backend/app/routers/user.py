@@ -42,7 +42,11 @@ from rhesis.backend.app.services.usage_notifications import notify_stock_crossin
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
-from rhesis.backend.app.utils.rate_limit import INVITATION_RATE_LIMIT, user_limiter
+from rhesis.backend.app.utils.rate_limit import (
+    INVITATION_RATE_LIMIT,
+    get_user_identifier,
+    limiter,
+)
 from rhesis.backend.app.utils.user_model_utils import MODEL_PURPOSES, check_model_fits_purpose
 from rhesis.backend.app.utils.validation import validate_and_normalize_email
 from rhesis.backend.notifications import email_service
@@ -148,7 +152,7 @@ router = RhesisRouter(
 
 
 @router.post("/", response_model=schemas.User)
-@user_limiter.limit(INVITATION_RATE_LIMIT)
+@limiter.limit(INVITATION_RATE_LIMIT, key_func=get_user_identifier)
 @handle_database_exceptions(
     entity_name="user", custom_unique_message="User with this email already exists"
 )
