@@ -16,7 +16,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
-    targetRevision: 0f5e2d38c482c4572d8b9caa0793c9dfce52d140
+    targetRevision: ffbcbfd69957992fea467801e1f578b14b418bae
     path: charts/rhesis
     helm:
       valueFiles:
