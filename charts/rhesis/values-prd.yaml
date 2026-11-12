@@ -47,7 +47,10 @@ config:
   onboardingVideoUrl: "https://youtu.be/lLLj6S5T1Ig"
   architectHelpArticleUrls: "https://docs.rhesis.ai/docs/getting-started/connecting-application,https://docs.rhesis.ai/docs/endpoints,https://docs.rhesis.ai/docs/endpoints/sdk-endpoints,https://docs.rhesis.ai/docs/concepts"
   # Backend
-  rhesisBaseUrl: "https://api.rhesis.ai"
+  # Hosted-model calls from our own pods (SDK RhesisLLM in worker/backend, chatbot,
+  # platform key checks) go to the in-cluster backend, not the public host: through
+  # Cloudflare they would all share the Cloud NAT IP's rate-limit bucket.
+  rhesisBaseUrl: "http://backend:8080"
   frontendUrl: "https://app.rhesis.ai"
   backendUrl: "http://backend:8080"
   # Disposable-email screening: off | log | enforce. Ran as log from #2511 so the
@@ -75,7 +78,11 @@ config:
   azureOpenAiApiVersion: "2024-02-01"
 
 # ---------------------------------------------------------------------------
-# Ingress — prd (internal class for VPN-only testing; switch to external for go-live)
+# Ingress — prd: public, on the external class, behind the Cloudflare proxy.
+# external-dns owns the proxied flag (cloudflare-proxied annotation), so a toggle in
+# the Cloudflare UI gets reverted.
+# Cloudflare settings this relies on: SSL mode Full (strict), and Bot Fight Mode /
+# Browser Integrity Check must not block SDK and OTLP clients on api and telemetry.
 # ---------------------------------------------------------------------------
 backend:
   replicas: 2
@@ -111,6 +118,7 @@ backend:
     className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
       nginx.ingress.kubernetes.io/proxy-body-size: "25m"
   # Covers boot only (imports, probe cache pre-warm): migrations run in the
@@ -155,6 +163,7 @@ frontend:
     className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 workers:
@@ -199,6 +208,7 @@ docs:
     className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 chatbot:
@@ -222,6 +232,7 @@ chatbot:
     className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 otelCollector:
@@ -231,6 +242,7 @@ otelCollector:
     className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
 
 telemetryProcessor:
@@ -260,6 +272,7 @@ polyphemus:
     className: external
     annotations:
       cert-manager.io/cluster-issuer: "letsencrypt-prod-dns01"
+      external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
   livenessProbe:
     httpGet:
