@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Autocomplete, CircularProgress, TextField } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -43,17 +43,44 @@ export default function RequirementAutocomplete({
   const [input, setInput] = useState('');
   const [options, setOptions] = useState<RequirementOption[]>([]);
   const [loading, setLoading] = useState(false);
+  const prefetched = useRef(false);
 
+  // Eagerly load the initial list so the first dropdown open is instant.
+  useEffect(() => {
+    if (!isAuthenticated || prefetched.current) return;
+    let cancelled = false;
+    const clauses = topLevelOnly ? ['parent_id eq null'] : [];
+    new ApiClientFactory()
+      .getRequirementClient()
+      .getRequirements<RequirementOption>({
+        limit: RESULT_LIMIT,
+        sort_by: 'name',
+        sort_order: 'asc',
+        $select: 'id,name',
+        ...(clauses.length > 0 ? { $filter: clauses.join(' and ') } : {}),
+      })
+      .then(rows => {
+        if (!cancelled) {
+          setOptions(rows);
+          prefetched.current = true;
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, topLevelOnly]);
+
+  // Search as the user types while the dropdown is open.
   useEffect(() => {
     if (!open || !isAuthenticated) return;
+    const term = input.trim();
+    const searching = term && term !== value?.name;
+    if (!searching && prefetched.current) return;
     let cancelled = false;
     const handle = setTimeout(async () => {
       setLoading(true);
       try {
-        const term = input.trim();
-        // The input shows the selected name; searching for it would hide
-        // every other option.
-        const searching = term && term !== value?.name;
         const clauses = [
           ...(searching
             ? [`contains(tolower(name), tolower('${escapeODataValue(term)}'))`]
@@ -69,7 +96,10 @@ export default function RequirementAutocomplete({
             $select: 'id,name',
             ...(clauses.length > 0 ? { $filter: clauses.join(' and ') } : {}),
           });
-        if (!cancelled) setOptions(rows);
+        if (!cancelled) {
+          setOptions(rows);
+          prefetched.current = true;
+        }
       } catch {
         if (!cancelled) setOptions([]);
       } finally {
