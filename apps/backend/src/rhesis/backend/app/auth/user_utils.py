@@ -24,7 +24,6 @@ from rhesis.backend.app.auth.principal import (
 )
 from rhesis.backend.app.auth.session_invalidation import (
     COOKIE_SESSION_MAX_AGE_SECONDS,
-    PROCESS_STARTED_AT,
     is_session_revoked,
 )
 from rhesis.backend.app.auth.session_utils import SESSION_ISSUED_AT_KEY
@@ -280,14 +279,17 @@ def _store_api_token_state(request, project_id: Optional[str], scopes: Optional[
 async def _cookie_session_valid(session: dict, user_id: str) -> bool:
     """Whether a cookie session survives logout and password-change revocation.
 
-    A cookie from before issue times were stored gets the process start time:
-    no one is signed out by the deploy, and any revocation after it still applies.
-    The cookie's expiry slides while it is used, so its age is capped here.
+    A cookie from before issue times were stored has an unknown age, so any
+    revocation mark ends it; without one it is stamped now and kept, so the
+    deploy signs nobody out. The cookie's expiry slides while it is used, so
+    its age is capped here.
     """
     issued_at = session.get(SESSION_ISSUED_AT_KEY)
     if not isinstance(issued_at, int):
-        issued_at = PROCESS_STARTED_AT
-        session[SESSION_ISSUED_AT_KEY] = issued_at
+        if await is_session_revoked(user_id, 0):
+            return False
+        session[SESSION_ISSUED_AT_KEY] = int(time.time())
+        return True
     if time.time() - issued_at > COOKIE_SESSION_MAX_AGE_SECONDS:
         return False
     return not await is_session_revoked(user_id, issued_at)

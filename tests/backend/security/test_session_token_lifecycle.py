@@ -456,14 +456,17 @@ class TestCookieSessionRevocation:
 
         user = _user(test_db, test_org_id)
         request = SimpleNamespace(session={"user_id": str(user.id)})
+        before = int(datetime.now(timezone.utc).timestamp())
         with fake_redis_manager():
             assert (await user_utils.get_current_user(request)).id == user.id
-        assert request.session["iat"] == session_invalidation.PROCESS_STARTED_AT
+        assert request.session["iat"] >= before
 
     @pytest.mark.asyncio
-    async def test_cookie_without_issue_time_honours_later_revocation(
-        self, test_db: Session, test_org_id: str
+    @pytest.mark.parametrize("mark", [1, None], ids=["old-mark", "recent-mark"])
+    async def test_cookie_without_issue_time_is_rejected_on_any_mark(
+        self, test_db: Session, test_org_id: str, mark
     ):
+        """Its real issue time is unknown, so any revocation of the user ends it."""
         from types import SimpleNamespace
 
         from rhesis.backend.app.auth import user_utils
@@ -471,9 +474,8 @@ class TestCookieSessionRevocation:
         user = _user(test_db, test_org_id)
         request = SimpleNamespace(session={"user_id": str(user.id)})
         redis = FakeRedis()
-        redis.data[f"{session_invalidation.KEY_PREFIX}{user.id}"] = str(
-            session_invalidation.PROCESS_STARTED_AT + 1
-        )
+        revoked_at = mark if mark is not None else int(datetime.now(timezone.utc).timestamp())
+        redis.data[f"{session_invalidation.KEY_PREFIX}{user.id}"] = str(revoked_at)
         with fake_redis_manager(redis):
             assert await user_utils.get_current_user(request) is None
         assert request.session == {}
