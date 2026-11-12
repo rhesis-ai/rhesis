@@ -86,6 +86,10 @@ def in_app_notification(event_type):
     return decorator
 
 
+class JobTimeLimitExceeded(Exception):
+    """A job stopped itself at its wall-clock limit; a retry would only hit it again."""
+
+
 class BaseJob(Task):
     """Base task class with tenant context, logging, retry logic, and email notifications."""
 
@@ -115,7 +119,7 @@ class BaseJob(Task):
     # every attempt, so retrying it just multiplies the log noise. A
     # soft-deleted row is the same story: whatever it referenced stays deleted
     # on every retry.
-    dont_autoretry_for = (ModelConfigurationError, ItemDeletedException)
+    dont_autoretry_for = (ModelConfigurationError, ItemDeletedException, JobTimeLimitExceeded)
 
     # Maximum number of retries - use centralized constant
     max_retries = DEFAULT_MAX_RETRIES

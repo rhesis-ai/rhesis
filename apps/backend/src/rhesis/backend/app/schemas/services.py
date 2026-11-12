@@ -334,7 +334,8 @@ class QueryMCPRequest(BaseModel):
     query: str
     tool_id: str
     system_prompt: Optional[str] = None
-    max_iterations: Optional[int] = 10
+    # Each iteration is an LLM call plus a tool call, run inside the request.
+    max_iterations: int = Field(default=10, ge=1, le=25)
 
 
 class _ToolCall(BaseModel):

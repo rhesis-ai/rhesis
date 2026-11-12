@@ -21,7 +21,7 @@ from rhesis.backend.app.utils.response_extractor import (
 from rhesis.backend.jobs.execution.batch.context import ExecutionContext
 from rhesis.backend.jobs.execution.batch.evaluation import evaluate_metrics
 from rhesis.backend.jobs.execution.batch.invocation import is_multi_turn_test, run_test
-from rhesis.backend.jobs.execution.shared import is_task_revoked
+from rhesis.backend.jobs.execution.shared import RUN_TIME_LIMIT_ERROR, is_task_revoked
 
 logger = logging.getLogger(__name__)
 
@@ -44,26 +44,31 @@ _NARRATED_STATUS_WORDING = {"endpoint_error": "endpoint error"}
 
 
 async def _cancellation_watchdog(
-    task_id: str | None,
+    ctx: ExecutionContext,
     tasks: List[asyncio.Task],
     poll_interval: float = 1.0,
 ) -> None:
-    """Poll the Celery revoke set and cancel all batch tasks when triggered.
+    """Cancel all batch tasks when the Celery task is revoked or the run's deadline passes.
 
-    Runs as a sibling asyncio Task alongside the test fan-out.  When the
-    Celery task is revoked, each test Task receives a CancelledError at its
-    next await point (i.e. mid HTTP call, mid metric evaluation, etc.).
-    The watchdog exits as soon as it fires or is itself cancelled by run_batch
-    after the tests finish naturally.
+    Runs as a sibling asyncio Task alongside the test fan-out.  When it fires,
+    each test Task receives a CancelledError at its next await point (i.e. mid
+    HTTP call, mid metric evaluation, etc.). The watchdog exits as soon as it
+    fires or is itself cancelled by run_batch after the tests finish naturally.
     """
     while True:
         await asyncio.sleep(poll_interval)
-        if is_task_revoked(task_id):
-            pending = [t for t in tasks if not t.done()]
-            logger.info(f"[BATCH] Revoke detected — cancelling {len(pending)} in-flight tasks")
-            for t in pending:
-                t.cancel()
-            return
+        if ctx.deadline is not None and time.monotonic() >= ctx.deadline:
+            ctx.deadline_exceeded = True
+            reason = "Run time limit reached"
+        elif is_task_revoked(ctx.celery_task_id):
+            reason = "Revoke detected"
+        else:
+            continue
+        pending = [t for t in tasks if not t.done()]
+        logger.info(f"[BATCH] {reason} — cancelling {len(pending)} in-flight tasks")
+        for t in pending:
+            t.cancel()
+        return
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +134,7 @@ def _is_retriable_failure(result: Dict[str, Any]) -> bool:
         return False
 
     error = result.get("error", "")
-    if error.startswith("Timeout after") or error.startswith("Test data not pre-fetched"):
+    if error.startswith(("Timeout after", "Test data not pre-fetched", RUN_TIME_LIMIT_ERROR)):
         return False
     return True
 
@@ -256,7 +261,7 @@ async def _run_gather(
                         pass
 
     tasks = [asyncio.create_task(_tracked(test_id)) for test_id in test_ids]
-    watchdog = asyncio.create_task(_cancellation_watchdog(ctx.celery_task_id, tasks))
+    watchdog = asyncio.create_task(_cancellation_watchdog(ctx, tasks))
     try:
         raw = await asyncio.gather(*tasks, return_exceptions=True)
     finally:
@@ -265,7 +270,17 @@ async def _run_gather(
 
     results: List[Dict[str, Any]] = []
     for test_id, result in zip(test_ids, raw, strict=True):
-        if isinstance(result, asyncio.CancelledError):
+        if isinstance(result, asyncio.CancelledError) and ctx.deadline_exceeded:
+            # A failure, not a cancellation: nobody asked to stop, and the row tells the user why.
+            results.append(
+                {
+                    "test_id": test_id,
+                    "status": "failed",
+                    "error": RUN_TIME_LIMIT_ERROR,
+                    "execution_time": 0,
+                }
+            )
+        elif isinstance(result, asyncio.CancelledError):
             logger.info(f"[BATCH] Test {test_id} cancelled mid-flight")
             results.append({"test_id": test_id, "status": "cancelled", "execution_time": 0})
         elif isinstance(result, Exception):
@@ -375,6 +390,8 @@ async def run_batch(
         result_map: Dict[str, Dict[str, Any]] = {r["test_id"]: r for r in results}
 
         for recovery_round in range(ctx.recovery_rounds):
+            if ctx.deadline_exceeded:
+                break
             retry_ids = [tid for tid in test_ids if _is_retriable_failure(result_map.get(tid, {}))]
             if not retry_ids:
                 break
@@ -433,6 +450,20 @@ async def run_batch(
 # ---------------------------------------------------------------------------
 # Per-test coroutine
 # ---------------------------------------------------------------------------
+
+
+async def _persist_to_completion(persist: Any, *args: Any) -> None:
+    """Run *persist* in a thread and let it finish even if this task is cancelled.
+
+    A cancel (revoke or run deadline) would otherwise return while the thread is still
+    writing the row, and the error sweep in batch/__init__ could then add a second one.
+    """
+    write = asyncio.ensure_future(asyncio.to_thread(persist, *args))
+    try:
+        await asyncio.shield(write)
+    except asyncio.CancelledError:
+        await asyncio.gather(write, return_exceptions=True)
+        raise
 
 
 async def _execute_single_test(
@@ -563,7 +594,7 @@ async def _execute_single_test(
             try:
                 from rhesis.backend.jobs.execution.batch.persist import persist_result
 
-                await asyncio.to_thread(
+                await _persist_to_completion(
                     persist_result,
                     ctx,
                     test_id,

@@ -9,9 +9,13 @@ helper libraries such as pydantic_sqlalchemy as future improvement.
 """
 
 import datetime
-from typing import Any, ClassVar, Optional
+from typing import Annotated, Any, ClassVar, List, Optional
 
-from pydantic import UUID4, BaseModel, ConfigDict, field_serializer, model_validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, field_serializer, model_validator
+
+# Most items one bulk request may carry; each is handled in a single transaction.
+MAX_BULK_ITEMS = 10_000
+BulkIds = Annotated[List[UUID4], Field(max_length=MAX_BULK_ITEMS)]
 
 
 def _organization_of(value: Any) -> Any:

@@ -27,6 +27,7 @@ from rhesis.backend.app.auth.user_utils import (
     get_secret_key,
     require_current_user_or_token,
 )
+from rhesis.backend.app.constants import WS_MAX_MESSAGE_SIZE
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.websocket import EventType, WebSocketMessage
@@ -35,9 +36,6 @@ from rhesis.backend.app.services.websocket import get_ws_token_service, ws_manag
 logger = logging.getLogger(__name__)
 
 router = RhesisRouter(tags=["websocket"], resource="websocket")
-
-# Security: Maximum message size (10MB) to accommodate base64-encoded file attachments
-MAX_MESSAGE_SIZE = 10 * 1024 * 1024
 
 
 class WebSocketTokenResponse(BaseModel):
@@ -215,7 +213,7 @@ async def websocket_endpoint(websocket: WebSocket):
             raw_data = await websocket.receive_text()
 
             # Security: Check message size before parsing
-            if len(raw_data) > MAX_MESSAGE_SIZE:
+            if len(raw_data) > WS_MAX_MESSAGE_SIZE:
                 logger.warning(f"Message too large from {conn_id}: {len(raw_data)} bytes")
                 try:
                     await websocket.send_json(

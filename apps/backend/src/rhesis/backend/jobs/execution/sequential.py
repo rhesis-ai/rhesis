@@ -2,7 +2,9 @@
 Sequential execution implementation for test cases.
 """
 
+import asyncio
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
@@ -17,9 +19,12 @@ from rhesis.backend.jobs.execution.executors.data import get_live_metric_backend
 from rhesis.backend.jobs.execution.modes import is_multi_turn_test
 from rhesis.backend.jobs.execution.run import update_test_run_status
 from rhesis.backend.jobs.execution.shared import (
+    RUN_TIME_LIMIT_ERROR,
     create_execution_result,
     create_failure_result,
+    error_test_output,
     is_task_revoked,
+    run_deadline,
     run_on_thread_loop,
     trigger_results_collection,
     update_test_run_start,
@@ -73,6 +78,49 @@ def _rollback_after_failure(session: Session) -> None:
         session.rollback()
     except Exception:
         logger.warning("Rollback after a failed test did not succeed", exc_info=True)
+
+
+def _record_time_limit_errors(
+    session: Session, test_config: TestConfiguration, test_run: TestRun, tests: List
+) -> None:
+    """Write an error row for each test the run deadline stopped or never started.
+
+    Results are counted from rows, so without these a run cut short would read as
+    complete. Tests that already have a row are left alone.
+    """
+    from rhesis.backend.app.models.test_result import TestResult
+    from rhesis.backend.jobs.execution.executors.results import create_test_result_record
+
+    if not tests:
+        return
+    try:
+        existing = {
+            str(row.test_id)
+            for row in session.query(TestResult.test_id).filter(
+                TestResult.test_run_id == test_run.id,
+                TestResult.test_id.in_([test.id for test in tests]),
+                TestResult.deleted_at.is_(None),
+            )
+        }
+        for test in tests:
+            if str(test.id) in existing:
+                continue
+            create_test_result_record(
+                db=session,
+                test=test,
+                test_config_id=str(test_config.id),
+                test_run_id=str(test_run.id),
+                test_id=str(test.id),
+                organization_id=str(test_config.organization_id),
+                user_id=str(test_config.user_id) if test_config.user_id else None,
+                execution_time=0,
+                metrics_results={},
+                processed_result=error_test_output(RUN_TIME_LIMIT_ERROR),
+            )
+        session.commit()
+    except Exception:
+        _rollback_after_failure(session)
+        logger.warning("Could not record time-limit errors", exc_info=True)
 
 
 def execute_tests_sequentially(
@@ -136,9 +184,19 @@ def execute_tests_sequentially(
     # either the test-run cancel endpoint or the job cancel endpoint.
     celery_task_id = (test_run.attributes or {}).get("task_id")
     was_cancelled = False
+    deadline = run_deadline()
+    not_run: List = []
 
     # Execute tests one by one
     for i, test in enumerate(tests, 1):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            logger.warning(f"Run time limit reached before test {i}/{len(tests)}, stopping")
+            if on_emit:
+                on_emit(f"Run time limit reached, {len(tests) - i + 1} tests not run")
+            not_run = tests[i - 1 :]
+            break
+
         if is_task_revoked(celery_task_id):
             logger.info(
                 f"Revoke detected before test {i}/{len(tests)} — "
@@ -164,21 +222,24 @@ def execute_tests_sequentially(
             session.commit()
 
             result = run_on_thread_loop(
-                execute_test(
-                    db=session,
-                    test_config_id=str(test_config.id),
-                    test_run_id=str(test_run.id),
-                    test_id=str(test.id),
-                    endpoint_id=str(test_config.endpoint_id),
-                    organization_id=str(test_config.organization_id)
-                    if test_config.organization_id
-                    else None,
-                    user_id=str(test_config.user_id) if test_config.user_id else None,
-                    execution_model=run_models.execution,
-                    evaluation_model=run_models.evaluation,
-                    reference_test_run_id=reference_test_run_id,
-                    trace_id=trace_id,
-                    on_test_phase=on_test_phase,
+                asyncio.wait_for(
+                    execute_test(
+                        db=session,
+                        test_config_id=str(test_config.id),
+                        test_run_id=str(test_run.id),
+                        test_id=str(test.id),
+                        endpoint_id=str(test_config.endpoint_id),
+                        organization_id=str(test_config.organization_id)
+                        if test_config.organization_id
+                        else None,
+                        user_id=str(test_config.user_id) if test_config.user_id else None,
+                        execution_model=run_models.execution,
+                        evaluation_model=run_models.evaluation,
+                        reference_test_run_id=reference_test_run_id,
+                        trace_id=trace_id,
+                        on_test_phase=on_test_phase,
+                    ),
+                    timeout=remaining,
                 )
             )
             results.append(result)
@@ -187,6 +248,8 @@ def execute_tests_sequentially(
 
         except Exception as e:
             _rollback_after_failure(session)
+            if isinstance(e, TimeoutError) and time.monotonic() >= deadline:
+                e = TimeoutError(RUN_TIME_LIMIT_ERROR)  # wait_for's own error has no message
             logger.error(f"Test {i}/{len(tests)} failed: {str(e)}")
             # Create failure result using shared utility
             failure_result = create_failure_result(str(test.id), e)
@@ -203,6 +266,14 @@ def execute_tests_sequentially(
                     on_test_phase(str(test.id), TestPhase.DONE)
                 except Exception:
                     logger.debug("on_test_phase(done) failed", exc_info=True)
+
+    cut_off = {r["test_id"] for r in results if r.get("error") == RUN_TIME_LIMIT_ERROR}
+    _record_time_limit_errors(
+        session,
+        test_config,
+        test_run,
+        [test for test in tests if str(test.id) in cut_off] + not_run,
+    )
 
     end_time = datetime.now(timezone.utc)
     execution_time = (end_time - start_time).total_seconds()

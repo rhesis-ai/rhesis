@@ -24,9 +24,9 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Optional
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.database import advisory_xact_lock
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.usage import Usage
 from rhesis.backend.app.quota import QuotaRegistry, QuotaResource, resource_label
@@ -203,10 +203,7 @@ def _lock_quota(db: Session, org_id: str, resource: QuotaResource) -> None:
     Re-entrant within one session, so a nested check on the same session
     does not wait on itself.
     """
-    db.execute(
-        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
-        {"key": f"quota:{org_id}:{resource.value}"},
-    )
+    advisory_xact_lock(db, f"quota:{org_id}:{resource.value}")
 
 
 def check_quota(

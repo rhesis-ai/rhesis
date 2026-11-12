@@ -1409,6 +1409,25 @@ class TestADispatchThatNeverReachesAWorker:
         assert body["status"] == "failed"
         assert body["error"]
 
+    def test_the_job_cap_at_dispatch_is_reported_as_429(
+        self,
+        authenticated_client: TestClient,
+        tuning_metric: models.Metric,
+    ):
+        """The route's own cap check passed, a parallel request took the last slot."""
+        from rhesis.backend.app.services.job_capacity import JobCapacityExceededError
+
+        _create_case(authenticated_client, tuning_metric.id)
+        with patch(
+            "rhesis.backend.app.routers.metric_tuning.launch_job",
+            side_effect=JobCapacityExceededError(10),
+        ):
+            response = authenticated_client.post(f"/metrics/{tuning_metric.id}/tuning/run")
+
+        assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
+        body = authenticated_client.get(f"/metrics/{tuning_metric.id}/tuning/run").json()
+        assert body["status"] == "failed"
+
     def test_the_next_run_is_not_refused(
         self,
         authenticated_client: TestClient,

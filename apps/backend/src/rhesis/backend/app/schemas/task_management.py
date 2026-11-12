@@ -4,7 +4,7 @@ from typing import Dict, List, Optional
 from pydantic import UUID4, BaseModel, ConfigDict
 
 from rhesis.backend.app.auth.capabilities import ResourceType
-from rhesis.backend.app.schemas.base import Base, ServerIdentity
+from rhesis.backend.app.schemas.base import Base, BulkIds, ServerIdentity
 
 from .affordances import WithPermittedActions
 from .references import (
@@ -115,7 +115,7 @@ class TaskDetail(Task):
 
 
 class TaskBulkDeleteRequest(BaseModel):
-    task_ids: List[UUID4]
+    task_ids: BulkIds
 
 
 class TaskBulkDeleteResponse(BaseModel):

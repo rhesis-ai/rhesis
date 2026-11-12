@@ -8,12 +8,14 @@ to ensure consistent behavior and results.
 import asyncio
 import logging
 import threading
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import schemas
+from rhesis.backend.app.config.settings import get_job_limit_settings
 from rhesis.backend.app.crud.test_run import update_test_run
 from rhesis.backend.app.models.test_configuration import TestConfiguration
 from rhesis.backend.app.models.test_run import TestRun
@@ -25,6 +27,28 @@ logger = logging.getLogger(__name__)
 # Per-thread event loop, reused across tests in the same Celery worker thread.
 # Thread-local (not process-global) so it is safe under --pool threads.
 _thread_local = threading.local()
+
+
+# Recorded for tests stopped because the run reached its wall-clock limit.
+RUN_TIME_LIMIT_ERROR = "Run time limit reached"
+
+
+def error_test_output(message: str) -> Dict[str, Any]:
+    """``test_output`` for a test that produced no response, in the invoker's error shape.
+
+    ``error`` is a flag and the text sits in ``output``/``message``, which is what the
+    detail views read. ``status: error`` keeps the row an execution error even for a
+    test with no planned metrics (see executors.results._no_metrics_applied).
+    """
+    return {"output": message, "message": message, "error": True, "status": "error"}
+
+
+def run_deadline() -> float:
+    """The time.monotonic() value at which a test run starting now must stop.
+
+    Enforced by the run itself: Celery's time limits do nothing under --pool threads.
+    """
+    return time.monotonic() + get_job_limit_settings().execution_time_limit
 
 
 def run_on_thread_loop(coro):

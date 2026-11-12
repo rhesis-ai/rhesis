@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
-from rhesis.backend.app.auth.quota_gates import require_quota
+from rhesis.backend.app.auth.quota_gates import require_job_capacity, require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.crud import metric as metric_crud
 from rhesis.backend.app.crud import test_set as test_set_crud
@@ -26,6 +26,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas import services as services_schemas
+from rhesis.backend.app.schemas.base import MAX_BULK_ITEMS
 from rhesis.backend.app.schemas.embedding import (
     EmbeddingGraphComputeResponse,
     EmbeddingGraphGetResponse,
@@ -123,6 +124,7 @@ def generate_test_set(
     scoped_project_id: Optional[str] = Depends(get_project_context),
     _validate_model=Depends(validate_generation_model),
     _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_GENERATION)),
+    _job_capacity: None = Depends(require_job_capacity),
 ):
     """
     Generate test set using ConfigSynthesizer.
@@ -316,7 +318,11 @@ def create_test_set_bulk(
     - demographic and dimension fields are accepted but ignored (dimension/demographic
       tables were removed)
     - expected_response is an optional field to specify the expected model response
+    - at most 10,000 tests per request
     """
+    # Checked here, not on the schema: server-side imports (Garak) build larger sets.
+    if len(test_set_data.tests) > MAX_BULK_ITEMS:
+        raise HTTPException(status_code=422, detail=f"At most {MAX_BULK_ITEMS} tests per request")
     # Extract test_set_type from request if provided
     test_set_type = None
     if test_set_data.test_set_type:
@@ -591,6 +597,7 @@ def execute_test_set(
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
     _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_EXECUTIONS)),
+    _job_capacity: None = Depends(require_job_capacity),
 ):
     """Submit a test set for execution against an endpoint.
 

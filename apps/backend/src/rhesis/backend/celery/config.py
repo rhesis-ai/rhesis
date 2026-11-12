@@ -1,9 +1,17 @@
 from celery.schedules import crontab
 
-from rhesis.backend.app.config.settings import get_redis_settings
+from rhesis.backend.app.config.settings import get_job_limit_settings, get_redis_settings
 from rhesis.backend.app.ee_bootstrap import ee_celery_jobs
 
 redis_settings = get_redis_settings()
+job_limits = get_job_limit_settings()
+
+# execute_test_configuration stops itself at EXECUTION_TIME_LIMIT (see
+# jobs/execution/shared.run_deadline); the hard limit leaves room to wrap up.
+EXECUTION_HARD_LIMIT = job_limits.execution_time_limit + 300
+# Must outlast test runs and explorations, which stop themselves (see
+# broker_transport_options below), so it follows the execution limit up.
+VISIBILITY_TIMEOUT = max(7200, EXECUTION_HARD_LIMIT + 300)
 
 # Worker-context config: retry aggressively to ensure task delivery
 CELERY_CONFIG = {
@@ -31,16 +39,13 @@ CELERY_CONFIG = {
     # slow operations under Redis contention don't cause unbounded growth.
     "broker_transport_options": {
         "retry_on_timeout": True,
-        # Must exceed the longest task_annotations time_limit below, or Redis
-        # redelivers a still-running task to a second worker: with
-        # task_acks_late the message is only acked on completion, and kombu's
-        # default here is 3600s -- shorter than the 3900s hard limit on
-        # execute_test_configuration. Nothing guards against the duplicate
-        # (a run already in Progress is re-executed from the first test), and
-        # progress is written as an absolute value keyed by celery_task_id,
-        # which a redelivery reuses -- so the second pass drags the counter
-        # backwards over the first.
-        "visibility_timeout": 7200,
+        # Must exceed the longest task run, or Redis redelivers a still-running
+        # task to a second worker and it runs twice: with task_acks_late the
+        # message is only acked on completion. The worker's thread pool ignores
+        # time_limit, so a test run is bounded by its own deadline
+        # (EXECUTION_TIME_LIMIT) and this stays above it. Generation, Garak and
+        # tuning jobs have no in-job limit yet and can still outlast it.
+        "visibility_timeout": VISIBILITY_TIMEOUT,
         "connection_pool_kwargs": {
             "max_connections": 10,
             "retry_on_timeout": True,
@@ -83,9 +88,10 @@ CELERY_CONFIG = {
     "task_eager_propagates": False,
     # Task annotations
     "task_annotations": {
+        # Inert under --pool threads; kept equal to the in-job limit for other pools.
         "rhesis.backend.jobs.execute_test_configuration": {
-            "soft_time_limit": 3600,
-            "time_limit": 3900,
+            "soft_time_limit": job_limits.execution_time_limit,
+            "time_limit": EXECUTION_HARD_LIMIT,
         },
         "rhesis.backend.jobs.telemetry.evaluate.evaluate_turn_trace_metrics": {
             "max_retries": 3,

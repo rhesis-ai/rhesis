@@ -11,7 +11,7 @@ import logging
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.auth.quota_gates import require_quota
+from rhesis.backend.app.auth.quota_gates import require_job_capacity, require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import (
     get_tenant_db_session,
@@ -93,6 +93,7 @@ def generate_test_set(
     current_user: User = Depends(require_current_user_or_token),
     db: Session = Depends(get_tenant_db_session),
     _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_GENERATION)),
+    _job_capacity: None = Depends(require_job_capacity),
 ):
     """
     Generate a test set of adversarial prompts from an OWASP Top 10 report.

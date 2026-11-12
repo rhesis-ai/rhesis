@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Set
 
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.config.settings import get_job_limit_settings
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_configuration import TestConfiguration
@@ -33,6 +34,48 @@ DEFAULT_INVOKE_RETRY_MAX_WAIT = 30.0
 # Number of recovery passes after the main batch.  Each pass retries tests whose
 # failure looks transient (not timeouts, not missing data, not cancellations).
 DEFAULT_RECOVERY_ROUNDS = 1
+
+
+# (option, default, type, floor, JobLimitSettings field holding the ceiling)
+_EXECUTION_OPTION_BOUNDS = (
+    ("batch_concurrency", DEFAULT_BATCH_CONCURRENCY, int, 1, "max_batch_concurrency"),
+    ("per_test_timeout", DEFAULT_PER_TEST_TIMEOUT, int, 1, "max_per_test_timeout"),
+    ("invoke_max_attempts", DEFAULT_INVOKE_MAX_ATTEMPTS, int, 1, "max_invoke_attempts"),
+    ("invoke_retry_min_wait", DEFAULT_INVOKE_RETRY_MIN_WAIT, float, 0, "max_invoke_retry_wait"),
+    ("invoke_retry_max_wait", DEFAULT_INVOKE_RETRY_MAX_WAIT, float, 0, "max_invoke_retry_wait"),
+    ("recovery_rounds", DEFAULT_RECOVERY_ROUNDS, int, 0, "max_recovery_rounds"),
+)
+
+
+def resolve_execution_options(attrs: Dict[str, Any], config_id: str) -> Dict[str, Any]:
+    """Concurrency, timeout and retry options for a run, clamped to the server maxima.
+
+    The values come from the test configuration's attributes, which any caller can set,
+    so each is bounded by JobLimitSettings and a clamp is logged rather than refused.
+    The BATCH_CONCURRENCY and RECOVERY_ROUNDS env vars are operator overrides and win.
+    """
+    limits = get_job_limit_settings()
+    options: Dict[str, Any] = {}
+    for key, default, cast, floor, ceiling_field in _EXECUTION_OPTION_BOUNDS:
+        raw = attrs.get(key, default)
+        try:
+            value = cast(raw)
+        except (TypeError, ValueError, OverflowError):
+            value = float("nan")
+        if value != value:  # NaN, or unparseable above
+            logger.warning(f"Ignoring execution option {key}={raw!r} on {config_id}")
+            value = default
+        bounded = min(max(value, floor), getattr(limits, ceiling_field))
+        if bounded != value:
+            logger.warning(f"Execution option {key}={value} clamped to {bounded} on {config_id}")
+        options[key] = bounded
+    for key, env_var in (
+        ("batch_concurrency", "BATCH_CONCURRENCY"),
+        ("recovery_rounds", "RECOVERY_ROUNDS"),
+    ):
+        if os.environ.get(env_var):
+            options[key] = int(os.environ[env_var])
+    return options
 
 
 @dataclass
@@ -82,6 +125,9 @@ class ExecutionContext:
     # Snapshot of test_data taken before the main pass, used to persist error
     # records after the batch for tests that failed without a DB row.
     test_data_snapshot: Dict[str, Any] = field(default_factory=dict)
+    # time.monotonic() value after which the run stops starting or continuing tests.
+    deadline: Optional[float] = None
+    deadline_exceeded: bool = False
 
     def get_metric_configs_for_test(self, test_id: str) -> List[MetricConfig]:
         """Return metric configs for a specific test.
@@ -382,20 +428,7 @@ def prefetch_execution_context(
     except Exception as e:
         logger.warning(f"Failed to build connector metric sender: {e}")
 
-    # Read concurrency / retry config from test_config.attributes with env override.
-    batch_concurrency = int(
-        os.environ.get(
-            "BATCH_CONCURRENCY",
-            attrs.get("batch_concurrency", DEFAULT_BATCH_CONCURRENCY),
-        )
-    )
-    per_test_timeout = attrs.get("per_test_timeout", DEFAULT_PER_TEST_TIMEOUT)
-    invoke_max_attempts = int(attrs.get("invoke_max_attempts", DEFAULT_INVOKE_MAX_ATTEMPTS))
-    invoke_retry_min_wait = float(attrs.get("invoke_retry_min_wait", DEFAULT_INVOKE_RETRY_MIN_WAIT))
-    invoke_retry_max_wait = float(attrs.get("invoke_retry_max_wait", DEFAULT_INVOKE_RETRY_MAX_WAIT))
-    recovery_rounds = int(
-        os.environ.get("RECOVERY_ROUNDS", attrs.get("recovery_rounds", DEFAULT_RECOVERY_ROUNDS))
-    )
+    execution_options = resolve_execution_options(attrs, str(test_config.id))
 
     # Expunge models for safe cross-context use
     session.expunge(endpoint)
@@ -424,14 +457,9 @@ def prefetch_execution_context(
         metric_models=metric_models,
         test_data=test_data,
         existing_result_ids=existing_result_ids,
-        batch_concurrency=batch_concurrency,
-        per_test_timeout=per_test_timeout,
         connector_metric_sender=connector_metric_sender,
         reference_test_run_id=reference_test_run_id,
         stored_outputs=stored_outputs,
         trace_id=trace_id,
-        invoke_max_attempts=invoke_max_attempts,
-        invoke_retry_min_wait=invoke_retry_min_wait,
-        invoke_retry_max_wait=invoke_retry_max_wait,
-        recovery_rounds=recovery_rounds,
+        **execution_options,
     )

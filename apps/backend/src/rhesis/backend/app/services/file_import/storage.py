@@ -32,6 +32,9 @@ DEFAULT_TTL_SECONDS = int(os.getenv("IMPORT_SESSION_TTL_SECONDS", "1800"))
 # Max concurrent sessions (configurable via env)
 MAX_CONCURRENT_SESSIONS = int(os.getenv("IMPORT_MAX_CONCURRENT_SESSIONS", "50"))
 
+# Max concurrent sessions per organization, so one tenant cannot take the whole pool
+MAX_SESSIONS_PER_ORG = int(os.getenv("IMPORT_MAX_SESSIONS_PER_ORG", "5"))
+
 # Max rows per import (configurable via env)
 MAX_ROWS_PER_IMPORT = int(os.getenv("IMPORT_MAX_ROWS", "10000"))
 
@@ -109,7 +112,11 @@ class ImportSessionStore:
             cls._cleanup_expired_locked()
 
             active = len(cls._sessions)
-            if active >= MAX_CONCURRENT_SESSIONS:
+            org_active = sum(
+                1 for s in cls._sessions.values() if s.organization_id == organization_id
+            )
+            org_full = bool(organization_id) and org_active >= MAX_SESSIONS_PER_ORG
+            if active >= MAX_CONCURRENT_SESSIONS or org_full:
                 raise ValueError("Too many concurrent imports. Please try again in a few minutes.")
 
             import_id = str(uuid.uuid4())

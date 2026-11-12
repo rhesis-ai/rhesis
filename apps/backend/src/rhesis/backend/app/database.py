@@ -2,7 +2,8 @@ import logging
 import os
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Generator, Optional
+from typing import Callable, Generator, Optional
+from uuid import UUID
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
@@ -395,6 +396,7 @@ def temporary_project_scope(
     from rhesis.backend.app.scope import RequestScope
 
     prev_scope = db.info.get(_SCOPE_KEY)
+    prev_vars = db.info.get(_TENANT_VARS_KEY)
 
     temp_scope = RequestScope(
         organization_id=organization_id or None,
@@ -409,10 +411,41 @@ def temporary_project_scope(
     finally:
         if prev_scope is None:
             db.info.pop(_SCOPE_KEY, None)
-            _set_session_variables(db, organization_id, user_id, "")
+            if prev_vars is not None:  # a side-channel scope; put back its project too
+                _set_session_variables(
+                    db, prev_vars["org_id"], prev_vars["user_id"], prev_vars["project_id"]
+                )
+            else:
+                _set_session_variables(db, organization_id, user_id, "")
         else:
             db.info[_SCOPE_KEY] = prev_scope
             _apply_scope_variables(db, prev_scope)
+
+
+def advisory_xact_lock(db: Session, key: str) -> None:
+    """Hold a Postgres advisory lock on *key* until *db*'s transaction ends.
+
+    For check-then-insert sequences: the commit that makes the new row visible is
+    what lets the next caller in. Re-entrant within one session.
+    """
+    db.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"), {"key": key})
+
+
+def sum_over_org_projects(
+    db: Session, organization_id: str, user_id: str, count: Callable[[Optional[UUID]], int]
+) -> int:
+    """``count(None)`` for the org's project-less rows plus ``count(p)`` for every project.
+
+    For org-wide totals over a table with project RLS, which shows one project's rows
+    (plus project-less ones) at a time: each ``count(p)`` runs scoped to ``p``.
+    """
+    from rhesis.backend.app.crud.project import list_org_project_ids
+
+    total = count(None)
+    for project_id in list_org_project_ids(db, organization_id):
+        with temporary_project_scope(db, organization_id, user_id, str(project_id)):
+            total += count(project_id)
+    return total
 
 
 @contextmanager

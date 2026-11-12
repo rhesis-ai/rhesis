@@ -19,7 +19,7 @@ from rhesis.backend.app.models.enums import (
     EndpointResponseFormat,
     TokenEndpointAuthMethod,
 )
-from rhesis.backend.app.schemas.base import Base, ServerIdentity
+from rhesis.backend.app.schemas.base import Base, BulkIds, ServerIdentity
 from rhesis.backend.app.schemas.references import ProjectReference, StatusReference
 from rhesis.backend.app.schemas.user import UserReference
 from rhesis.backend.app.schemas.validators import VersionInfoField
@@ -365,7 +365,7 @@ class EndpointDetail(Endpoint):
 
 
 class EndpointBulkDeleteRequest(BaseModel):
-    endpoint_ids: List[UUID4]
+    endpoint_ids: BulkIds
 
 
 class EndpointBulkDeleteResponse(BaseModel):

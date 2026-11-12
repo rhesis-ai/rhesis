@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import UUID4, BaseModel, ConfigDict
 
-from rhesis.backend.app.schemas.base import Base, ServerIdentity
+from rhesis.backend.app.schemas.base import Base, BulkIds, ServerIdentity
 from rhesis.backend.app.schemas.tag import Tag
 from rhesis.backend.app.schemas.type_lookup import TypeLookup
 from rhesis.backend.app.schemas.user import User
@@ -76,7 +76,7 @@ class SourceWithContent(Source):
 
 
 class SourceBulkDeleteRequest(BaseModel):
-    source_ids: List[UUID4]
+    source_ids: BulkIds
 
 
 class SourceBulkDeleteResponse(BaseModel):

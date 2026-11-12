@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from rhesis.backend.app.constants import TestSetType, TestType
-from rhesis.backend.app.schemas.base import Base, ServerIdentity
+from rhesis.backend.app.schemas.base import Base, BulkIds, ServerIdentity
 from rhesis.backend.app.schemas.references import StatusReference, TypeLookupReference
 from rhesis.backend.app.schemas.tag import Tag, TagRead
 from rhesis.backend.app.schemas.user import UserReference
@@ -249,7 +249,7 @@ class TestSetBulkResponse(BaseModel):
 
 
 class TestSetBulkAssociateRequest(BaseModel):
-    test_ids: List[UUID4]
+    test_ids: BulkIds
 
 
 class TestSetBulkAssociateResponse(BaseModel):
@@ -268,7 +268,7 @@ class TestSetBulkAssociateResponse(BaseModel):
 
 
 class TestSetBulkDisassociateRequest(BaseModel):
-    test_ids: List[UUID4]
+    test_ids: BulkIds
 
 
 class TestSetBulkDisassociateResponse(BaseModel):
@@ -279,7 +279,7 @@ class TestSetBulkDisassociateResponse(BaseModel):
 
 
 class TestSetBulkDeleteRequest(BaseModel):
-    test_set_ids: List[UUID4]
+    test_set_ids: BulkIds
 
 
 class TestSetBulkDeleteResponse(BaseModel):

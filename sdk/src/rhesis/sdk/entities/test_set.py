@@ -933,6 +933,7 @@ class TestSet(BaseEntity):
         If the test set has an ID, updates metadata via PUT.
         Otherwise, creates a new test set with tests via the bulk POST endpoint.
         On creation, a missing ``test_set_type`` is inferred from the tests.
+        The API accepts at most 10,000 tests in one request.
 
         Returns:
             Dict containing the response from the API.

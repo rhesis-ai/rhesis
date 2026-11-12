@@ -133,11 +133,15 @@ start_server() {
         log "${BLUE}🐳 Using direct execution (Docker/venv in PATH)${NC}"
     fi
 
+    # WebSocket limits, kept equal to WS_MAX_MESSAGE_SIZE / WS_MAX_QUEUE in app/constants.py
+    # (the gunicorn worker class reads those directly).
+    local ws_limits="--ws-max-size 10485760 --ws-max-queue 4"
+
     if is_production; then
         log "${BLUE}🏭 Starting production server with Gunicorn...${NC}"
         exec ${CMD_PREFIX}gunicorn \
             --workers "$workers" \
-            --worker-class uvicorn.workers.UvicornWorker \
+            --worker-class rhesis.backend.app.uvicorn_worker.RhesisUvicornWorker \
             --bind "$host:$port" \
             --timeout "$timeout" \
             --graceful-timeout "${GRACEFUL_TIMEOUT:-30}" \
@@ -152,6 +156,7 @@ start_server() {
             --host "$host" \
             --port "$port" \
             --log-level debug \
+            $ws_limits \
             --reload \
             --reload-dir src
     else
@@ -160,7 +165,8 @@ start_server() {
         exec ${CMD_PREFIX}uvicorn \
             rhesis.backend.app.main:app \
             --host "$host" \
-            --port "$port"
+            --port "$port" \
+            $ws_limits
     fi
 }
 
