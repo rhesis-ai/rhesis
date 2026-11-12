@@ -61,7 +61,7 @@ describe('ArchitectWelcome', () => {
     ).toBeInTheDocument();
   });
 
-  it('hides the chips while the endpoint check is pending, to avoid a swap', () => {
+  it('shows the chips optimistically while the endpoint check is pending', () => {
     mockUseProjectNeedsEndpoint.mockReturnValue({
       pending: true,
       needsEndpoint: false,
@@ -69,7 +69,7 @@ describe('ArchitectWelcome', () => {
 
     render(<ArchitectWelcome onSubmit={jest.fn()} />);
 
-    expect(screen.queryByText(CHIP_LABEL)).not.toBeInTheDocument();
+    expect(screen.getByText(CHIP_LABEL)).toBeInTheDocument();
   });
 
   it('asks to connect an agent when the project has no endpoint', () => {
