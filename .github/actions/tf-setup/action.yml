@@ -1,8 +1,8 @@
 name: Terraform environment setup
 description: >
   Resolve the target environment's project/service-account, authenticate to
-  GCP, install gcloud/terraform, and (prd only) fetch the Cloudflare API
-  token as a masked env var. Shared by terraform-infrastructure.yml's plan
+  GCP, install gcloud/terraform, and (prd only) fetch the two Cloudflare API
+  tokens as masked env vars. Shared by terraform-infrastructure.yml's plan
   and apply jobs so the two never drift out of sync.
 
 inputs:
@@ -105,3 +105,15 @@ runs:
           --project="${{ steps.ctx.outputs.project_id }}")
         echo "::add-mask::$TOKEN"
         echo "CLOUDFLARE_API_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+    # Separate token for provider "cloudflare.rules" (the SSL ruleset), passed
+    # as an ephemeral Terraform variable so it stays out of state and tfplan.
+    - name: Fetch Cloudflare rules token (prd only)
+      if: steps.ctx.outputs.target_env == 'prd'
+      shell: bash
+      run: |
+        TOKEN=$(gcloud secrets versions access latest \
+          --secret=cloudflare-rules-token-prd \
+          --project="${{ steps.ctx.outputs.project_id }}")
+        echo "::add-mask::$TOKEN"
+        echo "TF_VAR_cloudflare_rules_api_token=$TOKEN" >> "$GITHUB_ENV"

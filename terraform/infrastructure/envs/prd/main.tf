@@ -29,9 +29,9 @@ provider "google" {
   region  = var.region
 }
 
-# Only used for the cloudflare_ip_ranges data source (modules/kubernetes/gcp),
-# not for managing Cloudflare resources -- but the provider mandates some
-# credential to initialize regardless of which data source/resource actually
+# Only used for the cloudflare_ip_ranges data source (modules/kubernetes/gcp);
+# the SSL ruleset uses the aliased "rules" provider below. The provider still
+# mandates some credential to initialize regardless of which data source/resource actually
 # ends up used, even ip_ranges (which is otherwise a public, unauthenticated
 # endpoint). No value set here deliberately: reading the real token via a
 # Terraform data source would persist it in plaintext in the state file
@@ -50,6 +50,57 @@ provider "cloudflare" {}
 # modules/kubernetes/gcp) so only the one root module that has a real
 # Cloudflare credential needs the provider at all -- dev/stg never touch it.
 data "cloudflare_ip_ranges" "edge" {}
+
+# Second Cloudflare credential, used only by the SSL ruleset below. It is a
+# separate token from the external-dns DNS token above (Zone:Read + Config
+# Rules:Edit on rhesis.ai only, no expiration), so a leak of either one can't
+# do the other's job. It can't share CLOUDFLARE_API_TOKEN with the default
+# provider, so it comes in as an ephemeral variable: ephemeral keeps it out of
+# both the state file and the saved tfplan, unlike a data source read.
+provider "cloudflare" {
+  alias     = "rules"
+  api_token = var.cloudflare_rules_api_token
+}
+
+data "cloudflare_zone" "rhesis_ai" {
+  provider = cloudflare.rules
+  name     = "rhesis.ai"
+}
+
+# Full (strict) SSL for the six prd hosts only. The zone-wide mode stays as it
+# is because other proxied records can't pass strict origin checks: the
+# SendGrid link-tracking CNAMEs (url2123, 47569266 -> sendgrid.net) and the
+# discord/notion/rtd redirects to www.rhesis.ai.
+locals {
+  prd_strict_ssl_hosts = [
+    "api.rhesis.ai",
+    "app.rhesis.ai",
+    "docs.rhesis.ai",
+    "chatbot.rhesis.ai",
+    "telemetry.rhesis.ai",
+    "polyphemus.rhesis.ai",
+  ]
+}
+
+resource "cloudflare_ruleset" "prd_ssl_strict" {
+  provider    = cloudflare.rules
+  zone_id     = data.cloudflare_zone.rhesis_ai.id
+  name        = "prd SSL mode"
+  description = "Full (strict) SSL for the prd public hosts only"
+  kind        = "zone"
+  phase       = "http_config_settings"
+
+  rules {
+    action      = "set_config"
+    description = "Full (strict) SSL for prd public hosts"
+    enabled     = true
+    expression  = "(http.host in {${join(" ", [for h in local.prd_strict_ssl_hosts : "\"${h}\""])}})"
+
+    action_parameters {
+      ssl = "strict"
+    }
+  }
+}
 
 module "prd" {
   source = "../../modules/network/gcp"
@@ -182,6 +233,57 @@ resource "google_secret_manager_secret_iam_member" "terraform_cloudflare_token_a
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# Holds the Cloudflare rules token for provider "cloudflare.rules" (Zone:Read
+# and Config Rules:Edit on rhesis.ai, no expiration). The container was created
+# by hand with gcloud and is adopted here; its version holds the real token and
+# is deliberately not managed, so the value never enters state (same reasoning
+# as arc_gha_prd's manage_placeholder_versions = false below). Rotate with
+# `gcloud secrets versions add`.
+resource "google_secret_manager_secret" "cloudflare_rules_token" {
+  project   = var.project_id
+  secret_id = "cloudflare-rules-token-prd"
+
+  replication {
+    auto {}
+  }
+
+  labels = {
+    environment = "prd"
+    managed-by  = "terraform"
+    component   = "cloudflare-rules"
+  }
+
+  # Destroying the container deletes the real token, which tf-setup reads
+  # before `terraform init`, so every prd plan would fail.
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+import {
+  to = google_secret_manager_secret.cloudflare_rules_token
+  id = "projects/rhesis-prd/secrets/cloudflare-rules-token-prd"
+}
+
+# Same bootstrap shape as terraform_cloudflare_token_accessor above: tf-setup
+# reads this secret before `terraform init`, so the grant has to be made by
+# hand first and adopted here, and must never be destroyed by Terraform.
+resource "google_secret_manager_secret_iam_member" "terraform_cloudflare_rules_token_accessor" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.cloudflare_rules_token.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:terraform-prd@${var.project_id}.iam.gserviceaccount.com"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+import {
+  to = google_secret_manager_secret_iam_member.terraform_cloudflare_rules_token_accessor
+  id = "projects/rhesis-prd/secrets/cloudflare-rules-token-prd roles/secretmanager.secretAccessor serviceAccount:terraform-prd@rhesis-prd.iam.gserviceaccount.com"
 }
 
 module "arc_gha_prd" {
