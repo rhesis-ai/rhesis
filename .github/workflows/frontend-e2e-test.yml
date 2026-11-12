@@ -100,8 +100,12 @@ jobs:
       - name: Install missing Chromium system libraries
         timeout-minutes: 8
         run: |
-          missing=$(find ~/.cache/ms-playwright -type f \( -name chrome -o -name chrome-headless-shell \) \
-            -exec ldd {} \; | grep 'not found' || true)
+          binaries=$(find ~/.cache/ms-playwright -type f \( -name chrome -o -name chrome-headless-shell \))
+          if [ -z "$binaries" ]; then
+            echo "No Chromium binaries found under ~/.cache/ms-playwright" >&2
+            exit 1
+          fi
+          missing=$(echo "$binaries" | xargs -d '\n' ldd | grep 'not found' || true)
           if [ -z "$missing" ]; then
             echo "All Chromium libraries present; skipping apt."
             exit 0
@@ -109,7 +113,9 @@ jobs:
           echo "$missing"
           for attempt in 1 2; do
             timeout 180 npx playwright install-deps chromium && exit 0
-            echo "install-deps attempt $attempt failed"
+            status=$?
+            [ "$status" -eq 124 ] && reason="timed out after 180s" || reason="exit $status"
+            echo "install-deps attempt $attempt failed ($reason)"
           done
           exit 1
         working-directory: apps/frontend
