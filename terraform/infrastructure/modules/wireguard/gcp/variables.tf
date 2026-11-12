@@ -145,6 +145,14 @@ variable "bind9_public_names" {
   description = "Hostnames under rhesis.ai that BIND9 must not answer from its own zone. Each gets a static-stub zone pointing at bind9_public_name_servers, so VPN clients and cluster pods get the public answer (the Cloudflare proxy) instead of an internal record."
   type        = list(string)
   default     = []
+
+  validation {
+    condition = alltrue([
+      for name in var.bind9_public_names :
+      can(regex("^([a-z0-9-]+\\.)+rhesis\\.ai$", lower(trimsuffix(name, "."))))
+    ])
+    error_message = "bind9_public_names must be hostnames under rhesis.ai (not the apex)."
+  }
 }
 
 variable "bind9_public_name_servers" {

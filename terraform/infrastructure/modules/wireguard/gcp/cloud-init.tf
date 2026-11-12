@@ -55,6 +55,12 @@ locals {
     ]
   }
 
+  # One static-stub zone per name: a duplicate or a case/trailing-dot variant
+  # would render a second zone stanza and named-checkconf would reject the file.
+  bind9_public_names = distinct([
+    for name in var.bind9_public_names : lower(trimsuffix(name, "."))
+  ])
+
   # Render BIND9 named.conf
   bind9_named_conf = length(var.bind9_tsig_keys) > 0 ? templatefile(
     "${path.module}/templates/named.conf.tpl", {
@@ -62,7 +68,7 @@ locals {
       allow_query_cidrs   = local.bind9_allow_query_cidrs
       allowed_names       = var.bind9_allowed_names
       txt_ownership_names = local.bind9_txt_ownership_names
-      public_names        = var.bind9_public_names
+      public_names        = local.bind9_public_names
       public_name_servers = var.bind9_public_name_servers
     }
   ) : ""
