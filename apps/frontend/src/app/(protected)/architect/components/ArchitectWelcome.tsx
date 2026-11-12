@@ -16,7 +16,6 @@ import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { useProjectNeedsEndpoint } from '@/hooks/useProjectNeedsEndpoint';
-import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import ArchitectHelpSection from './ArchitectHelpSection';
 
 const SUGGESTED_PROMPTS = [
@@ -39,24 +38,17 @@ const SUGGESTED_PROMPTS = [
 
 interface ArchitectWelcomeProps {
   onSubmit: (message: string) => void;
-  /** Server-fetched endpoint existence check, so the chips render on first paint. */
-  initialEndpoints?: Endpoint[];
 }
 
-export default function ArchitectWelcome({
-  onSubmit,
-  initialEndpoints,
-}: ArchitectWelcomeProps) {
+export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
   const canCreate = useCan(Capability.Architect.CREATE);
-  const { pending: endpointCheckPending, needsEndpoint } =
-    useProjectNeedsEndpoint(initialEndpoints);
+  const { needsEndpoint } = useProjectNeedsEndpoint();
   const [inputValue, setInputValue] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const inputDisabled = isSubmitting || !canCreate;
-  // Nothing can run without an endpoint, so the opening ask is to connect one.
-  const showConnectCopy = !endpointCheckPending && needsEndpoint;
+  const showConnectCopy = needsEndpoint;
 
   // Not `autoFocus`: on a full page load the browser focuses the server HTML
   // before hydration, MUI never sees the focus event, and the focus border
@@ -159,7 +151,15 @@ export default function ArchitectWelcome({
                 pl: 2,
                 pr: 1,
                 bgcolor: 'action.hover',
-                '& fieldset': { borderColor: 'divider' },
+                // Static primary border so the post-hydration useEffect focus
+                // only makes the field interactive (cursor), not visually
+                // different. Without this the server HTML has a divider-grey
+                // 1px border that jumps to a primary 2px border on focus.
+                '& fieldset': { borderColor: 'primary.main' },
+                '&.Mui-focused fieldset': {
+                  borderColor: 'primary.main',
+                  borderWidth: 1,
+                },
               },
             }}
             slotProps={{
@@ -192,10 +192,11 @@ export default function ArchitectWelcome({
             }}
           />
 
-          {/* No endpoint means no prompt can actually run, so the suggestions
-              are dead ends — the getting-started cards below replace them.
-              Waiting out `pending` keeps the two from swapping visibly. */}
-          {!endpointCheckPending && !needsEndpoint && (
+          {/* Optimistic: chips show on the server render (no async
+              dependency) and hide only once the client confirms the project
+              has no endpoints. The common case (endpoints exist) never
+              changes, so the server HTML matches the final state. */}
+          {!needsEndpoint && (
             <Box
               sx={{
                 display: 'flex',
