@@ -159,10 +159,18 @@ jobs:
               body: `<details><summary>Terraform Plan — <code>${{ steps.tf_setup.outputs.target_env }}</code></summary>\n\n\`\`\`\n${body}\n\`\`\`\n</details>`
             });
 
+      # The lock file goes with the plan so apply's `terraform init` picks the
+      # same provider builds; without it, init can resolve a different build of
+      # the same version (OJFord/wireguard 0.4.1 vs 0.4.1+2) and apply refuses
+      # the saved plan.
       - uses: actions/upload-artifact@v7
         with:
           name: tfplan-${{ steps.tf_setup.outputs.target_env }}
-          path: terraform/infrastructure/envs/${{ steps.tf_setup.outputs.target_env }}/tfplan
+          path: |
+            terraform/infrastructure/envs/${{ steps.tf_setup.outputs.target_env }}/tfplan
+            terraform/infrastructure/envs/${{ steps.tf_setup.outputs.target_env }}/.terraform.lock.hcl
+          include-hidden-files: true
+          if-no-files-found: error
           retention-days: 1
 
   apply:
