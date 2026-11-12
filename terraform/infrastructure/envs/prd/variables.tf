@@ -38,3 +38,13 @@ variable "state_bucket" {
   default     = "rhesis-platform-admin-tfstate"
 }
 
+
+# Read by tf-setup from Secret Manager (cloudflare-rules-token-prd) into
+# TF_VAR_cloudflare_rules_api_token. Ephemeral so it is kept out of state and
+# the saved plan; the apply job re-reads it, which ephemeral values require.
+variable "cloudflare_rules_api_token" {
+  description = "Cloudflare API token for provider cloudflare.rules (Zone:Read + Config Rules:Edit on rhesis.ai)"
+  type        = string
+  sensitive   = true
+  ephemeral   = true
+}
