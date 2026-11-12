@@ -44,7 +44,8 @@ key "${key.keyname}" {
 %{ endfor ~}
 
 // rhesis.ai zone — split-horizon: dev-*/stg-* → internal LB IPs (BIND9 only, VPN),
-// prod records → rhesis.ai apex (written by prd ExternalDNS / cert-manager).
+// prod internal records (argocd, grafana) → rhesis.ai apex (written by prd internal-dns);
+// prd public hosts are static-stub zones below and resolve publicly.
 //
 // update-policy: each key restricted to its own hostname subtrees via subdomain grants.
 // A subdomain grant on "dev-api.rhesis.ai." covers the A/AAAA record AND its sub-names
@@ -67,3 +68,22 @@ zone "rhesis.ai" {
 %{ endfor ~}
     };
 };
+%{ if length(public_names) > 0 ~}
+
+// Public hostnames that must resolve as the internet sees them (proxied through
+// Cloudflare), not from the rhesis.ai zone above. A static-stub zone is the deepest
+// match for these names, so named recurses to the public name servers instead of
+// answering from its own data. A forward zone would not work here: named forwards
+// only what it cannot answer locally, and it answers anything under rhesis.ai
+// itself (NXDOMAIN if the record is missing).
+%{ for hostname in public_names ~}
+zone "${hostname}" {
+    type static-stub;
+    server-names {
+%{ for ns in public_name_servers ~}
+        "${ns}";
+%{ endfor ~}
+    };
+};
+%{ endfor ~}
+%{ endif ~}

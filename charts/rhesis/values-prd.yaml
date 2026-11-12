@@ -80,7 +80,8 @@ config:
 # ---------------------------------------------------------------------------
 # Ingress — prd: public, on the external class, behind the Cloudflare proxy.
 # external-dns owns the proxied flag (cloudflare-proxied annotation), so a toggle in
-# the Cloudflare UI gets reverted.
+# the Cloudflare UI gets reverted. Every host on the external class must keep it: the
+# LoadBalancer only admits Cloudflare (kubernetes/clusters/prd/ingress-nginx-external).
 # Cloudflare settings this relies on: SSL mode Full (strict), and Bot Fight Mode /
 # Browser Integrity Check must not block SDK and OTLP clients on api and telemetry.
 # ---------------------------------------------------------------------------

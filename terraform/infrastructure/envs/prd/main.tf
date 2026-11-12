@@ -141,8 +141,14 @@ module "gke_prd" {
   enable_private_endpoint = true
   extra_authorized_cidrs  = ["${local.cidrs.prd.wireguard_nic_ip}/32"]
 
-  # polyphemus (test-polyphemus.rhesis.ai) is served via ingress-nginx-external,
-  # proxied through Cloudflare — restrict to Cloudflare's live edge IP ranges.
+  # The public prd hosts (api, app, docs, chatbot, telemetry, polyphemus) sit on
+  # ingress-nginx-external behind the Cloudflare proxy, so only Cloudflare's edge
+  # ranges need to reach it. The origin lock itself is the Service's
+  # loadBalancerSourceRanges (kubernetes/clusters/prd/ingress-nginx-external),
+  # which GKE copies into its k8s-fw-* allow rule. Before GKE 1.35.1-gke.1473000
+  # that rule is priority 1000 and loses the tie with deny-all-ingress, so this
+  # priority-900 rule is what lets the traffic in; from that version GKE's rule is
+  # 999 and this one is redundant but harmless. Keep this list Cloudflare-only.
   # IPv4 only: this VPC/subnets have no stack_type/dual-stack config anywhere
   # in modules/network or modules/kubernetes, so they're IPv4-only -- adding
   # ipv6_cidr_blocks here would be untested dead weight at best (no IPv6

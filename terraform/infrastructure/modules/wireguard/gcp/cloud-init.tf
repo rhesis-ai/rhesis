@@ -13,13 +13,13 @@ locals {
 
   # Render WireGuard server configuration
   wireguard_config = templatefile("${path.module}/templates/wg0.conf.tpl", {
-    server_ip          = var.wireguard_tunnel_ip
-    listen_port        = var.wireguard_port
-    server_private_key = wireguard_asymmetric_key.server.private_key
-    peer_cidr             = var.wireguard_peer_cidr
-    peers                 = local.wireguard_peers_with_keys
-    subnet_cidrs          = var.subnet_cidrs
-    gke_public_endpoints  = var.gke_public_endpoints
+    server_ip            = var.wireguard_tunnel_ip
+    listen_port          = var.wireguard_port
+    server_private_key   = wireguard_asymmetric_key.server.private_key
+    peer_cidr            = var.wireguard_peer_cidr
+    peers                = local.wireguard_peers_with_keys
+    subnet_cidrs         = var.subnet_cidrs
+    gke_public_endpoints = var.gke_public_endpoints
   })
 
   # Routing setup script: resolves interface names by NIC IP at runtime
@@ -55,13 +55,21 @@ locals {
     ]
   }
 
+  # One static-stub zone per name: a duplicate or a case/trailing-dot variant
+  # would render a second zone stanza and named-checkconf would reject the file.
+  bind9_public_names = distinct([
+    for name in var.bind9_public_names : lower(trimsuffix(name, "."))
+  ])
+
   # Render BIND9 named.conf
   bind9_named_conf = length(var.bind9_tsig_keys) > 0 ? templatefile(
     "${path.module}/templates/named.conf.tpl", {
-      tsig_keys          = var.bind9_tsig_keys
-      allow_query_cidrs  = local.bind9_allow_query_cidrs
-      allowed_names      = var.bind9_allowed_names
+      tsig_keys           = var.bind9_tsig_keys
+      allow_query_cidrs   = local.bind9_allow_query_cidrs
+      allowed_names       = var.bind9_allowed_names
       txt_ownership_names = local.bind9_txt_ownership_names
+      public_names        = local.bind9_public_names
+      public_name_servers = var.bind9_public_name_servers
     }
   ) : ""
 
