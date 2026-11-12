@@ -88,9 +88,30 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-chromium-${{ steps.playwright-version.outputs.version }}
 
+      # The runner image already ships every library Chromium needs; --with-deps
+      # only added fallback fonts, and its apt-get is what broke whenever the
+      # Ubuntu mirrors did (runner-images #14823, #15296).
       - name: Install Playwright browsers
-        timeout-minutes: 10
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 5
+        run: npx playwright install chromium
+        working-directory: apps/frontend
+
+      # Only reached if a future runner image drops a library Chromium links to.
+      - name: Install missing Chromium system libraries
+        timeout-minutes: 8
+        run: |
+          missing=$(find ~/.cache/ms-playwright -type f \( -name chrome -o -name chrome-headless-shell \) \
+            -exec ldd {} \; | grep 'not found' || true)
+          if [ -z "$missing" ]; then
+            echo "All Chromium libraries present; skipping apt."
+            exit 0
+          fi
+          echo "$missing"
+          for attempt in 1 2; do
+            timeout 180 npx playwright install-deps chromium && exit 0
+            echo "install-deps attempt $attempt failed"
+          done
+          exit 1
         working-directory: apps/frontend
 
       - name: Download backend image
