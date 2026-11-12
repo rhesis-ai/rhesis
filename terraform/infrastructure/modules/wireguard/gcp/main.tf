@@ -1,5 +1,6 @@
 terraform {
-  required_version = ">= 1.5"
+  # 1.9+ for local-exec quiet
+  required_version = ">= 1.9"
 
   required_providers {
     google = {

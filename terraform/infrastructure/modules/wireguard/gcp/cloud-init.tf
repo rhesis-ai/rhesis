@@ -61,8 +61,9 @@ locals {
     for name in var.bind9_public_names : lower(trimsuffix(name, "."))
   ])
 
-  # Render BIND9 named.conf
-  bind9_named_conf = length(var.bind9_tsig_keys) > 0 ? templatefile(
+  # Render BIND9 named.conf. Marked sensitive because it embeds the TSIG secrets,
+  # which arrive unmarked: terraform_remote_state drops the sensitive flag.
+  bind9_named_conf = length(var.bind9_tsig_keys) > 0 ? sensitive(templatefile(
     "${path.module}/templates/named.conf.tpl", {
       tsig_keys           = var.bind9_tsig_keys
       allow_query_cidrs   = local.bind9_allow_query_cidrs
@@ -71,7 +72,7 @@ locals {
       public_names        = local.bind9_public_names
       public_name_servers = var.bind9_public_name_servers
     }
-  ) : ""
+  )) : ""
 
   # Read BIND9 rhesis.ai split-horizon zone file.
   # Uses file() not templatefile() — the zone file has no Terraform variables,

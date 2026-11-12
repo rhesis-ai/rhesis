@@ -15,8 +15,14 @@ resource "terraform_data" "wireguard_config_update" {
   triggers_replace = sha256(local.wireguard_config)
 
   provisioner "local-exec" {
+    # The config holds the server private key, so it goes in environment: Terraform never logs
+    # that, but prints the command on failure even with quiet = true.
+    quiet       = true
     interpreter = ["bash", "-c"]
-    command     = <<-EOT
+    environment = {
+      WG_CONF_B64 = base64encode(local.wireguard_config)
+    }
+    command = <<-EOT
       set -e
 
       ZONE="${google_compute_instance.wireguard.zone}"
@@ -25,7 +31,7 @@ resource "terraform_data" "wireguard_config_update" {
       # Write base64 config to a temp file (avoids shell argument length limits)
       tmpfile=$(mktemp)
       trap 'rm -f "$tmpfile"' EXIT
-      printf '%s' '${base64encode(local.wireguard_config)}' > "$tmpfile"
+      printf '%s' "$WG_CONF_B64" > "$tmpfile"
 
       # OS Login issues a fresh short-lived SSH certificate on every gcloud call.
       # Transient API hiccups or propagation delays on a newly created VM can cause
