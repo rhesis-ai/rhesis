@@ -43,11 +43,11 @@ export default function RequirementAutocomplete({
   const [input, setInput] = useState('');
   const [options, setOptions] = useState<RequirementOption[]>([]);
   const [loading, setLoading] = useState(false);
-  const prefetched = useRef(false);
+  const defaultOptions = useRef<RequirementOption[]>([]);
 
   // Eagerly load the initial list so the first dropdown open is instant.
   useEffect(() => {
-    if (!isAuthenticated || prefetched.current) return;
+    if (!isAuthenticated || defaultOptions.current.length > 0) return;
     let cancelled = false;
     const clauses = topLevelOnly ? ['parent_id eq null'] : [];
     new ApiClientFactory()
@@ -61,8 +61,8 @@ export default function RequirementAutocomplete({
       })
       .then(rows => {
         if (!cancelled) {
+          defaultOptions.current = rows;
           setOptions(rows);
-          prefetched.current = true;
         }
       })
       .catch(() => {});
@@ -76,7 +76,12 @@ export default function RequirementAutocomplete({
     if (!open || !isAuthenticated) return;
     const term = input.trim();
     const searching = term && term !== value?.name;
-    if (!searching && prefetched.current) return;
+    if (!searching) {
+      if (defaultOptions.current.length > 0) {
+        setOptions(defaultOptions.current);
+        return;
+      }
+    }
     let cancelled = false;
     const handle = setTimeout(async () => {
       setLoading(true);
@@ -96,10 +101,7 @@ export default function RequirementAutocomplete({
             $select: 'id,name',
             ...(clauses.length > 0 ? { $filter: clauses.join(' and ') } : {}),
           });
-        if (!cancelled) {
-          setOptions(rows);
-          prefetched.current = true;
-        }
+        if (!cancelled) setOptions(rows);
       } catch {
         if (!cancelled) setOptions([]);
       } finally {
