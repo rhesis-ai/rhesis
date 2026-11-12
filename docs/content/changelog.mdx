@@ -8,6 +8,75 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.21.0] - 2026-11-12
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.21.0**
+- **Frontend 0.21.0**
+- **SDK 0.21.0**
+
+### Summary
+
+A security-focused release. The platform adds **rate limiting**, **session revocation**, and **outbound request guards** across the backend. Self-hosted deployments run as a **restricted database role**. OAuth and SSO account linking requires **verified email ownership**. Requirements gain **impact levels**, **source links**, and **parent-child hierarchy** with an AI suggestion editor. Ragas support is removed.
+
+### Breaking Changes
+
+- **Ragas removed**: the Ragas metric provider is gone from the SDK, backend, and frontend, including `RagasMetricBase`, `RagasAnswerAccuracy`, `RagasAspectCritic`, `RagasContextRelevance`, `RagasFaithfulness`, and `RagasMetricFactory`. The project has been unmaintained since January 2026 and carried advisories with no upstream fix. Existing Ragas metrics and their associations are deleted by a backend migration; recorded test results keep their scores. Use the DeepEval or Rhesis providers instead.
+
+### Featured Capabilities
+
+**Security hardening**
+
+- **Rate limiting**: shared limits across backend instances, with separate thresholds for authentication, LLM calls, and job dispatches
+- **Session revocation**: password changes and resets revoke all active tokens immediately
+- **Outbound request guards**: requests to tenant-supplied URLs (endpoints, model hosts, OAuth token URLs) are blocked from reaching private networks and cloud metadata services by default
+- **Sandboxed templates**: endpoint request and response mapping templates run inside a restricted Jinja environment
+- **Restricted database role**: self-hosted runtime connections refuse superuser privileges outside development
+- **Email verification**: OAuth and SSO account linking requires verified email ownership first
+- **Content Security Policy**: baseline CSP rules across the frontend
+
+See [Self-Hosting](/docs/self-hosting).
+
+**Rich requirements**
+
+- **Impact levels**: classify requirements by business impact
+- **Hierarchy**: link requirements to a parent for single-level grouping
+- **Source links**: reference external documentation or specifications on a requirement
+- **Tuning examples**: annotations on test results and traces surface as examples on the requirement and its linked metrics
+- **AI suggestions**: edit and refine requirements with AI suggestions in the requirement drawer
+- **Architect tools**: create, update, and query requirements with impact, hierarchy, and sources from the Architect
+
+See [Requirements](/docs/requirements).
+
+### Backend Highlights
+- Background job concurrency caps, duration limits, and request size boundaries per organization
+- Quota checks serialized with advisory locks to prevent concurrent over-allocation
+- OData filtering and sorting restricted from accessing credential columns
+- Post-login redirect targets validated against same-origin policy
+- Recycle bin view and purge restricted to organization owners
+- Stats views recreated with `security_invoker = true` so row-level security applies to callers
+- Invite-only registration blocks uninvited magic-link and OAuth account creation
+- Onboarding emails sent 10 minutes and 24 hours after setup instead of immediately
+
+### Frontend Highlights
+- Requirement and tuning case counts on metric cards
+- Evaluation column shows overall test verdict with failure reasons in tooltips
+- Trace explorer defaults to Tree view; loaded traces cached across tab switches
+- Entity cards restructured with standard slot layouts for context, facts, and relations
+- Tool spans styled with neutral tones instead of warning highlights
+- Architect page load flash eliminated
+- Insights empty states name the selected endpoint and link to endpoints with results
+- Registration screen shows an informational state when invite-only mode is active
+
+### SDK Highlights
+- `TestSet.push()` and bulk operations enforce a 10,000-item per-request limit
+- Rate-limit responses (HTTP 429) surface the server's reason and retry guidance
+- Fixed a race condition where canceled or timed-out runs could produce duplicate error entries
+- Standardized timeout and deadline reporting for sequential test executions
+- Security dependency updates (`litellm`, `oauthlib`, `filelock`)
+
 ## [0.20.1] - 2026-11-03
 
 ### Platform Release
@@ -19,7 +88,7 @@ This release includes the following component versions:
 
 ### Summary
 
-A fix release. Endpoint test calls now respect **custom timeout configurations** instead of falling back to the 30-second default. The endpoint wizard supports **editable test values** and **raw JSON response mapping**, with a progress indicator and cancel option for slow endpoints.
+A fix release. Endpoint test calls now respect **custom timeout configurations** instead of falling back to the 30-second default. The endpoint wizard gains **editable test values** and **raw JSON response mapping**, with a progress indicator and cancel option for slow endpoints.
 
 ### Backend Highlights
 - Fixed endpoint test calls dropping custom timeout configurations and metadata
@@ -27,13 +96,12 @@ A fix release. Endpoint test calls now respect **custom timeout configurations**
 - Security dependency updates
 
 ### Frontend Highlights
-- Progress indicator and cancellation option for long-running endpoint tests
+- Progress indicator and cancellation for long-running endpoint tests
 - Editable test values and raw JSON editing in the Mapping tab
-- Proper timeout and proxy budget handling for slow API endpoints
+- Proper timeout handling for slow API endpoints
 
 ### SDK Highlights
 - Security dependency updates across Python and npm packages
-- Fixed E2E workflow compatibility by pinning CI runners to Ubuntu 24.04
 
 ## [0.20.0] - 2026-10-27
 
@@ -46,69 +114,72 @@ This release includes the following component versions:
 
 ### Summary
 
-Metrics can now target **specific spans in a trace**, and a built-in **Tool Call Trajectory** metric validates that agents call the right tools in the right order. The Architect answers data questions with **interactive charts**. The **Insights registry** is redesigned with trace latency, cost, and duration analytics, time-grain bucketing, and query shaping. The backend adds **S3 storage** support.
+Metrics can now target **specific spans in a trace**, and a built-in **Tool Call Trajectory** metric checks that agents call the right tools in the right order. The Architect answers data questions with **interactive charts**. **Insights** is redesigned with trace latency, cost, and duration analytics, period bucketing, and query shaping. The backend adds **S3 storage** support.
 
 ### Breaking Changes
 
 **Metric evaluation signature**
 
-- `evaluate()` and `a_evaluate()` now take `(input, output, trace, expectations)` across all metrics. The individual parameters (`expected_output`, `context`, `tool_calls`, `goal`, `instructions`, `contract`) are removed in favor of the `expectations` and `trace` objects.
-- `@metric` functions using legacy parameter names must update their signatures.
+- `evaluate()` and `a_evaluate()` now take `(input, output, trace, expectations)` across all metrics. The individual parameters (`expected_output`, `context`, `tool_calls`, `goal`, `instructions`, `contract`) are removed in favour of the `expectations` and `trace` objects.
+- `@metric` functions using the old parameter names must update their signatures.
 
 **Insights registry redesign**
 
-- `GET /insights` and `POST /insights/query` group by one dimension per entity. `requirement_id`, `topic_id`, `category_id` and `test_run_id` are no longer separate dimensions. `year`/`month` are replaced by a `period` dimension with `time_grain` (`day`, `week`, `month`, `quarter`, `year`). On `test_run`, `passed`/`pass_rate` are renamed `completed`/`completion_rate`. Old names return a 400 listing the valid ones.
+- `GET /insights` and `POST /insights/query` group by one dimension per entity. `requirement_id`, `topic_id`, `category_id` and `test_run_id` are no longer separate dimensions. `year`/`month` are replaced by a `period` dimension sized by `time_grain` (`day`, `week`, `month`, `quarter`, `year`). On `test_run`, `passed`/`pass_rate` are renamed `completed`/`completion_rate`. Old names return a 400 listing the valid ones.
 
 ### Featured Capabilities
 
 **Tool Call Trajectory metric**
 
-- **Expected tool calls**: define `expected_tool_calls` on a test configuration as `{name, arguments}` pairs
-- **Built-in metric**: the Tool Call Trajectory metric compares the trace's tool calls against the expected sequence, without a model
-- **Not-applicable handling**: a metric whose expectation the test lacks is left out of the run, not failed
+- **Expected tool calls**: list the tool calls a test expects in `expected_tool_calls` as `\{name, arguments\}` pairs
+- **Built-in metric**: the Tool Call Trajectory metric compares the trace's actual tool calls against the expected sequence, without an LLM
+- **Not-applicable handling**: when a test has no expected tool calls, the metric is left out of the run instead of failing it
 
 See [Metrics](/docs/metrics).
 
 **Metric targets**
 
-- **Span-level evaluation**: a metric's `config.target` says what it judges in a trace: each turn, the conversation, the whole run, or each tool call, retrieval, model call, agent run, or guardrail check
-- **Name and agent scoping**: targets can be narrowed by span name and by enclosing agent
-- **Not-applicable results**: a target that matches nothing gives a not-applicable result, left out of the test's verdict
+- **Span-level evaluation**: set a metric's target to evaluate each tool call, retrieval, model call, agent run, or guardrail check individually, instead of the whole turn or conversation
+- **Scoping**: narrow a target by span name and by enclosing agent
+- **Not-applicable results**: a target that matches no spans produces a not-applicable result, left out of the test's verdict
+
+See [Metrics](/docs/metrics).
 
 **Architect charts**
 
-- **Interactive charts**: Architect responses can include bar, line, heat table, and radar charts, built from Insights query results
-- **Export**: CSV, SVG, and PNG export from any chart
-- **Data inspection**: raw data modal for every chart
+- **Interactive charts**: the Architect can answer data questions with bar, line, heat table, and radar charts built from Insights queries
+- **Export**: download chart data as CSV, or the chart itself as SVG or PNG
+- **Raw data**: open the underlying rows in a modal for inspection
 
 **Insights redesign**
 
-- **Trace insights**: latency metrics (avg, p50, p95, p99), token counts, cost in USD, and error rates across environments and test runs
+- **Trace insights**: root-span latency (avg, p50, p95, p99), token counts, cost in USD, and error rates across environments and test runs
 - **Run duration**: execution duration metrics (avg, p50, p95, max) on test run statistics
-- **Query shaping**: `order_by`, `limit`, `min_count`, and `time_grain` parameters
-- **Schema endpoint**: `GET /insights/schema` for dynamic discovery of available dimensions, entities, and metrics
+- **Query shaping**: `order_by`, `limit`, `min_count`, and `time_grain` on every query
+- **Schema endpoint**: `GET /insights/schema` describes the available dimensions, measures, and filters per entity
+
+See [Insights](/docs/insights).
 
 ### Backend Highlights
-- S3-compatible storage support via `s3fs`, configured using `STORAGE_SERVICE_*` settings
-- W3C `traceparent` header propagation during REST and WebSocket invocations
+- S3-compatible storage via `s3fs`, configured with `STORAGE_SERVICE_*` settings
+- W3C `traceparent` header propagation during REST and WebSocket endpoint invocations
 - ClickUp MCP integration
-- Jinja `fromjson` filter for parsing stringified JSON inputs into structured objects
-- Auth and onboarding emails sent asynchronously via `BackgroundTasks`
+- `fromjson` Jinja filter for parsing stringified JSON in request mappings
+- Auth and onboarding emails sent in the background instead of inline
 
 ### Frontend Highlights
-- Interactive charts in Architect responses with CSV/SVG/PNG export
-- Redesigned trace drawer with timing bars, filterable span trees, and a Traces tab in test results
+- Redesigned trace drawer with timing bars, filterable span tree, and a Traces tab in test results
 - Editable JSON test payloads in the endpoint wizard
 - Scroll cues on the sidebar navigation
-- Insights view aligned with the redesigned registry, grouping by ID to support duplicate entity names
+- Insights grouping by ID to keep duplicate entity names apart
 
 ### SDK Highlights
-- `ToolCallTrajectory` metric and `Test(expected_tool_calls=[...])` support
+- `ToolCallTrajectory` metric and `Test(expected_tool_calls=[...])`
 - `Trace.from_response()` and `Trace.from_conversation()` for in-memory trace construction without active telemetry
 - Code metrics (`@metric`) can declare a `trace` parameter to inspect spans
 - `ShowChartTool` for agent charting from Insights queries
 - `Insights.describe()` for schema introspection
-- Corrected cache token calculations on streamed LangChain calls
+- Fixed cache token calculations on streamed LangChain calls
 
 ## [0.19.1] - 2026-10-22
 
@@ -121,7 +192,7 @@ This release includes the following component versions:
 
 ### Summary
 
-A fix release. The endpoint creation flow is redesigned as a **four-step wizard**. Conversation traces get **turn navigation** for stepping through multi-turn interactions. The dark mode toggle returns to the user menu with automatic browser theme matching. SDK multi-turn runs no longer split turns into separate traces.
+A fix release. Endpoint creation is redesigned as a **four-step wizard**. Conversation traces get **turn navigation** for stepping through multi-turn interactions. The **dark mode** toggle returns to the user menu with automatic browser theme matching. SDK multi-turn runs no longer split turns into separate traces.
 
 ### Backend Highlights
 - Task API responses now include `created_at` and `updated_at` timestamps
@@ -130,15 +201,15 @@ A fix release. The endpoint creation flow is redesigned as a **four-step wizard*
 
 ### Frontend Highlights
 - Endpoint creation redesigned as a four-step wizard with step navigation, connection testing, and raw JSON response previews
-- Turn navigation on conversation traces: step through "Turn n of N" and open specific turns from replies
+- Turn navigation on conversation traces: step through "Turn n of N" and jump to specific turns from replies
 - Dark mode toggle restored in the user menu with automatic browser theme matching
-- Empty state view when metric filters yield no results
+- Empty state when metric filters yield no results
 - Tags section moved to the bottom of the metric detail page
 
 ### SDK Highlights
-- Fixed authentication fields not being preserved when caching settings
+- Fixed authentication fields not preserved when caching settings
 - Dark mode follows browser system theme by default
-- Trace metrics grid automatically refreshes on change
+- Trace metrics grid refreshes automatically on change
 - Security dependency updates (`certifi`, `nltk`)
 
 ## [0.19.0] - 2026-10-21
@@ -152,7 +223,7 @@ This release includes the following component versions:
 
 ### Summary
 
-The platform adds a full **audit logging system** with streaming to external destinations and an export API. Endpoints support **OAuth 2.0 Client Credentials** for authenticated targets. **Perspective API is replaced** by Google Cloud Natural Language `moderateText` for toxicity scoring. The sidebar gets a **project switcher**, and test generation uses **requirement acceptance criteria** to produce better tests.
+The platform adds a full **audit log** with streaming to external destinations and an export API. Endpoints support **OAuth 2.0 Client Credentials** for authenticated targets. **Perspective API** is replaced by Google Cloud Natural Language for toxicity scoring. The sidebar gets a **project switcher**, and test generation uses **requirement acceptance criteria** to produce better tests.
 
 ### Featured Capabilities
 
@@ -160,9 +231,9 @@ The platform adds a full **audit logging system** with streaming to external des
 
 - **Append-only event log**: every write operation is recorded with actor, credentials, IP, client channel, and user agent
 - **Streaming destinations**: forward events to Webhooks, Splunk, or Datadog in real time
-- **Export API**: export logs as files with automated 7-day retention
+- **Export API**: download logs as files with automated 7-day retention
 - **Auditor role**: a built-in role for read-only audit access
-- **Architect integration**: MCP tools let the Architect query and answer questions about audit logs
+- **Architect integration**: the Architect can query and answer questions about audit logs
 
 See [Audit Log](/docs/organizations/audit-log).
 
@@ -173,40 +244,33 @@ See [Audit Log](/docs/organizations/audit-log).
 
 See [Endpoint Management](/docs/endpoints/management).
 
-**Google Cloud Natural Language for toxicity**
+**Toxicity scoring with Google Cloud Natural Language**
 
 - **`moderateText` backend**: replaces Perspective API with an EU-region-compatible alternative
 - **LLM judge fallback**: when the Cloud NL API is unavailable, toxicity metrics fall back to an LLM judge
-- **`scoring_backend` tracking**: each score records which backend produced it
+- **Scoring provenance**: each score records which backend produced it
 
 ### Backend Highlights
-- Audit logging with append-only events, streaming to external destinations, and an export API
-- Endpoint OAuth 2.0 Client Credentials support
-- Google Cloud NL `moderateText` replacing Perspective API, with LLM judge fallback
-- Requirement-based test generation using descriptions and acceptance criteria
-- Feature-flag and role-based MCP tool filtering by subscription plan
-- API key scope enforcement: requests with an unreachable `X-Project-Id` now return 403
+- Requirement descriptions and acceptance criteria used during test generation
+- MCP tools filtered by subscription plan and user permissions
+- API key requests with an unreachable `X-Project-Id` now return 403 instead of falling back silently
 - Token rotation and revocation races fixed with advisory locking on refresh token families
-- Celery Beat converted to a singleton service with Redis heartbeat monitoring
+- Celery Beat runs as a singleton service with Redis heartbeat monitoring
 
 ### Frontend Highlights
 - Sidebar project switcher with quick access to project settings and creation
 - Evaluation tab grouping test results into check cards by goals, restrictions, and metrics
-- Audit Log view with events tab, details drawer, capabilities settings, and export
-- Endpoint OAuth 2.0 configuration in endpoint forms
-- Onboarding enhancements: optional job role and referral source questions
+- Onboarding: optional job role and referral source questions
 - Getting Started checklist moved from a floating overlay into a compact sidebar footer widget
 - Redesigned turn headers, findings cards, and result headers in multi-turn test views
-- Runtime deployment config: environment variables read at runtime instead of inlined at build time
+- Environment variables read at runtime instead of inlined at build time
 
 ### SDK Highlights
-- Automatic request scoping to `RHESIS_PROJECT_ID` via `X-Project-Id` header on all API requests
-- Google Cloud NL `moderateText` support with LLM judge fallback
+- All API requests scoped to `RHESIS_PROJECT_ID` via the `X-Project-Id` header
 - Persistent file context across multi-turn Architect conversations
-- Audit log reference and tool support in the Architect agent
 - Fixed 502/503/504 gateway timeouts in `RhesisLLM.a_generate` being swallowed instead of retried
 - Fixed thread-safety race in background event loop initialization
-- Optimized SDK dependencies by switching to `pydantic-ai-slim`
+- Switched to `pydantic-ai-slim` to reduce install size
 
 ## [0.18.0] - 2026-10-08
 
