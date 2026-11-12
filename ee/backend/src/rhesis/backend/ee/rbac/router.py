@@ -82,10 +82,11 @@ def _load_role(role_id: uuid.UUID, db: Session):
         return db.query(Role).filter_by(id=role_id).first()
 
 
-def _get_role_or_404(role_id: uuid.UUID, db: Session):
-    """Load a role visible to the current tenant scope, or raise 404."""
+def _get_role_or_404(role_id: uuid.UUID, db: Session, organization_id: uuid.UUID):
+    """Load a built-in role or one owned by *organization_id*, or raise 404."""
     role = _load_role(role_id, db)
-    if role is None:
+    custom_org = getattr(role, "organization_id", None)
+    if role is None or (custom_org is not None and str(custom_org) != str(organization_id)):
         raise HTTPException(status_code=404, detail="Role not found")
     return role
 
@@ -242,7 +243,7 @@ def check_project_role_assignment(
     actor_permissions = _get_actor_permissions(principal, project_id=project_id, db=db)
     actor_level = _get_actor_level(principal, project_id=project_id, db=db)
 
-    target_role = _get_role_or_404(role_id, db)
+    target_role = _get_role_or_404(role_id, db, actor.organization_id)
 
     # One-directional scope gate (K8s ClusterRole model):
     # - Org/built-in roles bind "down" to the project tier.  Owner (level 100)
@@ -528,10 +529,7 @@ def get_role(
     _org=_RBAC_DEP,
 ):
     """Return a single role with its permission list."""
-    role = _get_role_or_404(role_id, db)
-    # Restrict: must be built-in or owned by the current org.
-    if role.organization_id is not None and role.organization_id != current_user.organization_id:
-        raise HTTPException(status_code=404, detail="Role not found")
+    role = _get_role_or_404(role_id, db, current_user.organization_id)
     counts = _member_counts_for_roles([role.id], current_user.organization_id, db)
     return _role_to_read(role, db, counts.get(role.id, 0))
 
@@ -607,11 +605,9 @@ def update_role(
     Built-in roles are immutable. The privilege-escalation guard applies to
     any new permissions being added.
     """
-    role = _get_role_or_404(role_id, db)
+    role = _get_role_or_404(role_id, db, current_user.organization_id)
     if role.is_built_in:
         raise HTTPException(status_code=400, detail="Built-in roles are immutable")
-    if role.organization_id != current_user.organization_id:
-        raise HTTPException(status_code=404, detail="Role not found")
 
     principal = resolve_principal(current_user)
     actor_permissions = _get_actor_permissions(principal, project_id=None, db=db)
@@ -667,11 +663,9 @@ def delete_role(
     from rhesis.backend.app.scope import bypass_tenant_filter
     from rhesis.backend.ee.rbac.models import Role
 
-    role = _get_role_or_404(role_id, db)
+    role = _get_role_or_404(role_id, db, current_user.organization_id)
     if role.is_built_in:
         raise HTTPException(status_code=400, detail="Built-in roles cannot be deleted")
-    if role.organization_id != current_user.organization_id:
-        raise HTTPException(status_code=404, detail="Role not found")
 
     org_id = current_user.organization_id
 
@@ -871,7 +865,7 @@ def assign_org_role(
             detail="Cannot change your own organization role",
         )
 
-    target_role = _get_role_or_404(body.role_id, db)
+    target_role = _get_role_or_404(body.role_id, db, current_user.organization_id)
 
     # Enforce scope: org-tier assignment requires an org-scoped role.
     if target_role.scope != SCOPE_ORGANIZATION:

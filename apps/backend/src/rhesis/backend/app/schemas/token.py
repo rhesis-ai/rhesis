@@ -50,6 +50,14 @@ class TokenUpdate(TokenBase):
         return data
 
 
+class TokenEdit(BaseModel):
+    """What a client may change on its own token. ``scopes`` is accepted only to reject it."""
+
+    name: Optional[str] = None
+    expires_at: Optional[datetime] = None
+    scopes: Optional[List[str]] = None
+
+
 # For list and detail views - excludes the actual token value
 class TokenRead(TokenBase, ServerIdentity):
     id: UUID4

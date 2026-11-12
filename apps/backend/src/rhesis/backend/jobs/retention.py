@@ -12,12 +12,11 @@ query per organization. This loops over every organization and deletes
 within that org's own scope -- correct without granting the app's runtime DB
 role a new, broader privilege.
 
-Each delete filters on ``organization_id`` explicitly rather than trusting
-the ORM's ``before_compile`` auto-filter to inject it: that listener does
-not reliably cover ``Query.delete()`` (confirmed empirically -- a bulk
-delete scoped only via ``bind_scope_to_session`` deleted another
-organization's rows). ``bind_scope_to_session`` is still called, for the RLS
-GUCs it sets, but the org filter here does not depend on it.
+Within an org it walks every project, then the rows with no project. With an
+org bound and no project, both the ORM auto-filter and the restrictive
+``project_isolation`` policy hide project rows, so a single org-wide pass
+would never delete them (``trace_retention.py`` does the same walk). Each
+delete still filters on ``organization_id`` explicitly as a second guard.
 
 Jobs are swept by ``finished_at``, not ``created_at``: a long-running job is
 never a candidate just because it started long ago, only because it
@@ -31,11 +30,19 @@ basis, not tied to any job's lifecycle.
 import logging
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy.orm import Session
+
 from rhesis.backend.app.config.settings import get_job_retention_settings
-from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
+from rhesis.backend.app.database import (
+    SessionLocal,
+    bind_scope_to_session,
+    temporary_project_scope,
+    without_soft_delete_filter,
+)
 from rhesis.backend.app.models.activity_log import ActivityLog
 from rhesis.backend.app.models.job import Job
 from rhesis.backend.app.models.organization import Organization
+from rhesis.backend.app.models.project import Project
 from rhesis.backend.celery.core import app
 
 logger = logging.getLogger(__name__)
@@ -53,30 +60,48 @@ def _organization_ids() -> list[str]:
         db.close()
 
 
+def _sweep_scope(db: Session, organization_id: str, cutoff: datetime) -> tuple[int, int]:
+    """Delete the rows the session's current scope can see. Returns (jobs, logs)."""
+    logs_deleted = (
+        db.query(ActivityLog)
+        .filter(
+            ActivityLog.organization_id == organization_id,
+            ActivityLog.created_at < cutoff,
+        )
+        .delete(synchronize_session=False)
+    )
+    jobs_deleted = (
+        db.query(Job)
+        .filter(
+            Job.organization_id == organization_id,
+            Job.finished_at.isnot(None),
+            Job.finished_at < cutoff,
+        )
+        .delete(synchronize_session=False)
+    )
+    return jobs_deleted, logs_deleted
+
+
 def _sweep_organization(organization_id: str, cutoff: datetime) -> tuple[int, int]:
     """Delete this org's rows past *cutoff*. Returns (jobs_deleted, logs_deleted)."""
     db = SessionLocal()
     try:
         bind_scope_to_session(db, organization_id)
-        logs_deleted = (
-            db.query(ActivityLog)
-            .filter(
-                ActivityLog.organization_id == organization_id,
-                ActivityLog.created_at < cutoff,
-            )
-            .delete(synchronize_session=False)
-        )
-        jobs_deleted = (
-            db.query(Job)
-            .filter(
-                Job.organization_id == organization_id,
-                Job.finished_at.isnot(None),
-                Job.finished_at < cutoff,
-            )
-            .delete(synchronize_session=False)
-        )
+        # A deleted project's rows still age out.
+        with without_soft_delete_filter():
+            project_ids = [
+                str(row[0])
+                for row in db.query(Project.id).filter(Project.organization_id == organization_id)
+            ]
+        jobs_deleted, logs_deleted = 0, 0
+        for project_id in project_ids:
+            with temporary_project_scope(db, organization_id, "", project_id):
+                jobs, logs = _sweep_scope(db, organization_id, cutoff)
+            jobs_deleted += jobs
+            logs_deleted += logs
+        jobs, logs = _sweep_scope(db, organization_id, cutoff)
         db.commit()
-        return jobs_deleted, logs_deleted
+        return jobs_deleted + jobs, logs_deleted + logs
     except Exception:
         db.rollback()
         logger.exception("Retention sweep failed for organization %s", organization_id)

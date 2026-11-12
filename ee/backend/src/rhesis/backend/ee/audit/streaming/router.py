@@ -41,16 +41,21 @@ router = APIRouter(
 )
 
 
-def _get_or_404(db: Session, destination_id: UUID) -> AuditDestination:
-    destination = crud.get_destination(db, destination_id)
+def _get_or_404(db: Session, destination_id: UUID, tenant_context) -> AuditDestination:
+    organization_id, _ = tenant_context
+    destination = crud.get_destination(db, destination_id, organization_id)
     if destination is None:
         raise HTTPException(status_code=404, detail="Audit destination not found")
     return destination
 
 
 @router.get("/", response_model=list[DestinationRead], **capability(MANAGE))
-def list_destinations(db: Session = Depends(get_tenant_db_session)):
-    return [service.to_read(d) for d in crud.list_destinations(db)]
+def list_destinations(
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    organization_id, _ = tenant_context
+    return [service.to_read(d) for d in crud.list_destinations(db, organization_id)]
 
 
 @router.post(
@@ -72,8 +77,12 @@ def create_destination(
 
 
 @router.get("/{destination_id}", response_model=DestinationRead, **capability(MANAGE))
-def read_destination(destination_id: UUID, db: Session = Depends(get_tenant_db_session)):
-    return service.to_read(_get_or_404(db, destination_id))
+def read_destination(
+    destination_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    return service.to_read(_get_or_404(db, destination_id, tenant_context))
 
 
 @router.patch("/{destination_id}", response_model=DestinationRead, **capability(MANAGE))
@@ -81,20 +90,29 @@ def update_destination(
     destination_id: UUID,
     payload: DestinationUpdate,
     db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
 ):
-    destination = _get_or_404(db, destination_id)
+    destination = _get_or_404(db, destination_id, tenant_context)
     service.set_paused(destination, payload.paused)
     db.flush()
     return service.to_read(destination)
 
 
 @router.delete("/{destination_id}", status_code=status.HTTP_204_NO_CONTENT, **capability(MANAGE))
-def delete_destination(destination_id: UUID, db: Session = Depends(get_tenant_db_session)):
-    crud.delete_destination(db, _get_or_404(db, destination_id))
+def delete_destination(
+    destination_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    crud.delete_destination(db, _get_or_404(db, destination_id, tenant_context))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/{destination_id}/test", response_model=TestEventResult, **capability(MANAGE))
-def send_test_event(destination_id: UUID, db: Session = Depends(get_tenant_db_session)):
-    error = service.send_test_event(_get_or_404(db, destination_id))
+def send_test_event(
+    destination_id: UUID,
+    db: Session = Depends(get_tenant_db_session),
+    tenant_context=Depends(get_tenant_context),
+):
+    error = service.send_test_event(_get_or_404(db, destination_id, tenant_context))
     return TestEventResult(delivered=error is None, error=error)

@@ -202,6 +202,9 @@ _OWNER_ONLY_CAPABILITIES: frozenset[str] = frozenset(
     {
         str(Permission.Organization.UPDATE),
         str(Permission.Member.MANAGE),
+        # Inviting and removing members, the route-derived halves of MANAGE.
+        str(Permission.Member.CREATE),
+        str(Permission.Member.DELETE),
         str(Permission.ProjectMember.MANAGE),
         str(Permission.Role.MANAGE),
         str(Permission.Role.READ),

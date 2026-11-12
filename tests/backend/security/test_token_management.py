@@ -268,3 +268,100 @@ class TestTokenParameterValidation:
                 test_db, token_value, organization_id=org2_id
             )
             assert result_org2.organization_id == uuid.UUID(org2_id)
+
+
+@pytest.fixture
+def colleague_token(test_db, test_org_id):
+    """A token owned by another member of the caller's org."""
+    from tests.backend.fixtures.test_setup import create_test_api_token, create_test_user
+
+    suffix = uuid.uuid4().hex[:8]
+    colleague = create_test_user(test_db, test_org_id, f"colleague-{suffix}@security-test.com")
+    return create_test_api_token(test_db, colleague, name="Colleague token")
+
+
+def _token_row(test_db, token_id):
+    from rhesis.backend.app.models.token import Token
+
+    test_db.expire_all()
+    return test_db.query(Token).filter(Token.id == token_id).first()
+
+
+@pytest.mark.security
+class TestTokenOwnerScoping:
+    """By-id token routes act only on the caller's own tokens, not a colleague's."""
+
+    def test_read_colleague_token_is_404(self, authenticated_client, colleague_token):
+        response = authenticated_client.get(f"/tokens/{colleague_token.id}")
+
+        assert response.status_code == 404
+
+    def test_update_colleague_token_is_404(self, authenticated_client, test_db, colleague_token):
+        response = authenticated_client.put(
+            f"/tokens/{colleague_token.id}", json={"name": "renamed"}
+        )
+
+        assert response.status_code == 404
+        assert _token_row(test_db, colleague_token.id).name == "Colleague token"
+
+    def test_refresh_colleague_token_is_404(self, authenticated_client, test_db, colleague_token):
+        owner_id = colleague_token.user_id
+        token_hash = colleague_token.token_hash
+
+        response = authenticated_client.post(f"/tokens/{colleague_token.id}/refresh", json={})
+
+        assert response.status_code == 404
+        row = _token_row(test_db, colleague_token.id)
+        assert row.user_id == owner_id
+        assert row.token_hash == token_hash
+
+    def test_delete_colleague_token_is_404(self, authenticated_client, test_db, colleague_token):
+        response = authenticated_client.delete(f"/tokens/{colleague_token.id}")
+
+        assert response.status_code == 404
+        assert _token_row(test_db, colleague_token.id).deleted_at is None
+
+    def test_bulk_delete_skips_colleague_token(
+        self, authenticated_client, test_db, colleague_token
+    ):
+        response = authenticated_client.request(
+            "DELETE", "/tokens/bulk", json={"token_ids": [str(colleague_token.id)]}
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "deleted_ids": [],
+            "not_found_ids": [str(colleague_token.id)],
+        }
+        assert _token_row(test_db, colleague_token.id).deleted_at is None
+
+    def test_update_rejects_scopes(self, authenticated_client, test_db, authenticated_user_id):
+        from rhesis.backend.app.models.user import User
+        from tests.backend.fixtures.test_setup import create_test_api_token
+
+        own = create_test_api_token(test_db, test_db.get(User, uuid.UUID(authenticated_user_id)))
+
+        response = authenticated_client.put(f"/tokens/{own.id}", json={"scopes": ["x:read"]})
+
+        assert response.status_code == 422
+        assert _token_row(test_db, own.id).scopes is None
+
+    def test_update_ignores_secret_fields(
+        self, authenticated_client, test_db, authenticated_user_id
+    ):
+        from rhesis.backend.app.models.user import User
+        from tests.backend.fixtures.test_setup import create_test_api_token
+
+        own = create_test_api_token(test_db, test_db.get(User, uuid.UUID(authenticated_user_id)))
+        token_hash = own.token_hash
+
+        response = authenticated_client.put(
+            f"/tokens/{own.id}",
+            json={"name": "mine", "token_hash": "x" * 64, "token_type": "other"},
+        )
+
+        assert response.status_code == 200, response.text
+        row = _token_row(test_db, own.id)
+        assert row.name == "mine"
+        assert row.token_hash == token_hash
+        assert row.token_type == "bearer"

@@ -14,12 +14,25 @@ from rhesis.backend.ee.audit.models import AuditEvent
 from rhesis.backend.ee.audit.streaming.models import AuditDestination
 
 
-def list_destinations(db: Session) -> list[AuditDestination]:
-    return list(db.scalars(select(AuditDestination).order_by(AuditDestination.created_at)))
+def list_destinations(db: Session, organization_id: UUID) -> list[AuditDestination]:
+    return list(
+        db.scalars(
+            select(AuditDestination)
+            .where(AuditDestination.organization_id == organization_id)
+            .order_by(AuditDestination.created_at)
+        )
+    )
 
 
-def get_destination(db: Session, destination_id: UUID) -> Optional[AuditDestination]:
-    return db.scalars(select(AuditDestination).where(AuditDestination.id == destination_id)).first()
+def get_destination(
+    db: Session, destination_id: UUID, organization_id: UUID
+) -> Optional[AuditDestination]:
+    return db.scalars(
+        select(AuditDestination).where(
+            AuditDestination.id == destination_id,
+            AuditDestination.organization_id == organization_id,
+        )
+    ).first()
 
 
 def transaction_start(db: Session) -> datetime:

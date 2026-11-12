@@ -246,3 +246,90 @@ class TestViewRLSCoverage:
             ).scalar_one()
         ]
         assert not denied, f"App role lacks SELECT on views: {denied}"
+
+
+# Tables whose tenant_isolation body is deliberately not the canonical one.
+NON_CANONICAL_TENANT_POLICIES = frozenset(
+    {
+        "role",  # built-in roles (organization_id IS NULL) are visible to every org
+        "role_permission",  # follows the visibility of its role
+        "organization_member",  # also readable with no org bound, to resolve memberships
+        "test_set",  # adds the owner-only rule for visibility = 'user'
+        "usage",  # NULLIF without the subselect; same rows, evaluated per row
+    }
+)
+
+# Every table's policy is compared against this one's.
+_REFERENCE_TABLE = "test"
+
+
+def _policy_quals(db, policyname: str) -> dict[str, str]:
+    rows = db.execute(
+        text(
+            "SELECT tablename, qual FROM pg_policies "
+            "WHERE schemaname = 'public' AND policyname = :name"
+        ),
+        {"name": policyname},
+    ).fetchall()
+    return {r[0]: r[1] for r in rows}
+
+
+@pytest.mark.security
+class TestRLSPolicyBodies:
+    """A policy with the right name can still have a body that lets rows through."""
+
+    def test_project_isolation_bodies_are_canonical(self, test_db):
+        quals = _policy_quals(test_db, "project_isolation")
+        canonical = quals[_REFERENCE_TABLE]
+        different = sorted(t for t, q in quals.items() if q != canonical)
+        assert not different, (
+            f"project_isolation differs from the canonical body on: {different}\n"
+            f"Copy the body from b8d2f3e4a5c6:\n{canonical}"
+        )
+
+    def test_tenant_isolation_bodies_are_canonical(self, test_db):
+        quals = _policy_quals(test_db, "tenant_isolation")
+        canonical = quals[_REFERENCE_TABLE]
+        exempt = NON_CANONICAL_TENANT_POLICIES | RLS_EXEMPT_TABLES
+        different = sorted(t for t, q in quals.items() if q != canonical and t not in exempt)
+        assert not different, (
+            f"tenant_isolation differs from the canonical body on: {different}\n"
+            "Copy the body from f4a91c3e7b52, or list the table in "
+            "NON_CANONICAL_TENANT_POLICIES with the reason."
+        )
+
+    def test_test_set_policy_has_no_cross_org_branch(self, test_db):
+        qual = _policy_quals(test_db, "tenant_isolation")["test_set"]
+        assert "public" not in qual
+        assert "organization_id" in qual
+
+    @pytest.mark.parametrize("table", ["job", "activity_log"])
+    def test_project_rows_hidden_without_a_project(
+        self, test_db, test_org_id, authenticated_user_id, table
+    ):
+        from rhesis.backend.app.models import Project
+        from tests.backend.fixtures.rls import as_project, scope_to_org
+
+        scope_to_org(test_db, test_org_id)
+        project = Project(
+            name="rls body", organization_id=test_org_id, user_id=authenticated_user_id
+        )
+        test_db.add(project)
+        test_db.flush()
+        columns = {
+            "job": "(organization_id, project_id, job_type, status) "
+            "VALUES (:org, :project, 'test.job', 'queued')",
+            "activity_log": "(organization_id, project_id, level, message) "
+            "VALUES (:org, :project, 'info', 'x')",
+        }[table]
+        params = {"org": test_org_id, "project": str(project.id)}
+        with as_project(test_db, project.id):
+            row_id = test_db.execute(
+                text(f"INSERT INTO {table} {columns} RETURNING id"), params
+            ).scalar_one()
+            assert test_db.execute(
+                text(f"SELECT 1 FROM {table} WHERE id = :id"), {"id": row_id}
+            ).first()
+
+        visible = test_db.execute(text(f"SELECT 1 FROM {table} WHERE id = :id"), {"id": row_id})
+        assert visible.first() is None

@@ -151,11 +151,21 @@ def delete_user(
         Updated user object or None if not found
 
     Raises:
-        ValueError: If user tries to delete themselves
+        ValueError: If user tries to delete themselves or the organization owner
     """
     # Security check: Prevent users from deleting themselves
     if str(target_user_id) == str(user_id):
         raise ValueError("Users cannot remove themselves from the organization")
+    owner = (
+        db.query(models.Organization.id)
+        .filter(
+            models.Organization.id == organization_id,
+            models.Organization.owner_id == target_user_id,
+        )
+        .first()
+    )
+    if owner is not None:
+        raise ValueError("The organization owner cannot be removed")
 
     # Get the user with tenant context
     db_user = get_item(db, models.User, target_user_id, organization_id, user_id)
