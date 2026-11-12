@@ -262,10 +262,6 @@ resource "google_secret_manager_secret" "cloudflare_rules_token" {
   }
 }
 
-import {
-  to = google_secret_manager_secret.cloudflare_rules_token
-  id = "projects/rhesis-prd/secrets/cloudflare-rules-token-prd"
-}
 
 # Same bootstrap shape as terraform_cloudflare_token_accessor above: tf-setup
 # reads this secret before `terraform init`, so the grant has to be made by
@@ -281,10 +277,6 @@ resource "google_secret_manager_secret_iam_member" "terraform_cloudflare_rules_t
   }
 }
 
-import {
-  to = google_secret_manager_secret_iam_member.terraform_cloudflare_rules_token_accessor
-  id = "projects/rhesis-prd/secrets/cloudflare-rules-token-prd roles/secretmanager.secretAccessor serviceAccount:terraform-prd@rhesis-prd.iam.gserviceaccount.com"
-}
 
 module "arc_gha_prd" {
   source = "../../modules/arc-gha/gcp"
