@@ -8,6 +8,8 @@ the Architect and MCP clients read.
 
 A dimension with an `id` column groups by that id and returns both keys in
 each row (`topic` and `topic_id`), so two entities sharing a name stay apart.
+A row whose dimension is unset (a requirement with no impact or parent) is
+kept, with null for both keys, so it still counts.
 
 An entity with a `source` is built per query instead of read from a view. Its
 dimensions, filters and date column name source columns as strings, and its
@@ -142,6 +144,34 @@ def _metric_success_outcome(view, outcome: str):
 _PASSED = TR.result == OverallTestResult.PASSED
 _FAILED = TR.result == OverallTestResult.FAILED
 
+_IMPACT_DESCRIPTION = (
+    "Impact of the requirement the test covers (Safety, Financial...); null when it has none"
+)
+_PARENT_DESCRIPTION = "Parent of the requirement the test covers; null for a top-level requirement"
+_IMPACT_IDS_DESCRIPTION = "Requirement impact IDs (RequirementImpact type lookups)"
+_PARENT_IDS_DESCRIPTION = "Parent requirement IDs (tests of their child requirements)"
+
+
+def _requirement_dimensions(view) -> Dict[str, Dimension]:
+    """requirement, impact and requirement_parent, for the views that carry them."""
+    return {
+        "requirement": Dimension(
+            view.requirement_name, "Requirement the test covers", view.requirement_id
+        ),
+        "impact": Dimension(view.impact_name, _IMPACT_DESCRIPTION, view.impact_id),
+        "requirement_parent": Dimension(
+            view.requirement_parent_name, _PARENT_DESCRIPTION, view.requirement_parent_id
+        ),
+    }
+
+
+def _requirement_filters(view) -> Dict[str, Filter]:
+    return {
+        "requirement_ids": Filter(view.requirement_id, "Requirement IDs"),
+        "impact_ids": Filter(view.impact_id, _IMPACT_IDS_DESCRIPTION),
+        "requirement_parent_ids": Filter(view.requirement_parent_id, _PARENT_IDS_DESCRIPTION),
+    }
+
 
 def _trace_rate(c):
     rate = case((func.count() == 0, 0), else_=func.sum(c.error_flag) * 100.0 / func.count())
@@ -178,9 +208,7 @@ REGISTRY: Dict[str, Entity] = {
         id_column=TR.test_id,
         apply_outcome=_overall_result_outcome,
         dimensions={
-            "requirement": Dimension(
-                TR.requirement_name, "Requirement the test covers", TR.requirement_id
-            ),
+            **_requirement_dimensions(TR),
             "category": Dimension(TR.category_name, "Test category", TR.category_id),
             "topic": Dimension(TR.topic_name, "Test topic", TR.topic_id),
             "test_run": Dimension(TR.test_run_name, "Test run (by name)", TR.test_run_id),
@@ -209,7 +237,7 @@ REGISTRY: Dict[str, Entity] = {
             ),
         },
         filters={
-            "requirement_ids": Filter(TR.requirement_id, "Requirement IDs"),
+            **_requirement_filters(TR),
             "category_ids": Filter(TR.category_id, "Category IDs"),
             "topic_ids": Filter(TR.topic_id, "Topic IDs"),
             "test_run_ids": Filter(TR.test_run_id, "Test run IDs"),
@@ -237,9 +265,7 @@ REGISTRY: Dict[str, Entity] = {
         apply_outcome=_metric_success_outcome,
         dimensions={
             "metric": Dimension(ME.metric_name, "Metric name"),
-            "requirement": Dimension(
-                ME.requirement_name, "Requirement the test covers", ME.requirement_id
-            ),
+            **_requirement_dimensions(ME),
             "category": Dimension(ME.category_name, "Test category", ME.category_id),
             "topic": Dimension(ME.topic_name, "Test topic", ME.topic_id),
             "test_run": Dimension(ME.test_run_name, "Test run (by name)", ME.test_run_id),
@@ -283,7 +309,7 @@ REGISTRY: Dict[str, Entity] = {
         },
         filters={
             "metric_names": Filter(ME.metric_name, "Metric names"),
-            "requirement_ids": Filter(ME.requirement_id, "Requirement IDs"),
+            **_requirement_filters(ME),
             "category_ids": Filter(ME.category_id, "Category IDs"),
             "topic_ids": Filter(ME.topic_id, "Topic IDs"),
             "test_run_ids": Filter(ME.test_run_id, "Test run IDs"),
@@ -354,9 +380,7 @@ REGISTRY: Dict[str, Entity] = {
         date_column=TS.created_at,
         id_column=TS.test_id,
         dimensions={
-            "requirement": Dimension(
-                TS.requirement_name, "Requirement the test covers", TS.requirement_id
-            ),
+            **_requirement_dimensions(TS),
             "category": Dimension(TS.category_name, "Test category", TS.category_id),
             "topic": Dimension(TS.topic_name, "Test topic", TS.topic_id),
             "priority": Dimension(TS.priority, "Test priority"),
@@ -380,7 +404,7 @@ REGISTRY: Dict[str, Entity] = {
             ),
         },
         filters={
-            "requirement_ids": Filter(TS.requirement_id, "Requirement IDs"),
+            **_requirement_filters(TS),
             "category_ids": Filter(TS.category_id, "Category IDs"),
             "topic_ids": Filter(TS.topic_id, "Topic IDs"),
             "status_ids": Filter(TS.test_status_id, "Test status IDs"),

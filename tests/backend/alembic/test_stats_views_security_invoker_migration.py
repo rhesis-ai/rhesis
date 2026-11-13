@@ -2,7 +2,11 @@
 
 Runs inside the ``admin_test_db`` transaction, so every DDL rolls back at
 teardown. Downgrade must restore exactly what b3e7c91d4a20 + e5a1c7d93b42
-created, and upgrade must restore the head definitions.
+created, and upgrade must restore the definitions c47fd570587b left.
+
+f1a7c3e9d2b5 has since appended columns to three of the views, which a
+replace-in-place can't take away, so each test first steps that one back
+and restores it at the end.
 """
 
 import importlib.util
@@ -34,13 +38,16 @@ def _load(filename: str):
 _migration = _load("c47fd570587b_stats_views_security_invoker.py")
 _redesign = _load("b3e7c91d4a20_redesign_insights_stats_views.py")
 _duration = _load("e5a1c7d93b42_add_run_duration_to_test_run_stats.py")
+_impact = _load("f1a7c3e9d2b5_stats_views_impact_and_parent.py")
 
 
 @pytest.fixture
 def conn(admin_test_db):
     connection = admin_test_db.connection()
     with Operations.context(MigrationContext.configure(connection)):
+        _impact.downgrade()
         yield connection
+        _impact.upgrade()
 
 
 def _grants(conn) -> dict:
@@ -62,10 +69,10 @@ def _snapshot(conn) -> dict:
     return {name: (definition, list(options)) for name, definition, options in rows}
 
 
-def test_downgrade_restores_previous_definitions_and_upgrade_restores_head(conn):
-    head = _snapshot(conn)
-    assert set(head) == set(_VIEWS)
-    assert all(options == ["security_invoker=true"] for _, options in head.values())
+def test_downgrade_restores_previous_definitions_and_upgrade_restores_its_own(conn):
+    at_c47 = _snapshot(conn)
+    assert set(at_c47) == set(_VIEWS)
+    assert all(options == ["security_invoker=true"] for _, options in at_c47.values())
 
     _redesign.upgrade()
     _duration.upgrade()
@@ -75,7 +82,7 @@ def test_downgrade_restores_previous_definitions_and_upgrade_restores_head(conn)
     assert _snapshot(conn) == previous
 
     _migration.upgrade()
-    assert _snapshot(conn) == head
+    assert _snapshot(conn) == at_c47
 
 
 def test_round_trip_keeps_grants(conn):

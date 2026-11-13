@@ -23,6 +23,12 @@ router = APIRouter(prefix="/insights", tags=["insights"])
 def insights_filters(
     test_run_ids: Optional[List[UUID]] = Query(None, description="Filter by test run IDs"),
     requirement_ids: Optional[List[UUID]] = Query(None, description="Filter by requirement IDs"),
+    impact_ids: Optional[List[UUID]] = Query(
+        None, description="Filter by the requirement's impact IDs"
+    ),
+    requirement_parent_ids: Optional[List[UUID]] = Query(
+        None, description="Filter by the requirement's parent requirement IDs"
+    ),
     category_ids: Optional[List[UUID]] = Query(None, description="Filter by category IDs"),
     topic_ids: Optional[List[UUID]] = Query(None, description="Filter by topic IDs"),
     status_ids: Optional[List[UUID]] = Query(
@@ -49,6 +55,8 @@ def insights_filters(
     filters = {
         "test_run_ids": test_run_ids,
         "requirement_ids": requirement_ids,
+        "impact_ids": impact_ids,
+        "requirement_parent_ids": requirement_parent_ids,
         "category_ids": category_ids,
         "topic_ids": topic_ids,
         "status_ids": status_ids,
