@@ -34,11 +34,13 @@ export interface RequirementInsightsSeed {
 function fetchKey(filters: InsightsFilters): string {
   return JSON.stringify([
     filters.endpointId,
+    filters.groupBy,
     filters.runFilterMode,
     resolveInsightsTimeRange(filters.timeRange),
     filters.testRunIds,
     filters.requirementIds,
     filters.statusIds,
+    filters.impactIds,
   ]);
 }
 
@@ -148,11 +150,13 @@ export function useRequirementInsightsData(
     status,
     queryClient,
     filters.endpointId,
+    filters.groupBy,
     filters.runFilterMode,
     filters.timeRange,
     filters.testRunIds,
     filters.requirementIds,
     filters.statusIds,
+    filters.impactIds,
   ]);
 
   return {

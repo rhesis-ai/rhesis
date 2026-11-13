@@ -1,8 +1,12 @@
 export type InsightsTimeRange = 'always' | '1d' | '7d' | '1m' | '3m';
 export type InsightsRunFilterMode = 'timeRange' | 'testRuns';
+/** What each column on the page stands for. */
+export type InsightsGroupBy = 'requirement' | 'impact' | 'parent';
 
 export interface InsightsFilters {
   endpointId: string;
+  /** Not a filter: the dimension the columns are grouped by. */
+  groupBy: InsightsGroupBy;
   /**
    * `null` = no filter (default, all requirements visible). `[]` is a real,
    * distinct state — the user explicitly unchecked every requirement, so
@@ -13,6 +17,12 @@ export interface InsightsFilters {
   requirementIds: string[] | null;
   /** Same `null`/`[]`/`[...]` convention as `requirementIds`. */
   statusIds: string[] | null;
+  /**
+   * Same convention, over the RequirementImpact lookups. Any subset narrows
+   * to requirements with one of those impacts, so the "No impact" group only
+   * shows while this is `null`.
+   */
+  impactIds: string[] | null;
   /** Narrows which test runs are in scope; testRunIds further narrows within it. */
   timeRange: InsightsTimeRange;
   /**
@@ -31,13 +41,33 @@ export interface InsightsFilters {
 
 export const DEFAULT_INSIGHTS_TIME_RANGE: InsightsTimeRange = 'always';
 
+export const DEFAULT_INSIGHTS_GROUP_BY: InsightsGroupBy = 'requirement';
+
 export const DEFAULT_INSIGHTS_FILTERS: InsightsFilters = {
   endpointId: '',
+  groupBy: DEFAULT_INSIGHTS_GROUP_BY,
   requirementIds: null,
   statusIds: null,
+  impactIds: null,
   runFilterMode: 'timeRange',
   timeRange: DEFAULT_INSIGHTS_TIME_RANGE,
   testRunIds: [],
+};
+
+export const INSIGHTS_GROUP_BY_OPTIONS: {
+  value: InsightsGroupBy;
+  label: string;
+}[] = [
+  { value: 'requirement', label: 'Requirement' },
+  { value: 'impact', label: 'Impact' },
+  { value: 'parent', label: 'Parent' },
+];
+
+/** Label for the group a requirement without an impact or parent falls into. */
+export const INSIGHTS_NONE_GROUP_LABELS: Record<InsightsGroupBy, string> = {
+  requirement: 'No requirement',
+  impact: 'No impact',
+  parent: 'No parent',
 };
 
 const VALID_TIME_RANGES = new Set<InsightsTimeRange>([
@@ -89,8 +119,10 @@ export function normalizeInsightsFilters(
 
   return {
     endpointId: filters.endpointId ?? '',
+    groupBy: filters.groupBy ?? DEFAULT_INSIGHTS_GROUP_BY,
     requirementIds: filters.requirementIds ?? null,
     statusIds: filters.statusIds ?? null,
+    impactIds: filters.impactIds ?? null,
     timeRange,
     testRunIds,
     runFilterMode: testRunIds.length > 0 ? 'testRuns' : 'timeRange',

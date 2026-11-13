@@ -18,6 +18,7 @@ import {
   ScienceIcon,
 } from '@/components/icons';
 import { Capability } from '@/constants/capabilities';
+import { impactColor } from './requirement-lookups';
 
 interface RequirementCardProps {
   requirement: RequirementWithMetrics;
@@ -31,18 +32,8 @@ interface RequirementCardProps {
   onViewMetrics?: () => void;
 }
 
-/** One dot colour per default impact; an organization's own get warning orange. */
-const IMPACT_COLORS: Record<string, string> = {
-  safety: 'error.main',
-  'privacy & security': 'warning.main',
-  'legal & compliance': 'primary.main',
-  financial: 'success.main',
-  reputation: 'secondary.light',
-  'customer experience': 'text.disabled',
-};
-
-export const impactColor = (impact: string) =>
-  IMPACT_COLORS[impact.trim().toLowerCase()] ?? 'warning.main';
+// The dot colours live in requirement-lookups so Insights can share them.
+export { impactColor };
 
 const plural = (n: number, one: string, many = `${one}s`) =>
   n === 1 ? one : many;

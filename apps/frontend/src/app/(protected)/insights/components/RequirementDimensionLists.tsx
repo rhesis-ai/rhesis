@@ -3,12 +3,39 @@
 import React from 'react';
 import { alpha, Box, Theme, Typography } from '@mui/material';
 import { getReviewBand } from '@/constants/outcomes';
-import { DimensionItem } from '../utils/requirement-insights-utils';
+import {
+  DimensionItem,
+  RequirementInsightColumn,
+} from '../utils/requirement-insights-utils';
 import { InsightsFilters } from '../types';
 import {
   buildInsightsFailedTestsUrl,
   InsightsFailedTestsScope,
 } from '../utils/insights-failed-tests';
+
+/** The column the rows sit in: what a drill-down is scoped to. */
+export type InsightsColumnScope = Pick<
+  RequirementInsightColumn,
+  'id' | 'name' | 'groupBy'
+>;
+
+/** The drill-down scope for a column; none for the "No impact" / "No parent" group. */
+export function columnScope(
+  column: InsightsColumnScope
+): InsightsFailedTestsScope | null {
+  if (column.id === null) return null;
+  switch (column.groupBy) {
+    case 'requirement':
+      return { requirementId: column.id, requirementName: column.name };
+    case 'impact':
+      return { impactId: column.id, impactName: column.name };
+    case 'parent':
+      return {
+        requirementParentId: column.id,
+        requirementParentName: column.name,
+      };
+  }
+}
 
 function passRateTextColor(item: DimensionItem): string {
   if (item.total === 0) return 'text.secondary';
@@ -53,25 +80,23 @@ function formatPassRate(item: DimensionItem): string {
   return item.total === 0 ? '—' : `${item.pass_rate.toFixed(0)}%`;
 }
 
-function isClickable(item: DimensionItem): boolean {
-  return item.total > 0;
-}
-
 interface DimensionRowsProps {
   items: DimensionItem[];
   insightsFilters: InsightsFilters;
-  requirementId: string;
-  requirementName: string;
+  column: InsightsColumnScope;
   dimension: 'metric' | 'topic';
 }
 
 function DimensionRows({
   items,
   insightsFilters,
-  requirementId,
-  requirementName,
+  column,
   dimension,
 }: DimensionRowsProps) {
+  // The null group can't be asked for by id, so its rows only display.
+  const scope = columnScope(column);
+  const isClickable = (item: DimensionItem) => scope !== null && item.total > 0;
+
   if (items.length === 0) {
     return (
       <Typography variant="body2" color="text.secondary">
@@ -81,15 +106,14 @@ function DimensionRows({
   }
 
   const openTestsForDimension = (item: DimensionItem) => {
-    const scope: InsightsFailedTestsScope = {
-      requirementId,
-      requirementName,
+    if (scope === null) return;
+    const url = buildInsightsFailedTestsUrl(insightsFilters, {
+      ...scope,
       outcome: 'all',
       ...(dimension === 'metric'
         ? { metricName: item.name }
         : { topicId: item.id, topicName: item.name }),
-    };
-    const url = buildInsightsFailedTestsUrl(insightsFilters, scope);
+    });
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
@@ -174,19 +198,17 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-interface RequirementMetricListProps {
+interface RequirementListProps {
   items: DimensionItem[];
   insightsFilters: InsightsFilters;
-  requirementId: string;
-  requirementName: string;
+  column: InsightsColumnScope;
 }
 
 export function RequirementMetricList({
   items,
   insightsFilters,
-  requirementId,
-  requirementName,
-}: RequirementMetricListProps) {
+  column,
+}: RequirementListProps) {
   if (items.length === 0) return null;
 
   return (
@@ -195,27 +217,18 @@ export function RequirementMetricList({
       <DimensionRows
         items={items}
         insightsFilters={insightsFilters}
-        requirementId={requirementId}
-        requirementName={requirementName}
+        column={column}
         dimension="metric"
       />
     </Box>
   );
 }
 
-interface RequirementTopicListProps {
-  items: DimensionItem[];
-  insightsFilters: InsightsFilters;
-  requirementId: string;
-  requirementName: string;
-}
-
 export function RequirementTopicList({
   items,
   insightsFilters,
-  requirementId,
-  requirementName,
-}: RequirementTopicListProps) {
+  column,
+}: RequirementListProps) {
   if (items.length === 0) return null;
 
   return (
@@ -224,8 +237,7 @@ export function RequirementTopicList({
       <DimensionRows
         items={items}
         insightsFilters={insightsFilters}
-        requirementId={requirementId}
-        requirementName={requirementName}
+        column={column}
         dimension="topic"
       />
     </Box>

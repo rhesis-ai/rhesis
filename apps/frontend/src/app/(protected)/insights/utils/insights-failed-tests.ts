@@ -18,26 +18,40 @@ export const INSIGHTS_TEST_RUN_SCOPE_PARAM = 'testRunScope';
 
 export type InsightsTestOutcome = 'failed' | 'all';
 
+/**
+ * The column a drill-down came from: a requirement, an impact or a parent
+ * requirement. Only one of the id pairs is set at a time.
+ */
 export interface InsightsFailedTestsScope {
   requirementId?: string;
   requirementName?: string;
+  impactId?: string;
+  impactName?: string;
+  requirementParentId?: string;
+  requirementParentName?: string;
   metricName?: string;
   topicId?: string;
   topicName?: string;
   outcome?: InsightsTestOutcome;
 }
 
-export interface InsightsFailedTestsFilter {
+export interface InsightsFailedTestsFilter extends InsightsFailedTestsScope {
   endpointId: string;
   runFilterMode: InsightsRunFilterMode;
   timeRange: InsightsTimeRange;
   testRunIds: string[];
-  requirementId?: string;
-  requirementName?: string;
-  metricName?: string;
-  topicId?: string;
-  topicName?: string;
-  outcome?: InsightsTestOutcome;
+}
+
+/** The name of the column a drill-down came from, whichever kind it was. */
+export function insightsScopeGroupName(
+  scope: Pick<
+    InsightsFailedTestsScope,
+    'requirementName' | 'impactName' | 'requirementParentName'
+  >
+): string | undefined {
+  return (
+    scope.requirementName ?? scope.impactName ?? scope.requirementParentName
+  );
 }
 
 export type InsightsRunContextFilters = Pick<
@@ -70,6 +84,18 @@ export function buildInsightsFailedTestsUrl(
   }
   if (scope?.requirementName) {
     params.set('requirementName', scope.requirementName);
+  }
+  if (scope?.impactId) {
+    params.set('impactId', scope.impactId);
+  }
+  if (scope?.impactName) {
+    params.set('impactName', scope.impactName);
+  }
+  if (scope?.requirementParentId) {
+    params.set('requirementParentId', scope.requirementParentId);
+  }
+  if (scope?.requirementParentName) {
+    params.set('requirementParentName', scope.requirementParentName);
   }
   if (scope?.metricName) {
     params.set('metric', scope.metricName);
@@ -172,6 +198,11 @@ export function parseInsightsFailedTestsSearchParams(
     ...runFilters,
     requirementId: searchParams.get('requirementId') || undefined,
     requirementName: searchParams.get('requirementName') || undefined,
+    impactId: searchParams.get('impactId') || undefined,
+    impactName: searchParams.get('impactName') || undefined,
+    requirementParentId: searchParams.get('requirementParentId') || undefined,
+    requirementParentName:
+      searchParams.get('requirementParentName') || undefined,
     metricName: searchParams.get('metric') || undefined,
     topicId: searchParams.get('topicId') || undefined,
     topicName: searchParams.get('topic') || undefined,
@@ -213,6 +244,10 @@ export async function fetchFailedTestIdsForInsights(
     outcome: filters.outcome === 'all' ? 'all' : 'fail',
     ...(filters.requirementId
       ? { requirement_ids: [filters.requirementId] }
+      : {}),
+    ...(filters.impactId ? { impact_ids: [filters.impactId] } : {}),
+    ...(filters.requirementParentId
+      ? { requirement_parent_ids: [filters.requirementParentId] }
       : {}),
     ...(filters.metricName ? { metric_names: [filters.metricName] } : {}),
     ...(filters.topicId ? { topic_ids: [filters.topicId] } : {}),
@@ -281,6 +316,7 @@ export function formatInsightsFailedTestsBanner(
   const noun = `test case${count === 1 ? '' : 's'}`;
 
   const showAll = filter.outcome === 'all';
+  const group = insightsScopeGroupName(filter);
 
   if (count === 0) {
     return showAll
@@ -288,24 +324,24 @@ export function formatInsightsFailedTestsBanner(
       : 'No failed test cases matched your Insights filters.';
   }
 
-  if (filter.metricName && filter.requirementName) {
+  if (filter.metricName && group) {
     if (showAll) {
-      return `Showing ${count} ${noun} evaluated for "${filter.metricName}" in ${filter.requirementName} on ${endpoint} for ${period}.`;
+      return `Showing ${count} ${noun} evaluated for "${filter.metricName}" in ${group} on ${endpoint} for ${period}.`;
     }
-    return `Showing ${count} ${noun} where "${filter.metricName}" failed for ${filter.requirementName} on ${endpoint} for ${period}.`;
+    return `Showing ${count} ${noun} where "${filter.metricName}" failed for ${group} on ${endpoint} for ${period}.`;
   }
 
-  if (filter.topicName && filter.requirementName) {
+  if (filter.topicName && group) {
     if (showAll) {
-      return `Showing ${count} ${noun} for topic "${filter.topicName}" in ${filter.requirementName} on ${endpoint} for ${period}.`;
+      return `Showing ${count} ${noun} for topic "${filter.topicName}" in ${group} on ${endpoint} for ${period}.`;
     }
-    return `Showing ${count} failed ${noun} for topic "${filter.topicName}" in ${filter.requirementName} on ${endpoint} for ${period}.`;
+    return `Showing ${count} failed ${noun} for topic "${filter.topicName}" in ${group} on ${endpoint} for ${period}.`;
   }
 
-  if (filter.requirementName) {
+  if (group) {
     return showAll
-      ? `Showing ${count} ${noun} for ${filter.requirementName} on ${endpoint} for ${period}.`
-      : `Showing ${count} failed ${noun} for ${filter.requirementName} on ${endpoint} for ${period}.`;
+      ? `Showing ${count} ${noun} for ${group} on ${endpoint} for ${period}.`
+      : `Showing ${count} failed ${noun} for ${group} on ${endpoint} for ${period}.`;
   }
 
   return showAll

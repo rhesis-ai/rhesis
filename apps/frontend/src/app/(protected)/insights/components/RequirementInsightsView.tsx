@@ -87,6 +87,9 @@ export default function RequirementInsightsView({
               column={{
                 id: String(i),
                 name: '',
+                groupBy: filters.groupBy,
+                impact: null,
+                children: [],
                 overall: { total: 0, passed: 0, failed: 0, pass_rate: 0 },
                 metrics: [],
                 topics: [],
@@ -99,7 +102,7 @@ export default function RequirementInsightsView({
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           {columnRows.map((row, rowIndex) => (
             <RequirementInsightsRow
-              key={row.map(column => column.id).join('-') || rowIndex}
+              key={row.map(column => column.id ?? 'none').join('-') || rowIndex}
               row={row}
               rowIndex={rowIndex}
               expanded={expandedRows.has(rowIndex)}
@@ -113,8 +116,8 @@ export default function RequirementInsightsView({
         !error && (
           <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
             {searchQuery.trim()
-              ? 'No requirements match your search.'
-              : 'No requirement data available for the selected filters.'}
+              ? 'Nothing matches your search.'
+              : 'No data available for the selected filters.'}
           </Typography>
         )
       )}

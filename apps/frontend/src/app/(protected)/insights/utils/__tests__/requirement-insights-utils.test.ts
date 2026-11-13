@@ -4,6 +4,7 @@ import {
   assertInsightsTestRunIdsWithinLimit,
   buildRequirementColumns,
   MAX_INSIGHTS_TEST_RUN_IDS,
+  type RequirementInsightColumn,
   resolveEndpointId,
   rowToPassFailStats,
   sortRequirementColumns,
@@ -42,9 +43,12 @@ describe('requirement-insights-utils', () => {
 
   describe('sortRequirementColumns', () => {
     it('sorts requirements alphabetically by name', () => {
-      const mk = (name: string) => ({
+      const mk = (name: string): RequirementInsightColumn => ({
         id: name,
         name,
+        groupBy: 'requirement',
+        impact: null,
+        children: [],
         overall: { total: 10, passed: 5, failed: 5, pass_rate: 50 },
         metrics: [],
         topics: [],
@@ -61,6 +65,22 @@ describe('requirement-insights-utils', () => {
         'Reliability',
         'Robustness',
       ]);
+    });
+
+    it('puts the "none" group last', () => {
+      const none: RequirementInsightColumn = {
+        id: null,
+        name: 'No impact',
+        groupBy: 'impact',
+        impact: null,
+        children: [],
+        overall: { total: 1, passed: 1, failed: 0, pass_rate: 100 },
+        metrics: [],
+        topics: [],
+      };
+      const safety = { ...none, id: 'i-1', name: 'Safety', impact: 'Safety' };
+      const sorted = sortRequirementColumns([none, safety]);
+      expect(sorted.map(c => c.id)).toEqual(['i-1', null]);
     });
   });
 
@@ -199,6 +219,100 @@ describe('requirement-insights-utils', () => {
         []
       );
       expect(columns).toEqual([]);
+    });
+
+    it('carries the requirement impact for the dot', () => {
+      const [column] = buildRequirementColumns(
+        [{ ...requirementRows[0], impact_id: 'i-1', impact: 'Safety' }],
+        [],
+        []
+      );
+      expect(column.impact).toBe('Safety');
+      expect(column.groupBy).toBe('requirement');
+    });
+
+    it('groups by impact and keeps the "No impact" group', () => {
+      const pass = { count: 2, passed: 1, failed: 1, pass_rate: 50 };
+      const columns = buildRequirementColumns(
+        [
+          { impact_id: null, impact: null, ...pass },
+          { impact_id: 'i-1', impact: 'Safety', ...pass },
+        ],
+        [{ impact_id: null, topic_id: 't-1', topic: 'Billing', ...pass }],
+        [{ impact_id: 'i-1', metric: 'Fluency', ...pass }],
+        'impact'
+      );
+      expect(columns.map(c => [c.id, c.name, c.impact])).toEqual([
+        ['i-1', 'Safety', 'Safety'],
+        [null, 'No impact', null],
+      ]);
+      expect(columns[0].metrics.map(m => m.name)).toEqual(['Fluency']);
+      expect(columns[0].children).toEqual([]);
+      expect(columns[1].topics.map(t => t.name)).toEqual(['Billing']);
+    });
+
+    it('groups by parent and keeps the "No parent" group', () => {
+      const pass = { count: 2, passed: 2, failed: 0, pass_rate: 100 };
+      const columns = buildRequirementColumns(
+        [
+          { requirement_parent_id: null, requirement_parent: null, ...pass },
+          {
+            requirement_parent_id: 'r-1',
+            requirement_parent: 'Refunds',
+            ...pass,
+          },
+        ],
+        [],
+        [],
+        'parent'
+      );
+      expect(columns.map(c => [c.id, c.name])).toEqual([
+        ['r-1', 'Refunds'],
+        [null, 'No parent'],
+      ]);
+    });
+
+    it("lists each parent group's children A–Z", () => {
+      const pass = { count: 1, passed: 1, failed: 0, pass_rate: 100 };
+      const [refunds] = buildRequirementColumns(
+        [
+          {
+            requirement_parent_id: 'r-1',
+            requirement_parent: 'Refunds',
+            ...pass,
+          },
+        ],
+        [],
+        [],
+        'parent',
+        [
+          { requirement_parent_id: 'r-1', requirement: 'Partial', count: 1 },
+          { requirement_parent_id: 'r-1', requirement: 'Full', count: 2 },
+          { requirement_parent_id: 'r-2', requirement: 'Other', count: 1 },
+        ]
+      );
+      expect(refunds.children).toEqual(['Full', 'Partial']);
+    });
+
+    it('lists each impact group\'s requirements, the "No impact" one too', () => {
+      const pass = { count: 1, passed: 1, failed: 0, pass_rate: 100 };
+      const columns = buildRequirementColumns(
+        [
+          { impact_id: 'i-1', impact: 'Safety', ...pass },
+          { impact_id: null, impact: null, ...pass },
+        ],
+        [],
+        [],
+        'impact',
+        [
+          { impact_id: 'i-1', requirement: 'Never Diagnoses', count: 1 },
+          { impact_id: null, requirement: 'Escalates', count: 1 },
+        ]
+      );
+      expect(columns.map(c => c.children)).toEqual([
+        ['Never Diagnoses'],
+        ['Escalates'],
+      ]);
     });
   });
 

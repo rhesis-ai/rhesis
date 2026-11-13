@@ -31,6 +31,8 @@ import {
   isOptionalFilterActive,
   isRunFilterActive,
 } from '../utils/insights-filter-utils';
+import { useRequirementImpacts } from '@/app/(protected)/requirements/components/requirement-lookups';
+import InsightsImpactFilterSection from './InsightsImpactFilterSection';
 import InsightsRequirementFilterSection from './InsightsRequirementFilterSection';
 import InsightsStatusFilterSection from './InsightsStatusFilterSection';
 import InsightsTestRunFilterSection from './InsightsTestRunFilterSection';
@@ -38,12 +40,18 @@ import InsightsTimeRangeFilterSection from './InsightsTimeRangeFilterSection';
 
 export type InsightsDrawerFilters = Pick<
   InsightsFilters,
-  'endpointId' | 'requirementIds' | 'statusIds' | 'timeRange' | 'testRunIds'
+  | 'endpointId'
+  | 'requirementIds'
+  | 'impactIds'
+  | 'statusIds'
+  | 'timeRange'
+  | 'testRunIds'
 >;
 
 export const EMPTY_INSIGHTS_DRAWER_FILTERS: InsightsDrawerFilters = {
   endpointId: '',
   requirementIds: null,
+  impactIds: null,
   statusIds: null,
   timeRange: DEFAULT_INSIGHTS_TIME_RANGE,
   testRunIds: [],
@@ -55,6 +63,7 @@ export function hasActiveInsightsDrawerFilters(
   return (
     f.endpointId !== '' ||
     isOptionalFilterActive(f.requirementIds) ||
+    isOptionalFilterActive(f.impactIds) ||
     isOptionalFilterActive(f.statusIds) ||
     isRunFilterActive(f)
   );
@@ -65,6 +74,9 @@ export function countActiveInsightsDrawerFilters(
 ): number {
   let count = f.endpointId !== '' ? 1 : 0;
   if (isOptionalFilterActive(f.requirementIds)) {
+    count += 1;
+  }
+  if (isOptionalFilterActive(f.impactIds)) {
     count += 1;
   }
   if (isOptionalFilterActive(f.statusIds)) {
@@ -112,10 +124,16 @@ export default function InsightsFilterDrawer({
   const [testRunsLoading, setTestRunsLoading] = React.useState(false);
 
   const { data: statuses = [] } = useStatuses(EntityType.TEST_RESULT, open);
+  const { data: impactOptions = [] } = useRequirementImpacts(open);
 
   const allRequirementIds = React.useMemo(
     () => requirementOptions.map(option => option.id),
     [requirementOptions]
+  );
+
+  const allImpactIds = React.useMemo(
+    () => impactOptions.map(option => String(option.id)),
+    [impactOptions]
   );
 
   const allTestRunIds = React.useMemo(
@@ -141,6 +159,11 @@ export default function InsightsFilterDrawer({
   const checkedStatusIds = React.useMemo(
     () => checkedIdsFromOptionalFilter(allStatusIds, draft.statusIds),
     [allStatusIds, draft.statusIds]
+  );
+
+  const checkedImpactIds = React.useMemo(
+    () => checkedIdsFromOptionalFilter(allImpactIds, draft.impactIds),
+    [allImpactIds, draft.impactIds]
   );
 
   React.useEffect(() => {
@@ -231,6 +254,16 @@ export default function InsightsFilterDrawer({
     [allStatusIds, setDraft]
   );
 
+  const handleCheckedImpactIdsChange = React.useCallback(
+    (checkedIds: string[]) => {
+      setDraft(prev => ({
+        ...prev,
+        impactIds: idsFromCheckedSelectionOptional(allImpactIds, checkedIds),
+      }));
+    },
+    [allImpactIds, setDraft]
+  );
+
   const handleTimeRangeChange = React.useCallback(
     (timeRange: InsightsTimeRange) => {
       setDraft(prev => ({ ...prev, timeRange }));
@@ -292,6 +325,12 @@ export default function InsightsFilterDrawer({
         onCheckedIdsChange={handleCheckedTestRunIdsChange}
         loading={testRunsLoading}
         disabled={!draft.endpointId}
+      />
+
+      <InsightsImpactFilterSection
+        options={impactOptions}
+        checkedIds={checkedImpactIds}
+        onCheckedIdsChange={handleCheckedImpactIdsChange}
       />
 
       <InsightsRequirementFilterSection

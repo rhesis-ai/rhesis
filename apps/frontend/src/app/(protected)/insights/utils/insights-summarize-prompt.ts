@@ -74,6 +74,11 @@ export function buildInsightsSummarizePrompt(
     input.visibleRequirementNames.length > 0
       ? input.visibleRequirementNames.join(', ')
       : 'all visible';
+  const scopeLabel = {
+    requirement: 'Requirements in scope',
+    impact: 'Requirement impacts in scope',
+    parent: 'Parent requirements in scope',
+  }[input.filters.groupBy ?? 'requirement'];
 
   const truncationNote = input.truncated
     ? input.filters.runFilterMode === 'testRuns'
@@ -89,7 +94,7 @@ export function buildInsightsSummarizePrompt(
     '',
     `Endpoint: ${input.endpointName.trim() || 'unknown'}`,
     `Period / runs: ${period}`,
-    `Requirements in scope: ${requirements}`,
+    `${scopeLabel}: ${requirements}`,
     `Test run IDs (max ${MAX_ARCHITECT_INSIGHTS_TEST_RUN_IDS}): ${input.testRunIds.join(', ') || '(none)'}`,
   ];
 

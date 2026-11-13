@@ -129,10 +129,12 @@ export default function InsightsPage({
     setExpandedRows(new Set(expandableRowIndices));
   }, [
     filters.endpointId,
+    filters.groupBy,
     filters.runFilterMode,
     filters.timeRange,
     filters.testRunIds,
     filters.requirementIds,
+    filters.impactIds,
     filters.statusIds,
     expandableRowIndices,
   ]);
@@ -298,7 +300,7 @@ export default function InsightsPage({
   return (
     <PageLayout
       title="Insights"
-      description="View pass rates by requirement, metric, and topic. Filter by time range or pick specific test runs in the filter drawer."
+      description="View pass rates by requirement, impact or parent requirement, broken down by metric and topic. Filter by time range or pick specific test runs in the filter drawer."
       breadcrumbs={[]}
       actions={
         <FabGroup>

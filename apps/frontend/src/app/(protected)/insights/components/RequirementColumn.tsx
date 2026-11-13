@@ -18,6 +18,9 @@ import {
   RequirementMetricList,
   RequirementTopicList,
 } from './RequirementDimensionLists';
+import InsightsImpactDot from './InsightsImpactDot';
+
+const MAX_CHILDREN_SHOWN = 3;
 
 interface RequirementColumnProps {
   column: RequirementInsightColumn;
@@ -33,6 +36,11 @@ export default function RequirementColumn({
   expanded = false,
 }: RequirementColumnProps) {
   const noTests = column.overall.total === 0;
+  // Like the requirement cards: "● Safety impact" under the name. Grouped by
+  // impact the name already is the impact, so it gets no line and no dot.
+  const impactLine = column.groupBy === 'impact' ? null : column.impact;
+  const shownChildren = column.children.slice(0, MAX_CHILDREN_SHOWN);
+  const hiddenChildren = column.children.slice(MAX_CHILDREN_SHOWN);
   const hasMetrics = column.metrics.length > 0;
   const hasTopics = column.topics.length > 0;
   const isExpandable = !noTests && (hasMetrics || hasTopics);
@@ -84,22 +92,88 @@ export default function RequirementColumn({
           p: 2,
         }}
       >
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography
-            variant="subtitle1"
-            fontWeight={700}
-            title={column.name}
-            sx={{
-              lineHeight: 1.3,
-              minHeight: '2.6em',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-            }}
-          >
-            {column.name}
-          </Typography>
+        <Box
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 1,
+          }}
+        >
+          <Box sx={{ minWidth: 0 }}>
+            <Typography
+              variant="subtitle1"
+              fontWeight={700}
+              title={column.name}
+              sx={{
+                lineHeight: 1.3,
+                minHeight:
+                  impactLine || shownChildren.length > 0 ? undefined : '2.6em',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}
+            >
+              {column.name}
+            </Typography>
+            {shownChildren.length > 0 ? (
+              <Box
+                component="ul"
+                aria-label="Requirements in this group"
+                sx={{
+                  m: 0,
+                  mt: 0.75,
+                  p: 0,
+                  listStyle: 'none',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 0.5,
+                }}
+              >
+                {shownChildren.map(child => (
+                  <li key={child}>
+                    <Chip
+                      label={child}
+                      size="small"
+                      variant="outlined"
+                      sx={{ maxWidth: '100%' }}
+                    />
+                  </li>
+                ))}
+                {hiddenChildren.length > 0 ? (
+                  <li>
+                    <Tooltip title={hiddenChildren.join(', ')} arrow>
+                      <Chip
+                        label={`+${hiddenChildren.length} more`}
+                        size="small"
+                        variant="outlined"
+                        tabIndex={0}
+                      />
+                    </Tooltip>
+                  </li>
+                ) : null}
+              </Box>
+            ) : null}
+            {impactLine ? (
+              <Box
+                component="span"
+                sx={{
+                  mt: 0.5,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  fontSize: 13,
+                  lineHeight: '20px',
+                  color: 'text.secondary',
+                }}
+              >
+                <InsightsImpactDot impact={impactLine} decorative />
+                {impactLine} impact
+              </Box>
+            ) : null}
+          </Box>
         </Box>
 
         <Tooltip title={passCountLabel} placement="top" arrow>
@@ -165,8 +239,7 @@ export default function RequirementColumn({
               <RequirementMetricList
                 items={column.metrics}
                 insightsFilters={insightsFilters}
-                requirementId={column.id}
-                requirementName={column.name}
+                column={column}
               />
             )}
             {hasMetrics && hasTopics && (
@@ -183,8 +256,7 @@ export default function RequirementColumn({
               <RequirementTopicList
                 items={column.topics}
                 insightsFilters={insightsFilters}
-                requirementId={column.id}
-                requirementName={column.name}
+                column={column}
               />
             )}
           </Box>

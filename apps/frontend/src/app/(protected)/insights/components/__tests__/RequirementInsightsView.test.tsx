@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import RequirementInsightsView from '../RequirementInsightsView';
 import { DEFAULT_INSIGHTS_FILTERS } from '../../types';
+import type { RequirementInsightColumn } from '../../utils/requirement-insights-utils';
 
 jest.mock('../RequirementInsightsRow', () => {
   return function MockRequirementInsightsRow({
@@ -24,9 +25,12 @@ jest.mock('../RequirementColumn', () => {
   };
 });
 
-const defaultColumn = {
+const defaultColumn: RequirementInsightColumn = {
   id: 'beh-1',
   name: 'Safety',
+  groupBy: 'requirement',
+  impact: null,
+  children: [],
   overall: { total: 10, passed: 8, failed: 2, pass_rate: 80 },
   metrics: [],
   topics: [],

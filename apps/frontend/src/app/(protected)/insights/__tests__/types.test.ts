@@ -19,7 +19,9 @@ describe('normalizeInsightsFilters', () => {
     expect(normalizeInsightsFilters({ months: 1, endpointId: 'ep-1' })).toEqual(
       {
         endpointId: 'ep-1',
+        groupBy: 'requirement',
         requirementIds: null,
+        impactIds: null,
         statusIds: null,
         runFilterMode: 'timeRange',
         timeRange: '1m',
@@ -37,7 +39,9 @@ describe('normalizeInsightsFilters', () => {
       })
     ).toEqual({
       endpointId: 'ep-1',
+      groupBy: 'requirement',
       requirementIds: null,
+      impactIds: null,
       statusIds: null,
       runFilterMode: 'testRuns',
       timeRange: 'always',
