@@ -3,26 +3,32 @@
 import React, { useCallback } from 'react';
 import { Box } from '@mui/material';
 import LinkIcon from '@mui/icons-material/Link';
+import TestRunsIcon from '@/components/TestRunsIcon';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
 import { useDetailTabNav } from '@/hooks/useDetailTabNav';
 import { useRouter } from 'next/navigation';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import type { TestDetail } from '@/utils/api-client/interfaces/tests';
+import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import type { Task } from '@/types/tasks';
 import type { Comment } from '@/types/comments';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import TestSetDetailsCard from './TestSetDetailsCard';
 import TestSetTagsMetricsCard from './TestSetTagsMetricsCard';
 import TestSetLinkedTestsSection from './TestSetLinkedTestsSection';
+import TestSetRunsGrid from './TestSetRunsGrid';
 
-const TAB_KEYS = ['basic', 'linked', 'tasks'] as const;
+const TAB_KEYS = ['basic', 'linked', 'runs', 'tasks'] as const;
 
 interface TestSetDetailTabsProps {
   testSet: TestSet;
   testCount: number;
   /** Server-prefetched first page of the Tests tab; undefined falls back to a client fetch. */
   initialTests?: TestDetail[];
+  /** Server-prefetched first page of the Test Runs tab. */
+  initialRuns?: TestRunDetail[];
+  initialRunsTotalCount?: number;
   /** Server-prefetched first page of the Tasks tab. */
   initialTasks?: Task[];
   initialTasksTotalCount?: number;
@@ -37,6 +43,8 @@ export default function TestSetDetailTabs({
   testSet,
   testCount,
   initialTests,
+  initialRuns,
+  initialRunsTotalCount,
   initialTasks,
   initialTasksTotalCount,
   initialComments,
@@ -48,15 +56,24 @@ export default function TestSetDetailTabs({
   const router = useRouter();
   const { activeTab, handleTabChange } = useDetailTabNav(TAB_KEYS);
 
+  const tabLabels: Record<(typeof TAB_KEYS)[number], string> = {
+    basic: 'Basic Information',
+    linked: 'Tests',
+    runs: 'Test Runs',
+    tasks: 'Tasks',
+  };
+
+  const tabIcons: Partial<
+    Record<(typeof TAB_KEYS)[number], React.ReactElement>
+  > = {
+    linked: <LinkIcon />,
+    runs: <TestRunsIcon />,
+  };
+
   const navTabs = TAB_KEYS.map((key, index) => ({
     key,
-    label:
-      key === 'basic'
-        ? 'Basic Information'
-        : key === 'linked'
-          ? 'Tests'
-          : 'Tasks',
-    ...(key === 'linked' && { icon: <LinkIcon /> }),
+    label: tabLabels[key],
+    ...(tabIcons[key] && { icon: tabIcons[key] }),
     id: `test-set-detail-tab-${index}`,
     'aria-controls': `test-set-detail-tabpanel-${index}`,
   }));
@@ -90,6 +107,14 @@ export default function TestSetDetailTabs({
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={2} prefix="test-set-detail">
+        <TestSetRunsGrid
+          testSetId={testSet.id as string}
+          initialData={initialRuns}
+          initialTotalCount={initialRunsTotalCount}
+        />
+      </DetailTabPanel>
+
+      <DetailTabPanel value={activeTab} index={3} prefix="test-set-detail">
         <TasksAndCommentsWrapper
           entityType="TestSet"
           entityId={testSet.id as string}

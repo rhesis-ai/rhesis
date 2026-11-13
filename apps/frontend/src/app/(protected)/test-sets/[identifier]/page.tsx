@@ -16,6 +16,7 @@ import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
 import TestSetHeaderActions from './components/TestSetHeaderActions';
 import TestSetDetailTabs from './components/TestSetDetailTabs';
 import { testSetTestsList } from './components/list';
+import { testSetRunsList } from './components/testSetRunsList';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -42,13 +43,17 @@ export default async function TestSetPage({ params }: PageProps) {
   const apiFactory = await createServerApiFactory();
   const testSetsClient = apiFactory.getTestSetsClient();
 
-  // First pages of the Tests and Tasks tabs; the tests total doubles as the
-  // header count. Only needs `identifier`, not `testSet`.
+  // First pages of the Tests, Test Runs, and Tasks tabs; the tests total
+  // doubles as the header count. Only needs `identifier`, not `testSet`.
   const linkedTests = testSetTestsList(identifier);
+  const linkedRuns = testSetRunsList(identifier);
   const tasks = entityTasksList('TestSet', identifier);
   const tabsPromise = Promise.all([
     prefetchList(linkedTests.capability, () =>
       linkedTests.list(apiFactory, firstPageParams(linkedTests))
+    ),
+    prefetchList(linkedRuns.capability, () =>
+      linkedRuns.list(apiFactory, firstPageParams(linkedRuns))
     ),
     prefetchList(tasks.capability, () =>
       tasks.list(apiFactory, firstPageParams(tasks))
@@ -78,7 +83,7 @@ export default async function TestSetPage({ params }: PageProps) {
     }
   }
 
-  const [testsPage, tasksPage, comments] = await tabsPromise;
+  const [testsPage, runsPage, tasksPage, comments] = await tabsPromise;
   const testCount =
     testsPage.initialData !== undefined
       ? testsPage.initialTotalCount
@@ -141,6 +146,8 @@ export default async function TestSetPage({ params }: PageProps) {
             testSet={serializedTestSet}
             testCount={testCount}
             initialTests={testsPage.initialData}
+            initialRuns={runsPage.initialData}
+            initialRunsTotalCount={runsPage.initialTotalCount}
             initialTasks={tasksPage.initialData}
             initialTasksTotalCount={tasksPage.initialTotalCount}
             initialComments={comments}
