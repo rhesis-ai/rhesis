@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, Optional, Sequence
 
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.services.invokers.tracing import DeferredTraceData
+from rhesis.backend.app.utils.garak_nul_escape import decode_notes
 from rhesis.backend.app.utils.response_extractor import (
     get_http_error_status_code,
     has_endpoint_failure_in_result,
@@ -166,7 +167,7 @@ async def _evaluate_single_turn_metrics(
     # Inject probe-level notes (e.g. trigger strings for Garak probe-coupled detectors)
     # directly into the metric configs so the metric has them at construction time.
     # This avoids threading probe context through the generic evaluator interface.
-    garak_notes = (test.test_metadata or {}).get("garak_notes") if test else None
+    garak_notes = decode_notes(test.test_metadata) if test else None
     metric_configs = _inject_probe_notes(metric_configs, garak_notes)
 
     # Keep only metrics scoped to Single-Turn. This previously dropped just the

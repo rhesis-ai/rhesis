@@ -24,10 +24,10 @@ from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas import test_set as test_set_schemas
 from rhesis.backend.app.schemas.tag import EntityType as TagEntityType
 from rhesis.backend.app.schemas.tag import TagCreate
+from rhesis.backend.app.services.garak.probes import GarakProbeInfo, GarakProbeService
+from rhesis.backend.app.services.garak.taxonomy import GarakTaxonomy, resolve_requirement
 from rhesis.backend.app.services.test_set import bulk_create_test_set
-
-from .probes import GarakProbeInfo, GarakProbeService
-from .taxonomy import GarakTaxonomy, resolve_requirement
+from rhesis.backend.app.utils.garak_nul_escape import encode_prompt_and_notes
 
 logger = logging.getLogger(__name__)
 
@@ -239,8 +239,13 @@ class GarakImporter:
             # prompt_notes is aligned with probe.prompts: prompt_notes[i] belongs to
             # the prompt at index i.  Encoding probes have a *different* trigger per
             # prompt; PromptInject probes have the same trigger for all prompts.
+            notes = None
             if probe.prompt_notes and idx < len(probe.prompt_notes) and probe.prompt_notes[idx]:
-                test_metadata["garak_notes"] = probe.prompt_notes[idx]
+                notes = probe.prompt_notes[idx]
+
+            prompt_content, notes = encode_prompt_and_notes(prompt_content, notes, test_metadata)
+            if notes:
+                test_metadata["garak_notes"] = notes
 
             # Create test data with taxonomy mapping
             test_data = test_set_schemas.TestData(
