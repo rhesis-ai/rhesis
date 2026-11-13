@@ -24,12 +24,12 @@ from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas import test_set as test_set_schemas
+from rhesis.backend.app.services.garak.probes import GarakProbeInfo, GarakProbeService
+from rhesis.backend.app.services.garak.taxonomy import GarakTaxonomy, resolve_requirement
 from rhesis.backend.app.services.test import bulk_create_tests
 from rhesis.backend.app.utils.crud_utils import get_item_detail
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
-
-from .probes import GarakProbeInfo, GarakProbeService
-from .taxonomy import GarakTaxonomy, resolve_requirement
+from rhesis.backend.app.utils.garak_nul_escape import encode_prompt_and_notes
 
 logger = logging.getLogger(__name__)
 
@@ -381,6 +381,7 @@ class GarakSyncService:
                 "garak_module": probe.module_name,
                 "garak_tags": probe.tags,
             }
+            prompt_content, _ = encode_prompt_and_notes(prompt_content, None, test_metadata)
 
             # Build test data with proper taxonomy
             test_data = test_set_schemas.TestData(

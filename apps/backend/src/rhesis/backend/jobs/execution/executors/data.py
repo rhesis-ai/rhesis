@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.models.test import Test
+from rhesis.backend.app.utils.garak_nul_escape import decode_prompt
 from rhesis.backend.app.utils.query_utils import include
 from rhesis.backend.jobs.execution.metrics_utils import get_requirement_metrics
 
@@ -88,7 +89,8 @@ def get_test_and_prompt(
                 "Single-turn tests require a prompt."
             )
 
-        return test, prompt.content, prompt.expected_response or ""
+        content = decode_prompt(prompt.content, test.test_metadata)
+        return test, content, prompt.expected_response or ""
 
 
 MetricSource = Literal["execution_time", "test_set", "requirement", "none"]

@@ -163,6 +163,14 @@ class TestInjectProbeNotes:
         assert len(result) == 1
         assert result[0].parameters["probe_notes"] == notes
 
+    def test_glitch_detector_receives_nul_trigger(self):
+        """goodside.Glitch needs the triggers; without them it scores nothing (#3158)."""
+        notes = {"triggers": ["\x00"]}
+        config = _garak_metric_config(detector_path="goodside.Glitch", name="Glitch")
+        result = self._inject([config], notes)
+
+        assert result[0].parameters["probe_notes"] == notes
+
     def test_short_path_standalone_not_injected(self):
         """A short-path standalone detector should NOT receive probe_notes."""
         notes = {"triggers": ["test"]}
