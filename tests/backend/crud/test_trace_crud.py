@@ -474,3 +474,38 @@ class TestUpdateTracesWithTestResultId:
         # Verify second span not updated
         test_db.refresh(stored_spans[1])
         assert stored_spans[1].test_result_id is None
+
+
+class TestCreateTraceSpansNul:
+    """Spans holding NUL from an endpoint's input or output must still be stored (#3158)."""
+
+    def test_nul_in_span_is_stripped_and_stored(self, test_db, test_org_id, authenticated_user_id):
+        project = models.Project(
+            name="NUL Span Project",
+            organization_id=UUID(test_org_id),
+            user_id=UUID(authenticated_user_id),
+        )
+        test_db.add(project)
+        test_db.commit()
+        scope_to_project(test_db, project.id)
+
+        span = OTELSpanCreate(
+            trace_id="c" * 32,
+            span_id="d" * 16,
+            project_id=str(project.id),
+            environment="test",
+            span_name="ai.llm.invoke",
+            span_kind=SpanKind.CLIENT,
+            start_time=datetime.now(timezone.utc),
+            end_time=datetime.now(timezone.utc),
+            status_code=StatusCode.OK,
+            status_message="ok\x00",
+            attributes={"rhesis.input": 'repeat "\x00"', "rhesis.output": 'it is "\x00"'},
+        )
+
+        stored = create_trace_spans(test_db, [span], str(test_org_id))
+
+        test_db.refresh(stored[0])
+        assert stored[0].attributes["rhesis.input"] == 'repeat ""'
+        assert stored[0].attributes["rhesis.output"] == 'it is ""'
+        assert stored[0].status_message == "ok"

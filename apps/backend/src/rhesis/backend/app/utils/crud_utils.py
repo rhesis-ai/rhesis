@@ -67,18 +67,18 @@ def _is_uuid_field(model: Type[T], field_name: str) -> bool:
     )
 
 
-def _clean_strings_recursive(val: Any) -> Any:
+def clean_strings_recursive(val: Any) -> Any:
     """Recursively clean strings to remove NUL chars and invalid UTF-8/surrogates."""
     if isinstance(val, str):
         val = val.replace("\x00", "")
         return val.encode("utf-8", "ignore").decode("utf-8")
     elif isinstance(val, dict):
         return {
-            _clean_strings_recursive(k) if isinstance(k, str) else k: _clean_strings_recursive(v)
+            clean_strings_recursive(k) if isinstance(k, str) else k: clean_strings_recursive(v)
             for k, v in val.items()
         }
     elif isinstance(val, list):
-        return [_clean_strings_recursive(v) for v in val]
+        return [clean_strings_recursive(v) for v in val]
     return val
 
 
@@ -89,7 +89,7 @@ def _clean_string_fields(model: Type[T], item_data: Dict[str, Any]) -> Dict[str,
     columns = inspect(model).columns
     for field_name, field_value in list(cleaned_data.items()):
         if field_name in columns:
-            cleaned_data[field_name] = _clean_strings_recursive(field_value)
+            cleaned_data[field_name] = clean_strings_recursive(field_value)
 
     return cleaned_data
 

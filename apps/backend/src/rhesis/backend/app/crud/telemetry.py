@@ -62,7 +62,7 @@ from rhesis.backend.app.services.telemetry.providers import (
     resolve_provider,
 )
 from rhesis.backend.app.services.telemetry.span_types import classify_span_type
-from rhesis.backend.app.utils.crud_utils import bulk_update
+from rhesis.backend.app.utils.crud_utils import bulk_update, clean_strings_recursive
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include, resolve_chain
 
 logger = logging.getLogger(__name__)
@@ -305,18 +305,19 @@ def create_trace_spans(
             organization_id=organization_id,
             environment=span.environment,
             conversation_id=span.conversation_id,
-            span_name=span.span_name,
+            span_name=clean_strings_recursive(span.span_name),
             span_kind=span.span_kind.value,
             span_type=classify_span_type(span.attributes),
             start_time=span.start_time,
             end_time=span.end_time,
             duration_ms=duration_ms,
             status_code=span.status_code.value,
-            status_message=span.status_message,
-            attributes=span.attributes,
-            events=[event.model_dump(mode="json") for event in span.events],
-            links=[link.model_dump(mode="json") for link in span.links],
-            resource=span.resource,
+            # Spans carry raw endpoint input and output; PostgreSQL rejects NUL in them.
+            status_message=clean_strings_recursive(span.status_message),
+            attributes=clean_strings_recursive(span.attributes),
+            events=clean_strings_recursive([e.model_dump(mode="json") for e in span.events]),
+            links=clean_strings_recursive([link.model_dump(mode="json") for link in span.links]),
+            resource=clean_strings_recursive(span.resource),
             test_run_id=_safe_uuid(test_run_id, "test_run_id"),
             test_result_id=_safe_uuid(test_result_id, "test_result_id"),
             test_id=_safe_uuid(test_id, "test_id"),

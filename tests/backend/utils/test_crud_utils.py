@@ -523,7 +523,11 @@ class TestGetOrCreateSpecializedFunctions:
 
             # Call the function
             result = crud_utils.get_or_create_requirement(
-                db=test_db, name=requirement_name, description=description, status=status, commit=True
+                db=test_db,
+                name=requirement_name,
+                description=description,
+                status=status,
+                commit=True,
             )
 
             # Verify result
@@ -562,31 +566,31 @@ class DummyModel(Base):
 
 @pytest.mark.unit
 class TestStringCleaning:
-    def test_clean_strings_recursive_nul_char(self):
-        result = crud_utils._clean_strings_recursive("hello\x00world")
+    def testclean_strings_recursive_nul_char(self):
+        result = crud_utils.clean_strings_recursive("hello\x00world")
         assert result == "helloworld"
 
-    def test_clean_strings_recursive_surrogate(self):
-        result = crud_utils._clean_strings_recursive("hello\ud83dworld")
+    def testclean_strings_recursive_surrogate(self):
+        result = crud_utils.clean_strings_recursive("hello\ud83dworld")
         assert result == "helloworld"
 
-    def test_clean_strings_recursive_valid_emoji(self):
-        result = crud_utils._clean_strings_recursive("hello😀world")
+    def testclean_strings_recursive_valid_emoji(self):
+        result = crud_utils.clean_strings_recursive("hello😀world")
         assert result == "hello😀world"
 
-    def test_clean_strings_recursive_dict(self):
+    def testclean_strings_recursive_dict(self):
         data = {"key\x00": "value\ud83d", "normal": 42}
-        result = crud_utils._clean_strings_recursive(data)
+        result = crud_utils.clean_strings_recursive(data)
         assert result == {"key": "value", "normal": 42}
 
-    def test_clean_strings_recursive_list(self):
+    def testclean_strings_recursive_list(self):
         data = ["hello\x00", "world\ud83d", 42]
-        result = crud_utils._clean_strings_recursive(data)
+        result = crud_utils.clean_strings_recursive(data)
         assert result == ["hello", "world", 42]
 
-    def test_clean_strings_recursive_nested(self):
+    def testclean_strings_recursive_nested(self):
         data = {"nested": ["list\x00", {"deep": "string\ud83d"}]}
-        result = crud_utils._clean_strings_recursive(data)
+        result = crud_utils.clean_strings_recursive(data)
         assert result == {"nested": ["list", {"deep": "string"}]}
 
     def test_clean_string_fields(self):
