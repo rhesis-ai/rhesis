@@ -29,6 +29,7 @@ const TEST_RUNS_FILTERS = {
     columns: [
       'name',
       'test_configuration/test_set/name',
+      'test_configuration/endpoint/name',
       'user/name',
       'status/name',
     ],
@@ -39,6 +40,11 @@ const TEST_RUNS_FILTERS = {
     kind: 'raw',
     toOData: (value: string) =>
       containsClause('test_configuration/test_set/name', value),
+  },
+  endpoint: {
+    kind: 'raw',
+    toOData: (value: string) =>
+      containsClause('test_configuration/endpoint/name', value),
   },
   executor: {
     kind: 'raw',

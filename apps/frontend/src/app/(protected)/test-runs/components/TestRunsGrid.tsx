@@ -71,6 +71,7 @@ function toFilters(state: EntityGridFilterState<TestRunFilters>) {
     search: state.search,
     status: state.pill,
     testSet: state.drawer.testSet,
+    endpoint: state.drawer.endpoint,
     executor: state.drawer.executor,
     tag: state.drawer.tag,
     tagsPresence: state.drawer.tags,

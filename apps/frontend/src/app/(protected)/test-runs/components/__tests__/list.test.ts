@@ -8,10 +8,11 @@ describe('testRunsList filters', () => {
     expect(buildListFilter(testRunsList, empty)).toBeUndefined();
   });
 
-  it('ORs the quick search across name/test set/executor/status plus a tags match, matching the old builder', () => {
+  it('ORs the quick search across name/test set/endpoint/executor/status plus a tags match', () => {
     expect(buildListFilter(testRunsList, { ...empty, search: 'nightly' })).toBe(
       "(contains(tolower(name),tolower('nightly')) or " +
         "contains(tolower(test_configuration/test_set/name),tolower('nightly')) or " +
+        "contains(tolower(test_configuration/endpoint/name),tolower('nightly')) or " +
         "contains(tolower(user/name),tolower('nightly')) or " +
         "contains(tolower(status/name),tolower('nightly')) or " +
         "_tags_relationship/any(x: contains(tolower(x/tag/name),tolower('nightly'))))"
@@ -24,11 +25,16 @@ describe('testRunsList filters', () => {
     ).toBe("tolower(status/name) eq tolower('Completed')");
   });
 
-  it('matches testSet/executor with contains, matching the old builder', () => {
+  it('matches testSet/endpoint/executor with contains', () => {
     expect(
       buildListFilter(testRunsList, { ...empty, testSet: 'Nightly' })
     ).toBe(
       "contains(tolower(test_configuration/test_set/name),tolower('Nightly'))"
+    );
+    expect(
+      buildListFilter(testRunsList, { ...empty, endpoint: 'Staging' })
+    ).toBe(
+      "contains(tolower(test_configuration/endpoint/name),tolower('Staging'))"
     );
     expect(buildListFilter(testRunsList, { ...empty, executor: 'Alice' })).toBe(
       "contains(tolower(user/name),tolower('Alice'))"
