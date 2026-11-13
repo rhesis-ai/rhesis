@@ -177,6 +177,17 @@ export default function TestRunsGrid({
         },
       },
       {
+        field: 'test_configuration.endpoint.name',
+        headerName: 'Endpoint',
+        flex: 1.6,
+        minWidth: 100,
+        filterable: true,
+        valueGetter: (_, row) => {
+          const endpoint = row.test_configuration?.endpoint;
+          return endpoint?.name || '';
+        },
+      },
+      {
         field: 'total_tests',
         headerName: 'Total Tests',
         flex: 1.1,
@@ -563,10 +574,14 @@ export default function TestRunsGrid({
       extraRowActions={extraRowActions}
       rowActionsWidth={112}
       onBulkActionsChange={onBulkActionsChange}
-      storageKey="test-runs-grid-v3"
+      storageKey="test-runs-grid-v4"
       initialState={{
         columns: {
-          columnVisibilityModel: { ...USAGE_COLUMNS_HIDDEN_BY_DEFAULT },
+          columnVisibilityModel: {
+            ...USAGE_COLUMNS_HIDDEN_BY_DEFAULT,
+            experiment: false,
+            version_info: false,
+          },
         },
       }}
       pageSizeOptions={[10, 25, 50]}
