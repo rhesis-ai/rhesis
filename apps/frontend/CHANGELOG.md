@@ -27,6 +27,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed the Ragas backend from metric icon handling now that the backend no longer serves it.
 
+## [0.21.1] - 2026-11-13
+
+### Added
+
+- Added **Endpoint** column, quick search, and drawer filter to the Test Runs grid.
+- Added server-side sorting support for Test Runs by endpoint name and test set name.
+- Added a **Test Runs** tab to the Test Set detail page to view all runs executed against a specific test set.
+
+### Changed
+
+- Streamlined the default view of the Test Runs grid by hiding the Experiment and Version columns (available via the column picker).
+
+### Fixed
+
+- Fixed requirement list prefetching in autocomplete dropdowns.
+- Fixed issue where default options were not restored upon clearing the requirement search input.
+
 ## [0.21.0] - 2026-11-12
 
 ### Added

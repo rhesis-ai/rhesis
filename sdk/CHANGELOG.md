@@ -144,6 +144,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DeepEval or Rhesis providers instead. This also drops `diskcache`, `gitpython`, `scipy` and
   `sqlalchemy` from the SDK's dependency tree.
 
+## [0.21.1] - 2026-11-13
+
+### Fixed
+
+- Registered the Garak `goodside.Glitch` detector to enable trigger evaluation and metric scoring for glitch probe tests.
+- Resolved errors when importing and running Garak glitch probes containing NUL (`\x00`) tokens in prompts, notes, and trace spans.
+
+
 ## [0.21.0] - 2026-11-12
 
 ### Added
