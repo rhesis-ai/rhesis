@@ -80,6 +80,36 @@ describe('buildInsightsSummarizePrompt', () => {
     expect(prompt).not.toContain('Note:');
   });
 
+  it('repeats the grouping and impact filter for the re-fetch', () => {
+    const prompt = buildInsightsSummarizePrompt({
+      endpointName: 'Chatbot',
+      filters: filters({ groupBy: 'impact', impactIds: ['i-1', 'i-2'] }),
+      visibleRequirementNames: ['Safety', 'No impact'],
+      testRunIds: ['run-1'],
+      truncated: false,
+      totalMatched: 1,
+    });
+
+    expect(prompt).toContain('Requirement impacts in scope: Safety, No impact');
+    expect(prompt).toContain('group_by=[impact]');
+    expect(prompt).toContain('Impact filter (impact_ids): i-1, i-2');
+    expect(prompt).toContain('by impact/metric');
+  });
+
+  it('names the parent dimension when grouped by parent', () => {
+    const prompt = buildInsightsSummarizePrompt({
+      endpointName: 'Chatbot',
+      filters: filters({ groupBy: 'parent' }),
+      visibleRequirementNames: ['Refunds'],
+      testRunIds: ['run-1'],
+      truncated: false,
+      totalMatched: 1,
+    });
+
+    expect(prompt).toContain('group_by=[requirement_parent]');
+    expect(prompt).not.toContain('Impact filter');
+  });
+
   it('discloses truncation for time-range (most recent)', () => {
     const prompt = buildInsightsSummarizePrompt({
       endpointName: 'API',

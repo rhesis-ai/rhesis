@@ -66,6 +66,24 @@ export interface BuildInsightsSummarizePromptInput {
   timeRange?: InsightsTimeRange;
 }
 
+const SUMMARIZE_GROUPING = {
+  requirement: {
+    scopeLabel: 'Requirements in scope',
+    dimension: 'requirement',
+    noun: 'requirement',
+  },
+  impact: {
+    scopeLabel: 'Requirement impacts in scope',
+    dimension: 'impact',
+    noun: 'impact',
+  },
+  parent: {
+    scopeLabel: 'Parent requirements in scope',
+    dimension: 'requirement_parent',
+    noun: 'parent requirement',
+  },
+} as const;
+
 export function buildInsightsSummarizePrompt(
   input: BuildInsightsSummarizePromptInput
 ): string {
@@ -74,11 +92,8 @@ export function buildInsightsSummarizePrompt(
     input.visibleRequirementNames.length > 0
       ? input.visibleRequirementNames.join(', ')
       : 'all visible';
-  const scopeLabel = {
-    requirement: 'Requirements in scope',
-    impact: 'Requirement impacts in scope',
-    parent: 'Parent requirements in scope',
-  }[input.filters.groupBy ?? 'requirement'];
+  const groupBy = input.filters.groupBy ?? 'requirement';
+  const { scopeLabel, dimension, noun } = SUMMARIZE_GROUPING[groupBy];
 
   const truncationNote = input.truncated
     ? input.filters.runFilterMode === 'testRuns'
@@ -98,13 +113,23 @@ export function buildInsightsSummarizePrompt(
     `Test run IDs (max ${MAX_ARCHITECT_INSIGHTS_TEST_RUN_IDS}): ${input.testRunIds.join(', ') || '(none)'}`,
   ];
 
+  // The page's grouping and impact filter change the numbers, so the
+  // re-fetch has to repeat them.
+  if (groupBy !== 'requirement') {
+    lines.push(`Group by: ${dimension} (get_insights group_by=[${dimension}])`);
+  }
+  const impactIds = input.filters.impactIds;
+  if (impactIds !== null && impactIds.length > 0) {
+    lines.push(`Impact filter (impact_ids): ${impactIds.join(', ')}`);
+  }
+
   if (truncationNote) {
     lines.push(truncationNote);
   }
 
   lines.push(
     '',
-    'Please re-fetch stats for this scope, summarize overall and by requirement/metric,',
+    `Please re-fetch stats for this scope, summarize overall and by ${noun}/metric,`,
     'then sample a few failed results and call out patterns and next steps.'
   );
 

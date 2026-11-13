@@ -482,8 +482,8 @@ export async function fetchRequirementInsights(
     testResultFilterExtras.status_ids = filters.statusIds;
   }
 
-  // Impact narrows the requirement list too: an unchecked impact's
-  // requirements leave the drawer's checkbox list along with their columns.
+  // Like requirementIds, impact narrows the columns and the summary but not
+  // the drawer's requirement list (optionsQuery below).
   const requirementFilter: Record<string, string[]> = {};
   if (filters.requirementIds !== null && filters.requirementIds.length > 0) {
     requirementFilter.requirement_ids = filters.requirementIds;
