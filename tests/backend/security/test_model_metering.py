@@ -126,6 +126,43 @@ class TestKeyedProviders:
             )
 
 
+class TestBedrock:
+    @pytest.fixture
+    def server_aws(self, monkeypatch):
+        """AWS credentials LiteLLM would sign with if the row brought no Bedrock key."""
+        monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIAPLATFORM")
+        monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "platform-secret")
+        monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
+
+    def test_a_regional_endpoint_does_not_stand_in_for_the_key(self, monkeypatch, server_aws):
+        with pytest.raises(ModelConfigurationError, match="needs an API key"):
+            _resolve(
+                monkeypatch,
+                _row(
+                    "bedrock",
+                    endpoint="https://bedrock-runtime.eu-central-1.amazonaws.com",
+                    model_name="eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+                ),
+            )
+
+    def test_tenant_row_runs_on_its_bedrock_key_and_region(self, monkeypatch, server_aws):
+        endpoint = "https://bedrock-runtime.eu-central-1.amazonaws.com"
+        model = _resolve(
+            monkeypatch,
+            _row(
+                "bedrock",
+                key="tenant-bedrock-key",
+                endpoint=endpoint,
+                model_name="eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+            ),
+        )
+
+        assert model.usage_metered is False
+        assert model.api_key == "tenant-bedrock-key"
+        assert model.api_base == endpoint
+        assert model.model_name == "bedrock/eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+
 class TestSelfHostedProviders:
     @pytest.fixture
     def server_keys(self, monkeypatch):
