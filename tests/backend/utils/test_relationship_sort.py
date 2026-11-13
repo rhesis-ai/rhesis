@@ -3,6 +3,7 @@ from fastapi import HTTPException
 
 from rhesis.backend.app.models.requirement import Requirement
 from rhesis.backend.app.models.test import Test
+from rhesis.backend.app.models.test_run import TestRun
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.app.utils.query_validation import validate_sort_field
 from rhesis.backend.app.utils.relationship_sort import (
@@ -129,3 +130,55 @@ def test_apply_relationship_sort_keeps_query_unchanged_when_unsupported(test_db)
     query = test_db.query(Requirement)
 
     assert apply_virtual_relationship_sort(query, Requirement, "topic.name", "asc") is query
+
+
+# --- Chain (multi-hop) sort tests ---
+
+
+@pytest.mark.parametrize("sort_by", ["endpoint.name", "test_set.name"])
+def test_chain_sort_detection(sort_by):
+    assert is_virtual_relationship_sort(sort_by)
+
+
+@pytest.mark.parametrize("sort_by", ["endpoint.name", "test_set.name"])
+def test_chain_sort_supported_on_test_run(sort_by):
+    assert model_supports_relationship_sort(TestRun, sort_by)
+
+
+@pytest.mark.parametrize("sort_by", ["endpoint.name", "test_set.name"])
+def test_chain_sort_not_supported_on_unrelated_model(sort_by):
+    assert not model_supports_relationship_sort(Requirement, sort_by)
+
+
+@pytest.mark.parametrize("sort_by", ["endpoint.name", "test_set.name"])
+def test_validate_sort_field_accepts_chain_sort_for_test_run(sort_by):
+    validate_sort_field(TestRun, sort_by)
+
+
+@pytest.mark.parametrize("sort_by", ["endpoint.name", "test_set.name"])
+def test_validate_sort_field_rejects_chain_sort_for_other_models(sort_by):
+    with pytest.raises(HTTPException) as exc_info:
+        validate_sort_field(Requirement, sort_by)
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.parametrize(
+    ("sort_by", "target_table", "target_column"),
+    [
+        ("endpoint.name", "endpoint", "name"),
+        ("test_set.name", "test_set", "name"),
+    ],
+)
+@pytest.mark.parametrize("sort_order", ["asc", "desc"])
+def test_chain_sort_builds_correlated_subquery(
+    test_db, sort_by, target_table, target_column, sort_order
+):
+    query = test_db.query(TestRun)
+    sorted_query = apply_virtual_relationship_sort(query, TestRun, sort_by, sort_order)
+
+    compiled = str(sorted_query.statement.compile(compile_kwargs={"literal_binds": True})).lower()
+    assert f"{target_table}.{target_column}" in compiled
+    assert "test_configuration" in compiled
+    assert "order by" in compiled
+    if sort_order == "desc":
+        assert " desc" in compiled

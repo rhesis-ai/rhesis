@@ -16,6 +16,8 @@ const GRID_TO_API_SORT_FIELD: Record<string, string> = {
   'usage.models': 'model',
   // The traces grid carries the same list at the top level of its row.
   models: 'model',
+  'test_configuration.endpoint.name': 'endpoint.name',
+  'test_configuration.test_set.name': 'test_set.name',
 };
 
 export function gridSortToApiParams(sortModel: GridSortModel): {

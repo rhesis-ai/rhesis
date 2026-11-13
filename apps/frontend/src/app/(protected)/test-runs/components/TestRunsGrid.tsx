@@ -181,7 +181,6 @@ export default function TestRunsGrid({
         headerName: 'Endpoint',
         flex: 1.6,
         minWidth: 100,
-        sortable: false,
         filterable: true,
         valueGetter: (_, row) => {
           const endpoint = row.test_configuration?.endpoint;
