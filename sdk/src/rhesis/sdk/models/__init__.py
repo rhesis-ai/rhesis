@@ -35,6 +35,7 @@ from rhesis.sdk.models.factory import (
 if TYPE_CHECKING:
     from rhesis.sdk.models.providers.azure_ai import AzureAILLM
     from rhesis.sdk.models.providers.azure_openai import AzureOpenAILLM
+    from rhesis.sdk.models.providers.bedrock import BedrockLLM
     from rhesis.sdk.models.providers.gemini import GeminiEmbedder, GeminiLLM
     from rhesis.sdk.models.providers.huggingface import HuggingFaceLLM
     from rhesis.sdk.models.providers.jev import JevDecisionModel
@@ -67,6 +68,7 @@ _HF_MISSING_DEPS_MARKER = "HuggingFace dependencies are not installed"
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "AzureAILLM": ("rhesis.sdk.models.providers.azure_ai", "AzureAILLM"),
     "AzureOpenAILLM": ("rhesis.sdk.models.providers.azure_openai", "AzureOpenAILLM"),
+    "BedrockLLM": ("rhesis.sdk.models.providers.bedrock", "BedrockLLM"),
     "GeminiEmbedder": ("rhesis.sdk.models.providers.gemini", "GeminiEmbedder"),
     "GeminiLLM": ("rhesis.sdk.models.providers.gemini", "GeminiLLM"),
     "JevDecisionModel": ("rhesis.sdk.models.providers.jev", "JevDecisionModel"),
@@ -107,6 +109,7 @@ def __dir__() -> list[str]:
 __all__ = [
     "AzureAILLM",
     "AzureOpenAILLM",
+    "BedrockLLM",
     "BaseDecisionModel",
     "BaseEmbedder",
     "BaseLLM",
