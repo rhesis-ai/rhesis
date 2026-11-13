@@ -63,32 +63,44 @@ class TestBedrockLLMGenerate:
         assert kwargs["api_base"] == EU_RUNTIME
 
 
+_LIST_ALL = "rhesis.sdk.models.providers.litellm.LiteLLM.get_available_models"
+
+
 class TestBedrockModelListing:
-    def test_lists_text_models_without_the_provider_prefix(self):
-        models = BedrockLLM.get_available_models()
-        assert any("anthropic.claude" in m for m in models)
-        assert not any(m.startswith("bedrock/") for m in models)
+    """Mocked catalogue: LiteLLM's real one changes with every release."""
+
+    CATALOGUE = {
+        "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0": {"mode": "chat"},
+        "amazon.titan-text-express-v1": {"mode": "completion"},
+        "amazon.titan-embed-text-v2:0": {"mode": "embedding"},
+        "amazon.rerank-v1:0": {"mode": "rerank"},
+        "amazon.nova-canvas-v1:0": {"mode": "image_generation"},
+        "amazon.nova-2-sonic-v1:0": {"mode": "realtime"},
+        "512-x-512/50-steps/stability.stable-diffusion-xl-v0": {"mode": "image_generation"},
+    }
+
+    def _listed(self, listed):
+        with (
+            patch(_LIST_ALL, return_value=listed),
+            patch.dict("litellm.model_cost", self.CATALOGUE, clear=True),
+        ):
+            return BedrockLLM.get_available_models()
+
+    def test_keeps_chat_and_completion_models(self):
+        listed = ["us.anthropic.claude-sonnet-4-5-20250929-v1:0", "amazon.titan-text-express-v1"]
+        assert self._listed(listed) == listed
 
     def test_drops_models_that_cannot_generate_text(self):
-        models = BedrockLLM.get_available_models()
-        for not_text in (
+        listed = [
             "amazon.titan-embed-text-v2:0",
-            "cohere.embed-v4:0",
             "amazon.rerank-v1:0",
             "amazon.nova-canvas-v1:0",
-            "stability.sd3-large-v1:0",
-        ):
-            assert not_text not in models
-        assert not any("/" in m for m in models)
+            "amazon.nova-2-sonic-v1:0",
+        ]
+        assert self._listed(listed) == []
+
+    def test_drops_pricing_variants(self):
+        assert self._listed(["512-x-512/50-steps/stability.stable-diffusion-xl-v0"]) == []
 
     def test_keeps_a_model_whose_mode_litellm_does_not_record(self):
-        listed = ["anthropic.claude-v2", "cohere.embed-v4:0"]
-        costs = {"bedrock/cohere.embed-v4:0": {"mode": "embedding"}}
-        with (
-            patch(
-                "rhesis.sdk.models.providers.litellm.LiteLLM.get_available_models",
-                return_value=listed,
-            ),
-            patch.dict("litellm.model_cost", costs, clear=True),
-        ):
-            assert BedrockLLM.get_available_models() == ["anthropic.claude-v2"]
+        assert self._listed(["anthropic.claude-v2"]) == ["anthropic.claude-v2"]
