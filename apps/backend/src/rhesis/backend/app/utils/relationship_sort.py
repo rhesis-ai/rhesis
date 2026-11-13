@@ -1,15 +1,4 @@
-"""Virtual sort fields backed by related model columns.
-
-Each entry in ``_RELATIONSHIP_SORT_FIELDS`` is either:
-
-* A **single-hop** 3-tuple ``(RelatedModel, column, fk_on_root)`` for a
-  direct FK on the queried model, or
-* A **multi-hop** list of ``(Model, fk_column)`` pairs ending with a
-  ``(Model, sort_column)`` pair, walking through intermediate tables.
-
-Both forms produce a correlated scalar subquery so the sort works inside
-the id-only phase-1 query without eager-loading the relationship.
-"""
+"""Virtual sort fields backed by related model columns."""
 
 from __future__ import annotations
 
@@ -25,22 +14,22 @@ from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.topic import Topic
 from rhesis.backend.app.models.type_lookup import TypeLookup
 
-_RELATIONSHIP_SORT_FIELDS: dict[str, tuple | list] = {
-    "requirement.name": (Requirement, "name", "requirement_id"),
-    "topic.name": (Topic, "name", "topic_id"),
-    "category.name": (Category, "name", "category_id"),
-    "test_type.type_value": (TypeLookup, "type_value", "test_type_id"),
-    "prompt.content": (Prompt, "content", "prompt_id"),
-    "endpoint.name": [
-        (TestConfiguration, "test_configuration_id"),
-        (Endpoint, "endpoint_id"),
+# sort field -> (hops, column). Each hop is (model, fk on the previous model);
+# the first fk lives on the model being sorted, the column on the last hop's model.
+_RELATIONSHIP_SORT_FIELDS = {
+    "requirement.name": (((Requirement, "requirement_id"),), "name"),
+    "topic.name": (((Topic, "topic_id"),), "name"),
+    "category.name": (((Category, "category_id"),), "name"),
+    "test_type.type_value": (((TypeLookup, "test_type_id"),), "type_value"),
+    "prompt.content": (((Prompt, "prompt_id"),), "content"),
+    "endpoint.name": (
+        ((TestConfiguration, "test_configuration_id"), (Endpoint, "endpoint_id")),
         "name",
-    ],
-    "test_set.name": [
-        (TestConfiguration, "test_configuration_id"),
-        (TestSet, "test_set_id"),
+    ),
+    "test_set.name": (
+        ((TestConfiguration, "test_configuration_id"), (TestSet, "test_set_id")),
         "name",
-    ],
+    ),
 }
 VIRTUAL_RELATIONSHIP_SORT_FIELDS = frozenset(_RELATIONSHIP_SORT_FIELDS)
 
@@ -49,46 +38,21 @@ def is_virtual_relationship_sort(sort_by: str | None) -> bool:
     return sort_by in VIRTUAL_RELATIONSHIP_SORT_FIELDS
 
 
-def _is_chain(entry: tuple | list) -> bool:
-    return isinstance(entry, list)
-
-
 def model_supports_relationship_sort(model, sort_by: str) -> bool:
-    entry = _RELATIONSHIP_SORT_FIELDS.get(sort_by)
-    if entry is None:
+    relationship_sort = _RELATIONSHIP_SORT_FIELDS.get(sort_by)
+    if relationship_sort is None:
         return False
-    if _is_chain(entry):
-        return hasattr(model, entry[0][1])
-    return hasattr(model, entry[2])
+    hops, _column = relationship_sort
+    return hasattr(model, hops[0][1])
 
 
-def _single_hop_subquery(model, sort_by: str):
-    related_model, related_column, foreign_key = _RELATIONSHIP_SORT_FIELDS[sort_by]
-    return (
-        select(getattr(related_model, related_column))
-        .where(related_model.id == getattr(model, foreign_key))
-        .correlate(model)
-        .scalar_subquery()
-    )
-
-
-def _chain_subquery(model, chain: list):
-    """Build a correlated subquery walking a multi-hop chain.
-
-    ``chain`` is ``[(IntermediateModel, fk_on_parent), ..., sort_column]``
-    where the first ``fk_on_parent`` lives on ``model``.
-    """
-    sort_column = chain[-1]
-    hops = chain[:-1]
-
-    target_model = hops[-1][0]
-    stmt = select(getattr(target_model, sort_column))
-
-    prev_model = model
-    for hop_model, fk_attr in hops:
-        stmt = stmt.where(hop_model.id == getattr(prev_model, fk_attr))
-        prev_model = hop_model
-
+def _relationship_subquery(model, sort_by: str):
+    hops, column = _RELATIONSHIP_SORT_FIELDS[sort_by]
+    stmt = select(getattr(hops[-1][0], column))
+    parent = model
+    for related_model, foreign_key in hops:
+        stmt = stmt.where(related_model.id == getattr(parent, foreign_key))
+        parent = related_model
     return stmt.correlate(model).scalar_subquery()
 
 
@@ -102,12 +66,7 @@ def apply_virtual_relationship_sort(
     if not model_supports_relationship_sort(model, sort_by):
         return query
 
-    entry = _RELATIONSHIP_SORT_FIELDS[sort_by]
-    if _is_chain(entry):
-        sort_expression = _chain_subquery(model, entry)
-    else:
-        sort_expression = _single_hop_subquery(model, sort_by)
-
+    sort_expression = _relationship_subquery(model, sort_by)
     if sort_order == "desc":
         return query.order_by(desc(sort_expression))
     return query.order_by(sort_expression)
