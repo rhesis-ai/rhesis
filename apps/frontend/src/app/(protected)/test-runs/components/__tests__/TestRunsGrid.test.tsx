@@ -104,6 +104,7 @@ jest.mock('../TestRunFilterDrawer', () => ({
     open ? <div data-testid="test-run-filter-drawer" /> : null,
   EMPTY_TEST_RUN_FILTERS: {
     testSet: '',
+    endpoint: '',
     executor: '',
     tag: '',
     tags: 'all',

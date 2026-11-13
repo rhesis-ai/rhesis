@@ -71,6 +71,7 @@ function toFilters(state: EntityGridFilterState<TestRunFilters>) {
     search: state.search,
     status: state.pill,
     testSet: state.drawer.testSet,
+    endpoint: state.drawer.endpoint,
     executor: state.drawer.executor,
     tag: state.drawer.tag,
     tagsPresence: state.drawer.tags,
@@ -174,6 +175,17 @@ export default function TestRunsGrid({
         valueGetter: (_, row) => {
           const testSet = row.test_configuration?.test_set;
           return testSet?.name || '';
+        },
+      },
+      {
+        field: 'test_configuration.endpoint.name',
+        headerName: 'Endpoint',
+        flex: 1.6,
+        minWidth: 100,
+        filterable: true,
+        valueGetter: (_, row) => {
+          const endpoint = row.test_configuration?.endpoint;
+          return endpoint?.name || '';
         },
       },
       {
@@ -563,10 +575,14 @@ export default function TestRunsGrid({
       extraRowActions={extraRowActions}
       rowActionsWidth={112}
       onBulkActionsChange={onBulkActionsChange}
-      storageKey="test-runs-grid-v3"
+      storageKey="test-runs-grid-v4"
       initialState={{
         columns: {
-          columnVisibilityModel: { ...USAGE_COLUMNS_HIDDEN_BY_DEFAULT },
+          columnVisibilityModel: {
+            ...USAGE_COLUMNS_HIDDEN_BY_DEFAULT,
+            experiment: false,
+            version_info: false,
+          },
         },
       }}
       pageSizeOptions={[10, 25, 50]}

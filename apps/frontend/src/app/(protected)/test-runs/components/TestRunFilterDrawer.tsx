@@ -8,7 +8,12 @@ import {
   filterChipSx,
   filterDrawerTextFieldSx,
 } from '@/components/common/FilterDrawer';
-import { useRunTestSets, useTags, useUsers } from '@/hooks/useLookups';
+import {
+  useEndpoints,
+  useRunTestSets,
+  useTags,
+  useUsers,
+} from '@/hooks/useLookups';
 import ActivityPresenceFiltersSection from '@/components/common/ActivityPresenceFilters';
 import {
   countActivePresenceFilters,
@@ -21,6 +26,8 @@ export type RunKindFilter = 'all' | 'tests' | 'experiments';
 export interface TestRunFilters {
   /** test_configuration/test_set/name contains */
   testSet: string;
+  /** test_configuration/endpoint/name contains */
+  endpoint: string;
   /** user/name contains (executor) */
   executor: string;
   /** tags contains */
@@ -35,6 +42,7 @@ export interface TestRunFilters {
 
 export const EMPTY_TEST_RUN_FILTERS: TestRunFilters = {
   testSet: '',
+  endpoint: '',
   executor: '',
   tag: '',
   runKind: 'all',
@@ -47,6 +55,7 @@ export const EMPTY_TEST_RUN_FILTERS: TestRunFilters = {
 export function hasActiveTestRunFilters(f: TestRunFilters): boolean {
   return (
     f.testSet !== '' ||
+    f.endpoint !== '' ||
     f.executor !== '' ||
     f.tag !== '' ||
     f.runKind !== 'all' ||
@@ -57,6 +66,7 @@ export function hasActiveTestRunFilters(f: TestRunFilters): boolean {
 export function countActiveTestRunFilters(f: TestRunFilters): number {
   return (
     (f.testSet !== '' ? 1 : 0) +
+    (f.endpoint !== '' ? 1 : 0) +
     (f.executor !== '' ? 1 : 0) +
     (f.tag !== '' ? 1 : 0) +
     (f.runKind !== 'all' ? 1 : 0) +
@@ -90,13 +100,20 @@ export default function TestRunFilterDrawer({
   // for values that aren't listed (freeSolo).
   const { data: rawTestSets, isLoading: loadingTestSets } =
     useRunTestSets(open);
+  const { data: rawEndpoints, isLoading: loadingEndpoints } =
+    useEndpoints(open);
   const { data: rawUsers, isLoading: loadingUsers } = useUsers(open);
   const { data: rawTags, isLoading: loadingTags } = useTags(open);
-  const loadingOptions = loadingTestSets || loadingUsers || loadingTags;
+  const loadingOptions =
+    loadingTestSets || loadingEndpoints || loadingUsers || loadingTags;
 
   const testSetOptions = React.useMemo(
     () => (rawTestSets ?? []).map(ts => ts.name).filter(Boolean),
     [rawTestSets]
+  );
+  const endpointOptions = React.useMemo(
+    () => (rawEndpoints ?? []).map(ep => ep.name).filter(Boolean),
+    [rawEndpoints]
   );
   const executorOptions = React.useMemo(
     () =>
@@ -121,7 +138,10 @@ export default function TestRunFilterDrawer({
 
   const renderAutocomplete = (
     title: string,
-    field: keyof Pick<TestRunFilters, 'testSet' | 'executor' | 'tag'>,
+    field: keyof Pick<
+      TestRunFilters,
+      'testSet' | 'endpoint' | 'executor' | 'tag'
+    >,
     options: string[],
     placeholder: string
   ) => (
@@ -184,6 +204,12 @@ export default function TestRunFilterDrawer({
         'testSet',
         testSetOptions,
         'Select test set…'
+      )}
+      {renderAutocomplete(
+        'Endpoint',
+        'endpoint',
+        endpointOptions,
+        'Select endpoint…'
       )}
       {renderAutocomplete(
         'Executor',

@@ -79,9 +79,10 @@ def read_test_runs(
         "created_at",
         description=(
             "Field to sort by. Any TestRun column, the comments_count/tasks_count/"
-            "tags_count activity counts, or one of the usage totals aggregated from the "
-            "run's traces: total_tokens, total_input_tokens, total_output_tokens, "
-            "total_cost_usd, total_input_cost_usd, total_output_cost_usd, model."
+            "tags_count activity counts, endpoint.name, test_set.name, or one of "
+            "the usage totals aggregated from the run's traces: total_tokens, "
+            "total_input_tokens, total_output_tokens, total_cost_usd, "
+            "total_input_cost_usd, total_output_cost_usd, model."
         ),
     ),
     sort_order: str = "desc",

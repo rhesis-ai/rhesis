@@ -12,7 +12,9 @@ import {
   testKeys,
   testSetKeys,
   annotationKeys,
+  endpointKeys,
 } from '@/constants/query-keys';
+import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Status } from '@/utils/api-client/interfaces/status';
 import { RequirementOption } from '@/utils/api-client/interfaces/requirement';
@@ -144,6 +146,26 @@ export function useRunTestSets(enabled = true) {
         .getTestSetsClient()
         .getTestSets({
           has_runs: true,
+          skip: 0,
+          limit: 100,
+          sort_by: 'name',
+          sort_order: 'asc',
+        });
+      return response.data;
+    },
+    enabled: enabled && isAuthenticated,
+    staleTime: STALE_TIME,
+  });
+}
+
+export function useEndpoints(enabled = true) {
+  const isAuthenticated = useIsAuthenticated();
+  return useQuery<Endpoint[]>({
+    queryKey: endpointKeys.list('', 0, 100, 'name', 'asc'),
+    queryFn: async () => {
+      const response = await new ApiClientFactory()
+        .getEndpointsClient()
+        .getEndpoints({
           skip: 0,
           limit: 100,
           sort_by: 'name',

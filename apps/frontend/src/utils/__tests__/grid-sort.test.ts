@@ -23,6 +23,19 @@ describe('gridSortToApiParams', () => {
     });
   });
 
+  it('maps the test run endpoint and test set columns to their relationship sorts', () => {
+    expect(
+      gridSortToApiParams([
+        { field: 'test_configuration.endpoint.name', sort: 'asc' },
+      ])
+    ).toEqual({ sort_by: 'endpoint.name', sort_order: 'asc' });
+    expect(
+      gridSortToApiParams([
+        { field: 'test_configuration.test_set.name', sort: 'desc' },
+      ])
+    ).toEqual({ sort_by: 'test_set.name', sort_order: 'desc' });
+  });
+
   it('passes a column whose name already matches the API through unchanged', () => {
     expect(gridSortToApiParams([{ field: 'name', sort: 'asc' }])).toEqual({
       sort_by: 'name',
