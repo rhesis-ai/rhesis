@@ -64,7 +64,7 @@ export default function RequirementInsightsRow({
       >
         {row.map(column => (
           <RequirementColumn
-            key={column.id}
+            key={column.id ?? 'none'}
             column={column}
             insightsFilters={insightsFilters}
             expanded={expanded}

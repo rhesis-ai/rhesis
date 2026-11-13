@@ -32,6 +32,10 @@ export function toInsightsFailedTestIdsScope(
     timeRange: resolveInsightsTimeRange(filters.timeRange),
     testRunIds: [...filters.testRunIds].sort(),
     ...(filters.requirementId ? { requirementId: filters.requirementId } : {}),
+    ...(filters.impactId ? { impactId: filters.impactId } : {}),
+    ...(filters.requirementParentId
+      ? { requirementParentId: filters.requirementParentId }
+      : {}),
     ...(filters.metricName ? { metricName: filters.metricName } : {}),
     ...(filters.topicName ? { topicName: filters.topicName } : {}),
     outcome: filters.outcome === 'all' ? 'all' : 'failed',
@@ -122,6 +126,8 @@ export function useInsightsFailedTestIds(
       filters?.timeRange,
       testRunIdsKey,
       filters?.requirementId,
+      filters?.impactId,
+      filters?.requirementParentId,
       filters?.metricName,
       filters?.topicName,
       filters?.outcome,

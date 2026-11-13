@@ -1,8 +1,11 @@
 """Read-only SQLAlchemy models mapped to PostgreSQL stats views.
 
 These models back v_test_run_stats, v_test_result_stats, v_metric_stats and
-v_test_stats, last redefined by migration c47fd570587b. They are intentionally
-thin -- all join and classification logic lives in the view DDL.
+v_test_stats, last redefined by migrations c47fd570587b and f1a7c3e9d2b5. They
+are intentionally thin -- all join and classification logic lives in the view DDL.
+
+impact_* and requirement_parent_* come from the test's requirement and are NULL
+when it has no impact or no parent.
 
 The views are security_invoker: the underlying tables' RLS applies to the
 caller, so read them from a session with the request scope GUCs bound.
@@ -80,6 +83,10 @@ class MetricStatsView(Base):
     endpoint_name = Column(String)
     # NULL for categorical scores, so averages only see numbers.
     score = Column(Float)
+    impact_id = Column(GUID())
+    impact_name = Column(String)
+    requirement_parent_id = Column(GUID())
+    requirement_parent_name = Column(String)
 
     # Suppress Base defaults that don't apply to views
     id = None
@@ -123,6 +130,10 @@ class TestStatsView(Base):
     error_count = Column(Integer)
     is_unrun = Column(Boolean)
     last_run_at = Column(DateTime(timezone=True))
+    impact_id = Column(GUID())
+    impact_name = Column(String)
+    requirement_parent_id = Column(GUID())
+    requirement_parent_name = Column(String)
 
     # Suppress Base defaults that don't apply to views
     id = None
@@ -167,6 +178,10 @@ class TestResultStatsView(Base):
     endpoint_name = Column(String)
     executor_id = Column(GUID())
     executor_name = Column(String)
+    impact_id = Column(GUID())
+    impact_name = Column(String)
+    requirement_parent_id = Column(GUID())
+    requirement_parent_name = Column(String)
 
     # Suppress Base defaults that don't apply to views
     id = None

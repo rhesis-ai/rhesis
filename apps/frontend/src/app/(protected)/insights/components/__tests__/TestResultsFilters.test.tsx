@@ -19,6 +19,7 @@ jest.mock('../InsightsFilterDrawer', () => ({
     onApply: (filters: {
       endpointId: string;
       requirementIds: string[] | null;
+      impactIds: string[] | null;
       statusIds: string[] | null;
       timeRange: '1m' | '7d';
       testRunIds: string[];
@@ -32,6 +33,7 @@ jest.mock('../InsightsFilterDrawer', () => ({
             onApply({
               endpointId: 'ep-2',
               requirementIds: null,
+              impactIds: null,
               statusIds: null,
               timeRange: '1m',
               testRunIds: ['run-1'],

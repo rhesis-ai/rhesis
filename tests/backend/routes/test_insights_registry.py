@@ -1,6 +1,9 @@
 """Insights registry on a fixed dataset: two runs on two endpoints, a requirement name
 shared by two requirements, an errored result, numeric and text metric scores, and
-results straddling midnight UTC at a month boundary."""
+results straddling midnight UTC at a month boundary.
+
+Refunds has the Financial impact and Safety the Safety one; "Safety dup" has no impact
+and sits under Safety, so impact and parent each have a group with nothing set."""
 
 from datetime import datetime, timedelta, timezone
 
@@ -35,11 +38,24 @@ def dataset(
     def named(model, name, **kw):
         return add(model(name=name, organization_id=org_id, user_id=user_id, **kw))
 
-    requirements = {
-        "Refunds": named(models.Requirement, "Refunds"),
-        "Safety": named(models.Requirement, "Safety"),
-        "Safety dup": named(models.Requirement, "Safety"),
+    impacts = {
+        n: add(
+            models.TypeLookup(
+                type_name="RequirementImpact",
+                type_value=n,
+                organization_id=org_id,
+                user_id=user_id,
+            )
+        )
+        for n in ("Financial", "Safety")
     }
+    requirements = {
+        "Refunds": named(models.Requirement, "Refunds", impact_id=impacts["Financial"].id),
+        "Safety": named(models.Requirement, "Safety", impact_id=impacts["Safety"].id),
+    }
+    requirements["Safety dup"] = named(
+        models.Requirement, "Safety", parent_id=requirements["Safety"].id
+    )
     topics = {n: named(models.Topic, n) for n in ("Billing", "Claims", "Greetings")}
     categories = {n: named(models.Category, n) for n in ("Harmless", "Harmful")}
     test_sets = {n: named(models.TestSet, n) for n in ("Core", "Edge")}
@@ -145,6 +161,8 @@ def dataset(
         "run_ids": [str(run.id) for run, _, _ in runs.values()],
         "test_ids": [str(t.id) for t in tests],
         "names": names,
+        "impact_ids": {n: str(o.id) for n, o in impacts.items()},
+        "requirement_ids": {n: str(o.id) for n, o in requirements.items()},
     }
 
 
@@ -253,6 +271,60 @@ class TestInsightsRegistry:
         assert ran == {**ran, "count": 7, "run_count": 14, "passed": 7, "failed": 5}
         assert _by(rows, "is_unrun")[True]["count"] == 1
 
+    def test_impact_groups_keep_requirements_without_one(self, query, dataset):
+        by_impact = _by(query("test_result", ["impact"], ["count", "passed", "failed"]), "impact")
+        assert set(by_impact) == {"Financial", "Safety", None}
+        assert by_impact["Financial"] == {
+            "impact_id": dataset["impact_ids"]["Financial"],
+            "impact": "Financial",
+            "count": 6,
+            "passed": 4,
+            "failed": 2,
+        }
+        assert by_impact["Safety"]["count"] == 4
+        # "Safety dup" has no impact: an explicit null group, not a dropped one.
+        assert by_impact[None] == {
+            "impact_id": None,
+            "impact": None,
+            "count": 4,
+            "passed": 2,
+            "failed": 1,
+        }
+
+    def test_parent_groups_keep_top_level_requirements(self, query, dataset):
+        rows = query("test_result", ["requirement_parent"], ["count", "pass_rate"])
+        by_parent = _by(rows, "requirement_parent_id")
+        safety = by_parent[dataset["requirement_ids"]["Safety"]]
+        assert safety == {**safety, "requirement_parent": "Safety", "count": 4, "pass_rate": 66.67}
+        assert by_parent[None] == {**by_parent[None], "requirement_parent": None, "count": 10}
+
+    def test_impact_and_parent_on_metric_and_test_entities(self, query):
+        fluency = query("metric", ["impact"], ["pass_rate"], metric_names=["Fluency"])
+        assert _by(fluency, "impact")["Financial"]["pass_rate"] == 66.67
+        assert None in _by(fluency, "impact")
+
+        tests = _by(query("test", ["impact"], ["count", "unrun_count"]), "impact")
+        assert tests["Financial"] == {**tests["Financial"], "count": 4, "unrun_count": 1}
+        assert tests[None]["count"] == 2
+
+        parents = _by(query("test", ["requirement_parent"], ["count"]), "requirement_parent")
+        assert {k: r["count"] for k, r in parents.items()} == {"Safety": 2, None: 6}
+
+    @pytest.mark.parametrize(
+        "entity, by_impact, by_parent",
+        [("test_result", 6, 4), ("metric", 12, 8), ("test", 4, 2)],
+    )
+    def test_impact_and_parent_filters(self, query, dataset, entity, by_impact, by_parent):
+        (row,) = query(entity, [], ["count"], impact_ids=[dataset["impact_ids"]["Financial"]])
+        assert row["count"] == by_impact
+        (row,) = query(
+            entity,
+            [],
+            ["count"],
+            requirement_parent_ids=[dataset["requirement_ids"]["Safety"]],
+        )
+        assert row["count"] == by_parent
+
 
 @pytest.mark.unit
 class TestInsightsValidation:
@@ -296,6 +368,15 @@ class TestInsightsValidation:
         assert result["measures"]["pass_rate"]["kind"] == "rate"
         assert "endpoint_ids" in result["filters"]
         assert body["time_grains"] == ["day", "week", "month", "quarter", "year"]
+
+    @pytest.mark.parametrize("entity", ["test_result", "metric", "test"])
+    def test_schema_lists_impact_and_parent(self, authenticated_client, entity):
+        body = authenticated_client.get("/insights/schema").json()
+        entry = body["entities"][entity]
+        assert entry["dimensions"]["impact"]["has_id"] is True
+        assert entry["dimensions"]["requirement_parent"]["has_id"] is True
+        assert {"impact_ids", "requirement_parent_ids"} <= set(entry["filters"])
+        assert "impact" not in body["entities"]["test_run"]["dimensions"]
 
 
 @pytest.mark.unit

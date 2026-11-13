@@ -8,11 +8,24 @@ import {
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { TestRun } from '@/utils/api-client/interfaces/test-run';
 import {
+  DEFAULT_INSIGHTS_GROUP_BY,
+  INSIGHTS_NONE_GROUP_LABELS,
   InsightsFilters,
+  InsightsGroupBy,
   InsightsTimeRange,
   resolveInsightsTimeRange,
   timeRangeToStatsParams,
 } from '../types';
+
+/** The registry dimension (and its `<dimension>_id` key) behind each group-by. */
+export const INSIGHTS_GROUP_DIMENSIONS: Record<
+  InsightsGroupBy,
+  { dimension: string; idKey: string }
+> = {
+  requirement: { dimension: 'requirement', idKey: 'requirement_id' },
+  impact: { dimension: 'impact', idKey: 'impact_id' },
+  parent: { dimension: 'requirement_parent', idKey: 'requirement_parent_id' },
+};
 
 function endpointMatchesProject(
   endpoint: Endpoint,
@@ -32,9 +45,20 @@ export interface DimensionItem {
   pass_rate: number;
 }
 
+/**
+ * One column on the Insights page: a requirement, an impact or a parent
+ * requirement, depending on `groupBy`. `id` is null for the group of
+ * requirements that have no impact or no parent -- it still counts, it just
+ * can't be drilled into by id.
+ */
 export interface RequirementInsightColumn {
-  id: string;
+  id: string | null;
   name: string;
+  groupBy: InsightsGroupBy;
+  /** The impact name behind the column's dot: the requirement's own, or the impact itself. */
+  impact: string | null;
+  /** Grouped by impact or parent: the requirements in the group, A–Z. Empty by requirement. */
+  children: string[];
   overall: PassFailStats;
   metrics: DimensionItem[];
   topics: DimensionItem[];
@@ -52,13 +76,14 @@ export function sortByPassRateAsc<
   });
 }
 
-/** Sort requirement insight columns alphabetically by name (A–Z). */
+/** Sort requirement insight columns alphabetically by name (A–Z), the "none" group last. */
 export function sortRequirementColumns(
   columns: RequirementInsightColumn[]
 ): RequirementInsightColumn[] {
-  return [...columns].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
-  );
+  return [...columns].sort((a, b) => {
+    if ((a.id === null) !== (b.id === null)) return a.id === null ? 1 : -1;
+    return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+  });
 }
 
 /**
@@ -281,25 +306,34 @@ export async function resolveInsightsQueryTestRunIds(
   return testRunIds;
 }
 
-/** Group rows sharing a `requirement_id` into `DimensionItem[]`, keyed by `nameKey`. */
-function groupRowsByRequirementId(
+/** Map key for a group id; the null group (no impact / no parent) gets its own. */
+const NONE_GROUP_KEY = '\u0000none';
+
+function groupKey(id: unknown): string | undefined {
+  if (typeof id === 'string') return id;
+  return id === null ? NONE_GROUP_KEY : undefined;
+}
+
+/** Group rows sharing a group id (`groupIdKey`) into `DimensionItem[]`, keyed by `nameKey`. */
+function groupRowsByGroupId(
   rows: InsightsRow[],
+  groupIdKey: string,
   nameKey: string,
   idKey?: string
 ): Map<string, DimensionItem[]> {
   const grouped = new Map<string, DimensionItem[]>();
   for (const row of rows) {
-    const requirementId = row.requirement_id;
+    const key = groupKey(row[groupIdKey]);
     const name = row[nameKey];
-    if (typeof requirementId !== 'string' || typeof name !== 'string') continue;
+    if (key === undefined || typeof name !== 'string') continue;
     const id = idKey != null ? row[idKey] : undefined;
-    const items = grouped.get(requirementId) ?? [];
+    const items = grouped.get(key) ?? [];
     items.push({
       name,
       ...(typeof id === 'string' ? { id } : {}),
       ...rowToPassFailStats(row),
     });
-    grouped.set(requirementId, items);
+    grouped.set(key, items);
   }
   return grouped;
 }
@@ -338,37 +372,51 @@ export function buildRequirementOptions(
     );
 }
 
+/**
+ * One column per group row. Grouped by requirement, a row without one is
+ * skipped as before; grouped by impact or parent, the null row becomes the
+ * "No impact" / "No parent" column so those requirements are never dropped.
+ */
 export function buildRequirementColumns(
-  requirementRows: InsightsRow[],
+  groupRows: InsightsRow[],
   topicRows: InsightsRow[],
-  metricRows: InsightsRow[]
+  metricRows: InsightsRow[],
+  groupBy: InsightsGroupBy = DEFAULT_INSIGHTS_GROUP_BY,
+  childRows: InsightsRow[] = []
 ): RequirementInsightColumn[] {
-  const topicsByRequirement = groupRowsByRequirementId(
+  const { dimension, idKey } = INSIGHTS_GROUP_DIMENSIONS[groupBy];
+  const topicsByGroup = groupRowsByGroupId(
     topicRows,
+    idKey,
     'topic',
     'topic_id'
   );
-  const metricsByRequirement = groupRowsByRequirementId(metricRows, 'metric');
+  const metricsByGroup = groupRowsByGroupId(metricRows, idKey, 'metric');
+  const childrenByGroup = groupRowsByGroupId(childRows, idKey, 'requirement');
 
-  const columns: RequirementInsightColumn[] = requirementRows
-    .filter(
-      (
-        row
-      ): row is InsightsRow & { requirement_id: string; requirement: string } =>
-        typeof row.requirement_id === 'string' &&
-        typeof row.requirement === 'string'
-    )
-    .map(row => ({
-      id: row.requirement_id,
-      name: row.requirement,
+  const columns: RequirementInsightColumn[] = [];
+  for (const row of groupRows) {
+    const key = groupKey(row[idKey]);
+    if (key === undefined) continue;
+    const isNone = key === NONE_GROUP_KEY;
+    if (isNone && groupBy === 'requirement') continue;
+    const name = row[dimension];
+    if (!isNone && typeof name !== 'string') continue;
+    const impact =
+      groupBy === 'impact' ? (isNone ? null : String(name)) : row.impact;
+    columns.push({
+      id: isNone ? null : key,
+      name: isNone ? INSIGHTS_NONE_GROUP_LABELS[groupBy] : String(name),
+      groupBy,
+      impact: typeof impact === 'string' ? impact : null,
+      children: (childrenByGroup.get(key) ?? [])
+        .map(child => child.name)
+        .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })),
       overall: rowToPassFailStats(row),
-      metrics: sortByPassRateAsc(
-        metricsByRequirement.get(row.requirement_id) ?? []
-      ),
-      topics: sortByPassRateAsc(
-        topicsByRequirement.get(row.requirement_id) ?? []
-      ),
-    }));
+      metrics: sortByPassRateAsc(metricsByGroup.get(key) ?? []),
+      topics: sortByPassRateAsc(topicsByGroup.get(key) ?? []),
+    });
+  }
 
   return sortRequirementColumns(columns);
 }
@@ -422,7 +470,8 @@ export async function fetchRequirementInsights(
   // sent as a query param.
   const showsNoData =
     (filters.requirementIds !== null && filters.requirementIds.length === 0) ||
-    (filters.statusIds !== null && filters.statusIds.length === 0);
+    (filters.statusIds !== null && filters.statusIds.length === 0) ||
+    (filters.impactIds !== null && filters.impactIds.length === 0);
 
   // Status narrows every test_result query, including the "options" scope
   // below -- unlike requirementIds, this isn't a client-side column toggle, so
@@ -433,10 +482,21 @@ export async function fetchRequirementInsights(
     testResultFilterExtras.status_ids = filters.statusIds;
   }
 
-  const requirementFilter: Record<string, string[]> =
-    filters.requirementIds !== null && filters.requirementIds.length > 0
-      ? { requirement_ids: filters.requirementIds }
-      : {};
+  // Like requirementIds, impact narrows the columns and the summary but not
+  // the drawer's requirement list (optionsQuery below).
+  const requirementFilter: Record<string, string[]> = {};
+  if (filters.requirementIds !== null && filters.requirementIds.length > 0) {
+    requirementFilter.requirement_ids = filters.requirementIds;
+  }
+  if (filters.impactIds !== null && filters.impactIds.length > 0) {
+    requirementFilter.impact_ids = filters.impactIds;
+  }
+
+  // The dimension each column stands for; by requirement, each row also
+  // carries the requirement's impact for the dot on the column.
+  const { dimension } = INSIGHTS_GROUP_DIMENSIONS[filters.groupBy];
+  const groupDimensions =
+    filters.groupBy === 'requirement' ? ['requirement', 'impact'] : [dimension];
 
   // Unfiltered by requirementIds -- used only to populate the drawer's full
   // requirement checkbox list (with counts), independent of which
@@ -470,19 +530,19 @@ export async function fetchRequirementInsights(
     },
     requirements: {
       entity: 'test_result',
-      group_by: ['requirement'],
+      group_by: groupDimensions,
       measures,
       ...testResultQuery,
     },
     topics: {
       entity: 'test_result',
-      group_by: ['requirement', 'topic'],
+      group_by: [dimension, 'topic'],
       measures,
       ...testResultQuery,
     },
     metrics: {
       entity: 'metric',
-      group_by: ['requirement', 'metric'],
+      group_by: [dimension, 'metric'],
       measures,
       ...metricQuery,
     },
@@ -492,6 +552,17 @@ export async function fetchRequirementInsights(
       measures,
       ...optionsQuery,
     },
+    // Grouped by impact or parent, the heading names the requirements in each group.
+    ...(filters.groupBy !== 'requirement'
+      ? {
+          children: {
+            entity: 'test_result',
+            group_by: [dimension, 'requirement'],
+            measures: ['count'],
+            ...testResultQuery,
+          },
+        }
+      : {}),
   });
 
   const requirementOptions = buildRequirementOptions(
@@ -515,7 +586,9 @@ export async function fetchRequirementInsights(
     columns: buildRequirementColumns(
       results.requirements.rows,
       results.topics.rows,
-      results.metrics.rows
+      results.metrics.rows,
+      filters.groupBy,
+      results.children?.rows ?? []
     ),
     requirementOptions,
     noRuns: false,

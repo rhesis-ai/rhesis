@@ -1510,9 +1510,12 @@ tools:
       operation, test_run, endpoint, has_error or period. Only test-run
       traces have a test_run and endpoint. Not supported by /insights/ids.
 
-      Grouping by an entity-backed dimension (requirement, topic, category,
-      test_run, test_set, endpoint, executor, status) returns its name AND
-      <dimension>_id in each row: show the name, put the id in link URLs.
+      Grouping by an entity-backed dimension (requirement, impact,
+      requirement_parent, topic, category, test_run, test_set, endpoint,
+      executor, status) returns its name AND <dimension>_id in each row: show
+      the name, put the id in link URLs. impact and requirement_parent come
+      from the test's requirement; a requirement without one lands in a row
+      where both keys are null, and it still counts.
       Group by period with time_grain (day, week, month, quarter, year) for
       trends; period is the bucket's start date in UTC.
 
@@ -1525,6 +1528,9 @@ tools:
       - Which requirements failed in a run: entity=test_result,
         group_by=[requirement], measures=[count,passed,failed,pass_rate],
         test_run_ids=[<id>]
+      - How are we doing on Safety: entity=test_result, group_by=[impact],
+        measures=[count,pass_rate]; or group_by=[requirement_parent] for a
+        requirement group
       - Compare runs side by side: entity=test_result, group_by=[test_run],
         measures=[count,passed,failed,pass_rate], test_run_ids=[<id1>,<id2>]
       - Five worst topics: entity=test_result, group_by=[topic],
@@ -1575,6 +1581,10 @@ tools:
         description: "Filter by test set UUIDs (array)."
       requirement_ids:
         description: "Filter by requirement UUIDs (array)."
+      impact_ids:
+        description: "Filter by the requirement's impact UUIDs (array of RequirementImpact type lookup IDs)."
+      requirement_parent_ids:
+        description: "Filter by parent requirement UUIDs (array): tests of their child requirements."
       category_ids:
         description: "Filter by category UUIDs (array)."
       topic_ids:

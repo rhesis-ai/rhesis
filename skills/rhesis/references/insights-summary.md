@@ -16,7 +16,13 @@ Honor:
 
 - Endpoint name
 - Period / run selection
-- Requirement names listed as in scope (client-side Insights filters)
+- Requirement names listed as in scope (client-side Insights filters). When the page was grouped by
+  impact or parent, these are impact or parent requirement names instead, and "No impact" /
+  "No parent" is the group of requirements without one
+- `Group by:` line, when present — use that dimension (`impact` or `requirement_parent`) in place of
+  `requirement` in every `group_by` below
+- `Impact filter (impact_ids):` line, when present — pass those IDs as `impact_ids` on every
+  `get_insights` call
 - Test run IDs (already capped at ≤50) — treat these as one combined scope, not a list to choose from
 
 If the prompt notes truncation (50 of N), mention that briefly in your reply.
@@ -38,6 +44,8 @@ summarize just one run.
    ```
 
    Passing the whole array pools the numbers across the scope rather than reporting one run.
+   Grouped by impact or parent, `group_by=[impact, requirement]` (or
+   `[requirement_parent, requirement]`) shows which requirements drive each group.
    Omit `group_by` for overall totals alone, and repeat with `entity=metric`,
    `group_by=[metric]` for per-metric pass rates.
 2. Identify the weak requirements and metrics from the pooled numbers.

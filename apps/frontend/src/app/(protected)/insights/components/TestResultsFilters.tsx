@@ -4,10 +4,16 @@ import React, { useMemo, useState } from 'react';
 import { Box, Button } from '@mui/material';
 import GridToolbar, {
   directoryToolbarProps,
+  ToolbarPillTabs,
 } from '@/components/common/GridToolbar';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { writeInsightsEndpointId } from '@/utils/insights-endpoint';
-import { DEFAULT_INSIGHTS_FILTERS, InsightsFilters } from '../types';
+import {
+  DEFAULT_INSIGHTS_FILTERS,
+  INSIGHTS_GROUP_BY_OPTIONS,
+  InsightsFilters,
+  InsightsGroupBy,
+} from '../types';
 import InsightsFilterDrawer, {
   countActiveInsightsDrawerFilters,
   hasActiveInsightsDrawerFilters,
@@ -63,6 +69,7 @@ export default function TestResultsFilters({
     () => ({
       endpointId: filters.endpointId,
       requirementIds: filters.requirementIds,
+      impactIds: filters.impactIds,
       statusIds: filters.statusIds,
       timeRange: filters.timeRange,
       testRunIds: filters.testRunIds,
@@ -70,6 +77,7 @@ export default function TestResultsFilters({
     [
       filters.endpointId,
       filters.requirementIds,
+      filters.impactIds,
       filters.statusIds,
       filters.timeRange,
       filters.testRunIds,
@@ -84,6 +92,7 @@ export default function TestResultsFilters({
       ...filters,
       endpointId: next.endpointId,
       requirementIds: next.requirementIds,
+      impactIds: next.impactIds,
       statusIds: next.statusIds,
       timeRange: next.timeRange,
       testRunIds: next.testRunIds,
@@ -92,8 +101,13 @@ export default function TestResultsFilters({
 
   const hasActiveFilters = hasActiveInsightsDrawerFilters(drawerFilters);
 
+  // Group-by is a view choice, not a filter, so a reset leaves it alone.
   const handleResetAllFilters = () => {
-    onFiltersChange(DEFAULT_INSIGHTS_FILTERS);
+    onFiltersChange({ ...DEFAULT_INSIGHTS_FILTERS, groupBy: filters.groupBy });
+  };
+
+  const handleGroupByChange = (value: string) => {
+    onFiltersChange({ ...filters, groupBy: value as InsightsGroupBy });
   };
 
   return (
@@ -108,31 +122,37 @@ export default function TestResultsFilters({
         activeFilterCount={countActiveInsightsDrawerFilters(drawerFilters)}
         {...directoryToolbarProps}
         middleContent={
-          (showExpandToggle && onToggleAll) || hasActiveFilters ? (
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                flexWrap: 'wrap',
-              }}
-            >
-              {showExpandToggle && onToggleAll ? (
-                <Button size="small" variant="text" onClick={onToggleAll}>
-                  {allExpanded ? 'Collapse all' : 'Expand all'}
-                </Button>
-              ) : null}
-              {hasActiveFilters ? (
-                <Button
-                  size="small"
-                  variant="text"
-                  onClick={handleResetAllFilters}
-                >
-                  Reset filters
-                </Button>
-              ) : null}
+          <Box
+            sx={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              flexWrap: 'wrap',
+            }}
+          >
+            <Box role="group" aria-label="Group by">
+              <ToolbarPillTabs
+                tabs={INSIGHTS_GROUP_BY_OPTIONS}
+                activeValue={filters.groupBy}
+                onChange={handleGroupByChange}
+              />
             </Box>
-          ) : undefined
+            {!isCompact && showExpandToggle && onToggleAll ? (
+              <Button size="small" variant="text" onClick={onToggleAll}>
+                {allExpanded ? 'Collapse all' : 'Expand all'}
+              </Button>
+            ) : null}
+            {hasActiveFilters ? (
+              <Button
+                size="small"
+                variant="text"
+                onClick={handleResetAllFilters}
+              >
+                Reset filters
+              </Button>
+            ) : null}
+          </Box>
         }
       />
 

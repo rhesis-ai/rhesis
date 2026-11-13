@@ -564,13 +564,14 @@ Grouping by an entity-backed dimension (`requirement`, `topic`, `test_run`, `end
 - Compare runs → `test_result` grouped by `test_run` with two or more `test_run_ids`
 - Trends → group by `period` with a `time_grain`, optionally alongside another dimension (`[endpoint, period]`)
 - Worst areas → group by `topic` or `requirement`, `order_by=[pass_rate]`, `limit`, `min_count`
+- Risk by impact ("how are we doing on Safety?") → group by `impact`; by requirement group → `requirement_parent`. A requirement with no impact or parent lands in a row where both keys are null
 - Metric scores → `metric` with `avg_score`, `min_score`, `max_score`; text scores are ignored
 - Run volume, who runs tests, most-run test sets → `test_run`. Its `completed`/`failed` come from the run's status, not its tests' verdicts; a run's pass rate is `test_result` grouped by `test_run`
 - Tests that never ran → `test` with `measures=[count,unrun_count]`
 - Latency, tokens and cost broken down → `trace`. Durations are the root span's, in milliseconds; tokens count LLM calls only; cost is in USD. Only test-run traces have a `test_run` and `endpoint`
 - Where people overrode the automation → `metric`, whose measures include `human_annotation_count`
 
-**Filters:** `test_run_ids`, `test_set_ids`, `requirement_ids`, `category_ids`, `topic_ids`, `endpoint_ids`, `executor_ids`, `status_ids`, `metric_names` (metric only), `environments` (trace only), `tags`, `months` (default 6), `start_date`, `end_date`. Which ones apply depends on the entity; `describe_insights` lists them.
+**Filters:** `test_run_ids`, `test_set_ids`, `requirement_ids`, `impact_ids`, `requirement_parent_ids`, `category_ids`, `topic_ids`, `endpoint_ids`, `executor_ids`, `status_ids`, `metric_names` (metric only), `environments` (trace only), `tags`, `months` (default 6), `start_date`, `end_date`. Which ones apply depends on the entity; `describe_insights` lists them.
 
 ### `describe_insights`
 List what `get_insights` accepts: each entity's dimensions (and whether each returns an id), measures (and whether each is a count, a rate or a score), and filters, with a line on what each means. No parameters.
