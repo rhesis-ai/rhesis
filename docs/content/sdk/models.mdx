@@ -31,6 +31,7 @@ model = get_model("gemini")`}
 - `openai`, `anthropic`, `gemini`, `vertex_ai` - major hosted providers
 - `azure_ai` - Azure AI Studio deployments via LiteLLM
 - `azure` - Azure OpenAI deployments via LiteLLM
+- `bedrock` - Amazon Bedrock, authenticated with a Bedrock API key
 - `litellm_proxy` - OpenAI-compatible LiteLLM Proxy endpoint
 - `openrouter`, `mistral`, `cohere`, `groq`, `perplexity`, `replicate`, `together_ai`, `meta_llama`
 - `ollama`, `huggingface`, `vllm` - local/self-hosted options
@@ -65,6 +66,7 @@ Some providers accept extra connection parameters:
 | `litellm_proxy` | `model_name` | `api_base`, `api_key` | `api_base` defaults to `LITELLM_PROXY_BASE_URL` env var or `http://0.0.0.0:4000` |
 | `azure_ai` | `model_name`, `api_base`, `api_key` | — | `api_base`/`api_key` can be supplied via `AZURE_AI_API_BASE`/`AZURE_AI_API_KEY` env vars |
 | `jev` | `api_key` | `model_name`, `api_base` | `model_name` defaults to `jev-latest`; `api_key`/`api_base` can be supplied via `TYPESAFE_API_KEY`/`TYPESAFE_API_BASE` env vars (`api_base` defaults to `https://api.typesafe.ai`) |
+| `bedrock` | `model_name`, `api_key` | `api_base` | `api_key` can be supplied via `AWS_BEARER_TOKEN_BEDROCK`. `api_base` is the regional runtime URL; without it the region comes from `AWS_REGION_NAME`/`AWS_REGION`, else `us-west-2` |
 | `azure` | `model_name`, `api_base`, `api_key` | `api_version` | `api_base`/`api_key`/`api_version` can be supplied via `AZURE_API_BASE`/`AZURE_API_KEY`/`AZURE_API_VERSION` env vars |
 
 <CodeBlock filename="litellm_proxy.py" language="python">
@@ -100,6 +102,18 @@ model = get_model(
     api_base="https://your-resource.openai.azure.com/",
     api_key="your-azure-openai-key",
     api_version="2024-08-01-preview",
+)`}
+
+</CodeBlock>
+
+<CodeBlock filename="bedrock.py" language="python">
+{`from rhesis.sdk.models import get_model
+
+model = get_model(
+    provider="bedrock",
+    model_name="eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    api_key="your-bedrock-api-key",
+    api_base="https://bedrock-runtime.eu-central-1.amazonaws.com",
 )`}
 
 </CodeBlock>

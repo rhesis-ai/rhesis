@@ -32,6 +32,7 @@ Rhesis connects to major cloud providers and to local or self-hosted runtimes (O
 - **Anthropic** - Claude provider
 - **Azure AI Studio** - Azure-hosted model endpoints (`azure_ai`)
 - **Azure OpenAI** - Azure OpenAI deployments (`azure`)
+- **Amazon Bedrock** - Models on AWS Bedrock (`bedrock`)
 - **Cohere** - Command R provider
 - **Google** - Gemini provider
 - **Groq** - LPU-based model hosting
@@ -91,6 +92,7 @@ Some providers require endpoint configuration in addition to model name:
 | LiteLLM Proxy | `litellm_proxy` | Yes | Optional | Pre-filled with `http://host.docker.internal:4000` by default |
 | Azure AI Studio | `azure_ai` | Yes | Yes | Use your Azure AI inference endpoint URL |
 | Azure OpenAI | `azure` | Yes | Yes | Use your Azure OpenAI resource endpoint URL |
+| Amazon Bedrock | `bedrock` | Yes | Yes | The endpoint is the Bedrock runtime URL for your region, pre-filled with `https://bedrock-runtime.us-east-1.amazonaws.com`. The key is a [Bedrock API key](https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys.html); IAM access keys are not supported. The model name is a model or inference profile ID, such as `us.anthropic.claude-sonnet-4-5-20250929-v1:0` |
 | Jev | `jev` | No | Yes | Defaults to `https://api.typesafe.ai`. Through a LiteLLM proxy, use `https://<proxy>/typesafe` and a LiteLLM virtual key |
 
 <Callout type="info">
