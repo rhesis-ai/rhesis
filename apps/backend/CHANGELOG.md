@@ -39,6 +39,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   anything that referenced them. Recorded metric scores are unaffected: test results and the
   verdict grid read their own JSONB snapshots, not the metric table.
 
+## [0.21.1] - 2026-11-13
+
+### Added
+- Support for multi-hop relationship sorting on test runs by endpoint name (`endpoint.name`) and test set name (`test_set.name`).
+- Database migration to add the Glitch Token Detection metric to existing organizations.
+
+### Fixed
+- Fixed PostgreSQL database insertion failures caused by NUL (`\u0000`) character tokens in Garak glitch probe prompts, notes, and trace spans by introducing reversible escaping and cleaning helpers.
+
+### Performance
+- Optimized related column sorting (endpoint, test set, category, requirement, topic, prompt) by replacing correlated `ORDER BY` subqueries with `LEFT JOIN`s, significantly reducing query latency on large datasets.
+
+
 ## [0.21.0] - 2026-11-12
 
 ### Security

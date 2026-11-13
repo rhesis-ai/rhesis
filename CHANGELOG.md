@@ -18,6 +18,39 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
   since January 2026 and carried advisories with no upstream fix. Existing Ragas metrics and their
   associations are deleted by a backend migration; recorded test results keep their scores.
 
+## [0.21.1] - 2026-11-13
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.21.1**
+- **Frontend 0.21.1**
+- **SDK 0.21.1**
+
+### Summary of Changes
+
+**Backend v0.21.1:**
+- Added support and performance optimizations for sorting test runs by endpoint and test set name.
+- Fixed database failures when storing test prompts, notes, and trace spans containing NUL bytes, resolving issues with Garak glitch probe runs.
+- Added a database migration to register the Glitch Token Detection metric for existing organizations.
+
+**Frontend v0.21.1:**
+- Added support to display, sort, search, and filter test runs by endpoint, while streamlining the default grid columns.
+- Added a dedicated "Test Runs" tab to the Test Set detail page to view executions for a specific test set.
+- Fixed requirement autocomplete dropdowns to properly prefetch options and restore defaults when search input is cleared.
+
+**SDK v0.21.1:**
+- Registered the Garak `goodside.Glitch` detector in the SDK registry to enable proper scoring for glitch tests.
+- Fixed support for importing and executing Garak glitch probes that contain NUL characters.
+- Resolved trace span storage failures caused by NUL tokens in raw model responses.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.21.0] - 2026-11-12
 
 ### Platform Release
