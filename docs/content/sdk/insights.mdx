@@ -45,15 +45,15 @@ failed_ids = Insights(entity="test_result", filters={"test_run_ids": ["your-run-
 
 | Entity | One row per | group_by | measures |
 |--------|-------------|----------|----------|
-| `test_result` | test execution | `requirement`, `category`, `topic`, `test_run`, `test_set`, `endpoint`, `executor`, `status`, `priority`, `period` | `count`, `passed`, `failed`, `error_count`, `pending_count`, `pass_rate` |
-| `metric` | (test result, metric) | `metric`, `requirement`, `category`, `topic`, `test_run`, `test_set`, `endpoint`, `period` | `count`, `passed`, `failed`, `pass_rate`, `avg_score`, `min_score`, `max_score`, `automated_passed`, `automated_failed`, `human_annotation_count` |
+| `test_result` | test execution | `requirement`, `impact`, `requirement_parent`, `category`, `topic`, `test_run`, `test_set`, `endpoint`, `executor`, `status`, `priority`, `period` | `count`, `passed`, `failed`, `error_count`, `pending_count`, `pass_rate` |
+| `metric` | (test result, metric) | `metric`, `requirement`, `impact`, `requirement_parent`, `category`, `topic`, `test_run`, `test_set`, `endpoint`, `period` | `count`, `passed`, `failed`, `pass_rate`, `avg_score`, `min_score`, `max_score`, `automated_passed`, `automated_failed`, `human_annotation_count` |
 | `test_run` | run | `test_set`, `endpoint`, `executor`, `status`, `period` | `count`, `completed`, `failed`, `completion_rate`, `avg_duration_ms`, `p50_duration_ms`, `p95_duration_ms`, `max_duration_ms` |
-| `test` | test, including tests that never ran | `requirement`, `category`, `topic`, `priority`, `is_unrun`, `period` | `count`, `unrun_count`, `run_count`, `passed`, `failed`, `error_count`, `pass_rate` |
+| `test` | test, including tests that never ran | `requirement`, `impact`, `requirement_parent`, `category`, `topic`, `priority`, `is_unrun`, `period` | `count`, `unrun_count`, `run_count`, `passed`, `failed`, `error_count`, `pass_rate` |
 | `trace` | trace (one request to your application) | `environment`, `operation`, `test_run`, `endpoint`, `has_error`, `period` | `count`, `error_count`, `error_rate`, `avg_duration_ms`, `p50_duration_ms`, `p95_duration_ms`, `p99_duration_ms`, `tokens`, `input_tokens`, `output_tokens`, `cost_usd`, `avg_cost_usd` |
 
 `Insights.describe()` returns the same lists with a description of each entry.
 
-**Rows.** Grouping by a dimension backed by an entity (`requirement`, `category`, `topic`, `test_run`, `test_set`, `endpoint`, `executor`, `status`) groups by its ID and returns both the name and `<dimension>_id`, so two requirements that share a name stay separate. `period` is the start date of a time bucket in UTC; set its size with `time_grain`: `day`, `week`, `month` (the default), `quarter` or `year`.
+**Rows.** Grouping by a dimension backed by an entity (`requirement`, `impact`, `requirement_parent`, `category`, `topic`, `test_run`, `test_set`, `endpoint`, `executor`, `status`) groups by its ID and returns both the name and `<dimension>_id`, so two requirements that share a name stay separate. `impact` and `requirement_parent` come from the test's requirement; a requirement with no impact or no parent lands in a row where both keys are `null`, so it still counts. `period` is the start date of a time bucket in UTC; set its size with `time_grain`: `day`, `week`, `month` (the default), `quarter` or `year`.
 
 **Measures.** `pass_rate` is `passed / (passed + failed) × 100`: errored and pending results are left out. The score measures on `metric` average only numeric scores, so a metric with text scores returns `null`. On `test_run`, `completed`, `failed` and `completion_rate` come from the run's own status, and durations are in milliseconds from the run's start to its finish; runs that never started or are still running have no duration and are left out. On `trace`, durations are the root span's in milliseconds, `tokens` counts LLM calls only, and cost is in USD, matching the traces list; `operation` is the root span's name, and only traces from test runs have a `test_run` and `endpoint`. For the pass rate of what a run tested, use `test_result` grouped by `test_run`.
 
@@ -63,12 +63,12 @@ Filters narrow which rows are aggregated, and which keys are valid depends on th
 
 | Entity | filters |
 |--------|---------|
-| `test_result` | `requirement_ids`, `category_ids`, `topic_ids`, `test_run_ids`, `test_set_ids`, `endpoint_ids`, `executor_ids`, `status_ids`, `test_ids`, `test_type_ids`, `user_ids`, `assignee_ids`, `owner_ids`, `prompt_ids`, `tags` |
-| `metric` | `metric_names`, `requirement_ids`, `category_ids`, `topic_ids`, `test_run_ids`, `test_set_ids`, `endpoint_ids`, `test_ids` |
+| `test_result` | `requirement_ids`, `impact_ids`, `requirement_parent_ids`, `category_ids`, `topic_ids`, `test_run_ids`, `test_set_ids`, `endpoint_ids`, `executor_ids`, `status_ids`, `test_ids`, `test_type_ids`, `user_ids`, `assignee_ids`, `owner_ids`, `prompt_ids`, `tags` |
+| `metric` | `metric_names`, `requirement_ids`, `impact_ids`, `requirement_parent_ids`, `category_ids`, `topic_ids`, `test_run_ids`, `test_set_ids`, `endpoint_ids`, `test_ids` |
 | `test_run` | `test_run_ids`, `test_set_ids`, `endpoint_ids`, `executor_ids`, `status_ids` |
-| `test` | `requirement_ids`, `category_ids`, `topic_ids`, `status_ids`, `test_ids`, `test_type_ids`, `user_ids`, `assignee_ids`, `owner_ids`, `prompt_ids`, `test_set_ids`, `tags` |
+| `test` | `requirement_ids`, `impact_ids`, `requirement_parent_ids`, `category_ids`, `topic_ids`, `status_ids`, `test_ids`, `test_type_ids`, `user_ids`, `assignee_ids`, `owner_ids`, `prompt_ids`, `test_set_ids`, `tags` |
 | `trace` | `test_run_ids`, `endpoint_ids`, `environments` |
 
-`test_set_ids` on `test_result` and `metric` matches results from runs of that test set; on `test` it matches tests that belong to the set.
+`test_set_ids` on `test_result` and `metric` matches results from runs of that test set; on `test` it matches tests that belong to the set. `impact_ids` takes `RequirementImpact` type lookup IDs; `requirement_parent_ids` matches tests whose requirement sits under one of those parents.
 
 `months`, `start_date`, and `end_date` bound the date range and apply to every entity.
