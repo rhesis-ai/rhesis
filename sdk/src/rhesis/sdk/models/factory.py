@@ -248,6 +248,9 @@ UNIFIED_MODEL_REGISTRY: Dict[str, Dict[ModelType, Union[_ProviderSpec, Callable]
     "azure": {
         ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.azure_openai", "AzureOpenAILLM"),
     },
+    "bedrock": {
+        ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.bedrock", "BedrockLLM"),
+    },
 }
 
 
@@ -620,6 +623,7 @@ _LISTABLE_LLM_PROVIDERS: Dict[str, tuple[str, str]] = {
     "vertex_ai": (f"{_PROVIDERS_MODULE}.vertex_ai", "VertexAILLM"),
     "azure_ai": (f"{_PROVIDERS_MODULE}.azure_ai", "AzureAILLM"),
     "azure": (f"{_PROVIDERS_MODULE}.azure_openai", "AzureOpenAILLM"),
+    "bedrock": (f"{_PROVIDERS_MODULE}.bedrock", "BedrockLLM"),
 }
 
 _LISTABLE_EMBEDDING_PROVIDERS: Dict[str, tuple[str, str]] = {

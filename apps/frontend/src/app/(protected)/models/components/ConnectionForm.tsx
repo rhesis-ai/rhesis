@@ -640,7 +640,9 @@ export const ConnectionForm = forwardRef<
                           ? 'Your Azure AI inference endpoint URL (e.g. https://your-deployment.inference.ai.azure.com/)'
                           : provider?.type_value === 'azure'
                             ? 'Your Azure OpenAI endpoint URL (e.g. https://your-resource.openai.azure.com/)'
-                            : 'The base URL for your self-hosted model endpoint'
+                            : provider?.type_value === 'bedrock'
+                              ? 'The Bedrock runtime URL for your region (e.g. https://bedrock-runtime.eu-central-1.amazonaws.com)'
+                              : 'The base URL for your self-hosted model endpoint'
                 }
                 sx={drawerOutlinedFieldSx}
               />

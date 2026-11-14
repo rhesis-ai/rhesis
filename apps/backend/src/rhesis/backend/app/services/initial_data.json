@@ -453,6 +453,11 @@
             "description": "Jev by TypeSafe AI"
         },
         {
+            "type_name": "ProviderType",
+            "type_value": "bedrock",
+            "description": "Amazon Bedrock"
+        },
+        {
             "type_name": "MetricType",
             "type_value": "grading",
             "description": "LLM-based grading using rubrics or classification prompts"

@@ -48,6 +48,7 @@ export const SUPPORTED_PROVIDERS = [
   'litellm_proxy',
   'azure_ai',
   'azure',
+  'bedrock',
   'jev',
 ];
 
@@ -70,6 +71,7 @@ export const LANGUAGE_MODEL_LISTABLE_PROVIDERS = [
   'anthropic',
   'azure',
   'azure_ai',
+  'bedrock',
   'cohere',
   'gemini',
   'groq',
@@ -111,6 +113,7 @@ export const PROVIDERS_REQUIRING_ENDPOINT = [
   'litellm_proxy',
   'azure_ai',
   'azure',
+  'bedrock',
 ];
 
 // Default endpoints for providers that need them
@@ -119,6 +122,7 @@ export const DEFAULT_ENDPOINTS: Record<string, string> = {
   vllm: 'http://host.docker.internal:8000',
   litellm_proxy: 'http://host.docker.internal:4000',
   jev: 'https://api.typesafe.ai',
+  bedrock: 'https://bedrock-runtime.us-east-1.amazonaws.com',
 };
 
 // Providers with a default endpoint the SDK falls back to; the field is shown but may be left empty
@@ -137,6 +141,8 @@ export const PROVIDERS_WITH_OPTIONAL_API_KEY = ['litellm_proxy'];
 export const API_KEY_FIELD_HINTS: Record<string, string> = {
   vertex_ai:
     'Paste your Google Cloud service-account JSON key, as raw JSON or base64-encoded',
+  bedrock:
+    'A Bedrock API key from the Amazon Bedrock console. IAM access keys are not supported',
 };
 
 export function getApiKeyFieldHint(
@@ -210,6 +216,7 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
   litellm_proxy: <HubIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   azure_ai: <CloudIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
   azure: <CloudIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
+  bedrock: <CloudIcon sx={{ fontSize: theme => theme.iconSizes.large }} />,
 };
 
 // User-facing display names keyed by provider type_value. Overrides the
@@ -218,6 +225,7 @@ export const PROVIDER_ICONS: Record<string, React.ReactNode> = {
 export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   azure_ai: 'Azure AI Foundry',
   azure: 'Azure OpenAI',
+  bedrock: 'Amazon Bedrock',
   jev: 'Jev (TypeSafe AI)',
 };
 

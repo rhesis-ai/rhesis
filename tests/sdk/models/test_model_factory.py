@@ -470,6 +470,26 @@ class TestAdditionalProviders:
         )
         assert result == mock_instance
 
+    @patch("rhesis.sdk.models.providers.bedrock.BedrockLLM")
+    def test_bedrock_llm_creation(self, mock_cls):
+        """Bedrock keeps the inference profile ID, colon and all, as the model name."""
+        mock_instance = Mock(spec=BaseLLM)
+        mock_cls.return_value = mock_instance
+
+        result = get_model(
+            "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0", api_key="bedrock-key"
+        )
+
+        mock_cls.assert_called_once_with(
+            model_name="us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+            api_key="bedrock-key",
+        )
+        assert result == mock_instance
+
+    def test_bedrock_no_embedding_support(self):
+        with pytest.raises(ValueError):
+            get_model("bedrock", "amazon.titan-embed-text-v2:0", model_type="embedding")
+
 
 class TestModelTypeClassification:
     """Test ModelType enum and classification logic."""

@@ -32,6 +32,7 @@ DEFAULT_LANGUAGE_MODELS = {
     "vertex_ai": "vertex_ai/gemini-3.1-flash-lite",
     "azure_ai": "azure_ai/command-r-plus",
     "azure": "azure/gpt-4o",
+    "bedrock": "bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
 }
 
 # Per-provider default decision models (full id: provider/name)
