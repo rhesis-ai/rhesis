@@ -28,6 +28,10 @@ DB_ENCRYPTION_KEY = "Zb21wZbPsUpb-c2JKj8uMugk767pWXHFTsjocd0Orac="
 # Fixed project the tests run against; must match TEST_PROJECT_ID in test_parameters.py.
 TEST_PROJECT_ID = "12340000-0000-4000-8000-000000001234"
 
+# Same user, no project. Tests that create and then read other projects need it,
+# because a project-scoped token is denied on any project but its own.
+ORG_TOKEN_VALUE = "rh-test-org-token"
+
 # LLM Provider types - hardcoded to keep SDK tests independent of backend code
 # Only includes providers actually used in tests (openai, anthropic, gemini)
 PROVIDER_TYPE_LOOKUPS = [
@@ -143,7 +147,10 @@ def setup_test_data() -> None:
     except ImportError as e:
         pytest.fail(f"❌ Failed to generate token hash: {e}")
 
-    TOKEN_ENCRYPTED = Fernet(DB_ENCRYPTION_KEY.encode()).encrypt(TOKEN_VALUE.encode()).decode()
+    fernet = Fernet(DB_ENCRYPTION_KEY.encode())
+    TOKEN_ENCRYPTED = fernet.encrypt(TOKEN_VALUE.encode()).decode()
+    ORG_TOKEN_HASH = hashlib.sha256(ORG_TOKEN_VALUE.encode()).hexdigest()
+    ORG_TOKEN_ENCRYPTED = fernet.encrypt(ORG_TOKEN_VALUE.encode()).decode()
 
     print(f"{BLUE}Token: {TOKEN_VALUE}{NC}")
     print(f"{BLUE}Hash: {TOKEN_HASH}{NC}")
@@ -199,6 +206,12 @@ def setup_test_data() -> None:
             FROM new_user
             RETURNING user_id
         ),
+        new_org_token AS (
+            INSERT INTO token (token, token_hash, token_type, user_id)
+            SELECT %(org_token_value)s, %(org_token_hash)s, 'bearer', new_user.id
+            FROM new_user
+            RETURNING user_id
+        ),
         new_project AS (
             -- Create project with specific ID "1234"
             INSERT INTO project (id, name, description, organization_id, user_id, owner_id)
@@ -230,6 +243,8 @@ def setup_test_data() -> None:
             {
                 "token_value": TOKEN_ENCRYPTED,
                 "token_hash": TOKEN_HASH,
+                "org_token_value": ORG_TOKEN_ENCRYPTED,
+                "org_token_hash": ORG_TOKEN_HASH,
                 "project_id": TEST_PROJECT_ID,
             },
         )
@@ -313,6 +328,12 @@ def docker_compose_test_env() -> Generator[dict, None, None]:
         "base_url": f"http://localhost:{BACKEND_PORT}",
         "api_key": "rh-test-token",
     }
+
+
+@pytest.fixture
+def org_api_key(monkeypatch, docker_compose_test_env):
+    """Switch the SDK to the token that has no project, for this test only."""
+    monkeypatch.setenv("RHESIS_API_KEY", ORG_TOKEN_VALUE)
 
 
 @pytest.fixture(scope="function")
