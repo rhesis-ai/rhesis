@@ -218,7 +218,7 @@ def test_project(db_cleanup):
     assert result["description"] == "Test Project Description"
 
 
-def test_project_push_pull(db_cleanup):
+def test_project_push_pull(db_cleanup, org_api_key):
     project = Project(
         name="Test push pull project",
         description="Test push pull project description",
@@ -231,7 +231,7 @@ def test_project_push_pull(db_cleanup):
     assert pulled_project.description == "Test push pull project description"
 
 
-def test_project_delete(db_cleanup):
+def test_project_delete(db_cleanup, org_api_key):
     project = Project(
         name="Test project to delete",
         description="Test project to delete description",
