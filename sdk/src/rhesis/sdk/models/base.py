@@ -115,10 +115,19 @@ class ModelCallRequest(TypedDict):
     response_format: Any
 
 
+#: What a pre-call check may return: called once when the call ends, with the usage
+#: the provider reported (``None`` if none arrived) and whether the call failed before
+#: any response. A host that reserves spend in its check settles the reservation here.
+#: ``None`` usage without ``failed`` means output may have been produced but was never
+#: reported, e.g. a stream that was closed early.
+CallSettle = Callable[[Optional[TokenUsage], bool], None]
+
 #: Signature of the process-wide check registered via
 #: :func:`set_default_precall_check`. It receives the model about to make a
-#: call and what it will send, and raises to refuse it.
-PrecallCheck = Callable[["UsageReporting", ModelCallRequest], None]
+#: call and what it will send, and raises to refuse it. It may lower the
+#: request's ``max_tokens``, which the provider then sends, and may return a
+#: :data:`CallSettle`.
+PrecallCheck = Callable[["UsageReporting", ModelCallRequest], Optional[CallSettle]]
 
 _default_precall_check: Optional[PrecallCheck] = None
 
@@ -143,6 +152,37 @@ def set_default_precall_check(check: Optional[PrecallCheck]) -> None:
 def get_default_precall_check() -> Optional[PrecallCheck]:
     """Return the check registered by :func:`set_default_precall_check`."""
     return _default_precall_check
+
+
+class ModelCall:
+    """One provider call, from its pre-call check to its end.
+
+    Collects the usage the provider reports and hands it to the check's
+    :data:`CallSettle` exactly once, from :meth:`finish`.
+    """
+
+    def __init__(self, settle: Optional[CallSettle] = None) -> None:
+        self._settle = settle
+        self.usage: Optional[TokenUsage] = None
+        self.failed = False
+
+    def add_usage(self, raw: Any) -> None:
+        normalized = _normalize_usage(raw)
+        if normalized is None:
+            return
+        if self.usage is None:
+            self.usage = TokenUsage(input_tokens=0, output_tokens=0, total_tokens=0)
+        for key in ("input_tokens", "output_tokens", "total_tokens"):
+            self.usage[key] += normalized[key]  # type: ignore[literal-required]
+
+    def finish(self) -> None:
+        settle, self._settle = self._settle, None
+        if settle is None:
+            return
+        try:
+            settle(self.usage, self.failed)
+        except Exception:
+            logger.warning("pre-call check's settle raised", exc_info=True)
 
 
 def _normalize_usage(usage: Any) -> Optional[TokenUsage]:
@@ -304,24 +344,30 @@ class UsageReporting:
         # resolution path" rather than as a quiet "no".
         self.usage_metered: Optional[bool] = None
 
-    def _run_precall_check(
+    def _start_call(
         self,
         messages: List[List[Dict[str, Any]]],
-        max_tokens: Optional[int] = None,
+        kwargs: Dict[str, Any],
         completions_per_prompt: int = 1,
         response_format: Any = None,
-    ) -> None:
-        """Run the process-wide pre-call check, if any. Raises to refuse the call."""
-        if _default_precall_check is not None:
-            _default_precall_check(
-                self,
-                ModelCallRequest(
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    completions_per_prompt=completions_per_prompt,
-                    response_format=response_format,
-                ),
-            )
+    ) -> ModelCall:
+        """Run the process-wide pre-call check, if any. Raises to refuse the call.
+
+        Applies a ``max_tokens`` the check lowered to *kwargs*, the provider call's
+        keyword arguments. The caller must :meth:`ModelCall.finish` the result.
+        """
+        if _default_precall_check is None:
+            return ModelCall()
+        request = ModelCallRequest(
+            messages=messages,
+            max_tokens=kwargs.get("max_tokens"),
+            completions_per_prompt=completions_per_prompt,
+            response_format=response_format,
+        )
+        settle = _default_precall_check(self, request)
+        if request["max_tokens"] is not None:
+            kwargs["max_tokens"] = request["max_tokens"]
+        return ModelCall(settle)
 
     def _emit_usage(self, usage: Optional[Dict[str, Any]]) -> None:
         """Report normalized token counts for one call to every usage listener.

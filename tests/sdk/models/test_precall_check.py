@@ -176,3 +176,146 @@ def test_the_extractor_adapter_refusal_skips_the_call(mock_completion):
             model="x", messages=[]
         )
     mock_completion.assert_not_called()
+
+
+# ── Settling: the check learns how each call ended ──────────────────────
+
+
+@pytest.fixture
+def settled() -> List[Tuple[Any, bool]]:
+    """Install a check that lowers max_tokens to 100 and records each settle."""
+    outcomes: List[Tuple[Any, bool]] = []
+
+    def check(model, request):
+        request["max_tokens"] = min(request["max_tokens"] or 100, 100)
+        return lambda usage, failed: outcomes.append((usage, failed))
+
+    set_default_precall_check(check)
+    return outcomes
+
+
+def _usage(prompt: int, completion: int) -> dict:
+    return {
+        "prompt_tokens": prompt,
+        "completion_tokens": completion,
+        "total_tokens": prompt + completion,
+    }
+
+
+@patch("rhesis.sdk.models.providers.litellm.acompletion", new_callable=AsyncMock)
+def test_a_lowered_max_tokens_is_what_the_provider_gets(mock_acompletion, settled):
+    mock_acompletion.return_value = _response()
+    LiteLLM("provider/model").generate("hi", max_tokens=5000)
+    assert mock_acompletion.call_args.kwargs["max_tokens"] == 100
+
+
+@patch("rhesis.sdk.models.providers.litellm.acompletion", new_callable=AsyncMock)
+def test_a_max_tokens_is_set_when_the_caller_gave_none(mock_acompletion, settled):
+    mock_acompletion.return_value = _response()
+    LiteLLM("provider/model").generate("hi")
+    assert mock_acompletion.call_args.kwargs["max_tokens"] == 100
+
+
+@patch("rhesis.sdk.models.providers.litellm.acompletion", new_callable=AsyncMock)
+def test_settle_gets_the_reported_usage(mock_acompletion, settled):
+    response = _response()
+    response.usage = _usage(10, 3)
+    mock_acompletion.return_value = response
+    LiteLLM("provider/model").generate("hi")
+    [(usage, failed)] = settled
+    assert (usage["input_tokens"], usage["output_tokens"], failed) == (10, 3, False)
+
+
+@patch("rhesis.sdk.models.providers.litellm.acompletion", new_callable=AsyncMock)
+def test_settle_is_told_when_the_call_failed(mock_acompletion, settled):
+    mock_acompletion.side_effect = ValueError("bad request")
+    with pytest.raises(ValueError):
+        LiteLLM("provider/model").generate("hi")
+    assert settled and all(outcome == (None, True) for outcome in settled)
+
+
+def _stream(*chunks):
+    async def gen():
+        for chunk in chunks:
+            yield chunk
+
+    return gen()
+
+
+def _chunk(text=None, usage=None):
+    chunk = Mock()
+    chunk.usage = usage
+    if text is None:
+        chunk.choices = []
+    else:
+        chunk.choices = [Mock()]
+        chunk.choices[0].delta.content = text
+    return chunk
+
+
+@patch("rhesis.sdk.models.providers.litellm.acompletion", new_callable=AsyncMock)
+def test_a_finished_stream_settles_with_its_usage(mock_acompletion, settled):
+    import asyncio
+
+    mock_acompletion.return_value = _stream(_chunk("a"), _chunk("b"), _chunk(usage=_usage(4, 2)))
+
+    async def consume():
+        stream = await LiteLLM("provider/model").a_generate("hi", stream=True)
+        return [c async for c in stream]
+
+    assert asyncio.run(consume()) == ["a", "b"]
+    [(usage, failed)] = settled
+    assert (usage["output_tokens"], failed) == (2, False)
+
+
+@patch("rhesis.sdk.models.providers.litellm.acompletion", new_callable=AsyncMock)
+def test_a_stream_closed_early_settles_without_usage_and_not_failed(mock_acompletion, settled):
+    import asyncio
+
+    mock_acompletion.return_value = _stream(_chunk("a"), _chunk("b"), _chunk(usage=_usage(4, 2)))
+
+    async def consume_one():
+        stream = await LiteLLM("provider/model").a_generate("hi", stream=True)
+        async for _ in stream:
+            break
+        await stream.aclose()
+
+    asyncio.run(consume_one())
+    assert settled == [(None, False)]
+
+
+@patch("rhesis.sdk.models.providers.litellm.batch_completion")
+def test_a_batch_settles_once_with_the_summed_usage(mock_batch, settled):
+    a, b = _response("a"), _response("b")
+    a.usage, b.usage = _usage(10, 1), _usage(20, 2)
+    mock_batch.return_value = [a, b]
+    LiteLLM("provider/model").generate_batch(["a", "b"])
+    [(usage, failed)] = settled
+    assert (usage["input_tokens"], usage["output_tokens"], failed) == (30, 3, False)
+    assert mock_batch.call_args.kwargs["max_tokens"] == 100
+
+
+@patch("litellm.completion")
+def test_the_extractor_adapter_settles(mock_completion, settled):
+    from rhesis.sdk.services.extractor import _MarkItDownModelAdapter
+
+    response = _response("a cat")
+    response.usage = _usage(100, 5)
+    mock_completion.return_value = response
+    _MarkItDownModelAdapter(LiteLLM("provider/model")).chat.completions.create(
+        model="x", messages=[{"role": "user", "content": "describe"}]
+    )
+    [(usage, failed)] = settled
+    assert (usage["output_tokens"], failed) == (5, False)
+    assert mock_completion.call_args.kwargs["max_tokens"] == 100
+
+
+def test_a_settle_that_raises_does_not_break_the_call():
+    from rhesis.sdk.models.base import ModelCall
+
+    def broken(usage, failed):
+        raise RuntimeError("boom")
+
+    call = ModelCall(broken)
+    call.finish()
+    call.finish()  # once only, and quietly
