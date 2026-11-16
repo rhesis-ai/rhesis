@@ -79,6 +79,9 @@ x-telemetry-config: &telemetry-config
 x-nextjs-frontend: &nextjs-frontend
   NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required, no safe default}
   NEXT_TELEMETRY_DISABLED: 1
+  # Nothing routes /ws on the frontend port here, so point the browser at the
+  # published backend port. Behind a reverse proxy that routes /ws, set WS_URL=/ws.
+  WS_URL: ${WS_URL:-ws://localhost:${BACKEND_PORT:-8080}/ws}
   # Optional branding overrides, read at request time — see .env.example
   BRAND_PRIMARY_COLOR: ${BRAND_PRIMARY_COLOR:-}
   BRAND_SECONDARY_COLOR: ${BRAND_SECONDARY_COLOR:-}

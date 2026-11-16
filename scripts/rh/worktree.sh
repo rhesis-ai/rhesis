@@ -120,6 +120,7 @@ rewrite_frontend_env_ports() {
     set_env_var "$file" PORT "$(dev_port_for frontend "$offset")"
     set_env_url_port "$file" API_BASE_URL "$(dev_port_for backend "$offset")"
     set_env_url_port "$file" BACKEND_URL "$(dev_port_for backend "$offset")"
+    set_env_url_port "$file" WS_URL "$(dev_port_for backend "$offset")"
     set_env_url_port "$file" FRONTEND_URL "$(dev_port_for frontend "$offset")"
     set_env_url_port "$file" NEXTAUTH_URL "$(dev_port_for frontend "$offset")"
 }

@@ -19,6 +19,14 @@ spec:
     - host: {{ .Values.frontend.ingress.host | quote }}
       http:
         paths:
+          # The browser's WebSocket stays on the app host; the backend serves it.
+          - path: /ws
+            pathType: Exact
+            backend:
+              service:
+                name: backend
+                port:
+                  number: {{ .Values.backend.service.port }}
           - path: /
             pathType: Prefix
             backend:

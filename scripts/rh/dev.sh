@@ -155,6 +155,8 @@ $DEV_ENV_MARKER on $timestamp
 API_BASE_URL=http://localhost:${DEV_BACKEND_PORT}
 FRONTEND_ENV=local
 BACKEND_URL=http://localhost:${DEV_BACKEND_PORT}
+# next dev can't proxy /ws, so the browser opens the WebSocket on the backend port.
+WS_URL=ws://localhost:${DEV_BACKEND_PORT}/ws
 
 # FRONTEND_URL is also NextAuth's base URL (src/auth.ts), so it tracks PORT.
 FRONTEND_URL=http://localhost:${DEV_FRONTEND_PORT}

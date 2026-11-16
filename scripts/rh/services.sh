@@ -47,6 +47,8 @@ start_frontend() {
     echo -e "${GREEN}Starting Rhesis Frontend...${NC}"
     # The npm script passes PORT to next dev as -p.
     export PORT="$DEV_FRONTEND_PORT"
+    # next dev can't proxy /ws, so the browser goes to the backend port directly.
+    export WS_URL="${WS_URL:-ws://localhost:${DEV_BACKEND_PORT}/ws}"
     run_start_script apps/frontend "Frontend"
 }
 
