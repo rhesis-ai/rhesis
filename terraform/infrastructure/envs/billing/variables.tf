@@ -45,3 +45,26 @@ variable "uncovered_spend_budget_eur" {
   type        = number
   default     = 5
 }
+
+variable "vertex_spend_cap_project" {
+  description = "Project whose Vertex AI (Agent Platform) usage the spend cap pauses: the one production's Gemini calls bill to"
+  type        = string
+  default     = "playground-437609"
+}
+
+variable "vertex_spend_cap_project_number" {
+  description = "Number of that project. The Budget API filters by it, and CI's service account has no access to the project to look it up"
+  type        = string
+  default     = "97484699177"
+}
+
+variable "vertex_spend_cap_eur" {
+  description = <<-EOT
+    Monthly gross Vertex AI spend (credits excluded) in that project at which Google
+    pauses new Vertex usage there. A backstop above the application's daily caps, so
+    keep it well above normal spend: reaching it stops the hosted model for everyone
+    until the cap is lifted or the month ends.
+  EOT
+  type        = number
+  default     = 1000
+}
