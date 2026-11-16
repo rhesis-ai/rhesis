@@ -4,7 +4,7 @@ import * as React from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import LoginSection from '../components/auth/LoginSection';
 import AuthPageShell from '../components/auth/AuthPageShell';
 import { getBaseUrl } from '../utils/url-resolver';
@@ -26,45 +26,60 @@ export default function LandingPage() {
   >(null);
   const [autoLoggingIn, setAutoLoggingIn] = useState(false);
   const isQuickStartMode = useQuickStart();
+  // Whether this visit follows a sign-out, which holds off Quick Start's
+  // automatic sign-in. Read once, on arrival: the effect below strips the URL
+  // flags before the session finishes loading.
+  const holdAutoLogin = useRef<boolean | null>(null);
+  // React runs effects twice in development; a second local-login would
+  // spend a second single-use auth code.
+  const autoLoginStarted = useRef(false);
+
+  const startLocalLogin = useCallback(() => {
+    if (autoLoginStarted.current) return;
+    autoLoginStarted.current = true;
+    setAutoLoggingIn(true);
+
+    fetch(`${getBaseUrl()}/auth/local-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then(async response => {
+        if (response.ok) {
+          const data = await response.json();
+          const { signIn } = await import('next-auth/react');
+          await signIn('credentials', {
+            code: data.auth_code,
+            redirect: true,
+            callbackUrl: '/architect',
+          });
+        } else {
+          console.error('Local auto-login failed');
+          autoLoginStarted.current = false;
+          setAutoLoggingIn(false);
+        }
+      })
+      .catch(error => {
+        console.error('Local auto-login error:', error);
+        autoLoginStarted.current = false;
+        setAutoLoggingIn(false);
+      });
+  }, []);
 
   useEffect(() => {
+    if (holdAutoLogin.current === null) {
+      const urlParams = new URLSearchParams(window.location.search);
+      holdAutoLogin.current =
+        urlParams.get('session_expired') === 'true' ||
+        urlParams.get('force_logout') === 'true';
+    }
     if (
       isQuickStartMode &&
       isSessionUnauthenticated(status) &&
-      !autoLoggingIn
+      !holdAutoLogin.current
     ) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const isSessionExpired = urlParams.get('session_expired') === 'true';
-      const isForcedLogout = urlParams.get('force_logout') === 'true';
-
-      if (!isSessionExpired && !isForcedLogout) {
-        setAutoLoggingIn(true);
-
-        fetch(`${getBaseUrl()}/auth/local-login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        })
-          .then(async response => {
-            if (response.ok) {
-              const data = await response.json();
-              const { signIn } = await import('next-auth/react');
-              await signIn('credentials', {
-                code: data.auth_code,
-                redirect: true,
-                callbackUrl: '/architect',
-              });
-            } else {
-              console.error('Local auto-login failed');
-              setAutoLoggingIn(false);
-            }
-          })
-          .catch(error => {
-            console.error('Local auto-login error:', error);
-            setAutoLoggingIn(false);
-          });
-      }
+      startLocalLogin();
     }
-  }, [isQuickStartMode, status, autoLoggingIn]);
+  }, [isQuickStartMode, status, startLocalLogin]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
