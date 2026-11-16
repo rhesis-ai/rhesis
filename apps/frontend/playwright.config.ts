@@ -13,9 +13,14 @@ const baseURL = `http://localhost:${e2ePort}`;
 
 const mockBackendOrigin = 'http://127.0.0.1:8080';
 
+// next dev can't route /ws, so the browser's WebSocket goes to the backend.
+const backendWsUrl = (backendUrl: string) =>
+  `${backendUrl.replace(/^http/, 'ws').replace(/\/+$/, '')}/ws`;
+
 const webServerEnv = {
   API_BASE_URL: process.env.API_BASE_URL || `${mockBackendOrigin}/api/v1`,
   BACKEND_URL: process.env.BACKEND_URL || mockBackendOrigin,
+  WS_URL: process.env.WS_URL || backendWsUrl(mockBackendOrigin),
   E2E_NO_DOCKER: process.env.E2E_NO_DOCKER || '',
   FRONTEND_ENV: process.env.FRONTEND_ENV || 'development',
   NEXTAUTH_SECRET:
@@ -48,6 +53,9 @@ const webServer = isNoDocker
         API_BASE_URL:
           process.env.API_BASE_URL || 'http://localhost:8080/api/v1',
         BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8080',
+        WS_URL:
+          process.env.WS_URL ||
+          backendWsUrl(process.env.BACKEND_URL || 'http://localhost:8080'),
         NEXTAUTH_SECRET:
           process.env.NEXTAUTH_SECRET || 'test-secret-for-e2e-tests-only',
         FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',

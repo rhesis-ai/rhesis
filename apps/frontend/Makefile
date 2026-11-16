@@ -110,6 +110,7 @@ docker-clean:
 # Shared env for Playwright runs against the Docker Quick Start backend
 E2E_DOCKER_ENV = API_BASE_URL=http://localhost:$(BACKEND_E2E_PORT) \
 	BACKEND_URL=http://localhost:$(BACKEND_E2E_PORT) \
+	WS_URL=ws://localhost:$(BACKEND_E2E_PORT)/ws \
 	NEXTAUTH_SECRET=test-secret-for-e2e-tests-only \
 	FRONTEND_URL=http://localhost:3000
 
