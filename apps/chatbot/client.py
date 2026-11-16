@@ -23,7 +23,12 @@ from session_store import create_session_store
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-from spend_cap import HostedModelCapReached, InputTooLarge, install_spend_cap
+from spend_cap import (
+    HostedModelCapReached,
+    InputTooLarge,
+    install_spend_cap,
+    seconds_until_reset,
+)
 
 from rhesis.sdk import Parameters, endpoint
 from rhesis.sdk.services.extractor import extract_with_vision_fallback
@@ -928,7 +933,9 @@ async def chat_endpoint(
     except InputTooLarge as e:
         raise HTTPException(status_code=413, detail=str(e))
     except HostedModelCapReached as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        raise HTTPException(
+            status_code=503, detail=str(e), headers={"Retry-After": str(seconds_until_reset())}
+        )
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -532,6 +532,21 @@ class TestEndpointAuthFields(EndpointTestMixin, BaseEntityTests):
 
         assert self._stored(test_db, endpoint_id).auth_token == "our-shared-key"
 
+    def test_a_schemeless_url_is_compared_by_its_host(
+        self, authenticated_client: TestClient, db_project, test_db
+    ):
+        endpoint_id = self._create_with_bearer(authenticated_client, db_project)
+
+        authenticated_client.put(
+            self.endpoints.put(endpoint_id), json={"url": "chatbot.example.com/v2/chat"}
+        )
+        assert self._stored(test_db, endpoint_id).auth_token == "our-shared-key"
+
+        authenticated_client.put(
+            self.endpoints.put(endpoint_id), json={"url": "attacker.example.net/collect"}
+        )
+        assert self._stored(test_db, endpoint_id).auth_token is None
+
     def test_a_new_host_with_a_new_token_keeps_the_new_one(
         self, authenticated_client: TestClient, db_project, test_db
     ):

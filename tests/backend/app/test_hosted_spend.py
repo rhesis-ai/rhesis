@@ -534,6 +534,12 @@ class TestErrorSurfaces:
         assert ok.status_code == 200, ok.text
         assert sum(spend._pending_org.values()) > 0
 
+        embedder.generate.side_effect = RuntimeError("provider down")
+        before = sum(spend._pending_org.values())
+        authenticated_client.post("/services/generate/embedding", json={"text": "hello again"})
+        assert sum(spend._pending_org.values()) > before  # counted before the call
+        embedder.generate.side_effect = None
+
         spend._capped = True
         capped = authenticated_client.post("/services/generate/embedding", json={"text": "hi"})
         assert capped.status_code == 503

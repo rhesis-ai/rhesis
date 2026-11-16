@@ -17,7 +17,7 @@ import logging
 import os
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from urllib.parse import urlsplit, urlunsplit
 
@@ -84,6 +84,13 @@ class InputTooLarge(ModelCallRefused):
 
     def __init__(self) -> None:
         super().__init__("This message is too long for the demo chatbot.")
+
+
+def seconds_until_reset() -> int:
+    """Seconds until the UTC day rolls over and the counter starts from zero."""
+    now = datetime.now(timezone.utc)
+    tomorrow = datetime.combine(now.date() + timedelta(days=1), datetime.min.time(), timezone.utc)
+    return max(1, int((tomorrow - now).total_seconds()))
 
 
 def _budget_usd() -> Optional[float]:

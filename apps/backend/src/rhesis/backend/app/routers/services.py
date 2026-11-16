@@ -340,11 +340,11 @@ def generate_embedding_endpoint(
             )
         hosted_model = hosted_pricing.hosted_embedding_model(embedder)
         if hosted_model:
-            hosted_spend.check_capacity(str(current_user.organization_id))
-        embedding = embedder.generate(text=request.text)
-        if hosted_model:
-            hosted_spend.record_input(hosted_model, request.text, str(current_user.organization_id))
-        return embedding
+            org_id = str(current_user.organization_id)
+            hosted_spend.check_capacity(org_id)
+            # Before the call, as for LLM calls, so concurrent requests aren't invisible.
+            hosted_spend.record_input(hosted_model, request.text, org_id)
+        return embedder.generate(text=request.text)
     except (HTTPException, ModelCallRefused):
         raise
     except EmbeddingProviderNotConfigured as e:

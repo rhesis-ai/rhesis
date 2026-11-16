@@ -115,10 +115,14 @@ _SECRET_FOLLOWS_HOST = {"url": "auth_token", "token_url": "client_secret"}
 
 
 def _host(url: Optional[str]) -> Optional[str]:
-    if not url:
+    if not url or not url.strip():
         return None
-    parts = urlsplit(url.strip())
-    return f"{parts.scheme.lower()}://{(parts.netloc or '').lower()}"
+    url = url.strip()
+    # "api.example.com/chat" has no scheme, so urlsplit would put the host in the path.
+    if "://" not in url and not url.startswith("//"):
+        url = f"https://{url}"
+    parts = urlsplit(url)
+    return f"{(parts.scheme or 'https').lower()}://{(parts.netloc or '').lower()}"
 
 
 def _drop_secrets_for_new_hosts(db: Session, endpoint_id: uuid.UUID, endpoint_data: dict) -> None:
