@@ -745,17 +745,20 @@ async def quota_exceeded_exception_handler(request: Request, exc: QuotaExceededE
 
 @app.exception_handler(ModelCallRefused)
 async def model_call_refused_handler(request: Request, exc: ModelCallRefused):
-    """A spend limit refused a model call: 503 until the UTC day rolls over, or 413 for
-    a request too large to send at all.
+    """A spend limit refused a model call: 503 until the UTC day rolls over, 429 for a
+    few seconds when over a per-minute limit, or 413 for a request too large to send.
 
     Registered on the SDK base class so a refusal relayed from an upstream platform
     (``PlatformRefusedCall``) is answered the same way as one of ours. A JSONResponse
     rather than an HTTPException, whose 5xx detail the generic handler replaces.
     """
-    resets_daily = getattr(exc, "resets_daily", True)
-    headers = {"Retry-After": str(seconds_until_reset())} if resets_daily else None
+    if hasattr(exc, "retry_after_seconds"):
+        retry_after = exc.retry_after_seconds()
+    else:  # relayed from an upstream platform
+        retry_after = seconds_until_reset() if getattr(exc, "resets_daily", True) else None
+    headers = {"Retry-After": str(retry_after)} if retry_after else None
     return JSONResponse(
-        status_code=getattr(exc, "http_status", 503),
+        status_code=getattr(exc, "http_status", None) or getattr(exc, "status_code", None) or 503,
         content={"error": getattr(exc, "error_code", "model_call_refused"), "message": str(exc)},
         headers=headers,
     )

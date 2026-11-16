@@ -77,7 +77,10 @@ def reraise_model_refusal(exc: BaseException) -> None:
         if isinstance(current, ModelCallRefused):
             raise current
         seen.add(id(current))
-        current = current.__cause__ or current.__context__
+        # Like a traceback: the explicit cause, else the implicit context unless suppressed.
+        current = current.__cause__ or (
+            None if current.__suppress_context__ else current.__context__
+        )
 
 
 def internal_error(

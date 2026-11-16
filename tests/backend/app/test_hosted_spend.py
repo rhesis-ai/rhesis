@@ -10,6 +10,7 @@ Run with:
 
 import json
 import logging
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -19,6 +20,7 @@ import pytest
 from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.quota import hosted_pricing
 from rhesis.backend.app.quota import hosted_spend as module
+from rhesis.backend.app.quota import hosted_throughput as throughput
 from rhesis.backend.app.quota.enforcement import stream_error_message
 from rhesis.backend.app.quota.hosted_spend import (
     CAP_OVERRIDE_KEY,
@@ -34,6 +36,7 @@ from rhesis.backend.app.quota.hosted_spend import (
     HostedModelOrgCapReached,
     HostedRequestTooLarge,
     HostedSpend,
+    HostedThroughputExceeded,
     day_key,
     seconds_until_reset,
 )
@@ -41,7 +44,6 @@ from rhesis.backend.app.utils import usage_tracking
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.jobs.base import BaseJob
 from rhesis.backend.jobs.execution.batch.runner import _failure_result, _is_retriable_failure
-from rhesis.sdk.models.base import ModelCallRefused
 from rhesis.sdk.models.providers.litellm import LiteLLM
 from rhesis.sdk.models.providers.native import PlatformRefusedCall
 
@@ -55,17 +57,17 @@ ONE_M_OUTPUT_USD = 1.50
 def limits(monkeypatch):
     """Set the env limits; ``platform=None`` turns the caps off."""
 
-    def _set(platform=10.0, org=None, max_input=200_000, max_output=16_384):
-        monkeypatch.setattr(
-            module,
-            "get_application_settings",
-            lambda: SimpleNamespace(
-                hosted_model_daily_budget_usd=platform,
-                hosted_model_org_daily_budget_usd=org,
-                hosted_model_max_input_tokens=max_input,
-                hosted_model_max_output_tokens=max_output,
-            ),
+    def _set(platform=10.0, org=None, max_input=200_000, max_output=16_384, tpm=None, org_tpm=None):
+        settings = SimpleNamespace(
+            hosted_model_daily_budget_usd=platform,
+            hosted_model_org_daily_budget_usd=org,
+            hosted_model_max_input_tokens=max_input,
+            hosted_model_max_output_tokens=max_output,
+            hosted_model_tokens_per_minute=tpm,
+            hosted_model_org_tokens_per_minute=org_tpm,
         )
+        monkeypatch.setattr(module, "get_application_settings", lambda: settings)
+        monkeypatch.setattr(throughput, "get_application_settings", lambda: settings)
 
     _set()
     monkeypatch.setattr(
@@ -179,7 +181,7 @@ class TestCallPath:
     def test_a_refund_is_not_given_on_the_next_day(self, spend, monkeypatch):
         settle = spend.admit(VERTEX, _request("hi"), ORG)
         charged = spend._pending_micro
-        tomorrow = module._utc_today() + module.timedelta(days=1)
+        tomorrow = module._utc_today() + timedelta(days=1)
         monkeypatch.setattr(module, "_utc_today", lambda: tomorrow)
         settle({"input_tokens": 1, "output_tokens": 1, "total_tokens": 2}, False)
         assert spend._pending_micro == charged
@@ -424,6 +426,134 @@ class TestOrgCap:
         assert markers == [ORG_CAP_REACHED_MARKER]
 
 
+class TestThroughput:
+    def test_output_is_weighted_by_its_price_ratio(self, spend):
+        assert throughput.weighted_tokens(VERTEX, 100, 10) == pytest.approx(100 + 10 * 6)
+
+    def test_off_without_a_limit(self, spend):
+        spend._throughput.add(ORG, 10_000_000)
+        spend.tick()
+        spend.admit(VERTEX, _request("hi"), ORG)
+
+    def test_the_platform_limit_refuses_until_the_next_minute(self, spend, limits):
+        limits(tpm=1_000)
+        spend.tick()
+        spend.record_output(VERTEX, 200, None)  # 1,200 weighted tokens, not flushed
+        with pytest.raises(HostedThroughputExceeded) as exc:
+            spend.admit(VERTEX, _request("hi"), ORG)
+        assert exc.value.http_status == 429
+        assert 0 < exc.value.retry_after_seconds() <= 60
+        assert exc.value.status_code == 429  # so llm_retry backs off and retries
+
+    def test_an_org_limit_leaves_other_orgs_alone(self, spend, limits):
+        limits(org_tpm=500)
+        spend.tick()
+        spend.record_output(VERTEX, 100, ORG)  # 600 weighted
+        with pytest.raises(HostedThroughputExceeded):
+            spend.admit(VERTEX, _request("hi"), ORG)
+        spend.admit(VERTEX, _request("hi"), OTHER_ORG)
+
+    def test_usage_from_other_processes_counts(self, spend, limits):
+        limits(tpm=1_000)
+        other = HostedSpend()
+        with patch.object(other, "_ensure_monitor"):
+            other.record_output(VERTEX, 200, None)
+            other.tick()
+        spend.tick()
+        with pytest.raises(HostedThroughputExceeded):
+            spend.admit(VERTEX, _request("hi"), None)
+
+    def test_a_new_minute_starts_from_zero(self, spend, limits, monkeypatch):
+        limits(tpm=1_000)
+        spend.record_output(VERTEX, 200, None)
+        spend.tick()
+        later = throughput._now().replace(year=2099)
+        monkeypatch.setattr(throughput, "_now", lambda: later)
+        spend.tick()
+        spend.admit(VERTEX, _request("hi"), None)
+
+    def test_redis_override_changes_the_limit(self, spend, limits):
+        limits(tpm=1_000)
+        spend._redis.set(throughput.LIMIT_OVERRIDE_KEY, "1000000")
+        spend.record_output(VERTEX, 200, None)
+        spend.tick()
+        spend.admit(VERTEX, _request("hi"), None)
+
+    def test_tokens_from_an_ended_minute_are_dropped_not_carried(self, spend, limits, monkeypatch):
+        """After an outage, tokens counted in an old minute must not land in the new one."""
+        limits(tpm=1_000)
+        spend.tick()
+        spend.record_output(VERTEX, 200, None)  # 1,200 weighted, never flushed
+        later = throughput._now().replace(year=2099)
+        monkeypatch.setattr(throughput, "_now", lambda: later)
+        spend.tick()
+        spend.admit(VERTEX, _request("hi"), None)
+        stored = spend._redis.get(throughput.window_key(throughput.minute_of(later)))
+        assert int(stored or 0) < 1_000
+
+    def test_an_oversized_request_gets_413_even_when_busy(self, spend, limits):
+        limits(tpm=1_000, max_input=100)
+        spend.tick()
+        spend.record_output(VERTEX, 200, None)
+        with pytest.raises(HostedRequestTooLarge):
+            spend.admit(VERTEX, _request("word " * 500), None)
+
+    def test_embeddings_are_refused_when_over_the_limit(self, spend, limits):
+        limits(org_tpm=500)
+        spend.tick()
+        spend.record_output(VERTEX, 100, ORG)
+        with pytest.raises(HostedThroughputExceeded):
+            spend.record_input("vertex_ai/text-embedding-005", "hello", ORG)
+
+    def test_quiet_orgs_drop_out_at_the_next_minute(self, spend, limits, monkeypatch):
+        limits(org_tpm=1_000_000)
+        spend.record_output(VERTEX, 10, ORG)
+        spend.tick()
+        assert ORG in spend._throughput._orgs
+        later = throughput._now().replace(year=2099)
+        monkeypatch.setattr(throughput, "_now", lambda: later)
+        spend.tick()
+        assert ORG not in spend._throughput._orgs
+
+    def test_input_counts_at_admit_and_reported_output_at_settle(self, spend, limits):
+        """The largest possible output is reserved for spend, not for throughput."""
+        limits(tpm=1_000_000)
+        settle = spend.admit(VERTEX, _request("hi"), ORG)
+        after_admit = spend._throughput._pending
+        assert after_admit < 100  # input only, not 16k tokens of possible output
+        settle({"input_tokens": 3, "output_tokens": 10, "total_tokens": 13}, False)
+        assert spend._throughput._pending == pytest.approx(after_admit + 10 * 6)
+
+    def test_a_relayed_throttle_keeps_its_429(self, authenticated_client):
+        from rhesis.sdk.models.providers.native import PlatformThrottledCall
+
+        with patch(
+            "rhesis.backend.app.routers.services._resolve_content_generation_model",
+            side_effect=PlatformThrottledCall("Busy.", 7),
+        ):
+            response = authenticated_client.post(
+                "/services/generate/content", json={"prompt": "hi"}
+            )
+        assert response.status_code == 429
+        assert response.headers["Retry-After"] == "7"
+
+    def test_a_throughput_refusal_is_retried_by_batch_runs(self):
+        result = _failure_result("t1", HostedThroughputExceeded(org_level=False), 1.0)
+        assert _is_retriable_failure(result)
+
+    def test_generate_content_answers_429(self, authenticated_client):
+        with patch(
+            "rhesis.backend.app.routers.services._resolve_content_generation_model",
+            side_effect=HostedThroughputExceeded(org_level=True),
+        ):
+            response = authenticated_client.post(
+                "/services/generate/content", json={"prompt": "hi"}
+            )
+        assert response.status_code == 429
+        assert response.json()["error"] == "hosted_model_throughput_limit"
+        assert 0 < int(response.headers["Retry-After"]) <= 60
+
+
 class TestFork:
     def test_a_forked_child_starts_clean(self, spend):
         spend.record_output(VERTEX, 1_000_000, ORG)
@@ -527,8 +657,14 @@ class TestErrorSurfaces:
         assert stream_error_message(refusal) == str(refusal)
         assert not _is_retriable_failure(_failure_result("t1", refusal, 1.0))
 
-    def test_celery_does_not_autoretry(self):
-        assert ModelCallRefused in BaseJob.dont_autoretry_for
+    def test_celery_does_not_autoretry_spend_refusals(self):
+        for refusal in (HostedModelCapReached(), HostedModelOrgCapReached()):
+            assert isinstance(refusal, BaseJob.dont_autoretry_for)
+        relayed = PlatformRefusedCall("Daily capacity.", "hosted_model_at_capacity", 503)
+        assert isinstance(relayed, BaseJob.dont_autoretry_for)
+
+    def test_celery_retries_a_throughput_refusal(self):
+        assert not isinstance(HostedThroughputExceeded(org_level=False), BaseJob.dont_autoretry_for)
 
     def test_a_refusal_relayed_through_the_rhesis_model_is_not_retried(self):
         relayed = PlatformRefusedCall("Daily capacity.", "hosted_model_at_capacity", 503)
@@ -543,6 +679,17 @@ class TestErrorSurfaces:
         except RuntimeError as wrapped:
             with pytest.raises(HostedModelCapReached):
                 internal_error(wrapped, context="generating metric", status_code=400)
+
+    def test_a_suppressed_context_is_not_searched_for_a_refusal(self):
+        from rhesis.backend.app.error_handlers import reraise_model_refusal
+
+        try:
+            try:
+                raise HostedModelCapReached()
+            except HostedModelCapReached:
+                raise RuntimeError("unrelated") from None
+        except RuntimeError as unrelated:
+            reraise_model_refusal(unrelated)  # does not raise the suppressed refusal
 
     def test_handle_database_exceptions_lets_a_refusal_through(self):
         @handle_database_exceptions(entity_name="metric")

@@ -50,19 +50,31 @@ import os
 import threading
 import time
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 
 from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.quota import hosted_pricing
+from rhesis.backend.app.quota.hosted_refusals import (  # noqa: F401  (re-exported)
+    CAP_REACHED_MESSAGE,
+    KEY_PREFIX,
+    ORG_CAP_REACHED_MESSAGE,
+    HostedModelCapReached,
+    HostedModelOrgCapReached,
+    HostedModelRefused,
+    HostedRequestTooLarge,
+    HostedThroughputExceeded,
+    parse_override,
+    seconds_until_reset,
+)
+from rhesis.backend.app.quota.hosted_throughput import ThroughputWindow, weighted_tokens
 from rhesis.backend.app.services.cache import RedisBackedCache
 from rhesis.backend.app.services.redis_constants import RedisDatabase
-from rhesis.sdk.models.base import CallSettle, ModelCallRefused, ModelCallRequest, TokenUsage
+from rhesis.sdk.models.base import CallSettle, ModelCallRequest, TokenUsage
 from rhesis.sdk.models.input_tokens import estimate_input_tokens
 
 logger = logging.getLogger(__name__)
 
-KEY_PREFIX = "hosted_spend:v1"
 CAP_OVERRIDE_KEY = f"{KEY_PREFIX}:cap_usd"
 ORG_CAP_OVERRIDE_KEY = f"{KEY_PREFIX}:org_cap_usd"
 PRICES_KEY = f"{KEY_PREFIX}:prices"
@@ -79,71 +91,10 @@ THRESHOLD_MARKER = "hosted_spend.threshold"
 CAP_REACHED_MARKER = "hosted_spend.cap_reached"
 ORG_CAP_REACHED_MARKER = "hosted_spend.org_cap_reached"
 
-CAP_REACHED_MESSAGE = (
-    "The Rhesis default model has reached its daily capacity. Add your own model in "
-    "Settings → Models to keep going, or try again tomorrow."
-)
-ORG_CAP_REACHED_MESSAGE = (
-    "Your organization has used today's allowance on the Rhesis default model. Add your "
-    "own model in Settings → Models to keep going, or try again tomorrow."
-)
-
-
-class HostedModelRefused(ModelCallRefused):
-    """A hosted-model call refused by one of the spend limits.
-
-    No ``status_code`` attribute on purpose: the SDK's ``llm_retry`` retries
-    anything carrying a 5xx/429 status, and retrying a refusal only waits
-    longer for the same answer. ``http_status`` is what the API answers with.
-    """
-
-    error_code = "hosted_model_refused"
-    http_status = 503
-    resets_daily = True
-
-
-class HostedModelCapReached(HostedModelRefused):
-    """The platform's daily hosted-model budget is used up."""
-
-    error_code = "hosted_model_at_capacity"
-
-    def __init__(self) -> None:
-        super().__init__(CAP_REACHED_MESSAGE)
-
-
-class HostedModelOrgCapReached(HostedModelRefused):
-    """This org's daily hosted-model allowance is used up."""
-
-    error_code = "hosted_model_org_daily_limit"
-
-    def __init__(self) -> None:
-        super().__init__(ORG_CAP_REACHED_MESSAGE)
-
-
-class HostedRequestTooLarge(HostedModelRefused):
-    """One request is bigger than a hosted call may be."""
-
-    error_code = "hosted_model_request_too_large"
-    http_status = 413
-    resets_daily = False
-
-    def __init__(self, tokens: int, limit: int) -> None:
-        super().__init__(
-            f"This request is too large for the Rhesis default model (about {tokens:,} input "
-            f"tokens; the limit is {limit:,}). Shorten it, or use your own model."
-        )
-
 
 def day_key(day: date, org_id: Optional[str] = None) -> str:
     base = f"{KEY_PREFIX}:{day.isoformat()}"
     return f"{base}:org:{org_id}" if org_id else base
-
-
-def seconds_until_reset(now: Optional[datetime] = None) -> int:
-    """Seconds until the UTC day rolls over and the counters start from zero."""
-    now = now or datetime.now(timezone.utc)
-    tomorrow = datetime.combine(now.date() + timedelta(days=1), datetime.min.time(), timezone.utc)
-    return max(1, int((tomorrow - now).total_seconds()))
 
 
 def _utc_today() -> date:
@@ -154,16 +105,6 @@ def _whole(micro: float) -> tuple[int, float]:
     """Split pending micro-dollars into what to flush now and the fraction to keep."""
     whole = int(micro)
     return whole, micro - whole
-
-
-def _usd_or_none(raw: Optional[str], key: str) -> Optional[float]:
-    if raw is None:
-        return None
-    try:
-        return max(0.0, float(raw))
-    except ValueError:
-        logger.warning(f"hosted_spend: ignoring unreadable {key}={raw!r}")
-        return None
 
 
 def _micro_or_none(usd: Optional[float]) -> Optional[float]:
@@ -210,6 +151,7 @@ class HostedSpend(RedisBackedCache):
         self._monitor_pid: Optional[int] = None
         self._monitor_lock = threading.Lock()
         self._prices_loaded_at: Optional[float] = None
+        self._throughput = ThroughputWindow()
         if hasattr(os, "register_at_fork"):
             os.register_at_fork(after_in_child=self._after_fork)
 
@@ -226,12 +168,16 @@ class HostedSpend(RedisBackedCache):
         self._pending_micro, self._pending_org = 0.0, {}
         self._redis = self._redis_read = None
         self._initialized = False
+        self._throughput.reset()
 
     # ── Call path: memory only ─────────────────────────────────────────
 
     @staticmethod
     def enabled() -> bool:
-        return get_application_settings().hosted_model_daily_budget_usd is not None
+        return (
+            get_application_settings().hosted_model_daily_budget_usd is not None
+            or ThroughputWindow.enabled()
+        )
 
     def check_capacity(self, org_id: Optional[str]) -> None:
         """Refuse when the platform's or *org_id*'s day is used up."""
@@ -275,6 +221,9 @@ class HostedSpend(RedisBackedCache):
                 raise HostedRequestTooLarge(tokens, limit)
             input_tokens += tokens
 
+        # After the size check: a request that can never run gets 413, not a retryable 429.
+        self._throughput.check(org_id)
+
         max_output = settings.hosted_model_max_output_tokens
         requested = request.get("max_tokens")
         request["max_tokens"] = min(requested, max_output) if requested else max_output
@@ -283,9 +232,14 @@ class HostedSpend(RedisBackedCache):
 
         charged = hosted_pricing.cost_usd(model_name, input_tokens, output_tokens)
         self._add(org_id, charged)
+        # Throughput counts input now and the output reported at settle, not the largest
+        # possible output: reserving that would leave room for only a call or two a minute.
+        self._throughput.add(org_id, input_tokens)
         day = _utc_today()
 
         def settle(usage: Optional[TokenUsage], failed: bool) -> None:
+            if usage is not None:
+                self._throughput.add(org_id, weighted_tokens(model_name, 0, usage["output_tokens"]))
             if _utc_today() != day:
                 return  # Charged to a day that's over; a refund would go to the new one.
             if usage is not None:
@@ -301,17 +255,20 @@ class HostedSpend(RedisBackedCache):
         return settle
 
     def record_input(self, model_name: str, text: str, org_id: Optional[str]) -> None:
-        """Count the input of a call that bypasses the SDK hook (embeddings)."""
+        """Refuse or count the input of a call that bypasses the SDK hook (embeddings)."""
         if not self.enabled():
             return
         tokens = estimate_input_tokens(model_name, [{"role": "user", "content": text}])
+        self._throughput.check(org_id)
         self._add(org_id, hosted_pricing.cost_usd(model_name, tokens, 0))
+        self._throughput.add(org_id, tokens)
 
     def record_output(self, model_name: str, output_tokens: int, org_id: Optional[str]) -> None:
         """Count output tokens outside the call path (tests, manual corrections)."""
         if not self.enabled() or output_tokens <= 0:
             return
         self._add(org_id, hosted_pricing.cost_usd(model_name, 0, output_tokens))
+        self._throughput.add(org_id, weighted_tokens(model_name, 0, output_tokens))
 
     def _add(self, org_id: Optional[str], usd: float) -> None:
         # Fractions of a micro-dollar are kept until the flush, or tiny calls would vanish.
@@ -378,6 +335,8 @@ class HostedSpend(RedisBackedCache):
                 pending_org[org_id], self._pending_org[org_id] = _whole(micro)
             if today != self._day:
                 self._day, self._active_orgs = today, set(pending_org)
+                # Leftover fractions of yesterday's orgs; without this the dict only grows.
+                self._pending_org = {o: m for o, m in self._pending_org.items() if o in pending_org}
             orgs = sorted(self._active_orgs)
         try:
             reading = self._exchange(client, today, pending, pending_org, orgs)
@@ -392,13 +351,22 @@ class HostedSpend(RedisBackedCache):
         if not self._redis_ok:
             logger.info("hosted_spend: Redis reachable again, caps enforced")
         self._redis_ok = True
-        self._apply(client, today, reading)
+        try:
+            self._apply(client, today, reading)
+        finally:
+            # Even if applying the daily caps failed: stale throughput limits would
+            # otherwise stay armed against a count that is no longer flushed.
+            try:
+                self._throughput.sync(client)
+            except Exception as exc:
+                logger.warning(f"hosted_spend: throughput not synced, limits off: {exc}")
         self._reload_prices_if_due(client)
 
     def _fail_open(self, exc: Optional[Exception] = None) -> None:
         self._capped = False
         self._capped_orgs = set()
         self._platform_cap, self._org_caps, self._org_cap_default = None, {}, None
+        self._throughput.fail_open()
         if exc is not None and self._redis_ok:
             logger.warning(f"hosted_spend: Redis unavailable, caps not enforced: {exc}")
         self._redis_ok = exc is None and self._redis_ok
@@ -420,8 +388,8 @@ class HostedSpend(RedisBackedCache):
         values = pipe.execute()[-1]
 
         settings = get_application_settings()
-        platform_cap = _usd_or_none(values[1], CAP_OVERRIDE_KEY)
-        org_cap_all = _usd_or_none(values[2], ORG_CAP_OVERRIDE_KEY)
+        platform_cap = parse_override(values[1], CAP_OVERRIDE_KEY)
+        org_cap_all = parse_override(values[2], ORG_CAP_OVERRIDE_KEY)
         if org_cap_all is None:
             org_cap_all = settings.hosted_model_org_daily_budget_usd
         reading = _Reading(
@@ -433,7 +401,7 @@ class HostedSpend(RedisBackedCache):
         )
         totals, overrides = values[3 : 3 + len(orgs)], values[3 + len(orgs) :]
         for org_id, total, override in zip(orgs, totals, overrides, strict=True):
-            own = _usd_or_none(override, f"{ORG_CAP_OVERRIDE_KEY}:{org_id}")
+            own = parse_override(override, f"{ORG_CAP_OVERRIDE_KEY}:{org_id}")
             reading.org_micro[org_id] = int(total or 0)
             reading.org_cap_usd[org_id] = own if own is not None else org_cap_all
         return reading
