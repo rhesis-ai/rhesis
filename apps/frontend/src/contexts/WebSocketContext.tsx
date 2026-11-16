@@ -8,7 +8,6 @@ import React, {
   useCallback,
   useRef,
 } from 'react';
-import { useSession } from 'next-auth/react';
 import {
   WebSocketClient,
   EventType,
@@ -17,7 +16,7 @@ import {
 } from '@/utils/websocket';
 import { getWebSocketUrl } from '@/utils/url-resolver';
 import { WebSocketTokenClient } from '@/utils/api-client/websocket-token-client';
-import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useHasOrganization } from '@/hooks/useIsAuthenticated';
 
 /**
  * Context value interface for WebSocket functionality.
@@ -98,7 +97,8 @@ function disposeSharedClient(): void {
  * is available and torn down on logout.
  */
 export function WebSocketProvider({ children }: WebSocketProviderProps) {
-  const { status } = useSession();
+  // The backend refuses a socket token until onboarding has created an organization.
+  const canConnect = useHasOrganization();
   const [isConnected, setIsConnected] = useState(false);
   const [connectionId, setConnectionId] = useState<string | undefined>();
   const clientRef = useRef<WebSocketClient | null>(null);
@@ -107,8 +107,8 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
   connectionIdHandlerRef.current = id => setConnectionId(id);
 
   useEffect(() => {
-    if (!isAuthenticated(status)) {
-      // Logout / session loss: drop the shared socket immediately.
+    if (!canConnect) {
+      // Logout, session loss or no organization yet: drop the shared socket.
       disposeSharedClient();
       clientRef.current = null;
       setIsConnected(false);
@@ -153,7 +153,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
         disposeSharedClient();
       }, 0);
     };
-  }, [status]);
+  }, [canConnect]);
 
   const send = useCallback((message: WebSocketMessage): boolean => {
     if (!clientRef.current) {

@@ -17,7 +17,10 @@ import {
 const mockGetFeatures = jest.fn();
 
 const AUTHENTICATED_SESSION = {
-  data: { session_token: 'test-token', user: { id: 'user-1' } },
+  data: {
+    session_token: 'test-token',
+    user: { id: 'user-1', organization_id: 'org-1' },
+  },
   status: 'authenticated',
 };
 
@@ -79,6 +82,24 @@ describe('FeaturesProvider', () => {
       expect(screen.getByTestId('probe')).toHaveTextContent('on')
     );
     expect(mockGetFeatures).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not fetch for a new account that has no organization yet', async () => {
+    // `/features` answers 403 until onboarding creates the organization.
+    mockSession = {
+      ...AUTHENTICATED_SESSION,
+      data: { user: { id: 'user-1', organization_id: undefined } },
+    };
+
+    render(
+      <FeaturesProvider>
+        <Probe feature={FeatureName.SSO} />
+      </FeaturesProvider>
+    );
+
+    expect(screen.getByTestId('probe')).toHaveTextContent('off');
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(mockGetFeatures).not.toHaveBeenCalled();
   });
 
   it('returns false for features that are not enabled', async () => {

@@ -41,6 +41,16 @@ export function useIsAuthenticated(): boolean {
 }
 
 /**
+ * Whether the signed-in user belongs to an organization. A new account has
+ * none until onboarding creates one, and every org-scoped endpoint answers
+ * 403 until then, so providers that call one gate their fetch on this.
+ */
+export function useHasOrganization(): boolean {
+  const { data: session, status } = useSession();
+  return isAuthenticated(status) && !!session?.user?.organization_id;
+}
+
+/**
  * The `session.user.id`-based cache-scope key used by every context that
  * scopes a react-query cache/`QueryClient` entry by user (`FeaturesContext`,
  * `PermissionsContext`, `OnboardingContext`, `ActiveProjectContext`) — the

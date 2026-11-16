@@ -14,7 +14,7 @@ jest.mock('@/utils/api-client/client-factory', () => ({
 }));
 
 jest.mock('@/hooks/useIsAuthenticated', () => ({
-  useIsAuthenticated: () => true,
+  useHasOrganization: () => true,
   useUserScope: () => 'user-1',
 }));
 

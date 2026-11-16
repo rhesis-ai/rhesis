@@ -34,7 +34,11 @@ import {
   useMemo,
   type ReactNode,
 } from 'react';
-import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
+import {
+  isAuthenticated,
+  useHasOrganization,
+  useUserScope,
+} from '@/hooks/useIsAuthenticated';
 
 interface FeaturesState {
   license: LicenseInfo | null;
@@ -81,6 +85,7 @@ export function FeaturesProvider({
 }) {
   const { status } = useSession();
   const userScope = useUserScope();
+  const hasOrganization = useHasOrganization();
 
   const { data, isLoading, error } = useQuery({
     queryKey: featureKeys.all(userScope),
@@ -88,7 +93,9 @@ export function FeaturesProvider({
     // `!!userScope` closes the gap where `status` flips to 'authenticated'
     // before `userScope` reflects the real user id — without it the query
     // could run (and cache) under the `''` scope key.
-    enabled: isAuthenticated(status) && !!userScope,
+    // A new account has no organization until onboarding, and this endpoint
+    // answers 403 until then.
+    enabled: isAuthenticated(status) && !!userScope && hasOrganization,
     staleTime: 5 * 60_000,
     ...(initialFeatures ? { initialData: initialFeatures } : {}),
   });
