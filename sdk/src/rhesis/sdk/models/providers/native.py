@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.clients import APIClient
 from rhesis.sdk.config import DEFAULT_LLM_TIMEOUT
-from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, ModelCallRefused
+from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, ModelCallRefused, ModelCallThrottled
 from rhesis.sdk.models.defaults import (
     DEFAULT_EMBEDDING_MODELS,
     DEFAULT_LANGUAGE_MODELS,
@@ -44,6 +44,8 @@ REFUSED_ERROR_CODES = {
     "hosted_model_org_daily_limit",
     "hosted_model_request_too_large",
 }
+#: The ``error`` code of a per-minute refusal, which clears within a minute.
+THROTTLED_ERROR_CODES = {"hosted_model_throughput_limit"}
 
 
 class PlatformRefusedCall(ModelCallRefused):
@@ -60,14 +62,30 @@ class PlatformRefusedCall(ModelCallRefused):
         self.resets_daily = http_status == 503
 
 
-def _raise_if_platform_refused(status: int, body: str) -> None:
-    if status not in (413, 503):
+class PlatformThrottledCall(ModelCallThrottled):
+    """The platform asked to retry shortly: a per-minute limit was reached."""
+
+    def __init__(self, message: str, retry_after: Optional[int]) -> None:
+        super().__init__(message)
+        self._retry_after = retry_after
+
+    def retry_after_seconds(self) -> Optional[int]:
+        return self._retry_after
+
+
+def _raise_if_platform_refused(status: int, body: str, retry_after: Optional[str] = None) -> None:
+    if status not in (413, 429, 503):
         return
     try:
         payload = json.loads(body)
     except (json.JSONDecodeError, TypeError):
         return
-    if isinstance(payload, dict) and payload.get("error") in REFUSED_ERROR_CODES:
+    if not isinstance(payload, dict):
+        return
+    if status == 429 and payload.get("error") in THROTTLED_ERROR_CODES:
+        seconds = int(retry_after) if (retry_after or "").isdigit() else None
+        raise PlatformThrottledCall(payload.get("message") or payload["error"], seconds)
+    if payload.get("error") in REFUSED_ERROR_CODES:
         raise PlatformRefusedCall(
             payload.get("message") or payload["error"], payload["error"], status
         )
@@ -246,7 +264,9 @@ class RhesisLLM(BaseLLM):
                         request_elapsed,
                         body,
                     )
-                    _raise_if_platform_refused(response.status, body)
+                    _raise_if_platform_refused(
+                        response.status, body, response.headers.get("Retry-After")
+                    )
                     response.raise_for_status()
 
                 logger.debug(
@@ -332,7 +352,9 @@ class RhesisEmbedder(BaseEmbedder):
                             response.status,
                             body,
                         )
-                        _raise_if_platform_refused(response.status, body)
+                        _raise_if_platform_refused(
+                            response.status, body, response.headers.get("Retry-After")
+                        )
                         response.raise_for_status()
                     result: List[float] = await response.json()
                     return result

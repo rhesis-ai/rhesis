@@ -120,6 +120,13 @@ _PASSTHROUGH_EXCEPTIONS = (
 )
 
 
+def _is_throttled(exc: Exception) -> bool:
+    """A refusal that clears within seconds: re-raised so the caller's retry handles it."""
+    from rhesis.sdk.models.base import ModelCallThrottled
+
+    return isinstance(exc, ModelCallThrottled)
+
+
 def resilient_evaluation(func: Callable) -> Callable:
     """Catch evaluation errors and return an inconclusive MetricResult.
 
@@ -142,6 +149,8 @@ def resilient_evaluation(func: Callable) -> Callable:
             except _PASSTHROUGH_EXCEPTIONS:
                 raise
             except Exception as exc:
+                if _is_throttled(exc):
+                    raise
                 logger.warning(
                     "Metric '%s' evaluation failed (%s)",
                     getattr(self, "name", func.__qualname__),
@@ -159,6 +168,8 @@ def resilient_evaluation(func: Callable) -> Callable:
             except _PASSTHROUGH_EXCEPTIONS:
                 raise
             except Exception as exc:
+                if _is_throttled(exc):
+                    raise
                 logger.warning(
                     "Metric '%s' evaluation failed (%s)",
                     getattr(self, "name", func.__qualname__),

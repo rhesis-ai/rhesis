@@ -115,6 +115,21 @@ class ModelCallRequest(TypedDict):
     response_format: Any
 
 
+class ModelCallThrottled(ModelCallRefused):
+    """A refusal that clears on its own after a short wait (a per-minute limit).
+
+    ``status_code`` 429 makes ``llm_retry`` retry it, waiting
+    :meth:`retry_after_seconds` rather than its usual backoff, and ``transient`` tells
+    other callers it is worth retrying.
+    """
+
+    status_code = 429
+    transient = True
+
+    def retry_after_seconds(self) -> Optional[int]:
+        return None
+
+
 #: What a pre-call check may return: called once when the call ends, with the usage
 #: the provider reported (``None`` if none arrived) and whether the call failed before
 #: any response. A host that reserves spend in its check settles the reservation here.

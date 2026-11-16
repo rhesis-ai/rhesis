@@ -224,6 +224,24 @@ class TestRhesisLLM:
         assert mock_session.post.call_count == 1
 
     @patch("aiohttp.ClientSession")
+    def test_a_relayed_429_is_throttled_with_its_retry_after(self, mock_session_class, service):
+        from rhesis.sdk.models.base import ModelCallThrottled
+
+        session_ctx, _, mock_response = _mock_aiohttp_session(
+            status=429, headers={"Retry-After": "12"}
+        )
+        mock_response.text = AsyncMock(
+            return_value='{"error": "hosted_model_throughput_limit", "message": "Busy."}'
+        )
+        mock_session_class.return_value = session_ctx
+
+        service.load_model()
+        service.a_generate.retry.stop = tenacity.stop_after_attempt(1)
+        with pytest.raises(ModelCallThrottled, match="Busy.") as exc:
+            service.generate(prompt="Test prompt")
+        assert exc.value.retry_after_seconds() == 12
+
+    @patch("aiohttp.ClientSession")
     def test_the_embedder_raises_a_refusal_too(
         self, mock_session_class, mock_env_vars, mock_client
     ):
