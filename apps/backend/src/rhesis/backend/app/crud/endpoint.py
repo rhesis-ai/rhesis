@@ -110,7 +110,7 @@ _TOKEN_INPUT_FIELDS = frozenset(
 
 # A stored secret is only ever sent to the host it was entered for. Moving the endpoint
 # elsewhere without supplying a new one clears it, or the backend would hand it to
-# whichever server the endpoint now names (the seeded example carries our own key).
+# whichever server the endpoint now names.
 _SECRET_FOLLOWS_HOST = {"url": "auth_token", "token_url": "client_secret"}
 
 
