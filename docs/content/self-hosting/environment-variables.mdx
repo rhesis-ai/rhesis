@@ -205,16 +205,19 @@ own model keys are not counted.
 
 | Variable | Description | Default |
 |---|---|---|
-| `HOSTED_MODEL_DAILY_BUDGET_USD` | Daily cap for the whole deployment, in USD. Unset turns every cap off | *(unset)* |
+| `HOSTED_MODEL_DAILY_BUDGET_USD` | Daily cap for the whole deployment, in USD. With it and the per-minute limits unset, nothing is counted or refused | *(unset)* |
 | `HOSTED_MODEL_ORG_DAILY_BUDGET_USD` | Daily cap per organization, in USD | *(unset)* |
 | `HOSTED_MODEL_MAX_INPUT_TOKENS` | Largest input one call may send; larger requests get HTTP 413 | `200000` |
 | `HOSTED_MODEL_MAX_OUTPUT_TOKENS` | Most output one call may produce, thinking included. Lower `max_tokens` values are kept | `16384` |
+| `HOSTED_MODEL_TOKENS_PER_MINUTE` | Weighted tokens the whole deployment may use per minute; output tokens count as many input tokens as they cost (6 for Gemini 3.1 Flash-Lite). Over it, calls get HTTP 429 with `Retry-After` until the next minute | *(unset)* |
+| `HOSTED_MODEL_ORG_TOKENS_PER_MINUTE` | The same, per organization | *(unset)* |
 
 A reached cap answers HTTP 503 with a `Retry-After` until midnight UTC. Caps can be changed without
 a restart by setting keys in Redis database 12: `hosted_spend:v1:cap_usd` (deployment, `0` refuses
 every call), `hosted_spend:v1:org_cap_usd` (every organization) and
-`hosted_spend:v1:org_cap_usd:<organization id>` (one organization). Delete a key to go back to the
-environment value.
+`hosted_spend:v1:org_cap_usd:<organization id>` (one organization), and for the per-minute limits
+`hosted_spend:v1:tpm_limit`, `hosted_spend:v1:org_tpm_limit` and
+`hosted_spend:v1:org_tpm_limit:<organization id>`. Delete a key to go back to the environment value.
 
 ## Authentication and OAuth
 
