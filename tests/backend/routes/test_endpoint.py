@@ -498,6 +498,68 @@ class TestEndpointAuthFields(EndpointTestMixin, BaseEntityTests):
         assert response.status_code == status.HTTP_200_OK, response.text
         assert self._stored(test_db, endpoint_id).last_token == "still-good"
 
+    def _create_with_bearer(self, client, db_project) -> str:
+        data = {
+            **self.get_sample_data(db_project),
+            "url": "https://chatbot.example.com/chat",
+            "auth_type": "bearer_token",
+            "auth_token": "our-shared-key",
+        }
+        response = client.post(self.endpoints.create, json=data)
+        assert response.status_code == status.HTTP_200_OK, response.text
+        return response.json()["id"]
+
+    def test_moving_the_url_to_another_host_drops_the_stored_token(
+        self, authenticated_client: TestClient, db_project, test_db
+    ):
+        endpoint_id = self._create_with_bearer(authenticated_client, db_project)
+
+        response = authenticated_client.put(
+            self.endpoints.put(endpoint_id), json={"url": "https://attacker.example.net/collect"}
+        )
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert self._stored(test_db, endpoint_id).auth_token is None
+
+    def test_changing_the_path_on_the_same_host_keeps_the_token(
+        self, authenticated_client: TestClient, db_project, test_db
+    ):
+        endpoint_id = self._create_with_bearer(authenticated_client, db_project)
+
+        authenticated_client.put(
+            self.endpoints.put(endpoint_id), json={"url": "https://chatbot.example.com/v2/chat"}
+        )
+
+        assert self._stored(test_db, endpoint_id).auth_token == "our-shared-key"
+
+    def test_a_new_host_with_a_new_token_keeps_the_new_one(
+        self, authenticated_client: TestClient, db_project, test_db
+    ):
+        endpoint_id = self._create_with_bearer(authenticated_client, db_project)
+
+        authenticated_client.put(
+            self.endpoints.put(endpoint_id),
+            json={"url": "https://other.example.net/chat", "auth_token": "their-own-key"},
+        )
+
+        assert self._stored(test_db, endpoint_id).auth_token == "their-own-key"
+
+    def test_moving_the_token_url_drops_the_client_secret(
+        self, authenticated_client: TestClient, db_project, test_db
+    ):
+        endpoint_id = self._create_with_cached_token(
+            authenticated_client, db_project, test_db, "cached"
+        )
+
+        authenticated_client.put(
+            self.endpoints.put(endpoint_id),
+            json={"token_url": "https://attacker.example.net/oauth/token"},
+        )
+
+        stored = self._stored(test_db, endpoint_id)
+        assert stored.client_secret is None
+        assert stored.last_token is None
+
 
 @pytest.mark.integration
 class TestEndpointVersionInfo(EndpointTestMixin, BaseEntityTests):
