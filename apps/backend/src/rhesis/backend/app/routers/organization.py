@@ -23,6 +23,7 @@ from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
     require_current_user_or_token_without_context,
 )
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.crud import organization as organization_crud
 from rhesis.backend.app.database import set_session_variables
 from rhesis.backend.app.dependencies import (
@@ -72,6 +73,9 @@ def _limit_org_creation(
 ) -> None:
     # Not per_user_rate_limit: that needs an org, and the caller has none during onboarding.
     # Only created orgs count (see create_organization), so a taken name costs nothing.
+    # Only where quotas are enforced: elsewhere a new org brings nothing to farm.
+    if not get_application_settings().usage_quotas_enabled:
+        return
     if post_parse_limit_reached(
         ORG_CREATION_RATE_LIMIT, namespace=_ORG_CREATION_NAMESPACE, key=str(current_user.id)
     ):
@@ -96,9 +100,10 @@ def create_organization(
     created = organization_crud.create_organization(
         db=db, organization=organization, owner_user_id=current_user.id
     )
-    count_post_parse_hit(
-        ORG_CREATION_RATE_LIMIT, namespace=_ORG_CREATION_NAMESPACE, key=str(current_user.id)
-    )
+    if get_application_settings().usage_quotas_enabled:
+        count_post_parse_hit(
+            ORG_CREATION_RATE_LIMIT, namespace=_ORG_CREATION_NAMESPACE, key=str(current_user.id)
+        )
     return created
 
 

@@ -493,8 +493,11 @@ class HostedSpend(RedisBackedCache):
         """Fetch litellm's current price list and share our models' entries via Redis.
 
         Run daily by the ``refresh_model_prices`` job. Returns how many entries
-        were stored.
+        were stored. Does nothing with no budget set (self-hosted by default), so an
+        offline deployment doesn't try to download the list.
         """
+        if not self.enabled():
+            return 0
         entries, payload = hosted_pricing.fetch_current_prices()
         if not entries:
             logger.warning("hosted_spend: litellm's price list has none of our default models")

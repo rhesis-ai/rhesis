@@ -401,6 +401,12 @@ class TestPrices:
         assert set(stored["models"]) == {VERTEX}
         assert stored["fetched_at"]
 
+    def test_refresh_does_nothing_without_a_budget(self, spend, limits):
+        limits(platform=None)
+        with patch.object(litellm, "get_model_cost_map") as fetch:
+            assert spend.refresh_prices() == 0
+        fetch.assert_not_called()
+
     def test_a_price_in_redis_reprices_the_next_call(self, spend, restore_litellm_prices):
         entry = {
             **litellm.model_cost[VERTEX],
