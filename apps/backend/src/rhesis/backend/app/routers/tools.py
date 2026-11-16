@@ -63,6 +63,7 @@ from rhesis.backend.app.utils.rate_limit import (
     PROBE_RATE_LIMIT,
 )
 from rhesis.sdk.agents.mcp.exceptions import MCPError
+from rhesis.sdk.models.base import ModelCallRefused
 
 logger = logging.getLogger(__name__)
 
@@ -413,7 +414,7 @@ async def extract_tool_item(
                 {"id": d.id, "title": d.title, "content": d.content, "url": d.url} for d in docs
             ]
         )
-    except (HTTPException, QuotaExceededError):
+    except (HTTPException, QuotaExceededError, ModelCallRefused):
         raise
     except (ToolConfigurationError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from e

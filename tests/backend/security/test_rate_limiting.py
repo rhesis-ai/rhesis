@@ -318,6 +318,46 @@ def test_costly_route_is_limited_per_user(limiter_on, authenticated_client):
     assert codes[20] == 429
 
 
+def _quotas(monkeypatch, enabled: bool) -> None:
+    from rhesis.backend.app.routers import organization
+
+    monkeypatch.setattr(
+        organization,
+        "get_application_settings",
+        lambda: SimpleNamespace(usage_quotas_enabled=enabled),
+    )
+
+
+def test_creating_organizations_is_limited_per_user(limiter_on, authenticated_client, monkeypatch):
+    """Each new org brings fresh quotas, so one account may only create a few a day.
+
+    Only created orgs count: a refused request (here an empty body) uses up nothing.
+    """
+    _quotas(monkeypatch, enabled=True)
+    headers = {"X-Forwarded-For": _fresh_ip()}
+
+    def create(body) -> int:
+        return authenticated_client.post("/organizations/", json=body, headers=headers).status_code
+
+    assert [create({}) for _ in range(5)] == [422] * 5
+    names = [{"name": f"Rate limited org {uuid.uuid4().hex}"} for _ in range(4)]
+    assert [create(body) for body in names] == [200, 200, 200, 429]
+
+
+def test_creating_organizations_is_unlimited_without_quotas(
+    limiter_on, authenticated_client, monkeypatch
+):
+    """Self-hosted deployments run without quotas, so there is nothing to farm."""
+    _quotas(monkeypatch, enabled=False)
+    headers = {"X-Forwarded-For": _fresh_ip()}
+    names = [{"name": f"Unlimited org {uuid.uuid4().hex}"} for _ in range(4)]
+    codes = [
+        authenticated_client.post("/organizations/", json=body, headers=headers).status_code
+        for body in names
+    ]
+    assert codes == [200] * 4
+
+
 def test_per_user_limit_keys_on_the_account(limiter_on):
     """Users behind one IP each get their own bucket, per route."""
     from rhesis.backend.app.dependencies import per_user_rate_limit

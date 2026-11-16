@@ -1,5 +1,6 @@
 import logging
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import JSONResponse
@@ -15,6 +16,7 @@ from rhesis.backend.app.auth.user_utils import (
     require_current_user_or_token,
     require_current_user_or_token_without_context,
 )
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.dependencies import (
     get_db_session,
@@ -514,6 +516,19 @@ def leave_organization(
     return db_user
 
 
+#: How long after creating an org its creator may attach to it here (onboarding).
+ORG_ATTACH_WINDOW = timedelta(hours=1)
+
+
+def _attach_window_open(organization: Organization) -> bool:
+    # Where quotas apply, each org has its own allowance; rejoining older owned orgs
+    # would let one person cycle through them.
+    if not get_application_settings().usage_quotas_enabled:
+        return True
+    created_at = organization.created_at
+    return created_at is not None and datetime.now(timezone.utc) - created_at <= ORG_ATTACH_WINDOW
+
+
 @router.put("/{user_id}", response_model=schemas.User)
 @handle_database_exceptions(
     entity_name="user", custom_unique_message="User with this email already exists"
@@ -573,6 +588,12 @@ def update_user(
         if organization is None or str(organization.owner_id) != str(db_user.id):
             raise HTTPException(
                 status_code=403, detail="You may only join an organization you created"
+            )
+        if not _attach_window_open(organization):
+            raise HTTPException(
+                status_code=403,
+                detail="An organization can only be joined this way right after it is "
+                "created. Ask one of its members to invite you.",
             )
 
     # Update the user

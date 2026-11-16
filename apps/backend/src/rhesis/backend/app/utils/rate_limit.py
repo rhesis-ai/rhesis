@@ -204,6 +204,10 @@ PROBE_RATE_LIMIT = "60/minute;1000/hour"
 # token quotas meter the cost, this only stops one account fanning out over IPs.
 INFERENCE_RATE_LIMIT = "1200/minute"
 
+# Each new org starts with fresh quotas and its own hosted-model allowance, so leaving
+# and re-creating orgs would multiply them.
+ORG_CREATION_RATE_LIMIT = "3/day"
+
 # Feedback endpoint rate limits (per IP, public endpoint)
 FEEDBACK_RATE_LIMIT = "5/hour"  # Max 5 feedback submissions per hour per IP
 
@@ -289,6 +293,35 @@ def hit_post_parse_limit(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many requests",
         )
+
+
+def post_parse_limit_reached(rate_string: str, *, namespace: str, key: str) -> bool:
+    """Whether *key* has used up *rate_string* in *namespace*, without counting a hit.
+
+    For limits that count only successes: check with this first, then call
+    :func:`count_post_parse_hit` once the action has succeeded. Fails open when the
+    limiter is off or its storage errors.
+    """
+    if not limiter.enabled:
+        return False
+    full_key = f"{namespace}:{key}"
+    try:
+        return not all(limiter.limiter.test(item, full_key) for item in parse_many(rate_string))
+    except Exception:
+        logger.warning("Rate limit storage unreachable; not checking %s", namespace)
+        return False
+
+
+def count_post_parse_hit(rate_string: str, *, namespace: str, key: str) -> None:
+    """Count one hit against *rate_string* without refusing anything."""
+    if not limiter.enabled:
+        return
+    full_key = f"{namespace}:{key}"
+    for item in parse_many(rate_string):
+        try:
+            _hit(item, full_key)
+        except Exception:
+            logger.warning("Rate limit storage unreachable; %s not counted", namespace)
 
 
 def _hit(item: RateLimitItem, key: str) -> bool:

@@ -226,14 +226,26 @@ class _MarkItDownModelAdapter:
         def create(self, model: str, messages: list, **kwargs):
             import litellm
 
-            return litellm.completion(
-                model=self._llm.model_name,
-                messages=messages,
-                api_key=getattr(self._llm, "api_key", None),
-                api_base=getattr(self._llm, "api_base", None),
-                api_version=getattr(self._llm, "api_version", None),
-                **kwargs,
-            )
+            # A direct litellm call, so do what the provider class would: let the
+            # host refuse it first, and report what it cost.
+            call = self._llm._start_call([messages], kwargs)
+            try:
+                response = litellm.completion(
+                    model=self._llm.model_name,
+                    messages=messages,
+                    api_key=getattr(self._llm, "api_key", None),
+                    api_base=getattr(self._llm, "api_base", None),
+                    api_version=getattr(self._llm, "api_version", None),
+                    **kwargs,
+                )
+                call.add_usage(getattr(response, "usage", None))
+            except Exception:
+                call.failed = True
+                raise
+            finally:
+                call.finish()
+            self._llm._emit_usage(getattr(response, "usage", None))
+            return response
 
 
 class ImageExtractor(Extractor):

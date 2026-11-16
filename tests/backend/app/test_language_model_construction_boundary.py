@@ -134,6 +134,8 @@ _DEFAULT_SETTING_READERS = {
     # Polyphemus-user fallbacks behind the route-level TEST_GENERATION gate.
     "app/services/test_config_generator.py",
     "app/services/test_generation_pipeline.py",
+    # Compares names to price and cap hosted calls; builds nothing from them.
+    "app/quota/hosted_pricing.py",
 }
 
 

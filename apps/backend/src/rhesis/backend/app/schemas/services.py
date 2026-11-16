@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime
 from enum import Enum
 from typing import Annotated, Any, Dict, List, Literal, Optional
@@ -174,6 +175,13 @@ class GenerateTestsResponse(BaseModel):
     tests: List[Test]
 
 
+#: Largest structured-output schema a hosted call accepts, as JSON.
+MAX_SCHEMA_CHARS = 100_000
+
+#: Embedding models take a few thousand tokens per text; this is well past that.
+MAX_EMBEDDING_TEXT_CHARS = 50_000
+
+
 class GenerateContentRequest(BaseModel):
     """Request for generating content with optional structured output.
 
@@ -202,9 +210,17 @@ class GenerateContentRequest(BaseModel):
         description="Optional OpenAI JSON Schema for structured output validation",
     )
 
+    @field_validator("schema_")
+    @classmethod
+    def bound_schema(cls, v: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        # Sent, and billed, with the prompt; nothing legitimate comes close.
+        if v is not None and len(json.dumps(v)) > MAX_SCHEMA_CHARS:
+            raise ValueError(f"schema is longer than {MAX_SCHEMA_CHARS:,} characters")
+        return v
+
 
 class GenerateEmbeddingRequest(BaseModel):
-    text: str
+    text: str = Field(max_length=MAX_EMBEDDING_TEXT_CHARS)
 
 
 class TestConfigItem(BaseModel):

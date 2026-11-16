@@ -40,8 +40,8 @@ from rhesis.backend.app.utils.ssrf_http_client import (
     SSRFError,
     validate_outbound_url,
 )
-from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
-from rhesis.sdk.models.base import BaseDecisionModel, BaseEmbedder, BaseLLM
+from rhesis.backend.app.utils.usage_tracking import check_hosted_spend, stamp_usage_provenance
+from rhesis.sdk.models.base import BaseDecisionModel, BaseEmbedder, BaseLLM, ModelCallRefused
 from rhesis.sdk.models.base import BaseModel as SdkModel
 from rhesis.sdk.models.factory import get_model
 
@@ -427,11 +427,12 @@ def model_setup_problem(
 ) -> Optional[ModelNotConfiguredError]:
     """Why *user*'s model for *purpose* cannot be built, or ``None`` when it can.
 
-    Quota exceeded still counts as usable; it has its own 402 path.
+    Quota exceeded or the hosted cap reached still counts as usable; each has its own
+    response.
     """
     try:
         build_model_or_raise(db, user, purpose, model_id)
-    except QuotaExceededError:
+    except (QuotaExceededError, ModelCallRefused):
         return None
     except ModelNotConfiguredError as problem:
         return problem
@@ -699,7 +700,10 @@ def resolve_default_hosted_model(
     # so Rhesis pays for those tokens exactly as it does for
     # ``rhesis/...``. Restricting this to rhesis/polyphemus meant every such
     # deployment reported zero MODEL_TOKENS forever.
-    return ensure_language_model(default_model)
+    model = ensure_language_model(default_model)
+    # Refuse here too, so a run is rejected before it is queued rather than test by test.
+    check_hosted_spend(model, organization_id=str(organization_id) if organization_id else None)
+    return model
 
 
 def _call_polyphemus_with_delegation(user: User, model_name: str, **kwargs):

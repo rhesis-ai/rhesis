@@ -2,6 +2,7 @@
 
 import uuid
 from typing import Dict, List, Optional
+from urllib.parse import urlsplit
 
 from sqlalchemy.orm import Session
 
@@ -107,6 +108,38 @@ _TOKEN_INPUT_FIELDS = frozenset(
 )
 
 
+# A stored secret is only ever sent to the host it was entered for. Moving the endpoint
+# elsewhere without supplying a new one clears it, or the backend would hand it to
+# whichever server the endpoint now names.
+_SECRET_FOLLOWS_HOST = {"url": "auth_token", "token_url": "client_secret"}
+
+
+def _host(url: Optional[str]) -> Optional[str]:
+    if not url or not url.strip():
+        return None
+    url = url.strip()
+    # "api.example.com/chat" has no scheme, so urlsplit would put the host in the path.
+    if "://" not in url and not url.startswith("//"):
+        url = f"https://{url}"
+    parts = urlsplit(url)
+    return f"{(parts.scheme or 'https').lower()}://{(parts.netloc or '').lower()}"
+
+
+def _drop_secrets_for_new_hosts(db: Session, endpoint_id: uuid.UUID, endpoint_data: dict) -> None:
+    moved = [f for f in _SECRET_FOLLOWS_HOST if f in endpoint_data]
+    if not moved:
+        return
+    current = db.query(models.Endpoint).filter(models.Endpoint.id == endpoint_id).first()
+    if current is None:
+        return
+    for url_field in moved:
+        secret_field = _SECRET_FOLLOWS_HOST[url_field]
+        if secret_field in endpoint_data:
+            continue
+        if _host(endpoint_data[url_field]) != _host(getattr(current, url_field)):
+            endpoint_data[secret_field] = None
+
+
 def update_endpoint(
     db: Session,
     endpoint_id: uuid.UUID,
@@ -126,6 +159,7 @@ def update_endpoint(
     else:
         endpoint_data = {k: v for k, v in endpoint.items() if k != "timeout_seconds"}
 
+    _drop_secrets_for_new_hosts(db, endpoint_id, endpoint_data)
     if _TOKEN_INPUT_FIELDS & endpoint_data.keys():
         endpoint_data["last_token"] = None
         endpoint_data["last_token_expires_at"] = None

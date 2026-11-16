@@ -3,6 +3,7 @@ Error handling utilities for FastAPI validation errors and responses.
 """
 
 import logging
+from typing import Optional
 
 from fastapi import HTTPException, Request
 from fastapi.exception_handlers import http_exception_handler as default_http_exception_handler
@@ -11,6 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 
 from rhesis.backend.app.utils.request_context import request_id_of
+from rhesis.sdk.models.base import ModelCallRefused
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +65,21 @@ class UpstreamHTTPException(PublicHTTPException):
     """
 
 
+def reraise_model_refusal(exc: BaseException) -> None:
+    """Re-raise a spend-limit refusal found anywhere in *exc*'s cause chain.
+
+    Routes that catch broadly would otherwise turn a 503 "daily capacity" or a 413
+    "request too large" into a generic 400 or 500; the app-level handler answers it.
+    """
+    seen = set()
+    current: Optional[BaseException] = exc
+    while current is not None and id(current) not in seen:
+        if isinstance(current, ModelCallRefused):
+            raise current
+        seen.add(id(current))
+        current = current.__cause__ or current.__context__
+
+
 def internal_error(
     exc: Exception,
     *,
@@ -85,6 +102,7 @@ def internal_error(
     processed." It must be a literal: interpolating ``exc`` into it defeats the
     whole point of routing through this function.
     """
+    reraise_model_refusal(exc)
     if status_code >= 500:
         logger.exception("%s: %s", context, exc)
     else:

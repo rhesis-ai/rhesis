@@ -119,6 +119,7 @@ CELERY_CONFIG = {
         "rhesis.backend.jobs.trace_retention",
         "rhesis.backend.jobs.heartbeat",
         "rhesis.backend.jobs.audit_retention",
+        "rhesis.backend.jobs.model_prices",
     ],
     # Run by the single `celery beat` process (the chart's beat Deployment, the
     # compose `beat` service). The retention sweeps are no-ops until their
@@ -140,6 +141,11 @@ CELERY_CONFIG = {
         "trace-retention-sweep": {
             "task": "rhesis.backend.jobs.trace_retention.sweep_expired_traces",
             "schedule": crontab(hour=4, minute=0),
+        },
+        # Keeps the hosted spend cap priced from litellm's current price list.
+        "refresh-model-prices": {
+            "task": "rhesis.backend.jobs.model_prices.refresh_model_prices",
+            "schedule": crontab(hour=2, minute=0),
         },
         # Always on: a no-op unless the EE audit log is installed.
         "audit-log-purge": {

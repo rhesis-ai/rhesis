@@ -12,7 +12,7 @@ with requires_full_sdk("The LiteLLM model provider"):
 
 from rhesis.sdk.config import DEFAULT_LLM_TIMEOUT
 from rhesis.sdk.errors import NO_MODEL_NAME_PROVIDED
-from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, Embedding, UsageCallback
+from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, Embedding, ModelCall, UsageCallback
 from rhesis.sdk.models.utils import validate_llm_response
 
 litellm.suppress_debug_info = True
@@ -125,27 +125,35 @@ class LiteLLM(BaseLLM):
                 if system_prompt
                 else [{"role": "user", "content": prompt}]
             )
+        call = self._start_call([messages], kwargs, response_format=schema)
 
         if stream:
-            return self._a_generate_stream(messages, schema, *args, **kwargs)
+            return self._a_generate_stream(messages, schema, *args, call=call, **kwargs)
 
         # Connection: close prevents httpx from pooling the socket across
         # asyncio.run() calls (e.g. Celery tasks), which would cause
         # RuntimeError: Event loop is closed on teardown.
         extra_headers = {"Connection": "close", **(kwargs.pop("extra_headers", None) or {})}
         timeout = kwargs.pop("timeout", self.timeout)
-        response = await acompletion(
-            *args,
-            model=self.model_name,
-            messages=messages,
-            response_format=schema,
-            api_key=self.api_key,
-            api_base=self.api_base,
-            api_version=self.api_version,
-            extra_headers=extra_headers,
-            timeout=timeout,
-            **kwargs,
-        )
+        try:
+            response = await acompletion(
+                *args,
+                model=self.model_name,
+                messages=messages,
+                response_format=schema,
+                api_key=self.api_key,
+                api_base=self.api_base,
+                api_version=self.api_version,
+                extra_headers=extra_headers,
+                timeout=timeout,
+                **kwargs,
+            )
+            call.add_usage(getattr(response, "usage", None))
+        except Exception:
+            call.failed = True
+            raise
+        finally:
+            call.finish()
 
         # Emitted for every LiteLLM-backed provider (vertex_ai, gemini,
         # openai, anthropic, ...), not just the Rhesis-native ones: whether
@@ -189,9 +197,11 @@ class LiteLLM(BaseLLM):
         messages: list,
         schema: Optional[Union[Type[BaseModel], dict]] = None,
         *args,
+        call: Optional[ModelCall] = None,
         **kwargs,
     ) -> AsyncGenerator[str, None]:
         """Yield token chunks from a streaming LiteLLM completion."""
+        call = call or ModelCall()
         # Connection: close prevents httpx from pooling the socket across
         # asyncio.run() calls (e.g. Celery tasks), which would cause
         # RuntimeError: Event loop is closed on teardown.
@@ -201,31 +211,41 @@ class LiteLLM(BaseLLM):
         # OpenAI-compatible streaming only includes it when explicitly
         # requested. A caller-supplied stream_options still wins.
         stream_options = kwargs.pop("stream_options", None) or {"include_usage": True}
-        response = await acompletion(
-            *args,
-            model=self.model_name,
-            messages=messages,
-            response_format=schema,
-            stream=True,
-            stream_options=stream_options,
-            api_key=self.api_key,
-            api_base=self.api_base,
-            api_version=self.api_version,
-            extra_headers=extra_headers,
-            timeout=timeout,
-            **kwargs,
-        )
-        async for chunk in response:  # type: ignore[union-attr]
-            # The chunk carrying usage (when stream_options requested it) is
-            # a final, content-free one -- choices is empty on it, per
-            # OpenAI streaming semantics. Emitted before the choices check
-            # below so it isn't skipped along with "nothing to yield".
-            self._emit_usage(getattr(chunk, "usage", None))
-            if not chunk.choices:
-                continue
-            content = chunk.choices[0].delta.content
-            if content:
-                yield content
+        try:
+            try:
+                response = await acompletion(
+                    *args,
+                    model=self.model_name,
+                    messages=messages,
+                    response_format=schema,
+                    stream=True,
+                    stream_options=stream_options,
+                    api_key=self.api_key,
+                    api_base=self.api_base,
+                    api_version=self.api_version,
+                    extra_headers=extra_headers,
+                    timeout=timeout,
+                    **kwargs,
+                )
+            except Exception:
+                call.failed = True
+                raise
+            async for chunk in response:  # type: ignore[union-attr]
+                # The chunk carrying usage (when stream_options requested it) is
+                # a final, content-free one -- choices is empty on it, per
+                # OpenAI streaming semantics. Emitted before the choices check
+                # below so it isn't skipped along with "nothing to yield".
+                call.add_usage(getattr(chunk, "usage", None))
+                self._emit_usage(getattr(chunk, "usage", None))
+                if not chunk.choices:
+                    continue
+                content = chunk.choices[0].delta.content
+                if content:
+                    yield content
+        finally:
+            # Also when the consumer stops early: the stream was opened, so no usage
+            # means unreported output, not none.
+            call.finish()
 
     def generate_batch(
         self,
@@ -262,22 +282,32 @@ class LiteLLM(BaseLLM):
         else:
             messages = [[{"role": "user", "content": prompt}] for prompt in prompts]
 
+        call = self._start_call(messages, kwargs, n, response_format=schema)
+
         # Handle schema format for LiteLLM
         response_format = schema
 
         timeout = kwargs.pop("timeout", self.timeout)
-        responses = batch_completion(
-            *args,
-            model=self.model_name,
-            messages=messages,
-            response_format=response_format,
-            api_key=self.api_key,
-            api_base=self.api_base,
-            api_version=self.api_version,
-            n=n,
-            timeout=timeout,
-            **kwargs,
-        )
+        try:
+            responses = batch_completion(
+                *args,
+                model=self.model_name,
+                messages=messages,
+                response_format=response_format,
+                api_key=self.api_key,
+                api_base=self.api_base,
+                api_version=self.api_version,
+                n=n,
+                timeout=timeout,
+                **kwargs,
+            )
+            for r in responses:
+                call.add_usage(getattr(r, "usage", None))
+        except Exception:
+            call.failed = True
+            raise
+        finally:
+            call.finish()
 
         # One aggregate emission for the whole batch rather than one per
         # prompt -- see ``BaseLLM._emit_usage_batch`` for why (the callback

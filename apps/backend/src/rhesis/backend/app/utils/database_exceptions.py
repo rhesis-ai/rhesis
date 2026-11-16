@@ -12,6 +12,8 @@ from typing import Callable, ClassVar, Dict, Optional
 
 from fastapi import HTTPException
 
+from rhesis.backend.app.error_handlers import reraise_model_refusal
+
 logger = logging.getLogger(__name__)
 
 
@@ -188,6 +190,7 @@ def handle_database_exceptions(
                 try:
                     return await func(*args, **kwargs)
                 except ValueError as e:
+                    reraise_model_refusal(e)
                     if handle_value_error:
                         raise HTTPException(status_code=400, detail=str(e))
                     raise
@@ -198,6 +201,7 @@ def handle_database_exceptions(
                     # Let the app-level handler turn this into its 410 response
                     raise
                 except Exception as e:
+                    reraise_model_refusal(e)
                     DatabaseExceptionHandler.handle_database_error(
                         e,
                         entity_name=entity_name,
@@ -213,6 +217,7 @@ def handle_database_exceptions(
                 try:
                     return func(*args, **kwargs)
                 except ValueError as e:
+                    reraise_model_refusal(e)
                     if handle_value_error:
                         raise HTTPException(status_code=400, detail=str(e))
                     raise
@@ -223,6 +228,7 @@ def handle_database_exceptions(
                     # Let the app-level handler turn this into its 410 response
                     raise
                 except Exception as e:
+                    reraise_model_refusal(e)
                     DatabaseExceptionHandler.handle_database_error(
                         e,
                         entity_name=entity_name,

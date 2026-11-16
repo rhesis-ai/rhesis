@@ -136,6 +136,14 @@ def create_organization(
     return db_org
 
 
+def lock_organization_creation(db: Session, user_id: UUID) -> None:
+    """Serialize *user_id*'s organization creations until the transaction ends."""
+    db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
+        {"key": f"create-organization:{user_id}"},
+    )
+
+
 def update_organization(
     db: Session, organization_id: uuid.UUID, organization: schemas.OrganizationUpdate
 ) -> Optional[models.Organization]:

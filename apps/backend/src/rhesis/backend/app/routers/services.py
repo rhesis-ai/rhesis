@@ -20,12 +20,13 @@ from rhesis.backend.app.dependencies import (
 from rhesis.backend.app.error_handlers import internal_error
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
-from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota import QuotaResource, hosted_pricing
 from rhesis.backend.app.quota.enforcement import (
     QuotaExceededError,
     QuotaReservation,
     reserve_quota,
 )
+from rhesis.backend.app.quota.hosted_spend import hosted_spend
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.services import (
     ExchangeRatesResponse,
@@ -74,6 +75,7 @@ from rhesis.backend.app.utils.rate_limit import (
     PROBE_RATE_LIMIT,
 )
 from rhesis.sdk.context import EndpointContext
+from rhesis.sdk.models.base import ModelCallRefused
 from rhesis.sdk.models.providers.native import USAGE_HEADER
 
 logger = logging.getLogger(__name__)
@@ -299,7 +301,7 @@ async def generate_content_endpoint(
             http_response.headers[USAGE_HEADER] = json.dumps(captured_usage)
 
         return result
-    except HTTPException:
+    except (HTTPException, ModelCallRefused):
         raise
     except ModelConfigurationError as e:
         # Written for this caller: names their model and what to change in the
@@ -336,9 +338,14 @@ def generate_embedding_endpoint(
                 "this endpoint recursively. Set DEFAULT_EMBEDDING_MODEL to an actual "
                 "provider (e.g. vertex_ai/text-embedding-005)."
             )
-        embedding = embedder.generate(text=request.text)
-        return embedding
-    except HTTPException:
+        hosted_model = hosted_pricing.hosted_embedding_model(embedder)
+        if hosted_model:
+            org_id = str(current_user.organization_id)
+            hosted_spend.check_capacity(org_id)
+            # Before the call, as for LLM calls, so concurrent requests aren't invisible.
+            hosted_spend.record_input(hosted_model, request.text, org_id)
+        return embedder.generate(text=request.text)
+    except (HTTPException, ModelCallRefused):
         raise
     except EmbeddingProviderNotConfigured as e:
         # This deployment's DEFAULT_EMBEDDING_MODEL, not a bad request from this
@@ -409,7 +416,7 @@ async def generate_tests_endpoint(
 
         # Return Pydantic model - FastAPI handles serialization
         return GenerateTestsResponse(tests=tests)
-    except (HTTPException, QuotaExceededError):
+    except (HTTPException, QuotaExceededError, ModelCallRefused):
         raise
     except Exception as e:
         _handle_generation_error(e)
@@ -478,7 +485,7 @@ async def generate_multiturn_tests_endpoint(
         # test_cases is a TestSet dict with a "tests" key containing the array
         generated = test_cases.get("tests", [])
         return {"tests": generated}
-    except (HTTPException, QuotaExceededError):
+    except (HTTPException, QuotaExceededError, ModelCallRefused):
         raise
     except Exception as e:
         _handle_generation_error(e)
@@ -658,7 +665,7 @@ async def query_mcp_server(
             max_iterations=request.max_iterations,
         )
         return result
-    except QuotaExceededError:
+    except (QuotaExceededError, ModelCallRefused):
         raise
     except Exception as e:
         raise handle_mcp_exception(e, "query") from e

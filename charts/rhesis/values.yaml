@@ -124,6 +124,16 @@ config:
   # limits; Rhesis cloud overrides this to true in its per-env values files.
   usageQuotasEnabled: false
 
+  # Platform-wide daily cap, in USD, on what the default (hosted) models cost us.
+  # Empty means no cap. Can be changed live with Redis; see
+  # apps/backend/src/rhesis/backend/app/quota/hosted_spend.py.
+  hostedModelDailyBudgetUsd: ""
+  # Per-org daily cap within it, so one account can't use up the platform's day.
+  hostedModelOrgDailyBudgetUsd: ""
+  # The demo chatbot's daily cap within it, so public traffic can't use up the
+  # platform's day.
+  chatbotDailyBudgetUsd: ""
+
   # Nightly hard-delete of finished job and activity_log rows older than
   # jobRetentionDays (03:00 UTC, run by celery beat). Off by default: deleting
   # history is the deployment owner's call.

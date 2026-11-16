@@ -22,6 +22,7 @@ from rhesis.backend.jobs.execution.batch.context import ExecutionContext
 from rhesis.backend.jobs.execution.batch.evaluation import evaluate_metrics
 from rhesis.backend.jobs.execution.batch.invocation import is_multi_turn_test, run_test
 from rhesis.backend.jobs.execution.shared import RUN_TIME_LIMIT_ERROR, is_task_revoked
+from rhesis.sdk.models.base import ModelCallRefused
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,8 @@ def _failure_result(test_id: str, exc: BaseException, execution_time: float) -> 
         "execution_time": execution_time,
         "exception_type": type(exc).__name__,
     }
+    if isinstance(exc, ModelCallRefused):
+        failure["refused"] = True
 
     status_code = getattr(exc, "status_code", None)
     if status_code is not None:
@@ -131,6 +134,10 @@ def _is_retriable_failure(result: Dict[str, Any]) -> bool:
         and result.get("error_type") in PERMANENT_TARGET_ERROR_TYPES
     )
     if target_rejected_it:
+        return False
+
+    # A spend limit refuses the retry too, whether ours or relayed from the platform.
+    if result.get("refused"):
         return False
 
     error = result.get("error", "")
