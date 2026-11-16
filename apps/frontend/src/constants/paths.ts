@@ -12,7 +12,6 @@ export const PUBLIC_PATHS = [
   '/public',
   '/auth',
   '/api/auth',
-  '/api/warmup', // Allow warmup endpoint
   '/_next',
   '/rhesis-favicon.ico',
   '/rhesis-logo.png',

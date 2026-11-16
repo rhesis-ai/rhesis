@@ -53,9 +53,7 @@ export function useFileThumbnail(
     enabled: !!fileId && isAuthenticated,
     queryFn: async () => {
       // Same-origin BFF proxy: it injects Authorization server-side from the
-      // httpOnly session cookie. The plain `/api/files/...` catch-all only
-      // FORWARDS a browser-supplied header — which no longer exists, since
-      // the access token never reaches browser JS.
+      // httpOnly session cookie, since the access token never reaches browser JS.
       const response = await fetch(
         `/api/backend/files/${fileId}/thumbnail?size=${size}`,
         {
