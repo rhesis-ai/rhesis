@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import json
 import logging
 import os
 import uuid
@@ -17,11 +18,12 @@ from cachetools import TTLCache
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from notifications import send_rate_limit_alert
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from session_store import create_session_store
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+from spend_cap import HostedModelCapReached, InputTooLarge, install_spend_cap
 
 from rhesis.sdk import Parameters, endpoint
 from rhesis.sdk.services.extractor import extract_with_vision_fallback
@@ -136,6 +138,14 @@ RATE_LIMIT_PUBLIC = f"{RATE_LIMIT_PER_WORKER_PUBLIC}/day"
 # API Key for backend authentication (optional)
 CHATBOT_API_KEY = os.getenv("CHATBOT_API_KEY")
 
+# Bounds on what a caller can make the model do. The chatbot is public and runs on our
+# credentials, so a caller must not pick the model, the output size or the input size.
+MAX_TEXT_CHARS = int(os.getenv("CHATBOT_MAX_TEXT_CHARS", "20000"))
+MAX_FILES = int(os.getenv("CHATBOT_MAX_FILES", "5"))
+MAX_FILE_BASE64_CHARS = int(os.getenv("CHATBOT_MAX_FILE_BASE64_CHARS", str(10 * 1024 * 1024)))
+MAX_HISTORY_MESSAGES = int(os.getenv("CHATBOT_MAX_HISTORY_MESSAGES", "20"))
+
+
 # Email domains whose rh- key holders are granted unlimited rate-limit tier.
 # Comma-separated; defaults to "rhesis.ai". Override via CHATBOT_UNLIMITED_EMAIL_DOMAINS.
 CHATBOT_UNLIMITED_EMAIL_DOMAINS = {
@@ -189,6 +199,8 @@ limiter = Limiter(key_func=get_rate_limit_identifier)
 async def lifespan(app: FastAPI):
     """Lifespan context manager for app startup and shutdown."""
     logger.info("🚀 Chatbot session TTL configured for %sh", SESSION_TIMEOUT_HOURS)
+    # Here, not at import: each gunicorn worker needs its own monitor thread.
+    install_spend_cap()
 
     yield
 
@@ -309,7 +321,7 @@ async def check_rate_limit_chatbot(
     This ensures rate limiting is based on authenticated user/org identifiers
     instead of just IP addresses.
 
-    The "echo" use case is exempt from rate limiting.
+    The "echo" use case without files is exempt from rate limiting.
 
     Returns the auth dict for downstream dependencies.
     """
@@ -317,11 +329,12 @@ async def check_rate_limit_chatbot(
 
     from limits import parse
 
-    # The "echo" use case has no usage limitation
+    # The "echo" use case makes no model call, so it has no usage limitation. Not with
+    # files: those are extracted with the vision model before the use case is looked at.
     try:
         body_bytes = await request.body()
         body = json.loads(body_bytes) if body_bytes else {}
-        if body.get("use_case") == "echo":
+        if body.get("use_case") == "echo" and not body.get("files"):
             logger.debug("⚡ Rate limit skipped for echo use case")
             return auth
     except Exception:
@@ -441,14 +454,18 @@ def get_available_use_cases() -> List[str]:
 class FileInput(BaseModel):
     filename: str
     content_type: Optional[str] = None
-    data: str  # base64-encoded file content
-    extracted_text: Optional[str] = None  # pre-extracted text from Rhesis backend
+    data: str = Field(max_length=MAX_FILE_BASE64_CHARS)  # base64-encoded file content
+    # Pre-extracted text from the Rhesis backend. Unbounded here: documents run long, and
+    # the per-call input limit in spend_cap bounds what reaches the model.
+    extracted_text: Optional[str] = None
 
 
 class ChatRequest(BaseModel):
-    message: str
+    # Public endpoint, on our model credentials: every field that reaches the
+    # model is bounded. `model` and `max_tokens` are clamped by ResponseGenerator.
+    message: str = Field(max_length=MAX_TEXT_CHARS)
     session_id: Optional[str] = None
-    system_prompt: Optional[str] = None
+    system_prompt: Optional[str] = Field(default=None, max_length=MAX_TEXT_CHARS)
     use_case: Optional[str] = None
     model: Optional[str] = None
     temperature: Optional[float] = None
@@ -456,8 +473,15 @@ class ChatRequest(BaseModel):
     mode: Optional[str] = None  # Output mode: "text" or "json"
     response_schema: Optional[dict] = None  # Custom JSON Schema, applied when mode == "json"
     context_strategy: Optional[str] = None
-    files: Optional[List[FileInput]] = None
+    files: Optional[List[FileInput]] = Field(default=None, max_length=MAX_FILES)
     rhesis: Optional[dict] = None
+
+    @field_validator("response_schema")
+    @classmethod
+    def bound_schema(cls, v):
+        if v is not None and len(json.dumps(v)) > MAX_TEXT_CHARS:
+            raise ValueError(f"response_schema is longer than {MAX_TEXT_CHARS} characters")
+        return v
 
     @field_validator("files", mode="before")
     @classmethod
@@ -621,6 +645,8 @@ async def chat(
         except Exception:
             logger.warning("Session store unavailable; starting fresh conversation", exc_info=True)
             conversation_history = []
+    # Every turn resends the whole history, so a long session grows every call's input.
+    conversation_history = conversation_history[-MAX_HISTORY_MESSAGES:]
 
     # Derive file_contents from enriched files when present (connector path).
     # Each file dict from the backend carries an ``extracted_text`` field set
@@ -899,6 +925,10 @@ async def chat_endpoint(
 
         return result
 
+    except InputTooLarge as e:
+        raise HTTPException(status_code=413, detail=str(e))
+    except HostedModelCapReached as e:
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         logger.error(f"Error in chat endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

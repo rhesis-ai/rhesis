@@ -6,9 +6,11 @@ from typing import AsyncGenerator, Generator, List, Literal
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
+from spend_cap import allowed_model, clamped_max_tokens
 
 from rhesis.sdk import RhesisClient, endpoint, observe
 from rhesis.sdk.async_utils import run_sync
+from rhesis.sdk.models.base import ModelCallRefused
 from rhesis.sdk.models.defaults import parse_model_id
 from rhesis.sdk.models.factory import get_model
 
@@ -102,6 +104,9 @@ class ResponseGenerator:
         response_schema: dict | None = None,
     ):
         """Initialize with SDK model and use case."""
+        # Every entry point (HTTP and SDK connector) builds its model here.
+        model = allowed_model(model)
+        max_tokens = clamped_max_tokens(max_tokens)
         if model:
             try:
                 resolved = _resolve_model_id(model)
@@ -275,6 +280,9 @@ class ResponseGenerator:
             content = self._extract_response_content(response, mode=mode)
             yield content
 
+        except ModelCallRefused:
+            # Surfaced as a 503 or 413 by client.py, not hidden behind the apology below.
+            raise
         except Exception as e:
             logger.error(f"Error in stream_assistant_response: {str(e)}", exc_info=True)
             yield (
