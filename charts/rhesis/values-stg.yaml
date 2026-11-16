@@ -27,6 +27,8 @@ config:
   logLevel: "INFO"
   jsonLoggerEnabled: true
   usageQuotasEnabled: true
+  hostedModelDailyBudgetUsd: "25"
+  hostedModelOrgDailyBudgetUsd: "2"
   # On after dev's sweeps checked out; prd follows after a count query on prd.
   jobRetentionEnabled: true
   # Live after four clean dry runs (16-19 Oct 2026).

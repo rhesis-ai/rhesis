@@ -32,6 +32,8 @@ config:
   logLevel: "INFO"
   jsonLoggerEnabled: true
   usageQuotasEnabled: true
+  hostedModelDailyBudgetUsd: "100"
+  hostedModelOrgDailyBudgetUsd: "2"
   # Nothing past 90 days at turn-on (0 of 262 jobs, 21 Oct 2026).
   jobRetentionEnabled: true
   traceRetentionEnabled: true

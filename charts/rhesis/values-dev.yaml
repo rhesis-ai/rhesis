@@ -21,6 +21,8 @@ config:
   logLevel: "INFO"
   jsonLoggerEnabled: true
   usageQuotasEnabled: true
+  hostedModelDailyBudgetUsd: "25"
+  hostedModelOrgDailyBudgetUsd: "2"
   # Dev first; stg and prd follow once dev's nightly sweep counts look right.
   jobRetentionEnabled: true
   # Live. The override replaces every org's plan window, licensed orgs included.
