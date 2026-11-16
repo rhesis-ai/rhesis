@@ -14,7 +14,8 @@
 #         including the parts of the product that can't run without it.
 #
 # The service account is read from a running backend pod, so this follows
-# the per-environment credential migration without edits.
+# credential changes without edits. gcp-off records the roles it removes
+# (under ~/.local/state/rhesis/) and gcp-on restores exactly those.
 #
 # Usage:
 #   hosted-model-kill-switch.sh [--env prd|stg|dev] status
@@ -29,7 +30,8 @@ ENV_NAME="prd"
 ACTION=""
 APPLY=false
 NAMESPACE="rhesis"
-VERTEX_ROLES=("roles/aiplatform.user" "roles/aiplatform.admin")
+# What gcp-on grants when gcp-off left no record of the roles it removed.
+DEFAULT_VERTEX_ROLE="roles/aiplatform.user"
 CAP_KEY="hosted_spend:v1:cap_usd"
 REDIS_DB=12  # RedisDatabase.HOSTED_SPEND
 
@@ -43,6 +45,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ -n "$ACTION" ]] || { sed -n '2,25p' "$0"; exit 2; }
+
+ROLES_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/rhesis/kill-switch-$ENV_NAME.roles"
 
 case "$ENV_NAME" in
   prd) CONTEXT="connectgateway_rhesis-prd_global_prd" ;;
@@ -115,22 +119,26 @@ case "$ACTION" in
     ;;
   gcp-off)
     sa=$(vertex_sa); project=$(sa_project "$sa")
-    echo "Removing Vertex roles from $sa in $project"
-    for role in $(sa_roles "$sa" "$project" | grep -E '^roles/aiplatform\.'); do
+    roles=$(sa_roles "$sa" "$project" | grep -E '^roles/aiplatform\.' || true)
+    echo "Removing Vertex roles from $sa in $project: ${roles:-<none>}"
+    # gcp-on restores exactly these.
+    if $APPLY && [[ -n "$roles" ]]; then
+      mkdir -p "$(dirname "$ROLES_FILE")"
+      echo "$roles" > "$ROLES_FILE"
+    fi
+    for role in $roles; do
       run gcloud projects remove-iam-policy-binding "$project" \
         --member="serviceAccount:$sa" --role="$role" --condition=None --quiet
     done
     ;;
   gcp-on)
     sa=$(vertex_sa); project=$(sa_project "$sa")
-    # Restores both: the shared playground account had both; a per-env account only needs user.
-    echo "Restoring Vertex roles for $sa in $project"
-    for role in "${VERTEX_ROLES[@]}"; do
-      if [[ "$role" == "roles/aiplatform.admin" && "$project" != "playground-437609" ]]; then
-        continue
-      fi
+    roles=$(cat "$ROLES_FILE" 2>/dev/null || echo "$DEFAULT_VERTEX_ROLE")
+    echo "Restoring Vertex roles for $sa in $project: $roles"
+    for role in $roles; do
       run gcloud projects add-iam-policy-binding "$project" \
         --member="serviceAccount:$sa" --role="$role" --condition=None --quiet
     done
+    if $APPLY; then rm -f "$ROLES_FILE"; fi
     ;;
 esac
