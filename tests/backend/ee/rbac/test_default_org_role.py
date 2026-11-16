@@ -322,6 +322,79 @@ class TestUpdateUserRejectsIllegitimateOrgAssignment:
         assert _member_row(test_db, owned_org_id, user_id) is None
 
 
+@pytest.mark.ee
+@pytest.mark.integration
+class TestUpdateUserAttachWindow:
+    """With quotas on, a creator attaches to an owned org only right after creating it."""
+
+    @staticmethod
+    def _orgless_owner(db: Session, created_ago: str):
+        from rhesis.backend.app.models.user import User
+
+        org_id = _create_org(db)
+        user_id = _create_user(db, org_id)
+        _set_owner(db, org_id, user_id)
+        db.execute(
+            text(
+                f"UPDATE organization SET created_at = now() - interval '{created_ago}' "
+                "WHERE id = :id"
+            ),
+            {"id": str(org_id)},
+        )
+        user = db.query(User).filter_by(id=user_id).first()
+        user.organization_id = None
+        db.flush()
+        return org_id, user
+
+    @staticmethod
+    def _quotas(monkeypatch, enabled: bool):
+        from types import SimpleNamespace
+
+        from rhesis.backend.app.routers import user as user_router
+
+        monkeypatch.setattr(
+            user_router,
+            "get_application_settings",
+            lambda: SimpleNamespace(usage_quotas_enabled=enabled),
+        )
+
+    def _attach(self, db, org_id, user):
+        from rhesis.backend.app import schemas
+        from rhesis.backend.app.routers.user import update_user
+
+        return update_user(
+            user_id=user.id,
+            user=schemas.UserUpdate(organization_id=org_id),
+            request=None,
+            db=db,
+            current_user=user,
+        )
+
+    def test_rejects_an_owned_org_created_long_ago(self, test_db: Session, monkeypatch):
+        from fastapi import HTTPException
+
+        self._quotas(monkeypatch, True)
+        org_id, user = self._orgless_owner(test_db, "2 hours")
+        with _rbac_on(), pytest.raises(HTTPException) as exc_info:
+            self._attach(test_db, org_id, user)
+        assert exc_info.value.status_code == 403
+        assert _member_row(test_db, org_id, user.id) is None
+
+    def test_allows_an_owned_org_just_created(self, test_db: Session, monkeypatch):
+        self._quotas(monkeypatch, True)
+        org_id, user = self._orgless_owner(test_db, "5 minutes")
+        with _rbac_on():
+            self._attach(test_db, org_id, user)
+        assert _member_row(test_db, org_id, user.id) is not None
+
+    def test_no_window_without_quotas(self, test_db: Session, monkeypatch):
+        self._quotas(monkeypatch, False)
+        org_id, user = self._orgless_owner(test_db, "30 days")
+        with _rbac_on():
+            self._attach(test_db, org_id, user)
+        assert _member_row(test_db, org_id, user.id) is not None
+
+
 # ---------------------------------------------------------------------------
 # Full onboarding HTTP sequence under RBAC (SP4-style backstop proof): a fresh,
 # orgless user must be able to attach their org, invite a teammate, and load
