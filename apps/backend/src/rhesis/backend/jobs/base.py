@@ -15,6 +15,7 @@ from rhesis.backend.app.database import (
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError
 from rhesis.backend.jobs.enums import DEFAULT_MAX_RETRIES, DEFAULT_RETRY_BACKOFF_MAX
+from rhesis.sdk.models.base import ModelCallRefused
 
 logger = logging.getLogger(__name__)
 
@@ -118,8 +119,13 @@ class BaseJob(Task):
     # region, unknown model, missing credentials) returns the same error on
     # every attempt, so retrying it just multiplies the log noise. A
     # soft-deleted row is the same story: whatever it referenced stays deleted
-    # on every retry.
-    dont_autoretry_for = (ModelConfigurationError, ItemDeletedException, JobTimeLimitExceeded)
+    # on every retry. So is the hosted spend cap, until the UTC day rolls over.
+    dont_autoretry_for = (
+        ModelConfigurationError,
+        ItemDeletedException,
+        JobTimeLimitExceeded,
+        ModelCallRefused,
+    )
 
     # Maximum number of retries - use centralized constant
     max_retries = DEFAULT_MAX_RETRIES

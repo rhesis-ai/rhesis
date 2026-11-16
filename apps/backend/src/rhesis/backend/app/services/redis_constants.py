@@ -27,3 +27,6 @@ class RedisDatabase:
     AUDIT_REPEATS = 9  # one row a minute: audit_log.viewed, denied reads, failed refreshes
     BEAT_HEARTBEAT = 10  # set by each beat heartbeat; its absence means scheduled jobs stopped
     RATE_LIMITS = 11  # slowapi request counters, shared by every worker and pod
+    HOSTED_SPEND = (
+        12  # daily hosted-model spend, its cap override and model prices; the chatbot uses it too
+    )

@@ -31,6 +31,7 @@ from rhesis.backend.app.services.streaming_utils import (
 )
 from rhesis.backend.app.services.streaming_utils import ndjson as _ndjson
 from rhesis.backend.app.utils.model_errors import EmbeddingProviderNotConfigured
+from rhesis.sdk.models.base import ModelCallRefused
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ def _get_generation_model(db: Session, user_id: str, organization_id: str):
         user = user_crud.get_user_by_id(db, user_id)
         if user:
             return resolve_model(db, user, "generation")
-    except QuotaExceededError:
+    except (QuotaExceededError, ModelCallRefused):
         # Not a lookup failure -- let it propagate. The broad except below
         # would otherwise log it as "error fetching" and fall through to a
         # second, identical quota check a few lines down.

@@ -58,6 +58,7 @@ from rhesis.backend.app.error_handlers import (
 )
 from rhesis.backend.app.provenance import ProvenanceMiddleware
 from rhesis.backend.app.quota.enforcement import QuotaExceededError, quota_exceeded_response_body
+from rhesis.backend.app.quota.hosted_spend import seconds_until_reset
 from rhesis.backend.app.routers import routers
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException, ItemNotFoundException
 from rhesis.backend.app.utils.foreign_refs import ForeignReferenceError
@@ -66,6 +67,7 @@ from rhesis.backend.app.utils.request_context import RequestIDMiddleware
 from rhesis.backend.local_init import initialize_local_environment
 from rhesis.backend.logging import set_logger
 from rhesis.backend.telemetry.middleware import TelemetryMiddleware
+from rhesis.sdk.models.base import ModelCallRefused
 
 logger = logging.getLogger(__name__)
 
@@ -739,6 +741,24 @@ async def quota_exceeded_exception_handler(request: Request, exc: QuotaExceededE
     rather than relying on this handler.
     """
     return JSONResponse(status_code=402, content=quota_exceeded_response_body(exc.verdict))
+
+
+@app.exception_handler(ModelCallRefused)
+async def model_call_refused_handler(request: Request, exc: ModelCallRefused):
+    """A spend limit refused a model call: 503 until the UTC day rolls over, or 413 for
+    a request too large to send at all.
+
+    Registered on the SDK base class so a refusal relayed from an upstream platform
+    (``PlatformRefusedCall``) is answered the same way as one of ours. A JSONResponse
+    rather than an HTTPException, whose 5xx detail the generic handler replaces.
+    """
+    resets_daily = getattr(exc, "resets_daily", True)
+    headers = {"Retry-After": str(seconds_until_reset())} if resets_daily else None
+    return JSONResponse(
+        status_code=getattr(exc, "http_status", 503),
+        content={"error": getattr(exc, "error_code", "model_call_refused"), "message": str(exc)},
+        headers=headers,
+    )
 
 
 # Global exception handler for request validation errors (422)

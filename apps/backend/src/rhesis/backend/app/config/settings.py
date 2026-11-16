@@ -101,6 +101,19 @@ class ApplicationSettings(BaseSettings):
     quick_start: bool = Field(default=False, alias="QUICK_START")
     dev_mode: bool = Field(default=False, alias="DEV_MODE")
     usage_quotas_enabled: bool = Field(default=False, alias="USAGE_QUOTAS_ENABLED")
+    # Platform-wide daily cap on what hosted models (our credentials) cost us, in USD.
+    # Unset means no cap. See rhesis.backend.app.quota.hosted_spend.
+    hosted_model_daily_budget_usd: float | None = Field(
+        default=None, ge=0, alias="HOSTED_MODEL_DAILY_BUDGET_USD"
+    )
+    # Per-org daily cap within it, so one account can't use up the platform's day.
+    hosted_model_org_daily_budget_usd: float | None = Field(
+        default=None, ge=0, alias="HOSTED_MODEL_ORG_DAILY_BUDGET_USD"
+    )
+    # Largest input one hosted call may send, in tokens.
+    hosted_model_max_input_tokens: int = Field(
+        default=200_000, ge=1, alias="HOSTED_MODEL_MAX_INPUT_TOKENS"
+    )
     backend_env: Literal["production", "development", "staging", "local"] = Field(
         default="development", alias="BACKEND_ENV"
     )

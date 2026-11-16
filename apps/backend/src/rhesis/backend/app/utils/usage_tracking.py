@@ -36,9 +36,17 @@ from typing import Optional, Set, Tuple
 
 from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota.hosted_spend import hosted_spend
 from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.app.usage_attribution import current_usage_org
-from rhesis.sdk.models.base import TokenUsage, UsageReporting, set_default_usage_callback
+from rhesis.sdk.models.base import (
+    ModelCallRequest,
+    TokenUsage,
+    UsageReporting,
+    set_default_precall_check,
+    set_default_usage_callback,
+)
+from rhesis.sdk.models.providers.litellm import LiteLLM
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +137,10 @@ def accrue_model_tokens(usage: TokenUsage, model: UsageReporting) -> None:
     """
     if model.usage_metered is None:
         _warn_unstamped(model)
+    # Before the org checks below: a call nobody is billed for still cost us. Its input
+    # was counted when the call started (check_hosted_spend).
+    if _counts_toward_hosted_cap(model):
+        hosted_spend.record_output(model.model_name, usage["output_tokens"], current_usage_org())
     if get_application_settings().usage_quotas_enabled and model.usage_metered is False:
         return
 
@@ -140,6 +152,35 @@ def accrue_model_tokens(usage: TokenUsage, model: UsageReporting) -> None:
     dispatch_accrual(organization_id, QuotaResource.MODEL_TOKENS, usage["total_tokens"])
 
 
+def _counts_toward_hosted_cap(model: UsageReporting) -> bool:
+    """A LiteLLM model that may be on our credentials: what the hosted spend caps cover.
+
+    Unstamped models count: nobody recorded whose key they use, so fail closed.
+    LiteLLM only, so the in-cluster RhesisLLM loopback (worker -> backend ->
+    Vertex) counts once, on the backend's own LiteLLM call.
+    """
+    return model.usage_metered is not False and isinstance(model, LiteLLM)
+
+
+def check_hosted_spend(
+    model: UsageReporting,
+    request: Optional[ModelCallRequest] = None,
+    organization_id: Optional[str] = None,
+) -> None:
+    """Refuse a hosted call a spend limit forbids; count its input when it will run.
+
+    Installed as the SDK's pre-call check, which passes *request*. Called
+    without one when a model is resolved, to refuse a run before it is queued.
+    """
+    if not _counts_toward_hosted_cap(model):
+        return
+    org_id = organization_id or current_usage_org()
+    if request is None:
+        hosted_spend.check_capacity(org_id)
+    else:
+        hosted_spend.admit(model.model_name, request, org_id)
+
+
 def install_usage_sink() -> None:
     """Register :func:`accrue_model_tokens` as the SDK's process-wide sink.
 
@@ -148,11 +189,14 @@ def install_usage_sink() -> None:
     both.
     """
     set_default_usage_callback(accrue_model_tokens)
+    set_default_precall_check(check_hosted_spend)
+    hosted_spend.start()
 
 
 def uninstall_usage_sink() -> None:
     """Remove the sink. For tests that need a process with no accounting."""
     set_default_usage_callback(None)
+    set_default_precall_check(None)
     _warned_unstamped.clear()
 
 

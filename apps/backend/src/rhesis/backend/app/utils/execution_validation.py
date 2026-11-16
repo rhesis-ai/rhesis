@@ -30,6 +30,7 @@ from rhesis.backend.app.utils.model_errors import (
     ModelNotConfiguredError,
 )
 from rhesis.backend.app.utils.user_model_utils import validate_model
+from rhesis.sdk.models.base import ModelCallRefused
 
 logger = logging.getLogger(__name__)
 
@@ -108,8 +109,8 @@ def handle_execution_error(
         # Already an HTTPException, re-raise as-is
         raise error
 
-    if isinstance(error, (ItemDeletedException, QuotaExceededError)):
-        # Let the app-level handlers turn these into their 410 / 402 responses
+    if isinstance(error, (ItemDeletedException, QuotaExceededError, ModelCallRefused)):
+        # Let the app-level handlers turn these into their 410 / 402 / 503 responses
         raise error
 
     # The run's model check already names the model. Before ValueError, which it subclasses.

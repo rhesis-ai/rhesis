@@ -22,6 +22,7 @@ from rhesis.backend.app.services.run_config import record_resolved_evaluation_mo
 # Called through the module so tests that patch these at their source still apply.
 from rhesis.backend.app.utils import user_model_utils
 from rhesis.backend.metrics.applicability import needs_model
+from rhesis.sdk.models.base import ModelCallRefused
 
 logger = logging.getLogger(__name__)
 
@@ -168,8 +169,8 @@ def _build_for_worker(
     if user is not None:
         try:
             return user_model_utils.resolve_model(session, user, purpose, override=override)
-        except QuotaExceededError:
-            # Not a resolution failure. The default would hit the same quota.
+        except (QuotaExceededError, ModelCallRefused):
+            # Not a resolution failure. The default would hit the same limit.
             raise
         except Exception as error:
             logger.warning(f"Failed to resolve {purpose} model, using the default: {error}")
