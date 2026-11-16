@@ -21,7 +21,7 @@ import { useFeature } from '@/contexts/FeaturesContext';
 import type { Theme } from '@mui/material/styles';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { getApiErrorMessage } from '@/utils/error-utils';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { getPublicApiUrl } from '@/utils/url-resolver';
 import { fetchRoles } from '../../rbac/api/role-cache';
 import { getRoleChipSx } from '../../rbac/role-display';
 import {
@@ -37,11 +37,7 @@ const BASE_URL_PLACEHOLDER = 'https://<your-rhesis-api>';
 const EXAMPLE_DAYS_BACK = 30;
 
 function apiBaseUrl(): string {
-  try {
-    return getClientApiBaseUrl().replace(/\/+$/, '');
-  } catch {
-    return BASE_URL_PLACEHOLDER;
-  }
+  return getPublicApiUrl() ?? BASE_URL_PLACEHOLDER;
 }
 
 /** The list call in the platform's conventions: OData `$filter`, `limit` up to 100. */

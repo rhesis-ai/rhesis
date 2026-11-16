@@ -19,6 +19,7 @@ describe('enforce-env', () => {
       FRONTEND_URL: 'https://app.example.com',
     };
     for (const name of CONTENT_VARS) delete process.env[name];
+    delete process.env.WS_URL;
   });
 
   afterEach(() => {
@@ -39,13 +40,31 @@ describe('enforce-env', () => {
       expect(checkEnv()).toEqual({ errors: [], warnings: [] });
     });
 
-    it('reports a missing or malformed core URL as an error', () => {
-      delete process.env.API_BASE_URL;
+    it('reports a malformed core URL as an error', () => {
       process.env.BACKEND_URL = 'backend:8080';
 
       expect(checkEnv().errors).toEqual([
-        'API_BASE_URL is required but not set',
         'BACKEND_URL is not an http(s) URL: "backend:8080"',
+      ]);
+    });
+
+    it('does not require API_BASE_URL: the browser never calls it', () => {
+      delete process.env.API_BASE_URL;
+      expect(checkEnv().errors).toEqual([]);
+    });
+
+    it.each(['/ws', 'ws://localhost:8080/ws', 'wss://app.example.com/ws'])(
+      'accepts WS_URL %s',
+      wsUrl => {
+        process.env.WS_URL = wsUrl;
+        expect(checkEnv().errors).toEqual([]);
+      }
+    );
+
+    it('rejects a WS_URL that is neither a path nor a ws(s) URL', () => {
+      process.env.WS_URL = 'http://localhost:8080/ws';
+      expect(checkEnv().errors).toEqual([
+        'WS_URL is not a path or a ws(s) URL: "http://localhost:8080/ws"',
       ]);
     });
 
@@ -83,12 +102,12 @@ describe('enforce-env', () => {
     }
 
     it('exits in production on an error', () => {
-      delete process.env.API_BASE_URL;
+      process.env.BACKEND_URL = 'backend:8080';
       expect(run('production')).toHaveBeenCalledWith(1);
     });
 
     it('only logs outside production', () => {
-      delete process.env.API_BASE_URL;
+      process.env.BACKEND_URL = 'backend:8080';
       expect(run('development')).not.toHaveBeenCalled();
     });
 

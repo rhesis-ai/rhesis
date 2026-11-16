@@ -1,8 +1,9 @@
 import {
   resolveLocalhostUrl,
-  getClientApiBaseUrl,
+  getPublicApiUrl,
   getServerBackendUrl,
   getBaseUrl,
+  getWebSocketUrl,
 } from '../url-resolver';
 
 describe('resolveLocalhostUrl', () => {
@@ -29,43 +30,64 @@ describe('resolveLocalhostUrl', () => {
   });
 });
 
-describe('getClientApiBaseUrl', () => {
-  const originalEnv = process.env;
+/** `API_BASE_URL` only fills what API users see; the browser never calls it. */
+describe('getPublicApiUrl', () => {
   const originalRuntimeEnv = window.__ENV__;
 
   beforeEach(() => {
-    process.env = { ...originalEnv };
     window.__ENV__ = undefined;
   });
 
   afterAll(() => {
-    process.env = originalEnv;
     window.__ENV__ = originalRuntimeEnv;
   });
 
-  it('uses window runtime config when set', () => {
-    window.__ENV__ = {
-      apiBaseUrl: 'http://localhost:9090/api',
-    };
-    expect(getClientApiBaseUrl()).toBe('http://127.0.0.1:9090/api');
+  it('returns the configured URL as written, without a trailing slash', () => {
+    window.__ENV__ = { apiBaseUrl: 'https://api.example.com/' };
+    expect(getPublicApiUrl()).toBe('https://api.example.com');
   });
 
-  it('throws when runtime config is not set', () => {
-    expect(() => getClientApiBaseUrl()).toThrow('API_BASE_URL');
+  it('keeps localhost, since people copy this into their own terminal', () => {
+    window.__ENV__ = { apiBaseUrl: 'http://localhost:8080' };
+    expect(getPublicApiUrl()).toBe('http://localhost:8080');
   });
 
-  it('throws when runtime config is an empty string', () => {
-    // What an environment that declares API_BASE_URL but leaves it blank
-    // ships — e.g. the chart's default `config.apiBaseUrl: ""`.
-    window.__ENV__ = { apiBaseUrl: '' };
-    expect(() => getClientApiBaseUrl()).toThrow('API_BASE_URL');
+  it.each([undefined, ''])('is undefined when unset (%p)', apiBaseUrl => {
+    window.__ENV__ = { apiBaseUrl };
+    expect(getPublicApiUrl()).toBeUndefined();
+  });
+});
+
+/**
+ * The browser's WebSocket stays on the frontend origin unless WS_URL points
+ * elsewhere (local dev and docker-compose, where nothing routes /ws).
+ */
+describe('getWebSocketUrl', () => {
+  const originalRuntimeEnv = window.__ENV__;
+  const origin = window.location.origin;
+
+  afterAll(() => {
+    window.__ENV__ = originalRuntimeEnv;
   });
 
-  it('resolves localhost in the URL', () => {
-    window.__ENV__ = {
-      apiBaseUrl: 'http://localhost:3000',
-    };
-    expect(getClientApiBaseUrl()).toBe('http://127.0.0.1:3000');
+  it('defaults to /ws on this origin', () => {
+    window.__ENV__ = {};
+    expect(getWebSocketUrl()).toBe(`${origin.replace(/^http/, 'ws')}/ws`);
+  });
+
+  it('ignores API_BASE_URL', () => {
+    window.__ENV__ = { apiBaseUrl: 'https://api.example.com' };
+    expect(getWebSocketUrl()).toBe(`${origin.replace(/^http/, 'ws')}/ws`);
+  });
+
+  it('resolves a WS_URL path against this origin', () => {
+    window.__ENV__ = { wsUrl: '/socket' };
+    expect(getWebSocketUrl()).toBe(`${origin.replace(/^http/, 'ws')}/socket`);
+  });
+
+  it('uses a full WS_URL as given', () => {
+    window.__ENV__ = { wsUrl: 'ws://localhost:8260/ws' };
+    expect(getWebSocketUrl()).toBe('ws://localhost:8260/ws');
   });
 });
 
@@ -106,10 +128,8 @@ describe('getBaseUrl', () => {
   });
 
   it('returns the same-origin BFF proxy path when window is defined (browser)', () => {
-    // window is defined in jsdom. Client-side requests always go through the
-    // same-origin `/api/backend` proxy (see auth.ts's getFreshAccessToken()
-    // and app/api/backend/[...path]/route.ts) — never the runtime-config
-    // apiBaseUrl, which is reserved for unauthenticated `/auth/*` flows.
+    // window is defined in jsdom. Every browser request goes through the
+    // same-origin `/api/backend` proxy, never the runtime-config apiBaseUrl.
     window.__ENV__ = {
       apiBaseUrl: 'http://localhost:5000',
     };

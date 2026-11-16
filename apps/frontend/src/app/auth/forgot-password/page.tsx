@@ -11,7 +11,7 @@ import {
 } from '@mui/material';
 import EmailIcon from '@mui/icons-material/EmailOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { getBaseUrl } from '@/utils/url-resolver';
 import AuthPageShell from '@/components/auth/AuthPageShell';
 import { useAuthStyles } from '@/components/auth/useAuthStyles';
 
@@ -28,14 +28,11 @@ export default function ForgotPasswordPage() {
     setError(null);
 
     try {
-      const response = await fetch(
-        `${getClientApiBaseUrl()}/auth/forgot-password`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        }
-      );
+      const response = await fetch(`${getBaseUrl()}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
 
       if (!response.ok) {
         const data = await response.json();

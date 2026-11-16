@@ -25,16 +25,27 @@ function isHttpUrl(value: string): boolean {
   }
 }
 
-function checkRequired(errors: string[]): void {
-  if (!read('API_BASE_URL')) {
-    errors.push('API_BASE_URL is required but not set');
+function isWsUrl(value: string): boolean {
+  if (value.startsWith('/')) return true;
+  try {
+    const { protocol } = new URL(value);
+    return protocol === 'ws:' || protocol === 'wss:';
+  } catch {
+    return false;
   }
+}
 
+function checkRequired(errors: string[]): void {
   for (const name of ['API_BASE_URL', 'BACKEND_URL', 'FRONTEND_URL']) {
     const value = read(name);
     if (value && !isHttpUrl(value)) {
       errors.push(`${name} is not an http(s) URL: "${value}"`);
     }
+  }
+
+  const wsUrl = read('WS_URL');
+  if (wsUrl && !isWsUrl(wsUrl)) {
+    errors.push(`WS_URL is not a path or a ws(s) URL: "${wsUrl}"`);
   }
 }
 

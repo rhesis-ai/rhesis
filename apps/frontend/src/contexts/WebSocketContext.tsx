@@ -15,7 +15,7 @@ import {
   WebSocketMessage,
   EventHandler,
 } from '@/utils/websocket';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { getWebSocketUrl } from '@/utils/url-resolver';
 import { WebSocketTokenClient } from '@/utils/api-client/websocket-token-client';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 
@@ -46,16 +46,6 @@ const WebSocketContext = createContext<WebSocketContextValue | null>(null);
 
 interface WebSocketProviderProps {
   children: React.ReactNode;
-}
-
-/**
- * Derive WebSocket URL from runtime API base URL (http(s) → ws(s), path /ws).
- */
-function getWebSocketUrl(): string {
-  const apiUrl = getClientApiBaseUrl();
-  const wsProtocol = apiUrl.startsWith('https://') ? 'wss://' : 'ws://';
-  const baseUrl = apiUrl.replace(/^https?:\/\//, '');
-  return `${wsProtocol}${baseUrl}/ws`;
 }
 
 /**

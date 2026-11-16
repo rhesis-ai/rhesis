@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import LoginSection from '../components/auth/LoginSection';
 import AuthPageShell from '../components/auth/AuthPageShell';
-import { getClientApiBaseUrl } from '../utils/url-resolver';
+import { getBaseUrl } from '../utils/url-resolver';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunchOutlined';
 import { useQuickStart } from '@/contexts/QuickStartContext';
 import {
@@ -40,7 +40,7 @@ export default function LandingPage() {
       if (!isSessionExpired && !isForcedLogout) {
         setAutoLoggingIn(true);
 
-        fetch(`${getClientApiBaseUrl()}/auth/local-login`, {
+        fetch(`${getBaseUrl()}/auth/local-login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
         })
@@ -100,7 +100,7 @@ export default function LandingPage() {
       if (session.error) {
         (async () => {
           try {
-            await fetch(`${getClientApiBaseUrl()}/auth/logout`, {
+            await fetch(`${getBaseUrl()}/auth/logout`, {
               method: 'GET',
               headers: { Accept: 'application/json' },
             });

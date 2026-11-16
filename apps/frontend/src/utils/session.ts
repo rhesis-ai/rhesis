@@ -72,7 +72,7 @@ export function clearLocalSessionData() {
     'next-auth.callback-url',
     'next-auth.pkce.code-verifier',
     'next-auth.pkce.state',
-    'session',
+    'rhesis-oauth',
     'authjs.session-token',
     'authjs.csrf-token',
     'authjs.callback-url',

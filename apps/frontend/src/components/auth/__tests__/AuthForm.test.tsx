@@ -2,14 +2,14 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import AuthForm from '../AuthForm';
+import AuthForm, { oauthLoginUrl } from '../AuthForm';
 
 jest.mock('next-auth/react', () => ({
   signIn: jest.fn(),
 }));
 
 jest.mock('@/utils/url-resolver', () => ({
-  getClientApiBaseUrl: () => 'http://127.0.0.1:8080/api/v1',
+  getBaseUrl: () => 'https://app.example.com/api/backend',
 }));
 
 import { signIn } from 'next-auth/react';
@@ -70,6 +70,53 @@ async function renderAndWaitForLoad(props: { isRegistration?: boolean } = {}) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+});
+
+/**
+ * OAuth and SSO logins start on the same origin, through the BFF, so the
+ * backend's handshake cookie lands on the frontend host.
+ */
+describe('oauthLoginUrl', () => {
+  it('builds the provider login route under the BFF', () => {
+    expect(oauthLoginUrl({ name: 'google' }, '/architect')).toBe(
+      'https://app.example.com/api/backend/auth/login/google?return_to=%2Farchitect'
+    );
+  });
+
+  it('keeps the BFF prefix for an absolute-path login_url (SSO)', () => {
+    // `new URL('/auth/sso/acme', base)` would drop `/api/backend`.
+    expect(
+      oauthLoginUrl({ name: 'sso', login_url: '/auth/sso/acme' }, '/home')
+    ).toBe(
+      'https://app.example.com/api/backend/auth/sso/acme?return_to=%2Fhome'
+    );
+  });
+});
+
+describe('AuthForm — same-origin requests', () => {
+  it('posts the email login to the BFF, not the API host', async () => {
+    const user = userEvent.setup();
+    mockFetch(makeProvidersResponse(), 200, { auth_code: 'c' });
+    render(<AuthForm />);
+    await screen.findByRole('heading', { name: 'Sign in' });
+
+    await user.click(
+      screen.getByRole('button', { name: /continue with email/i })
+    );
+    await user.type(screen.getByLabelText(/^email/i), 'a@example.com');
+    await user.type(
+      screen.getByLabelText(/password/i, { selector: 'input' }),
+      'correct horse battery'
+    );
+    await user.click(screen.getByRole('button', { name: /sign in/i }));
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://app.example.com/api/backend/auth/login/email',
+        expect.objectContaining({ method: 'POST' })
+      )
+    );
+  });
 });
 
 describe('AuthForm — loading and error states', () => {

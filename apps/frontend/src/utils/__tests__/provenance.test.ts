@@ -11,19 +11,27 @@ import {
  * every UI call looks like it came from the frontend pod.
  */
 describe('browserIp', () => {
-  it('prefers the address the ingress set in X-Real-IP', () => {
+  it('takes the address the nearest proxy appended to X-Forwarded-For', () => {
     const headers = new Headers({
-      'x-real-ip': '203.0.113.7',
-      'x-forwarded-for': '198.51.100.1, 10.0.0.2',
+      'x-forwarded-for': '198.51.100.1, 203.0.113.7',
     });
     expect(browserIp(headers)).toBe('203.0.113.7');
   });
 
-  it('falls back to the first X-Forwarded-For entry', () => {
+  it('ignores entries and an X-Real-IP the client sent itself', () => {
+    // Behind an ALB, which appends to X-Forwarded-For but leaves X-Real-IP
+    // alone, both spoofed values reach this server unchanged.
     const headers = new Headers({
-      'x-forwarded-for': '198.51.100.1, 10.0.0.2',
+      'x-real-ip': '1.2.3.4',
+      'x-forwarded-for': '1.2.3.4, 203.0.113.7',
     });
-    expect(browserIp(headers)).toBe('198.51.100.1');
+    expect(browserIp(headers)).toBe('203.0.113.7');
+  });
+
+  it('falls back to X-Real-IP without X-Forwarded-For', () => {
+    expect(browserIp(new Headers({ 'x-real-ip': '203.0.113.7' }))).toBe(
+      '203.0.113.7'
+    );
   });
 
   it('returns null when neither is present', () => {

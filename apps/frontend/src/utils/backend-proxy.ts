@@ -59,6 +59,44 @@ export function resolveTimeoutMs(pathname: string): number {
   return isLongRunning ? LONG_RUNNING_TIMEOUT_MS : DEFAULT_TIMEOUT_MS;
 }
 
+/** The backend's OAuth handshake cookie (Starlette `SessionMiddleware`). */
+export const OAUTH_COOKIE_NAME = 'rhesis-oauth';
+
+/**
+ * Top-level GET navigations that start or finish an OAuth/SSO login: the
+ * button click, the shared SSO link, and the IdP's redirect back.
+ */
+export function isOAuthNavigation(method: string, pathname: string): boolean {
+  return (
+    method === 'GET' &&
+    (pathname.startsWith('/auth/login/') ||
+      pathname === '/auth/callback' ||
+      pathname.startsWith('/auth/sso/'))
+  );
+}
+
+/**
+ * Whether the OAuth handshake cookie may cross the proxy on this call. Only
+ * the handshake and logout need it; anywhere else the backend must never see
+ * it, because the backend reads a `user_id` in it as a login.
+ */
+export function carriesOAuthCookie(method: string, pathname: string): boolean {
+  return (
+    isOAuthNavigation(method, pathname) ||
+    (method === 'GET' && pathname === '/auth/logout')
+  );
+}
+
+/** The `rhesis-oauth` cookie from an incoming `Cookie` header, if present. */
+function oauthCookie(cookieHeader: string | null): string | null {
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(';')) {
+    const [name, ...value] = part.trim().split('=');
+    if (name === OAUTH_COOKIE_NAME) return `${name}=${value.join('=')}`;
+  }
+  return null;
+}
+
 const FORWARDED_REQUEST_HEADERS = [
   'authorization',
   'content-type',
@@ -165,6 +203,18 @@ export async function proxyToBackend(
     const value = request.headers.get(name);
     if (value) headers[name] = value;
   }
+  // The browser's host, for the backend's loopback-alias and quick-start checks.
+  // Not X-Forwarded-Proto: the backend copies that into its scheme, and its own
+  // redirects would then leave the backend origin this proxy follows.
+  headers['x-forwarded-host'] = request.nextUrl.host;
+  const withOAuthCookie = carriesOAuthCookie(request.method, pathname);
+  if (withOAuthCookie) {
+    const cookie = oauthCookie(request.headers.get('cookie'));
+    if (cookie) headers.cookie = cookie;
+    // The login routes record it as `original_frontend` for the redirect back.
+    const referer = request.headers.get('referer');
+    if (referer) headers.referer = referer;
+  }
   Object.assign(headers, webClientHeaders(request.headers), overrideHeaders);
 
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
@@ -226,10 +276,17 @@ export async function proxyToBackend(
     const body =
       upstream.status === 204 || upstream.status === 304 ? null : upstream.body;
 
-    return new NextResponse(body, {
+    const response = new NextResponse(body, {
       status: upstream.status,
       headers: responseHeaders,
     });
+    if (withOAuthCookie) {
+      // One header per cookie: a combined `get('set-cookie')` breaks on `Expires=` commas.
+      for (const cookie of upstream.headers.getSetCookie()) {
+        response.headers.append('set-cookie', cookie);
+      }
+    }
+    return response;
   } catch (error) {
     const isTimeout =
       error instanceof DOMException && error.name === 'AbortError';
