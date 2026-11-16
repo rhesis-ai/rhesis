@@ -133,6 +133,9 @@ config:
   # The demo chatbot's daily cap within it, so public traffic can't use up the
   # platform's day.
   chatbotDailyBudgetUsd: ""
+  # Per-minute throughput caps, in weighted tokens (output weighted by its price ratio).
+  hostedModelTokensPerMinute: ""
+  hostedModelOrgTokensPerMinute: ""
 
   # Nightly hard-delete of finished job and activity_log rows older than
   # jobRetentionDays (03:00 UTC, run by celery beat). Off by default: deleting
