@@ -17,10 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING: Browser Traffic Stays On The Frontend Origin**: sign-in, registration, password reset, email verification, magic links, quick start and Google, GitHub and SSO logins call the backend through the same-origin `/api/backend` proxy, like every other browser request. Nothing in the browser calls `API_BASE_URL` any more, which makes identity-aware load balancers in front of the app work and removes browser CORS. `API_BASE_URL` is optional and only fills the API address shown to API users.
+- **BREAKING: Same-Origin WebSocket**: the browser opens `/ws` on the frontend host, which the ingress or reverse proxy must route to the backend. The Helm chart's frontend ingress does this. `WS_URL` (a path or a `ws(s)://` URL) overrides it where nothing routes `/ws`; docker-compose and `./rh dev` set it to the published backend port.
+- **Client IP From The Nearest Proxy**: the browser IP passed to the backend, which sign-in rate limits and audit events use, is now the right-most `X-Forwarded-For` entry. Earlier entries and `X-Real-IP` can come from the client.
+- **SSO Settings Show The Redirect URI**: next to the login URL, each with a copy button.
 - **Branding Resolution**: Branding now resolves per field as organization setting > `BRAND_*` env var > Rhesis default, so clearing a field in the settings form reveals the deployment default rather than resetting everything. The root layout resolves the organization once per request and shares it with `generateMetadata`.
 
 ### Fixed
 
+- **403 Errors Before Onboarding**: a new account's onboarding page no longer calls `/features`, `/usage`, `/services/exchange-rates`, `/users/settings` and `/ws/token`, which all answer 403 until the organization exists.
+- **Quick Start Signed Back In After Sign-Out**: signing out now stays signed out on the page it lands on; visiting the app again still signs the local admin in. Quick start's local login and the `/auth/signin` code exchange also no longer run twice in development.
 - **Font Env Vars Not Plumbed**: `BRAND_FONT_FAMILY` and `BRAND_FONT_BASE_URL` were documented but missing from the Helm ConfigMap, chart values and `docker-compose.yml`, so a deployment could not actually set them.
 
 ### Removed
