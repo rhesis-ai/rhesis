@@ -1,15 +1,17 @@
-"""The chatbot's share of the platform's daily hosted-model spend cap.
+"""The chatbot's daily hosted-model spend cap, within the platform's.
 
-The backend owns the cap (apps/backend/src/rhesis/backend/app/quota/hosted_spend.py);
+The backend owns the platform cap (apps/backend/src/rhesis/backend/app/quota/hosted_spend.py);
 this process can't import it, so the same Redis keys are used here. Every model
 call the chatbot makes is on our credentials, so every LiteLLM call is counted
-and, once the day's spend reaches the cap, refused. Keep the keys below in sync
-with the backend module.
+toward the platform's day and the chatbot's own (CHATBOT_DAILY_BUDGET_USD), and
+refused once either is reached. The chatbot's own cap keeps it from using up the
+platform's day for everyone else. Keep the keys below in sync with the backend module.
 
-As in the backend, input is counted when a call starts and output when it ends,
-so calls in flight are not invisible, and nothing on the call path touches the
-network: a daemon thread flushes the local count and reads the day's total
-every TICK_SECONDS. If Redis is unreachable, calls are allowed.
+As in the backend, a call is charged when it starts, for its estimated input and
+its full max_tokens, and settled to what the provider reported when it ends, so
+calls in flight are not invisible. Nothing on the call path touches the network:
+a daemon thread flushes the local count and reads the day's totals every
+TICK_SECONDS. If Redis is unreachable, calls are allowed.
 """
 
 import json
@@ -24,11 +26,8 @@ from urllib.parse import urlsplit, urlunsplit
 import litellm
 import redis
 
-from rhesis.sdk.models import (
-    ModelCallRefused,
-    set_default_precall_check,
-    set_default_usage_callback,
-)
+from rhesis.sdk.models import ModelCallRefused, set_default_precall_check
+from rhesis.sdk.models.input_tokens import estimate_input_tokens
 from rhesis.sdk.models.providers.litellm import LiteLLM
 
 logger = logging.getLogger(__name__)
@@ -36,12 +35,12 @@ logger = logging.getLogger(__name__)
 HOSTED_SPEND_DB = 12  # RedisDatabase.HOSTED_SPEND in the backend
 KEY_PREFIX = "hosted_spend:v1"
 CAP_OVERRIDE_KEY = f"{KEY_PREFIX}:cap_usd"
+CHATBOT_CAP_OVERRIDE_KEY = f"{KEY_PREFIX}:chatbot_cap_usd"
 PRICES_KEY = f"{KEY_PREFIX}:prices"
 MICRO_USD = 1_000_000
 TICK_SECONDS = 2.0
 PRICE_RELOAD_SECONDS = 600
 DAY_KEY_TTL_SECONDS = 2 * 24 * 3600
-MEDIA_PART_TOKENS = 2_000
 MAX_INPUT_TOKENS = int(os.getenv("CHATBOT_MAX_INPUT_TOKENS", "32000"))
 
 CAP_REACHED_MESSAGE = "The demo chatbot has reached its daily capacity. Please try again tomorrow."
@@ -93,30 +92,25 @@ def seconds_until_reset() -> int:
     return max(1, int((tomorrow - now).total_seconds()))
 
 
-def _budget_usd() -> Optional[float]:
-    raw = os.getenv("HOSTED_MODEL_DAILY_BUDGET_USD")
+def _env_usd(name: str) -> Optional[float]:
+    raw = os.getenv(name)
     return float(raw) if raw else None
 
 
-def _input_tokens(model_name: str, transcript: list) -> int:
-    texts, media = [], 0
-    for message in transcript:
-        content = message.get("content")
-        if isinstance(content, str):
-            texts.append(content)
-            continue
-        for part in content or []:
-            if isinstance(part, dict) and part.get("type") == "text":
-                texts.append(str(part.get("text") or ""))
-            else:
-                media += 1
-    text = "\n".join(texts)
-    if len(text) > MAX_INPUT_TOKENS * 8:
-        return MAX_INPUT_TOKENS + 1
-    try:
-        return litellm.token_counter(model=model_name, text=text) + media * MEDIA_PART_TOKENS
-    except Exception:
-        return len(text) // 2 + media * MEDIA_PART_TOKENS
+def _budget_usd() -> Optional[float]:
+    return _env_usd("HOSTED_MODEL_DAILY_BUDGET_USD")
+
+
+def _override_or(raw: Optional[str], default: Optional[float]) -> Optional[float]:
+    return float(raw) if raw is not None else default
+
+
+def _day_key(day: str, chatbot: bool = False) -> str:
+    return f"{KEY_PREFIX}:{day}:chatbot" if chatbot else f"{KEY_PREFIX}:{day}"
+
+
+def _today() -> str:
+    return datetime.now(timezone.utc).date().isoformat()
 
 
 def _cost_usd(model_name: str, input_tokens: int, output_tokens: int) -> float:
@@ -145,6 +139,8 @@ class SpendCap:
         self._capped = False
         self._total_micro = 0
         self._cap_micro: Optional[float] = None
+        self._chatbot_micro = 0
+        self._chatbot_cap_micro: Optional[float] = None
         self._redis_ok = True
         self._prices_loaded_at: Optional[float] = None
         try:
@@ -153,27 +149,51 @@ class SpendCap:
             logger.warning(f"hosted_spend: first read failed: {exc}")
         threading.Thread(target=self._run, name="hosted-spend", daemon=True).start()
 
-    def check(self, model, request) -> None:
-        """SDK pre-call check: refuse when capped or too large; count the input now."""
-        if not isinstance(model, LiteLLM):
-            return
-        # The last total read plus what this process spent since: a burst here is
+    def _over(self) -> bool:
+        # The last totals read plus what this process spent since: a burst here is
         # refused before the next tick shows it to everyone.
-        projected = self._total_micro + self._pending_micro
-        if self._capped or (self._cap_micro is not None and projected >= self._cap_micro):
+        pending = self._pending_micro
+        for total, cap in (
+            (self._total_micro, self._cap_micro),
+            (self._chatbot_micro, self._chatbot_cap_micro),
+        ):
+            if cap is not None and total + pending >= cap:
+                return True
+        return self._capped
+
+    def check(self, model, request):
+        """SDK pre-call check: refuse when capped or too large, else charge the call.
+
+        Returns the settle the SDK calls when the call ends.
+        """
+        if not isinstance(model, LiteLLM):
+            return None
+        if self._over():
             raise HostedModelCapReached()
         input_tokens = 0
         for transcript in request["messages"]:
-            tokens = _input_tokens(model.model_name, transcript)
+            tokens = estimate_input_tokens(model.model_name, transcript)
             if tokens > MAX_INPUT_TOKENS:
                 raise InputTooLarge()
             input_tokens += tokens
-        self._add(_cost_usd(model.model_name, input_tokens, 0))
+        request["max_tokens"] = clamped_max_tokens(request.get("max_tokens"))
+        completions = len(request["messages"]) * max(1, request.get("completions_per_prompt", 1))
+        charged = _cost_usd(model.model_name, input_tokens, request["max_tokens"] * completions)
+        self._add(charged)
+        day = _today()
 
-    def record(self, usage, model) -> None:
-        """SDK usage sink: count the output; the input was counted by check()."""
-        if isinstance(model, LiteLLM):
-            self._add(_cost_usd(model.model_name, 0, usage["output_tokens"]))
+        def settle(usage, failed: bool) -> None:
+            if _today() != day:
+                return  # Charged to a day that's over; a refund would go to the new one.
+            if usage is not None:
+                actual = _cost_usd(model.model_name, usage["input_tokens"], usage["output_tokens"])
+            elif failed:
+                actual = _cost_usd(model.model_name, input_tokens, 0)
+            else:
+                return  # e.g. a stream closed early: output may have run, keep the charge
+            self._add(actual - charged)
+
+        return settle
 
     def _add(self, usd: float) -> None:
         # Fractions of a micro-dollar are kept until the flush, or tiny calls would vanish.
@@ -186,7 +206,7 @@ class SpendCap:
                 self._tick()
                 self._redis_ok = True
             except Exception as exc:
-                self._capped, self._cap_micro = False, None
+                self._capped, self._cap_micro, self._chatbot_cap_micro = False, None, None
                 if self._redis_ok:
                     logger.warning(f"hosted_spend: Redis unavailable, cap not enforced: {exc}")
                 self._redis_ok = False
@@ -196,23 +216,34 @@ class SpendCap:
         with self._lock:
             pending = int(self._pending_micro)
             self._pending_micro -= pending
-        key = f"{KEY_PREFIX}:{datetime.now(timezone.utc).date().isoformat()}"
+        day = _today()
+        keys = (_day_key(day), _day_key(day, chatbot=True))
         try:
             pipe = self._redis.pipeline(transaction=False)
             if pending:
-                pipe.incrby(key, pending)
-                pipe.expire(key, DAY_KEY_TTL_SECONDS)
-            pipe.mget(key, CAP_OVERRIDE_KEY)
-            total_raw, override_raw = pipe.execute()[-1]
+                for key in keys:
+                    pipe.incrby(key, pending)
+                    pipe.expire(key, DAY_KEY_TTL_SECONDS)
+            pipe.mget(*keys, CAP_OVERRIDE_KEY, CHATBOT_CAP_OVERRIDE_KEY)
+            total_raw, chatbot_raw, override_raw, chatbot_override_raw = pipe.execute()[-1]
         except Exception:
             with self._lock:
                 self._pending_micro += pending
             raise
 
-        cap = float(override_raw) if override_raw is not None else _budget_usd()
+        cap = _override_or(override_raw, _budget_usd())
+        chatbot_cap = _override_or(chatbot_override_raw, _env_usd("CHATBOT_DAILY_BUDGET_USD"))
         self._total_micro = int(total_raw or 0)
+        self._chatbot_micro = int(chatbot_raw or 0)
         self._cap_micro = None if cap is None else cap * MICRO_USD
-        self._capped = cap is not None and self._total_micro >= self._cap_micro
+        self._chatbot_cap_micro = None if chatbot_cap is None else chatbot_cap * MICRO_USD
+        self._capped = any(
+            limit is not None and total >= limit
+            for total, limit in (
+                (self._total_micro, self._cap_micro),
+                (self._chatbot_micro, self._chatbot_cap_micro),
+            )
+        )
         self._reload_prices_if_due()
 
     def _reload_prices_if_due(self) -> None:
@@ -234,7 +265,6 @@ def install_spend_cap() -> Optional[SpendCap]:
     if _budget_usd() is None or not broker_url:
         return None
     cap = SpendCap(broker_url)
-    set_default_usage_callback(cap.record)
     set_default_precall_check(cap.check)
     logger.info("Hosted spend cap installed")
     return cap

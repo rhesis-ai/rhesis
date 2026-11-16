@@ -130,6 +130,9 @@ config:
   hostedModelDailyBudgetUsd: ""
   # Per-org daily cap within it, so one account can't use up the platform's day.
   hostedModelOrgDailyBudgetUsd: ""
+  # The demo chatbot's daily cap within it, so public traffic can't use up the
+  # platform's day.
+  chatbotDailyBudgetUsd: ""
 
   # Nightly hard-delete of finished job and activity_log rows older than
   # jobRetentionDays (03:00 UTC, run by celery beat). Off by default: deleting
