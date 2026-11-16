@@ -33,7 +33,8 @@ class GoogleProvider(AuthProvider):
         3. Enable the Google+ API
         4. Go to Credentials > Create Credentials > OAuth client ID
         5. Configure the OAuth consent screen
-        6. Add authorized redirect URIs (e.g., https://yourapp.com/auth/callback)
+        6. Add authorized redirect URIs (FRONTEND_URL + /api/backend/auth/callback,
+           e.g., https://yourapp.com/api/backend/auth/callback)
         7. Copy the client ID and secret to environment variables
     """
 

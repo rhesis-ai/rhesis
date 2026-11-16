@@ -92,6 +92,11 @@ class FrontendSettings(BaseSettings):
     def allowed_domain(self) -> str:
         return urlparse(self.url).netloc
 
+    @property
+    def secure_cookies(self) -> bool:
+        """The OAuth handshake cookie lives on the frontend origin, through the BFF."""
+        return urlparse(self.url).scheme == "https"
+
 
 class ApplicationSettings(BaseSettings):
     """General application runtime configuration."""
@@ -135,18 +140,11 @@ class ApplicationSettings(BaseSettings):
     cloud_run_service: str | None = Field(default=None, alias="K_SERVICE")
     cloud_run_revision: str | None = Field(default=None, alias="K_REVISION")
     json_logger_enabled: bool = Field(default=False, alias="JSON_LOGGER_ENABLED")
-    api_base_url: str = Field(default="http://localhost:8080", alias="API_BASE_URL")
     enable_rhesis_key: bool = Field(default=False, alias="ENABLE_RHESIS_KEY")
     # Unset means on for BACKEND_ENV=local/development, off for staging/production.
     outbound_allow_private_networks: bool | None = Field(
         default=None, alias="OUTBOUND_ALLOW_PRIVATE_NETWORKS"
     )
-
-    @field_validator("api_base_url")
-    @classmethod
-    def validate_api_base_url(cls, value: str) -> str:
-        TypeAdapter(AnyHttpUrl).validate_python(value)
-        return value
 
     @field_validator("backend_env", mode="before")
     @classmethod
@@ -181,10 +179,6 @@ class ApplicationSettings(BaseSettings):
     @property
     def is_google_cloud(self) -> bool:
         return bool(self.cloud_run_service or self.cloud_run_revision)
-
-    @property
-    def secure_cookies(self) -> bool:
-        return urlparse(self.api_base_url).scheme == "https"
 
     @property
     def quick_start_allowed_by_env(self) -> bool:

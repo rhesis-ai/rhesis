@@ -33,7 +33,8 @@ class GitHubProvider(AuthProvider):
         3. Fill in the application details:
            - Application name: Your app name
            - Homepage URL: Your app URL
-           - Authorization callback URL: https://yourapp.com/auth/callback
+           - Authorization callback URL: https://yourapp.com/api/backend/auth/callback
+             (FRONTEND_URL + /api/backend/auth/callback)
         4. Copy the client ID and generate a client secret
         5. Set GH_CLIENT_ID and GH_CLIENT_SECRET environment variables
 

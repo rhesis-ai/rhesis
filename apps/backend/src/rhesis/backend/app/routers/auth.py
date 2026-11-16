@@ -31,7 +31,7 @@ from rhesis.backend.app.auth.session_invalidation import (
     invalidate_user_sessions,
     is_session_revoked,
 )
-from rhesis.backend.app.auth.session_utils import regenerate_session, set_session_user
+from rhesis.backend.app.auth.session_utils import set_session_user
 from rhesis.backend.app.auth.terms import (
     record_terms_acceptance,
     user_has_accepted_current_terms,
@@ -51,7 +51,13 @@ from rhesis.backend.app.auth.token_utils import (
     verify_email_flow_token,
     verify_jwt_token,
 )
-from rhesis.backend.app.auth.url_utils import build_redirect_url, safe_return_path
+from rhesis.backend.app.auth.url_utils import (
+    OAUTH_COOKIE_NAME,
+    build_redirect_url,
+    oauth_callback_base,
+    require_bff,
+    safe_return_path,
+)
 from rhesis.backend.app.auth.used_token_store import (
     TokenStoreUnavailableError,
     claim_token_jti,
@@ -66,7 +72,6 @@ from rhesis.backend.app.auth.user_utils import (
     require_interactive_user,
 )
 from rhesis.backend.app.config.settings import (
-    get_application_settings,
     get_auth_settings,
     get_frontend_settings,
     get_telemetry_settings,
@@ -240,42 +245,14 @@ class RefreshTokenRequest(BaseModel):
 # Helper Functions
 # =============================================================================
 
-_LOCAL_HOSTNAMES = frozenset(("localhost", "127.0.0.1", "::1"))
-
-
-def _get_api_base_url() -> str:
-    return get_application_settings().api_base_url
-
 
 def get_callback_url(request: Request, provider: Optional[str] = None) -> str:
-    """Generate the OAuth callback URL from the configured API_BASE_URL.
+    """The OAuth redirect URI: ``<FRONTEND_URL>/api/backend/auth/callback``.
 
-    The one exception is loopback aliasing: when API_BASE_URL points at a
-    loopback address, the OAuth session cookie is bound to whichever loopback
-    alias the browser actually used (localhost vs 127.0.0.1 vs ::1), so the
-    callback host is swapped to match — otherwise the cookie set before the
-    redirect is not returned on the callback and state validation fails.
-
-    The swap is gated on the *configured* host being loopback (a trusted,
-    inherently-local value), and only ever selects another loopback alias, so
-    the callback can never point off-box. For real (production) domains the
-    request host is never trusted.
+    It is on the frontend origin because the handshake cookie is; see
+    ``oauth_callback_base`` for the loopback and HTTPS rules.
     """
-    parsed = urlparse(_get_api_base_url().rstrip("/"))
-
-    if parsed.hostname in _LOCAL_HOSTNAMES:
-        # Loopback: follow the browser's alias (ignoring any non-loopback
-        # request host) and keep the configured scheme — local dev is http.
-        req_host = request.url.hostname
-        host = req_host if req_host in _LOCAL_HOSTNAMES else parsed.hostname
-        port = f":{parsed.port}" if parsed.port else ""
-        base_url = f"{parsed.scheme}://{host}{port}"
-    else:
-        # Real domain: never trust the request host, and always use HTTPS
-        # (guards a misconfigured http:// API_BASE_URL).
-        base_url = f"https://{parsed.netloc}"
-
-    return f"{base_url}/auth/callback"
+    return f"{oauth_callback_base(request)}/auth/callback"
 
 
 def _get_frontend_url() -> str:
@@ -721,6 +698,7 @@ async def login_with_provider(
         provider: Provider name (e.g., 'google', 'github')
         return_to: URL to redirect to after successful login
     """
+    require_bff(request)
     ProviderRegistry.initialize()
     auth_provider = ProviderRegistry.get_provider(provider)
 
@@ -774,6 +752,7 @@ async def auth_callback(request: Request, db: OffLoopSession = Depends(get_off_l
     has authenticated. It determines which provider initiated the flow
     from session data and completes the authentication.
     """
+    require_bff(request)
     # Determine which provider initiated this callback
     provider_name = request.session.get("auth_provider")
 
@@ -796,21 +775,10 @@ async def auth_callback(request: Request, db: OffLoopSession = Depends(get_off_l
         # Authenticate with the provider
         auth_user = await auth_provider.authenticate(request)
 
-        # Capture values from pre-auth session before regeneration
-        original_frontend = request.session.get("original_frontend")
-        return_to = request.session.get("return_to", "/architect")
-
         # Find or create the user and set up tokens, off the event loop
-        user_id, session_token, refresh_tok, user_info = await anyio.to_thread.run_sync(
+        _user_id, session_token, refresh_tok, user_info = await anyio.to_thread.run_sync(
             _complete_oauth_login, db, auth_user
         )
-
-        # Regenerate session to prevent session fixation
-        regenerate_session(request, {"user_id": user_id})
-        # Restore redirect context for build_redirect_url
-        if original_frontend:
-            request.session["original_frontend"] = original_frontend
-        request.session["return_to"] = return_to
 
         # Track login activity
         if get_telemetry_settings().is_telemetry_enabled:
@@ -856,6 +824,10 @@ async def auth_callback(request: Request, db: OffLoopSession = Depends(get_off_l
         raise internal_error(
             e, context=f"completing OAuth callback for provider {provider_name}"
         ) from e
+    finally:
+        # The handshake is over either way; the login lives in the auth code.
+        # Emptying the session makes SessionMiddleware expire the cookie.
+        request.session.clear()
 
 
 # =============================================================================
@@ -1745,15 +1717,12 @@ def logout(
         return_to_url = frontend_url + "/"
         response = RedirectResponse(url=return_to_url)
 
-    # Clear the backend SessionMiddleware cookie (host-only on the API origin).
-    # NextAuth cookies live on the frontend host and are cleared there.
-    # Emit both Secure and non-Secure clears so logout works regardless of
-    # how the cookie was set (SessionMiddleware derives https_only from the
-    # API_BASE_URL scheme via ApplicationSettings.secure_cookies). The
-    # mismatched variant is a harmless no-op.
+    # Clear the OAuth handshake cookie, which the BFF passes back to the
+    # frontend origin. Both Secure variants, so the clear matches however it
+    # was set (https_only follows the FRONTEND_URL scheme); the other is a no-op.
     for secure in (False, True):
         response.set_cookie(
-            key="session",
+            key=OAUTH_COOKIE_NAME,
             value="",
             max_age=0,
             expires=0,
@@ -1832,7 +1801,9 @@ async def local_login(request: Request, db: OffLoopSession = Depends(get_off_loo
     """
     from rhesis.backend.app.utils.quick_start import is_quick_start_enabled
 
-    hostname = request.url.hostname if request.url.hostname is not None else None
+    # Through the BFF the request host is the backend's; the browser's is forwarded.
+    forwarded_host = request.headers.get("x-forwarded-host")
+    hostname = urlparse(f"//{forwarded_host}").hostname if forwarded_host else request.url.hostname
     if not is_quick_start_enabled(hostname=hostname, headers=dict(request.headers)):
         logger.warning("Attempted to use /auth/local-login but Quick Start mode is not enabled")
         raise HTTPException(

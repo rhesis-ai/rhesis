@@ -23,11 +23,12 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.pkce import generate_pkce
 from rhesis.backend.app.auth.refresh_token_utils import create_refresh_token
-from rhesis.backend.app.auth.session_utils import regenerate_session
 from rhesis.backend.app.auth.token_utils import create_session_token
 from rhesis.backend.app.auth.url_utils import (
     DEFAULT_RETURN_TO,
     build_redirect_url,
+    oauth_callback_base,
+    require_bff,
     safe_return_path,
 )
 from rhesis.backend.app.config.settings import (
@@ -157,9 +158,9 @@ def _validate_return_to(return_to: Optional[str]) -> str:
     return safe_return_path(unquote(unquote(return_to)))
 
 
-def _get_sso_callback_url() -> str:
-    base_url = get_application_settings().api_base_url.rstrip("/")
-    return f"{base_url}/auth/sso/callback"
+def _get_sso_callback_url(request: Request) -> str:
+    """The IdP redirect URI, on the frontend origin where the handshake cookie is."""
+    return f"{oauth_callback_base(request)}/auth/sso/callback"
 
 
 # --- Off-loop database work (see dependencies.get_off_loop_tenant_session) ---
@@ -218,6 +219,18 @@ async def sso_callback(
     db: OffLoopSession = Depends(get_off_loop_db_session),
 ):
     """Handle OIDC callback after IdP authentication."""
+    require_bff(request)
+    try:
+        return await _finish_sso_login(request, code, state, error, db)
+    finally:
+        # The handshake is over either way; the login lives in the auth code.
+        # Emptying the session makes SessionMiddleware expire the cookie.
+        request.session.clear()
+
+
+async def _finish_sso_login(
+    request: Request, code: str, state: str, error: Optional[str], db: Session
+) -> RedirectResponse:
     error_redirect = f"{get_frontend_settings().url}/auth/sso-error?error=login_failed"
 
     if error:
@@ -263,7 +276,7 @@ async def sso_callback(
         logger.warning("SSO callback missing code_verifier in session")
         return RedirectResponse(url=error_redirect, status_code=302)
 
-    redirect_uri = _get_sso_callback_url()
+    redirect_uri = _get_sso_callback_url(request)
 
     # Authenticate with OIDC provider
     provider = OIDCProvider(sso_config)
@@ -290,7 +303,7 @@ async def sso_callback(
     # the SSO error page with a logged traceback, not a raw 500.
     try:
         try:
-            user_id, session_token, refresh_tok = await anyio.to_thread.run_sync(
+            _user_id, session_token, refresh_tok = await anyio.to_thread.run_sync(
                 _complete_sso_login, db, auth_user, org, sso_config
             )
         except SSOLoginError as e:
@@ -305,15 +318,8 @@ async def sso_callback(
             )
             return RedirectResponse(url=error_redirect, status_code=302)
 
-        # Capture redirect context before session rotation discards it
-        original_frontend = request.session.get("original_frontend", "")
-
-        # Regenerate session (prevents session fixation)
-        regenerate_session(request, {"user_id": user_id})
-        # Restore redirect context for build_redirect_url
+        # The signed state carries the validated return_to for build_redirect_url.
         request.session["return_to"] = state_return_to
-        if original_frontend:
-            request.session["original_frontend"] = original_frontend
 
         audit_log(
             SSOAuditEvent.LOGIN_SUCCESS,
@@ -348,6 +354,7 @@ async def sso_login(
     db: OffLoopSession = Depends(get_off_loop_db_session),
 ):
     """Initiate SSO login for an organization."""
+    require_bff(request)
     if not check_sso_available():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -382,7 +389,7 @@ async def sso_login(
         request.session["original_frontend"] = original_frontend
     request.session["return_to"] = return_to
 
-    redirect_uri = _get_sso_callback_url()
+    redirect_uri = _get_sso_callback_url(request)
 
     provider = OIDCProvider(sso_config)
     try:

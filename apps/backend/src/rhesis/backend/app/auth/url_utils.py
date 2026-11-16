@@ -1,11 +1,64 @@
 from urllib.parse import parse_qs, quote, urlparse, urlsplit
 
+from fastapi import HTTPException, Request, status
+
 from rhesis.backend.app.auth.token_utils import create_auth_code
 from rhesis.backend.app.config.settings import get_frontend_settings
+from rhesis.backend.app.provenance import CLIENT_HEADER, Channel
 
 LOOPBACK_HOSTS = frozenset(("localhost", "127.0.0.1", "::1"))
 
 DEFAULT_RETURN_TO = "/architect"
+
+#: The OAuth/SSO handshake cookie (Starlette ``SessionMiddleware``).
+OAUTH_COOKIE_NAME = "rhesis-oauth"
+#: Long enough to finish a sign-in at the IdP; the callback clears it anyway.
+OAUTH_COOKIE_MAX_AGE_SECONDS = 600
+
+#: Where the frontend's BFF proxy mounts the backend.
+BFF_PREFIX = "/api/backend"
+
+
+def came_through_bff(request: Request) -> bool:
+    """Whether the browser reached this route through the frontend's BFF proxy.
+
+    The proxy always sends ``X-Rhesis-Client: web``; a browser navigation never
+    carries custom headers. Faking it gains nothing: the handshake cookie lives
+    on the frontend origin, so a direct request still has no state to match.
+    """
+    return request.headers.get(CLIENT_HEADER) == Channel.WEB.value
+
+
+def oauth_callback_base(request: Request) -> str:
+    """The frontend-origin base that OAuth and SSO redirect URIs hang off.
+
+    The handshake cookie is host-only on the browser's host, so on loopback the
+    base follows the alias and port the browser used (``X-Forwarded-Host`` from
+    the BFF); it can only ever pick another loopback address. On a real domain
+    the request is never trusted and the scheme is always https.
+    """
+    configured = urlparse(get_frontend_settings().url)
+    path = configured.path.rstrip("/")
+    if configured.hostname in LOOPBACK_HOSTS:
+        forwarded = request.headers.get("x-forwarded-host", "")
+        netloc = forwarded if urlparse(f"//{forwarded}").hostname in LOOPBACK_HOSTS else ""
+        return f"{configured.scheme}://{netloc or configured.netloc}{path}{BFF_PREFIX}"
+    return f"https://{configured.netloc}{path}{BFF_PREFIX}"
+
+
+def require_bff(request: Request) -> None:
+    """Refuse an OAuth/SSO route the browser reached on the API host directly.
+
+    These routes moved behind the frontend's BFF. Without this an old bookmark or
+    a stale IdP redirect URI fails with a confusing missing-session error.
+    """
+    if came_through_bff(request):
+        return
+    moved_to = f"{get_frontend_settings().url.rstrip('/')}{BFF_PREFIX}{request.url.path}"
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=f"Sign-in moved to the app's address: use {moved_to}",
+    )
 
 
 def safe_return_path(value: object, default: str = DEFAULT_RETURN_TO) -> str:

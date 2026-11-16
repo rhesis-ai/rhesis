@@ -2,6 +2,7 @@
 Rate limiting utilities for the application.
 """
 
+import functools
 import ipaddress
 import logging
 import os
@@ -25,6 +26,16 @@ TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "1"))
 CLIENT_IP_HEADER = "X-Rhesis-Client-IP"
 
 
+@functools.cache
+def _warn_frontend_behind_proxy() -> None:
+    """Once per process: the UI's server reaches us through a proxy that adds XFF."""
+    logger.warning(
+        "The frontend reaches the backend through a proxy (X-Forwarded-For is set), so the "
+        "browser IP it passes on is ignored and every browser's sign-in shares one rate-limit "
+        "bucket. Point the frontend's BACKEND_URL at the backend's internal address."
+    )
+
+
 def _in_cluster_client_ip(request: Request) -> Optional[str]:
     """The IP an in-cluster caller passed on for the browser it is serving.
 
@@ -34,6 +45,8 @@ def _in_cluster_client_ip(request: Request) -> Optional[str]:
     ingress always adds that, so a public caller cannot use the header.
     """
     claimed = request.headers.get(CLIENT_IP_HEADER)
+    if claimed and "x-forwarded-for" in request.headers:
+        _warn_frontend_behind_proxy()
     if not claimed or "x-forwarded-for" in request.headers or not request.client:
         return None
     try:

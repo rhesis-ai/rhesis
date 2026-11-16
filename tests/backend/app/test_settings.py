@@ -124,9 +124,8 @@ def clean_application_env(monkeypatch):
 
 
 @pytest.fixture
-def minimal_application_env(clean_application_env, monkeypatch):
-    """Sets API_BASE_URL to a distinct test value (default is http://localhost:8080)."""
-    monkeypatch.setenv("API_BASE_URL", "https://api.example.com")
+def minimal_application_env(clean_application_env):
+    """No application variable is required, so a clean environment is enough."""
     yield
 
 
@@ -713,10 +712,13 @@ def test_get_model_settings_cache_clear_allows_env_overrides(clean_model_env, mo
 
 
 @pytest.mark.unit
-def test_application_settings_api_base_url_uses_dev_default(clean_application_env):
+def test_application_settings_ignores_api_base_url(clean_application_env, monkeypatch):
+    """The backend builds OAuth URLs from FRONTEND_URL; a leftover API_BASE_URL is ignored."""
+    monkeypatch.setenv("API_BASE_URL", "not-a-url")
+
     settings = ApplicationSettings(_env_file=None)
 
-    assert settings.api_base_url == "http://localhost:8080"
+    assert not hasattr(settings, "api_base_url")
 
 
 @pytest.mark.unit
@@ -731,7 +733,6 @@ def test_application_settings_defaults(minimal_application_env):
     assert settings.google_cloud_project is None
     assert settings.cloud_run_service is None
     assert settings.cloud_run_revision is None
-    assert settings.api_base_url == "https://api.example.com"
     # Default posture is non-production.
     assert settings.is_production is False
     assert settings.is_development is True
@@ -747,12 +748,10 @@ def test_application_settings_loads_existing_environment_variables(
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "rhesis-prod-2")
     monkeypatch.setenv("K_SERVICE", "rhesis-backend")
     monkeypatch.setenv("K_REVISION", "rhesis-backend-00042-abc")
-    monkeypatch.setenv("API_BASE_URL", "https://api.example.com")
 
     settings = ApplicationSettings(_env_file=None)
 
     assert settings.quick_start is True
-    assert settings.api_base_url == "https://api.example.com"
     assert settings.backend_env == "production"
     assert settings.gcp_project == "rhesis-prod"
     assert settings.google_cloud_project == "rhesis-prod-2"
@@ -843,24 +842,6 @@ def test_get_application_settings_cache_clear_allows_env_overrides(
 
     assert get_application_settings().dev_mode is True
     assert get_application_settings().backend_env == "development"
-
-
-@pytest.mark.unit
-def test_application_settings_api_base_url_validation(clean_application_env, monkeypatch):
-    monkeypatch.setenv("API_BASE_URL", "not-a-url")
-
-    with pytest.raises(ValidationError):
-        ApplicationSettings(_env_file=None)
-
-
-@pytest.mark.unit
-def test_get_application_settings_api_base_url_cache_clear(minimal_application_env, monkeypatch):
-    assert get_application_settings().api_base_url == "https://api.example.com"
-
-    monkeypatch.setenv("API_BASE_URL", "https://cached-api.example.com")
-    get_application_settings.cache_clear()
-
-    assert get_application_settings().api_base_url == "https://cached-api.example.com"
 
 
 @pytest.mark.unit

@@ -58,6 +58,31 @@ class TestInClusterClientIp:
         )
         assert get_real_ip(request) == "198.51.100.9"
 
+    def test_sign_in_through_the_bff_is_keyed_per_browser(self):
+        # Browsers now reach /auth/* only through the frontend pod; the limit
+        # must still count each browser, not the pod.
+        from rhesis.backend.app.utils.rate_limit import rate_limit_ip_key
+
+        first = _connection({CLIENT_IP_HEADER: "203.0.113.7"}, peer="10.0.0.5")
+        second = _connection({CLIENT_IP_HEADER: "198.51.100.4"}, peer="10.0.0.5")
+        assert rate_limit_ip_key(first) == "203.0.113.7"
+        assert rate_limit_ip_key(second) == "198.51.100.4"
+
+    def test_a_frontend_behind_a_proxy_is_reported_once(self, caplog):
+        from rhesis.backend.app.utils import rate_limit
+
+        rate_limit._warn_frontend_behind_proxy.cache_clear()
+        request = _connection(
+            {CLIENT_IP_HEADER: "203.0.113.7", "X-Forwarded-For": "198.51.100.9"},
+            peer="10.0.0.5",
+        )
+        with caplog.at_level("WARNING", logger=rate_limit.__name__):
+            get_real_ip(request)
+            get_real_ip(request)
+
+        warnings = [r for r in caplog.records if "BACKEND_URL" in r.getMessage()]
+        assert len(warnings) == 1
+
     def test_ignored_from_a_public_peer(self):
         request = _connection({CLIENT_IP_HEADER: "203.0.113.7"}, peer="8.8.8.8")
         assert get_real_ip(request) == "8.8.8.8"
