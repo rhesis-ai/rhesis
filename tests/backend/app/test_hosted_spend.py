@@ -55,7 +55,7 @@ ONE_M_OUTPUT_USD = 1.50
 def limits(monkeypatch):
     """Set the env limits; ``platform=None`` turns the caps off."""
 
-    def _set(platform=10.0, org=None, max_input=200_000):
+    def _set(platform=10.0, org=None, max_input=200_000, max_output=16_384):
         monkeypatch.setattr(
             module,
             "get_application_settings",
@@ -63,6 +63,7 @@ def limits(monkeypatch):
                 hosted_model_daily_budget_usd=platform,
                 hosted_model_org_daily_budget_usd=org,
                 hosted_model_max_input_tokens=max_input,
+                hosted_model_max_output_tokens=max_output,
             ),
         )
 
@@ -123,22 +124,6 @@ class TestPricing:
     def test_unknown_model_counts_at_the_highest_default_output_rate(self, spend):
         assert hosted_pricing.cost_usd("vertex_ai/no-such", 1_000_000, 0) == pytest.approx(1.50)
 
-    def test_input_estimate_counts_text_and_media(self):
-        transcript = [
-            {"role": "system", "content": "hello world"},
-            {"role": "user", "content": [{"type": "text", "text": "hi"}, {"type": "image_url"}]},
-        ]
-        tokens = hosted_pricing.estimate_input_tokens(VERTEX, transcript)
-        assert hosted_pricing.MEDIA_PART_TOKENS < tokens < hosted_pricing.MEDIA_PART_TOKENS + 20
-
-    def test_a_long_transcript_is_estimated_without_the_tokenizer(self):
-        chars = hosted_pricing.TOKENIZE_MAX_CHARS + 3
-        transcript = [{"role": "user", "content": "x" * chars}]
-        with patch.object(litellm, "token_counter") as counter:
-            tokens = hosted_pricing.estimate_input_tokens(VERTEX, transcript)
-        counter.assert_not_called()
-        assert tokens == chars // hosted_pricing.CHARS_PER_TOKEN_ESTIMATE
-
 
 class TestCallPath:
     def test_admit_and_record_make_no_redis_call(self, spend):
@@ -150,12 +135,74 @@ class TestCallPath:
         assert spend._pending_micro > 0
         assert spend._pending_org[ORG] == spend._pending_micro
 
-    def test_admit_counts_the_input_before_the_call(self, spend):
-        spend.admit(VERTEX, _request("word " * 1000), ORG)
-        expected = hosted_pricing.cost_usd(
-            VERTEX, litellm.token_counter(model=VERTEX, text="word " * 1000), 0
-        )
+    def test_admit_charges_the_input_and_the_full_output_limit(self, spend):
+        request = _request("word " * 1000)
+        spend.admit(VERTEX, request, ORG)
+        input_tokens = litellm.token_counter(model=VERTEX, text="word " * 1000)
+        expected = hosted_pricing.cost_usd(VERTEX, input_tokens, 16_384)
         assert spend._pending_micro == pytest.approx(expected * MICRO_USD)
+        assert request["max_tokens"] == 16_384
+
+    def test_admit_lowers_max_tokens_and_keeps_a_lower_one(self, spend):
+        high = {**_request("hi"), "max_tokens": 100_000}
+        low = {**_request("hi"), "max_tokens": 50}
+        spend.admit(VERTEX, high, ORG)
+        spend.admit(VERTEX, low, ORG)
+        assert (high["max_tokens"], low["max_tokens"]) == (16_384, 50)
+
+    def test_every_prompt_and_completion_reserves_output(self, spend, limits):
+        limits(max_output=1000)
+        spend.admit(VERTEX, {**_request("hi", "hi"), "completions_per_prompt": 3}, ORG)
+        assert spend._pending_micro >= hosted_pricing.cost_usd(VERTEX, 0, 6000) * MICRO_USD
+
+    def test_settle_replaces_the_charge_with_the_reported_usage(self, spend):
+        settle = spend.admit(VERTEX, _request("hi"), ORG)
+        settle({"input_tokens": 1000, "output_tokens": 200, "total_tokens": 1200}, False)
+        expected = hosted_pricing.cost_usd(VERTEX, 1000, 200)
+        assert spend._pending_micro == pytest.approx(expected * MICRO_USD)
+        assert spend._pending_org[ORG] == pytest.approx(expected * MICRO_USD)
+
+    def test_settle_after_a_failure_keeps_only_the_input(self, spend):
+        request = _request("word " * 100)
+        settle = spend.admit(VERTEX, request, ORG)
+        settle(None, True)
+        input_tokens = litellm.token_counter(model=VERTEX, text="word " * 100)
+        expected = hosted_pricing.cost_usd(VERTEX, input_tokens, 0)
+        assert spend._pending_micro == pytest.approx(expected * MICRO_USD)
+
+    def test_a_call_ending_without_usage_keeps_the_full_charge(self, spend):
+        settle = spend.admit(VERTEX, _request("hi"), ORG)
+        charged = spend._pending_micro
+        settle(None, False)
+        assert spend._pending_micro == charged
+
+    def test_a_refund_is_not_given_on_the_next_day(self, spend, monkeypatch):
+        settle = spend.admit(VERTEX, _request("hi"), ORG)
+        charged = spend._pending_micro
+        tomorrow = module._utc_today() + module.timedelta(days=1)
+        monkeypatch.setattr(module, "_utc_today", lambda: tomorrow)
+        settle({"input_tokens": 1, "output_tokens": 1, "total_tokens": 2}, False)
+        assert spend._pending_micro == charged
+
+    def test_a_refund_is_flushed_as_a_decrement(self, spend):
+        _spent(spend, 1.0, ORG)
+        settle = spend.admit(VERTEX, _request("hi"), ORG)
+        spend.tick()
+        settle({"input_tokens": 1, "output_tokens": 1, "total_tokens": 2}, False)
+        spend.tick()
+        expected = 1.0 + hosted_pricing.cost_usd(VERTEX, 1, 1)
+        assert _micro(spend, ORG) == pytest.approx(expected * MICRO_USD, abs=2)
+
+    def test_reservations_refuse_a_burst_of_calls_in_flight(self, spend, limits):
+        limits(platform=10.0, org=0.10)
+        spend.tick()
+        admitted = 0
+        with pytest.raises(HostedModelOrgCapReached):
+            for _ in range(100):
+                spend.admit(VERTEX, _request("hi"), ORG)
+                admitted += 1
+        # 16,384 output tokens at 1.50/M is about 0.025 each.
+        assert admitted == 5
 
     def test_record_output_counts_only_the_output(self, spend):
         spend.record_output(VERTEX, 1_000_000, ORG)
@@ -177,7 +224,8 @@ class TestCallPath:
 
 
 class TestSchemaAndBursts:
-    def test_the_schema_counts_as_input_for_every_prompt(self, spend):
+    def test_the_schema_counts_as_input_for_every_prompt(self, spend, limits):
+        limits(max_output=1)
         schema = {
             "type": "object",
             "properties": {f"field_{i}": {"type": "string"} for i in range(200)},
@@ -423,44 +471,34 @@ class TestPrices:
 
 
 class TestSdkWiring:
-    @pytest.fixture
-    def recorded(self, monkeypatch):
-        calls = []
-        monkeypatch.setattr(
-            usage_tracking.hosted_spend, "record_output", lambda *args: calls.append(args)
-        )
-        monkeypatch.setattr(usage_tracking, "dispatch_accrual", lambda *a, **k: None)
-        return calls
-
     @staticmethod
     def _model(metered):
         model = LiteLLM(VERTEX)
         model.usage_metered = metered
         return model
 
-    def test_metered_output_is_counted_even_without_an_org(self, recorded):
+    def test_the_usage_sink_leaves_hosted_spend_to_the_settle(self, monkeypatch):
+        monkeypatch.setattr(usage_tracking, "dispatch_accrual", lambda *a, **k: None)
+        touched = MagicMock()
+        monkeypatch.setattr(usage_tracking, "hosted_spend", touched)
         usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
         usage_tracking.accrue_model_tokens(usage, self._model(True))
-        assert recorded == [(VERTEX, 5, None)]
-
-    def test_unstamped_models_are_counted(self, recorded):
-        usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
-        usage_tracking.accrue_model_tokens(usage, self._model(None))
-        assert recorded == [(VERTEX, 5, None)]
-
-    def test_an_orgs_own_key_is_not_counted(self, recorded):
-        usage = {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15}
-        usage_tracking.accrue_model_tokens(usage, self._model(False))
-        assert recorded == []
+        assert touched.method_calls == []
 
     def test_precall_check_admits_every_model_but_an_orgs_own(self, monkeypatch):
         admitted = []
-        monkeypatch.setattr(
-            usage_tracking.hosted_spend, "admit", lambda *args: admitted.append(args)
-        )
+
+        def admit(*args):
+            admitted.append(args)
+            return "settle"
+
+        monkeypatch.setattr(usage_tracking.hosted_spend, "admit", admit)
         request = _request("hi")
-        usage_tracking.check_hosted_spend(self._model(False), request)
-        usage_tracking.check_hosted_spend(self._model(True), request, organization_id=ORG)
+        assert usage_tracking.check_hosted_spend(self._model(False), request) is None
+        assert (
+            usage_tracking.check_hosted_spend(self._model(True), request, organization_id=ORG)
+            == "settle"
+        )
         usage_tracking.check_hosted_spend(self._model(None), request, organization_id=ORG)
         assert admitted == [(VERTEX, request, ORG), (VERTEX, request, ORG)]
 

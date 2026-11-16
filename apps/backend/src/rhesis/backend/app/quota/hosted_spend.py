@@ -12,19 +12,20 @@ that made it. Once the platform counter reaches
 up the platform's day for everyone. Orgs on their own API keys are never
 counted or refused.
 
-Input is counted when a call starts, from an estimate of its tokens, and output
-when it ends. Counting everything at the end would leave calls in flight
-invisible: hundreds of large prompts started together would all be paid for
-before any of them showed up. A single request over
-``HOSTED_MODEL_MAX_INPUT_TOKENS`` is refused outright
-(:class:`HostedRequestTooLarge`).
+A call is charged when it starts, for its estimated input plus its largest
+possible output (``HOSTED_MODEL_MAX_OUTPUT_TOKENS``, which its ``max_tokens`` is
+lowered to). When it ends, the charge is replaced by what the provider reported.
+Charging only at the end would leave calls in flight invisible: hundreds started
+together would all be paid for before any of them showed up. A call that ends
+without reporting usage, such as a stream closed early, keeps the full charge; one
+that failed before any response keeps only its input. A single request over
+``HOSTED_MODEL_MAX_INPUT_TOKENS`` is refused outright (:class:`HostedRequestTooLarge`).
 
-Nothing on the call path touches the network. :meth:`HostedSpend.admit` and
-:meth:`HostedSpend.record_output` add to in-process counters and read
-in-process flags. A daemon thread per process does the Redis work every
-``TICK_SECONDS``: it flushes the counters, reads the day's totals and the cap
-overrides, and sets the flags. The cost is a cap that can overshoot by a couple
-of seconds of spend per process.
+Nothing on the call path touches the network. :meth:`HostedSpend.admit` and its
+settle add to in-process counters and read in-process flags. A daemon thread per
+process does the Redis work every ``TICK_SECONDS``: it flushes the counters, reads
+the day's totals and the cap overrides, and sets the flags. The cost is a cap that
+can overshoot by a couple of seconds of spend per process.
 
 Redis keys (DB ``RedisDatabase.HOSTED_SPEND``); the platform keys are shared
 with ``apps/chatbot/spend_cap.py``, which can't import this package:
@@ -56,7 +57,8 @@ from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.quota import hosted_pricing
 from rhesis.backend.app.services.cache import RedisBackedCache
 from rhesis.backend.app.services.redis_constants import RedisDatabase
-from rhesis.sdk.models.base import ModelCallRefused, ModelCallRequest
+from rhesis.sdk.models.base import CallSettle, ModelCallRefused, ModelCallRequest, TokenUsage
+from rhesis.sdk.models.input_tokens import estimate_input_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -250,42 +252,72 @@ class HostedSpend(RedisBackedCache):
         if org_id in self._capped_orgs or _over(org_total, org_cap):
             raise HostedModelOrgCapReached()
 
-    def admit(self, model_name: str, request: ModelCallRequest, org_id: Optional[str]) -> None:
-        """Refuse a call that may not run; otherwise count its input now."""
+    def admit(
+        self, model_name: str, request: ModelCallRequest, org_id: Optional[str]
+    ) -> Optional[CallSettle]:
+        """Refuse a call that may not run; otherwise charge its input and largest output.
+
+        Lowers the request's ``max_tokens`` to the output limit, and returns the
+        settle the SDK calls when the call ends.
+        """
         if not self.enabled():
-            return
+            return None
         self.check_capacity(org_id)
-        limit = get_application_settings().hosted_model_max_input_tokens
+        settings = get_application_settings()
+        limit = settings.hosted_model_max_input_tokens
         # The schema is sent, and billed, with every prompt.
         schema = hosted_pricing.schema_text(request.get("response_format"))
         schema_part = [{"role": "system", "content": schema}] if schema else []
         input_tokens = 0
         for transcript in request["messages"]:
-            tokens = hosted_pricing.estimate_input_tokens(model_name, [*transcript, *schema_part])
+            tokens = estimate_input_tokens(model_name, [*transcript, *schema_part])
             if tokens > limit:
                 raise HostedRequestTooLarge(tokens, limit)
             input_tokens += tokens
-        self._add(org_id, hosted_pricing.cost_usd(model_name, input_tokens, 0))
+
+        max_output = settings.hosted_model_max_output_tokens
+        requested = request.get("max_tokens")
+        request["max_tokens"] = min(requested, max_output) if requested else max_output
+        completions = len(request["messages"]) * max(1, request.get("completions_per_prompt", 1))
+        output_tokens = request["max_tokens"] * completions
+
+        charged = hosted_pricing.cost_usd(model_name, input_tokens, output_tokens)
+        self._add(org_id, charged)
+        day = _utc_today()
+
+        def settle(usage: Optional[TokenUsage], failed: bool) -> None:
+            if _utc_today() != day:
+                return  # Charged to a day that's over; a refund would go to the new one.
+            if usage is not None:
+                actual = hosted_pricing.cost_usd(
+                    model_name, usage["input_tokens"], usage["output_tokens"]
+                )
+            elif failed:
+                actual = hosted_pricing.cost_usd(model_name, input_tokens, 0)
+            else:
+                return
+            self._add(org_id, actual - charged)
+
+        return settle
 
     def record_input(self, model_name: str, text: str, org_id: Optional[str]) -> None:
         """Count the input of a call that bypasses the SDK hook (embeddings)."""
         if not self.enabled():
             return
-        tokens = hosted_pricing.estimate_input_tokens(
-            model_name, [{"role": "user", "content": text}]
-        )
+        tokens = estimate_input_tokens(model_name, [{"role": "user", "content": text}])
         self._add(org_id, hosted_pricing.cost_usd(model_name, tokens, 0))
 
     def record_output(self, model_name: str, output_tokens: int, org_id: Optional[str]) -> None:
-        """Count a finished call's output; its input was counted by :meth:`admit`."""
+        """Count output tokens outside the call path (tests, manual corrections)."""
         if not self.enabled() or output_tokens <= 0:
             return
         self._add(org_id, hosted_pricing.cost_usd(model_name, 0, output_tokens))
 
     def _add(self, org_id: Optional[str], usd: float) -> None:
         # Fractions of a micro-dollar are kept until the flush, or tiny calls would vanish.
+        # Negative when a settled call cost less than was charged up front.
         micro = usd * MICRO_USD
-        if micro <= 0:
+        if micro == 0:
             return
         with self._lock:
             self._pending_micro += micro

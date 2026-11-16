@@ -1,9 +1,9 @@
 """What a hosted-model call costs, for the hosted spend cap.
 
 Prices are never written here: they come from litellm's price list, loaded at
-process start and refreshed daily through Redis (``refresh_prices``). Input is
-priced before the call from an estimate of its tokens, output after the call
-from what the provider reported; see ``hosted_spend`` for why.
+process start and refreshed daily through Redis (``refresh_prices``). Input
+size is estimated by ``rhesis.sdk.models.input_tokens``; see ``hosted_spend``
+for how calls are charged.
 """
 
 from __future__ import annotations
@@ -11,21 +11,11 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Optional, Set, Tuple
 
 from rhesis.backend.app.config.settings import get_model_settings
 
 logger = logging.getLogger(__name__)
-
-#: Tokens counted for each image or file part of a message. Gemini bills an image at
-#: 258 tokens and a PDF page at 258; this errs high for a few pages.
-MEDIA_PART_TOKENS = 2_000
-
-#: Above this many characters the tokenizer is skipped: it runs on the event loop, and
-#: a long prompt would hold it up. Characters / 3 stands in, which is above the real
-#: count for English (about 4 characters per token).
-TOKENIZE_MAX_CHARS = 200_000
-CHARS_PER_TOKEN_ESTIMATE = 3
 
 _unpriced_warned: Set[str] = set()
 
@@ -91,39 +81,6 @@ def _fallback_rate() -> float:
         for name in default_model_names()
     ]
     return max(rates, default=0.0)
-
-
-def _message_text_and_media(messages: Iterable[Dict[str, Any]]) -> Tuple[List[str], int]:
-    texts: List[str] = []
-    media = 0
-    for message in messages:
-        content = message.get("content")
-        if isinstance(content, str):
-            texts.append(content)
-            continue
-        for part in content or []:
-            if isinstance(part, dict) and part.get("type") == "text":
-                texts.append(str(part.get("text") or ""))
-            elif isinstance(part, dict):
-                media += 1
-            else:
-                texts.append(str(part))
-    return texts, media
-
-
-def estimate_input_tokens(model_name: str, transcript: List[Dict[str, Any]]) -> int:
-    """Input tokens one transcript will be billed for, roughly."""
-    import litellm
-
-    texts, media = _message_text_and_media(transcript)
-    chars = sum(len(text) for text in texts)
-    media_tokens = media * MEDIA_PART_TOKENS
-    if chars > TOKENIZE_MAX_CHARS:
-        return chars // CHARS_PER_TOKEN_ESTIMATE + media_tokens
-    try:
-        return litellm.token_counter(model=model_name, text="\n".join(texts)) + media_tokens
-    except Exception:
-        return chars // CHARS_PER_TOKEN_ESTIMATE + media_tokens
 
 
 def schema_text(response_format: Any) -> str:

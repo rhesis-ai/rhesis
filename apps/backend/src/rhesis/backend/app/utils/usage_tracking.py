@@ -40,6 +40,7 @@ from rhesis.backend.app.quota.hosted_spend import hosted_spend
 from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.app.usage_attribution import current_usage_org
 from rhesis.sdk.models.base import (
+    CallSettle,
     ModelCallRequest,
     TokenUsage,
     UsageReporting,
@@ -137,10 +138,6 @@ def accrue_model_tokens(usage: TokenUsage, model: UsageReporting) -> None:
     """
     if model.usage_metered is None:
         _warn_unstamped(model)
-    # Before the org checks below: a call nobody is billed for still cost us. Its input
-    # was counted when the call started (check_hosted_spend).
-    if _counts_toward_hosted_cap(model):
-        hosted_spend.record_output(model.model_name, usage["output_tokens"], current_usage_org())
     if get_application_settings().usage_quotas_enabled and model.usage_metered is False:
         return
 
@@ -166,19 +163,20 @@ def check_hosted_spend(
     model: UsageReporting,
     request: Optional[ModelCallRequest] = None,
     organization_id: Optional[str] = None,
-) -> None:
-    """Refuse a hosted call a spend limit forbids; count its input when it will run.
+) -> Optional[CallSettle]:
+    """Refuse a hosted call a spend limit forbids; charge it when it will run.
 
-    Installed as the SDK's pre-call check, which passes *request*. Called
-    without one when a model is resolved, to refuse a run before it is queued.
+    Installed as the SDK's pre-call check, which passes *request* and settles the
+    charge when the call ends. Called without one when a model is resolved, to
+    refuse a run before it is queued.
     """
     if not _counts_toward_hosted_cap(model):
-        return
+        return None
     org_id = organization_id or current_usage_org()
     if request is None:
         hosted_spend.check_capacity(org_id)
-    else:
-        hosted_spend.admit(model.model_name, request, org_id)
+        return None
+    return hosted_spend.admit(model.model_name, request, org_id)
 
 
 def install_usage_sink() -> None:

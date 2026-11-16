@@ -198,15 +198,17 @@ Supported model-provider prefixes: `openai`, `gemini`, `azure`, `anthropic`, `gr
 ### Spend cap for the default models
 
 Calls made with the `DEFAULT_*_MODEL` models run on this deployment's provider credentials. These
-variables cap what those calls cost per UTC day. Calls priced from LiteLLM's price list are counted
-when they start (input) and finish (output), and refused once a cap is reached. Organizations using
-their own model keys are not counted.
+variables cap what those calls cost per UTC day, priced from LiteLLM's price list. A call is counted
+when it starts, at its estimated input plus its full output limit, and corrected to the provider's
+reported usage when it finishes. Calls are refused once a cap is reached. Organizations using their
+own model keys are not counted.
 
 | Variable | Description | Default |
 |---|---|---|
 | `HOSTED_MODEL_DAILY_BUDGET_USD` | Daily cap for the whole deployment, in USD. Unset turns every cap off | *(unset)* |
 | `HOSTED_MODEL_ORG_DAILY_BUDGET_USD` | Daily cap per organization, in USD | *(unset)* |
 | `HOSTED_MODEL_MAX_INPUT_TOKENS` | Largest input one call may send; larger requests get HTTP 413 | `200000` |
+| `HOSTED_MODEL_MAX_OUTPUT_TOKENS` | Most output one call may produce, thinking included. Lower `max_tokens` values are kept | `16384` |
 
 A reached cap answers HTTP 503 with a `Retry-After` until midnight UTC. Caps can be changed without
 a restart by setting keys in Redis database 12: `hosted_spend:v1:cap_usd` (deployment, `0` refuses

@@ -114,6 +114,11 @@ class ApplicationSettings(BaseSettings):
     hosted_model_max_input_tokens: int = Field(
         default=200_000, ge=1, alias="HOSTED_MODEL_MAX_INPUT_TOKENS"
     )
+    # Most output one hosted call may produce, in tokens, thinking included. Each call
+    # reserves this much against the caps until it reports what it really used.
+    hosted_model_max_output_tokens: int = Field(
+        default=16_384, ge=1, alias="HOSTED_MODEL_MAX_OUTPUT_TOKENS"
+    )
     backend_env: Literal["production", "development", "staging", "local"] = Field(
         default="development", alias="BACKEND_ENV"
     )
