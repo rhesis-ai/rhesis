@@ -69,6 +69,7 @@ _ORG_CREATION_NAMESPACE = "user:create-organization"
 
 
 def _limit_org_creation(
+    db: Session = Depends(get_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context),
 ) -> None:
     # Not per_user_rate_limit: that needs an org, and the caller has none during onboarding.
@@ -76,6 +77,9 @@ def _limit_org_creation(
     # Only where quotas are enforced: elsewhere a new org brings nothing to farm.
     if not get_application_settings().usage_quotas_enabled:
         return
+    # Checking now and counting after the create leaves a gap; one creation per user at a
+    # time closes it. Same session as the route, so the lock holds until its commit.
+    organization_crud.lock_organization_creation(db, current_user.id)
     if post_parse_limit_reached(
         ORG_CREATION_RATE_LIMIT, namespace=_ORG_CREATION_NAMESPACE, key=str(current_user.id)
     ):
