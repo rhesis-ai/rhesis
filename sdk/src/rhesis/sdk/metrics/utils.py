@@ -90,14 +90,20 @@ def backend_config_to_sdk_config(config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _inconclusive_result(metric_name: str, exc: Exception) -> MetricResult:
+    from rhesis.sdk.models.base import ModelCallRefused
+
+    if isinstance(exc, ModelCallRefused):
+        reason = f"Metric '{metric_name}' was not evaluated: {exc}"
+    else:
+        reason = (
+            f"Metric '{metric_name}' failed: the evaluation model could not "
+            "produce structured output required by this metric. Consider using "
+            "a more capable model for metric evaluation."
+        )
     return MetricResult(
         score=None,
         details={
-            "reason": (
-                f"Metric '{metric_name}' failed: the evaluation model could not "
-                "produce structured output required by this metric. Consider using "
-                "a more capable model for metric evaluation."
-            ),
+            "reason": reason,
             "is_successful": None,
             "inconclusive": True,
             "error_type": type(exc).__name__,

@@ -91,6 +91,60 @@ def get_default_usage_callback() -> Optional[DefaultUsageCallback]:
     return _default_usage_callback
 
 
+class ModelCallRefused(Exception):
+    """Base for what a pre-call check raises to refuse a call.
+
+    Its message is written for the end user, so callers that catch model errors
+    and show their own text (metric evaluation, for one) show this one instead.
+    """
+
+
+class ModelCallRequest(TypedDict):
+    """What a provider is about to send, for a pre-call check to inspect.
+
+    ``messages`` holds one chat transcript per completion the call will make
+    (one for ``generate``, one per prompt for ``generate_batch``), and
+    ``completions_per_prompt`` how many completions each produces (``n``).
+    """
+
+    messages: List[List[Dict[str, Any]]]
+    max_tokens: Optional[int]
+    completions_per_prompt: int
+    #: The structured-output schema sent with every prompt, if any (a Pydantic model
+    #: class or a JSON-schema dict). Providers bill it as input.
+    response_format: Any
+
+
+#: Signature of the process-wide check registered via
+#: :func:`set_default_precall_check`. It receives the model about to make a
+#: call and what it will send, and raises to refuse it.
+PrecallCheck = Callable[["UsageReporting", ModelCallRequest], None]
+
+_default_precall_check: Optional[PrecallCheck] = None
+
+
+def set_default_precall_check(check: Optional[PrecallCheck]) -> None:
+    """Register a process-wide check run before every provider API call.
+
+    The counterpart to :func:`set_default_usage_callback`: that sink learns
+    what a call cost after it ran, this one can refuse a call before it runs
+    (a host application enforcing a spend cap, say). Unlike the usage sink,
+    whatever the check raises propagates to the caller -- refusing is its job.
+    Raise a :class:`ModelCallRefused` subclass, without a retryable
+    ``status_code`` (``llm_retry`` would retry it).
+
+    Same lifetime rules as the usage sink: one per process, last caller wins,
+    ``None`` uninstalls.
+    """
+    global _default_precall_check
+    _default_precall_check = check
+
+
+def get_default_precall_check() -> Optional[PrecallCheck]:
+    """Return the check registered by :func:`set_default_precall_check`."""
+    return _default_precall_check
+
+
 def _normalize_usage(usage: Any) -> Optional[TokenUsage]:
     """Parse a provider's raw usage payload into a :class:`TokenUsage`.
 
@@ -249,6 +303,25 @@ class UsageReporting:
         # nobody stamped it, which a host should treat as "built outside my
         # resolution path" rather than as a quiet "no".
         self.usage_metered: Optional[bool] = None
+
+    def _run_precall_check(
+        self,
+        messages: List[List[Dict[str, Any]]],
+        max_tokens: Optional[int] = None,
+        completions_per_prompt: int = 1,
+        response_format: Any = None,
+    ) -> None:
+        """Run the process-wide pre-call check, if any. Raises to refuse the call."""
+        if _default_precall_check is not None:
+            _default_precall_check(
+                self,
+                ModelCallRequest(
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    completions_per_prompt=completions_per_prompt,
+                    response_format=response_format,
+                ),
+            )
 
     def _emit_usage(self, usage: Optional[Dict[str, Any]]) -> None:
         """Report normalized token counts for one call to every usage listener.

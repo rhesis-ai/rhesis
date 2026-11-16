@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from rhesis.sdk.async_utils import run_sync
 from rhesis.sdk.clients import APIClient
 from rhesis.sdk.config import DEFAULT_LLM_TIMEOUT
-from rhesis.sdk.models.base import BaseEmbedder, BaseLLM
+from rhesis.sdk.models.base import BaseEmbedder, BaseLLM, ModelCallRefused
 from rhesis.sdk.models.defaults import (
     DEFAULT_EMBEDDING_MODELS,
     DEFAULT_LANGUAGE_MODELS,
@@ -35,6 +35,42 @@ DEFAULT_REQUEST_TIMEOUT = DEFAULT_LLM_TIMEOUT  # 5 minutes
 # half of that wire contract; the server half imports this same constant
 # (see `rhesis.backend.app.routers.services.generate_content_endpoint`).
 USAGE_HEADER = "X-Rhesis-Usage"
+
+
+#: The ``error`` code the platform returns when a call is refused, mapped to
+#: :class:`PlatformRefusedCall` so it isn't retried and its message reaches the user.
+REFUSED_ERROR_CODES = {
+    "hosted_model_at_capacity",
+    "hosted_model_org_daily_limit",
+    "hosted_model_request_too_large",
+}
+
+
+class PlatformRefusedCall(ModelCallRefused):
+    """The platform refused to run the model, e.g. its daily capacity is used up.
+
+    Carries the platform's ``error`` code and HTTP status (as ``http_status``: a
+    ``status_code`` would make ``llm_retry`` retry it).
+    """
+
+    def __init__(self, message: str, error_code: str, http_status: int) -> None:
+        super().__init__(message)
+        self.error_code = error_code
+        self.http_status = http_status
+        self.resets_daily = http_status == 503
+
+
+def _raise_if_platform_refused(status: int, body: str) -> None:
+    if status not in (413, 503):
+        return
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, TypeError):
+        return
+    if isinstance(payload, dict) and payload.get("error") in REFUSED_ERROR_CODES:
+        raise PlatformRefusedCall(
+            payload.get("message") or payload["error"], payload["error"], status
+        )
 
 
 class RhesisLLM(BaseLLM):
@@ -210,6 +246,7 @@ class RhesisLLM(BaseLLM):
                         request_elapsed,
                         body,
                     )
+                    _raise_if_platform_refused(response.status, body)
                     response.raise_for_status()
 
                 logger.debug(
@@ -295,6 +332,7 @@ class RhesisEmbedder(BaseEmbedder):
                             response.status,
                             body,
                         )
+                        _raise_if_platform_refused(response.status, body)
                         response.raise_for_status()
                     result: List[float] = await response.json()
                     return result

@@ -50,6 +50,17 @@ class TestInconclusiveResult:
         assert secret not in result.details.get("reason", "")
         assert "error" not in result.details
 
+    def test_a_refused_call_shows_its_own_message(self):
+        from rhesis.sdk.models.base import ModelCallRefused
+
+        class _CapReached(ModelCallRefused):
+            pass
+
+        result = _inconclusive_result("m", _CapReached("daily capacity reached"))
+        assert result.details["reason"] == "Metric 'm' was not evaluated: daily capacity reached"
+        assert result.details["error_type"] == "_CapReached"
+        assert result.details["is_successful"] is None
+
 
 class TestResilientEvaluationAsync:
     def test_passes_through_on_success(self):

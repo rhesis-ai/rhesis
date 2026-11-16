@@ -12,8 +12,12 @@ from rhesis.sdk.models.base import (
     BaseEmbedder,
     BaseLLM,
     BaseModel,
+    ModelCallRefused,
+    ModelCallRequest,
     TokenUsage,
+    get_default_precall_check,
     get_default_usage_callback,
+    set_default_precall_check,
     set_default_usage_callback,
 )
 from rhesis.sdk.models.factory import (
@@ -120,6 +124,8 @@ __all__ = [
     "HUGGINGFACE_AVAILABLE",
     "JevDecisionModel",
     "LiteLLM",
+    "ModelCallRefused",
+    "ModelCallRequest",
     "LiteLLMProxy",
     "OpenAIEmbedder",
     "OpenAILLM",
@@ -131,11 +137,13 @@ __all__ = [
     "VertexAILLM",
     "get_available_embedding_models",
     "get_available_language_models",
+    "get_default_precall_check",
     "get_default_usage_callback",
     "get_embedder",
     "get_embedding_model",
     "get_language_model",
     "get_model",
+    "set_default_precall_check",
     "set_default_usage_callback",
 ]
 

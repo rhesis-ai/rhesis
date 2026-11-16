@@ -125,6 +125,7 @@ class LiteLLM(BaseLLM):
                 if system_prompt
                 else [{"role": "user", "content": prompt}]
             )
+        self._run_precall_check([messages], kwargs.get("max_tokens"), response_format=schema)
 
         if stream:
             return self._a_generate_stream(messages, schema, *args, **kwargs)
@@ -261,6 +262,8 @@ class LiteLLM(BaseLLM):
             ]
         else:
             messages = [[{"role": "user", "content": prompt}] for prompt in prompts]
+
+        self._run_precall_check(messages, kwargs.get("max_tokens"), n, response_format=schema)
 
         # Handle schema format for LiteLLM
         response_format = schema

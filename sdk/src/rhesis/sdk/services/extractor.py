@@ -226,7 +226,10 @@ class _MarkItDownModelAdapter:
         def create(self, model: str, messages: list, **kwargs):
             import litellm
 
-            return litellm.completion(
+            # A direct litellm call, so do what the provider class would: let the
+            # host refuse it first, and report what it cost.
+            self._llm._run_precall_check([messages], kwargs.get("max_tokens"))
+            response = litellm.completion(
                 model=self._llm.model_name,
                 messages=messages,
                 api_key=getattr(self._llm, "api_key", None),
@@ -234,6 +237,8 @@ class _MarkItDownModelAdapter:
                 api_version=getattr(self._llm, "api_version", None),
                 **kwargs,
             )
+            self._llm._emit_usage(getattr(response, "usage", None))
+            return response
 
 
 class ImageExtractor(Extractor):

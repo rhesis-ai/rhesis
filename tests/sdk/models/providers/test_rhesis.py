@@ -205,6 +205,58 @@ class TestRhesisLLM:
         with pytest.raises(aiohttp.ClientResponseError, match="Internal Server Error"):
             service.generate(prompt="Test prompt", schema=Continent)
 
+    @patch("aiohttp.ClientSession")
+    def test_platform_at_capacity_is_raised_once_with_its_message(
+        self, mock_session_class, service
+    ):
+        """A 503 the platform marks as a refusal isn't retried, and keeps its message."""
+        from rhesis.sdk.models.base import ModelCallRefused
+
+        session_ctx, mock_session, mock_response = _mock_aiohttp_session(status=503)
+        mock_response.text = AsyncMock(
+            return_value='{"error": "hosted_model_at_capacity", "message": "Daily capacity."}'
+        )
+        mock_session_class.return_value = session_ctx
+
+        service.load_model()
+        with pytest.raises(ModelCallRefused, match="Daily capacity."):
+            service.generate(prompt="Test prompt")
+        assert mock_session.post.call_count == 1
+
+    @patch("aiohttp.ClientSession")
+    def test_the_embedder_raises_a_refusal_too(
+        self, mock_session_class, mock_env_vars, mock_client
+    ):
+        from rhesis.sdk.models.base import ModelCallRefused
+        from rhesis.sdk.models.providers.native import RhesisEmbedder
+
+        session_ctx, _, mock_response = _mock_aiohttp_session(status=503)
+        mock_response.text = AsyncMock(
+            return_value='{"error": "hosted_model_org_daily_limit", "message": "Org limit."}'
+        )
+        mock_session_class.return_value = session_ctx
+
+        with pytest.raises(ModelCallRefused, match="Org limit."):
+            RhesisEmbedder().generate("text")
+
+    @patch("aiohttp.ClientSession")
+    def test_a_refusal_carries_the_platform_code_and_status(self, mock_session_class, service):
+        from rhesis.sdk.models.providers.native import PlatformRefusedCall
+
+        session_ctx, _, mock_response = _mock_aiohttp_session(status=413)
+        mock_response.text = AsyncMock(
+            return_value='{"error": "hosted_model_request_too_large", "message": "Too large."}'
+        )
+        mock_session_class.return_value = session_ctx
+
+        service.load_model()
+        with pytest.raises(PlatformRefusedCall) as exc:
+            service.generate(prompt="Test prompt")
+        assert exc.value.error_code == "hosted_model_request_too_large"
+        assert exc.value.http_status == 413
+        assert exc.value.resets_daily is False
+        assert not hasattr(exc.value, "status_code")
+
     def test_default_parameters(self, service, mock_client):
         """Test default parameter values."""
         assert service.model_name == DEFAULT_LANGUAGE_MODEL_NAME
