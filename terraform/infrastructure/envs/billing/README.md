@@ -128,7 +128,7 @@ listed among the services a cap covers.
 
 It is created by `scripts/spend-cap.sh`, which calls the Budget API because the provider
 has no spend cap support yet. The script finds the budget by display name, so applying
-again updates it rather than adding a second one. Changing the project or the amount
+again updates it rather than adding a second one. Changing any of its inputs (project, amount, billing account, display name) or the script
 replaces the resource: the old budget is deleted, lifting its cap first, and a new one is
 created. While a cap is enforced the API refuses edits, so lift it in the console before
 applying a change.

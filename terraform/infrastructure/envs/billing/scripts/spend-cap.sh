@@ -14,11 +14,13 @@
 set -euo pipefail
 
 API="https://billingbudgets.googleapis.com/v1"
-TOKEN=$(gcloud auth print-access-token)
 
 call() {
   local method="$1" url="$2" body="${3:-}"
-  local args=(-sS -X "$method" -H "Authorization: Bearer $TOKEN"
+  # Per request: gcloud caches the token and refreshes it before it expires.
+  local token
+  token=$(gcloud auth print-access-token)
+  local args=(-sS -X "$method" -H "Authorization: Bearer $token"
     -H "x-goog-user-project: $QUOTA_PROJECT" -H "Content-Type: application/json"
     -w '\n%{http_code}')
   [[ -n "$body" ]] && args+=(-d "$body")

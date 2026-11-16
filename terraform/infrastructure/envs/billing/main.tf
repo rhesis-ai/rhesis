@@ -70,8 +70,16 @@ resource "google_monitoring_notification_channel" "budget_alerts" {
 locals {
   budget_channels = [for c in google_monitoring_notification_channel.budget_alerts : c.id]
 
-  # Cloud Billing's service ID for Vertex AI, shown as "Agent Platform" since its rename.
-  vertex_ai_service_id = "C7E2-9256-1C43"
+  vertex_spend_cap = {
+    billing_account = var.billing_account_id
+    quota_project   = var.project_id
+    project         = var.vertex_spend_cap_project
+    project_number  = var.vertex_spend_cap_project_number
+    # Cloud Billing's service ID for Vertex AI, shown as "Agent Platform" since its rename.
+    service      = "C7E2-9256-1C43"
+    amount       = tostring(var.vertex_spend_cap_eur)
+    display_name = "Vertex AI spend cap - ${var.vertex_spend_cap_project}"
+  }
 }
 
 # ── Credit burn: gross spend, credits excluded ───────────────────────
@@ -169,18 +177,12 @@ resource "google_billing_budget" "uncovered_spend" {
 # resource once it lands. CI's service account needs billing.budgets.configureSpendCap,
 # granted out of band; see README.md.
 resource "terraform_data" "vertex_spend_cap" {
-  input = {
-    billing_account = var.billing_account_id
-    quota_project   = var.project_id
-    project         = var.vertex_spend_cap_project
-    project_number  = var.vertex_spend_cap_project_number
-    amount          = tostring(var.vertex_spend_cap_eur)
-    display_name    = "Vertex AI spend cap - ${var.vertex_spend_cap_project}"
-  }
+  input = local.vertex_spend_cap
 
+  # Provisioners only run on create and destroy, so any change to what the script is
+  # called with, or to the script, replaces the resource and reruns it.
   triggers_replace = [
-    var.vertex_spend_cap_project_number,
-    var.vertex_spend_cap_eur,
+    local.vertex_spend_cap,
     filesha256("${path.module}/scripts/spend-cap.sh"),
   ]
 
@@ -190,7 +192,7 @@ resource "terraform_data" "vertex_spend_cap" {
       BILLING_ACCOUNT    = self.input.billing_account
       QUOTA_PROJECT      = self.input.quota_project
       CAP_PROJECT_NUMBER = self.input.project_number
-      CAP_SERVICE        = local.vertex_ai_service_id
+      CAP_SERVICE        = self.input.service
       CAP_AMOUNT         = self.input.amount
       CAP_CURRENCY       = "EUR"
       DISPLAY_NAME       = self.input.display_name

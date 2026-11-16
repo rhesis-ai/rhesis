@@ -15,5 +15,5 @@ output "uncovered_spend_budget_name" {
 
 output "vertex_spend_cap_budget" {
   description = "Display name of the Vertex AI spend cap budget, which the script finds it by"
-  value       = terraform_data.vertex_spend_cap.output.display_name
+  value       = terraform_data.vertex_spend_cap.input.display_name
 }
