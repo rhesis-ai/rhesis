@@ -69,6 +69,17 @@ resource "google_monitoring_notification_channel" "budget_alerts" {
 
 locals {
   budget_channels = [for c in google_monitoring_notification_channel.budget_alerts : c.id]
+
+  vertex_spend_cap = {
+    billing_account = var.billing_account_id
+    quota_project   = var.project_id
+    project         = var.vertex_spend_cap_project
+    project_number  = var.vertex_spend_cap_project_number
+    # Cloud Billing's service ID for Vertex AI, shown as "Agent Platform" since its rename.
+    service      = "C7E2-9256-1C43"
+    amount       = tostring(var.vertex_spend_cap_eur)
+    display_name = "Vertex AI spend cap - ${var.vertex_spend_cap_project}"
+  }
 }
 
 # ── Credit burn: gross spend, credits excluded ───────────────────────
@@ -151,6 +162,51 @@ resource "google_billing_budget" "uncovered_spend" {
 
   all_updates_rule {
     monitoring_notification_channels = local.budget_channels
+  }
+}
+
+# ── Vertex AI spend cap: a hard stop, not an alert ────────────────────
+# The budgets above notify; this one blocks. Once the month's gross Vertex AI
+# (Agent Platform) spend in the project reaches the amount, Google pauses new Vertex
+# usage there until the 1st of the next month or until the cap is lifted in the
+# Billing console. It is the backstop behind the application's own daily caps
+# (HOSTED_MODEL_DAILY_BUDGET_USD), sized well above them so it only trips if those fail.
+#
+# terraform_data and a script rather than google_billing_budget: the provider has no
+# spend cap support yet (GoogleCloudPlatform/magic-modules#19422). Move to the native
+# resource once it lands. CI's service account needs billing.budgets.configureSpendCap,
+# granted out of band; see README.md.
+resource "terraform_data" "vertex_spend_cap" {
+  input = local.vertex_spend_cap
+
+  # Provisioners only run on create and destroy, so any change to what the script is
+  # called with, or to the script, replaces the resource and reruns it.
+  triggers_replace = [
+    local.vertex_spend_cap,
+    filesha256("${path.module}/scripts/spend-cap.sh"),
+  ]
+
+  provisioner "local-exec" {
+    command = "${path.module}/scripts/spend-cap.sh apply"
+    environment = {
+      BILLING_ACCOUNT    = self.input.billing_account
+      QUOTA_PROJECT      = self.input.quota_project
+      CAP_PROJECT_NUMBER = self.input.project_number
+      CAP_SERVICE        = self.input.service
+      CAP_AMOUNT         = self.input.amount
+      CAP_CURRENCY       = "EUR"
+      DISPLAY_NAME       = self.input.display_name
+    }
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = "${path.module}/scripts/spend-cap.sh delete"
+    environment = {
+      BILLING_ACCOUNT = self.input.billing_account
+      QUOTA_PROJECT   = self.input.quota_project
+      DISPLAY_NAME    = self.input.display_name
+    }
   }
 }
 

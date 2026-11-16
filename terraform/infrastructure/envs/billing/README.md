@@ -19,7 +19,7 @@ because it already holds `roles/billing.user`, but it is **not** usable: its onl
 `workloadIdentityUser` members are Kubernetes service accounts in the deleted
 `rhesis-worker{,-dev,-stg}` Autopilot clusters. That binding is Cloud Run era leftover.
 
-Two grants are needed, both applied 2026-09-03. They stay out-of-band on purpose: Terraform
+Three grants are needed: the first two applied 2026-09-03, the spend cap one 2026-11-16. They stay out-of-band on purpose: Terraform
 cannot grant itself the permissions it needs in order to run.
 
 Budgets need `roles/billing.costsManager` on the billing account; `billing.user` is not
@@ -43,6 +43,21 @@ gcloud projects add-iam-policy-binding rhesis-platform-admin \
 
 `notificationChannelEditor` rather than `monitoring.editor`: Terraform manages these
 channels so read-only is not enough, but it needs nothing else in Monitoring.
+
+The Vertex AI spend cap needs a third grant. Configuring a spend cap takes
+`billing.budgets.configureSpendCap`, which no predefined role short of
+`roles/billing.admin` includes, so it is an organization custom role with only that
+permission, bound on the billing account:
+
+```bash
+gcloud iam roles create budgetSpendCapConfigurer --organization=542832800688 \
+  --title="Budget spend cap configurer" --stage=GA \
+  --permissions=billing.budgets.configureSpendCap
+
+gcloud billing accounts add-iam-policy-binding 01F632-DCD99F-C6AD14 \
+  --member="serviceAccount:terraform-wireguard@rhesis-platform-admin.iam.gserviceaccount.com" \
+  --role="organizations/542832800688/roles/budgetSpendCapConfigurer"
+```
 
 ## Prerequisite: two APIs
 
@@ -100,9 +115,27 @@ usage can appear while everything Google-owned is fully credited. The two pre-ex
 budgets on this account both use `INCLUDE_ALL_CREDITS`, which is why 4,700 EUR/month of
 credit burn was invisible.
 
+## The Vertex AI spend cap
+
+`terraform_data.vertex_spend_cap` is the one budget here that blocks rather than alerts.
+When the month's gross Vertex AI (Agent Platform) spend in `vertex_spend_cap_project`
+reaches `vertex_spend_cap_eur`, Google pauses new Vertex usage in that project: the
+default model, embeddings and any Vertex endpoint there, for every user, until the 1st of
+the next month or until someone lifts it on the Budgets page of the Billing console.
+Calls already running finish, and enforcement lags spend somewhat, so the cap can be
+overshot a little. Marketplace models (third-party publishers in Model Garden) are not
+listed among the services a cap covers.
+
+It is created by `scripts/spend-cap.sh`, which calls the Budget API because the provider
+has no spend cap support yet. The script finds the budget by display name, so applying
+again updates it rather than adding a second one. Changing any of its inputs (project, amount, billing account, display name) or the script
+replaces the resource: the old budget is deleted, lifting its cap first, and a new one is
+created. While a cap is enforced the API refuses edits, so lift it in the console before
+applying a change.
+
 ## What a budget cannot do
 
-Budgets notify; they never block a request. A GCP quota cap cannot bound monthly cost here
+Budgets notify; they never block a request, apart from the spend cap above. A GCP quota cap cannot bound monthly cost here
 either: measured Vertex usage is bursty (median 10 requests/min, peak 226) at roughly
 EUR 0.0046 per prediction request, so any rate limit high enough for normal evaluation runs
 still permits thousands of euros a day if sustained. Holding a sustained runaway under

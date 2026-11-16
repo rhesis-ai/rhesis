@@ -12,3 +12,8 @@ output "uncovered_spend_budget_name" {
   description = "Resource name of the net-billed-cost (uncovered spend) budget"
   value       = google_billing_budget.uncovered_spend.name
 }
+
+output "vertex_spend_cap_budget" {
+  description = "Display name of the Vertex AI spend cap budget, which the script finds it by"
+  value       = terraform_data.vertex_spend_cap.input.display_name
+}
