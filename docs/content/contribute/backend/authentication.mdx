@@ -20,9 +20,9 @@ Users can register and log in with email and password:
 
 OAuth login is available when the corresponding provider is configured:
 
-1. User clicks "Sign in with Google" or "Sign in with GitHub"
-2. Backend redirects to the OAuth provider's authorization page
-3. Provider redirects back to `/auth/callback` with an authorization code
+1. User clicks "Sign in with Google" or "Sign in with GitHub"; the browser reaches `/auth/login/{provider}` through the frontend's `/api/backend` proxy
+2. Backend stores the OAuth state in the `rhesis-oauth` cookie and redirects to the OAuth provider's authorization page
+3. Provider redirects back to `<FRONTEND_URL>/api/backend/auth/callback` with an authorization code. The callback and login routes refuse requests that skip the proxy (no `X-Rhesis-Client: web`) with a 400 naming the right URL, and the callback clears `rhesis-oauth` once it is done
 4. Backend exchanges the code, creates or updates the user, and issues tokens
 5. Tokens are wrapped in a short-lived auth code (60 seconds) and passed via redirect
 6. Frontend exchanges the auth code for access and refresh tokens

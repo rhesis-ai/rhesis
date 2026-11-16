@@ -331,6 +331,16 @@ frontend:
     host: your-app-domain.com`}
 </CodeBlock>
 
+Browsers only reach the frontend host: sign-in and API calls go through it under `/api/backend`, and
+the frontend ingress routes the browser's WebSocket (`/ws`) to the backend service. The backend host
+is for API and SDK clients. Register `https://your-app-domain.com/api/backend/auth/callback` as the
+redirect URI in your Google and GitHub OAuth apps, and
+`https://your-app-domain.com/api/backend/auth/sso/callback` in SSO identity providers.
+
+If you route traffic with your own ingress instead of the chart's, give the frontend host a `/ws`
+rule (path type `Exact`) to the backend service, or set `config.wsUrl` to a WebSocket URL the
+browser can reach.
+
 ## Rebrand the frontend
 
 Set your colours, icon and product name under `config`. They go into the chart's ConfigMap, which

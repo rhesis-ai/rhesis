@@ -12,10 +12,10 @@ Single Sign-On lets an Enterprise Edition organization authenticate users throug
 
 Rhesis stores SSO configuration per organization. When a user starts SSO login, Rhesis builds an OIDC authorization request with PKCE, validates the callback state, exchanges the code with your provider, and signs the user into the matching organization.
 
-The login URL uses the organization slug when one is configured:
+The login URL is on the app's address and uses the organization slug when one is configured:
 
 <CodeBlock filename="sso-login-url.txt" language="text">
-{`https://api.example.com/auth/sso/acme`}
+{`https://app.example.com/api/backend/auth/sso/acme`}
 </CodeBlock>
 
 If the organization has no slug, the API can fall back to the organization ID, but API Clients require a slug for token-exchange audiences.
@@ -27,7 +27,7 @@ In your identity provider, create an OIDC client for Rhesis:
 | Setting | Value |
 |---|---|
 | Application type | Confidential OIDC client |
-| Redirect URI | `https://<your-rhesis-api>/auth/sso/callback` |
+| Redirect URI | `https://<your-rhesis-app>/api/backend/auth/sso/callback`, shown with a copy button in the organization's SSO settings |
 | Grant type | Authorization Code with PKCE |
 | Scopes | `openid email profile` unless your deployment requires more |
 
@@ -76,8 +76,8 @@ Useful endpoints:
 | `PUT /organizations/{org_id}/sso` | Create or update configuration |
 | `DELETE /organizations/{org_id}/sso` | Remove configuration |
 | `POST /organizations/{org_id}/sso/test` | Test OIDC discovery |
-| `GET /auth/sso/{org_id_or_slug}` | Start SSO login |
-| `GET /auth/sso/callback` | OIDC callback |
+| `GET /auth/sso/{org_id_or_slug}` | Start SSO login; browsers reach it on the app address under `/api/backend` |
+| `GET /auth/sso/callback` | OIDC callback; same rule |
 
 ## Troubleshooting
 

@@ -21,9 +21,9 @@ To use Rhesis-hosted models locally, add a `RHESIS_API_KEY` from [app.rhesis.ai]
 
 ## Frontend
 
-`./rh dev init` writes `apps/frontend/.env.local` with `API_BASE_URL`, `BACKEND_URL`, `FRONTEND_URL`, a generated `NEXTAUTH_SECRET`, and `NEXT_TELEMETRY_DISABLED=1`.
+`./rh dev init` writes `apps/frontend/.env.local` with `API_BASE_URL`, `BACKEND_URL`, `WS_URL`, `FRONTEND_URL`, a generated `NEXTAUTH_SECRET`, and `NEXT_TELEMETRY_DISABLED=1`.
 
-Two variables point at the backend because it's reached from two places: `API_BASE_URL` is used by **browser** code, while `BACKEND_URL` is used for **server-side** rendering and the `/api/backend` proxy. In local dev both are `http://localhost:8080`; they diverge only behind a reverse proxy or across containers. Values are read at container start, so changing a URL needs no rebuild.
+The browser only talks to the frontend origin. Every HTTP call, sign-in included, goes through the `/api/backend` proxy, which reaches the backend at `BACKEND_URL`. The browser's WebSocket goes to `/ws` on the frontend origin, which an ingress routes to the backend; `next dev` can't do that, so `WS_URL` points it at the backend port in local dev (`./rh dev frontend` sets it). `API_BASE_URL` is only displayed, for example in curl examples for API users. Values are read at container start, so changing a URL needs no rebuild.
 
 ## Celery workers
 

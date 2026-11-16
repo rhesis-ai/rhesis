@@ -69,12 +69,28 @@ Four secrets are required and have no safe default; the stack refuses to start i
 
 ### Public URLs
 
-Set `FRONTEND_URL` and `API_BASE_URL` to the public origins your users reach. When either starts with `https://`, the stack issues secure (HTTPS-only) cookies. `FRONTEND_PORT` and `BACKEND_PORT` are the host ports Docker publishes and are independent of these URLs — behind a reverse proxy the published port and the public URL usually differ.
+Browsers only talk to `FRONTEND_URL`: the frontend passes sign-in and API calls on to the backend under `/api/backend`. Set `FRONTEND_URL` to the address your users open; an `https://` value turns on secure (HTTPS-only) cookies. `API_BASE_URL` is the API address shown to API and SDK users, who call the backend directly. `FRONTEND_PORT` and `BACKEND_PORT` are the host ports Docker publishes and are independent of these URLs — behind a reverse proxy the published port and the public URL usually differ.
+
+The browser's WebSocket is the one connection the frontend can't pass on. Without a reverse proxy, the stack points it at the published backend port. Behind a reverse proxy, route `/ws` on the frontend host to the backend and set `WS_URL=/ws`:
 
 <CodeBlock filename=".env.docker" language="bash">
 {`FRONTEND_URL=https://app.example.com
-API_BASE_URL=https://api.example.com`}
+API_BASE_URL=https://api.example.com
+WS_URL=/ws`}
 </CodeBlock>
+
+<CodeBlock filename="Caddyfile" language="text">
+{`app.example.com {
+	reverse_proxy /ws backend:8080
+	reverse_proxy frontend:3000
+}
+
+api.example.com {
+	reverse_proxy backend:8080
+}`}
+</CodeBlock>
+
+Google and GitHub sign-in need `<FRONTEND_URL>/api/backend/auth/callback` registered as the redirect URI; see [OAuth variables](/self-hosting/environment-variables#authentication-and-oauth).
 
 ### Database
 

@@ -30,10 +30,18 @@ Every login path — email/password, OAuth, and magic link — ends the same way
 ### OAuth Login (Google, GitHub)
 
 1. User clicks "Sign in with Google" or "Sign in with GitHub"
-2. Frontend redirects to `GET /auth/login/{provider}`
-3. Backend redirects to the OAuth provider, then handles the callback at `GET /auth/callback`
-4. Backend wraps the tokens in the same short-lived auth code and redirects to the frontend
-5. Frontend calls `signIn('credentials', { code: auth_code })`, which exchanges the code exactly as in the email/password flow
+2. Frontend redirects to `/api/backend/auth/login/{provider}` on its own origin
+3. Backend sets the `rhesis-oauth` handshake cookie (OAuth `state`, nonce, provider, `return_to`) and redirects to the OAuth provider; the proxy passes both through to the browser
+4. The provider redirects back to `/api/backend/auth/callback`; the proxy forwards the `rhesis-oauth` cookie, and the backend checks `state`
+5. Backend clears `rhesis-oauth`, wraps the tokens in the same short-lived auth code and redirects to the frontend
+6. Frontend calls `signIn('credentials', { code: auth_code })`, which exchanges the code exactly as in the email/password flow
+
+There are two cookies on purpose. `next-auth.session-token` is the login and lasts for the session.
+`rhesis-oauth` exists only between steps 3 and 5: OAuth `state` has to be bound to the browser
+before anyone is logged in, or an attacker could finish their own login in a victim's browser.
+The proxy forwards `rhesis-oauth` only on `/auth/login/*`, `/auth/callback`, `/auth/sso/*` and
+`/auth/logout`, and never forwards the Auth.js cookies. SSO works the same way under
+`/api/backend/auth/sso/*`.
 
 ### Magic Link Login
 
@@ -134,11 +142,12 @@ Files that use this pattern:
 {`# Required
 NEXTAUTH_SECRET=your-nextauth-secret
 FRONTEND_URL=http://localhost:3000
-API_BASE_URL=http://localhost:8080
-BACKEND_URL=http://localhost:8080`}
+BACKEND_URL=http://localhost:8080
+# Local dev only: nothing routes /ws on the next dev port
+WS_URL=ws://localhost:8080/ws`}
 </CodeBlock>
 
-Google/GitHub OAuth client credentials (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GH_CLIENT_ID`, `GH_CLIENT_SECRET`) are **backend** environment variables — the frontend never talks to the OAuth providers itself, it only redirects the browser to the backend's `GET /auth/login/{provider}`, which owns the whole handshake.
+Google/GitHub OAuth client credentials (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GH_CLIENT_ID`, `GH_CLIENT_SECRET`) are **backend** environment variables. The backend owns the whole handshake; the frontend only proxies it. For local Google or GitHub sign-in, register `http://localhost:<frontend port>/api/backend/auth/callback` as a redirect URI on the dev OAuth app.
 
 ## Security Considerations
 

@@ -27,13 +27,19 @@ These four secrets have no default; the stack refuses to start if any is unset.
 
 | Variable | Description | Default |
 |---|---|---|
-| `FRONTEND_URL` | Public origin of the frontend; an `https://` value enables secure cookies | `http://localhost:3000` |
-| `API_BASE_URL` | Public origin of the backend API; an `https://` value enables secure cookies | `http://localhost:8080` |
+| `FRONTEND_URL` | Public origin of the frontend, the only address browsers use. Sign-in and OAuth run under `<FRONTEND_URL>/api/backend`; an `https://` value enables secure cookies | `http://localhost:3000` |
+| `API_BASE_URL` | Public origin of the backend API, shown to API and SDK users (for example in curl examples). Browsers never call it | `http://localhost:8080` |
+| `WS_URL` | WebSocket address for the browser, as a path (`/ws`) or a `ws(s)://` URL. Unset, the browser opens `/ws` on `FRONTEND_URL`, which your ingress or reverse proxy must route to the backend | `ws://localhost:<BACKEND_PORT>/ws` in docker-compose; unset in Helm |
 | `FRONTEND_PORT` | Host port Docker publishes for the frontend | `3000` |
 | `BACKEND_PORT` | Host port Docker publishes for the backend | `8080` |
 
 Ports are the host bind ports and are independent of the URLs — behind a reverse proxy the published port
 and the public URL usually differ.
+
+`BACKEND_URL`, the address the frontend server uses to reach the backend, must be the backend's internal
+address (`http://backend:8080` in docker-compose and Helm). If it goes through a proxy that adds
+`X-Forwarded-For`, the backend can't see each browser's IP, and every sign-in shares one rate limit.
+The backend logs a warning when this happens.
 
 ## Branding
 
@@ -231,6 +237,10 @@ Without OAuth credentials, only email/password authentication is available.
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Enable Google sign-in (set both) | *(unset)* |
 | `GH_CLIENT_ID`, `GH_CLIENT_SECRET` | Enable GitHub sign-in (set both) | *(unset)* |
 
+Register `<FRONTEND_URL>/api/backend/auth/callback` as the redirect (callback) URI in your Google and
+GitHub OAuth apps, for example `https://app.example.com/api/backend/auth/callback`. On a non-local
+domain the backend always uses `https` in this URI.
+
 ## SMTP and email
 
 Email (notifications, invitations) is disabled until `SMTP_HOST` is set.
@@ -399,8 +409,8 @@ The per-entity empty-state variables are wired into the Helm chart (`config.empt
 `docker-compose.yml`.
 
 The frontend checks its variables at startup and logs each problem. In production it exits when
-`API_BASE_URL` is missing, or when `API_BASE_URL`, `BACKEND_URL` or `FRONTEND_URL` is not an
-`http(s)` URL, so a bad value fails the rollout instead of breaking sign-in. Problems with the
+`API_BASE_URL`, `BACKEND_URL` or `FRONTEND_URL` is not an `http(s)` URL, or `WS_URL` is neither a
+path nor a `ws(s)://` URL, so a bad value fails the rollout instead of breaking sign-in. Problems with the
 content variables in this table, such as a video that is not on YouTube or an article outside
 `docs.rhesis.ai`, are logged as warnings and never stop it. The same goes for branding values: a
 malformed one is logged and the default is used.
