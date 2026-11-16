@@ -47,6 +47,11 @@ from rhesis.backend.app.services.organization import (
 )
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
+from rhesis.backend.app.utils.rate_limit import (
+    ORG_CREATION_RATE_LIMIT,
+    count_post_parse_hit,
+    post_parse_limit_reached,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +64,23 @@ router = RhesisRouter(
 )
 
 
+_ORG_CREATION_NAMESPACE = "user:create-organization"
+
+
+def _limit_org_creation(
+    current_user: User = Depends(require_current_user_or_token_without_context),
+) -> None:
+    # Not per_user_rate_limit: that needs an org, and the caller has none during onboarding.
+    # Only created orgs count (see create_organization), so a taken name costs nothing.
+    if post_parse_limit_reached(
+        ORG_CREATION_RATE_LIMIT, namespace=_ORG_CREATION_NAMESPACE, key=str(current_user.id)
+    ):
+        raise HTTPException(
+            status_code=429,
+            detail="You have created the most organizations allowed for today.",
+        )
+
+
 @router.post("/", response_model=schemas.Organization)
 @handle_database_exceptions(
     entity_name="organization", custom_unique_message="Organization with this name already exists"
@@ -67,12 +89,17 @@ def create_organization(
     organization: schemas.OrganizationCreate,
     db: Session = Depends(get_db_session),
     current_user: User = Depends(require_current_user_or_token_without_context),
+    _rate_limit: None = Depends(_limit_org_creation),
 ):
     # owner_id and user_id are always set server-side from the authenticated caller —
     # the client-supplied values are ignored so the onboarding flow cannot forge ownership.
-    return organization_crud.create_organization(
+    created = organization_crud.create_organization(
         db=db, organization=organization, owner_user_id=current_user.id
     )
+    count_post_parse_hit(
+        ORG_CREATION_RATE_LIMIT, namespace=_ORG_CREATION_NAMESPACE, key=str(current_user.id)
+    )
+    return created
 
 
 @router.get("/", response_model=list[schemas.Organization])
