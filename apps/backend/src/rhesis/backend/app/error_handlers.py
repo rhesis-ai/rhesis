@@ -74,7 +74,10 @@ def reraise_model_refusal(exc: BaseException) -> None:
     # backend without the SDK, and where the SDK is absent there is no refusal to find.
     try:
         from rhesis.sdk.models.base import ModelCallRefused
-    except ImportError:
+    except ModuleNotFoundError as missing:
+        # Only an absent SDK; a broken install should still fail loudly.
+        if missing.name not in ("rhesis.sdk", "rhesis.sdk.models", "rhesis.sdk.models.base"):
+            raise
         return
     seen = set()
     current: Optional[BaseException] = exc
