@@ -80,7 +80,7 @@ autogen = [
 
 pydantic-ai = [
     # Slim core is all the integration uses. Full pydantic-ai adds the openai and logfire
-    # extras, which need openai 3 and an OpenTelemetry that litellm and google-adk block.
+    # extras, which need openai 3 and an OpenTelemetry that litellm blocks.
     "pydantic-ai-slim>=0.0.49",
 ]
 
@@ -254,6 +254,7 @@ exclude-newer = "1 week"
 # Allow newer versions for packages with recent security patches (CVEs).
 exclude-newer-package = { jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false, certifi = false, uv = false, nltk = false, pillow = false, virtualenv = false, pyasn1 = false }
 constraint-dependencies = [
+    "opentelemetry-api>=1.45.2",
     "nbconvert>=7.17.2",
     "nltk>=3.10.4",
     "certifi>=2026.10.19",
