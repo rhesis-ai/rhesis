@@ -222,7 +222,7 @@ class HostedSpend(RedisBackedCache):
             input_tokens += tokens
 
         # After the size check: a request that can never run gets 413, not a retryable 429.
-        self._throughput.check(org_id)
+        self._throughput.check(org_id, input_tokens)
 
         max_output = settings.hosted_model_max_output_tokens
         requested = request.get("max_tokens")
@@ -259,7 +259,7 @@ class HostedSpend(RedisBackedCache):
         if not self.enabled():
             return
         tokens = estimate_input_tokens(model_name, [{"role": "user", "content": text}])
-        self._throughput.check(org_id)
+        self._throughput.check(org_id, tokens)
         self._add(org_id, hosted_pricing.cost_usd(model_name, tokens, 0))
         self._throughput.add(org_id, tokens)
 

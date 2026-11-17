@@ -64,6 +64,12 @@ def weighted_tokens(model_name: str, input_tokens: int, output_tokens: int) -> f
     return input_tokens + output_tokens * hosted_pricing.output_input_ratio(model_name)
 
 
+def _over(used: float, incoming: float, limit: Optional[float]) -> bool:
+    if limit is None:
+        return False
+    return used >= limit or (used > 0 and used + incoming > limit)
+
+
 class ThroughputWindow:
     """This process's view of the current minute's throughput.
 
@@ -102,13 +108,18 @@ class ThroughputWindow:
 
     # ── Call path ──────────────────────────────────────────────────────
 
-    def check(self, org_id: Optional[str]) -> None:
-        """Refuse a call while the platform or *org_id* is over its per-minute limit."""
+    def check(self, org_id: Optional[str], incoming: float = 0.0) -> None:
+        """Refuse a call whose *incoming* tokens would take the platform or *org_id* over
+        its per-minute limit.
+
+        A call larger than a limit on its own is still let into an empty minute, so it
+        can run at all; it then fills that minute.
+        """
         minute = minute_of(_now())
         read_now = self._minute == minute
         pending_now = self._pending_minute == minute
         total = (self._total if read_now else 0.0) + (self._pending if pending_now else 0.0)
-        if self._limit is not None and total >= self._limit:
+        if _over(total, incoming, self._limit):
             raise HostedThroughputExceeded(org_level=False)
         if not org_id:
             return
@@ -119,7 +130,7 @@ class ThroughputWindow:
             self._pending_org.get(org_id, 0.0) if pending_now else 0.0
         )
         org_limit = self._org_limits.get(org_id, self._org_limit_default)
-        if org_limit is not None and org_total >= org_limit:
+        if _over(org_total, incoming, org_limit):
             raise HostedThroughputExceeded(org_level=True)
 
     def add(self, org_id: Optional[str], tokens: float) -> None:

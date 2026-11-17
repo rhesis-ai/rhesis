@@ -537,6 +537,21 @@ class TestThroughput:
         assert response.status_code == 429
         assert response.headers["Retry-After"] == "7"
 
+    def test_a_call_that_would_cross_the_limit_is_refused(self, spend, limits):
+        limits(tpm=1_000)
+        spend.tick()
+        spend._throughput.add(None, 900)
+        with pytest.raises(HostedThroughputExceeded):
+            spend.admit(VERTEX, _request("word " * 200), None)  # ~200 more would cross 1,000
+        spend.admit(VERTEX, _request("hi"), None)  # a couple of tokens still fit
+
+    def test_a_call_larger_than_the_limit_runs_in_an_empty_minute(self, spend, limits):
+        limits(tpm=10)
+        spend.tick()
+        spend.admit(VERTEX, _request("word " * 200), None)
+        with pytest.raises(HostedThroughputExceeded):
+            spend.admit(VERTEX, _request("hi"), None)
+
     def test_a_throughput_refusal_is_retried_by_batch_runs(self):
         result = _failure_result("t1", HostedThroughputExceeded(org_level=False), 1.0)
         assert _is_retriable_failure(result)
