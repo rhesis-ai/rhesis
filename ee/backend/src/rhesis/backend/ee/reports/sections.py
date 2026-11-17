@@ -93,6 +93,8 @@ def build_by_impact(db: Session, context: ReportContext) -> Dict[str, Any]:
         "impacts": sorted(rows, key=lambda row: _impact_sort_key(row["name"])),
         # "all" counts every result, so the PDF heads the column "Results".
         "result_rule": context.report.result_rule,
+        # Whether the requirements table has a Change column to line up with.
+        "compared": context.report.baseline_report_id is not None,
         "requirements": {str(req_id): (name or NOT_SET) for req_id, (_, name) in impacts.items()},
     }
 

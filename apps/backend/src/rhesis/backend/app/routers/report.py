@@ -1,5 +1,6 @@
 import uuid
 from typing import List
+from urllib.parse import quote
 
 from fastapi import Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
@@ -198,14 +199,18 @@ def export_report_pdf(
     except ReportError as e:
         raise _http(e) from e
     content = report_service.export_pdf(db, report, organization_id)
-    filename = _pdf_filename(report.title)
     return Response(
         content=content,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": _pdf_disposition(report.title)},
     )
 
 
-def _pdf_filename(title: str) -> str:
-    safe = "".join(c if c.isalnum() or c in "-_. " else "_" for c in title).strip() or "report"
-    return f"{safe[:80].replace(' ', '-')}.pdf"
+def _pdf_disposition(title: str) -> str:
+    """An ASCII filename for old clients plus the real title as UTF-8 (RFC 6266), since
+    a header that isn't Latin-1 can't be sent at all."""
+    name = "-".join(title.split())[:80] or "report"
+    ascii_name = "".join(c if c.isascii() and (c.isalnum() or c in "-_.") else "_" for c in name)
+    if not ascii_name.strip("_"):
+        ascii_name = "report"
+    return f"attachment; filename=\"{ascii_name}.pdf\"; filename*=UTF-8''{quote(name + '.pdf')}"

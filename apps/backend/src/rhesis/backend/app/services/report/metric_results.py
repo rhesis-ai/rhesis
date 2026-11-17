@@ -36,6 +36,24 @@ def _verdicts(test_metrics: Any) -> Dict[str, bool]:
     }
 
 
+def _with_children(
+    tallies: Dict[Any, Dict[str, List[int]]], tree: List[dict]
+) -> Dict[Any, Dict[str, List[int]]]:
+    """A parent row adds up its own and its children's counts, as in the requirements table."""
+    combined = {
+        req: {name: list(c) for name, c in metrics.items()} for req, metrics in tallies.items()
+    }
+    for row in tree:
+        if row["level"] != 1 or row["id"] not in tallies:
+            continue
+        parent = combined.setdefault(row["parent_id"], {})
+        for name, (passed, failed) in tallies[row["id"]].items():
+            counts = parent.setdefault(name, [0, 0])
+            counts[0] += passed
+            counts[1] += failed
+    return combined
+
+
 def metrics_by_requirement(
     db: Session, counted: List[CountedResult], tree: List[dict]
 ) -> List[Dict[str, Any]]:
@@ -52,9 +70,10 @@ def metrics_by_requirement(
     kinds = report_crud.get_metric_kinds(
         db, [name for per_metric in tallies.values() for name in per_metric]
     )
+    combined = _with_children(tallies, tree)
     out = []
     for row in tree:
-        per_metric = tallies.get(row["id"])
+        per_metric = combined.get(row["id"])
         if not per_metric:
             continue
         metrics = [

@@ -73,6 +73,36 @@ def create_report(
     return create_item(db, models.Report, data, organization_id, user_id, commit=False)
 
 
+def lock_report_status(db: Session, report_id: uuid.UUID) -> Optional[str]:
+    """The report's status, with its row locked until the transaction ends.
+
+    Writers to a draft take this lock, so a publish and an edit (or two publishes)
+    can't interleave: the second one waits, then sees the report is published.
+    """
+    return (
+        db.query(models.Report.status)
+        .filter(models.Report.id == report_id)
+        .with_for_update()
+        .scalar()
+    )
+
+
+def freeze_report(db: Session, report: models.Report, values: dict) -> None:
+    """Write the published state onto a locked draft."""
+    for key, value in values.items():
+        setattr(report, key, value)
+    db.flush()
+
+
+def existing_run_ids(db: Session, test_run_ids: Iterable[uuid.UUID]) -> List[uuid.UUID]:
+    """The ids, in order, that still name a run (soft-deleted ones are filtered out)."""
+    ids = list(test_run_ids)
+    if not ids:
+        return []
+    found = {row.id for row in db.query(models.TestRun.id).filter(models.TestRun.id.in_(ids))}
+    return [i for i in ids if i in found]
+
+
 def update_report(
     db: Session,
     report_id: uuid.UUID,
@@ -224,7 +254,12 @@ def get_requirements(db: Session, requirement_ids: Iterable[uuid.UUID]) -> list:
     if not ids:
         return []
     return (
-        db.query(models.Requirement.id, models.Requirement.name, models.Requirement.parent_id)
+        db.query(
+            models.Requirement.id,
+            models.Requirement.name,
+            models.Requirement.parent_id,
+            models.Requirement.description,
+        )
         .filter(models.Requirement.id.in_(ids))
         .all()
     )

@@ -35,6 +35,7 @@ class RequirementInfo:
     id: uuid.UUID
     name: str
     parent_id: Optional[uuid.UUID]
+    description: Optional[str] = None
 
 
 @dataclass
@@ -45,9 +46,12 @@ class _Tally:
     inconclusive: int = 0
     errored: int = 0
     inconsistent: Set[uuid.UUID] = field(default_factory=set)
+    # Distinct tests behind the results: under "all" one test counts once per run.
+    test_ids: Set[uuid.UUID] = field(default_factory=set)
 
     def add(self, result: CountedResult) -> None:
         self.tests += 1
+        self.test_ids.add(result.test_id)
         if result.execution != Execution.OK.value:
             self.errored += 1
         elif result.verdict == Verdict.PASS.value:
@@ -64,6 +68,7 @@ class _Tally:
         self.inconclusive += other.inconclusive
         self.errored += other.errored
         self.inconsistent |= other.inconsistent
+        self.test_ids |= other.test_ids
 
 
 def pass_rate(passed: int, failed: int) -> Optional[float]:
@@ -128,10 +133,12 @@ def _row(info: RequirementInfo, level: int, tally: _Tally, has_tests: bool) -> d
     return {
         "id": info.id,
         "name": info.name,
+        "description": info.description,
         "parent_id": info.parent_id,
         "level": level,
         "coverage": _coverage(tally, has_tests),
         "tests": tally.tests,
+        "distinct_tests": len(tally.test_ids),
         "passed": tally.passed,
         "failed": tally.failed,
         "errored": tally.errored,

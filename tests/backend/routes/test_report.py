@@ -41,10 +41,11 @@ class _Builder:
         self.db.refresh(obj)
         return obj
 
-    def requirement(self, name: str, parent=None) -> models.Requirement:
+    def requirement(self, name: str, parent=None, description=None) -> models.Requirement:
         return self._add(
             models.Requirement(
                 name=f"{name} {uuid.uuid4().hex[:6]}",
+                description=description,
                 organization_id=self.org_id,
                 user_id=self.user_id,
                 parent_id=parent.id if parent else None,
@@ -300,6 +301,16 @@ class TestReportDraft:
 
 @pytest.mark.integration
 class TestReportFindings:
+    def test_requirement_rows_carry_the_description(self, authenticated_client, build, db_endpoint):
+        described = build.requirement("Card", description="Asks for the last four digits at most.")
+        run = build.run()
+        build.result(run, build.test(described))
+        build.commit()
+        report = _create(authenticated_client, db_endpoint.id, runs=[run], requirements=[described])
+
+        rows = _rows_by_name(_detail(authenticated_client, report["id"]))
+        assert rows[described.name]["description"] == "Asks for the last four digits at most."
+
     def test_runs_from_different_experiments_are_flagged(
         self, authenticated_client, build, db_endpoint
     ):
@@ -788,3 +799,122 @@ class TestReportSummaryDraft:
         authenticated_client.post(f"/reports/{report['id']}/publish")
         response = authenticated_client.post(f"/reports/{report['id']}/summary")
         assert response.status_code == status.HTTP_409_CONFLICT
+
+
+@pytest.mark.integration
+class TestReviewFixes:
+    """Fixes from the review of the reports feature."""
+
+    def test_copy_of_a_published_tag_report_keeps_the_tag(
+        self, authenticated_client, build, db_endpoint
+    ):
+        run = build.run()
+        build.result(run, build.test())
+        build.tag(run, "2.5")
+        build.commit()
+        report = _create(authenticated_client, db_endpoint.id, run_tag="2.5")
+        assert authenticated_client.post(f"/reports/{report['id']}/publish").status_code == 200
+
+        copy = authenticated_client.post(f"/reports/{report['id']}/copy")
+
+        assert copy.status_code == status.HTTP_200_OK, copy.text
+        detail = _detail(authenticated_client, copy.json()["id"])
+        assert (detail["run_tag"], detail["test_run_ids"]) == ("2.5", [])
+        assert detail["tagged_run_ids"] == [str(run.id)]
+
+    def test_copy_skips_deleted_runs(self, authenticated_client, build, db_endpoint):
+        kept, gone = build.run(), build.run()
+        for run in (kept, gone):
+            build.result(run, build.test())
+        build.commit()
+        report = _create(authenticated_client, db_endpoint.id, runs=[kept, gone])
+        gone.soft_delete()
+        build.commit()
+
+        copy = authenticated_client.post(f"/reports/{report['id']}/copy")
+
+        assert copy.status_code == status.HTTP_200_OK, copy.text
+        assert _detail(authenticated_client, copy.json()["id"])["test_run_ids"] == [str(kept.id)]
+
+    @pytest.mark.parametrize("field", ["title", "result_rule", "is_release"])
+    def test_required_fields_cannot_be_nulled(self, authenticated_client, db_endpoint, field):
+        report = _create(authenticated_client, db_endpoint.id)
+        put = authenticated_client.put(f"/reports/{report['id']}", json={field: None})
+        assert put.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_general_report_keeps_no_recommendation(self, authenticated_client, db_endpoint):
+        report = _create(authenticated_client, db_endpoint.id, is_release=False)
+        put = authenticated_client.put(f"/reports/{report['id']}", json={"recommendation": "ready"})
+        assert put.status_code == status.HTTP_200_OK, put.text
+        assert put.json()["recommendation"] is None
+
+    def test_headline_counts_only_picked_requirements(
+        self, authenticated_client, build, db_endpoint
+    ):
+        picked, other = build.requirement("Picked"), build.requirement("Other")
+        run = build.run()
+        build.result(run, build.test(picked), "pass")
+        build.result(run, build.test(other), "fail")
+        build.commit()
+        report = _create(authenticated_client, db_endpoint.id, runs=[run], requirements=[picked])
+
+        totals = _detail(authenticated_client, report["id"])["metrics"]["totals"]
+
+        assert (totals["results"], totals["failed"], totals["pass_rate"]) == (1, 0, 100.0)
+
+    def test_low_sample_counts_tests_not_results(self, authenticated_client, build, db_endpoint):
+        requirement = build.requirement("Repeated")
+        tests = [build.test(requirement) for _ in range(3)]
+        runs = [build.run() for _ in range(5)]
+        for run in runs:
+            for test in tests:
+                build.result(run, test)
+        build.commit()
+        report = _create(
+            authenticated_client,
+            db_endpoint.id,
+            runs=runs,
+            requirements=[requirement],
+            result_rule="all",
+        )
+
+        row = _rows_by_name(_detail(authenticated_client, report["id"]))[requirement.name]
+
+        assert (row["tests"], row["low_sample"]) == (15, True)
+
+    def test_published_report_shows_the_frozen_endpoint_name(
+        self, authenticated_client, build, db_endpoint, test_db
+    ):
+        run = build.run()
+        build.result(run, build.test())
+        build.commit()
+        report = _create(authenticated_client, db_endpoint.id, runs=[run])
+        authenticated_client.post(f"/reports/{report['id']}/publish")
+        original = db_endpoint.name
+        db_endpoint.name = "Renamed later"
+        test_db.commit()
+
+        detail = _detail(authenticated_client, report["id"])
+
+        assert detail["endpoint"]["name"] == original
+
+    def test_pdf_with_a_non_latin_title_and_a_huge_name(
+        self, authenticated_client, build, db_endpoint
+    ):
+        requirement = build.requirement("word " * 1000)
+        run = build.run()
+        build.result(run, build.test(requirement))
+        build.commit()
+        report = _create(
+            authenticated_client,
+            db_endpoint.id,
+            runs=[run],
+            requirements=[requirement],
+            title="发布报告 2.5",
+        )
+
+        response = authenticated_client.get(f"/reports/{report['id']}/pdf")
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        disposition = response.headers["content-disposition"]
+        assert "filename*=UTF-8''%E5%8F%91" in disposition

@@ -5,7 +5,7 @@ numbers, ruled tables with a pass-rate bar, and a quiet label/value list for det
 """
 
 from pathlib import Path
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from xml.sax.saxutils import escape
 
 from reportlab.graphics.shapes import Drawing, Rect
@@ -28,7 +28,8 @@ from reportlab.platypus import (
 
 PRIMARY = colors.HexColor("#0080af")
 TEXT = colors.HexColor("#16232c")
-MUTED = colors.HexColor("#5a6b77")
+MUTED_HEX = "#5a6b77"
+MUTED = colors.HexColor(MUTED_HEX)
 BORDER = colors.HexColor("#dbe3e9")
 TRACK = colors.HexColor("#eef3f6")
 FAIL_HEX = "#b52a47"
@@ -87,8 +88,43 @@ STYLES = {
     "callout": _style("rh-call", fontName=FONT_BOLD, fontSize=14, leading=18),
 }
 
+# The score columns that close the requirements and By impact tables, at the same widths
+# so the two line up on page 1. Mixed shows under the all/worst rules, Change with a
+# comparison.
+SCORE_WIDTHS = {
+    "tests": 0.1,
+    "failed": 0.1,
+    "mixed": 0.09,
+    "pass_rate": 0.12,
+    "change": 0.1,
+    "bar": 0.13,
+}
+
+
+def score_columns(rule: str, compared: bool) -> List[str]:
+    keys = ["tests", "failed"]
+    if rule != "latest":
+        keys.append("mixed")
+    keys.append("pass_rate")
+    if compared:
+        keys.append("change")
+    return [*keys, "bar"]
+
+
+# Longest text a table cell or list line prints; longer text is cut with "…".
+CELL_CHARS = 300
+LINE_CHARS = 1000
+
 # A4 minus 15 mm margins, minus the frame's own 6 pt padding on each side.
 CONTENT_WIDTH = 180 * mm - 12
+
+
+def shorten(value: Optional[str], limit: int = 100) -> str:
+    """One line of *value*, cut at a word before *limit* characters."""
+    flat = " ".join((value or "").split())
+    if len(flat) <= limit:
+        return flat
+    return flat[:limit].rsplit(" ", 1)[0].rstrip(",.;:") + "…"
 
 
 def text(value: Any) -> str:
@@ -220,11 +256,14 @@ def data_table(
     bold_rows: Sequence[int] = (),
     fail_cells: Sequence[Tuple[int, int]] = (),
     indent_rows: Sequence[int] = (),
+    subtitles: Optional[Dict[int, str]] = None,
 ) -> Table:
     """A ruled table. ``widths`` are fractions of the content width; ``right`` lists
     right-aligned column indexes; ``fail_cells`` are (row, col) shown in red. A cell
-    may hold a flowable (e.g. ``rate_bar``) instead of text."""
+    may hold a flowable (e.g. ``rate_bar``) instead of text. ``subtitles`` puts a small
+    muted second line under the first cell of those rows."""
     fail = set(fail_cells)
+    subtitles = subtitles or {}
 
     def cell(value: Any, row: int, col: int) -> Any:
         if isinstance(value, (Flowable, Drawing)):
@@ -234,9 +273,13 @@ def data_table(
             style = STYLES["cell_bold"]
         elif row in indent_rows and col == 0:
             style = STYLES["cell_indent"]
-        content = text(value)
+        # A cell taller than a page can't be laid out; no table needs more than this.
+        content = text(shorten(str(value), CELL_CHARS) if isinstance(value, str) else value)
         if (row, col) in fail:
             content = f'<font color="{FAIL_HEX}">{content}</font>'
+        if col == 0 and subtitles.get(row):
+            sub = text(subtitles[row])
+            content += f'<br/><font name="{FONT}" size="7.5" color="{MUTED_HEX}">{sub}</font>'
         return Paragraph(content, style)
 
     head = [
@@ -265,7 +308,10 @@ def bullets(lines: Sequence[str]) -> Table:
     """A short list of plain-text points."""
     table = Table(
         [
-            [Paragraph("•", STYLES["value"]), Paragraph(text(line), STYLES["value"])]
+            [
+                Paragraph("•", STYLES["value"]),
+                Paragraph(text(shorten(line, LINE_CHARS)), STYLES["value"]),
+            ]
             for line in lines
         ],
         colWidths=[10, CONTENT_WIDTH - 10],

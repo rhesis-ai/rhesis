@@ -14,26 +14,50 @@ def render_by_impact(data: Dict[str, Any]) -> List[Any]:
     impacts = data.get("impacts") or []
     if not impacts:
         return []
+    rule = data.get("result_rule", "latest")
+    # Same score columns as the requirements table below, so the two line up;
+    # Mixed and Change stay blank here.
+    keys = kit.score_columns(rule, bool(data.get("compared")))
+    headers = {
+        "tests": "Results" if rule == "all" else "Tests",
+        "failed": "Failed",
+        "mixed": "",
+        "pass_rate": "Pass rate",
+        "change": "",
+        "bar": "",
+    }
+
+    def score(row: Dict[str, Any], key: str) -> Any:
+        if key == "tests":
+            return row.get("tests", "")
+        if key == "failed":
+            return row["failed"]
+        if key == "pass_rate":
+            return kit.pass_rate_text(row.get("pass_rate"))
+        if key == "bar":
+            return kit.rate_bar(row.get("pass_rate"))
+        return ""
+
     rows = [
         [
             row["name"],
             f"{row['requirements_tested']} of {row['requirements_total']}",
-            row.get("tests", ""),
-            row["failed"],
-            kit.pass_rate_text(row.get("pass_rate")),
-            kit.rate_bar(row.get("pass_rate")),
+            *[score(row, key) for key in keys],
         ]
         for row in impacts
     ]
-    fail = [(i, 3) for i, row in enumerate(impacts) if row["failed"]]
-    count = "Results" if data.get("result_rule") == "all" else "Tests"
+    failed_col = 2 + keys.index("failed")
+    fail = [(i, failed_col) for i, row in enumerate(impacts) if row["failed"]]
+    score_widths = [kit.SCORE_WIDTHS[key] for key in keys]
+    # Impact and Requirements tested share the width the requirement name gets below.
+    lead = 1 - sum(score_widths)
     return [
         *kit.heading("By impact", "Only impacts with a requirement tested in this report."),
         kit.data_table(
-            ["Impact", "Requirements tested", count, "Failed", "Pass rate", ""],
+            ["Impact", "Requirements tested", *[headers[key] for key in keys]],
             rows,
-            widths=[0.27, 0.24, 0.1, 0.09, 0.16, 0.14],
-            right=[2, 3, 4],
+            widths=[lead * 0.55, lead * 0.45, *score_widths],
+            right=[2 + i for i, key in enumerate(keys) if key != "bar"],
             fail_cells=fail,
         ),
     ]

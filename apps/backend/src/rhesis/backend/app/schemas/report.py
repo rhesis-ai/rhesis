@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, ClassVar, Dict, List, Literal, Optional
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field, model_validator
+from pydantic import UUID4, AliasChoices, BaseModel, ConfigDict, Field, model_validator
 
 from rhesis.backend.app.auth.capabilities import ResourceType
 from rhesis.backend.app.schemas.affordances import WithPermittedActions
@@ -45,6 +45,18 @@ class ReportUpdate(Base):
     test_run_ids: Optional[BulkIds] = None
     requirement_ids: Optional[BulkIds] = None
 
+    @model_validator(mode="after")
+    def _required_stay_set(self) -> "ReportUpdate":
+        # Omit a field to keep it; these columns can't be emptied.
+        nulled = [
+            name
+            for name in ("title", "result_rule", "is_release")
+            if name in self.model_fields_set and getattr(self, name) is None
+        ]
+        if nulled:
+            raise ValueError(f"{', '.join(nulled)} can't be null; leave it out to keep it")
+        return self
+
 
 class ReportEndpointRef(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -67,7 +79,10 @@ class Report(ReportBase, WithPermittedActions, ServerIdentity):
     snapshot_hash: Optional[str] = None
     user: Optional[UserReference] = None
     published_by: Optional[UserReference] = None
-    endpoint: Optional[ReportEndpointRef] = None
+    # A published report names the endpoint as it was when published.
+    endpoint: Optional[ReportEndpointRef] = Field(
+        None, validation_alias=AliasChoices("endpoint_ref", "endpoint")
+    )
 
     @model_validator(mode="after")
     def _close_published(self) -> "Report":
@@ -81,6 +96,7 @@ class Report(ReportBase, WithPermittedActions, ServerIdentity):
 class ReportRequirementRow(BaseModel):
     id: UUID4
     name: str
+    description: Optional[str] = None
     parent_id: Optional[UUID4] = None
     level: int
     coverage: Literal["tested", "errored_only", "not_in_runs", "no_tests"]

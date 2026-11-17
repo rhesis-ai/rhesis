@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.crud import report as report_crud
-from rhesis.backend.app.models.report import REPORT_STATUS_PUBLISHED
+from rhesis.backend.app.models.report import REPORT_STATUS_DRAFT, REPORT_STATUS_PUBLISHED
 from rhesis.backend.app.services.audit_events import record_audit_event
 from rhesis.backend.app.services.experiment import experiment_summary_dict_from_run_attributes
 from rhesis.backend.app.services.report.comparison import compare
@@ -106,7 +106,10 @@ def load_draft(
     db: Session, report_id: uuid.UUID, organization_id: str, user_id: str
 ) -> models.Report:
     report = load_report(db, report_id, organization_id, user_id)
-    if report.is_published:
+    # Re-read the status under a row lock: a publish running at the same time
+    # finishes first, and this write then sees the report is published.
+    if report_crud.lock_report_status(db, report.id) != REPORT_STATUS_DRAFT:
+        db.refresh(report)
         raise ReportConflict("A published report can't be changed. Copy it as a new draft.")
     return report
 
@@ -156,7 +159,8 @@ def update_report(
     values = data.model_dump(
         exclude_unset=True, exclude={"test_run_ids", "requirement_ids", "project_id"}
     )
-    if values.get("is_release") is False:
+    is_release = values.get("is_release", report.is_release)
+    if not is_release and ("recommendation" in values or "is_release" in values):
         # A ship recommendation means nothing outside a release.
         values["recommendation"] = None
     if values:
@@ -172,7 +176,9 @@ def delete_report(db: Session, report_id: uuid.UUID, organization_id: str, user_
 
 def _requirements(db: Session, requirement_ids: Sequence[uuid.UUID]) -> List[RequirementInfo]:
     return [
-        RequirementInfo(id=row.id, name=row.name, parent_id=row.parent_id)
+        RequirementInfo(
+            id=row.id, name=row.name, parent_id=row.parent_id, description=row.description
+        )
         for row in report_crud.get_requirements(db, requirement_ids)
     ]
 
@@ -249,7 +255,7 @@ def _compute(db: Session, report: models.Report) -> tuple:
     """Live numbers for a report: (context, metrics)."""
     run_ids, _ = run_ids_of(db, report)
     requirement_ids = report_crud.get_report_requirement_ids(db, report.id)
-    rows = report_crud.get_results_for_runs(db, run_ids)
+    rows = _in_scope(report_crud.get_results_for_runs(db, run_ids), requirement_ids)
     counted = pick_counted(rows, report.result_rule)
     # Only meaningful when more than one result per test is looked at.
     inconsistent = inconsistent_tests(rows) if report.result_rule != "latest" else set()
@@ -279,6 +285,15 @@ def _compute(db: Session, report: models.Report) -> tuple:
         counted=tuple(counted),
     )
     return context, metrics
+
+
+def _in_scope(rows: List[Any], requirement_ids: Sequence[uuid.UUID]) -> List[Any]:
+    """The results of the picked requirements, so every number on the page has the same
+    scope. With no requirement picked, the report covers everything in its runs."""
+    if not requirement_ids:
+        return list(rows)
+    picked = set(requirement_ids)
+    return [row for row in rows if row.requirement_id in picked]
 
 
 def compute_metrics(db: Session, report: models.Report) -> schemas.ReportMetrics:
@@ -320,7 +335,11 @@ def publish_report(
         )
     if not context.test_run_ids:
         raise ReportError("Pick at least one test run before publishing")
-    sections = build_sections(db, context, _organization(db, organization_id), strict=True)
+    try:
+        sections = build_sections(db, context, _organization(db, organization_id), strict=True)
+    except Exception as e:
+        # Publishing freezes every section; one that can't be built blocks it.
+        raise ReportError(f"A report section could not be built, so nothing was published: {e}")
 
     report_crud.insert_report_results(
         db,
@@ -354,13 +373,19 @@ def publish_report(
         "sections": sections,
     }
     digest = snapshot_hash(frozen, context.counted)
-    report.status = REPORT_STATUS_PUBLISHED
-    report.published_at = published_at
-    report.published_by_id = uuid.UUID(str(user_id))
-    report.endpoint_snapshot = frozen["endpoint"]
-    report.metrics = frozen["metrics"]
-    report.sections = sections
-    report.snapshot_hash = digest
+    report_crud.freeze_report(
+        db,
+        report,
+        {
+            "status": REPORT_STATUS_PUBLISHED,
+            "published_at": published_at,
+            "published_by_id": uuid.UUID(str(user_id)),
+            "endpoint_snapshot": frozen["endpoint"],
+            "metrics": frozen["metrics"],
+            "sections": sections,
+            "snapshot_hash": digest,
+        },
+    )
 
     record_audit_event(
         audit_action(Permission.Report.PUBLISH),
@@ -389,8 +414,24 @@ def _parent_of(metrics: schemas.ReportMetrics, requirement_id: Optional[uuid.UUI
 def copy_report(
     db: Session, report_id: uuid.UUID, organization_id: str, user_id: str
 ) -> models.Report:
-    """A new draft with the same endpoint, runs, requirements and text."""
+    """A new draft with the same endpoint, runs, requirements and text.
+
+    A report that picked its runs by tag is copied with the tag (publishing froze the
+    runs it resolved to, but the copy is the next version and keeps following the tag);
+    one picked by hand keeps the runs that still exist.
+    """
     source = load_report(db, report_id, organization_id, user_id)
+    picked = (
+        []
+        if source.run_tag
+        else report_crud.existing_run_ids(db, report_crud.get_report_test_run_ids(db, source.id))
+    )
+    requirement_ids = [
+        row.id
+        for row in report_crud.get_requirements(
+            db, report_crud.get_report_requirement_ids(db, source.id)
+        )
+    ]
     data = schemas.ReportCreate(
         title=f"{source.title} (copy)"[:200],
         summary=source.summary,
@@ -401,8 +442,8 @@ def copy_report(
         baseline_report_id=source.id if source.is_published else source.baseline_report_id,
         result_rule=source.result_rule,
         endpoint_id=source.endpoint_id,
-        test_run_ids=report_crud.get_report_test_run_ids(db, source.id),
-        requirement_ids=report_crud.get_report_requirement_ids(db, source.id),
+        test_run_ids=picked,
+        requirement_ids=requirement_ids,
     )
     return create_report(db, data, organization_id, user_id)
 

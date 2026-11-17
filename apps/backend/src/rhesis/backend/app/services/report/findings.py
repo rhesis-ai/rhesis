@@ -73,4 +73,6 @@ def _setups(runs: List[dict]) -> List[str]:
 
 def flag_low_samples(tree: List[dict]) -> None:
     for row in tree:
-        row["low_sample"] = row["coverage"] == "tested" and row["tests"] < LOW_SAMPLE
+        # Distinct tests, not results: 3 tests run 5 times is still a small sample.
+        tests = row.get("distinct_tests", row["tests"])
+        row["low_sample"] = row["coverage"] == "tested" and tests < LOW_SAMPLE

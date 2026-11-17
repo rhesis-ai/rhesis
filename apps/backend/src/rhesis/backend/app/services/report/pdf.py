@@ -6,17 +6,29 @@ says DRAFT on every page.
 """
 
 import io
+import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
+from reportlab.lib.utils import ImageReader
 from reportlab.platypus import HRFlowable, PageBreak, Paragraph, SimpleDocTemplate, Spacer
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.services.report import pdf_kit as kit
-from rhesis.backend.app.services.report.sections import pdf_flowables, pdf_notes
+from rhesis.backend.app.services.report.sections import (
+    PdfBrand,
+    pdf_brand,
+    pdf_flowables,
+    pdf_notes,
+)
+
+logger = logging.getLogger(__name__)
+
+# The requirements table shows this much of each description, so a row stays short.
+DESCRIPTION_CHARS = 70
 
 RECOMMENDATIONS = {
     "ready": "Ready to ship",
@@ -38,11 +50,13 @@ UNTESTED = {
 RECOMMENDATION_TONES = {"ready": "good", "ready_with_risks": "warn", "not_ready": "bad"}
 
 
-def _brand(report: models.Report) -> str:
-    return "RHESIS · RELEASE REPORT" if report.is_release else "RHESIS · REPORT"
+def _brand(report: models.Report, brand: PdfBrand) -> Paragraph:
+    kind = "RELEASE REPORT" if report.is_release else "REPORT"
+    line = kit.text(f"{brand.name.upper()} · {kind}")
+    return Paragraph(f'<font color="{brand.color}">{line}</font>', kit.STYLES["brand"])
 
 
-def _header(report: models.Report, detail: Dict[str, Any]) -> List[Any]:
+def _header(report: models.Report, detail: Dict[str, Any], brand: PdfBrand) -> List[Any]:
     endpoint = (detail.get("endpoint") or {}).get("name") or "Unknown endpoint"
     author = (report.user.name or report.user.email) if report.user else "Unknown author"
     if report.is_published and report.published_at:
@@ -50,7 +64,7 @@ def _header(report: models.Report, detail: Dict[str, Any]) -> List[Any]:
     else:
         state = "Draft, numbers not frozen"
     return [
-        Paragraph(_brand(report), kit.STYLES["brand"]),
+        _brand(report, brand),
         Spacer(1, 4),
         Paragraph(kit.text(report.title), kit.STYLES["title"]),
         Paragraph(kit.text(f"{endpoint} · {state} · by {author}"), kit.STYLES["subtitle"]),
@@ -58,15 +72,11 @@ def _header(report: models.Report, detail: Dict[str, Any]) -> List[Any]:
     ]
 
 
-def _details_header(report: models.Report) -> List[Any]:
+def _details_header(report: models.Report, brand: PdfBrand) -> List[Any]:
     return [
-        Paragraph(_brand(report), kit.STYLES["brand"]),
+        _brand(report, brand),
         Spacer(1, 4),
         Paragraph("Details", kit.STYLES["title"]),
-        Paragraph(
-            kit.text(f"{report.title}: the runs, the people and the record behind the summary."),
-            kit.STYLES["subtitle"],
-        ),
         Spacer(1, 6),
     ]
 
@@ -131,33 +141,27 @@ def _delta_text(delta: Optional[float]) -> str:
 
 def _requirement_columns(rule: str, compared: bool) -> List[tuple]:
     """(header, width, right-aligned, cell) per column; cell(row, tested) -> value."""
-    columns = [
-        ("Requirement", 0.36, False, lambda r, t: r["name"]),
-        (
+    cells = {
+        "tests": (
             "Results" if rule == "all" else "Tests",
-            0.1,
-            True,
             lambda r, t: f"{r['tests']}*" if r.get("low_sample") else (r["tests"] or ""),
         ),
-        ("Failed", 0.1, True, lambda r, t: r["failed"] if t else ""),
-    ]
-    if rule != "latest":
-        columns.append(("Mixed", 0.09, True, lambda r, t: r.get("inconsistent") or ""))
-    columns.append(
-        (
+        "failed": ("Failed", lambda r, t: r["failed"] if t else ""),
+        "mixed": ("Mixed", lambda r, t: r.get("inconsistent") or ""),
+        "pass_rate": (
             "Pass rate",
-            0.12,
-            True,
             lambda r, t: kit.pass_rate_text(r.get("pass_rate")) if t else UNTESTED[r["coverage"]],
-        )
-    )
-    if compared:
-        columns.append(("Change", 0.1, True, lambda r, t: _delta_text(r.get("pass_rate_delta"))))
-    columns.append(("", 0.13, False, lambda r, t: kit.rate_bar(r.get("pass_rate")) if t else ""))
-    # Give whatever width is left to the requirement name.
-    spare = 1 - sum(c[1] for c in columns)
-    columns[0] = (columns[0][0], columns[0][1] + spare, False, columns[0][3])
-    return columns
+        ),
+        "change": ("Change", lambda r, t: _delta_text(r.get("pass_rate_delta"))),
+        "bar": ("", lambda r, t: kit.rate_bar(r.get("pass_rate")) if t else ""),
+    }
+    scores = [
+        (cells[key][0], kit.SCORE_WIDTHS[key], key != "bar", cells[key][1])
+        for key in kit.score_columns(rule, compared)
+    ]
+    # The requirement name takes whatever width is left.
+    name_width = 1 - sum(c[1] for c in scores)
+    return [("Requirement", name_width, False, lambda r, t: r["name"]), *scores]
 
 
 def _requirements(metrics: Dict[str, Any]) -> List[Any]:
@@ -170,9 +174,10 @@ def _requirements(metrics: Dict[str, Any]) -> List[Any]:
     columns = _requirement_columns(rule, compared)
     failed_col = [c[0] for c in columns].index("Failed")
     delta_col = [c[0] for c in columns].index("Change") if compared else None
-    table_rows, bold, indent, fail = [], [], [], []
+    table_rows, bold, indent, fail, subtitles = [], [], [], [], {}
     for i, row in enumerate(rows):
         tested = row["coverage"] == "tested"
+        subtitles[i] = kit.shorten(row.get("description"), DESCRIPTION_CHARS)
         table_rows.append([cell(row, tested) for *_, cell in columns])
         (bold if row["level"] == 0 else indent).append(i)
         if tested and row["failed"]:
@@ -200,6 +205,7 @@ def _requirements(metrics: Dict[str, Any]) -> List[Any]:
             bold_rows=bold,
             indent_rows=indent,
             fail_cells=fail,
+            subtitles=subtitles,
         ),
     ]
 
@@ -339,7 +345,9 @@ def _record(report: models.Report, notes: List[str]) -> List[Any]:
     ]
 
 
-def _page_decorator(report: models.Report):
+def _page_decorator(report: models.Report, brand: PdfBrand):
+    logo = _logo(brand.logo)
+
     footer = (
         f"{report.title} · snapshot {report.snapshot_hash}"
         if report.is_published
@@ -348,6 +356,12 @@ def _page_decorator(report: models.Report):
 
     def draw(canvas, doc) -> None:
         canvas.saveState()
+        if logo is not None:
+            # Top-right, inside the top margin: at most 8 mm high, 40 mm wide.
+            width, height = logo.getSize()
+            scale = min(8 * mm / height, 40 * mm / width)
+            w, h = width * scale, height * scale
+            canvas.drawImage(logo, A4[0] - 15 * mm - w, A4[1] - 5 * mm - h, w, h, mask="auto")
         canvas.setFont(kit.FONT, 7)
         canvas.setFillColor(kit.MUTED)
         canvas.drawString(15 * mm, 10 * mm, footer[:150])
@@ -363,6 +377,16 @@ def _page_decorator(report: models.Report):
     return draw
 
 
+def _logo(data: Optional[bytes]) -> Optional[ImageReader]:
+    if not data:
+        return None
+    try:
+        return ImageReader(io.BytesIO(data))
+    except Exception:
+        logger.warning("report PDF logo could not be read; leaving it out")
+        return None
+
+
 def render_report_pdf(
     db: Session,
     report: models.Report,
@@ -372,18 +396,19 @@ def render_report_pdf(
     """``detail`` is what the page shows: frozen for a published report, live for a draft."""
     metrics = detail.get("metrics") or {}
     sections = detail.get("sections") or {}
+    brand = pdf_brand(db, organization)
     story: List[Any] = [
-        *_header(report, detail),
+        *_header(report, detail, brand),
         *_summary(report, metrics),
         *_decision_notes(metrics),
-        *pdf_flowables(sections, organization, "after_summary"),
+        *pdf_flowables(sections, organization, "after_summary", frozen=report.is_published),
         *_requirements(metrics),
         # Page 1 is the summary; the details follow on their own pages.
         PageBreak(),
-        *_details_header(report),
+        *_details_header(report, brand),
         *_runs(metrics),
         *_metric_results(metrics),
-        *pdf_flowables(sections, organization, "details"),
+        *pdf_flowables(sections, organization, "details", frozen=report.is_published),
         *_record(report, pdf_notes(db, report)),
     ]
     buffer = io.BytesIO()
@@ -395,8 +420,8 @@ def render_report_pdf(
         topMargin=15 * mm,
         bottomMargin=18 * mm,
         title=report.title,
-        author="Rhesis",
+        author=brand.name,
     )
-    draw = _page_decorator(report)
+    draw = _page_decorator(report, brand)
     doc.build(story, onFirstPage=draw, onLaterPages=draw)
     return buffer.getvalue()

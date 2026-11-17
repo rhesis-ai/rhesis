@@ -34,9 +34,18 @@ def _link_table(name: str, column: str, target: str, field: str) -> Table:
         name,
         Base.metadata,
         Column("report_id", GUID(), ForeignKey("report.id", ondelete="CASCADE"), primary_key=True),
-        Column(column, GUID(), ForeignKey(f"{target}.id", ondelete="CASCADE"), primary_key=True),
+        # Indexed as in the migration: ix_<table>_<column>, ix_<table>_organization_id.
+        Column(
+            column,
+            GUID(),
+            ForeignKey(f"{target}.id", ondelete="CASCADE"),
+            primary_key=True,
+            index=True,
+        ),
         Column("user_id", GUID(), ForeignKey("user.id"), nullable=False),
-        Column("organization_id", GUID(), ForeignKey("organization.id"), nullable=False),
+        Column(
+            "organization_id", GUID(), ForeignKey("organization.id"), nullable=False, index=True
+        ),
         info={
             "audit": AuditLink(owner="report", owner_id="report_id", field=field, linked_id=column)
         },
@@ -102,6 +111,13 @@ class Report(Base, ActivityTrackableMixin, ProjectMixin, OrganizationAndUserMixi
     @property
     def is_published(self) -> bool:
         return self.status == REPORT_STATUS_PUBLISHED
+
+    @property
+    def endpoint_ref(self):
+        """The endpoint as the report shows it: frozen once published, live while a draft."""
+        if self.is_published and self.endpoint_snapshot:
+            return {"id": self.endpoint_id, "name": self.endpoint_snapshot.get("name")}
+        return self.endpoint
 
 
 class ReportResult(Base, ProjectMixin):

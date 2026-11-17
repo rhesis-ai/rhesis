@@ -3,7 +3,8 @@
 import uuid
 from typing import Dict, Iterable, List, Optional, Tuple
 
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session, aliased
 
 from rhesis.backend.app import models
 
@@ -11,13 +12,23 @@ from rhesis.backend.app import models
 def requirement_impacts(
     db: Session, requirement_ids: Iterable[uuid.UUID]
 ) -> Dict[uuid.UUID, Tuple[Optional[uuid.UUID], Optional[str]]]:
-    """Each requirement's impact as (lookup id, name); (None, None) when unset."""
+    """Each requirement's impact as (lookup id, name); (None, None) when unset.
+
+    A requirement without an impact of its own takes its parent's, the same way a
+    parent row adds up its children's results in the requirements table.
+    """
     ids = list(requirement_ids)
     if not ids:
         return {}
+    parent = aliased(models.Requirement)
+    impact = aliased(models.TypeLookup)
     rows = (
-        db.query(models.Requirement.id, models.TypeLookup.id, models.TypeLookup.type_value)
-        .outerjoin(models.TypeLookup, models.TypeLookup.id == models.Requirement.impact_id)
+        db.query(models.Requirement.id, impact.id, impact.type_value)
+        .outerjoin(parent, parent.id == models.Requirement.parent_id)
+        .outerjoin(
+            impact,
+            impact.id == func.coalesce(models.Requirement.impact_id, parent.impact_id),
+        )
         .filter(models.Requirement.id.in_(ids))
         .all()
     )
