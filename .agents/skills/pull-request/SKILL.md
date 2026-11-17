@@ -17,12 +17,28 @@ git checkout -b feature/your-feature-name`.
   break, so a paragraph wrapped at ~100 characters shows up as choppy fragments instead of flowing
   text. Only break lines for real markdown structure: blank lines between sections, list items,
   headers, code blocks.
+- **The repo is public, so write for any reader.** The title, description, commit messages, code
+  comments and review replies say what the change adds and how it was tested, nothing more.
+  Leave out:
+  - The weakness a change closes, and how it could be abused. Write "Add a size limit to file
+    uploads", not "uploads have no size limit, so anyone can fill the disk".
+  - Remaining gaps, follow-up risks, and anything not yet fixed.
+  - Production details: account, project, cluster and secret names, which credentials have which
+    access, infrastructure layout.
+  - Business context: launch dates, customers, users, incidents, costs.
+  - Ops steps and runbooks (rotate this key, run this command in prod).
+
+  Keep that context in the conversation with the user. Before pushing, reread the description
+  and the commit messages with this list in mind. Editing a description later doesn't remove the
+  old text: GitHub keeps it in the edit history.
+- **Keep the description short.** A few plain bullets. Internals like error codes, which
+  endpoints refuse what, or exemptions belong in the code and docs, not the PR.
 - Description must include these sections:
 
   ```markdown
   ## Purpose
 
-  [Explain why this change is needed]
+  [One or two sentences on what the change adds or fixes, stated neutrally]
 
   ## What Changed
 
