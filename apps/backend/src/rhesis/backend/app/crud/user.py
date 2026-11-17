@@ -232,8 +232,12 @@ def other_org_member_exists(db: Session, organization_id: str, user_id: str) -> 
 
 
 def mark_email_bounced(db: Session, email: str, when: datetime) -> Optional[models.User]:
-    """Stamp a hard bounce on the account with this address, if there is one."""
+    """Stamp a hard bounce on the account with this address, if there is one.
+
+    Flushes but doesn't commit; the caller owns the transaction.
+    """
     user = get_user_by_email(db, email)
     if user is not None:
         user.email_bounced_at = when
+        db.flush()
     return user

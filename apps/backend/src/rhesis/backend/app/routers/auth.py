@@ -467,11 +467,12 @@ def _load_user_for_reset(db: Session, email: str) -> tuple[User, str, str]:
     return user, user.email, user.name or ""
 
 
-def _verify_by_reset(db: Session, user: User) -> None:
-    """The reset link reached the inbox, so the address is proven; the commit is the caller's."""
+def _apply_password_reset(db: Session, user: User, new_password: str) -> None:
+    """Store the new password. The reset link reached the inbox, so it also verifies the address."""
     if not user.is_email_verified:
         drop_credentials_of_unverified_account(db, user)
         user.is_email_verified = True
+    _store_new_password(db, user, new_password, PASSWORD_RESET)
 
 
 def _store_new_password(db: Session, user: User, new_password: str, action: str) -> str:
@@ -1174,8 +1175,7 @@ async def reset_password(
         body.new_password,
         context={"email": email, "name": name},
     )
-    await anyio.to_thread.run_sync(_verify_by_reset, db, user)
-    await anyio.to_thread.run_sync(_store_new_password, db, user, body.new_password, PASSWORD_RESET)
+    await anyio.to_thread.run_sync(_apply_password_reset, db, user, body.new_password)
     await invalidate_user_sessions(user_id)
 
     logger.info("Password reset for user: %s", redact_email(email))

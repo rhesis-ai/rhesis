@@ -285,6 +285,7 @@ class EmailProvider(AuthProvider):
 
         user = user_crud.create_user(db, user_data)
         user.email_verification_due_at = verification_deadline()
+        db.flush()
         logger.info(
             "New user registered via email: %s",
             redact_email(normalized_email),
