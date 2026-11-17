@@ -46,6 +46,10 @@ def get_jwt_algorithm() -> str:
     return get_auth_settings().jwt_algorithm
 
 
+def _iso_or_none(value: Optional[datetime]) -> Optional[str]:
+    return value.isoformat() if value is not None else None
+
+
 def get_access_token_expire_minutes() -> int:
     """Get session access token lifetime from application settings."""
     return get_auth_settings().jwt_access_token_expire_minutes
@@ -134,6 +138,9 @@ def create_session_token(
             "name": user.name,
             "picture": user.picture,
             "is_email_verified": getattr(user, "is_email_verified", True),
+            "email_verification_due_at": _iso_or_none(
+                getattr(user, "email_verification_due_at", None)
+            ),
             "organization_id": organization_id,
         },
     }

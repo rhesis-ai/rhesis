@@ -33,6 +33,16 @@ class User(Base):
     is_active = Column(Boolean, default=True)  # To track if the user is active or not
     is_verified = Column(Boolean, default=False)  # Admin/Polyphemus access gate
     is_email_verified = Column(Boolean, default=False)  # Email verification for sign-up
+    email_verification_due_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="Unverified password accounts can't sign in after this",
+    )
+    email_bounced_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="When mail to this address last hard-bounced",
+    )
     auth0_id = Column(String, nullable=True)  # Legacy: kept for migration, will be removed
     organization_id = Column(GUID(), ForeignKey("organization.id"), nullable=True)
     last_login_at = Column(DateTime(timezone=True), nullable=True)  # Track when user last logged in

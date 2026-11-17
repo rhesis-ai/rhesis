@@ -248,6 +248,7 @@ class EmailProvider(AuthProvider):
         """
         # Import here to avoid circular imports
         from rhesis.backend.app.auth.disposable_email import screen_signup_email
+        from rhesis.backend.app.auth.email_verification import verification_deadline
         from rhesis.backend.app.crud import user as user_crud
         from rhesis.backend.app.schemas import UserCreate
         from rhesis.backend.app.utils.validation import validate_and_normalize_email
@@ -283,6 +284,7 @@ class EmailProvider(AuthProvider):
         )
 
         user = user_crud.create_user(db, user_data)
+        user.email_verification_due_at = verification_deadline()
         logger.info(
             "New user registered via email: %s",
             redact_email(normalized_email),
