@@ -11,14 +11,17 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.crud import report as report_crud
+from rhesis.backend.app.outcomes import Execution, Verdict
 from rhesis.backend.app.services.report.counting import CountedResult
+
+_JUDGED = (Verdict.PASS.value, Verdict.FAIL.value)
 
 
 def _failing_and_passing(rows: Iterable[Any]) -> tuple:
     failing: Set[uuid.UUID] = set()
     judged: Set[uuid.UUID] = set()
     for row in rows:
-        if row.execution != "ok" or row.verdict not in ("pass", "fail"):
+        if row.execution != Execution.OK.value or row.verdict not in _JUDGED:
             continue
         judged.add(row.test_id)
         if row.verdict == "fail":

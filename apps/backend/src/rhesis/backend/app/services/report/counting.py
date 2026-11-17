@@ -39,7 +39,9 @@ class RequirementInfo:
 
 
 @dataclass
-class _Tally:
+class Tally:
+    """Counts of one group of counted results: a requirement, or anything grouped like one."""
+
     tests: int = 0
     passed: int = 0
     failed: int = 0
@@ -61,7 +63,7 @@ class _Tally:
         else:
             self.inconclusive += 1
 
-    def merge(self, other: "_Tally") -> None:
+    def merge(self, other: "Tally") -> None:
         self.tests += other.tests
         self.passed += other.passed
         self.failed += other.failed
@@ -121,7 +123,7 @@ def inconsistent_tests(rows: Iterable[Any]) -> Set[uuid.UUID]:
     return {test_id for test_id, seen in verdicts.items() if len(seen) > 1}
 
 
-def _coverage(tally: _Tally, has_tests: bool) -> str:
+def coverage(tally: Tally, has_tests: bool) -> str:
     if tally.tests == 0:
         return "not_in_runs" if has_tests else "no_tests"
     if tally.errored == tally.tests:
@@ -129,14 +131,14 @@ def _coverage(tally: _Tally, has_tests: bool) -> str:
     return "tested"
 
 
-def _row(info: RequirementInfo, level: int, tally: _Tally, has_tests: bool) -> dict:
+def _row(info: RequirementInfo, level: int, tally: Tally, has_tests: bool) -> dict:
     return {
         "id": info.id,
         "name": info.name,
         "description": info.description,
         "parent_id": info.parent_id,
         "level": level,
-        "coverage": _coverage(tally, has_tests),
+        "coverage": coverage(tally, has_tests),
         "tests": tally.tests,
         "distinct_tests": len(tally.test_ids),
         "passed": tally.passed,
@@ -164,7 +166,7 @@ def requirement_tree(
     A parent adds up its own results and its children's. A requirement whose parent
     isn't picked shows at the top level.
     """
-    own: Dict[uuid.UUID, _Tally] = {r.id: _Tally() for r in requirements}
+    own: Dict[uuid.UUID, Tally] = {r.id: Tally() for r in requirements}
     for result in counted:
         if result.requirement_id in own:
             own[result.requirement_id].add(result)
@@ -187,7 +189,7 @@ def requirement_tree(
             _row(c, 1, own[c.id], tests_by_requirement.get(c.id, 0) > 0)
             for c in children.get(top.id, [])
         ]
-        tally = _Tally()
+        tally = Tally()
         tally.merge(own[top.id])
         for c in children.get(top.id, []):
             tally.merge(own[c.id])
@@ -206,7 +208,7 @@ def totals(
     tree: List[dict],
     inconsistent: AbstractSet[uuid.UUID] = frozenset(),
 ) -> dict:
-    tally = _Tally()
+    tally = Tally()
     for result in counted:
         tally.add(result)
     return {

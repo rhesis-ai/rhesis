@@ -918,3 +918,89 @@ class TestReviewFixes:
         assert response.status_code == status.HTTP_200_OK, response.text
         disposition = response.headers["content-disposition"]
         assert "filename*=UTF-8''%E5%8F%91" in disposition
+
+
+@pytest.mark.integration
+class TestPdfBranding:
+    """Report PDFs carry the organization's branding, as the rest of the app does."""
+
+    @staticmethod
+    def _png() -> bytes:
+        import io
+
+        from PIL import Image
+
+        out = io.BytesIO()
+        Image.new("RGB", (32, 32), "#6a1b9a").save(out, format="PNG")
+        return out.getvalue()
+
+    @staticmethod
+    def _org(test_db, test_org_id):
+        return test_db.get(models.Organization, uuid.UUID(str(test_org_id)))
+
+    def test_org_branding_replaces_rhesis(self, test_db, test_org_id, monkeypatch):
+        from rhesis.backend.app.services.report import branding
+
+        org = self._org(test_db, test_org_id)
+        org.organization_settings = {
+            "version": 1,
+            "branding": {
+                "product_name": "Acme Assist",
+                "primary_color": "#6A1B9A",
+                "favicon": {"path": "x/favicon.png", "content_type": "image/png"},
+            },
+        }
+        monkeypatch.setattr(branding, "read_favicon", lambda _f: (self._png(), "image/png", ""))
+
+        brand = branding.pdf_brand(org)
+
+        assert (brand.name, brand.color) == ("Acme Assist", "#6A1B9A")
+        assert brand.logo.startswith(b"\x89PNG")
+
+    def test_falls_back_without_branding_or_when_it_breaks(self, test_db, test_org_id, monkeypatch):
+        from rhesis.backend.app.services.report import branding
+
+        org = self._org(test_db, test_org_id)
+        org.organization_settings = {
+            "version": 1,
+            "branding": {"favicon": {"path": "x/f.svg", "content_type": "image/svg+xml"}},
+        }
+        brand = branding.pdf_brand(org)
+        assert brand.name == (org.display_name or org.name)
+        assert (brand.color, brand.logo) == ("#0080af", None)
+        assert branding.pdf_brand(None) == branding.DEFAULT_PDF_BRAND
+
+        monkeypatch.setattr(type(org), "settings", property(lambda _self: 1 / 0))
+        assert branding.pdf_brand(org) == branding.DEFAULT_PDF_BRAND
+
+    def test_branded_pdf_downloads(
+        self, authenticated_client, build, db_endpoint, test_db, test_org_id, monkeypatch
+    ):
+        from rhesis.backend.app.services.report import branding
+
+        self._org(test_db, test_org_id).organization_settings = {
+            "version": 1,
+            "branding": {
+                "product_name": "Acme",
+                "favicon": {"path": "x/favicon.png", "content_type": "image/png"},
+            },
+        }
+        monkeypatch.setattr(branding, "read_favicon", lambda _f: (self._png(), "image/png", ""))
+        run = build.run()
+        build.result(run, build.test())
+        build.commit()
+        report = _create(authenticated_client, db_endpoint.id, runs=[run])
+
+        response = authenticated_client.get(f"/reports/{report['id']}/pdf")
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert b"/Author (Acme)" in response.content
+        assert b"/Subtype /Image" in response.content
+
+    def test_pdf_filename_keeps_no_slash(self, authenticated_client, db_endpoint):
+        report = _create(authenticated_client, db_endpoint.id, title="Release 2.5/hotfix")
+        disposition = authenticated_client.get(f"/reports/{report['id']}/pdf").headers[
+            "content-disposition"
+        ]
+        assert "%2F" in disposition
+        assert "2.5/hotfix" not in disposition

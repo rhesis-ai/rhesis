@@ -213,4 +213,6 @@ def _pdf_disposition(title: str) -> str:
     ascii_name = "".join(c if c.isascii() and (c.isalnum() or c in "-_.") else "_" for c in name)
     if not ascii_name.strip("_"):
         ascii_name = "report"
-    return f"attachment; filename=\"{ascii_name}.pdf\"; filename*=UTF-8''{quote(name + '.pdf')}"
+    # safe="": a "/" in the title must not reach the file name.
+    utf8_name = quote(name + ".pdf", safe="")
+    return f"attachment; filename=\"{ascii_name}.pdf\"; filename*=UTF-8''{utf8_name}"

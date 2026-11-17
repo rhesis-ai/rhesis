@@ -44,6 +44,7 @@ RESOLVABLE_ENTITY_TABLES = frozenset(
         "endpoint",
         "experiment",
         "metric",
+        "report",
         "source",
         "task",
         "test",

@@ -180,11 +180,12 @@ def _viewer_permissions(cap_set: set[str]) -> set[str]:
 
 
 def _auditor_permissions(cap_set: set[str]) -> set[str]:
-    """Every ``:read``, ``recycle:view`` and ``audit_log:export``: reads everything,
-    including the audit log and its settings, and changes nothing. Plus their own
-    API tokens, so the log can be pulled with a key; the token stays read-only."""
+    """Every ``:read``, ``recycle:view``, ``audit_log:export`` and ``report:export``:
+    reads everything, including the audit log and its settings, and changes nothing;
+    a report PDF is the evidence an auditor pulls. Plus their own API tokens, so the
+    log can be pulled with a key; the token stays read-only."""
     perms = {c for c in cap_set if c.endswith(":read")}
-    perms |= {"recycle:view", "audit_log:export"} & cap_set
+    perms |= {"recycle:view", "audit_log:export", "report:export"} & cap_set
     perms |= _SELF_SERVICE_TOKEN_PERMISSIONS & cap_set
     return perms
 

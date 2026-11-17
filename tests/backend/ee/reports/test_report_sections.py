@@ -102,6 +102,28 @@ class TestByImpact:
         assert not {"by_impact", "people", "stats"} & set(sections)
 
 
+class TestByImpactMatchesHeadline:
+    def test_errored_only_requirement_is_not_tested(
+        self, authenticated_client, build, test_db, db_endpoint, test_org_id, authenticated_user_id
+    ):
+        impact = _impact(test_db, "Legal", test_org_id, authenticated_user_id)
+        ok, broken = build.requirement("Works"), build.requirement("Broken")
+        for requirement in (ok, broken):
+            requirement.impact_id = impact.id
+        run = build.run()
+        build.result(run, build.test(ok), "pass")
+        build.result(run, build.test(broken), execution="error")
+        build.commit()
+        report = _create(
+            authenticated_client, db_endpoint.id, runs=[run], requirements=[ok, broken]
+        )
+
+        detail = _detail(authenticated_client, report["id"])
+        row = detail["sections"]["by_impact"]["impacts"][0]
+
+        assert row["requirements_tested"] == detail["metrics"]["totals"]["requirements_tested"] == 1
+
+
 class TestPeopleAndStats:
     def test_people_and_response_times(self, authenticated_client, build, test_db, db_endpoint):
         run = build.run()
@@ -223,91 +245,6 @@ class TestAuditTrail:
         _deny(monkeypatch, FeatureName.AUDIT_LOG)
         response = authenticated_client.get(f"/reports/{report['id']}/audit-trail")
         assert response.status_code == status.HTTP_404_NOT_FOUND
-
-
-class TestBranding:
-    """With Advanced reports, the PDF carries the organization's own branding."""
-
-    @staticmethod
-    def _org(test_db, test_org_id):
-        from rhesis.backend.app import models
-
-        return test_db.get(models.Organization, uuid.UUID(str(test_org_id)))
-
-    @staticmethod
-    def _png() -> bytes:
-        import io
-
-        from PIL import Image
-
-        out = io.BytesIO()
-        Image.new("RGB", (32, 32), "#6a1b9a").save(out, format="PNG")
-        return out.getvalue()
-
-    def test_org_branding_replaces_rhesis(self, test_db, test_org_id, monkeypatch):
-        from rhesis.backend.ee.reports import branding
-
-        org = self._org(test_db, test_org_id)
-        org.organization_settings = {
-            "version": 1,
-            "branding": {
-                "product_name": "Acme Assist",
-                "primary_color": "#6A1B9A",
-                "favicon": {"path": "x/favicon.png", "content_type": "image/png"},
-            },
-        }
-        monkeypatch.setattr(branding, "read_favicon", lambda _f: (self._png(), "image/png", ""))
-
-        brand = branding.org_pdf_brand(test_db, org)
-
-        assert (brand.name, brand.color) == ("Acme Assist", "#6A1B9A")
-        assert brand.logo.startswith(b"\x89PNG")
-
-    def test_svg_favicon_and_no_name_fall_back(self, test_db, test_org_id):
-        from rhesis.backend.ee.reports import branding
-
-        org = self._org(test_db, test_org_id)
-        org.organization_settings = {
-            "version": 1,
-            "branding": {"favicon": {"path": "x/f.svg", "content_type": "image/svg+xml"}},
-        }
-
-        brand = branding.org_pdf_brand(test_db, org)
-
-        assert brand.name == (org.display_name or org.name)
-        assert brand.color == "#0080af"
-        assert brand.logo is None
-
-    def test_rhesis_branding_without_the_feature(self, test_db, test_org_id, monkeypatch):
-        from rhesis.backend.app.services.report.sections import DEFAULT_PDF_BRAND, pdf_brand
-
-        _deny(monkeypatch, FeatureName.ADVANCED_REPORTS)
-        assert pdf_brand(test_db, self._org(test_db, test_org_id)) == DEFAULT_PDF_BRAND
-
-    def test_branded_pdf_downloads(
-        self, authenticated_client, build, db_endpoint, test_db, test_org_id, monkeypatch
-    ):
-        from rhesis.backend.ee.reports import branding
-
-        org = self._org(test_db, test_org_id)
-        org.organization_settings = {
-            "version": 1,
-            "branding": {
-                "product_name": "Acme",
-                "favicon": {"path": "x/favicon.png", "content_type": "image/png"},
-            },
-        }
-        monkeypatch.setattr(branding, "read_favicon", lambda _f: (self._png(), "image/png", ""))
-        run = build.run()
-        build.result(run, build.test())
-        build.commit()
-        report = _create(authenticated_client, db_endpoint.id, runs=[run])
-
-        response = authenticated_client.get(f"/reports/{report['id']}/pdf")
-
-        assert response.status_code == status.HTTP_200_OK, response.text
-        assert b"/Author (Acme)" in response.content
-        assert b"/Subtype /Image" in response.content
 
 
 class TestFrozenSectionsInPdf:

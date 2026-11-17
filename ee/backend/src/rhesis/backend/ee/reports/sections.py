@@ -10,7 +10,8 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from rhesis.backend.app.services.report.counting import pass_rate
+from rhesis.backend.app.outcomes import Execution
+from rhesis.backend.app.services.report.counting import Tally, coverage, pass_rate
 from rhesis.backend.app.services.report.sections import ReportContext
 from rhesis.backend.ee.reports import queries
 
@@ -35,56 +36,49 @@ def _impact_sort_key(name: str) -> tuple:
     return (1, 0, name.lower())
 
 
-def _empty_group(impact_id: Optional[uuid.UUID], name: str) -> Dict[str, Any]:
-    return {
-        "id": str(impact_id) if impact_id else None,
-        "name": name,
-        "requirements": set(),
-        "tested": set(),
-        "tests": 0,
-        "passed": 0,
-        "failed": 0,
-        "errored": 0,
-    }
-
-
 def build_by_impact(db: Session, context: ReportContext) -> Dict[str, Any]:
     """Pass rate per impact, over the picked requirements' own results.
 
-    ``requirements`` maps every picked requirement to its impact name, for the impact
-    column in the tree. ``impacts`` lists only impacts with a tested requirement.
+    Counts with core's Tally and coverage rule, so "requirements tested" agrees with
+    the headline number. ``requirements`` maps every picked requirement to its impact
+    name, for the impact column in the tree. ``impacts`` lists only impacts with a
+    tested requirement.
     """
     impacts = queries.requirement_impacts(db, context.requirement_ids)
+    own: Dict[uuid.UUID, Tally] = {req_id: Tally() for req_id in impacts}
+    for result in context.counted:
+        if result.requirement_id in own:
+            own[result.requirement_id].add(result)
+
     groups: Dict[str, Dict[str, Any]] = {}
     for req_id, (impact_id, name) in impacts.items():
         label = name or NOT_SET
-        group = groups.setdefault(label, _empty_group(impact_id, label))
-        group["requirements"].add(req_id)
-
-    for result in context.counted:
-        if result.requirement_id not in impacts:
-            continue
-        group = groups[impacts[result.requirement_id][1] or NOT_SET]
-        group["tested"].add(result.requirement_id)
-        group["tests"] += 1
-        if result.execution != "ok":
-            group["errored"] += 1
-        elif result.verdict == "pass":
-            group["passed"] += 1
-        elif result.verdict == "fail":
-            group["failed"] += 1
+        group = groups.setdefault(
+            label,
+            {
+                "id": str(impact_id) if impact_id else None,
+                "name": label,
+                "tally": Tally(),
+                "total": 0,
+                "tested": 0,
+            },
+        )
+        group["total"] += 1
+        group["tally"].merge(own[req_id])
+        if coverage(own[req_id], has_tests=True) == "tested":
+            group["tested"] += 1
 
     rows = [
         {
             "id": g["id"],
             "name": g["name"],
-            "requirements_tested": len(g["tested"]),
-            "requirements_total": len(g["requirements"]),
-            "tests": g["tests"],
-            "passed": g["passed"],
-            "failed": g["failed"],
-            "errored": g["errored"],
-            "pass_rate": pass_rate(g["passed"], g["failed"]),
+            "requirements_tested": g["tested"],
+            "requirements_total": g["total"],
+            "tests": g["tally"].tests,
+            "passed": g["tally"].passed,
+            "failed": g["tally"].failed,
+            "errored": g["tally"].errored,
+            "pass_rate": pass_rate(g["tally"].passed, g["tally"].failed),
         }
         for g in groups.values()
         if g["tested"]
@@ -103,9 +97,11 @@ def _person(user) -> Dict[str, Any]:
     return {"id": str(user.id), "name": user.display_name}
 
 
-def build_people(db: Session, context: ReportContext) -> Dict[str, Any]:
-    """Who wrote the report, ran the tests and reviewed results."""
+def build_people(db: Session, context: ReportContext) -> Optional[Dict[str, Any]]:
+    """Who wrote the report, ran the tests and reviewed results. Release reports only."""
     report = context.report
+    if not report.is_release:
+        return None
     runners = queries.run_executors(db, context.test_run_ids)
     reviewers = queries.result_reviewers(db, [r.test_result_id for r in context.counted])
     by_id = {u.id: u for u in queries.users(db, [report.user_id, *runners, *reviewers])}
@@ -129,7 +125,7 @@ def _percentile(sorted_values: List[float], fraction: float) -> float:
 
 def build_stats(db: Session, context: ReportContext) -> Dict[str, Any]:
     """Result counts and response times. Tokens and cost come later, from traces."""
-    judged = sum(1 for r in context.counted if r.execution == "ok")
+    judged = sum(1 for r in context.counted if r.execution == Execution.OK.value)
     times = sorted(queries.execution_times_ms(db, [r.test_result_id for r in context.counted]))
     return {
         "results_judged": judged,

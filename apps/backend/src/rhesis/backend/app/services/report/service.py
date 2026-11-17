@@ -14,6 +14,7 @@ from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.crud import report as report_crud
 from rhesis.backend.app.models.report import REPORT_STATUS_DRAFT, REPORT_STATUS_PUBLISHED
+from rhesis.backend.app.outcomes import Execution, Verdict
 from rhesis.backend.app.services.audit_events import record_audit_event
 from rhesis.backend.app.services.experiment import experiment_summary_dict_from_run_attributes
 from rhesis.backend.app.services.report.comparison import compare
@@ -187,9 +188,12 @@ def _run_pass_rates(rows: List[Any]) -> Dict[uuid.UUID, Optional[float]]:
     """Each run's own pass rate over all its results, whatever the counting rule."""
     judged: Dict[uuid.UUID, List[int]] = {}
     for row in rows:
-        if row.execution == "ok" and row.verdict in ("pass", "fail"):
+        if row.execution == Execution.OK.value and row.verdict in (
+            Verdict.PASS.value,
+            Verdict.FAIL.value,
+        ):
             passed_failed = judged.setdefault(row.test_run_id, [0, 0])
-            passed_failed[0 if row.verdict == "pass" else 1] += 1
+            passed_failed[0 if row.verdict == Verdict.PASS.value else 1] += 1
     return {run_id: pass_rate(p, f) for run_id, (p, f) in judged.items()}
 
 

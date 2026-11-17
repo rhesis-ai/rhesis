@@ -218,3 +218,55 @@ class TestNestedUserSerialization:
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["user"] is None
         assert org_b["email"] not in response.text
+
+
+@pytest.mark.security
+class TestReportForeignIds:
+    """A report only links rows the caller can see: ids from another org are rejected."""
+
+    def _org_b_rows(self, test_db, org_b):
+        from tests.backend.fixtures.rls import as_org
+
+        with as_org(test_db, org_b["org_id"]), as_project(test_db, org_b["project_id"]):
+            endpoint = _create_row(
+                test_db,
+                models.Endpoint,
+                org_b["org_id"],
+                org_b["user_id"],
+                project_id=org_b["project_id"],
+                name="B endpoint",
+                connection_type="rest",
+                url="https://example.com/b",
+            )
+            requirement = _create_row(
+                test_db, models.Requirement, org_b["org_id"], org_b["user_id"], name="B req"
+            )
+        return endpoint, requirement
+
+    def test_create_with_foreign_endpoint_or_requirement_is_rejected(
+        self, authenticated_client, test_db, org_b, db_endpoint
+    ):
+        endpoint, requirement = self._org_b_rows(test_db, org_b)
+        for body in (
+            {"endpoint_id": str(endpoint.id)},
+            {"endpoint_id": str(db_endpoint.id), "requirement_ids": [str(requirement.id)]},
+        ):
+            response = authenticated_client.post("/reports/", json={"title": "x", **body})
+            assert response.status_code in (400, 404), response.text
+            _assert_no_org_b(response, org_b)
+
+    def test_update_with_foreign_ids_is_rejected(
+        self, authenticated_client, test_db, org_b, db_endpoint
+    ):
+        _, requirement = self._org_b_rows(test_db, org_b)
+        report = authenticated_client.post(
+            "/reports/", json={"title": "x", "endpoint_id": str(db_endpoint.id)}
+        ).json()
+        for body in (
+            {"requirement_ids": [str(requirement.id)]},
+            {"test_run_ids": [str(uuid.uuid4())]},
+            {"baseline_report_id": str(uuid.uuid4())},
+        ):
+            response = authenticated_client.put(f"/reports/{report['id']}", json=body)
+            assert response.status_code in (400, 404), response.text
+            _assert_no_org_b(response, org_b)

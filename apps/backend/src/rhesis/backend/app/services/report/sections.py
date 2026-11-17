@@ -1,13 +1,14 @@
 """Extension point for extra report sections.
 
-Core builds the light report on its own: summary, requirements, runs. EE adds
-sections (by impact, people, stats) by registering them here from its
-:func:`~rhesis.backend.ee.bootstrap`, so core never imports EE code.
+Core builds the report on its own: summary, requirements, metrics, runs. Other
+packages add sections by registering them here at startup, so core never imports
+them.
 
 Contract
 --------
 A section has a unique ``key``, the :class:`FeatureName` that gates it, and a
-``build`` callable. ``build(db, context)`` returns JSON-serializable data. Core
+``build`` callable. ``build(db, context)`` returns JSON-serializable data, or None
+when the section doesn't apply to this report. Core
 calls it only for organizations the feature is available to: live for a draft,
 once at publish, after which the output is frozen in ``report.sections[key]`` and
 covered by the snapshot hash. A Community build registers nothing, so
@@ -16,7 +17,7 @@ covered by the snapshot hash. A Community build registers nothing, so
 A section may also render itself into the PDF: ``render_pdf(data)`` gets the
 section's stored output and returns reportlab flowables, placed after the summary
 or with the details. ``register_report_pdf_note`` adds a line to the PDF's record
-block (EE: "Recorded in audit log on ...").
+block.
 """
 
 from __future__ import annotations
@@ -56,34 +57,16 @@ PdfNote = Callable[["Session", "Report"], Optional[str]]
 
 
 @dataclass(frozen=True)
-class PdfBrand:
-    """Who the PDF is from. The default is Rhesis; EE swaps in the org's own branding."""
-
-    name: str = "Rhesis"
-    # 6-digit hex, used for the brand line.
-    color: str = "#0080af"
-    # A PNG for the top-right corner of every page.
-    logo: Optional[bytes] = None
-
-
-DEFAULT_PDF_BRAND = PdfBrand()
-PdfBrandProvider = Callable[["Session", "Organization"], Optional[PdfBrand]]
-
-
-@dataclass(frozen=True)
 class ReportSection:
     key: str
     feature: FeatureName
     build: SectionBuilder
     render_pdf: Optional[PdfRenderer] = None
     placement: Literal["after_summary", "details"] = "details"
-    # Left out of a report that isn't a release report.
-    release_only: bool = False
 
 
 _sections: Dict[str, ReportSection] = {}
 _pdf_notes: List[PdfNote] = []
-_pdf_brand: List[PdfBrandProvider] = []
 
 
 def register_report_section(section: ReportSection) -> None:
@@ -115,16 +98,18 @@ def build_sections(
     for section in _sections.values():
         if not FeatureRegistry.is_available(section.feature, organization):
             continue
-        if section.release_only and not context.report.is_release:
-            continue
         try:
-            out[section.key] = section.build(db, context)
+            data = section.build(db, context)
         except Exception:
             if strict:
                 raise
             logger.exception(
                 "report section %s failed for report %s", section.key, context.report.id
             )
+            continue
+        # A builder returns None when its section doesn't apply to this report.
+        if data is not None:
+            out[section.key] = data
     return out
 
 
@@ -154,6 +139,8 @@ def pdf_flowables(
     return out
 
 
+# Notes are read live at every export, unlike sections, which freeze at publish:
+# they describe the record itself (e.g. where publishing was logged), not the numbers.
 def register_report_pdf_note(note: PdfNote) -> None:
     """Register a line for the PDF's record block. Idempotent."""
     if note not in _pdf_notes:
@@ -178,50 +165,23 @@ def pdf_notes(db: "Session", report: "Report") -> List[str]:
     return lines
 
 
-def register_report_pdf_brand(provider: PdfBrandProvider) -> None:
-    """Set where the PDF takes its branding from. The last registration wins."""
-    _pdf_brand[:] = [provider]
-
-
-def get_report_pdf_brand() -> Optional[PdfBrandProvider]:
-    return _pdf_brand[0] if _pdf_brand else None
-
-
-def pdf_brand(db: "Session", organization: Optional["Organization"]) -> PdfBrand:
-    """The registered branding for *organization*, or Rhesis when there is none or it fails."""
-    if not _pdf_brand or organization is None:
-        return DEFAULT_PDF_BRAND
-    try:
-        return _pdf_brand[0](db, organization) or DEFAULT_PDF_BRAND
-    except Exception:
-        logger.exception("report PDF branding failed for organization %s", organization.id)
-        return DEFAULT_PDF_BRAND
-
-
 def reset_report_sections() -> None:
     """Clear the registry. For tests that need a clean state."""
     _sections.clear()
     _pdf_notes.clear()
-    _pdf_brand.clear()
 
 
 __all__ = [
     "ReportContext",
-    "DEFAULT_PDF_BRAND",
-    "PdfBrand",
-    "PdfBrandProvider",
     "PdfNote",
     "PdfRenderer",
     "ReportSection",
     "SectionBuilder",
     "build_sections",
-    "get_report_pdf_brand",
     "get_report_pdf_notes",
     "get_report_sections",
     "pdf_flowables",
-    "pdf_brand",
     "pdf_notes",
-    "register_report_pdf_brand",
     "register_report_pdf_note",
     "register_report_section",
     "reset_report_sections",

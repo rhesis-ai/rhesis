@@ -1,4 +1,4 @@
-"""The building blocks of a report PDF, shared by core and EE sections so they print alike.
+"""The building blocks of a report PDF, shared with registered sections so they print alike.
 
 The look is a document, not a form: prose for text, large figures for the key
 numbers, ruled tables with a pass-rate bar, and a quiet label/value list for details.
@@ -88,9 +88,9 @@ STYLES = {
     "callout": _style("rh-call", fontName=FONT_BOLD, fontSize=14, leading=18),
 }
 
-# The score columns that close the requirements and By impact tables, at the same widths
-# so the two line up on page 1. Mixed shows under the all/worst rules, Change with a
-# comparison.
+# The score columns that close the requirements table, at fixed widths so a registered
+# section's table can line up with it on page 1. Mixed shows under the all/worst rules,
+# Change with a comparison.
 SCORE_WIDTHS = {
     "tests": 0.1,
     "failed": 0.1,

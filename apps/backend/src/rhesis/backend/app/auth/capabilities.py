@@ -248,6 +248,10 @@ class Permission:
         DELETE = "report:delete"
         PUBLISH = "report:publish"
         EXPORT = "report:export"
+        #: Update a draft report the caller owns (object-level :own qualifier).
+        UPDATE_OWN = "report:update:own"
+        #: Delete a draft report the caller owns (object-level :own qualifier).
+        DELETE_OWN = "report:delete:own"
 
     class Tool(_PermissionEnum):
         READ = "tool:read"

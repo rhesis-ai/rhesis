@@ -1,8 +1,7 @@
 """Enterprise report sections and the report audit trail.
 
 Core reports are complete on their own. EE adds, through core's report-section
-registry, the By impact, Who was involved and Stats sections and the org's own
-branding on the PDF (gated on
+registry, the By impact, Who was involved and Stats sections (gated on
 ``FeatureName.ADVANCED_REPORTS``) and a live audit trail route (gated on
 ``FeatureName.AUDIT_LOG``, mounted from :func:`~rhesis.backend.ee.bootstrap`).
 """
@@ -10,11 +9,9 @@ branding on the PDF (gated on
 from rhesis.backend.app.features import Feature, FeatureName, FeatureRegistry
 from rhesis.backend.app.services.report.sections import (
     ReportSection,
-    register_report_pdf_brand,
     register_report_pdf_note,
     register_report_section,
 )
-from rhesis.backend.ee.reports.branding import org_pdf_brand
 from rhesis.backend.ee.reports.pdf import (
     audit_note,
     render_by_impact,
@@ -36,7 +33,6 @@ SECTIONS = (
         FeatureName.ADVANCED_REPORTS,
         build_people,
         render_pdf=render_people,
-        release_only=True,
     ),
     ReportSection("stats", FeatureName.ADVANCED_REPORTS, build_stats, render_pdf=render_stats),
 )
@@ -48,13 +44,9 @@ def register_reports() -> None:
         Feature(
             name=FeatureName.ADVANCED_REPORTS,
             display_name="Advanced reports",
-            description=(
-                "Report sections by impact, who was involved and stats, "
-                "and PDFs in the organization's own branding."
-            ),
+            description="Report sections by impact, who was involved, and stats.",
         )
     )
     for section in SECTIONS:
         register_report_section(section)
     register_report_pdf_note(audit_note)
-    register_report_pdf_brand(org_pdf_brand)

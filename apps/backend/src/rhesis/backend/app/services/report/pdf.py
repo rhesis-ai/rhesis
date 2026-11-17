@@ -18,12 +18,8 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.services.report import pdf_kit as kit
-from rhesis.backend.app.services.report.sections import (
-    PdfBrand,
-    pdf_brand,
-    pdf_flowables,
-    pdf_notes,
-)
+from rhesis.backend.app.services.report.branding import PdfBrand, pdf_brand
+from rhesis.backend.app.services.report.sections import pdf_flowables, pdf_notes
 
 logger = logging.getLogger(__name__)
 
@@ -396,7 +392,7 @@ def render_report_pdf(
     """``detail`` is what the page shows: frozen for a published report, live for a draft."""
     metrics = detail.get("metrics") or {}
     sections = detail.get("sections") or {}
-    brand = pdf_brand(db, organization)
+    brand = pdf_brand(organization)
     story: List[Any] = [
         *_header(report, detail, brand),
         *_summary(report, metrics),

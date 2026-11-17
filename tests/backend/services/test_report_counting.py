@@ -199,24 +199,3 @@ def test_metric_kind_from_type_and_model():
     assert kind_of("custom-prompt", "jev") == "jev"
     assert kind_of("custom-prompt", "openai") == "llm"
     assert kind_of("framework", None) == "llm"
-
-
-class TestPdfBrand:
-    def test_rhesis_without_a_provider_or_when_it_fails(self):
-        from rhesis.backend.app.services.report import sections
-
-        saved = sections.get_report_pdf_brand()
-        try:
-            sections._pdf_brand.clear()
-            org = type("Org", (), {"id": "o"})()
-            assert sections.pdf_brand(None, org) == sections.DEFAULT_PDF_BRAND
-
-            def broken(_db, _org):
-                raise RuntimeError("storage down")
-
-            sections.register_report_pdf_brand(broken)
-            assert sections.pdf_brand(None, org) == sections.DEFAULT_PDF_BRAND
-        finally:
-            sections._pdf_brand.clear()
-            if saved:
-                sections.register_report_pdf_brand(saved)

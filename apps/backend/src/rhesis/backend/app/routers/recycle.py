@@ -49,7 +49,8 @@ router = RhesisRouter(prefix="/recycle", tags=["recycle"], resource="recycle")
 # Restoring a swept job row or log entry is not a workflow anyone wants, and
 # the retention sweep hard-deletes them rather than soft-deleting precisely so
 # they do not accumulate invisibly.
-RECYCLE_EXCLUDED_TABLES = frozenset({"usage", "job", "activity_log"})
+# report_result rows are the frozen record behind a report's snapshot hash; never deleted.
+RECYCLE_EXCLUDED_TABLES = frozenset({"usage", "job", "activity_log", "report_result"})
 
 
 def get_all_models() -> Dict[str, type]:

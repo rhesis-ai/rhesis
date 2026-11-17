@@ -94,7 +94,7 @@ class Report(Base, ActivityTrackableMixin, ProjectMixin, OrganizationAndUserMixi
     published_by_id = Column(GUID(), ForeignKey("user.id"), nullable=True)
     endpoint_snapshot = Column(JSONB, nullable=True)
     metrics = Column(JSONB, nullable=True)
-    # Output of the registered report sections (EE), keyed by section, frozen at publish.
+    # Output of the registered report sections, keyed by section, frozen at publish.
     sections = Column(JSONB, nullable=True)
     snapshot_hash = Column(String, nullable=True)
 

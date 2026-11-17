@@ -4,7 +4,7 @@
 - ``report_test_run`` and ``report_requirement``: what the author picked. Org-scoped
   link tables, so ``tenant_isolation`` only, as on ``requirement_source``.
 - ``report_result``: the counted results, written at publish.
-- Six ``report:*`` permissions. Built-in roles compute their sets from code, so no
+- Eight ``report:*`` permissions, including ``update:own`` and ``delete:own``. Built-in roles compute their sets from code, so no
   ``role_permission`` rows.
 
 Revision ID: c5e8a1d4f7b2
@@ -55,6 +55,8 @@ _PERMISSIONS: list[tuple[str, str, str, str, str]] = [
     ("report:delete", "Delete report", "report", "delete", "project"),
     ("report:publish", "Publish report", "report", "publish", "project"),
     ("report:export", "Export report", "report", "export", "project"),
+    ("report:update:own", "Update own report", "report", "update:own", "project"),
+    ("report:delete:own", "Delete own report", "report", "delete:own", "project"),
 ]
 
 

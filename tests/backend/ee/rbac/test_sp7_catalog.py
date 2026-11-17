@@ -384,7 +384,7 @@ class TestPermissionsForBuiltInRole:
         assert "recycle:view" not in result
         assert "role:manage" not in result
 
-    def test_reports_member_publishes_and_exports_viewer_and_auditor_read(self):
+    def test_reports_member_publishes_and_exports_auditor_exports_viewer_reads(self):
         from rhesis.backend.ee.rbac.models import permissions_for_built_in_role
 
         caps = [
@@ -398,7 +398,8 @@ class TestPermissionsForBuiltInRole:
         assert permissions_for_built_in_role("Member", caps) == set(caps)
         assert permissions_for_built_in_role("Admin", caps) == set(caps)
         assert permissions_for_built_in_role("Viewer", caps) == {"report:read"}
-        assert permissions_for_built_in_role("Auditor", caps) == {"report:read"}
+        # A report PDF is evidence an auditor pulls; exporting changes nothing.
+        assert permissions_for_built_in_role("Auditor", caps) == {"report:read", "report:export"}
 
     def test_member_manages_own_tokens_but_cannot_delete_projects(self):
         from rhesis.backend.ee.rbac.models import permissions_for_built_in_role

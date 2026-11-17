@@ -9,6 +9,7 @@ from typing import Any, Dict, List
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.crud import report as report_crud
+from rhesis.backend.app.outcomes import Execution
 from rhesis.backend.app.services.report.counting import CountedResult, pass_rate
 
 KIND_LLM = "llm"
@@ -61,7 +62,7 @@ def metrics_by_requirement(
     stored = report_crud.get_result_metrics(db, [r.test_result_id for r in counted])
     tallies: Dict[Any, Dict[str, List[int]]] = {}
     for result in counted:
-        if result.execution != "ok" or result.requirement_id is None:
+        if result.execution != Execution.OK.value or result.requirement_id is None:
             continue
         per_metric = tallies.setdefault(result.requirement_id, {})
         for name, passed in _verdicts(stored.get(result.test_result_id)).items():
