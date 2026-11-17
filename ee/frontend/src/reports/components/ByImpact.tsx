@@ -16,7 +16,7 @@ import { byImpactOf, type ImpactRow } from '../types';
 
 type Params = GridRenderCellParams<ImpactRow>;
 
-const COLUMNS: GridColDef[] = [
+const columnsFor = (rule: string): GridColDef[] => [
   { field: 'name', headerName: 'Impact', flex: 2, sortable: false },
   {
     field: 'requirements_tested',
@@ -25,6 +25,14 @@ const COLUMNS: GridColDef[] = [
     sortable: false,
     renderCell: (params: Params) =>
       `${params.row.requirements_tested} of ${params.row.requirements_total}`,
+  },
+  {
+    field: 'tests',
+    headerName: rule === 'all' ? 'Results' : 'Tests',
+    width: 100,
+    align: 'right',
+    headerAlign: 'right',
+    sortable: false,
   },
   {
     field: 'failed',
@@ -72,7 +80,7 @@ function ByImpactTable({ report }: ReportSectionProps) {
       {section.impacts.length > 0 && (
         <BaseDataGrid
           rows={section.impacts}
-          columns={COLUMNS}
+          columns={columnsFor(report.result_rule)}
           getRowId={row => String(row.name)}
           disablePaperWrapper
           hideFooter

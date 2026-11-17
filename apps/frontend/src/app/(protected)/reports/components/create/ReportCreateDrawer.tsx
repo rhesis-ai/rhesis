@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import {
   Box,
   Checkbox,
+  FormControl,
   FormControlLabel,
+  FormHelperText,
   MenuItem,
   Stack,
   TextField,
-  Typography,
 } from '@mui/material';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import StepNav from '@/components/common/StepNav';
@@ -46,7 +47,7 @@ function ReportCreateForm({ onClose }: { onClose: () => void }) {
   const [endpointId, setEndpointId] = React.useState('');
   const [endpoints, setEndpoints] = React.useState<Endpoint[]>([]);
   const [isRelease, setIsRelease] = React.useState(true);
-  const [source, setSource] = React.useState<RunSource>('tag');
+  const [source, setSource] = React.useState<RunSource>('manual');
   const [runIds, setRunIds] = React.useState<string[]>([]);
   const [rule, setRule] = React.useState<ReportResultRule>('latest');
   const [tag, setTag] = React.useState('');
@@ -192,27 +193,6 @@ function ReportCreateForm({ onClose }: { onClose: () => void }) {
                   </MenuItem>
                 ))}
               </TextField>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={isRelease}
-                    onChange={e => setIsRelease(e.target.checked)}
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body1">
-                      This is a release report
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {isRelease
-                        ? 'It ends with a recommendation: ready to ship or not.'
-                        : 'A plain report across runs, e.g. experiments. No ship recommendation.'}
-                    </Typography>
-                  </Box>
-                }
-                sx={{ alignItems: 'flex-start' }}
-              />
               <RunSourceSelect value={source} onChange={setSource} />
               <TextField
                 select
@@ -228,6 +208,22 @@ function ReportCreateForm({ onClose }: { onClose: () => void }) {
                   </MenuItem>
                 ))}
               </TextField>
+              <FormControl>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={isRelease}
+                      onChange={e => setIsRelease(e.target.checked)}
+                    />
+                  }
+                  label="This is a release report"
+                />
+                <FormHelperText>
+                  {isRelease
+                    ? 'It ends with a recommendation: ready to ship or not.'
+                    : 'A plain report across runs, e.g. experiments. No ship recommendation.'}
+                </FormHelperText>
+              </FormControl>
             </Stack>
           </DetailTabPanel>
           <DetailTabPanel value={step} index={1} prefix="report">

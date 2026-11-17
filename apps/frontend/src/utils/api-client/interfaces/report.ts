@@ -67,6 +67,8 @@ export interface ReportRunRow {
   status?: string | null;
   test_set?: string | null;
   version_info?: Record<string, unknown> | null;
+  /** The experiment whose parameters the run used. */
+  experiment?: { id?: string | null; name: string; version: string } | null;
 }
 
 export interface ReportTotals {

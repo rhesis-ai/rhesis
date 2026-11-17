@@ -12,6 +12,7 @@ import { LinkOffIcon } from '@/components/icons';
 import { gridEdgeInsetSx, withEdgeInset } from '@/components/reports/gridInset';
 import { RESULT_RULES } from '@/components/reports/resultRules';
 import { formatPassRate } from '@/components/reports/ReportSection';
+import { experimentLabel } from '@/components/reports/experiment';
 import RunStatusChip from '@/components/reports/RunStatusChip';
 import type {
   ReportDetail,
@@ -19,6 +20,13 @@ import type {
 } from '@/utils/api-client/interfaces/report';
 
 type Params = GridRenderCellParams<ReportRunRow>;
+
+const EXPERIMENT_COLUMN: GridColDef = {
+  field: 'experiment',
+  headerName: 'Experiment',
+  flex: 1.5,
+  renderCell: (params: Params) => experimentLabel(params.row.experiment) ?? '—',
+};
 
 const COLUMNS: GridColDef[] = [
   {
@@ -33,6 +41,7 @@ const COLUMNS: GridColDef[] = [
     flex: 2,
     renderCell: (params: Params) => params.row.test_set ?? '—',
   },
+  EXPERIMENT_COLUMN,
   {
     field: 'status',
     headerName: 'Status',
@@ -107,15 +116,22 @@ export default function ReportRunsTable({
     report.result_rule === 'all'
       ? rateSpread(report.metrics?.runs ?? [])
       : null;
+  const runs = report.metrics?.runs ?? [];
+  // Only when some run used an experiment: an empty column is noise.
+  const withExperiment = runs.some(run => run.experiment);
   const columns = React.useMemo(
-    () => withEdgeInset([...COLUMNS, ...removeColumn(onRemove)]),
-    [onRemove]
+    () =>
+      withEdgeInset([
+        ...COLUMNS.filter(c => withExperiment || c !== EXPERIMENT_COLUMN),
+        ...removeColumn(onRemove),
+      ]),
+    [onRemove, withExperiment]
   );
   return (
     <Box sx={[{ mb: 3 }, gridEdgeInsetSx] as SxProps<Theme>}>
       <LinkedEntitiesGrid
         title="Test Runs"
-        rows={report.metrics?.runs ?? []}
+        rows={runs}
         columns={columns}
         getRowId={row => String(row.id)}
         onAssignClick={onEdit}

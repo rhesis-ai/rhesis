@@ -12,6 +12,8 @@ export interface ImpactRow {
   name: string;
   requirements_tested: number;
   requirements_total: number;
+  /** Counted results; under "all runs" every result in every run. */
+  tests?: number;
   passed: number;
   failed: number;
   errored: number;

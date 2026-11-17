@@ -18,6 +18,7 @@ import type {
 import { format } from 'date-fns';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import RunStatusChip from '@/components/reports/RunStatusChip';
+import { runExperimentLabel } from '@/components/reports/experiment';
 import { versionLabel } from '@/components/reports/version';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 
@@ -27,14 +28,14 @@ export const RUN_SOURCES: Record<
   RunSource,
   { label: string; description: string }
 > = {
+  manual: {
+    label: 'By hand',
+    description: 'You tick the runs. Only those count.',
+  },
   tag: {
     label: 'By tag',
     description:
       'Every run with a tag you name. Runs tagged later join until you publish.',
-  },
-  manual: {
-    label: 'By hand',
-    description: 'You tick the runs. Only those count.',
   },
 };
 
@@ -46,6 +47,14 @@ function passRate(run: TestRunDetail): string {
   return `${Math.round(((run.stats?.passed ?? 0) * 1000) / total) / 10}%`;
 }
 
+const EXPERIMENT_COLUMN: GridColDef = {
+  field: 'experiment',
+  headerName: 'Experiment',
+  flex: 1.5,
+  sortable: false,
+  renderCell: (params: Params) => runExperimentLabel(params.row) ?? '—',
+};
+
 const COLUMNS: GridColDef[] = [
   { field: 'name', headerName: 'Run', flex: 1.5 },
   {
@@ -56,6 +65,7 @@ const COLUMNS: GridColDef[] = [
     renderCell: (params: Params) =>
       params.row.test_configuration?.test_set?.name ?? '—',
   },
+  EXPERIMENT_COLUMN,
   {
     field: 'status',
     headerName: 'Status',
@@ -164,11 +174,23 @@ export default function RunsStep({
       ? runs.filter(run => tagged.includes(String(run.id)))
       : runs;
 
+  const withExperiment = runs.some(run => run.experiment_id);
+  const columns = React.useMemo(
+    () => COLUMNS.filter(c => withExperiment || c !== EXPERIMENT_COLUMN),
+    [withExperiment]
+  );
+  const setups = new Set(
+    runs
+      .filter(run => included.includes(String(run.id)))
+      .map(run => runExperimentLabel(run) ?? 'no experiment')
+  );
+  const mixedSetups = withExperiment && setups.size > 1;
+
   const grid = (
     <Box sx={{ width: '100%' }}>
       <BaseDataGrid
         rows={rows}
-        columns={COLUMNS}
+        columns={columns}
         loading={loading}
         getRowId={row => String(row.id)}
         disableColumnResize
@@ -219,6 +241,12 @@ export default function RunsStep({
             />
           )}
         />
+      )}
+      {mixedSetups && (
+        <Alert severity="warning">
+          These runs used different setups: {[...setups].join(', ')}. The
+          numbers will mix them.
+        </Alert>
       )}
       {versions.size > 1 && (
         <Alert severity="warning">
