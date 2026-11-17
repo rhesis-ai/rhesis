@@ -8,7 +8,7 @@
   ``role_permission`` rows.
 
 Revision ID: c5e8a1d4f7b2
-Revises: b7e2d4a9c31f
+Revises: 72094f4a1948
 Create Date: 2026-11-16
 """
 
@@ -19,7 +19,7 @@ from alembic import op
 from sqlalchemy.dialects import postgresql
 
 revision: str = "c5e8a1d4f7b2"
-down_revision: Union[str, None] = "b7e2d4a9c31f"
+down_revision: Union[str, None] = "72094f4a1948"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
