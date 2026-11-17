@@ -130,13 +130,13 @@ describe('registerReports', () => {
 });
 
 describe('advanced report sections', () => {
-  it('render nothing without the feature: no teaser', () => {
-    const { container } = renderSection('by-impact', report());
+  it('render nothing when the backend sent no section: no teaser', () => {
+    const { container } = renderSection('by-impact', report({ sections: {} }));
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('show by impact, people and stats with the feature', () => {
-    enabled.add('advanced_reports');
+  it('show the sections the backend sent, even after a licence change', () => {
+    // No feature enabled: a published report keeps the sections it froze.
     renderSection('by-impact', report());
     expect(screen.getByText('Legal & compliance')).toBeInTheDocument();
     expect(screen.getByText('88.1%')).toBeInTheDocument();

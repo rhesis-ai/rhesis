@@ -155,6 +155,8 @@ export const Capability = {
     DELETE: 'report:delete',
     PUBLISH: 'report:publish',
     EXPORT: 'report:export',
+    UPDATE_OWN: 'report:update:own',
+    DELETE_OWN: 'report:delete:own',
   },
   Tool: {
     READ: 'tool:read',
@@ -372,6 +374,8 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   'report:delete': 'Delete draft reports',
   'report:publish': 'Publish reports',
   'report:export': 'Export reports as PDF',
+  'report:update:own': 'Edit own draft reports',
+  'report:delete:own': 'Delete own draft reports',
   // Tools
   'tool:read': 'View tool connections',
   'tool:create': 'Add tool connections',

@@ -1,11 +1,12 @@
 /**
  * Enterprise report sections, plugged into core's `report-sections` registry.
  *
- * By impact, the impact column, Who was involved and Stats render only when the
- * backend sent their section (`sectionKey`) and the org has
- * `FeatureName.ADVANCED_REPORTS`. The audit trail and the footer line read the
- * live audit trail and need `FeatureName.AUDIT_LOG`. Each wraps itself in a
- * `FeatureGate` with no fallback: Community shows no teaser.
+ * By impact, the impact column, Who was involved and Stats render when the backend
+ * sent their section (`sectionKey`); the backend only builds them for orgs with
+ * `FeatureName.ADVANCED_REPORTS`, and a published report keeps them frozen. The
+ * audit trail and the footer line read live data, so they wrap themselves in a
+ * `FeatureGate` for `FeatureName.AUDIT_LOG` with no fallback: Community shows no
+ * teaser.
  */
 
 import {

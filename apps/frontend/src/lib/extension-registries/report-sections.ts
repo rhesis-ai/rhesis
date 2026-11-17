@@ -1,9 +1,9 @@
 /**
  * Registry of extra sections and columns on the report page.
  *
- * Core renders the light report on its own: summary, requirements, runs. EE
- * adds the By impact section, the impact column, Who was involved, Stats and
- * the audit trail by registering them here from its bootstrap.
+ * Core renders the report on its own: summary, requirements, metrics, runs.
+ * Other packages add sections and columns by registering them here from their
+ * bootstrap; core never imports them.
  *
  * Slots, top to bottom: `after-summary` (below the summary), `details` (the
  * folded blocks at the end), `footer` (beside the snapshot hash). A column is
@@ -11,20 +11,20 @@
  *
  * An entry with a `sectionKey` renders only when the report carries that
  * backend section (`report.sections[sectionKey]`), so it shows exactly what
- * the backend built or froze. Components still wrap themselves in
- * `<FeatureGate>`; core does not.
+ * the backend built or froze, and needs no feature gate of its own. An entry
+ * that reads live data gates itself.
  *
- * Usage from EE
- * -------------
+ * Usage
+ * -----
  * ```ts
  * import { registerReportSection } from '@/lib/extension-registries';
  *
  * registerReportSection({
- *   id: 'by-impact',
+ *   id: 'my-section',
  *   slot: 'after-summary',
  *   order: 10,
- *   sectionKey: 'by_impact',
- *   component: ByImpactSection,
+ *   sectionKey: 'my_section',
+ *   component: MySection,
  * });
  * ```
  */

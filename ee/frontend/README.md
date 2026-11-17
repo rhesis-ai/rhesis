@@ -168,10 +168,12 @@ Adds sections to the report page (`/reports/[id]`) in three slots
 (`after-summary`, `details`, `footer`) and columns to its requirements
 tree. An entry with a `sectionKey` renders only when the backend sent
 that section in `report.sections`, which happens only for orgs entitled
-to the backend section's feature. Used by `reports/` for By impact, the
-impact column, Who was involved, Stats and the audit trail. Components
-wrap themselves in `<FeatureGate fallback={null}>`: Community shows no
-teaser.
+to the backend section's feature, and a published report keeps the
+sections it froze. So components bound to a `sectionKey` need no gate of
+their own; components that read live data (the audit trail) wrap
+themselves in `<FeatureGate fallback={null}>`: Community shows no teaser.
+Used by `reports/` for By impact, the impact column, Who was involved,
+Stats and the audit trail.
 
 ### `admin-nav` (preemptive, no consumer yet)
 

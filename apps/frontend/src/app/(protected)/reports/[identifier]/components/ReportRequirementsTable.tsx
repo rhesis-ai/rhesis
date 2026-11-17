@@ -88,7 +88,7 @@ export default function ReportRequirementsTable({
   const rule = report.metrics?.result_rule ?? report.result_rule;
 
   const columns = React.useMemo<GridColDef[]>(() => {
-    // Columns EE registered whose data the backend sent (e.g. Impact).
+    // Registered columns whose data the backend sent.
     const extra: GridColDef[] = getReportRequirementColumns()
       .filter(column => column.sectionKey in report.sections)
       .map(column => {

@@ -3,8 +3,6 @@
 import { Typography } from '@mui/material';
 import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
-import { FeatureName } from '@/constants/features';
-import { FeatureGate } from '@/contexts/FeaturesContext';
 import ReportSectionBlock, {
   formatPassRate,
 } from '@/components/reports/ReportSection';
@@ -90,21 +88,17 @@ function ByImpactTable({ report }: ReportSectionProps) {
   );
 }
 
+// No FeatureGate here or on the cell: the backend sends by_impact only when it built
+// or froze it for an entitled org, so a published report keeps it after a licence change.
 export function ByImpactSection(props: ReportSectionProps) {
-  return (
-    <FeatureGate feature={FeatureName.ADVANCED_REPORTS} fallback={null}>
-      <ByImpactTable {...props} />
-    </FeatureGate>
-  );
+  return <ByImpactTable {...props} />;
 }
 
 export function ImpactCell({ report, row }: ReportColumnCellProps) {
   const name = byImpactOf(report)?.requirements[row.id];
   return (
-    <FeatureGate feature={FeatureName.ADVANCED_REPORTS} fallback={null}>
-      <Typography variant="body2" color="text.secondary" noWrap>
-        {row.level === 0 && !name ? '' : (name ?? '')}
-      </Typography>
-    </FeatureGate>
+    <Typography variant="body2" color="text.secondary" noWrap>
+      {row.level === 0 && !name ? '' : (name ?? '')}
+    </Typography>
   );
 }

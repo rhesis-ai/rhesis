@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { SectionCard } from '@/components/common/SectionCard';
 
-/** A section of a report: the detail-page card, so core and EE sections look alike. */
+/** A section of a report: the detail-page card, so core and registered sections look alike. */
 export default function ReportSectionBlock({
   title,
   subtitle,
