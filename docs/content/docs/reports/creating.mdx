@@ -1,0 +1,42 @@
+---
+title: Create a Report
+description: Pick an endpoint, its test runs by tag or by hand, how repeated results count, and the requirements a report covers.
+keywords: [create test report, release report, run tag, counting rule]
+---
+
+# Create a Report
+
+On the [Reports](https://app.rhesis.ai/reports) page, choose **Create report**. The drawer has three steps.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-report-create.webp"
+  darkSrc="/screenshots/rhesis-ai-report-create-dark.webp"
+  alt="The Setup step of the Create report drawer"
+/>
+
+## Setup
+
+- **Title** and **Endpoint**: a report covers one endpoint.
+- **How should runs be picked?**
+  - **By hand**: you tick the runs; only those count.
+  - **By tag**: every run of the endpoint with the tag you name. Runs tagged later join the draft automatically until it's published; publishing freezes the list.
+- **Counting**: what happens when a test ran in more than one run.
+
+  | Option | A test that ran three times counts as | Use it when |
+  |--------|----------------------------------------|-------------|
+  | **Latest run** | its result in the latest run | later runs replace earlier ones |
+  | **All runs (average)** | three results, so pass rates are averages | you repeat the same tests to measure stability |
+  | **Worst result** | failed if it failed in any run | you want the strictest release gate |
+
+  Under *All runs* and *Worst result*, a test that passed in some runs and failed in others counts as having **mixed results**.
+- **This is a release report**: ticked, the report ends with a ship recommendation; unticked, it's a general report.
+
+## Runs
+
+By hand, tick the runs in the grid. By tag, enter the tag; the runs it currently matches are listed. When the runs report different endpoint versions or used different [experiments](/docs/experiments), a warning says so.
+
+## Requirements
+
+The requirements the picked runs tested are selected for you. Untick the ones the report shouldn't cover, or tick requirements that weren't tested so the report shows them as untested. Every number in the report counts only the requirements picked here.
+
+Choose **Create draft**. You can change all of this later on the draft: **Setup** holds counting, comparison and the report type, and the edit buttons on the requirements and runs tables change what's included.

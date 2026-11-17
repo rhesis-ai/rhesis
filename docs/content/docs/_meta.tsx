@@ -122,6 +122,7 @@ const meta: MetaRecord = {
   'test-runs': 'Test Runs',
   experiments: 'Experiments',
   annotations: 'Annotations',
+  reports: 'Reports',
   tasks: 'Tasks',
 
   '---connect': {
