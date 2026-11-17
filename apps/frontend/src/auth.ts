@@ -169,6 +169,7 @@ interface SessionUserClaims {
   image?: string | null;
   organization_id?: string;
   is_email_verified?: boolean;
+  email_verification_due_at?: string | null;
 }
 
 /** Decode the `user` claim from a backend-minted session JWT. */
@@ -424,6 +425,7 @@ export const authConfig: NextAuthConfig = {
             picture: imageUrl || null,
             organization_id: claims.organization_id,
             is_email_verified: claims.is_email_verified ?? true,
+            email_verification_due_at: claims.email_verification_due_at ?? null,
             session_token,
             refresh_token: refresh_token || undefined,
           };
@@ -475,6 +477,7 @@ export const authConfig: NextAuthConfig = {
           picture: user.picture,
           organization_id: user.organization_id,
           is_email_verified: user.is_email_verified,
+          email_verification_due_at: user.email_verification_due_at,
         };
         token.session_token = user.session_token;
         token.refresh_token = user.refresh_token;
