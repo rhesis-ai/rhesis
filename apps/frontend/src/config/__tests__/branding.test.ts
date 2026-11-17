@@ -95,9 +95,9 @@ describe('normalizeFaviconUrl', () => {
     expect(normalizeFaviconUrl('data:image/png;base64,AAAA')).toBe(
       'data:image/png;base64,AAAA'
     );
-    expect(
-      normalizeFaviconUrl('data:image/svg+xml;base64,PHN2Zy...')
-    ).toBe('data:image/svg+xml;base64,PHN2Zy...');
+    expect(normalizeFaviconUrl('data:image/svg+xml;base64,PHN2Zy...')).toBe(
+      'data:image/svg+xml;base64,PHN2Zy...'
+    );
     expect(warn).not.toHaveBeenCalled();
   });
 
