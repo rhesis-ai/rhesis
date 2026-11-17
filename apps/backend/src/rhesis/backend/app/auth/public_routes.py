@@ -57,6 +57,7 @@ PUBLIC_ROUTES: list[str] = [
     "/home",
     "/home/",
     "/feedback/",
+    "/webhooks/sendgrid/events",
     "/health",
     "/ready",
     "/docs",

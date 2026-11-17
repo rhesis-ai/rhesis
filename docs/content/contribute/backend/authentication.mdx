@@ -210,7 +210,13 @@ in [Security](/contribute/backend/security).
 
 The following email flows require SMTP configuration:
 
-- **Email verification**: Sent on registration, can be resent
+- **Email verification**: Sent on registration, can be resent. A password account has 3 days
+  to verify. After that, password login and every API call return 403 `email_not_verified`, and
+  `POST /auth/refresh` returns its usual 401. A hard bounce reported by the SendGrid Event Webhook
+  locks the account at once, with 403 `email_undeliverable`. Clicking a verification or
+  password-reset link, or signing in with OAuth, SSO or a magic link, verifies the address.
+  Sending an invite needs a verified address from the start. Without SMTP configured, none of
+  this is enforced.
 - **Password reset**: Sent via forgot-password flow
 - **Magic link**: Passwordless login link
 - **Welcome email**: Sent to new users

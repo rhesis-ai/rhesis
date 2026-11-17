@@ -96,6 +96,8 @@ def create_session_authentication() -> Tuple[str, str, str]:
         organization, user, token = create_test_organization_and_user(
             session, test_org_name, test_user_email, test_user_name, set_env_var=True
         )
+        # A real signed-in owner has a verified address (invites require one).
+        user.is_email_verified = True
 
         # Commit the session to make the organization and user available to other sessions
         session.commit()

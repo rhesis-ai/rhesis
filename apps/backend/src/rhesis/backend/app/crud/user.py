@@ -32,6 +32,7 @@ raising -- a caller cannot tell "no such user" from "that wasn't a UUID".
 """
 
 import uuid
+from datetime import datetime
 from typing import List, Optional, Union
 from uuid import UUID
 
@@ -228,3 +229,15 @@ def other_org_member_exists(db: Session, organization_id: str, user_id: str) -> 
             models.User.is_active.isnot(False),
         )
         return bool(db.query(query.exists()).scalar())
+
+
+def mark_email_bounced(db: Session, email: str, when: datetime) -> Optional[models.User]:
+    """Stamp a hard bounce on the account with this address, if there is one.
+
+    Flushes but doesn't commit; the caller owns the transaction.
+    """
+    user = get_user_by_email(db, email)
+    if user is not None:
+        user.email_bounced_at = when
+        db.flush()
+    return user

@@ -13,6 +13,7 @@ from rhesis.backend.app.auth.constants import (
     AuthenticationMethod,
     AuthProviderType,
 )
+from rhesis.backend.app.auth.email_verification import refuse_if_verification_lapsed
 from rhesis.backend.app.auth.oauth_scope import capabilities_for_oauth_scope
 from rhesis.backend.app.auth.principal import (
     REQUEST_STATE_API_TOKEN_PROJECT_ID,
@@ -348,6 +349,9 @@ async def get_user_from_jwt(token: str, secret_key: str) -> Optional[User]:
     return None
 
 
+_SERVICE_DELEGATION_STATE = "auth_via_service_delegation"
+
+
 async def get_authenticated_user_with_context(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = None,
@@ -359,7 +363,24 @@ async def get_authenticated_user_with_context(
     Get authenticated user without database session dependency.
 
     No longer sets tenant context - pass organization_id and user_id directly to CRUD operations.
+    Raises 403 for an account locked until it verifies its email, whatever the credential.
     """
+    user = await _resolve_authenticated_user(
+        request, credentials, secret_key, session_only, without_context
+    )
+    # Jobs started inside the grace period run to the end on their delegation token.
+    if user is not None and not getattr(request.state, _SERVICE_DELEGATION_STATE, False):
+        refuse_if_verification_lapsed(user)
+    return user
+
+
+async def _resolve_authenticated_user(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials],
+    secret_key: Optional[str],
+    session_only: bool,
+    without_context: bool,
+) -> Optional[User]:
     # Try session auth first
     user = await get_current_user(request)
     if user:
@@ -436,6 +457,7 @@ async def get_authenticated_user_with_context(
                     setattr(request.state, REQUEST_STATE_API_TOKEN_SCOPES, scope_capabilities)
             if payload.get("type") == "service_delegation":
                 record_delegation(request, payload.get("target_service"))
+                setattr(request.state, _SERVICE_DELEGATION_STATE, True)
 
             request.state.user = jwt_user
             return jwt_user

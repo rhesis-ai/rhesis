@@ -4,29 +4,44 @@ import { useState } from 'react';
 import {
   Box,
   Button,
-  IconButton,
   Typography,
   CircularProgress,
   useTheme,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import CloseIcon from '@mui/icons-material/Close';
 import EmailIcon from '@mui/icons-material/EmailOutlined';
 import { useSession } from 'next-auth/react';
 import { getClientApiBaseUrl } from '@/utils/url-resolver';
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** What to tell the user, given when their account locks (if it does). */
+export function verificationMessage(
+  dueAt: string | null | undefined,
+  now: number = Date.now()
+): string {
+  const due = dueAt ? Date.parse(dueAt) : NaN;
+  if (Number.isNaN(due)) {
+    return 'Please verify your email address. Check your inbox for a verification link.';
+  }
+  const daysLeft = Math.ceil((due - now) / MS_PER_DAY);
+  if (daysLeft <= 1) {
+    return 'Verify your email today to keep access to your account. Check your inbox for the link.';
+  }
+  return `Verify your email within ${daysLeft} days to keep access to your account. Check your inbox for the link.`;
+}
+
 export default function VerificationBanner() {
   const theme = useTheme();
   const { data: session } = useSession();
-  const [dismissed, setDismissed] = useState(false);
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
 
   const user = session?.user;
   const isEmailVerified = user?.is_email_verified ?? true;
 
-  // Don't show if verified, dismissed, or no session
-  if (isEmailVerified || dismissed || !user?.email) {
+  // Not dismissible: the account locks if the address isn't verified in time.
+  if (isEmailVerified || !user?.email) {
     return null;
   }
 
@@ -64,7 +79,6 @@ export default function VerificationBanner() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        position: 'relative',
       }}
     >
       <Box
@@ -89,7 +103,7 @@ export default function VerificationBanner() {
         >
           {resent
             ? 'Verification email sent! Check your inbox.'
-            : 'Please verify your email address. Check your inbox for a verification link.'}
+            : verificationMessage(user.email_verification_due_at)}
         </Typography>
         {!resent && (
           <Button
@@ -128,28 +142,6 @@ export default function VerificationBanner() {
           </Button>
         )}
       </Box>
-      <IconButton
-        size="small"
-        onClick={() => setDismissed(true)}
-        aria-label="Dismiss banner"
-        sx={{
-          position: 'absolute',
-          right: theme => theme.spacing(1),
-          color: textColor,
-          opacity: 0.8,
-          p: 0.25,
-          '&:hover': {
-            opacity: 1,
-            backgroundColor: alpha(textColor, 0.1),
-          },
-        }}
-      >
-        <CloseIcon
-          sx={{
-            fontSize: theme => theme.typography.body2.fontSize,
-          }}
-        />
-      </IconButton>
     </Box>
   );
 }

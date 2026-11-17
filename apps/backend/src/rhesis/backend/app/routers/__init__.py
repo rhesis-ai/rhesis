@@ -1,4 +1,6 @@
 # Import existing routers
+from rhesis.backend.app.routers.email_events import router as email_events_router
+
 from .annotations import router as annotations_router
 from .architect import router as architect_router
 from .auth import router as auth_router
@@ -156,6 +158,7 @@ routers = sorted(
         owasp_router,
         features_router,
         feedback_router,
+        email_events_router,
         file_router,
         file_import_router,
         websocket_router,

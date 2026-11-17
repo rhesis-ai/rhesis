@@ -39,6 +39,7 @@ def org(test_db):
     organization, owner, owner_token = create_test_organization_and_user(
         test_db, f"Members {suffix}", f"owner-{suffix}@rhesis-test.com", "Owner"
     )
+    owner.is_email_verified = True  # inviting needs a verified address
     member = create_test_user(test_db, organization.id, f"member-{suffix}@rhesis-test.com")
     _demote_to_member(test_db, organization.id, member.id)
     member_token = create_test_api_token(test_db, member)

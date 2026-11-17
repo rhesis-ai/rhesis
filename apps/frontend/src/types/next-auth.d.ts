@@ -17,6 +17,7 @@ export interface SessionUser {
   picture?: string | null;
   organization_id?: string;
   is_email_verified?: boolean;
+  email_verification_due_at?: string | null;
 }
 
 declare module 'next-auth' {
@@ -41,6 +42,7 @@ declare module 'next-auth' {
     session_token?: string;
     refresh_token?: string;
     is_email_verified?: boolean;
+    email_verification_due_at?: string | null;
   }
 }
 

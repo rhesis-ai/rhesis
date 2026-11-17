@@ -33,6 +33,7 @@ import { AUTH_FONT_SANS } from './authTokens';
 import { useAuthStyles } from './useAuthStyles';
 import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import { DEFAULT_PRODUCT_NAME } from '@/config/branding';
+import { EMAIL_NOT_VERIFIED, EMAIL_UNDELIVERABLE } from '@/constants/auth';
 
 interface ProviderInfo {
   name: string;
@@ -93,6 +94,14 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
   // Migration state: set when a migrated Auth0 user has no password
   const [needsPasswordReset, setNeedsPasswordReset] = useState(false);
+
+  // Set when the backend refuses a sign-in until the email is verified
+  const [verificationIssue, setVerificationIssue] = useState<
+    typeof EMAIL_NOT_VERIFIED | typeof EMAIL_UNDELIVERABLE | null
+  >(null);
+  const [resendState, setResendState] = useState<'idle' | 'sent' | 'failed'>(
+    'idle'
+  );
 
   // Password visibility toggle
   const [showPassword, setShowPassword] = useState(false);
@@ -175,6 +184,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
     setFormLoading(true);
     setFormError(null);
+    setVerificationIssue(null);
 
     try {
       const endpoint = isRegistration
@@ -215,6 +225,14 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
           return;
         }
 
+        if (detail === EMAIL_NOT_VERIFIED || detail === EMAIL_UNDELIVERABLE) {
+          setVerificationIssue(detail);
+          setResendState('idle');
+          setFormError(null);
+          setFormLoading(false);
+          return;
+        }
+
         const message = typeof detail === 'object' ? detail?.message : detail;
         const fallback = isRegistration
           ? 'Registration failed'
@@ -243,6 +261,22 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
       );
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    try {
+      const response = await fetch(
+        `${getClientApiBaseUrl()}/auth/resend-verification`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        }
+      );
+      setResendState(response.ok ? 'sent' : 'failed');
+    } catch {
+      setResendState('failed');
     }
   };
 
@@ -442,6 +476,44 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
               {formError && (
                 <Alert severity="error" sx={{ py: 0 }}>
                   {formError}
+                </Alert>
+              )}
+
+              {verificationIssue === EMAIL_UNDELIVERABLE && (
+                <Alert severity="error" sx={{ py: 1 }}>
+                  <Typography variant="body2">
+                    We can&apos;t deliver email to this address, so it
+                    can&apos;t be verified. Sign in with Google or GitHub using
+                    this address, or contact support.
+                  </Typography>
+                </Alert>
+              )}
+
+              {verificationIssue === EMAIL_NOT_VERIFIED && (
+                <Alert severity="warning" sx={{ py: 1 }}>
+                  <Typography variant="body2">
+                    {resendState === 'sent' &&
+                      'We sent a new verification link. Check your inbox, then sign in again.'}
+                    {resendState === 'failed' &&
+                      'Could not send a new link. Please wait a while and try again.'}
+                    {resendState === 'idle' && (
+                      <>
+                        Verify your email address to keep using your account.
+                        Check your inbox for the link, or{' '}
+                        <a
+                          href="#"
+                          onClick={e => {
+                            e.preventDefault();
+                            void handleResendVerification();
+                          }}
+                          style={{ color: 'inherit' }}
+                        >
+                          send a new one
+                        </a>
+                        .
+                      </>
+                    )}
+                  </Typography>
                 </Alert>
               )}
 

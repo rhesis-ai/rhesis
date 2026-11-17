@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import VerificationBanner from '../VerificationBanner';
+import VerificationBanner, { verificationMessage } from '../VerificationBanner';
 
 jest.mock('next-auth/react', () => ({
   useSession: jest.fn(),
@@ -114,20 +114,25 @@ describe('VerificationBanner', () => {
     expect(document.querySelector('[role="progressbar"]')).toBeInTheDocument();
   });
 
-  it('dismisses the banner when the close button is clicked', async () => {
-    const user = userEvent.setup();
+  it('has no dismiss button, since the account locks if unverified', () => {
     mockSession({ email: 'user@example.com', is_email_verified: false });
     render(<VerificationBanner />);
-
     expect(
-      screen.getByText(/please verify your email address/i)
-    ).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: /dismiss banner/i }));
-
-    expect(
-      screen.queryByText(/please verify your email address/i)
+      screen.queryByRole('button', { name: /dismiss/i })
     ).not.toBeInTheDocument();
+  });
+
+  it('shows the days left before the account locks', () => {
+    const dueAt = new Date(
+      Date.now() + 2.5 * 24 * 60 * 60 * 1000
+    ).toISOString();
+    mockSession({
+      email: 'user@example.com',
+      is_email_verified: false,
+      email_verification_due_at: dueAt,
+    });
+    render(<VerificationBanner />);
+    expect(screen.getByText(/within 3 days/i)).toBeInTheDocument();
   });
 
   it('silently continues if the resend request fails', async () => {
@@ -153,5 +158,23 @@ describe('VerificationBanner', () => {
     mockSession({ email: 'user@example.com' });
     const { container } = render(<VerificationBanner />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe('verificationMessage', () => {
+  const now = Date.parse('2026-11-16T12:00:00Z');
+
+  it('falls back to the plain message without a deadline', () => {
+    expect(verificationMessage(null, now)).toMatch(/please verify/i);
+  });
+
+  it('says "today" on the last day', () => {
+    expect(verificationMessage('2026-11-17T06:00:00Z', now)).toMatch(/today/i);
+  });
+
+  it('counts whole days left', () => {
+    expect(verificationMessage('2026-11-19T12:00:00Z', now)).toMatch(
+      /within 3 days/i
+    );
   });
 });

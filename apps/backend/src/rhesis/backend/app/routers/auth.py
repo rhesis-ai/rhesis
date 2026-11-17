@@ -14,6 +14,10 @@ from starlette.responses import RedirectResponse
 
 from rhesis.backend.app.auth.constants import AuthProviderType
 from rhesis.backend.app.auth.disposable_email import DisposableEmailError
+from rhesis.backend.app.auth.email_verification import (
+    refuse_if_verification_lapsed,
+    verification_lapsed,
+)
 from rhesis.backend.app.auth.password_policy import get_password_policy, validate_password
 from rhesis.backend.app.auth.provider_hooks import apply_enrichers
 from rhesis.backend.app.auth.providers import ProviderRegistry
@@ -325,6 +329,8 @@ def _authenticate_email_user(db: Session, provider, email: str, password: str) -
     """
     auth_user = provider.authenticate_sync(email, password, db)
     user = find_or_create_user_from_auth(db, auth_user)
+    # After the password check, so the lock says nothing about accounts the caller can't open.
+    refuse_if_verification_lapsed(user)
     return user, str(user.id)
 
 
@@ -459,6 +465,14 @@ def _load_user_for_reset(db: Session, email: str) -> tuple[User, str, str]:
         )
 
     return user, user.email, user.name or ""
+
+
+def _apply_password_reset(db: Session, user: User, new_password: str) -> None:
+    """Store the new password. The reset link reached the inbox, so it also verifies the address."""
+    if not user.is_email_verified:
+        drop_credentials_of_unverified_account(db, user)
+        user.is_email_verified = True
+    _store_new_password(db, user, new_password, PASSWORD_RESET)
 
 
 def _store_new_password(db: Session, user: User, new_password: str, action: str) -> str:
@@ -1161,7 +1175,7 @@ async def reset_password(
         body.new_password,
         context={"email": email, "name": name},
     )
-    await anyio.to_thread.run_sync(_store_new_password, db, user, body.new_password, PASSWORD_RESET)
+    await anyio.to_thread.run_sync(_apply_password_reset, db, user, body.new_password)
     await invalidate_user_sessions(user_id)
 
     logger.info("Password reset for user: %s", redact_email(email))
@@ -1589,6 +1603,11 @@ def refresh_tokens(
             token_row.user_id,
             token_row.family_id,
         )
+        raise _refresh_refused(user)
+
+    # Ends browser sessions that outlive the verification deadline.
+    if verification_lapsed(user):
+        logger.info("Refresh: rejected for user %s with unverified email", token_row.user_id)
         raise _refresh_refused(user)
 
     # Token-exchange-issued tokens carry a client binding that the

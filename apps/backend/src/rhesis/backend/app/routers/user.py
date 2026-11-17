@@ -9,6 +9,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.auth.capabilities import Permission, capability
+from rhesis.backend.app.auth.email_verification import require_verified_email
 from rhesis.backend.app.auth.principal import resolve_principal_from_request
 from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.rbac import authorize, denial
@@ -171,6 +172,10 @@ def create_user(
     # reaches the global 402 handler in main.py intact.
     _quota_gate: Organization = Depends(require_quota(QuotaResource.SEATS)),
 ):
+    # An invite mails someone else, so an unverified address can't send one.
+    if user.send_invite:
+        require_verified_email(current_user)
+
     # Set the organization_id from the current user
     user.organization_id = current_user.organization_id
 
