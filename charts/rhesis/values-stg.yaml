@@ -30,6 +30,8 @@ config:
   hostedModelDailyBudgetUsd: "25"
   hostedModelOrgDailyBudgetUsd: "2"
   chatbotDailyBudgetUsd: "5"
+  hostedModelTokensPerMinute: "300000"
+  hostedModelOrgTokensPerMinute: "100000"
   # On after dev's sweeps checked out; prd follows after a count query on prd.
   jobRetentionEnabled: true
   # Live after four clean dry runs (16-19 Oct 2026).

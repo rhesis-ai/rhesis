@@ -91,7 +91,8 @@ def _failure_result(test_id: str, exc: BaseException, execution_time: float) -> 
         "execution_time": execution_time,
         "exception_type": type(exc).__name__,
     }
-    if isinstance(exc, ModelCallRefused):
+    # A per-minute limit is transient: the recovery pass may retry it.
+    if isinstance(exc, ModelCallRefused) and not getattr(exc, "transient", False):
         failure["refused"] = True
 
     status_code = getattr(exc, "status_code", None)

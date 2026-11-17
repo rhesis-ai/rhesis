@@ -74,6 +74,12 @@ data:
   {{- if .Values.config.chatbotDailyBudgetUsd }}
   CHATBOT_DAILY_BUDGET_USD: {{ .Values.config.chatbotDailyBudgetUsd | quote }}
   {{- end }}
+  {{- if .Values.config.hostedModelTokensPerMinute }}
+  HOSTED_MODEL_TOKENS_PER_MINUTE: {{ .Values.config.hostedModelTokensPerMinute | quote }}
+  {{- end }}
+  {{- if .Values.config.hostedModelOrgTokensPerMinute }}
+  HOSTED_MODEL_ORG_TOKENS_PER_MINUTE: {{ .Values.config.hostedModelOrgTokensPerMinute | quote }}
+  {{- end }}
   OUTBOUND_ALLOW_PRIVATE_NETWORKS: {{ .Values.config.outboundAllowPrivateNetworks | quote }}
   JOB_RETENTION_ENABLED: {{ .Values.config.jobRetentionEnabled | quote }}
   JOB_RETENTION_DAYS: {{ .Values.config.jobRetentionDays | quote }}

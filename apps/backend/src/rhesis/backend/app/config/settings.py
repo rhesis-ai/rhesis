@@ -110,6 +110,13 @@ class ApplicationSettings(BaseSettings):
     hosted_model_org_daily_budget_usd: float | None = Field(
         default=None, ge=0, alias="HOSTED_MODEL_ORG_DAILY_BUDGET_USD"
     )
+    # Per-minute throughput caps, in weighted tokens (output weighted by its price ratio).
+    hosted_model_tokens_per_minute: int | None = Field(
+        default=None, ge=0, alias="HOSTED_MODEL_TOKENS_PER_MINUTE"
+    )
+    hosted_model_org_tokens_per_minute: int | None = Field(
+        default=None, ge=0, alias="HOSTED_MODEL_ORG_TOKENS_PER_MINUTE"
+    )
     # Largest input one hosted call may send, in tokens.
     hosted_model_max_input_tokens: int = Field(
         default=200_000, ge=1, alias="HOSTED_MODEL_MAX_INPUT_TOKENS"

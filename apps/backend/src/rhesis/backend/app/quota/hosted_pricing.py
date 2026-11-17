@@ -8,6 +8,7 @@ for how calls are charged.
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 from datetime import datetime, timezone
@@ -95,11 +96,23 @@ def schema_text(response_format: Any) -> str:
         return str(response_format)
 
 
+@functools.lru_cache(maxsize=64)
+def output_input_ratio(model_name: str) -> float:
+    """How many input tokens one output token costs as much as; 1 when unknown.
+
+    Cached per model; :func:`register_prices` clears it when prices change.
+    """
+    input_cost = cost_usd(model_name, 1_000_000, 0)
+    output_cost = cost_usd(model_name, 0, 1_000_000)
+    return output_cost / input_cost if input_cost > 0 else 1.0
+
+
 def register_prices(entries: Dict[str, Dict[str, Any]]) -> None:
     import litellm
 
     if entries:
         litellm.register_model(entries)
+        output_input_ratio.cache_clear()
 
 
 def load_shared_prices(raw: str) -> None:

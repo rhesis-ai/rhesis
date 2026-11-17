@@ -319,3 +319,36 @@ def test_a_settle_that_raises_does_not_break_the_call():
     call = ModelCall(broken)
     call.finish()
     call.finish()  # once only, and quietly
+
+
+def test_llm_retry_waits_as_long_as_a_throttled_call_asks():
+    from unittest.mock import Mock as _Mock
+
+    from rhesis.sdk.models import ModelCallThrottled
+    from rhesis.sdk.models.utils import _wait
+
+    class _Busy(ModelCallThrottled):
+        def retry_after_seconds(self):
+            return 17
+
+    state = _Mock()
+    state.outcome.exception.return_value = _Busy("busy")
+    assert _wait(state) == 17.0
+    state.outcome.exception.return_value = RuntimeError("other")
+    state.attempt_number = 1
+    assert _wait(state) <= 3
+
+
+def test_a_throttled_metric_error_is_raised_for_the_caller_to_retry():
+    from rhesis.sdk.metrics.utils import resilient_evaluation
+    from rhesis.sdk.models import ModelCallThrottled
+
+    class _Metric:
+        name = "m"
+
+        @resilient_evaluation
+        def evaluate(self):
+            raise ModelCallThrottled("busy")
+
+    with pytest.raises(ModelCallThrottled):
+        _Metric().evaluate()

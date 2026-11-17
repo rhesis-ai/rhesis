@@ -53,10 +53,23 @@ def _is_retryable_exception(exc: BaseException) -> bool:
     return status in RETRYABLE_STATUS_CODES
 
 
+_backoff = wait_exponential_jitter(initial=1, max=60, jitter=2)
+
+
+def _wait(retry_state) -> float:
+    """Wait as long as the error asks (a throttled call's retry-after), else back off."""
+    exc = retry_state.outcome.exception() if retry_state.outcome else None
+    retry_after = getattr(exc, "retry_after_seconds", None)
+    seconds = retry_after() if callable(retry_after) else None
+    if seconds:
+        return float(min(seconds, 60))
+    return _backoff(retry_state)
+
+
 llm_retry = retry(
     retry=retry_if_exception(_is_retryable_exception),
     stop=stop_after_attempt(4),  # 1 initial + 3 retries
-    wait=wait_exponential_jitter(initial=1, max=60, jitter=2),
+    wait=_wait,
     before_sleep=before_sleep_log(logger, logging.WARNING),
     reraise=True,
 )
