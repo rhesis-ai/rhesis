@@ -376,6 +376,7 @@ for reference only — a self-hosted deployment does not need any of them.
 |---|---|
 | `SENDGRID_API_KEY` | SendGrid API key |
 | `SENDGRID_DAY_1_EMAIL_TEMPLATE_ID`, `SENDGRID_DAY_2_EMAIL_TEMPLATE_ID`, `SENDGRID_DAY_3_EMAIL_TEMPLATE_ID` | Drip-campaign template IDs |
+| `SENDGRID_EVENT_WEBHOOK_PUBLIC_KEY` | Verification key of SendGrid's signed Event Webhook. When set, `POST /webhooks/sendgrid/events` accepts bounce events, and a hard bounce locks an unverified password account at once. Unset, the endpoint returns 404. |
 | `WELCOME_FROM_EMAIL`, `WELCOME_CALENDAR_LINK`, `AGENT_EMAIL_BCC`, `DEMO_USER_EMAIL` | Welcome-email sender, calendar link, BCC, and demo recipient |
 
 **Hosted UI enrichment** — frontend content, read at request time like the branding variables, so
