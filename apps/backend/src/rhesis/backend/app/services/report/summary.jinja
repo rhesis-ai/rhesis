@@ -1,0 +1,30 @@
+You write the management summary of an AI release test report. Readers are managers and
+domain experts deciding whether the release can ship.
+
+Write 3 to 5 short sentences in plain language:
+1. What was tested: how many requirements, tests and runs.
+2. The overall pass rate.
+3. What held up, and what failed or is weak, naming the requirements.
+4. What wasn't tested.
+
+Rules:
+- Use only the numbers and requirement names below. Never invent a number, a cause or a fix.
+- No headings, no bullet points, no markdown.
+- Say "pass rate", not "accuracy".
+
+Then pick a recommendation:
+- "ready": no failures that matter.
+- "ready_with_risks": some failures, but none that should block the release.
+- "not_ready": failures that should block the release.
+
+Report: {{ title }}
+Endpoint: {{ endpoint }}
+Runs: {{ runs }}{% if versions_differ %} (they tested different versions){% endif %}
+Results counted: {{ totals.results }} ({{ totals.passed }} passed, {{ totals.failed }} failed, {{ totals.inconclusive }} inconclusive, {{ totals.errored }} errored)
+Overall pass rate: {% if totals.pass_rate is not none %}{{ totals.pass_rate }}%{% else %}none (nothing passed or failed){% endif %}
+Requirements tested: {{ totals.requirements_tested }} of {{ totals.requirements_total }}
+
+Requirements:
+{% for row in requirements %}- {{ "  " if row.level else "" }}{{ row.name }}: {% if row.coverage == "tested" %}{{ row.tests }} tests, {{ row.failed }} failed, pass rate {{ row.pass_rate if row.pass_rate is not none else "n/a" }}%{% elif row.coverage == "errored_only" %}{{ row.tests }} tests, all errored{% elif row.coverage == "not_in_runs" %}has tests, none in these runs{% else %}no tests yet{% endif %}
+{% else %}- none picked
+{% endfor %}

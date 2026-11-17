@@ -241,6 +241,14 @@ class Permission:
         UPDATE = "requirement:update"
         DELETE = "requirement:delete"
 
+    class Report(_PermissionEnum):
+        READ = "report:read"
+        CREATE = "report:create"
+        UPDATE = "report:update"
+        DELETE = "report:delete"
+        PUBLISH = "report:publish"
+        EXPORT = "report:export"
+
     class Tool(_PermissionEnum):
         READ = "tool:read"
         CREATE = "tool:create"
@@ -410,6 +418,7 @@ class ResourceType(_PermissionEnum):
     ANNOTATION = "annotation"
     COMMENT = "comment"
     EXPERIMENT = "experiment"
+    REPORT = "report"
     TASK = "task"
     TEST_RESULT = "test_result"
     TEST_RUN = "test_run"

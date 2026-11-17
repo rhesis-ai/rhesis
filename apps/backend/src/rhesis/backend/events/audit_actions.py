@@ -21,6 +21,7 @@ PAST_TENSE: dict[str, str] = {
     "export": "exported",
     "generate": "generated",
     "import": "imported",
+    "publish": "published",
     "purge": "purged",
     "react": "reacted",
     "read": "viewed",

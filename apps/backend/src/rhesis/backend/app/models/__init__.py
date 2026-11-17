@@ -26,6 +26,12 @@ from .project_membership import ProjectMembership
 from .prompt import Prompt
 from .prompt_template import PromptTemplate
 from .refresh_token import RefreshToken
+from .report import (
+    Report,
+    ReportResult,
+    report_requirement_association,
+    report_test_run_association,
+)
 from .requirement import Requirement, requirement_source_association
 from .source import Source
 
@@ -94,6 +100,8 @@ __all__ = [
     "ProjectMixin",
     "Token",
     "RefreshToken",
+    "Report",
+    "ReportResult",
     "Organization",
     "Project",
     "ProjectMembership",
@@ -105,6 +113,8 @@ __all__ = [
     "behavior_metric_association",
     "requirement_metric_association",
     "requirement_source_association",
+    "report_requirement_association",
+    "report_test_run_association",
     "test_test_set_association",
     "test_set_metric_association",
     "TestRunStatsView",

@@ -40,6 +40,7 @@ from .project import router as project_router
 from .prompt import router as prompt_router
 from .prompt_template import router as prompt_template_router
 from .recycle import router as recycle_router
+from .report import router as report_router
 from .requirement import router as requirement_router
 from .resolve import router as resolve_router
 from .services import router as services_router
@@ -72,6 +73,7 @@ __all__ = [
     "prompt",
     "prompt_template",
     "category",
+    "report",
     "requirement",
     "comment",
     "connector",
@@ -119,6 +121,7 @@ routers = sorted(
         prompt_router,
         prompt_template_router,
         category_router,
+        report_router,
         requirement_router,
         comment_router,
         connector_router,
