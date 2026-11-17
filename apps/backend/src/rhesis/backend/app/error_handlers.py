@@ -12,7 +12,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 
 from rhesis.backend.app.utils.request_context import request_id_of
-from rhesis.sdk.models.base import ModelCallRefused
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +70,15 @@ def reraise_model_refusal(exc: BaseException) -> None:
     Routes that catch broadly would otherwise turn a 503 "daily capacity" or a 413
     "request too large" into a generic 400 or 500; the app-level handler answers it.
     """
+    # Imported here: Polyphemus imports this module through crud_utils but installs the
+    # backend without the SDK, and where the SDK is absent there is no refusal to find.
+    try:
+        from rhesis.sdk.models.base import ModelCallRefused
+    except ModuleNotFoundError as missing:
+        # Only an absent SDK; a broken install should still fail loudly.
+        if missing.name not in ("rhesis.sdk", "rhesis.sdk.models", "rhesis.sdk.models.base"):
+            raise
+        return
     seen = set()
     current: Optional[BaseException] = exc
     while current is not None and id(current) not in seen:
