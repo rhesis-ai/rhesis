@@ -97,6 +97,14 @@ class ReportRequirementRow(BaseModel):
     pass_rate_delta: Optional[float] = None
 
 
+class ReportRunExperiment(BaseModel):
+    """The experiment whose parameters a run used, as snapshotted on the run."""
+
+    id: Optional[UUID4] = None
+    name: str
+    version: str = ""
+
+
 class ReportRunRow(BaseModel):
     id: UUID4
     name: Optional[str] = None
@@ -108,6 +116,7 @@ class ReportRunRow(BaseModel):
     status: Optional[str] = None
     test_set: Optional[str] = None
     version_info: Optional[Dict[str, Any]] = None
+    experiment: Optional[ReportRunExperiment] = None
 
 
 class ReportTotals(BaseModel):

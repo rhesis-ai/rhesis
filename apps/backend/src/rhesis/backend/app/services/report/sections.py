@@ -62,6 +62,8 @@ class ReportSection:
     build: SectionBuilder
     render_pdf: Optional[PdfRenderer] = None
     placement: Literal["after_summary", "details"] = "details"
+    # Left out of a report that isn't a release report.
+    release_only: bool = False
 
 
 _sections: Dict[str, ReportSection] = {}
@@ -96,6 +98,8 @@ def build_sections(
     out: Dict[str, Any] = {}
     for section in _sections.values():
         if not FeatureRegistry.is_available(section.feature, organization):
+            continue
+        if section.release_only and not context.report.is_release:
             continue
         try:
             out[section.key] = section.build(db, context)

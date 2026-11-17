@@ -18,19 +18,22 @@ def render_by_impact(data: Dict[str, Any]) -> List[Any]:
         [
             row["name"],
             f"{row['requirements_tested']} of {row['requirements_total']}",
+            row.get("tests", ""),
             row["failed"],
             kit.pass_rate_text(row.get("pass_rate")),
+            kit.rate_bar(row.get("pass_rate")),
         ]
         for row in impacts
     ]
-    fail = [(i, 2) for i, row in enumerate(impacts) if row["failed"]]
+    fail = [(i, 3) for i, row in enumerate(impacts) if row["failed"]]
+    count = "Results" if data.get("result_rule") == "all" else "Tests"
     return [
         *kit.heading("By impact", "Only impacts with a requirement tested in this report."),
         kit.data_table(
-            ["Impact", "Requirements tested", "Failed", "Pass rate"],
+            ["Impact", "Requirements tested", count, "Failed", "Pass rate", ""],
             rows,
-            widths=[0.45, 0.25, 0.12, 0.18],
-            right=[2, 3],
+            widths=[0.27, 0.24, 0.1, 0.09, 0.16, 0.14],
+            right=[2, 3, 4],
             fail_cells=fail,
         ),
     ]

@@ -85,7 +85,8 @@ class TestByImpact:
             "Not set",
         ]
         legal_row = section["impacts"][0]
-        assert (legal_row["passed"], legal_row["failed"], legal_row["pass_rate"]) == (1, 1, 50.0)
+        assert (legal_row["tests"], legal_row["passed"], legal_row["failed"]) == (2, 1, 1)
+        assert legal_row["pass_rate"] == 50.0
         assert section["requirements"][str(unrun.id)] == "Safety"
         assert section["requirements"][str(plain.id)] == "Not set"
 
@@ -120,6 +121,16 @@ class TestPeopleAndStats:
         stats = sections["stats"]
         assert (stats["results_judged"], stats["results_errored"]) == (3, 1)
         assert stats["response_time_ms"] == {"mean": 400.0, "p95": 900.0, "measured": 3}
+
+    def test_plain_report_leaves_out_people(self, authenticated_client, build, db_endpoint):
+        run = build.run()
+        build.result(run, build.test())
+        build.commit()
+        report = _create(authenticated_client, db_endpoint.id, runs=[run], is_release=False)
+
+        sections = _detail(authenticated_client, report["id"])["sections"]
+        assert "people" not in sections
+        assert {"by_impact", "stats"} <= set(sections)
 
     def test_sections_freeze_at_publish(self, authenticated_client, build, db_endpoint):
         run = build.run()

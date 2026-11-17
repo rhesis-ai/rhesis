@@ -228,30 +228,43 @@ def _decision_notes(metrics: Dict[str, Any]) -> List[Any]:
 def _runs(metrics: Dict[str, Any]) -> List[Any]:
     runs = metrics.get("runs", [])
     rule = metrics.get("result_rule", "latest")
-    rows = [
-        [
-            run.get("name") or run["id"],
-            run.get("test_set") or "—",
+    # Only when some run used an experiment: an empty column is noise.
+    with_experiment = any(run.get("experiment") for run in runs)
+    rows = []
+    for run in runs:
+        row = [run.get("name") or run["id"], run.get("test_set") or "—"]
+        if with_experiment:
+            row.append(experiment_label(run.get("experiment")))
+        row += [
             run.get("status") or "—",
             _day(run.get("created_at")),
             run.get("results", 0),
             kit.pass_rate_text(run.get("pass_rate")),
         ]
-        for run in runs
-    ]
+        rows.append(row)
     note = RULE_NOTES.get(rule, "")
     spread = run_rate_spread(runs)
     if rule == "all" and spread:
         note += f" Run pass rates range from {spread}."
+    if with_experiment:
+        headers = ["Run", "Test set", "Experiment", "Status", "Started", "Counted", "Pass rate"]
+        widths = [0.15, 0.22, 0.14, 0.13, 0.13, 0.11, 0.12]
+        right = [5, 6]
+    else:
+        headers = ["Run", "Test set", "Status", "Started", "Counted", "Pass rate"]
+        widths = [0.2, 0.31, 0.13, 0.13, 0.11, 0.12]
+        right = [4, 5]
     return [
         *kit.heading("Test runs", note),
-        kit.data_table(
-            ["Run", "Test set", "Status", "Started", "Counted", "Pass rate"],
-            rows,
-            widths=[0.2, 0.31, 0.13, 0.13, 0.11, 0.12],
-            right=[4, 5],
-        ),
+        kit.data_table(headers, rows, widths=widths, right=right),
     ]
+
+
+def experiment_label(experiment: Optional[Dict[str, Any]]) -> str:
+    """'Low temp v2'; '—' for a run without an experiment."""
+    if not experiment:
+        return "—"
+    return " ".join(filter(None, [experiment.get("name"), experiment.get("version")]))
 
 
 def _day(value: Any) -> str:

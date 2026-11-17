@@ -41,6 +41,7 @@ def _empty_group(impact_id: Optional[uuid.UUID], name: str) -> Dict[str, Any]:
         "name": name,
         "requirements": set(),
         "tested": set(),
+        "tests": 0,
         "passed": 0,
         "failed": 0,
         "errored": 0,
@@ -65,6 +66,7 @@ def build_by_impact(db: Session, context: ReportContext) -> Dict[str, Any]:
             continue
         group = groups[impacts[result.requirement_id][1] or NOT_SET]
         group["tested"].add(result.requirement_id)
+        group["tests"] += 1
         if result.execution != "ok":
             group["errored"] += 1
         elif result.verdict == "pass":
@@ -78,6 +80,7 @@ def build_by_impact(db: Session, context: ReportContext) -> Dict[str, Any]:
             "name": g["name"],
             "requirements_tested": len(g["tested"]),
             "requirements_total": len(g["requirements"]),
+            "tests": g["tests"],
             "passed": g["passed"],
             "failed": g["failed"],
             "errored": g["errored"],
@@ -88,6 +91,8 @@ def build_by_impact(db: Session, context: ReportContext) -> Dict[str, Any]:
     ]
     return {
         "impacts": sorted(rows, key=lambda row: _impact_sort_key(row["name"])),
+        # "all" counts every result, so the PDF heads the column "Results".
+        "result_rule": context.report.result_rule,
         "requirements": {str(req_id): (name or NOT_SET) for req_id, (_, name) in impacts.items()},
     }
 

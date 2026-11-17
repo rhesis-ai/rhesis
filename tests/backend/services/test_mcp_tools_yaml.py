@@ -1236,3 +1236,40 @@ class TestMetricTargets:
 
     def test_create_metric_points_at_them(self):
         assert '{"target": {"on": ...}}' in self._config("create_metric")
+
+
+@pytest.mark.unit
+class TestReportMcpTools:
+    """Agents may build report drafts; publishing stays with a person in the app."""
+
+    TOOLS = ("list_reports", "get_report", "create_report", "update_report", "draft_report_summary")
+
+    def _cfg(self, name):
+        return {tc["name"]: tc for tc in load_tool_configs()}[name]
+
+    def test_tools_resolve_against_real_routes(self):
+        from rhesis.backend.app.main import app
+        from rhesis.backend.app.mcp_server.tools import build_tools_and_operations
+
+        tools, _ = build_tools_and_operations(app)
+        missing = set(self.TOOLS) - {t.name for t in tools}
+        assert not missing, f"{sorted(missing)} absent — path likely matches no route"
+
+    def test_no_tool_publishes_deletes_or_copies_a_report(self):
+        for tc in load_tool_configs():
+            if not tc["path"].startswith("/reports"):
+                continue
+            assert tc["name"] in self.TOOLS, f"unexpected report tool {tc['name']}"
+            assert not tc["path"].endswith(("/publish", "/copy"))
+            assert tc["method"] != "DELETE"
+
+    @pytest.mark.parametrize("name", ["create_report", "update_report"])
+    def test_writes_are_confirmation_gated(self, name):
+        assert self._cfg(name).get("requires_confirmation") is True
+
+    @pytest.mark.parametrize("name", ["list_reports", "get_report"])
+    def test_the_authors_summary_is_quoted_not_invented(self, name):
+        """A report's summary is a named person's words, like an annotation."""
+        description = " ".join(self._cfg(name)["description"].split())
+        assert "Quote the summary".lower() in description.lower()
+        assert "user.name" in description

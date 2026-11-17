@@ -15,6 +15,7 @@ from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.crud import report as report_crud
 from rhesis.backend.app.models.report import REPORT_STATUS_PUBLISHED
 from rhesis.backend.app.services.audit_events import record_audit_event
+from rhesis.backend.app.services.experiment import experiment_summary_dict_from_run_attributes
 from rhesis.backend.app.services.report.comparison import compare
 from rhesis.backend.app.services.report.counting import (
     CountedResult,
@@ -204,9 +205,17 @@ def _run_rows(
             "status": run.status.name if run.status else None,
             "test_set": _test_set_name(run),
             "version_info": (run.attributes or {}).get(VERSION_INFO_KEY),
+            "experiment": _experiment(run),
         }
         for run in runs
     ]
+
+
+def _experiment(run: models.TestRun) -> Optional[Dict[str, Any]]:
+    summary = experiment_summary_dict_from_run_attributes(run.attributes)
+    if not summary:
+        return None
+    return {"id": summary["id"], "name": summary["name"], "version": summary["version"]}
 
 
 def _test_set_name(run: models.TestRun) -> Optional[str]:

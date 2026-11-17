@@ -61,8 +61,16 @@ class _Builder:
             )
         )
 
-    def run(self, config=None, version=None) -> models.TestRun:
+    def run(self, config=None, version=None, experiment=None) -> models.TestRun:
         attributes = {"version_info": version} if version else {}
+        if experiment:
+            # The parameter snapshot a run takes from its experiment.
+            name, parameter_version = experiment
+            attributes |= {
+                "parameter_experiment_id": str(uuid.uuid4()),
+                "parameter_experiment_name": name,
+                "parameter_version": parameter_version,
+            }
         # One transaction stamps every row with the same now(); space the runs out.
         self._runs += 1
         return self._add(
@@ -292,9 +300,40 @@ class TestReportDraft:
 
 @pytest.mark.integration
 class TestReportFindings:
+    def test_runs_from_different_experiments_are_flagged(
+        self, authenticated_client, build, db_endpoint
+    ):
+        low, high, plain = (
+            build.run(experiment=("Low temp", "v2")),
+            build.run(experiment=("High temp", "v1")),
+            build.run(),
+        )
+        for run in (low, high, plain):
+            build.result(run, build.test())
+        build.commit()
+        report = _create(authenticated_client, db_endpoint.id, runs=[low, high, plain])
+
+        metrics = _detail(authenticated_client, report["id"])["metrics"]
+        by_id = {r["id"]: r for r in metrics["runs"]}
+        assert by_id[str(low.id)]["experiment"]["name"] == "Low temp"
+        assert by_id[str(plain.id)]["experiment"] is None
+        mixed = [w for w in metrics["warnings"] if w["kind"] == "mixed_setups"]
+        assert mixed and "Low temp v2, High temp v1, no experiment" in mixed[0]["text"]
+
+    def test_one_experiment_is_not_flagged(self, authenticated_client, build, db_endpoint):
+        runs = [build.run(experiment=("Low temp", "v2")) for _ in range(2)]
+        for run in runs:
+            build.result(run, build.test())
+        build.commit()
+        report = _create(authenticated_client, db_endpoint.id, runs=runs)
+
+        warnings = _detail(authenticated_client, report["id"])["metrics"]["warnings"]
+        kinds = {w["kind"] for w in warnings}
+        assert "mixed_setups" not in kinds
+
     """What a decision needs beyond the totals: caveats, key failures, comparison."""
 
-    def test_warnings_flag_untested_low_sample_and_changed_verdicts(
+    def test_warnings_flag_untested_and_changed_verdicts(
         self, authenticated_client, build, test_db, db_endpoint
     ):
         tested = build.requirement("Tested")
@@ -310,7 +349,8 @@ class TestReportFindings:
         metrics = _detail(authenticated_client, report["id"])["metrics"]
 
         kinds = {w["kind"] for w in metrics["warnings"]}
-        assert {"untested", "low_sample", "verdicts_changed"} <= kinds
+        assert {"untested", "verdicts_changed"} <= kinds
+        assert "low_sample" not in kinds  # marked in the table instead
         assert _rows_by_name({"metrics": metrics})[tested.name]["low_sample"] is True
 
     def test_metrics_by_requirement_with_their_kind(self, authenticated_client, build, db_endpoint):

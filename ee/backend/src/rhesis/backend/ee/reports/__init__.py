@@ -28,7 +28,13 @@ SECTIONS = (
         render_pdf=render_by_impact,
         placement="after_summary",
     ),
-    ReportSection("people", FeatureName.ADVANCED_REPORTS, build_people, render_pdf=render_people),
+    ReportSection(
+        "people",
+        FeatureName.ADVANCED_REPORTS,
+        build_people,
+        render_pdf=render_people,
+        release_only=True,
+    ),
     ReportSection("stats", FeatureName.ADVANCED_REPORTS, build_stats, render_pdf=render_stats),
 )
 

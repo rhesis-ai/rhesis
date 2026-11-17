@@ -28,15 +28,16 @@ def warnings(
     if incomplete:
         listed = ", ".join(f"{r.get('name') or r['id']} ({r.get('status')})" for r in incomplete)
         out.append({"kind": "incomplete_runs", "text": f"Runs that didn't complete: {listed}."})
-    low = [r for r in tree if r["coverage"] == "tested" and r["tests"] < LOW_SAMPLE]
-    if low:
+    setups = _setups(runs)
+    if len(setups) > 1:
         out.append(
             {
-                "kind": "low_sample",
-                "text": f"Fewer than {LOW_SAMPLE} results, so read their pass rates with care: "
-                f"{_names(low)}.",
+                "kind": "mixed_setups",
+                "text": f"These runs used different setups: {', '.join(setups)}. "
+                "The numbers mix them.",
             }
         )
+    # Low samples aren't listed here: the requirements table marks them with an asterisk.
     changed = sum(1 for r in counted if r.overridden)
     if changed:
         out.append(
@@ -53,6 +54,21 @@ def warnings(
             }
         )
     return out
+
+
+def _setups(runs: List[dict]) -> List[str]:
+    """Each distinct experiment and version among the runs; "no experiment" counts too."""
+    labels = []
+    for run in runs:
+        experiment = run.get("experiment")
+        label = (
+            " ".join(filter(None, [experiment["name"], experiment.get("version")]))
+            if experiment
+            else "no experiment"
+        )
+        labels.append(label)
+    distinct = list(dict.fromkeys(labels))
+    return distinct if any(run.get("experiment") for run in runs) else []
 
 
 def flag_low_samples(tree: List[dict]) -> None:
