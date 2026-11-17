@@ -146,7 +146,7 @@ def test_nested_delegation_produces_a_chain_of_edges(spans):
 
 
 def test_model_calls_are_not_duplicated(spans):
-    """ADK emits call_llm wrapping generate_content; only one may be ai.llm.invoke.
+    """Exactly one ai.llm.invoke per model call, even under schema v1's call_llm.
 
     Counted against what the mocked model actually served, so the invariant is
     "exactly one LLM span per model call" rather than a number to keep in sync.
@@ -159,7 +159,7 @@ def test_model_calls_are_not_duplicated(spans):
 
 
 def test_tool_spans_keep_a_parent(spans):
-    """ADK parents tool spans on the inner model span the SDK drops."""
+    """No tool span points at a span the SDK dropped (ADK < 2.14 parents them on one)."""
     _run_gathering_turn()
     exported = spans()
     by_id = {span.context.span_id: span for span in exported}

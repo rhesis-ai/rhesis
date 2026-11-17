@@ -331,6 +331,8 @@ source of the edges the Graph View draws, because this app emits no `transfer_to
 `tests/test_span_tree.py` asserts they are present, which is what catches a refactor that
 flattens the graph.
 
-One shape worth noting: ADK emits two spans per model call (`call_llm` wrapping
-`generate_content {model}`). The SDK keeps the outer one as `ai.llm.invoke` and drops the inner
-duplicate, re-pointing the tool spans ADK had parented on it so nothing orphans.
+One shape worth noting: under ADK's legacy telemetry schema (`ADK_TELEMETRY_SCHEMA_VERSION_OPT_IN=1`)
+ADK emits two spans per model call (`call_llm` wrapping `generate_content {model}`). The SDK keeps
+the outer one as `ai.llm.invoke` and drops the inner duplicate, re-pointing any tool spans ADK
+parented on it so nothing orphans. The default schema emits only `generate_content`, which becomes
+`ai.llm.invoke` directly.
