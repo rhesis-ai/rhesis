@@ -144,6 +144,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DeepEval or Rhesis providers instead. This also drops `diskcache`, `gitpython`, `scipy` and
   `sqlalchemy` from the SDK's dependency tree.
 
+## [0.21.2] - 2026-11-17
+
+### Added
+- Amazon Bedrock provider support (`BedrockLLM`), requiring explicit API key authentication and endpoint base configuration.
+- Pre-call request validation and post-call tracking hooks to enforce rate limits, spend caps, and token constraints across generation and extraction workflows.
+- Automatic retry handling for throttled model calls (`ModelCallThrottled` / HTTP 429) that respects server-supplied `Retry-After` durations.
+
+### Changed
+- Improved input token estimation for multimodal file inputs, accurately pricing PDFs by page count and other files by size.
+
+
 ## [0.21.1] - 2026-11-13
 
 ### Fixed

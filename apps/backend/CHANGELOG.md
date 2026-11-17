@@ -39,6 +39,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   anything that referenced them. Recorded metric scores are unaffected: test results and the
   verdict grid read their own JSONB snapshots, not the metric table.
 
+## [0.21.2] - 2026-11-17
+
+### Added
+- **Amazon Bedrock Provider Support**: Added Amazon Bedrock as a supported model provider using Bedrock API key authentication.
+- **Hosted Model Spend & Rate Limits**:
+  - Implemented daily USD spend caps per organization and platform-wide for hosted default models.
+  - Added per-minute throughput (TPM) limits for hosted default models with automatic transient retry handling (`429 Retry-After`).
+  - Added a dedicated daily spend cap, token bounds, and history controls for the demo chatbot.
+- **Insights Grouping & Filtering**: Added the ability to group and filter Insights by requirement impact and parent requirement across test results, metrics, and test stats views.
+
+### Changed
+- **Organization Creation Quotas**: Added a limit of 3 organization creations per user per day and restricted attaching to created organizations to within one hour of creation when usage quotas are enabled.
+- **Improved Input Token Estimation**: Updated SDK pre-call token estimation to accurately size file inputs (e.g., PDFs by page count and files by size) rather than counting every file as a single unit.
+
+### Fixed
+- **Endpoint Credential Security**: Fixed an issue where stored authentication tokens or client secrets were preserved when an endpoint URL was changed to a different host; stored secrets are now automatically cleared unless a new secret is provided.
+- **Pre-Call Throughput Enforcement**: Updated per-minute token checks to include incoming request input tokens, ensuring calls exceeding the remaining capacity are rejected up front rather than admitted.
+
+
 ## [0.21.1] - 2026-11-13
 
 ### Added

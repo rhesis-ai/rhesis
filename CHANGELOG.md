@@ -18,6 +18,40 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
   since January 2026 and carried advisories with no upstream fix. Existing Ragas metrics and their
   associations are deleted by a backend migration; recorded test results keep their scores.
 
+## [0.21.2] - 2026-11-17
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.21.2**
+- **Frontend 0.21.2**
+- **SDK 0.21.2**
+
+### Summary of Changes
+
+**Backend v0.21.2:**
+- Added Amazon Bedrock as a supported model provider requiring API key authentication and custom regional endpoints.
+- Implemented daily spend caps and per-minute throughput (TPM) limits for hosted default models, featuring automated pre-call checks and retry handling.
+- Added support for grouping and filtering test results, metrics, and Insights by requirement impact and parent requirement.
+- Enforced per-user organization creation limits and automatically clear stored endpoint secrets when host URLs change without new credentials.
+
+**Frontend v0.21.2:**
+- Added support for Amazon Bedrock as a provider option in the model configuration form.
+- Introduced new Insights grouping controls to organize data by Requirement, Impact, or Parent requirement.
+- Added impact filtering and updated Insights summaries to preserve active grouping and filter selections.
+
+**SDK v0.21.2:**
+- Added support for the Amazon Bedrock model provider (`BedrockLLM`).
+- Introduced pre-call and post-call checks to support hosted model usage limits, including automatic retries for throttled requests (`ModelCallThrottled`).
+- Improved input token estimation for multi-modal requests, sizing PDFs by page count and other files by file size.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.21.1] - 2026-11-13
 
 ### Platform Release
