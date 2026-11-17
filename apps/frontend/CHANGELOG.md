@@ -27,6 +27,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed the Ragas backend from metric icon handling now that the backend no longer serves it.
 
+## [0.21.2] - 2026-11-17
+
+### Added
+
+- **Amazon Bedrock Provider**: Added support for configuring Amazon Bedrock as a model provider in the model setup form, including custom endpoint configuration and API key authentication.
+- **Enhanced Insights Grouping & Filtering**: Added a group-by selector (Requirement, Impact, Parent) and impact filtering to the Insights view, featuring impact indicators under requirements and grouped requirement chips.
+
+### Fixed
+
+- Fixed an issue where the Insights summary re-fetch did not carry over active grouping dimensions and impact filters.
+
 ## [0.21.1] - 2026-11-13
 
 ### Added
