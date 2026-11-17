@@ -13,20 +13,23 @@ export default function ReportTitle({
 }: {
   title: string;
   canRename: boolean;
-  onRename: (title: string) => Promise<void>;
+  /** Resolves false when the rename failed; the drawer then stays open. */
+  onRename: (title: string) => Promise<boolean>;
 }) {
   const [open, setOpen] = React.useState(false);
   const [value, setValue] = React.useState(title);
   const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | undefined>();
   const next = value.trim();
   const unchanged = !next || next === title;
 
   const submit = async () => {
     if (unchanged) return;
     setSaving(true);
+    setError(undefined);
     try {
-      await onRename(next);
-      setOpen(false);
+      if (await onRename(next)) setOpen(false);
+      else setError('Failed to rename the report. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -53,6 +56,7 @@ export default function ReportTitle({
               aria-label="Rename"
               onClick={() => {
                 setValue(title);
+                setError(undefined);
                 setOpen(true);
               }}
               sx={{ displayPrint: 'none' }}
@@ -70,6 +74,7 @@ export default function ReportTitle({
         saveDisabled={unchanged}
         saveButtonText="Save"
         loading={saving}
+        error={error}
       >
         <TextField
           autoFocus

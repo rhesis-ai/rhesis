@@ -3,13 +3,15 @@
 import * as React from 'react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
-import type { RequirementOptionRow } from './RequirementsStep';
+import type { RequirementOptionRow } from '@/components/reports/picker/RequirementsStep';
 
-const PAGE_LIMIT = 100;
+/** How many runs or requirements a picker loads; a note says when there are more. */
+export const PAGE_LIMIT = 100;
 
 /** The endpoint's test runs, for picking. */
 export function useEndpointRuns(endpointId: string, enabled = true) {
   const [runs, setRuns] = React.useState<TestRunDetail[]>([]);
+  const [truncated, setTruncated] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
 
@@ -25,7 +27,11 @@ export function useEndpointRuns(endpointId: string, enabled = true) {
         limit: PAGE_LIMIT,
         filter: `test_configuration/endpoint_id eq '${endpointId}'`,
       })
-      .then(page => !cancelled && setRuns(page.data))
+      .then(page => {
+        if (cancelled) return;
+        setRuns(page.data);
+        setTruncated(page.data.length >= PAGE_LIMIT);
+      })
       .catch(() => !cancelled && setFailed(true))
       .finally(() => !cancelled && setLoading(false));
     return () => {
@@ -33,7 +39,7 @@ export function useEndpointRuns(endpointId: string, enabled = true) {
     };
   }, [endpointId, enabled]);
 
-  return { runs, loading, failed };
+  return { runs, loading, failed, truncated };
 }
 
 /** Every requirement, and which of them the given runs tested. */
@@ -42,6 +48,7 @@ export function useRequirementOptions(runIds: string[], enabled = true) {
     RequirementOptionRow[]
   >([]);
   const [tested, setTested] = React.useState<Set<string>>(new Set());
+  const [truncated, setTruncated] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
   /** The runs `tested` was computed for; differs from the input while loading. */
@@ -61,6 +68,7 @@ export function useRequirementOptions(runIds: string[], enabled = true) {
     ])
       .then(([all, ...perRun]) => {
         if (cancelled) return;
+        setTruncated(all.length >= PAGE_LIMIT);
         setRequirements(
           all.map(r => ({
             id: String(r.id),
@@ -83,6 +91,7 @@ export function useRequirementOptions(runIds: string[], enabled = true) {
     tested,
     loading,
     failed,
+    truncated,
     ready: loadedFor === runKey,
   };
 }

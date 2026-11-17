@@ -56,6 +56,14 @@ const COLUMNS: GridColDef[] = [
       params.row.endpoint?.name ?? '—',
   },
   {
+    field: 'is_release',
+    headerName: 'Type',
+    width: 130,
+    description: 'Release reports end with a ship recommendation',
+    renderCell: (params: GridRenderCellParams<Report>) =>
+      params.row.is_release ? 'Release' : 'General',
+  },
+  {
     field: 'status',
     headerName: 'Status',
     width: 130,

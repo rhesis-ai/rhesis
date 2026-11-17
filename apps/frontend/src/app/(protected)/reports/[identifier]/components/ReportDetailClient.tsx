@@ -30,8 +30,11 @@ import { can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { Capability } from '@/constants/capabilities';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import type { ReportDetail } from '@/utils/api-client/interfaces/report';
+import type {
+  ReportDetail,
+  ReportUpdate,
+} from '@/utils/api-client/interfaces/report';
+import ReportSetup from './ReportSetup';
 import ReportSummary from './ReportSummary';
 import ReportRequirementsTable from './ReportRequirementsTable';
 import ReportRunsTable from './ReportRunsTable';
@@ -40,6 +43,7 @@ import { RESULT_RULES } from '@/components/reports/resultRules';
 import ReportSlot from './ReportSlot';
 import ReportTitle from './ReportTitle';
 import { EditRequirementsDrawer, EditRunsDrawer } from './EditSelectionDrawers';
+import { ReportReloadError, useReport } from './useReport';
 
 function day(value?: string | null): string {
   return value ? format(new Date(value), 'dd/MM/yyyy') : '—';
@@ -56,7 +60,28 @@ export default function ReportDetailClient({
     Capability.Report.READ
   );
   const canCreate = useCan(Capability.Report.CREATE);
-  const [report, setReport] = React.useState(initialReport);
+  const { report, client, refresh, update } = useReport(initialReport);
+  // Cards with an open edit form; publishing waits until they're saved or cancelled.
+  const [openEdits, setOpenEdits] = React.useState<Set<string>>(new Set());
+  const trackEditing = React.useCallback(
+    (card: string) => (isEditing: boolean) =>
+      setOpenEdits(current => {
+        if (current.has(card) === isEditing) return current;
+        const next = new Set(current);
+        if (isEditing) next.add(card);
+        else next.delete(card);
+        return next;
+      }),
+    []
+  );
+  const onSetupEditing = React.useMemo(
+    () => trackEditing('Setup'),
+    [trackEditing]
+  );
+  const onSummaryEditing = React.useMemo(
+    () => trackEditing('Summary'),
+    [trackEditing]
+  );
   const [confirmPublish, setConfirmPublish] = React.useState(false);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -65,10 +90,6 @@ export default function ReportDetailClient({
   );
   useDocumentTitle(report.title);
 
-  const client = React.useMemo(
-    () => new ApiClientFactory().getReportsClient(),
-    []
-  );
   const fail = React.useCallback(
     (message: string) =>
       notifications.show(message, {
@@ -77,10 +98,6 @@ export default function ReportDetailClient({
       }),
     [notifications]
   );
-  const refresh = React.useCallback(async () => {
-    setReport(await client.getReport(report.id));
-  }, [client, report.id]);
-
   const isDraft = report.status === 'draft';
   const canEdit = isDraft && can(report, Capability.Report.UPDATE);
 
@@ -88,8 +105,12 @@ export default function ReportDetailClient({
     setBusy(true);
     try {
       await action();
-    } catch {
-      fail(error);
+    } catch (e) {
+      fail(
+        e instanceof ReportReloadError
+          ? 'Saved, but the page could not reload. Refresh the page.'
+          : error
+      );
     } finally {
       setBusy(false);
       setConfirmPublish(false);
@@ -97,22 +118,23 @@ export default function ReportDetailClient({
     }
   };
 
-  const updateSelection = (body: {
-    test_run_ids?: string[];
-    requirement_ids?: string[];
-  }) =>
-    run(async () => {
-      await client.updateReport(report.id, body);
-      await refresh();
-    }, 'Failed to update the report');
+  // Built from the report as the previous queued save left it, so quick removals add up.
+  const remove = (body: (current: ReportDetail) => ReportUpdate) =>
+    update(body).catch(e =>
+      fail(
+        e instanceof ReportReloadError
+          ? 'Saved, but the page could not reload. Refresh the page.'
+          : 'Failed to update the report'
+      )
+    );
 
   const exportPdf = () =>
     run(async () => {
-      const blob = await client.downloadPdf(report.id);
+      const { blob, filename } = await client.downloadPdf(report.id);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${report.title.replace(/[^\w.-]+/g, '-')}.pdf`;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -194,10 +216,10 @@ export default function ReportDetailClient({
           canRename={canEdit}
           onRename={async title => {
             try {
-              await client.updateReport(report.id, { title });
-              await refresh();
-            } catch {
-              fail('Failed to rename the report');
+              await update({ title });
+              return true;
+            } catch (e) {
+              return e instanceof ReportReloadError;
             }
           }}
         />
@@ -222,7 +244,18 @@ export default function ReportDetailClient({
           </Alert>
         )}
 
-        <ReportSummary report={report} editable={canEdit} onSaved={refresh} />
+        <ReportSetup
+          report={report}
+          editable={canEdit}
+          update={update}
+          onEditingChange={onSetupEditing}
+        />
+        <ReportSummary
+          report={report}
+          editable={canEdit}
+          update={update}
+          onEditingChange={onSummaryEditing}
+        />
         <ReportSlot slot="after-summary" report={report} />
         <ReportRequirementsTable
           report={report}
@@ -230,11 +263,11 @@ export default function ReportDetailClient({
           onRemove={
             canEdit
               ? id =>
-                  updateSelection({
-                    requirement_ids: report.requirement_ids.filter(
+                  remove(current => ({
+                    requirement_ids: current.requirement_ids.filter(
                       r => String(r) !== id
                     ),
-                  })
+                  }))
               : undefined
           }
         />
@@ -243,13 +276,14 @@ export default function ReportDetailClient({
           report={report}
           onEdit={canEdit ? () => setEditing('runs') : undefined}
           onRemove={
-            canEdit
+            // A tag decides the runs of a tag report; change the tag instead.
+            canEdit && !report.run_tag
               ? id =>
-                  updateSelection({
-                    test_run_ids: report.test_run_ids.filter(
+                  remove(current => ({
+                    test_run_ids: current.test_run_ids.filter(
                       r => String(r) !== id
                     ),
-                  })
+                  }))
               : undefined
           }
         />
@@ -279,12 +313,18 @@ export default function ReportDetailClient({
             config. A published report can no longer be edited or deleted; you
             can copy it as a new draft.
           </DialogContentText>
+          {openEdits.size > 0 && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              {[...openEdits].join(' and ')} has unsaved changes. Save or cancel
+              them first, or they won&apos;t be in the published report.
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmPublish(false)}>Cancel</Button>
           <Button
             variant="contained"
-            disabled={busy}
+            disabled={busy || openEdits.size > 0}
             onClick={() =>
               run(async () => {
                 await client.publishReport(report.id);
@@ -301,14 +341,14 @@ export default function ReportDetailClient({
         <EditRunsDrawer
           report={report}
           onClose={() => setEditing(null)}
-          onSaved={refresh}
+          update={update}
         />
       )}
       {editing === 'requirements' && (
         <EditRequirementsDrawer
           report={report}
           onClose={() => setEditing(null)}
-          onSaved={refresh}
+          update={update}
         />
       )}
 

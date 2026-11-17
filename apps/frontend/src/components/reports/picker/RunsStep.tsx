@@ -18,6 +18,8 @@ import type {
 import { format } from 'date-fns';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import RunStatusChip from '@/components/reports/RunStatusChip';
+import { formatPassRate } from '@/components/reports/ReportSection';
+import { PAGE_LIMIT } from '@/components/reports/picker/useReportPickerData';
 import { runExperimentLabel } from '@/components/reports/experiment';
 import { versionLabel } from '@/components/reports/version';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
@@ -43,8 +45,9 @@ type Params = GridRenderCellParams<TestRunDetail>;
 
 function passRate(run: TestRunDetail): string {
   const total = run.stats?.total ?? 0;
-  if (!total) return '—';
-  return `${Math.round(((run.stats?.passed ?? 0) * 1000) / total) / 10}%`;
+  return formatPassRate(
+    total ? ((run.stats?.passed ?? 0) * 100) / total : null
+  );
 }
 
 const EXPERIMENT_COLUMN: GridColDef = {
@@ -143,6 +146,8 @@ interface RunsStepProps {
   /** Used when ``source`` is tag. */
   tag: string;
   onTagChange: (tag: string) => void;
+  /** The endpoint has more runs than were loaded. */
+  truncated?: boolean;
 }
 
 export default function RunsStep({
@@ -153,6 +158,7 @@ export default function RunsStep({
   onChange,
   tag,
   onTagChange,
+  truncated = false,
 }: RunsStepProps) {
   const tagged = React.useMemo(() => runsWithTag(runs, tag), [runs, tag]);
   const tagOptions = React.useMemo(
@@ -202,6 +208,7 @@ export default function RunsStep({
         {...(source === 'manual'
           ? {
               checkboxSelection: true,
+              keepNonExistentRowsSelected: true,
               rowSelectionModel: selected,
               onRowSelectionModelChange: (model: GridRowSelectionModel) =>
                 onChange(model.map(String)),
@@ -256,6 +263,13 @@ export default function RunsStep({
         </Alert>
       )}
       {source === 'manual' || tag.trim() ? grid : null}
+      {truncated && (
+        <Typography variant="caption" color="text.secondary">
+          {source === 'manual'
+            ? `Showing the ${PAGE_LIMIT} newest runs. Older runs you picked before stay in the report.`
+            : `Only the ${PAGE_LIMIT} newest runs were checked for this tag here; the report itself includes every tagged run.`}
+        </Typography>
+      )}
     </Stack>
   );
 }

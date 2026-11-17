@@ -40,6 +40,38 @@ function removeColumn(onRemove?: (id: string) => void): GridColDef[] {
     : [];
 }
 
+/** The name, with the description as one muted line under it (full text on hover). */
+function RequirementName({ row }: { row: ReportRequirementRow }) {
+  const description = row.description?.trim();
+  return (
+    <Box
+      sx={{
+        pl: row.level * 3,
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        height: '100%',
+      }}
+    >
+      <Typography
+        variant="body2"
+        noWrap
+        sx={{ fontWeight: row.level === 0 ? 600 : undefined }}
+      >
+        {row.name}
+      </Typography>
+      {description && (
+        <Tooltip title={description} placement="bottom-start">
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {description}
+          </Typography>
+        </Tooltip>
+      )}
+    </Box>
+  );
+}
+
 export default function ReportRequirementsTable({
   report,
   onEdit,
@@ -77,17 +109,7 @@ export default function ReportRequirementsTable({
         headerName: 'Requirement',
         flex: 2,
         sortable: false,
-        renderCell: (params: Params) => (
-          <Box
-            component="span"
-            sx={{
-              pl: params.row.level * 3,
-              fontWeight: params.row.level === 0 ? 600 : undefined,
-            }}
-          >
-            {params.row.name}
-          </Box>
-        ),
+        renderCell: (params: Params) => <RequirementName row={params.row} />,
       },
       ...extra,
       {

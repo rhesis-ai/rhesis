@@ -40,6 +40,7 @@ export interface Report extends WithPermittedActions {
 export interface ReportRequirementRow {
   id: string;
   name: string;
+  description?: string | null;
   parent_id?: string | null;
   level: number;
   coverage: ReportCoverage;

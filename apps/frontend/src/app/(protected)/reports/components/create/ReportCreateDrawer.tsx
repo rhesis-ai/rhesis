@@ -23,9 +23,12 @@ import RunsStep, {
   RunSourceSelect,
   runsWithTag,
   type RunSource,
-} from './RunsStep';
-import RequirementsStep from './RequirementsStep';
-import { useEndpointRuns, useRequirementOptions } from './useReportPickerData';
+} from '@/components/reports/picker/RunsStep';
+import RequirementsStep from '@/components/reports/picker/RequirementsStep';
+import {
+  useEndpointRuns,
+  useRequirementOptions,
+} from '@/components/reports/picker/useReportPickerData';
 
 const STEPS = [
   { key: 'setup', label: 'Setup' },
@@ -53,6 +56,9 @@ function ReportCreateForm({ onClose }: { onClose: () => void }) {
   const [tag, setTag] = React.useState('');
   const [requirementIds, setRequirementIds] = React.useState<string[]>([]);
   const [pickedForRuns, setPickedForRuns] = React.useState<string | null>(null);
+  // Once the user has ticked or unticked a requirement, new runs only add to it.
+  const [requirementsTouched, setRequirementsTouched] = React.useState(false);
+  const lastTested = React.useRef<ReadonlySet<string>>(new Set());
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -65,7 +71,10 @@ function ReportCreateForm({ onClose }: { onClose: () => void }) {
   }, []);
 
   // A new endpoint means none of the picked runs belong to it any more.
-  React.useEffect(() => setRunIds([]), [endpointId]);
+  React.useEffect(() => {
+    setRunIds([]);
+    setRequirementsTouched(false);
+  }, [endpointId]);
 
   const runsData = useEndpointRuns(endpointId);
   const {
@@ -73,22 +82,37 @@ function ReportCreateForm({ onClose }: { onClose: () => void }) {
     tested,
     loading: requirementsLoading,
     failed: requirementsFailed,
+    truncated: requirementsTruncated,
     ready: requirementsReady,
   } = useRequirementOptions(
     source === 'tag' ? runsWithTag(runsData.runs, tag) : runIds,
     step === 2
   );
 
-  // Reaching the last step with a new set of runs picks what those runs tested.
+  // Reaching the last step with a new set of runs picks what those runs tested. After
+  // the user changed the pick, only requirements the new runs newly tested are added.
   const runKey = [
     source,
     ...(source === 'tag' ? runsWithTag(runsData.runs, tag) : runIds).sort(),
   ].join(',');
   React.useEffect(() => {
     if (step !== 2 || !requirementsReady || pickedForRuns === runKey) return;
-    setRequirementIds([...tested]);
+    if (requirementsTouched) {
+      const added = [...tested].filter(id => !lastTested.current.has(id));
+      setRequirementIds(current => [...new Set([...current, ...added])]);
+    } else {
+      setRequirementIds([...tested]);
+    }
+    lastTested.current = tested;
     setPickedForRuns(runKey);
-  }, [step, requirementsReady, tested, runKey, pickedForRuns]);
+  }, [
+    step,
+    requirementsReady,
+    tested,
+    runKey,
+    pickedForRuns,
+    requirementsTouched,
+  ]);
 
   const loadError =
     error ??
@@ -235,6 +259,7 @@ function ReportCreateForm({ onClose }: { onClose: () => void }) {
               onChange={setRunIds}
               tag={tag}
               onTagChange={setTag}
+              truncated={runsData.truncated}
             />
           </DetailTabPanel>
           <DetailTabPanel value={step} index={2} prefix="report">
@@ -243,7 +268,11 @@ function ReportCreateForm({ onClose }: { onClose: () => void }) {
               loading={requirementsLoading}
               tested={tested}
               selected={requirementIds}
-              onChange={setRequirementIds}
+              onChange={ids => {
+                setRequirementsTouched(true);
+                setRequirementIds(ids);
+              }}
+              truncated={requirementsTruncated}
             />
           </DetailTabPanel>
         </Box>

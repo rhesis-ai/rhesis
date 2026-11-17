@@ -1,9 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import BaseDrawer from '@/components/common/BaseDrawer';
-import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Stack } from '@mui/material';
+import BaseDrawer from '@/components/common/BaseDrawer';
 import type {
   ReportDetail,
   ReportUpdate,
@@ -11,17 +10,18 @@ import type {
 import RunsStep, {
   RunSourceSelect,
   type RunSource,
-} from '../../components/create/RunsStep';
-import RequirementsStep from '../../components/create/RequirementsStep';
+} from '@/components/reports/picker/RunsStep';
+import RequirementsStep from '@/components/reports/picker/RequirementsStep';
 import {
   useEndpointRuns,
   useRequirementOptions,
-} from '../../components/create/useReportPickerData';
+} from '@/components/reports/picker/useReportPickerData';
+import { ReportReloadError } from './useReport';
 
 interface DrawerProps {
   report: ReportDetail;
   onClose: () => void;
-  onSaved: () => Promise<void>;
+  update: (body: ReportUpdate) => Promise<void>;
 }
 
 function sameSet(a: string[], b: string[]): boolean {
@@ -29,8 +29,7 @@ function sameSet(a: string[], b: string[]): boolean {
 }
 
 function useSave(
-  report: ReportDetail,
-  onSaved: () => Promise<void>,
+  update: (body: ReportUpdate) => Promise<void>,
   onClose: () => void
 ) {
   const [saving, setSaving] = React.useState(false);
@@ -39,13 +38,14 @@ function useSave(
     setSaving(true);
     setError(undefined);
     try {
-      await new ApiClientFactory()
-        .getReportsClient()
-        .updateReport(report.id, body);
-      await onSaved();
+      await update(body);
       onClose();
-    } catch {
-      setError('Failed to save. Please try again.');
+    } catch (e) {
+      setError(
+        e instanceof ReportReloadError
+          ? 'Saved, but the page could not reload. Refresh the page.'
+          : 'Failed to save. Please try again.'
+      );
     } finally {
       setSaving(false);
     }
@@ -53,14 +53,19 @@ function useSave(
   return { save, saving, error };
 }
 
-export function EditRunsDrawer({ report, onClose, onSaved }: DrawerProps) {
+export function EditRunsDrawer({ report, onClose, update }: DrawerProps) {
   const initialSource: RunSource = report.run_tag ? 'tag' : 'manual';
   const initial = report.test_run_ids.map(String);
   const [source, setSource] = React.useState<RunSource>(initialSource);
-  const [selected, setSelected] = React.useState<string[]>(initial);
+  // Switching a tag report to picking by hand starts from the runs the tag matched.
+  const [selected, setSelected] = React.useState<string[]>(
+    initialSource === 'tag' ? report.tagged_run_ids.map(String) : initial
+  );
   const [tag, setTag] = React.useState(report.run_tag ?? '');
-  const { runs, loading, failed } = useEndpointRuns(report.endpoint_id);
-  const { save, saving, error } = useSave(report, onSaved, onClose);
+  const { runs, loading, failed, truncated } = useEndpointRuns(
+    report.endpoint_id
+  );
+  const { save, saving, error } = useSave(update, onClose);
 
   const unchanged =
     source === initialSource &&
@@ -97,6 +102,7 @@ export function EditRunsDrawer({ report, onClose, onSaved }: DrawerProps) {
           onChange={setSelected}
           tag={tag}
           onTagChange={setTag}
+          truncated={truncated}
         />
       </Stack>
     </BaseDrawer>
@@ -106,14 +112,15 @@ export function EditRunsDrawer({ report, onClose, onSaved }: DrawerProps) {
 export function EditRequirementsDrawer({
   report,
   onClose,
-  onSaved,
+  update,
 }: DrawerProps) {
   const initial = report.requirement_ids.map(String);
   const [selected, setSelected] = React.useState<string[]>(initial);
-  const { requirements, tested, loading, failed } = useRequirementOptions(
-    [...report.test_run_ids, ...report.tagged_run_ids].map(String)
-  );
-  const { save, saving, error } = useSave(report, onSaved, onClose);
+  const { requirements, tested, loading, failed, truncated } =
+    useRequirementOptions(
+      [...report.test_run_ids, ...report.tagged_run_ids].map(String)
+    );
+  const { save, saving, error } = useSave(update, onClose);
 
   return (
     <BaseDrawer
@@ -133,6 +140,7 @@ export function EditRequirementsDrawer({
         tested={tested}
         selected={selected}
         onChange={setSelected}
+        truncated={truncated}
       />
     </BaseDrawer>
   );

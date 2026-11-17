@@ -8,6 +8,7 @@ import type {
   GridRowSelectionModel,
 } from '@mui/x-data-grid';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
+import { PAGE_LIMIT } from '@/components/reports/picker/useReportPickerData';
 
 export interface RequirementOptionRow {
   id: string;
@@ -91,6 +92,8 @@ interface RequirementsStepProps {
   tested: ReadonlySet<string>;
   selected: string[];
   onChange: (ids: string[]) => void;
+  /** There are more requirements than were loaded. */
+  truncated?: boolean;
 }
 
 export default function RequirementsStep({
@@ -99,6 +102,7 @@ export default function RequirementsStep({
   tested,
   selected,
   onChange,
+  truncated = false,
 }: RequirementsStepProps) {
   const rows = React.useMemo(
     () => asTree(requirements, tested),
@@ -140,6 +144,7 @@ export default function RequirementsStep({
             loading={loading}
             getRowId={row => String(row.id)}
             checkboxSelection
+            keepNonExistentRowsSelected
             disableColumnResize
             rowSelectionModel={selected}
             onRowSelectionModelChange={(model: GridRowSelectionModel) =>
@@ -152,6 +157,12 @@ export default function RequirementsStep({
             }}
           />
         </Box>
+      )}
+      {truncated && (
+        <Typography variant="caption" color="text.secondary">
+          Showing the first {PAGE_LIMIT} requirements. Ones you picked before
+          stay in the report.
+        </Typography>
       )}
     </Stack>
   );

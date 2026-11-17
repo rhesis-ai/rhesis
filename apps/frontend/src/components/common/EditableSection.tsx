@@ -20,6 +20,8 @@ interface EditableSectionProps<T> {
   initialValue: T;
   onSave: (draft: T) => Promise<boolean | void>;
   isDirty?: (draft: T, initial: T) => boolean;
+  /** Told when the section enters or leaves edit mode, e.g. to warn about unsaved edits. */
+  onEditingChange?: (isEditing: boolean) => void;
   children: (ctx: {
     draft: T;
     setDraft: (next: T | ((p: T) => T)) => void;
@@ -39,6 +41,7 @@ export function EditableSection<T>({
   initialValue,
   onSave,
   isDirty = defaultIsDirty,
+  onEditingChange,
   children,
 }: EditableSectionProps<T>) {
   const [isEditing, setIsEditing] = useState(false);
@@ -81,6 +84,15 @@ export function EditableSection<T>({
     setDraft(initialValue);
     setIsEditing(false);
   }, [initialValue]);
+
+  // Editing was taken away (e.g. the record was published): close the form.
+  useEffect(() => {
+    if (!editable && isEditing) handleCancel();
+  }, [editable, isEditing, handleCancel]);
+
+  useEffect(() => {
+    onEditingChange?.(isEditing);
+  }, [isEditing, onEditingChange]);
 
   const handleSave = useCallback(async () => {
     if (!dirty || isSaving) return;

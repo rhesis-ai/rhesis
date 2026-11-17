@@ -73,7 +73,8 @@ export class ReportsClient extends BaseApiClient {
   }
 
   /** The report as a PDF, built by the backend. Each download is recorded as report.exported. */
-  async downloadPdf(id: string): Promise<Blob> {
+  /** The PDF, and the file name the backend chose for it. */
+  async downloadPdf(id: string): Promise<{ blob: Blob; filename: string }> {
     const url = joinUrl(this.baseUrl, `${API_ENDPOINTS.reports}/${id}/pdf`);
     const response = await fetch(url, { headers: this.getHeaders() });
     if (!response.ok) {
@@ -81,6 +82,22 @@ export class ReportsClient extends BaseApiClient {
         `API error: ${response.status} - ${await response.text()}`
       );
     }
-    return response.blob();
+    return {
+      blob: await response.blob(),
+      filename: pdfFilename(response.headers.get('Content-Disposition')),
+    };
   }
+}
+
+/** The name from Content-Disposition: the UTF-8 ``filename*`` first, then ``filename``. */
+export function pdfFilename(disposition: string | null): string {
+  const encoded = disposition?.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded);
+    } catch {
+      // Fall through to the plain name.
+    }
+  }
+  return disposition?.match(/filename="([^"]+)"/i)?.[1] ?? 'report.pdf';
 }
