@@ -20,11 +20,12 @@ import pytest
 
 google_adk = pytest.importorskip("google.adk")
 
-from google.adk.agents import Agent, ParallelAgent, SequentialAgent  # noqa: E402
+from google.adk.agents import Agent, ParallelAgent, RunConfig, SequentialAgent  # noqa: E402
 from google.adk.models.base_llm import BaseLlm  # noqa: E402
 from google.adk.models.llm_response import LlmResponse  # noqa: E402
 from google.adk.runners import Runner  # noqa: E402
 from google.adk.sessions import InMemorySessionService  # noqa: E402
+from google.adk.telemetry.context import ContentCapturingMode, TelemetryConfig  # noqa: E402
 from google.adk.tools.agent_tool import AgentTool  # noqa: E402
 from google.genai import types  # noqa: E402
 from opentelemetry import trace as otel_trace  # noqa: E402
@@ -182,8 +183,15 @@ def session_provider() -> tuple[TracerProvider, InMemorySpanExporter]:
     return provider, captured
 
 
+@pytest.fixture(params=["1", "2"], ids=["schema-v1", "schema-v2"])
+def adk_schema(request, monkeypatch) -> str:
+    """Run under both ADK telemetry schemas: v2 is ADK's default, v1 is still supported."""
+    monkeypatch.setenv("ADK_TELEMETRY_SCHEMA_VERSION_OPT_IN", request.param)
+    return request.param
+
+
 @pytest.fixture
-def integration(session_provider) -> GoogleADKIntegration:
+def integration(session_provider, adk_schema) -> GoogleADKIntegration:
     """A fresh :class:`GoogleADKIntegration`, enabled and torn down per test."""
     integ = GoogleADKIntegration()
     assert integ.enable() is True, "GoogleADKIntegration.enable() must succeed"
@@ -228,6 +236,7 @@ async def run_agent(
     message: str = "What is the weather in Berlin?",
     *,
     session_id: str = "sess-1",
+    run_config: RunConfig | None = None,
 ) -> None:
     """Drive one ADK turn through a real ``Runner`` via ``run_async``."""
     service = InMemorySessionService()
@@ -237,6 +246,7 @@ async def run_agent(
         user_id=USER_ID,
         session_id=session_id,
         new_message=types.Content(role="user", parts=[types.Part(text=message)]),
+        run_config=run_config,
     ):
         pass
 
@@ -691,15 +701,37 @@ class TestSingleAgentRun:
 
         tool_span = spans_named(captured_spans, "ai.tool.invoke")[0]
         assert tool_span.attributes[AIAttributes.TOOL_NAME] == "get_weather"
-        assert json.loads(event_bodies(tool_span, "ai.tool.input")[0]) == {"city": "Berlin"}
-        assert json.loads(event_bodies(tool_span, "ai.tool.output")[0]) == {
-            "temp": 20,
-            "city": "Berlin",
+        inputs = event_bodies(tool_span, "ai.tool.input")
+        outputs = event_bodies(tool_span, "ai.tool.output")
+        assert [json.loads(body) for body in inputs] == [{"city": "Berlin"}]
+        assert [json.loads(body) for body in outputs] == [{"temp": 20, "city": "Berlin"}]
+
+    @pytest.mark.asyncio
+    async def test_content_attributes_are_not_forwarded(self, captured_spans):
+        """Content travels as events only, never also as the raw attribute."""
+        script(tool_call("get_weather", {"city": "Berlin"}), text("It is 20C."))
+        agent = Agent(
+            name="root_agent", model=CannedLlm(), instruction="You help.", tools=[get_weather]
+        )
+        await run_agent(agent)
+
+        forwarded = {key for span in captured_spans.get_finished_spans() for key in span.attributes}
+        content_attributes = {
+            "gcp.vertex.agent.llm_request",
+            "gcp.vertex.agent.llm_response",
+            "gcp.vertex.agent.tool_call_args",
+            "gcp.vertex.agent.tool_response",
+            "gen_ai.input.messages",
+            "gen_ai.output.messages",
+            "gen_ai.system_instructions",
+            "gen_ai.tool.call.arguments",
+            "gen_ai.tool.call.result",
         }
+        assert not forwarded & content_attributes
 
 
 class TestDuplicateModelSpan:
-    """ADK emits ``call_llm`` wrapping ``generate_content {model}`` for one call."""
+    """Schema v1 wraps ``generate_content`` in ``call_llm`` for one call; v2 has no ``call_llm``."""
 
     @pytest.mark.asyncio
     async def test_exactly_one_llm_span_per_model_call(self, captured_spans):
@@ -718,8 +750,7 @@ class TestDuplicateModelSpan:
         )
 
     @pytest.mark.asyncio
-    async def test_tool_spans_are_reparented_onto_the_surviving_llm_span(self, captured_spans):
-        """ADK parents tool spans on the *inner* model span, which we drop."""
+    async def test_tool_spans_keep_a_forwarded_parent(self, captured_spans):
         script(tool_call("get_weather", {"city": "Berlin"}), text("Done."))
         agent = Agent(
             name="root_agent", model=CannedLlm(), instruction="You help.", tools=[get_weather]
@@ -728,12 +759,36 @@ class TestDuplicateModelSpan:
 
         tool_span = spans_named(captured_spans, "ai.tool.invoke")[0]
         parent = parent_of(captured_spans, tool_span)
+        assert parent is not None, "tool span was orphaned"
+        assert parent.name in ("ai.llm.invoke", "ai.agent.invoke")
+
+    def test_children_of_the_dropped_inner_model_span_are_reparented(self, captured_spans):
+        """ADK before 2.14 parents tool spans on ``generate_content``, which we drop.
+
+        Built by hand because current ADK no longer emits this shape.
+        """
+        tracer = otel_trace.get_tracer(mapping.INSTRUMENTATION_SCOPE)
+        with tracer.start_as_current_span("call_llm"):
+            with tracer.start_as_current_span("generate_content gemini-3.1-flash-lite"):
+                with tracer.start_as_current_span(
+                    "execute_tool get_weather",
+                    attributes={
+                        "gen_ai.operation.name": "execute_tool",
+                        "gen_ai.tool.name": "get_weather",
+                    },
+                ):
+                    pass
+
+        tool_span = spans_named(captured_spans, "ai.tool.invoke")[0]
+        parent = parent_of(captured_spans, tool_span)
         assert parent is not None, "tool span was orphaned by dropping generate_content"
         assert parent.name == "ai.llm.invoke"
+        assert names(captured_spans).count("ai.llm.invoke") == 1
 
     @pytest.mark.asyncio
     async def test_verbose_mode_keeps_the_inner_model_span(self, monkeypatch, session_provider):
         """With the opt-in set, nothing is dropped and nothing is reparented."""
+        monkeypatch.setenv("ADK_TELEMETRY_SCHEMA_VERSION_OPT_IN", "1")
         monkeypatch.setenv(translator.VERBOSE_SPANS_ENV, "1")
         provider, captured = session_provider
         integ = GoogleADKIntegration()
@@ -744,7 +799,29 @@ class TestDuplicateModelSpan:
             await run_agent(Agent(name="greeter", model=CannedLlm(), instruction="Greet."))
             emitted = names(captured)
             assert "function.google_adk.generate_content" in emitted
+            assert emitted.count("ai.llm.invoke") == 1
             assert all(validate_span_name(name) for name in emitted)
+        finally:
+            integ.disable()
+            captured.clear()
+
+    @pytest.mark.asyncio
+    async def test_verbose_mode_under_v2_keeps_the_only_model_span_as_llm(
+        self, monkeypatch, session_provider
+    ):
+        """Without ``call_llm``, ``generate_content`` is the model call, not infrastructure."""
+        monkeypatch.setenv("ADK_TELEMETRY_SCHEMA_VERSION_OPT_IN", "2")
+        monkeypatch.setenv(translator.VERBOSE_SPANS_ENV, "1")
+        provider, captured = session_provider
+        integ = GoogleADKIntegration()
+        assert integ.enable() is True
+        captured.clear()
+        try:
+            script(text("Hello."))
+            await run_agent(Agent(name="greeter", model=CannedLlm(), instruction="Greet."))
+            emitted = names(captured)
+            assert emitted.count("ai.llm.invoke") == 1
+            assert "function.google_adk.generate_content" not in emitted
         finally:
             integ.disable()
             captured.clear()
@@ -854,7 +931,7 @@ class TestHandoffs:
 
     @pytest.mark.asyncio
     async def test_transfer_without_content_capture_stays_a_tool_span(
-        self, monkeypatch, session_provider
+        self, monkeypatch, session_provider, adk_schema
     ):
         """The transfer target lives in the tool args; with no args, no edge."""
         monkeypatch.setenv("RHESIS_DISABLE_CONTENT_CAPTURE", "1")
@@ -1538,8 +1615,23 @@ class TestConversationTraceRegistry:
 
 class TestContentCaptureOptOut:
     @pytest.mark.asyncio
-    async def test_no_content_events_when_disabled(self, monkeypatch, session_provider):
+    @pytest.mark.parametrize("prebuilt_config", [False, True], ids=["env", "prebuilt-config"])
+    async def test_no_content_events_when_disabled(
+        self, monkeypatch, session_provider, adk_schema, prebuilt_config
+    ):
+        """With ``prebuilt-config``, ADK records content anyway; the export must still drop it.
+
+        ADK 2.14 reads the env when a ``TelemetryConfig`` is built, so one built
+        before ``enable()`` misses the admin lock and its span mode wins.
+        """
         monkeypatch.setenv("RHESIS_DISABLE_CONTENT_CAPTURE", "1")
+        run_config = (
+            RunConfig(
+                telemetry=TelemetryConfig(capture_message_content=ContentCapturingMode.SPAN_ONLY)
+            )
+            if prebuilt_config
+            else None
+        )
         _provider, captured = session_provider
         integ = GoogleADKIntegration()
         assert integ.enable() is True
@@ -1549,7 +1641,7 @@ class TestContentCaptureOptOut:
             agent = Agent(
                 name="root_agent", model=CannedLlm(), instruction="Secret.", tools=[get_weather]
             )
-            await run_agent(agent)
+            await run_agent(agent, run_config=run_config)
 
             everything = json.dumps(
                 [
@@ -1570,6 +1662,7 @@ class TestContentCaptureOptOut:
             assert "What is the weather in Berlin?" not in everything
             assert "It is 20C." not in everything
             assert "Secret." not in everything
+            assert '\\"temp\\"' not in everything and '"temp"' not in everything
             # Structure and metrics survive; only content is withheld.
             assert "ai.llm.invoke" in names(captured)
             assert "ai.tool.invoke" in names(captured)
@@ -1598,30 +1691,75 @@ class TestContentCaptureOptOut:
         assert "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT" not in os.environ
         assert "ADK_TELEMETRY_IGNORE_RUN_CONFIG" not in os.environ
 
-    def test_enabled_capture_touches_no_env_vars(self, monkeypatch, session_provider):
-        """In particular never OTEL_SEMCONV_STABILITY_OPT_IN, a global OTel switch."""
-        monkeypatch.delenv("RHESIS_DISABLE_CONTENT_CAPTURE", raising=False)
-        monkeypatch.delenv("ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS", raising=False)
-        monkeypatch.delenv("OTEL_SEMCONV_STABILITY_OPT_IN", raising=False)
+    @pytest.fixture
+    def capture_on_env(self, monkeypatch):
+        for name in (
+            "RHESIS_DISABLE_CONTENT_CAPTURE",
+            "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS",
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT",
+            "OTEL_SEMCONV_STABILITY_OPT_IN",
+            "ADK_TELEMETRY_IGNORE_RUN_CONFIG",
+        ):
+            monkeypatch.delenv(name, raising=False)
+
+    def test_enabled_capture_under_v1_touches_no_env_vars(
+        self, monkeypatch, session_provider, capture_on_env
+    ):
+        """ADK's legacy span knob already defaults to on."""
+        monkeypatch.setenv("ADK_TELEMETRY_SCHEMA_VERSION_OPT_IN", "1")
         import os
 
         integ = GoogleADKIntegration()
         assert integ.enable() is True
         try:
             assert "ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS" not in os.environ
+            assert "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT" not in os.environ
             assert "OTEL_SEMCONV_STABILITY_OPT_IN" not in os.environ
             assert "ADK_TELEMETRY_IGNORE_RUN_CONFIG" not in os.environ
         finally:
             integ.disable()
 
+    def test_enabled_capture_under_v2_turns_on_span_content(
+        self, monkeypatch, session_provider, capture_on_env
+    ):
+        """v2 content defaults off; we set the OTel knob, never the semconv opt-in."""
+        monkeypatch.setenv("ADK_TELEMETRY_SCHEMA_VERSION_OPT_IN", "2")
+        import os
+
+        integ = GoogleADKIntegration()
+        assert integ.enable() is True
+        try:
+            assert os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] == "SPAN_ONLY"
+            assert "OTEL_SEMCONV_STABILITY_OPT_IN" not in os.environ
+            assert "ADK_TELEMETRY_IGNORE_RUN_CONFIG" not in os.environ
+        finally:
+            integ.disable()
+        assert "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT" not in os.environ
+
+    def test_enabled_capture_under_v2_respects_the_apps_own_setting(
+        self, monkeypatch, session_provider, capture_on_env
+    ):
+        monkeypatch.setenv("ADK_TELEMETRY_SCHEMA_VERSION_OPT_IN", "2")
+        monkeypatch.setenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "EVENT_ONLY")
+        import os
+
+        integ = GoogleADKIntegration()
+        assert integ.enable() is True
+        try:
+            assert os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] == "EVENT_ONLY"
+        finally:
+            integ.disable()
+        assert os.environ["OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"] == "EVENT_ONLY"
+
 
 class TestExperimentalSemconv:
-    """ADK emits the standard ``gen_ai.*.messages`` only under an opt-in."""
+    """Under schema v1, ADK emits the standard ``gen_ai.*.messages`` only under an opt-in."""
 
     @pytest.mark.asyncio
     async def test_semconv_messages_survive_the_dropped_model_span(
         self, monkeypatch, session_provider
     ):
+        monkeypatch.setenv("ADK_TELEMETRY_SCHEMA_VERSION_OPT_IN", "1")
         monkeypatch.setenv("OTEL_SEMCONV_STABILITY_OPT_IN", "gen_ai_latest_experimental")
         monkeypatch.setenv("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "SPAN_ONLY")
         # Legacy blobs off, so the content can *only* come from the semconv

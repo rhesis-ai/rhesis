@@ -8,17 +8,16 @@ the same exporter-wrapper architecture as the MAF and Pydantic AI integrations
 
 Three things make ADK harder than those two.
 
-**Two spans per model call.** ADK wraps every model call in ``call_llm`` and then
-opens ``generate_content {model}`` inside it. They describe the same call, so
-only one may become ``ai.llm.invoke``. We keep ``call_llm`` -- it is the only one
-carrying prompt/completion content with default settings, and it has the fuller
-token breakdown -- and drop ``generate_content``. Because ``generate_content`` is
-the structural *parent* of the ``execute_tool`` spans (ADK opens the tool spans
-while the model-call async generator is still suspended inside its span),
-dropping it would orphan every tool span, so surviving children are re-pointed at
-the nearest ancestor we kept. ``generate_content`` is promoted to
-``ai.llm.invoke`` itself when no ``call_llm`` ancestor exists, which covers both
-a future ADK that finishes removing ``call_llm`` and ADK's deprecated
+**Two spans per model call, under schema v1.** ADK's legacy schema wraps every
+model call in ``call_llm`` and then opens ``generate_content {model}`` inside it.
+They describe the same call, so only one may become ``ai.llm.invoke``. We keep
+``call_llm`` -- under v1 it is the only one carrying prompt/completion content
+with default settings, and it has the fuller token breakdown -- and drop
+``generate_content``. ADK before 2.14 opens the ``execute_tool`` spans inside
+``generate_content``, so dropping it would orphan them; surviving children are
+re-pointed at the nearest ancestor we kept. Schema v2, ADK's default since 2.14,
+has no ``call_llm``: ``generate_content`` is then the only record of the call and
+is promoted to ``ai.llm.invoke`` itself, as it is on ADK's deprecated
 ``use_generate_content_span`` path.
 
 **Two multi-agent mechanisms, with different span shapes.** ``transfer_to_agent``
@@ -518,7 +517,10 @@ def translate_span(
     if extra_attributes:
         new_attrs.update(extra_attributes)
 
-    new_events = list(translate_events(span.events or (), raw_attrs))
+    # No attributes: the shared helper would synthesize tool I/O from
+    # ``gen_ai.tool.call.*`` without checking content capture. The ADK synthesis
+    # below covers both schemas and is gated.
+    new_events = list(translate_events(span.events or (), {}))
     if capture_content is None:
         capture_content = content_capture_enabled()
     if capture_content:
@@ -551,7 +553,8 @@ def translate_handoff_span(
     new_attrs = mapping.translate_handoff_attributes(
         raw_attrs, from_agent=from_agent, to_agent=to_agent
     )
-    new_events = list(translate_events(span.events or (), raw_attrs))
+    # No attributes, so the transfer's own arguments are not re-emitted as tool events.
+    new_events = list(translate_events(span.events or (), {}))
     return TranslatedSpan(
         span,
         AIOperationType.AGENT_HANDOFF.value,
@@ -1004,8 +1007,8 @@ class GoogleADKLLMDedupSpanProcessor(SpanProcessor):
         """Feed a finished model span into the per-trace conversation registry."""
         original_name = span.name or ""
         is_model = mapping.is_model_span(original_name)
-        if is_model:
-            # The inner model span is usually dropped, so salvage the standard
+        if is_model and _span_index.has_call_llm_ancestor(self._span_id(span)):
+            # The duplicate inner model span is dropped, so salvage the standard
             # GenAI message attributes for its surviving ``call_llm`` parent.
             _span_index.stash_semconv_messages(span)
         if not (mapping.is_call_llm_span(original_name) or is_model):

@@ -72,6 +72,7 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.uv]
 constraint-dependencies = [
+    "opentelemetry-api>=1.45.2",
     "certifi>=2026.10.19",
     "pyjwt>=2.15.0",
     "urllib3>=2.8.0",

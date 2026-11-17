@@ -92,23 +92,32 @@ _CONTENT_OFF_ENV: dict[str, str] = {
     _ADK_IGNORE_RUN_CONFIG_ENV: "1",
 }
 
-# ADK's telemetry schema-version knob. We only read it, to log which shape we
-# are translating; both versions go through the same span-name table.
+# Under schema v2 ADK puts content on its spans only in the OTel-spec span modes
+# of this knob, which defaults to no content.
+_SPAN_CONTENT_MODE = "SPAN_ONLY"
+
+# ADK's telemetry schema-version knob. Both versions go through the same
+# span-name table; the version only decides which content knob ADK obeys.
 _ADK_SCHEMA_VERSION_ENV = "ADK_TELEMETRY_SCHEMA_VERSION_OPT_IN"
-_AGENT_ENGINE_ID_ENV = "GOOGLE_CLOUD_AGENT_ENGINE_ID"
+_LEGACY_SCHEMA_OPT_INS = ("1", "otel_semconv_1_36")
+_SEMCONV_ALIGNED_SCHEMA = 2
 
 
 def _resolved_schema_version() -> int:
-    """Mirror ADK's own ``resolve_schema_version()`` for logging purposes.
+    """Return the ADK telemetry schema version the installed ADK will emit.
 
-    Reimplemented rather than imported so this stays a pure read that works even
-    if ADK moves the private module. Precedence: the opt-in env var, then 2 on
-    Vertex Agent Engine, then 1.
+    Asks ADK, because the default moved under us: v1 until 2.14, v2 since. The
+    fallback mirrors the 2.14 rule in case ADK moves the private module.
     """
-    opt_in = os.environ.get(_ADK_SCHEMA_VERSION_ENV, "").strip()
-    if opt_in in ("1", "2"):
-        return int(opt_in)
-    return 2 if os.environ.get(_AGENT_ENGINE_ID_ENV) else 1
+    try:
+        from google.adk.telemetry._schema_version import (  # type: ignore
+            resolve_schema_version,
+        )
+
+        return int(resolve_schema_version())
+    except Exception:  # noqa: BLE001 - a version probe must never break enable()
+        opt_in = os.environ.get(_ADK_SCHEMA_VERSION_ENV, "").strip()
+        return 1 if opt_in in _LEGACY_SCHEMA_OPT_INS else _SEMCONV_ALIGNED_SCHEMA
 
 
 class GoogleADKIntegration(BaseIntegration):
@@ -180,10 +189,11 @@ class GoogleADKIntegration(BaseIntegration):
            :class:`GoogleADKTranslatingExporter`. This is the whole integration:
            ADK is already emitting spans, and if we cannot translate them the
            backend rejects them, so a failure here fails the enable.
-        4. Configure ADK's content-capture knobs. Nothing is touched in the
-           default (capture-on) case -- ADK already records prompts and tool I/O
-           into its span attributes. When ``RHESIS_DISABLE_CONTENT_CAPTURE`` is
-           truthy, all three knobs are switched off.
+        4. Configure ADK's content-capture knobs. With capture on, schema v1
+           needs nothing and schema v2 gets
+           ``OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT=SPAN_ONLY`` if the
+           app left it unset. When ``RHESIS_DISABLE_CONTENT_CAPTURE`` is truthy,
+           all three knobs are switched off.
         5. Register the span processor that indexes span structure (for handoff
            edges and for re-pointing children of dropped spans), captures
            per-trace conversation input/output, and toggles the LLM-observation
@@ -277,14 +287,18 @@ class GoogleADKIntegration(BaseIntegration):
     def _configure_content_capture(self, capture_content: bool) -> None:
         """Align ADK's three content-capture knobs with the Rhesis setting.
 
-        With capture on (the default) we set **nothing**. ADK's
-        ``ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS`` already defaults to on, which is
-        the only source the translator needs. In particular we never set
-        ``OTEL_SEMCONV_STABILITY_OPT_IN``: it is a global OpenTelemetry switch
-        that changes the attribute shape emitted by unrelated instrumentation
-        libraries in the same process, and going behind their back would be a
-        nasty surprise. The translator reads the experimental attributes when an
-        app has opted in itself.
+        With capture on (the default) the knob ADK obeys depends on its schema.
+        Under v1, ``ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS`` already defaults to on,
+        so we set nothing. Under v2 (ADK's default since 2.14) content follows
+        ``OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT``, which defaults to
+        no content, so we set it to ``SPAN_ONLY`` -- but only when the app left it
+        unset. That knob is shared with every OTel GenAI instrumentation in the
+        process, so they record content on their spans too. We still never set
+        ``OTEL_SEMCONV_STABILITY_OPT_IN``, which reshapes other libraries' spans.
+
+        ADK reads the env when it builds a ``TelemetryConfig``. A config the app
+        built before ``enable()`` keeps the old answer, as does any per-request
+        ``RunConfig.telemetry`` -- both are the app's own choice.
 
         With capture off we force all three knobs, including the admin lock, and
         log anything we overrode. The privacy opt-out deliberately wins over
@@ -292,6 +306,21 @@ class GoogleADKIntegration(BaseIntegration):
         prompts" request is to over-apply it.
         """
         if capture_content:
+            if (
+                _resolved_schema_version() >= _SEMCONV_ALIGNED_SCHEMA
+                and not os.environ.get(_OTEL_CAPTURE_CONTENT_ENV, "").strip()
+            ):
+                self._patched_env.setdefault(
+                    _OTEL_CAPTURE_CONTENT_ENV, os.environ.get(_OTEL_CAPTURE_CONTENT_ENV)
+                )
+                os.environ[_OTEL_CAPTURE_CONTENT_ENV] = _SPAN_CONTENT_MODE
+                logger.info(
+                    "Set %s=%s so Google ADK records prompts and tool I/O on its spans; "
+                    "set %s to opt out",
+                    _OTEL_CAPTURE_CONTENT_ENV,
+                    _SPAN_CONTENT_MODE,
+                    DISABLE_CONTENT_CAPTURE_ENV,
+                )
             return
 
         for name, value in _CONTENT_OFF_ENV.items():

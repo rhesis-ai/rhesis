@@ -97,21 +97,21 @@ Once enabled, ADK operations are captured automatically and mapped onto the Rhes
 | ADK span | Rhesis span name |
 |---|---|
 | `invoke_agent {name}` | `ai.agent.invoke` |
-| `call_llm` | `ai.llm.invoke` |
+| `generate_content {model}` | `ai.llm.invoke` (schema v1: dropped as a duplicate, see below) |
+| `call_llm` (schema v1 only) | `ai.llm.invoke` |
 | `execute_tool {tool}` | `ai.tool.invoke` |
 | `execute_tool transfer_to_agent` | `ai.agent.handoff` |
+| `invoke_workflow {name}` (schema v2 run root) | `function.google_adk.workflow.{name}` |
 | `invocation` (schema v1 run root) | `function.google_adk.invocation` |
-| `invoke_workflow {name}` | `function.google_adk.workflow.{name}` |
 | `invoke_node {name}` | `function.google_adk.node.{name}` |
-| `generate_content {model}` | dropped as a duplicate — see below |
 
 Spans that don't match a known name fall back to `function.google_adk.<name>` so they always pass backend validation, with the original name preserved on the `gen_ai.original_span_name` attribute. ADK's workflow spans cannot use an `ai.*` name because the Rhesis validator reserves `workflow` as a forbidden `ai.*` domain.
 
-### Two spans per model call
+### Two spans per model call under schema v1
 
-ADK wraps every model call in a `call_llm` span and then opens `generate_content {model}` inside it. Both describe the same call, so only one may become `ai.llm.invoke` — otherwise every model call would appear twice with double-counted tokens.
+Under [schema v1](#telemetry-schema-versions), ADK wraps every model call in a `call_llm` span and then opens `generate_content {model}` inside it. Both describe the same call, so only one may become `ai.llm.invoke` — otherwise every model call would appear twice with double-counted tokens.
 
-Rhesis keeps `call_llm` (the only one carrying prompts and completions with default settings, and the one with the fuller token breakdown) and drops the inner duplicate. Because ADK parents the `execute_tool` spans on that inner span, the tool spans are re-pointed at `call_llm` so nothing orphans:
+Rhesis keeps `call_llm` (under v1 the only one carrying prompts and completions with default settings, and the one with the fuller token breakdown) and drops the inner duplicate. Where ADK parents the `execute_tool` spans on that inner span, the tool spans are re-pointed at `call_llm` so nothing orphans. Schema v2 has no `call_llm`, so `generate_content` is the model call and nothing is dropped. Either way the trace has this shape:
 
 <Mermaid chart={`flowchart TD
     A["ai.agent.invoke\\n(support_agent)"]
@@ -173,7 +173,7 @@ This applies only to a **standalone ADK run** — a terminal chat, a script, any
 
 ### When the Reply Is Not the Model's Last Message
 
-The turn's recorded reply is extracted from ADK's model spans, which is right when your agent answers with model text. It cannot work when the reply comes from somewhere else — a terminal tool's output, a template, a branch in your own code. None of that reaches an `llm_response` attribute, and ADK's run span has already ended by the time your code holds the reply, so those turns show an empty reply in the Conversation tab.
+The turn's recorded reply is extracted from ADK's model spans, which is right when your agent answers with model text. It cannot work when the reply comes from somewhere else — a terminal tool's output, a template, a branch in your own code. None of that reaches ADK's model spans, and ADK's run span has already ended by the time your code holds the reply, so those turns show an empty reply in the Conversation tab.
 
 If your agent answers that way, own the turn instead — see [Owning the Turn](/docs/tracing/conversation-tracing#standalone-apps-owning-the-turn):
 
@@ -188,16 +188,27 @@ with conversation_turn(conversation_id, input=message) as turn:
 The ADK run then nests under that span, which becomes the turn root and carries the reply your user actually saw. This is what `agents/reg-advisor/` does, because its reply can come from a terminal tool or a refusal composed in Python.
 
 <Callout type="info">
-  A step that ADK blocks on its own `max_llm_calls` budget still opens a `call_llm` span, so it still becomes an `ai.llm.invoke` — with no prompt or completion and near-zero duration. Blocked steps therefore count towards the model calls you see on a trace.
+  Under schema v1, a step that ADK blocks on its own `max_llm_calls` budget still opens a `call_llm` span, so it still becomes an `ai.llm.invoke` — with no prompt or completion and near-zero duration. Blocked steps therefore count towards the model calls you see on a trace.
 </Callout>
 
 ## Telemetry Schema Versions
 
-ADK supports two telemetry formats, selected with `ADK_TELEMETRY_SCHEMA_VERSION_OPT_IN` (`1` or `2`; the default is `2` on Vertex Agent Engine and `1` elsewhere). Both are supported, and Rhesis does not force either — the only difference is which span is the run root (`invocation` in v1, `invoke_workflow {entrypoint}` in v2) and the integration decides that structurally rather than by name.
+ADK has two telemetry formats, selected with `ADK_TELEMETRY_SCHEMA_VERSION_OPT_IN` (`1` or `2`). The default is `2`; ADK releases before 2.14 default to `1` outside Vertex Agent Engine. Rhesis supports both and does not force either.
+
+| | Schema v1 | Schema v2 |
+|---|---|---|
+| Run root | `invocation` | `invoke_workflow {entrypoint}` |
+| Model call | `call_llm` wrapping `generate_content {model}` | `generate_content {model}` |
+| Message content | ADK's own `gcp.vertex.agent.*` attributes | standard `gen_ai.*` attributes |
+| Content switch | `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS`, on by default | `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT`, off by default |
+
+The integration finds the run root by its position (the top of the trace), not by its name.
 
 ## Content Capture and Privacy
 
-By default, the integration captures message content (prompts, completions, tool arguments and results) so traces show what each agent actually sent and received. It reads this from ADK's own span attributes, which record it out of the box.
+By default, the integration captures message content (prompts, completions, tool arguments and results) so traces show what each agent actually sent and received. It reads this from ADK's own span attributes.
+
+Under schema v2, ADK records that content only when `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` is `SPAN_ONLY` or `SPAN_AND_EVENT`. If your app leaves it unset, the integration sets it to `SPAN_ONLY`. The variable is shared by every OpenTelemetry GenAI instrumentation in the process, so they record content on their spans too. A value your app sets itself is left alone.
 
 To omit message content — for example in production or regulated environments — set `RHESIS_DISABLE_CONTENT_CAPTURE` before initializing:
 
@@ -253,9 +264,9 @@ async def chat(input: str, conversation_id: str = None) -> dict:
 
 **Spans are missing from the trace.** ADK spans nest under whichever span is active when the run starts. If you are using the synchronous `Runner.run`, switch to `run_async` (see the warning above).
 
-**No prompts or completions.** Check whether `RHESIS_DISABLE_CONTENT_CAPTURE` is set, or whether the app sets `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false` itself.
+**No prompts or completions.** Check whether `RHESIS_DISABLE_CONTENT_CAPTURE` is set. Otherwise check the content switch for your [schema version](#telemetry-schema-versions): under v2, whether the app sets `OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT` to `NO_CONTENT`, `EVENT_ONLY` or `true` (which ADK reads as `EVENT_ONLY`), or passes its own `RunConfig.telemetry`; under v1, whether it sets `ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false`.
 
-**`google-adk[otel-gcp]` is installed.** That extra brings `opentelemetry-instrumentation-google-genai`, which makes ADK hand the model span to a different instrumentation scope. Traces stay complete (`call_llm` is still ADK's own and still becomes `ai.llm.invoke`), but that library's spans are not translated. The extra is not needed for Rhesis tracing.
+**`google-adk[otel-gcp]` is installed.** That extra brings `opentelemetry-instrumentation-google-genai`. When it is active, ADK hands Gemini model spans to that library, whose spans are not translated. Under schema v1 traces stay complete, because `call_llm` is still ADK's own and still becomes `ai.llm.invoke`. Under schema v2 there is no `call_llm`, so Gemini model calls are missing from the trace. The extra is not needed for Rhesis tracing.
 
 ## Worked Example: Reg-Advisor
 
