@@ -216,6 +216,8 @@ def _member_permissions(cap_set: set[str]) -> set[str]:
     # Test set CSV export: Members+ only; Viewers may browse test sets read-only.
     if "test_set:export" in cap_set:
         perms.add("test_set:export")
+    # Reports: whoever writes one may publish it and print it; Viewers only read.
+    perms |= {"report:publish", "report:export"} & cap_set
     return perms
 
 
@@ -238,8 +240,8 @@ def permissions_for_built_in_role(role_name: str, capabilities: list[str]) -> se
       and Member do not nest.
     - **Member** (level 60): Viewer plus :create/:update/:delete and the special
       project actions (:execute, :generate, :import, :react) on every
-      project-scoped resource except project:delete, plus their own API tokens
-      (token:create/read/update/delete).
+      project-scoped resource except project:delete, plus report:publish,
+      report:export and their own API tokens (token:create/read/update/delete).
     - **Viewer** (level 40): every :read except role:read, token:read and
       audit_log:read (covers organization:read and member:read for org
       context).
