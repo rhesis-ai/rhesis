@@ -565,6 +565,25 @@ embedding = embedder.generate("Hello world", dimensions=512)
 
 </CodeBlock>
 
+### Bedrock embeddings
+
+Amazon Bedrock embedding models (e.g. Titan Text Embeddings V2) work with the same interface.
+Authenticate with a Bedrock API key or the `AWS_BEARER_TOKEN_BEDROCK` environment variable.
+
+<CodeBlock filename="bedrock_embedder.py" language="python">
+{`from rhesis.sdk.models import get_model
+
+embedder = get_model(
+    "bedrock/amazon.titan-embed-text-v2:0",
+    api_key="your-bedrock-api-key",
+    dimensions=1024,
+)
+embedding = embedder.generate("What is machine learning?")`}
+
+</CodeBlock>
+
+Titan V2 supports dimensions 256, 512, and 1024. Set `AWS_REGION_NAME` to target a specific region
+(default: `us-west-2`).
 
 <Callout type="default">
   See the [Model entity documentation](/sdk/entities/models) for more details on managing model configurations.

@@ -176,6 +176,7 @@ Provider keys, read at runtime when a `DEFAULT_*_MODEL` targets that provider:
 | `OPENAI_API_KEY` | OpenAI |
 | `GEMINI_API_KEY`, `GOOGLE_API_KEY` | Google Gemini |
 | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT_NAME`, `AZURE_OPENAI_API_VERSION` | Azure OpenAI |
+| `AWS_BEARER_TOKEN_BEDROCK`, `AWS_REGION_NAME` | Amazon Bedrock |
 
 Toxicity detection ([`PerspectiveToxicity`](/sdk/metrics/single-turn)) is scored by the evaluation model
 unless a Google Cloud Natural Language key is set:
@@ -186,8 +187,8 @@ unless a Google Cloud Natural Language key is set:
 | `GOOGLE_MODERATION_ENDPOINT` | Natural Language endpoint, which sets where the text is processed | `eu-language.googleapis.com` |
 
 Supported model-provider prefixes: `openai`, `gemini`, `azure`, `anthropic`, `groq`, `mistral`,
-`together_ai`, `perplexity`, `replicate`, `openrouter`, `cohere`, `ollama`. Supported embedding prefixes:
-`rhesis`, `openai`, `gemini`, `vertex_ai`.
+`together_ai`, `perplexity`, `replicate`, `openrouter`, `cohere`, `ollama`, `bedrock`. Supported embedding
+prefixes: `rhesis`, `openai`, `gemini`, `vertex_ai`, `bedrock`.
 
 ## Costs
 

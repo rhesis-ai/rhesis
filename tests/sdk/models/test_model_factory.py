@@ -486,9 +486,24 @@ class TestAdditionalProviders:
         )
         assert result == mock_instance
 
-    def test_bedrock_no_embedding_support(self):
-        with pytest.raises(ValueError):
-            get_model("bedrock", "amazon.titan-embed-text-v2:0", model_type="embedding")
+    @patch("rhesis.sdk.models.providers.bedrock.BedrockEmbedder")
+    def test_bedrock_embedding_creation(self, mock_cls):
+        mock_instance = Mock(spec=BaseEmbedder)
+        mock_cls.return_value = mock_instance
+
+        result = get_model(
+            "bedrock/amazon.titan-embed-text-v2:0",
+            model_type="embedding",
+            api_key="bedrock-key",
+            dimensions=1024,
+        )
+
+        mock_cls.assert_called_once_with(
+            model_name="amazon.titan-embed-text-v2:0",
+            api_key="bedrock-key",
+            dimensions=1024,
+        )
+        assert result == mock_instance
 
 
 class TestModelTypeClassification:
