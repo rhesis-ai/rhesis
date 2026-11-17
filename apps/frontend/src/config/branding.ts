@@ -142,7 +142,14 @@ export function normalizeFaviconUrl(
 
   if (parsed.protocol !== 'https:' && parsed.protocol !== 'data:') {
     console.warn(
-      `[branding] Ignoring ${source} "${trimmed}": only https:// URLs, data: URIs and root-relative paths are allowed.`
+      `[branding] Ignoring ${source} "${trimmed}": only https:// URLs, data:image/ URIs and root-relative paths are allowed.`
+    );
+    return DEFAULT_FAVICON_URL;
+  }
+
+  if (parsed.protocol === 'data:' && !trimmed.startsWith('data:image/')) {
+    console.warn(
+      `[branding] Ignoring ${source} "${trimmed}": only data:image/* URIs are accepted.`
     );
     return DEFAULT_FAVICON_URL;
   }

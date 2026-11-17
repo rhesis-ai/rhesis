@@ -86,6 +86,7 @@ describe('normalizeFaviconUrl', () => {
       'protocol-relative resolves to an external host',
     ],
     ['/\\example.com/favicon.png', 'browsers normalise /\\ to //'],
+    ['data:text/html,<h1>hi</h1>', 'non-image data URI'],
   ])('rejects %s (%s)', url => {
     expect(normalizeFaviconUrl(url)).toBe(DEFAULT_FAVICON_URL);
     expect(warn).toHaveBeenCalled();
