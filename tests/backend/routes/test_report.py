@@ -90,6 +90,18 @@ class _Builder:
             )
         )
 
+    def tag(self, run, name: str) -> None:
+        tag = self._add(models.Tag(name=name, organization_id=self.org_id, user_id=self.user_id))
+        self._add(
+            models.TaggedItem(
+                tag_id=tag.id,
+                entity_id=run.id,
+                entity_type="TestRun",
+                organization_id=self.org_id,
+                user_id=self.user_id,
+            )
+        )
+
     def commit(self):
         self.db.commit()
 
@@ -204,6 +216,8 @@ class TestReportDraft:
         metrics = _detail(authenticated_client, report["id"])["metrics"]
         assert metrics["result_rule"] == "all"
         assert (metrics["totals"]["results"], metrics["totals"]["pass_rate"]) == (4, 75.0)
+        # Each run keeps its own pass rate, whatever the rule.
+        assert sorted(r["pass_rate"] for r in metrics["runs"]) == [0.0, 100.0, 100.0, 100.0]
         assert metrics["totals"]["inconsistent"] == 1
 
         # Switching the draft to "worst" makes the one failure decide.
@@ -225,6 +239,9 @@ class TestReportDraft:
         metrics = _detail(authenticated_client, report["id"])["metrics"]
         assert metrics["versions_differ"] is True
         assert {r["version_info"]["prompt"] for r in metrics["runs"]} == {"v2.3", "v2.4"}
+        # Each run carries its status and test set for the page and the PDF.
+        assert all(r["status"] for r in metrics["runs"])
+        assert all("test_set" in r for r in metrics["runs"])
 
     def test_runs_of_another_endpoint_are_refused(
         self, authenticated_client, build, test_db, db_endpoint, db_test_configuration
@@ -271,6 +288,202 @@ class TestReportDraft:
         assert body["summary"] == "Better overall."
         assert body["recommendation"] == "ready_with_risks"
         assert body["user_id"] == report["user_id"]
+
+
+@pytest.mark.integration
+class TestReportFindings:
+    """What a decision needs beyond the totals: caveats, key failures, comparison."""
+
+    def test_warnings_flag_untested_low_sample_and_changed_verdicts(
+        self, authenticated_client, build, test_db, db_endpoint
+    ):
+        tested = build.requirement("Tested")
+        untested = build.requirement("Untested")
+        run = build.run()
+        result = build.result(run, build.test(tested), "pass")
+        result.original_status_id = build.status_id  # a reviewer overrode the judge
+        build.commit()
+        report = _create(
+            authenticated_client, db_endpoint.id, runs=[run], requirements=[tested, untested]
+        )
+
+        metrics = _detail(authenticated_client, report["id"])["metrics"]
+
+        kinds = {w["kind"] for w in metrics["warnings"]}
+        assert {"untested", "low_sample", "verdicts_changed"} <= kinds
+        assert _rows_by_name({"metrics": metrics})[tested.name]["low_sample"] is True
+
+    def test_metrics_by_requirement_with_their_kind(self, authenticated_client, build, db_endpoint):
+        requirement = build.requirement("Judged")
+        run = build.run()
+        for verdict, ok in (("pass", True), ("fail", False)):
+            result = build.result(run, build.test(requirement), verdict)
+            result.test_metrics = {
+                "metrics": {
+                    "Tone judge": {"is_successful": ok},
+                    "Format check": {"is_successful": True},
+                }
+            }
+        build.commit()
+        report = _create(
+            authenticated_client, db_endpoint.id, runs=[run], requirements=[requirement]
+        )
+
+        groups = _detail(authenticated_client, report["id"])["metrics"]["metric_results"]
+
+        assert [g["name"] for g in groups] == [requirement.name]
+        by_name = {m["name"]: m for m in groups[0]["metrics"]}
+        assert (by_name["Tone judge"]["passed"], by_name["Tone judge"]["failed"]) == (1, 1)
+        assert by_name["Format check"]["pass_rate"] == 100.0
+        # No metric records for these names: they default to LLM judges.
+        assert {m["kind"] for m in groups[0]["metrics"]} == {"llm"}
+        # Weakest metric first.
+        assert groups[0]["metrics"][0]["name"] == "Tone judge"
+
+    def test_comparison_with_the_previous_published_report(
+        self, authenticated_client, build, db_endpoint
+    ):
+        requirement = build.requirement("Compared")
+        steady, regressed = build.test(requirement), build.test(requirement)
+        first = build.run()
+        build.result(first, steady, "pass")
+        build.result(first, regressed, "pass")
+        build.commit()
+        previous = _create(
+            authenticated_client, db_endpoint.id, runs=[first], requirements=[requirement]
+        )
+        authenticated_client.post(f"/reports/{previous['id']}/publish")
+
+        second = build.run()
+        build.result(second, steady, "pass")
+        build.result(second, regressed, "fail")
+        build.commit()
+        report = _create(
+            authenticated_client,
+            db_endpoint.id,
+            runs=[second],
+            requirements=[requirement],
+            baseline_report_id=previous["id"],
+        )
+
+        metrics = _detail(authenticated_client, report["id"])["metrics"]
+        comparison = metrics["comparison"]
+        assert comparison["baseline"]["id"] == previous["id"]
+        assert comparison["pass_rate_delta"] == -50.0
+        assert (comparison["newly_failing"], comparison["fixed"]) == (1, 0)
+        assert comparison["newly_failing_requirements"] == [requirement.name]
+        assert _rows_by_name({"metrics": metrics})[requirement.name]["pass_rate_delta"] == -50.0
+
+    def test_no_comparison_unless_one_is_picked(self, authenticated_client, build, db_endpoint):
+        run = build.run()
+        build.result(run, build.test())
+        build.commit()
+        earlier = _create(authenticated_client, db_endpoint.id, runs=[run])
+        authenticated_client.post(f"/reports/{earlier['id']}/publish")
+
+        report = _create(authenticated_client, db_endpoint.id, runs=[run])
+
+        metrics = _detail(authenticated_client, report["id"])["metrics"]
+        assert metrics["comparison"] is None
+        assert all(row["pass_rate_delta"] is None for row in metrics["requirements"])
+
+    def test_a_draft_cannot_be_the_comparison(self, authenticated_client, db_endpoint):
+        draft = _create(authenticated_client, db_endpoint.id)
+        response = authenticated_client.post(
+            "/reports/",
+            json={
+                "title": "Next",
+                "endpoint_id": str(db_endpoint.id),
+                "baseline_report_id": draft["id"],
+            },
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_copy_of_a_published_report_compares_with_it(
+        self, authenticated_client, build, db_endpoint
+    ):
+        run = build.run()
+        build.result(run, build.test())
+        build.commit()
+        report = _create(authenticated_client, db_endpoint.id, runs=[run])
+        authenticated_client.post(f"/reports/{report['id']}/publish")
+
+        copy = authenticated_client.post(f"/reports/{report['id']}/copy").json()
+
+        assert copy["baseline_report_id"] == report["id"]
+
+
+@pytest.mark.integration
+class TestRunsByTag:
+    def test_tagged_runs_join_a_draft_and_freeze_at_publish(
+        self, authenticated_client, build, db_endpoint
+    ):
+        tagged, untagged, later = build.run(), build.run(), build.run()
+        for run in (tagged, untagged, later):
+            build.result(run, build.test())
+        build.tag(tagged, "2.5")
+        build.commit()
+        report = _create(authenticated_client, db_endpoint.id, run_tag="2.5")
+
+        detail = _detail(authenticated_client, report["id"])
+        assert detail["tagged_run_ids"] == [str(tagged.id)]
+        assert [r["id"] for r in detail["metrics"]["runs"]] == [str(tagged.id)]
+
+        authenticated_client.post(f"/reports/{report['id']}/publish")
+        build.tag(later, "2.5")  # tagged after publishing: must not join
+        build.commit()
+
+        detail = _detail(authenticated_client, report["id"])
+        assert detail["test_run_ids"] == [str(tagged.id)]
+        assert detail["tagged_run_ids"] == []
+        assert len(detail["metrics"]["runs"]) == 1
+
+    def test_tag_and_picked_runs_are_refused(self, authenticated_client, build, db_endpoint):
+        run = build.run()
+        build.commit()
+        response = authenticated_client.post(
+            "/reports/",
+            json={
+                "title": "Both",
+                "endpoint_id": str(db_endpoint.id),
+                "test_run_ids": [str(run.id)],
+                "requirement_ids": [],
+                "run_tag": "2.5",
+            },
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, response.text
+
+    def test_switching_to_a_tag_drops_picked_runs(self, authenticated_client, build, db_endpoint):
+        picked, tagged = build.run(), build.run()
+        for run in (picked, tagged):
+            build.result(run, build.test())
+        build.tag(tagged, "2.5")
+        build.commit()
+        report = _create(authenticated_client, db_endpoint.id, runs=[picked])
+
+        put = authenticated_client.put(f"/reports/{report['id']}", json={"run_tag": "2.5"})
+        assert put.status_code == status.HTTP_200_OK, put.text
+        detail = _detail(authenticated_client, report["id"])
+        assert detail["test_run_ids"] == []
+        assert [r["id"] for r in detail["metrics"]["runs"]] == [str(tagged.id)]
+
+        # And back: picking runs by hand needs the tag cleared in the same call.
+        body = {"test_run_ids": [str(picked.id)]}
+        refused = authenticated_client.put(f"/reports/{report['id']}", json=body)
+        assert refused.status_code == status.HTTP_400_BAD_REQUEST
+        put = authenticated_client.put(f"/reports/{report['id']}", json={**body, "run_tag": None})
+        assert put.status_code == status.HTTP_200_OK, put.text
+        assert _detail(authenticated_client, report["id"])["tagged_run_ids"] == []
+
+    def test_a_tag_alone_is_enough(self, authenticated_client, build, db_endpoint):
+        run = build.run()
+        build.result(run, build.test(), "fail")
+        build.tag(run, "Release-2.5")
+        build.commit()
+        report = _create(authenticated_client, db_endpoint.id, run_tag="release-2.5")
+
+        totals = _detail(authenticated_client, report["id"])["metrics"]["totals"]
+        assert (totals["results"], totals["failed"]) == (1, 1)
 
 
 @pytest.mark.integration
@@ -497,6 +710,27 @@ class TestReportSummaryDraft:
         assert requirement.name in prompt
         assert "1 failed" in prompt
         assert _detail(authenticated_client, report["id"])["summary"] is None
+
+    def test_plain_report_gets_no_recommendation(self, authenticated_client, db_endpoint):
+        report = _create(authenticated_client, db_endpoint.id, is_release=False)
+        model = MagicMock()
+        model.generate.return_value = {"summary": "Fine.", "recommendation": "ready"}
+
+        with patch(SUMMARY_MODEL, return_value=model):
+            response = authenticated_client.post(f"/reports/{report['id']}/summary")
+
+        assert response.json() == {"summary": "Fine.", "recommendation": None}
+        prompt = model.generate.call_args.args[0]
+        assert "ship" not in prompt
+        assert "recommendation" not in prompt
+
+    def test_turning_release_off_drops_the_recommendation(self, authenticated_client, db_endpoint):
+        report = _create(authenticated_client, db_endpoint.id, recommendation="ready")
+        assert report["is_release"] is True
+
+        put = authenticated_client.put(f"/reports/{report['id']}", json={"is_release": False})
+        assert put.status_code == status.HTTP_200_OK, put.text
+        assert (put.json()["is_release"], put.json()["recommendation"]) == (False, None)
 
     def test_model_failure_is_a_502(self, authenticated_client, db_endpoint):
         report = _create(authenticated_client, db_endpoint.id)

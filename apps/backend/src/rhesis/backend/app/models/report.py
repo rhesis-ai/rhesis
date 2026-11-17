@@ -72,6 +72,13 @@ class Report(Base, ActivityTrackableMixin, ProjectMixin, OrganizationAndUserMixi
     result_rule = Column(
         String, nullable=False, default=RESULT_RULE_LATEST, server_default=RESULT_RULE_LATEST
     )
+    # Off for a plain report across runs (e.g. experiments): no ship recommendation.
+    is_release = Column(Boolean, nullable=False, default=True, server_default="true")
+    # While a draft, runs on the endpoint with this tag join the picked ones;
+    # publish freezes the resolved list into report_test_run.
+    run_tag = Column(String, nullable=True)
+    # The published report this one is compared with; none means no comparison.
+    baseline_report_id = Column(GUID(), ForeignKey("report.id", ondelete="SET NULL"), nullable=True)
     summary = Column(Text, nullable=True)
     recommendation = Column(String, nullable=True)
     published_at = Column(TIMESTAMP(timezone=True), nullable=True)

@@ -16,7 +16,7 @@ from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.services.report import service as report_service
 from rhesis.backend.app.services.report.service import ReportError
 from rhesis.backend.app.services.report.summary import (
-    ReportSummaryDraft,
+    ReportSummaryAnswer,
     SummaryUnavailable,
     draft_summary,
 )
@@ -155,7 +155,7 @@ def copy_report(
 
 @router.post(
     "/{report_id}/summary",
-    response_model=ReportSummaryDraft,
+    response_model=ReportSummaryAnswer,
     **capability(Permission.Report.UPDATE),
 )
 def draft_report_summary(

@@ -1,10 +1,10 @@
 """CRUD operations for reports, their picked runs and requirements, and frozen results."""
 
 import uuid
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from sqlalchemy import delete, func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased, joinedload
 
 from rhesis.backend.app import models, schemas
 from rhesis.backend.app.utils.crud_utils import (
@@ -181,6 +181,12 @@ def get_test_runs(db: Session, test_run_ids: Iterable[uuid.UUID]) -> List[models
         return []
     return (
         db.query(models.TestRun)
+        .options(
+            joinedload(models.TestRun.status),
+            joinedload(models.TestRun.test_configuration).joinedload(
+                models.TestConfiguration.test_set
+            ),
+        )
         .filter(models.TestRun.id.in_(ids))
         .order_by(models.TestRun.created_at)
         .all()
@@ -242,3 +248,80 @@ def count_tests_by_requirement(
 def insert_report_results(db: Session, rows: List[dict]) -> None:
     if rows:
         db.bulk_insert_mappings(models.ReportResult, rows)
+
+
+def get_published_report(db: Session, report_id: uuid.UUID) -> Optional[models.Report]:
+    return (
+        db.query(models.Report)
+        .filter(models.Report.id == report_id, models.Report.status == "published")
+        .first()
+    )
+
+
+def get_frozen_results(db: Session, report_id: uuid.UUID) -> list:
+    """A published report's counted results: (test_id, execution, verdict)."""
+    return (
+        db.query(
+            models.ReportResult.test_id,
+            models.ReportResult.execution,
+            models.ReportResult.verdict,
+        )
+        .filter(models.ReportResult.report_id == report_id)
+        .all()
+    )
+
+
+def get_tagged_run_ids(db: Session, endpoint_id: uuid.UUID, tag: str) -> List[uuid.UUID]:
+    """Runs on the endpoint carrying the tag (case-insensitive), oldest first."""
+    rows = (
+        db.query(models.TestRun.id)
+        .join(
+            models.TestConfiguration,
+            models.TestConfiguration.id == models.TestRun.test_configuration_id,
+        )
+        .join(
+            models.TaggedItem,
+            (models.TaggedItem.entity_id == models.TestRun.id)
+            & (models.TaggedItem.entity_type == "TestRun"),
+        )
+        .join(models.Tag, models.Tag.id == models.TaggedItem.tag_id)
+        .filter(
+            models.TestConfiguration.endpoint_id == endpoint_id,
+            func.lower(models.Tag.name) == tag.strip().lower(),
+        )
+        .order_by(models.TestRun.created_at)
+        .all()
+    )
+    # A run tagged twice comes back twice; keep the first, in order.
+    return list(dict.fromkeys(row[0] for row in rows))
+
+
+def get_result_metrics(db: Session, test_result_ids: Iterable[uuid.UUID]) -> Dict[uuid.UUID, Any]:
+    """Each result's stored ``test_metrics`` (the judges' verdicts)."""
+    ids = list(test_result_ids)
+    if not ids:
+        return {}
+    rows = (
+        db.query(models.TestResult.id, models.TestResult.test_metrics)
+        .filter(models.TestResult.id.in_(ids))
+        .all()
+    )
+    return {result_id: metrics for result_id, metrics in rows}
+
+
+def get_metric_kinds(db: Session, names: Iterable[str]) -> Dict[str, tuple]:
+    """``{metric name: (metric type, model provider)}`` for metrics by name."""
+    wanted = list(set(names))
+    if not wanted:
+        return {}
+    metric_type = aliased(models.TypeLookup)
+    provider = aliased(models.TypeLookup)
+    rows = (
+        db.query(models.Metric.name, metric_type.type_value, provider.type_value)
+        .outerjoin(metric_type, metric_type.id == models.Metric.metric_type_id)
+        .outerjoin(models.Model, models.Model.id == models.Metric.model_id)
+        .outerjoin(provider, provider.id == models.Model.provider_type_id)
+        .filter(models.Metric.name.in_(wanted))
+        .all()
+    )
+    return {name: (kind, provider_name) for name, kind, provider_name in rows}

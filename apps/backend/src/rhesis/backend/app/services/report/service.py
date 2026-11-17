@@ -15,14 +15,21 @@ from rhesis.backend.app.auth.capabilities import Permission
 from rhesis.backend.app.crud import report as report_crud
 from rhesis.backend.app.models.report import REPORT_STATUS_PUBLISHED
 from rhesis.backend.app.services.audit_events import record_audit_event
+from rhesis.backend.app.services.report.comparison import compare
 from rhesis.backend.app.services.report.counting import (
     CountedResult,
     RequirementInfo,
     inconsistent_tests,
+    pass_rate,
     pick_counted,
     requirement_tree,
     totals,
 )
+from rhesis.backend.app.services.report.findings import (
+    flag_low_samples,
+    warnings,
+)
+from rhesis.backend.app.services.report.metric_results import metrics_by_requirement
 from rhesis.backend.app.services.report.sections import ReportContext, build_sections
 from rhesis.backend.app.services.report.snapshot import endpoint_snapshot, run_hashes, snapshot_hash
 from rhesis.backend.app.services.version_info import VERSION_INFO_KEY
@@ -48,6 +55,11 @@ def _check_endpoint(db: Session, endpoint_id: uuid.UUID, organization_id: str) -
         raise ReportError("Endpoint not found")
 
 
+def _check_run_source(run_tag: Optional[str], test_run_ids: Sequence[uuid.UUID]) -> None:
+    if run_tag and test_run_ids:
+        raise ReportError("Pick runs by tag or by hand, not both")
+
+
 def _check_runs(db: Session, endpoint_id: uuid.UUID, test_run_ids: Sequence[uuid.UUID]) -> None:
     endpoints = report_crud.get_run_endpoints(db, test_run_ids)
     missing = [str(i) for i in test_run_ids if i not in endpoints]
@@ -63,6 +75,21 @@ def _check_requirements(db: Session, requirement_ids: Sequence[uuid.UUID]) -> No
     missing = [str(i) for i in requirement_ids if i not in found]
     if missing:
         raise ReportError(f"Requirements not found: {', '.join(missing)}")
+
+
+def _check_baseline(
+    db: Session,
+    baseline_id: Optional[uuid.UUID],
+    endpoint_id: uuid.UUID,
+    report_id: Optional[uuid.UUID] = None,
+) -> None:
+    if baseline_id is None:
+        return
+    baseline = report_crud.get_published_report(db, baseline_id)
+    if baseline is None or baseline.id == report_id:
+        raise ReportError("The comparison report must be another published report")
+    if baseline.endpoint_id != endpoint_id:
+        raise ReportError("The comparison report must cover the same endpoint")
 
 
 def load_report(
@@ -87,8 +114,12 @@ def create_report(
     db: Session, data: schemas.ReportCreate, organization_id: str, user_id: str
 ) -> models.Report:
     _check_endpoint(db, data.endpoint_id, organization_id)
+    _check_run_source(data.run_tag, data.test_run_ids)
     _check_runs(db, data.endpoint_id, data.test_run_ids)
     _check_requirements(db, data.requirement_ids)
+    _check_baseline(db, data.baseline_report_id, data.endpoint_id)
+    if not data.is_release:
+        data = data.model_copy(update={"recommendation": None})
     report = report_crud.create_report(db, data, organization_id, user_id)
     report_crud.set_report_test_runs(db, report.id, data.test_run_ids, organization_id, user_id)
     report_crud.set_report_requirements(
@@ -105,17 +136,28 @@ def update_report(
     user_id: str,
 ) -> models.Report:
     report = load_draft(db, report_id, organization_id, user_id)
-    if data.test_run_ids is not None:
-        _check_runs(db, report.endpoint_id, data.test_run_ids)
-        report_crud.set_report_test_runs(db, report.id, data.test_run_ids, organization_id, user_id)
+    tag = data.run_tag if "run_tag" in data.model_fields_set else report.run_tag
+    picked = data.test_run_ids
+    if picked is None and tag and "run_tag" in data.model_fields_set:
+        # Switching to a tag drops the hand-picked runs.
+        picked = []
+    if picked is not None:
+        _check_run_source(tag, picked)
+        _check_runs(db, report.endpoint_id, picked)
+        report_crud.set_report_test_runs(db, report.id, picked, organization_id, user_id)
     if data.requirement_ids is not None:
         _check_requirements(db, data.requirement_ids)
         report_crud.set_report_requirements(
             db, report.id, data.requirement_ids, organization_id, user_id
         )
+    if "baseline_report_id" in data.model_fields_set:
+        _check_baseline(db, data.baseline_report_id, report.endpoint_id, report.id)
     values = data.model_dump(
         exclude_unset=True, exclude={"test_run_ids", "requirement_ids", "project_id"}
     )
+    if values.get("is_release") is False:
+        # A ship recommendation means nothing outside a release.
+        values["recommendation"] = None
     if values:
         # No user_id: editing a draft doesn't make the editor its author.
         report_crud.update_report(db, report.id, values, organization_id)
@@ -134,10 +176,23 @@ def _requirements(db: Session, requirement_ids: Sequence[uuid.UUID]) -> List[Req
     ]
 
 
-def _run_rows(runs: List[models.TestRun], counted: List[CountedResult]) -> List[Dict[str, Any]]:
+def _run_pass_rates(rows: List[Any]) -> Dict[uuid.UUID, Optional[float]]:
+    """Each run's own pass rate over all its results, whatever the counting rule."""
+    judged: Dict[uuid.UUID, List[int]] = {}
+    for row in rows:
+        if row.execution == "ok" and row.verdict in ("pass", "fail"):
+            passed_failed = judged.setdefault(row.test_run_id, [0, 0])
+            passed_failed[0 if row.verdict == "pass" else 1] += 1
+    return {run_id: pass_rate(p, f) for run_id, (p, f) in judged.items()}
+
+
+def _run_rows(
+    runs: List[models.TestRun], counted: List[CountedResult], rows: List[Any]
+) -> List[Dict[str, Any]]:
     per_run: Dict[uuid.UUID, int] = {}
     for result in counted:
         per_run[result.test_run_id] = per_run.get(result.test_run_id, 0) + 1
+    rates = _run_pass_rates(rows)
     return [
         {
             "id": run.id,
@@ -145,10 +200,18 @@ def _run_rows(runs: List[models.TestRun], counted: List[CountedResult]) -> List[
             "created_at": run.created_at,
             "user_id": run.user_id,
             "results": per_run.get(run.id, 0),
+            "pass_rate": rates.get(run.id),
+            "status": run.status.name if run.status else None,
+            "test_set": _test_set_name(run),
             "version_info": (run.attributes or {}).get(VERSION_INFO_KEY),
         }
         for run in runs
     ]
+
+
+def _test_set_name(run: models.TestRun) -> Optional[str]:
+    config = run.test_configuration
+    return config.test_set.name if config and config.test_set else None
 
 
 def _versions_differ(run_rows: List[Dict[str, Any]]) -> bool:
@@ -156,9 +219,26 @@ def _versions_differ(run_rows: List[Dict[str, Any]]) -> bool:
     return len(versions) > 1
 
 
+def run_ids_of(db: Session, report: models.Report) -> tuple:
+    """(every run the report counts, the ones that joined only through its tag).
+
+    A published report's runs are frozen in report_test_run; a draft adds, live, every
+    run on its endpoint that carries its run tag.
+    """
+    picked = report_crud.get_report_test_run_ids(db, report.id)
+    if report.is_published or not report.run_tag:
+        return picked, []
+    tagged = [
+        run_id
+        for run_id in report_crud.get_tagged_run_ids(db, report.endpoint_id, report.run_tag)
+        if run_id not in picked
+    ]
+    return picked + tagged, tagged
+
+
 def _compute(db: Session, report: models.Report) -> tuple:
     """Live numbers for a report: (context, metrics)."""
-    run_ids = report_crud.get_report_test_run_ids(db, report.id)
+    run_ids, _ = run_ids_of(db, report)
     requirement_ids = report_crud.get_report_requirement_ids(db, report.id)
     rows = report_crud.get_results_for_runs(db, run_ids)
     counted = pick_counted(rows, report.result_rule)
@@ -170,13 +250,18 @@ def _compute(db: Session, report: models.Report) -> tuple:
         report_crud.count_tests_by_requirement(db, requirement_ids),
         inconsistent,
     )
-    run_rows = _run_rows(report_crud.get_test_runs(db, run_ids), counted)
+    run_rows = _run_rows(report_crud.get_test_runs(db, run_ids), counted, rows)
+    report_totals = totals(counted, tree, inconsistent)
+    flag_low_samples(tree)
     metrics = schemas.ReportMetrics(
         result_rule=report.result_rule,
-        totals=totals(counted, tree, inconsistent),
+        totals=report_totals,
         requirements=tree,
         runs=run_rows,
         versions_differ=_versions_differ(run_rows),
+        warnings=warnings(tree, run_rows, counted, report_totals),
+        comparison=compare(db, report, report_totals, tree, counted),
+        metric_results=metrics_by_requirement(db, counted, tree),
     )
     context = ReportContext(
         report=report,
@@ -200,6 +285,7 @@ def report_detail(db: Session, report: models.Report, organization_id: str) -> D
     """The report as the page shows it: frozen when published, live while draft."""
     detail = schemas.Report.model_validate(report).model_dump()
     detail["test_run_ids"] = report_crud.get_report_test_run_ids(db, report.id)
+    detail["tagged_run_ids"] = run_ids_of(db, report)[1]
     detail["requirement_ids"] = report_crud.get_report_requirement_ids(db, report.id)
     if report.is_published:
         detail["metrics"] = report.metrics
@@ -218,6 +304,11 @@ def publish_report(
 ) -> models.Report:
     report = load_draft(db, report_id, organization_id, user_id)
     context, metrics = _compute(db, report)
+    if report.run_tag:
+        # Freeze which runs the tag resolved to, so a run tagged later can't join.
+        report_crud.set_report_test_runs(
+            db, report.id, context.test_run_ids, organization_id, user_id
+        )
     if not context.test_run_ids:
         raise ReportError("Pick at least one test run before publishing")
     sections = build_sections(db, context, _organization(db, organization_id), strict=True)
@@ -247,6 +338,7 @@ def publish_report(
         "title": report.title,
         "summary": report.summary,
         "recommendation": report.recommendation,
+        "is_release": report.is_release,
         "published_at": published_at.isoformat(),
         "endpoint": endpoint_snapshot(report.endpoint),
         "metrics": metrics.model_dump(mode="json"),
@@ -294,6 +386,10 @@ def copy_report(
         title=f"{source.title} (copy)"[:200],
         summary=source.summary,
         recommendation=source.recommendation,
+        is_release=source.is_release,
+        run_tag=source.run_tag,
+        # A copy of a published report is its next version: compare with it.
+        baseline_report_id=source.id if source.is_published else source.baseline_report_id,
         result_rule=source.result_rule,
         endpoint_id=source.endpoint_id,
         test_run_ids=report_crud.get_report_test_run_ids(db, source.id),

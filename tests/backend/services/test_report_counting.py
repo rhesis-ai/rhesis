@@ -190,3 +190,12 @@ class TestResultRules:
     def test_an_errored_run_is_not_inconsistent(self):
         rows = [_row(self.test_id, verdict="pass"), _row(self.test_id, execution="error")]
         assert inconsistent_tests(rows) == set()
+
+
+def test_metric_kind_from_type_and_model():
+    from rhesis.backend.app.services.report.metric_results import kind_of
+
+    assert kind_of("custom-code", None) == "code"
+    assert kind_of("custom-prompt", "jev") == "jev"
+    assert kind_of("custom-prompt", "openai") == "llm"
+    assert kind_of("framework", None) == "llm"

@@ -1,9 +1,14 @@
-"""The building blocks of a report PDF, shared by core and EE sections so they print alike."""
+"""The building blocks of a report PDF, shared by core and EE sections so they print alike.
+
+The look is a document, not a form: prose for text, large figures for the key
+numbers, ruled tables with a pass-rate bar, and a quiet label/value list for details.
+"""
 
 from pathlib import Path
 from typing import Any, List, Optional, Sequence, Tuple
 from xml.sax.saxutils import escape
 
+from reportlab.graphics.shapes import Drawing, Rect
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -11,15 +16,25 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.pdfmetrics import registerFontFamily
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import KeepTogether, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import (
+    Flowable,
+    HRFlowable,
+    KeepTogether,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 PRIMARY = colors.HexColor("#0080af")
 TEXT = colors.HexColor("#16232c")
 MUTED = colors.HexColor("#5a6b77")
 BORDER = colors.HexColor("#dbe3e9")
-FIELD = colors.HexColor("#f4f7f9")
+TRACK = colors.HexColor("#eef3f6")
 FAIL_HEX = "#b52a47"
 FAIL = colors.HexColor(FAIL_HEX)
+GOOD = colors.HexColor("#1f7a5c")
+WARN = colors.HexColor("#8f5500")
 
 # Helvetica covers Latin-1 only. The backend image installs DejaVu (fonts-dejavu-core)
 # for everything else; without it (e.g. local dev on macOS) PDFs fall back to Helvetica.
@@ -38,59 +53,42 @@ def _register_fonts() -> Tuple[str, str]:
 
 FONT, FONT_BOLD = _register_fonts()
 
-_base = getSampleStyleSheet()
+_base = getSampleStyleSheet()["Normal"]
+
+
+def _style(name: str, **kw: Any) -> ParagraphStyle:
+    kw.setdefault("fontName", FONT)
+    kw.setdefault("textColor", TEXT)
+    return ParagraphStyle(name, parent=_base, **kw)
+
+
 STYLES = {
-    "title": ParagraphStyle(
-        "rh-title",
-        parent=_base["Title"],
-        fontName=FONT_BOLD,
-        alignment=0,
-        fontSize=20,
-        leading=24,
-        textColor=TEXT,
+    "brand": _style("rh-brand", fontName=FONT_BOLD, fontSize=8, leading=10, textColor=PRIMARY),
+    "title": _style("rh-title", fontName=FONT_BOLD, fontSize=24, leading=29),
+    "subtitle": _style("rh-sub", fontSize=9.5, leading=13, textColor=MUTED),
+    "heading": _style(
+        "rh-h2", fontName=FONT_BOLD, fontSize=13, leading=16, spaceBefore=16, spaceAfter=2
     ),
-    "subtitle": ParagraphStyle(
-        "rh-sub", parent=_base["Normal"], fontName=FONT, fontSize=9, textColor=MUTED
+    "body": _style("rh-body", fontSize=10.5, leading=15.5),
+    "figure": _style("rh-figure", fontName=FONT_BOLD, fontSize=22, leading=26),
+    "figure_label": _style("rh-figure-l", fontSize=8, leading=10, textColor=MUTED),
+    "label": _style("rh-label", fontSize=9, leading=12, textColor=MUTED),
+    "value": _style("rh-value", fontSize=9.5, leading=13),
+    "cell": _style("rh-cell", fontSize=9, leading=12),
+    "cell_bold": _style("rh-cell-b", fontName=FONT_BOLD, fontSize=9, leading=12),
+    "cell_indent": _style("rh-cell-i", fontSize=9, leading=12, leftIndent=12),
+    "cell_right": _style("rh-cell-r", fontSize=9, leading=12, alignment=TA_RIGHT),
+    "head": _style("rh-head", fontName=FONT_BOLD, fontSize=8, leading=10, textColor=MUTED),
+    "head_right": _style(
+        "rh-head-r", fontName=FONT_BOLD, fontSize=8, leading=10, textColor=MUTED, alignment=TA_RIGHT
     ),
-    "heading": ParagraphStyle(
-        "rh-h2",
-        parent=_base["Heading2"],
-        fontName=FONT_BOLD,
-        fontSize=13,
-        leading=16,
-        textColor=PRIMARY,
-        spaceBefore=12,
-        spaceAfter=6,
-    ),
-    "body": ParagraphStyle(
-        "rh-body", parent=_base["Normal"], fontName=FONT, fontSize=10, leading=14
-    ),
-    "label": ParagraphStyle(
-        "rh-label", parent=_base["Normal"], fontName=FONT, fontSize=8, textColor=MUTED
-    ),
-    "cell": ParagraphStyle(
-        "rh-cell", parent=_base["Normal"], fontName=FONT, fontSize=9, leading=12
-    ),
-    "cell_bold": ParagraphStyle(
-        "rh-cell-b", parent=_base["Normal"], fontSize=9, leading=12, fontName=FONT_BOLD
-    ),
-    "cell_indent": ParagraphStyle(
-        "rh-cell-i", parent=_base["Normal"], fontName=FONT, fontSize=9, leading=12, leftIndent=12
-    ),
-    "cell_right": ParagraphStyle(
-        "rh-cell-r",
-        parent=_base["Normal"],
-        fontName=FONT,
-        fontSize=9,
-        leading=12,
-        alignment=TA_RIGHT,
-    ),
-    "small": ParagraphStyle(
-        "rh-small", parent=_base["Normal"], fontName=FONT, fontSize=8, textColor=MUTED
-    ),
+    "small": _style("rh-small", fontSize=8, leading=11, textColor=MUTED),
+    "callout_label": _style("rh-call-l", fontName=FONT_BOLD, fontSize=8, leading=10),
+    "callout": _style("rh-call", fontName=FONT_BOLD, fontSize=14, leading=18),
 }
 
-CONTENT_WIDTH = 180 * mm  # A4 minus margins
+# A4 minus 15 mm margins, minus the frame's own 6 pt padding on each side.
+CONTENT_WIDTH = 180 * mm - 12
 
 
 def text(value: Any) -> str:
@@ -99,35 +97,119 @@ def text(value: Any) -> str:
 
 
 def heading(title: str, note: Optional[str] = None) -> List[Any]:
-    out: List[Any] = [Paragraph(text(title), STYLES["heading"])]
+    """A section title with a thin rule under it, and an optional one-line note."""
+    out: List[Any] = [
+        Paragraph(text(title), STYLES["heading"]),
+        HRFlowable(width="100%", thickness=0.6, color=BORDER, spaceBefore=3, spaceAfter=6),
+    ]
     if note:
-        out.append(Paragraph(text(note), STYLES["small"]))
-        out.append(Spacer(1, 4))
+        out += [Paragraph(text(note), STYLES["small"]), Spacer(1, 4)]
+    # Never leave a heading alone at the bottom of a page.
+    for flowable in out:
+        flowable.keepWithNext = True
     return out
 
 
-def fields(pairs: Sequence[Tuple[str, str]], columns: int = 1) -> Table:
-    """Label over value, in a grid of ``columns``, on the light field background."""
-    cells = [
-        [Paragraph(text(label), STYLES["label"]), Paragraph(text(value), STYLES["body"])]
-        for label, value in pairs
+def prose(value: Optional[str], empty: str) -> List[Any]:
+    """Paragraphs of written text; blank lines split paragraphs."""
+    if not value or not value.strip():
+        return [Paragraph(f"<i>{text(empty)}</i>", STYLES["label"])]
+    return [
+        Paragraph(text(part).replace("\n", "<br/>"), STYLES["body"])
+        for part in value.strip().split("\n\n")
     ]
-    rows = [cells[i : i + columns] for i in range(0, len(cells), columns)]
-    rows[-1] += [""] * (columns - len(rows[-1]))
-    table = Table(rows, colWidths=[CONTENT_WIDTH / columns] * columns)
+
+
+def figures(items: Sequence[Tuple[str, str]]) -> Table:
+    """Key figures as large numbers with a small caption, divided by thin rules."""
+    row = [
+        [Paragraph(text(value), STYLES["figure"]), Paragraph(text(label), STYLES["figure_label"])]
+        for label, value in items
+    ]
+    table = Table([row], colWidths=[CONTENT_WIDTH / len(items)] * len(items))
     table.setStyle(
         TableStyle(
             [
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("BACKGROUND", (0, 0), (-1, -1), FIELD),
-                ("INNERGRID", (0, 0), (-1, -1), 4, colors.white),
-                ("BOX", (0, 0), (-1, -1), 4, colors.white),
-                ("TOPPADDING", (0, 0), (-1, -1), 6),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("LINEBEFORE", (1, 0), (-1, -1), 0.6, BORDER),
+                ("LEFTPADDING", (0, 0), (0, -1), 0),
+                ("LEFTPADDING", (1, 0), (-1, -1), 10),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
             ]
         )
     )
     return table
+
+
+def callout(label: str, value: str, tone: str = "neutral") -> Table:
+    """A verdict with a coloured bar on its left: tone is good, warn, bad or neutral."""
+    color = {"good": GOOD, "warn": WARN, "bad": FAIL}.get(tone, PRIMARY)
+    label_style = ParagraphStyle("rh-call-l-t", parent=STYLES["callout_label"], textColor=color)
+    table = Table(
+        [
+            [
+                [
+                    Paragraph(text(label).upper(), label_style),
+                    Paragraph(text(value), STYLES["callout"]),
+                ]
+            ]
+        ],
+        colWidths=[CONTENT_WIDTH],
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("LINEBEFORE", (0, 0), (0, -1), 3, color),
+                ("BACKGROUND", (0, 0), (-1, -1), TRACK),
+                ("LEFTPADDING", (0, 0), (-1, -1), 12),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
+            ]
+        )
+    )
+    return table
+
+
+def fields(pairs: Sequence[Tuple[str, str]], columns: int = 1) -> Table:
+    """A quiet label/value list: muted label on the left, value on the right.
+    ``columns`` > 1 puts pairs side by side."""
+    cells = [
+        [Paragraph(text(label), STYLES["label"]), Paragraph(text(value), STYLES["value"])]
+        for label, value in pairs
+    ]
+    rows = []
+    for i in range(0, len(cells), columns):
+        chunk = cells[i : i + columns]
+        chunk += [["", ""]] * (columns - len(chunk))
+        rows.append([c for pair in chunk for c in pair])
+    pair_width = CONTENT_WIDTH / columns
+    widths = [pair_width * 0.38, pair_width * 0.62] * columns
+    table = Table(rows, colWidths=widths)
+    table.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LINEBELOW", (0, 0), (-1, -1), 0.3, BORDER),
+                ("LEFTPADDING", (0, 0), (0, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ]
+        )
+    )
+    return table
+
+
+def rate_bar(rate: Optional[float], width: float = 18 * mm, height: float = 3.2) -> Drawing:
+    """A small pass-rate bar; empty track when nothing was judged."""
+    drawing = Drawing(width, height)
+    drawing.add(Rect(0, 0, width, height, fillColor=TRACK, strokeColor=None))
+    if rate is not None and rate > 0:
+        color = GOOD if rate >= 90 else WARN if rate >= 70 else FAIL
+        drawing.add(
+            Rect(0, 0, width * min(rate, 100) / 100, height, fillColor=color, strokeColor=None)
+        )
+    return drawing
 
 
 def data_table(
@@ -140,10 +222,13 @@ def data_table(
     indent_rows: Sequence[int] = (),
 ) -> Table:
     """A ruled table. ``widths`` are fractions of the content width; ``right`` lists
-    right-aligned column indexes; ``fail_cells`` are (row, col) shown in red."""
+    right-aligned column indexes; ``fail_cells`` are (row, col) shown in red. A cell
+    may hold a flowable (e.g. ``rate_bar``) instead of text."""
     fail = set(fail_cells)
 
-    def cell(value: Any, row: int, col: int) -> Paragraph:
+    def cell(value: Any, row: int, col: int) -> Any:
+        if isinstance(value, (Flowable, Drawing)):
+            return value
         style = STYLES["cell_right"] if col in right else STYLES["cell"]
         if row in bold_rows and col == 0:
             style = STYLES["cell_bold"]
@@ -155,7 +240,7 @@ def data_table(
         return Paragraph(content, style)
 
     head = [
-        Paragraph(f"<b>{text(h)}</b>", STYLES["cell_right"] if i in right else STYLES["cell"])
+        Paragraph(text(h).upper(), STYLES["head_right"] if i in right else STYLES["head"])
         for i, h in enumerate(header)
     ]
     body = [[cell(v, r, c) for c, v in enumerate(row)] for r, row in enumerate(rows)]
@@ -163,11 +248,35 @@ def data_table(
     table.setStyle(
         TableStyle(
             [
-                ("LINEBELOW", (0, 0), (-1, 0), 0.8, MUTED),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.6, TEXT),
                 ("LINEBELOW", (0, 1), (-1, -1), 0.3, BORDER),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (0, -1), 0),
+                ("RIGHTPADDING", (-1, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ]
+        )
+    )
+    return table
+
+
+def bullets(lines: Sequence[str]) -> Table:
+    """A short list of plain-text points."""
+    table = Table(
+        [
+            [Paragraph("•", STYLES["value"]), Paragraph(text(line), STYLES["value"])]
+            for line in lines
+        ],
+        colWidths=[10, CONTENT_WIDTH - 10],
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
             ]
         )
     )

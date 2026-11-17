@@ -71,8 +71,7 @@ def render_stats(data: Dict[str, Any]) -> List[Any]:
             [
                 ("Results", f"{judged} judged · {errored} errored"),
                 ("Response time, mean / p95", timing),
-            ],
-            columns=2,
+            ]
         ),
     ]
 

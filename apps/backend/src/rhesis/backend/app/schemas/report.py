@@ -23,6 +23,9 @@ class ReportBase(Base):
     summary: Optional[str] = None
     recommendation: Optional[ReportRecommendation] = None
     result_rule: ReportResultRule = "latest"
+    is_release: bool = True
+    run_tag: Optional[str] = Field(default=None, max_length=100)
+    baseline_report_id: Optional[UUID4] = None
 
 
 class ReportCreate(ReportBase):
@@ -36,6 +39,9 @@ class ReportUpdate(Base):
     summary: Optional[str] = None
     recommendation: Optional[ReportRecommendation] = None
     result_rule: Optional[ReportResultRule] = None
+    is_release: Optional[bool] = None
+    run_tag: Optional[str] = Field(default=None, max_length=100)
+    baseline_report_id: Optional[UUID4] = None
     test_run_ids: Optional[BulkIds] = None
     requirement_ids: Optional[BulkIds] = None
 
@@ -85,6 +91,10 @@ class ReportRequirementRow(BaseModel):
     pass_rate: Optional[float] = None
     # Tests whose verdict differed between runs (all and worst rules only).
     inconsistent: int = 0
+    # Judged on fewer than LOW_SAMPLE results: read the pass rate with care.
+    low_sample: bool = False
+    # Change against the previous published report, in percentage points.
+    pass_rate_delta: Optional[float] = None
 
 
 class ReportRunRow(BaseModel):
@@ -93,6 +103,10 @@ class ReportRunRow(BaseModel):
     created_at: Optional[datetime] = None
     user_id: Optional[UUID4] = None
     results: int
+    # The run's own pass rate over all its results, whatever the counting rule.
+    pass_rate: Optional[float] = None
+    status: Optional[str] = None
+    test_set: Optional[str] = None
     version_info: Optional[Dict[str, Any]] = None
 
 
@@ -108,6 +122,42 @@ class ReportTotals(BaseModel):
     inconsistent: int = 0
 
 
+class ReportWarning(BaseModel):
+    kind: str
+    text: str
+
+
+class ReportMetricResult(BaseModel):
+    name: str
+    # llm: an LLM judge; jev: a classifier with a Jev decision model; code: a code check.
+    kind: Literal["llm", "jev", "code"]
+    passed: int
+    failed: int
+    pass_rate: Optional[float] = None
+
+
+class ReportRequirementMetrics(BaseModel):
+    requirement_id: UUID4
+    name: str
+    level: int
+    metrics: List[ReportMetricResult]
+
+
+class ReportBaselineRef(BaseModel):
+    id: UUID4
+    title: str
+    published_at: Optional[datetime] = None
+    result_rule: ReportResultRule = "latest"
+
+
+class ReportComparison(BaseModel):
+    baseline: ReportBaselineRef
+    pass_rate_delta: Optional[float] = None
+    newly_failing: int = 0
+    fixed: int = 0
+    newly_failing_requirements: List[str] = Field(default_factory=list)
+
+
 class ReportMetrics(BaseModel):
     """The numbers core computes; the same shape live (draft) and frozen (published)."""
 
@@ -116,10 +166,15 @@ class ReportMetrics(BaseModel):
     requirements: List[ReportRequirementRow]
     runs: List[ReportRunRow]
     versions_differ: bool = False
+    warnings: List[ReportWarning] = Field(default_factory=list)
+    comparison: Optional[ReportComparison] = None
+    metric_results: List[ReportRequirementMetrics] = Field(default_factory=list)
 
 
 class ReportDetail(Report):
     test_run_ids: List[UUID4] = Field(default_factory=list)
+    # Runs that join a draft through its run tag (not picked by hand).
+    tagged_run_ids: List[UUID4] = Field(default_factory=list)
     requirement_ids: List[UUID4] = Field(default_factory=list)
     metrics: Optional[ReportMetrics] = None
     # Output of the report sections the org is entitled to, keyed by section.
