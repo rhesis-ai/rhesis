@@ -18,6 +18,12 @@ export interface Report extends WithPermittedActions {
   summary?: string | null;
   recommendation?: ReportRecommendation | null;
   result_rule: ReportResultRule;
+  /** Off for a plain report across runs: no ship recommendation. */
+  is_release: boolean;
+  /** While a draft, runs on the endpoint with this tag join the report. */
+  run_tag?: string | null;
+  /** The published report this one is compared with. */
+  baseline_report_id?: string | null;
   endpoint_id: string;
   status: ReportStatus;
   user_id?: string | null;
@@ -44,6 +50,10 @@ export interface ReportRequirementRow {
   pass_rate?: number | null;
   /** Tests whose verdict differed between runs (all and worst rules). */
   inconsistent: number;
+  /** Judged on fewer than 10 results. */
+  low_sample?: boolean;
+  /** Change against the previous published report, in percentage points. */
+  pass_rate_delta?: number | null;
 }
 
 export interface ReportRunRow {
@@ -52,6 +62,10 @@ export interface ReportRunRow {
   created_at?: string | null;
   user_id?: string | null;
   results: number;
+  /** The run's own pass rate over all its results, whatever the counting rule. */
+  pass_rate?: number | null;
+  status?: string | null;
+  test_set?: string | null;
   version_info?: Record<string, unknown> | null;
 }
 
@@ -67,16 +81,57 @@ export interface ReportTotals {
   inconsistent: number;
 }
 
+export interface ReportWarning {
+  kind: string;
+  text: string;
+}
+
+export interface ReportComparison {
+  baseline: {
+    id: string;
+    title: string;
+    published_at?: string | null;
+    result_rule: ReportResultRule;
+  };
+  pass_rate_delta?: number | null;
+  newly_failing: number;
+  fixed: number;
+  newly_failing_requirements: string[];
+}
+
+export type ReportMetricKind = 'llm' | 'jev' | 'code';
+
+export interface ReportMetricResult {
+  name: string;
+  /** llm: an LLM judge; jev: a classifier with a Jev model; code: a code check. */
+  kind: ReportMetricKind;
+  passed: number;
+  failed: number;
+  pass_rate?: number | null;
+}
+
+export interface ReportRequirementMetrics {
+  requirement_id: string;
+  name: string;
+  level: number;
+  metrics: ReportMetricResult[];
+}
+
 export interface ReportMetrics {
   result_rule: ReportResultRule;
   totals: ReportTotals;
   requirements: ReportRequirementRow[];
   runs: ReportRunRow[];
   versions_differ: boolean;
+  warnings?: ReportWarning[];
+  comparison?: ReportComparison | null;
+  metric_results?: ReportRequirementMetrics[];
 }
 
 export interface ReportDetail extends Report {
   test_run_ids: string[];
+  /** Runs that joined through the run tag, not picked by hand. */
+  tagged_run_ids: string[];
   requirement_ids: string[];
   metrics?: ReportMetrics | null;
   /** Output of the extra sections the org is entitled to, keyed by section. */
@@ -89,6 +144,9 @@ export interface ReportCreate {
   summary?: string | null;
   recommendation?: ReportRecommendation | null;
   result_rule?: ReportResultRule;
+  is_release?: boolean;
+  run_tag?: string | null;
+  baseline_report_id?: string | null;
   test_run_ids: string[];
   requirement_ids: string[];
 }
@@ -99,7 +157,8 @@ export type ReportUpdate = Partial<
 
 export interface ReportSummaryDraft {
   summary: string;
-  recommendation: ReportRecommendation;
+  /** Null outside a release report. */
+  recommendation: ReportRecommendation | null;
 }
 
 export type ReportsQueryParams = Partial<PaginationParams>;

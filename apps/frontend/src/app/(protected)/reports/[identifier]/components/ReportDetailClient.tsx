@@ -35,6 +35,7 @@ import type { ReportDetail } from '@/utils/api-client/interfaces/report';
 import ReportSummary from './ReportSummary';
 import ReportRequirementsTable from './ReportRequirementsTable';
 import ReportRunsTable from './ReportRunsTable';
+import ReportMetricsTable from './ReportMetricsTable';
 import { RESULT_RULES } from '@/components/reports/resultRules';
 import ReportSlot from './ReportSlot';
 import ReportTitle from './ReportTitle';
@@ -237,6 +238,7 @@ export default function ReportDetailClient({
               : undefined
           }
         />
+        <ReportMetricsTable report={report} />
         <ReportRunsTable
           report={report}
           onEdit={canEdit ? () => setEditing('runs') : undefined}

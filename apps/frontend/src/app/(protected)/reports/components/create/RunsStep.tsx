@@ -3,6 +3,7 @@
 import * as React from 'react';
 import {
   Alert,
+  Autocomplete,
   Box,
   MenuItem,
   Stack,
@@ -16,10 +17,28 @@ import type {
 } from '@mui/x-data-grid';
 import { format } from 'date-fns';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
+import RunStatusChip from '@/components/reports/RunStatusChip';
 import { versionLabel } from '@/components/reports/version';
-import { RESULT_RULES } from '@/components/reports/resultRules';
-import type { ReportResultRule } from '@/utils/api-client/interfaces/report';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+
+export type RunSource = 'tag' | 'manual';
+
+export const RUN_SOURCES: Record<
+  RunSource,
+  { label: string; description: string }
+> = {
+  tag: {
+    label: 'By tag',
+    description:
+      'Every run with a tag you name. Runs tagged later join until you publish.',
+  },
+  manual: {
+    label: 'By hand',
+    description: 'You tick the runs. Only those count.',
+  },
+};
+
+type Params = GridRenderCellParams<TestRunDetail>;
 
 function passRate(run: TestRunDetail): string {
   const total = run.stats?.total ?? 0;
@@ -30,11 +49,28 @@ function passRate(run: TestRunDetail): string {
 const COLUMNS: GridColDef[] = [
   { field: 'name', headerName: 'Run', flex: 1.5 },
   {
+    field: 'test_set',
+    headerName: 'Test set',
+    flex: 2,
+    sortable: false,
+    renderCell: (params: Params) =>
+      params.row.test_configuration?.test_set?.name ?? '—',
+  },
+  {
+    field: 'status',
+    headerName: 'Status',
+    flex: 1,
+    sortable: false,
+    renderCell: (params: Params) => (
+      <RunStatusChip status={params.row.status?.name} />
+    ),
+  },
+  {
     field: 'started_at',
     headerName: 'Started',
     flex: 1,
     sortable: false,
-    renderCell: (params: GridRenderCellParams<TestRunDetail>) => {
+    renderCell: (params: Params) => {
       // The list response carries no created_at; the run stores when it started.
       const started = params.row.attributes?.started_at;
       return typeof started === 'string'
@@ -43,104 +79,155 @@ const COLUMNS: GridColDef[] = [
     },
   },
   {
-    field: 'user',
-    headerName: 'Run by',
-    flex: 1,
-    sortable: false,
-    renderCell: (params: GridRenderCellParams<TestRunDetail>) =>
-      params.row.user?.name || params.row.user?.email || '—',
-  },
-  {
-    field: 'version',
-    headerName: 'Version',
-    flex: 1,
-    sortable: false,
-    renderCell: (params: GridRenderCellParams<TestRunDetail>) =>
-      versionLabel(params.row.attributes?.version_info) ?? '—',
-  },
-  {
     field: 'pass_rate',
     headerName: 'Pass rate',
     width: 110,
     sortable: false,
     align: 'right',
     headerAlign: 'right',
-    renderCell: (params: GridRenderCellParams<TestRunDetail>) =>
-      passRate(params.row),
+    renderCell: (params: Params) => passRate(params.row),
   },
 ];
 
+/** Runs whose tags include ``tag`` (case-insensitive). */
+export function runsWithTag(runs: TestRunDetail[], tag: string): string[] {
+  const wanted = tag.trim().toLowerCase();
+  if (!wanted) return [];
+  return runs
+    .filter(run => (run.tags ?? []).some(t => t.name.toLowerCase() === wanted))
+    .map(run => String(run.id));
+}
+
+export function RunSourceSelect({
+  value,
+  onChange,
+}: {
+  value: RunSource;
+  onChange: (source: RunSource) => void;
+}) {
+  return (
+    <TextField
+      select
+      label="How should runs be picked?"
+      value={value}
+      onChange={e => onChange(e.target.value as RunSource)}
+      helperText={RUN_SOURCES[value].description}
+      fullWidth
+    >
+      {Object.entries(RUN_SOURCES).map(([key, { label }]) => (
+        <MenuItem key={key} value={key}>
+          {label}
+        </MenuItem>
+      ))}
+    </TextField>
+  );
+}
+
 interface RunsStepProps {
+  source: RunSource;
   runs: TestRunDetail[];
   loading: boolean;
+  /** Hand-picked runs; used when ``source`` is manual. */
   selected: string[];
   onChange: (ids: string[]) => void;
-  rule: ReportResultRule;
-  onRuleChange: (rule: ReportResultRule) => void;
+  /** Used when ``source`` is tag. */
+  tag: string;
+  onTagChange: (tag: string) => void;
 }
 
 export default function RunsStep({
+  source,
   runs,
   loading,
   selected,
   onChange,
-  rule,
-  onRuleChange,
+  tag,
+  onTagChange,
 }: RunsStepProps) {
+  const tagged = React.useMemo(() => runsWithTag(runs, tag), [runs, tag]);
+  const tagOptions = React.useMemo(
+    () =>
+      [
+        ...new Set(runs.flatMap(run => (run.tags ?? []).map(t => t.name))),
+      ].sort(),
+    [runs]
+  );
+  const included = source === 'tag' ? tagged : selected;
   const versions = new Set(
     runs
-      .filter(run => selected.includes(run.id))
+      .filter(run => included.includes(String(run.id)))
       .map(run => versionLabel(run.attributes?.version_info))
       .filter((label): label is string => Boolean(label))
   );
+  const rows =
+    source === 'tag'
+      ? runs.filter(run => tagged.includes(String(run.id)))
+      : runs;
+
+  const grid = (
+    <Box sx={{ width: '100%' }}>
+      <BaseDataGrid
+        rows={rows}
+        columns={COLUMNS}
+        loading={loading}
+        getRowId={row => String(row.id)}
+        disableColumnResize
+        disablePaperWrapper
+        pageSizeOptions={[10, 25, 50]}
+        initialState={{
+          pagination: { paginationModel: { page: 0, pageSize: 10 } },
+        }}
+        {...(source === 'manual'
+          ? {
+              checkboxSelection: true,
+              rowSelectionModel: selected,
+              onRowSelectionModelChange: (model: GridRowSelectionModel) =>
+                onChange(model.map(String)),
+            }
+          : {})}
+      />
+    </Box>
+  );
+
+  if (!loading && runs.length === 0) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        This endpoint has no test runs yet. Run a test set against it first.
+      </Typography>
+    );
+  }
 
   return (
     <Stack spacing={2}>
-      <TextField
-        select
-        label="When a test ran in more than one picked run"
-        value={rule}
-        onChange={e => onRuleChange(e.target.value as ReportResultRule)}
-        helperText={RESULT_RULES[rule].description}
-        fullWidth
-      >
-        {Object.entries(RESULT_RULES).map(([value, { label }]) => (
-          <MenuItem key={value} value={value}>
-            {label}
-          </MenuItem>
-        ))}
-      </TextField>
+      {source === 'tag' && (
+        <Autocomplete
+          freeSolo
+          options={tagOptions}
+          value={tag}
+          onInputChange={(_event, value) => onTagChange(value)}
+          renderInput={params => (
+            <TextField
+              {...params}
+              label="Tag"
+              placeholder="e.g. 2.5"
+              required
+              helperText={
+                tag.trim()
+                  ? `${tagged.length} run${tagged.length === 1 ? '' : 's'} with this tag so far. Runs tagged later join until you publish.`
+                  : 'Runs with this tag join automatically until you publish.'
+              }
+            />
+          )}
+        />
+      )}
       {versions.size > 1 && (
         <Alert severity="warning">
-          The picked runs report different endpoint versions:{' '}
-          {[...versions].join(', ')}. Unpick some, or keep them on purpose.
+          These runs report different endpoint versions:{' '}
+          {[...versions].join(', ')}.
+          {source === 'manual' ? ' Unpick some, or keep them on purpose.' : ''}
         </Alert>
       )}
-      {!loading && runs.length === 0 ? (
-        <Typography variant="body2" color="text.secondary">
-          This endpoint has no test runs yet. Run a test set against it first.
-        </Typography>
-      ) : (
-        <Box sx={{ width: '100%' }}>
-          <BaseDataGrid
-            rows={runs}
-            columns={COLUMNS}
-            loading={loading}
-            getRowId={row => String(row.id)}
-            checkboxSelection
-            disableColumnResize
-            rowSelectionModel={selected}
-            onRowSelectionModelChange={(model: GridRowSelectionModel) =>
-              onChange(model.map(String))
-            }
-            disablePaperWrapper
-            pageSizeOptions={[10, 25, 50]}
-            initialState={{
-              pagination: { paginationModel: { page: 0, pageSize: 10 } },
-            }}
-          />
-        </Box>
-      )}
+      {source === 'manual' || tag.trim() ? grid : null}
     </Stack>
   );
 }

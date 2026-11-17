@@ -10,8 +10,9 @@ import LinkedEntitiesGrid from '@/components/common/LinkedEntitiesGrid';
 import { createRowActionsColumn } from '@/components/common/createRowActionsColumn';
 import { LinkOffIcon } from '@/components/icons';
 import { gridEdgeInsetSx, withEdgeInset } from '@/components/reports/gridInset';
-import { versionLabel } from '@/components/reports/version';
 import { RESULT_RULES } from '@/components/reports/resultRules';
+import { formatPassRate } from '@/components/reports/ReportSection';
+import RunStatusChip from '@/components/reports/RunStatusChip';
 import type {
   ReportDetail,
   ReportRunRow,
@@ -23,8 +24,22 @@ const COLUMNS: GridColDef[] = [
   {
     field: 'name',
     headerName: 'Run',
-    flex: 2,
+    flex: 1.5,
     renderCell: (params: Params) => params.row.name ?? params.row.id,
+  },
+  {
+    field: 'test_set',
+    headerName: 'Test set',
+    flex: 2,
+    renderCell: (params: Params) => params.row.test_set ?? '—',
+  },
+  {
+    field: 'status',
+    headerName: 'Status',
+    flex: 1,
+    renderCell: (params: Params) => (
+      <RunStatusChip status={params.row.status} />
+    ),
   },
   {
     field: 'created_at',
@@ -36,21 +51,32 @@ const COLUMNS: GridColDef[] = [
         : '—',
   },
   {
-    field: 'version',
-    headerName: 'Version',
-    flex: 1,
-    sortable: false,
-    renderCell: (params: Params) =>
-      versionLabel(params.row.version_info) ?? '—',
+    field: 'pass_rate',
+    headerName: 'Pass rate',
+    width: 120,
+    align: 'right',
+    headerAlign: 'right',
+    description: "The run's own pass rate over all its results",
+    renderCell: (params: Params) => formatPassRate(params.row.pass_rate),
   },
   {
     field: 'results',
-    headerName: 'Results counted',
-    width: 160,
+    headerName: 'Counted',
+    width: 120,
     align: 'right',
     headerAlign: 'right',
+    description: 'Results from this run that the report counts',
   },
 ];
+
+/** '60.0% to 92.6%' over runs that judged something; null with fewer than two. */
+function rateSpread(runs: ReportRunRow[]): string | null {
+  const rates = runs
+    .map(run => run.pass_rate)
+    .filter((rate): rate is number => typeof rate === 'number');
+  if (rates.length < 2) return null;
+  return `${formatPassRate(Math.min(...rates))} to ${formatPassRate(Math.max(...rates))}`;
+}
 
 function removeColumn(onRemove?: (id: string) => void): GridColDef[] {
   return onRemove
@@ -77,6 +103,10 @@ export default function ReportRunsTable({
   onRemove?: (id: string) => void;
 }) {
   const router = useRouter();
+  const spread =
+    report.result_rule === 'all'
+      ? rateSpread(report.metrics?.runs ?? [])
+      : null;
   const columns = React.useMemo(
     () => withEdgeInset([...COLUMNS, ...removeColumn(onRemove)]),
     [onRemove]
@@ -102,7 +132,10 @@ export default function ReportRunsTable({
         color="text.secondary"
         sx={{ display: 'block', mt: 1, px: 1 }}
       >
-        {`Counting: ${RESULT_RULES[report.result_rule].label}. ${RESULT_RULES[report.result_rule].description}`}
+        {report.status === 'draft' && report.run_tag
+          ? `Runs tagged “${report.run_tag}” join automatically until you publish. `
+          : ''}
+        {`Counting: ${RESULT_RULES[report.result_rule].label}. ${RESULT_RULES[report.result_rule].description}${spread ? ` Run pass rates range from ${spread}.` : ''}`}
       </Typography>
     </Box>
   );

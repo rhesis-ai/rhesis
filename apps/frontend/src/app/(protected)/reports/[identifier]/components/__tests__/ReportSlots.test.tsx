@@ -15,7 +15,9 @@ function report(sections: Record<string, unknown>): ReportDetail {
     endpoint_id: 'e1',
     status: 'draft',
     result_rule: 'latest',
+    is_release: true,
     test_run_ids: [],
+    tagged_run_ids: [],
     requirement_ids: [],
     sections,
     metrics: {

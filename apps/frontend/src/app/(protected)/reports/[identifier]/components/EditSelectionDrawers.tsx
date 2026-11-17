@@ -3,12 +3,15 @@
 import * as React from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
+import { Stack } from '@mui/material';
 import type {
   ReportDetail,
-  ReportResultRule,
   ReportUpdate,
 } from '@/utils/api-client/interfaces/report';
-import RunsStep from '../../components/create/RunsStep';
+import RunsStep, {
+  RunSourceSelect,
+  type RunSource,
+} from '../../components/create/RunsStep';
 import RequirementsStep from '../../components/create/RequirementsStep';
 import {
   useEndpointRuns,
@@ -51,11 +54,20 @@ function useSave(
 }
 
 export function EditRunsDrawer({ report, onClose, onSaved }: DrawerProps) {
+  const initialSource: RunSource = report.run_tag ? 'tag' : 'manual';
   const initial = report.test_run_ids.map(String);
+  const [source, setSource] = React.useState<RunSource>(initialSource);
   const [selected, setSelected] = React.useState<string[]>(initial);
-  const [rule, setRule] = React.useState<ReportResultRule>(report.result_rule);
+  const [tag, setTag] = React.useState(report.run_tag ?? '');
   const { runs, loading, failed } = useEndpointRuns(report.endpoint_id);
   const { save, saving, error } = useSave(report, onSaved, onClose);
+
+  const unchanged =
+    source === initialSource &&
+    (source === 'tag'
+      ? tag.trim() === (report.run_tag ?? '')
+      : sameSet(selected, initial));
+  const empty = source === 'tag' ? !tag.trim() : selected.length === 0;
 
   return (
     <BaseDrawer
@@ -63,23 +75,30 @@ export function EditRunsDrawer({ report, onClose, onSaved }: DrawerProps) {
       onClose={onClose}
       title="Test runs in this report"
       width="75%"
-      onSave={() => void save({ test_run_ids: selected, result_rule: rule })}
-      saveButtonText="Save"
-      saveDisabled={
-        selected.length === 0 ||
-        (sameSet(selected, initial) && rule === report.result_rule)
+      onSave={() =>
+        void save(
+          source === 'tag'
+            ? { run_tag: tag.trim() }
+            : { run_tag: null, test_run_ids: selected }
+        )
       }
+      saveButtonText="Save"
+      saveDisabled={empty || unchanged}
       loading={saving}
       error={error ?? (failed ? 'Failed to load test runs' : undefined)}
     >
-      <RunsStep
-        runs={runs}
-        loading={loading}
-        selected={selected}
-        onChange={setSelected}
-        rule={rule}
-        onRuleChange={setRule}
-      />
+      <Stack spacing={3}>
+        <RunSourceSelect value={source} onChange={setSource} />
+        <RunsStep
+          source={source}
+          runs={runs}
+          loading={loading}
+          selected={selected}
+          onChange={setSelected}
+          tag={tag}
+          onTagChange={setTag}
+        />
+      </Stack>
     </BaseDrawer>
   );
 }
@@ -92,7 +111,7 @@ export function EditRequirementsDrawer({
   const initial = report.requirement_ids.map(String);
   const [selected, setSelected] = React.useState<string[]>(initial);
   const { requirements, tested, loading, failed } = useRequirementOptions(
-    report.test_run_ids.map(String)
+    [...report.test_run_ids, ...report.tagged_run_ids].map(String)
   );
   const { save, saving, error } = useSave(report, onSaved, onClose);
 

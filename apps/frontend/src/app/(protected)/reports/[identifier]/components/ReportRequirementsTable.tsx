@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Tooltip, Typography } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
@@ -10,7 +10,10 @@ import { createRowActionsColumn } from '@/components/common/createRowActionsColu
 import { LinkOffIcon } from '@/components/icons';
 import { gridEdgeInsetSx, withEdgeInset } from '@/components/reports/gridInset';
 import { getReportRequirementColumns } from '@/lib/extension-registries';
-import { formatPassRate } from '@/components/reports/ReportSection';
+import {
+  formatDelta,
+  formatPassRate,
+} from '@/components/reports/ReportSection';
 import type {
   ReportDetail,
   ReportRequirementRow,
@@ -90,10 +93,19 @@ export default function ReportRequirementsTable({
       {
         field: 'tests',
         headerName: rule === 'all' ? 'Results' : 'Tests',
+        renderCell: (params: Params) =>
+          params.row.low_sample ? (
+            <Tooltip title="Fewer than 10 results: read the pass rate with care">
+              <Typography variant="body2" color="warning.main">
+                {params.row.tests} *
+              </Typography>
+            </Tooltip>
+          ) : (
+            params.row.tests || ''
+          ),
         width: 100,
         align: 'right',
         headerAlign: 'right',
-        renderCell: (params: Params) => params.row.tests || '',
       },
       {
         field: 'failed',
@@ -118,11 +130,12 @@ export default function ReportRequirementsTable({
         : [
             {
               field: 'inconsistent',
-              headerName: 'Inconsistent',
+              headerName: 'Mixed',
               width: 130,
               align: 'right' as const,
               headerAlign: 'right' as const,
-              description: 'Tests whose verdict differed between runs',
+              description:
+                'Tests that passed in some runs and failed in others',
               renderCell: (params: Params) =>
                 params.row.inconsistent ? (
                   <Typography variant="body2" color="warning.main">
@@ -133,6 +146,30 @@ export default function ReportRequirementsTable({
                 ),
             },
           ]),
+      ...(report.metrics?.comparison
+        ? [
+            {
+              field: 'pass_rate_delta',
+              headerName: 'Change',
+              width: 110,
+              align: 'right' as const,
+              headerAlign: 'right' as const,
+              description: `Change in percentage points against ${report.metrics.comparison.baseline.title}`,
+              renderCell: (params: Params) => (
+                <Typography
+                  variant="body2"
+                  color={
+                    (params.row.pass_rate_delta ?? 0) <= -0.05
+                      ? 'error.main'
+                      : undefined
+                  }
+                >
+                  {formatDelta(params.row.pass_rate_delta)}
+                </Typography>
+              ),
+            },
+          ]
+        : []),
       {
         field: 'pass_rate',
         headerName: 'Pass rate',

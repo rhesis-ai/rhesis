@@ -2,14 +2,27 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Box, MenuItem, Stack, TextField } from '@mui/material';
+import {
+  Box,
+  Checkbox,
+  FormControlLabel,
+  MenuItem,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import StepNav from '@/components/common/StepNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import type { ReportResultRule } from '@/utils/api-client/interfaces/report';
-import RunsStep from './RunsStep';
+import { RESULT_RULES } from '@/components/reports/resultRules';
+import RunsStep, {
+  RunSourceSelect,
+  runsWithTag,
+  type RunSource,
+} from './RunsStep';
 import RequirementsStep from './RequirementsStep';
 import { useEndpointRuns, useRequirementOptions } from './useReportPickerData';
 
@@ -32,8 +45,11 @@ function ReportCreateForm({ onClose }: { onClose: () => void }) {
   const [title, setTitle] = React.useState('');
   const [endpointId, setEndpointId] = React.useState('');
   const [endpoints, setEndpoints] = React.useState<Endpoint[]>([]);
+  const [isRelease, setIsRelease] = React.useState(true);
+  const [source, setSource] = React.useState<RunSource>('tag');
   const [runIds, setRunIds] = React.useState<string[]>([]);
   const [rule, setRule] = React.useState<ReportResultRule>('latest');
+  const [tag, setTag] = React.useState('');
   const [requirementIds, setRequirementIds] = React.useState<string[]>([]);
   const [pickedForRuns, setPickedForRuns] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
@@ -57,10 +73,16 @@ function ReportCreateForm({ onClose }: { onClose: () => void }) {
     loading: requirementsLoading,
     failed: requirementsFailed,
     ready: requirementsReady,
-  } = useRequirementOptions(runIds, step === 2);
+  } = useRequirementOptions(
+    source === 'tag' ? runsWithTag(runsData.runs, tag) : runIds,
+    step === 2
+  );
 
   // Reaching the last step with a new set of runs picks what those runs tested.
-  const runKey = [...runIds].sort().join(',');
+  const runKey = [
+    source,
+    ...(source === 'tag' ? runsWithTag(runsData.runs, tag) : runIds).sort(),
+  ].join(',');
   React.useEffect(() => {
     if (step !== 2 || !requirementsReady || pickedForRuns === runKey) return;
     setRequirementIds([...tested]);
@@ -74,7 +96,7 @@ function ReportCreateForm({ onClose }: { onClose: () => void }) {
 
   const stepValid = [
     title.trim().length > 0 && endpointId.length > 0,
-    runIds.length > 0,
+    source === 'tag' ? tag.trim().length > 0 : runIds.length > 0,
     !requirementsLoading,
   ];
   const firstInvalid = stepValid.findIndex(valid => !valid);
@@ -92,7 +114,9 @@ function ReportCreateForm({ onClose }: { onClose: () => void }) {
           title: title.trim(),
           endpoint_id: endpointId,
           result_rule: rule,
-          test_run_ids: runIds,
+          is_release: isRelease,
+          run_tag: source === 'tag' ? tag.trim() : null,
+          test_run_ids: source === 'manual' ? runIds : [],
           requirement_ids: requirementIds,
         });
       router.push(`/reports/${report.id}`);
@@ -168,16 +192,53 @@ function ReportCreateForm({ onClose }: { onClose: () => void }) {
                   </MenuItem>
                 ))}
               </TextField>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={isRelease}
+                    onChange={e => setIsRelease(e.target.checked)}
+                  />
+                }
+                label={
+                  <Box>
+                    <Typography variant="body1">
+                      This is a release report
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {isRelease
+                        ? 'It ends with a recommendation: ready to ship or not.'
+                        : 'A plain report across runs, e.g. experiments. No ship recommendation.'}
+                    </Typography>
+                  </Box>
+                }
+                sx={{ alignItems: 'flex-start' }}
+              />
+              <RunSourceSelect value={source} onChange={setSource} />
+              <TextField
+                select
+                label="Counting"
+                value={rule}
+                onChange={e => setRule(e.target.value as ReportResultRule)}
+                helperText={RESULT_RULES[rule].description}
+                fullWidth
+              >
+                {Object.entries(RESULT_RULES).map(([value, { label }]) => (
+                  <MenuItem key={value} value={value}>
+                    {label}
+                  </MenuItem>
+                ))}
+              </TextField>
             </Stack>
           </DetailTabPanel>
           <DetailTabPanel value={step} index={1} prefix="report">
             <RunsStep
+              source={source}
               runs={runsData.runs}
               loading={runsData.loading}
               selected={runIds}
               onChange={setRunIds}
-              rule={rule}
-              onRuleChange={setRule}
+              tag={tag}
+              onTagChange={setTag}
             />
           </DetailTabPanel>
           <DetailTabPanel value={step} index={2} prefix="report">

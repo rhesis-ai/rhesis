@@ -26,3 +26,10 @@ export default function ReportSectionBlock({
 export function formatPassRate(rate?: number | null): string {
   return rate === null || rate === undefined ? '—' : `${rate.toFixed(1)}%`;
 }
+
+/** A change in percentage points, signed: "+2.5", "−4.0", "±0.0". */
+export function formatDelta(delta?: number | null): string {
+  if (delta === null || delta === undefined) return '—';
+  if (Math.abs(delta) < 0.05) return '±0.0';
+  return `${delta > 0 ? '+' : '−'}${Math.abs(delta).toFixed(1)}`;
+}

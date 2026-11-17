@@ -21,7 +21,11 @@ export function withEdgeInset(columns: GridColDef[]): GridColDef[] {
   });
 }
 
+// Specific enough to beat BaseDataGrid's own `&& .MuiDataGrid-cell...` padding rules.
+const CELLS = (edge: string) =>
+  `&& .MuiDataGrid-root .MuiDataGrid-cell.${edge}, && .MuiDataGrid-root .MuiDataGrid-columnHeader.${edge}`;
+
 export const gridEdgeInsetSx: SxProps<Theme> = {
-  [`& .${FIRST}`]: { paddingLeft: theme => theme.spacing(3.75) },
-  [`& .${LAST}`]: { paddingRight: theme => theme.spacing(3.75) },
+  [CELLS(FIRST)]: { paddingLeft: theme => theme.spacing(3.75) },
+  [CELLS(LAST)]: { paddingRight: theme => theme.spacing(3.75) },
 };
