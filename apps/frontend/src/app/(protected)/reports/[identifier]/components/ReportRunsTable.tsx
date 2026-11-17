@@ -2,11 +2,16 @@
 
 import * as React from 'react';
 import { Box, Typography } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import LinkedEntitiesGrid from '@/components/common/LinkedEntitiesGrid';
+import { createRowActionsColumn } from '@/components/common/createRowActionsColumn';
+import { LinkOffIcon } from '@/components/icons';
+import { gridEdgeInsetSx, withEdgeInset } from '@/components/reports/gridInset';
 import { versionLabel } from '@/components/reports/version';
+import { RESULT_RULES } from '@/components/reports/resultRules';
 import type {
   ReportDetail,
   ReportRunRow,
@@ -47,21 +52,41 @@ const COLUMNS: GridColDef[] = [
   },
 ];
 
+function removeColumn(onRemove?: (id: string) => void): GridColDef[] {
+  return onRemove
+    ? [
+        createRowActionsColumn({
+          canDelete: () => true,
+          onDelete: id => onRemove(id),
+          deleteTooltip: 'Remove from report',
+          deleteIcon: LinkOffIcon,
+        }),
+      ]
+    : [];
+}
+
 export default function ReportRunsTable({
   report,
   onEdit,
+  onRemove,
 }: {
   report: ReportDetail;
   /** Set on an editable draft: shows the card's Assign button. */
   onEdit?: () => void;
+  /** Set on an editable draft: a row action that takes the item out of the report. */
+  onRemove?: (id: string) => void;
 }) {
   const router = useRouter();
+  const columns = React.useMemo(
+    () => withEdgeInset([...COLUMNS, ...removeColumn(onRemove)]),
+    [onRemove]
+  );
   return (
-    <Box sx={{ mb: 3 }}>
+    <Box sx={[{ mb: 3 }, gridEdgeInsetSx] as SxProps<Theme>}>
       <LinkedEntitiesGrid
         title="Test Runs"
         rows={report.metrics?.runs ?? []}
-        columns={COLUMNS}
+        columns={columns}
         getRowId={row => String(row.id)}
         onAssignClick={onEdit}
         onRowClick={params => router.push(`/test-runs/${String(params.id)}`)}
@@ -77,8 +102,7 @@ export default function ReportRunsTable({
         color="text.secondary"
         sx={{ display: 'block', mt: 1, px: 1 }}
       >
-        When a test ran in more than one of these runs, the result from the
-        latest run counts.
+        {`Counting: ${RESULT_RULES[report.result_rule].label}. ${RESULT_RULES[report.result_rule].description}`}
       </Typography>
     </Box>
   );

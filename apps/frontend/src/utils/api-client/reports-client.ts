@@ -1,4 +1,5 @@
 import { BaseApiClient } from './base-client';
+import { joinUrl } from '@/utils/url';
 import { API_ENDPOINTS } from './config';
 import type { PaginatedResponse } from './interfaces/pagination';
 import type {
@@ -71,10 +72,15 @@ export class ReportsClient extends BaseApiClient {
     );
   }
 
-  /** Records the export in the audit log; the browser prints the page itself. */
-  async recordExport(id: string): Promise<void> {
-    await this.fetch(`${API_ENDPOINTS.reports}/${id}/export`, {
-      method: 'POST',
-    });
+  /** The report as a PDF, built by the backend. Each download is recorded as report.exported. */
+  async downloadPdf(id: string): Promise<Blob> {
+    const url = joinUrl(this.baseUrl, `${API_ENDPOINTS.reports}/${id}/pdf`);
+    const response = await fetch(url, { headers: this.getHeaders() });
+    if (!response.ok) {
+      throw new Error(
+        `API error: ${response.status} - ${await response.text()}`
+      );
+    }
+    return response.blob();
   }
 }

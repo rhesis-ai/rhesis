@@ -3,7 +3,11 @@
 import * as React from 'react';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import type { ReportDetail } from '@/utils/api-client/interfaces/report';
+import type {
+  ReportDetail,
+  ReportResultRule,
+  ReportUpdate,
+} from '@/utils/api-client/interfaces/report';
 import RunsStep from '../../components/create/RunsStep';
 import RequirementsStep from '../../components/create/RequirementsStep';
 import {
@@ -28,10 +32,7 @@ function useSave(
 ) {
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | undefined>();
-  const save = async (body: {
-    test_run_ids?: string[];
-    requirement_ids?: string[];
-  }) => {
+  const save = async (body: ReportUpdate) => {
     setSaving(true);
     setError(undefined);
     try {
@@ -52,6 +53,7 @@ function useSave(
 export function EditRunsDrawer({ report, onClose, onSaved }: DrawerProps) {
   const initial = report.test_run_ids.map(String);
   const [selected, setSelected] = React.useState<string[]>(initial);
+  const [rule, setRule] = React.useState<ReportResultRule>(report.result_rule);
   const { runs, loading, failed } = useEndpointRuns(report.endpoint_id);
   const { save, saving, error } = useSave(report, onSaved, onClose);
 
@@ -61,9 +63,12 @@ export function EditRunsDrawer({ report, onClose, onSaved }: DrawerProps) {
       onClose={onClose}
       title="Test runs in this report"
       width="75%"
-      onSave={() => void save({ test_run_ids: selected })}
+      onSave={() => void save({ test_run_ids: selected, result_rule: rule })}
       saveButtonText="Save"
-      saveDisabled={selected.length === 0 || sameSet(selected, initial)}
+      saveDisabled={
+        selected.length === 0 ||
+        (sameSet(selected, initial) && rule === report.result_rule)
+      }
       loading={saving}
       error={error ?? (failed ? 'Failed to load test runs' : undefined)}
     >
@@ -72,6 +77,8 @@ export function EditRunsDrawer({ report, onClose, onSaved }: DrawerProps) {
         loading={loading}
         selected={selected}
         onChange={setSelected}
+        rule={rule}
+        onRuleChange={setRule}
       />
     </BaseDrawer>
   );

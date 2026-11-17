@@ -2,9 +2,13 @@
 
 import * as React from 'react';
 import { Box, Typography } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { useRouter } from 'next/navigation';
 import LinkedEntitiesGrid from '@/components/common/LinkedEntitiesGrid';
+import { createRowActionsColumn } from '@/components/common/createRowActionsColumn';
+import { LinkOffIcon } from '@/components/icons';
+import { gridEdgeInsetSx, withEdgeInset } from '@/components/reports/gridInset';
 import { getReportRequirementColumns } from '@/lib/extension-registries';
 import { formatPassRate } from '@/components/reports/ReportSection';
 import type {
@@ -20,16 +24,33 @@ const UNTESTED: Record<string, string> = {
 
 type Params = GridRenderCellParams<ReportRequirementRow>;
 
+function removeColumn(onRemove?: (id: string) => void): GridColDef[] {
+  return onRemove
+    ? [
+        createRowActionsColumn({
+          canDelete: () => true,
+          onDelete: id => onRemove(id),
+          deleteTooltip: 'Remove from report',
+          deleteIcon: LinkOffIcon,
+        }),
+      ]
+    : [];
+}
+
 export default function ReportRequirementsTable({
   report,
   onEdit,
+  onRemove,
 }: {
   report: ReportDetail;
   /** Set on an editable draft: shows the card's Assign button. */
   onEdit?: () => void;
+  /** Set on an editable draft: a row action that takes the item out of the report. */
+  onRemove?: (id: string) => void;
 }) {
   const router = useRouter();
   const rows = report.metrics?.requirements ?? [];
+  const rule = report.metrics?.result_rule ?? report.result_rule;
 
   const columns = React.useMemo<GridColDef[]>(() => {
     // Columns EE registered whose data the backend sent (e.g. Impact).
@@ -68,7 +89,7 @@ export default function ReportRequirementsTable({
       ...extra,
       {
         field: 'tests',
-        headerName: 'Tests',
+        headerName: rule === 'all' ? 'Results' : 'Tests',
         width: 100,
         align: 'right',
         headerAlign: 'right',
@@ -92,6 +113,26 @@ export default function ReportRequirementsTable({
             ''
           ),
       },
+      ...(rule === 'latest'
+        ? []
+        : [
+            {
+              field: 'inconsistent',
+              headerName: 'Inconsistent',
+              width: 130,
+              align: 'right' as const,
+              headerAlign: 'right' as const,
+              description: 'Tests whose verdict differed between runs',
+              renderCell: (params: Params) =>
+                params.row.inconsistent ? (
+                  <Typography variant="body2" color="warning.main">
+                    {params.row.inconsistent}
+                  </Typography>
+                ) : (
+                  ''
+                ),
+            },
+          ]),
       {
         field: 'pass_rate',
         headerName: 'Pass rate',
@@ -108,14 +149,14 @@ export default function ReportRequirementsTable({
           ),
       },
     ];
-  }, [report]);
+  }, [report, rule]);
 
   return (
-    <Box sx={{ mb: 3 }}>
+    <Box sx={[{ mb: 3 }, gridEdgeInsetSx] as SxProps<Theme>}>
       <LinkedEntitiesGrid
         title="Requirements"
         rows={rows}
-        columns={columns}
+        columns={withEdgeInset([...columns, ...removeColumn(onRemove)])}
         getRowId={row => String(row.id)}
         onAssignClick={onEdit}
         onRowClick={params => router.push(`/requirements/${String(params.id)}`)}

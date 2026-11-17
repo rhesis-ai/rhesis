@@ -11,7 +11,6 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  GlobalStyles,
   Stack,
 } from '@mui/material';
 import PublishIcon from '@mui/icons-material/PublishOutlined';
@@ -36,29 +35,10 @@ import type { ReportDetail } from '@/utils/api-client/interfaces/report';
 import ReportSummary from './ReportSummary';
 import ReportRequirementsTable from './ReportRequirementsTable';
 import ReportRunsTable from './ReportRunsTable';
+import { RESULT_RULES } from '@/components/reports/resultRules';
 import ReportSlot from './ReportSlot';
 import ReportTitle from './ReportTitle';
 import { EditRequirementsDrawer, EditRunsDrawer } from './EditSelectionDrawers';
-
-const PRINT_ROOT = 'report-print-root';
-
-// Print only the report: hide the app around it.
-const printStyles = (
-  <GlobalStyles
-    styles={{
-      '@media print': {
-        'body *': { visibility: 'hidden' },
-        [`#${PRINT_ROOT}, #${PRINT_ROOT} *`]: { visibility: 'visible' },
-        [`#${PRINT_ROOT}`]: {
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          width: '100%',
-        },
-      },
-    }}
-  />
-);
 
 function day(value?: string | null): string {
   return value ? format(new Date(value), 'dd/MM/yyyy') : '—';
@@ -116,20 +96,27 @@ export default function ReportDetailClient({
     }
   };
 
-  const exportPdf = async () => {
-    let recorded = false;
-    await run(async () => {
-      await client.recordExport(report.id);
-      recorded = true;
+  const updateSelection = (body: {
+    test_run_ids?: string[];
+    requirement_ids?: string[];
+  }) =>
+    run(async () => {
+      await client.updateReport(report.id, body);
+      await refresh();
+    }, 'Failed to update the report');
+
+  const exportPdf = () =>
+    run(async () => {
+      const blob = await client.downloadPdf(report.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${report.title.replace(/[^\w.-]+/g, '-')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
     }, 'Failed to export the report');
-    if (!recorded) return;
-    // Print once the button is enabled again and its tooltip has closed, so the
-    // print layout doesn't freeze an open tooltip in a stale position.
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-    requestAnimationFrame(() => requestAnimationFrame(() => window.print()));
-  };
 
   if (loading) return <PageLoadingState />;
   if (!canRead) return <AccessDenied resource="reports" />;
@@ -142,6 +129,7 @@ export default function ReportDetailClient({
           value: isDraft ? 'Draft · live data' : 'Published · frozen',
         },
         { label: 'endpoint:', value: report.endpoint?.name ?? '—' },
+        { label: 'counting:', value: RESULT_RULES[report.result_rule].label },
         { label: 'created by:', value: report.user?.name || '—' },
         isDraft
           ? { label: 'created on:', value: day(report.created_at) }
@@ -220,8 +208,7 @@ export default function ReportDetailClient({
       metadata={metadata}
       actions={actions}
     >
-      {printStyles}
-      <Box id={PRINT_ROOT} sx={{ flexGrow: 1 }}>
+      <Box sx={{ flexGrow: 1 }}>
         {isDraft && (
           <Alert severity="info" sx={{ mb: 3 }}>
             Draft: the numbers update as results change. Publishing freezes
@@ -239,10 +226,30 @@ export default function ReportDetailClient({
         <ReportRequirementsTable
           report={report}
           onEdit={canEdit ? () => setEditing('requirements') : undefined}
+          onRemove={
+            canEdit
+              ? id =>
+                  updateSelection({
+                    requirement_ids: report.requirement_ids.filter(
+                      r => String(r) !== id
+                    ),
+                  })
+              : undefined
+          }
         />
         <ReportRunsTable
           report={report}
           onEdit={canEdit ? () => setEditing('runs') : undefined}
+          onRemove={
+            canEdit
+              ? id =>
+                  updateSelection({
+                    test_run_ids: report.test_run_ids.filter(
+                      r => String(r) !== id
+                    ),
+                  })
+              : undefined
+          }
         />
         <ReportSlot slot="details" report={report} />
 

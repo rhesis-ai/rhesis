@@ -14,6 +14,7 @@ function report(sections: Record<string, unknown>): ReportDetail {
     title: 'Release 2.4',
     endpoint_id: 'e1',
     status: 'draft',
+    result_rule: 'latest',
     test_run_ids: [],
     requirement_ids: [],
     sections,
@@ -30,6 +31,7 @@ function report(sections: Record<string, unknown>): ReportDetail {
         pass_rate: 50,
         requirements_tested: 1,
         requirements_total: 2,
+        inconsistent: 0,
       },
       requirements: [
         {
@@ -42,6 +44,7 @@ function report(sections: Record<string, unknown>): ReportDetail {
           failed: 1,
           errored: 0,
           pass_rate: 50,
+          inconsistent: 0,
         },
         {
           id: 'q2',
@@ -53,6 +56,7 @@ function report(sections: Record<string, unknown>): ReportDetail {
           failed: 0,
           errored: 0,
           pass_rate: null,
+          inconsistent: 0,
         },
       ],
     },

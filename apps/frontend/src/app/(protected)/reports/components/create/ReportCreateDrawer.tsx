@@ -8,6 +8,7 @@ import StepNav from '@/components/common/StepNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import type { ReportResultRule } from '@/utils/api-client/interfaces/report';
 import RunsStep from './RunsStep';
 import RequirementsStep from './RequirementsStep';
 import { useEndpointRuns, useRequirementOptions } from './useReportPickerData';
@@ -32,6 +33,7 @@ function ReportCreateForm({ onClose }: { onClose: () => void }) {
   const [endpointId, setEndpointId] = React.useState('');
   const [endpoints, setEndpoints] = React.useState<Endpoint[]>([]);
   const [runIds, setRunIds] = React.useState<string[]>([]);
+  const [rule, setRule] = React.useState<ReportResultRule>('latest');
   const [requirementIds, setRequirementIds] = React.useState<string[]>([]);
   const [pickedForRuns, setPickedForRuns] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
@@ -89,6 +91,7 @@ function ReportCreateForm({ onClose }: { onClose: () => void }) {
         .createReport({
           title: title.trim(),
           endpoint_id: endpointId,
+          result_rule: rule,
           test_run_ids: runIds,
           requirement_ids: requirementIds,
         });
@@ -173,6 +176,8 @@ function ReportCreateForm({ onClose }: { onClose: () => void }) {
               loading={runsData.loading}
               selected={runIds}
               onChange={setRunIds}
+              rule={rule}
+              onRuleChange={setRule}
             />
           </DetailTabPanel>
           <DetailTabPanel value={step} index={2} prefix="report">

@@ -43,11 +43,17 @@ function KeyNumbers({ report }: { report: ReportDetail }) {
       label: 'Requirements tested',
       value: `${totals.requirements_tested} of ${totals.requirements_total}`,
     },
+    ...(metrics.result_rule === 'latest'
+      ? []
+      : [{ label: 'Inconsistent tests', value: String(totals.inconsistent) }]),
   ];
   return (
     <Grid container {...SECTION_GRID}>
       {items.map(item => (
-        <Grid key={item.label} size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid
+          key={item.label}
+          size={{ xs: 12, sm: 6, md: items.length > 4 ? 2.4 : 3 }}
+        >
           <ViewField label={item.label} value={item.value} />
         </Grid>
       ))}

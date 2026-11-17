@@ -58,6 +58,7 @@ function report(overrides: Partial<ReportDetail> = {}): ReportDetail {
     title: 'Release 2.4',
     endpoint_id: 'e1',
     status: 'published',
+    result_rule: 'latest',
     test_run_ids: [],
     requirement_ids: [],
     metrics: null,

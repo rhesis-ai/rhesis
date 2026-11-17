@@ -4,6 +4,8 @@ import type { PaginationParams } from './pagination';
 
 export type ReportStatus = 'draft' | 'published';
 export type ReportRecommendation = 'ready' | 'ready_with_risks' | 'not_ready';
+/** latest: newest run per test. all: every result (averages). worst: any failure fails. */
+export type ReportResultRule = 'latest' | 'all' | 'worst';
 export type ReportCoverage =
   | 'tested'
   | 'errored_only'
@@ -15,6 +17,7 @@ export interface Report extends WithPermittedActions {
   title: string;
   summary?: string | null;
   recommendation?: ReportRecommendation | null;
+  result_rule: ReportResultRule;
   endpoint_id: string;
   status: ReportStatus;
   user_id?: string | null;
@@ -39,6 +42,8 @@ export interface ReportRequirementRow {
   failed: number;
   errored: number;
   pass_rate?: number | null;
+  /** Tests whose verdict differed between runs (all and worst rules). */
+  inconsistent: number;
 }
 
 export interface ReportRunRow {
@@ -59,10 +64,11 @@ export interface ReportTotals {
   pass_rate?: number | null;
   requirements_tested: number;
   requirements_total: number;
+  inconsistent: number;
 }
 
 export interface ReportMetrics {
-  result_rule: 'latest';
+  result_rule: ReportResultRule;
   totals: ReportTotals;
   requirements: ReportRequirementRow[];
   runs: ReportRunRow[];
@@ -82,6 +88,7 @@ export interface ReportCreate {
   endpoint_id: string;
   summary?: string | null;
   recommendation?: ReportRecommendation | null;
+  result_rule?: ReportResultRule;
   test_run_ids: string[];
   requirement_ids: string[];
 }

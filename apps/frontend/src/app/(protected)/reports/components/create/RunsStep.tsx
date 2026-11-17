@@ -1,7 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { Alert, Box, Stack, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  MenuItem,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
 import type {
   GridColDef,
   GridRenderCellParams,
@@ -10,6 +17,8 @@ import type {
 import { format } from 'date-fns';
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import { versionLabel } from '@/components/reports/version';
+import { RESULT_RULES } from '@/components/reports/resultRules';
+import type { ReportResultRule } from '@/utils/api-client/interfaces/report';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 
 function passRate(run: TestRunDetail): string {
@@ -66,6 +75,8 @@ interface RunsStepProps {
   loading: boolean;
   selected: string[];
   onChange: (ids: string[]) => void;
+  rule: ReportResultRule;
+  onRuleChange: (rule: ReportResultRule) => void;
 }
 
 export default function RunsStep({
@@ -73,6 +84,8 @@ export default function RunsStep({
   loading,
   selected,
   onChange,
+  rule,
+  onRuleChange,
 }: RunsStepProps) {
   const versions = new Set(
     runs
@@ -83,10 +96,20 @@ export default function RunsStep({
 
   return (
     <Stack spacing={2}>
-      <Typography variant="body2" color="text.secondary">
-        Pick the runs on this endpoint that count for the report. When a test
-        ran in more than one picked run, the result from the latest run counts.
-      </Typography>
+      <TextField
+        select
+        label="When a test ran in more than one picked run"
+        value={rule}
+        onChange={e => onRuleChange(e.target.value as ReportResultRule)}
+        helperText={RESULT_RULES[rule].description}
+        fullWidth
+      >
+        {Object.entries(RESULT_RULES).map(([value, { label }]) => (
+          <MenuItem key={value} value={value}>
+            {label}
+          </MenuItem>
+        ))}
+      </TextField>
       {versions.size > 1 && (
         <Alert severity="warning">
           The picked runs report different endpoint versions:{' '}
