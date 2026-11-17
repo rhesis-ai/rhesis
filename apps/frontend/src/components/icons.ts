@@ -39,6 +39,7 @@ export { default as WarningAmberIcon } from '@mui/icons-material/WarningAmberOut
 export { default as MenuBookIcon } from '@mui/icons-material/MenuBookOutlined';
 export { default as AssessmentIcon } from '@mui/icons-material/AssessmentOutlined';
 export { default as DescriptionIcon } from '@mui/icons-material/DescriptionOutlined';
+export { default as ReportsIcon } from '@mui/icons-material/SummarizeOutlined';
 export { default as CategoryIcon } from '@mui/icons-material/CategoryOutlined';
 export { default as TextFieldsIcon } from '@mui/icons-material/TextFieldsOutlined';
 export { default as NotesIcon } from '@mui/icons-material/NotesOutlined';

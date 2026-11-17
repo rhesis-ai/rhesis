@@ -41,6 +41,7 @@ export const API_ENDPOINTS = {
   telemetry: '/telemetry',
   files: '/files',
   insights: '/insights',
+  reports: '/reports',
 } as const;
 
 export const ENTITY_TYPES = {

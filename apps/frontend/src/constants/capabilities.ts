@@ -148,6 +148,14 @@ export const Capability = {
     UPDATE: 'requirement:update',
     DELETE: 'requirement:delete',
   },
+  Report: {
+    READ: 'report:read',
+    CREATE: 'report:create',
+    UPDATE: 'report:update',
+    DELETE: 'report:delete',
+    PUBLISH: 'report:publish',
+    EXPORT: 'report:export',
+  },
   Tool: {
     READ: 'tool:read',
     CREATE: 'tool:create',
@@ -357,6 +365,13 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   'requirement:create': 'Create requirements',
   'requirement:update': 'Edit requirements',
   'requirement:delete': 'Delete requirements',
+  // Reports
+  'report:read': 'View reports',
+  'report:create': 'Create reports',
+  'report:update': 'Edit draft reports',
+  'report:delete': 'Delete draft reports',
+  'report:publish': 'Publish reports',
+  'report:export': 'Export reports as PDF',
   // Tools
   'tool:read': 'View tool connections',
   'tool:create': 'Add tool connections',
