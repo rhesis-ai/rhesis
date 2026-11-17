@@ -127,8 +127,16 @@ def delete_requirement(
     organization_id: str | None = None,
     user_id: str | None = None,
 ) -> Optional[models.Requirement]:
-    """Delete requirement."""
-    return delete_item(db, models.Requirement, requirement_id, organization_id, user_id)
+    """Delete requirement and unlink its children in the same transaction."""
+    # Soft delete never fires the FK's ON DELETE SET NULL, so unlink by hand.
+    unlink = update(models.Requirement).where(models.Requirement.parent_id == requirement_id)
+    if organization_id:
+        unlink = unlink.where(models.Requirement.organization_id == organization_id)
+    db.execute(unlink.values(parent_id=None), execution_options={"synchronize_session": False})
+    deleted = delete_item(db, models.Requirement, requirement_id, organization_id, user_id)
+    if deleted is None:
+        db.rollback()
+    return deleted
 
 
 def get_test_counts_by_requirement(

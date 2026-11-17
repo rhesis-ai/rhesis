@@ -102,6 +102,23 @@ class TestRequirementHierarchyAndLookups:
         assert cleared.json()["parent_id"] is None
         assert cleared.json()["name"] == child["name"]
 
+    def test_deleting_a_parent_unlinks_its_children(self, authenticated_client):
+        parent = _create(authenticated_client)
+        child = _create(authenticated_client, parent_id=parent["id"])
+
+        deleted = authenticated_client.delete(f"/requirements/{parent['id']}")
+        assert deleted.status_code == status.HTTP_200_OK, deleted.text
+
+        refreshed = authenticated_client.get(f"/requirements/{child['id']}").json()
+        assert refreshed["parent_id"] is None
+        assert refreshed["parent"] is None
+
+        # The child saves normally afterwards, with or without naming a parent.
+        renamed = authenticated_client.put(
+            f"/requirements/{child['id']}", json={"name": "Renamed", "parent_id": None}
+        )
+        assert renamed.status_code == status.HTTP_200_OK, renamed.text
+
     def test_a_requirement_cannot_be_its_own_parent(self, authenticated_client):
         requirement = _create(authenticated_client)
         response = authenticated_client.put(
