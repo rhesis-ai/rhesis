@@ -175,6 +175,7 @@ const RESOURCE_ROUTES: Record<string, string> = {
   experiment: '/experiments',
   metric: '/metrics',
   project: '/projects',
+  report: '/reports',
   requirement: '/requirements',
   source: '/knowledge',
   task: '/tasks',

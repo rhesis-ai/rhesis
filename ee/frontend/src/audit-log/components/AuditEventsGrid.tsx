@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useCallback, useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import type {
@@ -9,6 +10,7 @@ import type {
   GridRenderCellParams,
   GridRowParams,
 } from '@mui/x-data-grid';
+import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import { alpha, type Theme } from '@mui/material/styles';
@@ -94,6 +96,8 @@ function toFilters(
     search: state.search,
     area: state.pill,
     ...state.drawer,
+    // Set from the URL only, through `externalFilters`.
+    resource: '',
   };
 }
 
@@ -163,7 +167,23 @@ function TwoLines({
   );
 }
 
+/** `?resource_id=` narrows the log to one resource, e.g. from a report's audit trail. */
+export const AUDIT_RESOURCE_PARAM = 'resource_id';
+
 export default function AuditEventsGrid() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const resourceId = searchParams.get(AUDIT_RESOURCE_PARAM) ?? '';
+  const externalFilters = useMemo(
+    () => (resourceId ? { resource: resourceId } : undefined),
+    [resourceId]
+  );
+  const clearResource = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete(AUDIT_RESOURCE_PARAM);
+    router.replace(`${pathname}?${params.toString()}`);
+  }, [searchParams, router, pathname]);
   const [openEventId, setOpenEventId] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   // The $filter of what the list shows, so an export matches it exactly.
@@ -359,6 +379,22 @@ export default function AuditEventsGrid() {
         pills={{ tabs: CATEGORY_PILLS, allValue: ALL_PILL }}
         drawer={drawerAdapter}
         onFiltersChange={onFiltersChange}
+        externalFilters={externalFilters}
+        banner={
+          resourceId ? (
+            <Alert
+              severity="info"
+              action={
+                <Button color="inherit" size="small" onClick={clearResource}>
+                  Show all
+                </Button>
+              }
+              sx={{ mb: 2 }}
+            >
+              Showing the entries for one resource only.
+            </Alert>
+          ) : undefined
+        }
         toolbarRight={
           <Can capability={Capability.AuditLog.EXPORT}>
             <Button
