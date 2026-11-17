@@ -20,10 +20,11 @@ ADK-specific:
 
 Where ADK differs from the frameworks ``genai.py`` was written for:
 
-- ADK does **not** emit ``gen_ai.input.messages`` / ``gen_ai.output.messages``
-  by default, so the shared message-event synthesis finds nothing. It only does
-  so when the app opts into the experimental GenAI semconv, which is a *global*
-  OTel switch we deliberately never set ourselves.
+- Under telemetry schema v1, ADK does **not** emit ``gen_ai.input.messages`` /
+  ``gen_ai.output.messages`` unless the app opts into the experimental GenAI
+  semconv, a *global* OTel switch we never set ourselves; content comes from
+  ADK's own JSON blobs instead. Schema v2 (ADK's default since 2.14) emits the
+  standard attributes and no blobs.
 - ``gen_ai.system`` on the ``call_llm`` span is the literal string
   ``"gcp.vertex.agent"`` -- a framework label, not a model provider. The shared
   attribute map would route it straight into ``ai.model.provider``, so
@@ -55,6 +56,8 @@ from rhesis.sdk.telemetry.integrations.genai import (
     # :func:`translate_attributes` has to undo.
     GEN_AI_SYSTEM,  # noqa: F401
     GEN_AI_SYSTEM_INSTRUCTIONS,
+    GEN_AI_TOOL_CALL_ARGS,
+    GEN_AI_TOOL_CALL_RESULT,
     GEN_AI_TOOL_NAME,
     GEN_AI_USAGE_INPUT_TOKENS,
     GEN_AI_USAGE_OUTPUT_TOKENS,
@@ -72,6 +75,9 @@ from rhesis.sdk.telemetry.integrations.genai import (
 )
 from rhesis.sdk.telemetry.integrations.genai import (
     synthesize_message_events as _synthesize_semconv_message_events,
+)
+from rhesis.sdk.telemetry.integrations.genai import (
+    synthesize_tool_io_events as _synthesize_semconv_tool_io_events,
 )
 from rhesis.sdk.telemetry.integrations.genai import (
     translate_attributes as _translate_genai_attributes,
@@ -152,16 +158,22 @@ GEN_AI_USAGE_REASONING_OUTPUT_TOKENS = "gen_ai.usage.reasoning.output_tokens"
 # so the original ADK name is still recoverable in the trace UI.
 ORIGINAL_SPAN_NAME = "gen_ai.original_span_name"
 
-# The big JSON payload attributes. Their content is re-emitted as ``ai.prompt`` /
-# ``ai.completion`` / ``ai.tool.*`` events in the shape the trace UI reads, so
-# forwarding the blobs too would ship the same text twice plus the entire
-# tool-schema ``config`` on every single model call.
+# The content attributes: ADK's JSON blobs (schema v1) and the standard GenAI
+# ones (schema v2). Their content is re-emitted as ``ai.prompt`` /
+# ``ai.completion`` / ``ai.tool.*`` events in the shape the trace UI reads, and
+# only when Rhesis content capture is on, so they are never forwarded: that would
+# ship the same text twice, and with capture off it would ship it at all.
 _CONTENT_BLOB_ATTRIBUTES: tuple[str, ...] = (
     GCP_LLM_REQUEST,
     GCP_LLM_RESPONSE,
     GCP_TOOL_CALL_ARGS,
     GCP_TOOL_RESPONSE,
     GCP_DATA,
+    GEN_AI_INPUT_MESSAGES,
+    GEN_AI_OUTPUT_MESSAGES,
+    GEN_AI_SYSTEM_INSTRUCTIONS,
+    GEN_AI_TOOL_CALL_ARGS,
+    GEN_AI_TOOL_CALL_RESULT,
 )
 
 # Values ADK writes into the content attributes when it has nothing real to say.
@@ -439,8 +451,8 @@ def translate_attributes(attributes: Mapping[str, Any]) -> dict[str, Any]:
     elif translated.get(AIAttributes.MODEL_PROVIDER) == INSTRUMENTATION_SCOPE:
         translated.pop(AIAttributes.MODEL_PROVIDER, None)
 
-    # The ADK session id only ever appears under ``gcp.vertex.agent.session_id``
-    # on ``call_llm``; every other span uses ``gen_ai.conversation.id``.
+    # Schema v1's ``call_llm`` carries the ADK session id as
+    # ``gcp.vertex.agent.session_id``; every other span uses ``gen_ai.conversation.id``.
     resolved_session = session_id(attributes)
     if resolved_session:
         translated.setdefault(AIAttributes.SESSION_ID, resolved_session)
@@ -659,11 +671,14 @@ def synthesize_tool_io_events(
 ) -> list[tuple[str, dict[str, Any]]]:
     """Build ``ai.tool.input`` / ``ai.tool.output`` events for a tool span.
 
-    ADK stores tool arguments and results as ``gcp.vertex.agent.tool_call_args``
-    / ``.tool_response`` rather than the ``gen_ai.tool.call.*`` attributes the
-    shared helper reads. Its several "nothing here" sentinels are skipped so we
-    do not render ``N/A`` or ``<not serializable>`` as if they were tool output.
+    Schema v2 stores tool arguments and results in the standard
+    ``gen_ai.tool.call.*`` attributes the shared helper reads. Schema v1 uses
+    ``gcp.vertex.agent.tool_call_args`` / ``.tool_response`` instead, with
+    several "nothing here" sentinels that are skipped so we do not render
+    ``N/A`` or ``<not serializable>`` as if they were tool output.
     """
+    if GCP_TOOL_CALL_ARGS not in attributes and GCP_TOOL_RESPONSE not in attributes:
+        return _synthesize_semconv_tool_io_events(attributes)
     events: list[tuple[str, dict[str, Any]]] = []
     args = _decode_blob(attributes.get(GCP_TOOL_CALL_ARGS))
     if args is not None:
@@ -753,7 +768,10 @@ def transfer_target(attributes: Mapping[str, Any]) -> str:
     back to a plain tool span in that case, since a handoff with no destination
     draws no edge anyway.
     """
-    args = _decode_blob(attributes.get(GCP_TOOL_CALL_ARGS))
+    raw_args = attributes.get(GCP_TOOL_CALL_ARGS)
+    if raw_args is None:
+        raw_args = attributes.get(GEN_AI_TOOL_CALL_ARGS)
+    args = _decode_blob(raw_args)
     if not isinstance(args, Mapping):
         return ""
     target = args.get("agent_name")

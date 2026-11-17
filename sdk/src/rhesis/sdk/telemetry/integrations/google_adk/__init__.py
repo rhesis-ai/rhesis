@@ -80,17 +80,23 @@ processor, but ADK keeps emitting; those spans then pass through untranslated,
 exactly as if the integration had never been enabled.
 
 **Content capture** is on by default, sourced from ADK's own span attributes.
-Set ``RHESIS_DISABLE_CONTENT_CAPTURE`` to a truthy value to switch it off; the
+Under telemetry schema v2 (ADK's default since 2.14) ADK records that content
+only when ``OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT`` is a span mode,
+so the integration sets it to ``SPAN_ONLY`` when the app left it unset; the knob
+is shared with every OTel GenAI instrumentation in the process. Set
+``RHESIS_DISABLE_CONTENT_CAPTURE`` to a truthy value to switch capture off; the
 integration then forces ADK's three content knobs, including
 ``ADK_TELEMETRY_IGNORE_RUN_CONFIG`` so a per-request ``RunConfig.telemetry``
-cannot put prompts back. ``OTEL_SEMCONV_STABILITY_OPT_IN`` is never touched --
-it is a global OpenTelemetry switch affecting unrelated instrumentation.
+cannot put prompts back, and strips any content attributes ADK still emits.
+``OTEL_SEMCONV_STABILITY_OPT_IN`` is never touched -- it is a global
+OpenTelemetry switch affecting unrelated instrumentation.
 
 **``google-adk[otel-gcp]`` is not needed and not supported.** That extra installs
-``opentelemetry-instrumentation-google-genai``, which makes ADK hand the model
-span to a different instrumentation scope. Traces stay complete either way
-(``call_llm`` is still ADK's own and still becomes ``ai.llm.invoke``), but the
-other library's spans are not translated.
+``opentelemetry-instrumentation-google-genai``; when it is active ADK hands
+Gemini model spans to that library, whose spans are not translated. Under schema
+v1 traces stay complete (``call_llm`` is still ADK's own and still becomes
+``ai.llm.invoke``); under v2 there is no ``call_llm``, so those model calls are
+missing.
 
 **Verbose spans.** ADK infrastructure spans (``send_data``, ``create_cache``,
 ``handle_context_caching``, ``compact_events``, ``execute_tool (merged)``) are
