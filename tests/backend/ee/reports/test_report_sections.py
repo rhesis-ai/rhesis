@@ -134,6 +134,60 @@ class TestPeopleAndStats:
         assert (stats["results_judged"], stats["results_errored"]) == (1, 0)
 
 
+class TestPdf:
+    def test_enterprise_pdf_prints_sections(
+        self, authenticated_client, build, db_endpoint, monkeypatch
+    ):
+        from rhesis.backend.ee.reports import pdf as ee_pdf
+
+        calls = []
+        for name in ("render_by_impact", "render_people", "render_stats"):
+            original = getattr(ee_pdf, name)
+            monkeypatch.setattr(
+                ee_pdf, name, lambda data, _o=original, _n=name: calls.append(_n) or _o(data)
+            )
+        # The registered sections hold the original functions; re-register with the spies.
+        from rhesis.backend.app.services.report.sections import (
+            ReportSection,
+            get_report_sections,
+            register_report_section,
+            reset_report_sections,
+        )
+
+        saved = get_report_sections()
+        reset_report_sections()
+        try:
+            for section in saved:
+                spy = (
+                    getattr(ee_pdf, section.render_pdf.__name__, None)
+                    if section.render_pdf
+                    else None
+                )
+                register_report_section(
+                    ReportSection(
+                        section.key,
+                        section.feature,
+                        section.build,
+                        render_pdf=spy or section.render_pdf,
+                        placement=section.placement,
+                    )
+                )
+            run = build.run()
+            build.result(run, build.test(build.requirement("Impactful")))
+            build.commit()
+            report = _create(authenticated_client, db_endpoint.id, runs=[run])
+            response = authenticated_client.get(f"/reports/{report['id']}/pdf")
+        finally:
+            reset_report_sections()
+            for section in saved:
+                register_report_section(section)
+            register_reports()
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.content.startswith(b"%PDF")
+        assert sorted(calls) == ["render_by_impact", "render_people", "render_stats"]
+
+
 class TestAuditTrail:
     def test_publish_and_export_show_up(self, authenticated_client, build, db_endpoint):
         run = build.run()
@@ -141,7 +195,7 @@ class TestAuditTrail:
         build.commit()
         report = _create(authenticated_client, db_endpoint.id, runs=[run])
         authenticated_client.post(f"/reports/{report['id']}/publish")
-        authenticated_client.post(f"/reports/{report['id']}/export")
+        assert authenticated_client.get(f"/reports/{report['id']}/pdf").status_code == 200
 
         response = authenticated_client.get(f"/reports/{report['id']}/audit-trail")
         assert response.status_code == status.HTTP_200_OK, response.text

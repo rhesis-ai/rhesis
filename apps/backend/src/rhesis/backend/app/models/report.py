@@ -23,6 +23,10 @@ from rhesis.backend.app.models.mixins import (
 REPORT_STATUS_DRAFT = "draft"
 REPORT_STATUS_PUBLISHED = "published"
 REPORT_RECOMMENDATIONS = ("ready", "ready_with_risks", "not_ready")
+# How a test that ran in several picked runs is counted.
+RESULT_RULE_LATEST = "latest"
+RESULT_RULE_ALL = "all"
+RESULT_RULE_WORST = "worst"
 
 
 def _link_table(name: str, column: str, target: str, field: str) -> Table:
@@ -55,6 +59,7 @@ class Report(Base, ActivityTrackableMixin, ProjectMixin, OrganizationAndUserMixi
     )
     __table_args__ = (
         CheckConstraint("status IN ('draft','published')", name="ck_report_status"),
+        CheckConstraint("result_rule IN ('latest','all','worst')", name="ck_report_result_rule"),
         CheckConstraint(
             "recommendation IS NULL OR recommendation IN ('ready','ready_with_risks','not_ready')",
             name="ck_report_recommendation",
@@ -64,6 +69,9 @@ class Report(Base, ActivityTrackableMixin, ProjectMixin, OrganizationAndUserMixi
     title = Column(String, nullable=False)
     endpoint_id = Column(GUID(), ForeignKey("endpoint.id"), nullable=False, index=True)
     status = Column(String, nullable=False, default=REPORT_STATUS_DRAFT, server_default="draft")
+    result_rule = Column(
+        String, nullable=False, default=RESULT_RULE_LATEST, server_default=RESULT_RULE_LATEST
+    )
     summary = Column(Text, nullable=True)
     recommendation = Column(String, nullable=True)
     published_at = Column(TIMESTAMP(timezone=True), nullable=True)

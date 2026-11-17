@@ -20,11 +20,13 @@ Then pick a recommendation:
 Report: {{ title }}
 Endpoint: {{ endpoint }}
 Runs: {{ runs }}{% if versions_differ %} (they tested different versions){% endif %}
+How results are counted: {% if rule == "all" %}every result in every run counts, so pass rates are averages over the runs{% elif rule == "worst" %}a test counts as failed if it failed in any run{% else %}the latest run's result per test{% endif %}{% if totals.inconsistent %}
+Tests with a different verdict in different runs (inconsistent): {{ totals.inconsistent }}{% endif %}
 Results counted: {{ totals.results }} ({{ totals.passed }} passed, {{ totals.failed }} failed, {{ totals.inconclusive }} inconclusive, {{ totals.errored }} errored)
 Overall pass rate: {% if totals.pass_rate is not none %}{{ totals.pass_rate }}%{% else %}none (nothing passed or failed){% endif %}
 Requirements tested: {{ totals.requirements_tested }} of {{ totals.requirements_total }}
 
 Requirements:
-{% for row in requirements %}- {{ "  " if row.level else "" }}{{ row.name }}: {% if row.coverage == "tested" %}{{ row.tests }} tests, {{ row.failed }} failed, pass rate {{ row.pass_rate if row.pass_rate is not none else "n/a" }}%{% elif row.coverage == "errored_only" %}{{ row.tests }} tests, all errored{% elif row.coverage == "not_in_runs" %}has tests, none in these runs{% else %}no tests yet{% endif %}
+{% for row in requirements %}- {{ "  " if row.level else "" }}{{ row.name }}: {% if row.coverage == "tested" %}{{ row.tests }} {{ "results" if rule == "all" else "tests" }}, {{ row.failed }} failed{% if row.inconsistent %}, {{ row.inconsistent }} inconsistent{% endif %}, pass rate {{ row.pass_rate if row.pass_rate is not none else "n/a" }}%{% elif row.coverage == "errored_only" %}{{ row.tests }} tests, all errored{% elif row.coverage == "not_in_runs" %}has tests, none in these runs{% else %}no tests yet{% endif %}
 {% else %}- none picked
 {% endfor %}

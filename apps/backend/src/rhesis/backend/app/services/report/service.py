@@ -18,6 +18,7 @@ from rhesis.backend.app.services.audit_events import record_audit_event
 from rhesis.backend.app.services.report.counting import (
     CountedResult,
     RequirementInfo,
+    inconsistent_tests,
     pick_counted,
     requirement_tree,
     totals,
@@ -159,15 +160,20 @@ def _compute(db: Session, report: models.Report) -> tuple:
     """Live numbers for a report: (context, metrics)."""
     run_ids = report_crud.get_report_test_run_ids(db, report.id)
     requirement_ids = report_crud.get_report_requirement_ids(db, report.id)
-    counted = pick_counted(report_crud.get_results_for_runs(db, run_ids))
+    rows = report_crud.get_results_for_runs(db, run_ids)
+    counted = pick_counted(rows, report.result_rule)
+    # Only meaningful when more than one result per test is looked at.
+    inconsistent = inconsistent_tests(rows) if report.result_rule != "latest" else set()
     tree = requirement_tree(
         _requirements(db, requirement_ids),
         counted,
         report_crud.count_tests_by_requirement(db, requirement_ids),
+        inconsistent,
     )
     run_rows = _run_rows(report_crud.get_test_runs(db, run_ids), counted)
     metrics = schemas.ReportMetrics(
-        totals=totals(counted, tree),
+        result_rule=report.result_rule,
+        totals=totals(counted, tree, inconsistent),
         requirements=tree,
         runs=run_rows,
         versions_differ=_versions_differ(run_rows),
@@ -288,11 +294,25 @@ def copy_report(
         title=f"{source.title} (copy)"[:200],
         summary=source.summary,
         recommendation=source.recommendation,
+        result_rule=source.result_rule,
         endpoint_id=source.endpoint_id,
         test_run_ids=report_crud.get_report_test_run_ids(db, source.id),
         requirement_ids=report_crud.get_report_requirement_ids(db, source.id),
     )
     return create_report(db, data, organization_id, user_id)
+
+
+def export_pdf(db: Session, report: models.Report, organization_id: str) -> bytes:
+    """The report as a PDF, recorded as an export."""
+    # Local import: reportlab loads only when someone exports.
+    from rhesis.backend.app.services.report.pdf import render_report_pdf
+
+    detail = report_detail(db, report, organization_id)
+    if report.is_published and report.endpoint_snapshot:
+        detail["endpoint"] = {"name": report.endpoint_snapshot.get("name")}
+    content = render_report_pdf(db, report, detail, _organization(db, organization_id))
+    record_export(db, report, organization_id)
+    return content
 
 
 def record_export(db: Session, report: models.Report, organization_id: str) -> None:

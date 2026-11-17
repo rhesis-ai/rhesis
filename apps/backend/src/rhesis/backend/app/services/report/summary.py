@@ -35,6 +35,7 @@ def _render(report: models.Report, metrics) -> str:
         endpoint=report.endpoint.name if report.endpoint else "",
         runs=len(metrics.runs),
         versions_differ=metrics.versions_differ,
+        rule=metrics.result_rule,
         totals=metrics.totals,
         requirements=metrics.requirements,
     )

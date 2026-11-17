@@ -16,7 +16,9 @@ from rhesis.backend.app import models
 from rhesis.backend.app.features import Feature, FeatureName, FeatureRegistry
 from rhesis.backend.app.services.report.sections import (
     ReportSection,
+    get_report_pdf_notes,
     get_report_sections,
+    register_report_pdf_note,
     register_report_section,
     reset_report_sections,
 )
@@ -185,6 +187,33 @@ class TestReportDraft:
         totals = _detail(authenticated_client, report["id"])["metrics"]["totals"]
         assert (totals["results"], totals["passed"], totals["failed"]) == (1, 1, 0)
 
+    def test_rule_all_averages_repeated_runs(self, authenticated_client, build, db_endpoint):
+        requirement = build.requirement("Repeated")
+        test = build.test(requirement)
+        runs = [build.run() for _ in range(4)]
+        for run, verdict in zip(runs, ("pass", "fail", "pass", "pass"), strict=True):
+            build.result(run, test, verdict)
+        build.commit()
+        report = _create(
+            authenticated_client,
+            db_endpoint.id,
+            runs=runs,
+            requirements=[requirement],
+            result_rule="all",
+        )
+        metrics = _detail(authenticated_client, report["id"])["metrics"]
+        assert metrics["result_rule"] == "all"
+        assert (metrics["totals"]["results"], metrics["totals"]["pass_rate"]) == (4, 75.0)
+        assert metrics["totals"]["inconsistent"] == 1
+
+        # Switching the draft to "worst" makes the one failure decide.
+        response = authenticated_client.put(
+            f"/reports/{report['id']}", json={"result_rule": "worst"}
+        )
+        assert response.status_code == status.HTTP_200_OK, response.text
+        totals = _detail(authenticated_client, report["id"])["metrics"]["totals"]
+        assert (totals["results"], totals["failed"], totals["pass_rate"]) == (1, 1, 0.0)
+
     def test_versions_differ_is_flagged(self, authenticated_client, build, db_endpoint):
         test = build.test()
         old, new = build.run(version={"prompt": "v2.3"}), build.run(version={"prompt": "v2.4"})
@@ -317,10 +346,38 @@ class TestReportPublish:
         assert detail["test_run_ids"] == [str(run.id)]
         assert detail["requirement_ids"] == [str(requirement.id)]
 
-    def test_export_is_recorded(self, authenticated_client, db_endpoint):
-        report = _create(authenticated_client, db_endpoint.id)
-        response = authenticated_client.post(f"/reports/{report['id']}/export")
+    def test_pdf_of_a_draft(self, authenticated_client, build, db_endpoint):
+        requirement = build.requirement("PDF requirement")
+        run = build.run()
+        build.result(run, build.test(requirement), "fail")
+        build.commit()
+        report = _create(
+            authenticated_client,
+            db_endpoint.id,
+            runs=[run],
+            requirements=[requirement],
+            title="Release 2.4 <draft>",
+            summary="One failure & one note.",
+        )
+
+        response = authenticated_client.get(f"/reports/{report['id']}/pdf")
+
         assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.headers["content-type"] == "application/pdf"
+        assert 'filename="Release-2.4-_draft_.pdf"' in response.headers["content-disposition"]
+        assert response.content.startswith(b"%PDF")
+
+    def test_pdf_of_a_published_report(self, authenticated_client, build, db_endpoint):
+        run = build.run()
+        build.result(run, build.test())
+        build.commit()
+        report = _create(authenticated_client, db_endpoint.id, runs=[run])
+        authenticated_client.post(f"/reports/{report['id']}/publish")
+
+        response = authenticated_client.get(f"/reports/{report['id']}/pdf")
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert response.content.startswith(b"%PDF")
 
     def test_draft_can_be_deleted(self, authenticated_client, db_endpoint):
         report = _create(authenticated_client, db_endpoint.id)
@@ -332,12 +389,14 @@ class TestReportPublish:
 @pytest.fixture
 def section_registry():
     """An empty registry for the test; whatever EE registered comes back after."""
-    saved = get_report_sections()
+    saved, saved_notes = get_report_sections(), get_report_pdf_notes()
     reset_report_sections()
     yield
     reset_report_sections()
     for section in saved:
         register_report_section(section)
+    for note in saved_notes:
+        register_report_pdf_note(note)
 
 
 @pytest.mark.integration
@@ -365,6 +424,37 @@ class TestReportSections:
         authenticated_client.post(f"/reports/{report['id']}/publish")
         assert _detail(authenticated_client, report["id"])["sections"] == {"probe": {"counted": 1}}
         assert calls == ["draft", "draft"]  # preview, publish; never after
+
+    def test_section_and_note_print_in_the_pdf(
+        self, authenticated_client, build, db_endpoint, section_registry
+    ):
+        from reportlab.platypus import Paragraph
+
+        if not FeatureRegistry.is_registered(FeatureName.AUDIT_LOG):
+            FeatureRegistry.register(Feature(name=FeatureName.AUDIT_LOG))
+        printed, noted = [], []
+
+        def render(data):
+            printed.append(data)
+            return [Paragraph("Probe section")]
+
+        register_report_section(
+            ReportSection(
+                "probe", FeatureName.AUDIT_LOG, lambda db, ctx: {"n": 1}, render_pdf=render
+            )
+        )
+        register_report_pdf_note(lambda db, report: noted.append(report.id) or "A note")
+        run = build.run()
+        build.result(run, build.test())
+        build.commit()
+        report = _create(authenticated_client, db_endpoint.id, runs=[run])
+        authenticated_client.post(f"/reports/{report['id']}/publish")
+
+        response = authenticated_client.get(f"/reports/{report['id']}/pdf")
+
+        assert response.status_code == status.HTTP_200_OK, response.text
+        assert printed == [{"n": 1}]  # the frozen output, not a rebuild
+        assert noted == [uuid.UUID(report["id"])]
 
     def test_unavailable_feature_leaves_section_out(
         self, authenticated_client, db_endpoint, section_registry, monkeypatch

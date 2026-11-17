@@ -96,6 +96,7 @@ def _create_report() -> None:
         sa.Column("title", sa.String(), nullable=False),
         sa.Column("endpoint_id", _guid(), sa.ForeignKey("endpoint.id"), nullable=False),
         sa.Column("status", sa.String(), nullable=False, server_default="draft"),
+        sa.Column("result_rule", sa.String(), nullable=False, server_default="latest"),
         sa.Column("summary", sa.Text(), nullable=True),
         sa.Column("recommendation", sa.String(), nullable=True),
         sa.Column("published_at", sa.TIMESTAMP(timezone=True), nullable=True),
@@ -105,6 +106,7 @@ def _create_report() -> None:
         sa.Column("sections", postgresql.JSONB(), nullable=True),
         sa.Column("snapshot_hash", sa.String(), nullable=True),
         sa.CheckConstraint("status IN ('draft','published')", name="ck_report_status"),
+        sa.CheckConstraint("result_rule IN ('latest','all','worst')", name="ck_report_result_rule"),
         sa.CheckConstraint(
             "recommendation IS NULL OR recommendation IN ('ready','ready_with_risks','not_ready')",
             name="ck_report_recommendation",

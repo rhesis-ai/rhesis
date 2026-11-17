@@ -184,17 +184,28 @@ def draft_report_summary(
         ) from e
 
 
-@router.post("/{report_id}/export", **capability(Permission.Report.EXPORT))
-def export_report(
+@router.get("/{report_id}/pdf", **capability(Permission.Report.EXPORT))
+def export_report_pdf(
     report_id: uuid.UUID,
     db: Session = Depends(get_tenant_db_session),
     tenant_context=Depends(get_tenant_context),
 ):
-    """Record a PDF export. The browser prints the page itself."""
+    """The report as a PDF: frozen for a published report, marked DRAFT otherwise.
+    Each download is recorded as report.exported."""
     organization_id, user_id = tenant_context
     try:
         report = report_service.load_report(db, report_id, organization_id, user_id)
     except ReportError as e:
         raise _http(e) from e
-    report_service.record_export(db, report, organization_id)
-    return {"status": "success"}
+    content = report_service.export_pdf(db, report, organization_id)
+    filename = _pdf_filename(report.title)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _pdf_filename(title: str) -> str:
+    safe = "".join(c if c.isalnum() or c in "-_. " else "_" for c in title).strip() or "report"
+    return f"{safe[:80].replace(' ', '-')}.pdf"

@@ -1,13 +1,20 @@
 """Which results count, and the numbers a report shows. Pure functions over plain rows.
 
-When a test ran in several picked runs, the latest result counts. Pass rate is
-pass / (pass + fail), as in Insights: inconclusive, errored and unrun results don't
-move it.
+When a test ran in several picked runs, the report's rule decides what counts:
+
+- ``latest``: one result per test, from the most recent run.
+- ``all``: every result in every run, so pass rates are averages over repeated runs.
+- ``worst``: one result per test, its worst verdict (fail, then inconclusive, then
+  pass); an errored result counts only when no run judged the test.
+
+Under ``all`` and ``worst`` a test whose verdict differed between runs is
+inconsistent. Pass rate is pass / (pass + fail), as in Insights: inconclusive,
+errored and unrun results don't move it.
 """
 
 import uuid
-from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional
+from dataclasses import dataclass, field
+from typing import AbstractSet, Any, Dict, Iterable, List, Optional, Set
 
 from rhesis.backend.app.outcomes import Execution, Verdict
 
@@ -37,6 +44,7 @@ class _Tally:
     failed: int = 0
     inconclusive: int = 0
     errored: int = 0
+    inconsistent: Set[uuid.UUID] = field(default_factory=set)
 
     def add(self, result: CountedResult) -> None:
         self.tests += 1
@@ -55,6 +63,7 @@ class _Tally:
         self.failed += other.failed
         self.inconclusive += other.inconclusive
         self.errored += other.errored
+        self.inconsistent |= other.inconsistent
 
 
 def pass_rate(passed: int, failed: int) -> Optional[float]:
@@ -62,24 +71,49 @@ def pass_rate(passed: int, failed: int) -> Optional[float]:
     return round(passed * 100 / judged, 2) if judged else None
 
 
-def pick_counted(rows: Iterable[Any]) -> List[CountedResult]:
-    """One result per test: the latest. ``rows`` must come oldest first."""
-    latest: Dict[uuid.UUID, Any] = {}
+def _counted(row: Any) -> CountedResult:
+    return CountedResult(
+        test_result_id=row.id,
+        test_id=row.test_id,
+        test_run_id=row.test_run_id,
+        requirement_id=row.requirement_id,
+        execution=row.execution,
+        verdict=row.verdict,
+        overridden=row.original_status_id is not None and row.original_status_id != row.status_id,
+    )
+
+
+# Worst first: higher is worse. Errored ranks lowest, so a judged result wins.
+_SEVERITY = {Verdict.FAIL.value: 3, Verdict.INCONCLUSIVE.value: 2, Verdict.PASS.value: 1}
+
+
+def _severity(row: Any) -> int:
+    if row.execution != Execution.OK.value:
+        return 0
+    return _SEVERITY.get(row.verdict, 2)
+
+
+def pick_counted(rows: Iterable[Any], rule: str = "latest") -> List[CountedResult]:
+    """The results the report counts under ``rule``. ``rows`` must come oldest run first."""
+    rows = list(rows)
+    if rule == "all":
+        return [_counted(row) for row in rows]
+    chosen: Dict[uuid.UUID, Any] = {}
     for row in rows:
-        latest[row.test_id] = row
-    return [
-        CountedResult(
-            test_result_id=row.id,
-            test_id=row.test_id,
-            test_run_id=row.test_run_id,
-            requirement_id=row.requirement_id,
-            execution=row.execution,
-            verdict=row.verdict,
-            overridden=row.original_status_id is not None
-            and row.original_status_id != row.status_id,
-        )
-        for row in latest.values()
-    ]
+        current = chosen.get(row.test_id)
+        # Ties go to the later run, so "worst" still prefers recent evidence.
+        if rule != "worst" or current is None or _severity(row) >= _severity(current):
+            chosen[row.test_id] = row
+    return [_counted(row) for row in chosen.values()]
+
+
+def inconsistent_tests(rows: Iterable[Any]) -> Set[uuid.UUID]:
+    """Tests judged differently in different runs (errored runs don't count)."""
+    verdicts: Dict[uuid.UUID, Set[str]] = {}
+    for row in rows:
+        if row.execution == Execution.OK.value and row.verdict:
+            verdicts.setdefault(row.test_id, set()).add(row.verdict)
+    return {test_id for test_id, seen in verdicts.items() if len(seen) > 1}
 
 
 def _coverage(tally: _Tally, has_tests: bool) -> str:
@@ -102,6 +136,7 @@ def _row(info: RequirementInfo, level: int, tally: _Tally, has_tests: bool) -> d
         "failed": tally.failed,
         "errored": tally.errored,
         "pass_rate": pass_rate(tally.passed, tally.failed),
+        "inconsistent": len(tally.inconsistent),
     }
 
 
@@ -115,6 +150,7 @@ def requirement_tree(
     requirements: List[RequirementInfo],
     counted: List[CountedResult],
     tests_by_requirement: Dict[uuid.UUID, int],
+    inconsistent: AbstractSet[uuid.UUID] = frozenset(),
 ) -> List[dict]:
     """Picked requirements as parent rows with their picked children indented below.
 
@@ -125,6 +161,8 @@ def requirement_tree(
     for result in counted:
         if result.requirement_id in own:
             own[result.requirement_id].add(result)
+            if result.test_id in inconsistent:
+                own[result.requirement_id].inconsistent.add(result.test_id)
 
     picked = {r.id for r in requirements}
     children: Dict[uuid.UUID, List[RequirementInfo]] = {}
@@ -156,7 +194,11 @@ def requirement_tree(
     return rows
 
 
-def totals(counted: List[CountedResult], tree: List[dict]) -> dict:
+def totals(
+    counted: List[CountedResult],
+    tree: List[dict],
+    inconsistent: AbstractSet[uuid.UUID] = frozenset(),
+) -> dict:
     tally = _Tally()
     for result in counted:
         tally.add(result)
@@ -169,4 +211,5 @@ def totals(counted: List[CountedResult], tree: List[dict]) -> dict:
         "pass_rate": pass_rate(tally.passed, tally.failed),
         "requirements_tested": sum(1 for row in tree if row["coverage"] == "tested"),
         "requirements_total": len(tree),
+        "inconsistent": len(inconsistent),
     }

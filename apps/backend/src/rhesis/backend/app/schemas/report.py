@@ -10,6 +10,9 @@ from rhesis.backend.app.schemas.user import UserReference
 
 ReportRecommendation = Literal["ready", "ready_with_risks", "not_ready"]
 ReportStatus = Literal["draft", "published"]
+# latest: the newest run's result per test. all: every result in every run (averages
+# over repeated runs). worst: a test fails if it failed in any run.
+ReportResultRule = Literal["latest", "all", "worst"]
 
 # Actions a published report no longer offers, whatever the caller's role.
 _CLOSED_WHEN_PUBLISHED = ("report:update", "report:delete", "report:publish")
@@ -19,6 +22,7 @@ class ReportBase(Base):
     title: str = Field(min_length=1, max_length=200)
     summary: Optional[str] = None
     recommendation: Optional[ReportRecommendation] = None
+    result_rule: ReportResultRule = "latest"
 
 
 class ReportCreate(ReportBase):
@@ -31,6 +35,7 @@ class ReportUpdate(Base):
     title: Optional[str] = Field(default=None, min_length=1, max_length=200)
     summary: Optional[str] = None
     recommendation: Optional[ReportRecommendation] = None
+    result_rule: Optional[ReportResultRule] = None
     test_run_ids: Optional[BulkIds] = None
     requirement_ids: Optional[BulkIds] = None
 
@@ -78,6 +83,8 @@ class ReportRequirementRow(BaseModel):
     failed: int
     errored: int
     pass_rate: Optional[float] = None
+    # Tests whose verdict differed between runs (all and worst rules only).
+    inconsistent: int = 0
 
 
 class ReportRunRow(BaseModel):
@@ -98,12 +105,13 @@ class ReportTotals(BaseModel):
     pass_rate: Optional[float] = None
     requirements_tested: int
     requirements_total: int
+    inconsistent: int = 0
 
 
 class ReportMetrics(BaseModel):
     """The numbers core computes; the same shape live (draft) and frozen (published)."""
 
-    result_rule: Literal["latest"] = "latest"
+    result_rule: ReportResultRule = "latest"
     totals: ReportTotals
     requirements: List[ReportRequirementRow]
     runs: List[ReportRunRow]

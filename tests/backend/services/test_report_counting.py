@@ -9,6 +9,7 @@ import pytest
 from rhesis.backend.app.features import FeatureName
 from rhesis.backend.app.services.report.counting import (
     RequirementInfo,
+    inconsistent_tests,
     pass_rate,
     pick_counted,
     requirement_tree,
@@ -147,3 +148,45 @@ def test_created_at_order_is_callers_job():
     later = _row(test_id, verdict="pass")
     later.created_at += timedelta(hours=1)
     assert pick_counted([later, _row(test_id, verdict="fail")])[0].verdict == "fail"
+
+
+class TestResultRules:
+    """A test that ran three times: pass, fail, pass (oldest run first)."""
+
+    def setup_method(self):
+        self.test_id = uuid.uuid4()
+        self.requirement = RequirementInfo(uuid.uuid4(), "Repeated", None)
+        self.rows = [
+            _row(self.test_id, self.requirement.id, verdict) for verdict in ("pass", "fail", "pass")
+        ]
+
+    def test_latest_keeps_the_newest(self):
+        assert [c.verdict for c in pick_counted(self.rows, "latest")] == ["pass"]
+
+    def test_all_keeps_every_result(self):
+        counted = pick_counted(self.rows, "all")
+        tree = requirement_tree([self.requirement], counted, {self.requirement.id: 1})
+        assert len(counted) == 3
+        assert tree[0]["pass_rate"] == pytest.approx(66.67)
+
+    def test_worst_keeps_the_failure(self):
+        assert [c.verdict for c in pick_counted(self.rows, "worst")] == ["fail"]
+
+    def test_worst_prefers_a_judged_result_over_an_error(self):
+        rows = [_row(self.test_id, verdict="pass"), _row(self.test_id, execution="error")]
+        assert [c.verdict for c in pick_counted(rows, "worst")] == ["pass"]
+
+    def test_inconsistent_tests_are_counted_per_requirement(self):
+        steady = uuid.uuid4()
+        rows = [*self.rows, _row(steady, self.requirement.id, "pass")]
+        rows.append(_row(steady, self.requirement.id, "pass"))
+        flaky = inconsistent_tests(rows)
+        assert flaky == {self.test_id}
+        counted = pick_counted(rows, "all")
+        tree = requirement_tree([self.requirement], counted, {self.requirement.id: 2}, flaky)
+        assert tree[0]["inconsistent"] == 1
+        assert totals(counted, tree, flaky)["inconsistent"] == 1
+
+    def test_an_errored_run_is_not_inconsistent(self):
+        rows = [_row(self.test_id, verdict="pass"), _row(self.test_id, execution="error")]
+        assert inconsistent_tests(rows) == set()
