@@ -113,7 +113,6 @@ class BedrockEmbedder(LiteLLMEmbedder):
         model_name: str = DEFAULT_EMBEDDING_MODEL_NAME,
         api_key: Optional[str] = None,
         dimensions: Optional[int] = None,
-        **kwargs,
     ):
         api_key = api_key or os.getenv("AWS_BEARER_TOKEN_BEDROCK")
         if not api_key:

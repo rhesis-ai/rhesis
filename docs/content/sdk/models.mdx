@@ -582,8 +582,9 @@ embedding = embedder.generate("What is machine learning?")`}
 
 </CodeBlock>
 
-Titan V2 supports dimensions 256, 512, and 1024. Set `AWS_REGION_NAME` to target a specific region
-(default: `us-west-2`).
+Titan V2 supports dimensions 256, 512, and 1024. Set `AWS_REGION_NAME` to target a specific region.
+Without it, LiteLLM uses `us-west-2`. (The UI's pre-filled endpoint URL is for language model
+connections; embeddings pick their region from `AWS_REGION_NAME`.)
 
 <Callout type="default">
   See the [Model entity documentation](/sdk/entities/models) for more details on managing model configurations.
