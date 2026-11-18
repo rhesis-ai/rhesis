@@ -239,10 +239,9 @@ every redirect hop. Never build a bare `httpx`/`requests`/`websockets` client fo
 
 `OUTBOUND_ALLOW_PRIVATE_NETWORKS` lets those URLs reach loopback and private networks. Unset, it is
 on for `BACKEND_ENV=local`/`development` and off for `staging`/`production`; the Helm chart sets it
-`false`. Jira/Confluence/GitLab base URLs follow it too. Link-local and cloud metadata addresses
-are blocked regardless. SSO and webhook targets
-(`SafeHttpClient`) stay public-only, with only `localhost` let through when the flag is on. There
-is no egress `NetworkPolicy` in `charts/` yet, so this guard is the only layer.
+`false`. Jira/Confluence/GitLab base URLs, SSO issuers and webhook targets (`SafeHttpClient`)
+follow it too. Link-local and cloud metadata addresses are blocked regardless. There is no egress
+`NetworkPolicy` in `charts/` yet, so this guard is the only layer.
 
 ## Affordances — backend side
 

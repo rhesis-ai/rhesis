@@ -113,11 +113,12 @@ config:
   # Empty means no default; the login page shows the base provider list.
   authDefaultSsoOrganization: ""
 
-  # Let endpoint, model, OAuth token and tool (Jira, GitLab) URLs reach loopback or private
-  # addresses (in-cluster services, a LAN host). Off: they are tenant input, and
-  # a private target reaches services only the cluster should see. Set "true"
-  # on a single-tenant self-hosted install whose endpoints live on the private
-  # network. Cloud metadata and link-local stay blocked either way.
+  # Let endpoint, model, OAuth token, tool (Jira, GitLab), SSO issuer and
+  # webhook URLs reach loopback or private addresses (in-cluster services, a
+  # LAN host, an on-prem IdP). Off: they are tenant input, and a private target
+  # reaches services only the cluster should see. Set "true" on a single-tenant
+  # self-hosted install whose endpoints or IdP live on the private network.
+  # Cloud metadata and link-local stay blocked either way.
   outboundAllowPrivateNetworks: "false"
 
   # Usage quota enforcement. Off by default so self-hosted deployments have no
