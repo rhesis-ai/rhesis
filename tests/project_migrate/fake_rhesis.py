@@ -402,6 +402,8 @@ class FakeRhesis:
 
     def _experiment_versions(self, method, q, body, eid):
         exp = self.experiments[eid]
+        if exp["owner"] != "key-user":
+            return 403, {"detail": "not the owner"}
         parent = body.get("parent_version")
         if parent and parent not in {v["version"] for v in exp["versions"]} and exp["versions"]:
             return 422, {"detail": f"parent_version {parent!r} does not exist"}

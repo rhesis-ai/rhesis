@@ -143,7 +143,8 @@ class Api:
         self, method: str, path: str, *, params: dict | None = None, body: Any = None
     ) -> Any:
         kind = "read" if method == "GET" else "write"
-        # PUT, PATCH and DELETE are idempotent. POST is not.
+        # PUT, PATCH and DELETE are idempotent. POST is not. The only PATCH sent is to
+        # /experiments/{id}, which sets name, description and visibility to fixed values.
         blind_retry_ok = method in ("GET", "PUT", "PATCH", "DELETE")
         url = f"{self.base}{path}"
         if params:

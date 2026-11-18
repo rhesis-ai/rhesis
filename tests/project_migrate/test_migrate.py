@@ -732,3 +732,35 @@ def test_a_binding_only_the_target_has_is_kept_unless_pruned(world):
     assert world.dst.environments[world.dst_pid]["canary"] is not None
     world.run(snap, prune=True)
     assert world.dst.environments[world.dst_pid]["canary"] is None
+
+
+def test_a_refused_update_still_syncs_versions_and_environments(world):
+    snap = world.snapshot()
+    world.run(snap)
+    tuning = next(e for e in snap["experiments"] if e["name"] == "Prompt tuning")
+    tuning["description"] = "new"
+    tuning["versions"].append(
+        {"version": "v4", "values": {"temperature": {"type": "number", "value": 0.3}},
+         "message": "middle", "parent_version": "v3"}
+    )  # fmt: skip
+    snap["environments"]["environments"]["production"]["version"] = "v4"
+    copy = _experiments(world)["Prompt tuning"]
+    # An environment points at it, so the target refuses to make it private: 409.
+    tuning["visibility"] = "private"
+    report = world.run(snap)
+    assert report.rows["experiment"]["refused"] == 1
+    assert [v["version"] for v in copy["versions"]][-1] == "v4"
+    assert world.dst.environments[world.dst_pid]["production"]["version"] == "v4"
+
+
+def test_versions_on_a_copy_another_user_owns_are_reported(world):
+    snap = world.snapshot()
+    world.run(snap)
+    _experiments(world)["Prompt tuning"]["owner"] = "someone-else"
+    tuning = next(e for e in snap["experiments"] if e["name"] == "Prompt tuning")
+    tuning["versions"].append(
+        {"version": "v4", "values": {"temperature": {"type": "number", "value": 0.3}}}
+    )
+    report = world.run(snap)
+    assert any("Prompt tuning" in n and "HTTP 403" in n for n in report.notes)
+    assert_in_sync_except_experiments(world, snap)

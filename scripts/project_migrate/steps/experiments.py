@@ -36,8 +36,7 @@ def experiments(m: Migration) -> None:
     by_name = index_by_name(rows)
     for src in m.snap["experiments"]:
         target_id = _upsert_experiment(m, src, by_id, by_name, path)
-        if target_id:
-            _replay_versions(m, src, target_id)
+        _replay_versions(m, src, target_id)
 
 
 def _find_experiment(
@@ -55,15 +54,17 @@ def _find_experiment(
 
 def _upsert_experiment(
     m: Migration, src: dict, by_id: dict[str, dict], by_name: dict[str, list[dict]], path: str
-) -> str | None:
+) -> str:
     payload = {k: src.get(k) for k in EXPERIMENT_FIELDS if src.get(k) is not None}
     key = f"experiment:{src['id']}"
     target = _find_experiment(m, src, by_id, by_name)
     if target:
         diff = changed_fields(payload, target)
-        if diff and not _patch_experiment(m, src, target, {k: payload[k] for k in diff}):
-            return None
-        m.report.add(KIND_EXPERIMENT, "update" if diff else "unchanged")
+        # A refused update still leaves a copy, so its versions and environments are synced.
+        if not diff:
+            m.report.add(KIND_EXPERIMENT, "unchanged")
+        elif _patch_experiment(m, src, target, {k: payload[k] for k in diff}):
+            m.report.add(KIND_EXPERIMENT, "update")
         m.state.put(key, status="done", target_id=target["id"], name=src["name"])
         m.remember("experiment", src["id"], target["id"])
         return target["id"]
@@ -120,10 +121,11 @@ def _replay_versions(m: Migration, src: dict, target_id: str) -> None:
         try:
             made = _post_version(m, target_id, version, expected_count=i + 1)
         except HttpError as e:
-            if e.status != 422:
+            if e.status not in (403, 422):
                 raise
-            # The target's current schema rejects these values (a changed type or option).
-            _stop(m, src, f"the target rejected {version['version']}: {e.body}")
+            # 422: the target's schema rejects these values (a changed type or option).
+            # 403: another user owns the target copy.
+            _stop(m, src, f"the target rejected {version['version']} (HTTP {e.status}): {e.body}")
             return
         if made["version"] != version["version"]:
             _stop(m, src, f"the target numbered {version['version']} as {made['version']}")
