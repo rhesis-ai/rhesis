@@ -95,6 +95,7 @@ class TestData(BaseModel):
     # The before-validator keeps accepting loose casing from existing clients.
     test_type: Optional[TestType] = None
     test_configuration: Optional[Dict[str, Any]] = None
+    test_parameters: Optional[Dict[str, Any]] = None
     assignee_id: Optional[UUID4] = None
     owner_id: Optional[UUID4] = None
     status: Optional[str] = None

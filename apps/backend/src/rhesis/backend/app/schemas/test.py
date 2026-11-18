@@ -127,6 +127,8 @@ class TestBulkCreate(BaseModel):
     topic: str
     test_configuration: Optional[Dict[str, Any]] = None
     test_parameters: Optional[Dict[str, Any]] = None
+    # Named like TestData's field; stored as the test's test_metadata.
+    metadata: Optional[Dict[str, Any]] = None
     assignee_id: Optional[UUID4] = None
     owner_id: Optional[UUID4] = None
     status: Optional[str] = None
@@ -192,6 +194,7 @@ class TestBulkCreateResponse(BaseModel):
     success: bool
     total_tests: int
     message: str
+    test_ids: List[UUID4] = []
 
 
 class TestBulkDeleteRequest(BaseModel):
