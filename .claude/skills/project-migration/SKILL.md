@@ -14,20 +14,31 @@ requests, and can't resume after a failure.
 
 ## What gets copied
 
-- **Endpoints.** The full config: URL, headers, request and response mappings.
+- **The project's parameter schema** (the fields experiments fill in). Fields are matched by
+  name; a field only the target has is kept, and an empty source schema changes nothing.
+- **Endpoints.** The full config: URL, headers, request and response mappings. A header that
+  holds a literal credential (not a `{{ template }}`) is copied as it is and flagged in a note.
 - **Requirements.** Parents are created before their children, and impact is kept.
 - **Custom metrics.** These are the project-scoped ones, plus any metric created at org
   level that a requirement or test set links to. That one is copied into the project.
+- **Sources,** with their extracted text, type and metadata (minus the source instance's
+  file storage path and hash).
 - **Topics and categories** used by the tests.
 - **Every test in the project,** including tests that belong to no set, multi-turn tests, and
   older tests with no project that sit in one of its sets. Each test keeps its prompt,
   `test_parameters`, `test_metadata` and `test_configuration`.
 - **Test sets.** A test that sits in several sets stays one test.
-- **Links.** Requirement→metric, test set→test and test set→metric.
+- **Links.** Requirement→metric, requirement→source (with its note), test set→test and test
+  set→metric.
 
 **Not copied:**
 - **Endpoint secrets** (`auth_token`, `client_secret`). The API never returns them, so they
   must be pasted into the target UI afterwards.
+- **SDK endpoints.** A running connector registers them, so point the connector at the target
+  instead. They show as `skipped` with a note.
+- **A source's original file.** Only its extracted text is copied; the create route takes no file.
+- **Experiments and environments.** Environments point at experiment versions, which aren't
+  copied. Recreate them on the target if the project uses them.
 - **Built-in metrics.** Each instance seeds its own. Links to them are matched on the target by
   name and `class_name`.
 - **History and ownership.** Test runs, results, traces, annotations, tags, files, project
@@ -63,7 +74,8 @@ export RHESIS_DST_API_KEY=...   # key on the target instance
 5. **Apply.** Run it in the background. At the default 2 writes per second, 500 tests take about
    10 minutes.
 6. **Verify.** It must end with `VERIFY OK`. A second `plan` must show everything as
-   `unchanged`/`linked`.
+   `unchanged`/`linked` (or `skipped` for SDK endpoints). Its count table compares what the
+   plan expects with what the target holds.
 7. **After.**
    - The user pastes endpoint secrets into the target UI. `apply` lists the endpoints that need one.
    - Run one small test set on both instances and compare. This proves the target can reach the
@@ -103,8 +115,10 @@ quoted in public text.
   fields. A key removed from a dict field (headers, mappings, metadata) counts as a change.
   Two cases are not propagated:
   - a field cleared to empty on the source, because empty values are never sent;
-  - a removed link. Links are only ever added. Extra links on the target are reported and
-    left alone.
+  - a removed link or parameter field. By default nothing is removed: extra links are reported
+    and left alone, and parameter fields only on the target are kept. Pass `--prune` to
+    `plan`/`apply` to remove them too. Run `plan --prune` first: it names every link it would
+    remove. A link to a source missing from the snapshot is never pruned.
 
 ## Problems you may hit
 
