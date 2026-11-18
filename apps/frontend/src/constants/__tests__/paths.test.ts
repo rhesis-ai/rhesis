@@ -10,7 +10,6 @@ describe('isPublicPath', () => {
     expect(isPublicPath('/auth/forgot-password')).toBe(true);
     expect(isPublicPath('/auth/reset-password')).toBe(true);
     expect(isPublicPath('/auth/verify-email')).toBe(true);
-    expect(isPublicPath('/api/warmup')).toBe(true);
   });
 
   it('matches static asset paths by prefix', () => {

@@ -132,10 +132,7 @@ const project = await factory.getProjectsClient().getProject(identifier);`}
 
 ### Proxy Routes
 
-Two Next.js Route Handlers proxy to the backend:
-
-- **`src/app/api/backend/[...path]/route.ts`** — the BFF route hit by `BaseApiClient` on the client. Reads the access token via `getFreshAccessToken()` from the session cookie and injects `Authorization`; returns 401 if there's no valid session.
-- **`src/app/api/[...path]/route.ts`** — a catch-all proxy (`proxyToBackend()`) for routes without a dedicated handler. Forwards an allow-list of headers (`authorization`, `content-type`, `accept`, `x-project-id`, ...), applies per-path timeout budgets (longer for LLM/import/Garak calls), and follows same-origin backend redirects.
+**`src/app/api/backend/[...path]/route.ts`** is the BFF route hit by `BaseApiClient` on the client. It reads the access token via `getFreshAccessToken()` from the session cookie and injects `Authorization`, returning 401 if there's no valid session. It forwards the call with `proxyToBackend()`, which passes on an allow-list of headers (`authorization`, `content-type`, `accept`, `x-project-id`, ...), applies per-path timeout budgets (longer for LLM/import/Garak calls), and follows same-origin backend redirects. There is no catch-all `/api/*` proxy, so a new browser call to the backend goes through `/api/backend`.
 
 Avoid `next.config.mjs` rewrites for backend proxying — rewrite destinations are baked into the build at compile time, which doesn't work for a runtime-configurable `BACKEND_URL`.
 
@@ -229,7 +226,7 @@ every server-rendered page as `window.__ENV__`:
 {`# Server-side: used directly by server code and injected into window.__ENV__
 API_BASE_URL=http://localhost:8080
 
-# Server-side: target for the /api/backend and /api/[...path] proxies
+# Server-side: target for the /api/backend proxy
 BACKEND_URL=http://localhost:8080`}
 </CodeBlock>
 

@@ -5,7 +5,7 @@ import { getServerBackendUrl } from '@/utils/url-resolver';
 const DEFAULT_TIMEOUT_MS = 10_000;
 
 /**
- * Path prefixes (relative to the backend, i.e. after stripping `/api` or
+ * Path prefixes (relative to the backend, i.e. after stripping
  * `/api/backend`) whose upstream calls are synchronous but slow — the
  * backend doesn't send response headers until the whole operation (LLM
  * generation, file import, Garak scan) completes. These need a much longer
@@ -111,11 +111,8 @@ function resolveSameOriginRedirect(
 }
 
 interface ProxyOptions {
-  /**
-   * Override the backend path. Defaults to the incoming request path with
-   * the leading `/api` prefix stripped (e.g. `/api/files/123` → `/files/123`).
-   */
-  backendPath?: string;
+  /** Backend-relative path to call, e.g. `/files/123`. */
+  backendPath: string;
   /**
    * Upstream fetch timeout in milliseconds. Defaults to `resolveTimeoutMs`
    * based on the resolved backend path, so long-running operations
@@ -151,12 +148,9 @@ interface ProxyOptions {
  */
 export async function proxyToBackend(
   request: NextRequest,
-  options: ProxyOptions = {}
+  options: ProxyOptions
 ): Promise<NextResponse> {
-  const { backendPath, overrideHeaders } = options;
-
-  const pathname =
-    backendPath ?? request.nextUrl.pathname.replace(/^\/api/, '');
+  const { backendPath: pathname, overrideHeaders } = options;
   const timeoutMs = options.timeoutMs ?? resolveTimeoutMs(pathname);
   const target = new URL(pathname, getServerBackendUrl());
 
