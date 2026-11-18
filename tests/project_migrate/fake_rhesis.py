@@ -76,6 +76,9 @@ class FakeRhesis:
         self.req_source: dict[tuple[str, str], str | None] = {}  # (requirement, source) -> note
         self.has_parameters_api = True
         self.has_sources_api = True
+        self.has_experiments_api = True
+        self.experiments: dict[str, dict] = {}
+        self.environments: dict[str, dict[str, dict | None]] = {}  # project -> name -> pointer
         self.set_tests: dict[str, list[str]] = {}
         self.set_metrics: dict[str, list[str]] = {}
         self.deleted: set[str] = set()
@@ -181,8 +184,17 @@ class FakeRhesis:
         if int(q.get("limit", "0")) > 100:
             return 400, {"detail": "limit too large"}
 
+        if not self.has_experiments_api and (
+            "/experiments" in path or "/parameters/environments" in path
+        ):
+            return 404, {"detail": "Not Found"}
         links = [
             (r"^/projects/([^/]+)/parameters/schema$", self._parameter_schema),
+            (r"^/projects/([^/]+)/experiments$", self._project_experiments),
+            (r"^/experiments/([^/]+)$", self._experiment),
+            (r"^/experiments/([^/]+)/versions$", self._experiment_versions),
+            (r"^/projects/([^/]+)/parameters/environments$", self._environments),
+            (r"^/projects/([^/]+)/parameters/environments/([^/]+)$", self._environment),
             (r"^/sources/([^/]+)/content$", self._source_content),
             (r"^/requirements/([^/]+)/sources/([^/]+)$", self._req_source_link),
             (r"^/test_sets/([^/]+)/disassociate$", self._disassociate),
@@ -320,6 +332,109 @@ class FakeRhesis:
         if method == "PUT":
             project["parameters_schema"] = body
         return 200, project.get("parameters_schema") or {"fields": []}
+
+    # ---- experiments and environments --------------------------------------------------------
+
+    def add_experiment(self, project_id: str, name: str, visibility: str = "shared", **kw) -> dict:
+        exp = {"id": str(uuid.uuid4()), "project_id": project_id, "name": name,
+               "description": kw.get("description"), "visibility": visibility, "versions": [],
+               "owner": kw.get("owner", "key-user"), "_seq": next(self._seq)}  # fmt: skip
+        self.experiments[exp["id"]] = exp
+        return exp
+
+    def add_version(self, exp: dict, values: dict, message: str | None = None) -> dict:
+        project = self.db["projects"][exp["project_id"]]
+        fields = {f["name"]: f for f in (project.get("parameters_schema") or {}).get("fields", [])}
+        typed = {k: v for k, v in values.items() if k in fields}  # unknown fields are dropped
+        for name, value in typed.items():
+            if isinstance(value, dict) and value.get("type") != fields[name]["type"]:
+                raise ValueError(f"{name}: expected {fields[name]['type']}")
+        for name, field in fields.items():
+            if name not in typed and field.get("default") is not None:
+                typed[name] = {"type": field["type"], "value": field["default"]}
+        latest = exp["versions"][-1] if exp["versions"] else None
+        if latest and latest["values"] == typed:
+            return latest  # saving the same values again is a no-op
+        version = {"version": f"v{len(exp['versions']) + 1}", "values": typed, "message": message,
+                   "parent_version": latest["version"] if latest else None}  # fmt: skip
+        exp["versions"].append(version)
+        return version
+
+    def _experiment_read(self, exp: dict, detail: bool = False) -> dict:
+        out = {k: v for k, v in exp.items() if k not in ("_seq", "versions", "owner")}
+        out["versions_count"] = len(exp["versions"])
+        out["latest_version"] = exp["versions"][-1]["version"] if exp["versions"] else None
+        if detail:
+            out["versions"] = copy.deepcopy(exp["versions"])
+        return out
+
+    def _project_experiments(self, method, q, body, pid):
+        if method == "POST":
+            exp = self.add_experiment(pid, body["name"], body.get("visibility", "private"),
+                                      description=body.get("description"))  # fmt: skip
+            return 201, self._experiment_read(exp)
+        rows = sorted((e for e in self.experiments.values() if e["project_id"] == pid),
+                      key=lambda e: e["_seq"])  # fmt: skip
+        skip, limit = int(q.get("skip", 0)), int(q.get("limit", 100))
+        # Like the backend: other users' private experiments are dropped after paging.
+        page = [
+            e
+            for e in rows[skip : skip + limit]
+            if e["visibility"] == "shared" or e["owner"] == "key-user"
+        ]
+        return 200, [self._experiment_read(e) for e in page]
+
+    def _experiment(self, method, q, body, eid):
+        exp = self.experiments.get(eid)
+        if not exp:
+            return 404, {"detail": "not found"}
+        if method == "PATCH" and exp["owner"] != "key-user":
+            return 403, {"detail": "not the owner"}
+        if method == "PATCH":
+            pointed = any(
+                p and p["experiment_id"] == eid
+                for p in self.environments.get(exp["project_id"], {}).values()
+            )
+            if body.get("visibility") == "private" and pointed:
+                return 409, {"detail": "an environment points at this experiment"}
+            exp.update({k: v for k, v in body.items() if v is not None})
+        return 200, self._experiment_read(exp, detail=True)
+
+    def _experiment_versions(self, method, q, body, eid):
+        exp = self.experiments[eid]
+        if exp["owner"] != "key-user":
+            return 403, {"detail": "not the owner"}
+        parent = body.get("parent_version")
+        if parent and parent not in {v["version"] for v in exp["versions"]} and exp["versions"]:
+            return 422, {"detail": f"parent_version {parent!r} does not exist"}
+        try:
+            return 201, self.add_version(exp, body.get("values") or {}, body.get("message"))
+        except ValueError as e:
+            return 422, {"detail": str(e)}
+
+    def _environments(self, method, q, body, pid):
+        envs = self.environments.setdefault(pid, {})
+        if method == "POST":
+            name = body["name"]
+            if name in envs or name in ("default", "development", "staging", "production"):
+                return 409, {"detail": "already exists"}
+            envs[name] = None
+        return 200, {"environments": copy.deepcopy(envs)}
+
+    def _environment(self, method, q, body, pid, name):
+        envs = self.environments.setdefault(pid, {})
+        if method == "DELETE":
+            if name not in envs:
+                return 404, {"detail": "not found"}
+            del envs[name]
+            return 200, {"environments": copy.deepcopy(envs)}
+        exp = self.experiments.get(body["experiment_id"])
+        if not exp or exp["visibility"] != "shared":
+            return 409, {"detail": "environments point only at shared experiments"}
+        if body["version"] not in {v["version"] for v in exp["versions"]}:
+            return 404, {"detail": "version not found"}
+        envs[name] = {"experiment_id": body["experiment_id"], "version": body["version"]}
+        return 200, {"environments": copy.deepcopy(envs)}
 
     def _source_content(self, method, q, body, sid):
         row = self.db["sources"].get(sid)

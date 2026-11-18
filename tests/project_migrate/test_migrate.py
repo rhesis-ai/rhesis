@@ -385,6 +385,7 @@ def test_parameter_schema_is_copied_once(world):
 
 def test_target_without_parameters_api_skips_the_schema(world):
     world.dst.has_parameters_api = False
+    world.dst.has_experiments_api = False  # both arrived in the same release
     snap = world.snapshot()
     report = world.run(snap)
     assert any("no parameters API" in n for n in report.notes)
@@ -552,3 +553,214 @@ def test_target_without_sources_api_skips_sources_and_their_links(world):
     assert_in_sync(world, snap)
     counts = count_table(world.run(snap, dry=True), world.api("dst"))
     assert "sources" not in {name for name, _, _ in counts}
+
+
+def _experiments(world: World) -> dict[str, dict]:
+    return {
+        e["name"]: e for e in world.dst.experiments.values() if e["project_id"] == world.dst_pid
+    }
+
+
+def _values(exp: dict) -> list[float]:
+    return [v["values"]["temperature"]["value"] for v in exp["versions"]]
+
+
+def test_experiments_are_copied_with_their_history(world):
+    snap = world.snapshot()
+    world.run(snap)
+    copied = _experiments(world)
+    tuning = copied["Prompt tuning"]
+    assert (tuning["visibility"], tuning["description"]) == ("shared", "Lower temperature")
+    assert [v["version"] for v in tuning["versions"]] == ["v1", "v2", "v3"]
+    assert _values(tuning) == [0.2, 0.1, 0.4]
+    assert [v["message"] for v in tuning["versions"]] == ["baseline", "cooler", "warmer"]
+    assert copied["Scratch"]["visibility"] == "private"
+
+
+def test_environments_point_at_the_copied_versions(world):
+    snap = world.snapshot()
+    world.run(snap)
+    envs = world.dst.environments[world.dst_pid]
+    tuning = _experiments(world)["Prompt tuning"]
+    assert envs["production"] == {"experiment_id": tuning["id"], "version": "v2"}
+    assert envs["canary"] is None
+    assert "staging" not in envs  # built in: never registered
+
+
+def test_experiments_rerun_and_lost_state_make_no_writes(world, tmp_path):
+    snap = world.snapshot()
+    world.run(snap)
+    writes = world.dst.writes
+    assert world.run(snap).pending_work() == 0
+    assert world.run(snap, state_path=tmp_path / "fresh-state.json").pending_work() == 0
+    assert world.dst.writes == writes
+
+
+def test_a_new_source_version_is_appended_alone(world):
+    snap = world.snapshot()
+    world.run(snap)
+    tuning = next(e for e in snap["experiments"] if e["name"] == "Prompt tuning")
+    tuning["versions"].append(
+        {"version": "v4", "values": {"temperature": {"type": "number", "value": 0.3}},
+         "message": "middle", "parent_version": "v3"}
+    )  # fmt: skip
+    report = world.run(snap)
+    assert report.rows["experiment version"] == {"unchanged": 4, "create": 1}  # 3 + Scratch v1
+    assert _values(_experiments(world)["Prompt tuning"]) == [0.2, 0.1, 0.4, 0.3]
+
+
+def test_a_target_history_that_differs_is_left_alone(world):
+    snap = world.snapshot()
+    target = world.dst.add_experiment(world.dst_pid, "Prompt tuning")
+    world.dst.db["projects"][world.dst_pid]["parameters_schema"] = {
+        "fields": [{"name": "temperature", "type": "number", "default": 0.2}]
+    }
+    world.dst.add_version(target, {"temperature": {"type": "number", "value": 0.7}})
+    report = world.run(snap)
+    assert _values(target) == [0.7]
+    assert report.rows["experiment version"]["diverged"] == 1
+    assert any("Prompt tuning" in n and "differs" in n for n in report.notes)
+    # production points at v2 of that experiment, so it is not bound either
+    assert "production" not in world.dst.environments.get(world.dst_pid, {})
+
+
+def test_versions_that_collapse_on_the_target_stop_the_replay(world):
+    snap = world.snapshot()
+    scratch = next(e for e in snap["experiments"] if e["name"] == "Scratch")
+    # Two versions that differ only in a field the target's schema doesn't have.
+    scratch["versions"] = [
+        {"version": "v1", "values": {"temperature": {"type": "number", "value": 0.9},
+                                     "retired": {"type": "text", "value": "a"}}},
+        {"version": "v2", "values": {"temperature": {"type": "number", "value": 0.9},
+                                     "retired": {"type": "text", "value": "b"}}},
+    ]  # fmt: skip
+    report = world.run(snap)
+    assert any("Scratch" in n for n in report.notes)
+    assert len(_experiments(world)["Scratch"]["versions"]) == 1
+
+
+def test_an_unclear_version_save_is_not_duplicated(world):
+    world.dst.fail("POST", "^/experiments/.+/versions$", "commit_then_drop")
+    snap = world.snapshot()
+    report = world.run(snap)
+    assert report.rows["experiment version"]["adopt"] == 1
+    assert [v["version"] for v in _experiments(world)["Prompt tuning"]["versions"]] == [
+        "v1", "v2", "v3"
+    ]  # fmt: skip
+
+
+def test_target_without_experiments_api_skips_them(world):
+    world.dst.has_experiments_api = False
+    snap = world.snapshot()
+    report = world.run(snap, prune=True)
+    assert any("no experiments API" in n for n in report.notes)
+    assert "environment" not in report.rows
+    assert_in_sync(world, snap)
+
+
+def test_old_snapshot_without_experiments_changes_nothing(world):
+    snap = world.snapshot()
+    old = {k: v for k, v in snap.items() if k not in ("experiments", "environments")}
+    world.run(old, prune=True)
+    assert _experiments(world) == {}
+
+
+def test_prune_unbinds_environments_the_source_lacks(world):
+    snap = world.snapshot()
+    world.run(snap)
+    world.dst.environments[world.dst_pid]["qa"] = None
+    report = world.run(snap, prune=True)
+    assert report.rows["environment"]["unlink"] == 1
+    assert "qa" not in world.dst.environments[world.dst_pid]
+
+
+def test_a_version_the_target_rejects_is_reported_and_the_run_continues(world):
+    snap = world.snapshot()
+    scratch = next(e for e in snap["experiments"] if e["name"] == "Scratch")
+    scratch["versions"][0]["values"]["temperature"] = {"type": "text", "value": "hot"}
+    report = world.run(snap)
+    assert any("Scratch" in n and "rejected v1" in n for n in report.notes)
+    assert_in_sync_except_experiments(world, snap)
+
+
+def assert_in_sync_except_experiments(world: World, snap: dict) -> None:
+    report = world.run(snap, dry=True)
+    rows = {k: v for k, v in report.rows.items() if not k.startswith("experiment")}
+    assert all(a in ("unchanged", "linked", "skipped") for r in rows.values() for a in r), rows
+
+
+def test_experiment_pages_shortened_by_hidden_private_ones_are_all_read(world):
+    for i in range(150):
+        world.src.add_experiment(world.seed["project_id"], f"hidden {i}", visibility="private",
+                                 owner="someone-else")  # fmt: skip
+    for i in range(30):
+        world.src.add_experiment(world.seed["project_id"], f"late {i}")
+    snap = world.snapshot()
+    names = {e["name"] for e in snap["experiments"]}
+    assert {f"late {i}" for i in range(30)} <= names
+    assert not any(n.startswith("hidden") for n in names)
+
+
+def test_a_renamed_source_experiment_renames_the_copy(world):
+    snap = world.snapshot()
+    world.run(snap)
+    next(e for e in snap["experiments"] if e["name"] == "Scratch")["name"] = "Scratch pad"
+    world.run(snap)
+    assert sorted(_experiments(world)) == ["Prompt tuning", "Scratch pad"]
+
+
+def test_an_update_the_target_refuses_is_reported(world):
+    snap = world.snapshot()
+    world.run(snap)
+    _experiments(world)["Prompt tuning"]["owner"] = "someone-else"
+    next(e for e in snap["experiments"] if e["name"] == "Prompt tuning")["description"] = "new"
+    report = world.run(snap)
+    assert report.rows["experiment"]["refused"] == 1
+    assert any("Prompt tuning" in n and "403" in n for n in report.notes)
+
+
+def test_a_binding_only_the_target_has_is_kept_unless_pruned(world):
+    snap = world.snapshot()
+    world.run(snap)
+    tuning = _experiments(world)["Prompt tuning"]
+    world.dst.environments[world.dst_pid]["canary"] = {
+        "experiment_id": tuning["id"],
+        "version": "v1",
+    }
+    report = world.run(snap)
+    assert report.rows["environment"]["kept"] == 1
+    assert world.dst.environments[world.dst_pid]["canary"] is not None
+    world.run(snap, prune=True)
+    assert world.dst.environments[world.dst_pid]["canary"] is None
+
+
+def test_a_refused_update_still_syncs_versions_and_environments(world):
+    snap = world.snapshot()
+    world.run(snap)
+    tuning = next(e for e in snap["experiments"] if e["name"] == "Prompt tuning")
+    tuning["description"] = "new"
+    tuning["versions"].append(
+        {"version": "v4", "values": {"temperature": {"type": "number", "value": 0.3}},
+         "message": "middle", "parent_version": "v3"}
+    )  # fmt: skip
+    snap["environments"]["environments"]["production"]["version"] = "v4"
+    copy = _experiments(world)["Prompt tuning"]
+    # An environment points at it, so the target refuses to make it private: 409.
+    tuning["visibility"] = "private"
+    report = world.run(snap)
+    assert report.rows["experiment"]["refused"] == 1
+    assert [v["version"] for v in copy["versions"]][-1] == "v4"
+    assert world.dst.environments[world.dst_pid]["production"]["version"] == "v4"
+
+
+def test_versions_on_a_copy_another_user_owns_are_reported(world):
+    snap = world.snapshot()
+    world.run(snap)
+    _experiments(world)["Prompt tuning"]["owner"] = "someone-else"
+    tuning = next(e for e in snap["experiments"] if e["name"] == "Prompt tuning")
+    tuning["versions"].append(
+        {"version": "v4", "values": {"temperature": {"type": "number", "value": 0.3}}}
+    )
+    report = world.run(snap)
+    assert any("Prompt tuning" in n and "HTTP 403" in n for n in report.notes)
+    assert_in_sync_except_experiments(world, snap)

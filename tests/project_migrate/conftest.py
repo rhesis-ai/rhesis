@@ -55,6 +55,17 @@ def seed_source(src: FakeRhesis) -> dict:
     retired = src.insert("requirements", project_id=pid, name="Retired requirement")
     src.req_source[(parent["id"], handbook["id"])] = "section 3"
 
+    tuning = src.add_experiment(pid, "Prompt tuning", description="Lower temperature")
+    for temp, message in ((0.2, "baseline"), (0.1, "cooler"), (0.4, "warmer")):
+        src.add_version(tuning, {"temperature": {"type": "number", "value": temp}}, message)
+    scratch = src.add_experiment(pid, "Scratch", visibility="private")
+    src.add_version(scratch, {"temperature": {"type": "number", "value": 0.9}})
+    src.environments[pid] = {
+        "production": {"experiment_id": tuning["id"], "version": "v2"},
+        "canary": None,
+        "staging": None,
+    }
+
     grounded = src.insert(
         "metrics", project_id=pid, name="Grounded", evaluation_prompt="Is it grounded?",
         score_type="categorical", categories=["OK", "BAD"], passing_categories=["OK"],

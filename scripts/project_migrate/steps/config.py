@@ -21,8 +21,9 @@ def preflight(m: Migration) -> None:
         ("metrics", "name"),
         ("test_sets", "name"),
         ("sources", "title"),
+        ("experiments", "name"),
     ):
-        names = [x[key] for x in m.snap.get(kind, [])]
+        names = [x[key] for x in m.snap.get(kind) or []]
         dupes = sorted({n for n in names if names.count(n) > 1})
         if dupes:
             raise Abort(f"source has duplicate {kind} names {dupes}; names are the match key")

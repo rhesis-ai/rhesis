@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime, timezone
+from typing import Any
 
 from project_migrate.api import Api, HttpError
 
@@ -35,7 +36,10 @@ def take_snapshot(src: Api, log: Callable[[str], None] = print) -> dict:
 
     _add_referenced_requirements(src, tests, requirements, log)
     sources = _sources(src, requirements, log)
-    parameter_schema = _parameter_schema(src)
+    base = f"/projects/{src.project_id}"
+    parameter_schema = _optional(lambda: src.get(f"{base}/parameters/schema"))
+    experiments = _experiments(src, log)
+    environments = _optional(lambda: src.get(f"{base}/parameters/environments"))
     metrics += _referenced_project_metrics(src, requirements, test_sets, metrics)
     org_metrics = _referenced_org_metrics(src, requirements, test_sets)
     for t in tests:
@@ -57,6 +61,8 @@ def take_snapshot(src: Api, log: Callable[[str], None] = print) -> dict:
         "org_metrics": org_metrics,
         "sources": sources,
         "parameter_schema": parameter_schema,
+        "experiments": experiments,
+        "environments": environments,
         "tests": tests,
         "test_sets": test_sets,
     }
@@ -109,13 +115,27 @@ def _sources(src: Api, requirements: list[dict], log: Callable[[str], None]) -> 
     return [src.get(f"/sources/{sid}/content") for sid in ids]
 
 
-def _parameter_schema(src: Api) -> dict | None:
+def _optional(fetch: Callable[[], Any]) -> Any:
+    """A route newer instances have. None on an instance from before it."""
     try:
-        return src.get(f"/projects/{src.project_id}/parameters/schema")
+        return fetch()
     except HttpError as e:
         if e.status == 404:
-            return None  # an instance from before the parameters API
+            return None
         raise
+
+
+def _experiments(src: Api, log: Callable[[str], None]) -> list[dict] | None:
+    """Experiments with their full version history. Only the ones the key's user can see:
+    shared ones, and that user's own private ones."""
+    rows = _optional(
+        lambda: src.get_all(f"/projects/{src.project_id}/experiments", until_empty=True)
+    )
+    if rows is None:
+        return None
+    if rows:
+        log(f"  reading the version history of {len(rows)} experiment(s)")
+    return [src.get(f"/experiments/{row['id']}") for row in rows]
 
 
 def _linked_metrics(requirements: list[dict], test_sets: list[dict]) -> list[dict]:
@@ -153,6 +173,7 @@ def summary(snap: dict) -> str:
     return (
         f"endpoints={len(snap['endpoints'])} requirements={len(snap['requirements'])} "
         f"custom_metrics={len(snap['metrics'])} sources={len(snap.get('sources', []))} "
+        f"experiments={len(snap.get('experiments') or [])} "
         f"tests={len(snap['tests'])} "
         f"(in sets: {len(in_sets)}) test_sets={len(snap['test_sets'])}"
     )

@@ -24,7 +24,7 @@ from project_migrate.api import Abort, Api, HttpError
 from project_migrate.engine import Migration, Report
 from project_migrate.snapshot import FORMAT_VERSION, summary, take_snapshot
 from project_migrate.state import State
-from project_migrate.steps import cases, config, project, sets
+from project_migrate.steps import cases, config, experiments, project, sets
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 # Gitignored and shared by every worktree. Snapshots hold customer test data: never commit them.
@@ -32,6 +32,8 @@ DEFAULT_WORK_DIR = REPO_ROOT / "playground" / "project-migrate"
 
 STEPS: list[Callable[[Migration], None]] = [
     project.parameter_schema,
+    experiments.experiments,
+    experiments.environments,
     config.endpoints,
     project.sources,
     config.requirements,
@@ -137,6 +139,7 @@ COUNTED = (
     ("custom metrics", "metric", "/metrics/"),
     ("tests", "test", "/tests/"),
     ("test sets", "test set", "/test_sets/"),
+    ("experiments", "experiment", "/projects/{project_id}/experiments"),
 )
 
 
@@ -153,7 +156,7 @@ def count_table(report: Report, dst: Api) -> list[tuple[str, int, int]]:
             report.rows.get(kind, {}).get(a, 0) for a in ("unchanged", "create", "update")
         )
         try:
-            actual = dst.get_all(path, **pf)
+            actual = dst.get_all(path.format(project_id=dst.project_id), **pf)
         except HttpError as e:
             if e.status != 404:
                 raise
@@ -215,8 +218,8 @@ def build_parser() -> argparse.ArgumentParser:
         c.add_argument(
             "--prune",
             action="store_true",
-            help="also remove links and parameter fields on the target that the source "
-            "doesn't have",
+            help="also remove links, parameter fields and environments on the target that "
+            "the source doesn't have",
         )
         c.set_defaults(fn=fn)
     return p
