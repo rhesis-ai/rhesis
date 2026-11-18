@@ -16,6 +16,12 @@ requests, and can't resume after a failure.
 
 - **The project's parameter schema** (the fields experiments fill in). Fields are matched by
   name; a field only the target has is kept, and an empty source schema changes nothing.
+- **Experiments,** with their whole version history. Versions are replayed in order, so they
+  keep their names (`v1`, `v2`, ...). Matched by name; a target experiment whose history
+  already differs from the source is left alone and reported, and so is one whose versions the
+  target saves differently (a field its schema lacks).
+- **Environments.** Each one points at the same version of the copied experiment; registered
+  but unbound names are registered. The built-in names never need registering.
 - **Endpoints.** The full config: URL, headers, request and response mappings. A header that
   holds a literal credential (not a `{{ template }}`) is copied as it is and flagged in a note.
 - **Requirements.** Parents are created before their children, and impact is kept.
@@ -37,8 +43,8 @@ requests, and can't resume after a failure.
 - **SDK endpoints.** A running connector registers them, so point the connector at the target
   instead. They show as `skipped` with a note.
 - **A source's original file.** Only its extracted text is copied; the create route takes no file.
-- **Experiments and environments.** Environments point at experiment versions, which aren't
-  copied. Recreate them on the target if the project uses them.
+- **Another user's private experiments.** The API hides them from the key, so they aren't in
+  the snapshot. An environment pointing at one is reported and must be bound by hand.
 - **Built-in metrics.** Each instance seeds its own. Links to them are matched on the target by
   name and `class_name`.
 - **History and ownership.** Test runs, results, traces, annotations, tags, files, project
@@ -115,8 +121,9 @@ quoted in public text.
   fields. A key removed from a dict field (headers, mappings, metadata) counts as a change.
   Two cases are not propagated:
   - a field cleared to empty on the source, because empty values are never sent;
-  - a removed link or parameter field. By default nothing is removed: extra links are reported
-    and left alone, and parameter fields only on the target are kept. Pass `--prune` to
+  - a removed link, parameter field or environment. By default nothing is removed: extra links
+    are reported and left alone, and parameter fields and environments only on the target are
+    kept. Pass `--prune` to
     `plan`/`apply` to remove them too. Run `plan --prune` first: it names every link it would
     remove. A link to a source missing from the snapshot is never pruned.
 
@@ -129,6 +136,8 @@ quoted in public text.
 | `source has duplicate … names` | Names are the match key. Rename on the source and take a new snapshot |
 | `HTTP 403` on every call | Wrong key for that instance, or a proxy blocking the client. The tool sends its own User-Agent because some proxies block Python's default one |
 | `HTTP 400` on a list call | `limit` above 100. The tool pages at 100 |
+| `experiment '…' was not replayed further` | The target's history differs, or it rejected or changed a version (a field its schema lacks or types differently). Align the schema or fix the experiment by hand, then re-run |
+| `experiment '…' could not be updated (HTTP 403/409)` | 403: another user owns the target copy. 409: it can't be made private while an environment points at it |
 | Counts differ in `verify` | Read the plan table above it: it lists what's still missing |
 
 ## Code
