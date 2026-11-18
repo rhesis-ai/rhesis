@@ -10,7 +10,8 @@
  * this — the rest of the app stays on the MUI theme and Be Vietnam Pro.
  */
 
-import { alpha, darken, lighten } from '@mui/system/colorManipulator';
+import { alpha, blend, darken, lighten } from '@mui/system/colorManipulator';
+import { contrastTextFor, ensureContrast } from '@/styles/brand-palette';
 
 /** Geist, registered in `src/styles/fonts.css`. Auth pages only. */
 export const AUTH_FONT_SANS =
@@ -54,6 +55,8 @@ export interface AuthTokens {
   /** Buttons, links, the accent words in the headline. */
   accent: string;
   accentHover: string;
+  /** Label colour on an `accent` fill — dark when a pale brand needs it. */
+  accentContrastText: string;
   /** Text field fill. */
   field: string;
   fieldBorder: string;
@@ -77,6 +80,7 @@ const LIGHT: AuthTokens = {
   hairline: '#dde3e3',
   accent: '#0080af',
   accentHover: '#006d96',
+  accentContrastText: '#fff',
   field: '#ffffff',
   fieldBorder: '#dde3e3',
   pill: '#ffffff',
@@ -88,9 +92,8 @@ const LIGHT: AuthTokens = {
 
 /**
  * The website keeps `#0080af` on dark, which sits at roughly 4.3:1 against
- * `#030712` — legible, but the buttons carry white text on top of it. Lifting
- * the accent to `#22a5d1` keeps both the accent words and the button label
- * comfortably above 4.5:1 without leaving the brand's blue.
+ * `#030712`. Lifting the accent to `#22a5d1` brightens the accent words
+ * without leaving the brand's blue.
  */
 const DARK: AuthTokens = {
   ground: '#030712',
@@ -101,6 +104,7 @@ const DARK: AuthTokens = {
   hairline: 'rgba(255,255,255,0.14)',
   accent: '#22a5d1',
   accentHover: '#41b6dd',
+  accentContrastText: '#fff',
   field: 'rgba(255,255,255,0.04)',
   fieldBorder: 'rgba(255,255,255,0.16)',
   pill: 'rgba(255,255,255,0.1)',
@@ -110,23 +114,38 @@ const DARK: AuthTokens = {
   accentShadow: '0 6px 14px -4px rgba(34,165,209,0.4)',
 };
 
+/** The aurora's main bloom (`BackgroundDecoration`), the brightest thing behind the dark headline. */
+export const AURORA_BLOOM = { color: 'rgb(0, 158, 215)', opacity: 0.52 };
+
+/** WCAG's ratio for large text and icons: the headline accents and check marks. */
+const MIN_HEADLINE_CONTRAST = 3;
+
 /**
- * Applies a deployment's `BRAND_PRIMARY_COLOR` to the three accent tokens.
+ * Applies a deployment's `BRAND_PRIMARY_COLOR` to the accent tokens.
  *
  * The sign-in screen is the first thing a white-label user sees, so leaving it
  * on Rhesis blue while the app itself is rebranded is the most visible way to
- * get this wrong. The dark-mode lift mirrors what the hand-picked pair already
- * does (`#0080af` → `#22a5d1`, i.e. roughly `lighten(0.13)`) — a saturated
- * brand colour carrying white button text needs the extra contrast against
- * `#030712`.
+ * get this wrong. The accent is moved only as far as it must be to read on
+ * what is behind the headline: a navy is lifted on dark, a pale yellow
+ * darkened on light.
  */
 function withBrandAccent(tokens: AuthTokens, brandColor: string): AuthTokens {
-  const accent =
-    tokens === DARK ? lighten(brandColor, 0.13) : brandColor.toLowerCase();
+  // On dark the headline sits on the aurora, not the bare ground, so measure
+  // against the bloom's brightest point.
+  const backdrop =
+    tokens === DARK
+      ? blend(tokens.ground, AURORA_BLOOM.color, AURORA_BLOOM.opacity)
+      : tokens.ground;
+  const accent = ensureContrast(
+    brandColor.toLowerCase(),
+    backdrop,
+    MIN_HEADLINE_CONTRAST
+  );
 
   return {
     ...tokens,
     accent,
+    accentContrastText: contrastTextFor(accent),
     accentHover: tokens === DARK ? lighten(accent, 0.15) : darken(accent, 0.15),
     accentShadow: `0 6px 14px -4px ${alpha(accent, tokens === DARK ? 0.4 : 0.55)}`,
   };

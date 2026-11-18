@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { useTheme, type SxProps, type Theme } from '@mui/material/styles';
 import { useNavigationItems } from '@/contexts/NavigationItemsContext';
+import { contrastTextFor } from '@/styles/brand-palette';
 import {
   AUTH_SHAPE,
   authFontSans,
@@ -73,10 +74,18 @@ export function useAuthStyles(): AuthStyles {
         fontSize: 15,
         fontWeight: 700,
         textTransform: 'none',
-        bgcolor: t.accent,
-        color: '#fff',
         boxShadow: t.accentShadow,
-        '&:hover': { bgcolor: t.accentHover, boxShadow: t.accentShadow },
+        // `&&` outranks the theme's `.MuiButton-containedPrimary` override,
+        // which otherwise paints these buttons in the app's colours instead.
+        '&&': {
+          bgcolor: t.accent,
+          color: t.accentContrastText,
+          '&:hover': {
+            bgcolor: t.accentHover,
+            color: contrastTextFor(t.accentHover),
+            boxShadow: t.accentShadow,
+          },
+        },
       },
       outlinedButton: {
         height: AUTH_SHAPE.buttonHeight,
@@ -85,13 +94,18 @@ export function useAuthStyles(): AuthStyles {
         fontSize: 15,
         fontWeight: 600,
         textTransform: 'none',
-        color: t.ink,
-        borderColor: t.hairline,
         borderWidth: '1.5px',
-        '&:hover': {
-          borderColor: t.accent,
-          borderWidth: '1.5px',
-          bgcolor: 'transparent',
+        // Same as above for `.MuiButton-outlinedPrimary`, which would tint the
+        // label with the brand colour and fill it on hover.
+        '&&': {
+          color: t.ink,
+          borderColor: t.hairline,
+          '&:hover': {
+            color: t.ink,
+            borderColor: t.accent,
+            borderWidth: '1.5px',
+            bgcolor: 'transparent',
+          },
         },
       },
       field: {

@@ -1,5 +1,5 @@
-import { getContrastRatio } from '@mui/system/colorManipulator';
-import { getAuthTokens } from '../authTokens';
+import { blend, getContrastRatio } from '@mui/system/colorManipulator';
+import { AURORA_BLOOM, getAuthTokens } from '../authTokens';
 
 /** A dark brand colour, far enough from Rhesis blue to make swaps obvious. */
 const BRAND = '#6A1B9A';
@@ -37,5 +37,41 @@ describe('getAuthTokens', () => {
     expect(getContrastRatio(darkAccent, '#030712')).toBeGreaterThan(
       getContrastRatio(BRAND, '#030712')
     );
+  });
+
+  it('makes a navy brand colour readable on the dark ground', () => {
+    // The old fixed lighten(0.13) left a navy at ~1.8:1 — the headline
+    // accents and the email button were invisible.
+    const t = getAuthTokens('dark', '#0B1E4D');
+    expect(getContrastRatio(t.accent, t.ground)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('measures the dark accent against the aurora, not the bare ground', () => {
+    // The headline sits on the aurora's blue bloom; a navy lifted only to
+    // clear #030712 measured ~2.3:1 there.
+    const t = getAuthTokens('dark', '#0B1E4D');
+    const peak = blend(t.ground, AURORA_BLOOM.color, AURORA_BLOOM.opacity);
+    expect(getContrastRatio(t.accent, peak)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('darkens a pale brand colour on the light ground', () => {
+    const t = getAuthTokens('light', '#FDD803');
+    expect(getContrastRatio(t.accent, t.ground)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('picks a readable button label for the accent', () => {
+    for (const brand of [BRAND, '#0B1E4D', '#FDD803', '#7FFFD4']) {
+      for (const mode of ['light', 'dark'] as const) {
+        const t = getAuthTokens(mode, brand);
+        expect(
+          getContrastRatio(t.accent, t.accentContrastText)
+        ).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
+
+  it('leaves a brand colour that already reads exactly as configured', () => {
+    expect(getAuthTokens('dark', '#FDD803').accent).toBe('#fdd803');
+    expect(getAuthTokens('light', '#0080AF').accent).toBe('#0080af');
   });
 });
