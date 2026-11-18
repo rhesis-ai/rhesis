@@ -119,7 +119,8 @@ quoted in public text.
 
 ## Code
 
-`scripts/project_migrate/` (standard library only) and tests in `tests/project_migrate/`. The
+`scripts/project_migrate/` (standard library only; macOS and Linux, or WSL on Windows like the
+rest of `./rh`, because the state lock uses `fcntl`) and tests in `tests/project_migrate/`. The
 tests run against an in-memory fake Rhesis server, so no backend or Docker is needed:
 
 ```bash
