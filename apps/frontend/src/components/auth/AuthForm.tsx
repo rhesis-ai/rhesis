@@ -270,14 +270,11 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
   const handleResendVerification = async () => {
     try {
-      const response = await fetch(
-        `${getClientApiBaseUrl()}/auth/resend-verification`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        }
-      );
+      const response = await fetch(`${getBaseUrl()}/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
       setResendState(response.ok ? 'sent' : 'failed');
     } catch {
       setResendState('failed');
