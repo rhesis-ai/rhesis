@@ -48,7 +48,7 @@ For test execution summary notifications.
 - `recipient_name`, `task_name`, `task_id`, `status`, `completed_at`
 - `total_tests`, `tests_passed`, `tests_failed`, `execution_time`
 - `test_run_id`, `status_details`, `frontend_url`, `test_set_name`
-- `endpoint_name`, `endpoint_url`, `project_name`
+- `endpoint_name`, `endpoint_id`, `project_name`
 
 ## Template Discovery
 
@@ -105,10 +105,12 @@ Email service requires these environment variables:
 notifications/email/
 ├── service.py              # EmailService - main orchestrator
 ├── smtp.py                 # SMTPService - SMTP handling
+├── sendgrid_client.py      # SendGrid dynamic templates (onboarding emails)
 ├── template_service.py     # TemplateService - Jinja2 rendering
+├── brand.py                # Brand tokens the templates render
 └── templates/
-    ├── task_completion.html.jinja2
-    └── test_execution_summary.html.jinja2
+    ├── _base.html.jinja2, _components.html.jinja2, _imprint.html.jinja2
+    └── <one .html.jinja2 per EmailTemplate>
 ```
 
 ## Benefits

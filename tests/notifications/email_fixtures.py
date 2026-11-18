@@ -98,7 +98,7 @@ FIXTURES: dict[EmailTemplate, dict] = {
         "frontend_url": FRONTEND,
         "test_set_name": "Adversarial · healthcare triage",
         "endpoint_name": "triage-assistant-staging",
-        "endpoint_url": "https://staging.northwind.example.com/v1/triage",
+        "endpoint_id": "5f8b3c2a-1d4e-4f6a-9b7c-0e1d2f3a4b5c",
         "project_name": "Northwind Triage",
     },
     EmailTemplate.FEEDBACK: {

@@ -3,12 +3,14 @@ test_result.execution/verdict (the outcome-model source of truth, see
 app/outcomes.py) rather than the legacy status name and its synonym lists.
 """
 
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 
 from rhesis.backend.app import models
 from rhesis.backend.jobs.execution.result_processor import (
+    get_test_context,
     get_test_statistics,
     get_test_statistics_for_runs,
 )
@@ -103,3 +105,20 @@ class TestGetTestStatisticsForRuns:
         stats = get_test_statistics_for_runs(test_db, [run_id])
 
         assert stats[str(run_id)] == {"total": 0, "passed": 0, "failed": 0, "errors": 0}
+
+
+@pytest.mark.unit
+def test_get_test_context_returns_endpoint_id_not_url():
+    # The summary email links to the endpoint's frontend page, never its target URL.
+    endpoint_id = uuid4()
+    config = SimpleNamespace(
+        test_set=SimpleNamespace(name="Set"),
+        endpoint=SimpleNamespace(
+            id=endpoint_id,
+            name="Endpoint",
+            url="http://target.internal:4000/v1/chat",
+            project=SimpleNamespace(name="Project"),
+        ),
+    )
+
+    assert get_test_context(config) == ("Set", "Endpoint", str(endpoint_id), "Project")

@@ -240,7 +240,7 @@ def get_test_context(test_configuration) -> Tuple[str, str, str, str]:
         test_configuration: The test configuration object
 
     Returns:
-        Tuple of (test_set_name, endpoint_name, endpoint_url, project_name)
+        Tuple of (test_set_name, endpoint_name, endpoint_id, project_name)
     """
     defaults = ("Unknown Test Set", "Unknown Endpoint", "N/A", "Unknown Project")
 
@@ -249,7 +249,7 @@ def get_test_context(test_configuration) -> Tuple[str, str, str, str]:
 
     test_set_name = defaults[0]
     endpoint_name = defaults[1]
-    endpoint_url = defaults[2]
+    endpoint_id = defaults[2]
     project_name = defaults[3]
 
     # Get test set information
@@ -259,13 +259,13 @@ def get_test_context(test_configuration) -> Tuple[str, str, str, str]:
     # Get endpoint information
     if hasattr(test_configuration, "endpoint") and test_configuration.endpoint:
         endpoint_name = test_configuration.endpoint.name
-        endpoint_url = test_configuration.endpoint.url
+        endpoint_id = str(test_configuration.endpoint.id)
 
         # Get project information
         if hasattr(test_configuration.endpoint, "project") and test_configuration.endpoint.project:
             project_name = test_configuration.endpoint.project.name
 
-    return test_set_name, endpoint_name, endpoint_url, project_name
+    return test_set_name, endpoint_name, endpoint_id, project_name
 
 
 def calculate_execution_time(
@@ -466,7 +466,7 @@ def build_summary_data(
     execution_time: Optional[str],
     test_set_name: str,
     endpoint_name: str,
-    endpoint_url: str,
+    endpoint_id: str,
     project_name: str,
     completion_time: datetime,
 ) -> Dict[str, Any]:
@@ -484,7 +484,7 @@ def build_summary_data(
         execution_time: Formatted execution time
         test_set_name: Name of the test set
         endpoint_name: Name of the endpoint
-        endpoint_url: URL of the endpoint
+        endpoint_id: ID of the endpoint, for the frontend link
         project_name: Name of the project
         completion_time: Completion timestamp
 
@@ -503,7 +503,7 @@ def build_summary_data(
         "status_details": format_status_details(tests_passed, tests_failed, execution_errors),
         "test_set_name": test_set_name,
         "endpoint_name": endpoint_name,
-        "endpoint_url": endpoint_url,
+        "endpoint_id": endpoint_id,
         "project_name": project_name,
         "completed_at": completion_time.strftime("%Y-%m-%d %H:%M:%S"),
     }
@@ -588,7 +588,7 @@ class TestRunProcessor:
 
         # Get test context information
         test_configuration = test_run.test_configuration
-        test_set_name, endpoint_name, endpoint_url, project_name = get_test_context(
+        test_set_name, endpoint_name, endpoint_id, project_name = get_test_context(
             test_configuration
         )
 
@@ -612,7 +612,7 @@ class TestRunProcessor:
             execution_time,
             test_set_name,
             endpoint_name,
-            endpoint_url,
+            endpoint_id,
             project_name,
             completion_time,
         )

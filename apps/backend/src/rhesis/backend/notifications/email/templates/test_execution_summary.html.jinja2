@@ -43,7 +43,7 @@
     {%- set rows = rows + [{
         'label': 'Endpoint',
         'value': endpoint_name,
-        'url': endpoint_url if endpoint_url and endpoint_url != 'N/A' else None,
+        'url': frontend_url ~ '/endpoints/' ~ endpoint_id if frontend_url and frontend_url != 'N/A' and endpoint_id and endpoint_id != 'N/A' else None,
     }] -%}
     {%- endif -%}
     {%- set rows = rows + [
