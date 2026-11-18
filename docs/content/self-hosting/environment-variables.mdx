@@ -29,7 +29,7 @@ These four secrets have no default; the stack refuses to start if any is unset.
 |---|---|---|
 | `FRONTEND_URL` | Public origin of the frontend, the only address browsers use. Sign-in and OAuth run under `<FRONTEND_URL>/api/backend`; an `https://` value enables secure cookies | `http://localhost:3000` |
 | `BACKEND_URL` | The backend's **internal** address, which the frontend server uses for every call it passes on. Don't point it at the public API host through a proxy (see below). Helm: `config.backendUrl` | `http://backend:8080` |
-| `WS_URL` | WebSocket address for the browser, as a path (`/ws`) or a `ws(s)://` URL. Unset, the browser opens `/ws` on `FRONTEND_URL`, which your ingress or reverse proxy must route to the backend | `ws://localhost:<BACKEND_PORT>/ws` in docker-compose; unset in Helm |
+| `WS_URL` | WebSocket address for the browser, as a path (`/ws`) or a `ws(s)://` URL. Unset, the browser opens `/ws` on `FRONTEND_URL`, which your ingress or reverse proxy must route to the backend | `ws://localhost:<BACKEND_PORT>/ws` in docker-compose (set `ws://<server>:<BACKEND_PORT>/ws` when users open the app from other machines); unset in Helm |
 | `FRONTEND_PORT` | Host port Docker publishes for the frontend | `3000` |
 | `BACKEND_PORT` | Host port Docker publishes for the backend | `8080` |
 

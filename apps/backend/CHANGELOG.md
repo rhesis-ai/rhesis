@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **BREAKING: OAuth And SSO Run On The Frontend Origin**: browsers reach sign-in only through the frontend's `/api/backend` proxy, so the redirect URIs are now `<FRONTEND_URL>/api/backend/auth/callback` (Google, GitHub) and `<FRONTEND_URL>/api/backend/auth/sso/callback` (SSO). Register them with each provider and identity provider before upgrading; most accept several URIs, so adding them first avoids downtime. SSO login links move to `<FRONTEND_URL>/api/backend/auth/sso/<slug>`. Login and callback requests sent to the API host directly get a 400 naming the new address.
+
+  Upgrading a self-hosted deployment:
+  1. Before upgrading, add `<FRONTEND_URL>/api/backend/auth/callback` to your Google and GitHub OAuth apps and `<FRONTEND_URL>/api/backend/auth/sso/callback` to your SSO identity provider, keeping the old URIs until the upgrade is verified. A GitHub OAuth App has only one callback URL, so change it during the upgrade.
+  2. Set `FRONTEND_URL` to exactly the address users open (`https://` for any host other than localhost), and `BACKEND_URL` to the backend's internal address, not the public API host.
+  3. Route `/ws` on the app host to the backend, or set `WS_URL`. The Helm chart's ingress does this for you, and docker-compose works unchanged when users open the app on the same machine. Users on other machines need `WS_URL=ws://<server>:<BACKEND_PORT>/ws`; behind a reverse proxy, route `/ws` and set `WS_URL=/ws`.
+  4. Re-share SSO login links; Organization settings → SSO shows the new one.
+  5. Remove `API_BASE_URL`; nothing reads it.
+
+  The API host stays as it is for SDK, MCP and connector clients. Details: Self-Hosting → Environment Variables, Docker Compose and Kubernetes (Helm).
 - **OAuth Handshake Cookie**: the backend's session cookie is renamed `rhesis-oauth`, lasts 10 minutes instead of an hour, and is cleared after every OAuth and SSO callback, so it no longer leaves a backend login behind. Its Secure flag follows the `FRONTEND_URL` scheme.
 - **`API_BASE_URL` Removed**: the backend builds OAuth URLs from `FRONTEND_URL`. No Rhesis service reads `API_BASE_URL` any more, so remove it; a leftover value is ignored.
 - **Proxied Frontend Warning**: the backend logs a warning once when the frontend reaches it through a proxy that adds `X-Forwarded-For`, because the browser IP is then ignored and every sign-in shares one rate limit. `BACKEND_URL` must be the backend's internal address.
