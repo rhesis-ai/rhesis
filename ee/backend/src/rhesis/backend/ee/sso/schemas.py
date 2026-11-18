@@ -8,22 +8,7 @@ from pydantic import BaseModel, SecretStr, field_validator
 
 from rhesis.backend.app.auth.url_utils import LOOPBACK_HOSTS
 from rhesis.backend.app.config.settings import get_application_settings
-
-_BLOCKED_NETWORKS = [
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    ipaddress.ip_network("169.254.0.0/16"),
-    ipaddress.ip_network("127.0.0.0/8"),
-    ipaddress.ip_network("::1/128"),
-    ipaddress.ip_network("fc00::/7"),
-    ipaddress.ip_network("fe80::/10"),
-]
-
-_BLOCKED_HOSTNAMES = {
-    "metadata.google.internal",
-    "metadata.internal",
-}
+from rhesis.backend.app.utils.ssrf_http_client import BLOCKED_HOSTNAMES, is_blocked_address
 
 
 class SSOConfig(BaseModel):
@@ -41,35 +26,33 @@ class SSOConfig(BaseModel):
     @field_validator("issuer_url")
     @classmethod
     def issuer_must_be_https_and_not_internal(cls, v: str) -> str:
-        """Validate issuer URL: HTTPS required, no internal/private destinations."""
+        """HTTPS required; private addresses only when OUTBOUND_ALLOW_PRIVATE_NETWORKS is on."""
         parsed = urlparse(v)
         hostname = parsed.hostname or ""
+        settings = get_application_settings()
 
         if parsed.scheme != "https":
             if not (
                 parsed.scheme == "http"
                 and hostname.lower() in LOOPBACK_HOSTS
-                and get_application_settings().is_local_development
+                and settings.is_local_development
             ):
                 raise ValueError("issuer_url must use HTTPS")
 
-        if hostname.lower() in _BLOCKED_HOSTNAMES:
+        if hostname.lower() in BLOCKED_HOSTNAMES:
             raise ValueError("issuer_url cannot point to cloud metadata services")
 
         try:
-            addr = ipaddress.ip_address(hostname)
-            for network in _BLOCKED_NETWORKS:
-                if addr in network:
-                    raise ValueError(
-                        "issuer_url cannot point to private or reserved IP addresses"
-                    )
-        except ValueError as e:
-            if "cannot point to" in str(e):
-                raise
-            # hostname is not an IP literal -- DNS resolution
-            # is validated at connect time by SafeHttpClient
+            ipaddress.ip_address(hostname)
+            is_ip_literal = True
+        except ValueError:
+            # A hostname: its addresses are checked at connect time by SafeHttpClient.
+            is_ip_literal = False
+        if is_ip_literal and is_blocked_address(hostname, settings.allow_private_outbound):
+            raise ValueError("issuer_url cannot point to private or reserved IP addresses")
 
-        if not get_application_settings().is_local_development:
+        # On-premise IdPs often listen on another port (Keycloak's 8443).
+        if not (settings.is_local_development or settings.allow_private_outbound):
             port = parsed.port
             if port is not None and port != 443:
                 raise ValueError("issuer_url must use port 443 outside local development")

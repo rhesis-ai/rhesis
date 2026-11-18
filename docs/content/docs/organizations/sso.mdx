@@ -44,6 +44,7 @@ Then configure the organization in Rhesis with these values:
 | `auto_provision_users` | No | Creates users on first valid SSO login |
 | `allowed_domains` | No | Restricts login to normalized email domains |
 | `allowed_auth_methods` | No | Optional list from `sso`, `email`, `google`, `github` |
+| `allow_insecure_tls` | No | Skips certificate checks for a provider with a self-signed or internal-CA certificate. Use only on a trusted network |
 | `slug` | Recommended | Stable login slug used in SSO URLs and API Client audiences |
 
 ## Admin API
@@ -81,7 +82,7 @@ Useful endpoints:
 
 ## Troubleshooting
 
-- `issuer_url` must use HTTPS in production and cannot point to private or cloud metadata addresses.
+- `issuer_url` must use HTTPS in production and cannot point to cloud metadata addresses. A private address or a port other than 443 is accepted only while [`OUTBOUND_ALLOW_PRIVATE_NETWORKS`](/self-hosting/environment-variables#advanced) is on, which a self-hosted instance with an on-premise identity provider needs.
 - If you omit `client_secret` on an update, Rhesis preserves the existing encrypted secret.
 - `allowed_domains` values are lowercased and normalized without leading dots.
 - Slugs must be lowercase, 3-50 characters, alphanumeric or hyphenated, and cannot contain consecutive hyphens.

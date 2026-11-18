@@ -24,7 +24,7 @@ Choose **Add Destination**, pick a type, and give it a name.
   alt="Add Destination drawer with type, name and URL fields for a webhook"
 />
 
-URLs must use HTTPS and resolve to a public address. Tokens and API keys are stored encrypted and never shown again.
+URLs must use HTTPS and resolve to a public address, unless [`OUTBOUND_ALLOW_PRIVATE_NETWORKS`](/self-hosting/environment-variables#advanced) is on. Tokens and API keys are stored encrypted and never shown again.
 
 A new destination receives events recorded from the moment it is added; earlier events are not sent. Use [export](/docs/organizations/audit-log#exporting) for history. **Send a test event** delivers one sample event of type `audit_log.test`, which is not recorded in the log.
 

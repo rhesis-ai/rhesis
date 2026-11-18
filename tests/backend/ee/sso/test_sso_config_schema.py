@@ -62,12 +62,43 @@ class TestSSOConfigValidation:
                 client_secret=SecretStr("my-secret"),
             )
 
-    def test_private_ip_blocked(self):
+    def test_private_ip_blocked(self, monkeypatch):
         from rhesis.backend.ee.sso.schemas import SSOConfig
+
+        monkeypatch.setenv("OUTBOUND_ALLOW_PRIVATE_NETWORKS", "false")
+        get_application_settings.cache_clear()
 
         with pytest.raises(ValueError, match="private"):
             SSOConfig(
                 issuer_url="https://10.0.0.1/realms/test",
+                client_id="my-client",
+                client_secret=SecretStr("my-secret"),
+            )
+
+    def test_private_ip_and_port_allowed_when_private_targets_on(self, monkeypatch):
+        """GitHub issue #3188: an on-premise IdP on the LAN, e.g. Keycloak on 8443."""
+        from rhesis.backend.ee.sso.schemas import SSOConfig
+
+        monkeypatch.setenv("BACKEND_ENV", "production")
+        monkeypatch.setenv("OUTBOUND_ALLOW_PRIVATE_NETWORKS", "true")
+        get_application_settings.cache_clear()
+
+        config = SSOConfig(
+            issuer_url="https://10.0.0.5:8443/realms/acme",
+            client_id="my-client",
+            client_secret=SecretStr("my-secret"),
+        )
+        assert config.issuer_url == "https://10.0.0.5:8443/realms/acme"
+
+    def test_link_local_blocked_when_private_targets_on(self, monkeypatch):
+        from rhesis.backend.ee.sso.schemas import SSOConfig
+
+        monkeypatch.setenv("OUTBOUND_ALLOW_PRIVATE_NETWORKS", "true")
+        get_application_settings.cache_clear()
+
+        with pytest.raises(ValueError, match="private or reserved"):
+            SSOConfig(
+                issuer_url="https://169.254.169.254/realms/acme",
                 client_id="my-client",
                 client_secret=SecretStr("my-secret"),
             )

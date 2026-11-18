@@ -352,6 +352,7 @@ Rarely changed; the defaults are correct for most deployments.
 | `JWT_ALGORITHM` | JWT signing algorithm | `HS256` |
 | `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | Access-token lifetime (minutes); refreshed automatically, and the window in which a deactivated user's token stays valid | `15` |
 | `RHESIS_BASE_URL` | Base URL for Rhesis-hosted models | `https://api.rhesis.ai` |
+| `OUTBOUND_ALLOW_PRIVATE_NETWORKS` | Lets URLs that users configure (endpoints, model `api_base`, OAuth token URLs, Jira/Confluence/GitLab, the SSO issuer, audit-log webhooks) reach loopback and private addresses. Turn it on for a single-tenant install whose endpoints or identity provider live on the private network. Link-local and cloud metadata addresses stay blocked either way | On for `BACKEND_ENV=local` or `development`, off otherwise. The Helm chart sets `false` |
 | `DB_DRIVER` | SQLAlchemy database driver. A bare `postgresql` is read as `postgresql+psycopg` | `postgresql+psycopg` |
 | `BROKER_READ_URL` | Optional read-replica broker URL | *(unset)* |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint for telemetry export | `https://telemetry.rhesis.ai` |

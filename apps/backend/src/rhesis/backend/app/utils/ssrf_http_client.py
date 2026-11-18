@@ -22,7 +22,7 @@ addresses stay blocked either way.
 import ipaddress
 import logging
 import socket
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional
 from urllib.parse import urlparse
 
 import anyio
@@ -50,7 +50,7 @@ _METADATA_NETWORKS = [
 _CGNAT = ipaddress.ip_network("100.64.0.0/10")
 _NAT64 = ipaddress.ip_network("64:ff9b::/96")
 
-_BLOCKED_HOSTNAMES = {
+BLOCKED_HOSTNAMES = {
     "metadata.google.internal",
     "metadata.internal",
     "metadata",
@@ -118,7 +118,7 @@ def resolve_checked(
     name = (host or "").strip("[]").rstrip(".").lower()
     if not name:
         raise SSRFError("URL has no hostname")
-    if name in _BLOCKED_HOSTNAMES:
+    if name in BLOCKED_HOSTNAMES:
         raise SSRFError(f"Blocked hostname: {host}")
 
     try:
@@ -322,27 +322,16 @@ class guarded_ws_connect(_ws_connect):
 
 
 def _localhost_allowed(hostname: str) -> bool:
-    """SSO and webhooks allow only the local machine, and only when private targets are."""
+    """A local IdP on localhost, which skips TLS verification when private targets are allowed."""
     return private_targets_allowed() and hostname.lower() in _LOCALHOST_NAMES
 
 
-def _resolve_and_validate(hostname: str) -> List[str]:
-    """Resolve ``hostname`` under the strict SSO/webhook policy and return its IPs."""
-    return resolve_checked(hostname, None, allow_private=_localhost_allowed(hostname))
-
-
 def validate_url_safety(url: str) -> None:
-    """Validate that a URL is safe for outbound requests.
+    """Raise ``SSRFError`` unless ``url`` is http(s) to an allowed address.
 
-    Checks both the URL structure and DNS resolution.
-    Kept for use in non-request contexts (e.g. validating JWKS URI origin).
+    For checking a URL when it is saved; requests are checked again at connect time.
     """
-    parsed = urlparse(url)
-    hostname = parsed.hostname
-    if not hostname:
-        raise SSRFError("URL has no hostname")
-
-    _resolve_and_validate(hostname)
+    validate_outbound_url(url)
 
 
 def validate_endpoint_origin(endpoint_url: str, issuer_url: str) -> None:
@@ -372,12 +361,14 @@ validate_jwks_uri_origin = validate_endpoint_origin
 
 
 class SafeHttpClient:
-    """HTTP client for SSO and webhook targets, which must be public addresses.
+    """HTTP client for SSO and webhook targets.
 
-    Stricter than the endpoint clients above: private networks are never
-    allowed, only the local machine, and only when private targets are allowed
-    (a local Keycloak on localhost:8180). The address is checked up front for a
-    clear error, then again at connect time by the guarded transport.
+    Same address policy as the endpoint clients above: private networks only
+    when ``OUTBOUND_ALLOW_PRIVATE_NETWORKS`` is on (an on-premise IdP on the
+    LAN), link-local and cloud metadata never. Redirects are never followed. The
+    address is checked up front for a clear error, then again at connect time
+    by the guarded transport. TLS verification is skipped for ``localhost``
+    when private targets are allowed (a local Keycloak on localhost:8180).
 
     Set ``verify_ssl=False`` only for a host with a self-signed or internal-CA
     certificate, such as an on-premise Keycloak. Use it only where the network
@@ -388,34 +379,34 @@ class SafeHttpClient:
         self._timeout = timeout
         self._verify_ssl = verify_ssl
 
-    def _prepare(self, url: str) -> Tuple[bool, bool]:
-        """Check the URL; return (allow_private, verify) for the transport."""
-        hostname = urlparse(url).hostname
-        if not hostname:
-            raise SSRFError("URL has no hostname")
-        _resolve_and_validate(hostname)
-        localhost = _localhost_allowed(hostname)
-        return localhost, self._verify_ssl and not localhost
+    def _verify(self, url: str) -> bool:
+        """Check the URL; return whether the transport verifies TLS."""
+        validate_url_safety(url)
+        return self._verify_ssl and not _localhost_allowed(urlparse(url).hostname or "")
 
-    def _client_kwargs(self, url: str, transport_cls: type) -> dict:
-        allow_private, verify = self._prepare(url)
+    def _client_kwargs(self, verify: bool, transport_cls: type) -> dict:
         return {
             "timeout": self._timeout,
             "verify": verify,
             "follow_redirects": False,
             "trust_env": False,
-            "transport": transport_cls(verify=verify, allow_private=allow_private),
+            "transport": transport_cls(verify=verify),
         }
 
+    async def _async_client(self, url: str) -> httpx.AsyncClient:
+        # The up-front check resolves DNS, which blocks; keep it off the event loop.
+        verify = await anyio.to_thread.run_sync(self._verify, url)
+        return httpx.AsyncClient(**self._client_kwargs(verify, GuardedAsyncTransport))
+
     async def get(self, url: str, **kwargs) -> httpx.Response:
-        async with httpx.AsyncClient(**self._client_kwargs(url, GuardedAsyncTransport)) as client:
+        async with await self._async_client(url) as client:
             return await client.get(url, **kwargs)
 
     async def post(self, url: str, **kwargs) -> httpx.Response:
-        async with httpx.AsyncClient(**self._client_kwargs(url, GuardedAsyncTransport)) as client:
+        async with await self._async_client(url) as client:
             return await client.post(url, **kwargs)
 
     def post_sync(self, url: str, **kwargs) -> httpx.Response:
         """``post`` for sync callers such as Celery jobs. Never follows redirects."""
-        with httpx.Client(**self._client_kwargs(url, GuardedTransport)) as client:
+        with httpx.Client(**self._client_kwargs(self._verify(url), GuardedTransport)) as client:
             return client.post(url, **kwargs)

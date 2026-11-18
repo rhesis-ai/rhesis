@@ -9,11 +9,24 @@ import base64
 
 import pytest
 
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.utils import webhooks
 from rhesis.backend.app.utils.ssrf_http_client import SSRFError
 from tests.backend.utils.webhook_receiver import fake_receiver
 
 URL = "https://hooks.example.com/rhesis"
+
+
+@pytest.fixture
+def private_targets(monkeypatch):
+    """Set ``OUTBOUND_ALLOW_PRIVATE_NETWORKS``; tests default to development, where it is on."""
+
+    def set_to(value: bool) -> None:
+        monkeypatch.setenv("OUTBOUND_ALLOW_PRIVATE_NETWORKS", str(value).lower())
+        get_application_settings.cache_clear()
+
+    yield set_to
+    get_application_settings.cache_clear()
 
 
 class TestSigning:
@@ -53,7 +66,20 @@ class TestDestinationChecks:
     @pytest.mark.parametrize(
         "ip", ["10.0.0.5", "172.16.3.4", "192.168.1.1", "127.0.0.1", "169.254.169.254", "fe80::1"]
     )
-    def test_names_resolving_to_internal_addresses_are_refused(self, ip):
+    def test_names_resolving_to_internal_addresses_are_refused(self, ip, private_targets):
+        private_targets(False)
+        with fake_receiver(addresses={"hooks.example.com": ip}), pytest.raises(SSRFError):
+            webhooks.check_destination_url(URL)
+
+    @pytest.mark.parametrize("ip", ["10.0.0.5", "192.168.1.1"])
+    def test_private_addresses_are_accepted_when_allowed(self, ip, private_targets):
+        private_targets(True)
+        with fake_receiver(addresses={"hooks.example.com": ip}):
+            webhooks.check_destination_url(URL)
+
+    @pytest.mark.parametrize("ip", ["169.254.169.254", "fe80::1"])
+    def test_link_local_is_refused_even_when_private_allowed(self, ip, private_targets):
+        private_targets(True)
         with fake_receiver(addresses={"hooks.example.com": ip}), pytest.raises(SSRFError):
             webhooks.check_destination_url(URL)
 
@@ -82,7 +108,8 @@ class TestPost:
         assert response.status_code == 302
         assert len(received) == 1
 
-    def test_address_is_checked_again_at_send_time(self):
+    def test_address_is_checked_again_at_send_time(self, private_targets):
+        private_targets(False)
         # A name that was public when saved and points inside now (DNS rebinding).
         with fake_receiver(addresses={"hooks.example.com": "10.0.0.5"}) as received:
             with pytest.raises(SSRFError):
