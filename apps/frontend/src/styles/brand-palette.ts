@@ -15,9 +15,14 @@
 import {
   alpha,
   darken,
+  decomposeColor,
   getContrastRatio,
+  getLuminance,
+  hslToRgb,
   lighten,
+  rgbToHex,
 } from '@mui/system/colorManipulator';
+import { BACKGROUND_PAPER } from '@/styles/theme-background';
 
 /** The Rhesis primary. Also the reference point the factors below were fitted to. */
 const RHESIS_PRIMARY = '#0080AF';
@@ -29,6 +34,70 @@ const LIGHT_CONTRAST_TEXT = '#FFFFFF';
 /** MUI's own default `contrastThreshold`, i.e. the WCAG ratio for UI components
  * and large text. Buttons and chips are the main consumers. */
 const CONTRAST_THRESHOLD = 3;
+
+/**
+ * How far a brand colour used as text or an outline must stand out from the
+ * surface it sits on, per mode.
+ *
+ * Light mode asks for WCAG's 3:1 (UI components and large text): darkening a
+ * brand colour drags it toward black fast, and 4.5:1 would already shift
+ * mid-tones like Rhesis blue itself. Dark mode asks for WCAG's 4.5:1 (body
+ * text) because lifting is cheap there.
+ */
+const MIN_ACCENT_CONTRAST: Record<'light' | 'dark', number> = {
+  light: 3,
+  dark: 4.5,
+};
+
+/** A solid fill carries its own label, so it only needs to read as a shape. */
+const MIN_FILL_CONTRAST = 3;
+
+function toHsl(color: string): [number, number, number] {
+  const [r, g, b] = decomposeColor(color).values.map(v => v / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return [0, 0, l];
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h =
+    max === r
+      ? ((g - b) / d) % 6
+      : max === g
+        ? (b - r) / d + 2
+        : (r - g) / d + 4;
+  return [(h * 60 + 360) % 360, s, l];
+}
+
+/**
+ * Returns `color` unchanged if it already reaches `minRatio` against
+ * `background`; otherwise the closest HSL lightness, raised on a dark
+ * background or lowered on a light one, that does.
+ *
+ * Moves lightness rather than mixing with white/black (MUI's `lighten`), which
+ * greys a colour out: a lifted navy stays a recognisable blue instead of slate.
+ */
+export function ensureContrast(
+  color: string,
+  background: string,
+  minRatio: number
+): string {
+  if (getContrastRatio(color, background) >= minRatio) return color;
+
+  const [h, s, l] = toHsl(color);
+  const at = (lightness: number) =>
+    rgbToHex(hslToRgb(`hsl(${h}, ${s * 100}%, ${lightness * 100}%)`));
+  const onDark = getLuminance(background) < 0.5;
+  // Binary search between the colour and white (or black), keeping the passing end.
+  let near = l;
+  let far = onDark ? 1 : 0;
+  for (let i = 0; i < 16; i++) {
+    const mid = (near + far) / 2;
+    if (getContrastRatio(at(mid), background) >= minRatio) far = mid;
+    else near = mid;
+  }
+  return at(far);
+}
 
 export interface BrandPrimary {
   main: string;
@@ -57,16 +126,19 @@ export function contrastTextFor(background: string): string {
 /**
  * Builds `palette.primary` for one mode.
  *
- * Dark mode shifts `main` lighter and keeps the raw brand colour as `dark`,
- * mirroring how the Rhesis dark palette promotes `#33A6CB` to `main` and
- * demotes `#0080AF` — a saturated brand colour is hard to read on a dark
- * surface at full strength.
+ * `main` is the brand colour moved only as far as it must be to read on the
+ * mode's paper, so a dark navy is lifted on dark and a pale yellow darkened on
+ * light, while a colour that already reads stays exact.
  */
 export function deriveBrandPrimary(
   brandColor: string,
   mode: 'light' | 'dark'
 ): BrandPrimary {
-  const main = mode === 'light' ? brandColor : lighten(brandColor, 0.25);
+  const main = ensureContrast(
+    brandColor,
+    BACKGROUND_PAPER[mode],
+    MIN_ACCENT_CONTRAST[mode]
+  );
 
   return {
     main,
@@ -183,18 +255,29 @@ export function deriveBrandAccents(
   mode: 'light' | 'dark',
   brandColor?: string
 ): BrandAccents {
-  const main = brandColor ?? RHESIS_PRIMARY;
+  if (!brandColor) {
+    return {
+      main: RHESIS_PRIMARY,
+      mainHover: '#005F82',
+      contrastText: contrastTextFor(RHESIS_PRIMARY),
+      onSurface: mode === 'light' ? RHESIS_PRIMARY : '#33A6CB',
+      softHover: alpha(RHESIS_PRIMARY, 0.04),
+    };
+  }
+
+  const surface = BACKGROUND_PAPER[mode];
+  const main = ensureContrast(brandColor, surface, MIN_FILL_CONTRAST);
+  const onSurface = ensureContrast(
+    brandColor,
+    surface,
+    MIN_ACCENT_CONTRAST[mode]
+  );
 
   return {
     main,
-    mainHover: brandColor ? darken(brandColor, 0.26) : '#005F82',
+    mainHover: darken(main, 0.26),
     contrastText: contrastTextFor(main),
-    onSurface:
-      mode === 'light'
-        ? main
-        : brandColor
-          ? lighten(brandColor, 0.25)
-          : '#33A6CB',
+    onSurface,
     softHover: alpha(main, 0.04),
   };
 }

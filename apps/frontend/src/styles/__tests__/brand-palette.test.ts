@@ -1,4 +1,8 @@
-import { getContrastRatio } from '@mui/system/colorManipulator';
+import {
+  decomposeColor,
+  getContrastRatio,
+  getLuminance,
+} from '@mui/system/colorManipulator';
 import {
   contrastTextFor,
   deriveBrandAccents,
@@ -6,6 +10,7 @@ import {
   deriveBrandSecondary,
   deriveBrandSurfaces,
   deriveSecondaryAccents,
+  ensureContrast,
 } from '../brand-palette';
 import { getDesignTokens } from '../theme';
 
@@ -13,6 +18,8 @@ import { getDesignTokens } from '../theme';
 const BRAND = '#6A1B9A';
 /** A pale brand colour, to prove contrast is computed and not assumed white. */
 const PALE_BRAND = '#FDD803';
+/** A navy that disappears on dark surfaces — the case that started this. */
+const NAVY = '#0B1E4D';
 
 describe('contrastTextFor', () => {
   it('uses white on a dark brand colour', () => {
@@ -56,10 +63,54 @@ describe('deriveBrandPrimary', () => {
     expect(light.dark).toBe('rgb(0, 94, 129)');
   });
 
-  it('picks readable button text for a pale brand colour', () => {
-    expect(deriveBrandPrimary(PALE_BRAND, 'light').contrastText).toBe(
-      '#1A1A1A'
-    );
+  it('picks readable button text whatever main ends up as', () => {
+    for (const brand of [BRAND, PALE_BRAND, NAVY]) {
+      for (const mode of ['light', 'dark'] as const) {
+        const p = deriveBrandPrimary(brand, mode);
+        expect(getContrastRatio(p.main, p.contrastText)).toBeGreaterThanOrEqual(
+          3
+        );
+      }
+    }
+  });
+
+  it('darkens a pale brand colour until it shows on white', () => {
+    const main = deriveBrandPrimary(PALE_BRAND, 'light').main;
+    expect(getContrastRatio(main, '#FFFFFF')).toBeGreaterThanOrEqual(3);
+  });
+
+  it('lifts a dark brand colour until it shows on dark paper', () => {
+    const main = deriveBrandPrimary(NAVY, 'dark').main;
+    expect(getContrastRatio(main, '#161B22')).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('ensureContrast', () => {
+  it('returns a passing colour untouched', () => {
+    expect(ensureContrast('#0080AF', '#FFFFFF', 3)).toBe('#0080AF');
+  });
+
+  it('lifts on a dark background and darkens on a light one', () => {
+    const lifted = ensureContrast(NAVY, '#030712', 4.5);
+    expect(getContrastRatio(lifted, '#030712')).toBeGreaterThanOrEqual(4.5);
+    const darkened = ensureContrast(PALE_BRAND, '#FFFFFF', 3);
+    expect(getContrastRatio(darkened, '#FFFFFF')).toBeGreaterThanOrEqual(3);
+    expect(getLuminance(darkened)).toBeLessThan(getLuminance(PALE_BRAND));
+  });
+
+  it('stops near the target instead of jumping to white', () => {
+    const lifted = ensureContrast(NAVY, '#030712', 4.5);
+    expect(getContrastRatio(lifted, '#030712')).toBeLessThan(5);
+  });
+
+  it('keeps the hue, so a lifted navy stays blue rather than slate', () => {
+    // Mixing with white (MUI's lighten) greys it toward slate; moving HSL
+    // lightness keeps blue clearly dominant.
+    const [r, g, b] = decomposeColor(
+      ensureContrast(NAVY, '#030712', 4.5)
+    ).values;
+    expect(b - r).toBeGreaterThan(120);
+    expect(b).toBeGreaterThan(g);
   });
 });
 
@@ -95,9 +146,15 @@ describe('deriveBrandAccents', () => {
     expect(deriveBrandAccents('dark').onSurface).toBe('#33A6CB');
   });
 
-  it('uses the brand colour for solid fills in both modes', () => {
+  it('uses the brand colour for solid fills when it stands out', () => {
     expect(deriveBrandAccents('light', BRAND).main).toBe(BRAND);
-    expect(deriveBrandAccents('dark', BRAND).main).toBe(BRAND);
+    expect(deriveBrandAccents('dark', '#C62828').main).toBe('#C62828');
+  });
+
+  it('lifts a solid fill that would vanish into dark paper', () => {
+    const { main, contrastText } = deriveBrandAccents('dark', NAVY);
+    expect(getContrastRatio(main, '#161B22')).toBeGreaterThanOrEqual(3);
+    expect(getContrastRatio(main, contrastText)).toBeGreaterThanOrEqual(3);
   });
 
   it('lightens only the on-surface colour for dark mode', () => {

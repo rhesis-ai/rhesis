@@ -1,6 +1,6 @@
 'use client';
 import { createTheme, PaletteMode } from '@mui/material/styles';
-import { BACKGROUND_DEFAULT } from './theme-background';
+import { BACKGROUND_DEFAULT, BACKGROUND_PAPER } from './theme-background';
 import React from 'react';
 import type {} from '@mui/x-data-grid/themeAugmentation';
 
@@ -109,7 +109,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
             },
             background: {
               default: BACKGROUND_DEFAULT.light,
-              paper: '#FFFFFF',
+              paper: BACKGROUND_PAPER.light,
               ...(brandSurfaces ?? {
                 light1: '#F2F9FD',
                 light2: '#E4F2FA',
@@ -150,7 +150,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
             },
             background: {
               default: BACKGROUND_DEFAULT.dark,
-              paper: '#161B22',
+              paper: BACKGROUND_PAPER.dark,
               light1: '#0D1117',
               light2: '#161B22',
               light3: '#1F242B',
