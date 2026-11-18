@@ -10,6 +10,7 @@ on:
       - 'packages/rhesis/**'
       - 'penelope/**'
       - 'tests/backend/**'
+      - 'tests/notifications/**'
       - '.github/workflows/backend-test.yml'
   pull_request:
     branches: [ main ]
@@ -20,6 +21,7 @@ on:
       - 'packages/rhesis/**'
       - 'penelope/**'
       - 'tests/backend/**'
+      - 'tests/notifications/**'
       - '.github/workflows/backend-test.yml'
   workflow_dispatch:
   schedule:
@@ -78,6 +80,11 @@ jobs:
         # before the EE tests under tests/backend/ee/ run.
         run: |
           uv run --extra cpu --extra ee pytest ../../tests/backend -n 4 --timeout=120 --timeout-method=thread --reruns=1
+        working-directory: apps/backend
+
+      - name: Run notification tests
+        # Pure unit tests with their own conftest, so they run apart from tests/backend.
+        run: uv run --extra cpu --extra ee pytest ../../tests/notifications
         working-directory: apps/backend
 
   # Verifies that the MIT-only build stays clean: no core module may import
