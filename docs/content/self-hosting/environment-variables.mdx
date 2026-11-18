@@ -28,7 +28,8 @@ These four secrets have no default; the stack refuses to start if any is unset.
 | Variable | Description | Default |
 |---|---|---|
 | `FRONTEND_URL` | Public origin of the frontend, the only address browsers use. Sign-in and OAuth run under `<FRONTEND_URL>/api/backend`; an `https://` value enables secure cookies | `http://localhost:3000` |
-| `API_BASE_URL` | Public origin of the backend API, shown to API and SDK users (for example in curl examples). Browsers never call it | `http://localhost:8080` |
+| `API_BASE_URL` | Public origin of the backend API, shown to API and SDK users (for example in curl examples). Only the frontend reads it, for display; browsers never call it and the backend ignores it | `http://localhost:8080` |
+| `BACKEND_URL` | The backend's **internal** address, which the frontend server uses for every call it passes on. Don't point it at the public API host through a proxy (see below). Helm: `config.backendUrl` | `http://backend:8080` |
 | `WS_URL` | WebSocket address for the browser, as a path (`/ws`) or a `ws(s)://` URL. Unset, the browser opens `/ws` on `FRONTEND_URL`, which your ingress or reverse proxy must route to the backend | `ws://localhost:<BACKEND_PORT>/ws` in docker-compose; unset in Helm |
 | `FRONTEND_PORT` | Host port Docker publishes for the frontend | `3000` |
 | `BACKEND_PORT` | Host port Docker publishes for the backend | `8080` |
@@ -36,10 +37,11 @@ These four secrets have no default; the stack refuses to start if any is unset.
 Ports are the host bind ports and are independent of the URLs — behind a reverse proxy the published port
 and the public URL usually differ.
 
-`BACKEND_URL`, the address the frontend server uses to reach the backend, must be the backend's internal
-address (`http://backend:8080` in docker-compose and Helm). If it goes through a proxy that adds
-`X-Forwarded-For`, the backend can't see each browser's IP, and every sign-in shares one rate limit.
-The backend logs a warning when this happens.
+Sign-in reaches the backend through the frontend server, which passes on each browser's IP for the
+sign-in rate limits and the audit log. The backend accepts that IP only when the request arrives
+directly from a private or loopback address. If `BACKEND_URL` goes through a proxy that adds
+`X-Forwarded-For`, every sign-in counts against one shared limit, and the backend logs a warning
+saying so.
 
 ## Branding
 
