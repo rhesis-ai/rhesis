@@ -140,14 +140,14 @@ exclude-newer = "1 week"
 exclude-newer-package = { torch = false, jupyter-server = false, mistune = false, notebook = false, pydantic-settings = false, langsmith = false, langchain = false, langchain-core = false, litellm = false, aiohttp = false, tornado = false, starlette = false, pyjwt = false, pyarrow = false, bleach = false, cryptography = false, python-multipart = false, jupyterlab = false, certifi = false, uv = false, nltk = false, pillow = false, virtualenv = false, pyasn1 = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
-    "opentelemetry-api>=1.45.1",
+    "opentelemetry-api>=1.45.2",
     "nltk>=3.10.4",
     "certifi>=2026.10.19",
     "anyio>=4.14.2",
     "pyasn1>=0.6.5",
     "orjson>=3.11.7",
     "langgraph>=1.2.14",
-    "tornado>=6.6",
+    "tornado>=6.6.1",
     "mako>=1.4.2",
     "mistune>=3.3.0",
     "jupyterlab>=4.5.11",
@@ -171,7 +171,7 @@ constraint-dependencies = [
     "litellm>=1.95.1",
     "pydantic-settings>=2.14.2",
     "setuptools>=84.1.0",
-    "soupsieve>=2.9.0",
+    "soupsieve>=4.0.1",
     "joserfc>=1.7.6",
     "langchain>=1.4.0",
     "langgraph-checkpoint>=4.1.1",
@@ -189,7 +189,7 @@ constraint-dependencies = [
     "werkzeug>=3.1.9",
     "oauthlib>=4.0.0",
     "virtualenv>=21.14.9",
-    "dnspython>=2.9.0",
+    "dnspython>=2.9.2",
 ]
 # garak declares datasets<4.0, which transitively caps fsspec at <=2025.3.0 and so
 # collides with gcsfs>=2025.9.0 (fsspec==2025.10.0). The existing environment already

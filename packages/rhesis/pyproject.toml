@@ -68,7 +68,7 @@ exclude-newer = "1 week"
 exclude-newer-package = { tornado = false, litellm = false, langsmith = false, langchain-core = false, cryptography = false, python-multipart = false, certifi = false, uv = false, pillow = false, virtualenv = false }
 # Force minimum versions for transitive dependencies with security advisories
 constraint-dependencies = [
-    "opentelemetry-api>=1.45.1",
+    "opentelemetry-api>=1.45.2",
     "certifi>=2026.10.19",
     "anyio>=4.14.2",
     "pyasn1>=0.6.4",
