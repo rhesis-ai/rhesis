@@ -6,7 +6,7 @@ import pytest
 from conftest import World
 from fake_rhesis import Crash, FakeRhesis
 from project_migrate.api import Abort, Api, HttpError
-from project_migrate.cli import build_parser, load_snapshot
+from project_migrate.cli import build_parser, count_table, load_snapshot
 from project_migrate.state import State
 
 SOURCE_TESTS = 10  # 9 with a prompt, plus one multi-turn test without
@@ -350,3 +350,194 @@ def test_journal_replays_and_ignores_a_torn_line(tmp_path):
     reloaded.save()
     assert not reloaded.journal_path.exists()
     assert State(path, dry=True).get("test:a")["status"] == "done"
+
+
+def test_sources_and_their_links_are_copied(world):
+    snap = world.snapshot()
+    world.run(snap)
+    assert_in_sync(world, snap)
+    copied = next(r for r in world.dst.db["sources"].values() if r["title"] == "Policy handbook")
+    assert copied["content"] == "Refunds are allowed within 30 days."
+    # The file isn't copied, so the source's storage path and hash are left behind.
+    assert copied["source_metadata"] == {"file_type": "pdf"}
+    assert world.dst.db["type_lookups"][copied["source_type_id"]]["type_value"] == "Document"
+    parent = by_name(world, "requirements", "Answers")
+    assert world.dst.req_source == {(parent["id"], copied["id"]): "section 3"}
+
+
+def test_a_changed_link_note_is_updated(world):
+    snap = world.snapshot()
+    world.run(snap)
+    parent = next(r for r in snap["requirements"] if r["name"] == "Answers")
+    parent["sources"][0]["note"] = "section 4"
+    report = world.run(snap)
+    assert report.rows["requirement-source link"]["link"] == 1
+    assert list(world.dst.req_source.values()) == ["section 4"]
+
+
+def test_parameter_schema_is_copied_once(world):
+    snap = world.snapshot()
+    world.run(snap)
+    stored = world.dst.db["projects"][world.dst_pid]["parameters_schema"]
+    assert stored == {"fields": [{"name": "temperature", "type": "number", "default": 0.2}]}
+    assert world.run(snap).rows["parameter schema"] == {"unchanged": 1}
+
+
+def test_target_without_parameters_api_skips_the_schema(world):
+    world.dst.has_parameters_api = False
+    snap = world.snapshot()
+    report = world.run(snap)
+    assert any("no parameters API" in n for n in report.notes)
+    assert_in_sync(world, snap)
+
+
+def test_sdk_endpoints_are_skipped_with_a_note(world):
+    snap = world.snapshot()
+    report = world.run(snap)
+    assert "Connector function" not in {e["name"] for e in world.rows("endpoints")}
+    assert report.rows["endpoint"]["skipped"] == 1
+    assert any("Connector function" in n and "SDK" in n for n in report.notes)
+
+
+def test_literal_credential_headers_are_flagged(world):
+    report = world.run(world.snapshot())
+    flagged = [n for n in report.notes if "X-Partner-Token" in n]
+    assert len(flagged) == 1
+    assert "x-api-key" not in flagged[0]  # a template, not a literal
+
+
+def test_verify_counts_match_after_a_copy(world):
+    snap = world.snapshot()
+    world.run(snap)
+    report = world.run(snap, dry=True)
+    counts = count_table(report, world.api("dst"))
+    assert all(expected == actual for _, expected, actual in counts), counts
+    assert dict((name, n) for name, n, _ in counts)["custom metrics"] == 3  # 2 + org-level copy
+
+
+def _add_extra_links(world: World) -> None:
+    core = by_name(world, "test_sets", "Core")
+    stray = target_test(world, "question 4")["id"]  # a real test, but not in Core on the source
+    world.dst.set_tests[core["id"]].append(stray)
+    toxicity = next(m for m in world.dst.db["metrics"].values() if m["name"] == "Toxicity")
+    world.dst.set_metrics[core["id"]].append(toxicity["id"])
+    child = by_name(world, "requirements", "Answers are grounded")
+    world.dst.req_metric.add((child["id"], toxicity["id"]))
+    handbook = next(iter(world.dst.db["sources"].values()))
+    world.dst.req_source[(child["id"], handbook["id"])] = None
+
+
+def test_extra_target_links_stay_without_prune(world):
+    snap = world.snapshot()
+    world.run(snap)
+    _add_extra_links(world)
+    report = world.run(snap)
+    assert "unlink" not in str(report.rows)
+    assert any("extra test" in n for n in report.notes)
+    assert len(world.dst.req_source) == 2
+
+
+def test_prune_removes_only_the_extra_links(world):
+    snap = world.snapshot()
+    world.run(snap)
+    _add_extra_links(world)
+    report = world.run(snap, prune=True)
+    assert sum(r.get("unlink", 0) for r in report.rows.values()) == 4
+    assert world.run(snap, dry=True, prune=True).pending_work() == 0
+    assert_in_sync(world, snap)
+    assert len(world.dst.req_source) == 1
+
+
+def test_prune_with_an_old_snapshot_leaves_source_links_alone(world):
+    snap = world.snapshot()
+    world.run(snap)
+    old = {k: v for k, v in snap.items() if k not in ("sources", "parameter_schema")}
+    report = world.run(old, prune=True)
+    assert "requirement-source link" not in report.rows
+    assert len(world.dst.req_source) == 1
+
+
+def test_prune_skips_a_requirement_with_an_unmapped_source(world, tmp_path):
+    snap = world.snapshot()
+    world.run(snap)
+    # The linked source is missing from this snapshot, so its target link can't be mapped and
+    # must not be mistaken for an extra one.
+    partial = {**snap, "sources": []}
+    world.run(partial, prune=True, state_path=tmp_path / "fresh-state.json")
+    assert len(world.dst.req_source) == 1
+
+
+def test_duplicate_source_titles_abort_before_writing(world):
+    snap = world.snapshot()
+    snap["sources"].append({**snap["sources"][0], "id": "another-id"})
+    with pytest.raises(Abort, match="duplicate sources names"):
+        world.run(snap)
+    assert world.dst.writes == 0
+
+
+def _target_schema(world: World) -> list[str]:
+    stored = world.dst.db["projects"][world.dst_pid].get("parameters_schema") or {"fields": []}
+    return [f["name"] for f in stored["fields"]]
+
+
+def test_schema_fields_only_on_the_target_are_kept_unless_pruned(world):
+    world.dst.db["projects"][world.dst_pid]["parameters_schema"] = {
+        "fields": [{"name": "local_only", "type": "text"}]
+    }
+    snap = world.snapshot()
+    world.run(snap)
+    assert sorted(_target_schema(world)) == ["local_only", "temperature"]
+    assert world.run(snap, dry=True).pending_work() == 0
+    world.run(snap, prune=True)
+    assert _target_schema(world) == ["temperature"]
+
+
+def test_an_empty_source_schema_leaves_the_target_alone(world):
+    world.dst.db["projects"][world.dst_pid]["parameters_schema"] = {
+        "fields": [{"name": "local_only", "type": "text"}]
+    }
+    snap = world.snapshot()
+    snap["parameter_schema"] = {"fields": []}
+    world.run(snap, prune=True)
+    assert _target_schema(world) == ["local_only"]
+
+
+def test_schema_keys_the_target_does_not_know_are_ignored(world):
+    snap = world.snapshot()
+    snap["parameter_schema"]["fields"][0]["added_in_a_newer_version"] = True
+    world.run(snap)
+    assert world.run(snap, dry=True).rows["parameter schema"] == {"unchanged": 1}
+
+
+def test_an_sdk_endpoint_registered_on_the_target_later_keeps_verify_green(world):
+    snap = world.snapshot()
+    world.run(snap)
+    world.dst.insert(
+        "endpoints", project_id=world.dst_pid, name="Connector function", connection_type="SDK"
+    )
+    counts = count_table(world.run(snap, dry=True), world.api("dst"))
+    assert all(expected == actual for _, expected, actual in counts), counts
+
+
+def test_prune_counts_and_names_each_removed_test(world):
+    snap = world.snapshot()
+    world.run(snap)
+    core = by_name(world, "test_sets", "Core")
+    for content in ("question 3", "question 4", "loose question"):
+        test_id = target_test(world, content)["id"]
+        if test_id not in world.dst.set_tests[core["id"]]:
+            world.dst.set_tests[core["id"]].append(test_id)
+    world.logs.clear()
+    report = world.run(snap, dry=True, prune=True)
+    assert report.rows["test set-test link"]["unlink"] == 2
+    assert any("unlink test set-test link: test set 'Core'" in line for line in world.logs)
+
+
+def test_an_unlink_that_went_through_but_timed_out_is_not_an_error(world):
+    snap = world.snapshot()
+    world.run(snap)
+    _add_extra_links(world)
+    world.dst.fail("DELETE", "/sources/", "commit_then_drop")
+    world.dst.fail("POST", "/disassociate$", "commit_then_drop")
+    world.run(snap, prune=True)
+    assert world.run(snap, dry=True, prune=True).pending_work() == 0

@@ -31,18 +31,29 @@ def seed_source(src: FakeRhesis) -> dict:
     src.insert(
         "endpoints", project_id=pid, name="Chat API", connection_type="REST",
         url="https://chat.example.com/v1/run", method="POST",
-        request_headers={"x-api-key": "{{ auth_token }}"},
+        request_headers={"x-api-key": "{{ auth_token }}", "X-Partner-Token": "plain-value"},
         request_mapping={"input": "{{ input }}", "account": "{{ test_parameters.account }}"},
         response_mapping={"output": "$.reply"}, has_auth_token=True,
     )  # fmt: skip
     src.insert("endpoints", project_id=pid, name="Local API", connection_type="REST",
                url="http://localhost:9000/run", method="POST")  # fmt: skip
+    src.insert("endpoints", project_id=pid, name="Connector function", connection_type="SDK")
+    src.db["projects"][pid]["parameters_schema"] = {
+        "fields": [{"name": "temperature", "type": "number", "default": 0.2}]
+    }
+    handbook = src.insert(
+        "sources", project_id=pid, title="Policy handbook", description="Refund rules",
+        content="Refunds are allowed within 30 days.",
+        source_metadata={"file_type": "pdf", "file_path": "org/1/policy.pdf", "file_hash": "ab12"},
+        source_type_id=src.lookup_id("SourceType", "Document"),
+    )  # fmt: skip
 
     parent = src.insert("requirements", project_id=pid, name="Answers", description="Top level",
                         impact_id=src.lookup_id("RequirementImpact", "High"))  # fmt: skip
     child = src.insert("requirements", project_id=pid, name="Answers are grounded",
                        parent_id=parent["id"])  # fmt: skip
     retired = src.insert("requirements", project_id=pid, name="Retired requirement")
+    src.req_source[(parent["id"], handbook["id"])] = "section 3"
 
     grounded = src.insert(
         "metrics", project_id=pid, name="Grounded", evaluation_prompt="Is it grounded?",
@@ -138,10 +149,18 @@ class World:
         snap = take_snapshot(self.api("src"), log=self.logs.append)
         return json.loads(json.dumps(snap, default=str))
 
-    def run(self, snap: dict, *, dry: bool = False, limit: int | None = None, state_path=None):
+    def run(
+        self,
+        snap: dict,
+        *,
+        dry: bool = False,
+        limit: int | None = None,
+        prune: bool = False,
+        state_path=None,
+    ):
         state = State(state_path or self.state_path, dry)
         return run_migration(
-            snap, self.api("dst"), state, dry=dry, limit=limit, log=self.logs.append
+            snap, self.api("dst"), state, dry=dry, limit=limit, prune=prune, log=self.logs.append
         )
 
     def rows(self, table: str) -> list[dict]:

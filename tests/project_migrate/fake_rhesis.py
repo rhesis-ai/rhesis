@@ -28,6 +28,7 @@ TABLES = (
     "test_sets",
     "type_lookups",
     "models",
+    "sources",
 )
 
 SCHEMAS = {
@@ -42,6 +43,12 @@ SCHEMAS = {
         "score_type", "categories", "passing_categories", "threshold", "threshold_operator",
         "metric_type", "backend_type", "metric_type_id", "backend_type_id", "class_name",
         "metric_scope", "model_id", "config",
+    ],
+    "SourceCreate": [
+        "project_id", "title", "description", "source_type_id", "source_metadata", "content",
+    ],
+    "ParameterField": [
+        "name", "type", "description", "required", "default", "options", "display_order",
     ],
     "TestSetCreate": [
         "project_id", "name", "description", "short_description", "slug", "test_set_type_id",
@@ -66,6 +73,8 @@ class FakeRhesis:
     def __init__(self, clock=None):
         self.db: dict[str, dict[str, dict]] = {t: {} for t in TABLES}
         self.req_metric: set[tuple[str, str]] = set()
+        self.req_source: dict[tuple[str, str], str | None] = {}  # (requirement, source) -> note
+        self.has_parameters_api = True
         self.set_tests: dict[str, list[str]] = {}
         self.set_metrics: dict[str, list[str]] = {}
         self.deleted: set[str] = set()
@@ -82,6 +91,7 @@ class FakeRhesis:
             ("TestType", "Multi-Turn"),
             ("TestSetType", "Single-Turn"),
             ("RequirementImpact", "High"),
+            ("SourceType", "Document"),
         ):
             self.insert("type_lookups", type_name=type_name, type_value=value)
         self.insert("models", name="Default judge")
@@ -167,6 +177,10 @@ class FakeRhesis:
             return 400, {"detail": "limit too large"}
 
         links = [
+            (r"^/projects/([^/]+)/parameters/schema$", self._parameter_schema),
+            (r"^/sources/([^/]+)/content$", self._source_content),
+            (r"^/requirements/([^/]+)/sources/([^/]+)$", self._req_source_link),
+            (r"^/test_sets/([^/]+)/disassociate$", self._disassociate),
             (r"^/requirements/([^/]+)/metrics/$", self._req_metrics),
             (r"^/requirements/([^/]+)/metrics/([^/]+)$", self._req_metric_link),
             (r"^/test_sets/([^/]+)/tests$", self._set_tests_list),
@@ -265,11 +279,26 @@ class FakeRhesis:
                 if r == row["id"]
             ]
             out["impact"] = self._lookup(row.get("impact_id"))
+            out["sources"] = [
+                {
+                    "id": sid,
+                    "title": self.db["sources"][sid]["title"],
+                    "note": note,
+                    "source_type": self._lookup(self.db["sources"][sid].get("source_type_id")),
+                }
+                for (rid, sid), note in sorted(self.req_source.items())
+                if rid == row["id"]
+            ]
         if table == "metrics":
             out["metric_type"] = self._lookup(row.get("metric_type_id"))
             out["backend_type"] = self._lookup(row.get("backend_type_id"))
         if table == "test_sets":
             out["test_set_type"] = self._lookup(row.get("test_set_type_id"))
+        if table == "sources":
+            out.pop("content", None)  # like the API: only the /content route returns it
+            out["source_type"] = self._lookup(row.get("source_type_id"))
+        if table == "projects":
+            out.pop("parameters_schema", None)
         return out
 
     # ---- link routes ------------------------------------------------------------------------
@@ -279,7 +308,39 @@ class FakeRhesis:
             self._render("metrics", self.db["metrics"][m]) for r, m in self.req_metric if r == rid
         ]
 
+    def _parameter_schema(self, method, q, body, pid):
+        if not self.has_parameters_api:
+            return 404, {"detail": "Not Found"}
+        project = self.db["projects"][pid]
+        if method == "PUT":
+            project["parameters_schema"] = body
+        return 200, project.get("parameters_schema") or {"fields": []}
+
+    def _source_content(self, method, q, body, sid):
+        row = self.db["sources"].get(sid)
+        if not row:
+            return 404, {"detail": "not found"}
+        return 200, {**self._render("sources", row), "content": row.get("content")}
+
+    def _req_source_link(self, method, q, body, rid, sid):
+        if method == "DELETE":
+            if (rid, sid) not in self.req_source:
+                return 404, {"detail": "Source was not linked to this requirement"}
+            del self.req_source[(rid, sid)]
+        else:
+            self.req_source[(rid, sid)] = (body or {}).get("note")
+        return 200, {"status": "success"}
+
+    def _disassociate(self, method, q, body, sid):
+        self.set_tests[sid] = [t for t in self.set_tests.get(sid, []) if t not in body["test_ids"]]
+        return 200, {"ok": True}
+
     def _req_metric_link(self, method, q, body, rid, mid):
+        if method == "DELETE":
+            if (rid, mid) not in self.req_metric:
+                return 404, {"detail": "not linked"}
+            self.req_metric.discard((rid, mid))
+            return 200, {"ok": True}
         if (rid, mid) in self.req_metric:
             return 400, {"detail": "already linked"}
         self.req_metric.add((rid, mid))
@@ -302,6 +363,11 @@ class FakeRhesis:
 
     def _set_metric_link(self, method, q, body, sid, mid):
         current = self.set_metrics.setdefault(sid, [])
+        if method == "DELETE":
+            if mid not in current:
+                return 404, {"detail": "not linked"}
+            current.remove(mid)
+            return 200, [self._render("metrics", self.db["metrics"][m]) for m in current]
         if mid in current:
             return 400, {"detail": "already linked"}
         current.append(mid)
