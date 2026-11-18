@@ -32,6 +32,15 @@ def test_endpoint_links_to_frontend_page():
 
 
 @pytest.mark.unit
+def test_frontend_url_trailing_slash_does_not_double_up():
+    endpoint_id = FIXTURES[EmailTemplate.TEST_EXECUTION_SUMMARY]["endpoint_id"]
+    html = _render(frontend_url=f"{FRONTEND}/")
+
+    assert f'href="{FRONTEND}/endpoints/{endpoint_id}"' in html
+    assert f"{FRONTEND}//" not in html
+
+
+@pytest.mark.unit
 def test_endpoint_without_id_is_not_linked():
     html = _render(endpoint_id=None)
 

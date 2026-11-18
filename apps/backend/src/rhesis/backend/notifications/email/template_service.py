@@ -205,6 +205,10 @@ class TemplateService:
         # Start with provided variables
         context = variables.copy()
 
+        # Templates append paths to it, so a trailing slash would give "//" in links
+        if isinstance(context.get("frontend_url"), str):
+            context["frontend_url"] = context["frontend_url"].rstrip("/")
+
         # Add completed_at if not provided
         if "completed_at" not in context:
             context["completed_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
