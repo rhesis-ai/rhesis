@@ -1158,6 +1158,10 @@ class TestSet(BaseEntity):
         if test_obj.metadata:
             test_data["metadata"] = test_obj.metadata
 
+        # Values the endpoint's request templates read
+        if test_obj.test_parameters:
+            test_data["test_parameters"] = test_obj.test_parameters
+
         # Remove None values for cleaner output
         return {k: v for k, v in test_data.items() if v is not None}
 
