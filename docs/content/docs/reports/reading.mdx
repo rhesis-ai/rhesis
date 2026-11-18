@@ -1,0 +1,46 @@
+---
+title: Read a Report
+description: What the key numbers, caveats, comparison, requirements and metrics in a report mean.
+keywords: [test report pass rate, release readiness, report comparison, mixed results]
+---
+
+# Read a Report
+
+## Summary
+
+The **Summary** card shows the key numbers: the pass rate, the number of results (and how many errored), runs, and how many of the picked requirements were tested. The pass rate is passed ÷ (passed + failed); errored and inconclusive results are left out of it. On a release report, the recommendation and the management summary follow. **Draft with AI** writes a first summary from the report's numbers only; read and edit it before you save.
+
+## Before you decide
+
+The caveats a reader should know before trusting the numbers:
+
+- requirements that weren't tested;
+- runs that didn't complete;
+- runs that used different experiments or experiment versions, so the numbers mix setups;
+- verdicts that reviewers changed;
+- results that errored and aren't in the pass rate;
+- with a comparison: how many tests newly fail and how many were fixed.
+
+On a general report the same box is titled *Read the numbers with care*.
+
+## Compared with
+
+In **Setup**, pick a published report on the same endpoint, such as the last release, under **Compared with**. The pass rate then shows the change in percentage points, and the requirements table gets a **Change** column.
+
+## Requirements
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-report-requirements.webp"
+  darkSrc="/screenshots/rhesis-ai-report-requirements-dark.webp"
+  alt="By impact and the requirements table with tests, failed, pass rate and change"
+/>
+
+Requirements form a tree: a parent row adds up its own results and its children's. Each row shows its tests (results, under *All runs*), failures, mixed results, pass rate and, with a comparison, the change. Rows are sorted weakest first. A `*` after the count marks a requirement judged on fewer than 10 tests: read its pass rate with care.
+
+## Metrics
+
+**Metrics** shows, per requirement, how each metric judged its results, weakest first. The **Kind** column says what the metric is: **LLM** (an LLM judge), **JEV** (a classifier with a Jev decision model) or **Code** (a code check).
+
+## Test runs
+
+The runs the report counts, with their test set, status, experiment, the run's own pass rate and how many of its results the report counts. Under *All runs*, the caption gives the range of the runs' pass rates.

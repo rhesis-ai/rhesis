@@ -1,0 +1,65 @@
+---
+title: Reports
+description: Summarise an endpoint's test runs against chosen requirements, then freeze the result as a record of a release decision.
+keywords: [AI test report, release report, LLM evaluation report, PDF export]
+---
+
+# Reports
+
+A report summarises one endpoint's test runs against the requirements you pick: the pass rate overall and per requirement, what wasn't tested, and what a reader should know before trusting the numbers. Teams use it to decide whether a release can ship, or to write up a set of experiments.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-report-detail.webp"
+  darkSrc="/screenshots/rhesis-ai-report-detail-dark.webp"
+  alt="A draft release report: the Setup card, the key numbers and the caveats under Before you decide"
+/>
+
+## Draft and published
+
+A report starts as a **draft**. Its numbers are live: they update as runs finish and as reviewers change verdicts. You can still change its runs, requirements, counting rule and text.
+
+**Publishing** freezes the report:
+
+- the counted results, the numbers and the endpoint's configuration (without secrets) are stored with the report and no longer change;
+- a SHA-256 snapshot hash is computed over everything the report shows; it appears on the report page and in the footer of every PDF page, so a PDF can be matched to the report it came from;
+- the report can no longer be edited or deleted.
+
+To prepare the next release, open a published report and choose **Copy as new draft**. The copy keeps the endpoint, runs or run tag, requirements and text, and is compared with the report it was copied from.
+
+## Release and general reports
+
+A **release report** ends with a recommendation: *Ready to ship*, *Ready to ship, with known risks* or *Not ready to ship*. A **general report**, for example a write-up of experiments, has no recommendation. You choose when you create the report and can change it while it's a draft.
+
+## Export as PDF
+
+**Export PDF** downloads the report as a PDF: a summary page with the recommendation, key numbers and requirements, followed by the details (runs and metrics). A draft's PDF is marked *DRAFT* on every page. The PDF carries your organization's [branding](/docs/organizations/branding).
+
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', alignItems: 'start' }}>
+  <ThemeAwareImage
+    lightSrc="/screenshots/rhesis-ai-report-pdf-summary.webp"
+    darkSrc="/screenshots/rhesis-ai-report-pdf-summary.webp"
+    alt="Page 1 of a published release report PDF: recommendation, key numbers, summary, caveats, by impact and requirements"
+  />
+  <ThemeAwareImage
+    lightSrc="/screenshots/rhesis-ai-report-pdf-details.webp"
+    darkSrc="/screenshots/rhesis-ai-report-pdf-details.webp"
+    alt="The details page of the PDF: test runs, metrics by requirement, who was involved and stats"
+  />
+</div>
+
+## Permissions
+
+Viewing a report needs `report:read`. Members and higher roles can create, edit, publish and export reports; Viewers and Auditors can only read them. See [Roles](/docs/organizations/roles).
+
+## Enterprise Edition
+
+<Callout type="info">
+  These parts of a report are Enterprise Edition features.
+</Callout>
+
+- **By impact**: pass rate per impact, and an Impact column in the requirements table. An impact is the kind of harm a failing [requirement](/docs/requirements) causes, such as a reputation, compliance or privacy impact. A requirement without its own impact counts under its parent's. (The screenshots use severity names as impacts; in your organization they are your impact categories.)
+- **Who was involved**: the author, who ran the tests and who reviewed results (release reports only).
+- **Stats**: results judged and errored, and response times.
+- **Audit trail**: publishing and every PDF export are recorded in the [audit log](/docs/organizations/audit-log).
+
+A published report keeps these sections in its PDF even if the organization's plan changes later.
