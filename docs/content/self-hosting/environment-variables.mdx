@@ -42,6 +42,26 @@ directly from a private or loopback address. If `BACKEND_URL` goes through a pro
 `X-Forwarded-For`, every sign-in counts against one shared limit, and the backend logs a warning
 saying so.
 
+### Routing in front of Rhesis
+
+Browsers only ever reach the frontend host; API, SDK, MCP and connector clients call the backend host.
+A reverse proxy, ingress or load balancer in front of Rhesis needs these rules:
+
+| Host | Path | Goes to | Notes |
+|---|---|---|---|
+| Frontend (`FRONTEND_URL`) | `/ws` (exact) | backend, port 8080 | WebSocket upgrade allowed, read timeout of several minutes or more |
+| Frontend (`FRONTEND_URL`) | `/` | frontend, port 3000 | Must append the client to `X-Forwarded-For` |
+| API host | `/` | backend, port 8080 | For API clients only; browsers never call it |
+
+Rhesis reads the client IP from the right-most `X-Forwarded-For` entry, so put exactly one proxy in
+front of the frontend. With two (for example a CDN, then a load balancer), every user shows the inner
+proxy's address and shares its sign-in rate limit.
+
+Behind an identity-aware proxy (for example AWS ALB with OIDC, or an IAP), put both frontend-host rules
+behind its sign-in, and serve the API host on a separate listener or host without it, since API clients
+authenticate with Rhesis API tokens. `EMAIL_ASSET_BASE_URL` must stay publicly reachable, because mail
+clients load email images from it.
+
 ## Branding
 
 Replace the Rhesis colours, icon and product name with your own. All of these are read at request time,
