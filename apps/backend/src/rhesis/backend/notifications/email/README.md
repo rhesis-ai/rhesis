@@ -48,7 +48,7 @@ For test execution summary notifications.
 - `recipient_name`, `task_name`, `task_id`, `status`, `completed_at`
 - `total_tests`, `tests_passed`, `tests_failed`, `execution_time`
 - `test_run_id`, `status_details`, `frontend_url`, `test_set_name`
-- `endpoint_name`, `endpoint_url`, `project_name`
+- `endpoint_name`, `endpoint_id`, `project_name`
 
 ## Template Discovery
 

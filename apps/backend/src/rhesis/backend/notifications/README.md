@@ -68,7 +68,7 @@ success = email_service.send_test_execution_summary_email(
     tests_failed=2,
     test_set_name="Production API Tests",
     endpoint_name="User API",
-    endpoint_url="https://api.example.com",
+    endpoint_id="5f8b3c2a-1d4e-4f6a-9b7c-0e1d2f3a4b5c",
     project_name="My Project",
 )
 ```

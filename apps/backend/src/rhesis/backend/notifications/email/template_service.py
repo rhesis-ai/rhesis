@@ -89,7 +89,7 @@ class TemplateService:
                 "frontend_url",
                 "test_set_name",
                 "endpoint_name",
-                "endpoint_url",
+                "endpoint_id",
                 "project_name",
             },
             EmailTemplate.TEAM_INVITATION: {
