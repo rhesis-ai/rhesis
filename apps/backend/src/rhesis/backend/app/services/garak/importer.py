@@ -24,10 +24,10 @@ from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.schemas import test_set as test_set_schemas
 from rhesis.backend.app.schemas.tag import EntityType as TagEntityType
 from rhesis.backend.app.schemas.tag import TagCreate
+from rhesis.backend.app.services.garak.builder import build_tests_data
 from rhesis.backend.app.services.garak.probes import GarakProbeInfo, GarakProbeService
-from rhesis.backend.app.services.garak.taxonomy import GarakTaxonomy, resolve_requirement
+from rhesis.backend.app.services.garak.taxonomy import GarakTaxonomy
 from rhesis.backend.app.services.test_set import bulk_create_test_set
-from rhesis.backend.app.utils.garak_nul_escape import encode_prompt_and_notes
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,7 @@ class GarakImporter:
             garak_metadata = self._build_garak_metadata(probe_info)
 
             # Build test data for bulk creation
-            tests_data = self._build_tests_data(probe_info, mapping)
+            tests_data = build_tests_data(probe_info, mapping)
 
             if not tests_data:
                 logger.warning(f"No valid prompts found for probe {probe_info.full_name}")
@@ -205,63 +205,6 @@ class GarakImporter:
             "imported_at": now,
             "last_synced_at": now,
         }
-
-    def _build_tests_data(
-        self,
-        probe: GarakProbeInfo,
-        mapping: Any,  # GarakMapping
-    ) -> List[test_set_schemas.TestData]:
-        """
-        Build test data list for bulk creation.
-
-        Each prompt from the Garak probe becomes a test with proper
-        category, requirement, topic, and metadata.
-        """
-        requirement = resolve_requirement(probe.tags)
-        tests_data = []
-
-        for idx, prompt_content in enumerate(probe.prompts):
-            if not prompt_content or not prompt_content.strip():
-                continue
-
-            # Build test metadata
-            test_metadata = {
-                "source": "garak",
-                "garak_probe_id": f"{probe.full_name}.{idx}",
-                "garak_probe_class": probe.class_name,
-                "garak_module": probe.module_name,
-                "garak_tags": probe.tags,
-            }
-
-            # Store per-prompt detector notes when the probe requires them (e.g. trigger
-            # strings for AttackRogueString/DecodeMatch). These are passed to the metric
-            # at evaluation time so the detector has the context it needs.
-            # prompt_notes is aligned with probe.prompts: prompt_notes[i] belongs to
-            # the prompt at index i.  Encoding probes have a *different* trigger per
-            # prompt; PromptInject probes have the same trigger for all prompts.
-            notes = None
-            if probe.prompt_notes and idx < len(probe.prompt_notes) and probe.prompt_notes[idx]:
-                notes = probe.prompt_notes[idx]
-
-            prompt_content, notes = encode_prompt_and_notes(prompt_content, notes, test_metadata)
-            if notes:
-                test_metadata["garak_notes"] = notes
-
-            # Create test data with taxonomy mapping
-            test_data = test_set_schemas.TestData(
-                prompt=test_set_schemas.TestPrompt(
-                    content=prompt_content,
-                    language_code="en",
-                ),
-                requirement=requirement,
-                category=mapping.category,
-                topic=mapping.topic,
-                test_type="Single-Turn",
-                metadata=test_metadata,
-            )
-            tests_data.append(test_data)
-
-        return tests_data
 
     def _get_probe_info(self, module_name: str, class_name: str) -> Optional[GarakProbeInfo]:
         """Get probe info for a specific probe class."""
