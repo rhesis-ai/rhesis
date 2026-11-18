@@ -107,6 +107,7 @@ show_help() {
     help_row "./rh worktree help" "Worktree commands in detail" "$RH_PAD_WORKTREE"
     echo ""
     step "Other:"
+    help_row "./rh project-migrate" "Copy a project to another Rhesis instance"
     help_row "./rh help" "Show this help message"
     echo ""
     step "Examples:"
