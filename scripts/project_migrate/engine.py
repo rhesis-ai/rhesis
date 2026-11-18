@@ -70,6 +70,7 @@ class Migration:
         # Filled by the steps for the ones that come after them.
         self.dst_requirements: list[dict] = []
         self.dst_metrics: list[dict] = []
+        self.sources_skipped = False
 
     # ---- ids --------------------------------------------------------------------------------
 

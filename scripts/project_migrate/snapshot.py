@@ -34,7 +34,7 @@ def take_snapshot(src: Api, log: Callable[[str], None] = print) -> dict:
                 known_tests.add(t["id"])
 
     _add_referenced_requirements(src, tests, requirements, log)
-    sources = _sources(src, requirements)
+    sources = _sources(src, requirements, log)
     parameter_schema = _parameter_schema(src)
     metrics += _referenced_project_metrics(src, requirements, test_sets, metrics)
     org_metrics = _referenced_org_metrics(src, requirements, test_sets)
@@ -97,13 +97,15 @@ def _add_referenced_requirements(
             )
 
 
-def _sources(src: Api, requirements: list[dict]) -> list[dict]:
+def _sources(src: Api, requirements: list[dict], log: Callable[[str], None]) -> list[dict]:
     """The project's sources with their text, plus any source a requirement links from
     elsewhere."""
     ids = dict.fromkeys(x["id"] for x in src.get_all("/sources/", **src.project_filter()))
     for r in requirements:
         ids.update(dict.fromkeys(x["id"] for x in r.get("sources") or []))
-    # The list route leaves out the text content.
+    # The list route leaves out the text content and there is no bulk read, so one per source.
+    if ids:
+        log(f"  reading the text of {len(ids)} source(s)")
     return [src.get(f"/sources/{sid}/content") for sid in ids]
 
 

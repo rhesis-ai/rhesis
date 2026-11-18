@@ -541,3 +541,14 @@ def test_an_unlink_that_went_through_but_timed_out_is_not_an_error(world):
     world.dst.fail("POST", "/disassociate$", "commit_then_drop")
     world.run(snap, prune=True)
     assert world.run(snap, dry=True, prune=True).pending_work() == 0
+
+
+def test_target_without_sources_api_skips_sources_and_their_links(world):
+    world.dst.has_sources_api = False
+    snap = world.snapshot()
+    report = world.run(snap, prune=True)
+    assert any("no sources API" in n for n in report.notes)
+    assert "requirement-source link" not in report.rows
+    assert_in_sync(world, snap)
+    counts = count_table(world.run(snap, dry=True), world.api("dst"))
+    assert "sources" not in {name for name, _, _ in counts}

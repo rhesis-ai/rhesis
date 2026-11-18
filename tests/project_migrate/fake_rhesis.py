@@ -75,6 +75,7 @@ class FakeRhesis:
         self.req_metric: set[tuple[str, str]] = set()
         self.req_source: dict[tuple[str, str], str | None] = {}  # (requirement, source) -> note
         self.has_parameters_api = True
+        self.has_sources_api = True
         self.set_tests: dict[str, list[str]] = {}
         self.set_metrics: dict[str, list[str]] = {}
         self.deleted: set[str] = set()
@@ -170,8 +171,12 @@ class FakeRhesis:
     # ---- routing ----------------------------------------------------------------------------
 
     def _route(self, method: str, path: str, q: dict, body: dict | None) -> tuple[int, object]:
+        if path.startswith("/sources") and not self.has_sources_api:
+            return 404, {"detail": "Not Found"}
         if path == "/openapi.json":
             schemas = {n: {"properties": {p: {} for p in ps}} for n, ps in SCHEMAS.items()}
+            if not self.has_sources_api:
+                schemas.pop("SourceCreate")
             return 200, {"info": {"version": "0.0.0-fake"}, "components": {"schemas": schemas}}
         if int(q.get("limit", "0")) > 100:
             return 400, {"detail": "limit too large"}

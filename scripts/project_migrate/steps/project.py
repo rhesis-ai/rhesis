@@ -51,9 +51,19 @@ def parameter_schema(m: Migration) -> None:
 
 
 def sources(m: Migration) -> None:
-    allowed = m.props("SourceCreate")
-    existing = index_by_name(m.dst.get_all("/sources/", **m.dst.project_filter()), key="title")
-    for src in m.snap.get("sources", []):
+    if not m.snap.get("sources"):
+        return
+    try:
+        allowed = m.props("SourceCreate")
+        rows = m.dst.get_all("/sources/", **m.dst.project_filter())
+    except (KeyError, HttpError) as e:
+        if isinstance(e, HttpError) and e.status != 404:
+            raise
+        m.sources_skipped = True
+        m.report.notes.append("the target has no sources API; sources and their links were skipped")
+        return
+    existing = index_by_name(rows, key="title")
+    for src in m.snap["sources"]:
         payload = clean(src, allowed, frozenset({"source_type_id"}))
         if payload.get("source_metadata"):
             payload["source_metadata"] = {
@@ -71,8 +81,9 @@ def sources(m: Migration) -> None:
 
 
 def requirement_source_links(m: Migration) -> None:
-    if "sources" not in m.snap:
-        # A snapshot from before sources were copied: none of its links can be mapped.
+    if "sources" not in m.snap or m.sources_skipped:
+        # A snapshot from before sources were copied, or a target that can't hold them: none
+        # of these links can be mapped.
         return
     dst_reqs = {r["id"]: r for r in m.dst_requirements}
     for r in m.snap["requirements"]:

@@ -20,7 +20,7 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
-from project_migrate.api import Abort, Api
+from project_migrate.api import Abort, Api, HttpError
 from project_migrate.engine import Migration, Report
 from project_migrate.snapshot import FORMAT_VERSION, summary, take_snapshot
 from project_migrate.state import State
@@ -152,7 +152,12 @@ def count_table(report: Report, dst: Api) -> list[tuple[str, int, int]]:
         expected = sum(
             report.rows.get(kind, {}).get(a, 0) for a in ("unchanged", "create", "update")
         )
-        actual = dst.get_all(path, **pf)
+        try:
+            actual = dst.get_all(path, **pf)
+        except HttpError as e:
+            if e.status != 404:
+                raise
+            continue  # a target without that API (older versions have no sources route)
         if kind == "endpoint":
             # SDK endpoints are skipped, and a connector may since have registered them here.
             actual = [e for e in actual if not config.is_sdk_endpoint(e)]
@@ -210,7 +215,8 @@ def build_parser() -> argparse.ArgumentParser:
         c.add_argument(
             "--prune",
             action="store_true",
-            help="also remove links on the target that the source doesn't have",
+            help="also remove links and parameter fields on the target that the source "
+            "doesn't have",
         )
         c.set_defaults(fn=fn)
     return p
