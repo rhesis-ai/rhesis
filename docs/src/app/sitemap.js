@@ -18,12 +18,12 @@ const BASE_URL = 'https://docs.rhesis.ai'
 
 /**
  * Priority by URL depth:
- *   root (0 segments)  → 1.0
+ *   /docs (landing)    → 1.0
  *   one segment        → 0.8
  *   two+ segments      → 0.6
  */
 function getPriority(urlPath) {
-  if (!urlPath) return 1.0
+  if (urlPath === 'docs') return 1.0
   const segments = urlPath.split('/').filter(Boolean)
   return segments.length === 1 ? 0.8 : 0.6
 }
@@ -34,7 +34,9 @@ export default async function sitemap() {
   const entries = []
 
   const addEntry = (urlPath, lastModified = new Date()) => {
-    const url = urlPath ? `${BASE_URL}/${urlPath}` : BASE_URL
+    // "/" permanently redirects to /docs, so the bare root never goes in the sitemap.
+    if (!urlPath) return
+    const url = `${BASE_URL}/${urlPath}`
     if (urlSet.has(url)) return
     urlSet.add(url)
     entries.push({
@@ -48,8 +50,8 @@ export default async function sitemap() {
   if (!contentDir) {
     // Minimal fallback when content dir is unavailable (e.g. partial build)
     // eslint-disable-next-line no-console
-    console.warn('Content directory not found; sitemap will include base URL only')
-    addEntry('')
+    console.warn('Content directory not found; sitemap will include /docs only')
+    addEntry('docs')
   } else {
     for (const filePath of getMdxFiles(contentDir)) {
       const urlPath = filePathToUrl(filePath)

@@ -23,7 +23,7 @@ export default withNextra({
   async redirects() {
     const permanent = true
     return [
-      { source: '/', destination: '/docs', permanent: false },
+      { source: '/', destination: '/docs', permanent },
       {
         source: '/penelope',
         destination: '/docs/tests/conversation-simulation',
