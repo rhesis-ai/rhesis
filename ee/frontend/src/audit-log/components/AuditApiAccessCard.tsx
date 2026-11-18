@@ -21,7 +21,6 @@ import { useFeature } from '@/contexts/FeaturesContext';
 import type { Theme } from '@mui/material/styles';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { getApiErrorMessage } from '@/utils/error-utils';
-import { getPublicApiUrl } from '@/utils/url-resolver';
 import { fetchRoles } from '../../rbac/api/role-cache';
 import { getRoleChipSx } from '../../rbac/role-display';
 import {
@@ -33,18 +32,17 @@ import { monoSx } from './AuditChanges';
 import { StatusPill } from './tones';
 
 const ROLES_TAB_URL = '/organizations/settings?tab=roles';
-const BASE_URL_PLACEHOLDER = 'https://<your-rhesis-api>';
 const EXAMPLE_DAYS_BACK = 30;
 
-function apiBaseUrl(): string {
-  return getPublicApiUrl() ?? BASE_URL_PLACEHOLDER;
-}
-
-/** The list call in the platform's conventions: OData `$filter`, `limit` up to 100. */
-export function exampleRequest(baseUrl: string, since: Date): string {
+/**
+ * The list call in the platform's conventions: OData `$filter`, `limit` up to
+ * 100. The API address is `$RHESIS_BASE_URL`, as in the docs' examples and the
+ * SDK, since the frontend doesn't know the public API host.
+ */
+export function exampleRequest(since: Date): string {
   const day = since.toISOString().slice(0, 10);
   return [
-    `curl -G "${baseUrl}${AUDIT_EVENTS_PATH}" \\`,
+    `curl -G "$RHESIS_BASE_URL${AUDIT_EVENTS_PATH}" \\`,
     '  -H "Authorization: Bearer $RHESIS_API_TOKEN" \\',
     `  --data-urlencode "\\$filter=startswith(action,'endpoint.') and occurred_at ge ${day}" \\`,
     `  --data-urlencode "limit=${AUDIT_EVENTS_MAX_LIMIT}"`,
@@ -136,7 +134,7 @@ export default function AuditApiAccessCard() {
   const example = React.useMemo(() => {
     const since = new Date();
     since.setDate(since.getDate() - EXAMPLE_DAYS_BACK);
-    return exampleRequest(apiBaseUrl(), since);
+    return exampleRequest(since);
   }, []);
 
   const copy = async () => {
@@ -181,8 +179,17 @@ export default function AuditApiAccessCard() {
         </Tooltip>
       </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-        Use an API token whose owner can read the audit log. A token limited to
-        chosen scopes needs the{' '}
+        Set{' '}
+        <Box component="code" sx={monoSx}>
+          RHESIS_BASE_URL
+        </Box>{' '}
+        to your Rhesis API address (
+        <Box component="code" sx={monoSx}>
+          https://api.rhesis.ai
+        </Box>{' '}
+        on Rhesis cloud), the same variable the SDK reads. Use an API token
+        whose owner can read the audit log. A token limited to chosen scopes
+        needs the{' '}
         <Box component="code" sx={monoSx}>
           {Capability.AuditLog.READ}
         </Box>{' '}

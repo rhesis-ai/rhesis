@@ -19,10 +19,9 @@ test.describe('Health @sanity', () => {
     await expect(page).toHaveTitle(/Rhesis/i);
   });
 
-  test('API base URL is reachable from the frontend', async ({ request }) => {
-    // Verify the backend health endpoint responds
-    const apiBase = process.env.API_BASE_URL || 'http://localhost:8080';
-    const response = await request.get(`${apiBase}/health`);
+  test('the backend is reachable', async ({ request }) => {
+    const backend = process.env.BACKEND_URL || 'http://localhost:8080';
+    const response = await request.get(`${backend}/health`);
     expect(response.ok()).toBeTruthy();
   });
 });

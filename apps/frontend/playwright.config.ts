@@ -18,7 +18,6 @@ const backendWsUrl = (backendUrl: string) =>
   `${backendUrl.replace(/^http/, 'ws').replace(/\/+$/, '')}/ws`;
 
 const webServerEnv = {
-  API_BASE_URL: process.env.API_BASE_URL || `${mockBackendOrigin}/api/v1`,
   BACKEND_URL: process.env.BACKEND_URL || mockBackendOrigin,
   WS_URL: process.env.WS_URL || backendWsUrl(mockBackendOrigin),
   E2E_NO_DOCKER: process.env.E2E_NO_DOCKER || '',
@@ -50,8 +49,6 @@ const webServer = isNoDocker
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       env: {
-        API_BASE_URL:
-          process.env.API_BASE_URL || 'http://localhost:8080/api/v1',
         BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8080',
         WS_URL:
           process.env.WS_URL ||

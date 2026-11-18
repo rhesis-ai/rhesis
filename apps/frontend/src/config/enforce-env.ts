@@ -36,7 +36,7 @@ function isWsUrl(value: string): boolean {
 }
 
 function checkRequired(errors: string[]): void {
-  for (const name of ['API_BASE_URL', 'BACKEND_URL', 'FRONTEND_URL']) {
+  for (const name of ['BACKEND_URL', 'FRONTEND_URL']) {
     const value = read(name);
     if (value && !isHttpUrl(value)) {
       errors.push(`${name} is not an http(s) URL: "${value}"`);

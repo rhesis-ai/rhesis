@@ -14,7 +14,6 @@ describe('enforce-env', () => {
   beforeEach(() => {
     process.env = {
       ...originalEnv,
-      API_BASE_URL: 'https://api.example.com',
       BACKEND_URL: 'http://backend:8080',
       FRONTEND_URL: 'https://app.example.com',
     };
@@ -46,11 +45,6 @@ describe('enforce-env', () => {
       expect(checkEnv().errors).toEqual([
         'BACKEND_URL is not an http(s) URL: "backend:8080"',
       ]);
-    });
-
-    it('does not require API_BASE_URL: the browser never calls it', () => {
-      delete process.env.API_BASE_URL;
-      expect(checkEnv().errors).toEqual([]);
     });
 
     it.each(['/ws', 'ws://localhost:8080/ws', 'wss://app.example.com/ws'])(

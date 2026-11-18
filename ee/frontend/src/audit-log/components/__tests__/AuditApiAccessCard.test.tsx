@@ -66,11 +66,9 @@ beforeEach(() => {
 
 describe('exampleRequest', () => {
   it('uses OData $filter and the 100-row limit, with no /api/v1', () => {
-    const text = exampleRequest(
-      'https://api.example.com',
-      new Date('2026-09-13T12:00:00Z')
-    );
-    expect(text).toContain('"https://api.example.com/audit-events"');
+    const text = exampleRequest(new Date('2026-09-13T12:00:00Z'));
+    // The frontend doesn't know the public API host; the SDK's variable names it.
+    expect(text).toContain('"$RHESIS_BASE_URL/audit-events"');
     expect(text).toContain(
       "$filter=startswith(action,'endpoint.') and occurred_at ge 2026-09-13"
     );

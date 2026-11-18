@@ -4,18 +4,13 @@ import { toHaveNoViolations } from 'jest-axe';
 // Extend Jest matchers with accessibility assertions
 expect.extend(toHaveNoViolations);
 
-// Set environment variables for tests
-process.env.API_BASE_URL = 'http://localhost:8080/api/v1';
-
 // Some suites (e.g. middleware tests needing NextRequest) opt into the node
 // environment via a per-file `@jest-environment node` docblock; everything
 // touching `window` below only applies to the default jsdom environment.
 const hasWindow = typeof window !== 'undefined';
 
 if (hasWindow) {
-  window.__ENV__ = {
-    apiBaseUrl: 'http://localhost:8080/api/v1',
-  };
+  window.__ENV__ = {};
 }
 
 // Mock TextEncoder and TextDecoder for basic compatibility

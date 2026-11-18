@@ -42,11 +42,6 @@ export interface EmptyStateEnv {
 /** Sent to the browser in the page HTML, so never put a secret here. */
 export interface PublicEnv {
   /**
-   * `API_BASE_URL`: the public API URL shown to API and SDK users. Display
-   * only; the browser sends every request to its own origin.
-   */
-  apiBaseUrl?: string;
-  /**
    * `WS_URL`: WebSocket URL when `/ws` on this host doesn't reach the backend
    * (local dev, docker-compose without a reverse proxy). A path or a ws(s) URL.
    */
@@ -139,7 +134,6 @@ const UNSET_PUBLIC_ENV: PublicEnv = {
 /** Server only: builds the browser's copy from the container environment. */
 export function readPublicEnv(): PublicEnv {
   return {
-    apiBaseUrl: read('API_BASE_URL'),
     wsUrl: read('WS_URL'),
     environment: read('FRONTEND_ENV'),
     supportEmail: read('SUPPORT_EMAIL') ?? UNSET_PUBLIC_ENV.supportEmail,

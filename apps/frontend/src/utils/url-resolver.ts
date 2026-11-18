@@ -21,15 +21,6 @@ export function resolveLocalhostUrl(url: string): string {
 }
 
 /**
- * The public API URL (`API_BASE_URL`) to show API and SDK users, e.g. in a
- * copyable curl example. Display only: the browser never sends requests there,
- * it goes through `getBaseUrl()`. Undefined when not configured.
- */
-export function getPublicApiUrl(): string | undefined {
-  return publicEnv().apiBaseUrl?.replace(/\/+$/, '') || undefined;
-}
-
-/**
  * Gets the backend URL for server-side requests with localhost resolution
  * Uses BACKEND_URL environment variable or falls back to default
  *
