@@ -1,7 +1,8 @@
 """Tests and their prompts, created one at a time.
 
-The bulk routes don't fit: /test_sets/bulk drops test_parameters, /tests/bulk drops
-test_metadata and returns no ids, and both would duplicate a test that sits in several sets.
+The bulk routes don't fit. Targets can run older versions, where /test_sets/bulk drops
+test_parameters and /tests/bulk drops test_metadata and returns no ids. Both would also
+duplicate a test that sits in several sets.
 """
 
 from __future__ import annotations
