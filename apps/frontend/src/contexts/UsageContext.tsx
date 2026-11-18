@@ -33,7 +33,11 @@ import type {
 import { useQuery } from '@tanstack/react-query';
 import { useSession } from 'next-auth/react';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
+import {
+  isAuthenticated,
+  useHasOrganization,
+  useUserScope,
+} from '@/hooks/useIsAuthenticated';
 
 export interface UsageState {
   resources: Readonly<Record<string, UsageResourceItem>>;
@@ -70,6 +74,7 @@ export function UsageProvider({
 }) {
   const { status } = useSession();
   const userScope = useUserScope();
+  const hasOrganization = useHasOrganization();
 
   const { data, isLoading, error } = useQuery({
     queryKey: usageKeys.all(userScope),
@@ -77,7 +82,9 @@ export function UsageProvider({
     // `!!userScope` closes the gap where `status` flips to 'authenticated'
     // before `userScope` reflects the real user id — without it the query
     // could run (and cache) under the `''` scope key.
-    enabled: isAuthenticated(status) && !!userScope,
+    // A new account has no organization until onboarding, and this endpoint
+    // answers 403 until then.
+    enabled: isAuthenticated(status) && !!userScope && hasOrganization,
     staleTime: 5 * 60_000,
     ...(initialUsage ? { initialData: initialUsage } : {}),
   });

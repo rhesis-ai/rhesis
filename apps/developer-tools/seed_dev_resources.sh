@@ -16,14 +16,14 @@
 #   ./seed_dev_resources.sh          # wait for backend, then seed
 #
 # Configurable via env:
-#   API_BASE_URL        (default http://localhost:8080)
+#   BACKEND_URL        (default http://localhost:8080)
 #   RHESIS_LOCAL_TOKEN  (default rh-local-token)
 #   MOCK_LLM_URL        (default http://localhost:18080)
 #   MOCK_CHATBOT_URL    (default http://localhost:18090)
 
 set -uo pipefail
 
-API_BASE_URL="${API_BASE_URL:-http://localhost:8080}"
+BACKEND_URL="${BACKEND_URL:-http://localhost:8080}"
 TOKEN="${RHESIS_LOCAL_TOKEN:-rh-local-token}"
 MOCK_LLM_URL="${MOCK_LLM_URL:-http://localhost:18080}"
 MOCK_CHATBOT_URL="${MOCK_CHATBOT_URL:-http://localhost:18090}"
@@ -50,9 +50,9 @@ api_get() {
 # lifespan, so by the time it is healthy the Local Org / user / projects exist).
 wait_for_backend() {
     local tries=60
-    log "Waiting for backend at ${API_BASE_URL} ..."
+    log "Waiting for backend at ${BACKEND_URL} ..."
     for ((i = 1; i <= tries; i++)); do
-        if curl -fsS "${API_BASE_URL}/health" >/dev/null 2>&1; then
+        if curl -fsS "${BACKEND_URL}/health" >/dev/null 2>&1; then
             ok "Backend is up."
             return 0
         fi
@@ -88,7 +88,7 @@ main() {
 
     # --- Local Mock LLM (model) ---------------------------------------------
     local models_json
-    models_json="$(api_get "${API_BASE_URL}/models/?limit=100")"
+    models_json="$(api_get "${BACKEND_URL}/models/?limit=100")"
     if [ -n "$models_json" ] && echo "$models_json" | name_exists "$MODEL_NAME"; then
         ok "Model '${MODEL_NAME}' already exists — skipping."
     else
@@ -96,7 +96,7 @@ main() {
         # OpenAI/LiteLLM proxy protocol). Use an OData filter so we don't depend
         # on the list endpoint's max page size.
         local provider_id
-        provider_id="$(curl -fsS -H "$AUTH_HEADER" --get "${API_BASE_URL}/type_lookups/" \
+        provider_id="$(curl -fsS -H "$AUTH_HEADER" --get "${BACKEND_URL}/type_lookups/" \
             --data-urlencode "\$filter=type_name eq 'ProviderType' and type_value eq 'litellm_proxy'" \
             --data-urlencode "limit=1" 2>/dev/null | json_first '
 import json,sys
@@ -121,7 +121,7 @@ print(items[0]["id"] if items else "")
 EOF
 )
             if curl -fsS -X POST -H "$AUTH_HEADER" -H "$JSON_HEADER" \
-                -d "$payload" "${API_BASE_URL}/models/" >/dev/null 2>&1; then
+                -d "$payload" "${BACKEND_URL}/models/" >/dev/null 2>&1; then
                 ok "Created model '${MODEL_NAME}' -> ${MOCK_LLM_URL}"
             else
                 err "Failed to create model '${MODEL_NAME}'."
@@ -135,7 +135,7 @@ EOF
     # X-Project-Id header, otherwise project-scoped rows are invisible and we
     # would create duplicates on every run.
     local project_id
-    project_id="$(api_get "${API_BASE_URL}/projects/?limit=1" | json_first '
+    project_id="$(api_get "${BACKEND_URL}/projects/?limit=1" | json_first '
 import json,sys
 data=json.load(sys.stdin)
 items=data if isinstance(data,list) else data.get("data",[])
@@ -146,7 +146,7 @@ print(items[0]["id"] if items else "")
     else
         local endpoints_json
         endpoints_json="$(api_get -H "X-Project-Id: ${project_id}" \
-            "${API_BASE_URL}/endpoints/?limit=100")"
+            "${BACKEND_URL}/endpoints/?limit=100")"
         if [ -n "$endpoints_json" ] && echo "$endpoints_json" | name_exists "$ENDPOINT_NAME"; then
             ok "Endpoint '${ENDPOINT_NAME}' already exists — skipping."
         else
@@ -173,7 +173,7 @@ EOF
 )
             if curl -fsS -X POST -H "$AUTH_HEADER" -H "$JSON_HEADER" \
                 -H "X-Project-Id: ${project_id}" \
-                -d "$payload" "${API_BASE_URL}/endpoints/" >/dev/null 2>&1; then
+                -d "$payload" "${BACKEND_URL}/endpoints/" >/dev/null 2>&1; then
                 ok "Created endpoint '${ENDPOINT_NAME}' -> ${MOCK_CHATBOT_URL}"
             else
                 err "Failed to create endpoint '${ENDPOINT_NAME}'."

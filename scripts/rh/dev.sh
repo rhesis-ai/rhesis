@@ -152,9 +152,10 @@ create_frontend_env() {
     cat > "$env_file" << EOF
 $DEV_ENV_MARKER on $timestamp
 
-API_BASE_URL=http://localhost:${DEV_BACKEND_PORT}
 FRONTEND_ENV=local
 BACKEND_URL=http://localhost:${DEV_BACKEND_PORT}
+# next dev can't proxy /ws, so the browser opens the WebSocket on the backend port.
+WS_URL=ws://localhost:${DEV_BACKEND_PORT}/ws
 
 # FRONTEND_URL is also NextAuth's base URL (src/auth.ts), so it tracks PORT.
 FRONTEND_URL=http://localhost:${DEV_FRONTEND_PORT}
@@ -525,7 +526,7 @@ seed_dev_resources() {
     local script="$SCRIPT_DIR/apps/developer-tools/seed_dev_resources.sh"
     if [ -f "$script" ]; then
         # The script has its own 8080 default; point it at our backend.
-        API_BASE_URL="${API_BASE_URL:-http://localhost:${DEV_BACKEND_PORT}}" bash "$script"
+        BACKEND_URL="${BACKEND_URL:-http://localhost:${DEV_BACKEND_PORT}}" bash "$script"
     else
         warn "Seed script not found: $script"
         return 1

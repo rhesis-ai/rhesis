@@ -33,7 +33,6 @@ x-frontend-backend-config: &frontend-backend-config
   BACKEND_ENV: local
   QUICK_START: true
   RHESIS_CONNECTOR_DISABLED: true
-  API_BASE_URL: "http://localhost:14003"
   # The default models only need a key to be built, so the app opens past the
   # "Connect a model" step. The dead base URL keeps a stray model call off production
   # (same setup as tests/docker-compose.test.yml).

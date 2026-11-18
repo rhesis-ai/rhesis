@@ -26,7 +26,7 @@ import {
 } from '@mui/icons-material';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useOrgSettings } from '@/contexts/OrgSettingsContext';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { getBaseUrl } from '@/utils/url-resolver';
 import { SSOClient } from '../api/sso-client';
 import type { SSOConfig, SSOTestResult } from '../types';
 
@@ -44,10 +44,61 @@ const DEFAULT_SSO_CONFIG: SSOConfig = {
   slug: '',
 };
 
+function CopyableUrl({
+  label,
+  url,
+  onCopied,
+}: {
+  label: string;
+  url: string;
+  onCopied: () => void;
+}) {
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        p: 1.5,
+        bgcolor: 'action.hover',
+        borderRadius: theme => `${theme.shape.borderRadius}px`,
+      }}
+    >
+      <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0 }}>
+        {label}
+      </Typography>
+      <Typography
+        variant="body2"
+        sx={{ fontFamily: 'monospace', wordBreak: 'break-all', flexGrow: 1 }}
+      >
+        {url}
+      </Typography>
+      <Tooltip title="Copy URL">
+        <IconButton
+          size="small"
+          onClick={() => {
+            navigator.clipboard.writeText(url);
+            onCopied();
+          }}
+        >
+          <CopyIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    </Box>
+  );
+}
+
 export default function SSOConfigForm() {
   const { organization, onUpdate } = useOrgSettings();
   const notifications = useNotifications();
-  const ssoDisplayBaseUrl = getClientApiBaseUrl();
+  // SSO runs through the same-origin BFF, so login and callback live on this host.
+  // Only read once loaded (client-side): on the server getBaseUrl() is BACKEND_URL.
+  const ssoBaseUrl = getBaseUrl();
+  const showCopied = () =>
+    notifications.show('URL copied to clipboard', {
+      severity: 'success',
+      autoHideDuration: 3000,
+    });
   const [formData, setFormData] = useState<SSOConfig>(DEFAULT_SSO_CONFIG);
   const [initialData, setInitialData] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -277,51 +328,21 @@ export default function SSOConfigForm() {
 
             {formData.slug && (
               <Grid size={12}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    p: 1.5,
-                    bgcolor: 'action.hover',
-                    borderRadius: theme => `${theme.shape.borderRadius}px`,
-                  }}
-                >
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ flexShrink: 0 }}
-                  >
-                    SSO Login URL:
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontFamily: 'monospace',
-                      wordBreak: 'break-all',
-                      flexGrow: 1,
-                    }}
-                  >
-                    {`${ssoDisplayBaseUrl}/auth/sso/${formData.slug}`}
-                  </Typography>
-                  <Tooltip title="Copy URL">
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        const url = `${ssoDisplayBaseUrl}/auth/sso/${formData.slug}`;
-                        navigator.clipboard.writeText(url);
-                        notifications.show('URL copied to clipboard', {
-                          severity: 'success',
-                          autoHideDuration: 3000,
-                        });
-                      }}
-                    >
-                      <CopyIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
+                <CopyableUrl
+                  label="SSO Login URL:"
+                  url={`${ssoBaseUrl}/auth/sso/${formData.slug}`}
+                  onCopied={showCopied}
+                />
               </Grid>
             )}
+
+            <Grid size={12}>
+              <CopyableUrl
+                label="Redirect URI:"
+                url={`${ssoBaseUrl}/auth/sso/callback`}
+                onCopied={showCopied}
+              />
+            </Grid>
 
             <Grid size={12}>
               <Divider sx={{ my: 1 }} />

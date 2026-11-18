@@ -33,6 +33,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from rhesis.backend import __version__
 from rhesis.backend.app.auth.public_routes import PUBLIC_ROUTES
+from rhesis.backend.app.auth.url_utils import OAUTH_COOKIE_MAX_AGE_SECONDS, OAUTH_COOKIE_NAME
 from rhesis.backend.app.auth.user_utils import (
     require_current_user,
     require_current_user_or_token,
@@ -805,15 +806,16 @@ app.add_middleware(
 # `./rh dev init` to generate one for local development.
 session_secret = get_auth_settings().session_secret_key
 
-# Add session middleware
-# For OAuth state preservation, we need proper cookie configuration
+# The OAuth/SSO handshake cookie. The browser reaches it only through the
+# frontend's BFF, so it lives on the frontend origin. Lax so the IdP's redirect
+# back (a cross-site GET navigation) still carries it.
 app.add_middleware(
     SessionMiddleware,
     secret_key=session_secret,
-    session_cookie="session",
-    max_age=3600,  # 1 hour session lifetime
-    same_site="lax",  # Required for OAuth flows
-    https_only=get_application_settings().secure_cookies,
+    session_cookie=OAUTH_COOKIE_NAME,
+    max_age=OAUTH_COOKIE_MAX_AGE_SECONDS,
+    same_site="lax",
+    https_only=get_frontend_settings().secure_cookies,
 )
 
 

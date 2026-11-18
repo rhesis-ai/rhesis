@@ -69,12 +69,50 @@ Four secrets are required and have no safe default; the stack refuses to start i
 
 ### Public URLs
 
-Set `FRONTEND_URL` and `API_BASE_URL` to the public origins your users reach. When either starts with `https://`, the stack issues secure (HTTPS-only) cookies. `FRONTEND_PORT` and `BACKEND_PORT` are the host ports Docker publishes and are independent of these URLs — behind a reverse proxy the published port and the public URL usually differ.
+Browsers only talk to `FRONTEND_URL`: the frontend passes sign-in and API calls on to the backend under `/api/backend`. Set `FRONTEND_URL` to the address your users open; an `https://` value turns on secure (HTTPS-only) cookies. API and SDK clients keep calling the backend directly, at the address your reverse proxy gives it. `FRONTEND_PORT` and `BACKEND_PORT` are the host ports Docker publishes and are independent of these URLs — behind a reverse proxy the published port and the public URL usually differ.
+
+The browser's WebSocket is the one connection the frontend can't pass on. Without a reverse proxy, the stack points it at `ws://localhost:<BACKEND_PORT>/ws`, which works when users open the app on the machine that runs it; if they open it from other machines, set `WS_URL=ws://<server>:<BACKEND_PORT>/ws`. Behind a reverse proxy, route `/ws` on the frontend host to the backend and set `WS_URL=/ws`:
 
 <CodeBlock filename=".env.docker" language="bash">
 {`FRONTEND_URL=https://app.example.com
-API_BASE_URL=https://api.example.com`}
+WS_URL=/ws`}
 </CodeBlock>
+
+<CodeBlock filename="Caddyfile" language="text">
+{`app.example.com {
+	reverse_proxy /ws backend:8080
+	reverse_proxy frontend:3000
+}
+
+api.example.com {
+	reverse_proxy backend:8080
+}`}
+</CodeBlock>
+
+nginx needs the WebSocket upgrade and `X-Forwarded-For` set explicitly on the app host:
+
+<CodeBlock filename="nginx.conf" language="text">
+{`location = /ws {
+    proxy_pass http://backend:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_read_timeout 3600s;
+}
+
+location / {
+    proxy_pass http://frontend:3000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}`}
+</CodeBlock>
+
+See [Routing in front of Rhesis](/self-hosting/environment-variables#routing-in-front-of-rhesis) for what each host needs.
+
+Google and GitHub sign-in need `<FRONTEND_URL>/api/backend/auth/callback` registered as the redirect URI; see [OAuth variables](/self-hosting/environment-variables#authentication-and-oauth).
 
 ### Database
 

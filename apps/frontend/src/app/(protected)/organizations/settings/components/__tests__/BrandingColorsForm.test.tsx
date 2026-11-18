@@ -46,9 +46,7 @@ function organization(branding: Record<string, unknown> = {}): Organization {
 function setDeploymentBranding(
   branding: Record<string, string> | undefined
 ): void {
-  window.__ENV__ = branding
-    ? { apiBaseUrl: '', deploymentBranding: branding }
-    : { apiBaseUrl: '' };
+  window.__ENV__ = branding ? { deploymentBranding: branding } : {};
 }
 
 describe('BrandingColorsForm', () => {

@@ -21,31 +21,6 @@ export function resolveLocalhostUrl(url: string): string {
 }
 
 /**
- * Gets the API base URL for the browser's direct calls to the backend's
- * unauthenticated `/auth/*` endpoints, from the runtime config the root layout
- * injects into `window.__ENV__` (or `API_BASE_URL` when called on the server).
- *
- * Throws when it is not configured. There used to be a `http://localhost:8080`
- * fallback here, which only ever looked right in local dev: in a deployed
- * environment it pointed the sign-in, verify-email, magic-link and
- * reset-password flows at the visitor's own machine instead of failing.
- *
- * @returns Resolved API base URL
- */
-export function getClientApiBaseUrl(): string {
-  const baseUrl = publicEnv().apiBaseUrl;
-  if (!baseUrl) {
-    throw new Error(
-      'API_BASE_URL is not configured — cannot resolve the backend URL for ' +
-        'authentication requests. Set API_BASE_URL for the frontend, ' +
-        'wherever its environment comes from (Helm `config.apiBaseUrl`, ' +
-        'docker-compose, or the dev scripts).'
-    );
-  }
-  return resolveLocalhostUrl(baseUrl);
-}
-
-/**
  * Gets the backend URL for server-side requests with localhost resolution
  * Uses BACKEND_URL environment variable or falls back to default
  *
@@ -78,6 +53,19 @@ export function getBaseUrl(): string {
     // the current page path instead of the origin root — must be absolute.
     return `${window.location.origin}/api/backend`;
   }
+}
+
+/**
+ * The browser's WebSocket URL: `/ws` on this origin, which the ingress or
+ * reverse proxy routes to the backend. `WS_URL` overrides it where nothing
+ * routes `/ws` (local dev, docker-compose without a proxy); a path there is
+ * resolved against this origin too.
+ */
+export function getWebSocketUrl(): string {
+  const url = new URL(publicEnv().wsUrl ?? '/ws', window.location.href);
+  if (url.protocol === 'http:') url.protocol = 'ws:';
+  if (url.protocol === 'https:') url.protocol = 'wss:';
+  return url.toString();
 }
 
 export function shouldUseSecureCookies(): boolean {

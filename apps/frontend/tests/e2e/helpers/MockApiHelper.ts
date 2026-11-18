@@ -4,10 +4,9 @@ import projectsFixture from '../fixtures/projects.json';
 /**
  * Helper class for intercepting backend API calls in E2E tests.
  *
- * The Rhesis frontend calls the backend at `{API_BASE_URL}/resources` (and
- * optionally via `/api/v1/...` in local mock-server runs). Playwright's
- * page.route() intercepts these before they leave the browser.
- * allowing tests to run deterministically without a live backend.
+ * The browser calls the backend through the same-origin `/api/backend/...`
+ * proxy. Playwright's page.route() intercepts these before they leave the
+ * browser, allowing tests to run deterministically without a live backend.
  *
  * List endpoints return a flat JSON array; the total count is carried in
  * the x-total-count response header (consumed by fetchPaginated()).
@@ -18,7 +17,7 @@ import projectsFixture from '../fixtures/projects.json';
  * so the more specific detail route takes priority.
  *
  * Patterns here match on bare resource paths (`/tokens`, `/requirements`, …)
- * with no origin/host restriction, because the frontend's `API_BASE_URL`
+ * with no origin/host restriction, because the frontend's origin
  * varies across configurations (mock-backend, live backend, prod). A page
  * whose route happens to share its name with its own API resource (e.g. the
  * `/tokens` page and the `/tokens` list endpoint) would otherwise also match

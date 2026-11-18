@@ -5,7 +5,7 @@ import { Typography, CircularProgress, Alert, Button } from '@mui/material';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { getBaseUrl } from '@/utils/url-resolver';
 import AuthPageShell from '@/components/auth/AuthPageShell';
 import { useAuthStyles } from '@/components/auth/useAuthStyles';
 
@@ -26,14 +26,11 @@ export default function MagicLinkPage() {
 
     const verify = async () => {
       try {
-        const response = await fetch(
-          `${getClientApiBaseUrl()}/auth/magic-link/verify`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token }),
-          }
-        );
+        const response = await fetch(`${getBaseUrl()}/auth/magic-link/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
 
         const data = await response.json();
 

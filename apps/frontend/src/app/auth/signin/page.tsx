@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { CircularProgress, Box, Typography } from '@mui/material';
@@ -11,6 +11,8 @@ export default function SignIn() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<string>('Hang tight...');
   const [error, setError] = useState<string | null>(null);
+  // The auth code is single-use; React runs effects twice in development.
+  const exchangedCode = useRef<string | null>(null);
 
   useEffect(() => {
     const handleAuth = async () => {
@@ -37,6 +39,8 @@ export default function SignIn() {
         const authCode = searchParams.get('code');
 
         if (authCode) {
+          if (exchangedCode.current === authCode) return;
+          exchangedCode.current = authCode;
           setStatus('Verifying session...');
 
           // Hand the code to NextAuth; authorize() exchanges it

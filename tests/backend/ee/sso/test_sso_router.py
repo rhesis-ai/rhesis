@@ -8,6 +8,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 
 from rhesis.backend.app.config.settings import get_application_settings
 
@@ -249,7 +250,9 @@ class TestSSOCallbackTenantContext:
             sso_router, "_get_sso_config", lambda _org: SimpleNamespace(enabled=True)
         )
         monkeypatch.setattr(
-            sso_router, "_get_sso_callback_url", lambda: "https://api.example/auth/sso/callback"
+            sso_router,
+            "_get_sso_callback_url",
+            lambda _request: "https://app.example/api/backend/auth/sso/callback",
         )
         monkeypatch.setattr(
             sso_router,
@@ -278,7 +281,6 @@ class TestSSOCallbackTenantContext:
         monkeypatch.setattr(
             sso_router, "create_refresh_token", _record("create_refresh_token", "refresh")
         )
-        monkeypatch.setattr(sso_router, "regenerate_session", _record("regenerate_session"))
 
         async def _build_redirect_url(*args, **kwargs):
             calls.append(("build_redirect_url", args, kwargs))
@@ -288,6 +290,8 @@ class TestSSOCallbackTenantContext:
 
         request = SimpleNamespace(
             session={"sso_code_verifier": "verifier", "sso_org_id": self.ORG_SLUG},
+            # What the frontend BFF sends; the callback refuses direct hits.
+            headers={"X-Rhesis-Client": "web"},
         )
         db = SimpleNamespace(commit=lambda: calls.append(("commit", (), {})))
 
@@ -333,6 +337,49 @@ class TestSSOCallbackTenantContext:
         # organization_id against this value.
         assert args[1] == str(callback_env.org.id)
         assert args[1] != self.ORG_SLUG
+
+
+class TestSSOCallbackHandshake:
+    """The callback runs behind the BFF and ends the handshake it started."""
+
+    ORG_SLUG = TestSSOCallbackTenantContext.ORG_SLUG
+    callback_env = TestSSOCallbackTenantContext.callback_env
+    _run = TestSSOCallbackTenantContext._run
+
+    @pytest.mark.asyncio
+    async def test_session_is_emptied_after_a_sign_in(self, callback_env):
+        # An empty session makes SessionMiddleware expire the rhesis-oauth cookie,
+        # so no backend login is left behind in the browser.
+        await self._run(callback_env)
+
+        assert callback_env.request.session == {}
+
+    @pytest.mark.asyncio
+    async def test_session_is_emptied_after_a_rejected_sign_in(self, callback_env, monkeypatch):
+        from rhesis.backend.ee.sso import router as sso_router
+        from rhesis.backend.ee.sso.user_utils import SSOLoginError
+
+        def _reject(*args, **kwargs):
+            raise SSOLoginError("domain_not_allowed")
+
+        monkeypatch.setattr(sso_router, "find_or_create_sso_user", _reject)
+
+        await self._run(callback_env)
+
+        assert callback_env.request.session == {}
+
+    @pytest.mark.asyncio
+    async def test_direct_hit_on_the_api_host_is_refused(self, callback_env):
+        callback_env.request.headers = {}
+        callback_env.request.url = SimpleNamespace(path="/auth/sso/callback")
+
+        with pytest.raises(HTTPException) as exc:
+            await self._run(callback_env)
+
+        assert exc.value.status_code == 400
+        assert "/api/backend/auth/sso/callback" in exc.value.detail
+        # Refused before touching the handshake: nothing was consumed.
+        assert callback_env.request.session["sso_code_verifier"] == "verifier"
 
 
 class TestSSOCallbackAudit:

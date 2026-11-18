@@ -20,7 +20,7 @@ jest.mock('next/navigation', () => ({
 
 jest.mock('next-auth/react', () => ({
   useSession: () => ({
-    data: { user: { id: 'user-1' } },
+    data: { user: { id: 'user-1', organization_id: 'org-1' } },
     status: 'authenticated',
   }),
 }));

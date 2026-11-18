@@ -6,8 +6,7 @@
  * prefix: that prefix inlines a value into the client bundle at build time,
  * which would mean one Docker image per deployment. These are read on the
  * server at request time and handed to the client via props and
- * `window.__ENV__` — the same route `API_BASE_URL` already takes (see
- * `url-resolver.ts`).
+ * `window.__ENV__` (see `config/runtime-config.ts`).
  *
  * In Kubernetes they arrive from the chart's ConfigMap, which every app
  * deployment already loads with `envFrom`. None of them is a secret — all three

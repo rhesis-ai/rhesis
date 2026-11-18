@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
-import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useHasOrganization } from '@/hooks/useIsAuthenticated';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { exchangeRateKeys } from '@/constants/query-keys';
@@ -68,15 +68,16 @@ function asCurrency(value: unknown): Currency | null {
  * converting at a rate nobody has.
  */
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-  const isAuthenticated = useIsAuthenticated();
-  const { data: userSettings } = useUserSettings(isAuthenticated);
+  // Both endpoints answer 403 until onboarding has created an organization.
+  const hasOrganization = useHasOrganization();
+  const { data: userSettings } = useUserSettings(hasOrganization);
   const { organization } = useOrganization();
 
   const { data: rateData } = useQuery({
     queryKey: exchangeRateKeys.all(),
     queryFn: () =>
       new ApiClientFactory().getServicesClient().getExchangeRates(),
-    enabled: isAuthenticated,
+    enabled: hasOrganization,
     staleTime: RATES_STALE_MS,
     // Showing costs as stored is a fine outcome; retrying is not worth it.
     retry: false,

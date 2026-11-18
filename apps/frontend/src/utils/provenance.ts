@@ -14,12 +14,24 @@ export const WEB_CLIENT = 'web';
  */
 export const CLIENT_IP_HEADER = 'x-rhesis-client-ip';
 
-/** The browser's IP as the ingress reported it, if any. */
+/**
+ * The browser's IP as the proxy in front of this server saw it, if any.
+ *
+ * Sign-in reaches the backend only through here, so this IP keys the sign-in
+ * rate limits and the audit log. Only the right-most X-Forwarded-For entry is
+ * trustworthy: the nearest proxy appended it, and everything to its left is
+ * whatever the client sent. ingress-nginx and AWS ALB both append the client
+ * address there. X-Real-IP is the fallback only, because a proxy that doesn't
+ * set it (an ALB) passes a client's own value through.
+ */
 export function browserIp(headers: Headers): string | null {
-  const realIp = headers.get('x-real-ip')?.trim();
-  if (realIp) return realIp;
-  const forwardedFor = headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  return forwardedFor || null;
+  const forwardedFor = headers
+    .get('x-forwarded-for')
+    ?.split(',')
+    .at(-1)
+    ?.trim();
+  if (forwardedFor) return forwardedFor;
+  return headers.get('x-real-ip')?.trim() || null;
 }
 
 /** Headers that identify the UI and the browser it is serving. */

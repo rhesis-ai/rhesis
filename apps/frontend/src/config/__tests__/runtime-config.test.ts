@@ -11,7 +11,6 @@ describe('config/runtime-config', () => {
   beforeEach(() => {
     process.env = {
       ...originalEnv,
-      API_BASE_URL: 'https://api.example.com',
       NEXTAUTH_SECRET: 'secret',
     };
     for (const name of [
@@ -87,10 +86,10 @@ describe('config/runtime-config', () => {
   });
 
   it('publicEnv fills gaps in a partial window.__ENV__', () => {
-    window.__ENV__ = { apiBaseUrl: 'https://api.example.com' };
+    window.__ENV__ = { environment: 'staging' };
 
     expect(publicEnv()).toEqual({
-      apiBaseUrl: 'https://api.example.com',
+      environment: 'staging',
       supportEmail: DEFAULT_SUPPORT_EMAIL,
       architectHelpArticleUrls: [],
       emptyStates: {},

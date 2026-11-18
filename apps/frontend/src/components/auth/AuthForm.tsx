@@ -23,7 +23,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
 import { signIn } from 'next-auth/react';
-import { getClientApiBaseUrl } from '../../utils/url-resolver';
+import { getBaseUrl } from '../../utils/url-resolver';
 import { RETURN_TO_PARAM, safeReturnTo } from '@/utils/return-to';
 import {
   DEFAULT_PASSWORD_POLICY,
@@ -41,6 +41,21 @@ interface ProviderInfo {
   type: 'oauth' | 'credentials';
   enabled: boolean;
   login_url?: string;
+}
+
+/**
+ * Where an OAuth/SSO button sends the browser: the backend login route through
+ * the same-origin BFF, so the handshake cookie lands on this origin.
+ */
+export function oauthLoginUrl(
+  provider: Pick<ProviderInfo, 'name' | 'login_url'>,
+  returnTo: string
+): string {
+  // String join, not `new URL(path, base)`: an absolute path would drop `/api/backend`.
+  const path = provider.login_url ?? `/auth/login/${provider.name}`;
+  const url = new URL(`${getBaseUrl()}${path}`);
+  url.searchParams.set(RETURN_TO_PARAM, returnTo);
+  return url.toString();
 }
 
 interface PasswordPolicy {
@@ -156,18 +171,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     const searchParams = new URLSearchParams(window.location.search);
     const returnTo = safeReturnTo(searchParams.get(RETURN_TO_PARAM));
 
-    if (provider.login_url) {
-      const loginUrl = new URL(provider.login_url, getClientApiBaseUrl());
-      loginUrl.searchParams.set(RETURN_TO_PARAM, returnTo);
-      window.location.href = loginUrl.toString();
-      return;
-    }
-
-    const loginUrl = new URL(
-      `${getClientApiBaseUrl()}/auth/login/${provider.name}`
-    );
-    loginUrl.searchParams.set(RETURN_TO_PARAM, returnTo);
-    window.location.href = loginUrl.toString();
+    window.location.href = oauthLoginUrl(provider, returnTo);
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -188,8 +192,8 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
     try {
       const endpoint = isRegistration
-        ? `${getClientApiBaseUrl()}/auth/register`
-        : `${getClientApiBaseUrl()}/auth/login/email`;
+        ? `${getBaseUrl()}/auth/register`
+        : `${getBaseUrl()}/auth/login/email`;
 
       const body = isRegistration
         ? { email, password, name: name || undefined }
@@ -266,14 +270,11 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
 
   const handleResendVerification = async () => {
     try {
-      const response = await fetch(
-        `${getClientApiBaseUrl()}/auth/resend-verification`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email }),
-        }
-      );
+      const response = await fetch(`${getBaseUrl()}/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
       setResendState(response.ok ? 'sent' : 'failed');
     } catch {
       setResendState('failed');
@@ -287,7 +288,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
     setFormError(null);
 
     try {
-      const response = await fetch(`${getClientApiBaseUrl()}/auth/magic-link`, {
+      const response = await fetch(`${getBaseUrl()}/auth/magic-link`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

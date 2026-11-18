@@ -211,23 +211,19 @@ Core chat event types:
 
 ## Runtime Configuration
 
-The backend URL is not baked into the client bundle at build time. `app/layout.tsx` injects it into
-every server-rendered page as `window.__ENV__`:
-
-<CodeBlock filename="src/app/layout.tsx" language="typescript">
-{`const runtimeEnvScript = \`window.__ENV__=\${JSON.stringify({
-  apiBaseUrl: process.env.API_BASE_URL ?? 'http://localhost:8080',
-})};\`;`}
-</CodeBlock>
-
-`getClientApiBaseUrl()` (`utils/url-resolver.ts`) reads `window.__ENV__.apiBaseUrl` — this is used by pages that call the backend directly and unauthenticated from the browser (login, magic-link, forgot-password, provider discovery), not by `BaseApiClient`, which always uses the same-origin `/api/backend` proxy regardless of environment.
+The browser never calls the backend origin. `getBaseUrl()` (`utils/url-resolver.ts`) returns the
+same-origin `/api/backend` proxy in the browser, for `BaseApiClient` and for the sign-in pages
+alike; the proxy forwards unauthenticated `/auth/*` calls without a session. The browser-side
+values are read at request time from `src/config/runtime-config.ts` and injected into every
+server-rendered page as `window.__ENV__`. `WS_URL` (read by `getWebSocketUrl()`) sets the browser's
+WebSocket address; unset, it is `/ws` on the current origin.
 
 <CodeBlock filename=".env.local" language="bash">
-{`# Server-side: used directly by server code and injected into window.__ENV__
-API_BASE_URL=http://localhost:8080
+{`# Server-side: target for the /api/backend proxy
+BACKEND_URL=http://localhost:8080
 
-# Server-side: target for the /api/backend proxy
-BACKEND_URL=http://localhost:8080`}
+# Local dev: next dev can't route /ws, so point the browser at the backend
+WS_URL=ws://localhost:8080/ws`}
 </CodeBlock>
 
 There is no `NEXT_PUBLIC_API_BASE_URL` env var and no build-time placeholder-replacement script — the same built image works across environments because the backend URL is read from `process.env` at request time, not baked in.

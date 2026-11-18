@@ -11,7 +11,7 @@ import {
 import { alpha } from '@mui/material/styles';
 import EmailIcon from '@mui/icons-material/EmailOutlined';
 import { useSession } from 'next-auth/react';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { getBaseUrl } from '@/utils/url-resolver';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -48,7 +48,7 @@ export default function VerificationBanner() {
   const handleResend = async () => {
     setResending(true);
     try {
-      await fetch(`${getClientApiBaseUrl()}/auth/resend-verification`, {
+      await fetch(`${getBaseUrl()}/auth/resend-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: user.email }),

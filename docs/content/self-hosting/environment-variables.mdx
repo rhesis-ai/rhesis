@@ -27,13 +27,40 @@ These four secrets have no default; the stack refuses to start if any is unset.
 
 | Variable | Description | Default |
 |---|---|---|
-| `FRONTEND_URL` | Public origin of the frontend; an `https://` value enables secure cookies | `http://localhost:3000` |
-| `API_BASE_URL` | Public origin of the backend API; an `https://` value enables secure cookies | `http://localhost:8080` |
+| `FRONTEND_URL` | Public origin of the frontend, the only address browsers use. Sign-in and OAuth run under `<FRONTEND_URL>/api/backend`; an `https://` value enables secure cookies | `http://localhost:3000` |
+| `BACKEND_URL` | The backend's **internal** address, which the frontend server uses for every call it passes on. Don't point it at the public API host through a proxy (see below). Helm: `config.backendUrl` | `http://backend:8080` |
+| `WS_URL` | WebSocket address for the browser, as a path (`/ws`) or a `ws(s)://` URL. Unset, the browser opens `/ws` on `FRONTEND_URL`, which your ingress or reverse proxy must route to the backend | `ws://localhost:<BACKEND_PORT>/ws` in docker-compose (set `ws://<server>:<BACKEND_PORT>/ws` when users open the app from other machines); unset in Helm |
 | `FRONTEND_PORT` | Host port Docker publishes for the frontend | `3000` |
 | `BACKEND_PORT` | Host port Docker publishes for the backend | `8080` |
 
 Ports are the host bind ports and are independent of the URLs — behind a reverse proxy the published port
 and the public URL usually differ.
+
+Sign-in reaches the backend through the frontend server, which passes on each browser's IP for the
+sign-in rate limits and the audit log. The backend accepts that IP only when the request arrives
+directly from a private or loopback address. If `BACKEND_URL` goes through a proxy that adds
+`X-Forwarded-For`, every sign-in counts against one shared limit, and the backend logs a warning
+saying so.
+
+### Routing in front of Rhesis
+
+Browsers only ever reach the frontend host; API, SDK, MCP and connector clients call the backend host.
+A reverse proxy, ingress or load balancer in front of Rhesis needs these rules:
+
+| Host | Path | Goes to | Notes |
+|---|---|---|---|
+| Frontend (`FRONTEND_URL`) | `/ws` (exact) | backend, port 8080 | WebSocket upgrade allowed, read timeout of several minutes or more |
+| Frontend (`FRONTEND_URL`) | `/` | frontend, port 3000 | Must append the client to `X-Forwarded-For` |
+| API host | `/` | backend, port 8080 | For API clients only; browsers never call it |
+
+Rhesis reads the client IP from the right-most `X-Forwarded-For` entry, so put exactly one proxy in
+front of the frontend. With two (for example a CDN, then a load balancer), every user shows the inner
+proxy's address and shares its sign-in rate limit.
+
+Behind an identity-aware proxy (for example AWS ALB with OIDC, or an IAP), put both frontend-host rules
+behind its sign-in, and serve the API host on a separate listener or host without it, since API clients
+authenticate with Rhesis API tokens. `EMAIL_ASSET_BASE_URL` must stay publicly reachable, because mail
+clients load email images from it.
 
 ## Branding
 
@@ -231,6 +258,10 @@ Without OAuth credentials, only email/password authentication is available.
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Enable Google sign-in (set both) | *(unset)* |
 | `GH_CLIENT_ID`, `GH_CLIENT_SECRET` | Enable GitHub sign-in (set both) | *(unset)* |
 
+Register `<FRONTEND_URL>/api/backend/auth/callback` as the redirect (callback) URI in your Google and
+GitHub OAuth apps, for example `https://app.example.com/api/backend/auth/callback`. On a non-local
+domain the backend always uses `https` in this URI.
+
 ## SMTP and email
 
 Email (notifications, invitations) is disabled until `SMTP_HOST` is set.
@@ -400,8 +431,8 @@ The per-entity empty-state variables are wired into the Helm chart (`config.empt
 `docker-compose.yml`.
 
 The frontend checks its variables at startup and logs each problem. In production it exits when
-`API_BASE_URL` is missing, or when `API_BASE_URL`, `BACKEND_URL` or `FRONTEND_URL` is not an
-`http(s)` URL, so a bad value fails the rollout instead of breaking sign-in. Problems with the
+`BACKEND_URL` or `FRONTEND_URL` is not an `http(s)` URL, or `WS_URL` is neither a
+path nor a `ws(s)://` URL, so a bad value fails the rollout instead of breaking sign-in. Problems with the
 content variables in this table, such as a video that is not on YouTube or an article outside
 `docs.rhesis.ai`, are logged as warnings and never stop it. The same goes for branding values: a
 malformed one is logged and the default is used.

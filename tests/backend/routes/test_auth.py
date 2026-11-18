@@ -33,15 +33,8 @@ from tests.backend.fixtures.test_setup import (
 fake = Faker()
 
 
-def _mock_application_settings(
-    backend_env: str = "development",
-    api_base_url: str = "https://api.rhesis.ai",
-):
-    env = backend_env.lower()
-    settings = Mock(backend_env=env, api_base_url=api_base_url)
-    settings.is_development = env != "production"
-    settings.is_production = env == "production"
-    return lambda: settings
+#: What the frontend BFF sends; the OAuth routes refuse browsers that bypass it.
+BFF = {"x-rhesis-client": "web"}
 
 
 # =============================================================================
@@ -140,7 +133,7 @@ class TestProviderLogin:
 
     def test_login_unknown_provider(self, client: TestClient):
         """Test login with unknown provider returns error."""
-        response = client.get("/auth/login/unknown_provider")
+        response = client.get("/auth/login/unknown_provider", headers=BFF)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "Unknown authentication provider" in response.json()["detail"]
@@ -158,7 +151,7 @@ class TestProviderLogin:
             ProviderRegistry.reset()
 
             try:
-                response = client.get("/auth/login/google")
+                response = client.get("/auth/login/google", headers=BFF)
 
                 assert response.status_code == status.HTTP_400_BAD_REQUEST
                 assert "not configured" in response.json()["detail"]
@@ -168,7 +161,7 @@ class TestProviderLogin:
 
     def test_login_email_provider_not_oauth(self, client: TestClient):
         """Test that email provider rejects OAuth login."""
-        response = client.get("/auth/login/email")
+        response = client.get("/auth/login/email", headers=BFF)
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "does not support OAuth" in response.json()["detail"]
@@ -297,13 +290,13 @@ class TestAuthLogout:
             assert response.url == "http://localhost:3000/"
 
     def test_logout_clears_session_cookie_secure_variants(self, client: TestClient):
-        """Logout clears the backend session cookie with both Secure variants."""
+        """Logout clears the OAuth handshake cookie with both Secure variants."""
         with patch.dict(os.environ, {"FRONTEND_URL": "https://app.example.com"}):
             response = client.get("/auth/logout", follow_redirects=False)
 
         assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
         set_cookies = response.headers.get_list("set-cookie")
-        session_clears = [h for h in set_cookies if h.startswith("session=")]
+        session_clears = [h for h in set_cookies if h.startswith("rhesis-oauth=")]
         assert len(session_clears) == 2
         assert any("Secure" in h for h in session_clears)
         assert any("Secure" not in h for h in session_clears)
@@ -455,7 +448,7 @@ class TestAuthEdgeCases:
 
     def test_callback_with_missing_parameters(self, client: TestClient):
         """🏃‍♂️ Test callback with missing required parameters"""
-        response = client.get("/auth/callback")
+        response = client.get("/auth/callback", headers=BFF)
 
         # Should handle missing code/state gracefully
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -1254,252 +1247,171 @@ class TestAuthRefreshTokenReuse:
 
 
 # =============================================================================
-# get_callback_url() Security Tests
+# OAuth callback URL and BFF-only login routes
 # =============================================================================
 
 
-def _make_mock_request(
-    host: str = "localhost",
-    port: int = 8080,
-    scheme: str = "http",
-    headers: dict | None = None,
-):
-    """Create a mock Request object for testing get_callback_url."""
+def _make_mock_request(headers: dict | None = None, path: str = "/auth/callback"):
+    """A request as the backend sees it, optionally carrying the BFF's headers."""
     from starlette.datastructures import Headers
 
     request = MagicMock()
-    request.scope = {"server": (host, port)}
+    request.headers = Headers(headers or {})
     request.url = MagicMock()
-    request.url.hostname = host
-
-    if headers is None:
-        headers = {"host": f"{host}:{port}"}
-    request.headers = Headers(headers)
-
+    request.url.path = path
     return request
+
+
+def _frontend_settings(url: str):
+    from rhesis.backend.app.config.settings import FrontendSettings
+
+    return lambda: FrontendSettings(FRONTEND_URL=url)
 
 
 @pytest.mark.unit
 class TestGetCallbackUrl:
-    """Test get_callback_url() security against Host header poisoning."""
+    """The OAuth redirect URI is on the frontend origin, under the BFF.
 
-    @patch.dict(
-        os.environ,
-        {"QUICK_START": "true"},
-        clear=False,
-    )
-    @patch(
-        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
-        return_value=True,
-    )
-    @patch(
-        "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings("local", api_base_url="https://api.rhesis.ai"),
-    )
-    def test_quick_start_does_not_override_remote_api_base_url(self, mock_qs):
-        """QUICK_START does not force a local callback: the callback host is
-        driven solely by API_BASE_URL. With a remote API_BASE_URL the request
-        host is never trusted, even in quick-start mode."""
+    The handshake cookie is set there, so the IdP must send the browser back
+    there. On a real domain nothing from the request is trusted.
+    """
+
+    def _url(self, frontend_url: str, headers: dict | None = None) -> str:
         from rhesis.backend.app.routers.auth import get_callback_url
 
-        request = _make_mock_request(host="localhost", port=8080)
-        url = get_callback_url(request)
-        assert url == "https://api.rhesis.ai/auth/callback"
+        with patch(
+            "rhesis.backend.app.auth.url_utils.get_frontend_settings",
+            new=_frontend_settings(frontend_url),
+        ):
+            return get_callback_url(_make_mock_request(headers))
 
-    @patch(
-        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
-        return_value=False,
-    )
-    @patch(
-        "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings(api_base_url="http://localhost:8080"),
-    )
-    def test_api_base_url_localhost_uses_localhost(self, mock_qs):
-        """API_BASE_URL with localhost returns localhost callback."""
-        from rhesis.backend.app.routers.auth import get_callback_url
-
-        request = _make_mock_request(host="localhost", port=8080)
-        url = get_callback_url(request)
-        assert url == "http://localhost:8080/auth/callback"
-
-    @patch(
-        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
-        return_value=False,
-    )
-    @patch(
-        "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings(api_base_url="http://localhost:8080"),
-    )
-    def test_local_preserves_127_hostname(self, mock_qs):
-        """Loopback API_BASE_URL via 127.0.0.1 preserves hostname for session cookies."""
-        from rhesis.backend.app.routers.auth import get_callback_url
-
-        request = _make_mock_request(host="127.0.0.1", port=8080)
-        url = get_callback_url(request)
-        assert url == "http://127.0.0.1:8080/auth/callback"
-
-    @patch(
-        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
-        return_value=False,
-    )
-    @patch(
-        "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings(api_base_url="http://localhost:8080"),
-    )
-    def test_local_rejects_non_local_hostname(self, mock_qs):
-        """Loopback API_BASE_URL with evil Host falls back to localhost."""
-        from rhesis.backend.app.routers.auth import get_callback_url
-
-        request = _make_mock_request(host="evil.com", port=8080)
-        url = get_callback_url(request)
-        assert url == "http://localhost:8080/auth/callback"
-
-    @patch(
-        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
-        return_value=False,
-    )
-    @patch(
-        "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings("local", api_base_url="https://api.rhesis.ai"),
-    )
-    def test_backend_env_local_with_remote_api_base_url_uses_production_callback(self, mock_qs):
-        """BACKEND_ENV=local alone does not enable local callback behavior."""
-        from rhesis.backend.app.routers.auth import get_callback_url
-
-        request = _make_mock_request(host="localhost", port=8080)
-        url = get_callback_url(request)
-        assert url == "https://api.rhesis.ai/auth/callback"
-
-    @patch(
-        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
-        return_value=False,
-    )
-    @patch(
-        "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings("production"),
-    )
-    def test_production_uses_api_base_url(self, mock_qs):
-        """Production (no local signals) uses API_BASE_URL."""
-        from rhesis.backend.app.routers.auth import get_callback_url
-
-        request = _make_mock_request(
-            host="api.rhesis.ai",
-            port=443,
-            headers={"host": "api.rhesis.ai"},
+    def test_real_domain_builds_the_bff_callback(self):
+        assert (
+            self._url("https://app.rhesis.ai") == "https://app.rhesis.ai/api/backend/auth/callback"
         )
-        url = get_callback_url(request)
-        assert url == "https://api.rhesis.ai/auth/callback"
 
-    @patch(
-        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
-        return_value=False,
-    )
-    @patch(
-        "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings("production"),
-    )
-    def test_spoofed_localhost_host_header_uses_base_url(self, mock_qs):
-        """Spoofed Host: localhost in production uses API_BASE_URL."""
-        from rhesis.backend.app.routers.auth import get_callback_url
-
-        request = _make_mock_request(
-            host="api.rhesis.ai",
-            port=443,
-            headers={"host": "localhost"},
+    def test_real_domain_forces_https(self):
+        assert (
+            self._url("http://app.example.com")
+            == "https://app.example.com/api/backend/auth/callback"
         )
-        url = get_callback_url(request)
-        assert url == "https://api.rhesis.ai/auth/callback"
 
-    @patch(
-        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
-        return_value=False,
-    )
-    @patch(
-        "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings("production"),
-    )
-    def test_spoofed_evil_host_header_uses_base_url(self, mock_qs):
-        """Spoofed Host: evil.com in production uses API_BASE_URL."""
-        from rhesis.backend.app.routers.auth import get_callback_url
-
-        request = _make_mock_request(
-            host="api.rhesis.ai",
-            port=443,
-            headers={"host": "evil.com"},
+    def test_real_domain_keeps_a_frontend_path(self):
+        assert (
+            self._url("https://example.com/rhesis/")
+            == "https://example.com/rhesis/api/backend/auth/callback"
         )
-        url = get_callback_url(request)
-        assert url == "https://api.rhesis.ai/auth/callback"
 
-    @patch(
-        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
-        return_value=False,
+    @pytest.mark.parametrize(
+        "forwarded",
+        ["localhost:3000", "evil.com", "localhost.attacker.com"],
     )
-    @patch(
-        "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings("production"),
-    )
-    def test_localhost_attacker_com_uses_base_url(self, mock_qs):
-        """localhost.attacker.com bypass attempt uses API_BASE_URL."""
-        from rhesis.backend.app.routers.auth import get_callback_url
-
-        request = _make_mock_request(
-            host="api.rhesis.ai",
-            port=443,
-            headers={"host": "localhost.attacker.com"},
+    def test_real_domain_ignores_the_forwarded_host(self, forwarded):
+        assert (
+            self._url("https://app.rhesis.ai", {"x-forwarded-host": forwarded})
+            == "https://app.rhesis.ai/api/backend/auth/callback"
         )
-        url = get_callback_url(request)
-        assert url == "https://api.rhesis.ai/auth/callback"
 
-    @patch(
-        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
-        return_value=False,
-    )
-    @patch(
-        "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings(
-            "production",
-            api_base_url="http://staging.rhesis.ai",
-        ),
-    )
-    def test_http_to_https_rewrite_for_non_localhost(self, mock_qs):
-        """HTTP base URL for non-localhost gets rewritten to HTTPS."""
-        from rhesis.backend.app.routers.auth import get_callback_url
-
-        request = _make_mock_request(
-            host="staging.rhesis.ai",
-            port=443,
-            headers={"host": "staging.rhesis.ai"},
+    def test_loopback_keeps_the_configured_url_without_a_forwarded_host(self):
+        assert (
+            self._url("http://localhost:3000") == "http://localhost:3000/api/backend/auth/callback"
         )
-        url = get_callback_url(request)
-        assert url == "https://staging.rhesis.ai/auth/callback"
 
-    @patch.dict(
-        os.environ,
-        {"RHESIS_BASE_URL": "https://api.rhesis.ai"},
-        clear=False,
+    @pytest.mark.parametrize(
+        "forwarded",
+        ["127.0.0.1:3000", "localhost:3180", "[::1]:3000"],
     )
-    @patch(
-        "rhesis.backend.app.routers.auth.is_quick_start_enabled",
-        return_value=False,
-    )
-    @patch(
-        "rhesis.backend.app.routers.auth.get_application_settings",
-        new=_mock_application_settings(
-            "production",
-            api_base_url="https://self-hosted.example.com",
-        ),
-    )
-    def test_hybrid_split_uses_api_base_url_not_rhesis(self, mock_qs):
-        """Hybrid setup: OAuth uses API_BASE_URL, not RHESIS_BASE_URL."""
-        from rhesis.backend.app.routers.auth import get_callback_url
-
-        request = _make_mock_request(
-            host="self-hosted.example.com",
-            port=443,
-            headers={"host": "self-hosted.example.com"},
+    def test_loopback_follows_the_browsers_alias_and_port(self, forwarded):
+        # The cookie is host-only on whichever alias the browser used.
+        assert (
+            self._url("http://localhost:3000", {"x-forwarded-host": forwarded})
+            == f"http://{forwarded}/api/backend/auth/callback"
         )
-        url = get_callback_url(request)
-        assert url == "https://self-hosted.example.com/auth/callback"
+
+    @pytest.mark.parametrize("forwarded", ["evil.com", "localhost.attacker.com:3000"])
+    def test_loopback_never_follows_a_non_loopback_host(self, forwarded):
+        assert (
+            self._url("http://localhost:3000", {"x-forwarded-host": forwarded})
+            == "http://localhost:3000/api/backend/auth/callback"
+        )
+
+
+@pytest.mark.unit
+class TestRequireBff:
+    """OAuth routes the browser reaches on the API host directly fail clearly."""
+
+    def test_passes_a_request_from_the_bff(self):
+        from rhesis.backend.app.auth.url_utils import require_bff
+
+        require_bff(_make_mock_request({"x-rhesis-client": "web"}))
+
+    def test_refuses_a_direct_request_and_names_the_new_url(self):
+        from fastapi import HTTPException
+
+        from rhesis.backend.app.auth.url_utils import require_bff
+
+        with (
+            patch(
+                "rhesis.backend.app.auth.url_utils.get_frontend_settings",
+                new=_frontend_settings("https://app.rhesis.ai"),
+            ),
+            pytest.raises(HTTPException) as exc,
+        ):
+            require_bff(_make_mock_request(path="/auth/sso/acme"))
+
+        assert exc.value.status_code == 400
+        assert "https://app.rhesis.ai/api/backend/auth/sso/acme" in exc.value.detail
+
+    @pytest.mark.parametrize("path", ["/auth/login/google", "/auth/callback?code=x&state=y"])
+    def test_routes_refuse_direct_hits(self, client: TestClient, path):
+        response = client.get(path, follow_redirects=False)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "/api/backend/auth/" in response.json()["detail"]
+
+
+@pytest.mark.unit
+class TestOAuthCookie:
+    """The handshake cookie is named for its job and ends with the callback."""
+
+    @staticmethod
+    def _handshake_cookie(session: dict) -> str:
+        """A cookie as Starlette's SessionMiddleware signs it."""
+        import base64
+        import json
+
+        import itsdangerous
+
+        from rhesis.backend.app.config.settings import get_auth_settings
+
+        signer = itsdangerous.TimestampSigner(str(get_auth_settings().session_secret_key))
+        data = base64.b64encode(json.dumps(session).encode())
+        return signer.sign(data).decode()
+
+    def test_callback_expires_the_handshake_cookie_even_on_failure(self, client: TestClient):
+        provider = MagicMock()
+        provider.authenticate = AsyncMock(side_effect=ValueError("Invalid email address"))
+        client.cookies.set("rhesis-oauth", self._handshake_cookie({"auth_provider": "google"}))
+
+        with patch(
+            "rhesis.backend.app.routers.auth.ProviderRegistry.get_provider",
+            return_value=provider,
+        ):
+            response = client.get("/auth/callback?code=c&state=s", headers=BFF)
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        expired = [
+            c
+            for c in response.headers.get_list("set-cookie")
+            if c.startswith("rhesis-oauth=") and "1970" in c
+        ]
+        assert expired, response.headers.get_list("set-cookie")
+
+    def test_secure_flag_follows_the_frontend_scheme(self):
+        from rhesis.backend.app.config.settings import FrontendSettings
+
+        assert FrontendSettings(FRONTEND_URL="https://app.example.com").secure_cookies
+        assert not FrontendSettings(FRONTEND_URL="http://localhost:3000").secure_cookies
 
 
 @pytest.mark.unit
@@ -1892,7 +1804,7 @@ class TestRegistrationDisabled:
             raise RegistrationDisabledError()
 
         monkeypatch.setattr(auth_router, "_complete_oauth_login", refuse)
-        request = Mock(session={"auth_provider": "google"})
+        request = Mock(session={"auth_provider": "google"}, headers={"X-Rhesis-Client": "web"})
 
         response = await auth_router.auth_callback(request, db=Mock())
 

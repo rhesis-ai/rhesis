@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { applyRefreshedSessionCookie, getFreshAccessToken } from '@/auth';
-import { proxyToBackend } from '@/utils/backend-proxy';
+import { isOAuthNavigation, proxyToBackend } from '@/utils/backend-proxy';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +15,8 @@ export const dynamic = 'force-dynamic';
  * nothing for a component's dependency array or query key to depend on.
  *
  * Fails closed (401) when there's no valid session rather than forwarding an
- * unauthenticated request to the backend.
+ * unauthenticated request to the backend, except for the backend's `/auth/*`
+ * routes: the browser reaches sign-in, registration and OAuth only through here.
  *
  * This is also the ONE call site that can actually close the refresh loop:
  * as a route handler it's allowed to set cookies on its response, so when
@@ -51,6 +52,15 @@ function isCrossSiteRequest(req: NextRequest): boolean {
 }
 
 async function handle(req: NextRequest): Promise<NextResponse> {
+  const backendPath = req.nextUrl.pathname.replace(/^\/api\/backend/, '');
+
+  // OAuth/SSO logins arrive as cross-site navigations (the IdP's redirect, a
+  // shared SSO link). They carry no session to inject, and the callback is
+  // protected by the OAuth `state` check instead.
+  if (isOAuthNavigation(req.method, backendPath)) {
+    return proxyToBackend(req, { backendPath });
+  }
+
   if (isCrossSiteRequest(req)) {
     return NextResponse.json(
       { error: 'Cross-site request rejected' },
@@ -64,6 +74,11 @@ async function handle(req: NextRequest): Promise<NextResponse> {
     headers: req.headers,
   });
   if (!accessToken) {
+    // Sign-in, registration, password reset and the like run before there is a
+    // session; the backend decides which of its /auth routes allow that.
+    if (backendPath.startsWith('/auth/')) {
+      return proxyToBackend(req, { backendPath });
+    }
     // `x-auth-origin: bff` marks this 401 as issued by the proxy itself
     // (no resolvable session) rather than by the backend rejecting a
     // presented token. `BaseApiClient` keys its "clear local state only,
@@ -75,7 +90,7 @@ async function handle(req: NextRequest): Promise<NextResponse> {
   }
 
   const response = await proxyToBackend(req, {
-    backendPath: req.nextUrl.pathname.replace(/^\/api\/backend/, ''),
+    backendPath,
     overrideHeaders: { authorization: `Bearer ${accessToken}` },
   });
   applyRefreshedSessionCookie(response, refreshedCookie);

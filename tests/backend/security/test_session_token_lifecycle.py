@@ -385,7 +385,7 @@ class TestCookieSessionRevocation:
             "/auth/login/email", json={"email": user.email, "password": PASSWORD}
         )
         assert response.status_code == status.HTTP_200_OK
-        assert client.cookies.get("session")
+        assert client.cookies.get("rhesis-oauth")
 
     def _revoke_after_now(self, redis: FakeRedis, user: models.User):
         later = int(datetime.now(timezone.utc).timestamp()) + 5

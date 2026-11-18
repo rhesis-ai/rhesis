@@ -78,7 +78,6 @@ _TEST_ENV_VARS = {
     "RHESIS_CONNECTOR_DISABLED": "true",
     "RHESIS_PROJECT_ID": "12340000-0000-4000-8000-000000001234",
     "FRONTEND_URL": "http://localhost:3000",
-    "API_BASE_URL": "http://localhost:8080",
     "DB_DRIVER": _TEST_DB_DRIVER,
     "DB_HOST": _TEST_DB_HOST,
     "DB_PORT": _TEST_DB_PORT,
@@ -242,7 +241,9 @@ def quotas_disabled(monkeypatch):
     """Opt out of the suite-wide quotas-enabled patch for one test."""
     from rhesis.backend.app.config.settings import get_application_settings
 
-    monkeypatch.setattr("rhesis.backend.app.quota.get_application_settings", get_application_settings)
+    monkeypatch.setattr(
+        "rhesis.backend.app.quota.get_application_settings", get_application_settings
+    )
     monkeypatch.setattr(
         "rhesis.backend.app.utils.usage_tracking.get_application_settings",
         get_application_settings,
@@ -254,9 +255,7 @@ def isolate_storage_settings_cache():
     """Ensure tests that patch storage env vars do not reuse cached settings."""
     from importlib import import_module
 
-    get_storage_settings = import_module(
-        "rhesis.backend.app.config.settings"
-    ).get_storage_settings
+    get_storage_settings = import_module("rhesis.backend.app.config.settings").get_storage_settings
     get_storage_settings.cache_clear()
     yield
     get_storage_settings.cache_clear()
@@ -437,8 +436,14 @@ def _ensure_ee_features_registered():
 # test that only depends on e.g. test_entity_type (which itself depends on
 # test_db) still matches here even though it never names test_db directly.
 _DB_TOUCHING_FIXTURES = frozenset(
-    {"client", "authenticated_client", "owner_client", "test_db", "real_commit_test_db",
-     "real_commit_client"}
+    {
+        "client",
+        "authenticated_client",
+        "owner_client",
+        "test_db",
+        "real_commit_test_db",
+        "real_commit_client",
+    }
 )
 
 
@@ -648,7 +653,9 @@ def bound_scope():
 
     @contextmanager
     def _bind(organization_id=None, user_id=None, project_id=None):
-        token = _scope.set(RequestScope(organization_id=organization_id, user_id=user_id, project_id=project_id))
+        token = _scope.set(
+            RequestScope(organization_id=organization_id, user_id=user_id, project_id=project_id)
+        )
         try:
             yield
         finally:

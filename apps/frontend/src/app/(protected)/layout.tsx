@@ -47,15 +47,17 @@ export default async function ProtectedLayout({
       headers: await headers(),
     });
 
+    // `/features` answers 403 until onboarding has created an organization.
+    const hasOrganization = !!session.user?.organization_id;
     const [featuresResult, termsResult] = await Promise.allSettled([
-      getServerFeatures(),
+      hasOrganization ? getServerFeatures() : Promise.resolve(null),
       accessToken ? fetchTermsStatusServer(accessToken) : Promise.resolve(null),
     ]);
 
     if (featuresResult.status === 'fulfilled') {
       initialFeatures = featuresResult.value;
 
-      if (initialFeatures.enabled.includes(FeatureName.RBAC)) {
+      if (initialFeatures?.enabled.includes(FeatureName.RBAC)) {
         try {
           initialPermissions = await getServerPermissions();
         } catch {

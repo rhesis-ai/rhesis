@@ -16,7 +16,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useSearchParams } from 'next/navigation';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { getBaseUrl } from '@/utils/url-resolver';
 import { DEFAULT_PASSWORD_POLICY, validatePassword } from '@/utils/validation';
 import AuthPageShell from '@/components/auth/AuthPageShell';
 import { useAuthStyles } from '@/components/auth/useAuthStyles';
@@ -72,7 +72,7 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     const fetchPolicy = async () => {
       try {
-        const res = await fetch(`${getClientApiBaseUrl()}/auth/providers`);
+        const res = await fetch(`${getBaseUrl()}/auth/providers`);
         if (res.ok) {
           const data = await res.json();
           setPasswordPolicy(data.password_policy || null);
@@ -103,14 +103,11 @@ export default function ResetPasswordPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `${getClientApiBaseUrl()}/auth/reset-password`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, new_password: password }),
-        }
-      );
+      const response = await fetch(`${getBaseUrl()}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, new_password: password }),
+      });
 
       const data = await response.json();
 

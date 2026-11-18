@@ -6,7 +6,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircleOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import { getClientApiBaseUrl } from '@/utils/url-resolver';
+import { getBaseUrl } from '@/utils/url-resolver';
 import { DEFAULT_AUTHENTICATED_PATH } from '@/constants/paths';
 import AuthPageShell from '@/components/auth/AuthPageShell';
 import { useAuthStyles } from '@/components/auth/useAuthStyles';
@@ -30,14 +30,11 @@ export default function VerifyEmailPage() {
 
     const verify = async () => {
       try {
-        const response = await fetch(
-          `${getClientApiBaseUrl()}/auth/verify-email`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token }),
-          }
-        );
+        const response = await fetch(`${getBaseUrl()}/auth/verify-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
 
         const data = await response.json();
 

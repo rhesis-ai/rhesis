@@ -33,7 +33,7 @@ data:
   # -------------------------------------------------------------------------
   # Frontend
   # -------------------------------------------------------------------------
-  API_BASE_URL: {{ .Values.config.apiBaseUrl | quote }}
+  WS_URL: {{ .Values.config.wsUrl | quote }}
   NEXT_TELEMETRY_DISABLED: {{ .Values.config.nextTelemetryDisabled | quote }}
   # None of the frontend values below are NEXT_PUBLIC_* on purpose: that prefix
   # bakes a value into the client bundle at build time, which would mean one
