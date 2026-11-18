@@ -102,6 +102,8 @@ def create_tests_bulk(
                 "category": "Category name",
                 "topic": "Topic name",
                 "test_configuration": {},  # Optional test configuration
+                "test_parameters": {},  # Optional values for the endpoint's request templates
+                "metadata": {},  # Optional, stored as the test's test_metadata
                 "assignee_id": "uuid",  # Optional assignee ID
                 "owner_id": "uuid",  # Optional owner ID
                 "status": "string",    # Optional status name
@@ -112,7 +114,7 @@ def create_tests_bulk(
     }
 
     Returns:
-        200: Tests created successfully
+        200: Tests created successfully, with the ids of the created tests in `test_ids`
         400: Invalid request format or validation error
         404: Referenced entity not found
         500: Server error during processing
@@ -130,7 +132,10 @@ def create_tests_bulk(
         )
 
         return schemas.TestBulkCreateResponse(
-            success=True, total_tests=len(tests), message=f"Successfully created {len(tests)} tests"
+            success=True,
+            total_tests=len(tests),
+            message=f"Successfully created {len(tests)} tests",
+            test_ids=tests,
         )
     except HTTPException:
         # The empty-request 400 above is raised inside this try; without this
