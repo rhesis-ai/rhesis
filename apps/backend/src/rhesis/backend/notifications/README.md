@@ -106,7 +106,5 @@ The system uses the same environment variables as before:
 
 ## Templates
 
-Email templates are still located in `apps/backend/src/rhesis/backend/templates/`:
-- `email_task_completion.txt` / `.html` - Regular task completion emails
-- `email_test_execution_summary.txt` / `.html` - Test execution summary emails
-- `email_fragments.py` - Reusable template components 
+Email templates are Jinja2 files in `email/templates/`, rendered by `TemplateService`. See
+`email/README.md` for the list of templates and their variables. 
