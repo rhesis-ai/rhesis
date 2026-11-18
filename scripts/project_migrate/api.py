@@ -143,8 +143,8 @@ class Api:
         self, method: str, path: str, *, params: dict | None = None, body: Any = None
     ) -> Any:
         kind = "read" if method == "GET" else "write"
-        # PUT and DELETE are idempotent. POST is not.
-        blind_retry_ok = method in ("GET", "PUT", "DELETE")
+        # PUT, PATCH and DELETE are idempotent. POST is not.
+        blind_retry_ok = method in ("GET", "PUT", "PATCH", "DELETE")
         url = f"{self.base}{path}"
         if params:
             url += "?" + urllib.parse.urlencode(params)
@@ -190,7 +190,12 @@ class Api:
     def get(self, path: str, **params: Any) -> Any:
         return self.request("GET", path, params=params or None)
 
-    def get_all(self, path: str, **params: Any) -> list[dict]:
+    def get_all(self, path: str, *, until_empty: bool = False, **params: Any) -> list[dict]:
+        """Every page of a list route.
+
+        `until_empty` is for routes that drop rows after paging (the experiments list hides
+        other users' private ones), where a short page doesn't mean the last page.
+        """
         out: list[dict] = []
         skip = 0
         while True:
@@ -198,7 +203,7 @@ class Api:
                 path, limit=PAGE, skip=skip, sort_by="created_at", sort_order="asc", **params
             )
             out.extend(page)
-            if len(page) < PAGE:
+            if not page or (len(page) < PAGE and not until_empty):
                 return out
             skip += PAGE
 

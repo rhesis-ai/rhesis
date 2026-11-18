@@ -13,7 +13,19 @@ from project_migrate.api import Abort, AmbiguousWrite, Api, HttpError, odata_str
 from project_migrate.compare import changed_fields
 from project_migrate.state import State
 
-ACTIONS = ("unchanged", "linked", "create", "update", "link", "unlink", "adopt", "skipped")
+ACTIONS = (
+    "unchanged",
+    "linked",
+    "create",
+    "update",
+    "link",
+    "unlink",
+    "adopt",
+    "skipped",
+    "kept",
+    "diverged",
+    "refused",
+)
 UNCLEAR_RETRIES = 3
 UNCLEAR_WAIT_SECONDS = 5.0
 
@@ -32,13 +44,15 @@ class Report:
             n
             for r in self.rows.values()
             for a, n in r.items()
-            if a not in ("unchanged", "linked", "skipped")
+            if a not in ("unchanged", "linked", "skipped", "kept")
         )
 
     def render(self) -> str:
-        lines = [f"{'entity':<26}" + "".join(f"{a:>11}" for a in ACTIONS)]
+        # Only the columns some row uses, so the table stays readable.
+        used = [a for a in ACTIONS if any(a in r for r in self.rows.values())]
+        lines = [f"{'entity':<26}" + "".join(f"{a:>11}" for a in used)]
         for kind, r in self.rows.items():
-            lines.append(f"{kind:<26}" + "".join(f"{r.get(a, 0):>11}" for a in ACTIONS))
+            lines.append(f"{kind:<26}" + "".join(f"{r.get(a, 0):>11}" for a in used))
         lines += [f"  note: {n}" for n in self.notes]
         return "\n".join(lines)
 
@@ -71,6 +85,7 @@ class Migration:
         self.dst_requirements: list[dict] = []
         self.dst_metrics: list[dict] = []
         self.sources_skipped = False
+        self.experiments_skipped = False
 
     # ---- ids --------------------------------------------------------------------------------
 
@@ -128,8 +143,12 @@ class Migration:
         raise Abort(f"could not create {kind} after {UNCLEAR_RETRIES} unclear attempts")
 
     def put(self, path: str, body: dict) -> None:
+        self.send("PUT", path, body)
+
+    def send(self, method: str, path: str, body: dict | None = None) -> None:
+        """An idempotent write (PUT, PATCH, DELETE), skipped in a dry run."""
         if not self.dry:
-            self.dst.request("PUT", path, body=body)
+            self.dst.request(method, path, body=body)
 
     def post_link(self, path: str, exists: Callable[[], bool], body: dict | None = None) -> None:
         """Add a link. After an unclear outcome, re-read the links instead of posting blind."""
