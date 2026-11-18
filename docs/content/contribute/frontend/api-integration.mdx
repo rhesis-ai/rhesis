@@ -215,10 +215,8 @@ The browser never calls the backend origin. `getBaseUrl()` (`utils/url-resolver.
 same-origin `/api/backend` proxy in the browser, for `BaseApiClient` and for the sign-in pages
 alike; the proxy forwards unauthenticated `/auth/*` calls without a session. The browser-side
 values are read at request time from `src/config/runtime-config.ts` and injected into every
-server-rendered page as `window.__ENV__`:
-
-- `WS_URL` (`getWebSocketUrl()`): the WebSocket address. Unset, it is `/ws` on the current origin.
-- `API_BASE_URL` (`getPublicApiUrl()`): display only, for API users' curl examples.
+server-rendered page as `window.__ENV__`. `WS_URL` (read by `getWebSocketUrl()`) sets the browser's
+WebSocket address; unset, it is `/ws` on the current origin.
 
 <CodeBlock filename=".env.local" language="bash">
 {`# Server-side: target for the /api/backend proxy

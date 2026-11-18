@@ -73,11 +73,10 @@ Use the `./rh` CLI to manage services:
 
 ### Changing the ports
 
-The first `./rh start` prompts for backend and frontend ports (defaults: `8080`, `3000`) and writes them to `.env.docker.local`. To change them later, edit `.env.docker.local` — the port and the port in its URL must stay in sync (`BACKEND_PORT` with `API_BASE_URL`, `FRONTEND_PORT` with `FRONTEND_URL`). The browser's WebSocket follows `BACKEND_PORT` on its own. Then run `./rh restart`:
+The first `./rh start` prompts for backend and frontend ports (defaults: `8080`, `3000`) and writes them to `.env.docker.local`. To change them later, edit `.env.docker.local` — keep `FRONTEND_PORT` and the port in `FRONTEND_URL` in sync. The browser's WebSocket follows `BACKEND_PORT` on its own. Then run `./rh restart`:
 
 <CodeBlock filename=".env.docker.local" language="bash">
 {`BACKEND_PORT=15000
-API_BASE_URL=http://localhost:15000
 FRONTEND_PORT=16000
 FRONTEND_URL=http://localhost:16000`}
 </CodeBlock>
