@@ -23,13 +23,12 @@ from sqlalchemy.orm import Session
 from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.models.test import Test
 from rhesis.backend.app.models.test_set import TestSet
-from rhesis.backend.app.schemas import test_set as test_set_schemas
+from rhesis.backend.app.services.garak.builder import build_tests_data
 from rhesis.backend.app.services.garak.probes import GarakProbeInfo, GarakProbeService
-from rhesis.backend.app.services.garak.taxonomy import GarakTaxonomy, resolve_requirement
+from rhesis.backend.app.services.garak.taxonomy import GarakTaxonomy
 from rhesis.backend.app.services.test import bulk_create_tests
 from rhesis.backend.app.utils.crud_utils import get_item_detail
 from rhesis.backend.app.utils.database_exceptions import ItemDeletedException
-from rhesis.backend.app.utils.garak_nul_escape import encode_prompt_and_notes
 
 logger = logging.getLogger(__name__)
 
@@ -359,43 +358,8 @@ class GarakSyncService:
         Uses bulk_create_tests to ensure proper metadata is set
         (test_type, status, category, requirement, topic, etc.).
         """
-        # Get taxonomy mapping for this probe module
         mapping = GarakTaxonomy.get_mapping(probe.module_name)
-
-        # Build test data for new prompts
-        tests_data: List[test_set_schemas.TestData] = []
-
-        for idx, prompt_content in enumerate(probe.prompts):
-            probe_id = f"{probe.full_name}.{idx}"
-            if probe_id not in probe_ids_to_add:
-                continue
-
-            if not prompt_content or not prompt_content.strip():
-                continue
-
-            # Create test metadata
-            test_metadata = {
-                "source": "garak",
-                "garak_probe_id": probe_id,
-                "garak_probe_class": probe.class_name,
-                "garak_module": probe.module_name,
-                "garak_tags": probe.tags,
-            }
-            prompt_content, _ = encode_prompt_and_notes(prompt_content, None, test_metadata)
-
-            # Build test data with proper taxonomy
-            test_data = test_set_schemas.TestData(
-                prompt=test_set_schemas.TestPrompt(
-                    content=prompt_content,
-                    language_code="en",
-                ),
-                requirement=resolve_requirement(probe.tags),
-                category=mapping.category,
-                topic=mapping.topic,
-                test_type="Single-Turn",
-                metadata=test_metadata,
-            )
-            tests_data.append(test_data)
+        tests_data = build_tests_data(probe, mapping, probe_ids=probe_ids_to_add)
 
         if not tests_data:
             return 0

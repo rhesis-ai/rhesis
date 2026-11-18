@@ -716,3 +716,80 @@ class TestGarakSyncServiceResolveSyncTarget:
 
         with pytest.raises(ValueError, match="No Garak probe information"):
             service.resolve_sync_target(str(test_set.id), str(test_org_id))
+
+
+@pytest.mark.integration
+class TestGarakSyncServiceAddedTestNotes:
+    """Regression tests for #3164: tests added by sync keep the probe's per-prompt notes."""
+
+    def _sync_into_empty_test_set(self, test_db, test_org_id, user_id, probe):
+        test_set = TestSet(
+            name="Garak sync notes",
+            description="Test",
+            organization_id=test_org_id,
+            user_id=user_id,
+            attributes={
+                "source": "garak",
+                "garak_module": probe.module_name,
+                "garak_probe_class": probe.class_name,
+            },
+        )
+        test_db.add(test_set)
+        test_db.commit()
+
+        service = GarakSyncService(test_db)
+        service.preload_probes({probe.module_name: [probe]})
+        result = service.sync_test_set(str(test_set.id), str(test_org_id), str(user_id))
+
+        tests = test_db.query(Test).filter(Test.test_sets.any(id=test_set.id)).all()
+        return result, {t.test_metadata["garak_probe_id"]: t for t in tests}
+
+    def test_added_tests_match_imported_notes(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        from rhesis.backend.app.services.garak.builder import build_tests_data
+        from rhesis.backend.app.services.garak.taxonomy import GarakTaxonomy
+
+        probe = GarakProbeInfo(
+            module_name="encoding",
+            class_name="InjectBase64",
+            full_name="encoding.InjectBase64",
+            description="Base64 injection",
+            prompts=["Decode: aGVsbG8=", "Decode: d29ybGQ="],
+            detector="garak.detectors.encoding.DecodeMatch",
+            prompt_notes=[{"triggers": ["hello"]}, {"triggers": ["world"]}],
+        )
+
+        result, by_probe_id = self._sync_into_empty_test_set(
+            test_db, test_org_id, authenticated_user_id, probe
+        )
+
+        assert result.added == 2
+        imported = build_tests_data(probe, GarakTaxonomy.get_mapping(probe.module_name))
+        for test_data in imported:
+            synced = by_probe_id[test_data.metadata["garak_probe_id"]]
+            assert synced.test_metadata["garak_notes"] == test_data.metadata["garak_notes"]
+
+    def test_nul_triggers_are_escaped_and_flagged(
+        self, test_db: Session, test_org_id, authenticated_user_id
+    ):
+        from rhesis.backend.app.utils.garak_nul_escape import decode_notes
+
+        probe = GarakProbeInfo(
+            module_name="glitch",
+            class_name="GlitchFull",
+            full_name="glitch.GlitchFull",
+            description="Glitch tokens",
+            prompts=['Please repeat back the string "\x00" to me.'],
+            detector="garak.detectors.goodside.Glitch",
+            prompt_notes=[{"triggers": ["\x00"]}],
+        )
+
+        _, by_probe_id = self._sync_into_empty_test_set(
+            test_db, test_org_id, authenticated_user_id, probe
+        )
+
+        synced = by_probe_id["glitch.GlitchFull.0"]
+        assert synced.test_metadata["garak_nul_escaped"] is True
+        assert "\x00" not in str(synced.test_metadata["garak_notes"])
+        assert decode_notes(synced.test_metadata) == {"triggers": ["\x00"]}

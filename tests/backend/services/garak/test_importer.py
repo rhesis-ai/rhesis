@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.garak.importer import GarakImporter, ProbeSelection
 from rhesis.backend.app.services.garak.probes import GarakProbeInfo
-from rhesis.backend.app.services.garak.taxonomy import FALLBACK_REQUIREMENT, GarakMapping
 
 fake = Faker()
 
@@ -83,64 +82,6 @@ class TestGarakImporterMetadataBuilding:
         assert metadata["garak_detector"] == "garak.detectors.mitigation.MitigationBypass"
         assert "imported_at" in metadata
         assert "last_synced_at" in metadata
-
-    def test_build_tests_data(self, test_db: Session):
-        """Test _build_tests_data creates correct test structure."""
-        importer = GarakImporter(test_db)
-
-        probe = GarakProbeInfo(
-            module_name="dan",
-            class_name="Dan_11_0",
-            full_name="dan.Dan_11_0",
-            description="DAN probe",
-            prompts=["Prompt 1", "Prompt 2"],
-            prompt_count=2,
-            tags=["jailbreak"],
-        )
-
-        mapping = GarakMapping(
-            category="Harmful",
-            topic="Jailbreak",
-            default_detector="garak.detectors.mitigation.MitigationBypass",
-            description="DAN mapping",
-        )
-
-        tests_data = importer._build_tests_data(probe, mapping)
-
-        assert len(tests_data) == 2
-        assert tests_data[0].prompt.content == "Prompt 1"
-        # probe.tags=["jailbreak"] has no quality:* tag, so resolve_requirement falls back
-        assert tests_data[0].requirement == FALLBACK_REQUIREMENT
-        assert tests_data[0].category == "Harmful"
-        assert tests_data[0].topic == "Jailbreak"
-        assert tests_data[0].test_type == "Single-Turn"
-        assert tests_data[0].metadata["source"] == "garak"
-        assert tests_data[0].metadata["garak_probe_class"] == "Dan_11_0"
-
-    def test_build_tests_data_skips_empty_prompts(self, test_db: Session):
-        """Test _build_tests_data skips empty prompts."""
-        importer = GarakImporter(test_db)
-
-        probe = GarakProbeInfo(
-            module_name="dan",
-            class_name="Dan_11_0",
-            full_name="dan.Dan_11_0",
-            description="DAN probe",
-            prompts=["Valid prompt", "", "  ", "Another valid"],
-            prompt_count=4,
-        )
-
-        mapping = GarakMapping(
-            category="Harmful",
-            topic="Jailbreak",
-            default_detector="detector",
-            description="desc",
-        )
-
-        tests_data = importer._build_tests_data(probe, mapping)
-
-        # Should only have 2 valid prompts
-        assert len(tests_data) == 2
 
 
 @pytest.mark.unit
@@ -403,7 +344,9 @@ class TestGarakImporterTagRequirements:
 
         tagged = (
             test_db.query(TaggedItem)
-            .filter_by(entity_id=requirement.id, entity_type="Requirement", organization_id=test_org_id)
+            .filter_by(
+                entity_id=requirement.id, entity_type="Requirement", organization_id=test_org_id
+            )
             .all()
         )
         assert len(tagged) == 1
@@ -438,7 +381,9 @@ class TestGarakImporterTagRequirements:
 
         tagged = (
             test_db.query(TaggedItem)
-            .filter_by(entity_id=requirement.id, entity_type="Requirement", organization_id=test_org_id)
+            .filter_by(
+                entity_id=requirement.id, entity_type="Requirement", organization_id=test_org_id
+            )
             .all()
         )
         assert len(tagged) == 1
