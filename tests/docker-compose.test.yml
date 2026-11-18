@@ -29,7 +29,6 @@ x-sdk-backend-config: &sdk-backend-config
   SESSION_SECRET_KEY: test-session-secret-key
   LOG_LEVEL: DEBUG
   RHESIS_CONNECTOR_DISABLED: true
-  API_BASE_URL: "http://localhost:10003"
   OTEL_RHESIS_TELEMETRY_ENABLED: "false"
 
 # Java SDK backend environment configuration
@@ -65,7 +64,6 @@ x-java-backend-config: &java-backend-config
   SESSION_SECRET_KEY: ci-test-session-secret
   LOG_LEVEL: DEBUG
   RHESIS_CONNECTOR_DISABLED: "true"
-  API_BASE_URL: "http://localhost:10003"
   OTEL_RHESIS_TELEMETRY_ENABLED: "false"
   QUICK_START: "true"
   BACKEND_ENV: local

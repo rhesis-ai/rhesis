@@ -175,7 +175,6 @@ QUICK_START=true
 # Host ports and matching public URLs
 BACKEND_PORT=${backend_port}
 FRONTEND_PORT=${frontend_port}
-API_BASE_URL=http://localhost:${backend_port}
 FRONTEND_URL=http://localhost:${frontend_port}
 EOF
     ok "Created ${QUICKSTART_ENV_FILE} with local configuration"
@@ -278,7 +277,7 @@ quickstart_check_ports() {
     chosen="$(quickstart_env_port BACKEND_PORT 8080) $(quickstart_env_port FRONTEND_PORT 3000)"
 
     local entry label var url_var port holder container free
-    for entry in backend:BACKEND_PORT:API_BASE_URL:8080 frontend:FRONTEND_PORT:FRONTEND_URL:3000; do
+    for entry in backend:BACKEND_PORT::8080 frontend:FRONTEND_PORT:FRONTEND_URL:3000; do
         IFS=: read -r label var url_var port <<< "$entry"
         port=$(quickstart_env_port "$var" "$port")
         [[ "$own" == *" $port "* ]] && continue
@@ -300,7 +299,8 @@ quickstart_check_ports() {
 
         if free=$(next_free_port "$port" "$chosen"); then
             chosen="${chosen} ${free}"
-            suggestions="${suggestions}      ${var}=${free}\n      ${url_var}=http://localhost:${free}\n"
+            suggestions="${suggestions}      ${var}=${free}\n"
+            [ -n "$url_var" ] && suggestions="${suggestions}      ${url_var}=http://localhost:${free}\n"
         fi
     done
 

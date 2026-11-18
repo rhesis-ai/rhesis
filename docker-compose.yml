@@ -1,7 +1,6 @@
 x-host:
   backend_port:  &backend_port  ${BACKEND_PORT:-8080}
   frontend_port: &frontend_port ${FRONTEND_PORT:-3000}
-  api_base_url:  &api_base_url  ${API_BASE_URL:-http://localhost:8080}
   frontend_url:  &frontend_url  ${FRONTEND_URL:-http://localhost:3000}
 
 # Non-secret defaults are owned by settings.py: pass ${VAR:-} so an unset var
@@ -56,7 +55,6 @@ x-common-environment: &common-environment
   QUICK_START: ${QUICK_START:-}
 
 x-rhesis-config: &rhesis-config
-  API_BASE_URL: *api_base_url
   RHESIS_BASE_URL: ${RHESIS_BASE_URL:-}
   RHESIS_API_KEY: ${RHESIS_API_KEY:-}
   ENABLE_RHESIS_KEY: ${ENABLE_RHESIS_KEY:-true}  # Self-hosted: opt-out via env var

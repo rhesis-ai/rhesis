@@ -118,7 +118,6 @@ rewrite_frontend_env_ports() {
     local file="$1"
     local offset="$2"
     set_env_var "$file" PORT "$(dev_port_for frontend "$offset")"
-    set_env_url_port "$file" API_BASE_URL "$(dev_port_for backend "$offset")"
     set_env_url_port "$file" BACKEND_URL "$(dev_port_for backend "$offset")"
     set_env_url_port "$file" WS_URL "$(dev_port_for backend "$offset")"
     set_env_url_port "$file" FRONTEND_URL "$(dev_port_for frontend "$offset")"

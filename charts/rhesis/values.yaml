@@ -65,9 +65,6 @@ config:
   redisPort: "6379"
 
   # Frontend
-  # Public API URL shown to API/SDK users (e.g. curl examples). Display only:
-  # the browser sends every request to the frontend host.
-  apiBaseUrl: ""
   # Empty: the browser opens wss://<frontend host>/ws, which the frontend
   # ingress routes to the backend. Set it only when nothing routes /ws there.
   wsUrl: ""
