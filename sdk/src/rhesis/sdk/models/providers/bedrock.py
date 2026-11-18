@@ -1,13 +1,19 @@
 import os
 from typing import List, Optional
 
-from rhesis.sdk.models.defaults import DEFAULT_LANGUAGE_MODELS, model_name_from_id
+from rhesis.sdk.models.defaults import (
+    DEFAULT_EMBEDDING_MODELS,
+    DEFAULT_LANGUAGE_MODELS,
+    model_name_from_id,
+)
 
 # Imported through the provider module so a slim install gets its "install [all]" error.
-from rhesis.sdk.models.providers.litellm import LiteLLM, litellm
+from rhesis.sdk.models.providers.litellm import LiteLLM, LiteLLMEmbedder, litellm
 
 DEFAULT_MODEL = DEFAULT_LANGUAGE_MODELS["bedrock"]
 DEFAULT_MODEL_NAME = model_name_from_id(DEFAULT_MODEL)
+DEFAULT_EMBEDDING_MODEL = DEFAULT_EMBEDDING_MODELS["bedrock"]
+DEFAULT_EMBEDDING_MODEL_NAME = model_name_from_id(DEFAULT_EMBEDDING_MODEL)
 
 # Modes LiteLLM records for Bedrock models that can answer a chat request.
 _TEXT_MODES = frozenset({"chat", "completion"})
@@ -73,4 +79,68 @@ class BedrockLLM(LiteLLM):
             # Some current Claude entries carry no mode; only a known non-text mode excludes.
             if "/" not in model and (mode is None or mode in _TEXT_MODES):
                 models.append(model)
+        return models
+
+
+class BedrockEmbedder(LiteLLMEmbedder):
+    """Amazon Bedrock embedder via LiteLLM.
+
+    Authenticates with a Bedrock API key, which LiteLLM sends as a bearer token.
+    https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys.html
+
+    Titan Text Embeddings V2 supports dimensions 256, 512, or 1024; Rhesis stores
+    vectors in fixed-size pgvector columns (384, 768, 1024, 1536), so the working
+    overlap is 1024.
+
+    Args:
+        model_name: Bedrock embedding model ID
+            (e.g. ``"amazon.titan-embed-text-v2:0"``).
+        api_key: Bedrock API key. Falls back to ``AWS_BEARER_TOKEN_BEDROCK``.
+        dimensions: Output vector size (Titan V2: 256, 512, or 1024).
+
+    Raises:
+        ValueError: If neither ``api_key`` nor ``AWS_BEARER_TOKEN_BEDROCK`` is set.
+
+    Usage:
+        >>> embedder = BedrockEmbedder(api_key="your-bedrock-api-key", dimensions=1024)
+        >>> embedding = embedder.generate("Hello, world!")
+    """
+
+    PROVIDER = "bedrock"
+
+    def __init__(
+        self,
+        model_name: str = DEFAULT_EMBEDDING_MODEL_NAME,
+        api_key: Optional[str] = None,
+        dimensions: Optional[int] = None,
+    ):
+        api_key = api_key or os.getenv("AWS_BEARER_TOKEN_BEDROCK")
+        if not api_key:
+            raise ValueError("AWS_BEARER_TOKEN_BEDROCK is not set")
+
+        super().__init__(
+            model_name=self.PROVIDER + "/" + model_name,
+            api_key=api_key,
+            dimensions=dimensions,
+        )
+
+    @classmethod
+    def get_available_models(cls) -> List[str]:
+        """Bedrock IDs that produce embeddings.
+
+        Filters by LiteLLM's ``mode`` metadata instead of model name, because
+        Titan's ID contains ``embed`` but not ``embedding``.
+        """
+        all_models = litellm.get_valid_models(
+            custom_llm_provider=cls.PROVIDER,
+            check_provider_endpoint=False,
+        )
+        models = []
+        for raw in all_models:
+            name = raw.replace(cls.PROVIDER + "/", "")
+            mode = litellm.model_cost.get(f"{cls.PROVIDER}/{name}", {}).get("mode")
+            if mode is None:
+                mode = litellm.model_cost.get(name, {}).get("mode")
+            if "/" not in name and mode == "embedding":
+                models.append(name)
         return models

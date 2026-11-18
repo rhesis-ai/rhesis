@@ -54,7 +54,7 @@ export const SUPPORTED_PROVIDERS = [
 
 export const LOCAL_PROVIDERS = ['huggingface', 'lmformatenforcer', 'ollama'];
 
-export const EMBEDDING_PROVIDERS = ['openai', 'gemini', 'vertex_ai'];
+export const EMBEDDING_PROVIDERS = ['openai', 'gemini', 'vertex_ai', 'bedrock'];
 
 // Providers whose models answer typed questions but can't generate text. They are
 // saved with model_type 'decision' and may only judge categorical metrics.
@@ -90,6 +90,7 @@ export const EMBEDDING_MODEL_LISTABLE_PROVIDERS = [
   'openai',
   'gemini',
   'vertex_ai',
+  'bedrock',
 ] as const;
 
 export function providerSupportsModelListing(

@@ -250,6 +250,7 @@ UNIFIED_MODEL_REGISTRY: Dict[str, Dict[ModelType, Union[_ProviderSpec, Callable]
     },
     "bedrock": {
         ModelType.LANGUAGE: _ProviderSpec(f"{_PROVIDERS_MODULE}.bedrock", "BedrockLLM"),
+        ModelType.EMBEDDING: _ProviderSpec(f"{_PROVIDERS_MODULE}.bedrock", "BedrockEmbedder"),
     },
 }
 
@@ -630,6 +631,7 @@ _LISTABLE_EMBEDDING_PROVIDERS: Dict[str, tuple[str, str]] = {
     "openai": (f"{_PROVIDERS_MODULE}.openai", "OpenAIEmbedder"),
     "gemini": (f"{_PROVIDERS_MODULE}.gemini", "GeminiEmbedder"),
     "vertex_ai": (f"{_PROVIDERS_MODULE}.vertex_ai", "VertexAIEmbedder"),
+    "bedrock": (f"{_PROVIDERS_MODULE}.bedrock", "BedrockEmbedder"),
 }
 
 

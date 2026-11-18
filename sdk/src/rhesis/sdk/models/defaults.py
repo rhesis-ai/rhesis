@@ -46,6 +46,7 @@ DEFAULT_EMBEDDING_MODELS = {
     "openai": "openai/text-embedding-3-small",
     "gemini": "gemini/gemini-embedding-001",
     "vertex_ai": "vertex_ai/text-embedding-005",
+    "bedrock": "bedrock/amazon.titan-embed-text-v2:0",
 }
 
 
