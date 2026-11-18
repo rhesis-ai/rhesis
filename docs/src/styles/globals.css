@@ -696,9 +696,9 @@ html body {
   border-bottom: 1px solid var(--rh-border);
 }
 
-/* The wordmark carries the same Sora ExtraBold treatment as the site header */
-.nextra-navbar a[href='/'],
-.nextra-navbar a[href='/docs'] {
+/* The wordmark carries the same Sora ExtraBold treatment as the site header. Matched by
+   label, not href: the Docs tab links to /docs too and must stay a plain tab. */
+.nextra-navbar a[aria-label='Home page'] {
   font-family: var(--rh-font-display) !important;
   font-weight: 800 !important;
   color: var(--rh-heading) !important;
