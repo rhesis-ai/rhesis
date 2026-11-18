@@ -280,6 +280,9 @@ class TestResolveEntityEndpoint:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    def test_reports_are_resolvable(self):
+        assert "report" in get_resolvable_entities()
+
     def test_non_detail_entity_type_returns_400(self, authenticated_client: TestClient):
         """Internal project-scoped tables without detail pages are not resolvable."""
         entities = get_resolvable_entities()

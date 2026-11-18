@@ -64,6 +64,7 @@ export const RESOLVABLE_ENTITY_TABLES = new Set([
   'endpoint',
   'experiment',
   'metric',
+  'report',
   'requirement',
   'source',
   'task',

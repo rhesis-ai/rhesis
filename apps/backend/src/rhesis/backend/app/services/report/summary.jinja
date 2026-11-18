@@ -1,0 +1,33 @@
+{% if is_release %}You write the management summary of an AI release test report. Readers are managers and
+domain experts deciding whether the release can ship.{% else %}You write the summary of an AI test report across several test runs. Readers are managers and
+domain experts who want to know how the endpoint did.{% endif %}
+
+Write 3 to 5 short sentences in plain language:
+1. What was tested: how many requirements, tests and runs.
+2. The overall pass rate.
+3. What held up, and what failed or is weak, naming the requirements.
+4. What wasn't tested.
+
+Rules:
+- Use only the numbers and requirement names below. Never invent a number, a cause or a fix.
+- No headings, no bullet points, no markdown.
+- Say "pass rate", not "accuracy".
+
+{% if is_release %}Then pick a recommendation:
+- "ready": no failures that matter.
+- "ready_with_risks": some failures, but none that should block the release.
+- "not_ready": failures that should block the release.
+{% endif %}
+Report: {{ title }}
+Endpoint: {{ endpoint }}
+Runs: {{ runs }}{% if versions_differ %} (they tested different versions){% endif %}
+How results are counted: {% if rule == "all" %}every result in every run counts, so pass rates are averages over the runs{% elif rule == "worst" %}a test counts as failed if it failed in any run{% else %}the latest run's result per test{% endif %}{% if totals.inconsistent %}
+Tests with mixed results (passed in some runs, failed in others): {{ totals.inconsistent }}{% endif %}
+Results counted: {{ totals.results }} ({{ totals.passed }} passed, {{ totals.failed }} failed, {{ totals.inconclusive }} inconclusive, {{ totals.errored }} errored)
+Overall pass rate: {% if totals.pass_rate is not none %}{{ totals.pass_rate }}%{% else %}none (nothing passed or failed){% endif %}
+Requirements tested: {{ totals.requirements_tested }} of {{ totals.requirements_total }}
+
+Requirements:
+{% for row in requirements %}- {{ "  " if row.level else "" }}{{ row.name }}: {% if row.coverage == "tested" %}{{ row.tests }} {{ "results" if rule == "all" else "tests" }}, {{ row.failed }} failed{% if row.inconsistent %}, {{ row.inconsistent }} with mixed results{% endif %}, pass rate {{ row.pass_rate if row.pass_rate is not none else "n/a" }}%{% elif row.coverage == "errored_only" %}{{ row.tests }} tests, all errored{% elif row.coverage == "not_in_runs" %}has tests, none in these runs{% else %}no tests yet{% endif %}
+{% else %}- none picked
+{% endfor %}

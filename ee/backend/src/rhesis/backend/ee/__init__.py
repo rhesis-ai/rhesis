@@ -149,6 +149,7 @@ def bootstrap(app: "FastAPI") -> None:
     from rhesis.backend.ee.audit.streaming.router import router as audit_destinations_router
     from rhesis.backend.ee.rbac.provider import PermissionAuthorizationProvider
     from rhesis.backend.ee.rbac.router import router as rbac_router
+    from rhesis.backend.ee.reports.router import router as reports_router
     from rhesis.backend.ee.sso.provider_enricher import sso_provider_enricher
     from rhesis.backend.ee.sso.router import router as sso_router
     from rhesis.backend.ee.sso.runtime_check import sso_runtime_check
@@ -265,6 +266,11 @@ def bootstrap(app: "FastAPI") -> None:
 
     register_role_assignment_validator(check_project_role_assignment)
 
+    # Report sections by impact, people and stats, through core's report-section registry.
+    from rhesis.backend.ee.reports import register_reports
+
+    register_reports()
+
     # ---- Public routes (must run before include_router) ------------------
     # AuthenticatedAPIRoute resolves dependencies at registration time;
     # extending the existing list (rather than rebinding) is what lets
@@ -295,6 +301,7 @@ def bootstrap(app: "FastAPI") -> None:
         rbac_router,
         audit_router,
         audit_destinations_router,
+        reports_router,
     ):
         r.route_class = app.router.route_class
         app.include_router(r)
@@ -309,5 +316,5 @@ def bootstrap(app: "FastAPI") -> None:
 
     logger.info(
         "EE bootstrap complete - license provider installed; "
-        "registered features: [sso, api_clients, rbac, audit_log]"
+        "registered features: [sso, api_clients, rbac, audit_log, advanced_reports]"
     )

@@ -138,6 +138,10 @@ REQUIREMENT_RESOURCE_NAME = "requirement"
 REQUIREMENT_TAG = "requirements"
 REQUIREMENT_LIST_KEY = "requirements"
 
+REPORT_ROUTE_PREFIX = "/reports"
+REPORT_RESOURCE_NAME = "report"
+REPORT_TAG = "reports"
+
 
 # Error messages
 ERROR_INVALID_UUID = "Invalid UUID format in input parameters: {error}"

@@ -62,3 +62,18 @@ export type {
   TokenScopeExtensions,
   TokenScopeFieldProps,
 } from './token-scope-extensions';
+
+export {
+  registerReportSection,
+  registerReportRequirementColumn,
+  getReportSections,
+  getReportRequirementColumns,
+  resetReportSections,
+} from './report-sections';
+export type {
+  ReportSection,
+  ReportSectionSlot,
+  ReportSectionProps,
+  ReportRequirementColumn,
+  ReportColumnCellProps,
+} from './report-sections';

@@ -1,0 +1,232 @@
+'use client';
+
+import * as React from 'react';
+import { Box, Tooltip, Typography } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
+import type { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { useRouter } from 'next/navigation';
+import LinkedEntitiesGrid from '@/components/common/LinkedEntitiesGrid';
+import { createRowActionsColumn } from '@/components/common/createRowActionsColumn';
+import { LinkOffIcon } from '@/components/icons';
+import { gridEdgeInsetSx, withEdgeInset } from '@/components/reports/gridInset';
+import { getReportRequirementColumns } from '@/lib/extension-registries';
+import {
+  formatDelta,
+  formatPassRate,
+} from '@/components/reports/ReportSection';
+import type {
+  ReportDetail,
+  ReportRequirementRow,
+} from '@/utils/api-client/interfaces/report';
+
+const UNTESTED: Record<string, string> = {
+  no_tests: 'No tests yet',
+  not_in_runs: 'Not in these runs',
+  errored_only: 'Every test errored',
+};
+
+type Params = GridRenderCellParams<ReportRequirementRow>;
+
+function removeColumn(onRemove?: (id: string) => void): GridColDef[] {
+  return onRemove
+    ? [
+        createRowActionsColumn({
+          canDelete: () => true,
+          onDelete: id => onRemove(id),
+          deleteTooltip: 'Remove from report',
+          deleteIcon: LinkOffIcon,
+        }),
+      ]
+    : [];
+}
+
+/** The name, with the description as one muted line under it (full text on hover). */
+function RequirementName({ row }: { row: ReportRequirementRow }) {
+  const description = row.description?.trim();
+  return (
+    <Box
+      sx={{
+        pl: row.level * 3,
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        height: '100%',
+      }}
+    >
+      <Typography
+        variant="body2"
+        noWrap
+        sx={{ fontWeight: row.level === 0 ? 600 : undefined }}
+      >
+        {row.name}
+      </Typography>
+      {description && (
+        <Tooltip title={description} placement="bottom-start">
+          <Typography variant="caption" color="text.secondary" noWrap>
+            {description}
+          </Typography>
+        </Tooltip>
+      )}
+    </Box>
+  );
+}
+
+export default function ReportRequirementsTable({
+  report,
+  onEdit,
+  onRemove,
+}: {
+  report: ReportDetail;
+  /** Set on an editable draft: shows the card's Assign button. */
+  onEdit?: () => void;
+  /** Set on an editable draft: a row action that takes the item out of the report. */
+  onRemove?: (id: string) => void;
+}) {
+  const router = useRouter();
+  const rows = report.metrics?.requirements ?? [];
+  const rule = report.metrics?.result_rule ?? report.result_rule;
+
+  const columns = React.useMemo<GridColDef[]>(() => {
+    // Registered columns whose data the backend sent.
+    const extra: GridColDef[] = getReportRequirementColumns()
+      .filter(column => column.sectionKey in report.sections)
+      .map(column => {
+        const Cell = column.cell;
+        return {
+          field: `ext_${column.id}`,
+          headerName: column.header,
+          flex: 1,
+          sortable: false,
+          renderCell: (params: Params) => (
+            <Cell report={report} row={params.row} />
+          ),
+        };
+      });
+    return [
+      {
+        field: 'name',
+        headerName: 'Requirement',
+        flex: 2,
+        sortable: false,
+        renderCell: (params: Params) => <RequirementName row={params.row} />,
+      },
+      ...extra,
+      {
+        field: 'tests',
+        headerName: rule === 'all' ? 'Results' : 'Tests',
+        renderCell: (params: Params) =>
+          params.row.low_sample ? (
+            <Tooltip title="Fewer than 10 results: read the pass rate with care">
+              <Typography variant="body2" color="warning.main">
+                {params.row.tests} *
+              </Typography>
+            </Tooltip>
+          ) : (
+            params.row.tests || ''
+          ),
+        width: 100,
+        align: 'right',
+        headerAlign: 'right',
+      },
+      {
+        field: 'failed',
+        headerName: 'Failed',
+        width: 100,
+        align: 'right',
+        headerAlign: 'right',
+        renderCell: (params: Params) =>
+          params.row.coverage === 'tested' ? (
+            <Typography
+              variant="body2"
+              color={params.row.failed > 0 ? 'error.main' : undefined}
+            >
+              {params.row.failed}
+            </Typography>
+          ) : (
+            ''
+          ),
+      },
+      ...(rule === 'latest'
+        ? []
+        : [
+            {
+              field: 'inconsistent',
+              headerName: 'Mixed',
+              width: 130,
+              align: 'right' as const,
+              headerAlign: 'right' as const,
+              description:
+                'Tests that passed in some runs and failed in others',
+              renderCell: (params: Params) =>
+                params.row.inconsistent ? (
+                  <Typography variant="body2" color="warning.main">
+                    {params.row.inconsistent}
+                  </Typography>
+                ) : (
+                  ''
+                ),
+            },
+          ]),
+      ...(report.metrics?.comparison
+        ? [
+            {
+              field: 'pass_rate_delta',
+              headerName: 'Change',
+              width: 110,
+              align: 'right' as const,
+              headerAlign: 'right' as const,
+              description: `Change in percentage points against ${report.metrics.comparison.baseline.title}`,
+              renderCell: (params: Params) => (
+                <Typography
+                  variant="body2"
+                  color={
+                    (params.row.pass_rate_delta ?? 0) <= -0.05
+                      ? 'error.main'
+                      : undefined
+                  }
+                >
+                  {formatDelta(params.row.pass_rate_delta)}
+                </Typography>
+              ),
+            },
+          ]
+        : []),
+      {
+        field: 'pass_rate',
+        headerName: 'Pass rate',
+        width: 160,
+        align: 'right',
+        headerAlign: 'right',
+        renderCell: (params: Params) =>
+          params.row.coverage === 'tested' ? (
+            formatPassRate(params.row.pass_rate)
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              {UNTESTED[params.row.coverage]}
+            </Typography>
+          ),
+      },
+    ];
+  }, [report, rule]);
+
+  return (
+    <Box sx={[{ mb: 3 }, gridEdgeInsetSx] as SxProps<Theme>}>
+      <LinkedEntitiesGrid
+        title="Requirements"
+        rows={rows}
+        columns={withEdgeInset([...columns, ...removeColumn(onRemove)])}
+        getRowId={row => String(row.id)}
+        onAssignClick={onEdit}
+        onRowClick={params => router.push(`/requirements/${String(params.id)}`)}
+        searchPlaceholder="Search requirements…"
+        pageSizeOptions={[10, 25, 50]}
+        emptyState={
+          <Typography variant="body2" color="text.secondary">
+            No requirements picked. The key numbers still count every result.
+          </Typography>
+        }
+      />
+    </Box>
+  );
+}

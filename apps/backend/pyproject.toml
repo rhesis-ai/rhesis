@@ -72,6 +72,7 @@ dependencies = [
     "pydantic-settings>=2.14.2",
     "sendgrid>=6.12.5",
     "disposable-email-domains>=0.0.237",
+    "reportlab>=5.1.0",
 ]
 
 [project.optional-dependencies]

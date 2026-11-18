@@ -9,6 +9,7 @@ import {
   InsertChartIcon,
   KnowledgeIcon,
   PlayArrowIcon,
+  ReportsIcon,
   ScienceIcon,
   TasksIcon,
   TracesIcon,
@@ -26,6 +27,7 @@ const RESOLVE_ENTITY_ICONS: Record<
   metric: InsertChartIcon,
   experiment: BiotechIcon,
   task: TasksIcon,
+  report: ReportsIcon,
   source: KnowledgeIcon,
   trace: TracesIcon,
 };

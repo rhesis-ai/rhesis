@@ -117,6 +117,13 @@ from .prompt_template import (
     PromptTemplateCreate,
     PromptTemplateUpdate,
 )
+from .report import (
+    Report,
+    ReportCreate,
+    ReportDetail,
+    ReportMetrics,
+    ReportUpdate,
+)
 from .requirement import (
     Requirement,
     RequirementBase,
@@ -255,6 +262,11 @@ __all__ = [
     "TagBase",
     "TagCreate",
     "TagUpdate",
+    "Report",
+    "ReportCreate",
+    "ReportDetail",
+    "ReportMetrics",
+    "ReportUpdate",
     "Requirement",
     "RequirementBase",
     "RequirementCreate",

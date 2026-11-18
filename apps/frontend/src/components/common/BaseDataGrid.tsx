@@ -88,6 +88,8 @@ interface BaseDataGridProps {
   disableRowSelectionOnClick?: boolean;
   onRowSelectionModelChange?: (selectionModel: GridRowSelectionModel) => void;
   rowSelectionModel?: GridRowSelectionModel;
+  /** Keep selected ids that aren't among the loaded rows (e.g. beyond the first page fetched). */
+  keepNonExistentRowsSelected?: boolean;
   /**
    * Per-row predicate that gates checkbox selection. Useful when some
    * rows in a grid aren't deletable (e.g. always-on overlay rows or
@@ -558,6 +560,7 @@ export default function BaseDataGrid({
   disableRowSelectionOnClick,
   onRowSelectionModelChange,
   rowSelectionModel,
+  keepNonExistentRowsSelected,
   isRowSelectable,
   rowSelectionDisabledTooltip,
   sortingMode = 'client',
@@ -969,6 +972,9 @@ export default function BaseDataGrid({
                     rowSelectionModel,
                   })}
                   {...(isRowSelectable && { isRowSelectable })}
+                  {...(keepNonExistentRowsSelected && {
+                    keepNonExistentRowsSelected,
+                  })}
                   {...(getRowClassName && { getRowClassName })}
                   {...(disableRowSelectionOnClick && {
                     disableRowSelectionOnClick,

@@ -343,11 +343,12 @@ class TestEEBootstrap:
         assert feature is not None
         assert feature.display_name == "Single Sign-On"
         assert feature.runtime_check is not None
-        # The bootstrap mounts six routers today: SSO admin, API Clients CRUD,
-        # the token-exchange endpoint, RBAC, the audit log and its destinations.
+        # The bootstrap mounts seven routers today: SSO admin, API Clients CRUD,
+        # the token-exchange endpoint, RBAC, the audit log and its destinations,
+        # and the report audit trail.
         # Pin the count so a future addition is a deliberate test update
         # rather than silently growing the EE surface area.
-        assert mock_app.include_router.call_count == 6
+        assert mock_app.include_router.call_count == 7
 
     def test_registers_api_clients(self, clean_registry):
         """API_CLIENTS feature is registered alongside SSO."""
@@ -366,9 +367,9 @@ class TestEEBootstrap:
         mock_app = MagicMock()
         ee_pkg.bootstrap(mock_app)
         ee_pkg.bootstrap(mock_app)
-        # SSO + API_CLIENTS + RBAC + AUDIT_LOG; idempotency means re-running
-        # bootstrap does not double the count.
-        assert len(FeatureRegistry._features) == 4
+        # SSO + API_CLIENTS + RBAC + AUDIT_LOG + ADVANCED_REPORTS; idempotency means
+        # re-running bootstrap does not double the count.
+        assert len(FeatureRegistry._features) == 5
 
     def test_route_class_inherits_from_app(self, clean_registry):
         """The EE router must adopt the app's authenticated route class.

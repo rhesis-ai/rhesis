@@ -19,6 +19,7 @@ import {
   BiotechIcon,
   VpnKeyIcon,
   TestRunsIcon,
+  ReportsIcon,
   AssessmentIcon,
   CategoryIcon,
   AutoGraphIcon,
@@ -287,12 +288,10 @@ async function getNavigationItems(
       icon: <RateReviewIcon key="annotations-icon" />,
       requiredPermission: Capability.Annotation.READ,
     },
+    // TRACK section — release reports, follow-ups and background work.
     {
-      kind: 'page',
-      segment: 'tasks',
-      title: 'Tasks',
-      icon: <TasksIcon key="tasks-icon" />,
-      requiredPermission: Capability.Task.READ,
+      kind: 'header',
+      title: 'Track',
     },
     {
       kind: 'page',
@@ -300,6 +299,20 @@ async function getNavigationItems(
       title: 'Jobs',
       icon: <JobsIcon key="jobs-icon" />,
       requiredPermission: Capability.Job.READ,
+    },
+    {
+      kind: 'page',
+      segment: 'reports',
+      title: 'Reports',
+      icon: <ReportsIcon key="reports-icon" />,
+      requiredPermission: Capability.Report.READ,
+    },
+    {
+      kind: 'page',
+      segment: 'tasks',
+      title: 'Tasks',
+      icon: <TasksIcon key="tasks-icon" />,
+      requiredPermission: Capability.Task.READ,
     },
     // CONNECT section — tools and infrastructure.
     {

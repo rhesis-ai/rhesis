@@ -119,6 +119,8 @@ RUN apt-get update && \
     libpq5 \
     curl \
     git \
+    # Unicode text in report PDFs (services/report/pdf_kit.py).
+    fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONUNBUFFERED=1 \

@@ -180,11 +180,12 @@ def _viewer_permissions(cap_set: set[str]) -> set[str]:
 
 
 def _auditor_permissions(cap_set: set[str]) -> set[str]:
-    """Every ``:read``, ``recycle:view`` and ``audit_log:export``: reads everything,
-    including the audit log and its settings, and changes nothing. Plus their own
-    API tokens, so the log can be pulled with a key; the token stays read-only."""
+    """Every ``:read``, ``recycle:view``, ``audit_log:export`` and ``report:export``:
+    reads everything, including the audit log and its settings, and changes nothing;
+    a report PDF is the evidence an auditor pulls. Plus their own API tokens, so the
+    log can be pulled with a key; the token stays read-only."""
     perms = {c for c in cap_set if c.endswith(":read")}
-    perms |= {"recycle:view", "audit_log:export"} & cap_set
+    perms |= {"recycle:view", "audit_log:export", "report:export"} & cap_set
     perms |= _SELF_SERVICE_TOKEN_PERMISSIONS & cap_set
     return perms
 
@@ -216,6 +217,8 @@ def _member_permissions(cap_set: set[str]) -> set[str]:
     # Test set CSV export: Members+ only; Viewers may browse test sets read-only.
     if "test_set:export" in cap_set:
         perms.add("test_set:export")
+    # Reports: whoever writes one may publish it and print it; Viewers only read.
+    perms |= {"report:publish", "report:export"} & cap_set
     return perms
 
 
@@ -238,8 +241,8 @@ def permissions_for_built_in_role(role_name: str, capabilities: list[str]) -> se
       and Member do not nest.
     - **Member** (level 60): Viewer plus :create/:update/:delete and the special
       project actions (:execute, :generate, :import, :react) on every
-      project-scoped resource except project:delete, plus their own API tokens
-      (token:create/read/update/delete).
+      project-scoped resource except project:delete, plus report:publish,
+      report:export and their own API tokens (token:create/read/update/delete).
     - **Viewer** (level 40): every :read except role:read, token:read and
       audit_log:read (covers organization:read and member:read for org
       context).

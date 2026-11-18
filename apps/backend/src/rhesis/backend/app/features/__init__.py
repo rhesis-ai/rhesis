@@ -57,6 +57,8 @@ class FeatureName(str, Enum):
     RBAC = "rbac"
     #: Enterprise audit log: recording, and later the Events tab.
     AUDIT_LOG = "audit_log"
+    #: Extra report sections: by impact, who was involved, stats.
+    ADVANCED_REPORTS = "advanced_reports"
 
 
 # Accept either the enum or its raw string value so dynamic call sites

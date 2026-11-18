@@ -19,10 +19,12 @@ import { registerApiClients } from './api-clients/register';
 import { registerSSO } from './sso/register';
 import { registerRBAC } from './rbac/register';
 import { registerAuditLog } from './audit-log/register';
+import { registerReports } from './reports/register';
 
 export function bootstrapEE(): void {
   registerSSO();
   registerApiClients();
   registerRBAC();
   registerAuditLog();
+  registerReports();
 }

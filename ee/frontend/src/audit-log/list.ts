@@ -43,6 +43,12 @@ export const AUDIT_EVENT_FILTERS = {
   action: { kind: 'enum', column: 'action', caseSensitive: true },
   outcome: { kind: 'enum', column: 'outcome', caseSensitive: true },
   channel: { kind: 'enum', column: 'channel', caseSensitive: true },
+  /** One resource's entries, e.g. a report's (`?resource_id=` on the tab). UUID, unquoted. */
+  resource: {
+    kind: 'raw',
+    toOData: (value: string) =>
+      value ? `resource_id eq ${escapeODataValue(value)}` : undefined,
+  },
   /** UUID compare, unquoted. */
   actor: {
     kind: 'raw',
