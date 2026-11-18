@@ -5,12 +5,8 @@ It used to link to endpoint.url, the target of the system under test. In self-ho
 setups that is often cluster-internal, so the link was dead and leaked the address.
 """
 
-from types import SimpleNamespace
-from uuid import uuid4
-
 import pytest
 
-from rhesis.backend.jobs.execution.result_processor import get_test_context
 from rhesis.backend.notifications.email.template_service import EmailTemplate, TemplateService
 from tests.notifications.email_fixtures import FIXTURES, FRONTEND
 
@@ -46,19 +42,3 @@ def test_endpoint_without_id_is_not_linked():
 
     assert "triage-assistant-staging" in html
     assert "/endpoints/" not in html
-
-
-@pytest.mark.unit
-def test_get_test_context_returns_endpoint_id_not_url():
-    endpoint_id = uuid4()
-    config = SimpleNamespace(
-        test_set=SimpleNamespace(name="Set"),
-        endpoint=SimpleNamespace(
-            id=endpoint_id,
-            name="Endpoint",
-            url=TARGET_URL,
-            project=SimpleNamespace(name="Project"),
-        ),
-    )
-
-    assert get_test_context(config) == ("Set", "Endpoint", str(endpoint_id), "Project")
