@@ -34,6 +34,8 @@ def take_snapshot(src: Api, log: Callable[[str], None] = print) -> dict:
                 known_tests.add(t["id"])
 
     _add_referenced_requirements(src, tests, requirements, log)
+    sources = _sources(src, requirements)
+    parameter_schema = _parameter_schema(src)
     metrics += _referenced_project_metrics(src, requirements, test_sets, metrics)
     org_metrics = _referenced_org_metrics(src, requirements, test_sets)
     for t in tests:
@@ -53,6 +55,8 @@ def take_snapshot(src: Api, log: Callable[[str], None] = print) -> dict:
         "requirements": requirements,
         "metrics": metrics,
         "org_metrics": org_metrics,
+        "sources": sources,
+        "parameter_schema": parameter_schema,
         "tests": tests,
         "test_sets": test_sets,
     }
@@ -93,6 +97,25 @@ def _add_referenced_requirements(
             )
 
 
+def _sources(src: Api, requirements: list[dict]) -> list[dict]:
+    """The project's sources with their text, plus any source a requirement links from
+    elsewhere."""
+    ids = dict.fromkeys(x["id"] for x in src.get_all("/sources/", **src.project_filter()))
+    for r in requirements:
+        ids.update(dict.fromkeys(x["id"] for x in r.get("sources") or []))
+    # The list route leaves out the text content.
+    return [src.get(f"/sources/{sid}/content") for sid in ids]
+
+
+def _parameter_schema(src: Api) -> dict | None:
+    try:
+        return src.get(f"/projects/{src.project_id}/parameters/schema")
+    except HttpError as e:
+        if e.status == 404:
+            return None  # an instance from before the parameters API
+        raise
+
+
 def _linked_metrics(requirements: list[dict], test_sets: list[dict]) -> list[dict]:
     linked = [m for r in requirements for m in (r.get("metrics") or [])]
     return linked + [m for ts in test_sets for m in ts["_metrics"]]
@@ -127,6 +150,7 @@ def summary(snap: dict) -> str:
     in_sets = {tid for ts in snap["test_sets"] for tid in ts["_test_ids"]}
     return (
         f"endpoints={len(snap['endpoints'])} requirements={len(snap['requirements'])} "
-        f"custom_metrics={len(snap['metrics'])} tests={len(snap['tests'])} "
+        f"custom_metrics={len(snap['metrics'])} sources={len(snap.get('sources', []))} "
+        f"tests={len(snap['tests'])} "
         f"(in sets: {len(in_sets)}) test_sets={len(snap['test_sets'])}"
     )

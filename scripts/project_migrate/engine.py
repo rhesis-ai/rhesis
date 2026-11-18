@@ -9,11 +9,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from project_migrate.api import Abort, AmbiguousWrite, Api, odata_str
+from project_migrate.api import Abort, AmbiguousWrite, Api, HttpError, odata_str
 from project_migrate.compare import changed_fields
 from project_migrate.state import State
 
-ACTIONS = ("unchanged", "linked", "create", "update", "link", "adopt")
+ACTIONS = ("unchanged", "linked", "create", "update", "link", "unlink", "adopt", "skipped")
 UNCLEAR_RETRIES = 3
 UNCLEAR_WAIT_SECONDS = 5.0
 
@@ -29,7 +29,10 @@ class Report:
 
     def pending_work(self) -> int:
         return sum(
-            n for r in self.rows.values() for a, n in r.items() if a not in ("unchanged", "linked")
+            n
+            for r in self.rows.values()
+            for a, n in r.items()
+            if a not in ("unchanged", "linked", "skipped")
         )
 
     def render(self) -> str:
@@ -49,6 +52,7 @@ class Migration:
         *,
         dry: bool,
         limit: int | None = None,
+        prune: bool = False,
         log: Callable[[str], None] = print,
     ):
         self.snap = snap
@@ -56,6 +60,7 @@ class Migration:
         self.state = state
         self.dry = dry
         self.limit = limit
+        self.prune = prune
         self.log = log
         self.report = Report()
         self.placeholders = 0
@@ -147,33 +152,39 @@ class Migration:
         index: dict[str, list[dict]],
         path: str,
         *,
+        key: str = "name",
         normalize: Callable[[dict], dict] = lambda x: x,
-        refetch: bool = False,
+        refetch: str | None = None,
     ) -> str:
-        """Create or update an entity whose natural key is its name in the target project."""
-        target = self._find_named(kind, src, index)
+        """Create or update an entity matched by `key` (its name) in the target project.
+
+        `refetch` is a path suffix: when set, the target record is read again from
+        `<path><id><refetch>` before comparing, for fields the list route leaves out.
+        """
+        label = src[key]
+        target = self._find_named(kind, src, index, key)
         if target:
-            if refetch:
-                target = self.dst.get(f"{path}{target['id']}")
+            if refetch is not None:
+                target = self.dst.get(f"{path}{target['id']}{refetch}")
             diff = changed_fields(payload, normalize(target))
             if diff:
                 self.report.add(kind, "update")
-                self.log(f"  update {kind} '{src['name']}': {diff}")
+                self.log(f"  update {kind} '{label}': {diff}")
                 self.put(f"{path}{target['id']}", {k: payload[k] for k in diff})
             else:
                 self.report.add(kind, "unchanged")
-            self._done(kind, src, target["id"])
+            self._done(kind, src, target["id"], label)
             return target["id"]
 
         self.report.add(kind, "create")
-        self.log(f"  create {kind} '{src['name']}'")
-        self.state.put(f"{kind}:{src['id']}", status="pending", name=src["name"])
+        self.log(f"  create {kind} '{label}'")
+        self.state.put(f"{kind}:{src['id']}", status="pending", name=label)
 
         def reconcile() -> dict | None:
             found = self.dst.get(
                 path,
                 **{
-                    "$filter": f"name eq {odata_str(src['name'])} and "
+                    "$filter": f"{key} eq {odata_str(label)} and "
                     f"project_id eq {odata_str(self.dst.project_id)}"
                 },
             )
@@ -181,11 +192,13 @@ class Migration:
 
         body = {**payload, "project_id": self.dst.project_id}
         new_id = self.create(kind, path, body, reconcile)
-        index.setdefault(src["name"], []).append({"id": new_id, "name": src["name"]})
-        self._done(kind, src, new_id)
+        index.setdefault(label, []).append({"id": new_id, key: label})
+        self._done(kind, src, new_id, label)
         return new_id
 
-    def _find_named(self, kind: str, src: dict, index: dict[str, list[dict]]) -> dict | None:
+    def _find_named(
+        self, kind: str, src: dict, index: dict[str, list[dict]], key: str
+    ) -> dict | None:
         entry = self.state.get(f"{kind}:{src['id']}") or {}
         if entry.get("target_id"):
             for rows in index.values():
@@ -193,16 +206,50 @@ class Migration:
                     if row["id"] == entry["target_id"]:
                         return row
             self.report.notes.append(
-                f"{kind} '{src['name']}' was in state but is gone on the target; recreating"
+                f"{kind} '{src[key]}' was in state but is gone on the target; recreating"
             )
-        matches = index.get(src["name"], [])
+        matches = index.get(src[key], [])
         if len(matches) > 1:
-            raise Abort(f"target has {len(matches)} {kind}s named '{src['name']}'; resolve by hand")
+            raise Abort(f"target has {len(matches)} {kind}s named '{src[key]}'; resolve by hand")
         return matches[0] if matches else None
 
-    def _done(self, kind: str, src: dict, target_id: str) -> None:
-        self.state.put(f"{kind}:{src['id']}", status="done", target_id=target_id, name=src["name"])
+    def _done(self, kind: str, src: dict, target_id: str, label: str) -> None:
+        self.state.put(f"{kind}:{src['id']}", status="done", target_id=target_id, name=label)
         self.remember(kind, src["id"], target_id)
+
+    def unlink(
+        self,
+        kind: str,
+        method: str,
+        path: str,
+        *,
+        label: str,
+        body: dict | None = None,
+        count: int = 1,
+        gone: Callable[[], bool] | None = None,
+    ) -> None:
+        """Remove target links the source doesn't have. Only called with --prune.
+
+        A 404 means the link is already gone (a retried DELETE whose first try went through).
+        An unclear POST is checked with `gone` before it is sent again.
+        """
+        self.report.add(kind, "unlink", count)
+        self.log(f"  unlink {kind}: {label}")
+        if self.dry:
+            return
+        for _ in range(UNCLEAR_RETRIES):
+            try:
+                self.dst.request(method, path, body=body)
+                return
+            except HttpError as e:
+                if e.status == 404:
+                    return
+                raise
+            except AmbiguousWrite:
+                self.dst.clock.sleep(UNCLEAR_WAIT_SECONDS)
+                if gone and gone():
+                    return
+        raise Abort(f"could not remove link {path}")
 
     # ---- metrics shared by several steps ----------------------------------------------------
 
@@ -230,8 +277,8 @@ class Migration:
         ]
 
 
-def index_by_name(rows: list[dict]) -> dict[str, list[dict]]:
+def index_by_name(rows: list[dict], key: str = "name") -> dict[str, list[dict]]:
     idx: dict[str, list[dict]] = {}
     for r in rows:
-        idx.setdefault(r["name"], []).append(r)
+        idx.setdefault(r[key], []).append(r)
     return idx

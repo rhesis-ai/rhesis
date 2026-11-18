@@ -46,10 +46,26 @@ def _link_tests(m: Migration, ts: dict, sid: str) -> None:
             return set(chunk) <= _set_test_ids(m, sid)
 
         m.post_link(f"/test_sets/{sid}/associate", exists, body={"test_ids": chunk})
-    extra = len(have - set(wanted))
-    if extra:
+    extra = sorted(have - set(wanted))
+    if extra and m.prune and m.limit is None:
+        for i in range(0, len(extra), PAGE):
+            chunk = extra[i : i + PAGE]
+
+            def gone(chunk: list[str] = chunk) -> bool:
+                return not set(chunk) & _set_test_ids(m, sid)
+
+            m.unlink(
+                "test set-test link",
+                "POST",
+                f"/test_sets/{sid}/disassociate",
+                label=f"test set '{ts['name']}' -> {len(chunk)} test(s)",
+                body={"test_ids": chunk},
+                count=len(chunk),
+                gone=gone,
+            )
+    elif extra:
         m.report.notes.append(
-            f"test set '{ts['name']}' has {extra} extra test(s) on the target (left alone)"
+            f"test set '{ts['name']}' has {len(extra)} extra test(s) on the target (left alone)"
         )
 
 
@@ -69,3 +85,12 @@ def _link_metrics(m: Migration, ts: dict, sid: str) -> None:
             return mid in current()
 
         m.post_link(f"/test_sets/{sid}/metrics/{mid}", exists)
+    if m.prune:
+        wanted = {m.metric_target(x) for x in ts["_metrics"]}
+        for extra in sorted(have - wanted):
+            m.unlink(
+                "test set-metric link",
+                "DELETE",
+                f"/test_sets/{sid}/metrics/{extra}",
+                label=f"test set '{ts['name']}' -> metric {extra}",
+            )
