@@ -76,6 +76,10 @@ case "$1" in
     "worktree")
         "$RH_LIB_DIR/worktree.sh" "${@:2}"
         ;;
+    "project-migrate")
+        # Standard library only, so plain python3 runs it with no install step.
+        PYTHONPATH="$SCRIPT_DIR/scripts" exec python3 -m project_migrate "${@:2}"
+        ;;
     "help"|"--help"|"-h"|"")
         show_help
         ;;

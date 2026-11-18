@@ -1,0 +1,49 @@
+name: "[Test] Project migrate"
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'scripts/project_migrate/**'
+      - 'tests/project_migrate/**'
+      - '.github/workflows/project-migrate-test.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'scripts/project_migrate/**'
+      - 'tests/project_migrate/**'
+      - '.github/workflows/project-migrate-test.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  # Cancel only on PR branches. Two merges landing close together share one group
+  # on main, and cancelling there leaves the earlier commit with no test verdict.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  project-migrate:
+    name: Project migrate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install pytest
+        # project_migrate uses only the standard library, and the tests run it against an
+        # in-memory fake server, so pytest is the only dependency.
+        run: pip install pytest
+
+      - name: Run project migrate tests
+        run: pytest tests/project_migrate -v --no-header -p no:cacheprovider
