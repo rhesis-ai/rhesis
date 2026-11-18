@@ -101,10 +101,11 @@ export function normalizeBrandColor(
 /**
  * Validates a configured favicon URL, falling back to the Rhesis default.
  *
- * Only absolute `https://` URLs and root-relative paths are accepted. `http://`
- * is rejected because it would make an https page issue a mixed-content
- * request, and rejecting every other scheme keeps `javascript:` out of an
- * attribute we render into `<head>`.
+ * Only absolute `https://` URLs, `data:` URIs and root-relative paths are
+ * accepted. `http://` is rejected because it would make an https page issue a
+ * mixed-content request, and rejecting every other scheme keeps `javascript:`
+ * out of an attribute we render into `<head>`. `data:` is allowed so
+ * self-hosted deployments can inline a small SVG favicon via env var.
  */
 export function normalizeFaviconUrl(
   value: string | undefined | null,
@@ -139,9 +140,16 @@ export function normalizeFaviconUrl(
     return DEFAULT_FAVICON_URL;
   }
 
-  if (parsed.protocol !== 'https:') {
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'data:') {
     console.warn(
-      `[branding] Ignoring ${source} "${trimmed}": only https:// URLs and root-relative paths are allowed.`
+      `[branding] Ignoring ${source} "${trimmed}": only https:// URLs, data:image/ URIs and root-relative paths are allowed.`
+    );
+    return DEFAULT_FAVICON_URL;
+  }
+
+  if (parsed.protocol === 'data:' && !trimmed.startsWith('data:image/')) {
+    console.warn(
+      `[branding] Ignoring ${source} "${trimmed}": only data:image/* URIs are accepted.`
     );
     return DEFAULT_FAVICON_URL;
   }

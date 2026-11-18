@@ -79,7 +79,6 @@ describe('normalizeFaviconUrl', () => {
   it.each([
     ['http://example.com/favicon.png', 'plain http would be mixed content'],
     ['javascript:alert(1)', 'a script URL must never reach <head>'],
-    ['data:image/png;base64,AAAA', 'other schemes are not allowed'],
     ['not a url', 'unparseable'],
     ['example.com/favicon.png', 'scheme-less is unparseable'],
     [
@@ -87,9 +86,20 @@ describe('normalizeFaviconUrl', () => {
       'protocol-relative resolves to an external host',
     ],
     ['/\\example.com/favicon.png', 'browsers normalise /\\ to //'],
+    ['data:text/html,<h1>hi</h1>', 'non-image data URI'],
   ])('rejects %s (%s)', url => {
     expect(normalizeFaviconUrl(url)).toBe(DEFAULT_FAVICON_URL);
     expect(warn).toHaveBeenCalled();
+  });
+
+  it('accepts a data: URI as-is', () => {
+    expect(normalizeFaviconUrl('data:image/png;base64,AAAA')).toBe(
+      'data:image/png;base64,AAAA'
+    );
+    expect(normalizeFaviconUrl('data:image/svg+xml;base64,PHN2Zy...')).toBe(
+      'data:image/svg+xml;base64,PHN2Zy...'
+    );
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('still accepts an ordinary root-relative path with nested segments', () => {
