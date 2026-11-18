@@ -15,8 +15,14 @@ ENDPOINT_SECRET_FIELDS = frozenset(
 def preflight(m: Migration) -> None:
     proj = m.dst.get(f"/projects/{m.dst.project_id}")
     m.log(f"Target project: '{proj['name']}' on {m.dst.base}")
-    for kind in ("endpoints", "requirements", "metrics", "test_sets"):
-        names = [x["name"] for x in m.snap[kind]]
+    for kind, key in (
+        ("endpoints", "name"),
+        ("requirements", "name"),
+        ("metrics", "name"),
+        ("test_sets", "name"),
+        ("sources", "title"),
+    ):
+        names = [x[key] for x in m.snap.get(kind, [])]
         dupes = sorted({n for n in names if names.count(n) > 1})
         if dupes:
             raise Abort(f"source has duplicate {kind} names {dupes}; names are the match key")
@@ -27,15 +33,49 @@ def preflight(m: Migration) -> None:
     )
 
 
+# Header names that usually carry a credential.
+CREDENTIAL_HINTS = ("authorization", "api-key", "api_key", "apikey", "token", "secret", "password")
+
+
+def is_sdk_endpoint(e: dict) -> bool:
+    """SDK endpoints are registered by a running connector, not configured by URL, so the
+    connector has to register them against the target itself."""
+    return e.get("connection_type") == "SDK"
+
+
+def literal_credential_headers(e: dict) -> list[str]:
+    """Headers that look like credentials and hold a value rather than a template."""
+    return sorted(
+        name
+        for name, value in (e.get("request_headers") or {}).items()
+        if any(hint in name.lower() for hint in CREDENTIAL_HINTS)
+        and isinstance(value, str)
+        and "{{" not in value
+    )
+
+
 def endpoints(m: Migration) -> None:
     allowed = m.props("EndpointCreate")
     existing = index_by_name(m.dst.get_all("/endpoints/", **m.dst.project_filter()))
     for e in m.snap["endpoints"]:
+        if is_sdk_endpoint(e):
+            m.report.add("endpoint", "skipped")
+            m.report.notes.append(
+                f"endpoint '{e['name']}' is an SDK endpoint; point its connector at the target "
+                "so it registers there"
+            )
+            continue
         payload = clean(e, allowed, ENDPOINT_SECRET_FIELDS | {"is_example"})
-        m.upsert_named("endpoint", e, payload, existing, "/endpoints/", refetch=True)
+        m.upsert_named("endpoint", e, payload, existing, "/endpoints/", refetch="")
         if e.get("has_auth_token") or e.get("has_client_secret"):
             m.report.notes.append(
                 f"endpoint '{e['name']}' has a secret on the source; set it in the target UI"
+            )
+        literal = literal_credential_headers(e)
+        if literal:
+            m.report.notes.append(
+                f"endpoint '{e['name']}' sends credential header(s) {literal} as plain values; "
+                "they were copied as they are, so check they are right for the target"
             )
 
 
@@ -98,7 +138,7 @@ def _upsert_metric(m: Migration, src: dict, allowed: set[str], mine: dict) -> No
         if lookup_value(src.get(k)):
             payload[k] = lookup_value(src[k])
     m.upsert_named(
-        "metric", src, payload, mine, "/metrics/", normalize=_metric_normalize, refetch=True
+        "metric", src, payload, mine, "/metrics/", normalize=_metric_normalize, refetch=""
     )
 
 
@@ -118,6 +158,15 @@ def requirement_metric_links(m: Migration) -> None:
                 return mid in {x["id"] for x in m.dst.get(f"/requirements/{rid}/metrics/")}
 
             m.post_link(f"/requirements/{rid}/metrics/{mid}", exists)
+        if m.prune:
+            wanted = {m.metric_target(x) for x in r.get("metrics") or []}
+            for extra in sorted(have - wanted):
+                m.unlink(
+                    "requirement-metric link",
+                    "DELETE",
+                    f"/requirements/{rid}/metrics/{extra}",
+                    label=f"requirement '{r['name']}' -> metric {extra}",
+                )
 
 
 def topics_and_categories(m: Migration) -> None:

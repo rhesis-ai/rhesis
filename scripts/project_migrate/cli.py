@@ -20,19 +20,22 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
-from project_migrate.api import Abort, Api
+from project_migrate.api import Abort, Api, HttpError
 from project_migrate.engine import Migration, Report
 from project_migrate.snapshot import FORMAT_VERSION, summary, take_snapshot
 from project_migrate.state import State
-from project_migrate.steps import cases, config, sets
+from project_migrate.steps import cases, config, project, sets
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 # Gitignored and shared by every worktree. Snapshots hold customer test data: never commit them.
 DEFAULT_WORK_DIR = REPO_ROOT / "playground" / "project-migrate"
 
 STEPS: list[Callable[[Migration], None]] = [
+    project.parameter_schema,
     config.endpoints,
+    project.sources,
     config.requirements,
+    project.requirement_source_links,
     config.metrics,
     config.requirement_metric_links,
     config.topics_and_categories,
@@ -68,9 +71,16 @@ def load_snapshot(path: str) -> dict:
 
 
 def run_migration(
-    snap: dict, dst: Api, state: State, *, dry: bool, limit: int | None, log=print
+    snap: dict,
+    dst: Api,
+    state: State,
+    *,
+    dry: bool,
+    limit: int | None,
+    prune: bool = False,
+    log=print,
 ) -> Report:
-    m = Migration(snap, dst, state, dry=dry, limit=limit, log=log)
+    m = Migration(snap, dst, state, dry=dry, limit=limit, prune=prune, log=log)
     config.preflight(m)
     for step in STEPS:
         log(f"-- {step.__name__}")
@@ -100,7 +110,7 @@ def _sync(args: argparse.Namespace, dry: bool) -> tuple[Report, dict, Api]:
         state.data["src"] = snap["meta"]
         state.save()
     try:
-        report = run_migration(snap, dst, state, dry=dry, limit=args.limit)
+        report = run_migration(snap, dst, state, dry=dry, limit=args.limit, prune=args.prune)
     finally:
         state.save()
         print(f"\nrequests: reads={dst.calls['read']} writes={dst.calls['write']}")
@@ -120,23 +130,47 @@ def cmd_apply(args: argparse.Namespace) -> int:
     return 0
 
 
-def count_table(snap: dict, dst: Api) -> list[tuple[str, int, int]]:
+COUNTED = (
+    ("endpoints", "endpoint", "/endpoints/"),
+    ("sources", "source", "/sources/"),
+    ("requirements", "requirement", "/requirements/"),
+    ("custom metrics", "metric", "/metrics/"),
+    ("tests", "test", "/tests/"),
+    ("test sets", "test set", "/test_sets/"),
+)
+
+
+def count_table(report: Report, dst: Api) -> list[tuple[str, int, int]]:
+    """What the plan says the target should hold, against what it holds.
+
+    The expected side comes from the plan, not the snapshot: it already leaves out skipped SDK
+    endpoints and counts org-level metrics that get copied into the project.
+    """
     pf = dst.project_filter()
-    return [
-        ("endpoints", len(snap["endpoints"]), len(dst.get_all("/endpoints/", **pf))),
-        ("requirements", len(snap["requirements"]), len(dst.get_all("/requirements/", **pf))),
-        ("custom metrics", len(snap["metrics"]), len(dst.get_all("/metrics/", **pf))),
-        ("tests", len(snap["tests"]), len(dst.get_all("/tests/", **pf))),
-        ("test sets", len(snap["test_sets"]), len(dst.get_all("/test_sets/", **pf))),
-    ]
+    rows = []
+    for label, kind, path in COUNTED:
+        expected = sum(
+            report.rows.get(kind, {}).get(a, 0) for a in ("unchanged", "create", "update")
+        )
+        try:
+            actual = dst.get_all(path, **pf)
+        except HttpError as e:
+            if e.status != 404:
+                raise
+            continue  # a target without that API (older versions have no sources route)
+        if kind == "endpoint":
+            # SDK endpoints are skipped, and a connector may since have registered them here.
+            actual = [e for e in actual if not config.is_sdk_endpoint(e)]
+        rows.append((label, expected, len(actual)))
+    return rows
 
 
 def cmd_verify(args: argparse.Namespace) -> int:
-    report, snap, dst = _sync(args, dry=True)
-    counts = count_table(snap, dst)
-    print(f"\n{'':<16}{'source':>8}{'target':>8}")
+    report, _snap, dst = _sync(args, dry=True)
+    counts = count_table(report, dst)
+    print(f"\n{'':<16}{'expected':>9}{'target':>8}")
     for name, s, d in counts:
-        print(f"{name:<16}{s:>8}{d:>8}{'' if s == d else '   <-- differs'}")
+        print(f"{name:<16}{s:>9}{d:>8}{'' if s == d else '   <-- differs'}")
     left = report.pending_work()
     if left or any(s != d for _, s, d in counts):
         print(f"\nVERIFY FAILED: {left} action(s) still pending, or the counts differ")
@@ -178,6 +212,12 @@ def build_parser() -> argparse.ArgumentParser:
         c.add_argument("--dst-url", required=True)
         c.add_argument("--dst-project", required=True)
         c.add_argument("--limit", type=positive_int, help="only the first N tests (trial runs)")
+        c.add_argument(
+            "--prune",
+            action="store_true",
+            help="also remove links and parameter fields on the target that the source "
+            "doesn't have",
+        )
         c.set_defaults(fn=fn)
     return p
 
