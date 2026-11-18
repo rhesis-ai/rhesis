@@ -138,6 +138,7 @@ const meta: MetaRecord = {
       </span>
     ),
   },
+  jobs: 'Jobs',
   reports: 'Reports',
   tasks: 'Tasks',
 

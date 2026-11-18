@@ -1,0 +1,34 @@
+---
+title: Jobs
+description: The background work Rhesis runs for you, such as generating test sets and executing test runs, with its status and activity log.
+keywords: [background jobs, job status, test execution progress, cancel job]
+---
+
+# Jobs
+
+A job is background work the platform runs after you start something: generating a test set, executing a test run, importing from Garak, extracting text from a document. The [Jobs](https://app.rhesis.ai/jobs) page lists them with their status, progress, duration, who started them and when.
+
+## Status
+
+| Status | Meaning |
+|--------|---------|
+| **Queued** | Waiting for a worker |
+| **Running** | In progress |
+| **Cancelling** | A cancellation was requested; the job stops when it next checks |
+| **Completed** | Finished |
+| **Failed** | Stopped with an error |
+| **Cancelled** | Stopped on request |
+
+Filter the list by status (all, active, failed), by type, by who started the job, and by when it was created.
+
+## Job details
+
+Open a job to see its type, who started it, when it was queued, started and finished, which attempt it is on, and the entity it worked on. The **Activity** log shows what the job recorded along the way. Filter it by level (info, warning, error), and turn on **Follow** to keep the newest entries in view while the job runs.
+
+## Cancelling a job
+
+A queued or running job shows **Cancel job**. Cancelling is a request: the job stops when it next checks, so it shows *Cancelling* until then.
+
+## Permissions
+
+Every role can view jobs (`job:read`). Owners and Admins can also cancel them (`job:cancel`). A job has no create or edit permission of its own: it exists because you used another feature, and that feature's permission applies. See [Roles](/docs/organizations/roles).
