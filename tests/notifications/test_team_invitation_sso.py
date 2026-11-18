@@ -149,13 +149,13 @@ class TestInvitationTemplateRendering:
 
         assert "https://app.example.com/?org=example-org" in html
         assert "single sign-on" in html.lower()
-        # The email-address instruction is what misleads SSO users.
-        assert "Sign in with your email address" not in html
+        # A password prompt is what misleads SSO users.
+        assert "set a password" not in html
 
     def test_default_variant_is_unchanged(self):
         html = self._render()
 
-        assert "Sign in with your email address" in html
+        assert "set a password" in html
         assert "single sign-on" not in html.lower()
         assert "?org=" not in html
 
@@ -172,4 +172,5 @@ class TestInvitationTemplateRendering:
         # sso_enabled absent entirely, mimicking any other caller of this template.
         html = self._render()
 
-        assert "Sign in with your email address" in html
+        assert "set a password" in html
+        assert "single sign-on" not in html.lower()
