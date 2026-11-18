@@ -975,6 +975,68 @@ Most recent completed run for a test set + endpoint pair.
 
 ---
 
+## Reports
+
+A report summarises one endpoint's test runs against chosen requirements. You can build and
+change **drafts**. Publishing freezes a report as a person's decision, so it happens in the app,
+not through these tools.
+
+### `list_reports`
+List reports. `status` is `draft` (live numbers) or `published` (frozen).
+
+**Typical call:** `$filter=endpoint_id eq '<uuid>'`
+
+The summary and recommendation were written by the report's author (`user.name`). Quote the
+summary, don't paraphrase it, and never report a report that isn't in the response.
+
+---
+
+### `get_report`
+One report with its numbers: `metrics.totals`, `metrics.requirements` (a tree),
+`metrics.runs` (each with its experiment), `metrics.warnings` (caveats before trusting the
+numbers) and `metrics.comparison` (change against `baseline_report_id`, if set).
+
+**Key parameters:** `report_id` (required)
+
+---
+
+### `create_report`
+Create a report draft for one endpoint.
+
+**Key parameters:**
+- `title`, `endpoint_id` (required)
+- Runs: **either** `run_tag` (runs tagged later join until publishing) **or** `test_run_ids`.
+  Sending both is a 400.
+- `requirement_ids` — usually the requirements those runs tested
+- `result_rule` — `latest` (default), `all` (pass rates are averages over runs) or `worst`
+- `is_release` — `true` (default) ends with a ship recommendation; `false` for a plain report
+  across runs, such as experiments
+- `baseline_report_id` — a published report on the same endpoint to compare with
+
+Leave `summary` and `recommendation` out: use `draft_report_summary`, and let a person decide.
+
+**CHAIN:** `list_endpoints` → `list_test_runs` or `list_tags` → `create_report` → `get_report`
+
+---
+
+### `update_report`
+Change a draft (a published report answers 409). Send only the fields to change. Switching to
+`run_tag` drops hand-picked runs; switching to hand-picked runs needs `test_run_ids` and
+`run_tag: null` together.
+
+**Key parameters:** `report_id` (required)
+
+---
+
+### `draft_report_summary`
+Ask the generation model for a short summary of a draft, from its numbers only. Nothing is saved:
+show it to the user and save it with `update_report` only when they agree. The suggested
+recommendation is `null` for a report that isn't a release report.
+
+**Key parameters:** `report_id` (required)
+
+---
+
 ## Tags
 
 ### `list_tags`
