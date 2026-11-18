@@ -174,7 +174,7 @@ class Migration:
                 path,
                 **{
                     "$filter": f"name eq {odata_str(src['name'])} and "
-                    f"project_id eq {self.dst.project_id}"
+                    f"project_id eq {odata_str(self.dst.project_id)}"
                 },
             )
             return found[0] if found else None

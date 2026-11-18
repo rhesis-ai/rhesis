@@ -203,7 +203,7 @@ class Api:
             skip += PAGE
 
     def project_filter(self) -> dict:
-        return {"$filter": f"project_id eq {self.project_id}"}
+        return {"$filter": f"project_id eq {odata_str(self.project_id)}"}
 
 
 class HttpError(Abort):

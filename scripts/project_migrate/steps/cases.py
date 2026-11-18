@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from project_migrate.api import HttpError
+from project_migrate.api import HttpError, odata_str
 from project_migrate.compare import changed_fields, subset_equal, test_fingerprint
 from project_migrate.engine import Migration
 
@@ -151,7 +151,7 @@ def _create(m: Migration, src: dict, entry: dict, payload: dict, targets: Target
 
     def reconcile() -> dict | None:
         if prompt_id:
-            rows = m.dst.get("/tests/", **{"$filter": f"prompt_id eq {prompt_id}"})
+            rows = m.dst.get("/tests/", **{"$filter": f"prompt_id eq {odata_str(prompt_id)}"})
             return rows[0] if rows else None
         # A test without a prompt (multi-turn) is found by its fingerprint instead.
         return _recent_unclaimed_test(m, src, targets)
