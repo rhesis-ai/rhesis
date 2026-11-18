@@ -717,7 +717,7 @@ async def test_sso_connection(
     if not sso_config:
         return SSOTestResponse(success=False, message="SSO is not configured")
 
-    http_client = SafeHttpClient()
+    http_client = SafeHttpClient(verify_ssl=not sso_config.allow_insecure_tls)
     discovery_url = f"{sso_config.issuer_url}/.well-known/openid-configuration"
 
     try:

@@ -62,7 +62,7 @@ def _require_https(url: str) -> None:
 
 
 def check_destination_url(url: str) -> None:
-    """Raise ``SSRFError`` unless ``url`` is HTTPS to a public address. For saving a URL."""
+    """Raise ``SSRFError`` unless ``url`` is HTTPS to an allowed address. For saving a URL."""
     _require_https(url)
     validate_url_safety(url)
 

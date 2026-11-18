@@ -24,6 +24,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.capabilities import register_capabilities
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.features import Feature, FeatureName, FeatureRegistry
 from rhesis.backend.app.main import app
 from rhesis.backend.app.scope import bypass_tenant_filter
@@ -62,6 +63,15 @@ def _audit_log_registered():
 def _no_lag(monkeypatch):
     # Rows inserted by a test are seconds old at most; the lag has its own test.
     monkeypatch.setattr(service, "LAG_SECONDS", 0.0)
+
+
+@pytest.fixture
+def private_targets_off(monkeypatch):
+    # Tests run as development, where private targets are allowed by default.
+    monkeypatch.setenv("OUTBOUND_ALLOW_PRIVATE_NETWORKS", "false")
+    get_application_settings.cache_clear()
+    yield
+    get_application_settings.cache_clear()
 
 
 @pytest.fixture
@@ -495,7 +505,9 @@ class TestApi:
             ("http://hooks.example.com/x", "93.184.216.34"),
         ],
     )
-    def test_refuses_internal_and_plain_http_urls(self, client, admin, url, ip):
+    def test_refuses_internal_and_plain_http_urls(
+        self, client, admin, url, ip, private_targets_off
+    ):
         _, token = admin
         with fake_receiver(addresses={"hooks.example.com": ip}):
             resp = _call(client, token, "POST", json={"kind": "webhook", "name": "x", "url": url})
