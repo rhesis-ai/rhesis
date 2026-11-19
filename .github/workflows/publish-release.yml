@@ -8,6 +8,8 @@ on:
 #   3. deploy-prd          pin the rhesis chart to this commit and set the image
 #                          tags in one write, then sync and wait for health
 #   4. publish             tags, packages, GitHub releases, GHCR images
+#   5. merge-release-pr    squash-merge the release PR into main, so main names
+#                          the new version (docker-compose.ghcr.yml, Chart.yaml)
 # Nothing public goes out unless prd is healthy. To redeploy or roll back prd
 # later, run deploy-all-k8s.yml with environment: prd.
 jobs:
@@ -332,3 +334,36 @@ jobs:
 
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+
+  # After publishing, not before: the tags are cut from the release branch, and
+  # merging deletes it (delete_branch_on_merge). Squash, as main's ruleset requires.
+  merge-release-pr:
+    if: startsWith(github.ref, 'refs/heads/release/')
+    needs: [publish]
+    runs-on: ubuntu-latest
+    permissions: {}  # acts with the app token below
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.RHEO_APP_ID }}
+          private-key: ${{ secrets.RHEO_APP_PRIVATE_KEY }}
+
+      - name: Merge the release pull request
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          PR=$(gh pr list -R "$REPO" --head "$BRANCH" --base main --state open --json number --jq '.[0].number')
+          if [ -z "$PR" ]; then
+            echo "::notice::No open pull request from $BRANCH into main; it was probably merged already."
+            exit 0
+          fi
+          # main requires its status checks; a hotfix pushed late may still be running them.
+          gh pr checks "$PR" -R "$REPO" --required --watch --interval 30
+          if ! gh pr merge "$PR" -R "$REPO" --squash; then
+            echo "::error::Couldn't merge #$PR (conflict or failing check). The release is live and published; merge #$PR into main by hand."
+            exit 1
+          fi
