@@ -53,6 +53,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   anything that referenced them. Recorded metric scores are unaffected: test results and the
   verdict grid read their own JSONB snapshots, not the metric table.
 
+## [0.22.0] - 2026-11-19
+
+### Breaking Changes
+
+- **Authentication Redirect URIs**: OAuth and SSO authentication handshakes now run through the frontend proxy origin. Identity provider callback URLs must be updated to `<FRONTEND_URL>/api/backend/auth/callback` (for Google/GitHub) and `<FRONTEND_URL>/api/backend/auth/sso/callback` (for SSO) prior to upgrading.
+
+### Added
+
+- **Test Reports & PDF Export**: Added report generation functionality featuring draft modes, published snapshot freezing, customizable result counting rules (latest, all, worst), audit trail support, and downloadable PDF reports built with ReportLab.
+- **Report Tools for MCP**: Introduced Model Context Protocol (MCP) tools allowing AI agents to list, read, create, and update report drafts and AI summaries.
+- **Account Verification Grace Period**: Implemented mandatory account locking for unverified password-based accounts after a 3-day grace period or upon receiving an email hard bounce.
+
+### Changed
+
+- **Same-Origin Browser Routing**: Routed all backend browser endpoints and WebSockets through the frontend origin (`/api/backend` and `/ws`).
+- **Configuration Cleanup**: Removed `API_BASE_URL` environment variable support in the backend. Secure cookies and origin checks now rely on `FRONTEND_URL` and internal proxy headers.
+- **Client IP Resolution**: Rate limiting and audit events now evaluate the right-most `X-Forwarded-For` header entry to accurately extract client IP addresses behind reverse proxies.
+- **Bulk Test Endpoints**: `/test_sets/bulk` now retains `test_parameters`, and `/tests/bulk` preserves test metadata while returning created `test_ids`.
+
+### Fixed
+
+- **Private Network SSO Support**: Updated `SafeHttpClient` and SSO discovery/token handlers to respect `OUTBOUND_ALLOW_PRIVATE_NETWORKS`, allowing self-hosted instances to connect to internal identity providers.
+- **Garak Sync Trigger Notes**: Unified test creation logic during Garak probe syncs so per-prompt `garak_notes` are correctly preserved on synced tests.
+- **Parent Resource Deletion**: Fixed an issue to ensure child elements are properly unlinked upon parent item deletion.
+- **Email Link Normalization**: Updated test execution summary emails to link to the frontend endpoint page rather than internal target URIs, and fixed trailing slash formatting issues on `FRONTEND_URL`.
+- **SDK Import Handles**: Made SDK imports lazy within backend error handlers to resolve startup issues in minimal deployments without the SDK installed.
+- **Database Migrations**: Resolved dual-head migration conflicts by merging Alembic database revision branches.
+
+### Security
+
+- Updated dependency constraints for `opentelemetry-api`, `dnspython`, `tornado`, and `soupsieve` to remediate security advisories.
+
+
 ## [0.21.2] - 2026-11-17
 
 ### Added
