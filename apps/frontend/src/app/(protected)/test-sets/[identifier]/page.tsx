@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { Box, CircularProgress } from '@mui/material';
-import { Metadata } from 'next';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import { prefetch, prefetchList } from '@/utils/server-prefetch';
@@ -12,6 +11,8 @@ import { format } from 'date-fns';
 
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
+import DocumentTitle from '@/components/common/DocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 
 import TestSetHeaderActions from './components/TestSetHeaderActions';
 import TestSetDetailTabs from './components/TestSetDetailTabs';
@@ -21,19 +22,6 @@ import { testSetRunsList } from './components/testSetRunsList';
 interface PageProps {
   params: Promise<{ identifier: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ identifier: string }>;
-}): Promise<Metadata> {
-  const resolvedParams = await params;
-  const identifier = resolvedParams.identifier;
-  return {
-    title: 'Test Set Details',
-    description: `Details for Test Set ${identifier}`,
-  };
 }
 
 export default async function TestSetPage({ params }: PageProps) {
@@ -134,6 +122,7 @@ export default async function TestSetPage({ params }: PageProps) {
       actions={pageActions}
       metadata={metadataStrip}
     >
+      <DocumentTitle title={detailPageTitle(testSet.name, 'Test Sets')} />
       <Box sx={{ flexGrow: 1 }}>
         <React.Suspense
           fallback={

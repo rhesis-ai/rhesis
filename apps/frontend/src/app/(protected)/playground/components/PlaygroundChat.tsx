@@ -527,6 +527,7 @@ export default function PlaygroundChat({
             </Typography>
             <JsonMonacoField
               editorKey={`playground-test-params-${endpointId}`}
+              ariaLabel="Test parameters (JSON)"
               height="120px"
               theme={monacoTheme}
               value={testParamsJson}

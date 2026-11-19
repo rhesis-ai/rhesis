@@ -29,6 +29,8 @@ import ProjectDetailTabs, {
 } from './components/ProjectDetailTabs';
 import { format } from 'date-fns';
 import { useDeleteProject } from '@/hooks/useEndpoints';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 
 interface ClientWrapperProps {
   project: Project;
@@ -53,6 +55,8 @@ export default function ClientWrapper({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleted, setIsDeleted] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  useDocumentTitle(detailPageTitle(currentProject.name, 'Projects'));
   const notifications = useNotifications();
   const {
     activeProject,

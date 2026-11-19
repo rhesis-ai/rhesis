@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import DocumentTitle from '@/components/common/DocumentTitle';
 
 export const metadata: Metadata = {
   title: 'Manual Test Writer',
@@ -9,5 +10,10 @@ export default function NewTestLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <>
+      <DocumentTitle title="Manual Test Writer" />
+      {children}
+    </>
+  );
 }

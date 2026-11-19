@@ -16,14 +16,38 @@ export function useDocumentTitle(title: string | null) {
   const productName = branding?.productName ?? DEFAULT_PRODUCT_NAME;
 
   useEffect(() => {
-    if (title) {
-      // Mirrors the root layout's metadata template, '%s | <product name>'.
-      document.title = `${title} | ${productName}`;
-    }
+    if (!title) return;
 
-    // Cleanup function to restore default title when component unmounts
+    // Mirrors the root layout's metadata template, '%s | <product name>'.
+    const fullTitle = `${title} | ${productName}`;
+    const pathname = window.location.pathname;
+    const previousTitle = document.title;
+    document.title = fullTitle;
+
+    // Streamed route metadata can insert its <title> after this effect and
+    // win; re-apply ours, but not once a navigation has moved off this page.
+    const observer = new MutationObserver(() => {
+      if (
+        window.location.pathname === pathname &&
+        document.title !== fullTitle
+      ) {
+        document.title = fullTitle;
+      }
+    });
+    // Next may add a new <title> or rewrite the existing one's text.
+    observer.observe(document.head, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+
     return () => {
-      document.title = productName;
+      observer.disconnect();
+      // Restore what was there (e.g. a list page under a drawer), but leave a
+      // title the next page has already set alone.
+      if (document.title === fullTitle) {
+        document.title = previousTitle || productName;
+      }
     };
   }, [title, productName]);
 }

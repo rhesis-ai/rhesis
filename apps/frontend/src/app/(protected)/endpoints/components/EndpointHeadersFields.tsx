@@ -157,6 +157,7 @@ export default function EndpointHeadersFields({
           </Typography>
           <JsonMonacoField
             editorKey="request-headers-view"
+            ariaLabel="Request headers (JSON)"
             height="200px"
             theme={editorTheme}
             wrapperSx={editorWrapperStyle}

@@ -21,6 +21,7 @@ import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
@@ -177,7 +178,7 @@ export default function JobDetailClient({
     };
   }, [jobId, channel, subscribe, queryClient]);
 
-  useDocumentTitle(job?.name ? `Job: ${job.name}` : 'Job');
+  useDocumentTitle(detailPageTitle(job?.name, 'Jobs'));
 
   // Memoized so the copy callback below is not rebuilt on every render.
   const entries = React.useMemo(() => activity?.entries ?? [], [activity]);

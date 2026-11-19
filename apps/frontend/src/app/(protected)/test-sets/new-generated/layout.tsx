@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import { PageLayout } from '@/components/layout/PageLayout';
+import DocumentTitle from '@/components/common/DocumentTitle';
 
 export const metadata: Metadata = {
   title: 'Generate Test Set',
@@ -20,6 +21,7 @@ export default function GenerateTestSetLayout({
       ]}
       fullHeight
     >
+      <DocumentTitle title="Generate Test Set" />
       {children}
     </PageLayout>
   );

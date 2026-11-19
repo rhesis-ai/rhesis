@@ -41,6 +41,8 @@ import {
 import { useTestRunDetailData } from '../hooks/useTestRunDetailData';
 import { useLiveTestRun } from '../hooks/useLiveTestRun';
 import { useTestRunAnnotations } from '../hooks/useTestRunAnnotations';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 import {
   getTestEvaluationDetails,
   getTestEvaluationSummary,
@@ -127,6 +129,7 @@ export default function TestRunMainView({
   initialHasComparisonRuns = false,
 }: TestRunMainViewProps) {
   const testRun = useLiveTestRun(testRunId, initialTestRun);
+  useDocumentTitle(detailPageTitle(testRun.name, 'Test Runs'));
   // Already watching this run live on screen -- a completion notification
   // for it would be redundant noise, so mark it read on arrival instead of
   // badging/highlighting it (see useViewingEntity).

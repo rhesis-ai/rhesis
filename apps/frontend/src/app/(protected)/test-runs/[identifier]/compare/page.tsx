@@ -1,24 +1,13 @@
 import { Box } from '@mui/material';
-import { Metadata } from 'next';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { requireSession } from '@/utils/require-session';
 import { TestResultDetail } from '@/utils/api-client/interfaces/test-results';
 import type { UUID } from 'crypto';
 import ComparePageClient from './ComparePageClient';
+import DocumentTitle from '@/components/common/DocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 import { scaledVh } from '@/styles/viewport-scaling';
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ identifier: string }>;
-}): Promise<Metadata> {
-  const { identifier } = await params;
-  return {
-    title: 'Compare Test Runs',
-    description: `Compare test run ${identifier} against a baseline`,
-  };
-}
 
 export default async function TestRunComparePage({
   params,
@@ -181,6 +170,13 @@ export default async function TestRunComparePage({
 
   return (
     <Box sx={{ minHeight: scaledVh(), bgcolor: 'background.default' }}>
+      <DocumentTitle
+        title={
+          testRun.name?.trim()
+            ? detailPageTitle(`Compare ${testRun.name.trim()}`, 'Test Runs')
+            : 'Compare Test Runs'
+        }
+      />
       {/* Spacing per Figma "Content" frame (node 1645:25346):
           margins 120 (left/right) and 35 (bottom); padding 80 (top),
           37 (left/right), 30 (bottom). */}

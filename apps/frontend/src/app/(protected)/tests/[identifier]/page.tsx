@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { Box, Button, CircularProgress } from '@mui/material';
-import { Metadata } from 'next';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import { prefetch, prefetchList } from '@/utils/server-prefetch';
@@ -15,6 +14,8 @@ import { format } from 'date-fns';
 
 import { PageLayout } from '@/components/layout/PageLayout';
 import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
+import DocumentTitle from '@/components/common/DocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 
 import TestToTestSet from './components/TestToTestSet';
 import TestDetailTabs from './components/TestDetailTabs';
@@ -25,19 +26,6 @@ import { isMultiTurnConfig } from '@/utils/api-client/interfaces/multi-turn-test
 interface PageProps {
   params: Promise<{ identifier: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ identifier: string }>;
-}): Promise<Metadata> {
-  const resolvedParams = await params;
-  const identifier = resolvedParams.identifier;
-  return {
-    title: 'Test Details',
-    description: `Details for Test ${identifier}`,
-  };
 }
 
 export default async function TestDetailPage({ params }: PageProps) {
@@ -145,6 +133,7 @@ export default async function TestDetailPage({ params }: PageProps) {
       actions={pageActions}
       metadata={metadataStrip}
     >
+      <DocumentTitle title={detailPageTitle(content ? title : null, 'Tests')} />
       <Box sx={{ flexGrow: 1 }}>
         <React.Suspense
           fallback={

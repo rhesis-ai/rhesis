@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 import { useSession } from 'next-auth/react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 import { EndpointDetailProvider } from '@/app/(protected)/endpoints/[identifier]/components/EndpointDetailContext';
 import EndpointDetailView from '@/app/(protected)/endpoints/[identifier]/components/EndpointDetailView';
 import EndpointHeaderActions from '@/app/(protected)/endpoints/[identifier]/components/EndpointHeaderActions';
@@ -49,7 +50,7 @@ export default function ProjectEndpointDetailPageClient({
   const { data: project } = useProject(projectId, !!projectId, initialProject);
   const projectName = project?.name ?? '';
 
-  useDocumentTitle(endpoint?.name || null);
+  useDocumentTitle(detailPageTitle(endpoint?.name, 'Endpoints'));
 
   // A seeded endpoint renders straight away; the session check only matters
   // when the client still has to fetch.

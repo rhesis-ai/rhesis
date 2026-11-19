@@ -6,6 +6,8 @@ import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import { CloseIcon } from '@/components/icons';
 import { GridBadge } from '@/components/common/GridBadge';
 import { useCurrency } from '@/contexts/CurrencyContext';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 import type { TraceDetailResponse } from '@/utils/api-client/interfaces/telemetry';
 import { formatDuration } from '@/utils/format-duration';
 import { formatTokenCount, tokenSplitLabel } from '@/utils/trace-utils';
@@ -124,6 +126,7 @@ export default function TraceDrawerHeader({
   const { format: money } = useCurrency();
   const links = contextLinks(trace, experiment);
   const title = trace.root_spans[0]?.span_name;
+  useDocumentTitle(detailPageTitle(title, 'Traces'));
 
   const stats: {
     key: string;

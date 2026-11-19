@@ -293,6 +293,7 @@ export default function TabOverview({
         <Collapse in={versionInfoExpanded} id="endpoint-version-info-editor">
           <JsonMonacoField
             editorKey="create-version-info"
+            ariaLabel="Version info (JSON)"
             height="120px"
             wrapperSx={jsonFieldSx}
             theme={editorTheme}

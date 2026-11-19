@@ -238,6 +238,7 @@ export default function EndpointAuthFields({
             </Typography>
             <JsonMonacoField
               editorKey="client-credentials-extra-payload"
+              ariaLabel="Extra token request payload (JSON)"
               height="120px"
               theme={editorTheme}
               wrapperSx={editorWrapperStyle}

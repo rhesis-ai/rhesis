@@ -163,6 +163,7 @@ export default function ResponseMappingCard({
           <Box>
             <JsonMonacoField
               editorKey="create-response-mapping"
+              ariaLabel="Response mapping (JSON)"
               height="180px"
               wrapperSx={jsonFieldSx}
               theme={editorTheme}

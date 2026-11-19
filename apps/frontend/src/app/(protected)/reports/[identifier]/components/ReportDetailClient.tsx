@@ -30,6 +30,7 @@ import { can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { Capability } from '@/constants/capabilities';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 import type {
   ReportDetail,
   ReportUpdate,
@@ -88,7 +89,7 @@ export default function ReportDetailClient({
   const [editing, setEditing] = React.useState<'runs' | 'requirements' | null>(
     null
   );
-  useDocumentTitle(report.title);
+  useDocumentTitle(detailPageTitle(report.title, 'Reports'));
 
   const fail = React.useCallback(
     (message: string) =>

@@ -1,8 +1,11 @@
+import { Metadata } from 'next';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { requireSession } from '@/utils/require-session';
 import { UserSettings } from '@/utils/api-client/interfaces/user';
 import SettingsTabs from './components/SettingsTabs';
+
+export const metadata: Metadata = { title: 'Settings' };
 
 /**
  * Server component: fetches the current user's settings so the profile,
