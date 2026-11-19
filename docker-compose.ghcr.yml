@@ -1,9 +1,9 @@
 # Override for ./rh start (default): use prebuilt images from GHCR instead of local builds.
 # Images are published per release by .github/workflows/publish-ghcr-images.yml.
 #
-# The tag is this release's version, written here by the release tool, so a release tag's
-# compose files always name that release's images. Run it from a release tag
-# (git checkout v<version>), not from main: main's config can be ahead of the last release.
+# The tag is the latest release's version, written here by the release tool. On main this
+# runs main's compose config against those images, so config changes must keep working with
+# them for one release; .github/workflows/quickstart-smoke.yml checks it.
 # RHESIS_VERSION overrides it, e.g. to try another release's images.
 services:
   backend:
