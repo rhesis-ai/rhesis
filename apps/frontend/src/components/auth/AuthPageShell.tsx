@@ -85,8 +85,8 @@ interface AuthPageShellProps {
 }
 
 export default function AuthPageShell({ children }: AuthPageShellProps) {
-  const { mode, brandColor } = useTheme().palette;
-  const t = getAuthTokens(mode, brandColor);
+  const { mode, brandColor, accessibleColors } = useTheme().palette;
+  const t = getAuthTokens(mode, brandColor, accessibleColors);
   // `NavigationProvider` wraps every route, auth pages included, so the
   // server-resolved branding is available here without a second env read.
   const { branding } = useNavigationItems();

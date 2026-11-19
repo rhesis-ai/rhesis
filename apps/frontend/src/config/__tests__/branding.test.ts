@@ -7,6 +7,7 @@ import {
   brandFontWeights,
   withAssetVersion,
   getServerBranding,
+  normalizeAccessibleColors,
   normalizeBrandColor,
   normalizeFaviconUrl,
   normalizeProductName,
@@ -598,5 +599,57 @@ describe('withAssetVersion', () => {
     expect(withAssetVersion('/a?b=c', '0123456789abcdef')).toBe(
       '/a?b=c&v=01234567'
     );
+  });
+});
+
+describe('accessible colours', () => {
+  let warn: jest.SpyInstance;
+
+  beforeEach(() => {
+    warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warn.mockRestore();
+  });
+
+  it.each([
+    [undefined, false],
+    ['', false],
+    ['false', false],
+    ['true', true],
+    [' TRUE ', true],
+  ])('reads BRAND_ACCESSIBLE_COLORS=%p as %p', (value, expected) => {
+    expect(normalizeAccessibleColors(value)).toBe(expected);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('warns on anything else and stays off', () => {
+    expect(normalizeAccessibleColors('yes')).toBe(false);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  const base: Branding = {
+    faviconUrl: DEFAULT_FAVICON_URL,
+    productName: DEFAULT_PRODUCT_NAME,
+    isDefaultProductName: true,
+  };
+
+  it('turns on when the organisation opts in', () => {
+    expect(
+      resolveBranding(base, { accessible_colors: true }).accessibleColors
+    ).toBe(true);
+  });
+
+  it('stays on when the deployment forces it, whatever the org says', () => {
+    const forced = { ...base, accessibleColors: true };
+    expect(
+      resolveBranding(forced, { accessible_colors: false }).accessibleColors
+    ).toBe(true);
+    expect(resolveBranding(forced, {}).accessibleColors).toBe(true);
+  });
+
+  it('stays off by default', () => {
+    expect(resolveBranding(base, {}).accessibleColors).toBeUndefined();
   });
 });

@@ -160,7 +160,7 @@ export function PrimarySegmentedPills({
                   borderColor: 'primary.main',
                 }),
                 bgcolor: isSelected ? 'primary.main' : 'transparent',
-                color: isSelected ? '#fff' : 'primary.main',
+                color: isSelected ? 'primary.contrastText' : 'primary.main',
                 transition: 'background-color 0.15s, color 0.15s',
                 outline: 'none',
                 WebkitTapHighlightColor: 'transparent',

@@ -12,6 +12,7 @@
 
 import { alpha, blend } from '@mui/system/colorManipulator';
 import { ensureContrast } from '@/styles/brand-palette';
+import { ensureContrastOnAll, TEXT_CONTRAST } from '@/styles/contrast';
 
 /** Geist, registered in `src/styles/fonts.css`. Auth pages only. */
 export const AUTH_FONT_SANS =
@@ -142,12 +143,33 @@ function withBrandAccent(tokens: AuthTokens, brandColor: string): AuthTokens {
   };
 }
 
+/**
+ * Accessible-colours mode: accent and muted text reach 4.5:1 on the page.
+ * Buttons use the MUI theme, which the mode already covers.
+ */
+function withAccessibleColors(
+  tokens: AuthTokens,
+  mode: 'light' | 'dark'
+): AuthTokens {
+  const surfaces = [
+    tokens.ground,
+    mode === 'dark' ? tokens.ground : tokens.surface,
+  ];
+  return {
+    ...tokens,
+    accent: ensureContrastOnAll(tokens.accent, surfaces, TEXT_CONTRAST, mode),
+    muted: ensureContrastOnAll(tokens.muted, surfaces, TEXT_CONTRAST, mode),
+  };
+}
+
 export function getAuthTokens(
   mode: 'light' | 'dark',
-  brandColor?: string
+  brandColor?: string,
+  accessibleColors = false
 ): AuthTokens {
-  const tokens = mode === 'dark' ? DARK : LIGHT;
-  return brandColor ? withBrandAccent(tokens, brandColor) : tokens;
+  const base = mode === 'dark' ? DARK : LIGHT;
+  const tokens = brandColor ? withBrandAccent(base, brandColor) : base;
+  return accessibleColors ? withAccessibleColors(tokens, mode) : tokens;
 }
 
 /** Shapes, lifted from the website's radius scale and hero CTAs. */

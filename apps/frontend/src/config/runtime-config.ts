@@ -68,6 +68,7 @@ export interface ServerEnv {
     productName?: string;
     fontFamily?: string;
     fontBaseUrl?: string;
+    accessibleColors?: string;
   };
 }
 
@@ -95,6 +96,7 @@ export function serverEnv(): ServerEnv {
       productName: read('BRAND_PRODUCT_NAME'),
       fontFamily: read('BRAND_FONT_FAMILY'),
       fontBaseUrl: read('BRAND_FONT_BASE_URL'),
+      accessibleColors: read('BRAND_ACCESSIBLE_COLORS'),
     },
   };
 }

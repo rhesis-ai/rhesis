@@ -42,6 +42,8 @@ export interface BrandingSettings {
   product_name?: string | null;
   favicon?: BrandingFavicon | null;
   font?: BrandingFont | null;
+  /** Raise every text and UI colour to WCAG AA contrast, brand colours included. */
+  accessible_colors?: boolean | null;
 }
 
 /** How figures are shown to everyone in the organization. */
@@ -69,6 +71,7 @@ export interface OrganizationSettingsUpdate {
     product_name?: string | null;
     /** A Google family, or null to clear. Uploads go through their own endpoint. */
     font?: BrandingGoogleFont | null;
+    accessible_colors?: boolean | null;
   };
 }
 

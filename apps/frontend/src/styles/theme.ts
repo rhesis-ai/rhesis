@@ -23,7 +23,16 @@ import {
   deriveBrandSecondary,
   deriveBrandSurfaces,
   deriveSecondaryAccents,
+  type BrandAccents,
+  type BrandSurfaces,
+  type SecondaryAccents,
 } from './brand-palette';
+import {
+  accessibleColors,
+  fillUnderText,
+  textOnFill,
+  type PaletteColorLike,
+} from './contrast';
 export {
   GREYSCALE,
   BORDER_RADIUS,
@@ -40,6 +49,34 @@ export interface BrandColors {
   primary?: string;
   secondary?: string;
   fontFamily?: string;
+  /** Organisation setting: raise every text and UI colour to WCAG AA contrast. */
+  accessibleColors?: boolean;
+}
+
+/** Surfaces text and controls sit on, which accessible colours must clear. */
+function contrastSurfaces(
+  mode: PaletteMode,
+  brandSurfaces: BrandSurfaces | undefined
+): string[] {
+  return mode === 'light'
+    ? [
+        '#FFFFFF',
+        BACKGROUND_DEFAULT.light,
+        GREYSCALE.light.surface1,
+        GREYSCALE.light.surface2,
+        GREYSCALE.light.fieldSurface,
+        brandSurfaces?.light1 ?? '#F2F9FD',
+        brandSurfaces?.light2 ?? '#E4F2FA',
+      ]
+    : [
+        '#161B22',
+        BACKGROUND_DEFAULT.dark,
+        GREYSCALE.dark.surface1,
+        GREYSCALE.dark.surface2,
+        GREYSCALE.dark.fieldSurface,
+        '#1F242B',
+        '#2C2C2C',
+      ];
 }
 
 /** Colors for Architect charts: a pale neutral for context, `series` in fixed order. */
@@ -63,7 +100,6 @@ export interface ArchitectChartPalette {
 const DEFAULT_FONT = 'Be Vietnam Pro';
 
 const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
-  const gs = mode === 'light' ? GREYSCALE.light : GREYSCALE.dark;
   const ff = brand.fontFamily
     ? `"${brand.fontFamily}", "${DEFAULT_FONT}", sans-serif`
     : `"${DEFAULT_FONT}", sans-serif`;
@@ -84,10 +120,58 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
   const brandSecondary = brand.secondary
     ? deriveBrandSecondary(brand.secondary)
     : undefined;
+  // Accessible colours: each helper is the identity when the mode is off, so
+  // the default and branded themes are unchanged unless an org opts in.
+  const a11y = brand.accessibleColors
+    ? accessibleColors(mode, contrastSurfaces(mode, brandSurfaces))
+    : undefined;
+  const ui = (color: string) => a11y?.ui(color) ?? color;
+  const chipText = (color: string, background: string) =>
+    a11y?.textOn(color, background) ?? color;
+  const paletteColor = <T extends PaletteColorLike>(color: T): T =>
+    a11y ? a11y.paletteColor(color) : color;
+  const labelOn = (fill: string) =>
+    a11y ? textOnFill(fill) : contrastTextFor(fill);
+
+  const baseGs = mode === 'light' ? GREYSCALE.light : GREYSCALE.dark;
+  const gs = a11y
+    ? {
+        ...baseGs,
+        label: a11y.text(baseGs.label),
+        subtitle: a11y.text(baseGs.subtitle),
+      }
+    : baseGs;
+  // Field and toggle outlines identify the control (1.4.11); dividers don't.
+  const controlBorder = ui(gs.border);
+
   // Brand colours for the `components` overrides further down, which set
   // colours directly rather than reading `palette.primary`/`palette.secondary`.
-  const accent = deriveBrandAccents(mode, brandColor);
-  const secondaryAccent = deriveSecondaryAccents(brand.secondary);
+  const baseAccent = deriveBrandAccents(mode, brandColor);
+  const baseSecondaryAccent = deriveSecondaryAccents(brand.secondary);
+  const accent: BrandAccents = a11y
+    ? (() => {
+        const main = a11y.text(baseAccent.main);
+        const contrastText = textOnFill(main);
+        return {
+          ...baseAccent,
+          main,
+          contrastText,
+          mainHover: fillUnderText(baseAccent.mainHover, contrastText),
+          onSurface: a11y.text(baseAccent.onSurface),
+        };
+      })()
+    : baseAccent;
+  const secondaryAccent: SecondaryAccents = a11y
+    ? (() => {
+        const main = a11y.text(baseSecondaryAccent.main);
+        return {
+          ...baseSecondaryAccent,
+          main,
+          contrastText: textOnFill(main),
+          hoverContrastText: textOnFill(baseSecondaryAccent.mainHover),
+        };
+      })()
+    : baseSecondaryAccent;
 
   return {
     palette: {
@@ -95,18 +179,22 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
       ...(mode === 'light'
         ? {
             // Light mode - Rhesis AI colors
-            primary: brandPrimary ?? {
-              main: '#0080AF', // Figma primary blue
-              light: '#33A6CB', // lighter tint
-              dark: '#005F82', // darker shade
-              contrastText: '#FFFFFF',
-            },
-            secondary: brandSecondary ?? {
-              main: '#FD6E12', // Secondary CTA Orange
-              light: '#FDD803', // Accent Yellow
-              dark: '#1A1A1A', // Dark Black
-              contrastText: '#FFFFFF',
-            },
+            primary: paletteColor(
+              brandPrimary ?? {
+                main: '#0080AF', // Figma primary blue
+                light: '#33A6CB', // lighter tint
+                dark: '#005F82', // darker shade
+                contrastText: '#FFFFFF',
+              }
+            ),
+            secondary: paletteColor(
+              brandSecondary ?? {
+                main: '#FD6E12', // Secondary CTA Orange
+                light: '#FDD803', // Accent Yellow
+                dark: '#1A1A1A', // Dark Black
+                contrastText: '#FFFFFF',
+              }
+            ),
             background: {
               default: BACKGROUND_DEFAULT.light,
               paper: BACKGROUND_PAPER.light,
@@ -120,34 +208,40 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
             text: {
               primary: '#3D3D3D',
               secondary: '#1A1A1A',
+              // MUI's default (#9e9e9e on white) is also used for real hints.
+              ...(a11y && { disabled: a11y.text('#9E9E9E') }),
             },
-            success: {
+            success: paletteColor({
               main: '#38ad87',
               contrastText: '#FFFFFF',
-            },
-            warning: {
+            }),
+            warning: paletteColor({
               main: '#F57C00',
               contrastText: '#FFFFFF',
-            },
-            error: {
+            }),
+            error: paletteColor({
               main: '#de3355',
               contrastText: '#FFFFFF',
-            },
+            }),
           }
         : {
             // Dark mode
-            primary: brandPrimary ?? {
-              main: '#33A6CB', // slightly lighter for dark bg readability
-              light: '#66C2DC',
-              dark: '#0080AF',
-              contrastText: '#FFFFFF',
-            },
-            secondary: brandSecondary ?? {
-              main: '#FD6E12',
-              light: '#F78166',
-              dark: '#58A6FF',
-              contrastText: '#FFFFFF',
-            },
+            primary: paletteColor(
+              brandPrimary ?? {
+                main: '#33A6CB', // slightly lighter for dark bg readability
+                light: '#66C2DC',
+                dark: '#0080AF',
+                contrastText: '#FFFFFF',
+              }
+            ),
+            secondary: paletteColor(
+              brandSecondary ?? {
+                main: '#FD6E12',
+                light: '#F78166',
+                dark: '#58A6FF',
+                contrastText: '#FFFFFF',
+              }
+            ),
             background: {
               default: BACKGROUND_DEFAULT.dark,
               paper: BACKGROUND_PAPER.dark,
@@ -159,24 +253,34 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
             text: {
               primary: '#E6EDF3',
               secondary: '#A9B1BB',
+              ...(a11y && { disabled: a11y.text('#8B8D91') }),
             },
-            success: {
+            success: paletteColor({
               main: '#86EFAC',
               contrastText: '#000000',
-            },
-            warning: {
+            }),
+            warning: paletteColor({
               main: '#FCD34D',
               contrastText: '#000000',
-            },
-            error: {
+            }),
+            error: paletteColor({
               main: '#FCA5A5',
               contrastText: '#000000',
-            },
+            }),
           }),
+      // The theme leaves `info` at MUI's default; accessible mode needs it set.
+      ...(a11y && {
+        info: a11y.paletteColor(
+          mode === 'light'
+            ? { main: '#0288D1', light: '#03A9F4', dark: '#01579B' }
+            : { main: '#29B6F6', light: '#4FC3F7', dark: '#0288D1' }
+        ),
+      }),
       // Greyscale ramp available on palette for both modes
       greyscale: gs,
       brandColor,
       brandSecondaryColor: brand.secondary,
+      accessibleColors: Boolean(brand.accessibleColors),
     },
     shape: {
       borderRadius: 8,
@@ -343,6 +447,12 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
       markdownH4Scale: '1em',
     },
     components: {
+      // Spinners otherwise reach screen readers as an unnamed progressbar.
+      MuiCircularProgress: {
+        defaultProps: {
+          'aria-label': 'Loading',
+        },
+      },
       MuiSvgIcon: {
         styleOverrides: {
           root: {
@@ -431,7 +541,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
               backgroundColor: 'transparent',
               '&:hover': {
                 backgroundColor: accent.onSurface,
-                color: contrastTextFor(accent.onSurface),
+                color: labelOn(accent.onSurface),
                 borderColor: accent.onSurface,
               },
             },
@@ -466,7 +576,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
               lineHeight: '22px',
               paddingLeft: '16px',
               paddingRight: '16px',
-              border: `1px solid ${mode === 'light' ? GREYSCALE.light.border : GREYSCALE.dark.border}`,
+              border: `1px solid ${controlBorder}`,
               color:
                 mode === 'light' ? GREYSCALE.light.body : GREYSCALE.dark.body,
               backgroundColor: 'transparent',
@@ -503,40 +613,53 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
               mode === 'light' ? GREYSCALE.light.surface2 : '#2C2C2C',
             color: mode === 'light' ? GREYSCALE.light.body : '#E6EDF3',
             '&.MuiChip-outlined': {
-              borderColor:
-                mode === 'light' ? GREYSCALE.light.border : '#404040',
+              borderColor: ui(
+                mode === 'light' ? GREYSCALE.light.border : '#404040'
+              ),
               backgroundColor: 'transparent',
             },
           },
           colorInfo: {
             backgroundColor: mode === 'light' ? '#E4F2FA' : '#1F2937',
-            color: mode === 'light' ? '#1565C0' : '#93C5FD',
+            color: chipText(
+              mode === 'light' ? '#1565C0' : '#93C5FD',
+              mode === 'light' ? '#E4F2FA' : '#1F2937'
+            ),
             '&.MuiChip-outlined': {
-              borderColor: mode === 'light' ? '#90CAF9' : '#3B82F6',
+              borderColor: ui(mode === 'light' ? '#90CAF9' : '#3B82F6'),
               backgroundColor: 'transparent',
             },
           },
           colorSuccess: {
             backgroundColor: mode === 'light' ? '#E8F5E8' : '#1F2937',
-            color: mode === 'light' ? '#2E7D32' : '#86EFAC',
+            color: chipText(
+              mode === 'light' ? '#2E7D32' : '#86EFAC',
+              mode === 'light' ? '#E8F5E8' : '#1F2937'
+            ),
             '&.MuiChip-outlined': {
-              borderColor: mode === 'light' ? '#2E7D32' : '#86EFAC',
+              borderColor: ui(mode === 'light' ? '#2E7D32' : '#86EFAC'),
               backgroundColor: 'transparent',
             },
           },
           colorWarning: {
             backgroundColor: mode === 'light' ? '#FFF8E1' : '#1F2937',
-            color: mode === 'light' ? '#F57C00' : '#FCD34D',
+            color: chipText(
+              mode === 'light' ? '#F57C00' : '#FCD34D',
+              mode === 'light' ? '#FFF8E1' : '#1F2937'
+            ),
             '&.MuiChip-outlined': {
-              borderColor: mode === 'light' ? '#F57C00' : '#FCD34D',
+              borderColor: ui(mode === 'light' ? '#F57C00' : '#FCD34D'),
               backgroundColor: 'transparent',
             },
           },
           colorError: {
             backgroundColor: mode === 'light' ? '#FFEBEE' : '#1F2937',
-            color: mode === 'light' ? '#C62828' : '#FCA5A5',
+            color: chipText(
+              mode === 'light' ? '#C62828' : '#FCA5A5',
+              mode === 'light' ? '#FFEBEE' : '#1F2937'
+            ),
             '&.MuiChip-outlined': {
-              borderColor: mode === 'light' ? '#C62828' : '#FCA5A5',
+              borderColor: ui(mode === 'light' ? '#C62828' : '#FCA5A5'),
               backgroundColor: 'transparent',
             },
           },
@@ -609,18 +732,15 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
             '& .MuiOutlinedInput-root': {
               borderRadius: 8,
               '& fieldset': {
-                borderColor:
-                  mode === 'light'
-                    ? GREYSCALE.light.border
-                    : GREYSCALE.dark.border,
+                borderColor: controlBorder,
               },
               '&:hover fieldset': {
                 borderColor: accent.onSurface,
               },
             },
             ...(mode === 'dark' && {
-              '& .MuiInputLabel-root': { color: GREYSCALE.dark.subtitle },
-              '& .MuiFormHelperText-root': { color: GREYSCALE.dark.subtitle },
+              '& .MuiInputLabel-root': { color: gs.subtitle },
+              '& .MuiFormHelperText-root': { color: gs.subtitle },
             }),
           },
         },
@@ -635,7 +755,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
             }),
           },
           notchedOutline: {
-            borderColor: gs.border,
+            borderColor: controlBorder,
           },
           input: {
             ...(mode === 'dark' && { color: gs.title }),
@@ -831,6 +951,8 @@ declare module '@mui/material/styles' {
     brandColor?: string;
     /** The raw configured `BRAND_SECONDARY_COLOR`. Undefined on the default theme. */
     brandSecondaryColor?: string;
+    /** Accessible-colours mode; read by the auth pages, which run their own palette. */
+    accessibleColors?: boolean;
   }
   interface PaletteOptions {
     greyscale?: {
@@ -845,6 +967,7 @@ declare module '@mui/material/styles' {
     };
     brandColor?: string;
     brandSecondaryColor?: string;
+    accessibleColors?: boolean;
   }
 }
 

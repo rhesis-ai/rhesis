@@ -463,6 +463,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
       faviconUrl: deploymentBranding.faviconUrl,
       productName: deploymentBranding.productName,
       fontFamily: deploymentBranding.font?.family,
+      accessibleColors: deploymentBranding.accessibleColors,
     },
   }).replace(/</g, '\\u003c')};`;
 
@@ -565,6 +566,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
             primary: branding.primaryColor,
             secondary: branding.secondaryColor,
             fontFamily: branding.font?.family,
+            accessibleColors: branding.accessibleColors,
           }}
         >
           <LayoutContent

@@ -94,6 +94,8 @@ config:
   #   Fonts unless brandFontBaseUrl is also set.
   # brandFontBaseUrl: base URL for self-hosted font files, for deployments that
   #   cannot reach Google. Files are read as {base}/{slug}-{300,400,700}.ttf.
+  # brandAccessibleColors: "true" raises every text and UI colour, brand colours
+  #   included, to WCAG 2.1 AA contrast for everyone, sign-in pages too.
   #
   # Organizations can override all of these from their settings page; these
   # values are the deployment-wide default they fall back to.
@@ -103,6 +105,7 @@ config:
   brandProductName: ""
   brandFontFamily: ""
   brandFontBaseUrl: ""
+  brandAccessibleColors: ""
   # Backend
   rhesisBaseUrl: ""
   frontendUrl: ""
