@@ -16,8 +16,9 @@ Testing LLM and agentic apps is challenging: outputs are non-deterministic, edge
 <CodeBlock filename="Terminal" language="bash">
 {`git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
+git checkout "$(git tag --list 'v*' --sort=-version:refname | head -n1)"  # latest release
 
-./rh start                # pulls prebuilt images from GHCR
+./rh start                # pulls that release's prebuilt images from GHCR
 # ./rh start --build      # build images locally instead`}
 </CodeBlock>
 

@@ -69,9 +69,10 @@ Rhesis relies on LLMs for test generation and evaluation. Three options:
 ## Path 2: Full stack with Docker
 
 <CodeBlock filename="Terminal" language="bash" isTerminal={true}>
-{`./rh start              # pull prebuilt images (GHCR), then up
-./rh start --build        # optional: build images from local Dockerfiles`}
+{`./rh start --build        # build images from your checkout, then up`}
 </CodeBlock>
+
+Use `--build` on a working branch. Plain `./rh start` pulls the last release's prebuilt images, which only match a checkout of that release's tag; on any other commit it warns.
 
 Frontend at [http://localhost:3000](http://localhost:3000), API at [http://localhost:8080/docs](http://localhost:8080/docs). Manage the stack with `./rh logs`, `./rh stop`, `./rh restart` (add `--build` to rebuild), and `./rh delete`. This mode is aimed at local testing, including convenient sign-in behavior. For production deployment, see the deployment documentation.
 

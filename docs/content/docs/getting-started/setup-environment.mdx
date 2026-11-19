@@ -20,10 +20,11 @@ To run Rhesis on your own machine without sending data to the cloud, use the Doc
 <CodeBlock filename="terminal" language="bash">
 {`git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
+git checkout "$(git tag --list 'v*' --sort=-version:refname | head -n1)"
 ./rh start`}
 </CodeBlock>
 
-This uses prebuilt images from GHCR by default. To build containers locally from the repo, run `./rh start --build` instead.
+This checks out the latest release and runs its prebuilt images from GHCR. To build containers locally from the repo instead, run `./rh start --build`.
 
 Once the containers are running, visit [http://localhost:3000](http://localhost:3000) — you are automatically logged in as a local user.
 

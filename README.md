@@ -148,10 +148,12 @@ Details: [docs.rhesis.ai](https://docs.rhesis.ai)
 ### Local (Docker)
 
 ```bash
-git clone https://github.com/rhesis-ai/rhesis.git && cd rhesis && ./rh start
+git clone https://github.com/rhesis-ai/rhesis.git && cd rhesis
+git checkout "$(git tag --list 'v*' --sort=-version:refname | head -n1)"  # latest release
+./rh start
 ```
 
-`./rh start` pulls prebuilt images from GHCR. To build from the repo instead, use `./rh start --build` (and `./rh restart --build` after local Dockerfile changes).
+`./rh start` pulls the release's prebuilt images from GHCR, so run it from a release tag: `main`'s config can be ahead of the last release. To build from the repo instead (any commit), use `./rh start --build` (and `./rh restart --build` after local Dockerfile changes).
 
 **Access:** Frontend at `localhost:3000`, API at `localhost:8080/docs`
 
