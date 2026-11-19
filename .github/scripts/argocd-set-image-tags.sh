@@ -57,18 +57,32 @@ rbac_error() {
 }
 
 # A rerun of an old push, or a slow run finishing late, must not roll a service
-# back. Manual dispatches may: that's how you roll back on purpose.
+# back. Manual dispatches may: that's how you roll back on purpose. If the order
+# can't be checked, stop rather than guess.
 is_older() {
-  local new="$1" cur="$2" status
+  local new="$1" cur="$2" status auth=()
   [ "$EVENT" = workflow_dispatch ] && return 1
   [[ "$new" =~ ^[0-9a-f]{7,40}$ && "$cur" =~ ^[0-9a-f]{7,40}$ ]] || return 1
-  status=$(curl -fsS -H "Authorization: Bearer ${GH_TOKEN:-}" \
-    "https://api.github.com/repos/$REPO/compare/$cur...$new" | jq -r .status) || return 1
+  [ -n "${GH_TOKEN:-}" ] && auth=(-H "Authorization: Bearer $GH_TOKEN")
+  if ! status=$(curl -fsS --retry 3 ${auth[@]+"${auth[@]}"} \
+      "https://api.github.com/repos/$REPO/compare/$cur...$new" | jq -er .status); then
+    echo "::error::Couldn't compare $cur and $new, so can't tell whether $TAG would roll $KEY back."
+    exit 1
+  fi
   [ "$status" = behind ]
 }
 
+ERR="$(mktemp)"
+trap 'rm -f "$ERR"' EXIT
+
 for attempt in $(seq 1 10); do
-  APP_JSON=$(kubectl -n argocd get application "$APP" -o json 2>&1) || { echo "$APP_JSON"; rbac_error; }
+  if ! APP_JSON=$(kubectl -n argocd get application "$APP" -o json 2>"$ERR"); then
+    cat "$ERR"
+    if grep -qiE 'forbidden|unauthorized|not ?found' "$ERR"; then rbac_error; fi
+    echo "Reading $APP failed (attempt $attempt); retrying."
+    sleep $((RANDOM % 3 + 1))
+    continue
+  fi
   HELM=$(jq -c '.spec.source.helm' <<<"$APP_JSON")
 
   WRITE='[]'
