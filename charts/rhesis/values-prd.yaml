@@ -57,7 +57,6 @@ config:
   # Cloudflare they would all share the Cloud NAT IP's rate-limit bucket.
   rhesisBaseUrl: "http://backend:8080"
   frontendUrl: "https://app.rhesis.ai"
-  backendUrl: "http://backend:8080"
   # Disposable-email screening: off | log | enforce. Ran as log from #2511 so the
   # community list's false-positive rate could be measured; enforcing since 2026-08-21.
   authBlockDisposableEmails: "enforce"
