@@ -1,6 +1,6 @@
 # Releasing
 
-A Rhesis release is produced by three workflows in the repository's GitHub Actions tab, run in order, followed by a manual merge and a manual production deploy. Each one is triggered by hand — nothing starts a release automatically.
+A Rhesis release is produced by three workflows in the repository's GitHub Actions tab, run in order, followed by a manual merge. Each one is triggered by hand — nothing starts a release automatically.
 
 The platform is the coordinated snapshot of the repository, tagged `v<version>` and marked as the latest GitHub release. The backend and the frontend ship as part of it: they take the platform's version and are covered by its tag, though each still keeps its own changelog. The SDK and Polyphemus are versioned independently and tagged `<component>-v<version>`.
 
@@ -27,18 +27,24 @@ Check the generated changelogs and the version changes in the pull request, and 
   at this stage will not be part of the release.
 </Callout>
 
-### Publish
+### Deploy production and publish
 
-Switch to the release branch and run `[Release] 3. Publish` from it.
+Switch to the release branch and run `[Release] 3. Deploy and publish` from it. The jobs run in this order, and each one waits for the previous one:
 
-The workflow creates and pushes the tags and creates a GitHub release for each component. It does not merge the pull request.
+1. Pins prd's ArgoCD Applications under `kubernetes/clusters/prd/` to this release's commit and syncs them. See [`kubernetes/README.md`](https://github.com/rhesis-ai/rhesis/blob/main/kubernetes/README.md#production-promotion-gate) for why prd config is pinned to a commit instead of the release branch name.
+2. Copies the images staging ran into the production registry, unchanged, so production runs exactly what was tested.
+3. Pins the `rhesis` chart to the release commit and sets the image tags in a single write, then waits for production to be healthy. Production never runs new images on the old chart or the other way round.
+4. Creates and pushes the tags and creates a GitHub release for each component.
 
-It also pins prd's ArgoCD Applications under `kubernetes/clusters/prd/` to this release's commit and syncs them. See [`kubernetes/README.md`](https://github.com/rhesis-ai/rhesis/blob/main/kubernetes/README.md#production-promotion-gate) for why prd config is pinned to a commit instead of the release branch name. This only promotes prd's cluster config. The `rhesis` chart and its images are deployed together in "Deploy production" below.
+If the deploy fails, nothing is tagged or published: fix it on the release branch and run the workflow again. The workflow does not merge the pull request.
 
 <Callout type="error">
   Run this workflow **on the release branch**. A run started from `main` is skipped by a branch
-  guard and still reports success, so a release can look published when no tags were created.
+  guard and still reports success, so a release can look published when nothing was deployed or
+  tagged.
 </Callout>
+
+To redeploy or roll back production later, run `[Build & Deploy] All for K8s` with environment `prd` from the commit you want.
 
 ### Merge the release pull request
 
@@ -46,19 +52,11 @@ Merge the pull request opened in step 2, so the version bumps and changelogs lan
 
 Merge after publishing, not before: the tags are cut from the release branch, and merging can delete it.
 
-### Deploy production
-
-Run `[Build & Deploy] All for K8s` with environment `prd`, **from the release branch**.
-
-It builds the images, then pins the `rhesis` chart to the release commit and sets the image tags in a single write, so prd never runs new images on the old chart or the other way round. Staging is deployed the same way when the release branch is pushed.
-
-Publishing tags the release and pushes the packages, but does not deploy production. The release is not live until this step completes.
-
 </Steps>
 
 ## Verify the release
 
-Publishing sets off several workflows that run independently of each other, so `[Release] 3. Publish` can succeed while one of them fails. After a release, confirm:
+Publishing sets off several workflows that run independently of each other, so `[Release] 3. Deploy and publish` can succeed while one of them fails. After a release, confirm:
 
 - **Tags** — `v<version>` for the platform, plus one `<component>-v<version>` per independently released component.
 - **GitHub releases** — created from the changelog entries, with the platform release marked as latest.

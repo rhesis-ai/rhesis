@@ -58,7 +58,7 @@ PATCH_ARGS=()
 [ "${DRY_RUN:-}" = 1 ] && PATCH_ARGS+=(--dry-run=server)
 
 rbac_error() {
-  echo "::error::deploy-ci-$ENVIRONMENT can't read or patch $APP. Its Role is kubernetes/clusters/$ENVIRONMENT/argocd/rhesis-deployer-rbac.yaml; prd only has it once [Release] 3 Publish has promoted a commit that includes it."
+  echo "::error::deploy-ci-$ENVIRONMENT can't read or patch $APP. Its Role is kubernetes/clusters/$ENVIRONMENT/argocd/rhesis-deployer-rbac.yaml; prd only has it once [Release] 3 Deploy and publish has promoted a commit that includes it."
   exit 1
 }
 

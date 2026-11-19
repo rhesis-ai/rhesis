@@ -1,11 +1,15 @@
-name: "[Release] 3. Publish"
+name: "[Release] 3. Deploy and publish"
 on:
   workflow_dispatch:  # Allows manual triggering
 
-# Promotes prd's ArgoCD config (promote-prd-config, below) but does not deploy
-# the app. The rhesis chart and its images go out together afterwards: run
-# deploy-all-k8s.yml with environment: prd from the release branch, which pins
-# the chart to the release commit in the same write as the image tags.
+# One release, in a fixed order:
+#   1. promote-prd-config  prd's cluster config (and the deploy Role) to this commit
+#   2. promote-images      copy the images stg tested into prd's registry, same digests
+#   3. deploy-prd          pin the rhesis chart to this commit and set the image
+#                          tags in one write, then sync and wait for health
+#   4. publish             tags, packages, GitHub releases, GHCR images
+# Nothing public goes out unless prd is healthy. To redeploy or roll back prd
+# later, run deploy-all-k8s.yml with environment: prd.
 jobs:
   # Promotes prd-base (root app-of-apps) to this release's exact commit; every
   # nested Application under kubernetes/clusters/prd/ cascades from prd-base's
@@ -214,10 +218,62 @@ jobs:
           retry_argocd argocd app sync prd-base \
             --server "$ARGOCD_SERVER" --auth-token "$ARGOCD_AUTH_TOKEN" --grpc-web --timeout 300
 
+  # prd runs the exact images stg tested: copied by digest, not rebuilt. The
+  # release branch push built them into stg's registry (release.yml).
+  promote-images:
+    if: startsWith(github.ref, 'refs/heads/release/')
+    needs: [promote-prd-config]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      tag: ${{ steps.copy.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          sparse-checkout: .github
+
+      - uses: ./.github/actions/install-deploy-tools
+
+      - name: Log in as deploy-ci-prd
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.DEPLOY_CI_SA_PRD }}
+          token_format: access_token
+          create_credentials_file: false
+
+      - name: Copy images from stg to prd
+        id: copy
+        env:
+          ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          SRC_REGISTRY: europe-west4-docker.pkg.dev/${{ secrets.TF_PROJECT_ID_STG }}/rhesis
+          DST_REGISTRY: europe-west4-docker.pkg.dev/${{ secrets.TF_PROJECT_ID_PRD }}/rhesis
+        run: |
+          TAG="${GITHUB_SHA::8}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          TAG="$TAG" .github/scripts/promote-images.sh
+
+  deploy-prd:
+    if: startsWith(github.ref, 'refs/heads/release/')
+    needs: [promote-images]
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/k8s-deploy.yml
+    with:
+      environment: prd
+      tag: ${{ needs.promote-images.outputs.tag }}
+      revision: ${{ github.sha }}
+    secrets: inherit
+
   trigger-java-sdk-tests:
     name: Trigger Java SDK integration tests
     if: startsWith(github.ref, 'refs/heads/release/')
-    needs: [promote-prd-config]
+    needs: [deploy-prd]
     runs-on: ubuntu-latest
     steps:
       - name: Generate cross-repo token
@@ -238,7 +294,7 @@ jobs:
 
   publish:
     if: startsWith(github.ref, 'refs/heads/release/')
-    needs: [promote-prd-config]
+    needs: [deploy-prd]
     runs-on: ubuntu-latest
     steps:
       - name: Generate a token

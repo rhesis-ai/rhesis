@@ -27,3 +27,15 @@ variable "repository" {
   type        = string
   default     = "rhesis-ai/rhesis"
 }
+
+variable "registry_writer" {
+  description = "Let this account push to the project's `rhesis` Artifact Registry repo. Only prd sets it: the release copies the stg-tested images there."
+  type        = bool
+  default     = false
+}
+
+variable "registry_location" {
+  description = "Location of the `rhesis` Artifact Registry repo."
+  type        = string
+  default     = "europe-west4"
+}

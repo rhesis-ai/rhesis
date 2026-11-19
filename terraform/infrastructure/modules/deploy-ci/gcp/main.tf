@@ -43,3 +43,16 @@ resource "google_project_iam_member" "gateway_editor" {
   role    = "roles/gkehub.gatewayEditor"
   member  = "serviceAccount:${google_service_account.deploy_ci.email}"
 }
+
+# prd only: the release promotes the images stg tested by copying them into
+# prd's registry (same digest) instead of rebuilding them. Reading them from stg
+# is granted in envs/stg.
+resource "google_artifact_registry_repository_iam_member" "registry_writer" {
+  count = var.registry_writer ? 1 : 0
+
+  project    = var.project_id
+  location   = var.registry_location
+  repository = "rhesis"
+  role       = "roles/artifactregistry.writer"
+  member     = "serviceAccount:${google_service_account.deploy_ci.email}"
+}
