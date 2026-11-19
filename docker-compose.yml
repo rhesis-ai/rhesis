@@ -55,6 +55,9 @@ x-common-environment: &common-environment
   QUICK_START: ${QUICK_START:-}
 
 x-rhesis-config: &rhesis-config
+  # Read only by images older than the same-origin change; GHCR :latest is one
+  # until the next release, and its frontend won't start without it. Remove next release.
+  API_BASE_URL: ${API_BASE_URL:-http://localhost:${BACKEND_PORT:-8080}}
   RHESIS_BASE_URL: ${RHESIS_BASE_URL:-}
   RHESIS_API_KEY: ${RHESIS_API_KEY:-}
   ENABLE_RHESIS_KEY: ${ENABLE_RHESIS_KEY:-true}  # Self-hosted: opt-out via env var
