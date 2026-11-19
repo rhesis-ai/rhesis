@@ -73,6 +73,9 @@ jobs:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ inputs.environment == 'prd' && secrets.DEPLOY_CI_SA_PRD || inputs.environment == 'stg' && secrets.DEPLOY_CI_SA_STG || secrets.DEPLOY_CI_SA_DEV }}
           token_format: access_token
+          # Without userinfo.email, GKE sees the account's numeric ID instead of
+          # its email, and the RoleBinding (which names the email) doesn't match.
+          access_token_scopes: https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/userinfo.email
           create_credentials_file: false
 
       - name: Set image tags
