@@ -6,6 +6,7 @@ import { Box, CircularProgress, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import type { OnMount } from '@monaco-editor/react';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
+import EditorKeyboardHint from '@/components/common/EditorKeyboardHint';
 
 // Shared CSS id with RequestBodyEditor / HeadersEditor
 const DECORATION_CSS_ID = 'rhesis-template-decoration-css';
@@ -119,32 +120,37 @@ export default function JsonMonacoField({
   };
 
   return (
-    <Box sx={{ ...wrapperSx, height, minHeight: height }}>
-      <Editor
-        key={`${editorKey}-${theme}`}
-        height={height}
-        defaultLanguage="json"
-        theme={theme}
-        value={value}
-        onMount={handleMount}
-        onChange={v => onChange?.(v || '')}
-        options={{
-          readOnly,
-          minimap: { enabled: false },
-          lineNumbers: 'on',
-          // No scroll-past-end, current-line box or ruler track: inside a
-          // bordered field they read as a second, one-line input with a
-          // scrollbar it doesn't need.
-          scrollBeyondLastLine: false,
-          renderLineHighlight: 'none',
-          overviewRulerLanes: 0,
-          hideCursorInOverviewRuler: true,
-          padding: { top: 8, bottom: 8 },
-          folding: !readOnly,
-          automaticLayout: true,
-          wordWrap: 'on',
-        }}
-      />
-    </Box>
+    <>
+      <Box sx={{ ...wrapperSx, height, minHeight: height }}>
+        <Editor
+          key={`${editorKey}-${theme}`}
+          height={height}
+          defaultLanguage="json"
+          theme={theme}
+          value={value}
+          onMount={handleMount}
+          onChange={v => onChange?.(v || '')}
+          options={{
+            readOnly,
+            minimap: { enabled: false },
+            lineNumbers: 'on',
+            // No scroll-past-end, current-line box or ruler track: inside a
+            // bordered field they read as a second, one-line input with a
+            // scrollbar it doesn't need.
+            scrollBeyondLastLine: false,
+            renderLineHighlight: 'none',
+            overviewRulerLanes: 0,
+            hideCursorInOverviewRuler: true,
+            padding: { top: 8, bottom: 8 },
+            folding: !readOnly,
+            automaticLayout: true,
+            wordWrap: 'on',
+            // Read-only: Tab has nothing to indent, so let it move focus on.
+            tabFocusMode: readOnly,
+          }}
+        />
+      </Box>
+      {!readOnly && <EditorKeyboardHint />}
+    </>
   );
 }

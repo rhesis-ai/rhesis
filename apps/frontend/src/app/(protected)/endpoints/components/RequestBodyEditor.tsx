@@ -17,6 +17,7 @@ import { CODE_FONT_SIZE } from '@/styles/theme-constants';
 import { editorContainerSx } from './endpoint-styles';
 import VariableChip from './VariableChip';
 import { SYSTEM_PROMPT_CHIP, SYSTEM_PROMPT_KEY } from './mapping-variables';
+import EditorKeyboardHint from '@/components/common/EditorKeyboardHint';
 
 // Injected once — colors {{ ... }} template tokens inline inside Monaco
 const DECORATION_CSS_ID = 'rhesis-template-decoration-css';
@@ -320,8 +321,12 @@ export default function RequestBodyEditor({
           tabSize: 2,
           formatOnType: true,
           formatOnPaste: true,
+          ariaLabel: 'Request body template (JSON)',
         }}
       />
+      <Box sx={{ px: 1, pb: 0.5 }}>
+        <EditorKeyboardHint />
+      </Box>
     </Box>
   );
 

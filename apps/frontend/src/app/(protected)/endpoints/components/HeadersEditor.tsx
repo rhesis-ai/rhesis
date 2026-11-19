@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
+import EditorKeyboardHint from '@/components/common/EditorKeyboardHint';
 import { useTheme } from '@mui/material/styles';
 import dynamic from 'next/dynamic';
 import type { OnMount } from '@monaco-editor/react';
@@ -229,32 +230,36 @@ export default function HeadersEditor({
   };
 
   return (
-    <Box
-      sx={{
-        ...editorContainerSx,
-        '&:focus-within': {
-          outline: '2px solid',
-          outlineColor: 'primary.main',
-          outlineOffset: '-1px',
-        },
-      }}
-    >
-      <MonacoEditor
-        key={`headers-editor-${editorTheme}`}
-        height="140px"
-        defaultLanguage="json"
-        theme={editorTheme}
-        onMount={handleMount}
-        options={{
-          minimap: { enabled: false },
-          lineNumbers: 'off',
-          scrollBeyondLastLine: false,
-          automaticLayout: true,
-          padding: { top: 8, bottom: 8 },
-          fontSize: CODE_FONT_SIZE,
-          wordWrap: 'on',
+    <>
+      <Box
+        sx={{
+          ...editorContainerSx,
+          '&:focus-within': {
+            outline: '2px solid',
+            outlineColor: 'primary.main',
+            outlineOffset: '-1px',
+          },
         }}
-      />
-    </Box>
+      >
+        <MonacoEditor
+          key={`headers-editor-${editorTheme}`}
+          height="140px"
+          defaultLanguage="json"
+          theme={editorTheme}
+          onMount={handleMount}
+          options={{
+            minimap: { enabled: false },
+            lineNumbers: 'off',
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            padding: { top: 8, bottom: 8 },
+            fontSize: CODE_FONT_SIZE,
+            wordWrap: 'on',
+            ariaLabel: 'Request headers (JSON)',
+          }}
+        />
+      </Box>
+      <EditorKeyboardHint />
+    </>
   );
 }

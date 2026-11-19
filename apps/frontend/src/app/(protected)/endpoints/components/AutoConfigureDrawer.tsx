@@ -27,6 +27,7 @@ import {
   drawerFooterCancelButtonSx,
   drawerFooterSaveButtonSx,
 } from '@/components/common/drawerFormFieldSx';
+import EditorKeyboardHint from '@/components/common/EditorKeyboardHint';
 
 const Editor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
@@ -193,6 +194,8 @@ export default function AutoConfigureDrawer({
 
   const readOnlyEditorOptions = {
     readOnly: true,
+    // Nothing to indent, so Tab moves focus on instead of being captured.
+    tabFocusMode: true,
     minimap: { enabled: false },
     lineNumbers: 'off' as const,
     folding: true,
@@ -312,9 +315,11 @@ export default function AutoConfigureDrawer({
                     bottom: Number(theme.spacing(1)),
                   },
                   fontSize: editorFontSize,
+                  ariaLabel: 'Endpoint description',
                 }}
               />
             </Box>
+            <EditorKeyboardHint />
 
             {hasApiKey && (
               <Alert severity="warning" sx={{ mt: 2 }}>
