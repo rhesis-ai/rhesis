@@ -43,6 +43,8 @@ import CommentsWrapper from '@/components/comments/CommentsWrapper';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 
 interface SourcePreviewClientWrapperProps {
   source: Source;
@@ -143,6 +145,7 @@ export default function SourcePreviewClientWrapper({
   const descriptionRef = useRef<HTMLInputElement>(null);
 
   const displayTitle = truncateFilename(localSource.title);
+  useDocumentTitle(detailPageTitle(displayTitle, 'Knowledge'));
 
   // Determine the type to display
   const getDisplayType = (): string | null => {

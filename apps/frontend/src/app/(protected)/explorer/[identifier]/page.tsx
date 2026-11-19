@@ -2,6 +2,8 @@ import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import ExplorerDetail from './components/ExplorerDetail';
 import { requireSession } from '@/utils/require-session';
+import DocumentTitle from '@/components/common/DocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 
 interface ExplorerDetailPageProps {
   params: Promise<{
@@ -38,12 +40,20 @@ export default async function ExplorerDetailPage({
     const tests = treeNodes.filter(node => node.label !== 'topic_marker');
 
     return (
-      <ExplorerDetail
-        tests={tests}
-        topics={topics}
-        testSetName={testSetName}
-        testSetId={identifier}
-      />
+      <>
+        <DocumentTitle
+          title={detailPageTitle(
+            testSetName === identifier ? null : testSetName,
+            'Explorer'
+          )}
+        />
+        <ExplorerDetail
+          tests={tests}
+          topics={topics}
+          testSetName={testSetName}
+          testSetId={identifier}
+        />
+      </>
     );
   } catch (error) {
     notFoundIfEntityMissing(error);

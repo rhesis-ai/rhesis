@@ -50,6 +50,8 @@ import { formatDate } from '@/utils/date';
 import DetailEntityMissingState from '@/components/common/DetailEntityMissingState';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 
 const TAB_KEYS = ['overview', 'parameters', 'versions', 'runs'] as const;
 
@@ -266,6 +268,8 @@ export default function ExperimentDetailClient({
     },
     [apiFactory, experiment, notifications, refresh]
   );
+
+  useDocumentTitle(detailPageTitle(experiment.name, 'Experiments'));
 
   const breadcrumbs: BreadcrumbItem[] = useMemo(
     () => [

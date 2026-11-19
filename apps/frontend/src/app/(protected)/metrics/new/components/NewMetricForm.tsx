@@ -41,6 +41,7 @@ import { TEST_TYPES } from '@/constants/test-types';
 import { SCORE_TYPES, ScoreTypeValue } from '@/constants/score-types';
 import { useTypeLookups } from '@/hooks/useLookups';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { validateScore } from '@/utils/validation';
 import { formatEvaluationSteps } from '@/utils/evaluation-steps';
 import {
@@ -1261,6 +1262,8 @@ export default function NewMetricForm({
         return 'Create New Metric';
     }
   };
+
+  useDocumentTitle(getTitle());
 
   return (
     <PageLayout

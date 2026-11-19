@@ -21,6 +21,8 @@ import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 
 interface RequirementDetailClientProps {
   requirement: RequirementWithMetrics;
@@ -40,6 +42,8 @@ export default function RequirementDetailClient({
     React.useState<RequirementWithMetrics>(initialRequirement);
 
   const { activeTab, handleTabChange } = useDetailTabNav(REQUIREMENT_TAB_KEYS);
+
+  useDocumentTitle(detailPageTitle(requirement.name, 'Requirements'));
 
   React.useEffect(() => {
     setRequirement(initialRequirement);

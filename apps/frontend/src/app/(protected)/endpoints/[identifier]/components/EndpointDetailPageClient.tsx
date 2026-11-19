@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { useSession } from 'next-auth/react';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 import { EndpointDetailProvider } from './EndpointDetailContext';
 import EndpointDetailView from './EndpointDetailView';
 import EndpointHeaderActions from './EndpointHeaderActions';
@@ -52,7 +53,7 @@ export default function EndpointDetailPageClient({
     initialProject
   );
 
-  useDocumentTitle(endpoint?.name || null);
+  useDocumentTitle(detailPageTitle(endpoint?.name, 'Endpoints'));
 
   // A seeded endpoint renders straight away; the session check only matters
   // when the client still has to fetch.

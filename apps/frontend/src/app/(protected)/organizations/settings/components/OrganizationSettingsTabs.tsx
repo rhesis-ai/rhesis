@@ -8,6 +8,8 @@ import { SectionCard } from '@/components/common/SectionCard';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
 import { getOrgSettingsTabs } from '@/lib/extension-registries';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 import OrganizationDetailsForm from './OrganizationDetailsForm';
 import ContactInformationForm from './ContactInformationForm';
 import BrandingColorsForm from './BrandingColorsForm';
@@ -98,6 +100,15 @@ export default function OrganizationSettingsTabs({
     const idx = tabIds.indexOf(key);
     return idx >= 0 ? idx : 0;
   }, [searchParams, tabIds]);
+
+  // Registered tabs (Team, …) are their own page; the built-in ones are "Settings".
+  const activeTabInfo = allTabs[activeTab];
+  useDocumentTitle(
+    detailPageTitle(
+      activeTabInfo?.dynamic ? activeTabInfo.label : 'Settings',
+      'Organization'
+    )
+  );
 
   const handleTabChange = useCallback(
     (newIndex: number) => {

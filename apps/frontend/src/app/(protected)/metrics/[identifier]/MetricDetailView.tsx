@@ -49,6 +49,7 @@ import { EntityType } from '@/utils/api-client/interfaces/tag';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { UUID } from 'crypto';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 import { generateCopyName } from '@/utils/entity-helpers';
 import {
   formatEvaluationSteps,
@@ -246,7 +247,9 @@ export function MetricDetailView({
   onCloseRef.current = onClose;
 
   // Set document title dynamically (full page only)
-  useDocumentTitle(mode === 'page' ? metric?.name || null : null);
+  useDocumentTitle(
+    mode === 'page' ? detailPageTitle(metric?.name, 'Metrics') : null
+  );
 
   // Refs for uncontrolled text fields
   const nameRef = useRef<HTMLInputElement>(null);

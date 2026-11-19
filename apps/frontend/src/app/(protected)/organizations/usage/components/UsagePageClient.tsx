@@ -8,6 +8,7 @@ import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import type { UsageResponse } from '@/utils/api-client/usage-client';
 
 interface UsagePageClientProps {
@@ -26,6 +27,7 @@ export default function UsagePageClient({
     Capability.Usage.READ
   );
   const { organization } = useOrganization();
+  useDocumentTitle('Usage · Organization');
 
   const organizationName = organization?.name || 'Organization';
 

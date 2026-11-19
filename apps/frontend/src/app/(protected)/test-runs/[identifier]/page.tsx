@@ -1,4 +1,3 @@
-import { Metadata } from 'next';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { requireSession } from '@/utils/require-session';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
@@ -14,24 +13,6 @@ import { TAB_KEYS, tabIndexFromKey } from './utils/tab-key';
 interface _PageProps {
   params: Promise<{ identifier: string }>;
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}
-
-// Generate metadata for the page
-// Note: We use minimal metadata here to avoid duplicate API calls
-// The error boundary will handle 404/410 errors from the main page component
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ identifier: string }>;
-}): Promise<Metadata> {
-  const resolvedParams = await params;
-  const identifier = resolvedParams.identifier;
-
-  // Return basic metadata - the page component will fetch data and handle errors
-  return {
-    title: 'Test Run Details',
-    description: `Details for Test Run ${identifier}`,
-  };
 }
 
 export default async function TestRunPage({

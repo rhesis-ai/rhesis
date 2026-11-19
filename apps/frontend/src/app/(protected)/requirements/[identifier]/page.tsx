@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { Metadata } from 'next';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
 import RequirementDetailClient from './components/RequirementDetailClient';
@@ -11,18 +10,6 @@ import { requireSession } from '@/utils/require-session';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
-}
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ identifier: string }>;
-}): Promise<Metadata> {
-  const { identifier } = await params;
-  return {
-    title: 'Requirement Details',
-    description: `Details for Requirement ${identifier}`,
-  };
 }
 
 export default async function RequirementDetailPage({ params }: PageProps) {

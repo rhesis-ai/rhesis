@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Organizations',
+  title: 'Organization',
 };
 
 export default function OrganizationsLayout({

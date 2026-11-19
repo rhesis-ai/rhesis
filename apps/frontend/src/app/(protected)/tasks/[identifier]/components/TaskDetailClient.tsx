@@ -24,6 +24,8 @@ import DetailEntityMissingState from '@/components/common/DetailEntityMissingSta
 import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { detailPageTitle } from '@/utils/document-title';
 
 interface TaskDetailClientProps {
   identifier: string;
@@ -45,6 +47,7 @@ export default function TaskDetailClient({
   const { show } = useNotifications();
 
   const [task, setTask] = useState<Task>(initialTask);
+  useDocumentTitle(detailPageTitle(task.title, 'Tasks'));
   const [error, setError] = useState<string | null>(null);
   const [missingError, setMissingError] = useState<unknown>(null);
   const [isRetrying, setIsRetrying] = useState(false);
