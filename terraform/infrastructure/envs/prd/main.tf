@@ -102,6 +102,15 @@ resource "cloudflare_ruleset" "prd_ssl_strict" {
   }
 }
 
+# Admin root state: the shared GitHub Actions pool (module.deploy_ci_prd).
+data "terraform_remote_state" "wireguard" {
+  backend = "gcs"
+  config = {
+    bucket = var.state_bucket
+    prefix = "terraform/infrastructure/envs/wireguard"
+  }
+}
+
 module "prd" {
   source = "../../modules/network/gcp"
 
@@ -167,6 +176,17 @@ module "connect_gateway_prd" {
   cluster_id  = module.gke_prd.cluster_id
 
   depends_on = [module.gke_prd]
+}
+
+module "deploy_ci_prd" {
+  source = "../../modules/deploy-ci/gcp"
+
+  project_id           = var.project_id
+  environment          = "prd"
+  membership_id        = module.connect_gateway_prd.membership_id
+  github_wif_pool_name = data.terraform_remote_state.wireguard.outputs.github_wif_pool_name
+
+  depends_on = [module.connect_gateway_prd]
 }
 
 module "eso_prd" {
