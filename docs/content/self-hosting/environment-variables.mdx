@@ -81,7 +81,10 @@ so a multi-tenant deployment can set a house style here and let individual organ
 | `BRAND_PRODUCT_NAME` | Name in page titles (`Architect` becomes `Architect \| Acme`), the sign-in header and footer, and the sidebar before the organisation loads. Max 60 characters | `Rhesis AI` |
 
 Light and dark shades are derived from each colour, and button label text switches between white and
-near-black to stay readable — a pale brand colour does not need extra configuration. A malformed value is
+near-black to stay readable — a pale brand colour does not need extra configuration. When the primary
+colour would be hard to see against the page, its lightness is adjusted only as far as needed to stay
+readable: a dark navy shows as a brighter blue in dark mode and on the dark sign-in page, and a pale yellow
+shows darker in light mode. A colour that already reads well is used exactly as configured. A malformed value is
 ignored with a warning in the frontend logs and the Rhesis default applies, so a typo cannot break a
 deployment.
 

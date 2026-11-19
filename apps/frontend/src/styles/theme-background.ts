@@ -16,3 +16,12 @@ export const BACKGROUND_DEFAULT: Record<PaletteMode, string> = {
   light: '#FFFFFF', // Intentional: needed as a literal before the theme exists
   dark: '#0D1117', // Intentional: needed as a literal before the theme exists
 };
+
+/**
+ * `palette.background.paper` per mode. Also the surface brand colours are
+ * checked against in `brand-palette.ts`, so it must stay the single source.
+ */
+export const BACKGROUND_PAPER: Record<PaletteMode, string> = {
+  light: '#FFFFFF', // Intentional: the source the theme's paper is built from
+  dark: '#161B22', // Intentional: the source the theme's paper is built from
+};

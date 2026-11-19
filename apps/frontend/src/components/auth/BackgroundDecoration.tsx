@@ -1,7 +1,8 @@
 'use client';
 
 import { Box } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { alpha, useTheme } from '@mui/material/styles';
+import { AURORA_BLOOM } from './authTokens';
 
 /**
  * The backdrop behind the auth pages, matching the rhesis.ai hero.
@@ -15,7 +16,7 @@ import { useTheme } from '@mui/material/styles';
 
 /** Matches `DarkAuroraGlow` variant="hero" on the website. */
 const AURORA_LAYERS = [
-  'radial-gradient(58% 48% at 34% 26%, rgba(0,158,215,0.52) 0%, rgba(0,104,148,0.20) 44%, transparent 74%)',
+  `radial-gradient(58% 48% at 34% 26%, ${alpha(AURORA_BLOOM.color, AURORA_BLOOM.opacity)} 0%, rgba(0,104,148,0.20) 44%, transparent 74%)`,
   'radial-gradient(42% 38% at 86% 58%, rgba(255,206,0,0.12) 0%, transparent 68%)',
   'radial-gradient(50% 42% at 10% 70%, rgba(56,132,255,0.16) 0%, transparent 70%)',
 ].join(', ');
