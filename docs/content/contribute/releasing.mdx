@@ -1,6 +1,6 @@
 # Releasing
 
-A Rhesis release is produced by three workflows in the repository's GitHub Actions tab, run in order, followed by a manual merge. Each one is triggered by hand — nothing starts a release automatically.
+A Rhesis release is produced by three workflows in the repository's GitHub Actions tab, run in order. Each one is triggered by hand — nothing starts a release automatically.
 
 The platform is the coordinated snapshot of the repository, tagged `v<version>` and marked as the latest GitHub release. The backend and the frontend ship as part of it: they take the platform's version and are covered by its tag, though each still keeps its own changelog. The SDK and Polyphemus are versioned independently and tagged `<component>-v<version>`.
 
@@ -35,8 +35,9 @@ Switch to the release branch and run `[Release] 3. Deploy and publish` from it. 
 2. Copies the images staging ran into the production registry, unchanged, so production runs exactly what was tested.
 3. Pins the `rhesis` chart to the release commit and sets the image tags in a single write, then waits for production to be healthy. Production never runs new images on the old chart or the other way round.
 4. Creates and pushes the tags and creates a GitHub release for each component.
+5. Squash-merges the release pull request from step 2 into `main` if every check on it passed, so the version bumps, changelogs and the new version in `docker-compose.ghcr.yml` and the chart land on `main`. It merges only after publishing: the tags are cut from the release branch, and merging deletes it.
 
-If the deploy fails, nothing is tagged or published: fix it on the release branch and run the workflow again. The workflow does not merge the pull request.
+If the deploy fails, nothing is tagged or published: fix it on the release branch and run the workflow again. If a check on the pull request failed, or it conflicts with `main`, the workflow leaves it open and fails its last job. The release is already live then: review the failure and merge the pull request by hand.
 
 <Callout type="error">
   Run this workflow **on the release branch**. A run started from `main` is skipped by a branch
@@ -45,12 +46,6 @@ If the deploy fails, nothing is tagged or published: fix it on the release branc
 </Callout>
 
 To redeploy or roll back production later, run `[Build & Deploy] All for K8s` with environment `prd` from the commit you want.
-
-### Merge the release pull request
-
-Merge the pull request opened in step 2, so the version bumps and changelogs land on `main`.
-
-Merge after publishing, not before: the tags are cut from the release branch, and merging can delete it.
 
 </Steps>
 
