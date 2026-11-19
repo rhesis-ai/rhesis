@@ -40,7 +40,7 @@ spec:
       {{- end }}
       containers:
         - name: worker-{{ .name }}
-          image: {{ include "rhesis.image" (dict "imageValues" . "global" $.Values.global) | quote }}
+          image: {{ include "rhesis.image" (dict "imageValues" . "global" $.Values.global "appVersion" $.Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .image.pullPolicy | default $.Values.global.imagePullPolicy }}
           {{- if $.Values.containerSecurityContext.enabled }}
           securityContext:

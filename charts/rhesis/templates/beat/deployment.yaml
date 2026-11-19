@@ -34,7 +34,7 @@ spec:
       {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.beat) | nindent 6 }}
       containers:
         - name: celery-beat
-          image: {{ include "rhesis.image" (dict "imageValues" $worker "global" .Values.global) | quote }}
+          image: {{ include "rhesis.image" (dict "imageValues" $worker "global" .Values.global "appVersion" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ $worker.image.pullPolicy | default .Values.global.imagePullPolicy }}
           {{- include "rhesis.containerSecurityContext" (dict "Values" .Values "component" .Values.beat) | nindent 10 }}
           command:

@@ -26,7 +26,7 @@ spec:
       {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.telemetryProcessor) | nindent 6 }}
       containers:
         - name: telemetry-processor
-          image: {{ include "rhesis.image" (dict "imageValues" .Values.telemetryProcessor "global" .Values.global) | quote }}
+          image: {{ include "rhesis.image" (dict "imageValues" .Values.telemetryProcessor "global" .Values.global "appVersion" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.telemetryProcessor.image.pullPolicy | default .Values.global.imagePullPolicy }}
           {{- include "rhesis.containerSecurityContext" (dict "Values" .Values "component" .Values.telemetryProcessor) | nindent 10 }}
           ports:

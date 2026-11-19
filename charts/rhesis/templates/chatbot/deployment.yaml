@@ -28,7 +28,7 @@ spec:
       {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.chatbot) | nindent 6 }}
       containers:
         - name: chatbot
-          image: {{ include "rhesis.image" (dict "imageValues" .Values.chatbot "global" .Values.global) | quote }}
+          image: {{ include "rhesis.image" (dict "imageValues" .Values.chatbot "global" .Values.global "appVersion" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.chatbot.image.pullPolicy | default .Values.global.imagePullPolicy }}
           {{- include "rhesis.containerSecurityContext" (dict "Values" .Values "component" .Values.chatbot) | nindent 10 }}
           ports:
