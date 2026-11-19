@@ -791,6 +791,7 @@ export function Sidebar() {
           }
           aria-haspopup="true"
           aria-expanded={menuOpen}
+          data-testid="user-menu-button"
           sx={{
             display: 'flex',
             alignItems: 'center',

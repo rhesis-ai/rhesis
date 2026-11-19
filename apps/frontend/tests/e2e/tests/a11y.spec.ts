@@ -56,7 +56,12 @@ const PUBLIC_ROUTES = [
 async function expectNoNewViolations(page: Page, route: string) {
   const response = await page.goto(route);
   expect(response?.status()).toBeLessThan(500);
-  await page.waitForLoadState('networkidle');
+  // Polling and websockets can keep the network busy, so networkidle is only a
+  // best effort; the visible <main> is the real readiness signal.
+  await page
+    .waitForLoadState('networkidle', { timeout: 15_000 })
+    .catch(() => undefined);
+  await expect(page.locator('main').first()).toBeVisible();
 
   const results = await new AxeBuilder({ page })
     .withTags(WCAG_TAGS)

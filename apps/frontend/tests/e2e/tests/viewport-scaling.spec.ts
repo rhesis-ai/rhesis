@@ -101,9 +101,9 @@ test('portalled overlays stay outside the zoomed subtree', async ({ page }) => {
     content: 'nextjs-portal { display: none !important }',
   });
 
-  // Targeted by aria-label, not the seeded user's display name — the name comes
-  // from the backend's Quick Start seed and is not guaranteed across envs.
-  const account = page.getByLabel('Open user menu').first();
+  // Not by name: the expanded button is named after the seeded user, which the
+  // backend's Quick Start seed doesn't guarantee across envs.
+  const account = page.getByTestId('user-menu-button').first();
   await expect(account).toBeVisible();
   const anchor = await account.boundingBox();
   expect(anchor).not.toBeNull();
