@@ -357,7 +357,7 @@ jobs:
           REPO: ${{ github.repository }}
           BRANCH: ${{ github.ref_name }}
         run: |
-          PR=$(gh pr list -R "$REPO" --head "$BRANCH" --base main --state open --json number --jq '.[0].number')
+          PR=$(gh pr list -R "$REPO" --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
           if [ -z "$PR" ]; then
             echo "::notice::No open pull request from $BRANCH into main; it was probably merged already."
             exit 0
