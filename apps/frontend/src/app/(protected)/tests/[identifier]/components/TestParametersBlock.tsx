@@ -170,6 +170,7 @@ export default function TestParametersBlock({
         <Box>
           <JsonMonacoField
             editorKey={`test-parameters-${test.id}`}
+              ariaLabel="Test parameters (JSON)"
             height="200px"
             theme={monacoTheme}
             value={draft}

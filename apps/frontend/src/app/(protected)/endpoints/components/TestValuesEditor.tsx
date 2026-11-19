@@ -141,6 +141,7 @@ export default function TestValuesEditor({
           <Box ref={editorBoxRef}>
             <JsonMonacoField
               editorKey={editorKey}
+              ariaLabel="Test values (JSON)"
               height={
                 dragHeight !== null
                   ? `${dragHeight}px`

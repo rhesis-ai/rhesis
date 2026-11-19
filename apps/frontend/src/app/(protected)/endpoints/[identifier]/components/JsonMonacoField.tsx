@@ -54,6 +54,8 @@ const Editor = dynamic(() => import('@monaco-editor/react'), {
 
 interface JsonMonacoFieldProps {
   editorKey: string;
+  /** Accessible name for the editor, e.g. "Response mapping (JSON)". */
+  ariaLabel: string;
   height: string;
   theme: string;
   value: string;
@@ -64,6 +66,7 @@ interface JsonMonacoFieldProps {
 
 export default function JsonMonacoField({
   editorKey,
+  ariaLabel,
   height,
   theme,
   value,
@@ -147,6 +150,7 @@ export default function JsonMonacoField({
             wordWrap: 'on',
             // Read-only: Tab has nothing to indent, so let it move focus on.
             tabFocusMode: readOnly,
+          ariaLabel,
           }}
         />
       </Box>

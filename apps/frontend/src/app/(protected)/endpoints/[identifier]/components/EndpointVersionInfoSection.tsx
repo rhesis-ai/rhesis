@@ -64,6 +64,7 @@ export default function EndpointVersionInfoSection() {
         isEditing ? (
           <JsonMonacoField
             editorKey={`endpoint-version-info-${endpoint.id}`}
+              ariaLabel="Version info (JSON)"
             height="200px"
             theme={editorTheme}
             value={draft.body}
