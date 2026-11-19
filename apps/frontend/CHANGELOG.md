@@ -36,6 +36,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removed the Ragas backend from metric icon handling now that the backend no longer serves it.
 
+## [0.22.0] - 2026-11-19
+
+### Breaking Changes
+
+- **Same-Origin Authentication & Redirect URIs**: OAuth and SSO redirect callbacks now route through the frontend BFF proxy (`<FRONTEND_URL>/api/backend/auth/callback` and `<FRONTEND_URL>/api/backend/auth/sso/callback`). Identity provider configurations must be updated to use the frontend domain before upgrading.
+- **Environment Variable Removal**: Removed `API_BASE_URL` from frontend configuration. WebSockets now default to `/ws` on the frontend host, and all API interactions are handled via the same-origin proxy.
+
+### Added
+
+- **Reports Section**: Added comprehensive Reports management, including setup workflows, draft summary views, requirement-level metrics, frozen snapshot publishing, PDF exports, and a new "Track" navigation section.
+- **Inline Custom Favicon Support**: Supported `data:image/*` URIs for `BRAND_FAVICON_URL` to allow inline SVG favicons without hosting files externally.
+- **AWS Bedrock Embeddings Support**: Added support for AWS Bedrock Titan Text Embeddings V2 in embedding provider selections.
+- **Account Verification Status**: Added UI indicators and banners for the 3-day email verification grace period and locked account states.
+
+### Changed
+
+- **BFF Architecture Expansion**: Standardized sign-in, registration, magic links, password resets, and WebSockets to route entirely through the frontend origin proxy.
+- **Brand Color Contrast**: Automatically adjusted custom `BRAND_PRIMARY_COLOR` values to meet WCAG contrast thresholds dynamically across both light and dark themes.
+- **Backend Configuration Warning**: Added warnings when `BACKEND_URL` is detected as a public URL rather than an internal service route.
+
+### Fixed
+
+- **Onboarding API Errors**: Deferred organization-scoped feature and usage requests during onboarding until a valid organization session is available, preventing 403 errors.
+- **Double Authentication Trigger**: Fixed React dev mode double-effect issues that caused single-use OAuth authorization codes and quick-start logins to execute twice.
+- **Sign-out Redirect Handling**: Resolved an issue where sign-out URL flags were cleared before the session finished loading.
+
+### Security
+
+- **Unauthenticated Proxy Removal**: Removed the legacy `/api/[...path]` catch-all route to ensure all backend proxies strictly require authentication context.
+- **Dependency Updates**: Upgraded Next.js to 16.4.6 to resolve security advisories.
+
 ## [0.21.2] - 2026-11-17
 
 ### Added

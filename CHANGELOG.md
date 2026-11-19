@@ -18,6 +18,41 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
   since January 2026 and carried advisories with no upstream fix. Existing Ragas metrics and their
   associations are deleted by a backend migration; recorded test results keep their scores.
 
+## [0.22.0] - 2026-11-19
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.22.0**
+- **Frontend 0.22.0**
+- **SDK 0.22.0**
+
+### Summary of Changes
+
+**Backend v0.22.0:**
+- Added test reporting capabilities with frozen publish snapshots, PDF exports, release recommendations, and MCP draft management tools.
+- Updated authentication and browser traffic to route through the frontend origin (`/api/backend`), deprecating `API_BASE_URL` and updating OAuth/SSO callback URIs.
+- Added support for private network identity providers in SSO via `OUTBOUND_ALLOW_PRIVATE_NETWORKS` and automated account locking for unverified emails after a 3-day grace period.
+- Enhanced bulk test creation endpoints and garak sync to preserve complete test metadata, parameters, and trigger notes.
+
+**Frontend v0.22.0:**
+- Added a new Reports section for viewing test metrics, creating frozen snapshot reports, and downloading PDF exports.
+- Consolidated all browser authentication, WebSocket, and API traffic through the frontend origin (`/api/backend` proxy).
+- Improved brand color accessibility with automatic WCAG contrast adjustments and added support for `data:` URIs in custom favicon configurations.
+- Added UI notifications for email verification deadlines and locked account status.
+
+**SDK v0.22.0:**
+- Added AWS Bedrock embedding support via `BedrockEmbedder`, defaulting to Amazon Titan Text Embeddings V2.
+- Updated telemetry instrumentation to support Google ADK schema v2 and bumped `opentelemetry-api` dependencies.
+- Updated `TestSet.push()` and JSON/CSV exports to include `test_parameters` during bulk test creation.
+
+See individual component changelogs for detailed changes:
+- [Backend Changelog](apps/backend/CHANGELOG.md)
+- [Frontend Changelog](apps/frontend/CHANGELOG.md)
+- [SDK Changelog](sdk/CHANGELOG.md)
+
+
+
 ## [0.21.2] - 2026-11-17
 
 ### Platform Release

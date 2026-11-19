@@ -144,6 +144,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   DeepEval or Rhesis providers instead. This also drops `diskcache`, `gitpython`, `scipy` and
   `sqlalchemy` from the SDK's dependency tree.
 
+## [0.22.0] - 2026-11-19
+
+### Added
+
+- Added `BedrockEmbedder` provider with support for Amazon Titan Text Embeddings V2 (`amazon.titan-embed-text-v2:0`), including support for 256, 512, and 1024 dimensions (#3184).
+- Added support for Google ADK telemetry schema v2 (google-adk v2.14+), correctly capturing tool I/O and handoff targets from `gen_ai.tool.call.*` attributes (#3180).
+
+### Changed
+
+- Updated `opentelemetry-api` dependency constraint to `1.45.2` (#3180).
+
+### Fixed
+
+- Fixed `TestSet.push()` and JSON/CSV exports to include and preserve `test_parameters` for individual tests (#3191).
+
+
 ## [0.21.2] - 2026-11-17
 
 ### Added
