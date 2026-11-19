@@ -61,6 +61,7 @@ COMPONENTS = {
 # Platform-specific files
 PLATFORM_VERSION_FILE = "VERSION"
 PLATFORM_CHANGELOG = "CHANGELOG.md"
+DOCS_CHANGELOG = "docs/content/changelog.mdx"
 
 
 def follows_platform(component: str) -> bool:

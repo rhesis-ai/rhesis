@@ -6,11 +6,19 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from .config import COMPONENTS, PLATFORM_CHANGELOG, format_component_name
+from .config import (
+    COMPONENTS,
+    DOCS_CHANGELOG,
+    PLATFORM_CHANGELOG,
+    format_component_name,
+)
 from .git_ops import get_commits_since_tag, get_last_tag
 from .utils import call_gemini_api, info, success, warn
 
 UNRELEASED_MARKER = "## [Unreleased]"
+DOCS_DRAFT_MARKER = "<!-- TODO: review and edit this draft -->"
+DOCS_COMPONENT_ORDER = ("backend", "frontend", "sdk", "polyphemus")
+DOCS_STYLE_REFERENCE_CHARS = 4000
 
 
 def generate_changelog_with_llm(
@@ -210,4 +218,160 @@ This release includes the following component versions:
 
     _insert_under_unreleased(changelog_path, platform_entry)
     success(f"Updated platform changelog: {PLATFORM_CHANGELOG}")
+    return True
+
+
+def _docs_style_reference(repo_root: Path) -> str:
+    """Recent enough of docs/content/changelog.mdx to show the section shape."""
+    path = repo_root / DOCS_CHANGELOG
+    if not path.exists():
+        return ""
+    return path.read_text()[:DOCS_STYLE_REFERENCE_CHARS]
+
+
+def _docs_changelog_prompt(
+    version: str,
+    component_changelogs: Dict[str, str],
+    commits: List[Dict[str, str]],
+    style_reference: str,
+    component_versions: Optional[Dict[str, str]] = None,
+) -> str:
+    component_sections = []
+    for component in DOCS_COMPONENT_ORDER:
+        content = component_changelogs.get(component, "").strip()
+        if content:
+            component_sections.append(
+                f"### {format_component_name(component)} changelog\n{content[:4000]}"
+            )
+
+    commit_lines = [
+        f"- {commit.get('hash', '')[:8]} {commit.get('message', '').strip()}"
+        for commit in commits[:80]
+    ]
+
+    version_lines = []
+    for component in DOCS_COMPONENT_ORDER:
+        component_version = (component_versions or {}).get(component)
+        if component_version:
+            version_lines.append(
+                f"- **{format_component_name(component)} {component_version}**"
+            )
+    version_text = "\n".join(version_lines) or "(use the versions in the component changelogs)"
+
+    return f"""You are drafting one entry for the Rhesis aggregated docs changelog.
+
+Version: {version}
+
+Component versions:
+{version_text}
+
+Use the component changelogs below as the source of truth. Do not invent features, dates, issue
+numbers, or breaking changes. If a component changelog says something is a placeholder or TODO,
+do not present it as a finished claim.
+
+Write Markdown/MDX with exactly these sections, in this order:
+### Platform Release
+List the component versions included in this release as bold bullet points.
+### Summary
+Two to four sentences describing the release as a whole.
+### Breaking Changes
+Only real breaking changes; omit the section if there are none.
+### Featured Capabilities
+Group related changes under bold short headings. Prefer user-visible capabilities over internal
+refactors.
+### Component Highlights
+One bold sub-heading per component, with concise bullets.
+
+Do not add a `## [version]` heading, a date, or a TODO comment; the caller inserts those.
+Return only the body, with no preamble or code fence.
+
+Existing docs changelog style reference:
+{style_reference}
+
+Component changelogs:
+{chr(10).join(component_sections)}
+
+Commits since the previous platform tag:
+{chr(10).join(commit_lines)}
+"""
+
+
+def generate_docs_changelog_with_llm(
+    api_key: str,
+    version: str,
+    component_changelogs: Dict[str, str],
+    commits: List[Dict[str, str]],
+    style_reference: str = "",
+    component_versions: Optional[Dict[str, str]] = None,
+) -> Optional[str]:
+    """Generate the body of the aggregated docs changelog entry.
+
+    The LLM is given every component changelog plus the platform commit range. It returns a draft
+    only; `update_docs_changelog` adds the version header and the review marker.
+    """
+    if not api_key:
+        warn("No Gemini API key; skipping docs changelog draft")
+        return None
+
+    prompt = _docs_changelog_prompt(
+        version,
+        component_changelogs,
+        commits,
+        style_reference,
+        component_versions,
+    )
+    content = call_gemini_api(api_key, prompt)
+    if not content:
+        warn("No docs changelog draft generated")
+        return None
+
+    content = content.strip()
+    # Some models include the heading even when told not to; drop it so the caller owns the header.
+    if content.startswith("## ["):
+        content = content.split("\n", 1)[1].lstrip()
+    return content or None
+
+
+def update_docs_changelog(
+    new_version: str,
+    entry: str,
+    repo_root: Path,
+    dry_run: bool = False,
+) -> bool:
+    """Insert a draft entry before the newest released section in docs/content/changelog.mdx."""
+    if not entry.strip():
+        warn("Refusing to insert an empty docs changelog entry")
+        return False
+
+    path = repo_root / DOCS_CHANGELOG
+    if not path.exists():
+        warn(f"Docs changelog not found: {DOCS_CHANGELOG}")
+        return False
+
+    date = datetime.now().strftime("%Y-%m-%d")
+    draft_lines = [
+        DOCS_DRAFT_MARKER,
+        f"## [{new_version}] - {date}",
+        "",
+        *entry.strip().splitlines(),
+        "",
+    ]
+
+    if dry_run:
+        info(f"Would insert docs changelog entry for v{new_version} in {DOCS_CHANGELOG}")
+        return True
+
+    lines = path.read_text().splitlines()
+    first_released = next(
+        (index for index, line in enumerate(lines) if line.startswith("## [")),
+        None,
+    )
+
+    if first_released is None:
+        new_lines = [*lines, "", *draft_lines]
+    else:
+        new_lines = [*lines[:first_released], *draft_lines, *lines[first_released:]]
+
+    path.write_text("\n".join(new_lines).rstrip() + "\n")
+    success(f"Updated docs changelog: {DOCS_CHANGELOG}")
     return True
