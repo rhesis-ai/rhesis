@@ -3,7 +3,6 @@
 import { useMemo } from 'react';
 import { useTheme, type SxProps, type Theme } from '@mui/material/styles';
 import { useNavigationItems } from '@/contexts/NavigationItemsContext';
-import { contrastTextFor } from '@/styles/brand-palette';
 import {
   AUTH_SHAPE,
   authFontSans,
@@ -18,9 +17,12 @@ export interface AuthStyles {
   heading: SxProps<Theme>;
   /** The line under a card title. */
   subheading: SxProps<Theme>;
-  /** Filled pill button — the primary action on every auth card. */
+  /**
+   * Filled pill button — the primary action on every auth card. Shape and type
+   * only: the colours come from the theme's primary button styles.
+   */
   primaryButton: SxProps<Theme>;
-  /** Outlined pill button — OAuth providers, "Create an account". */
+  /** Outlined pill button — OAuth providers, "Create an account". Colours from the theme, as above. */
   outlinedButton: SxProps<Theme>;
   /** Text field, themed for both modes. */
   field: SxProps<Theme>;
@@ -33,8 +35,8 @@ export interface AuthStyles {
 /**
  * Shared styling for everything rendered inside `AuthPageShell`.
  *
- * Auth pages don't use the app's MUI theme colours — they mirror rhesis.ai via
- * `authTokens`. Without this hook each page grows its own copy of the button
+ * Auth pages mirror rhesis.ai via `authTokens`, except button colours, which
+ * come from the theme like every other button. Without this hook each page grows its own copy of the button
  * and field styling, which is exactly how the previous brand's accent and
  * hover pair ended up duplicated across five files.
  */
@@ -75,17 +77,7 @@ export function useAuthStyles(): AuthStyles {
         fontWeight: 700,
         textTransform: 'none',
         boxShadow: t.accentShadow,
-        // `&&` outranks the theme's `.MuiButton-containedPrimary` override,
-        // which otherwise paints these buttons in the app's colours instead.
-        '&&': {
-          bgcolor: t.accent,
-          color: t.accentContrastText,
-          '&:hover': {
-            bgcolor: t.accentHover,
-            color: contrastTextFor(t.accentHover),
-            boxShadow: t.accentShadow,
-          },
-        },
+        '&:hover': { boxShadow: t.accentShadow },
       },
       outlinedButton: {
         height: AUTH_SHAPE.buttonHeight,
@@ -95,18 +87,7 @@ export function useAuthStyles(): AuthStyles {
         fontWeight: 600,
         textTransform: 'none',
         borderWidth: '1.5px',
-        // Same as above for `.MuiButton-outlinedPrimary`, which would tint the
-        // label with the brand colour and fill it on hover.
-        '&&': {
-          color: t.ink,
-          borderColor: t.hairline,
-          '&:hover': {
-            color: t.ink,
-            borderColor: t.accent,
-            borderWidth: '1.5px',
-            bgcolor: 'transparent',
-          },
-        },
+        '&:hover': { borderWidth: '1.5px' },
       },
       field: {
         '& .MuiOutlinedInput-root': {

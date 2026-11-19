@@ -16,12 +16,11 @@ describe('getAuthTokens', () => {
   it('applies a configured brand colour to the accents', () => {
     const light = getAuthTokens('light', BRAND);
     expect(light.accent).toBe('#6a1b9a');
-    expect(light.accentHover).not.toBe(light.accent);
     expect(light.accentShadow).toContain('rgba(106, 27, 154, 0.55)');
   });
 
   it('leaves the non-accent tokens alone', () => {
-    // Only the three accent tokens are brand-driven; ground, ink and the
+    // Only the accent tokens are brand-driven; ground, ink and the
     // hairlines mirror the website and stay put.
     const plain = getAuthTokens('dark');
     const branded = getAuthTokens('dark', BRAND);
@@ -57,17 +56,6 @@ describe('getAuthTokens', () => {
   it('darkens a pale brand colour on the light ground', () => {
     const t = getAuthTokens('light', '#FDD803');
     expect(getContrastRatio(t.accent, t.ground)).toBeGreaterThanOrEqual(3);
-  });
-
-  it('picks a readable button label for the accent', () => {
-    for (const brand of [BRAND, '#0B1E4D', '#FDD803', '#7FFFD4']) {
-      for (const mode of ['light', 'dark'] as const) {
-        const t = getAuthTokens(mode, brand);
-        expect(
-          getContrastRatio(t.accent, t.accentContrastText)
-        ).toBeGreaterThanOrEqual(3);
-      }
-    }
   });
 
   it('leaves a brand colour that already reads exactly as configured', () => {

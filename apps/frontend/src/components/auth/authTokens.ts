@@ -10,8 +10,8 @@
  * this — the rest of the app stays on the MUI theme and Be Vietnam Pro.
  */
 
-import { alpha, blend, darken, lighten } from '@mui/system/colorManipulator';
-import { contrastTextFor, ensureContrast } from '@/styles/brand-palette';
+import { alpha, blend } from '@mui/system/colorManipulator';
+import { ensureContrast } from '@/styles/brand-palette';
 
 /** Geist, registered in `src/styles/fonts.css`. Auth pages only. */
 export const AUTH_FONT_SANS =
@@ -52,11 +52,8 @@ export interface AuthTokens {
   muted: string;
   /** Borders, dividers, badge outlines. */
   hairline: string;
-  /** Buttons, links, the accent words in the headline. */
+  /** Links, icons, the accent words in the headline and the button glow. */
   accent: string;
-  accentHover: string;
-  /** Label colour on an `accent` fill — dark when a pale brand needs it. */
-  accentContrastText: string;
   /** Text field fill. */
   field: string;
   fieldBorder: string;
@@ -79,8 +76,6 @@ const LIGHT: AuthTokens = {
   muted: '#4b5563',
   hairline: '#dde3e3',
   accent: '#0080af',
-  accentHover: '#006d96',
-  accentContrastText: '#fff',
   field: '#ffffff',
   fieldBorder: '#dde3e3',
   pill: '#ffffff',
@@ -103,8 +98,6 @@ const DARK: AuthTokens = {
   muted: '#9ca3af',
   hairline: 'rgba(255,255,255,0.14)',
   accent: '#22a5d1',
-  accentHover: '#41b6dd',
-  accentContrastText: '#fff',
   field: 'rgba(255,255,255,0.04)',
   fieldBorder: 'rgba(255,255,255,0.16)',
   pill: 'rgba(255,255,255,0.1)',
@@ -145,8 +138,6 @@ function withBrandAccent(tokens: AuthTokens, brandColor: string): AuthTokens {
   return {
     ...tokens,
     accent,
-    accentContrastText: contrastTextFor(accent),
-    accentHover: tokens === DARK ? lighten(accent, 0.15) : darken(accent, 0.15),
     accentShadow: `0 6px 14px -4px ${alpha(accent, tokens === DARK ? 0.4 : 0.55)}`,
   };
 }
