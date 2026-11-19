@@ -49,6 +49,34 @@ function checkRequired(errors: string[]): void {
   }
 }
 
+// BACKEND_URL is the backend's internal address. Pointed at a public host it
+// still works, but every call leaves and re-enters through the proxy, so the
+// backend sees the proxy's IP: sign-ins share one rate limit and the audit log
+// records the proxy. Same host *and* port as FRONTEND_URL means the app itself
+// (localhost:3000 vs localhost:8080 in local dev is fine).
+function checkBackendUrlIsInternal(warnings: string[]): void {
+  const backend = read('BACKEND_URL');
+  if (!backend || !isHttpUrl(backend)) return;
+  const backendUrl = new URL(backend);
+  const frontend = read('FRONTEND_URL');
+  const fix =
+    "Set it to the backend's internal address, such as http://backend:8080, or leave it unset";
+
+  if (
+    frontend &&
+    isHttpUrl(frontend) &&
+    new URL(frontend).host === backendUrl.host
+  ) {
+    warnings.push(
+      `BACKEND_URL points at the app's own address (${backendUrl.host}). ${fix}.`
+    );
+  } else if (backendUrl.protocol === 'https:') {
+    warnings.push(
+      `BACKEND_URL uses https (${backend}), which usually means the public API host. ${fix}, so the backend sees each user's IP.`
+    );
+  }
+}
+
 function checkArticleUrls(name: string, warnings: string[]): void {
   for (const url of readList(name)) {
     if (!isAllowedArticleUrl(url)) {
@@ -92,6 +120,7 @@ function checkContent(warnings: string[]): void {
 export function checkEnv(): EnvProblems {
   const problems: EnvProblems = { errors: [], warnings: [] };
   checkRequired(problems.errors);
+  checkBackendUrlIsInternal(problems.warnings);
   checkContent(problems.warnings);
   return problems;
 }
