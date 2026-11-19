@@ -195,6 +195,21 @@ def test_docs_changelog_dry_run_does_not_touch_the_file(tmp_path):
     assert changelog.read_text() == before
 
 
+def test_docs_changelog_inserts_after_unreleased_and_before_old_release(tmp_path):
+    changelog = _write_docs(
+        tmp_path,
+        "# Rhesis Changelog\n\nIntro.\n\n"
+        "## [Unreleased]\n\n- Pending\n\n"
+        "## [0.21.0] - 2026-11-12\n\n- Old release\n",
+    )
+
+    assert update_docs_changelog("0.22.0", "### Summary\n\nNew\n", tmp_path)
+
+    result = changelog.read_text()
+    assert result.index("## [Unreleased]") < result.index("## [0.22.0]")
+    assert result.index("## [0.22.0]") < result.index("## [0.21.0]")
+
+
 def test_docs_changelog_refuses_empty_entry(tmp_path):
     changelog = _write_docs(tmp_path, "# Rhesis Changelog\n\n## [0.21.0] - 2026-11-12\n")
     before = changelog.read_text()
@@ -246,6 +261,18 @@ def test_docs_generation_drops_a_heading_the_model_added(monkeypatch):
         generate_docs_changelog_with_llm("key", "0.22.0", {}, [])
         == "### Summary\n\nBody"
     )
+
+
+def test_docs_generation_handles_a_heading_only_response(monkeypatch):
+    from release_tools import changelog as changelog_mod
+
+    monkeypatch.setattr(
+        changelog_mod,
+        "call_gemini_api",
+        lambda *args, **kwargs: "## [0.22.0] - 2026-11-19",
+    )
+
+    assert generate_docs_changelog_with_llm("key", "0.22.0", {}, []) is None
 
 
 def test_docs_generation_requires_a_key(monkeypatch):

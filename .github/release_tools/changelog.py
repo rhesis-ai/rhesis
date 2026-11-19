@@ -328,7 +328,8 @@ def generate_docs_changelog_with_llm(
     content = content.strip()
     # Some models include the heading even when told not to; drop it so the caller owns the header.
     if content.startswith("## ["):
-        content = content.split("\n", 1)[1].lstrip()
+        _, separator, rest = content.partition("\n")
+        content = rest.lstrip() if separator else ""
     return content or None
 
 
@@ -363,7 +364,11 @@ def update_docs_changelog(
 
     lines = path.read_text().splitlines()
     first_released = next(
-        (index for index, line in enumerate(lines) if line.startswith("## [")),
+        (
+            index
+            for index, line in enumerate(lines)
+            if line.startswith("## [") and not line.startswith("## [Unreleased]")
+        ),
         None,
     )
 
