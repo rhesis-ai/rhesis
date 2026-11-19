@@ -3,8 +3,9 @@ on:
   workflow_dispatch:  # Allows manual triggering
 
 # Promotes prd's ArgoCD config (promote-prd-config, below) but does not deploy
-# app images to prd. Until a k8s prd image deploy is wired in here, run
-# deploy-all-k8s.yml manually with environment: prd.
+# the app. The rhesis chart and its images go out together afterwards: run
+# deploy-all-k8s.yml with environment: prd from the release branch, which pins
+# the chart to the release commit in the same write as the image tags.
 jobs:
   # Promotes prd-base (root app-of-apps) to this release's exact commit; every
   # nested Application under kubernetes/clusters/prd/ cascades from prd-base's
@@ -107,8 +108,10 @@ jobs:
             kubernetes/clusters/prd/cluster-dns-application.yaml
             kubernetes/clusters/prd/external-dns.yaml
             kubernetes/clusters/prd/argocd/argocd-application.yaml
-            kubernetes/clusters/prd/rhesis/rhesis-application.yaml
           )
+          # rhesis-application.yaml is left out on purpose: its chart revision is
+          # set by the prd deploy together with the image tags (see prd-base's
+          # ignoreDifferences in kubernetes/bootstrap/prd-base.yaml).
 
           # Fail fast if any file doesn't have exactly one targetRevision line — a
           # blind sed would otherwise silently corrupt a file that later gains a

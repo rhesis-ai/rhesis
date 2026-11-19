@@ -1,18 +1,24 @@
 #!/usr/bin/env bash
-# Set image tag parameters on an ArgoCD Application, atomically.
+# Set image tag parameters (and optionally the chart revision) on an ArgoCD
+# Application, atomically.
 #
 # Writes through the Kubernetes API, not `argocd app set`. ArgoCD applies
 # set/patch by writing back a spec it read earlier, so two deploys that overlap
 # lose one tag (seen on 2026-11-18). Here the JSON patch starts with a `test`
-# op on the current helm block, which the API server applies atomically: if
+# op on the current source block, which the API server applies atomically: if
 # another deploy changed it first, the patch is rejected and retried on a
 # fresh read.
+#
+# With REVISION, the chart's targetRevision is set in the same patch, so the
+# chart and the images it was released with change in one sync (stg and prd;
+# their root apps ignore this field so selfHeal doesn't put it back).
 #
 # Env:
 #   APP          Application name (in namespace argocd)
 #   TAG          image tag to set
 #   SERVICE      values key (backend, workers, frontend, ...); empty = every
 #                deploy-all service
+#   REVISION     optional; git commit to pin the chart to
 #   ENVIRONMENT  dev | stg | prd (for error messages)
 #   EVENT        github.event_name; only workflow_dispatch may move a tag back
 #   REPO, GH_TOKEN  for the GitHub compare API
@@ -59,17 +65,21 @@ rbac_error() {
 # A rerun of an old push, or a slow run finishing late, must not roll a service
 # back. Manual dispatches may: that's how you roll back on purpose. If the order
 # can't be checked, stop rather than guess.
-is_older() {
-  local new="$1" cur="$2" status auth=()
+is_older() {  # is_older <new> <current> <what, for messages>
+  local new="$1" cur="$2" what="$3" status auth=()
   [ "$EVENT" = workflow_dispatch ] && return 1
   [[ "$new" =~ ^[0-9a-f]{7,40}$ && "$cur" =~ ^[0-9a-f]{7,40}$ ]] || return 1
   [ -n "${GH_TOKEN:-}" ] && auth=(-H "Authorization: Bearer $GH_TOKEN")
   if ! status=$(curl -fsS --retry 3 ${auth[@]+"${auth[@]}"} \
       "https://api.github.com/repos/$REPO/compare/$cur...$new" | jq -er .status); then
-    echo "::error::Couldn't compare $cur and $new, so can't tell whether $TAG would roll $KEY back."
+    echo "::error::Couldn't compare $cur and $new, so can't tell whether $new would roll $what back."
     exit 1
   fi
-  [ "$status" = behind ]
+  if [ "$status" = behind ]; then
+    echo "::warning::$what is already at $cur, which is newer than $new. Leaving it."
+    return 0
+  fi
+  return 1
 }
 
 ERR="$(mktemp)"
@@ -83,35 +93,43 @@ for attempt in $(seq 1 10); do
     sleep $((RANDOM % 3 + 1))
     continue
   fi
-  HELM=$(jq -c '.spec.source.helm' <<<"$APP_JSON")
+  SOURCE=$(jq -c '.spec.source' <<<"$APP_JSON")
+  OPS='[]'
 
   WRITE='[]'
   while IFS= read -r KEY; do
-    CUR=$(jq -r --arg k "$KEY" '(.parameters // [])[] | select(.name == $k) | .value' <<<"$HELM")
-    if [ -n "$CUR" ] && is_older "$TAG" "$CUR"; then
-      echo "::warning::$KEY is already at $CUR, which is newer than $TAG. Leaving it."
-      continue
-    fi
+    CUR=$(jq -r --arg k "$KEY" '(.helm.parameters // [])[] | select(.name == $k) | .value' <<<"$SOURCE")
+    if [ -n "$CUR" ] && is_older "$TAG" "$CUR" "$KEY"; then continue; fi
     WRITE=$(jq -c --arg k "$KEY" '. + [$k]' <<<"$WRITE")
   done < <(jq -r '.[]' <<<"$KEYS")
-  if [ "$WRITE" = '[]' ]; then
+  if [ "$WRITE" != '[]' ]; then
+    PARAMS=$(jq -c --argjson keys "$WRITE" --arg tag "$TAG" '
+      reduce $keys[] as $k ((.helm.parameters // []);
+        if any(.[]; .name == $k)
+        then map(if .name == $k then .value = $tag | .forceString = true else . end)
+        else . + [{name: $k, value: $tag, forceString: true}]
+        end)' <<<"$SOURCE")
+    OPS=$(jq -c --argjson p "$PARAMS" '. + [{op: "add", path: "/spec/source/helm/parameters", value: $p}]' <<<"$OPS")
+  fi
+
+  CUR_REV=$(jq -r '.targetRevision' <<<"$SOURCE")
+  if [ -n "${REVISION:-}" ] && [ "$REVISION" != "$CUR_REV" ] \
+      && ! is_older "$REVISION" "$CUR_REV" "the chart revision"; then
+    OPS=$(jq -c --arg r "$REVISION" '. + [{op: "add", path: "/spec/source/targetRevision", value: $r}]' <<<"$OPS")
+  fi
+
+  if [ "$OPS" = '[]' ]; then
     echo "Nothing to change."
     exit 0
   fi
+  PATCH=$(jq -c --argjson src "$SOURCE" '[{op: "test", path: "/spec/source", value: $src}] + .' <<<"$OPS")
 
-  PARAMS=$(jq -c --argjson keys "$WRITE" --arg tag "$TAG" '
-    reduce $keys[] as $k ((.parameters // []);
-      if any(.[]; .name == $k)
-      then map(if .name == $k then .value = $tag | .forceString = true else . end)
-      else . + [{name: $k, value: $tag, forceString: true}]
-      end)' <<<"$HELM")
-  PATCH=$(jq -nc --argjson helm "$HELM" --argjson params "$PARAMS" \
-    '[{op: "test", path: "/spec/source/helm", value: $helm},
-      {op: "add", path: "/spec/source/helm/parameters", value: $params}]')
-
-  if OUT=$(kubectl -n argocd patch application "$APP" --type json -p "$PATCH" "${PATCH_ARGS[@]}" 2>&1); then
+  if OUT=$(kubectl -n argocd patch application "$APP" --type json -p "$PATCH" ${PATCH_ARGS[@]+"${PATCH_ARGS[@]}"} 2>&1); then
     echo "$OUT"
     jq -r --arg tag "$TAG" '.[] | "  \(.) = \($tag)"' <<<"$WRITE"
+    if jq -e 'any(.[]; .path == "/spec/source/targetRevision")' <<<"$OPS" > /dev/null; then
+      echo "  chart revision = $REVISION"
+    fi
     exit 0
   fi
   echo "$OUT"
