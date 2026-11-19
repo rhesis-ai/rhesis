@@ -28,7 +28,7 @@ spec:
       {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.polyphemus) | nindent 6 }}
       containers:
         - name: polyphemus
-          image: {{ include "rhesis.image" (dict "imageValues" .Values.polyphemus "global" .Values.global) | quote }}
+          image: {{ include "rhesis.image" (dict "imageValues" .Values.polyphemus "global" .Values.global "appVersion" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.polyphemus.image.pullPolicy | default .Values.global.imagePullPolicy }}
           {{- include "rhesis.containerSecurityContext" (dict "Values" .Values "component" .Values.polyphemus) | nindent 10 }}
           ports:

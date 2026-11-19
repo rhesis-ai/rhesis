@@ -26,7 +26,7 @@ spec:
       {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.docs) | nindent 6 }}
       containers:
         - name: docs
-          image: {{ include "rhesis.image" (dict "imageValues" .Values.docs "global" .Values.global) | quote }}
+          image: {{ include "rhesis.image" (dict "imageValues" .Values.docs "global" .Values.global "appVersion" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.docs.image.pullPolicy | default .Values.global.imagePullPolicy }}
           {{- include "rhesis.containerSecurityContext" (dict "Values" .Values "component" .Values.docs) | nindent 10 }}
           ports:

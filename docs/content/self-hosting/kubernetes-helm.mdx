@@ -24,12 +24,11 @@ then the Rhesis Helm chart itself, ordered by ArgoCD sync-waves.
 
 ```mermaid
 flowchart TD
-    You[You] -->|git push| Repo["Your fork of<br/>rhesis-ai/rhesis"]
+    Upstream["rhesis-ai/rhesis<br/>release tag"] -->|"upgrade: git merge the next release tag"| Repo
+    You[You] -->|git push| Repo["Your fork's<br/>deploy branch"]
     Repo -->|watches| ArgoCD[ArgoCD]
     ArgoCD -->|sync & reconcile| Cluster[Kubernetes Cluster]
-    CI["Your CI<br/>(optional)"] -->|build & push image| Registry[Your Container Registry]
-    Registry -->|image pull| Cluster
-    You -.->|"one-off tag bump:<br/>argocd app set --helm-set-string"| ArgoCD
+    GHCR["ghcr.io/rhesis-ai<br/>release images"] -->|image pull| Cluster
 ```
 
 **What the chart deploys:**
@@ -59,8 +58,17 @@ internally (`kubernetes/clusters/<env>/` and `charts/rhesis/values-<env>.yaml`).
 
 <CodeBlock filename="Terminal" language="bash">
 {`gh repo fork rhesis-ai/rhesis --clone
-cd rhesis`}
+cd rhesis
+
+# a deploy branch that starts at the latest release, not at main
+git checkout -b deploy "$(git tag --list 'v*' --sort=-version:refname | head -n1)"
+git push -u origin deploy`}
 </CodeBlock>
+
+Commit everything below to `deploy`, and point every `targetRevision` at it. The chart on a
+release tag deploys that release's images (see [Images](#images)), so the chart and the images only
+ever change together, when you merge the next release (see [Upgrade](#upgrade--uninstall)).
+`main` can be ahead of the last release, so don't deploy from it.
 
 Replace `<your-org>/rhesis` in every manifest below with your fork's path.
 
@@ -140,7 +148,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/<your-org>/rhesis.git
-    targetRevision: main
+    targetRevision: deploy
     path: kubernetes/clusters/customer
     kustomize: {}
   destination:
@@ -176,7 +184,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/<your-org>/rhesis.git
-    targetRevision: main
+    targetRevision: deploy
     path: kubernetes/clusters/customer/cert-manager
   destination:
     server: https://kubernetes.default.svc
@@ -306,8 +314,8 @@ metadata:
 
 `kubernetes/clusters/dev/rhesis/rhesis-application.yaml` is the Application that deploys the
 Helm chart itself. Copy it to `kubernetes/clusters/customer/rhesis/rhesis-application.yaml` and
-change two fields: `source.repoURL` to your fork, and `source.helm.valueFiles` to
-`[values.yaml, values-customer.yaml]`.
+change three fields: `source.repoURL` to your fork, `source.targetRevision` to `deploy`, and
+`source.helm.valueFiles` to `[values.yaml, values-customer.yaml]`.
 
 ## Configure public hostnames
 
@@ -375,19 +383,43 @@ ConfigMap changes don't restart pods on their own:
 kubectl rollout restart deployment frontend -n rhesis
 ```
 
-## Minimal vs. full deployment
+## Images
 
-Only 4 of the 6 chart components have public images. Rhesis publishes
-`ghcr.io/rhesis-ai/{backend,worker,frontend,chatbot}:latest` (manually built, not continuously
-updated). **`docs` and `polyphemus` have no public image**: the repo has Dockerfiles for both,
-but you must build and push them to your own registry to use them.
+Each release publishes `ghcr.io/rhesis-ai/{backend,worker,frontend,chatbot}:<version>`. The chart's
+image tags default to its `appVersion`, which is the release it shipped with, so a `deploy` branch
+on a release tag pulls that release's images with no tag to set. Point the chart at GHCR in
+`rhesis-application.yaml`. These are `helm.parameters` rather than values because `workers` is a
+list, and a values file would have to repeat its whole first entry:
 
-Start with those two disabled so your first deploy only needs the public images:
+<CodeBlock filename="kubernetes/clusters/customer/rhesis/rhesis-application.yaml" language="yaml">
+{`    helm:
+      valueFiles:
+        - values.yaml
+        - values-customer.yaml
+      parameters:
+        - name: global.registry
+          value: ghcr.io/rhesis-ai
+        - name: backend.image.repository
+          value: backend
+        - name: frontend.image.repository
+          value: frontend
+        - name: chatbot.image.repository
+          value: chatbot
+        - name: workers[0].image.repository
+          value: worker`}
+</CodeBlock>
+
+`docs`, `polyphemus`, `otelCollector` and `telemetryProcessor` have no public image. The Docker
+Compose setup runs without them too. Disable them:
 
 <CodeBlock filename="charts/rhesis/values-customer.yaml" language="yaml">
 {`docs:
   enabled: false
 polyphemus:
+  enabled: false
+otelCollector:
+  enabled: false
+telemetryProcessor:
   enabled: false`}
 </CodeBlock>
 
@@ -726,23 +758,37 @@ their own token/secret pair, even though both call the same Cloudflare API.
 
 ## Enabling the rest
 
-To bring up `docs` and `polyphemus`:
+The chart takes one registry for every image, so running `docs`, `polyphemus`, `otelCollector` or
+`telemetryProcessor` means serving all images from your own registry:
 
-1. Build and push each image to your own registry (Dockerfiles: `apps/polyphemus`, `docs/src`).
-2. Set `global.registry` in `values-customer.yaml` to that registry, and set each component's
-   `.enabled: true`.
-3. Commit and push: ArgoCD's `selfHeal: true` picks up the change automatically. To force it
-   immediately: `argocd app sync rhesis`.
+1. Build every image you run from your `deploy` branch and push it to your registry under the
+   chart's names (`rhesis-backend`, `rhesis-worker`, `rhesis-frontend`, `rhesis-chatbot`,
+   `rhesis-docs`, `rhesis-polyphemus`, `rhesis-otel-collector`, `rhesis-telemetry-processor`),
+   tagged with the release version. The Dockerfiles are under `apps/` and `docs/src`.
+2. Remove the GHCR `helm.parameters` from `rhesis-application.yaml`, set `global.registry` in
+   `values-customer.yaml` to your registry, and set each component's `.enabled: true`.
+3. Commit and push. ArgoCD's `selfHeal: true` picks up the change.
 
 ## Upgrade / Uninstall
 
-**Upgrade** by editing `values-customer.yaml` and pushing: ArgoCD reconciles automatically. For
-a one-off image tag bump without a commit (matching how Rhesis's own CI deploys):
+**Upgrade** by merging the new release tag into your `deploy` branch. The chart and the image
+tags it defaults to move in that one commit:
 
 <CodeBlock filename="Terminal" language="bash">
-{`argocd app set rhesis --helm-set-string backend.image.tag=<new-tag>
-argocd app sync rhesis`}
+{`git fetch upstream --tags
+git checkout deploy
+git merge v<new version>
+git push`}
 </CodeBlock>
+
+Before pushing, check the release's entry in the
+[backend changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/backend/CHANGELOG.md) for an
+**Upgrading a self-hosted deployment** section: some releases need a configuration change, such as
+a new ingress route or a new OAuth redirect URI. If you build your own images, build and push the
+new version's before you push the merge.
+
+Database migrations run when the backend starts. To roll back, revert the merge commit and push. A
+rollback across a database migration needs a database restore.
 
 **Uninstall:**
 

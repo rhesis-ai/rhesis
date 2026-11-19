@@ -2,8 +2,10 @@ apiVersion: v2
 name: rhesis
 description: Rhesis AI Platform — Frontend, Backend, Workers, Chatbot, Polyphemus, Docs, OTel Collector, Telemetry Processor
 type: application
-version: 0.1.0
-appVersion: "1.0.0"
+# Both are set to the platform version by the release tool, so the chart a release
+# tag ships defaults its image tags to that release (see rhesis.image).
+version: 0.21.2
+appVersion: "0.21.2"
 maintainers:
   - name: Rhesis Team
 

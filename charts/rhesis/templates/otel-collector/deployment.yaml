@@ -26,7 +26,7 @@ spec:
       {{- include "rhesis.podSecurityContext" (dict "Values" .Values "component" .Values.otelCollector) | nindent 6 }}
       containers:
         - name: otel-collector
-          image: {{ include "rhesis.image" (dict "imageValues" .Values.otelCollector "global" .Values.global) | quote }}
+          image: {{ include "rhesis.image" (dict "imageValues" .Values.otelCollector "global" .Values.global "appVersion" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.otelCollector.image.pullPolicy | default .Values.global.imagePullPolicy }}
           {{- include "rhesis.containerSecurityContext" (dict "Values" .Values "component" .Values.otelCollector) | nindent 10 }}
           ports:

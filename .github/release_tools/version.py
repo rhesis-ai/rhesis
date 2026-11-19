@@ -3,11 +3,12 @@ Version management functionality for the Rhesis release tool.
 """
 
 import json
+import re
 import subprocess
 from pathlib import Path
 
-from .config import COMPONENTS, PLATFORM_VERSION_FILE
-from .utils import error, info, success
+from release_tools.config import COMPONENTS, PLATFORM_PINNED_FILES, PLATFORM_VERSION_FILE
+from release_tools.utils import error, info, success
 
 
 def get_current_version(component: str, repo_root: Path) -> str:
@@ -127,14 +128,31 @@ def update_version_file(
 
 
 def _update_platform_version(new_version: str, repo_root: Path, dry_run: bool) -> bool:
-    """Update platform version file"""
+    """Update the platform version file and the deploy files pinned to it"""
     if dry_run:
         info(f"Would update {PLATFORM_VERSION_FILE} to: {new_version}")
+        for rel_path in PLATFORM_PINNED_FILES:
+            info(f"Would pin {rel_path} to: {new_version}")
         return True
 
     version_file = repo_root / PLATFORM_VERSION_FILE
     version_file.write_text(new_version)
     success(f"Updated {PLATFORM_VERSION_FILE} to: {new_version}")
+    return pin_platform_files(new_version, repo_root)
+
+
+def pin_platform_files(new_version: str, repo_root: Path) -> bool:
+    """Write the platform version into the deploy files that name it"""
+    for rel_path, pattern in PLATFORM_PINNED_FILES.items():
+        path = repo_root / rel_path
+        text, count = re.subn(
+            pattern, lambda m: f"{m.group(1)}{new_version}{m.group(2)}", path.read_text()
+        )
+        if count == 0:
+            error(f"Found no version to update in {rel_path}")
+            return False
+        path.write_text(text)
+        success(f"Pinned {rel_path} to: {new_version}")
     return True
 
 

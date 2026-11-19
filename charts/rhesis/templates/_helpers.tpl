@@ -143,16 +143,23 @@ the chart-version labels and template comments would roll pods for nothing.
 
 {{/*
 Build a full image reference.
-Usage: include "rhesis.image" (dict "imageValues" .Values.backend "global" .Values.global)
+Usage: include "rhesis.image" (dict "imageValues" .Values.backend "global" .Values.global "appVersion" .Chart.AppVersion)
+
+Tag: <service>.image.tag, else global.imageTag, else the chart's appVersion (the
+release this chart shipped with), so a self-hosted install from a release tag
+runs that release's images. Rhesis's own environments set requirePinnedTag and
+never fall back: their images are tagged by commit, not by version.
 */}}
 {{- define "rhesis.image" -}}
 {{- $registry := .global.registry -}}
 {{- $repository := .imageValues.image.repository -}}
-{{- $tag := toString (coalesce .imageValues.image.tag .global.imageTag) -}}
+{{- /* default "": coalesce of two unset tags is nil, and toString nil is "<nil>", not empty. */ -}}
+{{- $tag := toString (coalesce .imageValues.image.tag .global.imageTag | default "") -}}
 {{- if not $tag -}}
   {{- if .global.requirePinnedTag -}}
     {{- fail "image tag must be set — CI pins each service via <service>.image.tag; run the build workflow before deploying" -}}
   {{- end -}}
+  {{- $tag = toString .appVersion -}}
 {{- end -}}
 {{- if eq $tag "latest" -}}
   {{- fail "image tag must not be 'latest' — use an immutable git SHA tag" -}}
