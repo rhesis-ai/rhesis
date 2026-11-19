@@ -341,6 +341,7 @@ jobs:
     if: startsWith(github.ref, 'refs/heads/release/')
     needs: [publish]
     runs-on: ubuntu-latest
+    timeout-minutes: 60  # don't wait forever on a stuck check
     permissions: {}  # acts with the app token below
     steps:
       - name: Generate a token
@@ -361,9 +362,14 @@ jobs:
             echo "::notice::No open pull request from $BRANCH into main; it was probably merged already."
             exit 0
           fi
-          # main requires its status checks; a hotfix pushed late may still be running them.
-          gh pr checks "$PR" -R "$REPO" --required --watch --interval 30
+          # Merge only when every check passed (skipped ones are fine), not just the
+          # ones main requires; otherwise leave it to a person. A hotfix pushed late
+          # may still be running checks, so wait for them.
+          if ! gh pr checks "$PR" -R "$REPO" --watch --interval 30; then
+            echo "::error::Not all checks on #$PR passed, so it was left open. The release is live and published; review the failing checks and merge #$PR by hand."
+            exit 1
+          fi
           if ! gh pr merge "$PR" -R "$REPO" --squash; then
-            echo "::error::Couldn't merge #$PR (conflict or failing check). The release is live and published; merge #$PR into main by hand."
+            echo "::error::Couldn't merge #$PR (for example a conflict with main). The release is live and published; merge #$PR by hand."
             exit 1
           fi

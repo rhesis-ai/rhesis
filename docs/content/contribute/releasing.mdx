@@ -35,9 +35,9 @@ Switch to the release branch and run `[Release] 3. Deploy and publish` from it. 
 2. Copies the images staging ran into the production registry, unchanged, so production runs exactly what was tested.
 3. Pins the `rhesis` chart to the release commit and sets the image tags in a single write, then waits for production to be healthy. Production never runs new images on the old chart or the other way round.
 4. Creates and pushes the tags and creates a GitHub release for each component.
-5. Squash-merges the release pull request from step 2 into `main`, once its required checks pass, so the version bumps, changelogs and the new version in `docker-compose.ghcr.yml` and the chart land on `main`. It merges only after publishing: the tags are cut from the release branch, and merging deletes it.
+5. Squash-merges the release pull request from step 2 into `main` if every check on it passed, so the version bumps, changelogs and the new version in `docker-compose.ghcr.yml` and the chart land on `main`. It merges only after publishing: the tags are cut from the release branch, and merging deletes it.
 
-If the deploy fails, nothing is tagged or published: fix it on the release branch and run the workflow again. If only the merge fails (a conflict with `main`, or a failing check), the release is already live: merge the pull request by hand.
+If the deploy fails, nothing is tagged or published: fix it on the release branch and run the workflow again. If a check on the pull request failed, or it conflicts with `main`, the workflow leaves it open and fails its last job. The release is already live then: review the failure and merge the pull request by hand.
 
 <Callout type="error">
   Run this workflow **on the release branch**. A run started from `main` is skipped by a branch
