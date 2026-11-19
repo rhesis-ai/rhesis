@@ -51,12 +51,14 @@ jobs:
         id: images
         run: |
           VERSION=$(cat VERSION)
-          if docker manifest inspect "ghcr.io/rhesis-ai/frontend:$VERSION" > /dev/null 2>&1; then
-            echo "exist=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::ghcr.io/rhesis-ai/*:$VERSION isn't published yet (release in progress); skipping."
-            echo "exist=false" >> "$GITHUB_OUTPUT"
-          fi
+          for image in backend worker frontend; do
+            if ! docker manifest inspect "ghcr.io/rhesis-ai/$image:$VERSION" > /dev/null 2>&1; then
+              echo "::notice::ghcr.io/rhesis-ai/$image:$VERSION isn't published yet (release in progress); skipping."
+              echo "exist=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          echo "exist=true" >> "$GITHUB_OUTPUT"
 
       - name: ./rh start
         if: steps.images.outputs.exist == 'true'
@@ -70,10 +72,14 @@ jobs:
 
       - name: Check the app answers
         if: steps.images.outputs.exist == 'true'
+        # ./rh start writes the ports it chose to .env.docker.local.
         run: |
-          curl -fsS http://localhost:8080/health
-          curl -fsS http://localhost:3000/api/health
-          curl -fsS -o /dev/null -w "frontend / -> %{http_code}\n" http://localhost:3000/
+          port() { grep -E "^$1=" .env.docker.local | tail -n1 | cut -d= -f2 | tr -d '"'; }
+          BACKEND_PORT=$(port BACKEND_PORT); BACKEND_PORT=${BACKEND_PORT:-8080}
+          FRONTEND_PORT=$(port FRONTEND_PORT); FRONTEND_PORT=${FRONTEND_PORT:-3000}
+          curl -fsS "http://localhost:$BACKEND_PORT/health"
+          curl -fsS "http://localhost:$FRONTEND_PORT/api/health"
+          curl -fsS -o /dev/null -w "frontend / -> %{http_code}\n" "http://localhost:$FRONTEND_PORT/"
 
       - name: Logs
         if: failure() && steps.images.outputs.exist == 'true'
