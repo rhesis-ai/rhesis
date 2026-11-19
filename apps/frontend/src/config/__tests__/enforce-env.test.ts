@@ -55,6 +55,74 @@ describe('enforce-env', () => {
       }
     );
 
+    describe('BACKEND_URL looking public', () => {
+      it('warns when it uses https', () => {
+        process.env.BACKEND_URL = 'https://api.example.com';
+
+        const { errors, warnings } = checkEnv();
+        expect(errors).toEqual([]);
+        expect(warnings).toEqual([
+          expect.stringMatching(
+            /^BACKEND_URL uses https \(https:\/\/api\.example\.com\)/
+          ),
+        ]);
+      });
+
+      it.each([
+        [
+          'the same origin',
+          'https://app.example.com/api/backend',
+          'https://app.example.com',
+        ],
+        [
+          'an explicit default https port',
+          'https://app.example.com:443',
+          'https://app.example.com',
+        ],
+        [
+          'an explicit default http port',
+          'http://app.example.com:80',
+          'http://app.example.com',
+        ],
+      ])(
+        "warns when it is the app's own address: %s",
+        (_label, backend, frontend) => {
+          process.env.BACKEND_URL = backend;
+          process.env.FRONTEND_URL = frontend;
+
+          expect(checkEnv().warnings).toEqual([
+            expect.stringMatching(
+              /^BACKEND_URL points at the app's own address/
+            ),
+          ]);
+        }
+      );
+
+      it.each([
+        [
+          'the in-cluster default',
+          'http://backend:8080',
+          'https://app.example.com',
+        ],
+        [
+          'local dev on another port',
+          'http://localhost:8080',
+          'http://localhost:3000',
+        ],
+      ])('accepts %s', (_label, backend, frontend) => {
+        process.env.BACKEND_URL = backend;
+        process.env.FRONTEND_URL = frontend;
+
+        expect(checkEnv().warnings).toEqual([]);
+      });
+
+      it('accepts it unset (the frontend falls back to http://backend:8080)', () => {
+        delete process.env.BACKEND_URL;
+
+        expect(checkEnv()).toEqual({ errors: [], warnings: [] });
+      });
+    });
+
     it('rejects a WS_URL that is neither a path nor a ws(s) URL', () => {
       process.env.WS_URL = 'http://localhost:8080/ws';
       expect(checkEnv().errors).toEqual([

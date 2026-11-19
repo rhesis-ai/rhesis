@@ -339,15 +339,17 @@ frontend:
     host: your-app-domain.com`}
 </CodeBlock>
 
-Then set the URLs the services use. `frontendUrl` is the address browsers open, and sign-in, OAuth and
-SSO redirect URIs are built from it. `backendUrl` must stay the in-cluster service address, so the
-backend sees each browser's IP for sign-in rate limits and the audit log.
+Then set `frontendUrl`, the address browsers open. Sign-in, OAuth and SSO redirect URIs are built
+from it.
 
 <CodeBlock filename="charts/rhesis/values-customer.yaml" language="yaml">
 {`config:
-  frontendUrl: "https://your-app-domain.com"
-  backendUrl: "http://backend:8080"`}
+  frontendUrl: "https://your-app-domain.com"`}
 </CodeBlock>
+
+Leave `backendUrl` unset. It defaults to the chart's backend Service, which is what the frontend
+server should call: pointed at the public API host instead, the backend would see the proxy's IP
+rather than each user's, for sign-in rate limits and the audit log.
 
 Browsers only reach the frontend host: sign-in and API calls go through it under `/api/backend`, and
 the frontend ingress routes the browser's WebSocket (`/ws`) to the backend service. The backend host

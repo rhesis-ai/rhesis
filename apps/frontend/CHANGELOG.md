@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Public `BACKEND_URL` Warning**: the frontend warns at startup when `BACKEND_URL` uses `https` or is the same address as `FRONTEND_URL`. Both usually mean the public API host, which hides each user's IP from the backend's sign-in rate limits and audit log. The Helm chart now defaults `config.backendUrl` to its backend Service, so self-hosters no longer set it.
+
 - **Organization Branding Settings**: Added a Branding tab to Organization Settings with primary/secondary colour (hex field plus a colour swatch), product name, favicon upload, and brand-font upload for the 300/400/700 weights.
 - **Branding Asset Proxies**: Added `/brand-assets/[asset]` for the organization favicon, and taught `/brand-fonts/[...path]` to serve organization-uploaded fonts before falling back to `BRAND_FONT_BASE_URL`.
 - **Google Fonts In Organization Branding**: The Branding tab offers a Google Fonts family (with an autocomplete over the live catalogue) alongside uploading font files, matching what `BRAND_FONT_FAMILY` already allowed at the deployment level.

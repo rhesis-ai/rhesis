@@ -106,7 +106,10 @@ config:
   # Backend
   rhesisBaseUrl: ""
   frontendUrl: ""
-  backendUrl: ""
+  # Internal address the frontend server calls the backend on. The default is the
+  # chart's own backend Service; change it only if the backend runs elsewhere.
+  # Never the public API host (see docs: Self-Hosting → Environment Variables).
+  backendUrl: "http://backend:8080"
   quickStart: "false"
   # Disposable-email screening on self-serve sign-up: off | log | enforce.
   # Admin invites are never screened. Extra domains are comma-separated and
