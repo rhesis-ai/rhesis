@@ -28,7 +28,7 @@ These four secrets have no default; the stack refuses to start if any is unset.
 | Variable | Description | Default |
 |---|---|---|
 | `FRONTEND_URL` | Public origin of the frontend, the only address browsers use. Sign-in and OAuth run under `<FRONTEND_URL>/api/backend`; an `https://` value enables secure cookies | `http://localhost:3000` |
-| `BACKEND_URL` | The backend's **internal** address, which the frontend server uses for every call it passes on. Don't point it at the public API host through a proxy (see below). Helm: `config.backendUrl` | `http://backend:8080` |
+| `BACKEND_URL` | The backend's **internal** address, which the frontend server uses for every call it passes on. Leave it unset unless the backend runs somewhere other than the `backend` service, and never point it at the public API host (see below). Helm: `config.backendUrl` | `http://backend:8080` |
 | `WS_URL` | WebSocket address for the browser, as a path (`/ws`) or a `ws(s)://` URL. Unset, the browser opens `/ws` on `FRONTEND_URL`, which your ingress or reverse proxy must route to the backend | `ws://localhost:<BACKEND_PORT>/ws` in docker-compose (set `ws://<server>:<BACKEND_PORT>/ws` when users open the app from other machines); unset in Helm |
 | `FRONTEND_PORT` | Host port Docker publishes for the frontend | `3000` |
 | `BACKEND_PORT` | Host port Docker publishes for the backend | `8080` |
@@ -40,7 +40,8 @@ Sign-in reaches the backend through the frontend server, which passes on each br
 sign-in rate limits and the audit log. The backend accepts that IP only when the request arrives
 directly from a private or loopback address. If `BACKEND_URL` goes through a proxy that adds
 `X-Forwarded-For`, every sign-in counts against one shared limit, and the backend logs a warning
-saying so.
+saying so. The frontend also warns at startup when `BACKEND_URL` uses `https` or is the same
+address as `FRONTEND_URL`, both signs of a public host.
 
 ### Routing in front of Rhesis
 
