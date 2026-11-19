@@ -99,6 +99,9 @@ jobs:
       always() &&
       needs.build.result == 'success' &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.deploy)
+    permissions:
+      contents: read
+      id-token: write  # k8s-deploy.yml logs in keylessly
     uses: ./.github/workflows/k8s-deploy.yml
     with:
       environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}

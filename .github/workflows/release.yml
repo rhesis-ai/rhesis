@@ -6,6 +6,9 @@ on:
 
 jobs:
   deploy-all-to-staging:
+    permissions:
+      contents: read
+      id-token: write  # k8s-deploy.yml logs in keylessly
     uses: ./.github/workflows/deploy-all-k8s.yml
     with:
       environment: stg
