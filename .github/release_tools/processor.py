@@ -8,9 +8,13 @@ from pathlib import Path
 from typing import Dict
 
 from .changelog import (
+    DOCS_COMPONENT_ORDER,
+    _docs_style_reference,
     generate_changelog_with_llm,
+    generate_docs_changelog_with_llm,
     placeholder_entry,
     update_component_changelog,
+    update_docs_changelog,
     update_platform_changelog,
 )
 from .config import COMPONENTS, platform_followers
@@ -58,6 +62,44 @@ class ReleaseProcessor:
         """Reorder versions to COMPONENTS order, platform first"""
         order = ["platform"] + list(COMPONENTS)
         return {name: versions[name] for name in order if name in versions}
+
+    def _update_docs_changelog(self, platform_version: str) -> bool:
+        """Generate the aggregated docs changelog from the component changelogs."""
+        component_changelogs = {}
+        for component in DOCS_COMPONENT_ORDER:
+            config = COMPONENTS.get(component)
+            if config is None:
+                continue
+
+            path = self.repo_root / config.changelog_path
+            if path.exists():
+                component_changelogs[component] = path.read_text()
+
+        last_tag = get_last_tag("platform")
+        commits = get_commits_since_tag("platform", last_tag)
+
+        entry = generate_docs_changelog_with_llm(
+            self.gemini_api_key,
+            platform_version,
+            component_changelogs,
+            commits,
+            style_reference=_docs_style_reference(self.repo_root),
+            component_versions={
+                component: self.component_versions[component]
+                for component in DOCS_COMPONENT_ORDER
+                if component in self.component_versions
+            },
+        )
+        if not entry:
+            warn("Skipping docs changelog draft because no content was generated")
+            return True
+
+        return update_docs_changelog(
+            platform_version,
+            entry,
+            self.repo_root,
+            self.dry_run,
+        )
 
     def process_releases(self) -> bool:
         """Process all releases"""
@@ -167,6 +209,8 @@ class ReleaseProcessor:
                     self.repo_root,
                     self.dry_run,
                 )
+                if not self._update_docs_changelog(platform_version):
+                    return False
 
         return True
 

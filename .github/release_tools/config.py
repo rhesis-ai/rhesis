@@ -61,6 +61,7 @@ COMPONENTS = {
 # Platform-specific files
 PLATFORM_VERSION_FILE = "VERSION"
 PLATFORM_CHANGELOG = "CHANGELOG.md"
+DOCS_CHANGELOG = "docs/content/changelog.mdx"
 
 # Deploy files that name the platform version, so a release tag's compose file and chart
 # point at that release's images. Each regex has a group before and after the version.

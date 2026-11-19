@@ -9,9 +9,12 @@ from pathlib import Path
 
 import pytest
 from release_tools.changelog import (
+    DOCS_DRAFT_MARKER,
     UNRELEASED_MARKER,
     _insert_under_unreleased,
+    generate_docs_changelog_with_llm,
     placeholder_entry,
+    update_docs_changelog,
 )
 from release_tools.config import COMPONENTS
 from release_tools.utils import LLM_MAX_OUTPUT_TOKENS
@@ -148,3 +151,137 @@ def test_platform_summary_falls_back_to_a_placeholder_not_commit_subjects(tmp_pa
     assert "Key changes include" not in result
     assert "...." not in result
     assert "(#42)" not in result
+
+
+def _write_docs(tmp_path: Path, body: str) -> Path:
+    path = tmp_path / "docs" / "content"
+    path.mkdir(parents=True)
+    changelog = path / "changelog.mdx"
+    changelog.write_text(body)
+    return changelog
+
+
+def test_docs_changelog_inserts_draft_before_first_release(tmp_path):
+    changelog = _write_docs(
+        tmp_path,
+        "# Rhesis Changelog\n\nIntro stays here.\n\n"
+        "## [0.21.0] - 2026-11-12\n\n- Old release\n",
+    )
+
+    assert update_docs_changelog("0.22.0", "### Summary\n\nNew draft\n", tmp_path)
+
+    result = changelog.read_text()
+    assert "Intro stays here." in result
+    assert result.index(DOCS_DRAFT_MARKER) < result.index("## [0.22.0]")
+    assert result.index("## [0.22.0]") < result.index("## [0.21.0]")
+    assert "New draft" in result
+
+
+def test_docs_changelog_appends_when_there_is_no_release_yet(tmp_path):
+    changelog = _write_docs(tmp_path, "# Rhesis Changelog\n\nIntro only.\n")
+
+    assert update_docs_changelog("0.22.0", "### Summary\n\nFirst\n", tmp_path)
+
+    result = changelog.read_text()
+    assert result.index("Intro only.") < result.index("## [0.22.0]")
+    assert DOCS_DRAFT_MARKER in result
+
+
+def test_docs_changelog_dry_run_does_not_touch_the_file(tmp_path):
+    changelog = _write_docs(tmp_path, "# Rhesis Changelog\n\n## [0.21.0] - 2026-11-12\n")
+    before = changelog.read_text()
+
+    assert update_docs_changelog("0.22.0", "### Summary\n\nNew\n", tmp_path, dry_run=True)
+    assert changelog.read_text() == before
+
+
+def test_docs_changelog_inserts_after_unreleased_and_before_old_release(tmp_path):
+    changelog = _write_docs(
+        tmp_path,
+        "# Rhesis Changelog\n\nIntro.\n\n"
+        "## [Unreleased]\n\n- Pending\n\n"
+        "## [0.21.0] - 2026-11-12\n\n- Old release\n",
+    )
+
+    assert update_docs_changelog("0.22.0", "### Summary\n\nNew\n", tmp_path)
+
+    result = changelog.read_text()
+    assert result.index("## [Unreleased]") < result.index("## [0.22.0]")
+    assert result.index("## [0.22.0]") < result.index("## [0.21.0]")
+
+
+def test_docs_changelog_refuses_empty_entry(tmp_path):
+    changelog = _write_docs(tmp_path, "# Rhesis Changelog\n\n## [0.21.0] - 2026-11-12\n")
+    before = changelog.read_text()
+
+    assert not update_docs_changelog("0.22.0", "   \n", tmp_path)
+    assert changelog.read_text() == before
+
+
+def test_docs_generation_feeds_component_changelogs_and_commits(monkeypatch):
+    from release_tools import changelog as changelog_mod
+
+    captured = {}
+
+    def fake_call(api_key, prompt, max_tokens=None):
+        captured["api_key"] = api_key
+        captured["prompt"] = prompt
+        return "### Summary\n\nA focused release.\n"
+
+    monkeypatch.setattr(changelog_mod, "call_gemini_api", fake_call)
+
+    body = generate_docs_changelog_with_llm(
+        "key",
+        "0.22.0",
+        {"backend": "Backend added rate limits", "sdk": "SDK added retries"},
+        [{"hash": "abcdef123456", "message": "feat: add retries (#42)"}],
+        style_reference="### Platform Release\n",
+    )
+
+    assert body == "### Summary\n\nA focused release."
+    assert captured["api_key"] == "key"
+    prompt = captured["prompt"]
+    assert "0.22.0" in prompt
+    assert "Backend added rate limits" in prompt
+    assert "SDK added retries" in prompt
+    assert "feat: add retries (#42)" in prompt
+    assert "### Platform Release\n" in prompt
+
+
+def test_docs_generation_drops_a_heading_the_model_added(monkeypatch):
+    from release_tools import changelog as changelog_mod
+
+    monkeypatch.setattr(
+        changelog_mod,
+        "call_gemini_api",
+        lambda *args, **kwargs: "## [0.22.0] - 2026-11-19\n\n### Summary\n\nBody\n",
+    )
+
+    assert (
+        generate_docs_changelog_with_llm("key", "0.22.0", {}, [])
+        == "### Summary\n\nBody"
+    )
+
+
+def test_docs_generation_handles_a_heading_only_response(monkeypatch):
+    from release_tools import changelog as changelog_mod
+
+    monkeypatch.setattr(
+        changelog_mod,
+        "call_gemini_api",
+        lambda *args, **kwargs: "## [0.22.0] - 2026-11-19",
+    )
+
+    assert generate_docs_changelog_with_llm("key", "0.22.0", {}, []) is None
+
+
+def test_docs_generation_requires_a_key(monkeypatch):
+    from release_tools import changelog as changelog_mod
+
+    monkeypatch.setattr(
+        changelog_mod,
+        "call_gemini_api",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("must not call")),
+    )
+
+    assert generate_docs_changelog_with_llm("", "0.22.0", {}, []) is None
