@@ -102,7 +102,8 @@ resource "cloudflare_ruleset" "prd_ssl_strict" {
   }
 }
 
-# Admin root state: the shared GitHub Actions pool (module.deploy_ci_prd).
+# envs/wireguard state: its github_wif_pool_name output (the shared GitHub
+# Actions pool) feeds module.deploy_ci_prd below.
 data "terraform_remote_state" "wireguard" {
   backend = "gcs"
   config = {
