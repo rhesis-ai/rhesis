@@ -62,6 +62,14 @@ COMPONENTS = {
 PLATFORM_VERSION_FILE = "VERSION"
 PLATFORM_CHANGELOG = "CHANGELOG.md"
 
+# Deploy files that name the platform version, so a release tag's compose file and chart
+# point at that release's images. Each regex has a group before and after the version.
+PLATFORM_PINNED_FILES = {
+    "docker-compose.ghcr.yml": r"(\$\{RHESIS_VERSION:-)[^}]+(\})",
+    # Top-level keys only: the dependencies' indented `version:` lines don't match.
+    "charts/rhesis/Chart.yaml": r'(?m)^((?:version|appVersion): "?)[^"\n]+("?)$',
+}
+
 
 def follows_platform(component: str) -> bool:
     """Whether a component takes the platform's version instead of carrying its own"""
