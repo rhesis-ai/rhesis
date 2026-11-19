@@ -91,6 +91,17 @@ module "connect_gateway_dev" {
   depends_on = [module.gke_dev]
 }
 
+module "deploy_ci_dev" {
+  source = "../../modules/deploy-ci/gcp"
+
+  project_id           = var.project_id
+  environment          = "dev"
+  membership_id        = module.connect_gateway_dev.membership_id
+  github_wif_pool_name = data.terraform_remote_state.wireguard.outputs.github_wif_pool_name
+
+  depends_on = [module.connect_gateway_dev]
+}
+
 module "eso_dev" {
   source = "../../modules/external-secrets/gcp"
 

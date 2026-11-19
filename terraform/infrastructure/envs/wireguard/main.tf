@@ -267,3 +267,28 @@ resource "google_compute_network_peering" "wireguard_to_prd" {
 
   depends_on = [module.wireguard]
 }
+
+# ── GitHub Actions workload identity federation ──────────────────────
+# Shared by every CI identity in this repo. It was created by hand before it
+# was in Terraform; the import blocks adopt it without recreating it.
+#
+# One-time prerequisite, done out-of-band because Terraform can't grant itself
+# the permission it needs to run (same reason as envs/billing):
+#   gcloud projects add-iam-policy-binding rhesis-platform-admin \
+#     --member="serviceAccount:terraform-wireguard@rhesis-platform-admin.iam.gserviceaccount.com" \
+#     --role="roles/iam.workloadIdentityPoolAdmin"
+module "github_wif" {
+  source = "../../modules/github-wif/gcp"
+
+  project_id = var.project_id
+}
+
+import {
+  to = module.github_wif.google_iam_workload_identity_pool.github
+  id = "projects/${var.project_id}/locations/global/workloadIdentityPools/github-actions"
+}
+
+import {
+  to = module.github_wif.google_iam_workload_identity_pool_provider.github
+  id = "projects/${var.project_id}/locations/global/workloadIdentityPools/github-actions/providers/github"
+}

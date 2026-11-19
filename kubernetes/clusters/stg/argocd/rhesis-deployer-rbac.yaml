@@ -1,0 +1,33 @@
+# Lets k8s-deploy.yml set image tags on the rhesis Application through the
+# Kubernetes API instead of `argocd app set`. The deploy job authenticates as
+# deploy-ci-stg (GitHub OIDC -> workload identity federation, no key) and
+# reaches the API through Connect Gateway; see terraform/infrastructure/
+# modules/deploy-ci/gcp. A JSON patch with a `test` op is applied atomically by
+# the API server, so concurrent per-service deploys can't lose each other's tag.
+#
+# get + patch on this one Application only: no other Application, no create or
+# delete, nothing outside the argocd namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: rhesis-deployer
+  namespace: argocd
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications"]
+    resourceNames: ["rhesis"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: rhesis-deployer
+  namespace: argocd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: rhesis-deployer
+subjects:
+  - kind: User
+    name: deploy-ci-stg@rhesis-stg-494712.iam.gserviceaccount.com
+    apiGroup: rbac.authorization.k8s.io

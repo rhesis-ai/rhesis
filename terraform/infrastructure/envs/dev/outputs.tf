@@ -53,3 +53,13 @@ output "internal_dns_tsig_secret" {
   value       = module.internal_dns_dev.tsig_secret
   sensitive   = true
 }
+
+output "deploy_ci_service_account_email" {
+  description = "GitHub secret DEPLOY_CI_SA_DEV"
+  value       = module.deploy_ci_dev.service_account_email
+}
+
+output "deploy_ci_gateway_server" {
+  description = "GitHub secret DEPLOY_CI_GATEWAY_DEV"
+  value       = module.deploy_ci_dev.gateway_server
+}

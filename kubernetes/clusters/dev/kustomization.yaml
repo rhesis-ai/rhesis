@@ -7,6 +7,8 @@ resources:
   - base.yaml
   - argocd/argocd-application.yaml
   - argocd/argocd-ingress.yaml
+  # Image-tag writes from k8s-deploy.yml (deploy-ci-dev, keyless)
+  - argocd/rhesis-deployer-rbac.yaml
   - external-secrets.yaml
   - external-dns.yaml
   - cert-manager.yaml

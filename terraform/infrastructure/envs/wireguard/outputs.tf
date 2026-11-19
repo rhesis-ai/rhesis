@@ -24,3 +24,13 @@ output "wireguard_peer_configs" {
   value       = module.wireguard_server.peer_configs
   sensitive   = true
 }
+
+output "github_wif_pool_name" {
+  description = "Shared GitHub Actions pool, consumed by the env roots' deploy-ci modules"
+  value       = module.github_wif.pool_name
+}
+
+output "github_wif_provider_name" {
+  description = "Provider name for google-github-actions/auth (the WIF_PROVIDER secret)"
+  value       = module.github_wif.provider_name
+}
