@@ -521,13 +521,21 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
             fontFamily: ff,
             fontWeight: w600,
             borderRadius: 8,
-            '&.MuiButton-containedPrimary': {
+          },
+        },
+        variants: [
+          {
+            props: { variant: 'contained', color: 'primary' } as const,
+            style: {
               backgroundColor: accent.main,
               color: accent.contrastText,
               '&:hover': { backgroundColor: accent.mainHover },
               '&.Mui-disabled': { backgroundColor: 'unset', color: 'unset' },
             },
-            '&.MuiButton-containedSecondary': {
+          },
+          {
+            props: { variant: 'contained', color: 'secondary' } as const,
+            style: {
               backgroundColor: secondaryAccent.main,
               color: secondaryAccent.contrastText,
               '&:hover': {
@@ -535,7 +543,10 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
                 color: secondaryAccent.hoverContrastText,
               },
             },
-            '&.MuiButton-outlinedPrimary': {
+          },
+          {
+            props: { variant: 'outlined', color: 'primary' } as const,
+            style: {
               color: accent.onSurface,
               borderColor: accent.onSurface,
               backgroundColor: 'transparent',
@@ -545,7 +556,10 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
                 borderColor: accent.onSurface,
               },
             },
-            '&.MuiButton-outlinedSecondary': {
+          },
+          {
+            props: { variant: 'outlined', color: 'secondary' } as const,
+            style: {
               color: secondaryAccent.main,
               borderColor: secondaryAccent.main,
               backgroundColor: 'transparent',
@@ -555,7 +569,10 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
                 borderColor: secondaryAccent.main,
               },
             },
-            '&.MuiButton-textPrimary': {
+          },
+          {
+            props: { variant: 'text', color: 'primary' } as const,
+            style: {
               color: accent.onSurface,
               '&:hover': {
                 backgroundColor:
@@ -563,8 +580,6 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
               },
             },
           },
-        },
-        variants: [
           {
             // 'pill' is registered in ButtonPropsVariantOverrides below
             props: { variant: 'pill' as const },
