@@ -39,21 +39,6 @@ quickstart_compose_flags_for_mode() {
     fi
 }
 
-# The prebuilt images are the release named in docker-compose.ghcr.yml (= VERSION), but
-# the compose config comes from this checkout. Off that release's tag, the two can
-# disagree: main's config once dropped a variable the released frontend still needed.
-quickstart_warn_unreleased_checkout() {
-    local version tag
-    version=$(tr -d '[:space:]' < VERSION 2>/dev/null) || return 0
-    tag=$(git describe --exact-match --tags HEAD 2>/dev/null) || tag=""
-    [ -n "$version" ] && [ "$tag" != "v$version" ] || return 0
-    [ -n "${RHESIS_VERSION:-}" ] && return 0
-    warn "This checkout isn't release v$version, but the prebuilt images are."
-    note "   Run the release's own config: git fetch --tags && git checkout v$version"
-    note "   Or build images from this checkout instead: ./rh start --build"
-    echo ""
-}
-
 quickstart_compose_flags_from_file() {
     quickstart_compose_flags_for_mode "$(quickstart_compose_mode_from_file)"
 }
@@ -362,7 +347,6 @@ start_all() {
     local quickstart_mode="ghcr"
     [ "$use_build" -eq 1 ] && quickstart_mode="build"
     COMPOSE_FLAGS=$(quickstart_compose_flags_for_mode "$quickstart_mode")
-    [ "$quickstart_mode" = "ghcr" ] && quickstart_warn_unreleased_checkout
 
     quickstart_prepare_env_file
     quickstart_check_ports

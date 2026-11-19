@@ -54,6 +54,14 @@ Existing relative imports are being converted as the files around them are touch
   at the worktree root, and `./rh dev *` reads it from there. So don't assume 8080/3000 — run
   `./rh dev status` to see this checkout's ports, containers and offset.
 
+## Keep `main` installable
+
+A plain `git clone` + `./rh start` runs `main`'s compose config against the **last release's**
+GHCR images, and the Helm chart meets older images the same way. So a config change must keep
+working with the previous release's images: add a variable the new code reads first, and remove one
+only a release after no image reads it. `quickstart-smoke.yml` runs `./rh start` on every change to
+the compose files, `.env.example` or `scripts/rh/`.
+
 ## Worktrees
 
 Every worktree must come from `./rh worktree`, never from a bare `git worktree add`. Only

@@ -23,9 +23,9 @@ The last step gives you two ways to start the stack — pick one:
 - **Recommended:** pull prebuilt images for the latest release, skipping the build.
 - Build backend, worker, and frontend from your local checkout instead.
 
-Either way, run a release tag, not `main`. A release tag's `docker-compose.ghcr.yml` names that
-release's images, and its config is what those images were tested with. `main` can be ahead of the
-last release.
+For production, check out a release tag so you upgrade when you choose to. A release tag's
+`docker-compose.ghcr.yml` names that release's images, and `git pull` on `main` won't move you to a
+new release by surprise.
 
 <CodeBlock filename="Terminal" language="bash">
 {`git clone https://github.com/rhesis-ai/rhesis.git
