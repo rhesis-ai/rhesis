@@ -253,6 +253,10 @@ services:
         FRONTEND_ENV: local
     environment:
       <<: [*nextjs-frontend, *common-environment, *rhesis-config]
+      # Next.js standalone binds to $HOSTNAME, which Docker sets to the container id;
+      # without this the localhost healthcheck below never answers. Images from the
+      # next release set it themselves.
+      HOSTNAME: 0.0.0.0
     ports:
       - target: 3000
         published: *frontend_port

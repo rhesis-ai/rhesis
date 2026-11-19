@@ -133,6 +133,10 @@ USER node
 # EXPOSE uses the default port, but runtime PORT env var will override this
 EXPOSE 3000
 
+# Next.js standalone binds to $HOSTNAME, which Docker sets to the container id, so the
+# server would only listen on the container's IP and the localhost health check fails.
+ENV HOSTNAME=0.0.0.0
+
 # Add a health check that uses the PORT env var with fallback
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD curl -f http://localhost:${PORT:-3000}/api/health || exit 1
