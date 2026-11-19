@@ -209,6 +209,7 @@ export function MetricDetailView({
   tabBody,
   refreshKey = 0,
 }: MetricDetailViewProps) {
+  const a11yId = React.useId();
   const { data: session, status } = useSession();
   const theme = useTheme();
   const router = useRouter();
@@ -999,8 +1000,9 @@ export function MetricDetailView({
             <InfoRow label="LLM Judge Model">
               {isEditing === 'evaluation' ? (
                 <FormControl fullWidth>
-                  <InputLabel>Model</InputLabel>
+                  <InputLabel id={`${a11yId}-model`}>Model</InputLabel>
                   <Select
+                    labelId={`${a11yId}-model`}
                     value={editData.model_id || ''}
                     onChange={e =>
                       setEditData(prev => ({
@@ -1112,6 +1114,7 @@ export function MetricDetailView({
                         onBlur={handleTextFieldBlur}
                       />
                       <IconButton
+                        aria-label={`Remove step ${index + 1}`}
                         onClick={() => removeStep(step.id)}
                         disabled={stepsWithIds.length === 1}
                         sx={{ mt: 1 }}
@@ -1488,8 +1491,11 @@ export function MetricDetailView({
                           fullWidth
                         />
                         <FormControl fullWidth>
-                          <InputLabel required>Operator</InputLabel>
+                          <InputLabel id={`${a11yId}-operator`} required>
+                            Operator
+                          </InputLabel>
                           <Select
+                            labelId={`${a11yId}-operator`}
                             value={editData.threshold_operator || '>='}
                             label="Operator"
                             onChange={e =>

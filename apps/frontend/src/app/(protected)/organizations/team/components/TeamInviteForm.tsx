@@ -544,6 +544,7 @@ const TeamInviteForm = React.forwardRef<HTMLFormElement, TeamInviteFormProps>(
                 )}
                 {formData.invites.length > 1 && (
                   <IconButton
+                    aria-label="Remove invite"
                     onClick={() => removeEmailField(invite)}
                     color="error"
                     sx={{ mt: 1 }}

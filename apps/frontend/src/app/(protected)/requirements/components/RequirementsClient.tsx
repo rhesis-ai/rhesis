@@ -624,6 +624,7 @@ export default function RequirementsClient({
       {/* Subtle loading indicator for subsequent fetches — always
           mounted so its height never shifts the grid below */}
       <LinearProgress
+        aria-label="Loading requirements"
         sx={{
           mb: 1,
           borderRadius: theme => theme.shape.borderRadius,

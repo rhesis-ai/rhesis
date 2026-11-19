@@ -380,6 +380,7 @@ export default function TestSampleCard({
             }}
           >
             <IconButton
+              aria-label="Rate as good"
               size="small"
               onClick={handleThumbsUp}
               sx={{
@@ -396,6 +397,7 @@ export default function TestSampleCard({
               )}
             </IconButton>
             <IconButton
+              aria-label="Rate as bad"
               size="small"
               onClick={handleThumbsDown}
               sx={{

@@ -135,6 +135,7 @@ export default function EditDrawer({
   project,
   onSave,
 }: EditDrawerProps) {
+  const a11yId = React.useId();
   const { data: users = NO_USERS } = useUsers(open);
   const [loading, setLoading] = React.useState(false);
   const [errors, setErrors] = React.useState<FormErrors>({});
@@ -315,8 +316,9 @@ export default function EditDrawer({
   const renderUserSelect = React.useMemo(
     () => (
       <FormControl fullWidth error={!!errors.owner_id}>
-        <InputLabel>Owner</InputLabel>
+        <InputLabel id={`${a11yId}-owner`}>Owner</InputLabel>
         <Select
+          labelId={`${a11yId}-owner`}
           value={formData.owner_id || ''}
           label="Owner"
           onChange={handleSelectChange('owner_id')}
@@ -359,7 +361,7 @@ export default function EditDrawer({
         {errors.owner_id && <FormHelperText>{errors.owner_id}</FormHelperText>}
       </FormControl>
     ),
-    [users, formData.owner_id, errors.owner_id, handleSelectChange]
+    [users, formData.owner_id, errors.owner_id, handleSelectChange, a11yId]
   );
 
   return (

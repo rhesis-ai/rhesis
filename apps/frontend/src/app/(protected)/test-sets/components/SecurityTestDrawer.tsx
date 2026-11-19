@@ -611,6 +611,7 @@ export default function SecurityTestDrawer({
                     endAdornment: searchQuery ? (
                       <InputAdornment position="end">
                         <IconButton
+                          aria-label="Clear search"
                           size="small"
                           onClick={() => setSearchQuery('')}
                           edge="end"
@@ -767,7 +768,14 @@ export default function SecurityTestDrawer({
                                     />
                                   </Stack>
                                 </Stack>
-                                <IconButton size="small">
+                                <IconButton
+                                  aria-label={
+                                    expandedModules.has(module.name)
+                                      ? `Collapse ${module.name}`
+                                      : `Expand ${module.name}`
+                                  }
+                                  size="small"
+                                >
                                   <ExpandMoreIcon
                                     sx={theme => ({
                                       transform: expandedModules.has(

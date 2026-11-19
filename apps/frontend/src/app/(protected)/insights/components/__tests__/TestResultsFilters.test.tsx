@@ -93,7 +93,7 @@ function renderFilters(
 }
 
 async function openFilterDrawer(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: 'Filters' }));
+  await user.click(screen.getByRole('button', { name: /^Filters/ }));
 }
 
 afterEach(() => {
@@ -149,7 +149,9 @@ describe('TestResultsFilters', () => {
 
   it('shows active filter badge when endpoint is selected', () => {
     renderFilters();
-    expect(screen.getByLabelText(/1 active filters/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Filters, 1 active' })
+    ).toBeInTheDocument();
   });
 
   it('resets every filter back to defaults in one click', async () => {
@@ -176,6 +178,8 @@ describe('TestResultsFilters', () => {
     expect(
       screen.queryByPlaceholderText(/search requirements/i)
     ).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /^Filters/ })
+    ).toBeInTheDocument();
   });
 });

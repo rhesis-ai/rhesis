@@ -150,6 +150,7 @@ export default function KpiRow({
                 <LinearProgress
                   variant="determinate"
                   value={testsProgress}
+                  aria-label="Tests executed"
                   sx={{ mt: 1.5, borderRadius: 1 }}
                 />
               ) : undefined

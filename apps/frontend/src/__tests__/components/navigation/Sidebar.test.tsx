@@ -444,7 +444,7 @@ describe('Sidebar', () => {
     it('toggles from the user menu', () => {
       setupMocks();
       render(<Sidebar />);
-      fireEvent.click(screen.getByRole('button', { name: 'Open user menu' }));
+      fireEvent.click(screen.getByRole('button', { name: /Test User/ }));
       fireEvent.click(screen.getByRole('menuitem', { name: 'Dark Mode' }));
       expect(mockToggleColorMode).toHaveBeenCalledTimes(1);
     });

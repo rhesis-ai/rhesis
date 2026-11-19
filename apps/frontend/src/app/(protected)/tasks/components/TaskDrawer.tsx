@@ -45,6 +45,7 @@ export default function TaskDrawer({
   initialEntity,
   onSuccess,
 }: TaskDrawerProps) {
+  const a11yId = React.useId();
   const { show } = useNotifications();
   const { createTask } = useTasks();
 
@@ -192,8 +193,9 @@ export default function TaskDrawer({
 
         <Box sx={{ display: 'flex', gap: 2 }}>
           <FormControl fullWidth disabled={loading} sx={drawerOutlinedFieldSx}>
-            <InputLabel>Status</InputLabel>
+            <InputLabel id={`${a11yId}-status`}>Status</InputLabel>
             <Select
+              labelId={`${a11yId}-status`}
               value={statusId}
               onChange={e => setStatusId(e.target.value)}
               label="Status"
@@ -207,8 +209,9 @@ export default function TaskDrawer({
           </FormControl>
 
           <FormControl fullWidth disabled={loading} sx={drawerOutlinedFieldSx}>
-            <InputLabel>Priority</InputLabel>
+            <InputLabel id={`${a11yId}-priority`}>Priority</InputLabel>
             <Select
+              labelId={`${a11yId}-priority`}
               value={priorityId}
               onChange={e => setPriorityId(e.target.value)}
               label="Priority"
@@ -223,8 +226,11 @@ export default function TaskDrawer({
         </Box>
 
         <FormControl fullWidth disabled={loading} sx={drawerOutlinedFieldSx}>
-          <InputLabel shrink>Assignee</InputLabel>
+          <InputLabel id={`${a11yId}-assignee`} shrink>
+            Assignee
+          </InputLabel>
           <Select
+            labelId={`${a11yId}-assignee`}
             value={assigneeId}
             onChange={e => setAssigneeId(e.target.value)}
             label="Assignee"

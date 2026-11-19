@@ -65,7 +65,6 @@ export default function TeamTab() {
               onClick={() => setInviteDrawerOpen(true)}
               disabled={isOnInviteTour}
               data-tour="invite-team-button"
-              aria-label="Invite team members"
               sx={sectionEditButtonSx}
             >
               Invite members

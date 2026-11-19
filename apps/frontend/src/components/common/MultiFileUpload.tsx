@@ -248,6 +248,7 @@ export default function MultiFileUpload({
               key={`${file.name}-${file.size}-${file.lastModified}`}
               secondaryAction={
                 <IconButton
+                  aria-label={`Remove ${file.name}`}
                   edge="end"
                   size="small"
                   onClick={() => onFileRemove(idx)}

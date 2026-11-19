@@ -40,6 +40,7 @@ export function TaskCreationDrawer({
   isLoading = false,
   commentId,
 }: TaskCreationDrawerProps) {
+  const a11yId = React.useId();
   const { status } = useSession();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -152,8 +153,9 @@ export function TaskCreationDrawer({
 
         {/* Status */}
         <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-          <InputLabel>Status</InputLabel>
+          <InputLabel id={`${a11yId}-status`}>Status</InputLabel>
           <Select
+            labelId={`${a11yId}-status`}
             value={statusId}
             onChange={e => setStatusId(e.target.value)}
             label="Status"
@@ -169,8 +171,9 @@ export function TaskCreationDrawer({
 
         {/* Priority */}
         <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-          <InputLabel>Priority</InputLabel>
+          <InputLabel id={`${a11yId}-priority`}>Priority</InputLabel>
           <Select
+            labelId={`${a11yId}-priority`}
             value={priorityId}
             onChange={e => setPriorityId(e.target.value)}
             label="Priority"
@@ -189,8 +192,9 @@ export function TaskCreationDrawer({
 
         {/* Assignee */}
         <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-          <InputLabel>Assignee</InputLabel>
+          <InputLabel id={`${a11yId}-assignee`}>Assignee</InputLabel>
           <Select
+            labelId={`${a11yId}-assignee`}
             value={assigneeId}
             onChange={e => setAssigneeId(e.target.value)}
             label="Assignee"

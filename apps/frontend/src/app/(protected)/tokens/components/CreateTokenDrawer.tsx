@@ -33,6 +33,7 @@ export default function CreateTokenDrawer({
   onClose,
   onCreateToken,
 }: CreateTokenDrawerProps) {
+  const a11yId = React.useId();
   const { activeProject } = useActiveProject();
   const [name, setName] = useState('');
   const [expiryOption, setExpiryOption] = useState<
@@ -116,8 +117,11 @@ export default function CreateTokenDrawer({
           disabled={loading}
         />
         <FormControl fullWidth disabled={loading}>
-          <InputLabel>Token Expiration</InputLabel>
+          <InputLabel id={`${a11yId}-token-expiration`}>
+            Token Expiration
+          </InputLabel>
           <Select
+            labelId={`${a11yId}-token-expiration`}
             value={expiryOption}
             label="Token Expiration"
             onChange={e =>

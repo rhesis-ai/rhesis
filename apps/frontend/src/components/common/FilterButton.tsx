@@ -35,11 +35,13 @@ export function FilterButton({
 }: FilterButtonProps) {
   const count = activeFilterCount ?? 0;
   const showBadge = count > 0 || hasActiveFilters;
+  // The badge's visible count must be part of the name (2.5.3).
+  const name = count > 0 ? `${ariaLabel}, ${count} active` : ariaLabel;
 
   const button = (
     <IconButton
       size={size}
-      aria-label={ariaLabel}
+      aria-label={name}
       sx={{
         position: 'relative',
         bgcolor: 'primary.main',
@@ -57,7 +59,7 @@ export function FilterButton({
       {showBadge && (
         <Box
           component="span"
-          aria-label={count > 0 ? `${count} active filters` : 'Active filters'}
+          aria-hidden
           sx={{
             position: 'absolute',
             top: -6,

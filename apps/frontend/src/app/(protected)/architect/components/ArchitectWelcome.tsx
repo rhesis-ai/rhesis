@@ -170,6 +170,7 @@ export default function ArchitectWelcome({ onSubmit }: ArchitectWelcomeProps) {
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton
+                      aria-label="Send message"
                       onClick={handleSubmit}
                       disabled={!inputValue.trim() || inputDisabled}
                       sx={{

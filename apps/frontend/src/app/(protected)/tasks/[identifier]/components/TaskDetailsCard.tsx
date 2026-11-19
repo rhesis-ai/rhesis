@@ -118,6 +118,7 @@ export default function TaskDetailsCard({
   onSave,
   onTaskUpdated,
 }: TaskDetailsCardProps) {
+  const a11yId = React.useId();
   const { show } = useNotifications();
   const initialDraft = React.useMemo(() => toDraft(task), [task]);
 
@@ -226,8 +227,9 @@ export default function TaskDetailsCard({
           <Grid size={{ xs: 12, sm: 6 }}>
             {isEditing ? (
               <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
+                <InputLabel id={`${a11yId}-status`}>Status</InputLabel>
                 <Select
+                  labelId={`${a11yId}-status`}
                   value={draft.status_id}
                   label="Status"
                   onChange={event =>
@@ -256,8 +258,9 @@ export default function TaskDetailsCard({
           <Grid size={{ xs: 12, sm: 6 }}>
             {isEditing ? (
               <FormControl fullWidth>
-                <InputLabel>Priority</InputLabel>
+                <InputLabel id={`${a11yId}-priority`}>Priority</InputLabel>
                 <Select
+                  labelId={`${a11yId}-priority`}
                   value={draft.priority_id}
                   label="Priority"
                   onChange={event =>
@@ -286,8 +289,11 @@ export default function TaskDetailsCard({
           <Grid size={{ xs: 12, sm: 6 }}>
             {isEditing ? (
               <FormControl fullWidth>
-                <InputLabel shrink>Assignee</InputLabel>
+                <InputLabel id={`${a11yId}-assignee`} shrink>
+                  Assignee
+                </InputLabel>
                 <Select
+                  labelId={`${a11yId}-assignee`}
                   value={draft.assignee_id}
                   label="Assignee"
                   displayEmpty

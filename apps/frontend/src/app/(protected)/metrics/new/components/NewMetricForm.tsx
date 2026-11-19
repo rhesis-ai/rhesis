@@ -100,6 +100,7 @@ export default function NewMetricForm({
   type,
   initialModels,
 }: NewMetricFormProps) {
+  const a11yId = React.useId();
   const router = useRouter();
   const notifications = useNotifications();
   const { data: session, status } = useSession();
@@ -440,8 +441,11 @@ export default function NewMetricForm({
         </Typography>
 
         <FormControl fullWidth sx={{ mb: 3 }}>
-          <InputLabel>Evaluation Model</InputLabel>
+          <InputLabel id={`${a11yId}-evaluation-model`}>
+            Evaluation Model
+          </InputLabel>
           <Select
+            labelId={`${a11yId}-evaluation-model`}
             value={formData.model_id}
             label="Evaluation Model"
             onChange={handleModelChange}
@@ -512,6 +516,7 @@ export default function NewMetricForm({
               onChange={handleStepChange(index)}
             />
             <IconButton
+              aria-label={`Remove step ${index + 1}`}
               onClick={() => removeStep(index)}
               disabled={formData.evaluation_steps.length === 1}
               sx={{ mt: 1 }}
@@ -759,8 +764,11 @@ export default function NewMetricForm({
                   fullWidth
                 />
                 <FormControl fullWidth>
-                  <InputLabel required>Operator</InputLabel>
+                  <InputLabel id={`${a11yId}-operator`} required>
+                    Operator
+                  </InputLabel>
                   <Select
+                    labelId={`${a11yId}-operator`}
                     value={formData.threshold_operator}
                     label="Operator"
                     onChange={e =>

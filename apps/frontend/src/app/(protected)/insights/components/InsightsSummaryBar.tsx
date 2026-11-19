@@ -68,6 +68,7 @@ export default function InsightsSummaryBar({
       </Typography>
 
       <LinearProgress
+        aria-label={loading ? 'Loading pass rate' : 'Pass rate'}
         variant={loading ? 'indeterminate' : 'determinate'}
         value={loading ? undefined : passRate}
         color={loading ? 'primary' : barColor}

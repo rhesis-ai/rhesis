@@ -206,6 +206,7 @@ function MetricRow({
                 )}
               </Box>
               <LinearProgress
+                aria-label={`${metricName} score`}
                 variant="determinate"
                 value={Math.min(Number(result.score) * 100, 100)}
                 color={isPassed ? 'success' : 'error'}
@@ -286,6 +287,11 @@ function RequirementSection({
           />
         </Box>
         <IconButton
+          aria-label={
+            expanded
+              ? `Collapse ${requirementName}`
+              : `Expand ${requirementName}`
+          }
           onClick={() => setExpanded(prev => !prev)}
           size="small"
           sx={{
@@ -352,6 +358,7 @@ export default function ComparisonView({
   initialBaselineId,
   closeButtonLabel = 'Close Comparison',
 }: ComparisonViewProps) {
+  const a11yId = React.useId();
   const theme = useTheme();
   const [selectedBaselineId, setSelectedBaselineId] = useState<string>(
     initialBaselineId || availableTestRuns[0]?.id || ''
@@ -542,7 +549,7 @@ export default function ComparisonView({
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
         <Typography>Loading comparison data...</Typography>
-        <LinearProgress sx={{ mt: 2 }} />
+        <LinearProgress aria-label="Loading comparison data" sx={{ mt: 2 }} />
       </Box>
     );
   }
@@ -638,8 +645,11 @@ export default function ComparisonView({
               Baseline Run
             </Typography>
             <FormControl fullWidth>
-              <InputLabel>Select baseline run</InputLabel>
+              <InputLabel id={`${a11yId}-select-baseline-run`}>
+                Select baseline run
+              </InputLabel>
               <Select
+                labelId={`${a11yId}-select-baseline-run`}
                 value={selectedBaselineId}
                 onChange={e => setSelectedBaselineId(e.target.value)}
                 label="Select baseline run"
@@ -1193,6 +1203,7 @@ export default function ComparisonView({
           }}
         >
           <IconButton
+            aria-label="Close"
             onClick={() => setSelectedTestId(null)}
             size="small"
             sx={{ position: 'absolute', top: 16, right: 16 }}

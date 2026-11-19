@@ -104,10 +104,12 @@ const IconSelector = ({
   selectedIcon: string;
   onChange: (icon: string) => void;
 }) => {
+  const a11yId = React.useId();
   return (
     <FormControl fullWidth className={styles.iconSelector}>
-      <InputLabel>Project Icon</InputLabel>
+      <InputLabel id={`${a11yId}-project-icon`}>Project Icon</InputLabel>
       <Select
+        labelId={`${a11yId}-project-icon`}
         value={selectedIcon || 'SmartToy'}
         label="Project Icon"
         onChange={e => onChange(e.target.value)}

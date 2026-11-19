@@ -74,7 +74,12 @@ export default function ConversationHistoryModal({
         <Box>
           <Typography variant="h6">Simulation Results</Typography>
         </Box>
-        <IconButton edge="end" onClick={onClose} size="small">
+        <IconButton
+          aria-label="Close"
+          edge="end"
+          onClick={onClose}
+          size="small"
+        >
           <CloseIcon />
         </IconButton>
       </DialogTitle>

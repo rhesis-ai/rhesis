@@ -282,6 +282,7 @@ const EXPERIMENT_SECTION_DESCRIPTION =
 // ---------------------------------------------------------------------------
 
 export default function RunDrawer(props: RunDrawerProps) {
+  const a11yId = React.useId();
   const { open, onClose, onSuccess, onExecuted, mode } = props;
   const cfg = MODE_CONFIGS[mode];
   const notifications = useNotifications();
@@ -1501,8 +1502,11 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   const renderExecutionMode = () => (
     <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-      <InputLabel shrink>Execution Mode</InputLabel>
+      <InputLabel id={`${a11yId}-execution-mode`} shrink>
+        Execution Mode
+      </InputLabel>
       <Select
+        labelId={`${a11yId}-execution-mode`}
         value={executionMode}
         onChange={e => setExecutionMode(e.target.value)}
         label="Execution Mode"
@@ -1541,8 +1545,11 @@ export default function RunDrawer(props: RunDrawerProps) {
     return (
       <>
         <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-          <InputLabel shrink>Scoring Target</InputLabel>
+          <InputLabel id={`${a11yId}-scoring-target`} shrink>
+            Scoring Target
+          </InputLabel>
           <Select
+            labelId={`${a11yId}-scoring-target`}
             value={scoringTarget}
             onChange={e => setScoringTarget(e.target.value as ScoringTarget)}
             label="Scoring Target"
@@ -1615,8 +1622,11 @@ export default function RunDrawer(props: RunDrawerProps) {
     return (
       <>
         <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-          <InputLabel shrink>Metrics Source</InputLabel>
+          <InputLabel id={`${a11yId}-metrics-source`} shrink>
+            Metrics Source
+          </InputLabel>
           <Select
+            labelId={`${a11yId}-metrics-source`}
             value={metricMode}
             onChange={e => {
               setMetricMode(e.target.value as MetricMode);
@@ -1692,6 +1702,7 @@ export default function RunDrawer(props: RunDrawerProps) {
                       <Typography variant="body2">{metric.name}</Typography>
                     </Box>
                     <IconButton
+                      aria-label={`Remove ${metric.name}`}
                       size="small"
                       onClick={() => handleRemoveMetric(metric.id)}
                     >
@@ -1748,8 +1759,11 @@ export default function RunDrawer(props: RunDrawerProps) {
         <FormSectionDivider headline="Configuration" />
         <Box sx={RERUN_FIELDS_SX}>
           <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-            <InputLabel shrink>Execution Mode</InputLabel>
+            <InputLabel id={`${a11yId}-execution-mode-2`} shrink>
+              Execution Mode
+            </InputLabel>
             <Select
+              labelId={`${a11yId}-execution-mode-2`}
               value={executionMode}
               onChange={e => setExecutionMode(e.target.value)}
               label="Execution Mode"
@@ -1760,8 +1774,11 @@ export default function RunDrawer(props: RunDrawerProps) {
           </FormControl>
 
           <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-            <InputLabel shrink>Scoring Target</InputLabel>
+            <InputLabel id={`${a11yId}-scoring-target-2`} shrink>
+              Scoring Target
+            </InputLabel>
             <Select
+              labelId={`${a11yId}-scoring-target-2`}
               value={scoringTarget}
               onChange={e => setScoringTarget(e.target.value as ScoringTarget)}
               label="Scoring Target"
@@ -1772,8 +1789,11 @@ export default function RunDrawer(props: RunDrawerProps) {
           </FormControl>
 
           <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-            <InputLabel shrink>Metric Source</InputLabel>
+            <InputLabel id={`${a11yId}-metric-source`} shrink>
+              Metric Source
+            </InputLabel>
             <Select
+              labelId={`${a11yId}-metric-source`}
               value={metricMode}
               onChange={e => {
                 setMetricMode(e.target.value as MetricMode);
@@ -1813,6 +1833,7 @@ export default function RunDrawer(props: RunDrawerProps) {
                         <Typography variant="body2">{metric.name}</Typography>
                       </Box>
                       <IconButton
+                        aria-label={`Remove ${metric.name}`}
                         size="small"
                         onClick={() => handleRemoveMetric(metric.id)}
                       >
@@ -2053,8 +2074,11 @@ export default function RunDrawer(props: RunDrawerProps) {
                 />
               )}
               <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-                <InputLabel shrink>Run Preflight Checks</InputLabel>
+                <InputLabel id={`${a11yId}-run-preflight-checks`} shrink>
+                  Run Preflight Checks
+                </InputLabel>
                 <Select
+                  labelId={`${a11yId}-run-preflight-checks`}
                   value={preflightEnabled ? 'yes' : 'no'}
                   onChange={e => setPreflightEnabled(e.target.value === 'yes')}
                   label="Run Preflight Checks"

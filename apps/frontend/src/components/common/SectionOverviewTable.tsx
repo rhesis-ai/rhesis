@@ -152,6 +152,7 @@ export function SectionOverviewPagination({
   onPageChange,
   onPageSizeChange,
 }: SectionOverviewPaginationProps) {
+  const a11yId = React.useId();
   const from = totalRows === 0 ? 0 : page * pageSize + 1;
   const to = Math.min((page + 1) * pageSize, totalRows);
   const isFirst = page === 0;
@@ -169,6 +170,7 @@ export function SectionOverviewPagination({
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
         <Typography
+          id={`${a11yId}-rows-per-page`}
           sx={{
             fontSize: 12,
             fontWeight: 600,
@@ -179,6 +181,7 @@ export function SectionOverviewPagination({
           Rows per page:
         </Typography>
         <Select
+          labelId={`${a11yId}-rows-per-page`}
           value={pageSize}
           onChange={e => onPageSizeChange(Number(e.target.value))}
           variant="standard"

@@ -109,6 +109,7 @@ function ProgressCell({ job }: { job: Job }) {
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
       {!done && (
         <LinearProgress
+          aria-label="Job progress"
           variant="determinate"
           value={pct}
           sx={theme => ({

@@ -656,6 +656,11 @@ export default function ConversationHistory({
                         Reasoning
                       </Typography>
                       <IconButton
+                        aria-label={
+                          expandedReasoningTurns[turn.turn]
+                            ? 'Collapse Reasoning'
+                            : 'Expand Reasoning'
+                        }
                         size="small"
                         sx={{
                           padding: 0,
@@ -768,6 +773,11 @@ export default function ConversationHistory({
                         Context
                       </Typography>
                       <IconButton
+                        aria-label={
+                          expandedContextTurns[turn.turn]
+                            ? 'Collapse Context'
+                            : 'Expand Context'
+                        }
                         size="small"
                         sx={{
                           padding: 0,
@@ -848,6 +858,11 @@ export default function ConversationHistory({
                         Metadata
                       </Typography>
                       <IconButton
+                        aria-label={
+                          expandedMetadataTurns[turn.turn]
+                            ? 'Collapse Metadata'
+                            : 'Expand Metadata'
+                        }
                         size="small"
                         sx={{
                           padding: 0,
@@ -910,6 +925,11 @@ export default function ConversationHistory({
                         Tool Calls
                       </Typography>
                       <IconButton
+                        aria-label={
+                          expandedToolCallsTurns[turn.turn]
+                            ? 'Collapse Tool Calls'
+                            : 'Expand Tool Calls'
+                        }
                         size="small"
                         sx={{
                           padding: 0,

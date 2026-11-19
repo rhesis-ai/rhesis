@@ -156,6 +156,7 @@ export default function DragAndDropUpload({
               </Typography>
             </Box>
             <IconButton
+              aria-label={`Remove ${selectedFile.name}`}
               onClick={e => {
                 e.stopPropagation();
                 handleRemoveFile();

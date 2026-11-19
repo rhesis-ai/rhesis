@@ -423,6 +423,7 @@ export default function MetricsDirectoryTab({
           {/* Subtle loading indicator for subsequent fetches — always
               mounted so its height never shifts the grid below */}
           <LinearProgress
+            aria-label="Loading metrics"
             sx={{
               mb: 1,
               borderRadius: theme => theme.shape.borderRadius,
