@@ -150,7 +150,7 @@ export default function JsonMonacoField({
             wordWrap: 'on',
             // Read-only: Tab has nothing to indent, so let it move focus on.
             tabFocusMode: readOnly,
-          ariaLabel,
+            ariaLabel,
           }}
         />
       </Box>

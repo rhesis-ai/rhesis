@@ -349,7 +349,7 @@ export default function MappingEditor({
               <Box>
                 <JsonMonacoField
                   editorKey="edit-response-mapping"
-              ariaLabel="Response mapping (JSON)"
+                  ariaLabel="Response mapping (JSON)"
                   height="180px"
                   theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
                   value={responseJson}
