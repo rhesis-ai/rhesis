@@ -1,7 +1,7 @@
 name: Install deploy tools
 description: >
-  Install pinned, checksum-verified argocd, kubectl and jq into $HOME/bin and
-  put it on PATH. ARC runner pods are non-root, so /usr/local/bin isn't writable.
+  Install pinned, checksum-verified argocd, kubectl, jq and crane into $HOME/bin
+  and put it on PATH. ARC runner pods are non-root, so /usr/local/bin isn't writable.
 
 runs:
   using: composite
@@ -27,5 +27,13 @@ runs:
         fetch jq \
           https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64 \
           5942c9b0934e510ee61eb3e30273f1b3fe2590df93933a93d7c58b81d19c8ff5
+
+        # crane (promote-images.sh) ships only as a tarball; verify it, then extract.
+        CRANE_TGZ="$(mktemp)"
+        curl -sSL -o "$CRANE_TGZ" \
+          https://github.com/google/go-containerregistry/releases/download/v0.20.6/go-containerregistry_Linux_x86_64.tar.gz
+        echo "c1d593d01551f2c9a3df5ca0a0be4385a839bd9b86d4a76e18d7b17d16559127  $CRANE_TGZ" | sha256sum -c -
+        tar -xzf "$CRANE_TGZ" -C "$BIN" crane
+        rm -f "$CRANE_TGZ"
 
         echo "$BIN" >> "$GITHUB_PATH"
