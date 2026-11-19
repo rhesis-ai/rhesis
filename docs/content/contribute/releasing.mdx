@@ -33,7 +33,7 @@ Switch to the release branch and run `[Release] 3. Publish` from it.
 
 The workflow creates and pushes the tags and creates a GitHub release for each component. It does not merge the pull request.
 
-It also pins every prd ArgoCD Application's `targetRevision` (under `kubernetes/clusters/prd/`) to this release's commit and syncs them — see [`kubernetes/README.md`](https://github.com/rhesis-ai/rhesis/blob/main/kubernetes/README.md#production-promotion-gate) for why prd config is pinned to a commit instead of the release branch name. This only promotes prd's Kubernetes config; it does not deploy app images (see "Deploy production" below).
+It also pins prd's ArgoCD Applications under `kubernetes/clusters/prd/` to this release's commit and syncs them. See [`kubernetes/README.md`](https://github.com/rhesis-ai/rhesis/blob/main/kubernetes/README.md#production-promotion-gate) for why prd config is pinned to a commit instead of the release branch name. This only promotes prd's cluster config. The `rhesis` chart and its images are deployed together in "Deploy production" below.
 
 <Callout type="error">
   Run this workflow **on the release branch**. A run started from `main` is skipped by a branch
@@ -48,7 +48,9 @@ Merge after publishing, not before: the tags are cut from the release branch, an
 
 ### Deploy production
 
-Run `[Build & Deploy] All for K8s` with environment `prd`.
+Run `[Build & Deploy] All for K8s` with environment `prd`, **from the release branch**.
+
+It builds the images, then pins the `rhesis` chart to the release commit and sets the image tags in a single write, so prd never runs new images on the old chart or the other way round. Staging is deployed the same way when the release branch is pushed.
 
 Publishing tags the release and pushes the packages, but does not deploy production. The release is not live until this step completes.
 
