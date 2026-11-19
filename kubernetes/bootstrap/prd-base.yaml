@@ -21,8 +21,21 @@ spec:
     path: kubernetes/clusters/prd
   destination:
     server: https://kubernetes.default.svc
+  # The rhesis Application's chart revision is set by the deploy (deploy-all-k8s.yml
+  # → k8s-deploy.yml), in the same write as its image tags, so the chart and the
+  # images it was released with change together. Without this, selfHeal would put
+  # back the targetRevision from git.
+  ignoreDifferences:
+    - group: argoproj.io
+      kind: Application
+      name: rhesis
+      namespace: argocd
+      jsonPointers:
+        - /spec/source/targetRevision
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
       allowEmpty: true
+    syncOptions:
+      - RespectIgnoreDifferences=true

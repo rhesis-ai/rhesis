@@ -16,6 +16,8 @@ spec:
   project: default
   source:
     repoURL: https://github.com/rhesis-ai/rhesis.git
+    # Initial value only. The deploy sets the live revision together with the
+    # image tags, and the root app ignores this field (see its ignoreDifferences).
     targetRevision: main
     path: charts/rhesis
     helm:
