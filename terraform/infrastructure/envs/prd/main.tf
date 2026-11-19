@@ -186,6 +186,7 @@ module "deploy_ci_prd" {
   environment          = "prd"
   membership_id        = module.connect_gateway_prd.membership_id
   github_wif_pool_name = data.terraform_remote_state.wireguard.outputs.github_wif_pool_name
+  registry_writer      = true
 
   depends_on = [module.connect_gateway_prd]
 }

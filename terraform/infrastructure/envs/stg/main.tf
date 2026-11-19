@@ -101,6 +101,25 @@ module "deploy_ci_stg" {
   depends_on = [module.connect_gateway_stg]
 }
 
+# The release copies the images stg tested into prd's registry instead of
+# rebuilding them (publish-release.yml, promote-images). deploy-ci-prd reads
+# them here; it writes them on the prd side (envs/prd, registry_writer).
+data "terraform_remote_state" "prd" {
+  backend = "gcs"
+  config = {
+    bucket = var.state_bucket
+    prefix = "terraform/infrastructure/envs/prd"
+  }
+}
+
+resource "google_artifact_registry_repository_iam_member" "prd_release_reads_images" {
+  project    = var.project_id
+  location   = "europe-west4"
+  repository = "rhesis"
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:${data.terraform_remote_state.prd.outputs.deploy_ci_service_account_email}"
+}
+
 module "eso_stg" {
   source = "../../modules/external-secrets/gcp"
 
