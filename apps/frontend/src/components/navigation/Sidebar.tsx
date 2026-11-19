@@ -784,8 +784,14 @@ export function Sidebar() {
         {/* User avatar block — clickable, opens user menu */}
         <ButtonBase
           onClick={e => setMenuAnchor(e.currentTarget)}
-          aria-label="Open user menu"
+          // Expanded, the visible name is the accessible name (2.5.3); collapsed,
+          // only the avatar shows, so it needs a label.
+          aria-label={
+            collapsed ? `${user?.name ?? 'User'}, user menu` : undefined
+          }
           aria-haspopup="true"
+          aria-expanded={menuOpen}
+          data-testid="user-menu-button"
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -818,6 +824,7 @@ export function Sidebar() {
                 userName={user?.name ?? undefined}
                 userPicture={user?.image ?? undefined}
                 size={32}
+                aria-hidden
               />
             </Badge>
           ) : (
@@ -826,6 +833,7 @@ export function Sidebar() {
               userPicture={user?.image ?? undefined}
               size={32}
               sx={{ flexShrink: 0 }}
+              aria-hidden
             />
           )}
           {!collapsed && (

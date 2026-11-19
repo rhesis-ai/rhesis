@@ -105,6 +105,7 @@ export default function ModelSelector({
   fieldSx,
   enabled = true,
 }: ModelSelectorProps) {
+  const a11yId = React.useId();
   const theme = useTheme();
   const { data: userSettings } = useUserSettings(enabled);
   const { data: fetchedModels, isLoading: isFetching } = useModels(
@@ -147,8 +148,11 @@ export default function ModelSelector({
   return (
     <Box>
       <FormControl fullWidth disabled={disabled} sx={fieldSx}>
-        <InputLabel shrink>{label}</InputLabel>
+        <InputLabel id={`${a11yId}-field`} shrink>
+          {label}
+        </InputLabel>
         <Select
+          labelId={`${a11yId}-field`}
           value={value}
           label={label}
           onChange={e => onChange(e.target.value as string)}

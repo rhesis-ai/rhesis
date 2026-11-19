@@ -463,6 +463,7 @@ export default function PlaygroundChat({
             >
               <span>
                 <IconButton
+                  aria-label="Create multi-turn test from conversation"
                   size="small"
                   onClick={handleCreateMultiTurnTest}
                   disabled={messages.length < 2 || isLoading}
@@ -477,6 +478,7 @@ export default function PlaygroundChat({
             </Tooltip>
             {onClose && (
               <IconButton
+                aria-label="Close"
                 size="small"
                 onClick={onClose}
                 sx={{ color: theme => theme.palette.greyscale.label, p: 0.25 }}
@@ -696,6 +698,7 @@ export default function PlaygroundChat({
 
             {/* Send Button */}
             <IconButton
+              aria-label="Send message"
               color="primary"
               onClick={handleSend}
               disabled={!inputValue.trim() || !isConnected || isLoading}

@@ -36,6 +36,7 @@ export default function TypedValueEditor({
   value,
   onChange,
 }: TypedValueEditorProps) {
+  const a11yId = React.useId();
   const label = `${field.name}${field.required ? ' *' : ''}`;
   const helper = field.description ?? undefined;
 
@@ -153,8 +154,9 @@ export default function TypedValueEditor({
           : '';
       return (
         <FormControl fullWidth>
-          <InputLabel>{label}</InputLabel>
+          <InputLabel id={`${a11yId}-field`}>{label}</InputLabel>
           <Select
+            labelId={`${a11yId}-field`}
             label={label}
             value={current}
             onChange={e => {

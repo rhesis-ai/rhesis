@@ -146,7 +146,7 @@ export default function RequirementMetricsViewer({
                 {metrics.length} {metrics.length === 1 ? 'Metric' : 'Metrics'}
               </Typography>
             </Box>
-            <IconButton onClick={onClose} sx={{ ml: 2 }}>
+            <IconButton aria-label="Close" onClick={onClose} sx={{ ml: 2 }}>
               <CloseIcon />
             </IconButton>
           </Box>
@@ -182,6 +182,7 @@ export default function RequirementMetricsViewer({
                         metric.backend_type?.type_value?.toLowerCase() ===
                           'custom') && (
                         <IconButton
+                          aria-label={`Open ${metric.name}`}
                           size="small"
                           onClick={() => handleMetricDetail(metric.id)}
                           sx={{
@@ -198,6 +199,7 @@ export default function RequirementMetricsViewer({
                         </IconButton>
                       )}
                       <IconButton
+                        aria-label={`Remove ${metric.name}`}
                         size="small"
                         onClick={() => handleRemoveMetric(metric.id)}
                         disabled={isRemoving === metric.id}

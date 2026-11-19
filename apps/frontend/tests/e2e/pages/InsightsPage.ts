@@ -43,9 +43,9 @@ export class InsightsPage extends BasePage {
     });
     const passRateMetric = this.page.getByText(/\d+\.\d+%\s*pass rate/i);
     const loadingResults = this.page.getByText(/loading results/i);
+    // The name carries the active-filter count, e.g. "Filters, 1 active".
     const filterButton = this.page.getByRole('button', {
-      name: 'Filters',
-      exact: true,
+      name: /^Filters(, \d+ active)?$/,
     });
 
     // The requirement search box appears while insights are still loading, so wait

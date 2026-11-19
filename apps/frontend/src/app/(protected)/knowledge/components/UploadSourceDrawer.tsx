@@ -194,7 +194,7 @@ export default function UploadSourceDrawer({
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Uploading source...
           </Typography>
-          <LinearProgress />
+          <LinearProgress aria-label="Upload progress" />
         </Box>
       )}
     </BaseDrawer>

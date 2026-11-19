@@ -373,6 +373,7 @@ function TreeNodeView({
         <Box sx={{ width: 28, flexShrink: 0 }}>
           {hasChildren && (
             <IconButton
+              aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${decodeURIComponent(node.name)}`}
               size="small"
               onClick={e => {
                 e.stopPropagation();
@@ -427,6 +428,7 @@ function TreeNodeView({
         {/* Edit Topic Button */}
         {onEditTopic && (
           <IconButton
+            aria-label={`Edit topic ${decodeURIComponent(node.name)}`}
             size="small"
             onClick={e => {
               e.stopPropagation();
@@ -1477,7 +1479,12 @@ function TestsListUnifiedToolbar() {
           {selectedRowCount > 0 && (
             <Tooltip title={`Delete ${selectedRowCount} selected`}>
               <span>
-                <IconButton size="small" color="error" onClick={onBulkDelete}>
+                <IconButton
+                  aria-label={`Delete ${selectedRowCount} selected`}
+                  size="small"
+                  color="error"
+                  onClick={onBulkDelete}
+                >
                   <DeleteIcon fontSize="small" />
                 </IconButton>
               </span>
@@ -1486,6 +1493,7 @@ function TestsListUnifiedToolbar() {
           <Tooltip title="Get outputs">
             <span>
               <IconButton
+                aria-label="Get outputs"
                 size="small"
                 onClick={onGetOutputs}
                 disabled={generateSubmitting || evaluateSubmitting}
@@ -1497,6 +1505,7 @@ function TestsListUnifiedToolbar() {
           <Tooltip title="Evaluate">
             <span>
               <IconButton
+                aria-label="Evaluate"
                 size="small"
                 onClick={onEvaluate}
                 disabled={generateSubmitting || evaluateSubmitting}
@@ -1507,14 +1516,22 @@ function TestsListUnifiedToolbar() {
           </Tooltip>
           <Tooltip title="Add test">
             <span>
-              <IconButton size="small" onClick={onAddTest}>
+              <IconButton
+                aria-label="Add test"
+                size="small"
+                onClick={onAddTest}
+              >
                 <AddIcon fontSize="small" />
               </IconButton>
             </span>
           </Tooltip>
           <Tooltip title="Suggest tests">
             <span>
-              <IconButton size="small" onClick={onSuggest}>
+              <IconButton
+                aria-label="Suggest tests"
+                size="small"
+                onClick={onSuggest}
+              >
                 <AutoAwesomeIcon fontSize="small" />
               </IconButton>
             </span>
@@ -1722,6 +1739,7 @@ function TestsList({
               >
                 {onEditTest && (
                   <IconButton
+                    aria-label="Edit test"
                     size="small"
                     onClick={e => {
                       e.stopPropagation();
@@ -1734,6 +1752,7 @@ function TestsList({
                 )}
                 {onDeleteTest && (
                   <IconButton
+                    aria-label="Delete test"
                     size="small"
                     onClick={e => {
                       e.stopPropagation();
@@ -1795,6 +1814,7 @@ function TestsList({
             <Tooltip title="Add test">
               <span>
                 <IconButton
+                  aria-label="Add test"
                   color="primary"
                   onClick={() => {
                     const value = (newTestInput ?? '').trim();
@@ -3192,6 +3212,7 @@ export default function ExplorerDetail({
                 <Tooltip title="Add test">
                   <span>
                     <IconButton
+                      aria-label="Add test"
                       color="primary"
                       onClick={() => {
                         const value = newTestInput.trim();
@@ -3257,6 +3278,7 @@ export default function ExplorerDetail({
               <Tooltip title="Add test">
                 <span>
                   <IconButton
+                    aria-label="Add test"
                     color="primary"
                     onClick={() => {
                       const value = newTestInput.trim();

@@ -74,6 +74,7 @@ function ChatPlaceholder({
           )}
           {onClose && (
             <IconButton
+              aria-label="Close"
               size="small"
               onClick={onClose}
               sx={{ color: theme => theme.palette.greyscale.label, p: 0.25 }}

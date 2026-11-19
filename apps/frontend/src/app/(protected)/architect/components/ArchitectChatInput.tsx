@@ -202,6 +202,7 @@ const ArchitectChatInput = forwardRef<
 
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
         <IconButton
+          aria-label="Attach file"
           size="small"
           onClick={() => fileInputRef.current?.click()}
           disabled={inputDisabled}
@@ -258,6 +259,7 @@ const ArchitectChatInput = forwardRef<
         </Box>
 
         <IconButton
+          aria-label="Send message"
           color="primary"
           onClick={handleSend}
           disabled={!canSend}

@@ -87,6 +87,7 @@ export default function ProjectCreateDrawer({
   onClose,
   onCreate,
 }: ProjectCreateDrawerProps) {
+  const a11yId = React.useId();
   const { data: users = [] } = useUsers(open);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<React.ReactNode>('');
@@ -151,8 +152,9 @@ export default function ProjectCreateDrawer({
       {/* 2-column row: Owner | Project Icon */}
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3.75 }}>
         <FormControl variant="outlined" fullWidth>
-          <InputLabel>Owner</InputLabel>
+          <InputLabel id={`${a11yId}-owner`}>Owner</InputLabel>
           <Select
+            labelId={`${a11yId}-owner`}
             value={formData.owner_id}
             label="Owner"
             onChange={handleSelect('owner_id')}
@@ -185,8 +187,9 @@ export default function ProjectCreateDrawer({
         </FormControl>
 
         <FormControl variant="outlined" fullWidth>
-          <InputLabel>Project Icon</InputLabel>
+          <InputLabel id={`${a11yId}-project-icon`}>Project Icon</InputLabel>
           <Select
+            labelId={`${a11yId}-project-icon`}
             value={formData.icon}
             label="Project Icon"
             onChange={handleSelect('icon')}

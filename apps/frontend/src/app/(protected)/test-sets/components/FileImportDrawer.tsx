@@ -611,6 +611,9 @@ export default function FileImportDrawer({
                     sx={{ minWidth: theme.spacing(22) }}
                   >
                     <Select
+                      inputProps={{
+                        'aria-label': `Target field for ${header}`,
+                      }}
                       value={mapping[header] || ''}
                       onChange={e =>
                         handleMappingChange(header, e.target.value)
@@ -718,7 +721,7 @@ export default function FileImportDrawer({
 
         {previewPage && (
           <Box sx={{ height: theme.spacing(50), width: '100%' }}>
-            {loadingPage && <LinearProgress />}
+            {loadingPage && <LinearProgress aria-label="Loading preview" />}
             <DataGrid
               rows={previewRows}
               columns={previewColumns}
@@ -805,7 +808,7 @@ export default function FileImportDrawer({
 
         {importing && (
           <Box sx={{ width: '100%' }}>
-            <LinearProgress />
+            <LinearProgress aria-label="Creating test set" />
             <Typography
               variant="body2"
               color="text.secondary"

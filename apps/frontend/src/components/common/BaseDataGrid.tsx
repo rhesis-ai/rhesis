@@ -374,9 +374,15 @@ const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
     padding: 0,
     border: 'none',
   },
+  // Clicking a cell shouldn't draw a ring, but arrow-key navigation must (2.4.7).
   '& .MuiDataGrid-cell:focus': {
     outline: 'none',
   },
+  '& .MuiDataGrid-cell:focus-visible, & .MuiDataGrid-columnHeader:focus-visible':
+    {
+      outline: `2px solid ${theme.palette.primary.main}`,
+      outlineOffset: -2,
+    },
   '& .MuiDataGrid-row:hover': {
     cursor: 'pointer',
     backgroundColor:
@@ -423,6 +429,7 @@ function FigmaPaginationFooter() {
   const theme = useTheme();
   const textColor = theme.palette.greyscale.body;
   const mutedBorderColor = theme.palette.greyscale.border;
+  const rowsPerPageLabelId = React.useId();
 
   const apiRef = useGridApiContext();
   const paginationModel = useGridSelector(apiRef, gridPaginationModelSelector);
@@ -471,6 +478,7 @@ function FigmaPaginationFooter() {
       {showRowsPerPage ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
           <Typography
+            id={rowsPerPageLabelId}
             sx={{
               fontSize: 12,
               fontWeight: 600,
@@ -481,6 +489,7 @@ function FigmaPaginationFooter() {
             Rows per page:
           </Typography>
           <Select
+            labelId={rowsPerPageLabelId}
             value={pageSize}
             onChange={e =>
               apiRef.current.setPaginationModel({

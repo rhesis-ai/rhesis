@@ -351,6 +351,7 @@ export function FieldEditor({
   onChange,
   onTypeChange,
 }: FieldEditorProps) {
+  const a11yId = React.useId();
   return (
     <Stack spacing={0} sx={drawerFieldsSx}>
       <Box
@@ -372,8 +373,11 @@ export function FieldEditor({
           fullWidth
           sx={{ ...drawerOutlinedFieldSx, minWidth: { md: 220 } }}
         >
-          <InputLabel shrink>Type</InputLabel>
+          <InputLabel id={`${a11yId}-type`} shrink>
+            Type
+          </InputLabel>
           <Select
+            labelId={`${a11yId}-type`}
             label="Type"
             value={field.type}
             onChange={e => onTypeChange(e.target.value as ParameterType)}
@@ -453,6 +457,7 @@ export function DefaultValueEditor({
   field,
   onChange,
 }: DefaultValueEditorProps) {
+  const a11yId = React.useId();
   const setDefault = (value: ParameterValue | null) =>
     onChange({ default: value });
 
@@ -572,8 +577,9 @@ export function DefaultValueEditor({
           : '';
       return (
         <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-          <InputLabel>Default</InputLabel>
+          <InputLabel id={`${a11yId}-default`}>Default</InputLabel>
           <Select
+            labelId={`${a11yId}-default`}
             label="Default"
             value={options.includes(current) ? current : ''}
             onChange={e => {

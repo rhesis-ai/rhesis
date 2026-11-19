@@ -75,6 +75,8 @@ export default function ProjectMetadataCard({
   );
 
   const [copied, setCopied] = useState(false);
+  const statusLabelId = React.useId();
+  const ownerLabelId = React.useId();
 
   const handleCopyId = useCallback(async () => {
     try {
@@ -172,8 +174,9 @@ export default function ProjectMetadataCard({
                 fullWidth
                 sx={isEditing ? editableOutlinedFieldSx : readOnlySelectSx}
               >
-                <InputLabel>Status</InputLabel>
+                <InputLabel id={statusLabelId}>Status</InputLabel>
                 <Select
+                  labelId={statusLabelId}
                   value={draft.is_active ? 'active' : 'inactive'}
                   label="Status"
                   onChange={e =>
@@ -196,8 +199,11 @@ export default function ProjectMetadataCard({
                 fullWidth
                 sx={isEditing ? editableOutlinedFieldSx : readOnlySelectSx}
               >
-                <InputLabel shrink>Owner</InputLabel>
+                <InputLabel shrink id={ownerLabelId}>
+                  Owner
+                </InputLabel>
                 <Select
+                  labelId={ownerLabelId}
                   displayEmpty
                   notched
                   value={draft.owner_id}

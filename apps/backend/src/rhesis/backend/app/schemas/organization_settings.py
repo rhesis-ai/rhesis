@@ -194,6 +194,11 @@ class BrandingSettings(BaseModel):
     font: Optional[BrandingFont] = Field(
         None, description="Uploaded brand font. Written by the upload endpoint"
     )
+    accessible_colors: Optional[bool] = Field(
+        None,
+        description="Raise every text and UI colour, brand colours included, "
+        "to WCAG 2.1 AA contrast",
+    )
 
     @field_validator("primary_color")
     @classmethod
@@ -230,6 +235,7 @@ class BrandingSettingsUpdate(BaseModel):
     secondary_color: Optional[str] = None
     product_name: Optional[str] = None
     font: Optional[BrandingGoogleFont] = None
+    accessible_colors: Optional[bool] = None
 
     @field_validator("primary_color")
     @classmethod

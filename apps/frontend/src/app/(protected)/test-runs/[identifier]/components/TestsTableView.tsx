@@ -684,6 +684,7 @@ export default function TestsTableView({
                 <Tooltip title="Confirm Annotation">
                   <span>
                     <IconButton
+                      aria-label="Confirm Annotation"
                       size="small"
                       onClick={e => handleConfirmAnnotation(e, test)}
                       disabled={isConfirmingAnnotation}

@@ -215,13 +215,15 @@ export default function MultiFileUpload({
         onClick={handleClick}
         component="div"
       >
-        <CloudUploadIcon sx={{ fontSize: 48, color: '#545a65' }} />
+        <CloudUploadIcon
+          sx={{ fontSize: 48, color: theme => theme.palette.greyscale.label }}
+        />
         <Typography
           sx={{
             fontSize: 18,
             fontWeight: 700,
             lineHeight: '25px',
-            color: '#545a65',
+            color: theme => theme.palette.greyscale.label,
             textAlign: 'center',
           }}
         >
@@ -233,7 +235,7 @@ export default function MultiFileUpload({
           sx={{
             fontSize: 14,
             lineHeight: '22px',
-            color: '#545a65',
+            color: theme => theme.palette.greyscale.label,
             textAlign: 'center',
           }}
         >
@@ -248,6 +250,7 @@ export default function MultiFileUpload({
               key={`${file.name}-${file.size}-${file.lastModified}`}
               secondaryAction={
                 <IconButton
+                  aria-label={`Remove ${file.name}`}
                   edge="end"
                   size="small"
                   onClick={() => onFileRemove(idx)}

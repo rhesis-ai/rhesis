@@ -1650,6 +1650,7 @@ export default function SpanGraphView({
         <Stack direction="row" spacing={1} alignItems="center">
           {/* Reset Button */}
           <IconButton
+            aria-label="Reset playback"
             size="small"
             onClick={handleReset}
             sx={{ color: theme.palette.text.secondary }}
@@ -1659,6 +1660,7 @@ export default function SpanGraphView({
 
           {/* Play/Pause Button */}
           <IconButton
+            aria-label={isPlaying ? 'Pause' : 'Play'}
             size="small"
             onClick={handlePlayPause}
             sx={{

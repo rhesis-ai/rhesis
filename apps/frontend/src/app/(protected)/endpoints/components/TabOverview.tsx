@@ -57,6 +57,7 @@ function ProjectSelect({
   projects,
   loadingProjects,
 }: TabOverviewProps) {
+  const a11yId = React.useId();
   const canCreateProject = useCan(Capability.Project.CREATE);
 
   if (projects.length === 0 && !loadingProjects) {
@@ -88,8 +89,9 @@ function ProjectSelect({
 
   return (
     <FormControl fullWidth required>
-      <InputLabel>Select Project</InputLabel>
+      <InputLabel id={`${a11yId}-select-project`}>Select Project</InputLabel>
       <Select
+        labelId={`${a11yId}-select-project`}
         value={formData.project_id}
         onChange={e => onChange('project_id', e.target.value)}
         label="Select Project"

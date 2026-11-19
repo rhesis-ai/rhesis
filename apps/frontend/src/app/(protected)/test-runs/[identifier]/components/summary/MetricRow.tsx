@@ -98,10 +98,14 @@ function MetricRowInner({
     onViewMetric?.(fullName, row.requirement_id ?? undefined);
   }, [fullName, row.requirement_id, onViewMetric]);
 
+  const drilldownHintId = React.useId();
+
   return (
     <Box
       role={hasDrilldown ? 'button' : undefined}
       tabIndex={hasDrilldown ? 0 : undefined}
+      // Name comes from the row's text, so scores are read too (2.5.3).
+      aria-describedby={hasDrilldown ? drilldownHintId : undefined}
       onClick={hasDrilldown ? handleDrilldown : undefined}
       onKeyDown={
         hasDrilldown
@@ -113,7 +117,6 @@ function MetricRowInner({
             }
           : undefined
       }
-      aria-label={hasDrilldown ? `View failures for ${fullName}` : undefined}
       sx={{
         display: 'grid',
         gridTemplateColumns: COLUMN_TEMPLATES[density],
@@ -258,6 +261,11 @@ function MetricRowInner({
           ariaLabel={stripAriaLabel}
         />
       </Box>
+      {hasDrilldown && (
+        <span id={drilldownHintId} hidden>
+          View failures
+        </span>
+      )}
     </Box>
   );
 }

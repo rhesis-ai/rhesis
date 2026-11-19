@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useId } from 'react';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import {
@@ -76,6 +76,7 @@ function parseStringRecord(
 }
 
 export default function EndpointConnectionTab() {
+  const a11yId = useId();
   const { endpoint, editorTheme, editorWrapperStyle, saveFields } =
     useEndpointDetailContext();
   const canEditEndpoint = useCan(Capability.Endpoint.UPDATE);
@@ -145,8 +146,9 @@ export default function EndpointConnectionTab() {
             <Grid size={{ xs: 12, md: 4 }}>
               {isEditing ? (
                 <FormControl fullWidth>
-                  <InputLabel>Method</InputLabel>
+                  <InputLabel id={`${a11yId}-method`}>Method</InputLabel>
                   <Select
+                    labelId={`${a11yId}-method`}
                     value={draft.method}
                     label="Method"
                     onChange={e =>

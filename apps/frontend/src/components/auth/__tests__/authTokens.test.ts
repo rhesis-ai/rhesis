@@ -63,3 +63,26 @@ describe('getAuthTokens', () => {
     expect(getAuthTokens('light', '#0080AF').accent).toBe('#0080af');
   });
 });
+
+describe('getAuthTokens with accessible colours', () => {
+  it.each([
+    ['light', undefined],
+    ['dark', undefined],
+    ['light', '#FDD803'],
+    ['dark', '#0D1B2A'],
+  ] as const)(
+    'keeps %s accent and muted text at 4.5:1 (brand %s)',
+    (mode, brand) => {
+      const t = getAuthTokens(mode, brand, true);
+      for (const color of [t.accent, t.muted]) {
+        expect(getContrastRatio(color, t.ground)).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  );
+
+  it('changes nothing when off', () => {
+    expect(getAuthTokens('light', undefined, false)).toEqual(
+      getAuthTokens('light')
+    );
+  });
+});

@@ -94,6 +94,19 @@ class TestWritesAreStrict:
             "branding": {"primary_color": None}
         }
 
+    def test_accessible_colors_is_writable_on_its_own(self):
+        """✅ Turning the contrast mode on must not touch the brand colours."""
+        update = OrganizationSettingsUpdate(branding={"accessible_colors": True})
+
+        assert update.model_dump(exclude_unset=True, mode="json") == {
+            "branding": {"accessible_colors": True}
+        }
+
+    def test_accessible_colors_rejects_a_non_boolean(self):
+        """❌ Only a real on/off switch is stored."""
+        with pytest.raises(ValidationError):
+            BrandingSettingsUpdate(accessible_colors="sometimes")
+
 
 class TestFontDescriptor:
     def test_sorts_and_deduplicates_weights(self):

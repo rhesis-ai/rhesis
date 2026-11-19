@@ -72,6 +72,8 @@ export interface Branding {
   isDefaultProductName: boolean;
   /** Custom font override. Undefined means "use Be Vietnam Pro". */
   font?: BrandFont;
+  /** Organisation setting: theme colours raised to WCAG AA contrast. */
+  accessibleColors?: boolean;
 }
 
 /**
@@ -95,6 +97,19 @@ export function normalizeBrandColor(
   }
 
   return trimmed.toUpperCase();
+}
+
+/** Reads `BRAND_ACCESSIBLE_COLORS`: only "true" turns it on; anything else but empty/"false" warns. */
+export function normalizeAccessibleColors(
+  value: string | undefined | null
+): boolean {
+  const trimmed = value?.trim().toLowerCase();
+  if (!trimmed || trimmed === 'false') return false;
+  if (trimmed === 'true') return true;
+  console.warn(
+    `[branding] Ignoring BRAND_ACCESSIBLE_COLORS "${value}": expected "true" or "false".`
+  );
+  return false;
 }
 
 /**
@@ -301,6 +316,9 @@ export function getServerBranding(): Branding {
     productName,
     isDefaultProductName: productName === DEFAULT_PRODUCT_NAME,
     font: normalizeBrandFont(),
+    ...(normalizeAccessibleColors(brand.accessibleColors) && {
+      accessibleColors: true,
+    }),
   };
 }
 
@@ -429,6 +447,7 @@ export interface OrganizationBranding {
   product_name?: string | null;
   favicon?: { path?: string; sha256?: string } | null;
   font?: OrganizationBrandFont | null;
+  accessible_colors?: boolean | null;
 }
 
 /**
@@ -467,6 +486,10 @@ export function resolveBranding(
     productName,
     isDefaultProductName: productName === DEFAULT_PRODUCT_NAME,
     font: orgBrandFont(org.font) ?? deployment.font,
+    // On for the whole deployment, or opted into by this organisation.
+    ...((deployment.accessibleColors || org.accessible_colors === true) && {
+      accessibleColors: true,
+    }),
   };
 }
 
@@ -474,6 +497,7 @@ export function resolveBranding(
 export interface DeploymentBranding {
   primaryColor?: string;
   secondaryColor?: string;
+  accessibleColors?: boolean;
   faviconUrl?: string;
   productName?: string;
   fontFamily?: string;

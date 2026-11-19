@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -30,6 +30,7 @@ export default function RefreshTokenModal({
   onRefresh,
   tokenName,
 }: RefreshTokenModalProps) {
+  const a11yId = useId();
   const [expiryOption, setExpiryOption] = useState<
     '30' | '60' | '90' | 'custom' | 'never'
   >('30');
@@ -68,8 +69,11 @@ export default function RefreshTokenModal({
           </Typography>
           <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <FormControl fullWidth>
-              <InputLabel>Token Expiration</InputLabel>
+              <InputLabel id={`${a11yId}-token-expiration`}>
+                Token Expiration
+              </InputLabel>
               <Select
+                labelId={`${a11yId}-token-expiration`}
                 value={expiryOption}
                 label="Token Expiration"
                 onChange={e =>

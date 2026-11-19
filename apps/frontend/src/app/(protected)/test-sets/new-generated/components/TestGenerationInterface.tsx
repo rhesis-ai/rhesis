@@ -894,6 +894,7 @@ export default function TestGenerationInterface({
                     sx={{ mx: 1 }}
                   />
                   <IconButton
+                    aria-label="Send message"
                     size="small"
                     onClick={handleSendMessage}
                     disabled={!inputMessage.trim()}

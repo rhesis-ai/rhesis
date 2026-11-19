@@ -716,6 +716,7 @@ export default function SuggestionsDialog({
           <Tooltip title="Accept and save this test">
             <span>
               <IconButton
+                aria-label="Accept and save this test"
                 size="small"
                 onClick={() => handleAccept(params.row)}
                 disabled={isAccepting}

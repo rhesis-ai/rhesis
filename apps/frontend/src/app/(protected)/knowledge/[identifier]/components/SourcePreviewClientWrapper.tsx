@@ -685,6 +685,11 @@ export default function SourcePreviewClientWrapper({
                   </IconButton>
                 </Tooltip>
                 <IconButton
+                  aria-label={
+                    isContentExpanded
+                      ? 'Collapse extracted content'
+                      : 'Expand extracted content'
+                  }
                   size="small"
                   className="expand-icon"
                   sx={{

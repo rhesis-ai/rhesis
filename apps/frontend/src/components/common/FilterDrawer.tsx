@@ -293,6 +293,12 @@ export function filterChipSx(active: boolean): SxProps<Theme> {
     lineHeight: '20px',
     transition: 'all 0.15s ease',
     outline: 'none',
+    // Keyboard focus only; ButtonBase adds .Mui-focusVisible (2.4.7).
+    '&:focus-visible, &.Mui-focusVisible': {
+      outline: '2px solid',
+      outlineColor: 'primary.main',
+      outlineOffset: 2,
+    },
     '&:hover': {
       borderColor: 'primary.main',
       color: active ? theme.palette.primary.contrastText : 'primary.main',

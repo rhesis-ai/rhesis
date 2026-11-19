@@ -77,7 +77,7 @@ function PresenceFilterRow({
                     ? '0 999px 999px 0'
                     : 0,
                 bgcolor: isSelected ? 'primary.main' : 'transparent',
-                color: isSelected ? '#fff' : 'primary.main',
+                color: isSelected ? 'primary.contrastText' : 'primary.main',
                 whiteSpace: 'nowrap',
                 '&:hover': {
                   bgcolor: isSelected

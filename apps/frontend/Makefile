@@ -114,7 +114,7 @@ E2E_DOCKER_ENV = BACKEND_URL=http://localhost:$(BACKEND_E2E_PORT) \
 	FRONTEND_URL=http://localhost:3000
 
 # Live-backend Playwright args — @mocked specs run only via test-e2e-local
-E2E_DOCKER_GREP = --grep "@sanity|@crud" --grep-invert "@mocked"
+E2E_DOCKER_GREP = --grep "@sanity|@crud|@a11y" --grep-invert "@mocked"
 
 # E2E tests (starts docker automatically)
 # Runs @sanity smoke tests on both Chromium and Firefox, plus @crud interaction tests on Chromium only

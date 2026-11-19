@@ -608,6 +608,7 @@ function PromoteFromProjectDrawer({
   onClose,
   onPromoted,
 }: PromoteFromProjectDrawerProps) {
+  const a11yId = React.useId();
   const notifications = useNotifications();
   const [experimentId, setExperimentId] = useState<string>(
     experiments[0]?.id ?? ''
@@ -687,8 +688,11 @@ function PromoteFromProjectDrawer({
         />
         <Box sx={drawerFieldsSx}>
           <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-            <InputLabel shrink>Experiment (shared only)</InputLabel>
+            <InputLabel id={`${a11yId}-experiment-shared-only`} shrink>
+              Experiment (shared only)
+            </InputLabel>
             <Select
+              labelId={`${a11yId}-experiment-shared-only`}
               label="Experiment (shared only)"
               value={experimentId}
               onChange={e => setExperimentId(e.target.value)}
@@ -702,8 +706,11 @@ function PromoteFromProjectDrawer({
             </Select>
           </FormControl>
           <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-            <InputLabel shrink>Version</InputLabel>
+            <InputLabel id={`${a11yId}-version`} shrink>
+              Version
+            </InputLabel>
             <Select
+              labelId={`${a11yId}-version`}
               label="Version"
               value={versions.length === 0 ? '' : version}
               onChange={e => setVersion(e.target.value)}

@@ -46,6 +46,8 @@ export function useSidebarCollapse() {
   return React.useContext(SidebarCollapseContext);
 }
 
+export const MAIN_CONTENT_ID = 'main-content';
+
 export function AppShell({ children, sidebar, topBar }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const toggle = () => setCollapsed(c => !c);
@@ -56,6 +58,33 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
 
   return (
     <SidebarCollapseContext.Provider value={{ collapsed, toggle }}>
+      {/* First focusable element: lets keyboard users skip the sidebar (2.4.1). */}
+      <Box
+        component="a"
+        href={`#${MAIN_CONTENT_ID}`}
+        sx={{
+          position: 'fixed',
+          top: theme => theme.spacing(1),
+          left: theme => theme.spacing(1),
+          zIndex: theme => theme.zIndex.tooltip + 1,
+          px: 2,
+          py: 1,
+          borderRadius: 1,
+          bgcolor: 'primary.main',
+          color: 'primary.contrastText',
+          fontWeight: 600,
+          textDecoration: 'none',
+          transform: 'translateY(-200%)',
+          '&:focus': { transform: 'none' },
+          '&:focus-visible': {
+            outline: '2px solid',
+            outlineColor: 'primary.dark',
+            outlineOffset: 2,
+          },
+        }}
+      >
+        Skip to main content
+      </Box>
       <Box
         sx={{
           display: 'grid',
@@ -86,7 +115,11 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
         {/* Main content column */}
         <Box
           component="main"
+          id={MAIN_CONTENT_ID}
+          // Focus target for the skip link; not in the tab order otherwise.
+          tabIndex={-1}
           sx={{
+            '&:focus': { outline: 'none' },
             display: 'flex',
             flexDirection: 'column',
             minHeight: scaledVh(),

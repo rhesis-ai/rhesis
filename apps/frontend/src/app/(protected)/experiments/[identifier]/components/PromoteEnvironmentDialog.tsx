@@ -61,6 +61,7 @@ export default function PromoteEnvironmentDialog({
   defaultEnvironment,
   onPromoted,
 }: PromoteEnvironmentDialogProps) {
+  const a11yId = React.useId();
   const notifications = useNotifications();
 
   const [version, setVersion] = useState<string>('');
@@ -119,8 +120,9 @@ export default function PromoteEnvironmentDialog({
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           <FormControl fullWidth size="small">
-            <InputLabel>Version</InputLabel>
+            <InputLabel id={`${a11yId}-version`}>Version</InputLabel>
             <Select
+              labelId={`${a11yId}-version`}
               label="Version"
               value={version}
               onChange={e => setVersion(e.target.value)}

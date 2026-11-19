@@ -1257,6 +1257,7 @@ export default function ManualTestWriter({
                           }}
                         >
                           <IconButton
+                            aria-label="Delete test case"
                             onClick={() => deleteRow(testCase.id)}
                             disabled={testCases.length === 1 || loading}
                             size="small"
@@ -1324,7 +1325,11 @@ export default function ManualTestWriter({
                 ? testCases.findIndex(tc => tc.id === attachDialogRowId) + 1
                 : ''}
             </Typography>
-            <IconButton size="small" onClick={() => setAttachDialogRowId(null)}>
+            <IconButton
+              aria-label="Close"
+              size="small"
+              onClick={() => setAttachDialogRowId(null)}
+            >
               <CloseIcon />
             </IconButton>
           </Box>

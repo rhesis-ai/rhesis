@@ -98,6 +98,7 @@ export default function OwaspGenerateForm({
   onSuccess,
   onFooterChange,
 }: OwaspGenerateFormProps) {
+  const a11yId = React.useId();
   const [testSetName, setTestSetName] = React.useState('');
   const [purpose, setPurpose] = React.useState('');
   const [categoriesByFramework, setCategoriesByFramework] =
@@ -467,7 +468,14 @@ export default function OwaspGenerateForm({
                             {group.description}
                           </Typography>
                         </Stack>
-                        <IconButton size="small">
+                        <IconButton
+                          aria-label={
+                            expandedFrameworks.has(group.framework)
+                              ? `Collapse ${group.label}`
+                              : `Expand ${group.label}`
+                          }
+                          size="small"
+                        >
                           <ExpandMoreIcon
                             sx={theme => ({
                               transform: expandedFrameworks.has(group.framework)
@@ -575,8 +583,11 @@ export default function OwaspGenerateForm({
           />
 
           <FormControl fullWidth sx={drawerOutlinedFieldSx}>
-            <InputLabel shrink>Test Type</InputLabel>
+            <InputLabel id={`${a11yId}-test-type`} shrink>
+              Test Type
+            </InputLabel>
             <Select
+              labelId={`${a11yId}-test-type`}
               value={testType}
               onChange={e => setTestType(e.target.value as TestTypeValue)}
               label="Test Type"

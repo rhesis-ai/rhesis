@@ -321,6 +321,7 @@ export default function JobDetailClient({
                 {job.progress_current} / {job.progress_total}
               </Typography>
               <LinearProgress
+                aria-label="Job progress"
                 variant="determinate"
                 value={Math.min(
                   100,

@@ -74,6 +74,51 @@ describe('NotificationProvider', () => {
 
     expect(screen.getByText('Error!')).toBeInTheDocument();
   });
+
+  describe('timing (WCAG 2.2.1)', () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    it('keeps an error until it is dismissed', async () => {
+      render(
+        <NotificationProvider>
+          <TestConsumer />
+        </NotificationProvider>
+      );
+
+      await act(async () => {
+        screen.getByText('Show Error').click();
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(60_000);
+      });
+
+      expect(screen.getByRole('alert')).toHaveTextContent('Error!');
+    });
+
+    it('lets a success message go after a few seconds, announced politely', async () => {
+      render(
+        <NotificationProvider>
+          <TestConsumer />
+        </NotificationProvider>
+      );
+
+      await act(async () => {
+        screen.getByText('Show Success').click();
+      });
+      expect(screen.getByRole('status')).toHaveTextContent('Success!');
+
+      // Auto-hide, then the exit transition.
+      await act(async () => {
+        jest.advanceTimersByTime(10_000);
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(1_000);
+      });
+
+      expect(screen.queryByText('Success!')).not.toBeInTheDocument();
+    });
+  });
 });
 
 describe('useNotifications', () => {

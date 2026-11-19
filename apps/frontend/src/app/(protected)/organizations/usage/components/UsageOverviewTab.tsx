@@ -82,6 +82,7 @@ function MeterBar({
   if (limit === null) {
     return (
       <LinearProgress
+        aria-hidden
         variant="determinate"
         value={0}
         color="primary"

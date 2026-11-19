@@ -1,13 +1,32 @@
 'use client';
 
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Button, Grid, InputAdornment, Tooltip } from '@mui/material';
+import React, {
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  Box,
+  Button,
+  FormControlLabel,
+  FormHelperText,
+  Grid,
+  InputAdornment,
+  Switch,
+  Tooltip,
+} from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import { getContrastRatio } from '@mui/system/colorManipulator';
 import { useRouter } from 'next/navigation';
 import { Organization } from '@/utils/api-client/interfaces/organization';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BrandPreviewContext } from '@/components/providers/ThemeProvider';
 import { SECTION_GRID } from '@/styles/theme-constants';
+import { TEXT_CONTRAST } from '@/styles/contrast';
 import { SectionCard } from '@/components/common/SectionCard';
 import EditableField from '@/components/common/EditableField';
 import { useCan } from '@/components/common/Can';
@@ -73,6 +92,14 @@ export default function BrandingColorsForm({
 
   const hasCustomBranding =
     stored.primary_color || stored.secondary_color || stored.product_name;
+
+  const storedAccessibleColors = branding?.accessible_colors === true;
+  const [accessibleColors, setAccessibleColors] = useState(
+    storedAccessibleColors
+  );
+  useEffect(() => {
+    setAccessibleColors(storedAccessibleColors);
+  }, [storedAccessibleColors]);
 
   const [draft, setDraftState] = useState<BrandingDraft>(stored);
   const draftRef = useRef<BrandingDraft>(stored);
@@ -170,6 +197,27 @@ export default function BrandingColorsForm({
     saveField(field);
   };
 
+  // --- accessible colours (saved immediately, previewed live) ------------
+  const toggleAccessibleColors = async (checked: boolean) => {
+    setAccessibleColors(checked);
+    previewBrandColors({ accessibleColors: checked });
+    try {
+      await new ApiClientFactory()
+        .getOrganizationsClient()
+        .updateOrganizationSettings({
+          branding: { accessible_colors: checked },
+        });
+      scheduleRefresh();
+    } catch (err: unknown) {
+      setAccessibleColors(!checked);
+      previewBrandColors({ accessibleColors: !checked });
+      notifications.show(
+        err instanceof Error ? err.message : 'Failed to update colours',
+        { severity: 'error' }
+      );
+    }
+  };
+
   // --- reset (explicit action → immediate refresh) ----------------------
   const handleReset = async () => {
     if (refreshTimer.current) clearTimeout(refreshTimer.current);
@@ -228,6 +276,8 @@ export default function BrandingColorsForm({
         onSave={saveField}
         onPickerChange={handlePickerChange}
         onPickerBlur={flushPickerSave}
+        accessibleColors={accessibleColors}
+        onToggleAccessibleColors={toggleAccessibleColors}
       />
     </SectionCard>
   );
@@ -241,6 +291,8 @@ function BrandingFields({
   onSave,
   onPickerChange,
   onPickerBlur,
+  accessibleColors,
+  onToggleAccessibleColors,
 }: {
   draft: BrandingDraft;
   setDraft: (
@@ -251,9 +303,25 @@ function BrandingFields({
   onSave: (field: keyof BrandingDraft) => void;
   onPickerChange: (field: ColorDraftField, value: string) => void;
   onPickerBlur: (field: ColorDraftField) => void;
+  accessibleColors: boolean;
+  onToggleAccessibleColors: (checked: boolean) => void;
 }) {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const deployment = getDeploymentBranding();
+  const theme = useTheme();
+  const accessibleHelpId = useId();
+  const forcedByDeployment = deployment.accessibleColors === true;
+
+  // Brand colours are also used as text (links, outlined buttons) on white.
+  const belowAA = (value: string) => {
+    const trimmed = value.trim();
+    return (
+      !accessibleColors &&
+      !forcedByDeployment &&
+      HEX_COLOR_PATTERN.test(trimmed) &&
+      getContrastRatio(trimmed, theme.palette.common.white) < TEXT_CONTRAST
+    );
+  };
 
   const setField = (field: keyof BrandingDraft, value: string) => {
     setDraft(prev => ({ ...prev, [field]: value }));
@@ -299,6 +367,7 @@ function BrandingFields({
           disabled={disabled}
           error={fieldErrors.primary_color}
           helperText="App bar, buttons and brand-tinted surfaces"
+          lowContrast={belowAA(draft.primary_color)}
           inherited={deployment.primaryColor || RHESIS_PRIMARY_COLOR}
         />
       </Grid>
@@ -315,6 +384,7 @@ function BrandingFields({
           disabled={disabled}
           error={fieldErrors.secondary_color}
           helperText="Secondary and call-to-action buttons"
+          lowContrast={belowAA(draft.secondary_color)}
           inherited={deployment.secondaryColor || RHESIS_SECONDARY_COLOR}
         />
       </Grid>
@@ -332,6 +402,26 @@ function BrandingFields({
           InputLabelProps={{ shrink: true }}
           helperText={`Shown in page titles and the sidebar. Max ${MAX_PRODUCT_NAME_LENGTH} characters`}
         />
+      </Grid>
+
+      <Grid size={12}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={accessibleColors || forcedByDeployment}
+              onChange={e => onToggleAccessibleColors(e.target.checked)}
+              disabled={!editable || disabled || forcedByDeployment}
+              slotProps={{ input: { 'aria-describedby': accessibleHelpId } }}
+            />
+          }
+          label="Accessible colours"
+        />
+        <FormHelperText id={accessibleHelpId}>
+          Raises text, buttons and field borders to WCAG 2.1 AA contrast in
+          light and dark mode. Brand colours keep their hue but may be shown
+          darker or lighter.
+          {forcedByDeployment && ' Turned on for this whole deployment.'}
+        </FormHelperText>
       </Grid>
     </Grid>
   );
@@ -357,6 +447,7 @@ function ColorField({
   error,
   helperText,
   inherited,
+  lowContrast,
 }: {
   label: string;
   value: string;
@@ -372,8 +463,12 @@ function ColorField({
   error?: string;
   helperText: string;
   inherited?: string;
+  lowContrast?: boolean;
 }) {
   const trimmed = value.trim();
+  const hint = lowContrast
+    ? `${helperText}. Below WCAG AA contrast on white; turn on Accessible colours to adjust it automatically.`
+    : helperText;
   const isValid = HEX_COLOR_PATTERN.test(trimmed);
 
   return (
@@ -387,7 +482,7 @@ function ColorField({
       onBlur={onBlur}
       placeholder={inherited ?? '#6A1B9A'}
       error={editable && !!error}
-      helperText={editable ? error || helperText : helperText}
+      helperText={editable ? error || hint : hint}
       slotProps={{
         input: {
           startAdornment: (

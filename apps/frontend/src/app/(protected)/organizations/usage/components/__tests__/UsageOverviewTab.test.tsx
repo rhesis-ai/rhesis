@@ -134,7 +134,7 @@ describe('UsageOverviewTab', () => {
   it('marks stock resources as live counts once a past period is selected', () => {
     render(<UsageOverviewTab />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Filters/ }));
     fireEvent.mouseDown(screen.getByLabelText('Period'));
     fireEvent.click(screen.getAllByRole('option')[1]);
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
@@ -147,16 +147,18 @@ describe('UsageOverviewTab', () => {
   it('counts the period filter on the badge once a past period is selected', () => {
     render(<UsageOverviewTab />);
 
-    expect(screen.queryByLabelText(/active filters/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Filters/ }));
     fireEvent.mouseDown(screen.getByLabelText('Period'));
     fireEvent.click(screen.getAllByRole('option')[1]);
     fireEvent.click(screen.getByRole('button', { name: 'Apply' }));
 
     // The count, not just a bare dot: FilterButton renders an empty circle
     // when handed only hasActiveFilters.
-    expect(screen.getByLabelText('1 active filters')).toHaveTextContent('1');
+    expect(
+      screen.getByRole('button', { name: 'Filters, 1 active' })
+    ).toHaveTextContent('1');
   });
 
   it('labels the period from a flow resource, not whichever comes first', () => {

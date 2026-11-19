@@ -56,6 +56,7 @@ data:
   BRAND_PRODUCT_NAME: {{ .Values.config.brandProductName | quote }}
   BRAND_FONT_FAMILY: {{ .Values.config.brandFontFamily | quote }}
   BRAND_FONT_BASE_URL: {{ .Values.config.brandFontBaseUrl | quote }}
+  BRAND_ACCESSIBLE_COLORS: {{ .Values.config.brandAccessibleColors | quote }}
 
   # -------------------------------------------------------------------------
   # Backend

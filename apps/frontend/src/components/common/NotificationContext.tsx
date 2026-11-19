@@ -31,9 +31,17 @@ const NotificationContext = React.createContext<
 
 let notificationCount = 0;
 
+// Errors and warnings stay until dismissed: a message that vanishes after a
+// few seconds is a time limit the user can't adjust (WCAG 2.2.1).
+const PERSISTENT_SEVERITIES = new Set<NotificationSeverity>([
+  'error',
+  'warning',
+]);
+const DEFAULT_AUTO_HIDE_MS = 6000;
+
 export function NotificationProvider({
   children,
-  anchorOrigin = { vertical: 'bottom', horizontal: 'right' },
+  anchorOrigin = { vertical: 'top', horizontal: 'right' },
 }: {
   children: React.ReactNode;
   anchorOrigin?: { vertical: 'top' | 'bottom'; horizontal: 'left' | 'right' };
@@ -134,6 +142,9 @@ export function NotificationProvider({
     };
   };
 
+  const severity = currentNotification?.options.severity ?? 'info';
+  const persistent = PERSISTENT_SEVERITIES.has(severity);
+
   return (
     <NotificationContext.Provider value={contextValue}>
       {children}
@@ -142,7 +153,10 @@ export function NotificationProvider({
           key={currentNotification.key}
           open={open}
           autoHideDuration={
-            currentNotification.options.autoHideDuration || 6000
+            persistent
+              ? null
+              : currentNotification.options.autoHideDuration ||
+                DEFAULT_AUTO_HIDE_MS
           }
           onClose={handleClose}
           anchorOrigin={anchorOrigin}
@@ -163,6 +177,8 @@ export function NotificationProvider({
                 : {}),
             }}
             elevation={6}
+            // Errors interrupt; everything else waits for a pause.
+            role={persistent ? 'alert' : 'status'}
           >
             {currentNotification.message}
           </Alert>

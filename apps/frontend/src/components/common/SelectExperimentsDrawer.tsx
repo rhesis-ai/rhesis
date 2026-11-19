@@ -100,6 +100,7 @@ export default function SelectExperimentsDrawer({
   title = 'Add Experiments',
   subtitle = 'Pick one or more experiment versions to run. Each selected version triggers its own run.',
 }: SelectExperimentsDrawerProps) {
+  const a11yId = React.useId();
   const notifications = useNotifications();
   const searchRef = React.useRef<HTMLInputElement>(null);
 
@@ -521,8 +522,9 @@ export default function SelectExperimentsDrawer({
           justifyContent="space-between"
         >
           <FormControl size="small" sx={{ minWidth: 200, flex: 1 }}>
-            <InputLabel>Version</InputLabel>
+            <InputLabel id={`${a11yId}-version`}>Version</InputLabel>
             <Select
+              labelId={`${a11yId}-version`}
               label="Version"
               value={effectiveViewedVersion ?? ''}
               onChange={e => {

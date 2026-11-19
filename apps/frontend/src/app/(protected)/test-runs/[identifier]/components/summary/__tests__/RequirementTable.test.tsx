@@ -512,7 +512,8 @@ describe('RequirementTable', () => {
     );
 
     const row = screen.getByRole('button', {
-      name: 'View failures for Safety: Toxicity Score',
+      name: /Safety: Toxicity Score/,
+      description: 'View failures',
     });
     fireEvent.click(row);
     // A single metric has nothing to share a prefix with, so onViewMetric
@@ -553,7 +554,8 @@ describe('RequirementTable', () => {
 
     expect(
       screen.queryByRole('button', {
-        name: 'View failures for Safety: Toxicity Score',
+        name: /Safety: Toxicity Score/,
+        description: 'View failures',
       })
     ).not.toBeInTheDocument();
   });

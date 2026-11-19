@@ -64,6 +64,7 @@ export default function PlanDisplay({ plan }: PlanDisplayProps) {
           {total > 0 && !isComplete && (
             <>
               <LinearProgress
+                aria-label="Plan progress"
                 variant="determinate"
                 value={progress}
                 sx={{
@@ -80,7 +81,10 @@ export default function PlanDisplay({ plan }: PlanDisplayProps) {
             </>
           )}
         </Box>
-        <IconButton size="small">
+        <IconButton
+          aria-label={expanded ? 'Collapse plan' : 'Expand plan'}
+          size="small"
+        >
           {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
         </IconButton>
       </Box>

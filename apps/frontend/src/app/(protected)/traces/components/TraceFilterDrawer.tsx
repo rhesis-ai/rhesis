@@ -93,6 +93,7 @@ export default function TraceFilterDrawer({
   fixedTestRunId,
   view = 'traces',
 }: TraceFilterDrawerProps) {
+  const a11yId = React.useId();
   const { status } = useSession();
   const isTestRunScope = Boolean(fixedTestRunId);
   const isSpansView = view === 'spans';
@@ -225,8 +226,9 @@ export default function TraceFilterDrawer({
         <>
           <FilterSection title="Project">
             <FormControl fullWidth size="small">
-              <InputLabel>Project</InputLabel>
+              <InputLabel id={`${a11yId}-project`}>Project</InputLabel>
               <Select
+                labelId={`${a11yId}-project`}
                 value={draft.projectId || ''}
                 label="Project"
                 onChange={e => {
@@ -260,8 +262,9 @@ export default function TraceFilterDrawer({
                 size="small"
                 disabled={filteredEndpoints.length === 0 && !!draft.projectId}
               >
-                <InputLabel>Endpoint</InputLabel>
+                <InputLabel id={`${a11yId}-endpoint`}>Endpoint</InputLabel>
                 <Select
+                  labelId={`${a11yId}-endpoint`}
                   value={draft.endpointId || ''}
                   label="Endpoint"
                   onChange={e =>

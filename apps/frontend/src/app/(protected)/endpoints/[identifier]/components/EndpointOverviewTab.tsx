@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useId } from 'react';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import {
@@ -55,6 +55,7 @@ function detailsFromEndpoint(endpoint: {
 }
 
 export default function EndpointOverviewTab() {
+  const a11yId = useId();
   const { endpoint, projects, saveFields } = useEndpointDetailContext();
   const canEditEndpoint = useCan(Capability.Endpoint.UPDATE);
 
@@ -137,8 +138,11 @@ export default function EndpointOverviewTab() {
             <Grid size={{ xs: 12, md: 6 }}>
               {isEditing ? (
                 <FormControl fullWidth>
-                  <InputLabel>Environment</InputLabel>
+                  <InputLabel id={`${a11yId}-environment`}>
+                    Environment
+                  </InputLabel>
                   <Select
+                    labelId={`${a11yId}-environment`}
                     value={draft.environment}
                     label="Environment"
                     onChange={e =>
