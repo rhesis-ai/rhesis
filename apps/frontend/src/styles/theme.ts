@@ -415,7 +415,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
         },
         variants: [
           {
-            props: { variant: 'contained', color: 'primary' },
+            props: { variant: 'contained', color: 'primary' } as const,
             style: {
               backgroundColor: accent.main,
               color: accent.contrastText,
@@ -424,7 +424,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
             },
           },
           {
-            props: { variant: 'contained', color: 'secondary' },
+            props: { variant: 'contained', color: 'secondary' } as const,
             style: {
               backgroundColor: secondaryAccent.main,
               color: secondaryAccent.contrastText,
@@ -435,7 +435,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
             },
           },
           {
-            props: { variant: 'outlined', color: 'primary' },
+            props: { variant: 'outlined', color: 'primary' } as const,
             style: {
               color: accent.onSurface,
               borderColor: accent.onSurface,
@@ -448,7 +448,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
             },
           },
           {
-            props: { variant: 'outlined', color: 'secondary' },
+            props: { variant: 'outlined', color: 'secondary' } as const,
             style: {
               color: secondaryAccent.main,
               borderColor: secondaryAccent.main,
@@ -461,7 +461,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
             },
           },
           {
-            props: { variant: 'text', color: 'primary' },
+            props: { variant: 'text', color: 'primary' } as const,
             style: {
               color: accent.onSurface,
               '&:hover': {
