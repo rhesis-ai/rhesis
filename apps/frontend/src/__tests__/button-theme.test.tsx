@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import Button from '@mui/material/Button';
+import { ThemeProvider } from '@mui/material/styles';
 import lightTheme from '@/styles/theme';
 
 const SX_COLOR = 'rgb(1, 2, 3)';
@@ -16,9 +17,11 @@ const cases = [
 describe('MuiButton theme colours do not outrank sx', () => {
   it.each(cases)('%s %s button keeps its sx colour', (variant, color) => {
     render(
-      <Button variant={variant} color={color} sx={{ color: SX_COLOR }}>
-        Action
-      </Button>
+      <ThemeProvider theme={lightTheme}>
+        <Button variant={variant} color={color} sx={{ color: SX_COLOR }}>
+          Action
+        </Button>
+      </ThemeProvider>
     );
     expect(screen.getByRole('button', { name: 'Action' })).toHaveStyle({
       color: SX_COLOR,
