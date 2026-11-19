@@ -151,6 +151,11 @@ describe('deriveBrandAccents', () => {
     expect(deriveBrandAccents('dark', '#C62828').main).toBe('#C62828');
   });
 
+  it('keeps the hover fill visible on dark paper', () => {
+    const { mainHover } = deriveBrandAccents('dark', NAVY);
+    expect(getContrastRatio(mainHover, '#161B22')).toBeGreaterThanOrEqual(3);
+  });
+
   it('lifts a solid fill that would vanish into dark paper', () => {
     const { main, contrastText } = deriveBrandAccents('dark', NAVY);
     expect(getContrastRatio(main, '#161B22')).toBeGreaterThanOrEqual(3);

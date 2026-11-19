@@ -275,7 +275,8 @@ export function deriveBrandAccents(
 
   return {
     main,
-    mainHover: darken(main, 0.26),
+    // Darkening a lifted fill on dark paper could undo the lift, so re-check it.
+    mainHover: ensureContrast(darken(main, 0.26), surface, MIN_FILL_CONTRAST),
     contrastText: contrastTextFor(main),
     onSurface,
     softHover: alpha(main, 0.04),
