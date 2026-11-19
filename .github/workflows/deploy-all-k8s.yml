@@ -163,5 +163,8 @@ jobs:
     with:
       environment: ${{ inputs.environment || 'dev' }}
       tag: ${{ needs.gate.outputs.tag }}
-      # service left empty → deploy-all helm-set list in k8s-deploy.yml
+      # stg and prd: pin the chart to the commit these images were built from, in
+      # the same write, so chart and images change together. dev follows main.
+      revision: ${{ (inputs.environment || 'dev') != 'dev' && github.sha || '' }}
+      # service left empty → deploy-all tag list in argocd-set-image-tags.sh
     secrets: inherit

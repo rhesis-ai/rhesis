@@ -42,6 +42,13 @@ on:
         required: false
         type: string
         default: ''
+      revision:
+        description: |
+          Git commit to pin the chart to, in the same write as the tags (stg and
+          prd deploy-all). Empty leaves the chart revision alone (dev follows main).
+        required: false
+        type: string
+        default: ''
 
 jobs:
   deploy:
@@ -56,6 +63,7 @@ jobs:
       APP: ${{ inputs.app_name }}
       TAG: ${{ inputs.tag }}
       SERVICE: ${{ inputs.service }}
+      REVISION: ${{ inputs.revision }}
       ENVIRONMENT: ${{ inputs.environment }}
 
     steps:
