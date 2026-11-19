@@ -1,0 +1,80 @@
+name: "[Test] Quick Start on main"
+
+# `main` must stay installable with a plain `git clone` + `./rh start`, which runs
+# this checkout's compose config against the last release's GHCR images
+# (docker-compose.ghcr.yml). A config change those images can't handle breaks every
+# new install, as removing API_BASE_URL did. This runs exactly that and waits for
+# every service to be healthy. Keep config changes working with the last release's
+# images for one release (see AGENTS.md).
+
+on:
+  pull_request:
+    paths:
+      - 'docker-compose.yml'
+      - 'docker-compose.ghcr.yml'
+      - '.env.example'
+      - 'rh'
+      - 'scripts/rh/**'
+      - '.github/workflows/quickstart-smoke.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docker-compose.yml'
+      - 'docker-compose.ghcr.yml'
+      - '.env.example'
+      - 'rh'
+      - 'scripts/rh/**'
+      - '.github/workflows/quickstart-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quickstart-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quickstart:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      COMPOSE: docker compose -f docker-compose.yml -f docker-compose.ghcr.yml -p rhesis-quickstart --env-file .env.docker.local
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      # A release PR pins the new version before [Release] 3 has published its
+      # images; there is nothing to run yet, so skip instead of failing.
+      - name: Check the pinned images exist
+        id: images
+        run: |
+          VERSION=$(cat VERSION)
+          if docker manifest inspect "ghcr.io/rhesis-ai/frontend:$VERSION" > /dev/null 2>&1; then
+            echo "exist=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::ghcr.io/rhesis-ai/*:$VERSION isn't published yet (release in progress); skipping."
+            echo "exist=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: ./rh start
+        if: steps.images.outputs.exist == 'true'
+        # No TTY: the port and API key prompts take their defaults.
+        run: ./rh start < /dev/null
+
+      - name: Wait for every service to be healthy
+        if: steps.images.outputs.exist == 'true'
+        # A container that keeps crashing never turns healthy, so --wait fails.
+        run: $COMPOSE up -d --wait --wait-timeout 600 postgres redis backend worker beat frontend
+
+      - name: Check the app answers
+        if: steps.images.outputs.exist == 'true'
+        run: |
+          curl -fsS http://localhost:8080/health
+          curl -fsS http://localhost:3000/api/health
+          curl -fsS -o /dev/null -w "frontend / -> %{http_code}\n" http://localhost:3000/
+
+      - name: Logs
+        if: failure() && steps.images.outputs.exist == 'true'
+        run: $COMPOSE logs --tail 200
