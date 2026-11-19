@@ -1,0 +1,31 @@
+name: Install deploy tools
+description: >
+  Install pinned, checksum-verified argocd, kubectl and jq into $HOME/bin and
+  put it on PATH. ARC runner pods are non-root, so /usr/local/bin isn't writable.
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        set -euo pipefail
+        BIN="$HOME/bin"
+        mkdir -p "$BIN"
+
+        fetch() {  # fetch <name> <url> <sha256>
+          curl -sSL -o "$BIN/$1" "$2"
+          echo "$3  $BIN/$1" | sha256sum -c -
+          chmod +x "$BIN/$1"
+        }
+
+        fetch argocd \
+          https://github.com/argoproj/argo-cd/releases/download/v2.14.4/argocd-linux-amd64 \
+          ed774771701f8e5a9330918e4f905f2f171e2181906aec792c9ff6907a4c480f
+        fetch kubectl \
+          https://dl.k8s.io/release/v1.35.10/bin/linux/amd64/kubectl \
+          c49a28f1f4efc4d475ed05f47f2ce8e563bf7bef69ed77fe1b924ea6d83b6327
+        fetch jq \
+          https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64 \
+          5942c9b0934e510ee61eb3e30273f1b3fe2590df93933a93d7c58b81d19c8ff5
+
+        echo "$BIN" >> "$GITHUB_PATH"
