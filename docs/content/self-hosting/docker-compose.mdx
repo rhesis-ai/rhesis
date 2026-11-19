@@ -23,16 +23,21 @@ The last step gives you two ways to start the stack — pick one:
 - **Recommended:** pull prebuilt images for the latest release, skipping the build.
 - Build backend, worker, and frontend from your local checkout instead.
 
+Either way, run a release tag, not `main`. A release tag's `docker-compose.ghcr.yml` names that
+release's images, and its config is what those images were tested with. `main` can be ahead of the
+last release.
+
 <CodeBlock filename="Terminal" language="bash">
 {`git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
+git checkout "$(git tag --list 'v*' --sort=-version:refname | head -n1)"
 
 cp .env.example .env.docker
 
 # generate DB_ENCRYPTION_KEY, JWT_SECRET_KEY, NEXTAUTH_SECRET, SESSION_SECRET_KEY
 ./rh secrets
 
-# recommended: uses prebuilt GHCR images for the latest release
+# recommended: uses this release's prebuilt GHCR images
 docker compose -f docker-compose.yml -f docker-compose.ghcr.yml --env-file .env.docker up -d
 
 # alternative: builds backend, worker, and frontend from the current state of the repo
@@ -258,6 +263,26 @@ docker compose --env-file .env.docker build backend
 # Rebuild and restart
 docker compose --env-file .env.docker up -d --build`}
 </CodeBlock>
+
+### Upgrading
+
+Move to the new release's tag, so the config and the images change together. Before restarting,
+check the release's entry in the
+[backend changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/backend/CHANGELOG.md) for an
+**Upgrading a self-hosted deployment** section: some releases need a configuration change, such as
+a new proxy route or a new OAuth redirect URI.
+
+<CodeBlock filename="Terminal" language="bash">
+{`git fetch --tags
+git checkout v<new version>
+
+docker compose -f docker-compose.yml -f docker-compose.ghcr.yml --env-file .env.docker pull
+docker compose -f docker-compose.yml -f docker-compose.ghcr.yml --env-file .env.docker up -d`}
+</CodeBlock>
+
+Database migrations run when the backend starts. To roll back, check out the previous tag and run
+the same two commands. A rollback across a database migration needs a database restore (see
+[Backup and Recovery](#backup-and-recovery)).
 
 
 

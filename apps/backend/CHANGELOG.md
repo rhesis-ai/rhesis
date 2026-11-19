@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   3. Route `/ws` on the app host to the backend, or set `WS_URL`. The Helm chart's ingress does this for you, and docker-compose works unchanged when users open the app on the same machine. Users on other machines need `WS_URL=ws://<server>:<BACKEND_PORT>/ws`; behind a reverse proxy, route `/ws` and set `WS_URL=/ws`.
   4. Re-share SSO login links; Organization settings → SSO shows the new one.
   5. Remove `API_BASE_URL`; nothing reads it.
+  6. Upgrade from this release's tag, not from `main`. `docker-compose.ghcr.yml` now names the release's images instead of `:latest`, and the Helm chart's image tags default to its release version (`appVersion`), so a release tag's config and images always match. Helm installs that set no image tag used to render a `<nil>` tag; they now get the chart's release version.
 
   The API host stays as it is for SDK, MCP and connector clients. Details: Self-Hosting → Environment Variables, Docker Compose and Kubernetes (Helm).
 - **OAuth Handshake Cookie**: the backend's session cookie is renamed `rhesis-oauth`, lasts 10 minutes instead of an hour, and is cleared after every OAuth and SSO callback, so it no longer leaves a backend login behind. Its Secure flag follows the `FRONTEND_URL` scheme.

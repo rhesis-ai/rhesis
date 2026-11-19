@@ -17,7 +17,10 @@ This configuration is **NOT suitable for production**. It uses generated secrets
 {`git clone https://github.com/rhesis-ai/rhesis.git
 cd rhesis
 
-# pulls prebuilt images from GHCR
+# check out the latest release: its config matches its prebuilt images
+git checkout "$(git tag --list 'v*' --sort=-version:refname | head -n1)"
+
+# pulls that release's prebuilt images from GHCR
 ./rh start
 
 # build backend, worker, and frontend images locally instead:
