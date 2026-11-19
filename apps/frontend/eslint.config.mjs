@@ -5,6 +5,26 @@ import pluginJsxA11y from 'eslint-plugin-jsx-a11y';
 import pluginImport from 'eslint-plugin-import';
 import { configs as typescriptConfigs } from 'typescript-eslint';
 import globals from 'globals';
+import {
+  iconButtonName,
+  progressName,
+  selectLabel,
+} from './eslint-rules/mui-accessible-name.mjs';
+
+// Recommended jsx-a11y rules, downgraded to warn while existing violations are
+// fixed. Rules the preset turns off stay off.
+const JSX_A11Y_RECOMMENDED_AS_WARN = Object.fromEntries(
+  Object.entries(pluginJsxA11y.flatConfigs.recommended.rules).map(
+    ([rule, setting]) => {
+      const level = Array.isArray(setting) ? setting[0] : setting;
+      if (level === 'off' || level === 0) return [rule, setting];
+      return [
+        rule,
+        Array.isArray(setting) ? ['warn', ...setting.slice(1)] : 'warn',
+      ];
+    }
+  )
+);
 
 // Prevent dark-mode regressions: GREYSCALE.light.* and GREYSCALE.dark.* are
 // raw static tokens; use theme.palette.greyscale.* in sx callbacks instead.
@@ -75,6 +95,13 @@ export default [
       'react-hooks': pluginReactHooks,
       'jsx-a11y': pluginJsxA11y,
       import: pluginImport,
+      'rhesis-a11y': {
+        rules: {
+          'icon-button-name': iconButtonName,
+          'select-label': selectLabel,
+          'progress-name': progressName,
+        },
+      },
     },
   }),
   {
@@ -130,6 +157,12 @@ export default [
       'react-hooks/rules-of-hooks': 'error',
       'react/jsx-uses-react': 'off',
       'react/jsx-uses-vars': 'error',
+
+      // Accessibility
+      ...JSX_A11Y_RECOMMENDED_AS_WARN,
+      'rhesis-a11y/icon-button-name': 'warn',
+      'rhesis-a11y/select-label': 'warn',
+      'rhesis-a11y/progress-name': 'warn',
 
       // GREYSCALE guard (see GREYSCALE_NO_RESTRICTED_SYNTAX above), plus:
       //
@@ -200,6 +233,15 @@ export default [
           patterns: EE_BOUNDARY_IMPORT_PATTERNS,
         },
       ],
+    },
+  },
+  {
+    // Test doubles render IconButtons that never reach a user.
+    files: ['**/__tests__/**', '**/*.test.{ts,tsx}'],
+    rules: {
+      'rhesis-a11y/icon-button-name': 'off',
+      'rhesis-a11y/select-label': 'off',
+      'rhesis-a11y/progress-name': 'off',
     },
   },
   {
