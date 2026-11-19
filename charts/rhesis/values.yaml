@@ -68,6 +68,8 @@ config:
   # Empty: the browser opens wss://<frontend host>/ws, which the frontend
   # ingress routes to the backend. Set it only when nothing routes /ws there.
   wsUrl: ""
+  # Deprecated: only frontend images older than the same-origin change read it.
+  apiBaseUrl: ""
   nextTelemetryDisabled: "1"
   supportEmail: "hello@rhesis.ai"
   onboardingVideoUrl: ""
