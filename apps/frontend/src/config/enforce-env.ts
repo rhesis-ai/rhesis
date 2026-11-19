@@ -54,6 +54,13 @@ function checkRequired(errors: string[]): void {
 // backend sees the proxy's IP: sign-ins share one rate limit and the audit log
 // records the proxy. Same host *and* port as FRONTEND_URL means the app itself
 // (localhost:3000 vs localhost:8080 in local dev is fine).
+// `URL.port` is empty for the scheme's default, so https://a and https://a:443
+// would otherwise compare as different addresses.
+function address(url: URL): string {
+  const port = url.port || (url.protocol === 'https:' ? '443' : '80');
+  return `${url.hostname}:${port}`;
+}
+
 function checkBackendUrlIsInternal(warnings: string[]): void {
   const backend = read('BACKEND_URL');
   if (!backend || !isHttpUrl(backend)) return;
@@ -65,10 +72,10 @@ function checkBackendUrlIsInternal(warnings: string[]): void {
   if (
     frontend &&
     isHttpUrl(frontend) &&
-    new URL(frontend).host === backendUrl.host
+    address(new URL(frontend)) === address(backendUrl)
   ) {
     warnings.push(
-      `BACKEND_URL points at the app's own address (${backendUrl.host}). ${fix}.`
+      `BACKEND_URL points at the app's own address (${address(backendUrl)}). ${fix}.`
     );
   } else if (backendUrl.protocol === 'https:') {
     warnings.push(

@@ -68,13 +68,35 @@ describe('enforce-env', () => {
         ]);
       });
 
-      it("warns when it is the app's own address", () => {
-        process.env.BACKEND_URL = 'https://app.example.com/api/backend';
+      it.each([
+        [
+          'the same origin',
+          'https://app.example.com/api/backend',
+          'https://app.example.com',
+        ],
+        [
+          'an explicit default https port',
+          'https://app.example.com:443',
+          'https://app.example.com',
+        ],
+        [
+          'an explicit default http port',
+          'http://app.example.com:80',
+          'http://app.example.com',
+        ],
+      ])(
+        "warns when it is the app's own address: %s",
+        (_label, backend, frontend) => {
+          process.env.BACKEND_URL = backend;
+          process.env.FRONTEND_URL = frontend;
 
-        expect(checkEnv().warnings).toEqual([
-          expect.stringMatching(/^BACKEND_URL points at the app's own address/),
-        ]);
-      });
+          expect(checkEnv().warnings).toEqual([
+            expect.stringMatching(
+              /^BACKEND_URL points at the app's own address/
+            ),
+          ]);
+        }
+      );
 
       it.each([
         [
