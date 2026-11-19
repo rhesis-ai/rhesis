@@ -193,6 +193,18 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // The protected layout reads both on every page and crashes on the generic
+  // list fallback, which has neither `resources` nor `sections`.
+  if (method === 'GET' && pathname === '/usage') {
+    sendJson(res, 200, { resources: {}, edition: 'community' });
+    return;
+  }
+
+  if (method === 'GET' && pathname === '/notifications/summary') {
+    sendJson(res, 200, { sections: {} });
+    return;
+  }
+
   if (method === 'GET' && pathname === '/projects/mine') {
     sendList(res, fixtures.projects);
     return;
