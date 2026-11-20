@@ -23,6 +23,8 @@ export interface PrefetchListResult<T> {
  * Fails open to "no initial data" (never throws) so a permission-check or
  * upstream API error just falls back to the existing client-side fetch
  * instead of breaking the page.
+ *
+ * `fetchFirstPage` must be read-only: it runs even when the check then fails.
  */
 export async function prefetchList<T>(
   capability: string | readonly string[],
@@ -51,6 +53,7 @@ export async function prefetchList<T>(
  * lookup. Same contract -- capability-gated (a tuple is OR'd), never throws,
  * `undefined` means "let the client fetch it" -- and the result is passed to
  * the client component as an `initial*` prop that seeds its existing hook.
+ * Like `prefetchList`, `fetch` must be read-only.
  */
 export async function prefetch<T>(
   capability: string | readonly string[],
