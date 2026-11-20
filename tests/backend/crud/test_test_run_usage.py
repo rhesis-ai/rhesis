@@ -19,6 +19,7 @@ from rhesis.backend.app.crud.test_run import (
     get_test_runs,
     get_usage_statistics_for_runs,
 )
+from rhesis.backend.app.models.trace import Trace
 from rhesis.backend.app.schemas.telemetry import OTELSpanCreate
 
 
@@ -278,6 +279,79 @@ class TestUsageStatisticsForRuns:
         )[str(db_test_run.id)]
 
         assert stats["total_tokens"] == 150
+
+    def test_a_legacy_blob_is_summed_from_its_breakdown_once(
+        self, test_db, db_project, test_org_id, db_test_run
+    ):
+        """Blobs from older enrichment carry only a breakdown and total_cost_usd.
+
+        The figures come from the breakdown, and must not repeat once per span row.
+        """
+        project_id = str(db_project.id)
+        trace_id = unenriched_trace_for_run(
+            test_db, project_id, db_test_run.id, test_org_id, children=[(100, 50), (40, 10)]
+        )
+        legacy = blob("gpt-4", 140, 60, 0.02, 0.01)
+        for key in (
+            "total_tokens",
+            "total_input_tokens",
+            "total_output_tokens",
+            "total_input_cost_usd",
+            "total_output_cost_usd",
+            "models_used",
+            "providers_used",
+        ):
+            del legacy["costs"][key]
+        mark_trace_processed(test_db, trace_id, legacy)
+
+        stats = get_usage_statistics_for_runs(
+            test_db, [db_test_run.id], organization_id=test_org_id
+        )[str(db_test_run.id)]
+
+        assert stats["total_tokens"] == 200
+        assert stats["total_input_tokens"] == 140
+        assert stats["total_output_tokens"] == 60
+        assert stats["total_cost_usd"] == pytest.approx(0.03)
+        assert stats["total_input_cost_usd"] == pytest.approx(0.02)
+        assert stats["total_output_cost_usd"] == pytest.approx(0.01)
+        assert stats["models"] == ["gpt-4"]
+
+    def test_a_span_ingested_after_enrichment_does_not_hide_the_cost(
+        self, test_db, db_project, test_org_id, db_test_run
+    ):
+        """The late span has an empty blob; the trace's cost must still come from the others."""
+        project_id = str(db_project.id)
+        trace_id = trace_for_run(
+            test_db,
+            project_id,
+            db_test_run.id,
+            test_org_id,
+            model="gpt-4",
+            tokens=(100, 50),
+            costs=(0.01, 0.005),
+        )
+        root_span_id = (
+            test_db.query(Trace.span_id).filter(Trace.trace_id == trace_id).first().span_id
+        )
+        create_trace_spans(
+            test_db,
+            [llm_child_span(trace_id, project_id, root_span_id, tokens=(1, 1))],
+            organization_id=test_org_id,
+        )
+        assert (
+            test_db.query(Trace)
+            .filter(Trace.trace_id == trace_id, Trace.processed_at.is_(None))
+            .count()
+            == 1
+        )
+
+        stats = get_usage_statistics_for_runs(
+            test_db, [db_test_run.id], organization_id=test_org_id
+        )[str(db_test_run.id)]
+
+        assert stats["total_tokens"] == 150
+        assert stats["total_cost_usd"] == pytest.approx(0.015)
+        assert stats["models"] == ["gpt-4"]
 
 
 @pytest.mark.integration
