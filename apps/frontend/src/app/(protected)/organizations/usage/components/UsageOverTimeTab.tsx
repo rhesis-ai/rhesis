@@ -122,28 +122,30 @@ function UsageHistoryChart({
           )
           .join('; ')}`}
       >
-        <LineChart
-          height={PLOT_HEIGHT}
-          margin={PLOT_MARGIN}
-          hideLegend
-          xAxis={[
-            {
-              scaleType: 'point',
-              data: points.map(point => formatMonthLabel(point.period_start)),
-            },
-          ]}
-          series={[
-            {
-              data: points.map(point => point.used),
-              label: 'Used',
-              color: theme.chartPalettes.line[0],
-              // Thousands separators in the tooltip: these run to millions
-              // for model tokens, where a bare digit run is unreadable.
-              valueFormatter: value =>
-                value === null ? '' : value.toLocaleString(),
-            },
-          ]}
-        />
+        <Box aria-hidden>
+          <LineChart
+            height={PLOT_HEIGHT}
+            margin={PLOT_MARGIN}
+            hideLegend
+            xAxis={[
+              {
+                scaleType: 'point',
+                data: points.map(point => formatMonthLabel(point.period_start)),
+              },
+            ]}
+            series={[
+              {
+                data: points.map(point => point.used),
+                label: 'Used',
+                color: theme.chartPalettes.line[0],
+                // Thousands separators in the tooltip: these run to millions
+                // for model tokens, where a bare digit run is unreadable.
+                valueFormatter: value =>
+                  value === null ? '' : value.toLocaleString(),
+              },
+            ]}
+          />
+        </Box>
       </Box>
     </Box>
   );

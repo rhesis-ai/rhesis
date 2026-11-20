@@ -524,7 +524,10 @@ function ChartBody({ spec }: ArchitectChartProps) {
         role="img"
         aria-label={`${spec.title}. ${chartSummary(spec)} Use Show data for the values.`}
       >
-        <DrawnChart spec={spec} />
+        {/* role="img" already hides it; aria-hidden guards readers that don't. */}
+        <Box aria-hidden>
+          <DrawnChart spec={spec} />
+        </Box>
       </Box>
     );
   }
