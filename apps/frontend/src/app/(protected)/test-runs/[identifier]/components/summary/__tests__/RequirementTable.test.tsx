@@ -96,6 +96,15 @@ function makeMatrix(overrides: Partial<VerdictMatrix> = {}): VerdictMatrix {
 
 const EMPTY_TIMINGS: TestTimingMap = new Map();
 
+/** The whole header row (counts, strip) for a requirement's toggle button. */
+function groupRow(toggle: HTMLElement): HTMLElement {
+  const row = toggle.closest<HTMLElement>(
+    '[data-testid="requirement-group-header"]'
+  );
+  if (!row) throw new Error('toggle is not inside a requirement header');
+  return row;
+}
+
 describe('RequirementTable', () => {
   it('renders Requirements performance title', () => {
     renderWithClock(
@@ -284,7 +293,9 @@ describe('RequirementTable', () => {
     expect(screen.getByText('Goal Achievement')).toBeInTheDocument();
     expect(screen.getAllByText('(Built-in)')).toHaveLength(1);
     // Only the real requirement gets a collapsible header.
-    expect(screen.getAllByRole('button', { expanded: true })).toHaveLength(1);
+    expect(
+      screen.getAllByRole('button', { expanded: true }).map(groupRow)
+    ).toHaveLength(1);
   });
 
   it('shows a shared metric key only under the requirement that owns the row', () => {
@@ -331,9 +342,9 @@ describe('RequirementTable', () => {
     expect(screen.getAllByText('Recommendation Relevance')).toHaveLength(2);
     // Each header rolls up only its own test (Total 1, Passed 1, Failed 0);
     // with the leak, each would also count the other requirement's test.
-    const [core, preference] = screen.getAllByRole('button', {
-      expanded: true,
-    });
+    const [core, preference] = screen
+      .getAllByRole('button', { expanded: true })
+      .map(groupRow);
     expect(core).toHaveTextContent(/^Core110100%/);
     expect(preference).toHaveTextContent(/^Preference110100%/);
   });
@@ -361,7 +372,9 @@ describe('RequirementTable', () => {
     );
 
     expect(screen.getByText('No metrics configured')).toBeInTheDocument();
-    const [header] = screen.getAllByRole('button', { expanded: true });
+    const [header] = screen
+      .getAllByRole('button', { expanded: true })
+      .map(groupRow);
     // Total 1, Passed 0, Failed 1.
     expect(header).toHaveTextContent(/^Destination Planning101/);
   });
@@ -387,7 +400,9 @@ describe('RequirementTable', () => {
     );
 
     expect(screen.getByText('No metrics configured')).toBeInTheDocument();
-    const [header] = screen.getAllByRole('button', { expanded: true });
+    const [header] = screen
+      .getAllByRole('button', { expanded: true })
+      .map(groupRow);
     // Neither passed nor failed, so no pass rate either.
     expect(header).toHaveTextContent(/^Destination Planning100--/);
   });
@@ -404,7 +419,9 @@ describe('RequirementTable', () => {
       />
     );
 
-    const groupHeader = screen.getByRole('button', { expanded: true });
+    const groupHeader = groupRow(
+      screen.getByRole('button', { expanded: true })
+    );
     expect(groupHeader).toHaveTextContent('3'); // total
     expect(groupHeader).toHaveTextContent('1'); // passed and failed both 1
     expect(groupHeader).toHaveTextContent('50%'); // 1 passed / (1 passed + 1 failed)
@@ -420,7 +437,7 @@ describe('RequirementTable', () => {
       />
     );
 
-    const header = screen.getByRole('button', { expanded: true });
+    const header = groupRow(screen.getByRole('button', { expanded: true }));
     await userEvent.hover(within(header).getByText('3'));
     expect(await screen.findByRole('tooltip')).toHaveTextContent(
       'Per test: passed only if every metric on it passed'
@@ -437,7 +454,9 @@ describe('RequirementTable', () => {
       />
     );
 
-    const groupHeader = screen.getByRole('button', { expanded: true });
+    const groupHeader = groupRow(
+      screen.getByRole('button', { expanded: true })
+    );
     expect(groupHeader).toBeInTheDocument();
 
     fireEvent.click(groupHeader);

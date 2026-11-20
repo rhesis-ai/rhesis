@@ -656,6 +656,7 @@ export default function ConversationHistory({
                         Reasoning
                       </Typography>
                       <IconButton
+                        aria-expanded={!!expandedReasoningTurns[turn.turn]}
                         aria-label={
                           expandedReasoningTurns[turn.turn]
                             ? 'Collapse Reasoning'
@@ -773,6 +774,7 @@ export default function ConversationHistory({
                         Context
                       </Typography>
                       <IconButton
+                        aria-expanded={!!expandedContextTurns[turn.turn]}
                         aria-label={
                           expandedContextTurns[turn.turn]
                             ? 'Collapse Context'
@@ -858,6 +860,7 @@ export default function ConversationHistory({
                         Metadata
                       </Typography>
                       <IconButton
+                        aria-expanded={!!expandedMetadataTurns[turn.turn]}
                         aria-label={
                           expandedMetadataTurns[turn.turn]
                             ? 'Collapse Metadata'
@@ -925,6 +928,7 @@ export default function ConversationHistory({
                         Tool Calls
                       </Typography>
                       <IconButton
+                        aria-expanded={!!expandedToolCallsTurns[turn.turn]}
                         aria-label={
                           expandedToolCallsTurns[turn.turn]
                             ? 'Collapse Tool Calls'

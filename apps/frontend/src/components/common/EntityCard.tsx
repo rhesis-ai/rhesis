@@ -268,13 +268,13 @@ export default function EntityCard({
     factNodes.push(<Fact key={fact.key} fact={fact} />);
   });
 
+  // The card is not itself a button: it holds other buttons (delete, actions),
+  // and nested controls confuse screen readers (WCAG 4.1.2). The title is the
+  // keyboard control; a click anywhere else on the card bubbles to here.
   return (
-    <ButtonBase
-      component="div"
+    <Box
       data-testid="entity-card"
       onClick={onClick}
-      tabIndex={onClick ? 0 : -1}
-      disableRipple={!onClick}
       sx={{
         display: 'flex',
         flexDirection: 'column',
@@ -295,6 +295,11 @@ export default function EntityCard({
         '&:hover': onClick
           ? { boxShadow: '0px 6px 16px rgba(0,0,0,0.14)' }
           : {},
+        '&:has(.entity-card-open:focus-visible)': {
+          outline: '2px solid',
+          outlineColor: 'primary.main',
+          outlineOffset: 2,
+        },
       }}
     >
       {hasTopRightContent && (
@@ -396,7 +401,23 @@ export default function EntityCard({
             pr: hasTopRightContent ? '36px' : 0,
           }}
         >
-          {title}
+          {onClick ? (
+            <ButtonBase
+              className="entity-card-open"
+              disableRipple
+              // The card's own onClick handles the click; this is the focus target.
+              sx={{
+                font: 'inherit',
+                color: 'inherit',
+                textAlign: 'left',
+                '&:focus-visible': { outline: 'none' },
+              }}
+            >
+              {title}
+            </ButtonBase>
+          ) : (
+            title
+          )}
         </Typography>
       </Box>
 
@@ -492,6 +513,6 @@ export default function EntityCard({
           )}
         </Box>
       )}
-    </ButtonBase>
+    </Box>
   );
 }

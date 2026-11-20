@@ -127,7 +127,7 @@ function trashFor(name: string) {
   // The card root is a ButtonBase; the trash can lives inside it.
   const card = screen
     .getByText(name)
-    .closest('.MuiButtonBase-root') as HTMLElement;
+    .closest('[data-testid="entity-card"]') as HTMLElement;
   return within(card).getByRole('button', { name: 'Delete project' });
 }
 
@@ -159,7 +159,9 @@ describe('ProjectsClientWrapper active-project delete guard', () => {
     await renderList();
 
     const card = (name: string) =>
-      screen.getByText(name).closest('.MuiButtonBase-root') as HTMLElement;
+      screen
+        .getByText(name)
+        .closest('[data-testid="entity-card"]') as HTMLElement;
     expect(
       within(card('Regulatory Advisor')).getByText('Current')
     ).toBeInTheDocument();

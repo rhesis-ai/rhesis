@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   Box,
+  ButtonBase,
   Collapse,
   IconButton,
   Tooltip,
@@ -196,17 +197,12 @@ function RequirementGroupHeader({
   const stripHeight = STRIP_HEIGHTS[density];
 
   return (
+    // The row toggles on click, but the toggle button is the chevron + name:
+    // the row also holds the drill-down button, and controls must not nest
+    // (WCAG 4.1.2).
     <Box
-      role="button"
-      tabIndex={0}
+      data-testid="requirement-group-header"
       onClick={onToggle}
-      onKeyDown={e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onToggle();
-        }
-      }}
-      aria-expanded={expanded}
       sx={{
         display: 'grid',
         gridTemplateColumns: COLUMN_TEMPLATES[density],
@@ -224,6 +220,11 @@ function RequirementGroupHeader({
         '&:hover': {
           bgcolor: 'action.selected',
         },
+        '&:has(.requirement-toggle:focus-visible)': {
+          outline: '2px solid',
+          outlineColor: 'primary.main',
+          outlineOffset: -2,
+        },
         '@media print': {
           gridTemplateColumns: COLUMN_TEMPLATES.numbers,
         },
@@ -238,23 +239,41 @@ function RequirementGroupHeader({
           overflow: 'hidden',
         }}
       >
-        <ExpandMoreIcon
+        <ButtonBase
+          className="requirement-toggle"
+          aria-expanded={expanded}
+          disableRipple
+          // The row's onClick toggles; Enter/Space click this and bubble up.
           sx={{
-            fontSize: 18,
-            transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)',
-            transition: 'transform 200ms',
-            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            minWidth: 0,
+            font: 'inherit',
+            color: 'inherit',
+            textAlign: 'left',
+            '&:focus-visible': { outline: 'none' },
           }}
-        />
-        <Typography
-          variant="body2"
-          fontWeight={600}
-          noWrap
-          sx={{ display: 'block', maxWidth: '100%' }}
-          title={requirement.name}
         >
-          {requirement.name}
-        </Typography>
+          <ExpandMoreIcon
+            aria-hidden
+            sx={{
+              fontSize: 18,
+              transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)',
+              transition: 'transform 200ms',
+              flexShrink: 0,
+            }}
+          />
+          <Typography
+            variant="body2"
+            fontWeight={600}
+            noWrap
+            sx={{ display: 'block', maxWidth: '100%' }}
+            title={requirement.name}
+          >
+            {requirement.name}
+          </Typography>
+        </ButtonBase>
         {hasDrilldown && (
           <Tooltip title="View failures in Tests" placement="top">
             <IconButton
