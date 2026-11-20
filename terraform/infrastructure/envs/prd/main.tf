@@ -80,13 +80,19 @@ locals {
     "telemetry.rhesis.ai",
     "polyphemus.rhesis.ai",
   ]
+  prd_api_hosts = [
+    "api.rhesis.ai",
+    "chatbot.rhesis.ai",
+    "telemetry.rhesis.ai",
+    "polyphemus.rhesis.ai",
+  ]
 }
 
 resource "cloudflare_ruleset" "prd_ssl_strict" {
   provider    = cloudflare.rules
   zone_id     = data.cloudflare_zone.rhesis_ai.id
   name        = "prd SSL mode"
-  description = "Full (strict) SSL for the prd public hosts only"
+  description = "Strict SSL and no Browser Integrity Check for prd hosts"
   kind        = "zone"
   phase       = "http_config_settings"
 
@@ -98,6 +104,19 @@ resource "cloudflare_ruleset" "prd_ssl_strict" {
 
     action_parameters {
       ssl = "strict"
+    }
+  }
+
+  # Browser Integrity Check rejects Python's default urllib User-Agent (error
+  # 1010). These hosts serve API clients, not browsers.
+  rules {
+    action      = "set_config"
+    description = "No Browser Integrity Check on API hosts"
+    enabled     = true
+    expression  = "(http.host in {${join(" ", [for h in local.prd_api_hosts : "\"${h}\""])}})"
+
+    action_parameters {
+      bic = false
     }
   }
 }
