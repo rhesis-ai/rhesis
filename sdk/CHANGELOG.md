@@ -13,137 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- **BREAKING:** Every metric's `evaluate()` and `a_evaluate()` take up to four arguments: `input`,
-  `output`, `trace` and `expectations`. What happened is the `trace`; what should have happened is
-  `expectations`, an `Expectations` with `response`, `goal`, `instructions`, `restrictions` and
-  `contract`. A string passed as `expectations` is the reference answer. Callers can still pass
-  `context=`, `tool_calls=`, `metadata=` or `conversation=`, and the SDK builds the trace from them.
-  To migrate a call:
-
-  | Before | Now |
-  | --- | --- |
-  | `expected_output="Paris"` | `expectations="Paris"` |
-  | `conversation_history=conversation` | `conversation=conversation` |
-  | `goal=...`, `instructions=...`, `contract=...` | `expectations={"goal": ..., "instructions": ..., "contract": ...}` |
-  | `context=...`, `tool_calls=...`, `metadata=...` | unchanged |
-
-  Calling a conversational metric with the conversation as its first positional argument no
-  longer works; pass it as `conversation=`.
-- **BREAKING:** `@metric` functions declare any of `input`, `output`, `trace` and `expectations`,
-  and none is required. `expected_output` is now `expectations.response` and `context` is
-  `trace.context`; declaring an old name fails at registration with an error naming its
-  replacement.
-- **BREAKING:** `DeepEvalRoleAdherence` takes `chatbot_role` in its constructor, not in
-  `evaluate()`. `GarakDetectorMetric.evaluate()` no longer takes `notes`; pass them to the
-  constructor as `probe_notes`.
-- Retrieval spans record their documents as a JSON list of the documents' full texts in every
-  integration (LangChain, Haystack and `@observe.retrieval`), cut to fit the content cap. LangChain
-  used to record one string of short previews, so `trace.context` saw previews.
-- **BREAKING:** `Insights` follows the redesigned `/insights` API. Grouping by `requirement`,
-  `topic`, `category` or `test_run` returns both the name and `<dimension>_id`, so the `*_id`
-  dimensions are gone. `year`/`month` are replaced by `period` with `time_grain`, the metric
-  entity's `metric_name` dimension is now `metric`, and `test_run`'s `passed`/`pass_rate` are now
-  `completed`/`completion_rate`. See https://docs.rhesis.ai/sdk/insights.
-- **BREAKING:** `pip install rhesis-sdk` now installs a core SDK of about 35 MB, enough to connect
-  an application to Rhesis: the connector, `@endpoint`, `@observe` and tracing, `RhesisClient`
-  and the entities, `@metric`, and the native judges and synthesizers with the Rhesis-hosted
-  model. Other model providers (litellm), DeepEval and DeepTeam metrics, document extraction and
-  chunking, and MCP agents (`rhesis.sdk.agents`) moved to the `[all]` extra. Using one of them
-  without it raises an `ImportError` that names the install command. To keep the 0.17 behaviour,
-  install `rhesis-sdk[all]`. See
-  [What to install](https://docs.rhesis.ai/sdk/installation#what-to-install).
-- **BREAKING:** `[all]` no longer includes the `huggingface` extra or the tracing integrations.
-  Install `rhesis-sdk[all,huggingface]` for local Hugging Face models. The tracing extras
-  (`langchain`, `langgraph`, `autogen`, `pydantic-ai`, `agent-framework`, `google-adk`,
-  `haystack`, `all-integrations`) are unchanged.
-- **BREAKING:** `GoalAchievementJudge` returns the same result keys whether it scores a goal or
-  an evaluation contract: `criteria_evaluations` (each with `criterion`, `kind`, `met`,
-  `evidence`, `relevant_turns`), `criteria_total`, `criteria_met`, `criteria_failed` and
-  `failed_criteria`. The contract-only `behavior_verdicts`, `behaviors_total`,
-  `behaviors_complied`, `behaviors_violated` and `violated_behaviors` keys are gone.
-  `CriterionEvaluation` gains a `kind` field (`required` or `prohibited`).
-- **BREAKING:** Goal-based `GoalAchievementJudge` results now pass only when every criterion is
-  met, the same rule contract-based results use. The score threshold no longer decides the
-  verdict when the judge returns criteria.
-
-### Added
-- Metric targets: `metric.evaluate(trace=..., target=...)` judges one part of a trace. `target`
-  is `"turn"`, `"conversation"`, `"run"`, or a span kind (`"tool_call"`, `"retrieval"`,
-  `"model_call"`, `"agent"`, `"guardrail"`), or a dict adding `name`, `within` and `aggregate`
-  (`all`, `any`, `share` with `min_share`). A per-span target runs the metric once per matching
-  span and combines the verdicts; one that matches nothing returns a result with
-  `details["not_applicable"]`. A span is held to the test's goal and instructions, not its
-  expected response or tool calls. `rhesis.sdk.metrics.targets` holds the registry (`TARGETS`)
-  and `supported_targets()` / `default_target()` for a metric class.
-- `ToolCallTrajectory` compares the trace's tool calls with `expectations.tool_calls`, without a
-  model. `match` is `exact`, `in_order` (default), `any_order`, `subset` or `superset`;
-  `arguments` is `partial` (default), `exact` or `ignore`. The result names the first call that
-  differs and reports precision and recall. `Expectations.tool_calls` is a list of
-  `ExpectedToolCall` (`name`, optional `arguments`), and `Test(expected_tool_calls=[...])` stores
-  them on a test of either type. `Test.test_configuration.goal` is now optional, since a
-  single-turn test can carry expected tool calls without one.
-- `Trace.from_response()` and `Trace.from_conversation()` build a trace in memory, to evaluate
-  without tracing set up. `trace.messages()` reads a trace as a `ConversationHistory`, with each
-  turn's tool calls, context and metadata, and `trace.is_conversation` says whether it records a
-  conversation.
-- `Insights(entity="trace")` breaks trace latency, tokens, cost and error rate down by
-  environment, operation, test run, endpoint or period.
-- `ShowChartTool` (`rhesis.sdk.agents`): runs a `get_insights` query and keeps a chart spec built
-  from the returned rows, for agents that report on insights data. The Architect uses it.
-  Its `focus` argument names the x or series values the reply is about, so a renderer can
-  draw them in an accent color and the rest in a pale neutral. Charts are capped at four series, the
-  most a palette can tell apart; past that it asks for a narrower query or a `heat_table`.
-- `Insights` takes `time_grain`, `order_by`, `limit` and `min_count`, and `Insights.describe()`
-  returns every entity's dimensions, measures and filters.
-- `ConversationalJudge` results include `relevant_turns`, the turns the verdict rests on.
-  `NumericJudge` and `CategoricalJudge` return them too when passed `conversation_history`;
-  without it their prompt and output are unchanged.
-
-### Fixed
-- The Architect's Accept approves what it showed: the held calls and the plan as saved at that
-  point. Before, one Accept unlocked every creating tool for the rest of the turn, so asking for one
-  requirement could also create metrics and test sets. Work beyond what was shown is held for
-  another Accept, and a turn cut off by the iteration limit no longer offers Accept again.
-- Agents no longer resend a tool call that already failed in the same turn, and stop calling a
-  tool after three failures in a row, instead of spending the turn on retries. The Architect also rejects
-  placeholder ids before sending them and leaves failures a later call recovered from out of the
-  model's history.
-- `ShowChartTool` gives the model the chart's real labels and values (and the true lowest and
-  highest when it shortens a long chart), instead of only value ranges, which left it to
-  invent category names and misreport peaks. Measures of different kinds, such as latency
-  and cost, are drawn as one chart per kind rather than on one axis.
-- An agent with an MCP provider listed before a named tool (as the Architect lists its
-  `LocalToolProvider` before `ShowChartTool`) sent the named tool's calls to the provider,
-  which answered "Tool not available", so the Architect could never show a chart. A call now
-  goes to the first tool that serves its name.
-- `ShowChartTool` draws `stacked_bar` and `area` charts of anything but counts as `bar` and
-  `line`. The Architect stacked two endpoints' pass rates into one bar, drawing an axis that ran
-  to 200%.
-- `on_tool_end` event handlers receive the call's `arguments`, so a finished tool can be
-  described as precisely as a started one.
-- The Architect charts a report on the platform's default model, which often read the
-  insights rows and answered without a chart. A finish without a chart after `get_insights` is
-  turned back once, a chart query that drops a filter its `get_insights` call set (such as
-  `environments=["production"]`) gets it back, and `ShowChartTool` skips a chart already on the
-  reply and drops a "top N" from a title over fewer rows. A trace query with no environment
-  filter gets the environment the user's message names, such as "production". These correct the call rather than
-  reject it, so the user sees no failed tool call.
-- Normalized cached prompt usage for OpenAI and LiteLLM so separately billed cache reads and
-  writes stay out of `input_tokens`, while provider-reported totals remain unchanged.
-- Streamed LangChain calls record their cache reads and writes. They carry usage only on
-  `usage_metadata`, whose `input_tokens` includes cached tokens, so every cached token was
-  priced at the full input rate. A streamed call now records the same token counts as the same
-  call made with `invoke()`.
-
-### Removed
-- **BREAKING:** Removed the Ragas metric provider. `RagasMetricBase`, `RagasAnswerAccuracy`,
-  `RagasAspectCritic`, `RagasContextRelevance`, `RagasFaithfulness` and `RagasMetricFactory` are
-  gone, along with the `ragas` backend and the `ragas` dependency. Ragas has been unmaintained
-  since its 0.4.3 release in January 2026 and carries advisories with no upstream fix. Use the
-  DeepEval or Rhesis providers instead. This also drops `diskcache`, `gitpython`, `scipy` and
-  `sqlalchemy` from the SDK's dependency tree.
-
 ## [0.22.0] - 2026-11-19
 
 ### Added
@@ -215,6 +84,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Agent Charting Capabilities**: Added `ShowChartTool` allowing agents to construct charts from insights queries with custom focus filters and chart types.
 - **Enhanced Insights Query Shaping**: Added `time_grain`, `order_by`, `limit`, and `min_count` parameters to `Insights` queries, alongside an `Insights.describe()` method for registry schema introspection.
 - **Named Tool Parameters in Telemetry**: Tool spans now capture positional and keyword parameters by parameter name under `ai.tool.arguments`.
+- Metric targets: `metric.evaluate(trace=..., target=...)` judges one part of a trace. `target`
+  is `"turn"`, `"conversation"`, `"run"`, or a span kind (`"tool_call"`, `"retrieval"`,
+  `"model_call"`, `"agent"`, `"guardrail"`), or a dict adding `name`, `within` and `aggregate`
+  (`all`, `any`, `share` with `min_share`). A per-span target runs the metric once per matching
+  span and combines the verdicts; one that matches nothing returns a result with
+  `details["not_applicable"]`. A span is held to the test's goal and instructions, not its
+  expected response or tool calls. `rhesis.sdk.metrics.targets` holds the registry (`TARGETS`)
+  and `supported_targets()` / `default_target()` for a metric class.
+- `ToolCallTrajectory` compares the trace's tool calls with `expectations.tool_calls`, without a
+  model. `match` is `exact`, `in_order` (default), `any_order`, `subset` or `superset`;
+  `arguments` is `partial` (default), `exact` or `ignore`. The result names the first call that
+  differs and reports precision and recall. `Expectations.tool_calls` is a list of
+  `ExpectedToolCall` (`name`, optional `arguments`), and `Test(expected_tool_calls=[...])` stores
+  them on a test of either type. `Test.test_configuration.goal` is now optional, since a
+  single-turn test can carry expected tool calls without one.
+- `Trace.from_response()` and `Trace.from_conversation()` build a trace in memory, to evaluate
+  without tracing set up. `trace.messages()` reads a trace as a `ConversationHistory`, with each
+  turn's tool calls, context and metadata, and `trace.is_conversation` says whether it records a
+  conversation.
+- `Insights(entity="trace")` breaks trace latency, tokens, cost and error rate down by
+  environment, operation, test run, endpoint or period.
+- `ShowChartTool` (`rhesis.sdk.agents`): runs a `get_insights` query and keeps a chart spec built
+  from the returned rows, for agents that report on insights data. The Architect uses it.
+  Its `focus` argument names the x or series values the reply is about, so a renderer can
+  draw them in an accent color and the rest in a pale neutral. Charts are capped at four series, the
+  most a palette can tell apart; past that it asks for a narrower query or a `heat_table`.
+- `Insights` takes `time_grain`, `order_by`, `limit` and `min_count`, and `Insights.describe()`
+  returns every entity's dimensions, measures and filters.
 
 ### Changed
 
@@ -223,6 +120,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `@metric` functions using legacy parameter names must update their signatures to use `trace` and `expectations`.
 - **Retrieval Telemetry Format**: Telemetry hooks for LangChain, Haystack, and `@observe.retrieval` now record full document lists as JSON objects rather than truncated preview strings.
 - **Architect Approval & Retry Logic**: Tightened agent execution by preventing infinite retry loops on failing tool calls, validating placeholder IDs before dispatch, and strictly scoping user approvals (`Accept`) to specific targeted calls.
+- **BREAKING:** Every metric's `evaluate()` and `a_evaluate()` take up to four arguments: `input`,
+  `output`, `trace` and `expectations`. What happened is the `trace`; what should have happened is
+  `expectations`, an `Expectations` with `response`, `goal`, `instructions`, `restrictions` and
+  `contract`. A string passed as `expectations` is the reference answer. Callers can still pass
+  `context=`, `tool_calls=`, `metadata=` or `conversation=`, and the SDK builds the trace from them.
+  To migrate a call:
+  | Before | Now |
+  | --- | --- |
+  | `expected_output="Paris"` | `expectations="Paris"` |
+  | `conversation_history=conversation` | `conversation=conversation` |
+  | `goal=...`, `instructions=...`, `contract=...` | `expectations={"goal": ..., "instructions": ..., "contract": ...}` |
+  | `context=...`, `tool_calls=...`, `metadata=...` | unchanged |
+  Calling a conversational metric with the conversation as its first positional argument no
+  longer works; pass it as `conversation=`.
+- **BREAKING:** `@metric` functions declare any of `input`, `output`, `trace` and `expectations`,
+  and none is required. `expected_output` is now `expectations.response` and `context` is
+  `trace.context`; declaring an old name fails at registration with an error naming its
+  replacement.
+- **BREAKING:** `DeepEvalRoleAdherence` takes `chatbot_role` in its constructor, not in
+  `evaluate()`. `GarakDetectorMetric.evaluate()` no longer takes `notes`; pass them to the
+  constructor as `probe_notes`.
+- Retrieval spans record their documents as a JSON list of the documents' full texts in every
+  integration (LangChain, Haystack and `@observe.retrieval`), cut to fit the content cap. LangChain
+  used to record one string of short previews, so `trace.context` saw previews.
+- **BREAKING:** `Insights` follows the redesigned `/insights` API. Grouping by `requirement`,
+  `topic`, `category` or `test_run` returns both the name and `<dimension>_id`, so the `*_id`
+  dimensions are gone. `year`/`month` are replaced by `period` with `time_grain`, the metric
+  entity's `metric_name` dimension is now `metric`, and `test_run`'s `passed`/`pass_rate` are now
+  `completed`/`completion_rate`. See https://docs.rhesis.ai/sdk/insights.
 
 ### Fixed
 
@@ -230,6 +156,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tool Routing in Multi-Provider Agents**: Fixed an issue in `BaseAgent` where named tool execution failed when routed across multiple tool providers.
 - **Score & Choice Validation**: Added strict validation checks for numeric judge scores and categorical decision model outputs.
 - **Architect Chart Rendering**: Resolved issues with grouped bar focus matching, area/stacked bar constraints on non-count metrics, and chart title formatting.
+- The Architect's Accept approves what it showed: the held calls and the plan as saved at that
+  point. Before, one Accept unlocked every creating tool for the rest of the turn, so asking for one
+  requirement could also create metrics and test sets. Work beyond what was shown is held for
+  another Accept, and a turn cut off by the iteration limit no longer offers Accept again.
+- Agents no longer resend a tool call that already failed in the same turn, and stop calling a
+  tool after three failures in a row, instead of spending the turn on retries. The Architect also rejects
+  placeholder ids before sending them and leaves failures a later call recovered from out of the
+  model's history.
+- `ShowChartTool` gives the model the chart's real labels and values (and the true lowest and
+  highest when it shortens a long chart), instead of only value ranges, which left it to
+  invent category names and misreport peaks. Measures of different kinds, such as latency
+  and cost, are drawn as one chart per kind rather than on one axis.
+- An agent with an MCP provider listed before a named tool (as the Architect lists its
+  `LocalToolProvider` before `ShowChartTool`) sent the named tool's calls to the provider,
+  which answered "Tool not available", so the Architect could never show a chart. A call now
+  goes to the first tool that serves its name.
+- `ShowChartTool` draws `stacked_bar` and `area` charts of anything but counts as `bar` and
+  `line`. The Architect stacked two endpoints' pass rates into one bar, drawing an axis that ran
+  to 200%.
+- `on_tool_end` event handlers receive the call's `arguments`, so a finished tool can be
+  described as precisely as a started one.
+- The Architect charts a report on the platform's default model, which often read the
+  insights rows and answered without a chart. A finish without a chart after `get_insights` is
+  turned back once, a chart query that drops a filter its `get_insights` call set (such as
+  `environments=["production"]`) gets it back, and `ShowChartTool` skips a chart already on the
+  reply and drops a "top N" from a title over fewer rows. A trace query with no environment
+  filter gets the environment the user's message names, such as "production". These correct the call rather than
+  reject it, so the user sees no failed tool call.
+- Streamed LangChain calls record their cache reads and writes. They carry usage only on
+  `usage_metadata`, whose `input_tokens` includes cached tokens, so every cached token was
+  priced at the full input rate. A streamed call now records the same token counts as the same
+  call made with `invoke()`.
 
 
 ## [0.19.1] - 2026-10-22
@@ -284,6 +242,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added automatic inference of `test_set_type` from tests when calling `push()`.
 - Added retry with exponential backoff for OWASP PDF downloads to prevent transient rate-limiting failures.
 - Added identification headers (`User-Agent` and `X-Rhesis-Client`) to SDK REST and WebSocket connector calls for request provenance tracking.
+- `ConversationalJudge` results include `relevant_turns`, the turns the verdict rests on.
+  `NumericJudge` and `CategoricalJudge` return them too when passed `conversation_history`;
+  without it their prompt and output are unchanged.
 
 ### Changed
 - **[BREAKING]** Raised the minimum required Python version to 3.12. Support for Python 3.10 and 3.11 has been dropped.
@@ -294,6 +255,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reported goal achievement as criteria instead of contracts.
 - Improved telemetry initialization error messages to point to bugs or OpenTelemetry version mismatches instead of generic connectivity issues.
 - Moved SDK dev extras to use `psycopg 3`.
+- **BREAKING:** `pip install rhesis-sdk` now installs a core SDK of about 35 MB, enough to connect
+  an application to Rhesis: the connector, `@endpoint`, `@observe` and tracing, `RhesisClient`
+  and the entities, `@metric`, and the native judges and synthesizers with the Rhesis-hosted
+  model. Other model providers (litellm), DeepEval and DeepTeam metrics, document extraction and
+  chunking, and MCP agents (`rhesis.sdk.agents`) moved to the `[all]` extra. Using one of them
+  without it raises an `ImportError` that names the install command. To keep the 0.17 behaviour,
+  install `rhesis-sdk[all]`. See
+  [What to install](https://docs.rhesis.ai/sdk/installation#what-to-install).
+- **BREAKING:** `[all]` no longer includes the `huggingface` extra or the tracing integrations.
+  Install `rhesis-sdk[all,huggingface]` for local Hugging Face models. The tracing extras
+  (`langchain`, `langgraph`, `autogen`, `pydantic-ai`, `agent-framework`, `google-adk`,
+  `haystack`, `all-integrations`) are unchanged.
+- **BREAKING:** `GoalAchievementJudge` returns the same result keys whether it scores a goal or
+  an evaluation contract: `criteria_evaluations` (each with `criterion`, `kind`, `met`,
+  `evidence`, `relevant_turns`), `criteria_total`, `criteria_met`, `criteria_failed` and
+  `failed_criteria`. The contract-only `behavior_verdicts`, `behaviors_total`,
+  `behaviors_complied`, `behaviors_violated` and `violated_behaviors` keys are gone.
+  `CriterionEvaluation` gains a `kind` field (`required` or `prohibited`).
+- **BREAKING:** Goal-based `GoalAchievementJudge` results now pass only when every criterion is
+  met, the same rule contract-based results use. The score threshold no longer decides the
+  verdict when the judge returns criteria.
 
 ### Fixed
 - Fixed pricing and token usage exposure for OpenAI cached prompt tokens.
@@ -301,6 +283,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed unnecessary "not-connected" connector warnings by introducing a 10-second grace period.
 - Fixed dependency declarations by explicitly adding `jsonschema>=4.23.0` and pinning `mcp>=1.28.1,<2`.
 - Fixed Jev endpoint URL parsing by stripping trailing paths when present.
+- Normalized cached prompt usage for OpenAI and LiteLLM so separately billed cache reads and
+  writes stay out of `input_tokens`, while provider-reported totals remain unchanged.
 
 ### Removed
 - **[BREAKING]** Removed `torch` from core dependencies, saving ~526 MB on standard installations. Local Hugging Face models now require `rhesis-sdk[huggingface]`.
@@ -347,6 +331,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Haystack Provider Stamping**: Fixed Haystack integration to automatically derive and stamp the provider attribute from the model name.
 * **Trace Error Status Consistency**: Fixed `has_errors` on the Trace detail route to consistently reflect the root span's status, matching the list route behavior.
 * **Invalid Trace Anchoring**: Prevented integrations from anchoring conversations to invalid, non-recording (all-zero) trace IDs.
+
+### Removed
+
+- **BREAKING:** Removed the Ragas metric provider. `RagasMetricBase`, `RagasAnswerAccuracy`,
+  `RagasAspectCritic`, `RagasContextRelevance`, `RagasFaithfulness` and `RagasMetricFactory` are
+  gone, along with the `ragas` backend and the `ragas` dependency. Ragas has been unmaintained
+  since its 0.4.3 release in January 2026 and carries advisories with no upstream fix. Use the
+  DeepEval or Rhesis providers instead. This also drops `diskcache`, `gitpython`, `scipy` and
+  `sqlalchemy` from the SDK's dependency tree.
 
 
 ## [0.16.0] - 2026-09-16

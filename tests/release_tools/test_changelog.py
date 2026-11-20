@@ -179,9 +179,9 @@ def test_release_moves_upgrade_notes_out_of_unreleased(tmp_path, monkeypatch):
     )
 
     unreleased, released = result.split("## [0.14.0]")
-    assert "redirect URI" not in unreleased
-    assert "hand-written note" in unreleased
-    assert "redirect URI" in released.split("## [0.13.0]")[0]
+    new = released.split("## [0.13.0]")[0]
+    assert "redirect URI" not in unreleased and "hand-written note" not in unreleased
+    assert "redirect URI" in new and "hand-written note" in new
     # The GitHub release body is cut from this same section
     notes = get_changelog_content(tmp_path / "CHANGELOG.md")
     assert f"{UPGRADE_NOTES_HEADING}\n\n1. Add the new redirect URI." in notes
@@ -198,12 +198,39 @@ def test_release_without_upgrade_notes_says_none(tmp_path, monkeypatch):
     assert f"{UPGRADE_NOTES_HEADING}\n\n{NO_UPGRADE_NOTES}" in released
 
 
-def test_platform_release_that_fails_leaves_the_notes_in_place(tmp_path, monkeypatch):
+def test_component_release_moves_unreleased_entries_into_the_new_version(tmp_path, monkeypatch):
+    from release_tools import changelog as changelog_mod
+    from release_tools.config import ComponentConfig
+
+    monkeypatch.setitem(
+        changelog_mod.COMPONENTS,
+        "backend",
+        ComponentConfig("pyproject.toml", "toml", "CHANGELOG.md"),
+    )
+    path = _write(
+        tmp_path,
+        f"# Changelog\n\n{UNRELEASED_MARKER}\n\n### Added\n- Hand-written\n\n### Removed\n- Gone\n\n"
+        "## [0.13.0] - 2026-08-20\n\n- Older\n",
+    )
+
+    changelog_mod.update_component_changelog(
+        "backend", "0.14.0", "### Added\n\n- Generated\n\n### Fixed\n\n- A fix", tmp_path
+    )
+
+    unreleased, released = path.read_text().split("## [0.14.0]")
+    assert "Hand-written" not in unreleased and "Gone" not in unreleased
+    new = released.split("## [0.13.0]")[0]
+    assert new.index("Hand-written") < new.index("Generated") < new.index("### Fixed")
+    assert new.count("### Added") == 1
+    assert "### Removed\n\n- Gone" in new
+
+
+def test_platform_release_that_fails_leaves_unreleased_intact(tmp_path, monkeypatch):
     from release_tools import changelog as changelog_mod
 
     original = (
         f"# Changelog\n\n{UNRELEASED_MARKER}\n\n{UPGRADE_NOTES_HEADING}\n\n1. A step.\n\n"
-        "## [0.13.0] - 2026-08-20\n"
+        "### Removed\n\n- A note\n\n## [0.13.0] - 2026-08-20\n"
     )
     path = _write(tmp_path, original)
     monkeypatch.setattr(changelog_mod, "PLATFORM_CHANGELOG", "CHANGELOG.md")

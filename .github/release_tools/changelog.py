@@ -4,11 +4,11 @@ Changelog generation for the Rhesis release tool.
 
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
-from .config import COMPONENTS, PLATFORM_CHANGELOG, format_component_name
-from .git_ops import get_commits_since_tag, get_last_tag
-from .utils import call_gemini_api, info, success, warn
+from release_tools.config import COMPONENTS, PLATFORM_CHANGELOG, format_component_name
+from release_tools.git_ops import get_commits_since_tag, get_last_tag
+from release_tools.utils import call_gemini_api, info, success, warn
 
 UNRELEASED_MARKER = "## [Unreleased]"
 UPGRADE_NOTES_HEADING = "### Upgrading a self-hosted deployment"
@@ -21,6 +21,7 @@ def generate_changelog_with_llm(
     version: str,
     commits: List[Dict[str, str]],
     last_tag: Optional[str],
+    handwritten: str = "",
 ) -> Optional[str]:
     """Generate changelog using Gemini API"""
     if not api_key:
@@ -42,6 +43,14 @@ Please format the output as a markdown changelog section following the 'Keep a C
 Do NOT include the version header line (## [version] - date) - only return the content sections (### Added, ### Changed, etc.).
 
 Return ONLY the changelog content without any additional text or explanations."""
+
+    if handwritten:
+        prompt += f"""
+
+These entries were written by hand for this release and will be included as they are. Leave out
+the changes they already describe:
+
+{handwritten}"""
 
     return call_gemini_api(api_key, prompt)
 
@@ -98,6 +107,58 @@ def _unreleased_bounds(lines: List[str], changelog_path: Path) -> tuple[int, int
     return start, end
 
 
+def read_unreleased(changelog_path: Path) -> str:
+    """The hand-written entries under [Unreleased], or an empty string."""
+    if not changelog_path.exists():
+        return ""
+    lines = changelog_path.read_text().split("\n")
+    start, end = _unreleased_bounds(lines, changelog_path)
+    return "\n".join(lines[start + 1 : end]).strip()
+
+
+def take_unreleased(changelog_path: Path) -> str:
+    """Cut the hand-written entries out of [Unreleased], leaving its heading, and return them."""
+    entries = read_unreleased(changelog_path)
+    if entries:
+        lines = changelog_path.read_text().split("\n")
+        start, end = _unreleased_bounds(lines, changelog_path)
+        lines[start + 1 : end] = [""]
+        changelog_path.write_text("\n".join(lines))
+    return entries
+
+
+def _sections(text: str) -> List[Tuple[Optional[str], List[str]]]:
+    """Split changelog text into (### heading, lines) pairs; text before any heading gets None."""
+    sections: List[Tuple[Optional[str], List[str]]] = [(None, [])]
+    for line in text.split("\n"):
+        if line.startswith("### "):
+            sections.append((line.strip(), []))
+        else:
+            sections[-1][1].append(line)
+    trimmed = [(heading, "\n".join(lines).strip().split("\n")) for heading, lines in sections]
+    return [(heading, lines) for heading, lines in trimmed if heading or lines != [""]]
+
+
+def merge_entries(handwritten: str, generated: str) -> str:
+    """Put the hand-written entries under the matching ### headings of the generated ones.
+
+    Hand-written entries go first under a shared heading; headings only they use follow.
+    """
+    remaining = {
+        (heading or "").lower(): (heading, lines) for heading, lines in _sections(handwritten)
+    }
+    merged = []
+    for heading, lines in _sections(generated):
+        _, own = remaining.pop((heading or "").lower(), (heading, []))
+        merged.append((heading, own + lines))
+    merged.extend(remaining.values())
+
+    return "\n\n".join(
+        f"{heading}\n\n" + "\n".join(lines) if heading else "\n".join(lines)
+        for heading, lines in merged
+    )
+
+
 def take_upgrade_notes(changelog_path: Path) -> str:
     """Cut the hand-written upgrade notes out of [Unreleased] and return them.
 
@@ -122,12 +183,7 @@ def take_upgrade_notes(changelog_path: Path) -> str:
 
 
 def _insert_under_unreleased(changelog_path: Path, entry: str) -> None:
-    """Insert an entry below the [Unreleased] section, above the newest released version.
-
-    Anything hand-written under [Unreleased] stays there. Inserting directly beneath the heading
-    instead would leave those entries under the new version header, reading as part of a release
-    that never contained them.
-    """
+    """Insert an entry below the [Unreleased] section, above the newest released version."""
     lines = changelog_path.read_text().split("\n")
     _, insert_at = _unreleased_bounds(lines, changelog_path)
 
@@ -136,9 +192,9 @@ def _insert_under_unreleased(changelog_path: Path, entry: str) -> None:
 
 
 def update_component_changelog(
-    component: str, new_version: str, changelog_content: str, repo_root: Path, dry_run: bool = False
+    component: str, new_version: str, body: str, repo_root: Path, dry_run: bool = False
 ) -> bool:
-    """Update component changelog"""
+    """Write the new version's entry: the [Unreleased] entries plus the generated body."""
     if component not in COMPONENTS:
         warn(f"No changelog path defined for component: {component}")
         return False
@@ -148,7 +204,7 @@ def update_component_changelog(
     if dry_run:
         info(f"Would update changelog: {COMPONENTS[component].changelog_path}")
         info("New content:")
-        print("\n".join(changelog_content.split("\n")[:10]))
+        print("\n".join(merge_entries(read_unreleased(changelog_path), body).split("\n")[:10]))
         return True
 
     # Create changelog if it doesn't exist
@@ -167,7 +223,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 """
         changelog_path.write_text(header)
 
-    _insert_under_unreleased(changelog_path, changelog_content)
+    date = datetime.now().strftime("%Y-%m-%d")
+    entries = merge_entries(take_unreleased(changelog_path), body)
+    _insert_under_unreleased(changelog_path, f"## [{new_version}] - {date}\n\n{entries}\n")
     success(f"Updated changelog: {COMPONENTS[component].changelog_path}")
     return True
 
@@ -235,10 +293,14 @@ This release includes the following component versions:
 
     summary += "\n"
 
-    # Cut the notes only now, after the git calls above, so a failure leaves them in place.
+    # Cut [Unreleased] only now, after the git calls above, so a failure leaves it intact.
     # Every release says whether self-hosters must act, so "None" is a statement, not a gap.
     upgrade_notes = take_upgrade_notes(changelog_path) or NO_UPGRADE_NOTES
-    platform_entry += f"\n{UPGRADE_NOTES_HEADING}\n\n{upgrade_notes}\n" + summary
+    platform_entry += f"\n{UPGRADE_NOTES_HEADING}\n\n{upgrade_notes}\n"
+    handwritten = take_unreleased(changelog_path)
+    if handwritten:
+        platform_entry += f"\n{handwritten}\n"
+    platform_entry += summary
 
     _insert_under_unreleased(changelog_path, platform_entry)
     success(f"Updated platform changelog: {PLATFORM_CHANGELOG}")

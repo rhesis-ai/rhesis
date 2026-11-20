@@ -3,20 +3,20 @@ Main release processing logic for the Rhesis release tool.
 """
 
 import json
-from datetime import datetime
 from pathlib import Path
 from typing import Dict
 
-from .changelog import (
+from release_tools.changelog import (
     generate_changelog_with_llm,
     placeholder_entry,
+    read_unreleased,
     update_component_changelog,
     update_platform_changelog,
 )
-from .config import COMPONENTS, platform_followers
-from .git_ops import create_release_branch, get_commits_since_tag, get_last_tag
-from .utils import check_prerequisites, info, log, success, warn
-from .version import bump_version, get_current_version, update_version_file
+from release_tools.config import COMPONENTS, platform_followers
+from release_tools.git_ops import create_release_branch, get_commits_since_tag, get_last_tag
+from release_tools.utils import check_prerequisites, info, log, success, warn
+from release_tools.version import bump_version, get_current_version, update_version_file
 
 
 class ReleaseProcessor:
@@ -125,30 +125,9 @@ class ReleaseProcessor:
             else:
                 info("No commits found since last release")
 
-            # Generate changelog (skip for platform-wide releases)
+            # The platform changelog is written once, after every component
             if component != "platform":
-                body = None
-                if self.gemini_api_key:
-                    llm_content = generate_changelog_with_llm(
-                        self.gemini_api_key, component, new_version, commits, last_tag
-                    )
-                    if llm_content:
-                        body = llm_content.strip()
-
-                if body is None:
-                    body = placeholder_entry(component).rstrip()
-
-                date = datetime.now().strftime("%Y-%m-%d")
-                changelog_content = f"## [{new_version}] - {date}\n\n{body}\n"
-
-                # Update component changelog
-                if not update_component_changelog(
-                    component,
-                    new_version,
-                    changelog_content,
-                    self.repo_root,
-                    self.dry_run,
-                ):
+                if not self._write_component_changelog(component, new_version, commits, last_tag):
                     return False
 
             info(f"Version and changelog updated for {component} v{new_version}")
@@ -169,6 +148,28 @@ class ReleaseProcessor:
                 )
 
         return True
+
+    def _write_component_changelog(
+        self, component: str, new_version: str, commits: list, last_tag: str | None
+    ) -> bool:
+        handwritten = ""
+        if component in COMPONENTS:
+            handwritten = read_unreleased(self.repo_root / COMPONENTS[component].changelog_path)
+
+        body = None
+        if self.gemini_api_key:
+            llm_content = generate_changelog_with_llm(
+                self.gemini_api_key, component, new_version, commits, last_tag, handwritten
+            )
+            if llm_content:
+                body = llm_content.strip()
+
+        if body is None:
+            body = placeholder_entry(component).rstrip()
+
+        return update_component_changelog(
+            component, new_version, body, self.repo_root, self.dry_run
+        )
 
     def run(self, component_bumps: Dict[str, str]) -> bool:
         """Main entry point"""
