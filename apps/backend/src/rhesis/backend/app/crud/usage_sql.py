@@ -120,14 +120,13 @@ def one_row_per_trace(db: Session, model, *filters):
     are needed -- 16.7 spans per trace, and it scales with span count rather than trace
     count.
 
-    DISTINCT ON keeps whichever row comes first; they all carry the identical blob, so
-    which one is immaterial.
+    Prefers the most recently enriched span, for the reason ``_one_blob_per_trace`` gives.
     """
     return (
         db.query(model)
         .filter(*filters)
         .distinct(model.trace_id)
-        .order_by(model.trace_id)
+        .order_by(model.trace_id, model.processed_at.desc().nullslast())
         .subquery()
     )
 

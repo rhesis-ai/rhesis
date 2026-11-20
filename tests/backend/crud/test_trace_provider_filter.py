@@ -19,6 +19,7 @@ from rhesis.backend.app.crud.telemetry import (
     mark_trace_processed,
     query_traces,
 )
+from rhesis.backend.app.models.trace import Trace
 from rhesis.backend.app.schemas.telemetry import OTELSpanCreate
 from rhesis.backend.app.services.telemetry.token_totals import trace_summary_usage
 
@@ -286,6 +287,20 @@ class TestScopeIsCollapsedPerTrace:
         rows = test_db.query(scope).all()
 
         assert len(rows) == 2, "17 span rows across 2 traces should collapse to 2"
+
+    def test_a_span_ingested_after_enrichment_does_not_hide_the_model(
+        self, test_db, db_project, test_org_id
+    ):
+        """A late span carries an empty blob, so the collapse must not pick it."""
+        project_id = str(db_project.id)
+        trace_id = self._trace_with_spans(test_db, project_id, test_org_id, span_count=1)
+        root = test_db.query(Trace).filter(Trace.trace_id == trace_id).one()
+        # No model on the late span, so only the breakdown can name it.
+        late = root_span(trace_id, project_id).model_copy(update={"parent_span_id": root.span_id})
+        create_trace_spans(test_db, [late], organization_id=test_org_id)
+
+        assert list_trace_providers(test_db, test_org_id, project_id) == ["openai"]
+        assert trace_id in filtered(test_db, test_org_id, project_id, ["openai"])
 
     def test_filtering_still_finds_a_many_span_trace(self, test_db, db_project, test_org_id):
         """The collapse is an optimisation, not a narrowing."""
