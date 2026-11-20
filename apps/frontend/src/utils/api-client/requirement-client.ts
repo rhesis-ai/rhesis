@@ -105,6 +105,7 @@ export class RequirementClient extends BaseApiClient {
     });
   }
 
+  /** Same rows as `getRequirements`: each metric is a slim `RequirementMetricRef`. */
   async getRequirementsWithMetrics(
     params: Omit<RequirementsQueryParams, 'include'> = {}
   ): Promise<RequirementListItem[]> {
