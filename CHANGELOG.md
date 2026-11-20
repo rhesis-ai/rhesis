@@ -13,6 +13,10 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
+### Fixed
+
+- Requests from Python's built-in `urllib` with its default User-Agent are no longer rejected with a 403 (error 1010) by the hosted API, telemetry, Polyphemus and demo chatbot hosts.
+
 ## [0.22.0] - 2026-11-19
 
 ### Platform Release
