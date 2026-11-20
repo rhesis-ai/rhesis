@@ -196,3 +196,27 @@ def test_release_without_upgrade_notes_says_none(tmp_path, monkeypatch):
 
     released = result.split("## [0.14.0]")[1].split("## [0.13.0]")[0]
     assert f"{UPGRADE_NOTES_HEADING}\n\n{NO_UPGRADE_NOTES}" in released
+
+
+def test_platform_release_that_fails_leaves_the_notes_in_place(tmp_path, monkeypatch):
+    from release_tools import changelog as changelog_mod
+
+    original = (
+        f"# Changelog\n\n{UNRELEASED_MARKER}\n\n{UPGRADE_NOTES_HEADING}\n\n1. A step.\n\n"
+        "## [0.13.0] - 2026-08-20\n"
+    )
+    path = _write(tmp_path, original)
+    monkeypatch.setattr(changelog_mod, "PLATFORM_CHANGELOG", "CHANGELOG.md")
+    monkeypatch.setattr(changelog_mod, "get_last_tag", lambda component: None)
+
+    def git_fails(component, tag):
+        raise RuntimeError("git failed")
+
+    monkeypatch.setattr(changelog_mod, "get_commits_since_tag", git_fails)
+
+    with pytest.raises(RuntimeError):
+        changelog_mod.update_platform_changelog(
+            {"platform": "0.14.0", "backend": "0.14.0"}, "0.14.0", "", tmp_path
+        )
+
+    assert path.read_text() == original
