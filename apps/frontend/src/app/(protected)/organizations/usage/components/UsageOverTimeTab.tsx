@@ -111,28 +111,40 @@ function UsageHistoryChart({
       <Typography variant="subtitle2" noWrap>
         {title}
       </Typography>
-      <LineChart
-        height={PLOT_HEIGHT}
-        margin={PLOT_MARGIN}
-        hideLegend
-        xAxis={[
-          {
-            scaleType: 'point',
-            data: points.map(point => formatMonthLabel(point.period_start)),
-          },
-        ]}
-        series={[
-          {
-            data: points.map(point => point.used),
-            label: 'Used',
-            color: theme.chartPalettes.line[0],
-            // Thousands separators in the tooltip: these run to millions
-            // for model tokens, where a bare digit run is unreadable.
-            valueFormatter: value =>
-              value === null ? '' : value.toLocaleString(),
-          },
-        ]}
-      />
+      {/* A handful of monthly points: the label carries every value, so the
+          chart needs no separate table (WCAG 1.1.1). */}
+      <Box
+        role="img"
+        aria-label={`${title} used per month: ${points
+          .map(
+            point =>
+              `${formatMonthLabel(point.period_start)} ${point.used.toLocaleString()}`
+          )
+          .join('; ')}`}
+      >
+        <LineChart
+          height={PLOT_HEIGHT}
+          margin={PLOT_MARGIN}
+          hideLegend
+          xAxis={[
+            {
+              scaleType: 'point',
+              data: points.map(point => formatMonthLabel(point.period_start)),
+            },
+          ]}
+          series={[
+            {
+              data: points.map(point => point.used),
+              label: 'Used',
+              color: theme.chartPalettes.line[0],
+              // Thousands separators in the tooltip: these run to millions
+              // for model tokens, where a bare digit run is unreadable.
+              valueFormatter: value =>
+                value === null ? '' : value.toLocaleString(),
+            },
+          ]}
+        />
+      </Box>
     </Box>
   );
 }

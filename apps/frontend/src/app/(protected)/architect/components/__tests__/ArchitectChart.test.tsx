@@ -196,4 +196,19 @@ describe('ArchitectChartBoundary', () => {
     ).toBeInTheDocument();
     spy.mockRestore();
   });
+
+  it('gives the drawn chart one summary and names the data table', () => {
+    renderChart(topics);
+
+    expect(
+      screen.getByRole('img', {
+        name: /^Weakest topics\. Bar chart of pass rate by topic/,
+      })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show data' }));
+    expect(
+      screen.getByRole('table', { name: 'Weakest topics' })
+    ).toBeInTheDocument();
+  });
 });

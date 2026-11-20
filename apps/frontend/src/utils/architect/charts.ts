@@ -141,6 +141,44 @@ function distinctValues(spec: ArchitectChartSpec, dimension: string): string[] {
   return [...seen];
 }
 
+const CHART_TYPE_NAMES: Record<ArchitectChartType, string> = {
+  line: 'Line chart',
+  area: 'Area chart',
+  bar: 'Bar chart',
+  horizontal_bar: 'Bar chart',
+  stacked_bar: 'Stacked bar chart',
+  scatter: 'Scatter plot',
+  heat_table: 'Heat table',
+  radar: 'Radar chart',
+  kpi: 'Key figure',
+};
+
+/**
+ * One sentence saying what a chart shows, for screen readers (WCAG 1.1.1),
+ * e.g. "Bar chart of pass rate by metric, 6 categories."
+ */
+export function chartSummary(spec: ArchitectChartSpec): string {
+  const measures = spec.measures.map(m => humanize(m.key).toLowerCase());
+  const what = measures.length
+    ? measures.length > 1
+      ? `${measures.slice(0, -1).join(', ')} and ${measures.at(-1)}`
+      : measures[0]
+    : 'values';
+  const by = spec.x ? ` by ${humanize(spec.x).toLowerCase()}` : '';
+  const split = spec.series
+    ? `, split by ${humanize(spec.series).toLowerCase()}`
+    : '';
+  const count = spec.x ? xCategories(spec).length : spec.rows.length;
+  const unit = spec.x
+    ? count === 1
+      ? 'category'
+      : 'categories'
+    : count === 1
+      ? 'row'
+      : 'rows';
+  return `${CHART_TYPE_NAMES[spec.chart_type]} of ${what}${by}${split}, ${count} ${unit}.`;
+}
+
 export function xCategories(spec: ArchitectChartSpec): string[] {
   return spec.x ? distinctValues(spec, spec.x) : [];
 }
