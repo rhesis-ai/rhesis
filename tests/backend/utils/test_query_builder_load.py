@@ -27,7 +27,10 @@ from tests.backend.routes.fixtures.data_factories import RequirementDataFactory,
 @pytest.fixture
 def test_requirement(test_db: Session, test_org_id):
     return crud_utils.create_item(
-        test_db, models.Requirement, RequirementDataFactory.sample_data(), organization_id=test_org_id
+        test_db,
+        models.Requirement,
+        RequirementDataFactory.sample_data(),
+        organization_id=test_org_id,
     )
 
 
@@ -70,7 +73,9 @@ class TestWithRelatedColumnScoping:
             QueryBuilder(test_db, models.Test)
             .with_organization_filter(test_org_id)
             .with_related(
-                include(models.Test.requirement, cols=[models.Requirement.id, models.Requirement.name])
+                include(
+                    models.Test.requirement, cols=[models.Requirement.id, models.Requirement.name]
+                )
             )
             .filter_by_id(test_test.id)
         )
@@ -108,7 +113,9 @@ class TestWithRelatedColumnScoping:
             .with_organization_filter(test_org_id)
             .with_related(
                 include(models.Test.status),
-                include(models.Test.requirement, cols=[models.Requirement.id, models.Requirement.name]),
+                include(
+                    models.Test.requirement, cols=[models.Requirement.id, models.Requirement.name]
+                ),
             )
             .filter_by_id(test_test.id)
         )
@@ -150,8 +157,8 @@ class TestMetricRequirementNestedM2MLoads:
     with_default_derived_field_loads() only cascades comments/tasks/tags into
     joined single-object (many-to-one) relations -- it explicitly skips
     many-to-many. schemas.MetricDetail.requirements/test_sets (RequirementReference/
-    TestSetReference) and schemas.Requirement/RequirementWithMetricsSchema.metrics
-    (schemas.Metric) both read derived fields on their nested rows, so those
+    TestSetReference) and RequirementWithMetricsSchema.metrics (schemas.Metric)
+    both read derived fields on their nested rows, so those
     extra chains have to be requested explicitly in _METRIC_RELATED_FIELDS/
     _REQUIREMENT_RELATED_FIELDS -- these tests assert that eager-loading actually
     reaches those nested rows (no lazy load fires during serialization).
@@ -252,25 +259,28 @@ class TestMetricRequirementNestedM2MLoads:
         test_db.flush()
         test_db.expire_all()
 
-        def _assert_nested_metric_loaded(requirement_result):
+        def _nested_metric(requirement_result):
             assert _is_loaded(requirement_result, "metrics")
             nested_metric = next(m for m in requirement_result.metrics if m.id == metric.id)
             assert _is_loaded(nested_metric, "metric_type")
             assert _is_loaded(nested_metric, "backend_type")
-            assert _is_loaded(nested_metric, "_tags_relationship")
-            assert len(nested_metric.tags) == 1
-            assert nested_metric.tags[0].name == "nested-metric-tag"
+            return nested_metric
 
-        single = requirement_crud.get_requirement(
-            db=test_db, requirement_id=requirement.id, organization_id=test_org_id
+        single = _nested_metric(
+            requirement_crud.get_requirement(
+                db=test_db, requirement_id=requirement.id, organization_id=test_org_id
+            )
         )
-        _assert_nested_metric_loaded(single)
+        assert _is_loaded(single, "_tags_relationship")
+        assert len(single.tags) == 1
+        assert single.tags[0].name == "nested-metric-tag"
 
+        # The list serializes metrics without tags, so it doesn't load them.
         test_db.expire_all()
         listed = requirement_crud.get_requirements_detail(
             db=test_db, skip=0, limit=100, organization_id=test_org_id
         )
-        _assert_nested_metric_loaded(next(b for b in listed if b.id == requirement.id))
+        _nested_metric(next(b for b in listed if b.id == requirement.id))
 
 
 @pytest.mark.unit

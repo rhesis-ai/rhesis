@@ -16,6 +16,19 @@ from urllib.parse import parse_qs, urlparse
 
 from project_migrate.api import ConnectFailed, Response, SendFailed
 
+# schemas.RequirementMetricRef: what the backend's requirement list embeds per metric.
+REQUIREMENT_METRIC_REF_FIELDS = (
+    "id",
+    "name",
+    "description",
+    "score_type",
+    "metric_scope",
+    "backend_type",
+    "metric_type",
+    "project_id",
+    "class_name",
+)
+
 TABLES = (
     "projects",
     "endpoints",
@@ -276,6 +289,11 @@ class FakeRhesis:
         row = self.db["type_lookups"].get(ref_id) if ref_id else None
         return {k: row[k] for k in ("id", "type_name", "type_value")} if row else None
 
+    def _requirement_metric(self, row: dict) -> dict:
+        """The slim metric the requirement list embeds; the tool must not need more."""
+        full = self._render("metrics", row)
+        return {k: full.get(k) for k in REQUIREMENT_METRIC_REF_FIELDS}
+
     def _render(self, table: str, row: dict) -> dict:
         out = {k: copy.deepcopy(v) for k, v in row.items() if k != "_seq"}
         if table == "tests":
@@ -291,7 +309,7 @@ class FakeRhesis:
             out["test_type"] = self._lookup(row.get("test_type_id"))
         if table == "requirements":
             out["metrics"] = [
-                self._render("metrics", self.db["metrics"][m])
+                self._requirement_metric(self.db["metrics"][m])
                 for r, m in sorted(self.req_metric)
                 if r == row["id"]
             ]
