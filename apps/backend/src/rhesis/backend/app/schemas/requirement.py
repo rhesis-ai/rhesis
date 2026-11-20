@@ -63,7 +63,7 @@ class RequirementMetricRef(BaseModel):
     """A linked metric as listed on a requirement, without its prompt and steps."""
 
     id: UUID4
-    name: Optional[str] = None
+    name: str
     description: Optional[str] = None
     score_type: Optional[ScoreType] = None
     metric_scope: Optional[List[MetricScope]] = None

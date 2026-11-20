@@ -2,9 +2,9 @@
 
 ``_REQUIREMENT_RELATED_FIELDS`` covers exactly what ``RequirementWithMetricsSchema`` in
 ``routers/requirement.py`` serializes -- user, and each metric with its metric_type,
-backend_type and tags. ``_REQUIREMENT_LIST_RELATED_FIELDS`` is the same minus the metric tags,
-which ``RequirementListItemSchema`` leaves out. Status, organization and project are left out
-because nothing reads them. Requirement's own tags load via
+backend_type and tags. ``_REQUIREMENT_LIST_RELATED_FIELDS`` drops the metric tags and loads only
+the metric columns ``RequirementListItemSchema`` reads. Status, organization and project are
+left out because nothing reads them. Requirement's own tags load via
 ``with_default_derived_field_loads`` (``TagsMixin``), same as every other entity -- only the
 nested ``metrics.tags`` needs to be listed explicitly here, since that cascade only covers
 many-to-one relations and ``metrics`` is many-to-many.
@@ -31,16 +31,32 @@ from rhesis.backend.app.utils.crud_utils import (
 )
 from rhesis.backend.app.utils.query_utils import include
 
-_REQUIREMENT_LIST_RELATED_FIELDS = (
+_REQUIREMENT_BASE_RELATED_FIELDS = (
     include(models.Requirement.user),
     include(models.Requirement.parent),
     include(models.Requirement.impact),
-    include(models.Requirement.metrics),
     include(models.Requirement.metrics, models.Metric.metric_type),
     include(models.Requirement.metrics, models.Metric.backend_type),
 )
+# The columns schemas.RequirementMetricRef reads, so the list skips the prompt and steps.
+_REQUIREMENT_LIST_METRIC_COLUMNS = [
+    models.Metric.id,
+    models.Metric.name,
+    models.Metric.description,
+    models.Metric.score_type,
+    models.Metric.metric_scope,
+    models.Metric.project_id,
+    models.Metric.class_name,
+    models.Metric.metric_type_id,
+    models.Metric.backend_type_id,
+]
+_REQUIREMENT_LIST_RELATED_FIELDS = (
+    *_REQUIREMENT_BASE_RELATED_FIELDS,
+    include(models.Requirement.metrics, cols=_REQUIREMENT_LIST_METRIC_COLUMNS),
+)
 _REQUIREMENT_RELATED_FIELDS = (
-    *_REQUIREMENT_LIST_RELATED_FIELDS,
+    *_REQUIREMENT_BASE_RELATED_FIELDS,
+    include(models.Requirement.metrics),
     include(models.Requirement.metrics, models.Metric._tags_relationship, models.TaggedItem.tag),
 )
 
