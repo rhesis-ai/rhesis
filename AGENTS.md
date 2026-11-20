@@ -62,6 +62,11 @@ working with the previous release's images: add a variable the new code reads fi
 only a release after no image reads it. `quickstart-smoke.yml` runs `./rh start` on every change to
 the compose files, `.env.example` or `scripts/rh/`.
 
+When a change needs self-hosters to act on upgrade (a new setting, proxy route, redirect URI or
+removed variable), write numbered steps under `### Upgrading a self-hosted deployment` in the
+`## [Unreleased]` section of the root `CHANGELOG.md`, in the same PR. The release tool moves them
+into the next platform release and its GitHub release notes, and writes "None" when there are none.
+
 ## Worktrees
 
 Every worktree must come from `./rh worktree`, never from a bare `git worktree add`. Only

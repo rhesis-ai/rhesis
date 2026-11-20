@@ -11,6 +11,8 @@ from .git_ops import get_commits_since_tag, get_last_tag
 from .utils import call_gemini_api, info, success, warn
 
 UNRELEASED_MARKER = "## [Unreleased]"
+UPGRADE_NOTES_HEADING = "### Upgrading a self-hosted deployment"
+NO_UPGRADE_NOTES = "None. No configuration or infrastructure changes are needed."
 
 
 def generate_changelog_with_llm(
@@ -82,6 +84,43 @@ def placeholder_entry(component: str) -> str:
     return f"- TODO: changelog generation failed for {component}; write this section by hand.\n"
 
 
+def _unreleased_bounds(lines: List[str], changelog_path: Path) -> tuple[int, int]:
+    """Line range of the [Unreleased] section: its heading, and the next version heading or EOF."""
+    try:
+        start = next(i for i, line in enumerate(lines) if line.strip() == UNRELEASED_MARKER)
+    except StopIteration:
+        raise ValueError(f"{changelog_path} has no '{UNRELEASED_MARKER}' heading")
+
+    end = next(
+        (i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")),
+        len(lines),
+    )
+    return start, end
+
+
+def take_upgrade_notes(changelog_path: Path) -> str:
+    """Cut the hand-written upgrade notes out of [Unreleased] and return them.
+
+    The LLM can't tell from commit subjects what a self-hoster has to change, so these come from
+    the PRs that need them. Returns an empty string when no PR wrote any.
+    """
+    lines = changelog_path.read_text().split("\n")
+    start, end = _unreleased_bounds(lines, changelog_path)
+
+    heading = next(
+        (i for i in range(start + 1, end) if lines[i].strip() == UPGRADE_NOTES_HEADING), None
+    )
+    if heading is None:
+        return ""
+
+    stop = next((i for i in range(heading + 1, end) if lines[i].startswith("### ")), end)
+    notes = "\n".join(lines[heading + 1 : stop]).strip()
+
+    del lines[heading:stop]
+    changelog_path.write_text("\n".join(lines))
+    return notes
+
+
 def _insert_under_unreleased(changelog_path: Path, entry: str) -> None:
     """Insert an entry below the [Unreleased] section, above the newest released version.
 
@@ -90,17 +129,7 @@ def _insert_under_unreleased(changelog_path: Path, entry: str) -> None:
     that never contained them.
     """
     lines = changelog_path.read_text().split("\n")
-
-    try:
-        start = next(i for i, line in enumerate(lines) if line.strip() == UNRELEASED_MARKER)
-    except StopIteration:
-        raise ValueError(f"{changelog_path} has no '{UNRELEASED_MARKER}' heading to insert under")
-
-    # Skip past any existing Unreleased content to the next section heading, or the end of the file
-    insert_at = next(
-        (i for i in range(start + 1, len(lines)) if lines[i].startswith("## ")),
-        len(lines),
-    )
+    _, insert_at = _unreleased_bounds(lines, changelog_path)
 
     lines[insert_at:insert_at] = entry.split("\n") + [""]
     changelog_path.write_text("\n".join(lines))
@@ -172,7 +201,7 @@ This release includes the following component versions:
         if component != "platform":
             platform_entry += f"- **{format_component_name(component)} {version}**\n"
 
-    platform_entry += "\n### Summary of Changes\n\n"
+    summary = "\n### Summary of Changes\n\n"
 
     # Generate summaries for each component
     for component, version in component_versions.items():
@@ -182,31 +211,34 @@ This release includes the following component versions:
             commits = get_commits_since_tag(component, last_tag)
 
             component_name = format_component_name(component)
-            platform_entry += f"**{component_name} v{version}:**\n"
+            summary += f"**{component_name} v{version}:**\n"
 
-            summary = None
+            component_summary = None
             if api_key and commits:
-                summary = generate_component_summary_with_llm(
+                component_summary = generate_component_summary_with_llm(
                     api_key, component, version, commits, last_tag
                 )
 
-            if summary:
-                platform_entry += f"{summary}\n\n"
+            if component_summary:
+                summary += f"{component_summary}\n\n"
             elif commits:
-                platform_entry += f"{placeholder_entry(component)}\n"
+                summary += f"{placeholder_entry(component)}\n"
             else:
-                platform_entry += "Initial release or no significant changes.\n\n"
+                summary += "Initial release or no significant changes.\n\n"
 
-    platform_entry += "See individual component changelogs for detailed changes:\n"
+    summary += "See individual component changelogs for detailed changes:\n"
 
     for component in component_versions:
         if component != "platform" and component in COMPONENTS:
             changelog_path_rel = COMPONENTS[component].changelog_path
-            platform_entry += (
-                f"- [{format_component_name(component)} Changelog]({changelog_path_rel})\n"
-            )
+            summary += f"- [{format_component_name(component)} Changelog]({changelog_path_rel})\n"
 
-    platform_entry += "\n"
+    summary += "\n"
+
+    # Cut the notes only now, after the git calls above, so a failure leaves them in place.
+    # Every release says whether self-hosters must act, so "None" is a statement, not a gap.
+    upgrade_notes = take_upgrade_notes(changelog_path) or NO_UPGRADE_NOTES
+    platform_entry += f"\n{UPGRADE_NOTES_HEADING}\n\n{upgrade_notes}\n" + summary
 
     _insert_under_unreleased(changelog_path, platform_entry)
     success(f"Updated platform changelog: {PLATFORM_CHANGELOG}")
