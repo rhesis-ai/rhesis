@@ -39,14 +39,21 @@ export async function hasServerCapability(
   capability: string
 ): Promise<boolean> {
   try {
-    const features = await getServerFeatures();
+    // Asked for together: waiting on /features first adds a round trip to
+    // every page. The permissions answer is unused when RBAC is off.
+    const [features, permissions] = await Promise.all([
+      getServerFeatures(),
+      getServerPermissions().catch(() => null),
+    ]);
 
     if (!features.enabled.includes(FeatureName.RBAC)) {
       return true;
     }
 
-    const permissions = await getServerPermissions();
-    return can({ permitted_actions: permissions }, capability);
+    return (
+      permissions !== null &&
+      can({ permitted_actions: permissions }, capability)
+    );
   } catch {
     return false;
   }

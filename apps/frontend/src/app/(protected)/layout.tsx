@@ -49,20 +49,26 @@ export default async function ProtectedLayout({
 
     // `/features` answers 403 until onboarding has created an organization.
     const hasOrganization = !!session.user?.organization_id;
-    const [featuresResult, termsResult] = await Promise.allSettled([
-      hasOrganization ? getServerFeatures() : Promise.resolve(null),
-      accessToken ? fetchTermsStatusServer(accessToken) : Promise.resolve(null),
-    ]);
+    // Permissions are asked for alongside features rather than after them;
+    // they're only used when RBAC turns out to be on.
+    const [featuresResult, permissionsResult, termsResult] =
+      await Promise.allSettled([
+        hasOrganization ? getServerFeatures() : Promise.resolve(null),
+        hasOrganization ? getServerPermissions() : Promise.resolve(null),
+        accessToken
+          ? fetchTermsStatusServer(accessToken)
+          : Promise.resolve(null),
+      ]);
 
     if (featuresResult.status === 'fulfilled') {
       initialFeatures = featuresResult.value;
 
-      if (initialFeatures?.enabled.includes(FeatureName.RBAC)) {
-        try {
-          initialPermissions = await getServerPermissions();
-        } catch {
-          // Ignore -- PermissionsProvider falls back to fetching on mount.
-        }
+      // A failed fetch leaves this null; PermissionsProvider then fetches on mount.
+      if (
+        initialFeatures?.enabled.includes(FeatureName.RBAC) &&
+        permissionsResult.status === 'fulfilled'
+      ) {
+        initialPermissions = permissionsResult.value;
       }
     }
 

@@ -7,7 +7,7 @@ import {
 } from '@tanstack/react-query';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { getServerActiveProjectId } from '@/utils/server-active-project';
-import { hasServerCapability } from '@/utils/server-permissions';
+import { prefetch } from '@/utils/server-prefetch';
 import { requireSession } from '@/utils/require-session';
 import { Capability } from '@/constants/capabilities';
 import { endpointKeys } from '@/constants/query-keys';
@@ -18,7 +18,6 @@ import {
   fetchRequirementInsights,
   pickEndpointId,
   resolveInsightsQueryTestRunIds,
-  type RequirementInsightsResult,
 } from './utils/requirement-insights-utils';
 
 // Must match the params `InsightsPage` passes to `useEndpoints`, or the
@@ -39,73 +38,61 @@ const ENDPOINT_LIST_PARAMS = {
 export default async function InsightsRoutePage() {
   await requireSession();
 
-  const queryClient = new QueryClient();
-  let initialEndpointId: string | undefined;
-  let initialInsights: RequirementInsightsResult | undefined;
+  const prefetched = await prefetch(Capability.TestResult.READ, async () => {
+    const [factory, projectId, cookieStore] = await Promise.all([
+      createServerApiFactory(),
+      getServerActiveProjectId(),
+      cookies(),
+    ]);
 
-  if (await hasServerCapability(Capability.TestResult.READ)) {
+    const endpoints =
+      (await factory.getEndpointsClient().getEndpoints(ENDPOINT_LIST_PARAMS))
+        .data ?? [];
+
+    const endpointId = pickEndpointId(
+      endpoints,
+      projectId,
+      cookieStore.get(INSIGHTS_ENDPOINT_COOKIE)?.value ?? null
+    );
+    if (!endpointId) return { endpoints };
+
+    const filters = normalizeInsightsFilters({
+      ...DEFAULT_INSIGHTS_FILTERS,
+      endpointId,
+    });
     try {
-      const [factory, projectId, cookieStore] = await Promise.all([
-        createServerApiFactory(),
-        getServerActiveProjectId(),
-        cookies(),
-      ]);
-
-      const endpoints = JSON.parse(
-        JSON.stringify(
-          (
-            await factory
-              .getEndpointsClient()
-              .getEndpoints(ENDPOINT_LIST_PARAMS)
-          ).data ?? []
-        )
+      const testRunIds = await resolveInsightsQueryTestRunIds(filters, factory);
+      const insights = await fetchRequirementInsights(
+        filters,
+        testRunIds,
+        factory
       );
-      queryClient.setQueryData(
-        endpointKeys.list(
-          '',
-          0,
-          ENDPOINT_LIST_PARAMS.limit,
-          ENDPOINT_LIST_PARAMS.sort_by,
-          ENDPOINT_LIST_PARAMS.sort_order
-        ),
-        endpoints
-      );
-
-      const endpointId = pickEndpointId(
-        endpoints,
-        projectId,
-        cookieStore.get(INSIGHTS_ENDPOINT_COOKIE)?.value ?? null
-      );
-
-      if (endpointId) {
-        const filters = normalizeInsightsFilters({
-          ...DEFAULT_INSIGHTS_FILTERS,
-          endpointId,
-        });
-        const testRunIds = await resolveInsightsQueryTestRunIds(
-          filters,
-          factory
-        );
-        const insights = await fetchRequirementInsights(
-          filters,
-          testRunIds,
-          factory
-        );
-        initialEndpointId = endpointId;
-        initialInsights = JSON.parse(JSON.stringify(insights));
-      }
+      return { endpoints, endpointId, insights };
     } catch {
-      // Fall back to the client's own fetches.
-      initialEndpointId = undefined;
-      initialInsights = undefined;
+      // Still seed the endpoints; the client fetches the insights itself.
+      return { endpoints };
     }
+  });
+
+  const queryClient = new QueryClient();
+  if (prefetched) {
+    queryClient.setQueryData(
+      endpointKeys.list(
+        '',
+        0,
+        ENDPOINT_LIST_PARAMS.limit,
+        ENDPOINT_LIST_PARAMS.sort_by,
+        ENDPOINT_LIST_PARAMS.sort_order
+      ),
+      prefetched.endpoints
+    );
   }
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <InsightsPage
-        initialEndpointId={initialEndpointId}
-        initialInsights={initialInsights}
+        initialEndpointId={prefetched?.endpointId}
+        initialInsights={prefetched?.insights}
       />
     </HydrationBoundary>
   );
