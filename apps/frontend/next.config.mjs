@@ -351,6 +351,33 @@ const nextConfig = {
 
   async redirects() {
     return [
+      // Legacy routes. A page-level redirect() under the streamed protected
+      // layout can only fall back to <meta http-equiv="refresh">, a timed
+      // page change (WCAG 2.2.1); redirecting here sends a real HTTP 307.
+      // The pages stay as a fallback.
+      { source: '/dashboard', destination: '/insights', permanent: false },
+      { source: '/test-results', destination: '/insights', permanent: false },
+      {
+        source: '/generation',
+        destination: '/tests?openGeneration=true',
+        permanent: false,
+      },
+      {
+        source: '/endpoints/new',
+        destination: '/endpoints?create=1',
+        permanent: false,
+      },
+      { source: '/organizations', destination: '/architect', permanent: false },
+      {
+        source: '/organizations/new',
+        destination: '/architect',
+        permanent: false,
+      },
+      {
+        source: '/organizations/team',
+        destination: '/organizations/settings?tab=team',
+        permanent: false,
+      },
       {
         source: '/behaviors',
         destination: '/requirements',
