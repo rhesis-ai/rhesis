@@ -7,35 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- **Public `BACKEND_URL` Warning**: the frontend warns at startup when `BACKEND_URL` uses `https` or is the same address as `FRONTEND_URL`. Both usually mean the public API host, which hides each user's IP from the backend's sign-in rate limits and audit log. The Helm chart now defaults `config.backendUrl` to its backend Service, so self-hosters no longer set it.
-
-- **Organization Branding Settings**: Added a Branding tab to Organization Settings with primary/secondary colour (hex field plus a colour swatch), product name, favicon upload, and brand-font upload for the 300/400/700 weights.
-- **Branding Asset Proxies**: Added `/brand-assets/[asset]` for the organization favicon, and taught `/brand-fonts/[...path]` to serve organization-uploaded fonts before falling back to `BRAND_FONT_BASE_URL`.
-- **Google Fonts In Organization Branding**: The Branding tab offers a Google Fonts family (with an autocomplete over the live catalogue) alongside uploading font files, matching what `BRAND_FONT_FAMILY` already allowed at the deployment level.
-- **Deployment Defaults Shown In Branding Settings**: An organization that has set no branding now sees what it inherits from the deployment's `BRAND_*` variables — colour swatches filled, product name and font family as placeholders, and the inherited favicon previewed — instead of empty fields and a "None" icon. The root layout passes the deployment branding (not the resolved branding) through `window.__ENV__`, since `BRAND_*` carries no `NEXT_PUBLIC_` prefix and cannot be read from a client bundle.
-- **Branding Upload Guidance**: The Branding tab states the accepted formats and sizes for each asset, shows an uploaded favicon's dimensions, and warns when one is not square or is too small to stay sharp.
-
-### Changed
-
-- **BREAKING: Browser Traffic Stays On The Frontend Origin**: sign-in, registration, password reset, email verification, magic links, quick start and Google, GitHub and SSO logins call the backend through the same-origin `/api/backend` proxy, like every other browser request. Nothing in the browser calls the API host any more, which makes identity-aware load balancers in front of the app work and removes browser CORS.
-- **BREAKING: Same-Origin WebSocket**: the browser opens `/ws` on the frontend host, which the ingress or reverse proxy must route to the backend. The Helm chart's frontend ingress does this. `WS_URL` (a path or a `ws(s)://` URL) overrides it where nothing routes `/ws`; docker-compose and `./rh dev` set it to `ws://localhost:<BACKEND_PORT>/ws`, so a Compose install that users open from other machines needs `WS_URL=ws://<server>:<BACKEND_PORT>/ws`. Upgrade steps are under the backend's OAuth entry.
-- **`API_BASE_URL` Removed**: the frontend no longer reads it. Leftover values are ignored, as is `config.apiBaseUrl` in Helm values, so remove them when convenient. The audit log's API example now uses `$RHESIS_BASE_URL`, the variable the SDK and the docs' examples use for the API address.
-- **Client IP From The Nearest Proxy**: the browser IP passed to the backend, which sign-in rate limits and audit events use, is now the right-most `X-Forwarded-For` entry. Earlier entries and `X-Real-IP` can come from the client.
-- **SSO Settings Show The Redirect URI**: next to the login URL, each with a copy button.
-- **Branding Resolution**: Branding now resolves per field as organization setting > `BRAND_*` env var > Rhesis default, so clearing a field in the settings form reveals the deployment default rather than resetting everything. The root layout resolves the organization once per request and shares it with `generateMetadata`.
-
-### Fixed
-
-- **403 Errors Before Onboarding**: a new account's onboarding page no longer calls `/features`, `/usage`, `/services/exchange-rates`, `/users/settings` and `/ws/token`, which all answer 403 until the organization exists.
-- **Quick Start Signed Back In After Sign-Out**: signing out now stays signed out on the page it lands on; visiting the app again still signs the local admin in. Quick start's local login and the `/auth/signin` code exchange also no longer run twice in development.
-- **Font Env Vars Not Plumbed**: `BRAND_FONT_FAMILY` and `BRAND_FONT_BASE_URL` were documented but missing from the Helm ConfigMap, chart values and `docker-compose.yml`, so a deployment could not actually set them.
-
-### Removed
-
-- Removed the Ragas backend from metric icon handling now that the backend no longer serves it.
-
 ## [0.22.0] - 2026-11-19
 
 ### Breaking Changes
@@ -49,18 +20,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Inline Custom Favicon Support**: Supported `data:image/*` URIs for `BRAND_FAVICON_URL` to allow inline SVG favicons without hosting files externally.
 - **AWS Bedrock Embeddings Support**: Added support for AWS Bedrock Titan Text Embeddings V2 in embedding provider selections.
 - **Account Verification Status**: Added UI indicators and banners for the 3-day email verification grace period and locked account states.
+- **Public `BACKEND_URL` Warning**: the frontend warns at startup when `BACKEND_URL` uses `https` or is the same address as `FRONTEND_URL`. Both usually mean the public API host, which hides each user's IP from the backend's sign-in rate limits and audit log. The Helm chart now defaults `config.backendUrl` to its backend Service, so self-hosters no longer set it.
 
 ### Changed
 
 - **BFF Architecture Expansion**: Standardized sign-in, registration, magic links, password resets, and WebSockets to route entirely through the frontend origin proxy.
 - **Brand Color Contrast**: Automatically adjusted custom `BRAND_PRIMARY_COLOR` values to meet WCAG contrast thresholds dynamically across both light and dark themes.
 - **Backend Configuration Warning**: Added warnings when `BACKEND_URL` is detected as a public URL rather than an internal service route.
+- **BREAKING: Browser Traffic Stays On The Frontend Origin**: sign-in, registration, password reset, email verification, magic links, quick start and Google, GitHub and SSO logins call the backend through the same-origin `/api/backend` proxy, like every other browser request. Nothing in the browser calls the API host any more, which makes identity-aware load balancers in front of the app work and removes browser CORS.
+- **BREAKING: Same-Origin WebSocket**: the browser opens `/ws` on the frontend host, which the ingress or reverse proxy must route to the backend. The Helm chart's frontend ingress does this. `WS_URL` (a path or a `ws(s)://` URL) overrides it where nothing routes `/ws`; docker-compose and `./rh dev` set it to `ws://localhost:<BACKEND_PORT>/ws`, so a Compose install that users open from other machines needs `WS_URL=ws://<server>:<BACKEND_PORT>/ws`. Upgrade steps are under the backend's OAuth entry.
+- **`API_BASE_URL` Removed**: the frontend no longer reads it. Leftover values are ignored, as is `config.apiBaseUrl` in Helm values, so remove them when convenient. The audit log's API example now uses `$RHESIS_BASE_URL`, the variable the SDK and the docs' examples use for the API address.
+- **Client IP From The Nearest Proxy**: the browser IP passed to the backend, which sign-in rate limits and audit events use, is now the right-most `X-Forwarded-For` entry. Earlier entries and `X-Real-IP` can come from the client.
+- **SSO Settings Show The Redirect URI**: next to the login URL, each with a copy button.
 
 ### Fixed
 
 - **Onboarding API Errors**: Deferred organization-scoped feature and usage requests during onboarding until a valid organization session is available, preventing 403 errors.
 - **Double Authentication Trigger**: Fixed React dev mode double-effect issues that caused single-use OAuth authorization codes and quick-start logins to execute twice.
 - **Sign-out Redirect Handling**: Resolved an issue where sign-out URL flags were cleared before the session finished loading.
+- **403 Errors Before Onboarding**: a new account's onboarding page no longer calls `/features`, `/usage`, `/services/exchange-rates`, `/users/settings` and `/ws/token`, which all answer 403 until the organization exists.
+- **Quick Start Signed Back In After Sign-Out**: signing out now stays signed out on the page it lands on; visiting the app again still signs the local admin in. Quick start's local login and the `/auth/signin` code exchange also no longer run twice in development.
 
 ### Security
 
@@ -291,6 +270,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bulk Delete for Experiments:** Enabled checkbox selection and bulk deletion in the experiments grid.
 - **Tags Column:** Added a tags column to the test run results table.
 - **Live Usage Polling:** The test run usage card now polls and updates live as a run executes, stopping automatically when figures settle.
+- **Organization Branding Settings**: Added a Branding tab to Organization Settings with primary/secondary colour (hex field plus a colour swatch), product name, favicon upload, and brand-font upload for the 300/400/700 weights.
+- **Branding Asset Proxies**: Added `/brand-assets/[asset]` for the organization favicon, and taught `/brand-fonts/[...path]` to serve organization-uploaded fonts before falling back to `BRAND_FONT_BASE_URL`.
+- **Google Fonts In Organization Branding**: The Branding tab offers a Google Fonts family (with an autocomplete over the live catalogue) alongside uploading font files, matching what `BRAND_FONT_FAMILY` already allowed at the deployment level.
+- **Deployment Defaults Shown In Branding Settings**: An organization that has set no branding now sees what it inherits from the deployment's `BRAND_*` variables — colour swatches filled, product name and font family as placeholders, and the inherited favicon previewed — instead of empty fields and a "None" icon. The root layout passes the deployment branding (not the resolved branding) through `window.__ENV__`, since `BRAND_*` carries no `NEXT_PUBLIC_` prefix and cannot be read from a client bundle.
+- **Branding Upload Guidance**: The Branding tab states the accepted formats and sizes for each asset, shows an uploaded favicon's dimensions, and warns when one is not square or is too small to stay sharp.
 
 ### Changed
 
@@ -300,6 +284,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Reworked Trace Summary Tiles:** Tiles now display richer information, including failed span counts, input/output token splits, and active models.
 - **Tool Connection Drawer:** Redesigned the provider picker as a clean grid of tiles and dynamically render connection fields directly from provider manifests.
 - **Project Detail Layout:** Split the "Advanced Configuration" tab into dedicated "Experiments" and "Traces" tabs.
+- **Branding Resolution**: Branding now resolves per field as organization setting > `BRAND_*` env var > Rhesis default, so clearing a field in the settings form reveals the deployment default rather than resetting everything. The root layout resolves the organization once per request and shares it with `generateMetadata`.
 
 ### Fixed
 
@@ -309,10 +294,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Playground Parameter Persistence:** Persisted playground test parameters in `localStorage` per endpoint to prevent loss on reload.
 - **Security Updates:** Resolved multiple security vulnerabilities by upgrading npm dependencies.
 - **UI Polish:** Fixed various UI bugs, including empty alert rendering, truncated headers, and incorrect rounding in run comparison deltas.
+- **Font Env Vars Not Plumbed**: `BRAND_FONT_FAMILY` and `BRAND_FONT_BASE_URL` were documented but missing from the Helm ConfigMap, chart values and `docker-compose.yml`, so a deployment could not actually set them.
 
 ### Removed
 
 - **Ragas Integration:** Removed Ragas integration from the frontend (use DeepEval or Rhesis instead).
+- Removed the Ragas backend from metric icon handling now that the backend no longer serves it.
 
 ## [0.16.0] - 2026-09-16
 

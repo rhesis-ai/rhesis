@@ -13,11 +13,6 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ## [Unreleased]
 
-### Removed
-- Removed Ragas support across the SDK, backend and frontend. The project has been unmaintained
-  since January 2026 and carried advisories with no upstream fix. Existing Ragas metrics and their
-  associations are deleted by a backend migration; recorded test results keep their scores.
-
 ## [0.22.0] - 2026-11-19
 
 ### Platform Release
@@ -408,6 +403,12 @@ See individual component changelogs for detailed changes:
 - [Backend Changelog](apps/backend/CHANGELOG.md)
 - [Frontend Changelog](apps/frontend/CHANGELOG.md)
 - [SDK Changelog](sdk/CHANGELOG.md)
+
+### Removed
+
+- Removed Ragas support across the SDK, backend and frontend. The project has been unmaintained
+  since January 2026 and carried advisories with no upstream fix. Existing Ragas metrics and their
+  associations are deleted by a backend migration; recorded test results keep their scores.
 
 
 
