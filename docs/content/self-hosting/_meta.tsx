@@ -7,6 +7,7 @@ const meta: MetaRecord = {
   'kubernetes': 'Kubernetes (Minikube)',
   'gcp-terraform': 'GCP (Terraform)',
   'kubernetes-helm': 'Kubernetes (Helm)',
+  upgrading: 'Upgrading',
   'environment-variables': 'Environment Variables',
 }
 
