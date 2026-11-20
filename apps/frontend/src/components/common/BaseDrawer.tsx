@@ -109,11 +109,13 @@ export default function BaseDrawer({
       ModalProps={{ keepMounted: true }}
       PaperProps={{
         sx: {
-          width: width,
+          // Full width on narrow viewports so the form reflows (WCAG 1.4.10).
+          width: { xs: '100%', sm: width },
+          maxWidth: '100%',
           display: 'flex',
           flexDirection: 'column',
-          p: disablePadding ? 0 : '30px',
-          gap: disablePadding ? 0 : '40px',
+          p: disablePadding ? 0 : { xs: 2, sm: '30px' },
+          gap: disablePadding ? 0 : { xs: 3, sm: '40px' },
           boxSizing: 'border-box',
         },
       }}

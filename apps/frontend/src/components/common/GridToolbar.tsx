@@ -108,10 +108,13 @@ export function PrimarySegmentedPills({
       <Box
         sx={{
           display: 'inline-flex',
+          // Narrow viewports: segments wrap instead of being clipped
+          // (WCAG 1.4.10); a full pill radius would look broken then.
+          flexWrap: { xs: 'wrap', sm: 'nowrap' },
           maxWidth: '100%',
           border: '1px solid',
           borderColor: 'primary.main',
-          borderRadius: BORDER_RADIUS.pill,
+          borderRadius: { xs: BORDER_RADIUS.md, sm: BORDER_RADIUS.pill },
           overflow: 'hidden',
         }}
       >
@@ -291,6 +294,8 @@ export function GridToolbar({
   const baseSx: SxProps<Theme> = {
     display: 'flex',
     alignItems: 'center',
+    // Wraps on narrow viewports instead of pushing the page sideways.
+    flexWrap: 'wrap',
     gap: 1.5,
     px: GRID_CARD_INSET,
     py: GRID_CARD_INSET,
@@ -336,7 +341,14 @@ export function GridToolbar({
         <Box sx={{ flex: 1 }} />
       )}
       {rightContent ? (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: 0.5,
+          }}
+        >
           {rightContent}
         </Box>
       ) : null}

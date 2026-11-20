@@ -50,6 +50,7 @@ export function SearchPill({
         pl: '16px',
         pr: '4px',
         width,
+        maxWidth: '100%',
         flexShrink: 0,
       }}
     >

@@ -97,7 +97,9 @@ export function FilterDrawerShell({
       ModalProps={{ keepMounted: true }}
       PaperProps={{
         sx: {
-          width: 430,
+          // Full width on narrow viewports (WCAG 1.4.10).
+          width: { xs: '100%', sm: 430 },
+          maxWidth: '100%',
           display: 'flex',
           flexDirection: 'column',
           p: 3.75,

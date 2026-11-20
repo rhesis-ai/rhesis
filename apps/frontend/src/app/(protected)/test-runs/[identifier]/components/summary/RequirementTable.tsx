@@ -89,7 +89,21 @@ export default function RequirementTable({
   } as const;
 
   return (
-    <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+    <Paper
+      variant="outlined"
+      // A table may scroll sideways on narrow viewports (WCAG 1.4.10 allows
+      // it for 2D content), but inside its frame, not the whole page.
+      // minWidth 0: as a flex child it would otherwise grow to the table's width.
+      // position: the hidden live region below is absolute and would escape
+      // the scroll clipping without a positioned frame.
+      sx={{
+        borderRadius: 2,
+        overflowX: 'auto',
+        overflowY: 'hidden',
+        minWidth: 0,
+        position: 'relative',
+      }}
+    >
       {/* Header */}
       <Box
         sx={{

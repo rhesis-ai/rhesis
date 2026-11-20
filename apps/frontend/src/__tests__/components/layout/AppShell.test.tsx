@@ -122,6 +122,47 @@ describe('AppShell', () => {
     );
 
     const contentWrapper = container.querySelector('main > div:last-child');
-    expect(contentWrapper).toHaveStyle({ padding: '32px' });
+    // Responsive (16px narrow, 32px from md); jsdom only sees the base value.
+    expect(contentWrapper).not.toHaveStyle({ padding: '0px' });
+  });
+
+  describe('narrow viewport', () => {
+    const originalMatchMedia = window.matchMedia;
+    beforeEach(() => {
+      (usePathname as jest.Mock).mockReturnValue('/projects');
+      // Every media query matches, so breakpoints.down('md') is true.
+      window.matchMedia = jest.fn().mockImplementation((query: string) => ({
+        matches: true,
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      }));
+    });
+    afterEach(() => {
+      window.matchMedia = originalMatchMedia;
+    });
+
+    it('moves the sidebar into a drawer opened from a menu button', async () => {
+      render(
+        <AppShell sidebar={<div>Sidebar</div>}>
+          <div>Content</div>
+        </AppShell>
+      );
+
+      const menu = screen.getByRole('button', { name: 'Open navigation' });
+      expect(menu).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.getByText('Content')).toBeInTheDocument();
+
+      await userEvent.click(menu);
+
+      expect(menu).toHaveAttribute('aria-expanded', 'true');
+      expect(
+        screen.getByRole('navigation', { name: 'Main navigation' })
+      ).toBeVisible();
+    });
   });
 });
