@@ -9,7 +9,9 @@ from pathlib import Path
 
 import pytest
 from release_tools.changelog import (
+    NO_UPGRADE_NOTES,
     UNRELEASED_MARKER,
+    UPGRADE_NOTES_HEADING,
     _insert_under_unreleased,
     placeholder_entry,
 )
@@ -148,3 +150,49 @@ def test_platform_summary_falls_back_to_a_placeholder_not_commit_subjects(tmp_pa
     assert "Key changes include" not in result
     assert "...." not in result
     assert "(#42)" not in result
+
+
+def _release_platform(tmp_path, monkeypatch, changelog: str) -> str:
+    """Write CHANGELOG.md, cut a platform release with no commits, and return the new file."""
+    from release_tools import changelog as changelog_mod
+
+    path = _write(tmp_path, changelog)
+    monkeypatch.setattr(changelog_mod, "PLATFORM_CHANGELOG", "CHANGELOG.md")
+    monkeypatch.setattr(changelog_mod, "get_last_tag", lambda component: None)
+    monkeypatch.setattr(changelog_mod, "get_commits_since_tag", lambda component, tag: [])
+
+    changelog_mod.update_platform_changelog(
+        {"platform": "0.14.0", "backend": "0.14.0"}, "0.14.0", "", tmp_path
+    )
+    return path.read_text()
+
+
+def test_release_moves_upgrade_notes_out_of_unreleased(tmp_path, monkeypatch):
+    from release_tools.publish import get_changelog_content
+
+    result = _release_platform(
+        tmp_path,
+        monkeypatch,
+        f"# Changelog\n\n{UNRELEASED_MARKER}\n\n{UPGRADE_NOTES_HEADING}\n\n"
+        "1. Add the new redirect URI.\n\n### Removed\n\n- A hand-written note\n\n"
+        "## [0.13.0] - 2026-08-20\n\n- Older\n",
+    )
+
+    unreleased, released = result.split("## [0.14.0]")
+    assert "redirect URI" not in unreleased
+    assert "hand-written note" in unreleased
+    assert "redirect URI" in released.split("## [0.13.0]")[0]
+    # The GitHub release body is cut from this same section
+    notes = get_changelog_content(tmp_path / "CHANGELOG.md")
+    assert f"{UPGRADE_NOTES_HEADING}\n\n1. Add the new redirect URI." in notes
+
+
+def test_release_without_upgrade_notes_says_none(tmp_path, monkeypatch):
+    result = _release_platform(
+        tmp_path,
+        monkeypatch,
+        f"# Changelog\n\n{UNRELEASED_MARKER}\n\n## [0.13.0] - 2026-08-20\n\n- Older\n",
+    )
+
+    released = result.split("## [0.14.0]")[1].split("## [0.13.0]")[0]
+    assert f"{UPGRADE_NOTES_HEADING}\n\n{NO_UPGRADE_NOTES}" in released
