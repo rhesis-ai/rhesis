@@ -39,33 +39,36 @@ from rhesis.backend.app.utils.odata import apply_select
 
 logger = logging.getLogger(__name__)
 
-# Requirement's associated metrics only need Metric's own fields (name, description,
-# backend_type, metric_type, score_type, metric_scope) -- confirmed against actual
-# frontend usage (RequirementCard/RequirementsClient/RequirementMetricsViewer/RequirementDetailTabs,
-# and the standalone GET /requirements/{id}/metrics/ compare-page caller). None of
-# MetricDetail's relationship fields (status/assignee/owner/model/requirements/
-# test_sets/organization/project) are read here, so this stays on the base
-# Metric schema rather than sharing MetricDetail with routers/metric.py.
-# tags is overridden to TagRead (not the base Tag) to match the minimal shape
-# used everywhere else tags are embedded in a read response (e.g. RequirementDetail,
-# TestSetDetail) -- otherwise this endpoint alone leaks organization_id/user_id
-# per tag. test_counts, sources and the two counts are filled by _with_details.
-RequirementWithMetricsSchema = create_model(
-    "RequirementWithMetrics",
-    __base__=schemas.Requirement,
-    metrics=(List[schemas.Metric], []),
-    tags=(List[TagRead], []),
-    test_counts=(schemas.RequirementTestCounts | None, None),
-    parent=(schemas.RequirementParentRef | None, None),
-    impact=(schemas.RequirementLookupRef | None, None),
-    # Filled by requirement_service.attach_details; the ORM relationship carries no note.
-    sources=(
-        List[schemas.RequirementSourceRef],
-        Field(default_factory=list, validation_alias="source_links"),
-    ),
-    children_count=(int, 0),
-    examples_count=(int, 0),
-    review=(Dict[str, Any] | None, None),
+
+# The detail response embeds each linked metric on the base Metric schema (none
+# of MetricDetail's relationships are read). The list response embeds only a
+# RequirementMetricRef: the list page shows names and types, and full metrics
+# with their prompts made up most of its payload. tags is TagRead so tags don't
+# carry organization_id/user_id. test_counts, sources and the two counts are
+# filled by _with_details.
+def _requirement_response_model(name: str, metric_schema: type) -> type:
+    return create_model(
+        name,
+        __base__=schemas.Requirement,
+        metrics=(List[metric_schema], []),
+        tags=(List[TagRead], []),
+        test_counts=(schemas.RequirementTestCounts | None, None),
+        parent=(schemas.RequirementParentRef | None, None),
+        impact=(schemas.RequirementLookupRef | None, None),
+        # Filled by requirement_service.attach_details; the ORM relationship carries no note.
+        sources=(
+            List[schemas.RequirementSourceRef],
+            Field(default_factory=list, validation_alias="source_links"),
+        ),
+        children_count=(int, 0),
+        examples_count=(int, 0),
+        review=(Dict[str, Any] | None, None),
+    )
+
+
+RequirementWithMetricsSchema = _requirement_response_model("RequirementWithMetrics", schemas.Metric)
+RequirementListItemSchema = _requirement_response_model(
+    "RequirementListItem", schemas.RequirementMetricRef
 )
 
 
@@ -120,7 +123,7 @@ def create_requirement(
     return _load_or_404(db, created.id, organization_id, user_id)
 
 
-@router.get("/", response_model=list[RequirementWithMetricsSchema])
+@router.get("/", response_model=list[RequirementListItemSchema])
 @with_count_header(model=models.Requirement)
 def read_requirements(
     response: Response,

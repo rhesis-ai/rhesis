@@ -39,7 +39,7 @@ export interface RequirementWithMetrics extends RequirementBase {
   created_at?: string | null;
   updated_at?: string | null;
   user?: User | null;
-  metrics: MetricWithRelationships[]; // Full metric objects with type relationships
+  metrics: MetricWithRelationships[];
   tags?: Tag[];
   /** Linked tests by type. Only the read endpoints fill it. */
   test_counts?: RequirementTestCounts | null;
@@ -49,6 +49,27 @@ export interface RequirementWithMetrics extends RequirementBase {
   children_count?: number;
   examples_count?: number;
   review?: RequirementReview | null;
+}
+
+/** A linked metric as the requirements list embeds it: no prompt or steps. */
+export interface RequirementMetricRef {
+  id: UUID;
+  name: string;
+  description?: string | null;
+  score_type?: string | null;
+  metric_scope?: MetricScope[] | null;
+  metric_type?: RequirementLookupRef | null;
+  backend_type?: RequirementLookupRef | null;
+  project_id?: UUID | null;
+  class_name?: string | null;
+}
+
+/** A row of `GET /requirements/`. The detail response has full metrics. */
+export interface RequirementListItem extends Omit<
+  RequirementWithMetrics,
+  'metrics'
+> {
+  metrics: RequirementMetricRef[];
 }
 
 export interface RequirementParentRef {

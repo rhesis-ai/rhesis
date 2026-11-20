@@ -8,7 +8,7 @@ import EntityCard, {
   type EntityCardFact,
   type EntityCardRelation,
 } from '@/components/common/EntityCard';
-import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
+import type { RequirementListItem } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 import { useCan } from '@/components/common/Can';
 import {
@@ -21,7 +21,7 @@ import { Capability } from '@/constants/capabilities';
 import { impactColor } from './requirement-lookups';
 
 interface RequirementCardProps {
-  requirement: RequirementWithMetrics;
+  requirement: RequirementListItem;
   onRefresh: () => void;
   onClick?: () => void;
   /** Retained for backward compatibility — no longer used in the card UI. */
@@ -41,7 +41,7 @@ const plural = (n: number, one: string, many = `${one}s`) =>
 /** The parent, impact and linked counts, laid out for EntityCard. */
 export function requirementCardSlots(
   requirement: Pick<
-    RequirementWithMetrics,
+    RequirementListItem,
     | 'impact'
     | 'parent'
     | 'children_count'

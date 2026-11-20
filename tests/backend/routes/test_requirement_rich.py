@@ -562,3 +562,42 @@ class TestRequirementReview:
         response = authenticated_client.post(f"/requirements/{requirement['id']}/review")
         assert response.status_code == status.HTTP_502_BAD_GATEWAY
         assert "generation model" in response.json()["detail"]
+
+
+class TestRequirementListMetrics:
+    def test_list_embeds_metric_refs_and_detail_full_metrics(self, authenticated_client):
+        from tests.backend.routes.fixtures.data_factories import MetricDataFactory
+
+        requirement = _create(authenticated_client)
+        metric_response = authenticated_client.post(
+            "/metrics/", json=MetricDataFactory.sample_data()
+        )
+        assert metric_response.status_code == status.HTTP_200_OK, metric_response.text
+        metric = metric_response.json()
+        link = authenticated_client.post(
+            f"/requirements/{requirement['id']}/metrics/{metric['id']}"
+        )
+        assert link.status_code == status.HTTP_200_OK, link.text
+
+        listed = authenticated_client.get(
+            "/requirements/", params={"$filter": f"id eq {requirement['id']}"}
+        ).json()
+        [listed_metric] = listed[0]["metrics"]
+        assert set(listed_metric) == {
+            "id",
+            "name",
+            "description",
+            "score_type",
+            "metric_scope",
+            "backend_type",
+            "metric_type",
+            "project_id",
+            "class_name",
+        }
+        assert listed_metric["id"] == metric["id"]
+        assert listed_metric["backend_type"]["type_value"]
+        assert listed_metric["metric_type"]["type_value"]
+
+        detail = authenticated_client.get(f"/requirements/{requirement['id']}").json()
+        [detail_metric] = detail["metrics"]
+        assert detail_metric["evaluation_prompt"] == metric["evaluation_prompt"]

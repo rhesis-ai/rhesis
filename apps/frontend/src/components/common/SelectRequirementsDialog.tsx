@@ -19,7 +19,7 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import { PsychologyIcon } from '@/components/icons';
 import { RequirementClient } from '@/utils/api-client/requirement-client';
-import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
+import type { RequirementListItem } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 
 interface SelectRequirementsDialogProps {
@@ -35,11 +35,11 @@ export default function SelectRequirementsDialog({
   onSelect,
   excludeRequirementIds = [],
 }: SelectRequirementsDialogProps) {
-  const [requirements, setRequirements] = React.useState<
-    RequirementWithMetrics[]
-  >([]);
+  const [requirements, setRequirements] = React.useState<RequirementListItem[]>(
+    []
+  );
   const [filteredRequirements, setFilteredRequirements] = React.useState<
-    RequirementWithMetrics[]
+    RequirementListItem[]
   >([]);
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
