@@ -14,7 +14,8 @@ Pin the release you run in a git repository you own, and make every upgrade a pu
 
 - **Helm with ArgoCD:** your fork's `deploy` branch is on a release tag, and an upgrade merges the
   next tag into it.
-- **Docker Compose:** check out a release tag, or set `RHESIS_VERSION` in a file you keep in git.
+- **Docker Compose:** check out a release tag. The tag's `docker-compose.ghcr.yml` names that
+  release's images, so the checked-out tag is the version you run.
 - **Your own Terraform or manifests:** pin the image tag (for example `image_tag = "0.22.0"`) in a
   committed variables file.
 
@@ -26,11 +27,11 @@ that aren't published yet.
 
 ## Before you upgrade
 
-1. **Read the upgrade notes.** A release that needs a change on your side has an **Upgrading a
-   self-hosted deployment** section under its entry in the
-   [backend changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/backend/CHANGELOG.md),
-   such as a new OAuth redirect URI or a new route on your proxy. Some steps must happen before the
-   new version starts.
+1. **Read the upgrade notes.** Each release's entry in the
+   [changelog](https://github.com/rhesis-ai/rhesis/blob/main/CHANGELOG.md) and its
+   [GitHub release](https://github.com/rhesis-ai/rhesis/releases) has an **Upgrading a self-hosted
+   deployment** section. It lists the changes you must make, such as a new OAuth redirect URI or a
+   new route on your proxy, or says "None". Some steps must happen before the new version starts.
 2. **Check what configuration changed.** Diff the configuration files between your release and the
    target. A change to the [environment variable reference](/self-hosting/environment-variables),
    `.env.example` or the chart's `values.yaml` usually means your deployment needs a look:
@@ -55,9 +56,9 @@ release at a time keeps each pull request small and each rollback short.
 
 ## Rolling back
 
-Revert the upgrade commit and deploy again. If the new release ran a migration, the old backend may
-not start against the new schema, so restore the backup you took before upgrading, then deploy the
-old release.
+Revert the upgrade commit and deploy again. If the new release ran a migration, the old backend
+won't start, because its startup migration doesn't know the newer schema. Restore the backup you
+took before upgrading, then deploy the old release.
 
 ## Automate the upgrade pull request
 
@@ -105,7 +106,7 @@ jobs:
   propose:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: deploy
           fetch-depth: 0
@@ -125,8 +126,10 @@ jobs:
           git push origin "$branch"
           gh pr create --base deploy --head "$branch" \\
             --title "Upgrade Rhesis to $latest" \\
-            --body "Upgrade notes: https://github.com/rhesis-ai/rhesis/blob/$latest/apps/backend/CHANGELOG.md"`}
+            --body "Upgrade notes: https://github.com/rhesis-ai/rhesis/releases/tag/$latest"`}
 </CodeBlock>
 
-Pull requests opened with the workflow's own `GITHUB_TOKEN` don't trigger your other workflows. If
-you want your CI checks to run on them, use a GitHub App token or a personal access token instead.
+The workflow's own `GITHUB_TOKEN` can open pull requests only when the fork's **Settings → Actions
+→ General → Allow GitHub Actions to create and approve pull requests** is on. Pull requests it opens
+don't trigger your other workflows, so to run your CI checks on them, use a GitHub App token
+instead.
