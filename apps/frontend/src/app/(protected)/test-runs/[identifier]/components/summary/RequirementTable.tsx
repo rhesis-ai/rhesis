@@ -304,7 +304,12 @@ function VerdictLegend() {
       {items.map(item => (
         <Box
           key={item.label}
-          sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.5 }}
+          sx={{
+            display: 'flex',
+            // Bars share a baseline in accessible mode; squares stay centred.
+            alignItems: theme.palette.accessibleColors ? 'flex-end' : 'center',
+            gap: 0.5,
+          }}
         >
           <Box
             aria-hidden
