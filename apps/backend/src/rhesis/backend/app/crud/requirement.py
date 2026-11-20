@@ -2,10 +2,12 @@
 
 ``_REQUIREMENT_RELATED_FIELDS`` covers exactly what ``RequirementWithMetricsSchema`` in
 ``routers/requirement.py`` serializes -- user, and each metric with its metric_type,
-backend_type and tags. Status, organization and project are left out because nothing reads
-them. Requirement's own tags load via ``with_default_derived_field_loads`` (``TagsMixin``), same
-as every other entity -- only the nested ``metrics.tags`` needs to be listed explicitly here,
-since that cascade only covers many-to-one relations and ``metrics`` is many-to-many.
+backend_type and tags. ``_REQUIREMENT_LIST_RELATED_FIELDS`` is the same minus the metric tags,
+which ``RequirementListItemSchema`` leaves out. Status, organization and project are left out
+because nothing reads them. Requirement's own tags load via
+``with_default_derived_field_loads`` (``TagsMixin``), same as every other entity -- only the
+nested ``metrics.tags`` needs to be listed explicitly here, since that cascade only covers
+many-to-one relations and ``metrics`` is many-to-many.
 
 ``get_requirements`` is the plain list and loads none of that -- only ``get_requirements_detail``
 eager-loads the relationships, which is why the list endpoint calls the detail variant.
@@ -29,13 +31,16 @@ from rhesis.backend.app.utils.crud_utils import (
 )
 from rhesis.backend.app.utils.query_utils import include
 
-_REQUIREMENT_RELATED_FIELDS = (
+_REQUIREMENT_LIST_RELATED_FIELDS = (
     include(models.Requirement.user),
     include(models.Requirement.parent),
     include(models.Requirement.impact),
     include(models.Requirement.metrics),
     include(models.Requirement.metrics, models.Metric.metric_type),
     include(models.Requirement.metrics, models.Metric.backend_type),
+)
+_REQUIREMENT_RELATED_FIELDS = (
+    *_REQUIREMENT_LIST_RELATED_FIELDS,
     include(models.Requirement.metrics, models.Metric._tags_relationship, models.TaggedItem.tag),
 )
 
@@ -83,7 +88,7 @@ def get_requirements_detail(
     organization_id: str | None = None,
     user_id: str | None = None,
 ) -> List[models.Requirement]:
-    """Get requirements with related objects for RequirementWithMetricsSchema, including metrics."""
+    """Get requirements with the related objects ``RequirementListItemSchema`` reads."""
     return get_items_detail(
         db,
         models.Requirement,
@@ -92,7 +97,7 @@ def get_requirements_detail(
         sort_by,
         sort_order,
         filter,
-        related_fields=_REQUIREMENT_RELATED_FIELDS,
+        related_fields=_REQUIREMENT_LIST_RELATED_FIELDS,
         organization_id=organization_id,
         user_id=user_id,
     )

@@ -5,6 +5,8 @@ from pydantic import UUID4, BaseModel, ConfigDict, Field
 
 from rhesis.backend.app.schemas.annotation import AnnotationDetail, AnnotationTuningCase
 from rhesis.backend.app.schemas.base import Base, ServerIdentity
+from rhesis.backend.app.schemas.metric import MetricScope
+from rhesis.backend.app.schemas.metric_types import ScoreType
 from rhesis.backend.app.schemas.tag import Tag, TagRead
 from rhesis.backend.app.schemas.user import UserReference
 
@@ -53,6 +55,23 @@ class RequirementLookupRef(BaseModel):
     id: UUID4
     type_name: Optional[str] = None
     type_value: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RequirementMetricRef(BaseModel):
+    """A linked metric as listed on a requirement, without its prompt and steps."""
+
+    id: UUID4
+    name: Optional[str] = None
+    description: Optional[str] = None
+    score_type: Optional[ScoreType] = None
+    metric_scope: Optional[List[MetricScope]] = None
+    backend_type: Optional[RequirementLookupRef] = None
+    metric_type: Optional[RequirementLookupRef] = None
+    # Read by scripts/project_migrate to tell project, org-level and built-in metrics apart.
+    project_id: Optional[UUID4] = None
+    class_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
