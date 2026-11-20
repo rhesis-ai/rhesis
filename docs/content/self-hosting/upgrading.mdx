@@ -1,0 +1,135 @@
+import { CodeBlock } from '@/components/CodeBlock'
+
+# Upgrading
+
+Upgrading a self-hosted Rhesis deployment means moving it from one release tag to a newer one. The
+same steps apply whether the release is a plain version bump or also needs configuration or
+infrastructure changes. The commands for each deployment method are in
+[Docker Compose](/self-hosting/docker-compose#upgrading) and
+[Kubernetes (Helm)](/self-hosting/kubernetes-helm#upgrade--uninstall).
+
+## Keep the version in git
+
+Pin the release you run in a git repository you own, and make every upgrade a pull request:
+
+- **Helm with ArgoCD:** your fork's `deploy` branch is on a release tag, and an upgrade merges the
+  next tag into it.
+- **Docker Compose:** check out a release tag. The tag's `docker-compose.ghcr.yml` names that
+  release's images, so the checked-out tag is the version you run.
+- **Your own Terraform or manifests:** pin the image tag (for example `image_tag = "0.22.0"`) in a
+  committed variables file.
+
+A simple release is then a one-line pull request. A release that needs a new setting or proxy route
+gets more commits on the same pull request before you merge it. Rolling back is reverting the merge.
+
+Don't deploy from `main`. It can be ahead of the last release, and its config can expect images
+that aren't published yet.
+
+## Before you upgrade
+
+1. **Read the upgrade notes.** Each release's entry in the
+   [changelog](https://github.com/rhesis-ai/rhesis/blob/main/CHANGELOG.md) and its
+   [GitHub release](https://github.com/rhesis-ai/rhesis/releases) has an **Upgrading a self-hosted
+   deployment** section. It lists the changes you must make, such as a new OAuth redirect URI or a
+   new route on your proxy, or says "None". Some steps must happen before the new version starts.
+2. **Check what configuration changed.** Diff the configuration files between your release and the
+   target. A change to the [environment variable reference](/self-hosting/environment-variables),
+   `.env.example` or the chart's `values.yaml` usually means your deployment needs a look:
+
+   <CodeBlock filename="Terminal" language="bash">
+   {`git fetch --tags
+   git diff v0.21.2 v0.22.0 -- .env.example charts/rhesis/values.yaml \\
+     docs/content/self-hosting/environment-variables.mdx`}
+   </CodeBlock>
+
+3. **Back up the database.** Migrations run when the new backend starts, and they only go forward.
+   Rolling back the images doesn't roll back the schema, so take a backup right before upgrading:
+   `pg_dump` for the bundled database (see
+   [Backup and Recovery](/self-hosting/docker-compose#backup-and-recovery)), or an on-demand
+   snapshot for a managed database such as Cloud SQL or RDS.
+
+## Skipping releases
+
+You can upgrade across several releases at once. Migrations apply in order, so the schema ends up
+the same. Read the upgrade notes of every release you skip, not only the target's. Upgrading one
+release at a time keeps each pull request small and each rollback short.
+
+## Rolling back
+
+Revert the upgrade commit and deploy again. If the new release ran a migration, the old backend
+won't start, because its startup migration doesn't know the newer schema. Restore the backup you
+took before upgrading, then deploy the old release.
+
+## Automate the upgrade pull request
+
+A bot can open the upgrade pull request for you when a new release appears, so you only review and
+merge.
+
+If you pin an image tag in a file, [Renovate](https://docs.renovatebot.com/) can bump it. Mark the
+line with a comment so Renovate knows which image the version tracks:
+
+<CodeBlock filename="terraform.tfvars" language="hcl">
+{`# renovate: datasource=docker depName=ghcr.io/rhesis-ai/backend
+image_tag = "0.22.0"`}
+</CodeBlock>
+
+<CodeBlock filename="renovate.json" language="json">
+{`{
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/\\\\.tfvars$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\\\S+) depName=(?<depName>\\\\S+)\\\\n\\\\S+ = \\"(?<currentValue>[^\\"]+)\\""
+      ]
+    }
+  ]
+}`}
+</CodeBlock>
+
+For a Helm fork, a scheduled workflow in the fork can merge the newest release tag into a branch
+and open a pull request against `deploy`. A merge conflict with your own changes fails the job, and
+you resolve it by hand:
+
+<CodeBlock filename=".github/workflows/propose-rhesis-upgrade.yml" language="yaml">
+{`name: Propose Rhesis upgrade
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: deploy
+          fetch-depth: 0
+      - env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          git remote add upstream https://github.com/rhesis-ai/rhesis.git
+          git fetch upstream --tags
+          latest=$(git tag --list 'v*' --sort=-version:refname | head -n1)
+          branch="upgrade/$latest"
+          git merge-base --is-ancestor "$latest" HEAD && exit 0
+          git ls-remote --exit-code origin "$branch" && exit 0
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          git checkout -b "$branch"
+          git merge --no-edit "$latest"
+          git push origin "$branch"
+          gh pr create --base deploy --head "$branch" \\
+            --title "Upgrade Rhesis to $latest" \\
+            --body "Upgrade notes: https://github.com/rhesis-ai/rhesis/releases/tag/$latest"`}
+</CodeBlock>
+
+The workflow's own `GITHUB_TOKEN` can open pull requests only when the fork's **Settings → Actions
+→ General → Allow GitHub Actions to create and approve pull requests** is on. Pull requests it opens
+don't trigger your other workflows, so to run your CI checks on them, use a GitHub App token
+instead.

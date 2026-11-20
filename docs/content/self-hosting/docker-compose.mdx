@@ -266,11 +266,9 @@ docker compose --env-file .env.docker up -d --build`}
 
 ### Upgrading
 
-Move to the new release's tag, so the config and the images change together. Before restarting,
-check the release's entry in the
-[backend changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/backend/CHANGELOG.md) for an
-**Upgrading a self-hosted deployment** section: some releases need a configuration change, such as
-a new proxy route or a new OAuth redirect URI.
+Move to the new release's tag, so the config and the images change together. Read
+[Upgrading](/self-hosting/upgrading) first for the upgrade notes, the configuration check and the
+backup to take before restarting.
 
 <CodeBlock filename="Terminal" language="bash">
 {`git fetch --tags
@@ -280,9 +278,8 @@ docker compose -f docker-compose.yml -f docker-compose.ghcr.yml --env-file .env.
 docker compose -f docker-compose.yml -f docker-compose.ghcr.yml --env-file .env.docker up -d`}
 </CodeBlock>
 
-Database migrations run when the backend starts. To roll back, check out the previous tag and run
-the same two commands. A rollback across a database migration needs a database restore (see
-[Backup and Recovery](#backup-and-recovery)).
+To roll back, check out the previous tag and run the same two commands. A rollback across a
+database migration also needs a database restore (see [Backup and Recovery](#backup-and-recovery)).
 
 
 

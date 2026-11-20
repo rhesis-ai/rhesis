@@ -783,14 +783,13 @@ git merge v<new version>
 git push`}
 </CodeBlock>
 
-Before pushing, check the release's entry in the
-[backend changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/backend/CHANGELOG.md) for an
-**Upgrading a self-hosted deployment** section: some releases need a configuration change, such as
-a new ingress route or a new OAuth redirect URI. If you build your own images, build and push the
-new version's before you push the merge.
+Before pushing, read [Upgrading](/self-hosting/upgrading) for the upgrade notes, the
+configuration check and the backup to take first. It also has a workflow that opens this merge as a
+pull request when a new release comes out. If you build your own images, build and push the new
+version's images before you push the merge.
 
-Database migrations run when the backend starts. To roll back, revert the merge commit and push. A
-rollback across a database migration needs a database restore.
+To roll back, revert the merge commit and push. A rollback across a database migration also needs
+a database restore.
 
 **Uninstall:**
 
