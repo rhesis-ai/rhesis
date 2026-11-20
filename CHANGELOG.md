@@ -27,6 +27,17 @@ This release includes the following component versions:
 - **Frontend 0.22.0**
 - **SDK 0.22.0**
 
+### Upgrading a self-hosted deployment
+
+1. Before upgrading, add `<FRONTEND_URL>/api/backend/auth/callback` to your Google and GitHub OAuth apps and `<FRONTEND_URL>/api/backend/auth/sso/callback` to your SSO identity provider, keeping the old URIs until the upgrade is verified. A GitHub OAuth App has only one callback URL, so change it during the upgrade.
+2. Set `FRONTEND_URL` to exactly the address users open (`https://` for any host other than localhost), and `BACKEND_URL` to the backend's internal address, not the public API host.
+3. Route `/ws` on the app host to the backend, or set `WS_URL`. The Helm chart's ingress does this for you, and docker-compose works unchanged when users open the app on the same machine. Users on other machines need `WS_URL=ws://<server>:<BACKEND_PORT>/ws`; behind a reverse proxy, route `/ws` and set `WS_URL=/ws`.
+4. Re-share SSO login links; Organization settings → SSO shows the new one.
+5. Remove `API_BASE_URL`; nothing reads it.
+6. Upgrade from this release's tag, not from `main`. `docker-compose.ghcr.yml` now names the release's images instead of `:latest`, and the Helm chart's image tags default to its release version (`appVersion`), so a release tag's config and images always match. Helm installs that set no image tag used to render a `<nil>` tag; they now get the chart's release version.
+
+The API host stays as it is for SDK, MCP and connector clients. Details: Self-Hosting → Environment Variables, Docker Compose and Kubernetes (Helm).
+
 ### Summary of Changes
 
 **Backend v0.22.0:**
