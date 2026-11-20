@@ -1,5 +1,5 @@
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
-import { hasServerCapability } from '@/utils/server-permissions';
+import { prefetch } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
 import { PROVIDER_TYPE_LOOKUP_FILTER } from '@/constants/model-types';
 import ModelsPageClient, {
@@ -14,10 +14,9 @@ import ModelsPageClient, {
  * fetch.
  */
 export default async function ModelsPage() {
-  let initialData: ModelsPageInitialData | undefined;
-
-  if (await hasServerCapability(Capability.Model.READ)) {
-    try {
+  const initialData = await prefetch<ModelsPageInitialData>(
+    Capability.Model.READ,
+    async () => {
       const factory = await createServerApiFactory();
       const [models, providerTypes, userSettings, statuses] = await Promise.all(
         [
@@ -41,18 +40,14 @@ export default async function ModelsPage() {
         ]
       );
 
-      initialData = JSON.parse(
-        JSON.stringify({
-          models: models.data,
-          providerTypes,
-          userSettings,
-          statuses,
-        } satisfies ModelsPageInitialData)
-      );
-    } catch {
-      // Fall back to the client fetch.
+      return {
+        models: models.data,
+        providerTypes,
+        userSettings,
+        statuses,
+      };
     }
-  }
+  );
 
   return <ModelsPageClient initialData={initialData} />;
 }

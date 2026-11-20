@@ -1,7 +1,7 @@
 import { Capability } from '@/constants/capabilities';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import type { UsageResponse } from '@/utils/api-client/usage-client';
-import { hasServerCapability } from '@/utils/server-permissions';
+import { prefetch } from '@/utils/server-prefetch';
 import { requireSession } from '@/utils/require-session';
 import UsagePageClient from './components/UsagePageClient';
 
@@ -14,15 +14,10 @@ import UsagePageClient from './components/UsagePageClient';
 export default async function OrganizationUsagePage() {
   await requireSession();
 
-  let initialUsage: UsageResponse | undefined;
-  if (await hasServerCapability(Capability.Usage.READ)) {
-    const factory = await createServerApiFactory();
-    initialUsage = await factory
-      .getUsageClient()
-      .getUsage()
-      .then(usage => JSON.parse(JSON.stringify(usage)) as UsageResponse)
-      .catch(() => undefined);
-  }
+  const initialUsage = await prefetch<UsageResponse>(
+    Capability.Usage.READ,
+    async () => (await createServerApiFactory()).getUsageClient().getUsage()
+  );
 
   return <UsagePageClient initialUsage={initialUsage} />;
 }
