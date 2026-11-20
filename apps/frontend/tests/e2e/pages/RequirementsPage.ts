@@ -170,7 +170,8 @@ export class RequirementsPage extends BasePage {
   /** Delete uses the icon-only control on the card header. */
   async clickDeleteOnCard(name: string) {
     const card = this.requirementCard(name);
-    await card.locator('button').click();
+    // The title is a button too (it opens the card), so pick Delete by name.
+    await card.getByRole('button', { name: /^Delete/ }).click();
   }
 
   /** Assign metrics from the requirement detail's linked Metrics tab. */
