@@ -49,6 +49,8 @@ export const INLINE_ICON_SIZE = 14;
 
 // Legend swatch square, same across every state chip in the legend row.
 export const LEGEND_SWATCH_SIZE = 10;
+/** Legend bars use the strip's height proportions at this full height. */
+export const LEGEND_BAR_HEIGHT = 14;
 
 export function gridMorphTransition(
   theme: Theme,

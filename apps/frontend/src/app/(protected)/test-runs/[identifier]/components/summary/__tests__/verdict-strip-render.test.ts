@@ -1,6 +1,7 @@
 import type { CellState } from '../verdict-model';
 import type { RunClockFrame } from '../run-clock';
 import {
+  cellHeight,
   paintStrip,
   shouldBin,
   describeStrip,
@@ -540,5 +541,76 @@ describe('alphaFor under reduced motion', () => {
     expect(alphaFor('failed', 0, palette, runningFrame(1), true)).toBe(
       palette.failed.alpha
     );
+  });
+});
+
+describe('bar heights in accessible-colours mode', () => {
+  it('draws failed bars taller than passed ones, on a shared baseline', () => {
+    const { ctx, calls } = fakeContext();
+    paintStrip(ctx, {
+      width: 60,
+      height: 20,
+      dpr: 1,
+      cells: ['passed', 'failed', 'pending'],
+      palette,
+      binned: false,
+      frame: runningFrame(),
+      reducedMotion: false,
+      shapeByState: true,
+    });
+
+    const [passed, failed, pending] = calls
+      .filter(c => c.method === 'roundRect')
+      .map(c => c.args as number[]);
+    // [x, y, w, h]: heights differ, and every bar ends at the bottom edge.
+    expect(failed[3]).toBe(20);
+    expect(passed[3]).toBe(10);
+    expect(pending[3]).toBe(5);
+    for (const [, y, , h] of [passed, failed, pending]) {
+      expect(y + h).toBe(20);
+    }
+  });
+
+  it('applies the same heights when the strip is binned', () => {
+    const { ctx, calls } = fakeContext();
+    paintStrip(ctx, {
+      width: 2,
+      height: 20,
+      dpr: 1,
+      cells: ['failed', 'failed', 'passed', 'passed'],
+      palette,
+      binned: true,
+      frame: runningFrame(),
+      reducedMotion: false,
+      shapeByState: true,
+    });
+
+    const rects = calls
+      .filter(c => c.method === 'fillRect')
+      .map(c => c.args as number[]);
+    expect(rects.map(r => r[3])).toEqual([20, 10]);
+  });
+
+  it('keeps every bar full height when the mode is off', () => {
+    const { ctx, calls } = fakeContext();
+    paintStrip(ctx, {
+      width: 60,
+      height: 20,
+      dpr: 1,
+      cells: ['passed', 'failed', 'pending'],
+      palette,
+      binned: false,
+      frame: runningFrame(),
+      reducedMotion: false,
+    });
+
+    const heights = calls
+      .filter(c => c.method === 'roundRect')
+      .map(c => (c.args as number[])[3]);
+    expect(heights).toEqual([20, 20, 20]);
+  });
+
+  it('never draws a bar shorter than 1px', () => {
+    expect(cellHeight('pending', 2, true)).toBe(1);
   });
 });
