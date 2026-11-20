@@ -259,15 +259,7 @@ This release includes the following component versions:
         if component != "platform":
             platform_entry += f"- **{format_component_name(component)} {version}**\n"
 
-    # Every release says whether self-hosters must act, so "None" is a statement, not a gap
-    upgrade_notes = take_upgrade_notes(changelog_path) or NO_UPGRADE_NOTES
-    platform_entry += f"\n{UPGRADE_NOTES_HEADING}\n\n{upgrade_notes}\n"
-
-    handwritten = take_unreleased(changelog_path)
-    if handwritten:
-        platform_entry += f"\n{handwritten}\n"
-
-    platform_entry += "\n### Summary of Changes\n\n"
+    summary = "\n### Summary of Changes\n\n"
 
     # Generate summaries for each component
     for component, version in component_versions.items():
@@ -277,31 +269,38 @@ This release includes the following component versions:
             commits = get_commits_since_tag(component, last_tag)
 
             component_name = format_component_name(component)
-            platform_entry += f"**{component_name} v{version}:**\n"
+            summary += f"**{component_name} v{version}:**\n"
 
-            summary = None
+            component_summary = None
             if api_key and commits:
-                summary = generate_component_summary_with_llm(
+                component_summary = generate_component_summary_with_llm(
                     api_key, component, version, commits, last_tag
                 )
 
-            if summary:
-                platform_entry += f"{summary}\n\n"
+            if component_summary:
+                summary += f"{component_summary}\n\n"
             elif commits:
-                platform_entry += f"{placeholder_entry(component)}\n"
+                summary += f"{placeholder_entry(component)}\n"
             else:
-                platform_entry += "Initial release or no significant changes.\n\n"
+                summary += "Initial release or no significant changes.\n\n"
 
-    platform_entry += "See individual component changelogs for detailed changes:\n"
+    summary += "See individual component changelogs for detailed changes:\n"
 
     for component in component_versions:
         if component != "platform" and component in COMPONENTS:
             changelog_path_rel = COMPONENTS[component].changelog_path
-            platform_entry += (
-                f"- [{format_component_name(component)} Changelog]({changelog_path_rel})\n"
-            )
+            summary += f"- [{format_component_name(component)} Changelog]({changelog_path_rel})\n"
 
-    platform_entry += "\n"
+    summary += "\n"
+
+    # Cut [Unreleased] only now, after the git calls above, so a failure leaves it intact.
+    # Every release says whether self-hosters must act, so "None" is a statement, not a gap.
+    upgrade_notes = take_upgrade_notes(changelog_path) or NO_UPGRADE_NOTES
+    platform_entry += f"\n{UPGRADE_NOTES_HEADING}\n\n{upgrade_notes}\n"
+    handwritten = take_unreleased(changelog_path)
+    if handwritten:
+        platform_entry += f"\n{handwritten}\n"
+    platform_entry += summary
 
     _insert_under_unreleased(changelog_path, platform_entry)
     success(f"Updated platform changelog: {PLATFORM_CHANGELOG}")
