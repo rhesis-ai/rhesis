@@ -47,7 +47,7 @@ import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import { BetaBadge } from '@/components/common/BetaBadge';
 import PageLoadingState from '@/components/common/PageLoadingState';
-import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
+import type { RequirementListItem } from '@/utils/api-client/interfaces/requirement';
 import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type { Status } from '@/utils/api-client/interfaces/status';
 import type { UUID } from 'crypto';
@@ -162,7 +162,7 @@ function MetricLinkedRequirements({
 
   // Assign drawer state
   const [assignOpen, setAssignOpen] = useState(false);
-  const [available, setAvailable] = useState<RequirementWithMetrics[]>([]);
+  const [available, setAvailable] = useState<RequirementListItem[]>([]);
   const [loadingAvailable, setLoadingAvailable] = useState(false);
 
   // Filter drawer state

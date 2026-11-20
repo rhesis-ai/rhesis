@@ -13,13 +13,13 @@ import { useRouter } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import MetricCard from '@/app/(protected)/metrics/components/MetricCard';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
-import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
+import type { RequirementListItem } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 
 interface RequirementMetricsViewerProps {
   open: boolean;
   onClose: () => void;
-  requirement: RequirementWithMetrics | null;
+  requirement: RequirementListItem | null;
   onRefresh: (removedMetricId?: string) => void;
 }
 
@@ -225,11 +225,11 @@ export default function RequirementMetricsViewer({
                           : undefined
                       }
                       title={metric.name}
-                      description={metric.description}
+                      description={metric.description ?? ''}
                       backend={metric.backend_type?.type_value}
                       metricType={metric.metric_type?.type_value}
-                      scoreType={metric.score_type}
-                      metricScope={metric.metric_scope}
+                      scoreType={metric.score_type ?? undefined}
+                      metricScope={metric.metric_scope ?? undefined}
                       usedIn={[requirement.name]}
                       showUsage={false}
                     />

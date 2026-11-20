@@ -1,4 +1,4 @@
-import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
+import type { RequirementListItem } from '@/utils/api-client/interfaces/requirement';
 
 export type RequirementsView = 'cards' | 'table';
 
@@ -24,7 +24,7 @@ export function storeRequirementsView(view: RequirementsView): void {
 }
 
 export interface HierarchyRow {
-  requirement: RequirementWithMetrics;
+  requirement: RequirementListItem;
   /** How many parents above it are also on this page. */
   depth: number;
 }
@@ -34,11 +34,9 @@ export interface HierarchyRow {
  * the page's own order otherwise. MUI X tree data is a Pro feature, so the
  * grouping is done here.
  */
-export function orderByHierarchy(
-  rows: RequirementWithMetrics[]
-): HierarchyRow[] {
+export function orderByHierarchy(rows: RequirementListItem[]): HierarchyRow[] {
   const onPage = new Set(rows.map(r => String(r.id)));
-  const childrenOf = new Map<string, RequirementWithMetrics[]>();
+  const childrenOf = new Map<string, RequirementListItem[]>();
   for (const row of rows) {
     const parentId = row.parent_id ?? row.parent?.id;
     if (parentId && onPage.has(String(parentId)) && parentId !== row.id) {
@@ -53,7 +51,7 @@ export function orderByHierarchy(
 
   const ordered: HierarchyRow[] = [];
   const seen = new Set<string>();
-  const emit = (row: RequirementWithMetrics, depth: number) => {
+  const emit = (row: RequirementListItem, depth: number) => {
     // Guards against a parent cycle in bad data.
     if (seen.has(String(row.id))) return;
     seen.add(String(row.id));
@@ -79,7 +77,7 @@ export interface CompletenessDot {
 /** Four checks a well-defined requirement passes. */
 export function completeness(
   requirement: Pick<
-    RequirementWithMetrics,
+    RequirementListItem,
     'description' | 'sources' | 'examples_count' | 'metrics'
   >
 ): CompletenessDot[] {

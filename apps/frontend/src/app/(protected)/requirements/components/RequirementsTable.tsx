@@ -18,7 +18,7 @@ import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRig
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import GridBadge from '@/components/common/GridBadge';
 import { BORDER_RADIUS } from '@/styles/theme';
-import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
+import type { RequirementListItem } from '@/utils/api-client/interfaces/requirement';
 import {
   completeness,
   orderByHierarchy,
@@ -26,7 +26,7 @@ import {
 } from './requirements-table';
 
 interface RequirementsTableProps {
-  requirements: RequirementWithMetrics[];
+  requirements: RequirementListItem[];
   loading: boolean;
   totalCount: number;
   page: number;
@@ -101,7 +101,7 @@ function NameCell({ row }: { row: TableRow }) {
 function CompletenessCell({
   requirement,
 }: {
-  requirement: RequirementWithMetrics;
+  requirement: RequirementListItem;
 }) {
   const dots = completeness(requirement);
   const title = dots

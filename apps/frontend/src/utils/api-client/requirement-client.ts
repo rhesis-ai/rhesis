@@ -6,6 +6,7 @@ import {
   RequirementUpdate,
   RequirementsQueryParams,
   RequirementWithMetrics,
+  RequirementListItem,
   RequirementExample,
   RequirementReview,
   RequirementOption,
@@ -22,7 +23,7 @@ export class RequirementClient extends BaseApiClient {
    */
   async getRequirementsPage(
     params: RequirementsQueryParams = {}
-  ): Promise<PaginatedResponse<RequirementWithMetrics>> {
+  ): Promise<PaginatedResponse<RequirementListItem>> {
     const {
       skip = 0,
       limit = 25,
@@ -31,7 +32,7 @@ export class RequirementClient extends BaseApiClient {
       $filter,
     } = params;
 
-    return this.fetchPaginated<RequirementWithMetrics>(
+    return this.fetchPaginated<RequirementListItem>(
       API_ENDPOINTS.requirements,
       {
         skip,
@@ -44,7 +45,7 @@ export class RequirementClient extends BaseApiClient {
     );
   }
 
-  async getRequirements<T = RequirementWithMetrics>(
+  async getRequirements<T = RequirementListItem>(
     params: RequirementsQueryParams = {}
   ): Promise<T[]> {
     const {
@@ -79,9 +80,9 @@ export class RequirementClient extends BaseApiClient {
   /**
    * Paginate through all requirements (page size 100) for lookups / filter drawers.
    * Pass `$select` to trim the response: the default shape inlines every
-   * requirement's full metric list, which callers rendering a name list don't need.
+   * requirement's linked metrics, which callers rendering a name list don't need.
    */
-  async getAllRequirements<T = RequirementWithMetrics>(
+  async getAllRequirements<T = RequirementListItem>(
     params: Omit<RequirementsQueryParams, 'skip' | 'limit'> = {}
   ): Promise<T[]> {
     return this.fetchAllPages((skip, limit) =>
@@ -106,14 +107,8 @@ export class RequirementClient extends BaseApiClient {
 
   async getRequirementsWithMetrics(
     params: Omit<RequirementsQueryParams, 'include'> = {}
-  ): Promise<RequirementWithMetrics[]> {
-    try {
-      // Since getRequirements now always returns RequirementWithMetrics, we can just call it directly
-      const result = await this.getRequirements(params);
-      return result;
-    } catch (error) {
-      throw error;
-    }
+  ): Promise<RequirementListItem[]> {
+    return this.getRequirements(params);
   }
 
   async createRequirement(

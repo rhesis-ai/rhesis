@@ -30,7 +30,7 @@ import { RequirementClient } from '@/utils/api-client/requirement-client';
 import { API_ENDPOINTS } from '@/utils/api-client/config';
 import { TagsClient } from '@/utils/api-client/tags-client';
 import { EntityType, type Tag } from '@/utils/api-client/interfaces/tag';
-import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
+import type { RequirementListItem } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 import RequirementCard from './RequirementCard';
 import RequirementDrawer, {
@@ -60,7 +60,7 @@ interface RequirementsClientProps {
   organizationId: UUID;
   userId?: UUID;
   /** Server-fetched first page — when present, skips the initial client fetch. */
-  initialData?: RequirementWithMetrics[];
+  initialData?: RequirementListItem[];
   initialTotalCount?: number;
 }
 
@@ -121,7 +121,7 @@ export default function RequirementsClient({
   // Metrics viewer state
   const [metricsViewerOpen, setMetricsViewerOpen] = React.useState(false);
   const [viewingRequirement, setViewingRequirement] =
-    React.useState<RequirementWithMetrics | null>(null);
+    React.useState<RequirementListItem | null>(null);
 
   // Search & filter state
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -196,7 +196,7 @@ export default function RequirementsClient({
    * to `rowsPerPage` after inserting keeps the rendered page from exceeding
    * what the pagination controls advertise.
    */
-  const insertRequirementSorted = (requirement: RequirementWithMetrics) => {
+  const insertRequirementSorted = (requirement: RequirementListItem) => {
     setTotalCount(prev => prev + 1);
     if (page !== 0) return;
     setRequirements(prev => {
@@ -458,7 +458,7 @@ export default function RequirementsClient({
     }
   };
 
-  const handleViewMetrics = (requirement: RequirementWithMetrics) => {
+  const handleViewMetrics = (requirement: RequirementListItem) => {
     setViewingRequirement(requirement);
     setMetricsViewerOpen(true);
   };
