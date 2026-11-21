@@ -39,6 +39,8 @@ interface AppShellProps {
 export interface SidebarCollapseContextValue {
   collapsed: boolean;
   toggle: () => void;
+  /** Set when the sidebar sits in the narrow-layout drawer; closes it. */
+  closeNav?: () => void;
 }
 
 export const SidebarCollapseContext =
@@ -74,7 +76,11 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
     return (
       <SidebarCollapseContext.Provider
         // Inside the overlay the sidebar is always fully expanded.
-        value={{ collapsed: false, toggle: () => setNavOpen(false) }}
+        value={{
+          collapsed: false,
+          toggle: () => {},
+          closeNav: () => setNavOpen(false),
+        }}
       >
         <SkipLink />
         <Box sx={{ minHeight: scaledVh(), bgcolor: 'background.default' }}>

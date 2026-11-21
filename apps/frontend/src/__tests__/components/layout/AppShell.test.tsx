@@ -130,9 +130,9 @@ describe('AppShell', () => {
     const originalMatchMedia = window.matchMedia;
     beforeEach(() => {
       (usePathname as jest.Mock).mockReturnValue('/projects');
-      // Every media query matches, so breakpoints.down('md') is true.
+      // Only max-width queries match, so breakpoints.down('md') is true.
       window.matchMedia = jest.fn().mockImplementation((query: string) => ({
-        matches: true,
+        matches: query.includes('max-width'),
         media: query,
         onchange: null,
         addListener: jest.fn(),
@@ -163,6 +163,26 @@ describe('AppShell', () => {
       expect(
         screen.getByRole('navigation', { name: 'Main navigation' })
       ).toBeVisible();
+    });
+
+    it('lets the sidebar close the drawer', async () => {
+      function CloseButton() {
+        const { closeNav } = React.useContext(SidebarCollapseContext);
+        return <button onClick={closeNav}>Close navigation</button>;
+      }
+      render(
+        <AppShell sidebar={<CloseButton />}>
+          <div>Content</div>
+        </AppShell>
+      );
+
+      const menu = screen.getByRole('button', { name: 'Open navigation' });
+      await userEvent.click(menu);
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Close navigation' })
+      );
+
+      expect(menu).toHaveAttribute('aria-expanded', 'false');
     });
   });
 });
