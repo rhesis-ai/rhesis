@@ -10,8 +10,9 @@ export default function VisuallyHidden({ sx, ...props }: BoxProps) {
       sx={[
         {
           position: 'absolute',
-          width: 1,
-          height: 1,
+          // Strings: in sx, a bare 1 means 100%.
+          width: '1px',
+          height: '1px',
           p: 0,
           m: -0.125,
           overflow: 'hidden',

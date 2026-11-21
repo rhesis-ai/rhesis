@@ -61,6 +61,7 @@ export default function ArchitectClient({
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+  const [deletingSession, setDeletingSession] = useState(false);
   const accessibilityMode = useAccessibilityMode();
 
   // No badge for the session that's open on screen -- this page streams that
@@ -355,10 +356,14 @@ export default function ArchitectClient({
       <DeleteModal
         open={sessionToDelete !== null}
         onClose={() => setSessionToDelete(null)}
-        onConfirm={() => {
-          if (sessionToDelete) void handleDeleteSession(sessionToDelete);
+        onConfirm={async () => {
+          if (!sessionToDelete) return;
+          setDeletingSession(true);
+          await handleDeleteSession(sessionToDelete);
+          setDeletingSession(false);
           setSessionToDelete(null);
         }}
+        isLoading={deletingSession}
         itemType="session"
         message={`Delete "${
           sessions.find(s => s.id === sessionToDelete)?.title || 'Untitled'
