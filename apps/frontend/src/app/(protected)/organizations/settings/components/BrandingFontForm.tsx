@@ -20,6 +20,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { BrandPreviewContext } from '@/components/providers/ThemeProvider';
 import { SectionCard } from '@/components/common/SectionCard';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { getDeploymentBranding } from '@/config/branding';
@@ -113,6 +114,7 @@ export default function BrandingFontForm({
   const [family, setFamily] = useState(font?.family ?? '');
   const [files, setFiles] = useState<SelectedFiles>({});
   const [busy, setBusy] = useState(false);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
 
   const hasSelection = Object.values(files).some(Boolean);
   const disabled = !canUpdateOrg || busy;
@@ -287,7 +289,7 @@ export default function BrandingFontForm({
                   size="small"
                   color="error"
                   disabled={busy}
-                  onClick={handleRemove}
+                  onClick={() => setConfirmResetOpen(true)}
                 >
                   Reset
                 </Button>
@@ -296,6 +298,17 @@ export default function BrandingFontForm({
           </Grid>
         )}
       </Grid>
+      <DeleteModal
+        open={confirmResetOpen}
+        onClose={() => setConfirmResetOpen(false)}
+        onConfirm={() => {
+          setConfirmResetOpen(false);
+          void handleRemove();
+        }}
+        title="Reset brand font"
+        message="Remove the brand font for everyone in your organization? The deployment default is used instead."
+        confirmButtonText="Reset"
+      />
     </SectionCard>
   );
 }

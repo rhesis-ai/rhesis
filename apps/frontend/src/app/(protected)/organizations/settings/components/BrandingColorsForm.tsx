@@ -28,6 +28,7 @@ import { BrandPreviewContext } from '@/components/providers/ThemeProvider';
 import { SECTION_GRID } from '@/styles/theme-constants';
 import { TEXT_CONTRAST } from '@/styles/contrast';
 import { SectionCard } from '@/components/common/SectionCard';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import EditableField from '@/components/common/EditableField';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -79,6 +80,7 @@ export default function BrandingColorsForm({
   const { previewBrandColors, clearBrandPreview } =
     useContext(BrandPreviewContext);
   const [resetting, setResetting] = useState(false);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
 
   const branding = brandingOf(organization);
   const stored = useMemo(
@@ -261,7 +263,7 @@ export default function BrandingColorsForm({
             size="small"
             color="error"
             disabled={resetting}
-            onClick={handleReset}
+            onClick={() => setConfirmResetOpen(true)}
           >
             Reset
           </Button>
@@ -278,6 +280,17 @@ export default function BrandingColorsForm({
         onPickerBlur={flushPickerSave}
         accessibleColors={accessibleColors}
         onToggleAccessibleColors={toggleAccessibleColors}
+      />
+      <DeleteModal
+        open={confirmResetOpen}
+        onClose={() => setConfirmResetOpen(false)}
+        onConfirm={() => {
+          setConfirmResetOpen(false);
+          void handleReset();
+        }}
+        title="Reset brand identity"
+        message="Clear the custom product name and colours for everyone in your organization? The deployment defaults are used instead."
+        confirmButtonText="Reset"
       />
     </SectionCard>
   );

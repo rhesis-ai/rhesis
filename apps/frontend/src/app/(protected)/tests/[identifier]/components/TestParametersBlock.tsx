@@ -12,6 +12,7 @@ import { Capability } from '@/constants/capabilities';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import JsonMonacoField from '@/app/(protected)/endpoints/[identifier]/components/JsonMonacoField';
 
 interface TestParametersBlockProps {
@@ -45,6 +46,7 @@ export default function TestParametersBlock({
   const [isEditing, setIsEditing] = React.useState(false);
   const [draft, setDraft] = React.useState('');
   const [isSaving, setIsSaving] = React.useState(false);
+  const [confirmClearOpen, setConfirmClearOpen] = React.useState(false);
 
   const startEditing = React.useCallback(() => {
     setDraft(hasParams ? JSON.stringify(currentParams, null, 2) : '{\n  \n}');
@@ -189,7 +191,7 @@ export default function TestParametersBlock({
                 size="small"
                 color="error"
                 startIcon={<DeleteIcon />}
-                onClick={handleClear}
+                onClick={() => setConfirmClearOpen(true)}
                 disabled={isSaving}
               >
                 Clear
@@ -221,6 +223,18 @@ export default function TestParametersBlock({
           No parameters defined
         </Typography>
       )}
+      <DeleteModal
+        open={confirmClearOpen}
+        onClose={() => setConfirmClearOpen(false)}
+        onConfirm={async () => {
+          await handleClear();
+          setConfirmClearOpen(false);
+        }}
+        isLoading={isSaving}
+        title="Clear test parameters"
+        message="Remove all parameters from this test? This cannot be undone."
+        confirmButtonText={isSaving ? 'Clearing...' : 'Clear'}
+      />
     </Box>
   );
 }

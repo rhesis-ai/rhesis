@@ -208,7 +208,7 @@ describe('FileAttachmentList', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('calls onDelete with file id when delete button is clicked', async () => {
+    it('calls onDelete with file id once the deletion is confirmed', async () => {
       const user = userEvent.setup();
       const onDelete = jest.fn();
 
@@ -228,7 +228,9 @@ describe('FileAttachmentList', () => {
       );
 
       await user.click(screen.getByRole('button', { name: /delete file/i }));
+      expect(onDelete).not.toHaveBeenCalled();
 
+      await user.click(screen.getByRole('button', { name: /^delete$/i }));
       expect(onDelete).toHaveBeenCalledWith('file-to-delete');
     });
   });

@@ -21,6 +21,7 @@ import {
   useThumbnailObjectUrl,
 } from '@/hooks/useFileQueries';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { DeleteModal } from '@/components/common/DeleteModal';
 
 interface FileAttachmentListProps {
   files: FileResponse[];
@@ -84,7 +85,7 @@ function FileRow({
   onDelete,
 }: {
   file: FileResponse;
-  onDelete?: (fileId: string) => void;
+  onDelete?: (file: FileResponse) => void;
 }) {
   const isImage = file.content_type.startsWith('image/');
   const contentUrl = useFileContentUrl(file.id);
@@ -183,7 +184,7 @@ function FileRow({
         )}
         {onDelete && (
           <Tooltip title="Delete file">
-            <IconButton size="small" onClick={() => onDelete(file.id)}>
+            <IconButton size="small" onClick={() => onDelete(file)}>
               <DeleteOutlineIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -198,6 +199,10 @@ export default function FileAttachmentList({
   isLoading = false,
   onDelete,
 }: FileAttachmentListProps) {
+  const [pendingDelete, setPendingDelete] = React.useState<FileResponse | null>(
+    null
+  );
+
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -217,8 +222,22 @@ export default function FileAttachmentList({
   return (
     <Box>
       {files.map(file => (
-        <FileRow key={file.id} file={file} onDelete={onDelete} />
+        <FileRow
+          key={file.id}
+          file={file}
+          onDelete={onDelete ? setPendingDelete : undefined}
+        />
       ))}
+      <DeleteModal
+        open={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete) onDelete?.(pendingDelete.id);
+          setPendingDelete(null);
+        }}
+        itemType="file"
+        message={`Delete "${pendingDelete?.filename ?? ''}"? This cannot be undone.`}
+      />
     </Box>
   );
 }
