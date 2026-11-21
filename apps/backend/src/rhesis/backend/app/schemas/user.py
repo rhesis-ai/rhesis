@@ -49,6 +49,11 @@ class UISettings(BaseModel):
     default_page_size: Optional[int] = Field(
         None, gt=0, le=100, description="Default pagination size"
     )
+    accessibility_mode: Optional[bool] = Field(
+        None,
+        description="Accessibility mode for this user. Adds to the organization's "
+        "setting; it cannot turn the mode off where the organization turned it on",
+    )
 
 
 class EmailNotificationSettings(BaseModel):

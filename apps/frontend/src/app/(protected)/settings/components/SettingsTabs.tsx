@@ -10,6 +10,7 @@ import ProfileForm from './ProfileForm';
 import SecuritySection from './SecuritySection';
 import NotificationsForm from './NotificationsForm';
 import PreferencesForm from './PreferencesForm';
+import AccessibilityPreferenceForm from './AccessibilityPreferenceForm';
 
 const TABS = [
   { id: 'profile', label: 'Profile' },
@@ -67,6 +68,7 @@ export default function SettingsTabs({ userSettings }: SettingsTabsProps) {
 
       <DetailTabPanel value={activeTab} index={1} prefix="settings">
         <PreferencesForm userSettings={userSettings} />
+        <AccessibilityPreferenceForm userSettings={userSettings} />
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={2} prefix="settings">

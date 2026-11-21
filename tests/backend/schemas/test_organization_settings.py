@@ -94,18 +94,18 @@ class TestWritesAreStrict:
             "branding": {"primary_color": None}
         }
 
-    def test_accessible_colors_is_writable_on_its_own(self):
-        """✅ Turning the contrast mode on must not touch the brand colours."""
-        update = OrganizationSettingsUpdate(branding={"accessible_colors": True})
+    def test_accessibility_mode_is_writable_on_its_own(self):
+        """✅ Turning the mode on must not touch the brand colours."""
+        update = OrganizationSettingsUpdate(accessibility={"mode": True})
 
         assert update.model_dump(exclude_unset=True, mode="json") == {
-            "branding": {"accessible_colors": True}
+            "accessibility": {"mode": True}
         }
 
-    def test_accessible_colors_rejects_a_non_boolean(self):
+    def test_accessibility_mode_rejects_a_non_boolean(self):
         """❌ Only a real on/off switch is stored."""
         with pytest.raises(ValidationError):
-            BrandingSettingsUpdate(accessible_colors="sometimes")
+            OrganizationSettingsUpdate(accessibility={"mode": "sometimes"})
 
 
 class TestFontDescriptor:
@@ -160,6 +160,20 @@ class TestReadsAreLenient:
         )
 
         assert font.weights == ["400"]
+
+    def test_reads_the_mode_saved_under_branding(self):
+        """✅ Settings saved before the accessibility section keep the mode on."""
+        settings = OrganizationSettings(branding={"accessible_colors": True})
+
+        assert settings.accessibility.mode is True
+
+    def test_the_accessibility_section_wins_over_the_old_key(self):
+        """✅ Turning the mode off later is not undone by the old value."""
+        settings = OrganizationSettings(
+            branding={"accessible_colors": True}, accessibility={"mode": False}
+        )
+
+        assert settings.accessibility.mode is False
 
     def test_defaults_to_an_empty_branding_section(self):
         """✅ An org that has never touched branding still reads cleanly."""

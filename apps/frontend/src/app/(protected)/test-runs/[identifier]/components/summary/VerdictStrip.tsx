@@ -46,7 +46,7 @@ function VerdictStripInner({
   paletteRef.current = palette;
   const reducedMotionRef = useRef(reducedMotion);
   reducedMotionRef.current = reducedMotion;
-  const shapeByState = Boolean(useTheme().palette.accessibleColors);
+  const shapeByState = Boolean(useTheme().palette.accessibilityMode);
   const shapeByStateRef = useRef(shapeByState);
   shapeByStateRef.current = shapeByState;
 

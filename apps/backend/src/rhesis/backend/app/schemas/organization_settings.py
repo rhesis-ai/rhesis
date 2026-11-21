@@ -8,7 +8,7 @@ values file to read the error, but somebody is standing in front of this form.
 """
 
 import re
-from typing import List, Literal, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -194,11 +194,6 @@ class BrandingSettings(BaseModel):
     font: Optional[BrandingFont] = Field(
         None, description="Uploaded brand font. Written by the upload endpoint"
     )
-    accessible_colors: Optional[bool] = Field(
-        None,
-        description="Raise every text and UI colour, brand colours included, "
-        "to WCAG 2.1 AA contrast",
-    )
 
     @field_validator("primary_color")
     @classmethod
@@ -235,7 +230,6 @@ class BrandingSettingsUpdate(BaseModel):
     secondary_color: Optional[str] = None
     product_name: Optional[str] = None
     font: Optional[BrandingGoogleFont] = None
-    accessible_colors: Optional[bool] = None
 
     @field_validator("primary_color")
     @classmethod
@@ -277,6 +271,26 @@ class DisplaySettingsUpdate(BaseModel):
     currency: Optional[Currency] = None
 
 
+class AccessibilitySettings(BaseModel):
+    """Accessibility for everyone in the organization. Lenient on read."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    mode: Optional[bool] = Field(
+        None,
+        description="Accessibility mode: WCAG 2.1 AA contrast for every text and UI "
+        "colour, brand colours included, plus extra cues and confirmations",
+    )
+
+
+class AccessibilitySettingsUpdate(BaseModel):
+    """Partial update to the accessibility section."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Optional[bool] = None
+
+
 class OrganizationSettings(BaseModel):
     """Complete organization settings schema. Lenient on read, like
     :class:`BrandingSettings` — a future section is dropped from the response
@@ -287,6 +301,21 @@ class OrganizationSettings(BaseModel):
     version: int = Field(1, description="Settings schema version")
     branding: BrandingSettings = Field(default_factory=BrandingSettings)
     display: DisplaySettings = Field(default_factory=DisplaySettings)
+    accessibility: AccessibilitySettings = Field(default_factory=AccessibilitySettings)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _read_legacy_accessible_colors(cls, data: Any) -> Any:
+        """Settings saved before the accessibility section kept the mode under
+        ``branding.accessible_colors``."""
+        if not isinstance(data, dict):
+            return data
+        branding = data.get("branding")
+        legacy = branding.get("accessible_colors") if isinstance(branding, dict) else None
+        accessibility = data.get("accessibility")
+        if legacy is None or (isinstance(accessibility, dict) and "mode" in accessibility):
+            return data
+        return {**data, "accessibility": {**(accessibility or {}), "mode": legacy}}
 
 
 class OrganizationSettingsUpdate(BaseModel):
@@ -296,6 +325,7 @@ class OrganizationSettingsUpdate(BaseModel):
 
     branding: Optional[BrandingSettingsUpdate] = None
     display: Optional[DisplaySettingsUpdate] = None
+    accessibility: Optional[AccessibilitySettingsUpdate] = None
 
 
 class OrganizationSettingsRead(OrganizationSettings):

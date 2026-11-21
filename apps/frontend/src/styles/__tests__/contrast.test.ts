@@ -77,13 +77,13 @@ describe('fillUnderText', () => {
   });
 });
 
-describe('accessible colours mode', () => {
+describe('accessibility mode', () => {
   describe.each(MODES)('%s mode', mode => {
     it.each(BRANDS.map(brand => [JSON.stringify(brand), brand]))(
       'keeps text and controls at AA for brand %s',
       (_label, brand) => {
         const { palette } = createTheme(
-          getDesignTokens(mode, { ...brand, accessibleColors: true })
+          getDesignTokens(mode, { ...brand, accessibilityMode: true })
         );
         const surfaces = SURFACES[mode];
 
@@ -120,7 +120,7 @@ describe('accessible colours mode', () => {
     );
 
     it('gives input borders 3:1', () => {
-      const tokens = getDesignTokens(mode, { accessibleColors: true });
+      const tokens = getDesignTokens(mode, { accessibilityMode: true });
       const border = tokens.components.MuiOutlinedInput.styleOverrides
         .notchedOutline.borderColor as string;
       expect(minRatio(border, SURFACES[mode])).toBeGreaterThanOrEqual(
@@ -131,7 +131,7 @@ describe('accessible colours mode', () => {
 
   it('changes nothing when off', () => {
     for (const mode of MODES) {
-      expect(getDesignTokens(mode, { accessibleColors: false })).toEqual(
+      expect(getDesignTokens(mode, { accessibilityMode: false })).toEqual(
         getDesignTokens(mode)
       );
     }

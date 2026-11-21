@@ -15,14 +15,14 @@ export interface StripPaintOptions {
   binned: boolean;
   frame: RunClockFrame;
   reducedMotion: boolean;
-  /** Accessible-colours mode: vary bar height by state (see cellHeight). */
+  /** Accessibility mode: vary bar height by state (see cellHeight). */
   shapeByState?: boolean;
 }
 
 const CELL_BORDER_RADIUS = 2;
 
 /**
- * Bar height per state, as a fraction of the strip, used in accessible-colours
+ * Bar height per state, as a fraction of the strip, used in accessibility
  * mode. Failures stand taller than passes so the strip reads without colour
  * (WCAG 1.4.1); bars sit on a shared baseline. Error keeps full height but is
  * drawn as an outline.

@@ -56,6 +56,7 @@ import { type Session } from 'next-auth';
 import ThemeContextProvider from '../components/providers/ThemeProvider';
 import {
   getServerBranding,
+  resolveAccessibilityMode,
   resolveBranding,
   brandFontFileName,
   brandFontUrl,
@@ -463,7 +464,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
       faviconUrl: deploymentBranding.faviconUrl,
       productName: deploymentBranding.productName,
       fontFamily: deploymentBranding.font?.family,
-      accessibleColors: deploymentBranding.accessibleColors,
+      accessibilityMode: deploymentBranding.accessibilityMode,
     },
   }).replace(/</g, '\\u003c')};`;
 
@@ -507,6 +508,12 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
   // calls (one from `LayoutContent`, one from whichever consumer — the
   // landing page or `TermsAcceptanceGate` — was also mounted).
   const initialQuickStart = await fetchQuickStartEnabledServer();
+
+  const accessibilityMode = resolveAccessibilityMode({
+    deployment: deploymentBranding.accessibilityMode,
+    organization: organization?.organization_settings?.accessibility?.mode,
+    user: initialUserSettings?.ui?.accessibility_mode,
+  });
 
   return (
     <html lang="en" suppressHydrationWarning data-theme-mode={storedThemeMode}>
@@ -566,7 +573,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
             primary: branding.primaryColor,
             secondary: branding.secondaryColor,
             fontFamily: branding.font?.family,
-            accessibleColors: branding.accessibleColors,
+            accessibilityMode,
           }}
         >
           <LayoutContent

@@ -544,7 +544,7 @@ describe('alphaFor under reduced motion', () => {
   });
 });
 
-describe('bar heights in accessible-colours mode', () => {
+describe('bar heights in accessibility mode', () => {
   it('draws failed bars taller than passed ones, on a shared baseline', () => {
     const { ctx, calls } = fakeContext();
     paintStrip(ctx, {

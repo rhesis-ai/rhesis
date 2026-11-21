@@ -1,23 +1,7 @@
 'use client';
 
-import React, {
-  useContext,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import {
-  Box,
-  Button,
-  FormControlLabel,
-  FormHelperText,
-  Grid,
-  InputAdornment,
-  Switch,
-  Tooltip,
-} from '@mui/material';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Box, Button, Grid, InputAdornment, Tooltip } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { getContrastRatio } from '@mui/system/colorManipulator';
 import { useRouter } from 'next/navigation';
@@ -96,14 +80,6 @@ export default function BrandingColorsForm({
 
   const hasCustomBranding =
     stored.primary_color || stored.secondary_color || stored.product_name;
-
-  const storedAccessibleColors = branding?.accessible_colors === true;
-  const [accessibleColors, setAccessibleColors] = useState(
-    storedAccessibleColors
-  );
-  useEffect(() => {
-    setAccessibleColors(storedAccessibleColors);
-  }, [storedAccessibleColors]);
 
   const [draft, setDraftState] = useState<BrandingDraft>(stored);
   const draftRef = useRef<BrandingDraft>(stored);
@@ -201,27 +177,6 @@ export default function BrandingColorsForm({
     saveField(field);
   };
 
-  // --- accessible colours (saved immediately, previewed live) ------------
-  const toggleAccessibleColors = async (checked: boolean) => {
-    setAccessibleColors(checked);
-    previewBrandColors({ accessibleColors: checked });
-    try {
-      await new ApiClientFactory()
-        .getOrganizationsClient()
-        .updateOrganizationSettings({
-          branding: { accessible_colors: checked },
-        });
-      scheduleRefresh();
-    } catch (err: unknown) {
-      setAccessibleColors(!checked);
-      previewBrandColors({ accessibleColors: !checked });
-      notifications.show(
-        err instanceof Error ? err.message : 'Failed to update colours',
-        { severity: 'error' }
-      );
-    }
-  };
-
   // --- reset (explicit action → immediate refresh) ----------------------
   const handleReset = async () => {
     if (refreshTimer.current) clearTimeout(refreshTimer.current);
@@ -282,8 +237,9 @@ export default function BrandingColorsForm({
         onSave={saveField}
         onPickerChange={handlePickerChange}
         onPickerBlur={flushPickerSave}
-        accessibleColors={accessibleColors}
-        onToggleAccessibleColors={toggleAccessibleColors}
+        accessibilityMode={
+          organization.organization_settings?.accessibility?.mode === true
+        }
       />
       <DeleteModal
         open={confirmResetOpen}
@@ -308,8 +264,7 @@ function BrandingFields({
   onSave,
   onPickerChange,
   onPickerBlur,
-  accessibleColors,
-  onToggleAccessibleColors,
+  accessibilityMode,
 }: {
   draft: BrandingDraft;
   setDraft: (
@@ -320,20 +275,19 @@ function BrandingFields({
   onSave: (field: keyof BrandingDraft) => void;
   onPickerChange: (field: ColorDraftField, value: string) => void;
   onPickerBlur: (field: ColorDraftField) => void;
-  accessibleColors: boolean;
-  onToggleAccessibleColors: (checked: boolean) => void;
+  /** The organization's accessibility mode, which fixes weak brand colours. */
+  accessibilityMode: boolean;
 }) {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const deployment = getDeploymentBranding();
   const theme = useTheme();
-  const accessibleHelpId = useId();
-  const forcedByDeployment = deployment.accessibleColors === true;
+  const forcedByDeployment = deployment.accessibilityMode === true;
 
   // Brand colours are also used as text (links, outlined buttons) on white.
   const belowAA = (value: string) => {
     const trimmed = value.trim();
     return (
-      !accessibleColors &&
+      !accessibilityMode &&
       !forcedByDeployment &&
       HEX_COLOR_PATTERN.test(trimmed) &&
       getContrastRatio(trimmed, theme.palette.common.white) < TEXT_CONTRAST
@@ -420,26 +374,6 @@ function BrandingFields({
           helperText={`Shown in page titles and the sidebar. Max ${MAX_PRODUCT_NAME_LENGTH} characters`}
         />
       </Grid>
-
-      <Grid size={12}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={accessibleColors || forcedByDeployment}
-              onChange={e => onToggleAccessibleColors(e.target.checked)}
-              disabled={!editable || disabled || forcedByDeployment}
-              slotProps={{ input: { 'aria-describedby': accessibleHelpId } }}
-            />
-          }
-          label="Accessible colours"
-        />
-        <FormHelperText id={accessibleHelpId}>
-          Raises text, buttons and field borders to WCAG 2.1 AA contrast in
-          light and dark mode. Brand colours keep their hue but may be shown
-          darker or lighter.
-          {forcedByDeployment && ' Turned on for this whole deployment.'}
-        </FormHelperText>
-      </Grid>
     </Grid>
   );
 }
@@ -484,7 +418,7 @@ function ColorField({
 }) {
   const trimmed = value.trim();
   const hint = lowContrast
-    ? `${helperText}. Below WCAG AA contrast on white; turn on Accessible colours to adjust it automatically.`
+    ? `${helperText}. Below WCAG AA contrast on white; turn on Accessibility mode under Preferences to adjust it automatically.`
     : helperText;
   const isValid = HEX_COLOR_PATTERN.test(trimmed);
 
