@@ -15,7 +15,8 @@ terraform {
 resource "random_bytes" "tsig_key" {
   length = 32
 
-  keepers = {
+  # null keeps the key; any value change generates a new one.
+  keepers = var.tsig_key_rotation == null ? null : {
     rotation = var.tsig_key_rotation
   }
 }

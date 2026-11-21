@@ -148,8 +148,9 @@ module "arc_gha_dev" {
 module "internal_dns_dev" {
   source = "../../modules/internal-dns/gcp"
 
-  project_id  = var.project_id
-  environment = "dev"
+  project_id        = var.project_id
+  environment       = "dev"
+  tsig_key_rotation = "2026-11-12"
 
   depends_on = [module.eso_dev]
 }
