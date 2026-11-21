@@ -15,9 +15,41 @@ export interface StripPaintOptions {
   binned: boolean;
   frame: RunClockFrame;
   reducedMotion: boolean;
+  /** Accessible-colours mode: vary bar height by state (see cellHeight). */
+  shapeByState?: boolean;
 }
 
 const CELL_BORDER_RADIUS = 2;
+
+/**
+ * Bar height per state, as a fraction of the strip, used in accessible-colours
+ * mode. Failures stand taller than passes so the strip reads without colour
+ * (WCAG 1.4.1); bars sit on a shared baseline. Error keeps full height but is
+ * drawn as an outline.
+ */
+const CELL_HEIGHT_FRACTION: Record<CellState, number> = {
+  failed: 1,
+  error: 1,
+  passed: 0.5,
+  scored: 0.25,
+  pending: 0.25,
+  na: 0.25,
+  generating: 0.25,
+  evaluating: 0.25,
+};
+
+/**
+ * Bar height in px for a state, at least 1px so every test stays visible.
+ * Without `shapeByState` every bar is full height, as in the default theme.
+ */
+export function cellHeight(
+  state: CellState,
+  stripHeight: number,
+  shapeByState = false
+): number {
+  if (!shapeByState) return stripHeight;
+  return Math.max(1, Math.round(stripHeight * CELL_HEIGHT_FRACTION[state]));
+}
 const MIN_CELL_WIDTH = 3;
 
 /**
@@ -201,7 +233,8 @@ function paintPerCell(
   ctx: CanvasRenderingContext2D,
   opts: StripPaintOptions
 ): void {
-  const { width, height, cells, palette, frame, reducedMotion } = opts;
+  const { width, height, cells, palette, frame, reducedMotion, shapeByState } =
+    opts;
   // No max: a strip with few tests fills the full width rather than
   // clustering a handful of fixed-size cells at the left edge.
   const drawWidth = width / cells.length;
@@ -222,8 +255,9 @@ function paintPerCell(
       tracePerCellShape(ctx, x + 0.5, 0.5, cellWidth - 1, height - 1);
       ctx.stroke();
     } else {
+      const h = cellHeight(state, height, shapeByState);
       ctx.fillStyle = entry.color;
-      tracePerCellShape(ctx, x, 0, cellWidth, height);
+      tracePerCellShape(ctx, x, height - h, cellWidth, h);
       ctx.fill();
     }
 
@@ -276,8 +310,9 @@ function paintBinned(
     // Bucket index drives the phase, so the frontier still reads as a
     // shimmering band a few buckets wide.
     ctx.globalAlpha = alphaFor(dominant, col, palette, frame, reducedMotion);
+    const h = cellHeight(dominant, height, opts.shapeByState);
     ctx.fillStyle = palette[dominant].color;
-    ctx.fillRect(col, 0, 1, height);
+    ctx.fillRect(col, height - h, 1, h);
   }
 
   ctx.globalAlpha = 1;

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, useCallback } from 'react';
+import { useTheme } from '@mui/material/styles';
 import type { CellState } from './verdict-model';
 import { useVerdictPalette, GEOMETRY, DURATIONS } from './summary-tokens';
 import { paintStrip, shouldBin } from './verdict-strip-render';
@@ -45,6 +46,9 @@ function VerdictStripInner({
   paletteRef.current = palette;
   const reducedMotionRef = useRef(reducedMotion);
   reducedMotionRef.current = reducedMotion;
+  const shapeByState = Boolean(useTheme().palette.accessibleColors);
+  const shapeByStateRef = useRef(shapeByState);
+  shapeByStateRef.current = shapeByState;
 
   const paint = useCallback((frame: RunClockFrame) => {
     const canvas = canvasRef.current;
@@ -78,6 +82,7 @@ function VerdictStripInner({
       binned,
       frame,
       reducedMotion: reducedMotionRef.current,
+      shapeByState: shapeByStateRef.current,
     });
   }, []);
 
@@ -102,10 +107,10 @@ function VerdictStripInner({
     return () => observer.disconnect();
   }, [clock]);
 
-  // Repaint when the data behind cellsAt changes.
+  // Repaint when the data behind cellsAt changes, or the bar shapes do.
   useEffect(() => {
     clock.poke();
-  }, [cellsAt, clock]);
+  }, [cellsAt, clock, shapeByState]);
 
   return (
     <div

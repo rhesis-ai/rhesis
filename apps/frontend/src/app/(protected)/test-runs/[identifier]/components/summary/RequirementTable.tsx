@@ -12,12 +12,15 @@ import {
   GRID_PADDING_X,
   INLINE_ICON_SIZE,
   LAST_COLUMN_LABEL,
+  LEGEND_BAR_HEIGHT,
   LEGEND_SWATCH_SIZE,
   gridMorphTransition,
   useVerdictPalette,
   type DensityMode,
 } from './summary-tokens';
 import type { TestTimingMap } from './verdict-timeline';
+import type { CellState } from './verdict-model';
+import { cellHeight } from './verdict-strip-render';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useRunClock } from './RunClockProvider';
 import type { VerdictMatrix } from '@/utils/api-client/interfaces/test-run';
@@ -246,33 +249,43 @@ function VerdictLegend() {
   const theme = useTheme();
   const palette = useVerdictPalette();
 
+  // In accessible-colours mode each swatch has its state's bar height, so the
+  // key works without colour.
   const items: {
+    state: CellState;
     label: string;
     color: string;
     outlined?: boolean;
     alpha?: number;
   }[] = [
-    { label: 'Passed', color: theme.palette.success.main },
-    { label: 'Failed', color: theme.palette.error.main },
-    { label: 'Pending', color: palette.pending.color },
+    { state: 'passed', label: 'Passed', color: theme.palette.success.main },
+    { state: 'failed', label: 'Failed', color: theme.palette.error.main },
+    { state: 'pending', label: 'Pending', color: palette.pending.color },
     // Generating and Evaluating share the same amber hue in the grid and are
     // told apart only by alpha (dim vs bright) and pulse rate -- a swatch
     // forced to full opacity would show them as identical. `alpha` here is
     // each state's resting value (pulse midpoint), the same faithful static
     // snapshot a legend can give for something that's actually animated.
     {
+      state: 'generating',
       label: 'Generating',
       color: palette.generating.color,
       alpha: palette.generating.alpha,
     },
     {
+      state: 'evaluating',
       label: 'Evaluating',
       color: palette.evaluating.color,
       alpha: palette.evaluating.alpha,
     },
-    { label: 'No verdict', color: palette.scored.color },
-    { label: 'Error', color: theme.palette.error.main, outlined: true },
-    { label: 'N/A', color: palette.na.color },
+    { state: 'scored', label: 'No verdict', color: palette.scored.color },
+    {
+      state: 'error',
+      label: 'Error',
+      color: theme.palette.error.main,
+      outlined: true,
+    },
+    { state: 'na', label: 'N/A', color: palette.na.color },
   ];
 
   return (
@@ -291,12 +304,21 @@ function VerdictLegend() {
       {items.map(item => (
         <Box
           key={item.label}
-          sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+          sx={{
+            display: 'flex',
+            // Bars share a baseline in accessible mode; squares stay centred.
+            alignItems: theme.palette.accessibleColors ? 'flex-end' : 'center',
+            gap: 0.5,
+          }}
         >
           <Box
+            aria-hidden
             sx={{
               width: LEGEND_SWATCH_SIZE,
-              height: LEGEND_SWATCH_SIZE,
+              height: theme.palette.accessibleColors
+                ? cellHeight(item.state, LEGEND_BAR_HEIGHT, true)
+                : LEGEND_SWATCH_SIZE,
+              boxSizing: 'border-box',
               borderRadius: 0.5,
               opacity: item.alpha ?? 1,
               ...(item.outlined
