@@ -11,6 +11,7 @@ import {
   Tooltip,
   IconButton,
   InputAdornment,
+  Link as MuiLink,
 } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
 import GitHubIcon from '@mui/icons-material/GitHub';
@@ -433,7 +434,8 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 fullWidth
                 size="small"
                 autoComplete="email"
-                autoFocus
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- only once the user asked for the email form
+                autoFocus={!isRegistration}
                 sx={fieldSx}
               />
               <TextField
@@ -501,16 +503,15 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                       <>
                         Verify your email address to keep using your account.
                         Check your inbox for the link, or{' '}
-                        <a
-                          href="#"
-                          onClick={e => {
-                            e.preventDefault();
-                            void handleResendVerification();
-                          }}
-                          style={{ color: 'inherit' }}
+                        <MuiLink
+                          component="button"
+                          type="button"
+                          color="inherit"
+                          onClick={() => void handleResendVerification()}
+                          sx={{ font: 'inherit', verticalAlign: 'baseline' }}
                         >
                           send a new one
-                        </a>
+                        </MuiLink>
                         .
                       </>
                     )}
@@ -528,17 +529,18 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                       title="We'll send you a link to sign in without a password"
                       arrow
                     >
-                      <a
-                        href="#"
-                        onClick={e => {
-                          e.preventDefault();
+                      <MuiLink
+                        component="button"
+                        type="button"
+                        color="inherit"
+                        onClick={() => {
                           setNeedsPasswordReset(false);
                           setShowMagicLink(true);
                         }}
-                        style={{ color: 'inherit' }}
+                        sx={{ font: 'inherit', verticalAlign: 'baseline' }}
                       >
                         sign in with a link
-                      </a>
+                      </MuiLink>
                     </Tooltip>{' '}
                     or{' '}
                     <Tooltip
@@ -637,6 +639,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
               fullWidth
               size="small"
               autoComplete="email"
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just opened this form
               autoFocus
               sx={fieldSx}
             />

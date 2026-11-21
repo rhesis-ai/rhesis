@@ -195,14 +195,19 @@ export function SidebarOnboardingRow({
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmOpen(false)}>Cancel</Button>
+          <Button
+            onClick={() => setConfirmOpen(false)}
+            // eslint-disable-next-line jsx-a11y/no-autofocus -- the safe choice gets focus
+            autoFocus
+          >
+            Cancel
+          </Button>
           <Button
             onClick={() => {
               dismissOnboarding();
               setConfirmOpen(false);
             }}
             variant="contained"
-            autoFocus
           >
             Hide
           </Button>

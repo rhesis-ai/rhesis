@@ -71,6 +71,7 @@ export default function ExplorerCreateDialog({
       <DialogTitle>New session</DialogTitle>
       <DialogContent>
         <TextField
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just opened this form
           autoFocus
           margin="dense"
           label="Name"

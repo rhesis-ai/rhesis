@@ -104,6 +104,7 @@ export default function ProjectAddEnvironmentDrawer({
             error={!!nameError && name.trim().length > 0}
             helperText={name.trim().length > 0 ? nameError : ' '}
             inputProps={{ maxLength: ENVIRONMENT_NAME_MAX_LENGTH }}
+            // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just opened this form
             autoFocus
             fullWidth
             sx={drawerOutlinedFieldSx}

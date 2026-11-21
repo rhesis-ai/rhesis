@@ -622,6 +622,7 @@ function AddTopicDialog({
           </Typography>
         )}
         <TextField
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just opened this form
           autoFocus
           label="Topic Name"
           fullWidth
@@ -740,6 +741,7 @@ function RenameTopicDialog({
           </Typography>
         )}
         <TextField
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just opened this form
           autoFocus
           label="New Name"
           fullWidth
@@ -890,6 +892,7 @@ function AddTestDialog({
           ))}
         </TextField>
         <TextField
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just opened this form
           autoFocus
           label="Input"
           placeholder="Enter the test prompt..."
@@ -1049,6 +1052,7 @@ function EditTestDialog({
           ))}
         </TextField>
         <TextField
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just opened this form
           autoFocus
           label="Input"
           fullWidth
@@ -3870,6 +3874,7 @@ export default function ExplorerDetail({
                   the model together with your existing tests.
                 </Typography>
                 <TextField
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just opened this form
                   autoFocus
                   multiline
                   minRows={3}

@@ -141,13 +141,19 @@ export function DeleteModal({
               disabled={isLoading}
               error={!!confirmError}
               helperText={confirmError}
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just opened this form
               autoFocus
             />
           </>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={isLoading}>
+        <Button
+          onClick={onClose}
+          disabled={isLoading}
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- the safe choice gets focus
+          autoFocus={!requireConfirmation}
+        >
           {cancelButtonText}
         </Button>
         <Button
@@ -155,7 +161,6 @@ export function DeleteModal({
           color="error"
           disabled={isConfirmDisabled}
           startIcon={isLoading ? <CircularProgress size={16} /> : undefined}
-          autoFocus={!requireConfirmation}
         >
           {defaultConfirmText}
         </Button>

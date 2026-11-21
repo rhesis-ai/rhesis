@@ -230,6 +230,7 @@ export default function ProjectCreateDrawer({
         label="Project Name*"
         value={formData.name}
         onChange={handleText('name')}
+        // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just opened this form
         autoFocus
         sx={drawerOutlinedFieldSx}
         error={nameInvalid}
