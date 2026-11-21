@@ -13,6 +13,8 @@ import { useRouter } from 'next/navigation';
 import { useNotifications } from '@/components/common/NotificationContext';
 import MetricCard from '@/app/(protected)/metrics/components/MetricCard';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import type { RequirementListItem } from '@/utils/api-client/interfaces/requirement';
 import type { UUID } from 'crypto';
 
@@ -46,6 +48,11 @@ export default function RequirementMetricsViewer({
   const theme = useTheme();
 
   const [isRemoving, setIsRemoving] = React.useState<string | null>(null);
+  const accessibilityMode = useAccessibilityMode();
+  const [pendingRemove, setPendingRemove] = React.useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const handleMetricDetail = (metricId: string) => {
     router.push(`/metrics/${metricId}`);
@@ -201,7 +208,14 @@ export default function RequirementMetricsViewer({
                       <IconButton
                         aria-label={`Remove ${metric.name}`}
                         size="small"
-                        onClick={() => handleRemoveMetric(metric.id)}
+                        onClick={() =>
+                          accessibilityMode
+                            ? setPendingRemove({
+                                id: metric.id,
+                                name: metric.name,
+                              })
+                            : handleRemoveMetric(metric.id)
+                        }
                         disabled={isRemoving === metric.id}
                         sx={{
                           padding: theme.spacing(0.25),
@@ -253,6 +267,17 @@ export default function RequirementMetricsViewer({
           </Box>
         </Box>
       )}
+      <DeleteModal
+        open={pendingRemove !== null}
+        onClose={() => setPendingRemove(null)}
+        onConfirm={() => {
+          if (pendingRemove) void handleRemoveMetric(pendingRemove.id);
+          setPendingRemove(null);
+        }}
+        title="Remove metric from requirement?"
+        message={`Unassign "${pendingRemove?.name ?? 'this metric'}" from this requirement? You can assign it again later.`}
+        confirmButtonText="Remove"
+      />
     </Drawer>
   );
 }

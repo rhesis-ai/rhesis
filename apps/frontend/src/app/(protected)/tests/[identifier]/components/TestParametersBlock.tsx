@@ -13,6 +13,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import JsonMonacoField from '@/app/(protected)/endpoints/[identifier]/components/JsonMonacoField';
 
 interface TestParametersBlockProps {
@@ -47,6 +48,7 @@ export default function TestParametersBlock({
   const [draft, setDraft] = React.useState('');
   const [isSaving, setIsSaving] = React.useState(false);
   const [confirmClearOpen, setConfirmClearOpen] = React.useState(false);
+  const accessibilityMode = useAccessibilityMode();
 
   const startEditing = React.useCallback(() => {
     setDraft(hasParams ? JSON.stringify(currentParams, null, 2) : '{\n  \n}');
@@ -191,7 +193,11 @@ export default function TestParametersBlock({
                 size="small"
                 color="error"
                 startIcon={<DeleteIcon />}
-                onClick={() => setConfirmClearOpen(true)}
+                onClick={
+                  accessibilityMode
+                    ? () => setConfirmClearOpen(true)
+                    : handleClear
+                }
                 disabled={isSaving}
               >
                 Clear

@@ -30,6 +30,7 @@ import SectionEmptyState from '@/components/common/SectionEmptyState';
 import GridBadge from '@/components/common/GridBadge';
 import SummaryCard from '@/components/common/SummaryCard';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import {
   createRowActionsColumn,
   rowActionsHoverSx,
@@ -567,6 +568,7 @@ export default function MetricTuningTab({
   const [rejecting, setRejecting] = useState<MetricTuningCase | null>(null);
   const [caseToDelete, setCaseToDelete] = useState<string | null>(null);
   const [deletingCase, setDeletingCase] = useState(false);
+  const accessibilityMode = useAccessibilityMode();
   const [run, setRun] = useState<MetricTuningRun | null>(
     initialData?.run ?? null
   );
@@ -936,12 +938,15 @@ export default function MetricTuningTab({
         canEdit: () => canEdit,
         canDelete: () => canEdit,
         onEdit: id => openEdit(id),
-        onDelete: id => setCaseToDelete(id),
+        onDelete: id =>
+          accessibilityMode ? setCaseToDelete(id) : handleDelete(id),
       }),
     ];
   }, [
     canEdit,
     openEdit,
+    accessibilityMode,
+    handleDelete,
     handleAccept,
     scoreType,
     hasReferenceAnswer,

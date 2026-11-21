@@ -25,6 +25,8 @@ import type {
   RequirementWithMetrics,
 } from '@/utils/api-client/interfaces/requirement';
 import { useIsAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import type { UUID } from 'crypto';
 import RequirementDrawer, {
   type RequirementDetailsInput,
@@ -68,6 +70,8 @@ export default function RequirementLinkedRequirements({
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | undefined>();
+  const accessibilityMode = useAccessibilityMode();
+  const [pendingUnlink, setPendingUnlink] = useState<string | null>(null);
 
   const fetchChildren = useCallback(async () => {
     setLoading(true);
@@ -176,12 +180,13 @@ export default function RequirementLinkedRequirements({
       },
       createRowActionsColumn({
         canDelete: () => canEdit,
-        onDelete: id => handleUnlink(id),
+        onDelete: id =>
+          accessibilityMode ? setPendingUnlink(id) : handleUnlink(id),
         deleteTooltip: 'Unlink',
         deleteIcon: LinkOffIcon,
       }),
     ],
-    [canEdit, handleUnlink]
+    [canEdit, handleUnlink, accessibilityMode]
   );
 
   const drawerColumns = useMemo<GridColDef[]>(
@@ -345,6 +350,20 @@ export default function RequirementLinkedRequirements({
         isNew
         loading={creating}
         error={createError}
+      />
+
+      <DeleteModal
+        open={pendingUnlink !== null}
+        onClose={() => setPendingUnlink(null)}
+        onConfirm={() => {
+          if (pendingUnlink) void handleUnlink(pendingUnlink);
+          setPendingUnlink(null);
+        }}
+        title="Unlink requirement?"
+        message={`Unlink "${
+          rows.find(r => r.id === pendingUnlink)?.name ?? 'this requirement'
+        }"? Both requirements stay; only the link between them is removed.`}
+        confirmButtonText="Unlink"
       />
     </>
   );

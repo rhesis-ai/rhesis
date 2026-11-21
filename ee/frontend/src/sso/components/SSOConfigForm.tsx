@@ -30,6 +30,7 @@ import { getBaseUrl } from '@/utils/url-resolver';
 import { SSOClient } from '../api/sso-client';
 import type { SSOConfig, SSOTestResult } from '../types';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 
 const DEFAULT_SSO_CONFIG: SSOConfig = {
   enabled: false,
@@ -107,6 +108,7 @@ export default function SSOConfigForm() {
   const [testing, setTesting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
+  const accessibilityMode = useAccessibilityMode();
   const [error, setError] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<SSOTestResult | null>(null);
   const [hasExistingConfig, setHasExistingConfig] = useState(false);
@@ -531,7 +533,11 @@ export default function SSOConfigForm() {
                       deleting ? <CircularProgress size={16} /> : <DeleteIcon />
                     }
                     // Removing SSO can lock members out; confirm first (3.3.4).
-                    onClick={() => setConfirmRemoveOpen(true)}
+                    onClick={
+                      accessibilityMode
+                        ? () => setConfirmRemoveOpen(true)
+                        : handleDelete
+                    }
                     disabled={deleting || saving}
                   >
                     Remove SSO

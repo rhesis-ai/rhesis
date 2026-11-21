@@ -22,6 +22,7 @@ import { architectSessionKeys } from '@/constants/query-keys';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import {
   clearResumeHint,
   pickResumableSessionId,
@@ -60,6 +61,7 @@ export default function ArchitectClient({
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+  const accessibilityMode = useAccessibilityMode();
 
   // No badge for the session that's open on screen -- this page streams that
   // session's own progress live. Another session completing still badges.
@@ -346,7 +348,9 @@ export default function ArchitectClient({
         onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
         onNewSession={handleNewSession}
         onSelectSession={handleSelectSession}
-        onDeleteSession={setSessionToDelete}
+        onDeleteSession={
+          accessibilityMode ? setSessionToDelete : handleDeleteSession
+        }
       />
       <DeleteModal
         open={sessionToDelete !== null}

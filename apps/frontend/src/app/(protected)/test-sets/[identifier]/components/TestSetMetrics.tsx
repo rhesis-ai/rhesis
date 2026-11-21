@@ -32,6 +32,8 @@ import type { UUID } from 'crypto';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { testSetKeys } from '@/constants/query-keys';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
+import { DeleteModal } from '@/components/common/DeleteModal';
 
 interface TestSetMetricsProps {
   testSetId: string;
@@ -67,6 +69,11 @@ export default function TestSetMetrics({ testSetId }: TestSetMetricsProps) {
   const { status } = useSession();
   const [isRemoving, setIsRemoving] = useState<string | null>(null);
   const [metricsDialogOpen, setMetricsDialogOpen] = useState(false);
+  const accessibilityMode = useAccessibilityMode();
+  const [pendingRemove, setPendingRemove] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const canEditTestSet = useCan(Capability.TestSet.UPDATE);
 
   const notifications = useNotifications();
@@ -296,7 +303,14 @@ export default function TestSetMetrics({ testSetId }: TestSetMetricsProps) {
               <Tooltip title="Remove metric from test set">
                 <IconButton
                   size="small"
-                  onClick={() => handleRemoveMetric(metric.id as string)}
+                  onClick={() =>
+                    accessibilityMode
+                      ? setPendingRemove({
+                          id: metric.id as string,
+                          name: String(metric.name ?? ''),
+                        })
+                      : handleRemoveMetric(metric.id as string)
+                  }
                   disabled={isRemoving === metric.id}
                   sx={{
                     position: 'absolute',
@@ -403,6 +417,17 @@ export default function TestSetMetrics({ testSetId }: TestSetMetricsProps) {
       </Typography>
 
       {metricsDialog}
+      <DeleteModal
+        open={pendingRemove !== null}
+        onClose={() => setPendingRemove(null)}
+        onConfirm={() => {
+          if (pendingRemove) void handleRemoveMetric(pendingRemove.id);
+          setPendingRemove(null);
+        }}
+        title="Remove metric from test set?"
+        message={`Remove "${pendingRemove?.name || 'this metric'}" from this test set? The metric itself is kept.`}
+        confirmButtonText="Remove"
+      />
     </Box>
   );
 }

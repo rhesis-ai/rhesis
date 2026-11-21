@@ -3,6 +3,13 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import BaseTag from '../BaseTag';
+import { TagsClient } from '@/utils/api-client/tags-client';
+import { EntityType } from '@/utils/api-client/interfaces/tag';
+
+let mockAccessibilityMode = false;
+jest.mock('@/hooks/useAccessibilityMode', () => ({
+  useAccessibilityMode: () => mockAccessibilityMode,
+}));
 
 // Mock API-related dependencies (not needed when no entity is provided)
 jest.mock('@/utils/api-client/client-factory', () => ({
@@ -122,6 +129,88 @@ describe('BaseTag', () => {
     await user.keyboard('{Backspace}');
 
     expect(onChange).toHaveBeenCalledWith(['first']);
+  });
+
+  // -------------------------------------------------------------------------
+  // Removing a tag saved on an entity
+  // -------------------------------------------------------------------------
+
+  describe('removing a saved tag', () => {
+    const entity = {
+      id: 'entity-1',
+      tags: [
+        { id: 'tag-1', name: 'first' },
+        { id: 'tag-2', name: 'second' },
+      ],
+    };
+    let removeTagFromEntity: jest.Mock;
+
+    beforeEach(() => {
+      removeTagFromEntity = jest.fn().mockResolvedValue(undefined);
+      (TagsClient as unknown as jest.Mock).mockImplementation(() => ({
+        removeTagFromEntity,
+      }));
+    });
+
+    afterEach(() => {
+      mockAccessibilityMode = false;
+    });
+
+    it('removes right away when accessibility mode is off', async () => {
+      const user = userEvent.setup();
+      renderTag(['first', 'second'], onChange, {
+        entity,
+        entityType: EntityType.TEST,
+      });
+
+      await user.click(screen.getByRole('combobox'));
+      await user.keyboard('{Backspace}');
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(removeTagFromEntity).toHaveBeenCalledWith(
+        EntityType.TEST,
+        'entity-1',
+        'tag-2'
+      );
+    });
+
+    it('asks first when accessibility mode is on', async () => {
+      mockAccessibilityMode = true;
+      const user = userEvent.setup();
+      renderTag(['first', 'second'], onChange, {
+        entity,
+        entityType: EntityType.TEST,
+      });
+
+      await user.click(screen.getByRole('combobox'));
+      await user.keyboard('{Backspace}');
+
+      expect(
+        await screen.findByText('Remove the tag "second" from this item?')
+      ).toBeInTheDocument();
+      expect(onChange).not.toHaveBeenCalled();
+      expect(removeTagFromEntity).not.toHaveBeenCalled();
+
+      await user.click(screen.getByRole('button', { name: 'Remove' }));
+      expect(onChange).toHaveBeenCalledWith(['first']);
+      expect(removeTagFromEntity).toHaveBeenCalledWith(
+        EntityType.TEST,
+        'entity-1',
+        'tag-2'
+      );
+    });
+
+    it('does not ask for unsaved form values', async () => {
+      mockAccessibilityMode = true;
+      const user = userEvent.setup();
+      renderTag(['first', 'second'], onChange);
+
+      await user.click(screen.getByRole('combobox'));
+      await user.keyboard('{Backspace}');
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(onChange).toHaveBeenCalledWith(['first']);
+    });
   });
 
   // -------------------------------------------------------------------------

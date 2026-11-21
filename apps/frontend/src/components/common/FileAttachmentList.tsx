@@ -22,6 +22,7 @@ import {
 } from '@/hooks/useFileQueries';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 
 interface FileAttachmentListProps {
   files: FileResponse[];
@@ -202,6 +203,7 @@ export default function FileAttachmentList({
   const [pendingDelete, setPendingDelete] = React.useState<FileResponse | null>(
     null
   );
+  const accessibilityMode = useAccessibilityMode();
 
   if (isLoading) {
     return (
@@ -225,7 +227,11 @@ export default function FileAttachmentList({
         <FileRow
           key={file.id}
           file={file}
-          onDelete={onDelete ? setPendingDelete : undefined}
+          onDelete={
+            onDelete
+              ? f => (accessibilityMode ? setPendingDelete(f) : onDelete(f.id))
+              : undefined
+          }
         />
       ))}
       <DeleteModal

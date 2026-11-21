@@ -36,6 +36,8 @@ import type {
 } from '@/utils/api-client/interfaces/requirement';
 import type { Source } from '@/utils/api-client/interfaces/source';
 import { useTypeLookups } from '@/hooks/useLookups';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import { BORDER_RADIUS } from '@/styles/theme';
 import UploadSourceDrawer from '../../../knowledge/components/UploadSourceDrawer';
 import type { UUID } from 'crypto';
@@ -76,6 +78,9 @@ export default function RequirementSourcesCard({
   const [noteTarget, setNoteTarget] = useState<RequirementSourceLink | null>(
     null
   );
+  const accessibilityMode = useAccessibilityMode();
+  const [unlinkTarget, setUnlinkTarget] =
+    useState<RequirementSourceLink | null>(null);
 
   const link = useCallback(
     async (sourceId: string, note: string | null = null) => {
@@ -170,7 +175,11 @@ export default function RequirementSourcesCard({
                 source={source}
                 editable={editable}
                 onEditNote={() => setNoteTarget(source)}
-                onRemove={() => void handleUnlink(source)}
+                onRemove={() =>
+                  accessibilityMode
+                    ? setUnlinkTarget(source)
+                    : void handleUnlink(source)
+                }
               />
             ))}
           </Stack>
@@ -273,6 +282,18 @@ export default function RequirementSourcesCard({
           await link(String(noteTarget.id), note);
           await onChanged();
         }}
+      />
+
+      <DeleteModal
+        open={unlinkTarget !== null}
+        onClose={() => setUnlinkTarget(null)}
+        onConfirm={() => {
+          if (unlinkTarget) void handleUnlink(unlinkTarget);
+          setUnlinkTarget(null);
+        }}
+        title="Unlink source?"
+        message={`Unlink "${unlinkTarget?.title ?? 'this source'}" from this requirement? The source itself is kept.`}
+        confirmButtonText="Unlink"
       />
     </Box>
   );

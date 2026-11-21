@@ -29,6 +29,7 @@ import { SECTION_GRID } from '@/styles/theme-constants';
 import { TEXT_CONTRAST } from '@/styles/contrast';
 import { SectionCard } from '@/components/common/SectionCard';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import EditableField from '@/components/common/EditableField';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -81,6 +82,7 @@ export default function BrandingColorsForm({
     useContext(BrandPreviewContext);
   const [resetting, setResetting] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const accessibilityMode = useAccessibilityMode();
 
   const branding = brandingOf(organization);
   const stored = useMemo(
@@ -263,7 +265,9 @@ export default function BrandingColorsForm({
             size="small"
             color="error"
             disabled={resetting}
-            onClick={() => setConfirmResetOpen(true)}
+            onClick={
+              accessibilityMode ? () => setConfirmResetOpen(true) : handleReset
+            }
           >
             Reset
           </Button>

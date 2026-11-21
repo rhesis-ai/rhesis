@@ -8,6 +8,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { SectionCard } from '@/components/common/SectionCard';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import {
@@ -46,6 +47,7 @@ export default function BrandingFaviconForm({
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const accessibilityMode = useAccessibilityMode();
 
   const favicon = brandingOf(organization)?.favicon;
   const warning = faviconWarning(favicon);
@@ -173,7 +175,11 @@ export default function BrandingFaviconForm({
                     size="small"
                     color="error"
                     disabled={busy}
-                    onClick={() => setConfirmResetOpen(true)}
+                    onClick={
+                      accessibilityMode
+                        ? () => setConfirmResetOpen(true)
+                        : handleRemove
+                    }
                   >
                     Reset
                   </Button>

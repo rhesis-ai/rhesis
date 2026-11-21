@@ -21,6 +21,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { BrandPreviewContext } from '@/components/providers/ThemeProvider';
 import { SectionCard } from '@/components/common/SectionCard';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { getDeploymentBranding } from '@/config/branding';
@@ -115,6 +116,7 @@ export default function BrandingFontForm({
   const [files, setFiles] = useState<SelectedFiles>({});
   const [busy, setBusy] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const accessibilityMode = useAccessibilityMode();
 
   const hasSelection = Object.values(files).some(Boolean);
   const disabled = !canUpdateOrg || busy;
@@ -289,7 +291,11 @@ export default function BrandingFontForm({
                   size="small"
                   color="error"
                   disabled={busy}
-                  onClick={() => setConfirmResetOpen(true)}
+                  onClick={
+                    accessibilityMode
+                      ? () => setConfirmResetOpen(true)
+                      : handleRemove
+                  }
                 >
                   Reset
                 </Button>

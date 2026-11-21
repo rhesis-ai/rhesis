@@ -30,6 +30,7 @@ import { can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { Capability } from '@/constants/capabilities';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import { detailPageTitle } from '@/utils/document-title';
 import type {
   ReportDetail,
@@ -86,6 +87,11 @@ export default function ReportDetailClient({
   const [confirmPublish, setConfirmPublish] = React.useState(false);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  const accessibilityMode = useAccessibilityMode();
+  const [pendingRemoval, setPendingRemoval] = React.useState<{
+    kind: 'run' | 'requirement';
+    id: string;
+  } | null>(null);
   const [editing, setEditing] = React.useState<'runs' | 'requirements' | null>(
     null
   );
@@ -128,6 +134,22 @@ export default function ReportDetailClient({
           : 'Failed to update the report'
       )
     );
+
+  const removeRequirement = (id: string) =>
+    remove(current => ({
+      requirement_ids: current.requirement_ids.filter(r => String(r) !== id),
+    }));
+  const removeRun = (id: string) =>
+    remove(current => ({
+      test_run_ids: current.test_run_ids.filter(r => String(r) !== id),
+    }));
+  const pendingRemovalName =
+    pendingRemoval?.kind === 'run'
+      ? report.metrics?.runs?.find(r => String(r.id) === pendingRemoval.id)
+          ?.name
+      : report.metrics?.requirements?.find(
+          r => String(r.id) === pendingRemoval?.id
+        )?.name;
 
   const exportPdf = () =>
     run(async () => {
@@ -264,11 +286,9 @@ export default function ReportDetailClient({
           onRemove={
             canEdit
               ? id =>
-                  remove(current => ({
-                    requirement_ids: current.requirement_ids.filter(
-                      r => String(r) !== id
-                    ),
-                  }))
+                  accessibilityMode
+                    ? setPendingRemoval({ kind: 'requirement', id })
+                    : removeRequirement(id)
               : undefined
           }
         />
@@ -280,11 +300,9 @@ export default function ReportDetailClient({
             // A tag decides the runs of a tag report; change the tag instead.
             canEdit && !report.run_tag
               ? id =>
-                  remove(current => ({
-                    test_run_ids: current.test_run_ids.filter(
-                      r => String(r) !== id
-                    ),
-                  }))
+                  accessibilityMode
+                    ? setPendingRemoval({ kind: 'run', id })
+                    : removeRun(id)
               : undefined
           }
         />
@@ -365,6 +383,29 @@ export default function ReportDetailClient({
         isLoading={busy}
         itemName={report.title}
         itemType="report"
+      />
+
+      <DeleteModal
+        open={pendingRemoval !== null}
+        onClose={() => setPendingRemoval(null)}
+        onConfirm={() => {
+          if (pendingRemoval?.kind === 'run') void removeRun(pendingRemoval.id);
+          if (pendingRemoval?.kind === 'requirement')
+            void removeRequirement(pendingRemoval.id);
+          setPendingRemoval(null);
+        }}
+        title={
+          pendingRemoval?.kind === 'run'
+            ? 'Remove test run from report?'
+            : 'Remove requirement from report?'
+        }
+        message={`Remove "${
+          pendingRemovalName ??
+          (pendingRemoval?.kind === 'run'
+            ? 'this test run'
+            : 'this requirement')
+        }" from this report? You can add it again while the report is a draft.`}
+        confirmButtonText="Remove"
       />
     </PageLayout>
   );
