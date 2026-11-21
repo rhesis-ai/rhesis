@@ -159,17 +159,30 @@ jobs:
               body: `<details><summary>Terraform Plan — <code>${{ steps.tf_setup.outputs.target_env }}</code></summary>\n\n\`\`\`\n${body}\n\`\`\`\n</details>`
             });
 
-      # The lock file goes with the plan so apply's `terraform init` picks the
-      # same provider builds; without it, init can resolve a different build of
-      # the same version (OJFord/wireguard 0.4.1 vs 0.4.1+2) and apply refuses
-      # the saved plan.
+      # A saved plan holds the prior state in plaintext, and artifacts on this
+      # public repo can be downloaded by anyone signed in. So the plan is only
+      # kept when an apply will use it, and only encrypted. The lock file goes
+      # with it so apply's `terraform init` picks the same provider builds.
+      - name: Encrypt plan for apply
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+        working-directory: terraform/infrastructure/envs/${{ steps.tf_setup.outputs.target_env }}
+        env:
+          TFPLAN_PASSPHRASE: ${{ secrets.TFPLAN_PASSPHRASE }}
+        run: |
+          if [ -z "$TFPLAN_PASSPHRASE" ]; then
+            echo "::error::TFPLAN_PASSPHRASE is not set; refusing to upload an unencrypted plan."
+            exit 1
+          fi
+          tar -cf - tfplan .terraform.lock.hcl \
+            | gpg --batch --yes --symmetric --cipher-algo AES256 --passphrase-fd 3 \
+                -o tfplan.tar.gpg 3<<<"$TFPLAN_PASSPHRASE"
+          rm -f tfplan
+
       - uses: actions/upload-artifact@v7
+        if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
         with:
           name: tfplan-${{ steps.tf_setup.outputs.target_env }}
-          path: |
-            terraform/infrastructure/envs/${{ steps.tf_setup.outputs.target_env }}/tfplan
-            terraform/infrastructure/envs/${{ steps.tf_setup.outputs.target_env }}/.terraform.lock.hcl
-          include-hidden-files: true
+          path: terraform/infrastructure/envs/${{ steps.tf_setup.outputs.target_env }}/tfplan.tar.gpg
           if-no-files-found: error
           retention-days: 1
 
@@ -197,6 +210,10 @@ jobs:
     # relied on in general.
     environment: ${{ needs.plan.outputs.target_env }}
     if: github.event_name == 'workflow_dispatch' && inputs.action == 'apply'
+    permissions:
+      contents: read
+      id-token: write
+      actions: write # delete the encrypted plan artifact after use
 
     steps:
       - uses: actions/checkout@v6
@@ -222,6 +239,24 @@ jobs:
         with:
           name: tfplan-${{ needs.plan.outputs.target_env }}
           path: terraform/infrastructure/envs/${{ needs.plan.outputs.target_env }}
+
+      - name: Decrypt plan
+        working-directory: terraform/infrastructure/envs/${{ needs.plan.outputs.target_env }}
+        env:
+          TFPLAN_PASSPHRASE: ${{ secrets.TFPLAN_PASSPHRASE }}
+        run: |
+          gpg --batch --quiet --decrypt --passphrase-fd 3 tfplan.tar.gpg 3<<<"$TFPLAN_PASSPHRASE" | tar -xf -
+          rm -f tfplan.tar.gpg
+
+      # The artifact is no longer needed once decrypted; don't leave it around.
+      - name: Delete plan artifact
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+            -q '.artifacts[] | select(.name == "tfplan-${{ needs.plan.outputs.target_env }}") | .id' \
+            | xargs -r -I{} gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/{}"
 
       - name: Init
         working-directory: terraform/infrastructure/envs/${{ needs.plan.outputs.target_env }}
