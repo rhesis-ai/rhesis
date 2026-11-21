@@ -202,6 +202,7 @@ function HintCard({
               onChange={e => setDraft(e.target.value)}
               multiline
               minRows={3}
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just opened this form
               autoFocus
               fullWidth
               sx={{ mt: 1 }}

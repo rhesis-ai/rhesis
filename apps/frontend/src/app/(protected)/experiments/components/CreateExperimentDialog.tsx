@@ -92,6 +92,7 @@ export default function CreateExperimentDialog({
           value={name}
           onChange={e => setName(e.target.value)}
           fullWidth
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just opened this form
           autoFocus
           sx={drawerOutlinedFieldSx}
         />

@@ -79,6 +79,7 @@ export default function MetricTuningRejectDialog({
             fullWidth
             multiline
             minRows={3}
+            // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just opened this form
             autoFocus
             placeholder="This answer is toxic, so a passing score is wrong."
             helperText="Required. Whoever rewrites the evaluation prompt reads this."

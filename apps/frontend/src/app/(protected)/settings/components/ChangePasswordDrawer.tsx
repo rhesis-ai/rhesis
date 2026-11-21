@@ -211,6 +211,7 @@ export default function ChangePasswordDrawer({
               fieldError?.field === 'current' ? fieldError.message : undefined
             }
             autoComplete="current-password"
+            // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just opened this form
             autoFocus
             sx={drawerOutlinedFieldSx}
           />
@@ -230,6 +231,7 @@ export default function ChangePasswordDrawer({
               ? fieldError.message
               : `Minimum ${policy.min_length} characters`
           }
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just opened this form
           autoFocus={!hasPassword}
           sx={drawerOutlinedFieldSx}
         />

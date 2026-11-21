@@ -108,6 +108,7 @@ export default function CreateTokenDrawer({
           InputProps={{ readOnly: true }}
         />
         <TextField
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- the user just opened this form
           autoFocus
           label="Token Name"
           fullWidth

@@ -108,7 +108,6 @@ export default function ForgotPasswordPage() {
               fullWidth
               size="small"
               autoComplete="email"
-              autoFocus
               sx={field}
             />
             {error && (

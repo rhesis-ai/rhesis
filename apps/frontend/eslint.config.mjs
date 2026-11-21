@@ -11,21 +11,6 @@ import {
   selectLabel,
 } from './eslint-rules/mui-accessible-name.mjs';
 
-// Recommended jsx-a11y rules, downgraded to warn while existing violations are
-// fixed. Rules the preset turns off stay off.
-const JSX_A11Y_RECOMMENDED_AS_WARN = Object.fromEntries(
-  Object.entries(pluginJsxA11y.flatConfigs.recommended.rules).map(
-    ([rule, setting]) => {
-      const level = Array.isArray(setting) ? setting[0] : setting;
-      if (level === 'off' || level === 0) return [rule, setting];
-      return [
-        rule,
-        Array.isArray(setting) ? ['warn', ...setting.slice(1)] : 'warn',
-      ];
-    }
-  )
-);
-
 // Prevent dark-mode regressions: GREYSCALE.light.* and GREYSCALE.dark.* are
 // raw static tokens; use theme.palette.greyscale.* in sx callbacks instead.
 // Shared across three rule blocks below (the base ruleset, and the two
@@ -159,10 +144,10 @@ export default [
       'react/jsx-uses-vars': 'error',
 
       // Accessibility
-      ...JSX_A11Y_RECOMMENDED_AS_WARN,
-      'rhesis-a11y/icon-button-name': 'warn',
-      'rhesis-a11y/select-label': 'warn',
-      'rhesis-a11y/progress-name': 'warn',
+      ...pluginJsxA11y.flatConfigs.recommended.rules,
+      'rhesis-a11y/icon-button-name': 'error',
+      'rhesis-a11y/select-label': 'error',
+      'rhesis-a11y/progress-name': 'error',
 
       // GREYSCALE guard (see GREYSCALE_NO_RESTRICTED_SYNTAX above), plus:
       //
@@ -236,9 +221,11 @@ export default [
     },
   },
   {
-    // Test doubles render IconButtons that never reach a user.
+    // Test doubles render controls that never reach a user.
     files: ['**/__tests__/**', '**/*.test.{ts,tsx}'],
     rules: {
+      'jsx-a11y/click-events-have-key-events': 'off',
+      'jsx-a11y/interactive-supports-focus': 'off',
       'rhesis-a11y/icon-button-name': 'off',
       'rhesis-a11y/select-label': 'off',
       'rhesis-a11y/progress-name': 'off',
