@@ -32,8 +32,8 @@ function minRatio(color: string, backgrounds: readonly string[]): number {
 
 /**
  * `ensureContrast` from brand-palette, against several backgrounds at once: it
- * keeps lifting against the worst one until all pass. Colours that already pass
- * are returned unchanged. `backgrounds` may depend on the colour itself (a tint
+ * keeps lifting against the worst one until all clear `ratio` plus HEADROOM.
+ * Colours that already do are returned unchanged. `backgrounds` may depend on the colour itself (a tint
  * of it), so it is re-evaluated each pass.
  */
 export function ensureContrastOnAll(
@@ -59,7 +59,7 @@ export function ensureContrastOnAll(
   return mode === 'light' ? '#000000' : '#FFFFFF';
 }
 
-/** The most preferred text colour that reaches 4.5:1 on `fill`, else the best one. */
+/** The most preferred text colour that reaches 4.5:1 plus HEADROOM on `fill`, else the best one. */
 export function textOnFill(fill: string): string {
   const passing = TEXT_ON_FILL.find(
     text => getContrastRatio(text, fill) >= TEXT_CONTRAST + HEADROOM
