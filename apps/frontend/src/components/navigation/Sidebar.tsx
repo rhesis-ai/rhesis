@@ -222,7 +222,8 @@ function UsageMenuRow({ resource, item, zone }: UsageRow) {
 
 export function Sidebar() {
   const { navigation, branding } = useNavigationItems();
-  const { collapsed, toggle } = useSidebarCollapse();
+  const { collapsed, toggle, closeNav } = useSidebarCollapse();
+  const collapseLabel = closeNav ? 'Close navigation' : 'Collapse sidebar';
   const { data: session } = useSession();
   const user = session?.user as ExtendedUser | undefined;
   const { toggleColorMode, mode } = useContext(ColorModeContext);
@@ -635,11 +636,11 @@ export function Sidebar() {
                 mr: `-${TOGGLE_NUDGE_RIGHT_PX}px`,
               }}
             >
-              <Tooltip title="Collapse sidebar" placement="right">
+              <Tooltip title={collapseLabel} placement="right">
                 <IconButton
-                  onClick={toggle}
+                  onClick={closeNav ?? toggle}
                   size="small"
-                  aria-label="Collapse sidebar"
+                  aria-label={collapseLabel}
                   sx={{
                     p: `${TOGGLE_BUTTON_PADDING_PX}px`,
                     borderRadius: BORDER_RADIUS.md,
