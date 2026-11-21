@@ -94,10 +94,17 @@ export async function CodeBlock({
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
+      gap: '8px',
     },
     headerLeft: {
       display: 'flex',
       alignItems: 'center',
+      // Lets a long filename shrink on narrow screens instead of pushing the copy button out.
+      minWidth: 0,
+    },
+    filename: {
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
     },
     dots: {
       display: 'flex',
@@ -134,11 +141,20 @@ export async function CodeBlock({
             <div style={{ ...styles.dot, ...styles.yellowDot }}></div>
             <div style={{ ...styles.dot, ...styles.blueDot }}></div>
           </div>
-          <span>{filename}</span>
+          <span style={styles.filename} title={filename}>
+            {filename}
+          </span>
         </div>
         <CopyButton code={code} />
       </div>
-      <div style={styles.content} dangerouslySetInnerHTML={{ __html: highlighted }} />
+      {/* Focusable so wide code can be scrolled with the keyboard. */}
+      <div
+        style={styles.content}
+        tabIndex={0}
+        role="region"
+        aria-label={filename}
+        dangerouslySetInnerHTML={{ __html: highlighted }}
+      />
     </div>
   )
 }

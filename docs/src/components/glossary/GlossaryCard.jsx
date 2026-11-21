@@ -69,8 +69,8 @@ export const GlossaryCard = ({ term }) => {
     fontWeight: '500',
     borderRadius: '12px',
     backgroundColor: 'transparent',
-    color: '#0ea5e9',
-    border: '1.5px solid #0ea5e9',
+    color: 'var(--rh-blue-text)',
+    border: '1.5px solid var(--rh-blue-text)',
     marginBottom: '0.75rem',
     textDecoration: 'none',
     transition: 'all 0.2s',
@@ -113,7 +113,7 @@ export const GlossaryCard = ({ term }) => {
 
   const relatedTermStyles = {
     fontSize: '0.875rem',
-    color: '#0ea5e9',
+    color: 'var(--rh-blue-text)',
     textDecoration: 'none',
     padding: '0.375rem 0.75rem',
     borderRadius: '16px',
@@ -143,12 +143,12 @@ export const GlossaryCard = ({ term }) => {
           href={`/glossary?category=${encodeURIComponent(term.category)}`}
           style={categoryBadgeStyles}
           onMouseEnter={e => {
-            e.currentTarget.style.backgroundColor = '#0ea5e9'
-            e.currentTarget.style.color = '#ffffff'
+            e.currentTarget.style.backgroundColor = 'var(--rh-blue-fill)'
+            e.currentTarget.style.color = 'var(--rh-on-accent)'
           }}
           onMouseLeave={e => {
             e.currentTarget.style.backgroundColor = 'transparent'
-            e.currentTarget.style.color = '#0ea5e9'
+            e.currentTarget.style.color = 'var(--rh-blue-text)'
           }}
         >
           <LabelIcon style={{ fontSize: '14px' }} />
@@ -197,13 +197,13 @@ export const GlossaryCard = ({ term }) => {
                   href={`/glossary/${relatedId}`}
                   style={relatedTermStyles}
                   onMouseEnter={e => {
-                    e.currentTarget.style.backgroundColor = '#0ea5e9'
-                    e.currentTarget.style.color = '#ffffff'
+                    e.currentTarget.style.backgroundColor = 'var(--rh-blue-fill)'
+                    e.currentTarget.style.color = 'var(--rh-on-accent)'
                     e.currentTarget.style.transform = 'translateY(-1px)'
                   }}
                   onMouseLeave={e => {
                     e.currentTarget.style.backgroundColor = 'rgba(14, 165, 233, 0.1)'
-                    e.currentTarget.style.color = '#0ea5e9'
+                    e.currentTarget.style.color = 'var(--rh-blue-text)'
                     e.currentTarget.style.transform = 'translateY(0)'
                   }}
                 >

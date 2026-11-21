@@ -41,7 +41,11 @@
   --rh-link: var(--rh-text);
   --rh-link-hover: var(--rh-blue-cta);
   --rh-code-bg: var(--rh-surface-sunken);
-  --rh-code-text: var(--rh-blue-cta);
+  --rh-code-text: var(--rh-blue-text);
+  /* Brand blue as text: 4.5:1 or more on every light surface (WCAG 1.4.3) */
+  --rh-blue-text: #087099;
+  /* Saturated brand fill under white text, in both themes */
+  --rh-blue-fill: #087099;
   --rh-accent-bg: rgba(80, 185, 224, 0.1);
   --rh-accent-bg-subtle: rgba(80, 185, 224, 0.06);
   /* Text on a saturated brand fill — white in both themes */
@@ -63,6 +67,8 @@
   --rh-codeblock-border: #2c2c2c;
   --rh-codeblock-text: #e6edf3;
   --rh-codeblock-text-muted: #a9b1bb;
+  /* Syntax comments; the Shiki theme's own grey is below 4.5:1 here */
+  --rh-codeblock-comment: #8b949e;
   /* Copy button: outline/hover fill, and the confirmed-copy state */
   --rh-codeblock-control-border: #30363d;
   --rh-codeblock-success: #238636;
@@ -127,6 +133,7 @@
   --rh-link-hover: var(--rh-blue-hover);
   --rh-code-bg: #1f2937;
   --rh-code-text: var(--rh-blue-hover);
+  --rh-blue-text: var(--rh-blue-hover);
   --rh-accent-bg: rgba(42, 161, 206, 0.2);
   --rh-accent-bg-subtle: rgba(42, 161, 206, 0.12);
   --rh-active-bg: rgba(255, 255, 255, 0.09);

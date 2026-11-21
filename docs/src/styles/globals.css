@@ -875,6 +875,11 @@ aside nav a[class*='text-primary'],
   background: transparent !important;
 }
 
+/* The Shiki theme's comment grey (#6A737D) is 3.6:1 on the block surface. */
+.rhesis-codeblock span[style*='6a737d' i] {
+  color: var(--rh-codeblock-comment) !important;
+}
+
 /* InfoCard Component Styles */
 .info-card {
   --border-color: var(--rh-border);
@@ -1288,7 +1293,7 @@ div.mermaid svg {
   --table-header-bg: var(--rh-surface-alt);
   --text-primary: var(--rh-text);
   --code-bg: var(--rh-surface-sunken);
-  --code-text: var(--rh-blue-cta);
+  --code-text: var(--rh-blue-text);
 }
 
 [data-theme='dark'] .rhesis-table,
@@ -1584,7 +1589,7 @@ details summary::-webkit-details-marker {
   flex-direction: column;
   align-items: flex-start;
   gap: 1rem;
-  max-width: 300px;
+  max-width: min(300px, 100%);
 }
 
 .rhesis-footer__logo {
@@ -1617,12 +1622,15 @@ details summary::-webkit-details-marker {
 
 .rhesis-footer__badges {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 1.875rem;
+  max-width: 100%;
 }
 
 .rhesis-footer__bmftr {
   width: 163px;
+  max-width: 100%;
   height: 98px;
   object-fit: contain;
   flex-shrink: 0;
@@ -1753,7 +1761,7 @@ details summary::-webkit-details-marker {
 .rhesis-footer__bottom-left p {
   margin: 0;
   font-size: 14px;
-  color: var(--rh-text-muted) !important;
+  color: var(--rh-text-secondary) !important;
 }
 
 .rhesis-footer__legal {
@@ -1764,7 +1772,7 @@ details summary::-webkit-details-marker {
 
 .rhesis-footer__legal a {
   font-size: 14px;
-  color: var(--rh-text-muted) !important;
+  color: var(--rh-text-secondary) !important;
   text-decoration: none !important;
   transition: color var(--rh-duration) var(--rh-ease-out);
 }
@@ -1870,4 +1878,33 @@ details summary::-webkit-details-marker {
   line-height: normal;
   white-space: nowrap;
   color: var(--rh-heading) !important;
+}
+
+/* Our own logo link (Nextra's is turned off so the link can carry the visible name). */
+.rhesis-navlogo-link {
+  display: flex;
+  align-items: center;
+  margin-inline-end: auto;
+  text-decoration: none !important;
+  transition: opacity var(--rh-duration) var(--rh-ease-out);
+}
+
+.rhesis-navlogo-link:hover {
+  opacity: 0.75;
+}
+
+/* Search excerpts: the theme's highlight is white on a translucent grey (3.7:1). */
+[role='option'] mark {
+  background: var(--rh-blue-fill) !important;
+  color: var(--rh-on-accent) !important;
+}
+
+/* Collapsible sections size their column to the widest code line, which clips
+   the text beside it on narrow screens (WCAG 1.4.10). Code still scrolls. */
+main details > div {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+main details > div > div {
+  min-width: 0;
 }

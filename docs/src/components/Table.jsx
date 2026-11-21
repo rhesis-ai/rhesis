@@ -94,7 +94,7 @@ export const Table = ({
     },
     code: {
       backgroundColor: 'var(--code-bg, var(--rh-surface-sunken))',
-      color: 'var(--code-text, var(--rh-blue-cta))',
+      color: 'var(--code-text, var(--rh-blue-text))',
       padding: '0.125rem 0.375rem',
       borderRadius: '0.25rem',
       fontSize: '0.875em',

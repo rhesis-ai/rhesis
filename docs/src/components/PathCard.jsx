@@ -58,7 +58,7 @@ export const PathCard = ({ emoji, title, description, link, linkText, external =
       fontSize: '1.25rem',
       fontWeight: '600',
       fontFamily: 'var(--rh-font-display)',
-      color: isHovered ? 'var(--rh-blue-cta)' : 'var(--text-primary, var(--rh-text))',
+      color: isHovered ? 'var(--rh-blue-text)' : 'var(--text-primary, var(--rh-text))',
       margin: '0 0 0.75rem 0',
       transition: 'color 0.2s ease',
     },
@@ -70,7 +70,7 @@ export const PathCard = ({ emoji, title, description, link, linkText, external =
       margin: '0 0 1.25rem 0',
     },
     link: {
-      color: 'var(--rh-blue-cta)',
+      color: 'var(--rh-blue-text)',
       textDecoration: 'none',
       fontWeight: '500',
       fontSize: '0.9375rem',
@@ -122,7 +122,7 @@ export const PathCardGrid = ({ children }) => {
   const styles = {
     grid: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))',
       gap: '1.5rem',
       marginTop: '1.5rem',
       marginBottom: '2rem',

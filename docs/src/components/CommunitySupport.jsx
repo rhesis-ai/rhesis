@@ -47,7 +47,7 @@ export const CommunitySupport = () => {
   const styles = {
     container: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(min(250px, 100%), 1fr))',
       gap: '1.5rem',
       margin: '2rem 0',
     },

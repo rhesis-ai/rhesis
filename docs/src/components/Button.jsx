@@ -15,9 +15,9 @@ const Button = ({
     const variants = {
       primary: {
         color: 'var(--rh-on-accent)',
-        background: 'var(--rh-blue-cta)', // Primary CTA Blue
-        border: '1px solid var(--rh-blue-cta)',
-        hoverBackground: 'var(--rh-blue)', // Primary Blue on hover
+        background: 'var(--rh-blue-fill)',
+        border: '1px solid var(--rh-blue-fill)',
+        hoverBackground: 'var(--rh-blue-fill)',
         disabledBackground: 'var(--rh-text-muted)',
         disabledBorder: 'var(--rh-text-muted)',
       },
@@ -32,17 +32,17 @@ const Button = ({
         disabledColor: 'var(--rh-text-muted)',
       },
       outline: {
-        color: 'var(--rh-blue-cta)', // Primary CTA Blue
+        color: 'var(--rh-blue-text)',
         background: 'transparent',
-        border: '1px solid var(--rh-blue-cta)',
-        hoverBackground: 'var(--rh-blue-cta)', // Fill with primary on hover
+        border: '1px solid var(--rh-blue-text)',
+        hoverBackground: 'var(--rh-blue-fill)',
         hoverColor: 'var(--rh-on-accent)',
         disabledBackground: 'transparent',
         disabledBorder: 'var(--rh-border)',
         disabledColor: 'var(--rh-text-muted)',
       },
       ghost: {
-        color: 'var(--rh-blue-cta)', // Primary CTA Blue
+        color: 'var(--rh-blue-text)',
         background: 'transparent',
         border: '1px solid transparent',
         hoverBackground: 'rgba(42, 161, 206, 0.1)', // Light blue hover
