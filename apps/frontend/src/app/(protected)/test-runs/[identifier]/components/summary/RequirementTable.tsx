@@ -249,7 +249,7 @@ function VerdictLegend() {
   const theme = useTheme();
   const palette = useVerdictPalette();
 
-  // In accessible-colours mode each swatch has its state's bar height, so the
+  // In accessibility mode each swatch has its state's bar height, so the
   // key works without colour.
   const items: {
     state: CellState;
@@ -307,7 +307,7 @@ function VerdictLegend() {
           sx={{
             display: 'flex',
             // Bars share a baseline in accessible mode; squares stay centred.
-            alignItems: theme.palette.accessibleColors ? 'flex-end' : 'center',
+            alignItems: theme.palette.accessibilityMode ? 'flex-end' : 'center',
             gap: 0.5,
           }}
         >
@@ -315,7 +315,7 @@ function VerdictLegend() {
             aria-hidden
             sx={{
               width: LEGEND_SWATCH_SIZE,
-              height: theme.palette.accessibleColors
+              height: theme.palette.accessibilityMode
                 ? cellHeight(item.state, LEGEND_BAR_HEIGHT, true)
                 : LEGEND_SWATCH_SIZE,
               boxSizing: 'border-box',

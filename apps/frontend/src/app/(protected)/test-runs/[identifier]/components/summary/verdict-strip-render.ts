@@ -15,7 +15,7 @@ export interface StripPaintOptions {
   binned: boolean;
   frame: RunClockFrame;
   reducedMotion: boolean;
-  /** Accessible-colours mode: vary bar height by state (see cellHeight). */
+  /** Accessibility mode: vary bar height by state (see cellHeight). */
   shapeByState?: boolean;
 }
 
