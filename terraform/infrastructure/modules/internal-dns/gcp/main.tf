@@ -14,6 +14,11 @@ terraform {
 # Generate TSIG key (HMAC-SHA256, 32 bytes → base64 encoded)
 resource "random_bytes" "tsig_key" {
   length = 32
+
+  # null keeps the key; any value change generates a new one.
+  keepers = var.tsig_key_rotation == null ? null : {
+    rotation = var.tsig_key_rotation
+  }
 }
 
 # GCP Secret Manager secret for the TSIG key

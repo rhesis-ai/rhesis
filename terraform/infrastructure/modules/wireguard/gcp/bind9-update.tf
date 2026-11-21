@@ -20,8 +20,14 @@ resource "terraform_data" "bind9_config_update" {
   triggers_replace = sha256(local.bind9_named_conf)
 
   provisioner "local-exec" {
+    # The config holds the TSIG secrets, so it goes in environment: Terraform never logs
+    # that, but prints the command on failure even with quiet = true.
+    quiet       = true
     interpreter = ["bash", "-c"]
-    command     = <<-EOT
+    environment = {
+      NAMED_CONF_B64 = base64encode(local.bind9_named_conf)
+    }
+    command = <<-EOT
       set -e
 
       ZONE="${google_compute_instance.wireguard.zone}"
@@ -30,7 +36,7 @@ resource "terraform_data" "bind9_config_update" {
       # Write base64 config to a temp file
       tmpfile=$(mktemp)
       trap 'rm -f "$tmpfile"' EXIT
-      printf '%s' '${base64encode(local.bind9_named_conf)}' > "$tmpfile"
+      printf '%s' "$NAMED_CONF_B64" > "$tmpfile"
 
       # Verify the local temp file is non-empty before transferring
       if [ ! -s "$tmpfile" ]; then

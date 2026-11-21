@@ -166,8 +166,9 @@ module "arc_gha_stg" {
 module "internal_dns_stg" {
   source = "../../modules/internal-dns/gcp"
 
-  project_id  = var.project_id
-  environment = "stg"
+  project_id        = var.project_id
+  environment       = "stg"
+  tsig_key_rotation = "2026-11-12"
 
   depends_on = [module.eso_stg]
 }
