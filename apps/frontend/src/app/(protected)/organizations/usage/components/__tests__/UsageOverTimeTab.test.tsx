@@ -41,6 +41,17 @@ describe('UsageOverTimeTab', () => {
     expect(screen.getByText('Tracing Spans')).toBeInTheDocument();
   });
 
+  it('carries every monthly value in the chart text alternative', () => {
+    render(<UsageOverTimeTab />);
+
+    const chart = screen.getByRole('img', {
+      name: /^Tracing Spans used per month: /,
+    });
+    // One "<month> <value>" entry per point, in order.
+    expect(chart.getAttribute('aria-label')?.split('; ')).toHaveLength(3);
+    expect(chart).toHaveAccessibleName(/ 1; .* 2; .* 5$/);
+  });
+
   it('defaults to the 6-month filter and requests history for it', () => {
     render(<UsageOverTimeTab />);
 

@@ -3,6 +3,7 @@ import {
   ChartPalette,
   buildSeries,
   categoryColors,
+  chartSummary,
   dataColumns,
   focusLabels,
   legendEntries,
@@ -187,5 +188,39 @@ describe('architect chart colors', () => {
   it('draws lines, areas and radar shapes as lines', () => {
     expect(seriesMark('area')).toBe('line');
     expect(seriesMark('stacked_bar')).toBe('fill');
+  });
+});
+
+describe('chartSummary', () => {
+  it('names the chart type, measure, axis and category count', () => {
+    expect(
+      chartSummary({
+        ...base,
+        chart_type: 'horizontal_bar',
+        x: 'topic',
+        rows: [
+          { topic: 'Claims', pass_rate: 25 },
+          { topic: 'Billing', pass_rate: 60 },
+        ],
+      })
+    ).toBe('Bar chart of pass rate by topic, 2 categories.');
+  });
+
+  it('mentions a series split and several measures', () => {
+    expect(
+      chartSummary({
+        ...base,
+        chart_type: 'stacked_bar',
+        x: 'metric',
+        series: 'status',
+        measures: [
+          { key: 'passed', kind: 'count' },
+          { key: 'failed', kind: 'count' },
+        ],
+        rows: [{ metric: 'A', status: 'x', passed: 1, failed: 2 }],
+      })
+    ).toBe(
+      'Stacked bar chart of passed and failed by metric, split by status, 1 category.'
+    );
   });
 });

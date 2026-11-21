@@ -30,6 +30,7 @@ import {
   ChartMeasure,
   ChartPalette,
   buildSeries,
+  chartSummary,
   categoryColors,
   focusLabels,
   dataColumns,
@@ -463,7 +464,7 @@ function DataTable({ spec }: ArchitectChartProps) {
   const kinds = new Map(spec.measures.map(m => [m.key, m.kind]));
   return (
     <Box sx={{ overflowX: 'auto' }}>
-      <Table size="small">
+      <Table size="small" aria-label={spec.title}>
         <TableHead>
           <TableRow>
             {columns.map(column => (
@@ -503,7 +504,37 @@ function DataTable({ spec }: ArchitectChartProps) {
   );
 }
 
+/** Chart types drawn as SVG; heat tables and the KPI are already text. */
+const DRAWN_CHART_TYPES = new Set([
+  'line',
+  'area',
+  'bar',
+  'horizontal_bar',
+  'stacked_bar',
+  'scatter',
+  'radar',
+]);
+
 function ChartBody({ spec }: ArchitectChartProps) {
+  if (DRAWN_CHART_TYPES.has(spec.chart_type)) {
+    // The SVG's marks mean nothing read one by one; give it one summary and
+    // point to the table (WCAG 1.1.1).
+    return (
+      <Box
+        role="img"
+        aria-label={`${spec.title}. ${chartSummary(spec)} Use Show data for the values.`}
+      >
+        {/* role="img" already hides it; aria-hidden guards readers that don't. */}
+        <Box aria-hidden>
+          <DrawnChart spec={spec} />
+        </Box>
+      </Box>
+    );
+  }
+  return <DrawnChart spec={spec} />;
+}
+
+function DrawnChart({ spec }: ArchitectChartProps) {
   switch (spec.chart_type) {
     case 'scatter':
       return <Scatter spec={spec} />;
