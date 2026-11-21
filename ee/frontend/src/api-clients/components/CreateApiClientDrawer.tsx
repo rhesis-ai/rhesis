@@ -81,6 +81,7 @@ export default function CreateApiClientDrawer({
   const [form, setForm] =
     React.useState<AuthClientCreateRequest>(INITIAL_STATE);
   const [submitting, setSubmitting] = React.useState(false);
+  const defaultScopeHelpId = React.useId();
 
   React.useEffect(() => {
     if (open) {
@@ -244,6 +245,8 @@ export default function CreateApiClientDrawer({
           <InputLabel id="default-scope-label">Default scope</InputLabel>
           <Select
             labelId="default-scope-label"
+            // Links the requirement below, which is also the error (3.3.1).
+            aria-describedby={defaultScopeHelpId}
             label="Default scope"
             value={form.default_scope}
             onChange={e =>
@@ -256,7 +259,7 @@ export default function CreateApiClientDrawer({
               </MenuItem>
             ))}
           </Select>
-          <FormHelperText>
+          <FormHelperText id={defaultScopeHelpId}>
             Used when the caller omits the <code>scope</code> form parameter.
             Must be one of the allowed scopes.
           </FormHelperText>

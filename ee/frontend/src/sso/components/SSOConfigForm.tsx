@@ -29,6 +29,7 @@ import { useOrgSettings } from '@/contexts/OrgSettingsContext';
 import { getBaseUrl } from '@/utils/url-resolver';
 import { SSOClient } from '../api/sso-client';
 import type { SSOConfig, SSOTestResult } from '../types';
+import { DeleteModal } from '@/components/common/DeleteModal';
 
 const DEFAULT_SSO_CONFIG: SSOConfig = {
   enabled: false,
@@ -105,6 +106,7 @@ export default function SSOConfigForm() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<SSOTestResult | null>(null);
   const [hasExistingConfig, setHasExistingConfig] = useState(false);
@@ -446,12 +448,14 @@ export default function SSOConfigForm() {
                 <TextField
                   size="small"
                   placeholder="example.com"
+                  slotProps={{ htmlInput: { 'aria-label': 'Allowed domain' } }}
                   value={domainInput}
                   onChange={e => setDomainInput(e.target.value)}
                   onKeyDown={handleDomainKeyDown}
                   sx={{ flexGrow: 1 }}
                 />
                 <IconButton
+                  aria-label="Add domain"
                   size="small"
                   onClick={handleAddDomain}
                   disabled={!domainInput.trim()}
@@ -526,7 +530,8 @@ export default function SSOConfigForm() {
                     startIcon={
                       deleting ? <CircularProgress size={16} /> : <DeleteIcon />
                     }
-                    onClick={handleDelete}
+                    // Removing SSO can lock members out; confirm first (3.3.4).
+                    onClick={() => setConfirmRemoveOpen(true)}
                     disabled={deleting || saving}
                   >
                     Remove SSO
@@ -545,6 +550,18 @@ export default function SSOConfigForm() {
           </Box>
         </Grid>
       </Grid>
+      <DeleteModal
+        open={confirmRemoveOpen}
+        onClose={() => setConfirmRemoveOpen(false)}
+        onConfirm={async () => {
+          await handleDelete();
+          setConfirmRemoveOpen(false);
+        }}
+        isLoading={deleting}
+        title="Remove SSO configuration"
+        message="Members who sign in with SSO will no longer be able to use it. This cannot be undone."
+        confirmButtonText={deleting ? 'Removing...' : 'Remove SSO'}
+      />
     </Box>
   );
 }

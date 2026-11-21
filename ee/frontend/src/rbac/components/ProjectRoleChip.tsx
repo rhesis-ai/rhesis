@@ -162,6 +162,7 @@ export default function ProjectRoleChip({
 
   return (
     <Select
+      inputProps={{ 'aria-label': 'Role' }}
       value={memberEntry?.role_id ?? ''}
       onChange={handleChange}
       disabled={assigning}
