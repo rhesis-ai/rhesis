@@ -322,6 +322,9 @@ export default function EditDrawer({
           value={formData.owner_id || ''}
           label="Owner"
           onChange={handleSelectChange('owner_id')}
+          aria-describedby={
+            errors.owner_id ? `${a11yId}-owner-error` : undefined
+          }
           renderValue={selected => {
             const selectedUser = users.find(u => u.id === selected);
             return selectedUser ? (
@@ -358,7 +361,11 @@ export default function EditDrawer({
             </MenuItem>
           ))}
         </Select>
-        {errors.owner_id && <FormHelperText>{errors.owner_id}</FormHelperText>}
+        {errors.owner_id && (
+          <FormHelperText id={`${a11yId}-owner-error`}>
+            {errors.owner_id}
+          </FormHelperText>
+        )}
       </FormControl>
     ),
     [users, formData.owner_id, errors.owner_id, handleSelectChange, a11yId]

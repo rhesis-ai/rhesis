@@ -111,6 +111,7 @@ export default function TestValuesEditor({
   // Test runs only ever pass text here, so another type would test a request they never send.
   const inputNotText =
     values.input !== undefined && typeof values.input !== 'string';
+  const jsonHelpId = React.useId();
 
   const allStrings = textVars.every(
     v => values[v] === undefined || typeof values[v] === 'string'
@@ -151,6 +152,8 @@ export default function TestValuesEditor({
               wrapperSx={jsonFieldSx}
               value={valuesJson}
               onChange={handleJsonChange}
+              error={inputNotText}
+              describedBy={jsonHelpId}
             />
           </Box>
           <Box
@@ -183,6 +186,7 @@ export default function TestValuesEditor({
             />
           </Box>
           <Typography
+            id={jsonHelpId}
             variant="caption"
             color={inputNotText ? 'error' : 'text.secondary'}
             component="p"

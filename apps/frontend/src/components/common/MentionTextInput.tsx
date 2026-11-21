@@ -7,6 +7,7 @@ import {
 import React, {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -76,6 +77,7 @@ export default function MentionTextInput({
   helperText,
 }: MentionTextInputProps) {
   const theme = useTheme();
+  const helperId = useId();
 
   const combinedData: ExtendedSuggestionDataItem[] = useMemo(() => {
     const items: ExtendedSuggestionDataItem[] = [
@@ -274,6 +276,8 @@ export default function MentionTextInput({
         placeholder={placeholder}
         disabled={disabled}
         suggestionsPortalHost={portalHost ?? undefined}
+        aria-invalid={error || undefined}
+        aria-describedby={helperText ? helperId : undefined}
         style={{
           control: {
             fontSize: theme.typography.body1.fontSize,
@@ -388,7 +392,11 @@ export default function MentionTextInput({
         />
       </MentionsInput>
       {helperText && (
-        <FormHelperText error={error} sx={{ mx: 1.75, mt: 0.375 }}>
+        <FormHelperText
+          id={helperId}
+          error={error}
+          sx={{ mx: 1.75, mt: 0.375 }}
+        >
           {helperText}
         </FormHelperText>
       )}

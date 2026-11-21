@@ -226,6 +226,7 @@ function EditableFields({
           fullWidth
           editing={isEditing}
           label="First Name"
+          autoComplete="given-name"
           value={draft.given_name}
           onChange={handleChange('given_name')}
           helperText="Your first name"
@@ -237,6 +238,7 @@ function EditableFields({
           fullWidth
           editing={isEditing}
           label="Last Name"
+          autoComplete="family-name"
           value={draft.family_name}
           onChange={handleChange('family_name')}
           helperText="Your last name"
@@ -248,6 +250,7 @@ function EditableFields({
           fullWidth
           editing={isEditing}
           label="Display Name"
+          autoComplete="nickname"
           value={draft.name}
           onChange={handleChange('name')}
           helperText="How your name appears across the platform"
@@ -259,6 +262,7 @@ function EditableFields({
           fullWidth
           editing={isEditing}
           label="Picture URL"
+          autoComplete="photo"
           value={draft.picture}
           onChange={handleChange('picture')}
           onBlur={handleBlur('picture')}

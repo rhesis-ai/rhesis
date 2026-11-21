@@ -27,6 +27,8 @@ export default function ExplorerCreateDialog({
   const [description, setDescription] = React.useState('');
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
+  const submitErrorId = React.useId();
+  const nameInvalid = !!submitError && !name.trim();
 
   React.useEffect(() => {
     if (!open) return;
@@ -76,7 +78,12 @@ export default function ExplorerCreateDialog({
           required
           value={name}
           onChange={e => setName(e.target.value)}
-          error={!!submitError && !name.trim()}
+          error={nameInvalid}
+          slotProps={{
+            htmlInput: {
+              'aria-describedby': nameInvalid ? submitErrorId : undefined,
+            },
+          }}
         />
         <TextField
           margin="dense"
@@ -88,7 +95,12 @@ export default function ExplorerCreateDialog({
           onChange={e => setDescription(e.target.value)}
         />
         {submitError && (
-          <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+          <Typography
+            id={submitErrorId}
+            color="error"
+            variant="body2"
+            sx={{ mt: 1 }}
+          >
             {submitError}
           </Typography>
         )}

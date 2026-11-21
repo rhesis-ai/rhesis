@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
@@ -61,6 +61,10 @@ interface JsonMonacoFieldProps {
   value: string;
   readOnly?: boolean;
   wrapperSx?: object;
+  /** Marks the editor's textarea `aria-invalid`. */
+  error?: boolean;
+  /** Id of the element describing the field, e.g. its error message. */
+  describedBy?: string;
   onChange?: (value: string) => void;
 }
 
@@ -72,6 +76,8 @@ export default function JsonMonacoField({
   value,
   readOnly = false,
   wrapperSx = {},
+  error = false,
+  describedBy,
   onChange,
 }: JsonMonacoFieldProps) {
   const muiTheme = useTheme();
@@ -82,6 +88,20 @@ export default function JsonMonacoField({
   useEffect(() => {
     ensureDecorationCss(muiTheme.palette.primary.main);
   }, [muiTheme.palette.primary.main]);
+
+  // Monaco has no options for these, so set them on its textarea directly.
+  const applyAria = useCallback(() => {
+    const textarea = editorRef.current?.getDomNode()?.querySelector('textarea');
+    if (!textarea) return;
+    if (error) textarea.setAttribute('aria-invalid', 'true');
+    else textarea.removeAttribute('aria-invalid');
+    if (describedBy) textarea.setAttribute('aria-describedby', describedBy);
+    else textarea.removeAttribute('aria-describedby');
+  }, [error, describedBy]);
+
+  useEffect(() => {
+    applyAria();
+  }, [applyAria]);
 
   const updateDecorations = (
     editor: Parameters<OnMount>[0],
@@ -119,6 +139,7 @@ export default function JsonMonacoField({
       validate: false,
     });
     updateDecorations(editor, monaco);
+    applyAria();
     editor.onDidChangeModelContent(() => updateDecorations(editor, monaco));
   };
 

@@ -159,6 +159,7 @@ export default function TabOverview({
   );
   // An error blocks Next, so it's never hidden in a closed section.
   const versionInfoExpanded = versionInfoOpen || Boolean(versionInfoError);
+  const versionInfoHelpId = React.useId();
 
   return (
     <Stack spacing={5}>
@@ -299,8 +300,14 @@ export default function TabOverview({
             theme={editorTheme}
             value={formData.version_info}
             onChange={v => onChange('version_info', v)}
+            error={Boolean(versionInfoError)}
+            describedBy={versionInfoHelpId}
           />
-          <FormHelperText error={Boolean(versionInfoError)} sx={{ mx: 1.75 }}>
+          <FormHelperText
+            id={versionInfoHelpId}
+            error={Boolean(versionInfoError)}
+            sx={{ mx: 1.75 }}
+          >
             {versionInfoError ??
               'e.g. { "prompt_version": "v3.2", "model": "gpt-4o" }'}
           </FormHelperText>
