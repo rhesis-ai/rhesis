@@ -24,6 +24,7 @@ import {
   toProfileUpdate,
   type ProfileAnswers,
 } from '@/constants/user-profile';
+import VisuallyHidden from '@/components/common/VisuallyHidden';
 
 type OnboardingStatus =
   | 'idle'
@@ -384,6 +385,10 @@ export default function OnboardingPageClient({
   };
 
   return (
-    <OnboardingShell activeStep={activeStep}>{renderStep()}</OnboardingShell>
+    <OnboardingShell activeStep={activeStep}>
+      {/* The steps have no visible page title (WCAG 1.3.1). */}
+      <VisuallyHidden component="h1">Set up your organization</VisuallyHidden>
+      {renderStep()}
+    </OnboardingShell>
   );
 }

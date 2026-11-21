@@ -21,6 +21,7 @@ import { Capability } from '@/constants/capabilities';
 import { architectSessionKeys } from '@/constants/query-keys';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import {
   clearResumeHint,
   pickResumableSessionId,
@@ -34,6 +35,7 @@ import ArchitectSidebar from './ArchitectSidebar';
 import ArchitectChat from './ArchitectChat';
 import ArchitectWelcome from './ArchitectWelcome';
 import { isAuthenticated, useUserScope } from '@/hooks/useIsAuthenticated';
+import VisuallyHidden from '@/components/common/VisuallyHidden';
 
 interface ArchitectClientProps {
   /** Server-fetched session list -- when present, skips the initial client fetch. */
@@ -57,6 +59,7 @@ export default function ArchitectClient({
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
 
   // No badge for the session that's open on screen -- this page streams that
   // session's own progress live. Another session completing still badges.
@@ -326,12 +329,15 @@ export default function ArchitectClient({
   return (
     <Box
       sx={{
+        position: 'relative',
         display: 'flex',
         flex: 1,
         minHeight: 0,
         overflow: 'hidden',
       }}
     >
+      {/* The chat has no visible page title (WCAG 1.3.1, 2.4.6). */}
+      <VisuallyHidden component="h1">Architect</VisuallyHidden>
       <ArchitectSidebar
         sessions={sessions}
         activeSessionId={activeSessionId}
@@ -340,7 +346,19 @@ export default function ArchitectClient({
         onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
         onNewSession={handleNewSession}
         onSelectSession={handleSelectSession}
-        onDeleteSession={handleDeleteSession}
+        onDeleteSession={setSessionToDelete}
+      />
+      <DeleteModal
+        open={sessionToDelete !== null}
+        onClose={() => setSessionToDelete(null)}
+        onConfirm={() => {
+          if (sessionToDelete) void handleDeleteSession(sessionToDelete);
+          setSessionToDelete(null);
+        }}
+        itemType="session"
+        message={`Delete "${
+          sessions.find(s => s.id === sessionToDelete)?.title || 'Untitled'
+        }"? The conversation cannot be recovered.`}
       />
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {activeSessionId ? (

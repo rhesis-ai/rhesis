@@ -447,6 +447,21 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
       markdownH4Scale: '1em',
     },
     components: {
+      // Small heading styles (and the subtitles, which MUI maps to <h6>) are
+      // used for card and section titles right under the page <h1>; as
+      // <h4>-<h6> they skipped levels (WCAG 1.3.1). Pass an explicit
+      // `component` for a deeper level.
+      MuiTypography: {
+        defaultProps: {
+          variantMapping: {
+            h4: 'h2',
+            h5: 'h2',
+            h6: 'h2',
+            subtitle1: 'h2',
+            subtitle2: 'h2',
+          },
+        },
+      },
       // Spinners otherwise reach screen readers as an unnamed progressbar.
       MuiCircularProgress: {
         defaultProps: {
