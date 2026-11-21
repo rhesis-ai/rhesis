@@ -44,6 +44,7 @@ export default function TestSetDrawer({
   >(testSet?.test_set_type_id);
   const [nameError, setNameError] = React.useState<string>('');
   const [typeError, setTypeError] = React.useState<string>('');
+  const typeErrorId = React.useId();
 
   React.useEffect(() => {
     if (open) {
@@ -174,6 +175,7 @@ export default function TestSetDrawer({
               setSelectedTestSetTypeId(e.target.value);
               if (typeError) setTypeError('');
             }}
+            aria-describedby={typeError ? typeErrorId : undefined}
           >
             {testSetTypes.map(type => (
               <MenuItem key={type.id} value={type.id}>
@@ -181,7 +183,9 @@ export default function TestSetDrawer({
               </MenuItem>
             ))}
           </Select>
-          {typeError && <FormHelperText>{typeError}</FormHelperText>}
+          {typeError && (
+            <FormHelperText id={typeErrorId}>{typeError}</FormHelperText>
+          )}
         </FormControl>
 
         <TextField

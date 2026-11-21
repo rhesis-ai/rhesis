@@ -25,6 +25,8 @@ import { DetailTabPanel } from '@/components/common/DetailTabPanel';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import RunDrawer from '@/components/common/RunDrawer';
+import { DeleteModal } from '@/components/common/DeleteModal';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import { useDetailTabNav } from '@/hooks/useDetailTabNav';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import {
@@ -125,6 +127,9 @@ export default function ExperimentDetailClient({
   const [configDrawerOpen, setConfigDrawerOpen] = useState(false);
   const [runDrawerOpen, setRunDrawerOpen] = useState(false);
   const [promoteOpen, setPromoteOpen] = useState(false);
+  const [unbindTarget, setUnbindTarget] = useState<string | null>(null);
+  const [unbinding, setUnbinding] = useState(false);
+  const accessibilityMode = useAccessibilityMode();
   const [promotePrefill, setPromotePrefill] = useState<{
     version?: string;
     environment?: string;
@@ -390,7 +395,9 @@ export default function ExperimentDetailClient({
                 queryKey: experimentKeys.detail(experimentId),
               })
             }
-            onUnbindEnvironment={handleUnbindEnvironment}
+            onUnbindEnvironment={
+              accessibilityMode ? setUnbindTarget : handleUnbindEnvironment
+            }
           />
         </DetailTabPanel>
 
@@ -428,6 +435,21 @@ export default function ExperimentDetailClient({
         </DetailTabPanel>
       </Box>
 
+      <DeleteModal
+        open={unbindTarget !== null}
+        onClose={() => setUnbindTarget(null)}
+        onConfirm={async () => {
+          if (!unbindTarget) return;
+          setUnbinding(true);
+          await handleUnbindEnvironment(unbindTarget);
+          setUnbinding(false);
+          setUnbindTarget(null);
+        }}
+        isLoading={unbinding}
+        title="Remove environment"
+        message={`Unbind this experiment from "${unbindTarget ?? ''}"? Only the pointer is cleared; the experiment and its version history stay intact.`}
+        confirmButtonText={unbinding ? 'Removing...' : 'Remove'}
+      />
       <RunDrawer
         mode="runExperiment"
         open={runDrawerOpen}

@@ -88,6 +88,7 @@ export default function ProjectCreateDrawer({
   onCreate,
 }: ProjectCreateDrawerProps) {
   const a11yId = React.useId();
+  const errorId = `${a11yId}-error`;
   const { data: users = [] } = useUsers(open);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<React.ReactNode>('');
@@ -108,6 +109,7 @@ export default function ProjectCreateDrawer({
     setFormData(prev => ({ ...prev, [field]: e.target.value }));
 
   const projectQuota = useQuotaGate(QuotaResource.PROJECTS);
+  const nameInvalid = !!error && !formData.name.trim();
   const asQuotaError = useQuotaErrorHandler();
 
   const handleSave = async () => {
@@ -148,6 +150,7 @@ export default function ProjectCreateDrawer({
       saveDisabled={projectQuota.exhausted}
       saveButtonText="Save"
       error={error || projectQuota.notice}
+      errorId={errorId}
     >
       {/* 2-column row: Owner | Project Icon */}
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3.75 }}>
@@ -229,6 +232,10 @@ export default function ProjectCreateDrawer({
         onChange={handleText('name')}
         autoFocus
         sx={drawerOutlinedFieldSx}
+        error={nameInvalid}
+        slotProps={{
+          htmlInput: { 'aria-describedby': nameInvalid ? errorId : undefined },
+        }}
       />
 
       {/* Full-width: Description */}

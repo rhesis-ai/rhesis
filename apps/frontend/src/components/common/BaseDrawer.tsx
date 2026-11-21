@@ -31,6 +31,8 @@ export interface BaseDrawerProps {
    * `<QuotaNotice>`) for a gate that isn't a failure -- `approaching` and
    * `pastIncluded` zones aren't errors and shouldn't render in error red. */
   error?: React.ReactNode;
+  /** Id for a string `error`, so the field it's about can point at it. */
+  errorId?: string;
   saveButtonText?: string;
   /** Optional data-tour attribute for onboarding (save button). */
   saveDataTour?: string;
@@ -84,6 +86,7 @@ export default function BaseDrawer({
   onSave,
   saveDisabled = false,
   error,
+  errorId,
   saveButtonText = 'Save Changes',
   saveDataTour,
   closeButtonText = 'Cancel',
@@ -164,7 +167,12 @@ export default function BaseDrawer({
         <Box sx={{ flexShrink: 0 }}>
           {error &&
             (typeof error === 'string' ? (
-              <Typography color="error" variant="body2" sx={{ mb: 1.5 }}>
+              <Typography
+                id={errorId}
+                color="error"
+                variant="body2"
+                sx={{ mb: 1.5 }}
+              >
                 {error}
               </Typography>
             ) : (

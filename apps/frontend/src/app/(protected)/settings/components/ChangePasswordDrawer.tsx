@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { TextField, Alert, Box } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { signIn, useSession } from 'next-auth/react';
@@ -27,6 +27,8 @@ interface ChangePasswordDrawerProps {
   hasPassword: boolean;
 }
 
+type PasswordField = 'current' | 'new' | 'confirm';
+
 export default function ChangePasswordDrawer({
   open,
   onClose,
@@ -42,6 +44,15 @@ export default function ChangePasswordDrawer({
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // Validation errors belong to one field: shown under it, marked invalid and
+  // focused (WCAG 3.3.1). `error` above is for server errors.
+  const [fieldError, setFieldError] = useState<{
+    field: PasswordField;
+    message: string;
+  } | null>(null);
+  const currentRef = useRef<HTMLInputElement>(null);
+  const newRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [passwordPolicy, setPasswordPolicy] = useState<PasswordPolicy | null>(
     null
@@ -69,6 +80,7 @@ export default function ChangePasswordDrawer({
     setNewPassword('');
     setConfirmPassword('');
     setError(null);
+    setFieldError(null);
     setSaving(false);
   }, []);
 
@@ -79,15 +91,23 @@ export default function ChangePasswordDrawer({
 
   const handleSave = useCallback(async () => {
     setError(null);
+    setFieldError(null);
+    const fail = (field: PasswordField, message: string) => {
+      setFieldError({ field, message });
+      const ref = { current: currentRef, new: newRef, confirm: confirmRef }[
+        field
+      ];
+      ref.current?.focus();
+    };
 
     if (hasPassword && !currentPassword) {
-      setError('Current password is required.');
+      fail('current', 'Current password is required.');
       return;
     }
 
     const passwordResult = validatePassword(newPassword, policy);
     if (!passwordResult.isValid) {
-      setError(passwordResult.message ?? 'Invalid password.');
+      fail('new', passwordResult.message ?? 'Invalid password.');
       return;
     }
 
@@ -96,7 +116,7 @@ export default function ChangePasswordDrawer({
       confirmPassword
     );
     if (!confirmResult.isValid) {
-      setError(confirmResult.message ?? 'Passwords do not match.');
+      fail('confirm', confirmResult.message ?? 'Passwords do not match.');
       return;
     }
 
@@ -185,6 +205,11 @@ export default function ChangePasswordDrawer({
             label="Current Password"
             value={currentPassword}
             onChange={e => setCurrentPassword(e.target.value)}
+            inputRef={currentRef}
+            error={fieldError?.field === 'current'}
+            helperText={
+              fieldError?.field === 'current' ? fieldError.message : undefined
+            }
             autoComplete="current-password"
             autoFocus
             sx={drawerOutlinedFieldSx}
@@ -198,7 +223,13 @@ export default function ChangePasswordDrawer({
           value={newPassword}
           onChange={e => setNewPassword(e.target.value)}
           autoComplete="new-password"
-          helperText={`Minimum ${policy.min_length} characters`}
+          inputRef={newRef}
+          error={fieldError?.field === 'new'}
+          helperText={
+            fieldError?.field === 'new'
+              ? fieldError.message
+              : `Minimum ${policy.min_length} characters`
+          }
           autoFocus={!hasPassword}
           sx={drawerOutlinedFieldSx}
         />
@@ -209,6 +240,11 @@ export default function ChangePasswordDrawer({
           label="Confirm New Password"
           value={confirmPassword}
           onChange={e => setConfirmPassword(e.target.value)}
+          inputRef={confirmRef}
+          error={fieldError?.field === 'confirm'}
+          helperText={
+            fieldError?.field === 'confirm' ? fieldError.message : undefined
+          }
           autoComplete="new-password"
           sx={drawerOutlinedFieldSx}
         />

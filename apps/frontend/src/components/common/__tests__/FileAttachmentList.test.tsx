@@ -10,6 +10,14 @@ import FileAttachmentList from '../FileAttachmentList';
 import { FileResponse } from '@/utils/api-client/interfaces/file';
 import { createMockFileResponse } from '@/__mocks__/test-utils';
 
+let mockAccessibilityMode = false;
+jest.mock('@/hooks/useAccessibilityMode', () => ({
+  useAccessibilityMode: () => mockAccessibilityMode,
+}));
+afterEach(() => {
+  mockAccessibilityMode = false;
+});
+
 jest.mock('next-auth/react', () => ({
   useSession: () => ({
     data: { session_token: 'tok' },
@@ -208,7 +216,31 @@ describe('FileAttachmentList', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('calls onDelete with file id when delete button is clicked', async () => {
+    it('calls onDelete right away when accessibility mode is off', async () => {
+      const user = userEvent.setup();
+      const onDelete = jest.fn();
+      const files: FileResponse[] = [
+        createMockFileResponse({
+          id: 'file-to-delete',
+          filename: 'remove-me.png',
+        }) as FileResponse,
+      ];
+
+      render(
+        <FileAttachmentList
+          {...defaultProps}
+          files={files}
+          onDelete={onDelete}
+        />
+      );
+
+      await user.click(screen.getByRole('button', { name: /delete file/i }));
+      expect(onDelete).toHaveBeenCalledWith('file-to-delete');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('calls onDelete with file id once the deletion is confirmed', async () => {
+      mockAccessibilityMode = true;
       const user = userEvent.setup();
       const onDelete = jest.fn();
 
@@ -228,7 +260,9 @@ describe('FileAttachmentList', () => {
       );
 
       await user.click(screen.getByRole('button', { name: /delete file/i }));
+      expect(onDelete).not.toHaveBeenCalled();
 
+      await user.click(screen.getByRole('button', { name: /^delete$/i }));
       expect(onDelete).toHaveBeenCalledWith('file-to-delete');
     });
   });

@@ -7,6 +7,8 @@ import { Organization } from '@/utils/api-client/interfaces/organization';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { SectionCard } from '@/components/common/SectionCard';
+import { DeleteModal } from '@/components/common/DeleteModal';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import {
@@ -44,6 +46,8 @@ export default function BrandingFaviconForm({
   const canUpdateOrg = useCan(Capability.Organization.UPDATE);
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const accessibilityMode = useAccessibilityMode();
 
   const favicon = brandingOf(organization)?.favicon;
   const warning = faviconWarning(favicon);
@@ -171,7 +175,11 @@ export default function BrandingFaviconForm({
                     size="small"
                     color="error"
                     disabled={busy}
-                    onClick={handleRemove}
+                    onClick={
+                      accessibilityMode
+                        ? () => setConfirmResetOpen(true)
+                        : handleRemove
+                    }
                   >
                     Reset
                   </Button>
@@ -205,6 +213,17 @@ export default function BrandingFaviconForm({
         accept={FAVICON_ACCEPT}
         hidden
         onChange={handleFileSelected}
+      />
+      <DeleteModal
+        open={confirmResetOpen}
+        onClose={() => setConfirmResetOpen(false)}
+        onConfirm={() => {
+          setConfirmResetOpen(false);
+          void handleRemove();
+        }}
+        title="Reset favicon"
+        message="Remove the uploaded favicon for everyone in your organization? The deployment default is used instead, and the file has to be uploaded again to restore it."
+        confirmButtonText="Reset"
       />
     </SectionCard>
   );

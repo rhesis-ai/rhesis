@@ -8,6 +8,7 @@ import React, {
   useEffect,
   useRef,
   useContext,
+  useId,
   DragEvent,
 } from 'react';
 import {
@@ -802,6 +803,8 @@ function AddTestDialog({
   const [selectedTopic, setSelectedTopic] = useState(topic || '');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const errorId = useId();
+  const inputInvalid = !!error && !input.trim();
 
   // Sync default topic when dialog opens with a new topic
   const handleOpen = () => {
@@ -861,7 +864,7 @@ function AddTestDialog({
         }}
       >
         {error && (
-          <Typography variant="body2" color="error">
+          <Typography id={errorId} variant="body2" color="error">
             {error}
           </Typography>
         )}
@@ -900,6 +903,12 @@ function AddTestDialog({
             setError('');
           }}
           disabled={submitting}
+          error={inputInvalid}
+          slotProps={{
+            htmlInput: {
+              'aria-describedby': inputInvalid ? errorId : undefined,
+            },
+          }}
         />
         <TextField
           label="Output (optional)"
@@ -953,6 +962,8 @@ function EditTestDialog({
   const [selectedTopic, setSelectedTopic] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const errorId = useId();
+  const inputInvalid = !!error && !input.trim();
 
   // Populate form when dialog opens with a test
   const handleOpen = () => {
@@ -1012,7 +1023,7 @@ function EditTestDialog({
         }}
       >
         {error && (
-          <Typography variant="body2" color="error">
+          <Typography id={errorId} variant="body2" color="error">
             {error}
           </Typography>
         )}
@@ -1050,6 +1061,12 @@ function EditTestDialog({
             setError('');
           }}
           disabled={submitting}
+          error={inputInvalid}
+          slotProps={{
+            htmlInput: {
+              'aria-describedby': inputInvalid ? errorId : undefined,
+            },
+          }}
         />
         <TextField
           label="Output (optional)"
@@ -1103,6 +1120,8 @@ function TestDetailDrawer({
   const [selectedTopic, setSelectedTopic] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const errorId = useId();
+  const inputInvalid = !!error && !input.trim();
 
   useEffect(() => {
     if (open && test) {
@@ -1150,6 +1169,7 @@ function TestDetailDrawer({
       saveDisabled={!input.trim()}
       loading={submitting}
       error={error || undefined}
+      errorId={errorId}
       anchor="right"
     >
       {/* Score badge */}
@@ -1207,6 +1227,12 @@ function TestDetailDrawer({
           setError('');
         }}
         disabled={submitting}
+        error={inputInvalid}
+        slotProps={{
+          htmlInput: {
+            'aria-describedby': inputInvalid ? errorId : undefined,
+          },
+        }}
       />
 
       {/* Output */}

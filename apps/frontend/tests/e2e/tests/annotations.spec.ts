@@ -18,9 +18,7 @@ async function openFailedResult(page: Page) {
   await page.reload();
   await runsPage.openRun(runName);
   // Summary is the default tab; the seeded run is one pass, one fail.
-  await expect(
-    page.getByRole('heading', { name: /^50(\.0)?\s*%$/ })
-  ).toBeVisible({
+  await expect(page.getByText(/^50(\.0)?\s*%$/).first()).toBeVisible({
     timeout: 15_000,
   });
 
@@ -122,9 +120,7 @@ test.describe('Annotations — test result level @crud', () => {
     // One of two results passed; overriding the failed one makes it two of two.
     // Reloading also shows the new rate was saved, not just updated on screen.
     await page.reload();
-    await expect(
-      page.getByRole('heading', { name: /^100(\.0)?\s*%$/ })
-    ).toBeVisible({
+    await expect(page.getByText(/^100(\.0)?\s*%$/).first()).toBeVisible({
       timeout: 15_000,
     });
   });

@@ -160,7 +160,10 @@ function RunStatusPill({ testRun }: { testRun: TestRunDetail }) {
   const Icon = RUN_STATUS_ICON[status];
 
   return (
+    // role="status": a live run's change to Completed/Failed is announced
+    // without moving focus.
     <Chip
+      role="status"
       icon={<Icon />}
       label={RUN_STATUS_LABEL[status]}
       color={RUN_STATUS_COLOR[status]}

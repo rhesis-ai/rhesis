@@ -32,6 +32,8 @@ import { EntityType, Tag, TagCreate } from '@/utils/api-client/interfaces/tag';
 import { UUID } from 'crypto';
 import { editableTagChipSx } from '@/components/common/editableTagChipSx';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
+import { DeleteModal } from '@/components/common/DeleteModal';
 
 // Type definitions
 interface TaggableEntity {
@@ -128,6 +130,9 @@ export default function BaseTag({
   const inputRef = useRef<HTMLInputElement>(null);
   const isProcessingKeyboardInput = useRef<boolean>(false);
   const notifications = useNotifications();
+  const accessibilityMode = useAccessibilityMode();
+  // Tag list waiting for the user to confirm a removal (accessibility mode only)
+  const [pendingTags, setPendingTags] = useState<string[] | null>(null);
 
   // Keep track of current tag objects (name -> tag mapping)
   const [tagObjectsMap, setTagObjectsMap] = useState<Map<string, Tag>>(
@@ -234,6 +239,21 @@ export default function BaseTag({
     }
   };
 
+  // Removals saved straight to the entity ask first in accessibility mode;
+  // unsaved form values change right away.
+  const commitTags = (newTagNames: string[]) => {
+    const removes = localTags.some(tag => !newTagNames.includes(tag));
+    if (accessibilityMode && removes && entityType && entity) {
+      setPendingTags(newTagNames);
+      return;
+    }
+    handleTagsChange(newTagNames);
+  };
+
+  const pendingRemoved = pendingTags
+    ? localTags.filter(tag => !pendingTags.includes(tag))
+    : [];
+
   const _handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     setInputValue(event.target.value);
   };
@@ -282,13 +302,13 @@ export default function BaseTag({
     ) {
       // Remove the last tag on backspace if input is empty
       event.preventDefault();
-      handleTagsChange(localTags.slice(0, -1));
+      commitTags(localTags.slice(0, -1));
     }
   };
 
   const handleDeleteTag = (tagToDelete: string) => {
     if (disabled || isUpdating) return;
-    handleTagsChange(localTags.filter(tag => tag !== tagToDelete));
+    commitTags(localTags.filter(tag => tag !== tagToDelete));
     // Focus the input after deleting
     inputRef.current?.focus();
   };
@@ -401,7 +421,7 @@ export default function BaseTag({
             return;
           }
           // Handle tag changes when chips are removed or values change
-          handleTagsChange(newValue);
+          commitTags(newValue);
         }}
         onInputChange={(event, newInputValue: string, reason) => {
           if (reason === 'input') {
@@ -451,6 +471,21 @@ export default function BaseTag({
             fullWidth
           />
         )}
+      />
+      <DeleteModal
+        open={pendingTags !== null}
+        onClose={() => setPendingTags(null)}
+        onConfirm={() => {
+          if (pendingTags) void handleTagsChange(pendingTags);
+          setPendingTags(null);
+        }}
+        title={pendingRemoved.length > 1 ? 'Remove tags?' : 'Remove tag?'}
+        message={
+          pendingRemoved.length > 1
+            ? `Remove ${pendingRemoved.length} tags from this item?`
+            : `Remove the tag "${pendingRemoved[0] ?? ''}" from this item?`
+        }
+        confirmButtonText="Remove"
       />
     </Box>
   );

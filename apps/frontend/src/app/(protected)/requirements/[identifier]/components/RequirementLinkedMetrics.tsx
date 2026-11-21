@@ -35,6 +35,8 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isTunableMetric } from '@/utils/metric-tunable';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
+import { DeleteModal } from '@/components/common/DeleteModal';
 import type { UUID } from 'crypto';
 
 interface TuningSummary {
@@ -151,6 +153,9 @@ export default function RequirementLinkedMetrics({
       cancelled = true;
     };
   }, [tunableIds]);
+
+  const accessibilityMode = useAccessibilityMode();
+  const [pendingUnassign, setPendingUnassign] = useState<string | null>(null);
 
   // Assign drawer state
   const [assignOpen, setAssignOpen] = useState(false);
@@ -301,12 +306,13 @@ export default function RequirementLinkedMetrics({
         : []),
       createRowActionsColumn({
         canDelete: () => canEditRequirement,
-        onDelete: id => handleUnassign(id),
+        onDelete: id =>
+          accessibilityMode ? setPendingUnassign(id) : handleUnassign(id),
         deleteTooltip: 'Unassign',
         deleteIcon: LinkOffIcon,
       }),
     ],
-    [handleUnassign, canEditRequirement, tuning, tunableIds]
+    [handleUnassign, canEditRequirement, tuning, tunableIds, accessibilityMode]
   );
 
   // Assign drawer columns (name + description + badges, no action)
@@ -610,6 +616,21 @@ export default function RequirementLinkedMetrics({
         onApply={next =>
           setAssignFilters(next ?? emptyLinkedFilters(assignFilterSections))
         }
+      />
+
+      <DeleteModal
+        open={pendingUnassign !== null}
+        onClose={() => setPendingUnassign(null)}
+        onConfirm={() => {
+          if (pendingUnassign) void handleUnassign(pendingUnassign);
+          setPendingUnassign(null);
+        }}
+        title="Remove metric from requirement?"
+        message={`Unassign "${
+          metrics.find(m => String(m.id) === pendingUnassign)?.name ??
+          'this metric'
+        }" from this requirement? You can assign it again later.`}
+        confirmButtonText="Remove"
       />
     </>
   );

@@ -88,6 +88,7 @@ export default function RoleSelectField({
   if (size === 'small') {
     return (
       <Select
+        inputProps={{ 'aria-label': 'Role' }}
         value={value ?? ''}
         onChange={e => onChange(e.target.value || null)}
         size="small"

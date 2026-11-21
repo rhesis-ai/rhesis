@@ -56,6 +56,7 @@ export default function EndpointAuthFields({
   editorWrapperStyle,
   bearerTokenField,
 }: EndpointAuthFieldsProps) {
+  const extraPayloadErrorId = React.useId();
   const isClientCredentials =
     authType === ENDPOINT_AUTH_TYPES.CLIENT_CREDENTIALS;
   const set = (field: keyof ClientCredentialsDraft) => (value: string) =>
@@ -244,9 +245,17 @@ export default function EndpointAuthFields({
               wrapperSx={editorWrapperStyle}
               value={clientCredentials.extra_payload}
               onChange={value => set('extra_payload')(value ?? '')}
+              error={'error' in extraPayload}
+              describedBy={
+                'error' in extraPayload ? extraPayloadErrorId : undefined
+              }
             />
             {'error' in extraPayload && (
-              <Typography variant="caption" color="error">
+              <Typography
+                id={extraPayloadErrorId}
+                variant="caption"
+                color="error"
+              >
                 {extraPayload.error}
               </Typography>
             )}

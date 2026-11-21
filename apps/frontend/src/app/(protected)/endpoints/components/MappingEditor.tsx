@@ -261,6 +261,7 @@ export default function MappingEditor({
   const [responseMode, setResponseMode] = useState<'click' | 'json'>('click');
   const [responseJson, setResponseJson] = useState('');
   const responseJsonValid = parseResponseMappingJson(responseJson) !== null;
+  const responseJsonHelpId = React.useId();
 
   const openResponseJson = () => {
     setResponseJson(JSON.stringify(responseMapping, null, 2));
@@ -354,8 +355,11 @@ export default function MappingEditor({
                   theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
                   value={responseJson}
                   onChange={handleResponseJsonChange}
+                  error={!responseJsonValid}
+                  describedBy={responseJsonHelpId}
                 />
                 <Typography
+                  id={responseJsonHelpId}
                   variant="caption"
                   color={responseJsonValid ? 'text.secondary' : 'error'}
                   component="p"

@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { Box, Checkbox, FormControlLabel, Typography } from '@mui/material';
 
 const TERMS_URL = 'https://www.rhesis.ai/terms-conditions';
@@ -16,6 +17,7 @@ export default function TermsAcceptanceField({
   onChange,
   showWarning = false,
 }: TermsAcceptanceFieldProps) {
+  const warningId = useId();
   return (
     <Box>
       <FormControlLabel
@@ -24,6 +26,12 @@ export default function TermsAcceptanceField({
             checked={checked}
             onChange={event => onChange(event.target.checked)}
             color="primary"
+            slotProps={{
+              input: {
+                'aria-invalid': showWarning || undefined,
+                'aria-describedby': showWarning ? warningId : undefined,
+              },
+            }}
           />
         }
         label={
@@ -50,7 +58,7 @@ export default function TermsAcceptanceField({
         }
       />
       {showWarning && (
-        <Typography variant="body2" color="error" sx={{ ml: 4 }}>
+        <Typography id={warningId} variant="body2" color="error" sx={{ ml: 4 }}>
           Please accept the Terms and Conditions to continue.
         </Typography>
       )}

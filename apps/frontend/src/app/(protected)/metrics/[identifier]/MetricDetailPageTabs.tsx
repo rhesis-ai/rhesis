@@ -52,6 +52,8 @@ import type { MetricDetail } from '@/utils/api-client/interfaces/metric';
 import type { Status } from '@/utils/api-client/interfaces/status';
 import type { UUID } from 'crypto';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
+import { DeleteModal } from '@/components/common/DeleteModal';
 
 const TAB_KEYS = ['basic', 'linked-requirements', 'tuning'] as const;
 
@@ -160,6 +162,9 @@ function MetricLinkedRequirements({
   // The metric id the server-rendered rows belong to: no mount fetch for it.
   const seededMetricIdRef = useRef(initialRequirements ? metricId : null);
 
+  const accessibilityMode = useAccessibilityMode();
+  const [pendingUnassign, setPendingUnassign] = useState<string | null>(null);
+
   // Assign drawer state
   const [assignOpen, setAssignOpen] = useState(false);
   const [available, setAvailable] = useState<RequirementListItem[]>([]);
@@ -248,12 +253,13 @@ function MetricLinkedRequirements({
       },
       createRowActionsColumn({
         canDelete: () => canEditMetric,
-        onDelete: id => handleUnassign(id),
+        onDelete: id =>
+          accessibilityMode ? setPendingUnassign(id) : handleUnassign(id),
         deleteTooltip: 'Unassign',
         deleteIcon: LinkOffIcon,
       }),
     ],
-    [handleUnassign, canEditMetric]
+    [handleUnassign, canEditMetric, accessibilityMode]
   );
 
   // Assign drawer columns (no actions)
@@ -444,6 +450,21 @@ function MetricLinkedRequirements({
         onApply={next =>
           setAssignFilters(next ?? emptyLinkedFilters(assignFilterSections))
         }
+      />
+
+      <DeleteModal
+        open={pendingUnassign !== null}
+        onClose={() => setPendingUnassign(null)}
+        onConfirm={() => {
+          if (pendingUnassign) void handleUnassign(pendingUnassign);
+          setPendingUnassign(null);
+        }}
+        title="Remove requirement from metric?"
+        message={`Unassign "${
+          requirements.find(r => String(r.id) === pendingUnassign)?.name ??
+          'this requirement'
+        }" from this metric? You can assign it again later.`}
+        confirmButtonText="Remove"
       />
     </>
   );

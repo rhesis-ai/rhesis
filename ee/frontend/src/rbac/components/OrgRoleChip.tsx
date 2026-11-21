@@ -158,6 +158,7 @@ export default function OrgRoleChip({
 
   return (
     <Select
+      inputProps={{ 'aria-label': 'Role' }}
       value={member?.role_id ?? ''}
       onChange={handleChange}
       disabled={assigning}

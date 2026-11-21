@@ -75,6 +75,7 @@ export default function KpiCard({
           <Box>
             <Typography
               variant="h5"
+              component="p"
               fontWeight={600}
               sx={{ fontVariantNumeric: 'tabular-nums', color: valueColor }}
             >
@@ -89,6 +90,7 @@ export default function KpiCard({
           <Box>
             <Typography
               variant="h5"
+              component="p"
               fontWeight={600}
               sx={{ fontVariantNumeric: 'tabular-nums' }}
             >
@@ -102,6 +104,8 @@ export default function KpiCard({
       ) : (
         <Typography
           variant={valueVariant}
+          // Heading style, but a value, not a heading (WCAG 1.3.1).
+          component="p"
           fontWeight={600}
           sx={{
             mb: 1,

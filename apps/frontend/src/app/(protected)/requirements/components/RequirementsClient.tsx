@@ -39,6 +39,8 @@ import RequirementDrawer, {
 import RequirementMetricsViewer from './RequirementMetricsViewer';
 import { generateCopyName } from '@/utils/entity-helpers';
 import EntityEmptyState from '@/components/common/EntityEmptyState';
+import { DeleteModal } from '@/components/common/DeleteModal';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { PsychologyIcon, SettingsIcon } from '@/components/icons';
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -108,6 +110,9 @@ export default function RequirementsClient({
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
+  const [deletingRequirement, setDeletingRequirement] = React.useState(false);
+  const accessibilityMode = useAccessibilityMode();
   const [editingRequirement, setEditingRequirement] = React.useState<{
     id: UUID | null;
     name: string;
@@ -754,7 +759,9 @@ export default function RequirementsClient({
             editingRequirementId &&
             requirements.find(b => b.id === editingRequirementId)?.metrics
               ?.length === 0
-              ? handleDeleteRequirement
+              ? accessibilityMode
+                ? () => setConfirmDeleteOpen(true)
+                : handleDeleteRequirement
               : undefined
           }
           isNew={isNewRequirement}
@@ -762,6 +769,20 @@ export default function RequirementsClient({
           error={drawerError}
         />
       )}
+
+      <DeleteModal
+        open={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        onConfirm={async () => {
+          setDeletingRequirement(true);
+          await handleDeleteRequirement();
+          setDeletingRequirement(false);
+          setConfirmDeleteOpen(false);
+        }}
+        isLoading={deletingRequirement}
+        itemType="requirement"
+        itemName={editingRequirement?.name}
+      />
 
       {/* Requirement Metrics Viewer */}
       <RequirementMetricsViewer
