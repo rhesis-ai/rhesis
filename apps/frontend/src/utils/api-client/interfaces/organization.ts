@@ -42,8 +42,12 @@ export interface BrandingSettings {
   product_name?: string | null;
   favicon?: BrandingFavicon | null;
   font?: BrandingFont | null;
-  /** Raise every text and UI colour to WCAG AA contrast, brand colours included. */
-  accessible_colors?: boolean | null;
+}
+
+/** Accessibility for everyone in the organization. */
+export interface AccessibilitySettings {
+  /** WCAG AA contrast for every text and UI colour, plus extra cues and confirmations. */
+  mode?: boolean | null;
 }
 
 /** How figures are shown to everyone in the organization. */
@@ -56,6 +60,7 @@ export interface OrganizationSettings {
   version: number;
   branding: BrandingSettings;
   display?: DisplaySettings;
+  accessibility?: AccessibilitySettings;
 }
 
 export interface OrganizationSettingsRead extends OrganizationSettings {
@@ -65,13 +70,13 @@ export interface OrganizationSettingsRead extends OrganizationSettings {
 /** Writable subset. The favicon and uploaded fonts go through their own endpoints. */
 export interface OrganizationSettingsUpdate {
   display?: DisplaySettings;
+  accessibility?: AccessibilitySettings;
   branding?: {
     primary_color?: string | null;
     secondary_color?: string | null;
     product_name?: string | null;
     /** A Google family, or null to clear. Uploads go through their own endpoint. */
     font?: BrandingGoogleFont | null;
-    accessible_colors?: boolean | null;
   };
 }
 

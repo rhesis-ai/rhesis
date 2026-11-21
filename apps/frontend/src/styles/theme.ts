@@ -49,11 +49,11 @@ export interface BrandColors {
   primary?: string;
   secondary?: string;
   fontFamily?: string;
-  /** Organisation setting: raise every text and UI colour to WCAG AA contrast. */
-  accessibleColors?: boolean;
+  /** Accessibility mode: raise every text and UI colour to WCAG AA contrast. */
+  accessibilityMode?: boolean;
 }
 
-/** Surfaces text and controls sit on, which accessible colours must clear. */
+/** Surfaces text and controls sit on, which accessibility mode must clear. */
 function contrastSurfaces(
   mode: PaletteMode,
   brandSurfaces: BrandSurfaces | undefined
@@ -120,9 +120,9 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
   const brandSecondary = brand.secondary
     ? deriveBrandSecondary(brand.secondary)
     : undefined;
-  // Accessible colours: each helper is the identity when the mode is off, so
+  // Accessibility mode: each helper is the identity when the mode is off, so
   // the default and branded themes are unchanged unless an org opts in.
-  const a11y = brand.accessibleColors
+  const a11y = brand.accessibilityMode
     ? accessibleColors(mode, contrastSurfaces(mode, brandSurfaces))
     : undefined;
   const ui = (color: string) => a11y?.ui(color) ?? color;
@@ -280,7 +280,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
       greyscale: gs,
       brandColor,
       brandSecondaryColor: brand.secondary,
-      accessibleColors: Boolean(brand.accessibleColors),
+      accessibilityMode: Boolean(brand.accessibilityMode),
     },
     shape: {
       borderRadius: 8,
@@ -981,8 +981,8 @@ declare module '@mui/material/styles' {
     brandColor?: string;
     /** The raw configured `BRAND_SECONDARY_COLOR`. Undefined on the default theme. */
     brandSecondaryColor?: string;
-    /** Accessible-colours mode; read by the auth pages, which run their own palette. */
-    accessibleColors?: boolean;
+    /** Accessibility mode; read by the auth pages, which run their own palette. */
+    accessibilityMode?: boolean;
   }
   interface PaletteOptions {
     greyscale?: {
@@ -997,7 +997,7 @@ declare module '@mui/material/styles' {
     };
     brandColor?: string;
     brandSecondaryColor?: string;
-    accessibleColors?: boolean;
+    accessibilityMode?: boolean;
   }
 }
 

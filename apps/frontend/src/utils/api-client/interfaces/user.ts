@@ -80,6 +80,12 @@ export interface LocalizationSettings {
   currency?: Currency | null;
 }
 
+export interface UISettings {
+  theme?: string | null;
+  /** Adds to the organization's setting; it cannot turn the mode off. */
+  accessibility_mode?: boolean | null;
+}
+
 /** Stored settings, as PATCH /users/settings returns them. */
 export interface UserSettingsOutput {
   models?: ModelsSettings;
@@ -88,6 +94,7 @@ export interface UserSettingsOutput {
   onboarding?: OnboardingProgress;
   polyphemus_access?: PolyphemusAccess;
   default_project?: DefaultProjectSetting;
+  ui?: UISettings;
 }
 
 /** GET /users/settings: stored settings plus auth and profile fields. */
@@ -108,6 +115,7 @@ export interface UserSettingsUpdate {
   notifications?: NotificationSettings;
   onboarding?: OnboardingProgress;
   default_project?: DefaultProjectSetting;
+  ui?: UISettings;
 }
 
 // User Interfaces

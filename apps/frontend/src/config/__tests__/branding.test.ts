@@ -7,7 +7,8 @@ import {
   brandFontWeights,
   withAssetVersion,
   getServerBranding,
-  normalizeAccessibleColors,
+  normalizeAccessibilityMode,
+  resolveAccessibilityMode,
   normalizeBrandColor,
   normalizeFaviconUrl,
   normalizeProductName,
@@ -602,7 +603,7 @@ describe('withAssetVersion', () => {
   });
 });
 
-describe('accessible colours', () => {
+describe('accessibility mode', () => {
   let warn: jest.SpyInstance;
 
   beforeEach(() => {
@@ -619,13 +620,13 @@ describe('accessible colours', () => {
     ['false', false],
     ['true', true],
     [' TRUE ', true],
-  ])('reads BRAND_ACCESSIBLE_COLORS=%p as %p', (value, expected) => {
-    expect(normalizeAccessibleColors(value)).toBe(expected);
+  ])('reads ACCESSIBILITY_MODE=%p as %p', (value, expected) => {
+    expect(normalizeAccessibilityMode(value)).toBe(expected);
     expect(warn).not.toHaveBeenCalled();
   });
 
   it('warns on anything else and stays off', () => {
-    expect(normalizeAccessibleColors('yes')).toBe(false);
+    expect(normalizeAccessibilityMode('yes')).toBe(false);
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
@@ -635,21 +636,35 @@ describe('accessible colours', () => {
     isDefaultProductName: true,
   };
 
-  it('turns on when the organisation opts in', () => {
+  it('keeps the deployment setting when an organisation brands itself', () => {
+    const forced = { ...base, accessibilityMode: true };
     expect(
-      resolveBranding(base, { accessible_colors: true }).accessibleColors
+      resolveBranding(forced, { product_name: 'Acme' }).accessibilityMode
     ).toBe(true);
-  });
-
-  it('stays on when the deployment forces it, whatever the org says', () => {
-    const forced = { ...base, accessibleColors: true };
-    expect(
-      resolveBranding(forced, { accessible_colors: false }).accessibleColors
-    ).toBe(true);
-    expect(resolveBranding(forced, {}).accessibleColors).toBe(true);
   });
 
   it('stays off by default', () => {
-    expect(resolveBranding(base, {}).accessibleColors).toBeUndefined();
+    expect(resolveBranding(base, {}).accessibilityMode).toBeUndefined();
+  });
+});
+
+describe('resolveAccessibilityMode', () => {
+  it.each([
+    [{}, false],
+    [{ deployment: true }, true],
+    [{ organization: true }, true],
+    [{ user: true }, true],
+    [{ organization: false, user: false }, false],
+  ])('%p resolves to %p', (levels, expected) => {
+    expect(resolveAccessibilityMode(levels)).toBe(expected);
+  });
+
+  it('cannot be turned off by the user where a higher level turned it on', () => {
+    expect(resolveAccessibilityMode({ organization: true, user: false })).toBe(
+      true
+    );
+    expect(resolveAccessibilityMode({ deployment: true, user: false })).toBe(
+      true
+    );
   });
 });

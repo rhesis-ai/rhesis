@@ -16,6 +16,7 @@ import BrandingColorsForm from './BrandingColorsForm';
 import BrandingFaviconForm from './BrandingFaviconForm';
 import BrandingFontForm from './BrandingFontForm';
 import OrganizationCurrencyForm from './OrganizationCurrencyForm';
+import OrganizationAccessibilityForm from './OrganizationAccessibilityForm';
 import DangerZone from './DangerZone';
 
 interface BuiltInTab {
@@ -171,6 +172,10 @@ export default function OrganizationSettingsTabs({
         prefix="org-settings"
       >
         <OrganizationCurrencyForm
+          organization={organization}
+          onUpdate={onUpdate}
+        />
+        <OrganizationAccessibilityForm
           organization={organization}
           onUpdate={onUpdate}
         />

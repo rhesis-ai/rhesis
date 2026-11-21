@@ -41,12 +41,12 @@ export interface AuthStyles {
  * hover pair ended up duplicated across five files.
  */
 export function useAuthStyles(): AuthStyles {
-  const { mode, brandColor, accessibleColors } = useTheme().palette;
+  const { mode, brandColor, accessibilityMode } = useTheme().palette;
   const { branding } = useNavigationItems();
   const brandFont = branding?.fontFamily;
 
   return useMemo(() => {
-    const t = getAuthTokens(mode, brandColor, accessibleColors);
+    const t = getAuthTokens(mode, brandColor, accessibilityMode);
     const fontSans = authFontSans(brandFont);
 
     return {
@@ -116,5 +116,5 @@ export function useAuthStyles(): AuthStyles {
         textDecoration: 'none',
       },
     };
-  }, [mode, brandColor, accessibleColors, brandFont]);
+  }, [mode, brandColor, accessibilityMode, brandFont]);
 }

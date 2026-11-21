@@ -144,7 +144,7 @@ function withBrandAccent(tokens: AuthTokens, brandColor: string): AuthTokens {
 }
 
 /**
- * Accessible-colours mode: accent and muted text reach 4.5:1 on the page.
+ * Accessibility mode: accent and muted text reach 4.5:1 on the page.
  * Buttons use the MUI theme, which the mode already covers.
  */
 function withAccessibleColors(
@@ -165,11 +165,11 @@ function withAccessibleColors(
 export function getAuthTokens(
   mode: 'light' | 'dark',
   brandColor?: string,
-  accessibleColors = false
+  accessibilityMode = false
 ): AuthTokens {
   const base = mode === 'dark' ? DARK : LIGHT;
   const tokens = brandColor ? withBrandAccent(base, brandColor) : base;
-  return accessibleColors ? withAccessibleColors(tokens, mode) : tokens;
+  return accessibilityMode ? withAccessibleColors(tokens, mode) : tokens;
 }
 
 /** Shapes, lifted from the website's radius scale and hero CTAs. */

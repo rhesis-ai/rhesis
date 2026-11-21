@@ -157,17 +157,17 @@ export default function ThemeContextProvider({
   const propPrimary = brandColors?.primary;
   const propSecondary = brandColors?.secondary;
   const propFont = brandColors?.fontFamily;
-  const propAccessible = brandColors?.accessibleColors;
+  const propAccessibilityMode = brandColors?.accessibilityMode;
 
   const brandPrimary = preview.primary ?? propPrimary;
   const brandSecondary = preview.secondary ?? propSecondary;
   const brandFont = preview.fontFamily ?? propFont;
-  const accessibleColors = preview.accessibleColors ?? propAccessible;
+  const accessibilityMode = preview.accessibilityMode ?? propAccessibilityMode;
 
   // Clear the preview once the server-side prop reflects the saved value.
   React.useEffect(() => {
     setPreview({});
-  }, [propPrimary, propSecondary, propFont, propAccessible]);
+  }, [propPrimary, propSecondary, propFont, propAccessibilityMode]);
 
   const theme = React.useMemo(
     () =>
@@ -176,10 +176,10 @@ export default function ThemeContextProvider({
           primary: brandPrimary,
           secondary: brandSecondary,
           fontFamily: brandFont,
-          accessibleColors,
+          accessibilityMode,
         })
       ),
-    [mode, brandPrimary, brandSecondary, brandFont, accessibleColors]
+    [mode, brandPrimary, brandSecondary, brandFont, accessibilityMode]
   );
 
   return (

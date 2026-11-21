@@ -64,7 +64,7 @@ describe('getAuthTokens', () => {
   });
 });
 
-describe('getAuthTokens with accessible colours', () => {
+describe('getAuthTokens in accessibility mode', () => {
   it.each([
     ['light', undefined],
     ['dark', undefined],
