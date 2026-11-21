@@ -17,6 +17,11 @@ export const UI_CONTRAST = 3;
 /** Opacity of the self-tinted chip/badge backgrounds used across the app. */
 const CHIP_TINT = 0.12;
 const MAX_PASSES = 10;
+/**
+ * Aim a little above each threshold: checkers such as axe measure the rendered
+ * colour and can land a hair below a value that passes exactly here.
+ */
+const HEADROOM = 0.1;
 
 /** Text candidates for a filled background, in order of preference. */
 const TEXT_ON_FILL = ['#FFFFFF', '#1A1A1A', '#000000'];
@@ -39,16 +44,17 @@ export function ensureContrastOnAll(
 ): string {
   const against = (c: string) =>
     typeof backgrounds === 'function' ? backgrounds(c) : backgrounds;
+  const target = ratio + HEADROOM;
   let current = color;
   for (let i = 0; i < MAX_PASSES; i++) {
     const bgs = against(current);
-    if (minRatio(current, bgs) >= ratio) return current;
+    if (minRatio(current, bgs) >= target) return current;
     const worst = bgs.reduce((a, b) =>
       getContrastRatio(current, a) <= getContrastRatio(current, b) ? a : b
     );
-    current = ensureContrast(current, worst, ratio);
+    current = ensureContrast(current, worst, target);
   }
-  if (minRatio(current, against(current)) >= ratio) return current;
+  if (minRatio(current, against(current)) >= target) return current;
   // The guarantee matters more than the hue.
   return mode === 'light' ? '#000000' : '#FFFFFF';
 }
@@ -56,7 +62,7 @@ export function ensureContrastOnAll(
 /** The most preferred text colour that reaches 4.5:1 on `fill`, else the best one. */
 export function textOnFill(fill: string): string {
   const passing = TEXT_ON_FILL.find(
-    text => getContrastRatio(text, fill) >= TEXT_CONTRAST
+    text => getContrastRatio(text, fill) >= TEXT_CONTRAST + HEADROOM
   );
   if (passing) return passing;
   return TEXT_ON_FILL.reduce((best, text) =>

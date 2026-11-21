@@ -55,6 +55,17 @@ describe('ensureContrastOnAll', () => {
       TEXT_CONTRAST
     );
   });
+
+  it('clears the ratio with room to spare, not on the line', () => {
+    // A grey that sits at 4.5:1 here but measures 4.49 in axe.
+    const result = ensureContrastOnAll(
+      '#8D959F',
+      ['#2A2E36'],
+      TEXT_CONTRAST,
+      'dark'
+    );
+    expect(getContrastRatio(result, '#2A2E36')).toBeGreaterThanOrEqual(4.6);
+  });
 });
 
 describe('textOnFill', () => {
@@ -66,6 +77,11 @@ describe('textOnFill', () => {
       );
     }
   );
+
+  it('skips a label that only just reaches 4.5:1', () => {
+    // #1A1A1A on #008BBD is 4.52:1.
+    expect(textOnFill('#008BBD')).toBe('#000000');
+  });
 });
 
 describe('fillUnderText', () => {
