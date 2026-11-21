@@ -174,7 +174,7 @@ jobs:
             exit 1
           fi
           tar -cf - tfplan .terraform.lock.hcl \
-            | gpg --batch --yes --symmetric --cipher-algo AES256 --passphrase-fd 3 \
+            | gpg --batch --yes --pinentry-mode loopback --symmetric --cipher-algo AES256 --passphrase-fd 3 \
                 -o tfplan.tar.gpg 3<<<"$TFPLAN_PASSPHRASE"
           rm -f tfplan
 
@@ -245,18 +245,9 @@ jobs:
         env:
           TFPLAN_PASSPHRASE: ${{ secrets.TFPLAN_PASSPHRASE }}
         run: |
-          gpg --batch --quiet --decrypt --passphrase-fd 3 tfplan.tar.gpg 3<<<"$TFPLAN_PASSPHRASE" | tar -xf -
+          gpg --batch --quiet --pinentry-mode loopback --decrypt --passphrase-fd 3 tfplan.tar.gpg 3<<<"$TFPLAN_PASSPHRASE" | tar -xf -
           rm -f tfplan.tar.gpg
 
-      # The artifact is no longer needed once decrypted; don't leave it around.
-      - name: Delete plan artifact
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
-            -q '.artifacts[] | select(.name == "tfplan-${{ needs.plan.outputs.target_env }}") | .id' \
-            | xargs -r -I{} gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/{}"
 
       - name: Init
         working-directory: terraform/infrastructure/envs/${{ needs.plan.outputs.target_env }}
@@ -270,3 +261,15 @@ jobs:
           TF_VAR_region: ${{ secrets.TF_REGION }}
           TF_VAR_enabled_environments: ${{ needs.plan.outputs.target_env == 'wireguard' && inputs.wireguard_envs || '[]' }}
           TF_VAR_wireguard_peers: ${{ needs.plan.outputs.target_env == 'wireguard' && secrets.TF_WG_PEERS || '[]' }}
+
+      # Best effort: the encrypted artifact expires in a day anyway, so a failed
+      # delete must not fail the job after the apply has run.
+      - name: Delete plan artifact
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+            -q '.artifacts[] | select(.name == "tfplan-${{ needs.plan.outputs.target_env }}") | .id' \
+            | xargs -r -I{} gh api -X DELETE "repos/${{ github.repository }}/actions/artifacts/{}"
