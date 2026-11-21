@@ -82,6 +82,7 @@ export default function PlanDisplay({ plan }: PlanDisplayProps) {
           )}
         </Box>
         <IconButton
+          aria-expanded={expanded}
           aria-label={expanded ? 'Collapse plan' : 'Expand plan'}
           size="small"
         >

@@ -469,6 +469,9 @@ export default function OwaspGenerateForm({
                           </Typography>
                         </Stack>
                         <IconButton
+                          aria-expanded={expandedFrameworks.has(
+                            group.framework
+                          )}
                           aria-label={
                             expandedFrameworks.has(group.framework)
                               ? `Collapse ${group.label}`

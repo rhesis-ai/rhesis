@@ -769,6 +769,9 @@ export default function SecurityTestDrawer({
                                   </Stack>
                                 </Stack>
                                 <IconButton
+                                  aria-expanded={expandedModules.has(
+                                    module.name
+                                  )}
                                   aria-label={
                                     expandedModules.has(module.name)
                                       ? `Collapse ${module.name}`

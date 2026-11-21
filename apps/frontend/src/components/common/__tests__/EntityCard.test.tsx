@@ -153,12 +153,31 @@ describe('EntityCard', () => {
   it('top-aligns card content in stretched grid layouts', () => {
     render(<EntityCard {...defaultProps} />);
 
-    expect(
-      screen.getByText('My Entity').closest('.MuiButtonBase-root')
-    ).toHaveStyle({
+    expect(screen.getByTestId('entity-card')).toHaveStyle({
       justifyContent: 'flex-start',
     });
   });
+  describe('keyboard access', () => {
+    it('makes the title the button, not the whole card', () => {
+      render(<EntityCard {...defaultProps} onClick={jest.fn()} />);
+
+      expect(screen.getByTestId('entity-card')).not.toHaveAttribute('role');
+      expect(
+        screen.getByRole('button', { name: 'My Entity' })
+      ).toBeInTheDocument();
+    });
+
+    it('opens the card from the keyboard via the title', async () => {
+      const onClick = jest.fn();
+      render(<EntityCard {...defaultProps} onClick={onClick} />);
+
+      screen.getByRole('button', { name: 'My Entity' }).focus();
+      await userEvent.keyboard('{Enter}');
+
+      expect(onClick).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('delete button', () => {
     it('names the delete button and fires onDelete when enabled', async () => {
       const onDelete = jest.fn();
