@@ -10,6 +10,9 @@ drifted) even when the migration and routes are perfectly in sync.
 
 from __future__ import annotations
 
+import uuid
+from unittest.mock import Mock
+
 import pytest
 
 
@@ -24,3 +27,17 @@ def _ensure_capabilities_registered():
     from rhesis.backend.app.main import app
 
     register_capabilities(app)
+
+
+@pytest.fixture
+def make_ws_user():
+    """Build a stand-in authenticated user for WebSocket tests."""
+
+    def _make(org_id=None) -> Mock:
+        user = Mock()
+        user.id = uuid.uuid4()
+        user.organization_id = org_id or uuid.uuid4()
+        user.email = "ws-tenant@example.com"
+        return user
+
+    return _make

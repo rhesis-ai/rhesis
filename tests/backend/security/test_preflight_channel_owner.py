@@ -19,14 +19,6 @@ from tests.backend.fixtures.fake_redis import FakeRedis, fake_redis_manager
 ORCHESTRATOR = "rhesis.backend.app.routers.preflight.run_preflight_checks_multi"
 
 
-def _fake_user(org_id=None) -> Mock:
-    user = Mock()
-    user.id = uuid.uuid4()
-    user.organization_id = org_id or uuid.uuid4()
-    user.email = "ws-tenant@example.com"
-    return user
-
-
 @pytest.mark.security
 class TestPreflightChannelOwner:
     @pytest.fixture(autouse=True)
@@ -43,6 +35,17 @@ class TestPreflightChannelOwner:
             assert await claim_preflight_channel(correlation_id, "alice")
             assert await claim_preflight_channel(correlation_id, "alice")
             assert not await claim_preflight_channel(correlation_id, "bob")
+
+    @pytest.mark.asyncio
+    async def test_redis_error_refuses_instead_of_using_the_local_store(self):
+        class Broken(FakeRedis):
+            async def set(self, key, value, nx=False, ex=None):
+                raise ConnectionError("redis blip")
+
+        correlation_id = str(uuid.uuid4())
+        with fake_redis_manager(Broken()):
+            assert not await claim_preflight_channel(correlation_id, "alice")
+        assert correlation_id not in preflight_owner._local_owners
 
     @pytest.mark.asyncio
     async def test_claim_survives_the_key_expiring_between_set_and_get(self):
@@ -62,9 +65,9 @@ class TestPreflightChannelOwner:
         assert redis.data[f"preflight_owner:{correlation_id}"] == "alice"
 
     @pytest.mark.asyncio
-    async def test_subscribe_to_another_users_preflight_is_denied(self):
+    async def test_subscribe_to_another_users_preflight_is_denied(self, make_ws_user):
         manager = WebSocketManager()
-        owner, other = _fake_user(), _fake_user()
+        owner, other = make_ws_user(), make_ws_user()
         websocket = AsyncMock()
         channel = f"preflight:{uuid.uuid4()}"
         authorizer = Mock(authorize_sync=Mock(return_value=(True, None)))
