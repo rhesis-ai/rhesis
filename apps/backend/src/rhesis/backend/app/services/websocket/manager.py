@@ -109,7 +109,8 @@ class WebSocketManager:
         if conn_info:
             logger.info(f"WebSocket disconnected: {conn_id}")
         else:
-            logger.warning(f"Attempted to disconnect unknown connection: {conn_id}")
+            # Expected when a membership check already dropped the connection.
+            logger.debug(f"Connection already disconnected: {conn_id}")
 
     def subscribe(self, conn_id: str, channel: str) -> bool:
         """Subscribe a connection to a channel.

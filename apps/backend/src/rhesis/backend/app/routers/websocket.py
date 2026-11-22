@@ -4,6 +4,7 @@ This module provides the main WebSocket endpoint for frontend connections,
 supporting authentication, channel subscriptions, and message handling.
 """
 
+import asyncio
 import json
 import logging
 from typing import Optional
@@ -32,6 +33,11 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.websocket import EventType, WebSocketMessage
 from rhesis.backend.app.services.websocket import get_ws_token_service, ws_manager
+from rhesis.backend.app.services.websocket.membership import (
+    close_for_membership,
+    membership_is_current,
+    watch_membership,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +194,14 @@ async def websocket_endpoint(websocket: WebSocket):
     # can apply SP9 token scope intersection.
     conn_id = await ws_manager.connect(websocket, user)
     ws_manager.register_principal(conn_id, principal)
+    user_id, org_id = str(user.id), str(user.organization_id)
+
+    def _drop_connection() -> None:
+        ws_manager.disconnect(conn_id)
+
+    membership_watch = asyncio.create_task(
+        watch_membership(websocket, user_id, org_id, on_close=_drop_connection)
+    )
 
     # Send connected confirmation
     try:
@@ -203,6 +217,7 @@ async def websocket_endpoint(websocket: WebSocket):
         )
     except Exception as e:
         logger.error(f"Failed to send connected message: {e}")
+        membership_watch.cancel()
         ws_manager.disconnect(conn_id)
         return
 
@@ -232,6 +247,13 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 # Validate message
                 message = WebSocketMessage(**data)
+
+                # Anything but a ping acts as the user, so re-check membership first.
+                if message.type != EventType.PING and not await membership_is_current(
+                    user_id, org_id
+                ):
+                    await close_for_membership(websocket, _drop_connection)
+                    return
 
                 # Route to handler
                 await ws_manager.handle_message(conn_id, user, message)
@@ -282,4 +304,5 @@ async def websocket_endpoint(websocket: WebSocket):
         logger.error(f"WebSocket error for {conn_id}: {e}")
     finally:
         # Clean up connection
+        membership_watch.cancel()
         ws_manager.disconnect(conn_id)

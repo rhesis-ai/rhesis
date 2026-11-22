@@ -69,8 +69,11 @@ with backend environment variables:
 | `WS_MAX_MESSAGE_SIZE` | `1048576` (1 MiB) | Rejects oversized SDK connector WebSocket messages |
 | `WS_IDLE_TIMEOUT` | `300` seconds | Closes inactive SDK connector WebSocket sessions |
 | `WS_RATE_LIMIT` | `50` messages/second | Applies per-connection sliding-window rate limiting |
+| `WS_MEMBERSHIP_CHECK_INTERVAL` | `30` seconds | Closes the socket once its user is no longer an active member of the organization it connected with |
 
-These limits apply specifically to SDK connector traffic, not to all platform WebSocket usage.
+These limits apply specifically to SDK connector traffic, not to all platform WebSocket usage. The
+membership check is the exception: it also runs on the frontend WebSocket (`/ws`), which
+re-checks membership before every message other than a ping as well.
 
 ## Backend Components
 
