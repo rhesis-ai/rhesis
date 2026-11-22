@@ -34,6 +34,12 @@ spec:
                 key: tsig-secret
         domainFilters:
           - PLACEHOLDER
+        # Publish only internal-class ingresses; external-class hosts resolve through public
+        # DNS (BIND9 static-stub zones). Chart 1.20.0 has no values key for the ingress
+        # class filter, so pass the flag directly.
+        extraArgs:
+          ingress-class:
+            - internal
         policy: sync
         txtOwnerId: PLACEHOLDER
         sources:
