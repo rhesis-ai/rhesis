@@ -39,14 +39,6 @@ def _user(db: Session, org_id: str) -> models.User:
     return user
 
 
-def _fake_user(org_id=None) -> Mock:
-    user = Mock()
-    user.id = uuid.uuid4()
-    user.organization_id = org_id or uuid.uuid4()
-    user.email = "ws-tenant@example.com"
-    return user
-
-
 @pytest.mark.security
 class TestMembershipCheck:
     def test_member_of_the_connected_org_is_current(self, test_db: Session, test_org_id: str):
@@ -78,11 +70,14 @@ class TestMembershipCheck:
     async def test_watcher_drops_and_closes_when_membership_ends(self):
         websocket = AsyncMock()
         on_close = Mock()
-        with patch(
-            f"{MEMBERSHIP}.membership_is_current", AsyncMock(side_effect=[True, True, False])
+        with (
+            patch(f"{MEMBERSHIP}.MEMBERSHIP_CHECK_INTERVAL_SECONDS", 0),
+            patch(
+                f"{MEMBERSHIP}.membership_is_current", AsyncMock(side_effect=[True, True, False])
+            ),
         ):
             await asyncio.wait_for(
-                membership.watch_membership(websocket, "u", "o", on_close=on_close, interval=0),
+                membership.watch_membership(websocket, "u", "o", on_close=on_close),
                 timeout=2,
             )
         on_close.assert_called_once()
@@ -93,13 +88,18 @@ class TestMembershipCheck:
     @pytest.mark.asyncio
     async def test_watcher_leaves_a_current_member_connected(self):
         websocket = AsyncMock()
-        with patch(f"{MEMBERSHIP}.membership_is_current", AsyncMock(return_value=True)):
+        on_close = Mock()
+        with (
+            patch(f"{MEMBERSHIP}.MEMBERSHIP_CHECK_INTERVAL_SECONDS", 0),
+            patch(f"{MEMBERSHIP}.membership_is_current", AsyncMock(return_value=True)),
+        ):
             watch = asyncio.create_task(
-                membership.watch_membership(websocket, "u", "o", interval=0)
+                membership.watch_membership(websocket, "u", "o", on_close=on_close)
             )
             await asyncio.sleep(0.05)
             watch.cancel()
         websocket.close.assert_not_awaited()
+        on_close.assert_not_called()
 
 
 @pytest.mark.security
@@ -124,8 +124,8 @@ class TestFrontendSocketMembership:
             yield mgr
 
     @pytest.fixture
-    def user(self):
-        user = _fake_user()
+    def user(self, make_ws_user):
+        user = make_ws_user()
         with patch(
             "rhesis.backend.app.routers.websocket.authenticate_websocket_token",
             AsyncMock(return_value=(user, resolve_principal(user))),
@@ -180,8 +180,10 @@ class TestFrontendSocketMembership:
 
 @pytest.mark.security
 class TestConnectorSocketMembership:
-    def test_sdk_socket_is_closed_when_membership_ends(self, authenticated_client: TestClient):
-        user = _fake_user()
+    def test_sdk_socket_is_closed_when_membership_ends(
+        self, authenticated_client: TestClient, make_ws_user
+    ):
+        user = make_ws_user()
         with (
             patch(
                 "rhesis.backend.app.routers.connector.authenticate_websocket",

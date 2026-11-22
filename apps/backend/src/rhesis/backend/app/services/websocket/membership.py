@@ -9,7 +9,8 @@ import asyncio
 import logging
 import math
 import os
-from typing import Callable, Optional
+import random
+from typing import Callable
 
 import anyio
 from fastapi import WebSocket
@@ -58,12 +59,9 @@ async def membership_is_current(user_id: str, organization_id: str) -> bool:
         return True
 
 
-async def close_for_membership(
-    websocket: WebSocket, on_close: Optional[Callable[[], None]]
-) -> None:
+async def close_for_membership(websocket: WebSocket, on_close: Callable[[], None]) -> None:
     """Drop the connection from its manager first, so no further events reach it."""
-    if on_close is not None:
-        on_close()
+    on_close()
     try:
         await websocket.close(code=MEMBERSHIP_CLOSE_CODE, reason=MEMBERSHIP_CLOSE_REASON)
     except Exception:
@@ -74,13 +72,13 @@ async def watch_membership(
     websocket: WebSocket,
     user_id: str,
     organization_id: str,
-    on_close: Optional[Callable[[], None]] = None,
-    interval: Optional[float] = None,
+    on_close: Callable[[], None],
 ) -> None:
-    """Re-check membership every ``interval`` seconds and close the socket when it ends."""
-    period = MEMBERSHIP_CHECK_INTERVAL_SECONDS if interval is None else interval
+    """Re-check membership every interval and close the socket when it ends."""
+    period = MEMBERSHIP_CHECK_INTERVAL_SECONDS
+    # Spread the first check so sockets reconnecting after a deploy don't poll in lockstep.
+    await asyncio.sleep(random.uniform(0, period))
     while True:
-        await asyncio.sleep(period)
         if not await membership_is_current(user_id, organization_id):
             logger.info(
                 "Closing WebSocket for user %s: no longer in organization %s",
@@ -89,3 +87,4 @@ async def watch_membership(
             )
             await close_for_membership(websocket, on_close)
             return
+        await asyncio.sleep(period)
