@@ -7,6 +7,7 @@ deactivated.
 
 import asyncio
 import logging
+import math
 import os
 from typing import Callable, Optional
 
@@ -17,7 +18,24 @@ from rhesis.backend.app.auth.user_utils import _load_user_by_id
 
 logger = logging.getLogger(__name__)
 
-MEMBERSHIP_CHECK_INTERVAL_SECONDS = float(os.getenv("WS_MEMBERSHIP_CHECK_INTERVAL", "30"))
+_DEFAULT_INTERVAL_SECONDS = 30.0
+_MIN_INTERVAL_SECONDS = 1.0
+
+
+def _interval_from_env() -> float:
+    raw = os.getenv("WS_MEMBERSHIP_CHECK_INTERVAL", "")
+    try:
+        value = float(raw) if raw else _DEFAULT_INTERVAL_SECONDS
+    except ValueError:
+        value = math.nan
+    if not math.isfinite(value):
+        logger.warning("Ignoring invalid WS_MEMBERSHIP_CHECK_INTERVAL=%r", raw)
+        value = _DEFAULT_INTERVAL_SECONDS
+    # A zero or tiny interval would turn every open socket into a DB polling loop.
+    return max(value, _MIN_INTERVAL_SECONDS)
+
+
+MEMBERSHIP_CHECK_INTERVAL_SECONDS = _interval_from_env()
 MEMBERSHIP_CLOSE_CODE = 1008
 MEMBERSHIP_CLOSE_REASON = "Organization membership changed"
 

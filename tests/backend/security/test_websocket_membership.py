@@ -103,6 +103,17 @@ class TestMembershipCheck:
 
 
 @pytest.mark.security
+class TestMembershipCheckInterval:
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [("", 30.0), ("45", 45.0), ("0", 1.0), ("-5", 1.0), ("abc", 30.0), ("inf", 30.0)],
+    )
+    def test_interval_from_env(self, monkeypatch, raw, expected):
+        monkeypatch.setenv("WS_MEMBERSHIP_CHECK_INTERVAL", raw)
+        assert membership._interval_from_env() == expected
+
+
+@pytest.mark.security
 class TestFrontendSocketMembership:
     @pytest.fixture
     def ws_manager(self):
