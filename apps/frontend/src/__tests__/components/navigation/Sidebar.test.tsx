@@ -354,6 +354,31 @@ describe('Sidebar', () => {
       expect(getComputedStyle(fill).width).toBe('100%');
     });
 
+    it('names the usage warning badge in the brand button', () => {
+      mockUsageResources.current = {
+        [QuotaResource.PROJECTS]: {
+          used: 1,
+          limit: 1,
+          ceiling: 1,
+          kind: 'stock',
+          period_start: '2026-08-01',
+          period_end: '2026-08-31',
+        },
+      };
+      setupMocks();
+      (useNavigationItems as jest.Mock).mockReturnValue({
+        navigation: [],
+        branding: { title: 'Acme Corp', logo: null, homeUrl: '/architect' },
+      });
+      render(<Sidebar />);
+
+      expect(
+        screen.getByRole('button', {
+          name: 'Open organisation menu for Acme Corp 1 usage warning',
+        })
+      ).toBeInTheDocument();
+    });
+
     it('navigates to org settings when Org Settings is clicked', () => {
       setupMocks();
       (useNavigationItems as jest.Mock).mockReturnValue({

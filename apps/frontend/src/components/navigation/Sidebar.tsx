@@ -76,6 +76,7 @@ import NotificationsDrawer from './NotificationsDrawer';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { useScrollEdges } from '@/hooks/useScrollEdges';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+import VisuallyHidden from '@/components/common/VisuallyHidden';
 
 // ── Figma "left_panel_close" / "left_panel_open" SVG icons ──────────────────
 // Exact filled path from Figma node 841:38433 (Material Symbols Rounded w300).
@@ -413,6 +414,13 @@ export function Sidebar() {
   );
 
   const orgName = branding?.title ?? branding?.productName ?? 'Rhesis AI';
+  // The badge is part of what the button shows, so its name says it too (2.5.3).
+  const orgMenuLabel =
+    flaggedCount > 0
+      ? `Open organisation menu for ${orgName}, ${flaggedCount} usage ${
+          flaggedCount === 1 ? 'warning' : 'warnings'
+        }`
+      : `Open organisation menu for ${orgName}`;
   const groups = groupNavItems(navigation);
 
   const mainGroups = groups.filter(g => g.type !== 'footer-links') as (
@@ -508,7 +516,7 @@ export function Sidebar() {
             >
               <ButtonBase
                 onClick={e => setOrgMenuAnchor(e.currentTarget)}
-                aria-label={`Open organisation menu for ${orgName}`}
+                aria-label={orgMenuLabel}
                 aria-haspopup="true"
                 sx={{
                   display: 'flex',
@@ -553,9 +561,10 @@ export function Sidebar() {
             }}
           >
             {/* Brand block: logo + name — opens org menu */}
+            {/* Named by its content, so the visible name and badge are always
+                part of it (2.5.3). */}
             <ButtonBase
               onClick={e => setOrgMenuAnchor(e.currentTarget)}
-              aria-label={`Open organisation menu for ${orgName}`}
               aria-haspopup="true"
               sx={{
                 display: 'flex',
@@ -585,13 +594,11 @@ export function Sidebar() {
                   justifyContent: 'center',
                 }}
               >
-                <BrandMark
-                  src={branding?.iconUrl}
-                  size={40}
-                  alt={`${orgName} logo`}
-                  priority
-                />
+                <BrandMark src={branding?.iconUrl} size={40} alt="" priority />
               </Box>
+              <VisuallyHidden component="span">
+                Open organisation menu for{' '}
+              </VisuallyHidden>
               {/* Org only: the active project has its own box below. */}
               <Typography
                 variant="bodyMBold"
@@ -608,7 +615,11 @@ export function Sidebar() {
                 {orgName}
               </Typography>
               {flaggedCount > 0 && (
-                <Tooltip title={usageTooltip ?? ''} placement="right">
+                <Tooltip
+                  title={usageTooltip ?? ''}
+                  placement="right"
+                  describeChild
+                >
                   <Box
                     sx={{
                       ...COUNT_BADGE_SX,
@@ -623,6 +634,11 @@ export function Sidebar() {
                     {flaggedCount > 99 ? '99+' : flaggedCount}
                   </Box>
                 </Tooltip>
+              )}
+              {flaggedCount > 0 && (
+                <VisuallyHidden component="span">
+                  {flaggedCount === 1 ? ' usage warning' : ' usage warnings'}
+                </VisuallyHidden>
               )}
             </ButtonBase>
             {/* Collapse toggle — inline, right of brand row. Lifted a full icon
