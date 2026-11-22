@@ -23,8 +23,11 @@ spec:
                 key: cf-api-token
         domainFilters:
           - rhesis.ai
-        ingressClassFilters:
-          - external
+        # Publish only external-class ingresses. Chart 1.20.0 has no values key for the
+        # ingress class filter, so pass the flag directly.
+        extraArgs:
+          ingress-class:
+            - external
         policy: sync # sync or upsert
         txtOwnerId: PLACEHOLDER
         sources:
