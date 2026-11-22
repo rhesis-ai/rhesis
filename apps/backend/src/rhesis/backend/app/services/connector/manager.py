@@ -1031,10 +1031,10 @@ class ConnectionManager:
             test_run_id = message.get("test_run_id")
             if test_run_id:
                 expected_conn = self._pending_test_connections.get(test_run_id)
-                if expected_conn is not None and expected_conn != connection_id:
-                    # A different connection is claiming the result of a test
-                    # that was dispatched to another SDK.  Reject silently but
-                    # log loudly for audit purposes.
+                if expected_conn != connection_id:
+                    # Only the connection the test was dispatched to may answer.
+                    # Every dispatch binds first (send_test_request and the RPC
+                    # path), so a missing binding is rejected too.
                     logger.warning(
                         "test_result rejected: connection mismatch "
                         "(test_run_id=%s, expected=%s, got=%s)",

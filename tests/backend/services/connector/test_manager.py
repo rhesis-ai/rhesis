@@ -295,6 +295,8 @@ class TestConnectionManager:
             project_context["project_id"], project_context["environment"]
         )
         manager._connection_projects[conn_id] = {key}
+        # Results are accepted only from the connection the test was dispatched to.
+        manager._pending_test_connections[sample_test_result_message["test_run_id"]] = conn_id
 
         with patch("rhesis.backend.app.services.connector.manager.message_handler") as mock_handler:
             mock_handler.handle_test_result_message = AsyncMock()
@@ -434,6 +436,7 @@ class TestConnectionManager:
             project_context["project_id"], project_context["environment"]
         )
         manager._connection_projects[conn_id] = {key}
+        manager._pending_test_connections["validation_abc123"] = conn_id
 
         session = Mock()
         opened = []
