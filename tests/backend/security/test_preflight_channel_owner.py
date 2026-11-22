@@ -14,7 +14,7 @@ from rhesis.backend.app.schemas.websocket import EventType, WebSocketMessage
 from rhesis.backend.app.services.websocket import preflight_owner
 from rhesis.backend.app.services.websocket.manager import WebSocketManager
 from rhesis.backend.app.services.websocket.preflight_owner import claim_preflight_channel
-from tests.backend.fixtures.fake_redis import fake_redis_manager
+from tests.backend.fixtures.fake_redis import FakeRedis, fake_redis_manager
 
 ORCHESTRATOR = "rhesis.backend.app.routers.preflight.run_preflight_checks_multi"
 
@@ -43,6 +43,23 @@ class TestPreflightChannelOwner:
             assert await claim_preflight_channel(correlation_id, "alice")
             assert await claim_preflight_channel(correlation_id, "alice")
             assert not await claim_preflight_channel(correlation_id, "bob")
+
+    @pytest.mark.asyncio
+    async def test_claim_survives_the_key_expiring_between_set_and_get(self):
+        class ExpiresOnce(FakeRedis):
+            async def get(self, key):
+                if not getattr(self, "expired", False):
+                    self.expired = True
+                    self.data.pop(key, None)
+                    return None
+                return await super().get(key)
+
+        redis = ExpiresOnce()
+        correlation_id = str(uuid.uuid4())
+        redis.data[f"preflight_owner:{correlation_id}"] = "bob"
+        with fake_redis_manager(redis):
+            assert await claim_preflight_channel(correlation_id, "alice")
+        assert redis.data[f"preflight_owner:{correlation_id}"] == "alice"
 
     @pytest.mark.asyncio
     async def test_subscribe_to_another_users_preflight_is_denied(self):
