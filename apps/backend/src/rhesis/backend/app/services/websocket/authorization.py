@@ -50,8 +50,8 @@ _RESOURCE_CHANNEL_RULES: dict[str, _ResourceChannelRule] = {
     "job": _ResourceChannelRule("job:read", "Job"),
     "project": _ResourceChannelRule("project:read", None, id_is_project=True),
     # preflight:{correlation_id} is an ephemeral operation channel with no
-    # persisted row; the server-generated correlation_id is returned only to the
-    # initiator, so org membership + the unguessable id is the boundary.
+    # persisted row. The id is bound to the first user who uses it
+    # (services/websocket/preflight_owner.py), checked in the manager's subscribe.
     "preflight": _ResourceChannelRule("preflight:create", None),
 }
 

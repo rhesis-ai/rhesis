@@ -34,6 +34,7 @@ from rhesis.backend.app.services.websocket.handlers.architect import (
     handle_architect_message,
 )
 from rhesis.backend.app.services.websocket.handlers.chat import handle_chat_message
+from rhesis.backend.app.services.websocket.preflight_owner import claim_preflight_channel
 from rhesis.backend.app.services.websocket.rate_limiter import get_rate_limiter
 from rhesis.backend.app.services.websocket.registry import ConnectionRegistry
 
@@ -315,6 +316,10 @@ class WebSocketManager:
                 return authorizer.authorize_sync(user, channel, db=db, principal=stored_principal)
 
         authorized, error_message = await anyio.to_thread.run_sync(_authorize)
+        if authorized and channel.startswith("preflight:"):
+            # The channel id is client-chosen, so bind it to the first user who uses it.
+            if not await claim_preflight_channel(channel.split(":", 1)[1], str(user.id)):
+                authorized, error_message = False, "Channel belongs to another user"
         if not authorized:
             logger.warning(
                 f"Unauthorized subscription attempt by user {user.id} to {channel}: {error_message}"

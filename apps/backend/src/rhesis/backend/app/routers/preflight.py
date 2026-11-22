@@ -41,6 +41,7 @@ from rhesis.backend.app.services.preflight import (
     run_preflight_checks_multi,
 )
 from rhesis.backend.app.services.preflight.utils import open_tenant_session_off_loop
+from rhesis.backend.app.services.websocket.preflight_owner import claim_preflight_channel
 from rhesis.backend.app.utils.query_utils import QueryBuilder, include
 from rhesis.backend.app.utils.rate_limit import PROBE_RATE_LIMIT
 
@@ -286,6 +287,9 @@ async def run_preflight(
 
     # Async mode: return 202 immediately, run checks in background
     correlation_id = request.correlation_id or str(uuid.uuid4())
+    # Results go to preflight:{correlation_id}; only its first user may run on it.
+    if not await claim_preflight_channel(correlation_id, str(current_user.id)):
+        raise HTTPException(status_code=409, detail="correlation_id is already in use")
 
     ts_strs = [(str(tid), name, mt) for tid, name, mt in test_sets]
     checks = _determine_applicable_checks(request.scoring_target, ts_strs)
