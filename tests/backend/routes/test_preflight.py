@@ -23,8 +23,18 @@ from rhesis.backend.app.services.preflight import (
     CHECK_TEST_SET_NOT_EMPTY,
     LABELS,
 )
+from tests.backend.fixtures.fake_redis import fake_redis_manager
 
 ORCHESTRATOR = "rhesis.backend.app.routers.preflight.run_preflight_checks_multi"
+
+
+@pytest.fixture(autouse=True)
+def _redis(authenticated_client):
+    # Async runs claim their correlation id in Redis; the real client is bound
+    # to another event loop than TestClient's. Taking the client first keeps the
+    # app's startup and shutdown on the real manager.
+    with fake_redis_manager():
+        yield
 
 
 @pytest.fixture

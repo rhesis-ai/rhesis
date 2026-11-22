@@ -36,6 +36,7 @@ from rhesis.backend.app.services.connector.manager import connection_manager
 from rhesis.backend.app.services.connector.schemas import (
     WebSocketConnectionContext,
 )
+from rhesis.backend.app.services.websocket.membership import watch_membership
 from rhesis.backend.app.utils.rate_limit import PROBE_RATE_LIMIT
 
 logger = logging.getLogger(__name__)
@@ -136,6 +137,18 @@ async def websocket_endpoint(
 
     await websocket.accept()
 
+    def _drop_connection() -> None:
+        connection_manager.disconnect_by_connection_id(context.connection_id)
+
+    membership_watch = asyncio.create_task(
+        watch_membership(
+            websocket,
+            context.user_id,
+            context.organization_id,
+            on_close=_drop_connection,
+        )
+    )
+
     try:
         await connection_manager.connect(context.connection_id, context, websocket)
 
@@ -158,6 +171,7 @@ async def websocket_endpoint(
         logger.error(f"WebSocket error for {context.connection_id}: {e}")
 
     finally:
+        membership_watch.cancel()
         connection_manager.disconnect_by_connection_id(context.connection_id)
 
 
