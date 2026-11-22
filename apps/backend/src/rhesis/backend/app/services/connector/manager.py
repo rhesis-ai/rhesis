@@ -128,6 +128,10 @@ class ConnectionManager:
         # Used to reject test_result messages from connections that did not
         # receive the matching execute_test message (prevents result injection).
         self._pending_test_connections: Dict[str, str] = {}
+        # Same for metric_run_id. A metric is always dispatched on the replica
+        # that holds the SDK socket, so a missing binding means the result is
+        # not ours to accept.
+        self._pending_metric_connections: Dict[str, str] = {}
 
         # Cancelled/timed-out run tracking (prevents storing late results)
         self._cancelled_tests: OrderedDict = OrderedDict()
@@ -251,6 +255,12 @@ class ConnectionManager:
 
         self._connections.pop(connection_id, None)
         self._contexts.pop(connection_id, None)
+        # Results can no longer arrive on this socket.
+        self._pending_metric_connections = {
+            run_id: conn
+            for run_id, conn in self._pending_metric_connections.items()
+            if conn != connection_id
+        }
 
         project_keys = self._connection_projects.pop(connection_id, set())
         for pk in project_keys:
@@ -574,11 +584,13 @@ class ConnectionManager:
             inputs=inputs,
         )
 
+        self._pending_metric_connections[metric_run_id] = connection_id
         try:
             await websocket.send_json(message.model_dump())
             logger.info(f"Sent metric request to conn:{connection_id}: {metric_name}")
             return True
         except Exception as e:
+            self._pending_metric_connections.pop(metric_run_id, None)
             logger.error(f"Error sending metric to conn:{connection_id}: {e}")
             return False
 
@@ -729,6 +741,7 @@ class ConnectionManager:
         """
         # Mark as cancelled to prevent late results from being stored
         self._cancelled_metrics[metric_run_id] = True
+        self._pending_metric_connections.pop(metric_run_id, None)
 
         # Remove any existing result
         if metric_run_id in self._metric_results:
@@ -1048,6 +1061,17 @@ class ConnectionManager:
         elif message_type == "metric_result":
             metric_run_id = message.get("metric_run_id")
             if metric_run_id:
+                expected_conn = self._pending_metric_connections.get(metric_run_id)
+                if expected_conn != connection_id:
+                    logger.warning(
+                        "metric_result rejected: connection mismatch "
+                        "(metric_run_id=%s, expected=%s, got=%s)",
+                        metric_run_id,
+                        expected_conn,
+                        connection_id,
+                    )
+                    return None
+                self._pending_metric_connections.pop(metric_run_id, None)
                 self._resolve_metric_result(metric_run_id, message)
             return None
 
@@ -1296,6 +1320,7 @@ class ConnectionManager:
                     f"Connection {conn_id} not found",
                 )
                 return
+            self._pending_metric_connections[request_id] = conn_id
             await self._forward_metric_to_sdk(request_id, conn_id, websocket, name, inputs)
             return
 
@@ -1315,6 +1340,7 @@ class ConnectionManager:
         websocket = self._connections[routed_conn_id]
 
         if request_type == "execute_metric":
+            self._pending_metric_connections[request_id] = routed_conn_id
             await self._forward_metric_to_sdk(request_id, key, websocket, name, inputs)
         else:
             # Bind before forwarding so the result validator can check the
@@ -1394,6 +1420,8 @@ class ConnectionManager:
             logger.info(f"Forwarding {request_prefix}RPC request {request_id} ({call_name}) to SDK")
             await websocket.send_json(message.model_dump())
         except Exception as e:
+            if is_metric:
+                self._pending_metric_connections.pop(request_id, None)
             logger.error(f"Error forwarding {request_prefix}RPC request {request_id}: {e}")
             await self._cleanup_stale_routing(key)
             await self._publish_error_response(
