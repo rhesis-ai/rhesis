@@ -3,6 +3,7 @@ import { Head } from 'nextra/components'
 import { getPageMap } from 'nextra/page-map'
 import NavLogo from '../components/NavLogo'
 import GradientBackdrop from '../components/GradientBackdrop'
+import Link from 'next/link'
 import Footer from '../components/Footer'
 import ThemeA11yFixes from '../components/ThemeA11yFixes'
 import CollapsibleSidebar from '../components/CollapsibleSidebar'
@@ -126,9 +127,9 @@ export const viewport = {
 const navbar = (
   <Navbar
     logo={
-      <a href="/" className="rhesis-navlogo-link">
+      <Link href="/" className="rhesis-navlogo-link">
         <NavLogo />
-      </a>
+      </Link>
     }
     logoLink={false}
     projectLink="https://github.com/rhesis-ai/rhesis"
