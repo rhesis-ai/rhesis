@@ -15,11 +15,12 @@ from rhesis.backend.app.models.enums import (
     EndpointConnectionType,
     EndpointEnvironment,
 )
+from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota.enforcement import enforce_quota
+from rhesis.backend.app.services.endpoint.mapper import generate_and_apply_mappings
+from rhesis.backend.app.services.endpoint.validation import validate_and_update_status
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.app.utils.query_utils import QueryBuilder
-
-from .mapper import generate_and_apply_mappings
-from .validation import validate_and_update_status
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,7 @@ async def sync_sdk_endpoints(
         }
 
     project_name = project.name
+    organization = db.get(models.Organization, organization_id)
     logger.info(f"Project validated: {project_name} ({project_id})")
 
     # Get all existing SDK endpoints for this project/environment
@@ -186,7 +188,9 @@ async def sync_sdk_endpoints(
                 logger.info(f"Updated endpoint for function: {function_name}")
 
             else:
-                # Create new endpoint for this function
+                # Create new endpoint for this function. Raises QuotaExceededError
+                # past the ENDPOINTS limit, which lands in this function's errors.
+                enforce_quota(db, str(organization_id), organization, QuotaResource.ENDPOINTS)
                 # Get or create Active status (tentative, will be updated after validation)
                 active_status = get_or_create_status(
                     db=db,

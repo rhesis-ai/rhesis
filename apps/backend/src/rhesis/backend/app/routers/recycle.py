@@ -15,6 +15,7 @@ from typing import Annotated, Dict, List
 from uuid import UUID
 
 from fastapi import Body, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import UnmappedClassError
@@ -22,8 +23,11 @@ from sqlalchemy.orm.exc import UnmappedClassError
 from rhesis.backend.app import models
 from rhesis.backend.app.auth.capabilities import Permission, capability
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
+from rhesis.backend.app.database import without_soft_delete_filter
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.models.base import Base
+from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota.enforcement import enforce_quota
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.base import MAX_BULK_ITEMS
 from rhesis.backend.app.services import recycle as recycle_service
@@ -51,6 +55,35 @@ router = RhesisRouter(prefix="/recycle", tags=["recycle"], resource="recycle")
 # they do not accumulate invisibly.
 # report_result rows are the frozen record behind a report's snapshot hash; never deleted.
 RECYCLE_EXCLUDED_TABLES = frozenset({"usage", "job", "activity_log", "report_result"})
+
+
+# Restoring a row of these models brings it back into a stock limit.
+_RESTORE_QUOTAS = {
+    models.Project: QuotaResource.PROJECTS,
+    models.Endpoint: QuotaResource.ENDPOINTS,
+}
+
+
+def _enforce_restore_quota(
+    db: Session, model: type, organization_id: str, item_ids: List[UUID]
+) -> None:
+    """Refuse a restore that would take the org past a stock limit (raises QuotaExceededError)."""
+    resource = _RESTORE_QUOTAS.get(model)
+    if resource is None:
+        return
+    with without_soft_delete_filter():
+        amount = (
+            db.query(func.count(model.id))
+            .filter(
+                model.id.in_(item_ids),
+                model.organization_id == organization_id,
+                model.deleted_at.isnot(None),
+            )
+            .scalar()
+        )
+    if amount:
+        org = db.get(models.Organization, organization_id)
+        enforce_quota(db, str(organization_id), org, resource, amount=amount)
 
 
 def get_all_models() -> Dict[str, type]:
@@ -210,6 +243,8 @@ def restore_from_recycle_bin(
     org_id = None
     if hasattr(model, "organization_id"):
         org_id = organization_id
+
+    _enforce_restore_quota(db, model, organization_id, [item_id])
 
     # Use cascade-aware restoration from service layer
     restored_item = recycle_service.restore_item_with_cascade(
@@ -437,6 +472,8 @@ def bulk_restore_from_recycle_bin(
     org_id = None
     if hasattr(model, "organization_id"):
         org_id = organization_id
+
+    _enforce_restore_quota(db, model, organization_id, item_ids)
 
     # Use cascade-aware bulk restoration from service layer
     results = recycle_service.bulk_restore_with_cascade(db, model, item_ids, organization_id=org_id)
