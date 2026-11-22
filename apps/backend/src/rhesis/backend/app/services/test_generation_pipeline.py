@@ -32,6 +32,7 @@ from rhesis.backend.app.services.generation import (
 from rhesis.backend.app.services.streaming_utils import IncrementalConfigParser, ndjson
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError, model_setup_message
 from rhesis.backend.app.utils.user_model_utils import (
+    _enforce_model_token_quota,
     ensure_language_model,
     resolve_model,
 )
@@ -64,6 +65,8 @@ def _resolve_config_llm(db: Session, user: User):
         try:
             # ensure_language_model, not resolve_default_hosted_model: see the
             # note on the identical branch in test_config_generator.py.
+            # The system default is hosted inference, so gate it on the token quota.
+            _enforce_model_token_quota(db, str(user.organization_id))
             return ensure_language_model(get_model_settings().generation_model)
         except ValueError:
             pass

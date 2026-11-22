@@ -20,6 +20,7 @@ from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.schemas.services import TestConfigResponse
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError, model_setup_message
 from rhesis.backend.app.utils.user_model_utils import (
+    _enforce_model_token_quota,
     ensure_language_model,
     resolve_model,
 )
@@ -78,6 +79,8 @@ class TestConfigGeneratorService:
                 # that cannot be built falls through to the user's model
                 # below. Wrapping resolve's non-raising fallback in ensure
                 # just built the same model twice on the failure path.
+                # The system default is hosted inference, so gate it on the token quota.
+                _enforce_model_token_quota(self.db, str(self.user.organization_id))
                 return ensure_language_model(get_model_settings().generation_model)
             except ValueError as e:
                 logger.warning(

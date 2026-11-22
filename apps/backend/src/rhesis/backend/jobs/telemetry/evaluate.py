@@ -189,24 +189,40 @@ def _prepare_evaluation(
     if not _should_evaluate(config):
         return None
 
-    from rhesis.backend.app.utils.user_model_utils import resolve_model, text_model_for
+    from rhesis.backend.app.config.settings import get_model_settings
+    from rhesis.backend.app.quota.enforcement import QuotaExceededError
+    from rhesis.backend.app.utils.user_model_utils import (
+        resolve_default_hosted_model,
+        resolve_model,
+        text_model_for,
+    )
     from rhesis.backend.metrics.evaluator import MetricEvaluator
 
     default_model = None
     text_model = None
     project_user = project.owner or project.user
-    if project_user:
-        try:
+    try:
+        if project_user:
             default_model = resolve_model(db, project_user, "evaluation")
             text_model = text_model_for(db, project_user, default_model)
-        except Exception as e:
-            logger.warning(f"Failed to get default evaluation model for trace {trace_id}: {e}")
+        else:
+            default_model = resolve_default_hosted_model(
+                get_model_settings().evaluation_model, db, organization_id
+            )
+    except QuotaExceededError as e:
+        logger.info(f"Skipping trace {trace_id} evaluation: {e}")
+        return None
+    except Exception as e:
+        logger.warning(f"Failed to get default evaluation model for trace {trace_id}: {e}")
 
+    # require_model: without a resolved judge the SDK would build its own default
+    # model, which carries no usage stamp.
     evaluator = MetricEvaluator(
         model=default_model,
         text_model=text_model,
         db=db,
         organization_id=organization_id,
+        require_model=True,
     )
     return project, config, evaluator
 

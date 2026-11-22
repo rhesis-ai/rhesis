@@ -22,6 +22,7 @@ from tenacity import (
     wait_exponential,
 )
 
+from rhesis.backend.app.quota.enforcement import QuotaExceededError
 from rhesis.backend.app.usage_attribution import with_usage_attribution
 from rhesis.backend.app.utils.ssrf_http_client import validate_outbound_url
 from rhesis.backend.metrics.applicability import needs_model
@@ -638,7 +639,10 @@ def _resolve_metric_model(
                 tenant_model_kwargs,
             )
             from rhesis.backend.app.utils.usage_tracking import stamp_usage_provenance
-            from rhesis.backend.app.utils.user_model_utils import _is_hosted_model
+            from rhesis.backend.app.utils.user_model_utils import (
+                _enforce_model_token_quota,
+                _is_hosted_model,
+            )
 
             provider = model_record.provider_type.type_value
             # Same normalization as _fetch_and_configure_model: a whitespace-only
@@ -659,13 +663,18 @@ def _resolve_metric_model(
             if model_record.endpoint and model_record.endpoint.strip():
                 # SSRFError lands in the except below, which falls back to the default judge.
                 validate_outbound_url(model_record.endpoint.strip(), allow_unresolved=True)
+            hosted = _is_hosted_model(provider, api_key)
+            if hosted:
+                # Raises QuotaExceededError, re-raised below: falling back to the
+                # default judge would keep spending on hosted inference.
+                _enforce_model_token_quota(db, organization_id)
             llm = stamp_usage_provenance(
                 get_model(
                     provider=provider,
                     model_name=model_record.model_name,
                     **tenant_model_kwargs(provider, api_key, model_record.endpoint),
                 ),
-                metered=_is_hosted_model(provider, api_key),
+                metered=hosted,
             )
             logger.info(
                 f"[METRIC_MODEL] Using metric-specific model for "
@@ -678,6 +687,8 @@ def _resolve_metric_model(
         logger.warning(
             f"[METRIC_MODEL] Model ID {model_id} not found for metric '{metric_name_for_log}'"
         )
+    except QuotaExceededError:
+        raise
     except Exception as e:
         logger.warning(
             f"[METRIC_MODEL] Error fetching metric-specific model for '{metric_name_for_log}': {e}"
@@ -702,6 +713,8 @@ def _select_metric_model(
     """
     if metric_models is not None and model_id in metric_models:
         pre_resolved = metric_models[model_id]
+        if isinstance(pre_resolved, QuotaExceededError):
+            raise pre_resolved
         if pre_resolved is None:
             logger.warning(
                 f"[METRIC_MODEL] Model {model_id} configured for metric "
@@ -750,6 +763,21 @@ def _no_model_result(metric_config: MetricConfig, backend: str) -> Dict[str, Any
         description=metric_config.description or "",
         error=NO_JUDGE_MODEL_REASON,
         error_type="NoJudgeModel",
+        threshold=metric_config.threshold,
+    )
+
+
+def _quota_refused_result(
+    metric_config: MetricConfig, backend: str, exceeded: QuotaExceededError
+) -> Dict[str, Any]:
+    return MetricResultBuilder.error(
+        reason=str(exceeded),
+        backend=backend,
+        name=metric_config.name or metric_config.class_name,
+        class_name=metric_config.class_name,
+        description=metric_config.description or "",
+        error=str(exceeded),
+        error_type="QuotaExceeded",
         threshold=metric_config.threshold,
     )
 
@@ -821,9 +849,15 @@ def prepare_metrics(
             metric_model = None
 
             if model_id:
-                metric_model = _select_metric_model(
-                    model_id, db, organization_id, metric_name_for_log, metric_models
-                )
+                try:
+                    metric_model = _select_metric_model(
+                        model_id, db, organization_id, metric_name_for_log, metric_models
+                    )
+                except QuotaExceededError as exceeded:
+                    logger.warning(f"[METRIC_MODEL] '{metric_name_for_log}' not scored: {exceeded}")
+                    if refused is not None:
+                        refused.append(_quota_refused_result(metric_config, backend, exceeded))
+                    continue
 
             if metric_model is None and model is not None:
                 metric_model = model

@@ -165,6 +165,7 @@ def _resolve_metric_judge_models(
     recorded as a `None` value rather than omitted, so the evaluator can tell
     "tried and failed" from "never attempted" and warn accordingly.
     """
+    from rhesis.backend.app.quota.enforcement import QuotaExceededError
     from rhesis.backend.metrics.strategies.local import _resolve_metric_model
 
     resolved: Dict[str, Any] = {}
@@ -172,12 +173,20 @@ def _resolve_metric_judge_models(
         model_id = (config.parameters or {}).get("model_id")
         if not model_id or model_id in resolved:
             continue
-        resolved[model_id] = _resolve_metric_model(
-            model_id, session, organization_id, config.name or config.class_name
-        )
+        try:
+            resolved[model_id] = _resolve_metric_model(
+                model_id, session, organization_id, config.name or config.class_name
+            )
+        except QuotaExceededError as exceeded:
+            # Kept, so only the metrics using this model are refused.
+            resolved[model_id] = exceeded
 
     if resolved:
-        failed = [mid for mid, model in resolved.items() if model is None]
+        failed = [
+            mid
+            for mid, model in resolved.items()
+            if model is None or isinstance(model, QuotaExceededError)
+        ]
         logger.info(
             f"Pre-resolved {len(resolved) - len(failed)}/{len(resolved)} per-metric judge models"
         )
