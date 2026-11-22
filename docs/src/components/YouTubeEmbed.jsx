@@ -20,11 +20,12 @@ const styles = {
   },
 }
 
-export const YouTubeEmbed = ({ videoId }) => {
+export const YouTubeEmbed = ({ videoId, title = 'Video' }) => {
   return (
     <div style={styles.container}>
       <iframe
         src={`https://www.youtube.com/embed/${videoId}`}
+        title={title}
         style={styles.iframe}
         frameBorder="0"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

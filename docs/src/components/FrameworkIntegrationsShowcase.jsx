@@ -353,7 +353,7 @@ export function ToolsSection() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))',
           gap: '0.75rem',
         }}
       >
@@ -396,7 +396,7 @@ export function ModelProvidersSection() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(112px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(112px, 100%), 1fr))',
           gap: '0.65rem',
         }}
       >
@@ -440,7 +440,7 @@ export function ConnectorSection() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))',
           gap: '0.75rem',
         }}
       >
@@ -490,7 +490,7 @@ export function ObservabilitySection() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))',
           gap: '0.75rem',
         }}
       >
@@ -524,7 +524,7 @@ export function EvaluationSection() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))',
           gap: '0.75rem',
         }}
       >
@@ -554,7 +554,7 @@ export function TestsSection() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(260px, 100%), 1fr))',
           gap: '0.75rem',
         }}
       >

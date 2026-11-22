@@ -20,7 +20,7 @@ const ZoneHeader = ({ title, subtitle }) => (
         fontWeight: 700,
         letterSpacing: '0.08em',
         textTransform: 'uppercase',
-        color: 'var(--accent-color, var(--rh-blue-cta))',
+        color: 'var(--accent-color, var(--rh-blue-text))',
         fontFamily: 'var(--rh-font-display)',
       }}
     >
@@ -94,7 +94,7 @@ export const PlatformStructureMap = () => {
 
   const twoColStyle = {
     display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))',
     gap: '0.75rem',
   }
 
@@ -164,7 +164,12 @@ export const PlatformStructureMap = () => {
             }}
           >
             <SubsectionLabel style={{ marginTop: 0 }}>Connection options</SubsectionLabel>
-            <div style={{ ...cardGridStyle, gridTemplateColumns: '1fr 1fr' }}>
+            <div
+              style={{
+                ...cardGridStyle,
+                gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))',
+              }}
+            >
               <InfoCard
                 icon={CloudOutlined}
                 title="REST API"

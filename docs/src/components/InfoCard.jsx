@@ -88,7 +88,7 @@ export const InfoCard = ({
       margin: hasLink ? '0 0 0.6rem 0' : '0',
     },
     link: {
-      color: 'var(--rh-blue-cta)',
+      color: 'var(--rh-blue-text)',
       textDecoration: 'none',
       fontWeight: '500',
       fontSize: '0.875rem',

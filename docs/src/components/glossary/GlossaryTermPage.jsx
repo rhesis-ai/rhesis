@@ -99,7 +99,7 @@ export const GlossaryTermPage = async ({ termId }) => {
       <div style={{ padding: '2rem', textAlign: 'center' }}>
         <h1>Term Not Found</h1>
         <p>The glossary term you're looking for doesn't exist.</p>
-        <Link href="/glossary" style={{ color: '#0ea5e9', textDecoration: 'none' }}>
+        <Link href="/glossary" style={{ color: 'var(--rh-blue-text)', textDecoration: 'none' }}>
           ← Back to Glossary
         </Link>
       </div>
@@ -126,7 +126,7 @@ export const GlossaryTermPage = async ({ termId }) => {
     display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
-    color: '#0ea5e9',
+    color: 'var(--rh-blue-text)',
     textDecoration: 'none',
     fontSize: '0.875rem',
     marginTop: '1.5rem',
@@ -144,8 +144,8 @@ export const GlossaryTermPage = async ({ termId }) => {
     fontWeight: '500',
     borderRadius: '12px',
     backgroundColor: 'transparent',
-    color: '#0ea5e9',
-    border: '1.5px solid #0ea5e9',
+    color: 'var(--rh-blue-text)',
+    border: '1.5px solid var(--rh-blue-text)',
     marginBottom: '1.5rem',
     width: 'fit-content',
     textDecoration: 'none',
@@ -200,7 +200,7 @@ export const GlossaryTermPage = async ({ termId }) => {
 
   const docLinkStyles = {
     fontSize: '0.95rem',
-    color: '#0ea5e9',
+    color: 'var(--rh-blue-text)',
     textDecoration: 'none',
     display: 'inline-flex',
     alignItems: 'center',
@@ -216,7 +216,7 @@ export const GlossaryTermPage = async ({ termId }) => {
 
   const relatedTermLinkStyles = {
     fontSize: '0.875rem',
-    color: '#0ea5e9',
+    color: 'var(--rh-blue-text)',
     textDecoration: 'none',
     padding: '0.5rem 1rem',
     borderRadius: '16px',
@@ -237,8 +237,8 @@ export const GlossaryTermPage = async ({ termId }) => {
         href={`/glossary?category=${encodeURIComponent(term.category)}`}
         style={categoryBadgeStyles}
         hoverStyle={{
-          backgroundColor: '#0ea5e9',
-          color: '#ffffff',
+          backgroundColor: 'var(--rh-blue-fill)',
+          color: 'var(--rh-on-accent)',
         }}
       >
         <LabelIcon style={{ fontSize: '14px' }} />
@@ -397,7 +397,7 @@ export const GlossaryTermPage = async ({ termId }) => {
                     blockquote: ({ node, ...props }) => (
                       <blockquote
                         style={{
-                          borderLeft: '4px solid #0ea5e9',
+                          borderLeft: '4px solid var(--rh-blue-text)',
                           paddingLeft: '1rem',
                           marginLeft: 0,
                           marginBottom: '1rem',
@@ -449,8 +449,8 @@ export const GlossaryTermPage = async ({ termId }) => {
                 href={`/glossary/${relatedId}`}
                 style={relatedTermLinkStyles}
                 hoverStyle={{
-                  backgroundColor: '#0ea5e9',
-                  color: '#ffffff',
+                  backgroundColor: 'var(--rh-blue-fill)',
+                  color: 'var(--rh-on-accent)',
                   transform: 'translateY(-2px)',
                 }}
               >
