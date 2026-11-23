@@ -28,6 +28,7 @@ from rhesis.backend.app.services.test_run import (
     rescore_test_run,
     test_run_results_to_csv,
 )
+from rhesis.backend.app.utils.content_disposition import attachment_disposition
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import model_setup_http_exception
@@ -499,8 +500,8 @@ def download_test_run_results(
 
         # Create response
         response = StreamingResponse(iter([csv_data]), media_type="text/csv")
-        response.headers["Content-Disposition"] = (
-            f"attachment; filename=test_run_{test_run_id}_results.csv"
+        response.headers["Content-Disposition"] = attachment_disposition(
+            f"test_run_{test_run_id}_results.csv"
         )
         return response
 

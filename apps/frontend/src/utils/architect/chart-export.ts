@@ -55,8 +55,13 @@ const INLINED_STYLES = [
   'display',
 ];
 
+// Same markers the backend CSV exports neutralize (app/utils/csv_safety.py).
+const FORMULA_START = /^\s*[=+\-@\t\r]/;
+
 function csvCell(value: unknown): string {
-  const text = value === null || value === undefined ? '' : String(value);
+  let text = value === null || value === undefined ? '' : String(value);
+  // Only text is escaped, so negative numbers stay numbers.
+  if (typeof value === 'string' && FORMULA_START.test(text)) text = `'${text}`;
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 

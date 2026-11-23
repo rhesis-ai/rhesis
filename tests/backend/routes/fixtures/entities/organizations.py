@@ -16,6 +16,7 @@ from typing import Any, Dict
 import pytest
 from fastapi.testclient import TestClient
 
+from rhesis.backend.app import models
 from tests.backend.fixtures.rls import scope_to_org
 
 from ..data_factories import OrganizationDataFactory
@@ -55,6 +56,16 @@ def _enter_org(test_db, authenticated_user, org_id):
     test_db.flush()
 
 
+def _set_server_fields(test_db, org: Dict[str, Any], **fields) -> Dict[str, Any]:
+    """Set fields POST /organizations/ does not accept, the way the server would."""
+    scope_to_org(test_db, org["id"])
+    row = test_db.query(models.Organization).filter(models.Organization.id == org["id"]).one()
+    for name, value in fields.items():
+        setattr(row, name, value)
+    test_db.flush()
+    return {**org, **fields}
+
+
 @pytest.fixture
 def organization_incomplete_onboarding(
     authenticated_client: TestClient, authenticated_user, test_db
@@ -91,14 +102,13 @@ def organization_complete_onboarding(authenticated_client: TestClient, authentic
         # Set the owner and user IDs
         data["owner_id"] = str(authenticated_user.id)
         data["user_id"] = str(authenticated_user.id)
-        data["is_onboarding_complete"] = True
 
         response = authenticated_client.post("/organizations/", json=data)
         assert response.status_code in [200, 201], f"Failed to create organization: {response.text}"
 
         org = response.json()
         _enter_org(test_db, authenticated_user, org["id"])
-        return org
+        return _set_server_fields(test_db, org, is_onboarding_complete=True)
 
     return _create_complete_org
 
@@ -111,15 +121,13 @@ def organization_with_domain(authenticated_client: TestClient, authenticated_use
         data = OrganizationDataFactory.sample_data()
         data["owner_id"] = str(authenticated_user.id)
         data["user_id"] = str(authenticated_user.id)
-        data["domain"] = domain
-        data["is_domain_verified"] = verified
 
         response = authenticated_client.post("/organizations/", json=data)
         assert response.status_code in [200, 201], f"Failed to create organization: {response.text}"
 
         org = response.json()
         _enter_org(test_db, authenticated_user, org["id"])
-        return org
+        return _set_server_fields(test_db, org, domain=domain, is_domain_verified=verified)
 
     return _create_domain_org
 
@@ -132,15 +140,13 @@ def organization_with_limits(authenticated_client: TestClient, authenticated_use
         data = OrganizationDataFactory.sample_data()
         data["owner_id"] = str(authenticated_user.id)
         data["user_id"] = str(authenticated_user.id)
-        data["max_users"] = max_users
-        data["is_active"] = active
 
         response = authenticated_client.post("/organizations/", json=data)
         assert response.status_code in [200, 201], f"Failed to create organization: {response.text}"
 
         org = response.json()
         _enter_org(test_db, authenticated_user, org["id"])
-        return org
+        return _set_server_fields(test_db, org, max_users=max_users, is_active=active)
 
     return _create_limited_org
 
@@ -189,7 +195,7 @@ def organization_onboarding_scenario(organization_incomplete_onboarding):
 
 
 @pytest.fixture
-def organization_multi_state(authenticated_client: TestClient, authenticated_user):
+def organization_multi_state(authenticated_client: TestClient, authenticated_user, test_db):
     """🔀 Multiple organizations in different states"""
 
     def _create_multi_state():
@@ -208,7 +214,6 @@ def organization_multi_state(authenticated_client: TestClient, authenticated_use
         inactive_data["owner_id"] = str(authenticated_user.id)
         inactive_data["user_id"] = str(authenticated_user.id)
         inactive_data["name"] = "Inactive Org"
-        inactive_data["is_active"] = False
 
         # Create all organizations
         incomplete_response = authenticated_client.post("/organizations/", json=incomplete_data)
@@ -222,8 +227,10 @@ def organization_multi_state(authenticated_client: TestClient, authenticated_use
 
         return {
             "incomplete": incomplete_response.json(),
-            "complete": complete_response.json(),
-            "inactive": inactive_response.json(),
+            "complete": _set_server_fields(
+                test_db, complete_response.json(), is_onboarding_complete=True
+            ),
+            "inactive": _set_server_fields(test_db, inactive_response.json(), is_active=False),
         }
 
     return _create_multi_state

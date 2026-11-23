@@ -21,6 +21,7 @@ from rhesis.backend.app.services.invokers.common.connection_errors import (
 )
 from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
 from rhesis.backend.app.services.invokers.templating.filters import TemplateInputError
+from rhesis.backend.app.utils.redact import mask_secret
 from rhesis.backend.app.utils.ssrf_http_client import (
     BLOCKED_TARGET_MESSAGE,
     SSRFError,
@@ -257,8 +258,6 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             else:
                 request_body = raw
 
-        logger.debug(f"Request body to send: {request_body}")
-
         # Strip reserved meta keys (e.g. system_prompt) from the wire body
         self._strip_meta_keys(request_body)
 
@@ -276,14 +275,29 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         return method, headers, request_body, url, conversation_id
 
     def _create_request_details(self, method: str, url: str, headers: Dict, body: Any) -> Dict:
-        """Create request details dictionary with sanitized headers."""
+        """Request details for results and errors: headers sanitized, the auth token masked."""
+        secret = getattr(self, "_request_secret", None)
         return {
             "connection_type": "REST",
             "method": method,
-            "url": url,
-            "headers": self._sanitize_headers(headers),
-            "body": body,
+            "url": mask_secret(url, secret),
+            "headers": mask_secret(self._sanitize_headers(headers), secret),
+            "body": mask_secret(body, secret),
         }
+
+    def _safe_request_details(self, local_vars: Dict, connection_type: str = "unknown"):
+        """Error-path request details, with the auth token masked like the success path."""
+        details = super()._safe_request_details(local_vars, connection_type)
+        secret = getattr(self, "_request_secret", None)
+        if not secret:
+            return details
+        return details.model_copy(
+            update={
+                "url": mask_secret(details.url, secret),
+                "headers": mask_secret(details.headers, secret),
+                "body": mask_secret(details.body, secret),
+            }
+        )
 
     def _handle_http_error(
         self,
@@ -388,6 +402,7 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         self, db: Session, endpoint: Endpoint, input_data: Dict[str, Any] | None = None
     ) -> Dict[str, str]:
         """Prepare request headers with proper authentication and context injection."""
+        self._request_secret = None
         headers = (endpoint.request_headers or {}).copy()
 
         # Ensure Content-Type is set
@@ -398,6 +413,8 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         # If no auth_type is set but auth_token exists, assume bearer token
         if endpoint.auth_type or endpoint.auth_token:
             auth_token = self._get_valid_token(db, endpoint)
+            # Masked wherever this request is recorded.
+            self._request_secret = auth_token
 
             # Automatically add Authorization header only if the token is not
             # already referenced in any custom header (e.g. x-goog-api-key).

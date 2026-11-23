@@ -29,6 +29,7 @@ from rhesis.backend.app.database import temporary_project_scope
 from rhesis.backend.app.models.audit_capture import audit_enabled
 from rhesis.backend.app.models.enums import JobStatus
 from rhesis.backend.app.services.audit_events import record_audit_event
+from rhesis.backend.app.utils.csv_safety import neutralize_formula
 from rhesis.backend.ee.audit import crud
 from rhesis.backend.ee.audit.models import AuditEvent
 from rhesis.backend.ee.audit.schemas import (
@@ -52,8 +53,6 @@ LINK_SECONDS = 300
 
 CONTENT_TYPES = {"jsonl": "application/x-ndjson", "csv": "text/csv"}
 CSV_COLUMNS = list(AuditEventRead.model_fields)
-# A cell starting with one of these runs as a formula in a spreadsheet (OWASP CSV injection).
-_FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
 
 
 class ExportNotAvailable(Exception):
@@ -245,10 +244,7 @@ def csv_cell(value) -> str:
         return ""
     if isinstance(value, (dict, list)):
         return json.dumps(value, separators=(",", ":"))
-    text = str(value)
-    if isinstance(value, str) and text.startswith(_FORMULA_START):
-        return f"'{text}"
-    return text
+    return str(neutralize_formula(value))
 
 
 # ---------------------------------------------------------------------------

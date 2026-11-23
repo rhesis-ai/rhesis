@@ -1,6 +1,5 @@
 import uuid
 from typing import List
-from urllib.parse import quote
 
 from fastapi import Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
@@ -21,6 +20,7 @@ from rhesis.backend.app.services.report.summary import (
     SummaryUnavailable,
     draft_summary,
 )
+from rhesis.backend.app.utils.content_disposition import attachment_disposition
 from rhesis.backend.app.utils.decorators import with_count_header
 
 router = RhesisRouter(
@@ -207,12 +207,6 @@ def export_report_pdf(
 
 
 def _pdf_disposition(title: str) -> str:
-    """An ASCII filename for old clients plus the real title as UTF-8 (RFC 6266), since
-    a header that isn't Latin-1 can't be sent at all."""
+    """The title as the file name, with whitespace runs joined by hyphens."""
     name = "-".join(title.split())[:80] or "report"
-    ascii_name = "".join(c if c.isascii() and (c.isalnum() or c in "-_.") else "_" for c in name)
-    if not ascii_name.strip("_"):
-        ascii_name = "report"
-    # safe="": a "/" in the title must not reach the file name.
-    utf8_name = quote(name + ".pdf", safe="")
-    return f"attachment; filename=\"{ascii_name}.pdf\"; filename*=UTF-8''{utf8_name}"
+    return attachment_disposition(f"{name}.pdf", fallback="report.pdf")

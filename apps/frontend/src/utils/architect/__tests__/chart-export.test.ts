@@ -23,6 +23,14 @@ describe('architect chart export', () => {
     );
   });
 
+  it('escapes text that a spreadsheet would run as a formula', () => {
+    const csv = chartCsv({
+      ...spec,
+      rows: [{ topic: '=HYPERLINK("x")', period: '-1', pass_rate: -2 }],
+    });
+    expect(csv.split('\n')[1]).toBe(`"'=HYPERLINK(""x"")",'-1,-2`);
+  });
+
   it('names the file after the title', () => {
     expect(chartFileName(spec, 'png')).toBe(
       'pass-rate-by-topic-last-30-days.png'

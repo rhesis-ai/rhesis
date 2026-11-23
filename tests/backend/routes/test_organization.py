@@ -115,6 +115,18 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
         # Organization delete endpoint was removed, so method not allowed
         assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
+    def test_update_entity_invalid_user_id(self, authenticated_client: TestClient):
+        """User ids are not part of an organization update; they are ignored."""
+        org_id = self.create_entity(authenticated_client)["id"]
+        response = authenticated_client.put(
+            self.endpoints.put(org_id),
+            json={"owner_id": "not-a-uuid", "user_id": str(uuid.uuid4())},
+        )
+        assert response.status_code == status.HTTP_200_OK, response.text
+
+    def test_entity_ownership_transfer(self):
+        pytest.skip("Organization ownership is not changed through PUT")
+
     # Override user field configuration for organizations
     user_id_field = "user_id"
     owner_id_field = "owner_id"
@@ -334,7 +346,6 @@ class TestOrganizationUserRelationships(OrganizationTestMixin, BaseEntityTests):
         server always overrides them with current_user.id so neither is required in
         the request body.
         """
-        import uuid as _uuid
 
         data = self.get_sample_data()
         # Remove client-supplied ids — server must fill them in
@@ -515,23 +526,19 @@ class TestOrganizationDomainManagement(OrganizationTestMixin, BaseEntityTests):
         assert org["domain"] == domain
         assert org["is_domain_verified"] is True
 
-    def test_update_organization_domain_verification(
+    def test_update_cannot_mark_the_domain_verified(
         self, authenticated_client: TestClient, organization_with_domain
     ):
-        """🔄 Test updating organization domain verification status"""
-        # Create organization with unverified domain
+        """Domain verification is not client-editable through PUT."""
         org = organization_with_domain(domain="example.com", verified=False)
 
-        # Update to verified
-        update_data = {"is_domain_verified": True}
+        update_data = {"is_domain_verified": True, "domain": "other.com"}
 
         response = authenticated_client.put(self.endpoints.put(org["id"]), json=update_data)
-        assert response.status_code == status.HTTP_200_OK, (
-            f"Failed to update domain verification: {response.text}"
-        )
+        assert response.status_code == status.HTTP_200_OK, response.text
 
         updated_org = response.json()
-        assert updated_org["is_domain_verified"] is True
+        assert updated_org["is_domain_verified"] is False
         assert updated_org["domain"] == "example.com"
 
 
@@ -554,24 +561,20 @@ class TestOrganizationLimitsAndSubscription(OrganizationTestMixin, BaseEntityTes
         assert org["is_active"] is False
         assert org["max_users"] == 10
 
-    def test_update_organization_limits(
+    def test_update_cannot_change_limits_or_activation(
         self, authenticated_client: TestClient, organization_with_limits
     ):
-        """🔄 Test updating organization limits"""
-        # Create organization with initial limits
+        """Limits and activation are not client-editable through PUT."""
         org = organization_with_limits(max_users=50, active=True)
 
-        # Update limits
         update_data = {"max_users": 100, "is_active": False}
 
         response = authenticated_client.put(self.endpoints.put(org["id"]), json=update_data)
-        assert response.status_code == status.HTTP_200_OK, (
-            f"Failed to update organization limits: {response.text}"
-        )
+        assert response.status_code == status.HTTP_200_OK, response.text
 
         updated_org = response.json()
-        assert updated_org["max_users"] == 100
-        assert updated_org["is_active"] is False
+        assert updated_org["max_users"] == 50
+        assert updated_org["is_active"] is True
 
 
 @pytest.mark.integration

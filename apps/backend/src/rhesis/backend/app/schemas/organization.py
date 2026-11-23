@@ -12,6 +12,22 @@ _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$")
 SLUG_RE = _SLUG_RE
 
 
+def _normalize_slug(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return None
+    v = v.strip().lower()
+    if not v:
+        return None
+    if not _SLUG_RE.match(v):
+        raise ValueError(
+            "Slug must be 3-50 characters, lowercase alphanumeric "
+            "and hyphens, starting and ending with a letter or digit"
+        )
+    if "--" in v:
+        raise ValueError("Slug must not contain consecutive hyphens")
+    return v
+
+
 class OrganizationBase(Base):
     name: str
     display_name: Optional[str] = None
@@ -34,30 +50,45 @@ class OrganizationBase(Base):
     @field_validator("slug")
     @classmethod
     def validate_slug(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return None
-        v = v.strip().lower()
-        if not v:
-            return None
-        if not _SLUG_RE.match(v):
-            raise ValueError(
-                "Slug must be 3-50 characters, lowercase alphanumeric "
-                "and hyphens, starting and ending with a letter or digit"
-            )
-        if "--" in v:
-            raise ValueError("Slug must not contain consecutive hyphens")
-        return v
+        return _normalize_slug(v)
 
 
-class OrganizationCreate(OrganizationBase):
-    pass
-    # owner_id: UUID4
-    # user_id: UUID4
+class OrganizationCreate(Base):
+    """What POST /organizations/ may set: the new organization's profile.
 
+    Ownership is set from the caller; limits, activation, domain verification,
+    onboarding state and the SSO slug keep their defaults. Other fields are ignored.
+    """
 
-class OrganizationUpdate(OrganizationBase):
-    name: Optional[str] = None  # Make name optional for updates
+    name: str
+    display_name: Optional[str] = None
+    description: Optional[str] = None
+    website: Optional[str] = None
+    logo_url: Optional[str] = None
     email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    # Kept for internal callers; the HTTP route overwrites both with the caller.
+    owner_id: Optional[UUID4] = None
+    user_id: Optional[UUID4] = None
+
+
+class OrganizationUpdate(Base):
+    """What PUT /organizations/{id} may change: the organization's own profile.
+
+    Ownership, limits, activation, domain verification and onboarding state are
+    not client-editable, and the SSO slug has its own route; fields outside this
+    list are ignored.
+    """
+
+    name: Optional[str] = None
+    display_name: Optional[str] = None
+    description: Optional[str] = None
+    website: Optional[str] = None
+    logo_url: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
 
 
 class Organization(OrganizationBase, ServerIdentity):

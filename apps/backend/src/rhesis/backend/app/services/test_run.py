@@ -23,6 +23,7 @@ from rhesis.backend.app.outcomes import (
 )
 from rhesis.backend.app.services.test_set import enforce_test_run_quota
 from rhesis.backend.app.services.verdict_matrix_cache import get_verdict_matrix_cache
+from rhesis.backend.app.utils.csv_safety import neutralize_formula
 
 logger = logging.getLogger(__name__)
 
@@ -203,9 +204,11 @@ def test_run_results_to_csv(test_results_data: List[Dict[str, Any]]) -> str:
     output = StringIO()
     writer = csv.DictWriter(output, fieldnames=ordered_columns, extrasaction="ignore")
 
-    writer.writeheader()
+    # Metric columns are named after requirements, which users name.
+    writer.writerow({column: neutralize_formula(column) for column in ordered_columns})
     for row in test_results_data:
-        writer.writerow(row)
+        # Prompts and model output are untrusted text.
+        writer.writerow({key: neutralize_formula(value) for key, value in row.items()})
 
     return output.getvalue()
 

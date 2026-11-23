@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 from rhesis.backend.app.models import Prompt, Test, TestSet
 from rhesis.backend.app.models.test import test_test_set_association
 from rhesis.backend.app.utils.crud_utils import get_item_detail
+from rhesis.backend.app.utils.csv_safety import neutralize_formula
 
 
 def get_prompts_for_test_set(
@@ -84,11 +85,11 @@ def prompts_to_csv(prompts):
     fields = list(prompts[0].keys())
 
     # Write headers
-    writer.writerow(fields)
+    writer.writerow(neutralize_formula(field) for field in fields)
 
     # Write prompt data
     for prompt in prompts:
-        writer.writerow(prompt[field] for field in fields)
+        writer.writerow(neutralize_formula(prompt[field]) for field in fields)
 
     output.seek(0)
     return output.getvalue()
