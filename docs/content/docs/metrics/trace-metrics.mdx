@@ -157,7 +157,9 @@ If the evaluation task itself fails (for example, the evaluation model is unavai
 
 ### When evaluation is skipped
 
-If your organization has reached its model token limit for the current period, trace evaluation does not run. The trace shows **Skipped** in the Evaluation column, and its evaluation tab says why. A trace that already had metric results keeps them. When a later evaluation of the trace runs, its result replaces **Skipped**.
+If your organization has reached its model token limit for the current period, trace evaluation does not run. The trace shows **Skipped** in the Evaluation column, and its evaluation tab says why. A trace that already had a status, from metric results or a review, keeps it.
+
+Skipped traces are not re-run when the limit resets. A conversation is evaluated again only when a new turn arrives, and its result then replaces **Skipped**.
 
 ## Using Trace Metrics with Test Metrics
 
