@@ -13,6 +13,7 @@ from rhesis.backend.app.services.invokers.common.connection_errors import url_ho
 from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
 from rhesis.backend.app.services.invokers.context import InvocationContext
 from rhesis.backend.app.services.invokers.templating.filters import TemplateInputError
+from rhesis.backend.app.utils.redact import mask_secret
 from rhesis.backend.app.utils.ssrf_http_client import (
     BLOCKED_TARGET_MESSAGE,
     SSRFError,
@@ -177,6 +178,8 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
         """Async implementation of WebSocket communication."""
         uri = None
         message_data = None
+        # What errors record and logs show: the message with the token masked.
+        recorded_body = None
         additional_headers = None
         connection_start_time = None
 
@@ -212,6 +215,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
 
             # Strip reserved meta keys (e.g. system_prompt) from the wire body
             self._strip_meta_keys(message_data)
+            recorded_body = mask_secret(message_data, auth_token)
 
             template_duration = time.time() - template_start_time
             logger.debug(f"Template rendered in {template_duration:.2f}s")
@@ -219,9 +223,6 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                 list(message_data.keys()) if isinstance(message_data, dict) else "Not a dict"
             )
             logger.debug(f"Rendered message data keys: {message_keys}")
-            logger.debug(
-                f"Rendered message data: {json.dumps(message_data, indent=2, default=str)}"
-            )
 
             # Extract conversation ID from rendered message
             conversation_id = self._extract_conversation_id(
@@ -258,7 +259,6 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     message_json = json.dumps(message_data)
                     message_size = len(message_json.encode("utf-8"))
                     logger.debug(f"Message size: {message_size} bytes")
-                    logger.debug(f"Message to send: {message_json}")
 
                     send_start_time = time.time()
                     await websocket.send(message_json)
@@ -482,7 +482,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                         "connection_type": "WebSocket",
                         "uri": uri,
                         "headers": self._sanitize_headers(additional_headers or {}),
-                        "body": message_data,
+                        "body": recorded_body,
                     },
                 )
 
@@ -521,7 +521,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                         "connection_type": "WebSocket",
                         "uri": uri,
                         "headers": self._sanitize_headers(additional_headers or {}),
-                        "body": message_data,
+                        "body": recorded_body,
                     },
                     status_code=status_err.response.status_code,
                     response_headers=self._sanitize_headers(dict(status_err.response.headers))
@@ -546,8 +546,6 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     self._sanitize_headers(additional_headers), indent=2
                 )
                 logger.debug(f"Connection headers: {sanitized_comm_headers}")
-                message_data_json = json.dumps(message_data, indent=2, default=str)
-                logger.debug(f"Message data: {message_data_json}")
 
                 # Try to get more details about the websocket error
                 if hasattr(e, "response"):
@@ -568,7 +566,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                         "connection_type": "WebSocket",
                         "uri": uri,
                         "headers": self._sanitize_headers(additional_headers or {}),
-                        "body": message_data,
+                        "body": recorded_body,
                     },
                 )
 
@@ -581,7 +579,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
             logger.debug(
                 f"Error context - URI: {uri}, "
                 f"Headers: {self._sanitize_headers(additional_headers or {})}, "
-                f"Message: {message_data}"
+                f"Message: {recorded_body}"
             )
 
             return self._create_error_response(
@@ -592,7 +590,7 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
                     "connection_type": "WebSocket",
                     "uri": uri or "unknown",
                     "headers": self._sanitize_headers(additional_headers or {}),
-                    "body": message_data,
+                    "body": recorded_body,
                 },
             )
 

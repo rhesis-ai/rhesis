@@ -257,8 +257,6 @@ class RestEndpointInvoker(BaseEndpointInvoker):
             else:
                 request_body = raw
 
-        logger.debug(f"Request body to send: {request_body}")
-
         # Strip reserved meta keys (e.g. system_prompt) from the wire body
         self._strip_meta_keys(request_body)
 
