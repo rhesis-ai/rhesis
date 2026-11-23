@@ -36,6 +36,7 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.file import FileEntityType
 from rhesis.backend.app.services.storage_service import NotSupportedError, StorageService
+from rhesis.backend.app.utils.content_disposition import attachment_disposition
 
 logger = logging.getLogger(__name__)
 
@@ -418,7 +419,7 @@ async def download_file_content(
         url = await storage.generate_presigned_url(
             db_file.storage_path,
             expires_in=300,
-            response_disposition=f'attachment; filename="{db_file.filename}"',
+            response_disposition=attachment_disposition(db_file.filename),
         )
         return RedirectResponse(
             url=url,
@@ -433,7 +434,7 @@ async def download_file_content(
             media_type=db_file.content_type,
             headers={
                 **response_headers,
-                "Content-Disposition": f'attachment; filename="{db_file.filename}"',
+                "Content-Disposition": attachment_disposition(db_file.filename),
                 "Content-Length": str(db_file.size_bytes),
             },
         )

@@ -1,4 +1,3 @@
-import urllib.parse
 import uuid
 
 from fastapi import Depends, File, Form, HTTPException, Query, Response, UploadFile
@@ -34,6 +33,7 @@ from rhesis.backend.app.services.source import (
 from rhesis.backend.app.services.source import (
     update_source as update_source_service,
 )
+from rhesis.backend.app.utils.content_disposition import attachment_disposition
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
@@ -397,9 +397,7 @@ async def get_source_file(
             iter([content]),
             media_type=content_type,
             headers={
-                "Content-Disposition": (
-                    f"attachment; filename*=UTF-8''{urllib.parse.quote(filename)}"
-                ),
+                "Content-Disposition": attachment_disposition(filename),
                 "Content-Length": str(len(content)),
             },
         )
