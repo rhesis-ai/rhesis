@@ -1352,7 +1352,8 @@ def update_trace_turn_metrics(
     if not span:
         return 0
 
-    existing = span.trace_metrics or {}
+    # A real result replaces an earlier skip.
+    existing = {k: v for k, v in (span.trace_metrics or {}).items() if k != "skipped"}
     existing["turn_metrics"] = turn_metrics
     now = processed_at or datetime.now(timezone.utc)
 
@@ -1400,7 +1401,7 @@ def update_trace_conversation_metrics(
     for span in spans:
         existing = span.trace_metrics or {}
         # Important: copy the dict so SQLAlchemy detects the change, or use flag_modified
-        new_metrics = dict(existing)
+        new_metrics = {k: v for k, v in existing.items() if k != "skipped"}
         new_metrics["conversation_metrics"] = conversation_metrics
         span.trace_metrics = new_metrics
 
