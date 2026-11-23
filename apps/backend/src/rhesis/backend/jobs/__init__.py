@@ -60,6 +60,7 @@ __all__ = [
     "email_notification",
     # Helper functions
     "launch_job",
+    "launch_reserved_job",
     # Services
     "email_service",
     # Tasks
@@ -245,6 +246,26 @@ def launch_job(
         return task.apply_async(**apply_kwargs)
     else:
         return task.delay(*args, **kwargs)
+
+
+def launch_reserved_job(task: T, *, org, resource, amount: int, db, **kwargs: Any):
+    """:func:`launch_job` after reserving *amount* of a flow *resource* for the job.
+
+    The check and the claim are one statement, so concurrent launches cannot all
+    pass against the same usage. The job settles the claim with what it really
+    produced (``BaseJob.settle_quota``), or releases it if it fails for good.
+    Commits *db* first, so call it with nothing else pending on the session.
+
+    :raises QuotaExceededError: if *amount* does not fit (the route answers 402).
+    """
+    from rhesis.backend.app.quota.enforcement import reserve_quota
+
+    reservation = reserve_quota(db, str(org.id), org, resource, amount)
+    try:
+        return launch_job(task, db=db, quota_reservation=reservation.to_wire(), **kwargs)
+    except BaseException:
+        reservation.settle(db, 0)
+        raise
 
 
 def _emit_job_queued(task, headers, celery_task_id, job_id, trace_id, span_id) -> None:

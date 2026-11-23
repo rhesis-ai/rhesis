@@ -313,6 +313,25 @@ class QuotaReservation:
     period_start: Optional[date]
     _settled: bool = field(default=False, init=False, repr=False)
 
+    def to_wire(self) -> dict:
+        """JSON-safe form, so a background job can settle what its route reserved."""
+        return {
+            "org_id": self.org_id,
+            "resource": self.resource.value,
+            "amount": self.amount,
+            "period_start": self.period_start.isoformat() if self.period_start else None,
+        }
+
+    @classmethod
+    def from_wire(cls, raw: dict) -> "QuotaReservation":
+        period_start = raw.get("period_start")
+        return cls(
+            org_id=raw["org_id"],
+            resource=QuotaResource(raw["resource"]),
+            amount=int(raw["amount"]),
+            period_start=date.fromisoformat(period_start) if period_start else None,
+        )
+
     def settle(self, db: Session, consumed: int) -> None:
         """Record that *consumed* units were really used. Logs failures instead of raising.
 
@@ -361,11 +380,11 @@ def reserve_quota(
 ) -> QuotaReservation:
     """Claim *amount* of a flow resource before doing the work, or raise.
 
-    For work done inside the request whose size is known up front (sync test
-    generation). The check and the increment are one statement, so
-    concurrent requests cannot all pass a check against the same total.
-    Commits *db* so the usage row is not locked while the work runs; call
-    with nothing else pending on it. Pass what was really used to
+    For work whose size is known up front: sync test generation, or a job
+    launched with :func:`rhesis.backend.jobs.launch_reserved_job`. The check
+    and the increment are one statement, so concurrent requests cannot all
+    pass a check against the same total. Commits *db* so the usage row is not
+    locked while the work runs; call with nothing else pending on it. Pass what was really used to
     :meth:`QuotaReservation.settle` afterwards.
 
     :raises QuotaExceededError: if *amount* does not fit under the ceiling.

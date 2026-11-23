@@ -308,6 +308,40 @@ class BaseJob(Task):
                 exception_type=type(e).__name__,
             )
 
+    def settle_quota(self, resource, consumed: int, reservation: Optional[dict]) -> None:
+        """Count *consumed* units of *resource*: settle the route's reservation, if any.
+
+        Without one (a job launched by plain ``launch_job``) the units are accrued.
+        """
+        from rhesis.backend.app.quota.enforcement import QuotaReservation
+        from rhesis.backend.app.services.usage import dispatch_accrual
+
+        if not reservation:
+            dispatch_accrual(self.get_tenant_context()[0], resource, consumed)
+            return
+        # Before settling, so a failure after this point does not release it again.
+        self.request.quota_settled = True
+        with self.get_db_session() as db:
+            QuotaReservation.from_wire(reservation).settle(db, consumed)
+
+    def _release_quota_reservation(self, kwargs) -> None:
+        """Give back a reservation the job will never settle, once it has failed for good."""
+        from rhesis.backend.app.quota.enforcement import QuotaReservation
+
+        raw = (kwargs or {}).get("quota_reservation")
+        if not raw or getattr(self.request, "quota_settled", False):
+            return
+        try:
+            with self.get_db_session() as db:
+                QuotaReservation.from_wire(raw).settle(db, 0)
+        except Exception as e:
+            self.log_with_context(
+                "error",
+                "Could not release the quota reservation",
+                error=str(e),
+                exception_type=type(e).__name__,
+            )
+
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """Log failed task with context information."""
         # Import TestExecutionError here to avoid circular imports
@@ -365,6 +399,7 @@ class BaseJob(Task):
             # notifications above: those already guard themselves, and the row
             # should record the outcome even if one of them misbehaved.
             self._advance_job_row("failed", error=exc)
+            self._release_quota_reservation(kwargs)
             # The job row is not the only record: a run whose task died has no
             # other path to a terminal status. No-op for job types that carry
             # no test_run_id.
