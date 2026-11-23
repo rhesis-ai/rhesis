@@ -3,8 +3,8 @@ Unit tests for the async-dispatch wiring of the OWASP generation router
 endpoint — calls the route handler directly (bypassing FastAPI's
 dependency injection) with mocked dependencies, mirroring
 test_garak_async_dispatch.py's approach for the sibling Garak router:
-- generate launches generate_and_save_owasp_test_set via launch_job and
-  returns the 202 task-response shape
+- generate launches generate_and_save_owasp_test_set via launch_reserved_job,
+  reserving num_tests, and returns the 202 task-response shape
 - request fields are forwarded to the task unchanged
 """
 
@@ -27,13 +27,14 @@ class TestGenerateTestSetDispatch:
         )
         current_user = MagicMock(organization_id="org-1")
 
-        with patch("rhesis.backend.app.routers.owasp.launch_job") as mock_launcher:
+        with patch("rhesis.backend.app.routers.owasp.launch_reserved_job") as mock_launcher:
             mock_launcher.return_value = MagicMock(id="task-owasp-123")
 
             response = generate_test_set(
                 request=request,
                 current_user=current_user,
                 db=MagicMock(),
+                _quota_gate=MagicMock(),
             )
 
         mock_launcher.assert_called_once()
@@ -43,6 +44,7 @@ class TestGenerateTestSetDispatch:
         assert call_kwargs["purpose"] == "Customer service chatbot for a bank"
         assert call_kwargs["categories"] == ["llm01"]
         assert call_kwargs["num_tests"] == 10
+        assert call_kwargs["amount"] == 10
 
         assert response.task_id == "task-owasp-123"
         assert response.framework == OwaspFramework.LLM
@@ -54,13 +56,14 @@ class TestGenerateTestSetDispatch:
         request = OwaspGenerateRequest(purpose="Autonomous coding agent")
         current_user = MagicMock(organization_id="org-1")
 
-        with patch("rhesis.backend.app.routers.owasp.launch_job") as mock_launcher:
+        with patch("rhesis.backend.app.routers.owasp.launch_reserved_job") as mock_launcher:
             mock_launcher.return_value = MagicMock(id="task-owasp-456")
 
             generate_test_set(
                 request=request,
                 current_user=current_user,
                 db=MagicMock(),
+                _quota_gate=MagicMock(),
             )
 
         _, call_kwargs = mock_launcher.call_args

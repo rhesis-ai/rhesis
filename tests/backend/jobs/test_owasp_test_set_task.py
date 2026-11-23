@@ -87,7 +87,7 @@ def _run_task(*, num_tests_requested, tests_actually_generated, **kwargs):
         # these tests keep everything past the task boundary mocked -- see
         # module docstring -- so it's stubbed out here too rather than
         # actually touching the broker.
-        patch("rhesis.backend.jobs.test_set.dispatch_accrual"),
+        patch("rhesis.backend.app.services.usage.dispatch_accrual"),
     ):
         return generate_and_save_owasp_test_set.run(
             framework="llm",
@@ -152,7 +152,7 @@ class TestOwaspTestSetDispatchesAccrual:
                 "rhesis.backend.jobs.test_set._save_test_set_to_database",
                 return_value=_fake_db_test_set(),
             ),
-            patch("rhesis.backend.jobs.test_set.dispatch_accrual") as mock_dispatch,
+            patch("rhesis.backend.app.services.usage.dispatch_accrual") as mock_dispatch,
         ):
             result = generate_and_save_owasp_test_set.run(
                 framework="llm",
@@ -211,7 +211,7 @@ class TestPostSaveFailureIsolation:
                 "rhesis.backend.jobs.test_set._build_task_result",
                 side_effect=RuntimeError("boom: result building blew up"),
             ),
-            patch("rhesis.backend.jobs.test_set.dispatch_accrual") as mock_dispatch,
+            patch("rhesis.backend.app.services.usage.dispatch_accrual") as mock_dispatch,
         ):
             # (a) Must return normally. If the fix regressed and this
             # exception reached the outer handler, `.run()` would raise here
@@ -231,7 +231,5 @@ class TestPostSaveFailureIsolation:
         assert result["num_tests_generated"] == 4
         assert "result_build_error" in result
 
-        # _build_task_result raises before the guarded section reaches
-        # dispatch_accrual, so accrual must not fire for a task that is
-        # reporting a (contained) failure.
-        mock_dispatch.assert_not_called()
+        # The tests were saved, so they count even though the result build failed.
+        mock_dispatch.assert_called_once_with("org-1", QuotaResource.TEST_GENERATION, 4)

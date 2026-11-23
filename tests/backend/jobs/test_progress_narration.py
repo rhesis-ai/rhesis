@@ -72,7 +72,7 @@ class TestTestSetGenerationNarration:
                 "rhesis.backend.jobs.test_set._save_test_set_to_database",
                 return_value=_fake_db_test_set(),
             ),
-            patch("rhesis.backend.jobs.test_set.dispatch_accrual"),
+            patch("rhesis.backend.app.services.usage.dispatch_accrual"),
         ):
             generate_and_save_test_set(
                 config={"requirements": ["req1"]},
@@ -129,7 +129,7 @@ class TestOwaspTestSetGenerationNarration:
                 "rhesis.backend.jobs.test_set._save_test_set_to_database",
                 return_value=_fake_db_test_set(),
             ),
-            patch("rhesis.backend.jobs.test_set.dispatch_accrual"),
+            patch("rhesis.backend.app.services.usage.dispatch_accrual"),
         ):
             generate_and_save_owasp_test_set(
                 framework="llm",
@@ -177,7 +177,7 @@ class TestGarakImportNarration:
                 "rhesis.backend.app.services.garak.importer.GarakImporter",
                 return_value=mock_importer,
             ),
-            patch("rhesis.backend.jobs.garak.dispatch_accrual"),
+            patch("rhesis.backend.app.services.usage.dispatch_accrual"),
         ):
             import_garak_probes_task(
                 probes=[
@@ -222,7 +222,7 @@ class TestGarakSyncNarration:
                 "rhesis.backend.app.services.garak.sync.GarakSyncService",
                 return_value=mock_sync_service,
             ),
-            patch("rhesis.backend.jobs.garak.dispatch_accrual"),
+            patch("rhesis.backend.app.services.usage.dispatch_accrual"),
         ):
             sync_garak_test_set_task(test_set_id="test-set-id")
 

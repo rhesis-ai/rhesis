@@ -90,6 +90,7 @@ COSTLY_ROUTES = [
 # or a reason here.
 COSTLY_CALLS = {
     "launch_job",
+    "launch_reserved_job",
     "delay",
     "apply_async",
     "invoke_endpoint",

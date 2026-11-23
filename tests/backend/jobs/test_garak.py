@@ -40,7 +40,7 @@ class TestImportGarakProbesTask:
                 "rhesis.backend.app.services.garak.importer.GarakImporter",
                 return_value=mock_importer,
             ) as mock_importer_cls,
-            patch("rhesis.backend.jobs.garak.dispatch_accrual"),
+            patch("rhesis.backend.app.services.usage.dispatch_accrual"),
         ):
             result = import_garak_probes_task(
                 probes=[{"module_name": "dan", "class_name": "Dan_11_0", "custom_name": None}],
@@ -95,7 +95,7 @@ class TestImportGarakProbesTask:
                 "rhesis.backend.app.services.garak.importer.GarakImporter",
                 return_value=mock_importer,
             ),
-            patch("rhesis.backend.jobs.garak.dispatch_accrual"),
+            patch("rhesis.backend.app.services.usage.dispatch_accrual"),
         ):
             result = import_garak_probes_task(
                 probes=[{"module_name": "dan", "class_name": "Dan_11_0", "custom_name": None}],
@@ -132,7 +132,7 @@ class TestImportGarakProbesTask:
                 "rhesis.backend.app.services.garak.importer.GarakImporter",
                 return_value=mock_importer,
             ),
-            patch("rhesis.backend.jobs.garak.dispatch_accrual") as mock_dispatch_accrual,
+            patch("rhesis.backend.app.services.usage.dispatch_accrual") as mock_dispatch_accrual,
         ):
             import_garak_probes_task(
                 probes=[{"module_name": "dan", "class_name": "Dan_11_0", "custom_name": None}],
@@ -172,7 +172,7 @@ class TestSyncGarakTestSetTask:
                 "rhesis.backend.app.services.garak.sync.GarakSyncService",
                 return_value=mock_sync_service,
             ) as mock_sync_cls,
-            patch("rhesis.backend.jobs.garak.dispatch_accrual"),
+            patch("rhesis.backend.app.services.usage.dispatch_accrual"),
         ):
             result = sync_garak_test_set_task(test_set_id="test-set-id")
 
@@ -220,7 +220,7 @@ class TestSyncGarakTestSetTask:
                 "rhesis.backend.app.services.garak.sync.GarakSyncService",
                 return_value=mock_sync_service,
             ),
-            patch("rhesis.backend.jobs.garak.dispatch_accrual") as mock_dispatch_accrual,
+            patch("rhesis.backend.app.services.usage.dispatch_accrual") as mock_dispatch_accrual,
         ):
             sync_garak_test_set_task(test_set_id="test-set-id")
 

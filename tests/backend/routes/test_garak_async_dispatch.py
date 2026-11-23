@@ -5,7 +5,7 @@ dependency injection) with mocked dependencies, so no HTTP client/DB fixture
 harness is needed. The underlying business logic (GarakImporter,
 GarakSyncService, the Celery tasks themselves) is covered by dedicated unit
 tests elsewhere; this file only verifies the router's dispatch wiring:
-- import/sync launch the right Celery task via launch_job and return 202
+- import/sync launch the right Celery task via launch_reserved_job and return 202
   task-response shapes
 - import/sync pass only probe *identifiers* to the task (module/class or
   test_set_id) and never ship probe data (prompts) through the Celery broker —
@@ -37,8 +37,7 @@ from rhesis.backend.app.services.garak.probes import GarakProbeInfo
 
 
 def _mock_probe_service(probes_by_module):
-    """Mock GarakProbeService. Only the preview endpoints use it now (via the
-    enumerating cache read); import/sync dispatch no longer touch it."""
+    """Mock GarakProbeService, serving probes from the enumerating cache read."""
     service = MagicMock()
     service.enumerate_probe_modules_cached = AsyncMock(return_value=([], probes_by_module or {}))
     return service
@@ -55,14 +54,16 @@ class TestImportProbesDispatch:
         current_user = MagicMock(id=uuid4(), organization_id=uuid4())
         mock_db = MagicMock()
 
-        with patch("rhesis.backend.app.routers.garak.launch_job") as mock_launcher:
+        with patch("rhesis.backend.app.routers.garak.launch_reserved_job") as mock_launcher:
             mock_launcher.return_value = MagicMock(id="task-abc-123")
 
-            response = import_probes(
+            response = await import_probes(
                 request=request,
                 db=mock_db,
                 tenant_context=(str(current_user.organization_id), str(current_user.id)),
                 current_user=current_user,
+                probe_service=_mock_probe_service({}),
+                _quota_gate=MagicMock(),
             )
 
         mock_launcher.assert_called_once()
@@ -93,14 +94,16 @@ class TestImportProbesDispatch:
         )
         current_user = MagicMock(id=uuid4(), organization_id=uuid4())
 
-        with patch("rhesis.backend.app.routers.garak.launch_job") as mock_launcher:
+        with patch("rhesis.backend.app.routers.garak.launch_reserved_job") as mock_launcher:
             mock_launcher.return_value = MagicMock(id="task-abc-123")
 
-            import_probes(
+            await import_probes(
                 request=request,
                 db=MagicMock(),
                 tenant_context=(str(current_user.organization_id), str(current_user.id)),
                 current_user=current_user,
+                probe_service=_mock_probe_service({}),
+                _quota_gate=MagicMock(),
             )
 
         _, call_kwargs = mock_launcher.call_args
@@ -112,6 +115,69 @@ class TestImportProbesDispatch:
 
 
 @pytest.mark.unit
+class TestReservedAmounts:
+    @staticmethod
+    def _probe(module, cls, count):
+        return GarakProbeInfo(
+            module_name=module,
+            class_name=cls,
+            full_name=f"{module}.{cls}",
+            description="d",
+            prompt_count=count,
+        )
+
+    @pytest.mark.asyncio
+    async def test_import_reserves_the_selected_prompt_count(self):
+        probes = {
+            "dan": [self._probe("dan", "Dan_11_0", 7), self._probe("dan", "Other", 100)],
+            "encoding": [self._probe("encoding", "InjectBase64", 5)],
+        }
+        request = GarakImportRequest(
+            probes=[
+                GarakProbeSelection(module_name="dan", class_name="Dan_11_0"),
+                GarakProbeSelection(module_name="encoding", class_name="InjectBase64"),
+            ],
+        )
+        org = MagicMock()
+        with patch("rhesis.backend.app.routers.garak.launch_reserved_job") as mock_launcher:
+            mock_launcher.return_value = MagicMock(id="t")
+            await import_probes(
+                request=request,
+                db=MagicMock(),
+                tenant_context=("org", "user"),
+                current_user=MagicMock(),
+                probe_service=_mock_probe_service(probes),
+                _quota_gate=org,
+            )
+
+        _, call_kwargs = mock_launcher.call_args
+        assert call_kwargs["amount"] == 12
+        assert call_kwargs["org"] is org
+
+    @pytest.mark.asyncio
+    async def test_sync_reserves_the_tests_it_would_add(self):
+        with (
+            patch("rhesis.backend.app.routers.garak.GarakSyncService"),
+            patch(
+                "rhesis.backend.app.routers.garak._build_sync_preview",
+                return_value={"to_add": 9, "to_remove": 2},
+            ),
+            patch("rhesis.backend.app.routers.garak.launch_reserved_job") as mock_launcher,
+        ):
+            mock_launcher.return_value = MagicMock(id="t")
+            await sync_test_set(
+                test_set_id="ts",
+                db=MagicMock(),
+                tenant_context=("org", "user"),
+                current_user=MagicMock(),
+                probe_service=_mock_probe_service({}),
+                _quota_gate=MagicMock(),
+            )
+
+        assert mock_launcher.call_args.kwargs["amount"] == 9
+
+
+@pytest.mark.unit
 class TestSyncTestSetDispatch:
     @pytest.mark.asyncio
     async def test_dispatches_sync_task_and_returns_202_shape(self):
@@ -120,16 +186,19 @@ class TestSyncTestSetDispatch:
 
         with (
             patch("rhesis.backend.app.routers.garak.GarakSyncService") as mock_sync_cls,
-            patch("rhesis.backend.app.routers.garak.launch_job") as mock_launcher,
+            patch("rhesis.backend.app.routers.garak._build_sync_preview", return_value=None),
+            patch("rhesis.backend.app.routers.garak.launch_reserved_job") as mock_launcher,
         ):
             mock_sync_cls.return_value.resolve_sync_target.return_value = {"dan": ["Dan_11_0"]}
             mock_launcher.return_value = MagicMock(id="task-xyz-789")
 
-            response = sync_test_set(
+            response = await sync_test_set(
                 test_set_id=test_set_id,
                 db=MagicMock(),
                 tenant_context=(str(current_user.organization_id), str(current_user.id)),
                 current_user=current_user,
+                probe_service=_mock_probe_service({}),
+                _quota_gate=MagicMock(),
             )
 
         # Target is resolved up front for validation, even though its result is
@@ -155,11 +224,13 @@ class TestSyncTestSetDispatch:
             from fastapi import HTTPException
 
             with pytest.raises(HTTPException) as exc_info:
-                sync_test_set(
+                await sync_test_set(
                     test_set_id="nope",
                     db=MagicMock(),
                     tenant_context=(str(current_user.organization_id), str(current_user.id)),
                     current_user=current_user,
+                    probe_service=_mock_probe_service({}),
+                    _quota_gate=MagicMock(),
                 )
 
         assert exc_info.value.status_code == 400
@@ -192,7 +263,7 @@ class TestGenerateDynamicProbeDispatch:
 
         with (
             patch("rhesis.backend.app.routers.garak.GarakDynamicGenerator") as mock_generator_cls,
-            patch("rhesis.backend.app.routers.garak.launch_job") as mock_launcher,
+            patch("rhesis.backend.app.routers.garak.launch_reserved_job") as mock_launcher,
         ):
             mock_generator_cls.return_value.build.return_value = (
                 MagicMock(model_dump=MagicMock(return_value={"generation_prompt": "x"})),
@@ -205,6 +276,7 @@ class TestGenerateDynamicProbeDispatch:
                 current_user=current_user,
                 probe_service=self._dynamic_probe_service(),
                 db=MagicMock(),
+                _quota_gate=MagicMock(),
             )
 
         _, call_kwargs = mock_launcher.call_args
@@ -216,7 +288,7 @@ class TestGenerateDynamicProbeDispatch:
 
         with (
             patch("rhesis.backend.app.routers.garak.GarakDynamicGenerator") as mock_generator_cls,
-            patch("rhesis.backend.app.routers.garak.launch_job") as mock_launcher,
+            patch("rhesis.backend.app.routers.garak.launch_reserved_job") as mock_launcher,
         ):
             mock_generator_cls.return_value.build.return_value = (
                 MagicMock(model_dump=MagicMock(return_value={"generation_prompt": "x"})),
@@ -229,6 +301,7 @@ class TestGenerateDynamicProbeDispatch:
                 current_user=current_user,
                 probe_service=self._dynamic_probe_service(),
                 db=MagicMock(),
+                _quota_gate=MagicMock(),
             )
 
         _, call_kwargs = mock_launcher.call_args
