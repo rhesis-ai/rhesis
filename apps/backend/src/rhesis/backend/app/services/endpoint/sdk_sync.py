@@ -16,13 +16,104 @@ from rhesis.backend.app.models.enums import (
     EndpointEnvironment,
 )
 from rhesis.backend.app.quota import QuotaResource
-from rhesis.backend.app.quota.enforcement import enforce_quota
+from rhesis.backend.app.quota.enforcement import QuotaExceededError, enforce_quota
 from rhesis.backend.app.services.endpoint.mapper import generate_and_apply_mappings
 from rhesis.backend.app.services.endpoint.validation import validate_and_update_status
 from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 
 logger = logging.getLogger(__name__)
+
+
+def _new_endpoint_data(
+    function_name: str, func_data: dict, project_id: str, environment: str, status_id
+) -> schemas.EndpointCreate:
+    description = func_data.get("metadata", {}).get("description", "")
+    now = datetime.now(timezone.utc).isoformat()
+    return schemas.EndpointCreate(
+        name=function_name,
+        description=description,
+        connection_type=EndpointConnectionType.SDK,
+        url="",  # Empty for SDK
+        environment=EndpointEnvironment(environment),
+        project_id=project_id,
+        config_source=EndpointConfigSource.SDK,
+        status_id=status_id,
+        endpoint_metadata={
+            "sdk_connection": {
+                "project_id": project_id,
+                "environment": environment,
+                "function_name": function_name,
+            },
+            "function_schema": {
+                "parameters": func_data.get("parameters", {}),
+                "return_type": func_data.get("return_type", "any"),
+                "description": description,
+            },
+            "created_at": now,
+            "last_registered": now,
+        },
+    )
+
+
+def _create_new_endpoints(
+    db: Session,
+    functions_data: list,
+    existing_by_function: dict,
+    project_id: str,
+    environment: str,
+    organization_id: str,
+    user_id: str,
+    stats: dict,
+) -> Dict[str, models.Endpoint]:
+    """Insert an endpoint per newly registered function, within the ENDPOINTS limit.
+
+    The limit is checked once for all of them and the rows are committed straight
+    away, so the quota lock is not held while mappings are generated. Past the
+    limit none are created and each is reported in ``stats["errors"]``.
+    """
+    new_functions = {}
+    for func_data in functions_data:
+        name = func_data.get("name")
+        if name and name not in existing_by_function:
+            new_functions.setdefault(name, func_data)
+    if not new_functions:
+        return {}
+
+    # Tentative status, updated after validation. Looked up first: creating it
+    # commits, which would release the quota lock taken below.
+    active_status = get_or_create_status(
+        db=db,
+        name="Active",
+        entity_type="General",
+        organization_id=organization_id,
+        user_id=user_id,
+    )
+    organization = db.get(models.Organization, organization_id)
+    try:
+        enforce_quota(
+            db, str(organization_id), organization, QuotaResource.ENDPOINTS, len(new_functions)
+        )
+    except QuotaExceededError as exceeded:
+        db.commit()  # Releases the quota lock.
+        logger.info(f"Not creating {len(new_functions)} SDK endpoint(s): {exceeded}")
+        stats["errors"].extend({"function": name, "error": str(exceeded)} for name in new_functions)
+        return {}
+
+    created = {
+        name: endpoint_crud.create_endpoint(
+            db,
+            _new_endpoint_data(
+                name, data, project_id, environment, active_status.id if active_status else None
+            ),
+            organization_id,
+            user_id,
+            commit=False,
+        )
+        for name, data in new_functions.items()
+    }
+    db.commit()  # The new rows now count, and the quota lock is released.
+    return created
 
 
 async def sync_sdk_endpoints(
@@ -85,7 +176,6 @@ async def sync_sdk_endpoints(
         }
 
     project_name = project.name
-    organization = db.get(models.Organization, organization_id)
     logger.info(f"Project validated: {project_name} ({project_id})")
 
     # Get all existing SDK endpoints for this project/environment
@@ -124,6 +214,17 @@ async def sync_sdk_endpoints(
     # Track registered function names
     registered_functions = set()
     stats = {"created": 0, "updated": 0, "marked_inactive": 0, "errors": []}
+
+    created = _create_new_endpoints(
+        db,
+        functions_data,
+        existing_by_function,
+        project_id,
+        environment,
+        organization_id,
+        user_id,
+        stats,
+    )
 
     # Create or update endpoints for each function
     for func_data in functions_data:
@@ -187,49 +288,8 @@ async def sync_sdk_endpoints(
                 stats["updated"] += 1
                 logger.info(f"Updated endpoint for function: {function_name}")
 
-            else:
-                # Create new endpoint for this function. Raises QuotaExceededError
-                # past the ENDPOINTS limit, which lands in this function's errors.
-                enforce_quota(db, str(organization_id), organization, QuotaResource.ENDPOINTS)
-                # Get or create Active status (tentative, will be updated after validation)
-                active_status = get_or_create_status(
-                    db=db,
-                    name="Active",
-                    entity_type="General",
-                    organization_id=organization_id,
-                    user_id=user_id,
-                )
-
-                # Create endpoint with metadata first
-                endpoint_data = schemas.EndpointCreate(
-                    name=function_name,
-                    description=func_data.get("metadata", {}).get("description", ""),
-                    connection_type=EndpointConnectionType.SDK,
-                    url="",  # Empty for SDK
-                    environment=EndpointEnvironment(environment),
-                    project_id=project_id,
-                    config_source=EndpointConfigSource.SDK,
-                    status_id=active_status.id if active_status else None,
-                    endpoint_metadata={
-                        "sdk_connection": {
-                            "project_id": project_id,
-                            "environment": environment,
-                            "function_name": function_name,
-                        },
-                        "function_schema": {
-                            "parameters": func_data.get("parameters", {}),
-                            "return_type": func_data.get("return_type", "any"),
-                            "description": func_data.get("metadata", {}).get("description", ""),
-                        },
-                        "created_at": datetime.now(timezone.utc).isoformat(),
-                        "last_registered": datetime.now(timezone.utc).isoformat(),
-                    },
-                )
-
-                endpoint = endpoint_crud.create_endpoint(
-                    db, endpoint_data, organization_id, user_id
-                )
-                db.flush()  # Flush to get endpoint ID but don't commit yet
+            elif function_name in created:
+                endpoint = created.pop(function_name)
 
                 # Generate mappings for new endpoint
                 generate_and_apply_mappings(
