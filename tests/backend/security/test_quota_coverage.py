@@ -182,6 +182,46 @@ class TestRestoreIsQuotaChecked:
 
 
 @pytest.mark.security
+class TestBulkRestoreChecksEachItem:
+    def test_item_refused_by_the_per_item_check_is_reported_failed(self):
+        from rhesis.backend.app.services import recycle as recycle_service
+
+        first, second = uuid.uuid4(), uuid.uuid4()
+
+        def check(item_id):
+            if item_id == second:
+                raise _exceeded(QuotaResource.PROJECTS)
+
+        with patch.object(recycle_service, "restore_item", return_value=Mock()) as restore:
+            results = recycle_service.bulk_restore_with_cascade(
+                Mock(), models.Project, [first, second], before_each=check
+            )
+
+        assert results["restored"] == [str(first)]
+        assert results["failed"][0]["id"] == str(second)
+        assert restore.call_count == 1
+
+
+@pytest.mark.security
+class TestAsyncGenerationChecksTheRequestedCount:
+    def test_request_larger_than_the_remaining_quota_is_refused(
+        self, authenticated_client: TestClient, limit
+    ):
+        limit(QuotaResource.TEST_GENERATION, 3)
+        response = authenticated_client.post(
+            "/test_sets/generate",
+            json={
+                "name": "quota",
+                "num_tests": 5,
+                "project_id": str(uuid.uuid4()),
+                "config": {"requirements": ["be polite"]},
+            },
+        )
+        assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED
+        assert response.json()["requested"] == 5
+
+
+@pytest.mark.security
 class TestSdkSyncIsQuotaChecked:
     def _sync(self, db, org_id, user_id, project):
         from rhesis.backend.app.services.endpoint.sdk_sync import sync_sdk_endpoints
@@ -213,6 +253,38 @@ class TestSdkSyncIsQuotaChecked:
 
         assert stats["created"] == 0
         assert "Quota exceeded for endpoints" in stats["errors"][0]["error"]
+
+    def test_new_sdk_endpoints_past_the_limit_are_all_refused(
+        self, test_db: Session, test_org_id: str, authenticated_user_id: str, limit
+    ):
+        from rhesis.backend.app.services.endpoint.sdk_sync import sync_sdk_endpoints
+
+        project = _project(test_db, test_org_id, authenticated_user_id)
+        scope_to_project(test_db, project.id)
+        limit(QuotaResource.ENDPOINTS, count_org_endpoints(test_db, test_org_id) + 1)
+        functions = [
+            {"name": f"fn_{uuid.uuid4().hex[:8]}", "parameters": {}, "metadata": {}}
+            for _ in range(2)
+        ]
+        sync = "rhesis.backend.app.services.endpoint.sdk_sync"
+        with (
+            patch(f"{sync}.generate_and_apply_mappings") as mapping,
+            patch(f"{sync}.validate_and_update_status"),
+        ):
+            stats = asyncio.run(
+                sync_sdk_endpoints(
+                    test_db,
+                    str(project.id),
+                    "development",
+                    functions,
+                    test_org_id,
+                    authenticated_user_id,
+                )
+            )
+
+        assert stats["created"] == 0
+        assert len(stats["errors"]) == 2
+        mapping.assert_not_called()
 
     def test_new_sdk_endpoint_under_the_limit_is_created(
         self, test_db: Session, test_org_id: str, authenticated_user_id: str, limit
@@ -269,11 +341,18 @@ class TestMetricJudgeModelIsGated:
             resolved = _resolve_metric_judge_models(Mock(), "org", [config], {})
         assert isinstance(resolved[blocked_id], QuotaExceededError)
 
+        other = MetricConfig(class_name="NumericJudge", backend="rhesis", name="default judged")
         refused: list = []
-        tasks = local.prepare_metrics(
-            [config], model=Mock(), organization_id="org", metric_models=resolved, refused=refused
-        )
-        assert tasks == []
+        with patch.object(local, "create_metric", return_value=Mock()):
+            tasks = local.prepare_metrics(
+                [config, other],
+                model=Mock(),
+                organization_id="org",
+                metric_models=resolved,
+                refused=refused,
+            )
+        assert [task[2].name for task in tasks] == ["default judged"]
+        assert [r["name"] for r in refused] == ["judged"]
         assert refused[0]["error_type"] == "QuotaExceeded"
 
     def test_quota_blocked_metric_is_refused_not_rescored_on_the_default(self):
@@ -305,13 +384,36 @@ class TestHostedDefaultsAreGated:
                 "rhesis.backend.app.crud.model.get_model",
                 return_value=_model_row("polyphemus", None),
             ),
-            patch(
-                "rhesis.backend.app.services.test_generation_pipeline._enforce_model_token_quota",
-                side_effect=_exceeded(),
-            ),
+            patch(f"{USER_MODEL_UTILS}._enforce_model_token_quota", side_effect=_exceeded()),
             pytest.raises(QuotaExceededError),
         ):
             _resolve_config_llm(Mock(), user)
+
+    def test_polyphemus_users_test_config_default_is_gated(self):
+        from rhesis.backend.app.services.test_config_generator import TestConfigGeneratorService
+
+        user = Mock()
+        user.settings.models.generation.model_id = uuid.uuid4()
+        with (
+            patch(
+                "rhesis.backend.app.crud.model.get_model",
+                return_value=_model_row("polyphemus", None),
+            ),
+            patch(f"{USER_MODEL_UTILS}._enforce_model_token_quota", side_effect=_exceeded()),
+            pytest.raises(QuotaExceededError),
+        ):
+            TestConfigGeneratorService(Mock(), user)
+
+    def test_background_resolution_at_the_limit_raises(
+        self, test_db: Session, authenticated_user_id: str
+    ):
+        from rhesis.backend.app.utils.user_model_utils import resolve_model
+
+        with (
+            patch(f"{USER_MODEL_UTILS}._enforce_model_token_quota", side_effect=_exceeded()),
+            pytest.raises(QuotaExceededError),
+        ):
+            resolve_model(test_db, str(authenticated_user_id), "evaluation")
 
     def test_generate_test_config_returns_402_at_the_limit(self, authenticated_client: TestClient):
         with patch(
