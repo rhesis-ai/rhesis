@@ -16,6 +16,57 @@ Rhesis uses a two-layer model: **requirements** state what you expect; **metrics
 One requirement can carry multiple metrics, so you can measure the same expectation from
 different angles. See [Tests](/docs/tests) and [Test Results](/docs/test-results).
 
+## Impact
+
+Each requirement has an impact: what a failure costs, such as Safety, Privacy & security,
+Legal & compliance, Financial, Reputation or Customer experience. If several apply, pick the
+worst. Set it while creating or editing a requirement; **Manage impact options** next to the
+field edits the list.
+
+## Parent requirements
+
+A parent groups related requirements, one level deep: a requirement with children can't have a
+parent itself. Set it in the **Parent requirement** field. The requirement page links to its
+parent and lists its children. Deleting a parent unlinks its children.
+
+[Insights](/docs/results-overview) groups pass rates by requirement, impact or parent.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-insights-impact.webp"
+  darkSrc="/screenshots/rhesis-ai-insights-impact-dark.webp"
+  alt="Insights grouping toggle set to Requirement, with requirement cards that each show their impact, such as Financial or Customer experience, above pass rates by metric and topic"
+/>
+
+## Sources
+
+Sources record where a requirement comes from: a policy, a regulation, a spec. On the
+requirement page, **Add source** offers three options: upload a file, pick one from
+[Knowledge](/docs/knowledge), or link a URL. Each source takes an optional note, such as the
+section it refers to.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-requirement-sources.webp"
+  darkSrc="/screenshots/rhesis-ai-requirement-sources-dark.webp"
+  alt="Sources card on a requirement: the Northwind cancellation policy document with a note on section 2.4, and a link to EU air passenger rights with a note"
+/>
+
+## Suggestions
+
+**Suggestions** on the requirement page lists ways to make the requirement easier to test.
+
+- **AI review**: your generation model reads the name and description and flags wording that
+  can't be tested, such as "appropriately", or a requirement that covers two things. Where it
+  can, it suggests a rewrite: apply it, edit it first, or dismiss it. Nothing changes until you
+  apply. **Review again** reruns it after you edit.
+- **Missing**: checks on the page, with no model involved: no source, no examples, no linked
+  metric.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-requirement-suggestions.webp"
+  darkSrc="/screenshots/rhesis-ai-requirement-suggestions-dark.webp"
+  alt="Suggestions drawer: the AI review flags the word appropriately as untestable and suggests a concrete rewrite, and the Missing section lists no examples yet"
+/>
+
 ## Requirement tags
 
 Requirement tags are optional labels for organizing and filtering requirements — use them when
