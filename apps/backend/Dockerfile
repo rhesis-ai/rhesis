@@ -195,8 +195,8 @@ CMD ["./migrate.sh"]
 # =============================================================================
 FROM base-runtime AS backend
 
-COPY --from=oven/bun:latest /usr/local/bin/bun /usr/local/bin/bun
-COPY --from=oven/bun:latest /usr/local/bin/bunx /usr/local/bin/bunx
+COPY --from=oven/bun:1.4.4@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:1.4.4@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d /usr/local/bin/bunx /usr/local/bin/bunx
 
 RUN printf '#!/bin/sh\n\
 args=""\n\
