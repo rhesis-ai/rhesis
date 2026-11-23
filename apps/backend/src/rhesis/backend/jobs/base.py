@@ -319,10 +319,12 @@ class BaseJob(Task):
         if not reservation:
             dispatch_accrual(self.get_tenant_context()[0], resource, consumed)
             return
-        # Before settling, so a failure after this point does not release it again.
+        claim = QuotaReservation.from_wire(reservation)
+        # After parsing, so a bad payload still leaves on_failure to release it;
+        # before settling, so a failure after this point does not release it again.
         self.request.quota_settled = True
         with self.get_db_session() as db:
-            QuotaReservation.from_wire(reservation).settle(db, consumed)
+            claim.settle(db, consumed)
 
     def _release_quota_reservation(self, kwargs) -> None:
         """Give back a reservation the job will never settle, once it has failed for good."""

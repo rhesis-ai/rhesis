@@ -264,6 +264,7 @@ def launch_reserved_job(task: T, *, org, resource, amount: int, db, **kwargs: An
     try:
         return launch_job(task, db=db, quota_reservation=reservation.to_wire(), **kwargs)
     except BaseException:
+        # BaseException: a cancelled request must give the claim back too (as in services.py).
         reservation.settle(db, 0)
         raise
 
