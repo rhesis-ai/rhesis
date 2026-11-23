@@ -3,12 +3,16 @@ import { render, screen, fireEvent } from '@/test-utils';
 import '@testing-library/jest-dom';
 
 import TracesTable from '../TracesTable';
+import type { TraceSummary } from '@/utils/api-client/interfaces/telemetry';
 import {
   TracesToolbarContext,
   type TracesToolbarState,
 } from '../TracesToolbar';
 
-function renderTable(toolbar: Partial<TracesToolbarState> = {}) {
+function renderTable(
+  toolbar: Partial<TracesToolbarState> = {},
+  traces: TraceSummary[] = []
+) {
   const state: TracesToolbarState = {
     view: 'traces',
     searchQuery: '',
@@ -21,10 +25,10 @@ function renderTable(toolbar: Partial<TracesToolbarState> = {}) {
   render(
     <TracesToolbarContext.Provider value={state}>
       <TracesTable
-        traces={[]}
+        traces={traces}
         loading={false}
         onRowClick={jest.fn()}
-        totalCount={0}
+        totalCount={traces.length}
         page={0}
         pageSize={50}
         onPageChange={jest.fn()}
@@ -61,5 +65,31 @@ describe('TracesTable toolbar', () => {
     expect(
       screen.queryByRole('button', { name: 'Spans' })
     ).not.toBeInTheDocument();
+  });
+});
+
+describe('TracesTable evaluation column', () => {
+  const skipped: TraceSummary = {
+    trace_id: 'trace-1',
+    project_id: 'project-1',
+    environment: 'development',
+    start_time: '2026-11-23T10:00:00Z',
+    duration_ms: 120,
+    span_count: 1,
+    root_operation: 'chat',
+    trace_metrics_status: 'Skipped',
+    execution: 'not_run',
+    verdict: null,
+    has_annotations: true,
+    last_annotation: {
+      status: { name: 'Pass' },
+    } as TraceSummary['last_annotation'],
+  };
+
+  it('shows a skipped trace without an annotation conflict', async () => {
+    renderTable({}, [skipped]);
+
+    expect(await screen.findByText('Skipped')).toBeInTheDocument();
+    expect(screen.getByLabelText('Annotated')).toBeInTheDocument();
   });
 });

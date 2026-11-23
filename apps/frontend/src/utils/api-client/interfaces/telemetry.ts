@@ -164,15 +164,19 @@ export type TraceSource = 'all' | 'test' | 'operation';
 export type TraceType = 'all' | 'Single-Turn' | 'Multi-Turn';
 
 /**
- * Evaluation status for trace metrics (Pass/Fail/Error)
+ * Evaluation status for trace metrics (Pass/Fail/Error, or Skipped)
  */
-export type TraceMetricsStatus = 'Pass' | 'Fail' | 'Error';
+export type TraceMetricsStatus = 'Pass' | 'Fail' | 'Error' | 'Skipped';
 
+/** The statuses traces can be filtered by. */
 export const TRACE_METRICS_STATUS = {
   PASS: 'Pass' as const,
   FAIL: 'Fail' as const,
   ERROR: 'Error' as const,
 };
+
+/** Not evaluated because the organization reached its model token limit. */
+export const TRACE_METRICS_SKIPPED = 'Skipped' as const;
 
 /**
  * Query parameters for list endpoint

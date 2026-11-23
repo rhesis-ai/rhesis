@@ -21,6 +21,7 @@ import {
   type AnnotationSummaryEntry,
 } from '@/utils/api-client/interfaces/annotation';
 import {
+  TRACE_METRICS_SKIPPED,
   TRACE_METRICS_STATUS,
   type SpanNode,
   type TraceDetailResponse,
@@ -306,6 +307,12 @@ export default function EvaluationTab({
         )}
       </Box>
 
+      {traceMetricsStatus === TRACE_METRICS_SKIPPED && (
+        <Alert severity="info" sx={{ py: 0 }}>
+          Not evaluated: your organization reached its model token limit for
+          this period.
+        </Alert>
+      )}
       {traceMetricsStatus === TRACE_METRICS_STATUS.ERROR && (
         <Alert severity="error" sx={{ py: 0 }}>
           Metric evaluation errored for this trace; results may be incomplete.
