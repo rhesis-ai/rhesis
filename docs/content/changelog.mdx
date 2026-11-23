@@ -8,6 +8,113 @@ This is the aggregated changelog for the entire Rhesis repository. For detailed 
 - [Frontend Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/frontend/CHANGELOG.md)
 - [Polyphemus Changelog](https://github.com/rhesis-ai/rhesis/blob/main/apps/polyphemus/CHANGELOG.md)
 
+## [0.22.0] - 2026-11-19
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.22.0**
+- **Frontend 0.22.0**
+- **SDK 0.22.0**
+
+### Summary
+
+**Reports** summarise an endpoint's test runs against chosen requirements and freeze the result when published. The SDK adds **Bedrock embeddings** and supports **Google ADK's new telemetry format**. Self-hosted installs are **pinned to a release**, and all browser traffic now goes through the **frontend origin**.
+
+### Featured Capabilities
+
+**Reports**
+
+- **Drafts and publishing**: a report shows one endpoint's pass rates overall and per requirement, plus what wasn't tested. Drafts show live numbers; publishing freezes the results, the endpoint config and the sections
+- **AI summary**: draft a summary of the report with your generation model
+- **Architect and MCP**: list, read, create and edit report drafts from the Architect or any MCP client. Publishing stays in the app
+
+See [Reports](/docs/reports).
+
+**Google ADK telemetry v2**
+
+- **Both schemas**: google-adk 2.14 made its new telemetry format the default. Tracing reads tool calls, handoffs and content from both the old and the new format
+
+See [Google ADK](/docs/tracing/google-adk).
+
+### Backend Highlights
+- Password accounts with an unverified email are locked after a 3-day grace period, and on a hard email bounce
+- OAuth and SSO handshakes run on the frontend origin
+- SSO works with an identity provider on a private network when `OUTBOUND_ALLOW_PRIVATE_NETWORKS` is set
+- Deleting a parent requirement unlinks its children
+- Bulk test and test set creation keep all test fields
+
+### Frontend Highlights
+- Browser requests go through the frontend's `/api/backend` proxy instead of calling the backend directly
+- Warning when `BACKEND_URL` looks like a public address
+- `BRAND_FAVICON_URL` accepts `data:` URIs
+
+### SDK Highlights
+- `BedrockEmbedder` for Titan Text Embeddings V2, with the same authentication as `BedrockLLM`
+- Google ADK telemetry schema v2 support; OpenTelemetry raised to 1.45.2
+
+### Self-Hosting
+- Docker Compose files and the Helm chart are pinned to a release's config and images
+- The chart's `backendUrl` defaults to the in-cluster backend service
+
+## [0.21.2] - 2026-11-17
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.21.2**
+- **Frontend 0.21.2**
+- **SDK 0.21.2**
+
+### Summary
+
+**Amazon Bedrock** joins the model providers. **Insights** groups pass rates by requirement **impact** or **parent**.
+
+### Featured Capabilities
+
+**Amazon Bedrock**
+
+- **Model provider**: use Bedrock models for test generation and evaluation, authenticated with a Bedrock API key and your region's runtime URL
+- **No ambient credentials**: the provider refuses to start without a key instead of signing with whatever AWS credentials the process has
+
+See [Models](/docs/models).
+
+**Insights by impact and parent**
+
+- **Grouping**: switch Insights between requirement, impact and parent requirement
+- **Filters**: filter results by impact. Requirements without an impact or parent are counted in their own group
+
+See [Insights](/docs/results-overview).
+
+### Backend Highlights
+- Daily spend caps and per-minute throughput caps for the hosted default model
+- Fixed error handlers failing when the SDK isn't installed
+
+### SDK Highlights
+- `BedrockLLM` provider
+- Throttled model calls wait for the server's `Retry-After` before retrying
+
+## [0.21.1] - 2026-11-13
+
+### Platform Release
+
+This release includes the following component versions:
+- **Backend 0.21.1**
+- **Frontend 0.21.1**
+- **SDK 0.21.1**
+
+### Summary
+
+A small release. Test runs show their **endpoint**, and test sets get a **Test Runs** tab.
+
+### Frontend Highlights
+- Endpoint column in the test runs list, with sorting and filtering by endpoint
+- Test Runs tab on the test set detail page
+- Experiment and version columns hidden by default in the test runs list
+
+### Backend Highlights
+- Fixed the garak glitch probe import and runs that contain NUL tokens
+
 ## [0.21.0] - 2026-11-12
 
 ### Platform Release
@@ -147,9 +254,22 @@ See [Metrics](/docs/metrics).
 
 **Architect charts**
 
+<div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', maxWidth: '800px', margin: '20px 0', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)' }}>
+  <iframe
+    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+    src="https://www.youtube.com/embed/zoBNtkQeG7o"
+    title="Analyse your test results in the Architect chat"
+    frameBorder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+    allowFullScreen
+  />
+</div>
+
 - **Interactive charts**: the Architect can answer data questions with bar, line, heat table, and radar charts built from Insights queries
 - **Export**: download chart data as CSV, or the chart itself as SVG or PNG
 - **Raw data**: open the underlying rows in a modal for inspection
+
+See [Reports and Charts](/docs/architect/reports).
 
 **Insights redesign**
 
@@ -158,7 +278,7 @@ See [Metrics](/docs/metrics).
 - **Query shaping**: `order_by`, `limit`, `min_count`, and `time_grain` on every query
 - **Schema endpoint**: `GET /insights/schema` describes the available dimensions, measures, and filters per entity
 
-See [Insights](/docs/insights).
+See [Insights](/docs/results-overview).
 
 ### Backend Highlights
 - S3-compatible storage via `s3fs`, configured with `STORAGE_SERVICE_*` settings
