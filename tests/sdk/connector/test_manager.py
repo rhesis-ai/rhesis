@@ -491,6 +491,14 @@ async def test_handle_acknowledged_messages(manager):
 
 
 @pytest.mark.asyncio
+async def test_registration_errors_are_logged_as_warnings(manager, caplog):
+    errors = [{"function": "chat", "error": "Quota exceeded for endpoints: 3/3 used"}]
+    with caplog.at_level("WARNING", logger="rhesis.sdk.connector.manager"):
+        await manager._handle_message({"type": "registered", "status": "error", "errors": errors})
+    assert "Quota exceeded for endpoints" in caplog.text
+
+
+@pytest.mark.asyncio
 async def test_send_test_result(manager):
     """Test sending test result."""
     manager._connection = AsyncMock()
