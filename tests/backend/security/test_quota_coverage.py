@@ -428,13 +428,7 @@ class TestHostedDefaultsAreGated:
     def _prepare(self, project):
         from rhesis.backend.jobs.telemetry import evaluate
 
-        db = Mock()
-        db.query.return_value.filter.return_value.first.return_value = project
-        with (
-            patch.object(evaluate, "_get_trace_metrics_config", return_value=Mock()),
-            patch.object(evaluate, "_should_evaluate", return_value=True),
-        ):
-            return evaluate._prepare_evaluation(db, "trace", "project", "org")
+        return evaluate._build_evaluator(Mock(), project, "trace", "org")
 
     def test_trace_evaluation_setup_raises_at_the_limit(self):
         # The task catches it and marks the trace Skipped (jobs/test_trace_eval_token_limit.py).
