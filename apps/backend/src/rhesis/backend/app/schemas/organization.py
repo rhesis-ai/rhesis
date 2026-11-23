@@ -12,6 +12,22 @@ _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,48}[a-z0-9]$")
 SLUG_RE = _SLUG_RE
 
 
+def _normalize_slug(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return None
+    v = v.strip().lower()
+    if not v:
+        return None
+    if not _SLUG_RE.match(v):
+        raise ValueError(
+            "Slug must be 3-50 characters, lowercase alphanumeric "
+            "and hyphens, starting and ending with a letter or digit"
+        )
+    if "--" in v:
+        raise ValueError("Slug must not contain consecutive hyphens")
+    return v
+
+
 class OrganizationBase(Base):
     name: str
     display_name: Optional[str] = None
@@ -34,19 +50,7 @@ class OrganizationBase(Base):
     @field_validator("slug")
     @classmethod
     def validate_slug(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return None
-        v = v.strip().lower()
-        if not v:
-            return None
-        if not _SLUG_RE.match(v):
-            raise ValueError(
-                "Slug must be 3-50 characters, lowercase alphanumeric "
-                "and hyphens, starting and ending with a letter or digit"
-            )
-        if "--" in v:
-            raise ValueError("Slug must not contain consecutive hyphens")
-        return v
+        return _normalize_slug(v)
 
 
 class OrganizationCreate(OrganizationBase):
@@ -55,9 +59,27 @@ class OrganizationCreate(OrganizationBase):
     # user_id: UUID4
 
 
-class OrganizationUpdate(OrganizationBase):
-    name: Optional[str] = None  # Make name optional for updates
+class OrganizationUpdate(Base):
+    """What PUT /organizations/{id} may change: the organization's own profile.
+
+    Ownership, limits, activation, domain verification and onboarding state are
+    not client-editable; fields outside this list are ignored.
+    """
+
+    name: Optional[str] = None
+    display_name: Optional[str] = None
+    description: Optional[str] = None
+    website: Optional[str] = None
+    logo_url: Optional[str] = None
     email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    slug: Optional[str] = None
+
+    @field_validator("slug")
+    @classmethod
+    def validate_slug(cls, v: Optional[str]) -> Optional[str]:
+        return _normalize_slug(v)
 
 
 class Organization(OrganizationBase, ServerIdentity):
