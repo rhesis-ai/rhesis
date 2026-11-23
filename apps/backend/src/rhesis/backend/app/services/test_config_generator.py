@@ -20,8 +20,7 @@ from rhesis.backend.app.crud.project import get_project
 from rhesis.backend.app.schemas.services import TestConfigResponse
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError, model_setup_message
 from rhesis.backend.app.utils.user_model_utils import (
-    _enforce_model_token_quota,
-    ensure_language_model,
+    resolve_default_hosted_model,
     resolve_model,
 )
 
@@ -74,14 +73,13 @@ class TestConfigGeneratorService:
                 "User generation model is Polyphemus; using fast system default for test config"
             )
             try:
-                # ensure_language_model, not resolve_default_hosted_model:
-                # this caller *wants* the raising variant, so a system default
-                # that cannot be built falls through to the user's model
-                # below. Wrapping resolve's non-raising fallback in ensure
-                # just built the same model twice on the failure path.
-                # The system default is hosted inference, so gate it on the token quota.
-                _enforce_model_token_quota(self.db, str(self.user.organization_id))
-                return ensure_language_model(get_model_settings().generation_model)
+                # Gated on the token quota; a default that cannot be built
+                # (ValueError) falls through to the user's model below.
+                return resolve_default_hosted_model(
+                    get_model_settings().generation_model,
+                    self.db,
+                    str(self.user.organization_id),
+                )
             except ValueError as e:
                 logger.warning(
                     "Fast system default unavailable for test config (Polyphemus user); "

@@ -568,10 +568,16 @@ async def _validate_metrics_loadable(
 
     # A metric refused its model would error on every test, so this blocks the run.
     if refused:
+        over_quota = [r for r in refused if r.get("error_type") == "QuotaExceeded"]
+        heading = (
+            f"{len(over_quota)} metric(s) can't be judged: the model token limit is reached"
+            if len(over_quota) == len(refused)
+            else f"{len(refused)} metric(s) can't be judged by the evaluation model"
+        )
         return _make_result(
             check_id,
             PreflightCheckStatus.FAILED,
-            f"{len(refused)} metric(s) can't be judged by the evaluation model",
+            heading,
             "; ".join(r["reason"] for r in refused),
         )
 

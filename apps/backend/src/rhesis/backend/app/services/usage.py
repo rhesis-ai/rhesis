@@ -277,7 +277,12 @@ def count_org_projects(db: Session, org_id: str) -> int:
 
 
 def _session_user_id(db: Session) -> str:
-    """The user the session is scoped to, for re-scoping it to another project."""
+    """The user the session is scoped to.
+
+    Endpoint RLS does not read it, but ``temporary_project_scope`` restores the
+    session's scope with it, so passing a blank one would drop the user GUC for
+    the rest of the request.
+    """
     from rhesis.backend.app.database import _SCOPE_KEY, _TENANT_VARS_KEY
 
     scope = db.info.get(_SCOPE_KEY)
@@ -295,13 +300,13 @@ def count_org_endpoints(db: Session, org_id: str) -> int:
     from rhesis.backend.app.database import sum_over_org_projects
 
     def _count(project_id) -> int:
+        if project_id is None:
+            return 0  # endpoint.project_id is NOT NULL.
         with bypass_tenant_filter():
             query = db.query(func.count(Endpoint.id)).filter(
                 Endpoint.organization_id == org_id,
                 Endpoint.deleted_at.is_(None),
-                Endpoint.project_id == project_id
-                if project_id is not None
-                else Endpoint.project_id.is_(None),
+                Endpoint.project_id == project_id,
             )
             return query.scalar() or 0
 
