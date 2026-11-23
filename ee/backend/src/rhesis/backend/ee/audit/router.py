@@ -30,6 +30,7 @@ from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.dependencies import get_tenant_context, get_tenant_db_session
 from rhesis.backend.app.features import FeatureName
 from rhesis.backend.app.services.storage_service import NotSupportedError, StorageService
+from rhesis.backend.app.utils.content_disposition import attachment_disposition
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.odata import apply_select
 from rhesis.backend.ee.audit import crud as audit_crud
@@ -192,7 +193,7 @@ def download_audit_export(
         raise HTTPException(status_code=404, detail=FILE_GONE) from e
 
     storage = StorageService()
-    disposition = f'attachment; filename="{export.filename}"'
+    disposition = attachment_disposition(export.filename)
     try:
         url = storage.presigned_url(
             export.path, expires_in=audit_export.LINK_SECONDS, response_disposition=disposition

@@ -48,6 +48,7 @@ from rhesis.backend.app.services.test_set import (
     execute_test_set_on_endpoint,
     update_test_set_attributes,
 )
+from rhesis.backend.app.utils.content_disposition import attachment_disposition
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import (
@@ -557,8 +558,8 @@ def download_test_set_prompts(
     )
 
     response = StreamingResponse(iter([csv_data]), media_type="text/csv")
-    response.headers["Content-Disposition"] = (
-        f"attachment; filename=test_set_{test_set_identifier}.csv"
+    response.headers["Content-Disposition"] = attachment_disposition(
+        f"test_set_{test_set_identifier}.csv"
     )
     return response
 
