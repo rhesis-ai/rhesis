@@ -13,7 +13,7 @@ This service handles:
 import logging
 import re
 from functools import lru_cache
-from typing import Any, Dict, Optional, Type, TypeVar
+from typing import Any, Callable, Dict, Optional, Type, TypeVar
 from uuid import UUID
 
 from sqlalchemy import inspect
@@ -91,6 +91,7 @@ def bulk_restore_with_cascade(
     model: Type[T],
     item_ids: list[UUID],
     organization_id: Optional[str] = None,
+    before_each: Optional[Callable[[UUID], None]] = None,
 ) -> dict:
     """
     Restore multiple items with automatic cascade.
@@ -102,6 +103,8 @@ def bulk_restore_with_cascade(
         model: SQLAlchemy model class
         item_ids: List of item IDs to restore
         organization_id: Optional organization ID for tenant filtering
+        before_each: Called with each id before it is restored; an exception
+            marks that item failed.
 
     Returns:
         Dictionary with restoration results
@@ -110,6 +113,8 @@ def bulk_restore_with_cascade(
 
     for item_id in item_ids:
         try:
+            if before_each is not None:
+                before_each(item_id)
             restored_item = restore_item_with_cascade(db, model, item_id, organization_id)
             if restored_item:
                 results["restored"].append(str(item_id))

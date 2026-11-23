@@ -190,8 +190,23 @@ class TestFindOrCreateSSOUser:
             find_or_create_sso_user(db, auth_user, org, config)
         assert exc_info.value.reason_code == "auto_provision_disabled"
 
+    @patch("rhesis.backend.ee.sso.user_utils.enforce_quota")
     @patch("rhesis.backend.app.crud.user.create_user")
-    def test_auto_provision_creates_user(self, mock_create_user):
+    def test_auto_provision_at_the_seat_limit_rejected(self, mock_create_user, mock_enforce):
+        from rhesis.backend.app.quota.enforcement import QuotaExceededError
+
+        mock_enforce.side_effect = QuotaExceededError(MagicMock())
+        db = self._mock_db(query_results=[None, None])
+        config = _sso_config(auto_provision_users=True)
+
+        with pytest.raises(SSOLoginError) as exc_info:
+            find_or_create_sso_user(db, _auth_user(), _organization(), config)
+        assert exc_info.value.reason_code == "seat_limit_reached"
+        mock_create_user.assert_not_called()
+
+    @patch("rhesis.backend.ee.sso.user_utils.enforce_quota")
+    @patch("rhesis.backend.app.crud.user.create_user")
+    def test_auto_provision_creates_user(self, mock_create_user, mock_enforce):
         db = self._mock_db(query_results=[None, None])
         org = _organization()
         config = _sso_config(auto_provision_users=True)

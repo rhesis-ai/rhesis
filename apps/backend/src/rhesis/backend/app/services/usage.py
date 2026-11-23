@@ -276,9 +276,41 @@ def count_org_projects(db: Session, org_id: str) -> int:
     return _count_org_rows(db, Project, org_id, exclude_deleted=True)
 
 
+def _session_user_id(db: Session) -> str:
+    """The user the session is scoped to.
+
+    Endpoint RLS does not read it, but ``temporary_project_scope`` restores the
+    session's scope with it, so passing a blank one would drop the user GUC for
+    the rest of the request.
+    """
+    from rhesis.backend.app.database import _SCOPE_KEY, _TENANT_VARS_KEY
+
+    scope = db.info.get(_SCOPE_KEY)
+    if scope is not None and scope.user_id:
+        return str(scope.user_id)
+    return str((db.info.get(_TENANT_VARS_KEY) or {}).get("user_id") or "")
+
+
 def count_org_endpoints(db: Session, org_id: str) -> int:
-    """Count non-deleted endpoints belonging to *org_id*."""
-    return _count_org_rows(db, Endpoint, org_id, exclude_deleted=True)
+    """Count non-deleted endpoints belonging to *org_id*, across all its projects.
+
+    ``endpoint`` has project RLS, which shows one project's rows at a time, so
+    the count runs project by project, each under its own scope.
+    """
+    from rhesis.backend.app.database import sum_over_org_projects
+
+    def _count(project_id) -> int:
+        if project_id is None:
+            return 0  # endpoint.project_id is NOT NULL.
+        with bypass_tenant_filter():
+            query = db.query(func.count(Endpoint.id)).filter(
+                Endpoint.organization_id == org_id,
+                Endpoint.deleted_at.is_(None),
+                Endpoint.project_id == project_id,
+            )
+            return query.scalar() or 0
+
+    return sum_over_org_projects(db, org_id, _session_user_id(db), _count)
 
 
 _STOCK_COUNTERS = {

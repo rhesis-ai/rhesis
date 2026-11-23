@@ -325,7 +325,14 @@ class ConnectorManager:
                 f"org={self._organization_id}, user={self._user_id})"
             )
         elif message_type == MessageType.REGISTERED.value:
-            logger.debug(f"Received acknowledgment: {message_type}")
+            if message.get("status") == "error":
+                # E.g. a function left unregistered because the org is at its endpoint limit.
+                logger.warning(
+                    f"Registration finished with errors: "
+                    f"{message.get('errors') or message.get('error')}"
+                )
+            else:
+                logger.debug(f"Received acknowledgment: {message_type}")
         else:
             logger.warning(f"Unknown message type: {message_type}")
 

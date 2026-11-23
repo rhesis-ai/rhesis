@@ -597,6 +597,8 @@ async def generate_test_config(
 
         logger.info("Test config generation successful")
         return result
+    except (QuotaExceededError, ModelCallRefused):
+        raise
     except ValueError as e:
         from rhesis.backend.app.utils.execution_validation import (
             handle_execution_error,

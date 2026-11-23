@@ -32,7 +32,7 @@ from rhesis.backend.app.services.generation import (
 from rhesis.backend.app.services.streaming_utils import IncrementalConfigParser, ndjson
 from rhesis.backend.app.utils.model_errors import ModelConfigurationError, model_setup_message
 from rhesis.backend.app.utils.user_model_utils import (
-    ensure_language_model,
+    resolve_default_hosted_model,
     resolve_model,
 )
 from rhesis.sdk.synthesizers.config_synthesizer import (
@@ -62,9 +62,10 @@ def _resolve_config_llm(db: Session, user: User):
     if use_fast_default:
         logger.info("User generation model is Polyphemus; using fast default for pipeline config")
         try:
-            # ensure_language_model, not resolve_default_hosted_model: see the
-            # note on the identical branch in test_config_generator.py.
-            return ensure_language_model(get_model_settings().generation_model)
+            # Gated on the token quota; see the identical branch in test_config_generator.py.
+            return resolve_default_hosted_model(
+                get_model_settings().generation_model, db, str(user.organization_id)
+            )
         except ValueError:
             pass
 
