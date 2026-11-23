@@ -475,8 +475,18 @@ def bulk_restore_from_recycle_bin(
 
     _enforce_restore_quota(db, model, organization_id, item_ids)
 
+    def _check_one(item_id: UUID) -> None:
+        # Each restore commits, which releases the quota lock, so re-check per item.
+        _enforce_restore_quota(db, model, organization_id, [item_id])
+
     # Use cascade-aware bulk restoration from service layer
-    results = recycle_service.bulk_restore_with_cascade(db, model, item_ids, organization_id=org_id)
+    results = recycle_service.bulk_restore_with_cascade(
+        db,
+        model,
+        item_ids,
+        organization_id=org_id,
+        before_each=_check_one if model in _RESTORE_QUOTAS else None,
+    )
 
     logger.info(
         f"Bulk restore {model_name} from recycle bin: {len(results['restored'])} restored, "
