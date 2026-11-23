@@ -14,13 +14,16 @@ from celery.exceptions import SoftTimeLimitExceeded
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from rhesis.backend.app.constants import TRACE_SKIPPED_STATUS, EntityType
 from rhesis.backend.app.crud.telemetry import (
     update_trace_conversation_metrics,
     update_trace_turn_metrics,
 )
 from rhesis.backend.app.database import SessionLocal, bind_scope_to_session
+from rhesis.backend.app.quota.enforcement import QuotaExceededError
 from rhesis.backend.app.schemas.metric import MetricScope
 from rhesis.backend.app.services.telemetry.evaluation_trace import load_evaluation_trace
+from rhesis.backend.app.utils.crud_utils import get_or_create_status
 from rhesis.backend.celery.core import app
 from rhesis.backend.metrics.inputs import ResponseTrace, TraceLoader
 from rhesis.sdk.entities.trace import Trace
@@ -170,16 +173,46 @@ def _resolve_status_id(
     return str(status.id)
 
 
-def _prepare_evaluation(
-    db: Session,
-    trace_id: str,
-    project_id: str,
-    organization_id: str,
-):
-    """Shared setup: load project, check config, resolve evaluation model.
+def _turn_root_span(db: Session, trace_id: str, root_span_id: Optional[str]):
+    """The root span a turn evaluation targets: *root_span_id*, else the latest one."""
+    query = db.query(models.Trace).filter(models.Trace.parent_span_id.is_(None))
+    if root_span_id:
+        return query.filter(models.Trace.id == root_span_id).first()
+    return (
+        query.filter(models.Trace.trace_id == trace_id)
+        .order_by(models.Trace.start_time.desc())
+        .first()
+    )
 
-    Returns (project, config, evaluator) or None if evaluation should be skipped.
+
+def _conversation_root_spans(db: Session, trace_id: str) -> List[models.Trace]:
+    return (
+        db.query(models.Trace)
+        .filter(models.Trace.trace_id == trace_id, models.Trace.parent_span_id.is_(None))
+        .order_by(models.Trace.start_time.asc())
+        .all()
+    )
+
+
+def _mark_skipped_at_token_limit(db: Session, organization_id: str, spans) -> None:
+    """Show these spans as not evaluated because of the token limit.
+
+    A span that already has a status (an earlier result or a reviewer's verdict)
+    keeps it.
     """
+    pending = [span for span in spans if span is not None and span.trace_metrics_status_id is None]
+    if not pending:
+        return
+    status = get_or_create_status(
+        db, TRACE_SKIPPED_STATUS, EntityType.TRACE, organization_id=organization_id
+    )
+    for span in pending:
+        span.trace_metrics_status_id = status.id
+    db.commit()
+
+
+def _load_evaluation_config(db: Session, trace_id: str, project_id: str):
+    """The project and its trace metrics config, or None when evaluation is off."""
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         logger.warning(f"Project {project_id} not found for trace {trace_id}")
@@ -188,9 +221,19 @@ def _prepare_evaluation(
     config = _get_trace_metrics_config(project)
     if not _should_evaluate(config):
         return None
+    return project, config
 
+
+def _build_evaluator(db: Session, project, trace_id: str, organization_id: str):
+    """The evaluator with the project's evaluation model.
+
+    Built only once there is something to evaluate, so the quota check below runs
+    only for a phase that would really call the model.
+
+    Raises:
+        QuotaExceededError: the organization is at its model token limit.
+    """
     from rhesis.backend.app.config.settings import get_model_settings
-    from rhesis.backend.app.quota.enforcement import QuotaExceededError
     from rhesis.backend.app.utils.user_model_utils import (
         resolve_default_hosted_model,
         resolve_model,
@@ -209,22 +252,20 @@ def _prepare_evaluation(
             default_model = resolve_default_hosted_model(
                 get_model_settings().evaluation_model, db, organization_id
             )
-    except QuotaExceededError as e:
-        logger.info(f"Skipping trace {trace_id} evaluation: {e}")
-        return None
+    except QuotaExceededError:
+        raise  # The caller marks the trace skipped.
     except Exception as e:
         logger.warning(f"Failed to get default evaluation model for trace {trace_id}: {e}")
 
     # require_model: without a resolved judge the SDK would build its own default
     # model, which carries no usage stamp.
-    evaluator = MetricEvaluator(
+    return MetricEvaluator(
         model=default_model,
         text_model=text_model,
         db=db,
         organization_id=organization_id,
         require_model=True,
     )
-    return project, config, evaluator
 
 
 def _turn_trace_loader(
@@ -269,30 +310,12 @@ def evaluate_turn_trace_metrics(
     try:
         bind_scope_to_session(db, organization_id, "", project_id)
 
-        prepared = _prepare_evaluation(db, trace_id, project_id, organization_id)
-        if prepared is None:
+        loaded = _load_evaluation_config(db, trace_id, project_id)
+        if loaded is None:
             return {"status": "skipped", "trace_id": trace_id}
-        project, config, evaluator = prepared
+        project, config = loaded
 
-        if root_span_id:
-            root_span = (
-                db.query(models.Trace)
-                .filter(
-                    models.Trace.id == root_span_id,
-                    models.Trace.parent_span_id.is_(None),
-                )
-                .first()
-            )
-        else:
-            root_span = (
-                db.query(models.Trace)
-                .filter(
-                    models.Trace.trace_id == trace_id,
-                    models.Trace.parent_span_id.is_(None),
-                )
-                .order_by(models.Trace.start_time.desc())
-                .first()
-            )
+        root_span = _turn_root_span(db, trace_id, root_span_id)
         if not root_span:
             logger.warning(f"No root span found for trace {trace_id}")
             return {"status": "no_root_span", "trace_id": trace_id}
@@ -324,6 +347,15 @@ def evaluate_turn_trace_metrics(
             if has_conversation:
                 _schedule_debounced_conversation_eval(trace_id, project_id, organization_id)
             return {"status": "no_metrics", "trace_id": trace_id}
+
+        try:
+            evaluator = _build_evaluator(db, project, trace_id, organization_id)
+        except QuotaExceededError as e:
+            logger.info(f"Skipping trace {trace_id} evaluation: {e}")
+            _mark_skipped_at_token_limit(db, organization_id, [root_span])
+            if has_conversation:
+                _schedule_debounced_conversation_eval(trace_id, project_id, organization_id)
+            return {"status": "quota_exceeded", "trace_id": trace_id}
 
         trace = ResponseTrace(
             input=input_text,
@@ -398,25 +430,17 @@ def evaluate_conversation_trace_metrics(
     try:
         bind_scope_to_session(db, organization_id, "", project_id)
 
-        prepared = _prepare_evaluation(db, trace_id, project_id, organization_id)
-        if prepared is None:
+        loaded = _load_evaluation_config(db, trace_id, project_id)
+        if loaded is None:
             return {"status": "skipped", "trace_id": trace_id}
-        project, config, evaluator = prepared
+        project, config = loaded
 
         metrics = _load_project_trace_metrics(db, organization_id, config, phase="conversation")
         if not metrics:
             logger.info(f"No Multi-Turn project trace metrics for trace {trace_id}")
             return {"status": "no_metrics", "trace_id": trace_id}
 
-        root_spans = (
-            db.query(models.Trace)
-            .filter(
-                models.Trace.trace_id == trace_id,
-                models.Trace.parent_span_id.is_(None),
-            )
-            .order_by(models.Trace.start_time.asc())
-            .all()
-        )
+        root_spans = _conversation_root_spans(db, trace_id)
         if not root_spans:
             return {"status": "no_spans", "trace_id": trace_id}
 
@@ -424,6 +448,14 @@ def evaluate_conversation_trace_metrics(
         if trace is None or not trace.messages().messages:
             return {"status": "no_conversation", "trace_id": trace_id}
         trace.conversation_id = root_spans[0].conversation_id
+
+        try:
+            evaluator = _build_evaluator(db, project, trace_id, organization_id)
+        except QuotaExceededError as e:
+            logger.info(f"Skipping conversation {trace_id} evaluation: {e}")
+            _mark_skipped_at_token_limit(db, organization_id, root_spans)
+            return {"status": "quota_exceeded", "trace_id": trace_id}
+
         start_time = time.time()
         results = evaluator.evaluate(metrics, trace)
         execution_time = (time.time() - start_time) * 1000

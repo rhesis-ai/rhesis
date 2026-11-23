@@ -196,6 +196,12 @@ class TestResultStatus(str, Enum):
     INCONCLUSIVE = "Inconclusive"
 
 
+# Status (entity type Trace) of a trace whose evaluation was skipped because the
+# organization reached its model token limit. Not a TestResultStatus: it is no
+# verdict, and must not appear among the statuses a reviewer can pick.
+TRACE_SKIPPED_STATUS = "Skipped"
+
+
 class AnnotationTarget(str, Enum):
     """What an annotation is about, within its parent entity.
 

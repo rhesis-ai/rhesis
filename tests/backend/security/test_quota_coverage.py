@@ -428,17 +428,15 @@ class TestHostedDefaultsAreGated:
     def _prepare(self, project):
         from rhesis.backend.jobs.telemetry import evaluate
 
-        db = Mock()
-        db.query.return_value.filter.return_value.first.return_value = project
-        with (
-            patch.object(evaluate, "_get_trace_metrics_config", return_value=Mock()),
-            patch.object(evaluate, "_should_evaluate", return_value=True),
-        ):
-            return evaluate._prepare_evaluation(db, "trace", "project", "org")
+        return evaluate._build_evaluator(Mock(), project, "trace", "org")
 
-    def test_trace_evaluation_is_skipped_at_the_limit(self):
-        with patch(f"{USER_MODEL_UTILS}.resolve_model", side_effect=_exceeded()):
-            assert self._prepare(Mock()) is None
+    def test_trace_evaluation_setup_raises_at_the_limit(self):
+        # The task catches it and marks the trace Skipped (jobs/test_trace_eval_token_limit.py).
+        with (
+            patch(f"{USER_MODEL_UTILS}.resolve_model", side_effect=_exceeded()),
+            pytest.raises(QuotaExceededError),
+        ):
+            self._prepare(Mock())
 
     def test_trace_evaluation_without_a_user_uses_the_gated_default(self):
         project = Mock(owner=None, user=None)

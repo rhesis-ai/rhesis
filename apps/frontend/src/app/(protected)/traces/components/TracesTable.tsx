@@ -9,6 +9,7 @@ import type {
 import BaseDataGrid from '@/components/common/BaseDataGrid';
 import {
   TraceSummary,
+  TRACE_METRICS_SKIPPED,
   TRACE_METRICS_STATUS,
 } from '@/utils/api-client/interfaces/telemetry';
 import { Box, Stack, Tooltip, Typography } from '@mui/material';
@@ -347,6 +348,7 @@ export default function TracesTable({
           }
           const annotationConflicts =
             hasAnnotation &&
+            evalStatus !== TRACE_METRICS_SKIPPED &&
             lastAnnotation?.status?.name &&
             isPassedStatusName(lastAnnotation.status.name) !==
               (evalStatus === TRACE_METRICS_STATUS.PASS);

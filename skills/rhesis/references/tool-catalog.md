@@ -700,7 +700,7 @@ Returns per row, newest first: `trace_id`, `project_id`, `start_time`, `duration
 - `start_time_after` / `start_time_before` — ISO 8601
 - `span_name` — exact operation name, e.g. `"ai.llm.invoke"`. Tests the row, so with the default `root_spans_only` it matches root spans only
 - `search` — free text over trace id, operation names, **error messages**, endpoint name and URL, and conversation input/output. Searching an error message groups traces that failed the same way. It matches **any span** and returns the whole trace, so it finds a trace whose *inner* span carried the text even in the default view
-- `trace_metrics_status` — `"Pass"`, `"Fail"`, `"Error"`, `"Inconclusive"` (only evaluated traces have one)
+- `trace_metrics_status` — `"Pass"`, `"Fail"`, `"Error"`, `"Inconclusive"` (only evaluated traces have one). A row can also carry `"Skipped"`: the trace was not evaluated because the organization had reached its model token limit. `"Skipped"` is not a filter value, and nothing re-runs those traces when the limit resets.
 - `trace_source` — `"test"`, `"operation"` (production traffic) or `"all"`
 - `trace_type` — `"Single-Turn"`, `"Multi-Turn"` or `"all"`
 - `provider` — repeatable; a trace whose costs are not priced yet matches none, so this can hide recent traces
