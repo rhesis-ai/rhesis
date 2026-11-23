@@ -24,6 +24,7 @@ from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota.enforcement import enforce_quota
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas import services as services_schemas
 from rhesis.backend.app.schemas.base import MAX_BULK_ITEMS
@@ -142,6 +143,14 @@ def generate_test_set(
     Returns:
         Task information including task ID and estimated test count
     """
+    # The dependency checks one unit; the job accrues every generated test.
+    enforce_quota(
+        db,
+        str(_quota_gate.id),
+        _quota_gate,
+        QuotaResource.TEST_GENERATION,
+        amount=request.num_tests,
+    )
     try:
         # config.requirements and name are enforced by TestSetGenerationRequest,
         # so they arrive non-empty and already stripped.
