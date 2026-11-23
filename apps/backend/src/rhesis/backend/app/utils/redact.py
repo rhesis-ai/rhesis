@@ -17,7 +17,8 @@ def redact_email(email: str) -> str:
     return f"{local[:2]}***@{domain}"
 
 
-SECRET_PLACEHOLDER = "[REDACTED]"
+# Same placeholder header redaction uses (services/invokers/common/headers.py).
+SECRET_PLACEHOLDER = "***REDACTED***"
 
 
 def mask_secret(value: Any, secret: Optional[str]) -> Any:
