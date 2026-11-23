@@ -16,7 +16,6 @@ from rhesis.backend.app.services.test_set import (
     keep_generated_descriptions,
     load_defaults,
 )
-from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.app.utils.crud_utils import _check_and_raise_if_deleted
 from rhesis.backend.app.utils.query_utils import QueryBuilder
 from rhesis.backend.app.utils.user_model_utils import resolve_model
@@ -435,6 +434,7 @@ def generate_and_save_test_set(
     metadata: Optional[dict] = None,
     model_id: Optional[str] = None,
     test_set_id: Optional[str] = None,
+    quota_reservation: Optional[dict] = None,
 ):
     """
     Generate and save test set using ConfigSynthesizer.
@@ -456,6 +456,7 @@ def generate_and_save_test_set(
         metadata: Optional extra metadata dict to merge
         model_id: Optional model UUID to override the user's default generation model
         test_set_id: Optional UUID of a pre-created TestSet row
+        quota_reservation: What the route reserved for this generation, if anything
 
     Returns:
         dict: Information about the generated and saved test set including ID and metadata
@@ -612,11 +613,7 @@ def generate_and_save_test_set(
             tests_generated=len(test_set.tests),
         )
 
-        # No session needed here any more -- the accrual is queued and the
-        # worker task opens its own. dispatch_accrual no-ops on a count of
-        # zero, so the guard that used to protect the session checkout is
-        # gone too.
-        dispatch_accrual(org_id, QuotaResource.TEST_GENERATION, len(test_set.tests))
+        self.settle_quota(QuotaResource.TEST_GENERATION, len(test_set.tests), quota_reservation)
 
         self.log_with_context(
             "info",
@@ -690,6 +687,7 @@ def generate_and_save_owasp_test_set(
     name: Optional[str] = None,
     model_id: Optional[str] = None,
     test_type: Optional[str] = TestSetType.SINGLE_TURN.value,
+    quota_reservation: Optional[dict] = None,
 ):
     """
     Generate and save a test set using the SDK's OWASPSynthesizer.
@@ -710,6 +708,7 @@ def generate_and_save_owasp_test_set(
         model_id: Optional model UUID to override the user's default generation model.
         test_type: "Single-Turn" (default) or "Multi-Turn" - whether to generate
             one-shot attack prompts or multi-turn conversational attacks.
+        quota_reservation: What the route reserved for this generation.
 
     Returns:
         dict: Information about the generated and saved test set.
@@ -805,6 +804,8 @@ def generate_and_save_owasp_test_set(
         # isolates post-save work so a failure here falls back to a minimal
         # result instead of triggering that retry.
         try:
+            # First, so the fallback below still has the tests counted.
+            self.settle_quota(QuotaResource.TEST_GENERATION, len(test_set.tests), quota_reservation)
             result = _build_task_result(
                 self,
                 db_test_set,
@@ -816,12 +817,6 @@ def generate_and_save_owasp_test_set(
                 user_id,
                 tests_generated=len(test_set.tests),
             )
-
-            # No session needed here any more -- the accrual is queued and the
-            # worker task opens its own. dispatch_accrual no-ops on a count of
-            # zero, so the guard that used to protect the session checkout is
-            # gone too.
-            dispatch_accrual(org_id, QuotaResource.TEST_GENERATION, len(test_set.tests))
 
             self.log_with_context(
                 "info",

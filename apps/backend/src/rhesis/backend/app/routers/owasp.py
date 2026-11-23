@@ -31,7 +31,7 @@ from rhesis.backend.app.schemas.owasp import (
 )
 from rhesis.backend.app.services.owasp import OWASP_FRAMEWORKS, list_category_summaries
 from rhesis.backend.app.utils.rate_limit import GENERATION_RATE_LIMIT
-from rhesis.backend.jobs import launch_job
+from rhesis.backend.jobs import launch_reserved_job
 from rhesis.backend.jobs.test_set import generate_and_save_owasp_test_set
 
 logger = logging.getLogger(__name__)
@@ -106,8 +106,12 @@ def generate_test_set(
     Returns HTTP 202 Accepted with a `task_id` that can be polled via
     `GET /tasks/{task_id}`.
     """
-    task_result = launch_job(
+    # The dependency checks one unit; this claims the whole request.
+    task_result = launch_reserved_job(
         generate_and_save_owasp_test_set,
+        org=_quota_gate,
+        resource=QuotaResource.TEST_GENERATION,
+        amount=request.num_tests,
         current_user=current_user,
         db=db,
         framework=request.framework.value,
