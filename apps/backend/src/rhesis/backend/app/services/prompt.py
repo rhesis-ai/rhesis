@@ -85,7 +85,7 @@ def prompts_to_csv(prompts):
     fields = list(prompts[0].keys())
 
     # Write headers
-    writer.writerow(fields)
+    writer.writerow(neutralize_formula(field) for field in fields)
 
     # Write prompt data
     for prompt in prompts:

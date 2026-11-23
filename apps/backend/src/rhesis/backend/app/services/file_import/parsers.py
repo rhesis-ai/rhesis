@@ -11,6 +11,8 @@ import logging
 import zipfile
 from typing import Any, Dict, List, Tuple
 
+from rhesis.backend.app.utils.csv_safety import restore_formula
+
 logger = logging.getLogger(__name__)
 
 
@@ -168,7 +170,12 @@ def _parse_csv(file_bytes: bytes) -> List[Dict[str, Any]]:
     rows = []
     for row in reader:
         # DictReader can produce None keys for overflow fields; strip them out
-        cleaned = {k: v for k, v in row.items() if k is not None and k != ""}
+        # restore_formula: our own CSV exports prefix formula-like cells with '.
+        cleaned = {
+            restore_formula(k): restore_formula(v)
+            for k, v in row.items()
+            if k is not None and k != ""
+        }
         # Skip entirely empty rows
         if not cleaned or all(v is None or str(v).strip() == "" for v in cleaned.values()):
             continue
