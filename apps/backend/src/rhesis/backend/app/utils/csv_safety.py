@@ -7,7 +7,12 @@ FORMULA_START = ("=", "+", "-", "@", "\t", "\r")
 
 
 def neutralize_formula(value: Any) -> Any:
-    """Prefix a string a spreadsheet would run as a formula with ``'``; anything else is kept."""
-    if isinstance(value, str) and value.startswith(FORMULA_START):
+    """Prefix a string a spreadsheet would run as a formula with ``'``; anything else is kept.
+
+    Leading whitespace is looked past too, since some importers trim it first.
+    """
+    if isinstance(value, str) and (
+        value.startswith(FORMULA_START) or value.lstrip().startswith(FORMULA_START)
+    ):
         return f"'{value}"
     return value

@@ -27,7 +27,7 @@ from rhesis.backend.app.services.test_run import test_run_results_to_csv as run_
 from rhesis.backend.app.utils.content_disposition import attachment_disposition
 from rhesis.backend.app.utils.csv_safety import neutralize_formula
 
-FORMULAS = ['=HYPERLINK("x")', "+1+1", "-2+3", "@SUM(A1)", "\tx", "\rx"]
+FORMULAS = ['=HYPERLINK("x")', "+1+1", "-2+3", "@SUM(A1)", "\tx", "\rx", " =1+1", "\n@x"]
 
 
 def _rows(text: str) -> list[list[str]]:
