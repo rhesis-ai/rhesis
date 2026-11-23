@@ -124,6 +124,9 @@ class TestOrganizationStandardRoutes(OrganizationTestMixin, BaseEntityRouteTests
         )
         assert response.status_code == status.HTTP_200_OK, response.text
 
+    def test_entity_ownership_transfer(self):
+        pytest.skip("Organization ownership is not changed through PUT")
+
     # Override user field configuration for organizations
     user_id_field = "user_id"
     owner_id_field = "owner_id"

@@ -53,17 +53,32 @@ class OrganizationBase(Base):
         return _normalize_slug(v)
 
 
-class OrganizationCreate(OrganizationBase):
-    pass
-    # owner_id: UUID4
-    # user_id: UUID4
+class OrganizationCreate(Base):
+    """What POST /organizations/ may set: the new organization's profile.
+
+    Ownership is set from the caller; limits, activation, domain verification,
+    onboarding state and the SSO slug keep their defaults. Other fields are ignored.
+    """
+
+    name: str
+    display_name: Optional[str] = None
+    description: Optional[str] = None
+    website: Optional[str] = None
+    logo_url: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    # Kept for internal callers; the HTTP route overwrites both with the caller.
+    owner_id: Optional[UUID4] = None
+    user_id: Optional[UUID4] = None
 
 
 class OrganizationUpdate(Base):
     """What PUT /organizations/{id} may change: the organization's own profile.
 
     Ownership, limits, activation, domain verification and onboarding state are
-    not client-editable; fields outside this list are ignored.
+    not client-editable, and the SSO slug has its own route; fields outside this
+    list are ignored.
     """
 
     name: Optional[str] = None
@@ -74,12 +89,6 @@ class OrganizationUpdate(Base):
     email: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
-    slug: Optional[str] = None
-
-    @field_validator("slug")
-    @classmethod
-    def validate_slug(cls, v: Optional[str]) -> Optional[str]:
-        return _normalize_slug(v)
 
 
 class Organization(OrganizationBase, ServerIdentity):
