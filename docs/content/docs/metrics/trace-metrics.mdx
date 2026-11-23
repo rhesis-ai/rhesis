@@ -155,6 +155,10 @@ This means a single failing turn metric causes the overall trace to show **Fail*
 
 If the evaluation task itself fails (for example, the evaluation model is unavailable), the task retries up to three times. If all retries are exhausted, no status is written and the trace shows a dash in the Evaluation column. These traces are not returned by the Pass, Fail, or Error filters.
 
+### When evaluation is skipped
+
+If your organization has reached its model token limit for the current period, trace evaluation does not run. The trace shows **Skipped** in the Evaluation column, and its evaluation tab says why. A trace that already had metric results keeps them. When a later evaluation of the trace runs, its result replaces **Skipped**.
+
 ## Using Trace Metrics with Test Metrics
 
 The same metric can run in test execution and on live traces. A metric scoped `Single-Turn` and `Multi-Turn` runs on both kinds of tests, and once added to a project it also evaluates that project's traces.
