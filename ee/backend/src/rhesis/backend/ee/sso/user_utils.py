@@ -11,9 +11,11 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.providers.base import AuthUser
+from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota.enforcement import QuotaExceededError, enforce_quota
+from rhesis.backend.app.utils.validation import validate_and_normalize_email
 from rhesis.backend.ee.sso.audit import SSOAuditEvent, audit_log
 from rhesis.backend.ee.sso.schemas import SSOConfig
-from rhesis.backend.app.utils.validation import validate_and_normalize_email
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +142,18 @@ def find_or_create_sso_user(
         )
         raise SSOLoginError("auto_provision_disabled")
 
-    # 6. Auto-provision: create user in this org
+    # 6. Auto-provision: create user in this org, within its seat limit
+    try:
+        enforce_quota(db, str(organization.id), organization, QuotaResource.SEATS)
+    except QuotaExceededError:
+        audit_log(
+            SSOAuditEvent.USER_REJECTED,
+            org_id,
+            email=normalized_email,
+            reason_code="seat_limit_reached",
+        )
+        raise SSOLoginError("seat_limit_reached")
+
     current_time = datetime.now(timezone.utc)
     user_data = user_schemas.UserCreate(
         email=normalized_email,
