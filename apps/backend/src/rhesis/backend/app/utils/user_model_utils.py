@@ -341,6 +341,9 @@ def _resolve_by_user_id(
         logger.warning(
             f"[MODEL_SELECTION] User {user_id} not found, using default: {default_model}"
         )
+    except QuotaExceededError:
+        # The org is known and at its limit; the ungated default below would bypass that.
+        raise
     except Exception as e:
         logger.warning(
             f"[MODEL_SELECTION] Error fetching user model: {str(e)}, using default: {default_model}"
