@@ -21,6 +21,9 @@ from tests.backend.fixtures.test_setup import (
     create_test_user,
 )
 
+# Fixed so every xdist worker collects the same parametrized test ids.
+_MISSING_TOKEN_ID = "00000000-0000-4000-8000-000000000001"
+
 
 def _auth(token) -> dict:
     return {"Authorization": f"Bearer {token.token}"}
@@ -118,8 +121,13 @@ class TestMemberTokenRoutes:
             ("GET", "/tokens/", None, "token:read"),
             ("POST", "/tokens/", {"name": "nope"}, "token:create"),
             # Refresh hands back a new token value, so it is gated like minting.
-            ("POST", f"/tokens/{uuid.uuid4()}/refresh", {"expires_in_days": 1}, "token:create"),
-            ("DELETE", f"/tokens/{uuid.uuid4()}", None, "token:delete"),
+            (
+                "POST",
+                f"/tokens/{_MISSING_TOKEN_ID}/refresh",
+                {"expires_in_days": 1},
+                "token:create",
+            ),
+            ("DELETE", f"/tokens/{_MISSING_TOKEN_ID}", None, "token:delete"),
         ],
     )
     def test_viewer_is_refused(self, client, test_db, method, path, body, permission):
