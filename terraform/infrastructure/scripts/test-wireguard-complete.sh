@@ -15,6 +15,8 @@ PROJECT_ID="${PROJECT_ID:-rhesis-dev}"
 REGION="${REGION:-europe-west4}"
 PEER_ID="${PEER_ID:-admin-asad}"
 CONFIG_PATH="${HOME}/wg0.conf"
+# Your own private key; the exported config never contains one.
+PRIVATE_KEY_FILE="${PRIVATE_KEY_FILE:-${HOME}/.wireguard/rhesis.key}"
 
 echo "=========================================="
 echo "WireGuard VPN Complete Test"
@@ -27,8 +29,8 @@ echo ""
 # Step 1: Export client config
 echo -e "${YELLOW}[1/8] Exporting client config...${NC}"
 cd "$(dirname "$0")/.."
-terraform output -json wireguard_peer_configs | jq -r ".\"${PEER_ID}\".config" > "$CONFIG_PATH"
-chmod 600 "$CONFIG_PATH"
+(umask 077 && terraform output -json wireguard_peer_configs | jq -r ".\"${PEER_ID}\".config" \
+  | sed "s|^PrivateKey = .*|PrivateKey = $(cat "$PRIVATE_KEY_FILE")|" > "$CONFIG_PATH")
 echo -e "${GREEN}✓ Config exported to $CONFIG_PATH${NC}"
 echo ""
 

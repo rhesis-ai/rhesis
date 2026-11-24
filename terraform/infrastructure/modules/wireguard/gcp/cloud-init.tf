@@ -7,7 +7,7 @@ locals {
       identifier = peer.identifier
       ip         = peer.ip
       subnets    = [for s in peer.subnets : s if contains(keys(var.subnet_cidrs), s)]
-      public_key = wireguard_asymmetric_key.peers[peer.identifier].public_key
+      public_key = peer.public_key
     }
   ]
 
@@ -15,11 +15,15 @@ locals {
   wireguard_config = templatefile("${path.module}/templates/wg0.conf.tpl", {
     server_ip            = var.wireguard_tunnel_ip
     listen_port          = var.wireguard_port
-    server_private_key   = wireguard_asymmetric_key.server.private_key
     peer_cidr            = var.wireguard_peer_cidr
     peers                = local.wireguard_peers_with_keys
     subnet_cidrs         = var.subnet_cidrs
     gke_public_endpoints = var.gke_public_endpoints
+  })
+
+  # Generates the server private key on the VM, once per server_key_rotation value.
+  server_key_script = templatefile("${path.module}/templates/server-key.sh.tpl", {
+    rotation = var.server_key_rotation
   })
 
   # Routing setup script: resolves interface names by NIC IP at runtime
@@ -85,6 +89,7 @@ locals {
   # Render cloud-init configuration (use base64 for binary/structured files to avoid YAML parsing issues)
   cloud_init = templatefile("${path.module}/templates/cloud-init.yaml.tpl", {
     wireguard_config_b64          = base64encode(local.wireguard_config)
+    server_key_script_b64         = base64encode(local.server_key_script)
     gke_routing_script_b64        = base64encode(local.gke_routing_script)
     bind9_enabled                 = length(var.bind9_tsig_keys) > 0
     bind9_named_conf_b64          = base64encode(local.bind9_named_conf)

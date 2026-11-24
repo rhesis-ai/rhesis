@@ -18,6 +18,10 @@ write_files:
   - path: /tmp/wg0.b64
     content: "${wireguard_config_b64}"
     permissions: '0600'
+  - path: /usr/local/sbin/wg-server-key.sh
+    encoding: b64
+    content: "${server_key_script_b64}"
+    permissions: '0700'
   - path: /tmp/gke-routing.b64
     content: "${gke_routing_script_b64}"
     permissions: '0600'
@@ -48,6 +52,7 @@ runcmd:
   - mkdir -p /etc/wireguard && base64 -d /tmp/wg0.b64 > /etc/wireguard/wg0.conf && chmod 600 /etc/wireguard/wg0.conf && rm /tmp/wg0.b64
   - base64 -d /tmp/gke-routing.b64 > /usr/local/bin/gke-routing-setup.sh && chmod 755 /usr/local/bin/gke-routing-setup.sh && rm /tmp/gke-routing.b64
   - sysctl -p /etc/sysctl.d/99-wireguard.conf
+  - /usr/local/sbin/wg-server-key.sh
   - systemctl enable wg-quick@wg0
   - systemctl start wg-quick@wg0
   - sed -i 's/^[#]*DNSStubListener=.*/DNSStubListener=no/' /etc/systemd/resolved.conf

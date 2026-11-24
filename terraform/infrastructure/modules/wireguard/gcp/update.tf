@@ -11,16 +11,16 @@
 # To avoid even that, consider `wg syncconf` (but it cannot update iptables rules).
 
 resource "terraform_data" "wireguard_config_update" {
-  # Re-provision whenever the rendered WireGuard config changes
-  triggers_replace = sha256(local.wireguard_config)
+  # Re-provision whenever the rendered config or the server key rotation changes
+  triggers_replace = sha256("${local.wireguard_config}${local.server_key_script}")
 
   provisioner "local-exec" {
-    # The config holds the server private key, so it goes in environment: Terraform never logs
-    # that, but prints the command on failure even with quiet = true.
+    # The config holds peer IPs and ACLs, so it stays out of the logged command.
     quiet       = true
     interpreter = ["bash", "-c"]
     environment = {
-      WG_CONF_B64 = base64encode(local.wireguard_config)
+      WG_CONF_B64    = base64encode(local.wireguard_config)
+      KEY_SCRIPT_B64 = base64encode(local.server_key_script)
     }
     command = <<-EOT
       set -e
@@ -93,6 +93,11 @@ resource "terraform_data" "wireguard_config_update" {
         sleep 10
       done
 
+      # Generate the server private key on the VM if missing or rotated (idempotent).
+      gcloud_retry bash -c 'printf "%s" "$KEY_SCRIPT_B64" | gcloud compute ssh wireguard-server \
+        --zone="$0" --project="$1" --tunnel-through-iap \
+        --command="base64 -d | sudo bash"' "$ZONE" "$PROJECT"
+
       # Decode config, set permissions, reload WireGuard.
       # Run wg-quick down BEFORE overwriting the config so PostDown fires against
       # the OLD rules (removing them cleanly). Then write new config and bring up.
@@ -108,6 +113,11 @@ resource "terraform_data" "wireguard_config_update" {
           rm /tmp/wg0.b64 && \
           wg-quick up wg0 && \
           echo \"WireGuard config updated and reloaded successfully\"'"
+
+      # Public, and needed for the peer configs (server_public_key).
+      echo "Server public key: $(gcloud compute ssh wireguard-server \
+        --zone="$ZONE" --project="$PROJECT" --tunnel-through-iap \
+        --command="sudo wg show wg0 public-key")"
     EOT
   }
 

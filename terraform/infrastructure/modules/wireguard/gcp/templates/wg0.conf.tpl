@@ -3,7 +3,8 @@
 # wg-quick would add 10.0.0.0/24 via wg0 → "RTNETLINK answers: File exists". Peer traffic still uses peer_cidr (AllowedIPs).
 Address = ${server_ip}/32
 ListenPort = ${listen_port}
-PrivateKey = ${server_private_key}
+# The private key never leaves the VM: server-key.sh generates it in place.
+PostUp = wg set %i private-key /etc/wireguard/server.key
 
 # NAT masquerading for VPN clients
 PostUp = iptables -t nat -A POSTROUTING -s ${peer_cidr} -j MASQUERADE
