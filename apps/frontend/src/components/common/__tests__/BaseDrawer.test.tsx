@@ -34,7 +34,9 @@ describe('BaseDrawer', () => {
 
   it('announces a drawer error', () => {
     render(
-      <BaseDrawer open onClose={jest.fn()} title="T" error="Could not save" />
+      <BaseDrawer open onClose={jest.fn()} title="T" error="Could not save">
+        <div />
+      </BaseDrawer>
     );
     expect(screen.getByRole('alert')).toHaveTextContent('Could not save');
   });
