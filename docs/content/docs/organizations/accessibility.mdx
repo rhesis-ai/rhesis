@@ -22,7 +22,9 @@ A lower level cannot turn the mode off where a higher one turned it on; the swit
 
 **Confirmations.** Removing something that can be added back asks first, for example unlinking a metric, requirement or knowledge source, removing a tag or file attachment, clearing test parameters or resetting branding colours. Deleting a record always asks, with or without the mode.
 
-**No motion.** Animations are off, as with the operating system's "reduce motion" setting. A running test run no longer updates on its own; a **Refresh results** button in its header loads the latest status and results when you choose.
+**No motion.** Animations are off, as with the operating system's "reduce motion" setting. A running test run no longer updates on its own; a **Refresh results** button in its header loads the latest status and results when you choose, and screen readers announce the new status.
+
+**Code editors.** Tab moves focus out of the code editors on endpoint pages instead of indenting. Ctrl+M (Ctrl+Shift+M on macOS) switches Tab back to indenting, as the hint below each editor says.
 
 ## Without accessibility mode
 
@@ -32,6 +34,7 @@ These work for every user:
 - Every function works with the keyboard alone; dialogs and drawers return focus to the control that opened them.
 - Pages adapt down to 320 px wide (400 % browser zoom) without scrolling sideways; the navigation moves into a menu.
 - Buttons, fields and charts have names for screen readers; charts also offer a data table.
+- Notifications, finished Architect replies and the message of a confirmation dialog are read by screen readers without moving focus.
 - Error messages stay until you close them, and a dialog warns two minutes before your session ends, with an option to stay signed in.
 
 While the mode is off, the brand colour fields in **Organization Settings → Branding** warn when a colour is below 4.5:1 against white.

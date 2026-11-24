@@ -28,4 +28,5 @@ Behaviour that only applies in [accessibility mode](/docs/organizations/accessib
 
 - **Colours** come from the theme; in accessibility mode the theme raises them to the required contrast. A hard-coded colour bypasses that and fails the contrast check.
 - **Motion**: gate animations on `useReducedMotion()`, which is true for the operating system setting and in accessibility mode.
+- **Messages that appear on their own** (a result, a status change) aren't read by screen readers if their element is new. Announce them with `useAnnounce()` from `@/components/common/LiveAnnouncer`; notifications from `useNotifications()` already are.
 - **Removals** of something that can be added back (unlinking, removing a tag) open a `DeleteModal` in accessibility mode instead of acting at once.
