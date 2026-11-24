@@ -4,6 +4,7 @@ const meta: MetaRecord = {
   index: 'Overview',
   roles: 'Roles',
   branding: 'Branding',
+  accessibility: 'Accessibility',
   sso: 'Single Sign-On',
   'api-clients': 'API Clients',
   'audit-log': 'Audit Log',

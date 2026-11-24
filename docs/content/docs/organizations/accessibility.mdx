@@ -1,0 +1,49 @@
+# Accessibility
+
+Accessibility mode adjusts Rhesis for people who rely on high contrast, reduced motion or a screen reader. The default look stays unchanged for everyone who does not turn it on.
+
+## Turning it on
+
+Three levels can turn the mode on. It is on for a user when any of them is:
+
+| Level | Where | Applies to |
+|---|---|---|
+| Deployment | `ACCESSIBILITY_MODE=true` ([environment variables](/self-hosting/environment-variables#accessibility-mode)) | Every organization, every user and the sign-in pages |
+| Organization | **Organization Settings → Preferences → Accessibility mode** | Everyone in the organization |
+| User | **Settings → Preferences → Accessibility mode** | You only |
+
+A lower level cannot turn the mode off where a higher one turned it on; the switch then shows as locked with the reason.
+
+## What changes
+
+**Contrast.** Every text and interface colour is recalculated against the surface it sits on: 4.5:1 for text, 3:1 for field borders, toggles and focus rings, in light and dark mode. This includes your organization's [brand colours](/docs/organizations/branding), so a pale brand colour stays readable without changing it.
+
+**Not colour alone.** The verdict strips and the requirement table on a test run show pass, fail and pending by bar height as well as colour.
+
+**Confirmations.** Removing something that can be added back asks first, for example unlinking a metric, requirement or knowledge source, removing a tag or file attachment, clearing test parameters or resetting branding colours. Deleting a record always asks, with or without the mode.
+
+**No motion.** Animations are off, as with the operating system's "reduce motion" setting. A running test run no longer updates on its own; a **Refresh results** button in its header loads the latest status and results when you choose.
+
+## Without accessibility mode
+
+These work for every user:
+
+- A **Skip to main content** link as the first stop on every page, and a visible focus ring on every control.
+- Every function works with the keyboard alone; dialogs and drawers return focus to the control that opened them.
+- Pages adapt down to 320 px wide (400 % browser zoom) without scrolling sideways; the navigation moves into a menu.
+- Buttons, fields and charts have names for screen readers; charts also offer a data table.
+- Error messages stay until you close them, and a dialog warns two minutes before your session ends, with an option to stay signed in.
+
+While the mode is off, the brand colour fields in **Organization Settings → Branding** warn when a colour is below 4.5:1 against white.
+
+## What you control
+
+Some parts of an accessible setup depend on choices made by the organization or the people running the deployment:
+
+| Area | Your part |
+|---|---|
+| The mode itself | Turn it on for the deployment or the organization if your users need it, rather than relying on each user to find the setting. |
+| Brand font and favicon | Choose a readable typeface. Colours are adjusted in accessibility mode; fonts and icons are used as uploaded. |
+| Help videos | Self-hosted deployments show onboarding and empty-state videos only when [configured](/self-hosting/environment-variables#cloud-only-variables). A video you add needs captions, and a text version if its narration doesn't describe everything shown. |
+| Session length | A session stays valid for 7 days and extends while it is in use. Keep the backend's `JWT_REFRESH_TOKEN_EXPIRE_DAYS` at 1 or more, so nobody is signed out mid-task. |
+| Your content | Test descriptions, knowledge sources, requirements and reports are written by your team. Use headings, link text that says where it goes, and descriptions for images. |

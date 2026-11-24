@@ -32,6 +32,9 @@ authentication: {
   testing: {
     title: "Testing",
   },
+  accessibility: {
+    title: "Accessibility",
+  },
   README: {
     title: "README",
     display: "hidden",
