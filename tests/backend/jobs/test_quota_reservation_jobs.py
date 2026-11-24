@@ -85,6 +85,16 @@ class TestSettleQuota:
 
         settle.assert_called_once_with(task.db, 4)
 
+    def test_a_failed_settle_is_tried_once_more_and_never_raises(self):
+        task = _Task()
+        with patch(SETTLE, side_effect=[RuntimeError("db down"), Settled.NOW]) as settle:
+            task.settle_quota(RESOURCE, 4, WIRE)
+
+        assert settle.call_count == 2
+
+        with patch(SETTLE, side_effect=RuntimeError("db down")):
+            task.settle_quota(RESOURCE, 4, WIRE)
+
     def test_accrues_without_a_reservation(self):
         task = _Task()
         with patch("rhesis.backend.app.services.usage.dispatch_accrual") as accrue:

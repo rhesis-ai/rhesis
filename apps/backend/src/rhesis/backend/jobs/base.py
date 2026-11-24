@@ -318,16 +318,20 @@ class BaseJob(Task):
         if not reservation:
             dispatch_accrual(self.get_tenant_context()[0], resource, consumed)
             return
-        try:
-            self._settle_reservation(reservation, consumed)
-        except Exception as e:
-            # Logged, not raised: the work is saved, and a retry would redo it.
-            self.log_with_context(
-                "error",
-                "Could not settle the quota reservation",
-                error=str(e),
-                exception_type=type(e).__name__,
-            )
+        # Twice, each on a fresh session: a failed attempt rolls its claim back.
+        for attempt in (1, 2):
+            try:
+                self._settle_reservation(reservation, consumed)
+                return
+            except Exception as e:
+                # Logged, not raised: the work is saved, and a task retry would redo it.
+                self.log_with_context(
+                    "error",
+                    "Could not settle the quota reservation",
+                    attempt=attempt,
+                    error=str(e),
+                    exception_type=type(e).__name__,
+                )
 
     def _release_quota_reservation(self, kwargs) -> None:
         """Give back a reservation the job will never settle, once it has failed for good."""
