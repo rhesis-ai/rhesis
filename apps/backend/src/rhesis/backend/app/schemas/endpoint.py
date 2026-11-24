@@ -11,6 +11,7 @@ from pydantic import (
     model_validator,
 )
 
+from rhesis.backend.app.config.settings import get_job_limit_settings
 from rhesis.backend.app.models.enums import (
     EndpointAuthType,
     EndpointConfigSource,
@@ -26,8 +27,25 @@ from rhesis.backend.app.schemas.validators import VersionInfoField
 
 
 def _check_timeout_seconds(v: int | None) -> int | None:
-    if v is not None and (v < 1 or v > 3600):
-        raise ValueError("timeout_seconds must be between 1 and 3600")
+    """Bound a timeout a request is setting by the server's MAX_ENDPOINT_TIMEOUT."""
+    ceiling = get_job_limit_settings().max_endpoint_timeout
+    if v is not None and (v < 1 or v > ceiling):
+        raise ValueError(f"timeout_seconds must be between 1 and {ceiling}")
+    return v
+
+
+def _cap_timeout_seconds(v: int) -> int:
+    return min(v, get_job_limit_settings().max_endpoint_timeout)
+
+
+def _check_stored_timeout_seconds(v: int | None) -> int | None:
+    """Stored metadata is also read back, so only its shape is checked here.
+
+    An endpoint saved under a higher MAX_ENDPOINT_TIMEOUT must still load; the model
+    caps it at use (Endpoint.timeout_seconds) and EndpointBase caps it on write.
+    """
+    if v is not None and v < 1:
+        raise ValueError("timeout_seconds must be at least 1")
     return v
 
 
@@ -108,7 +126,7 @@ class EndpointMetadata(_MetadataBase):
     @field_validator("timeout_seconds")
     @classmethod
     def _validate_timeout_seconds(cls, v: int | None) -> int | None:
-        return _check_timeout_seconds(v)
+        return _check_stored_timeout_seconds(v)
 
 
 # --- Endpoint schemas ---
@@ -161,6 +179,15 @@ class EndpointBase(Base):
     @classmethod
     def _validate_timeout_seconds(cls, v: int | None) -> int | None:
         return _check_timeout_seconds(v)
+
+    @model_validator(mode="after")
+    def _cap_metadata_timeout_seconds(self) -> "EndpointBase":
+        # Capped rather than refused: a client sending back the stored metadata of an
+        # endpoint saved under a higher ceiling must still be able to save it.
+        meta = self.endpoint_metadata
+        if meta is not None and meta.timeout_seconds is not None:
+            meta.timeout_seconds = _cap_timeout_seconds(meta.timeout_seconds)
+        return self
 
     auth_type: Optional[EndpointAuthType] = EndpointAuthType.BEARER_TOKEN
     auth_token: Optional[str] = None
@@ -352,7 +379,8 @@ class Endpoint(Base, ServerIdentity):
         elif isinstance(meta, EndpointMetadata) and meta.timeout_seconds is not None:
             timeout = meta.timeout_seconds
         if timeout is not None:
-            data.setdefault("timeout_seconds", timeout)
+            # The value the invokers use, as Endpoint.timeout_seconds reports it.
+            data.setdefault("timeout_seconds", _cap_timeout_seconds(int(timeout)))
         return data
 
 

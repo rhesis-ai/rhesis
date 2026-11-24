@@ -19,7 +19,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
-from rhesis.backend.app.config.settings import get_application_settings
+from rhesis.backend.app.config.settings import (
+    get_application_settings,
+    get_job_limit_settings,
+)
 from rhesis.backend.app.dependencies import get_current_organization_optional, get_db_session
 from rhesis.backend.app.features import FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
@@ -101,6 +104,8 @@ class FeaturesResponse(BaseModel):
     models_ready: bool = False
     #: Same for embeddings; kept separate since without it only search quality suffers.
     embedding_model_ready: bool = False
+    #: Longest timeout_seconds an endpoint may set (MAX_ENDPOINT_TIMEOUT).
+    max_endpoint_timeout_seconds: int
 
 
 def get_model_readiness(
@@ -143,4 +148,5 @@ def list_features(
         rhesis_key_enabled=get_application_settings().enable_rhesis_key,
         models_ready=bool(readiness and readiness.ready),
         embedding_model_ready=bool(readiness and readiness.embedding is None),
+        max_endpoint_timeout_seconds=get_job_limit_settings().max_endpoint_timeout,
     )

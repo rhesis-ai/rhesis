@@ -1,3 +1,4 @@
+import logging
 import tempfile
 from functools import lru_cache
 from pathlib import Path
@@ -6,6 +7,8 @@ from urllib.parse import quote_plus, urlparse
 
 from pydantic import AnyHttpUrl, Field, TypeAdapter, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 POSTGRES_DRIVER = "postgresql+psycopg"
 
@@ -452,25 +455,67 @@ class TraceRetentionSettings(BaseSettings):
     override_days: int | None = Field(default=None, alias="TRACE_RETENTION_DAYS", gt=0)
 
 
+# A test's time limit is at least this long, and the endpoint's timeout plus the margin.
+PER_TEST_TIMEOUT_FLOOR = 1800
+PER_TEST_TIMEOUT_MARGIN = 300
+# A run outlasts its longest test by this much: metric evaluation (up to 600s) and wrap-up.
+RUN_TIME_LIMIT_MARGIN = 900
+# The run limit before it followed the endpoint ceiling; kept as its lowest default.
+RUN_TIME_LIMIT_FLOOR = 6600
+
+
 class JobLimitSettings(BaseSettings):
     """Server-side ceilings on background work a request can ask for.
 
     Requests asking for more are clamped to these, not refused. The defaults sit
     at or above the values the platform itself uses.
+
+    MAX_ENDPOINT_TIMEOUT is the one time ceiling an operator sets. MAX_PER_TEST_TIMEOUT
+    and EXECUTION_TIME_LIMIT default to values derived from it, so the longest call an
+    endpoint may make always fits in a test, and a test in a run.
     """
 
     model_config = SettingsConfigDict(env_ignore_empty=True)
 
     max_batch_concurrency: int = Field(default=50, alias="MAX_BATCH_CONCURRENCY", ge=1)
-    max_per_test_timeout: int = Field(default=3600, alias="MAX_PER_TEST_TIMEOUT", ge=1)
+    # Longest timeout_seconds an endpoint may set.
+    max_endpoint_timeout: int = Field(default=7200, alias="MAX_ENDPOINT_TIMEOUT", ge=1)
+    # Unset or 0 derives it from max_endpoint_timeout (see _derive_time_ceilings).
+    max_per_test_timeout: int = Field(default=0, alias="MAX_PER_TEST_TIMEOUT", ge=0)
     max_invoke_attempts: int = Field(default=10, alias="MAX_INVOKE_ATTEMPTS", ge=1)
     max_invoke_retry_wait: float = Field(default=300.0, alias="MAX_INVOKE_RETRY_WAIT", gt=0)
     max_recovery_rounds: int = Field(default=3, alias="MAX_RECOVERY_ROUNDS", ge=0)
     # Wall-clock limits enforced inside the job; Celery's own are inert on the thread pool.
-    execution_time_limit: int = Field(default=6600, alias="EXECUTION_TIME_LIMIT", gt=0)
+    # Unset or 0 derives it from max_per_test_timeout.
+    execution_time_limit: int = Field(default=0, alias="EXECUTION_TIME_LIMIT", ge=0)
     exploration_time_limit: int = Field(default=3600, alias="EXPLORATION_TIME_LIMIT", gt=0)
     # Queued or running heavy jobs per organization; 0 turns the cap off.
     max_active_jobs_per_org: int = Field(default=10, alias="MAX_ACTIVE_JOBS_PER_ORG", ge=0)
+
+    @model_validator(mode="after")
+    def _derive_time_ceilings(self) -> "JobLimitSettings":
+        if not self.max_per_test_timeout:
+            self.max_per_test_timeout = max(
+                PER_TEST_TIMEOUT_FLOOR, self.max_endpoint_timeout + PER_TEST_TIMEOUT_MARGIN
+            )
+        if not self.execution_time_limit:
+            self.execution_time_limit = max(
+                RUN_TIME_LIMIT_FLOOR, self.max_per_test_timeout + RUN_TIME_LIMIT_MARGIN
+            )
+        # Explicit values can disagree; warn rather than refuse to start.
+        if self.max_per_test_timeout < self.max_endpoint_timeout:
+            logger.warning(
+                f"MAX_PER_TEST_TIMEOUT ({self.max_per_test_timeout}s) is below "
+                f"MAX_ENDPOINT_TIMEOUT ({self.max_endpoint_timeout}s): the slowest endpoints "
+                "will be cut short by the per-test limit"
+            )
+        if self.execution_time_limit < self.max_per_test_timeout:
+            logger.warning(
+                f"EXECUTION_TIME_LIMIT ({self.execution_time_limit}s) is below "
+                f"MAX_PER_TEST_TIMEOUT ({self.max_per_test_timeout}s): a run can stop "
+                "before its slowest test finishes"
+            )
+        return self
 
 
 @lru_cache

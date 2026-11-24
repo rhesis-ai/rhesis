@@ -126,9 +126,15 @@ class Endpoint(Base, ActivityTrackableMixin, TagsMixin, ExampleDataMixin):
 
     @property
     def timeout_seconds(self) -> int | None:
-        """Invocation timeout from endpoint_metadata, or None for system default."""
+        """Invocation timeout from endpoint_metadata, or None for system default.
+
+        Capped at MAX_ENDPOINT_TIMEOUT, so lowering it also applies to endpoints saved
+        before the change.
+        """
         if self.endpoint_metadata and isinstance(self.endpoint_metadata, dict):
             val = self.endpoint_metadata.get("timeout_seconds")
             if val is not None:
-                return int(val)
+                from rhesis.backend.app.config.settings import get_job_limit_settings
+
+                return min(int(val), get_job_limit_settings().max_endpoint_timeout)
         return None
