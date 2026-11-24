@@ -116,6 +116,7 @@ class MessageType(str, Enum):
     # Acknowledgements
     CONNECTED = "connected"
     REGISTERED = "registered"
+    RESULT_ACK = "result_ack"
 
 
 class RetryConfig:

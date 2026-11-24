@@ -48,6 +48,8 @@ class RegisterMessage(BaseModel):
     sdk_version: str = "0.4.2"
     functions: List[FunctionMetadata]
     metrics: List["MetricMetadata"] = Field(default_factory=list)
+    # Ask the backend to acknowledge each result; older backends ignore this.
+    result_ack: bool = True
 
 
 class ExecuteTestMessage(BaseModel):
@@ -132,6 +134,14 @@ class MetricResultMessage(BaseModel):
     details: Dict[str, Any] = Field(default_factory=dict)
     error: Optional[str] = None
     duration_ms: float
+
+
+class ResultAckMessage(BaseModel):
+    """Sent by the backend once a result is handled for good."""
+
+    type: str = "result_ack"
+    test_run_id: Optional[str] = None
+    metric_run_id: Optional[str] = None
 
 
 class PingMessage(BaseModel):

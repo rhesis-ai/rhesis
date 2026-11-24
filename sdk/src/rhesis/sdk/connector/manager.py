@@ -10,6 +10,7 @@ from typing import Any
 from rhesis.sdk.config import backend_headers
 from rhesis.sdk.connector.connection import WebSocketConnection
 from rhesis.sdk.connector.executor import TestExecutor
+from rhesis.sdk.connector.outbox import ResultOutbox
 from rhesis.sdk.connector.registry import (
     DEFAULT_METRIC_PARAMS,
     FunctionRegistry,
@@ -34,6 +35,8 @@ class ConnectorManager:
 
     # Sync scripts decorate first and call connect() last, so give them time before warning.
     NOT_CONNECTED_GRACE_SECONDS = 10.0
+    # How often a registered connection checks for results due for a resend.
+    RESEND_CHECK_SECONDS = 10.0
 
     def __init__(
         self,
@@ -106,6 +109,10 @@ class ConnectorManager:
         self._warning_lock = threading.Lock()
         self._warning_timer: threading.Timer | None = None
         self._connect_started = False
+        self._outbox = ResultOutbox(self._send_to_backend)
+        # The socket the backend last acknowledged a registration on.
+        self._registered_socket: Any = None
+        self._resend_task: asyncio.Task | None = None
 
     def _spawn(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task:
         """Start a background task, keeping a reference until it finishes."""
@@ -324,7 +331,10 @@ class ConnectorManager:
                 f"Connected (connection_id={self._connection_id}, "
                 f"org={self._organization_id}, user={self._user_id})"
             )
+        elif message_type == MessageType.RESULT_ACK.value:
+            self._outbox.ack(message.get("test_run_id") or message.get("metric_run_id"))
         elif message_type == MessageType.REGISTERED.value:
+            self._handle_registered(message)
             if message.get("status") == "error":
                 # E.g. a function left unregistered because the org is at its endpoint limit.
                 logger.warning(
@@ -490,11 +500,8 @@ class ConnectorManager:
             trace_id=trace_id,
         )
 
-        try:
-            await self._connection.send(message.model_dump())
+        if await self._outbox.send(message.model_dump()):
             logger.info(f"Sent test result for run {test_run_id}: {status}")
-        except Exception as e:
-            logger.error(f"Error sending test result: {e}")
 
     async def _handle_metric_request(self, message: dict[str, Any]) -> None:
         """
@@ -582,18 +589,50 @@ class ConnectorManager:
             duration_ms=duration_ms,
         )
 
-        try:
-            await self._connection.send(message.model_dump())
+        if await self._outbox.send(message.model_dump()):
             logger.info(f"Sent metric result for run {metric_run_id}: {status}")
-        except Exception as e:
-            logger.error(f"Error sending metric result: {e}")
+
+    async def _send_to_backend(self, message: dict[str, Any]) -> None:
+        if not self._connection:
+            raise RuntimeError("WebSocket not connected")
+        await self._connection.send(message)
+
+    def _handle_registered(self, message: dict[str, Any]) -> None:
+        """The backend routes this scope to us again: resend what it has not confirmed."""
+        self._outbox.acks = message.get("result_ack") is True
+        socket = self._connection.websocket if self._connection else None
+        # Re-registering on the same socket (a newly decorated function) changes nothing
+        # about delivery; only a new socket needs everything sent again.
+        new_socket = socket is not self._registered_socket
+        self._registered_socket = socket
+        if self._outbox:
+            self._spawn(self._outbox.flush(resend_all=new_socket))
+        if self._resend_task is None or self._resend_task.done():
+            self._resend_task = self._spawn(self._resend_loop())
+
+    def _is_registered_now(self) -> bool:
+        connection = self._connection
+        return (
+            connection is not None
+            and connection.state == ConnectionState.CONNECTED
+            and connection.websocket is not None
+            and connection.websocket is self._registered_socket
+        )
+
+    async def _resend_loop(self) -> None:
+        """Resend results that went unsent or unacknowledged, while registered."""
+        while True:
+            await asyncio.sleep(self.RESEND_CHECK_SECONDS)
+            if self._outbox and self._is_registered_now():
+                await self._outbox.flush()
 
     async def _handle_ping(self) -> None:
         """Handle ping message by sending pong."""
         if not self._connection:
             return
 
-        logger.info(
+        # The backend pings quiet connections every few minutes; not worth an info line.
+        logger.debug(
             f"Received ping from backend [project={self.project_id}, env={self.environment}]"
         )
 
