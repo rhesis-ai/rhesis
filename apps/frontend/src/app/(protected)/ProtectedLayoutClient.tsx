@@ -21,6 +21,7 @@ import NoProjectAccess from '@/components/common/NoProjectAccess';
 import TermsAcceptanceGate from '@/components/auth/TermsAcceptanceGate';
 import ModelSetupGate from '@/components/auth/ModelSetupGate';
 import ProfileSurveyDialog from '@/components/onboarding/ProfileSurveyDialog';
+import SessionExpiryWarning from '@/components/auth/SessionExpiryWarning';
 import type { TermsStatus } from '@/utils/api-client/auth-client';
 
 interface ExtendedUser {
@@ -118,6 +119,7 @@ export function ProtectedLayoutClient({
           <UsageProvider>
             <WebSocketProvider>
               <NotificationsProvider>
+                <SessionExpiryWarning />
                 {!isOnboarding && (
                   <TermsAcceptanceGate
                     initialTermsStatus={initialTermsStatus}
