@@ -1,0 +1,32 @@
+/*
+ * Windows high contrast (forced colours) removes author background colours,
+ * which is how selected toggles, pills, tabs and the current page in the
+ * navigation show their state. Mark them with the system highlight colours
+ * instead. Only applies when the operating system forces colours; normal
+ * rendering is unchanged.
+ */
+@media (forced-colors: active) {
+  [aria-pressed='true'],
+  [role='radio'][aria-checked='true'],
+  [role='tab'][aria-selected='true'],
+  [aria-current='page'],
+  .MuiToggleButton-root.Mui-selected,
+  .MuiMenuItem-root.Mui-selected,
+  .MuiListItemButton-root.Mui-selected {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    color: HighlightText;
+  }
+
+  [aria-pressed='true'] *,
+  [role='radio'][aria-checked='true'] *,
+  [role='tab'][aria-selected='true'] *,
+  [aria-current='page'] *,
+  .MuiToggleButton-root.Mui-selected *,
+  .MuiMenuItem-root.Mui-selected *,
+  .MuiListItemButton-root.Mui-selected * {
+    forced-color-adjust: none;
+    color: HighlightText;
+    fill: currentColor;
+  }
+}
