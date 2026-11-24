@@ -356,6 +356,10 @@ workers:
       maxReplicas: 4
       targetCPUUtilizationPercentage: 70
       targetMemoryUtilizationPercentage: 80
+    # How long a deploy waits for running jobs (test runs included) to finish.
+    # Keep it above EXECUTION_TIME_LIMIT (8400 by default) plus 300, or runs in
+    # progress are cut off.
+    terminationGracePeriodSeconds: 9000
     podAnnotations: {}
     env: []
 

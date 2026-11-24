@@ -29,6 +29,9 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
+      # Celery's warm shutdown lets running jobs finish before the pod exits; a job
+      # killed early waits out the broker's visibility timeout before it runs again.
+      terminationGracePeriodSeconds: {{ hasKey . "terminationGracePeriodSeconds" | ternary .terminationGracePeriodSeconds 9000 }}
       {{- if $.Values.podSecurityContext.enabled }}
       securityContext:
         fsGroup: {{ $.Values.podSecurityContext.fsGroup }}
