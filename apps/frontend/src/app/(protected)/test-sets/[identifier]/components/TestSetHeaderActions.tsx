@@ -27,6 +27,7 @@ import {
   watchRunHref,
   type BatchRunOutcome,
 } from '@/utils/test-run-batch';
+import { getApiErrorMessage } from '@/utils/error-utils';
 
 interface TestSetHeaderActionsProps {
   testSetId: string;
@@ -151,8 +152,8 @@ export default function TestSetHeaderActions({
         autoHideDuration: 4000,
       });
       router.refresh();
-    } catch {
-      notifications.show('Garak sync failed', {
+    } catch (err: unknown) {
+      notifications.show(getApiErrorMessage(err, 'Garak sync failed'), {
         severity: 'error',
         autoHideDuration: 6000,
       });
