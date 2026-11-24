@@ -2,6 +2,9 @@ import React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { NotificationProvider, useNotifications } from '../NotificationContext';
+import { LiveAnnouncerProvider } from '../LiveAnnouncer';
+
+const TOAST = { selector: '.MuiAlert-message' };
 
 // Test component that uses the notification hook
 function TestConsumer() {
@@ -79,11 +82,13 @@ describe('NotificationProvider', () => {
     beforeEach(() => jest.useFakeTimers());
     afterEach(() => jest.useRealTimers());
 
-    it('keeps an error until it is dismissed', async () => {
+    it('keeps an error until it is dismissed, announced at once', async () => {
       render(
-        <NotificationProvider>
-          <TestConsumer />
-        </NotificationProvider>
+        <LiveAnnouncerProvider>
+          <NotificationProvider>
+            <TestConsumer />
+          </NotificationProvider>
+        </LiveAnnouncerProvider>
       );
 
       await act(async () => {
@@ -93,19 +98,28 @@ describe('NotificationProvider', () => {
         jest.advanceTimersByTime(60_000);
       });
 
-      expect(screen.getByRole('alert')).toHaveTextContent('Error!');
+      expect(screen.getByText('Error!', TOAST)).toBeInTheDocument();
+      expect(
+        screen.getByText('Error!', { selector: '[aria-live="assertive"]' })
+      ).toBeInTheDocument();
     });
 
     it('lets a success message go after a few seconds, announced politely', async () => {
       render(
-        <NotificationProvider>
-          <TestConsumer />
-        </NotificationProvider>
+        <LiveAnnouncerProvider>
+          <NotificationProvider>
+            <TestConsumer />
+          </NotificationProvider>
+        </LiveAnnouncerProvider>
       );
 
       await act(async () => {
         screen.getByText('Show Success').click();
       });
+      await act(async () => {
+        jest.advanceTimersByTime(200);
+      });
+      // Read from the always-present live region, not the new toast element.
       expect(screen.getByRole('status')).toHaveTextContent('Success!');
 
       // Auto-hide, then the exit transition.
@@ -116,7 +130,7 @@ describe('NotificationProvider', () => {
         jest.advanceTimersByTime(1_000);
       });
 
-      expect(screen.queryByText('Success!')).not.toBeInTheDocument();
+      expect(screen.queryByText('Success!', TOAST)).not.toBeInTheDocument();
     });
   });
 });

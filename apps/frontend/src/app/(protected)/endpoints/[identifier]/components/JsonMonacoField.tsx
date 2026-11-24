@@ -7,6 +7,7 @@ import { useTheme } from '@mui/material/styles';
 import type { OnMount } from '@monaco-editor/react';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
 import EditorKeyboardHint from '@/components/common/EditorKeyboardHint';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 
 // Shared CSS id with RequestBodyEditor / HeadersEditor
 const DECORATION_CSS_ID = 'rhesis-template-decoration-css';
@@ -82,6 +83,7 @@ export default function JsonMonacoField({
 }: JsonMonacoFieldProps) {
   const muiTheme = useTheme();
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
+  const accessibilityMode = useAccessibilityMode();
   const monacoRef = useRef<Parameters<OnMount>[1] | null>(null);
   const decorationsRef = useRef<string[]>([]);
 
@@ -170,7 +172,7 @@ export default function JsonMonacoField({
             automaticLayout: true,
             wordWrap: 'on',
             // Read-only: Tab has nothing to indent, so let it move focus on.
-            tabFocusMode: readOnly,
+            tabFocusMode: readOnly || accessibilityMode,
             ariaLabel,
           }}
         />

@@ -9,6 +9,7 @@ import RestartAltOutlinedIcon from '@mui/icons-material/RestartAltOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
+import { useAnnounce } from '@/components/common/LiveAnnouncer';
 import { testRunKeys, testRunUsageKeys } from '@/constants/query-keys';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import { BiotechIcon, DownloadIcon } from '@/components/icons';
@@ -164,9 +165,20 @@ export function TestRunActions({
 function RefreshRunFab({ testRun }: { testRun: TestRunDetail }) {
   const accessibilityMode = useAccessibilityMode();
   const queryClient = useQueryClient();
+  const announce = useAnnounce();
   const [refreshing, setRefreshing] = React.useState(false);
+  const [refreshCount, setRefreshCount] = React.useState(0);
   const status = testRun.status?.name?.toLowerCase() ?? '';
-  if (!accessibilityMode || isTerminalRunStatus(status)) return null;
+  // Stays after the run finishes, so focus isn't dropped from under the user.
+  const [wasRunning] = React.useState(() => !isTerminalRunStatus(status));
+
+  // Runs after the refetched run has rendered, so it reads the new state.
+  React.useEffect(() => {
+    if (refreshCount > 0) announce(describeRefreshedRun(testRun));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per refresh
+  }, [refreshCount]);
+
+  if (!accessibilityMode || !wasRunning) return null;
 
   const refresh = async () => {
     setRefreshing(true);
@@ -176,6 +188,7 @@ function RefreshRunFab({ testRun }: { testRun: TestRunDetail }) {
         queryClient.invalidateQueries({ queryKey: testRunKeys.all() }),
         queryClient.invalidateQueries({ queryKey: testRunUsageKeys.all() }),
       ]);
+      setRefreshCount(n => n + 1);
     } finally {
       setRefreshing(false);
     }
@@ -190,6 +203,19 @@ function RefreshRunFab({ testRun }: { testRun: TestRunDetail }) {
       aria-label="Refresh results"
     />
   );
+}
+
+export function describeRefreshedRun(testRun: TestRunDetail): string {
+  const name = testRun.status?.name?.toLowerCase() as RunStatus | undefined;
+  const label = (name && RUN_STATUS_LABEL[name]) || testRun.status?.name;
+  const parts = ['Results updated.'];
+  if (label) parts.push(`Status: ${label}.`);
+  if (testRun.stats?.total) {
+    parts.push(
+      `${testRun.stats.passed} of ${testRun.stats.total} tests passed.`
+    );
+  }
+  return parts.join(' ');
 }
 
 function RunStatusPill({ testRun }: { testRun: TestRunDetail }) {

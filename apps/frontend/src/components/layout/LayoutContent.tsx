@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SessionProvider } from 'next-auth/react';
 import { NavigationProvider } from '../navigation/NavigationProvider';
 import { NotificationProvider } from '../common/NotificationContext';
+import { LiveAnnouncerProvider } from '../common/LiveAnnouncer';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { type LayoutProps } from '../../types/navigation';
 import { ActiveProjectProvider } from '@/contexts/ActiveProjectContext';
@@ -118,31 +119,33 @@ export function LayoutContent({
                       the organization's default currency and the user's
                       override from both. */}
                   <CurrencyProvider>
-                    <NotificationProvider>
-                      <OnboardingProvider>
-                        {/* Root of the laptop zoom ladder — see
+                    <LiveAnnouncerProvider>
+                      <NotificationProvider>
+                        <OnboardingProvider>
+                          {/* Root of the laptop zoom ladder — see
                           `styles/viewport-scaling.css`. Everything the app
                           renders itself lives in here so it scales as one
                           piece; MUI's body-level portals deliberately stay
                           outside it so their JS-computed positions are not
                           scaled a second time. */}
-                        <div data-ui-scale-root>
-                          <Box sx={boxSx}>
-                            <Box sx={{ flex: 1 }}>
-                              <NavigationProvider
-                                navigation={navigation}
-                                branding={branding}
-                                session={session}
-                                authentication={authentication}
-                                theme={theme}
-                              >
-                                {children}
-                              </NavigationProvider>
+                          <div data-ui-scale-root>
+                            <Box sx={boxSx}>
+                              <Box sx={{ flex: 1 }}>
+                                <NavigationProvider
+                                  navigation={navigation}
+                                  branding={branding}
+                                  session={session}
+                                  authentication={authentication}
+                                  theme={theme}
+                                >
+                                  {children}
+                                </NavigationProvider>
+                              </Box>
                             </Box>
-                          </Box>
-                        </div>
-                      </OnboardingProvider>
-                    </NotificationProvider>
+                          </div>
+                        </OnboardingProvider>
+                      </NotificationProvider>
+                    </LiveAnnouncerProvider>
                   </CurrencyProvider>
                 </OrganizationProvider>
               </ActiveProjectProvider>

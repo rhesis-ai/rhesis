@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Snackbar, Alert, useTheme } from '@mui/material';
+import { useAnnounce } from './LiveAnnouncer';
 
 export type NotificationSeverity =
   | 'success'
@@ -54,6 +55,7 @@ export function NotificationProvider({
     NotificationItem | undefined
   >(undefined);
   const theme = useTheme();
+  const announce = useAnnounce();
 
   // Use refs for values accessed by stable callbacks to avoid
   // recreating show/close on every state change, which would cause
@@ -92,10 +94,17 @@ export function NotificationProvider({
 
       activeKeysRef.current.add(key);
       setNotifications(prev => [...prev, { message, options, key }]);
+      // The toast's own element is brand new, so screen readers skip it.
+      announce(
+        message,
+        PERSISTENT_SEVERITIES.has(options.severity ?? 'info')
+          ? 'assertive'
+          : 'polite'
+      );
 
       return key;
     },
-    []
+    [announce]
   );
 
   const close = React.useCallback((key: string) => {
@@ -177,8 +186,8 @@ export function NotificationProvider({
                 : {}),
             }}
             elevation={6}
-            // Errors interrupt; everything else waits for a pause.
-            role={persistent ? 'alert' : 'status'}
+            // Announced through the live announcer; a role here would read it twice.
+            role="none"
           >
             {currentNotification.message}
           </Alert>

@@ -24,6 +24,16 @@ describe('DeleteModal', () => {
     ).toBeInTheDocument();
   });
 
+  it('is an alert dialog so its message is read on open', () => {
+    render(
+      <DeleteModal {...defaultProps} itemName="Docs" itemType="test set" />
+    );
+
+    const dialog = screen.getByRole('alertdialog');
+    expect(dialog).toHaveAccessibleName('Delete Test set');
+    expect(dialog).toHaveAccessibleDescription(/delete the test set "Docs"/i);
+  });
+
   it('renders with custom title and item name', () => {
     render(
       <DeleteModal
