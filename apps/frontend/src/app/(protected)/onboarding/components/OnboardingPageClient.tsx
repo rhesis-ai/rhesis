@@ -7,7 +7,11 @@ import InviteTeamStep from './InviteTeamStep';
 import FinishStep from './FinishStep';
 import WelcomeVideoStep from './WelcomeVideoStep';
 import OnboardingShell from './OnboardingShell';
-import { ONBOARDING_STEP_COUNT } from './onboarding-steps';
+import {
+  finishButtonLabel,
+  getOnboardingSteps,
+  type OnboardingStatus,
+} from './onboarding-steps';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { safeRandomUUID } from '@/utils/uuid';
 import { OrganizationCreate } from '@/utils/api-client/organizations-client';
@@ -25,14 +29,6 @@ import {
   type ProfileAnswers,
 } from '@/constants/user-profile';
 import VisuallyHidden from '@/components/common/VisuallyHidden';
-
-type OnboardingStatus =
-  | 'idle'
-  | 'creating_organization'
-  | 'updating_user'
-  | 'loading_initial_data'
-  | 'creating_project'
-  | 'completed';
 
 interface FormData extends ProfileAnswers {
   firstName: string;
@@ -55,6 +51,7 @@ export default function OnboardingPageClient({
   const notifications = useNotifications();
   const { update: updateSession } = useSession();
   const [activeStep, setActiveStep] = React.useState(0);
+  const steps = getOnboardingSteps(Boolean(videoUrl));
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [onboardingStatus, setOnboardingStatus] =
     React.useState<OnboardingStatus>('idle');
@@ -76,7 +73,7 @@ export default function OnboardingPageClient({
   const completingRef = React.useRef(false);
 
   const handleNext = () => {
-    setActiveStep(prev => Math.min(prev + 1, ONBOARDING_STEP_COUNT - 1));
+    setActiveStep(prev => Math.min(prev + 1, steps.length - 1));
   };
 
   const handleBack = () => {
@@ -365,11 +362,19 @@ export default function OnboardingPageClient({
         return (
           <FinishStep
             formData={formData}
-            onNext={handleNext}
             onBack={handleBack}
+            {...(videoUrl
+              ? { onNext: handleNext }
+              : {
+                  onNext: handleComplete,
+                  finishLabel: finishButtonLabel(onboardingStatus),
+                  isSubmitting,
+                  disabled: onboardingStatus === 'completed',
+                })}
           />
         );
       case 3:
+        if (!videoUrl) return null;
         return (
           <WelcomeVideoStep
             onComplete={handleComplete}
@@ -385,7 +390,7 @@ export default function OnboardingPageClient({
   };
 
   return (
-    <OnboardingShell activeStep={activeStep}>
+    <OnboardingShell activeStep={activeStep} steps={steps}>
       {/* The steps have no visible page title (WCAG 1.3.1). */}
       <VisuallyHidden component="h1">Set up your organization</VisuallyHidden>
       {renderStep()}

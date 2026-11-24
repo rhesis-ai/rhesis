@@ -2,14 +2,16 @@
 
 import { Box } from '@mui/material';
 import { BORDER_RADIUS } from '@/styles/theme-constants';
-import { ONBOARDING_STEPS } from './onboarding-steps';
+import type { OnboardingStepConfig } from './onboarding-steps';
 
 interface OnboardingProgressBarProps {
   activeStep: number;
+  steps: OnboardingStepConfig[];
 }
 
 export default function OnboardingProgressBar({
   activeStep,
+  steps,
 }: OnboardingProgressBarProps) {
   return (
     <Box
@@ -20,7 +22,7 @@ export default function OnboardingProgressBar({
         maxWidth: 600,
       }}
     >
-      {ONBOARDING_STEPS.map((step, index) => (
+      {steps.map((step, index) => (
         <Box
           key={step.id}
           sx={{

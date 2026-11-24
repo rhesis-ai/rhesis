@@ -52,4 +52,35 @@ export const ONBOARDING_STEPS: OnboardingStepConfig[] = [
   },
 ];
 
-export const ONBOARDING_STEP_COUNT = ONBOARDING_STEPS.length;
+/** The welcome step is only there when the deployment configured a video. */
+export function getOnboardingSteps(hasVideo: boolean): OnboardingStepConfig[] {
+  return hasVideo
+    ? ONBOARDING_STEPS
+    : ONBOARDING_STEPS.filter(step => step.id !== 'welcome');
+}
+
+export type OnboardingStatus =
+  | 'idle'
+  | 'creating_organization'
+  | 'updating_user'
+  | 'loading_initial_data'
+  | 'creating_project'
+  | 'completed';
+
+/** Label of the button that finishes setup, following its progress. */
+export function finishButtonLabel(status: OnboardingStatus): string {
+  switch (status) {
+    case 'creating_organization':
+      return 'Creating organization...';
+    case 'updating_user':
+      return 'Updating user information...';
+    case 'loading_initial_data':
+      return 'Loading initial data...';
+    case 'creating_project':
+      return 'Creating your project...';
+    case 'completed':
+      return 'Setup complete. Redirecting...';
+    default:
+      return 'Finish up';
+  }
+}
