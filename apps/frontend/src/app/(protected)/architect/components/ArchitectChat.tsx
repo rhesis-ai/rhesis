@@ -26,6 +26,8 @@ import ArchitectChatInput, {
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { useAnnounce } from '@/components/common/LiveAnnouncer';
+import { markdownToSpeech } from '@/utils/markdown-to-speech';
 
 interface ArchitectChatProps {
   sessionId: string | null;
@@ -245,6 +247,30 @@ export default function ArchitectChat({
     markAgentWorking,
     status,
   ]);
+
+  // Reads each new reply once it's complete; the bubbles themselves are new
+  // elements, which screen readers don't announce. Replies never seen
+  // streaming (loaded history) stay quiet.
+  const announce = useAnnounce();
+  const liveRepliesRef = useRef(new Set<string>());
+  const announcedRef = useRef(new Set<string>());
+  useEffect(() => {
+    for (const m of messages) {
+      if (m.role !== 'assistant') continue;
+      if (m.isStreaming) liveRepliesRef.current.add(m.id);
+      if (!liveRepliesRef.current.has(m.id)) continue;
+      const replyDone = !m.isStreaming || !isLoading;
+      if (replyDone && m.content.trim() && !announcedRef.current.has(m.id)) {
+        announcedRef.current.add(m.id);
+        announce(markdownToSpeech(m.content));
+      }
+      const doneKey = `${m.id}:done`;
+      if (m.taskCompleted && !announcedRef.current.has(doneKey)) {
+        announcedRef.current.add(doneKey);
+        announce('Done.');
+      }
+    }
+  }, [messages, isLoading, announce]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
