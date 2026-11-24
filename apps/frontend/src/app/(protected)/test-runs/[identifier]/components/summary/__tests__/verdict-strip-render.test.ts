@@ -310,9 +310,17 @@ describe('paintStrip', () => {
 });
 
 describe('describeStrip', () => {
+  it('counts unresolved tests while the run is going', () => {
+    expect(
+      describeStrip('Misuse', ['failed', 'pending', 'generating', 'evaluating'])
+    ).toBe('Misuse: 0 of 4 tests passed, 3 still running. Failure at test 1.');
+  });
+
   it('describes a strip with no failures', () => {
     const cells: CellState[] = ['passed', 'passed', 'pending'];
-    expect(describeStrip('ASI02', cells)).toBe('ASI02: 2 of 3 tests passed.');
+    expect(describeStrip('ASI02', cells)).toBe(
+      'ASI02: 2 of 3 tests passed, 1 still running.'
+    );
   });
 
   it('describes a single failure by 1-indexed position', () => {

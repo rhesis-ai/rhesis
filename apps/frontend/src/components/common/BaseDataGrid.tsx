@@ -38,6 +38,8 @@ import {
   GridInitialState,
   GridRowParams,
   GridColumnMenu,
+  type GridCellParams,
+  GRID_CHECKBOX_SELECTION_FIELD,
   gridClasses,
   type GridCallbackDetails,
   type GridColumnGroupingModel,
@@ -504,6 +506,12 @@ function FigmaPaginationFooter() {
               fontWeight: 700,
               color: textColor,
               '& .MuiSelect-icon': { color: textColor },
+              // No underline, so without this keyboard focus is invisible.
+              '& .MuiSelect-select:focus-visible': {
+                outline: `2px solid ${theme.palette.primary.main}`,
+                outlineOffset: 2,
+                borderRadius: BORDER_RADIUS.xs,
+              },
             }}
           >
             {pageSizeOptions.map(opt => (
@@ -783,7 +791,7 @@ export default function BaseDataGrid({
 
   const handleRowClickWithLink = (
     params: GridRowParams,
-    event?: React.MouseEvent
+    event?: { metaKey: boolean; ctrlKey: boolean }
   ) => {
     const url = resolveRowUrl(params);
 
@@ -800,6 +808,23 @@ export default function BaseDataGrid({
     if (url) {
       router.push(url);
     }
+  };
+
+  // Enter on a focused cell opens the row, as a click does (2.1.1).
+  const handleCellKeyDown = (
+    params: GridCellParams,
+    event: React.KeyboardEvent
+  ) => {
+    if (event.key !== 'Enter' || params.cellMode === 'edit') return;
+    // Focus is on a control inside the cell (checkbox, action button).
+    if (event.target !== event.currentTarget) return;
+    if (
+      params.field === GRID_CHECKBOX_SELECTION_FIELD ||
+      params.field === 'actions'
+    )
+      return;
+    event.preventDefault();
+    handleRowClickWithLink(apiRef.current.getRowParams(params.id), event);
   };
 
   const handleContainerContextMenu = useCallback(
@@ -963,6 +988,9 @@ export default function BaseDataGrid({
                   sx={dataGridSx}
                   onRowClick={
                     hasRowUrl || onRowClick ? handleRowClickWithLink : undefined
+                  }
+                  onCellKeyDown={
+                    hasRowUrl || onRowClick ? handleCellKeyDown : undefined
                   }
                   disableMultipleRowSelection={disableMultipleRowSelection}
                   {...(density && { density })}

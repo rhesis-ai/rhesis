@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box,
+  ButtonBase,
   Chip,
   Collapse,
   IconButton,
@@ -308,65 +309,87 @@ function SpanTreeNode({
             )}
           </Box>
 
-          <Box
-            component={SpanIcon}
-            sx={{
-              fontSize: theme => theme.spacing(2),
-              color: colorPath,
-              flexShrink: 0,
+          {/* The row click is mouse-only; this is the keyboard target (2.1.1).
+              It sits beside the expand button, since buttons can't nest. */}
+          <ButtonBase
+            onClick={e => {
+              e.stopPropagation();
+              onSpanSelect(span);
             }}
-          />
-
-          {turnLabel && (
-            <Chip
-              label={turnLabel}
-              size="small"
-              color="primary"
-              variant="outlined"
+            aria-pressed={isSelected}
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              gap: 0.75,
+              textAlign: 'left',
+              font: 'inherit',
+              borderRadius: theme => theme.spacing(0.5),
+              '&.Mui-focusVisible': { outlineOffset: -2 },
+            }}
+          >
+            <Box
+              component={SpanIcon}
               sx={{
-                height: theme => theme.spacing(2.5),
-                fontSize: theme => theme.typography.caption.fontSize,
+                fontSize: theme => theme.spacing(2),
+                color: colorPath,
                 flexShrink: 0,
               }}
             />
-          )}
 
-          <Typography
-            variant="caption"
-            noWrap
-            title={getSpanDisplayName(span)}
-            sx={theme => ({
-              fontFamily: theme.typography.fontFamilyCode,
-              color: 'text.primary',
-              minWidth: 0,
-            })}
-          >
-            {getSpanDisplayName(span)}
-          </Typography>
+            {turnLabel && (
+              <Chip
+                label={turnLabel}
+                size="small"
+                color="primary"
+                variant="outlined"
+                sx={{
+                  height: theme => theme.spacing(2.5),
+                  fontSize: theme => theme.typography.caption.fontSize,
+                  flexShrink: 0,
+                }}
+              />
+            )}
 
-          {usage && (
             <Typography
               variant="caption"
-              color="text.secondary"
               noWrap
-              sx={{ flexShrink: 0 }}
+              title={getSpanDisplayName(span)}
+              sx={theme => ({
+                fontFamily: theme.typography.fontFamilyCode,
+                color: 'text.primary',
+                minWidth: 0,
+              })}
             >
-              {formatTokenCount(usage.total)} tok
+              {getSpanDisplayName(span)}
             </Typography>
-          )}
 
-          {span.status_code === 'ERROR' && (
-            <Chip
-              label="ERROR"
-              size="small"
-              color="error"
-              sx={{
-                height: theme => theme.spacing(2.25),
-                fontSize: theme => theme.typography.caption.fontSize,
-                flexShrink: 0,
-              }}
-            />
-          )}
+            {usage && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                noWrap
+                sx={{ flexShrink: 0 }}
+              >
+                {formatTokenCount(usage.total)} tok
+              </Typography>
+            )}
+
+            {span.status_code === 'ERROR' && (
+              <Chip
+                label="ERROR"
+                size="small"
+                color="error"
+                sx={{
+                  height: theme => theme.spacing(2.25),
+                  fontSize: theme => theme.typography.caption.fontSize,
+                  flexShrink: 0,
+                }}
+              />
+            )}
+          </ButtonBase>
         </Box>
 
         <Box

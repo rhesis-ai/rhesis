@@ -3,8 +3,44 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BaseDrawer, { filterUniqueValidOptions } from '../BaseDrawer';
 import '@testing-library/jest-dom';
+import TextField from '@mui/material/TextField';
 
 describe('BaseDrawer', () => {
+  it('moves focus to the first invalid field when a save fails', async () => {
+    const user = userEvent.setup();
+    function Form() {
+      const [error, setError] = React.useState(false);
+      return (
+        <BaseDrawer
+          open
+          onClose={jest.fn()}
+          title="New Test Set"
+          onSave={() => setError(true)}
+        >
+          <TextField
+            label="Name"
+            error={error}
+            helperText={error ? 'Name is required' : undefined}
+          />
+        </BaseDrawer>
+      );
+    }
+    render(<Form />);
+
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    expect(await screen.findByRole('textbox', { name: 'Name' })).toHaveFocus();
+  });
+
+  it('announces a drawer error', () => {
+    render(
+      <BaseDrawer open onClose={jest.fn()} title="T" error="Could not save">
+        <div />
+      </BaseDrawer>
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not save');
+  });
+
   const mockOnClose = jest.fn();
   const mockOnSave = jest.fn();
 

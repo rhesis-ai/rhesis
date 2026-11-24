@@ -4,6 +4,9 @@ import * as React from 'react';
 import { Box, Typography } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 
+const NARROW = '@media (max-width: 599px)';
+const NARROW_TAB_GAP = '24px';
+
 export interface DetailTabNavItem {
   key: string;
   label: string;
@@ -71,7 +74,10 @@ export function DetailTabNav({
       sx={[
         {
           display: 'flex',
-          gap: tabGap,
+          columnGap: tabGap,
+          // Wrapped rows (narrow screens, zoom) sit close, not a tab gap apart.
+          rowGap: 1.5,
+          [NARROW]: { columnGap: NARROW_TAB_GAP },
           alignItems: compact ? 'stretch' : 'flex-start',
           flexWrap: scrollable ? 'nowrap' : 'wrap',
           ...(scrollable
@@ -149,6 +155,8 @@ export function DetailTabNav({
                   aria-hidden
                   sx={{
                     display: 'inline-flex',
+                    // Otherwise a tight row squeezes the icon below its size.
+                    flexShrink: 0,
                     mr: -0.5,
                     color: theme =>
                       selected

@@ -27,6 +27,7 @@ import { trimSharedPrefix } from './shared-prefix';
 import MetricRow from './MetricRow';
 import VerdictStrip from './VerdictStrip';
 import BandChip from './BandChip';
+import VisuallyHidden from '@/components/common/VisuallyHidden';
 import {
   COLUMN_TEMPLATES,
   GEOMETRY,
@@ -252,7 +253,7 @@ function RequirementGroupHeader({
             font: 'inherit',
             color: 'inherit',
             textAlign: 'left',
-            '&:focus-visible': { outline: 'none' },
+            '&:focus-visible, &.Mui-focusVisible': { outline: 'none' },
           }}
         >
           <ExpandMoreIcon
@@ -303,6 +304,7 @@ function RequirementGroupHeader({
           }}
         >
           {agg.applicable}
+          <VisuallyHidden component="span">{' total,'}</VisuallyHidden>
         </Typography>
       </Tooltip>
 
@@ -318,6 +320,7 @@ function RequirementGroupHeader({
           }}
         >
           {agg.passed}
+          <VisuallyHidden component="span">{' passed,'}</VisuallyHidden>
         </Typography>
       </Tooltip>
 
@@ -334,6 +337,7 @@ function RequirementGroupHeader({
           }}
         >
           {agg.failed}
+          <VisuallyHidden component="span">{' failed,'}</VisuallyHidden>
         </Typography>
       </Tooltip>
 
@@ -348,6 +352,7 @@ function RequirementGroupHeader({
         }}
       >
         {passRateStr}
+        <VisuallyHidden component="span">{' pass rate,'}</VisuallyHidden>
       </Typography>
 
       <BandChip passRate={rate} />

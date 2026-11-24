@@ -6,6 +6,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import RateReviewIcon from '@mui/icons-material/RateReview';
 import VerdictStrip from './VerdictStrip';
 import BandChip from './BandChip';
+import VisuallyHidden from '@/components/common/VisuallyHidden';
 import {
   aggregateMetric,
   BUILTIN_HINT,
@@ -209,6 +210,7 @@ function MetricRowInner({
         }}
       >
         {totalStr}
+        <VisuallyHidden component="span">{' total,'}</VisuallyHidden>
       </Typography>
 
       <Typography
@@ -222,6 +224,7 @@ function MetricRowInner({
         }}
       >
         {passedStr}
+        <VisuallyHidden component="span">{' passed,'}</VisuallyHidden>
       </Typography>
 
       <Typography
@@ -236,6 +239,7 @@ function MetricRowInner({
         }}
       >
         {failedStr}
+        <VisuallyHidden component="span">{' failed,'}</VisuallyHidden>
       </Typography>
 
       <Typography
@@ -249,6 +253,7 @@ function MetricRowInner({
         }}
       >
         {passRateStr}
+        <VisuallyHidden component="span">{' pass rate,'}</VisuallyHidden>
       </Typography>
 
       <BandChip passRate={passRate} />

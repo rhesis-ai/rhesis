@@ -8,6 +8,9 @@ import NextLink from 'next/link';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { FAB_GROUP_GAP } from '@/styles/theme-constants';
 
+/** Below this width the title takes its own row and the actions wrap under it. */
+const TITLE_MIN_WIDTH = '12rem';
+
 export interface BreadcrumbItem {
   /** Display text for the breadcrumb. */
   label: string;
@@ -152,6 +155,8 @@ export function PageLayout({
                 <Box
                   sx={{
                     display: 'flex',
+                    // Actions drop below the title when both don't fit (1.4.10).
+                    flexWrap: 'wrap',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: '16px',
@@ -165,7 +170,7 @@ export function PageLayout({
                         variant="h4"
                         component="h1"
                         sx={{
-                          flex: '1 1 0',
+                          flex: `1 1 ${TITLE_MIN_WIDTH}`,
                           minWidth: 0,
                           color: theme => theme.palette.greyscale.title,
                         }}
@@ -173,12 +178,15 @@ export function PageLayout({
                         {title}
                       </Typography>
                     ) : (
-                      <Box sx={{ flex: '1 1 0', minWidth: 0 }}>{title}</Box>
+                      <Box sx={{ flex: `1 1 ${TITLE_MIN_WIDTH}`, minWidth: 0 }}>
+                        {title}
+                      </Box>
                     ))}
                   {actions && (
                     <Box
                       sx={{
                         display: 'flex',
+                        flexWrap: 'wrap',
                         gap: FAB_GROUP_GAP,
                         flexShrink: 0,
                         alignItems: 'center',

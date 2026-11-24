@@ -151,6 +151,7 @@ export const platformKeyKeys = {
 // Token and cost totals for one test run's traces, scoped by project because
 // the metrics endpoint is.
 export const testRunUsageKeys = {
+  all: () => ['test-run-usage'] as const,
   detail: (projectId: string, testRunId: string) =>
     ['test-run-usage', projectId, testRunId] as const,
 };

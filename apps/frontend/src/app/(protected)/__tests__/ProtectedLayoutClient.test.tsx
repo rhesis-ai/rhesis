@@ -8,6 +8,11 @@ import type { FeaturesResponse } from '@/utils/api-client/features-client';
 let mockPathname = '/tests';
 let mockOrganizationId: string | null = 'org-1';
 
+jest.mock('@/components/auth/SessionExpiryWarning', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
 jest.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
   useRouter: () => ({ refresh: jest.fn() }),

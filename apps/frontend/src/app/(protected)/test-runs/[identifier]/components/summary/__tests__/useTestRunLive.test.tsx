@@ -19,6 +19,11 @@ jest.mock('@/contexts/WebSocketContext', () => ({
   }),
 }));
 
+let mockAccessibilityMode = false;
+jest.mock('@/hooks/useAccessibilityMode', () => ({
+  useAccessibilityMode: () => mockAccessibilityMode,
+}));
+
 const mockGetVerdictMatrix = jest.fn();
 
 jest.mock('@/utils/api-client/client-factory', () => ({
@@ -86,6 +91,7 @@ describe('useTestRunLive', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsConnected = true;
+    mockAccessibilityMode = false;
     subscribedHandlers = new Map();
 
     mockSubscribe.mockImplementation(
@@ -103,6 +109,15 @@ describe('useTestRunLive', () => {
 
     await waitFor(() => expect(result.current.matrix).toBeDefined());
     expect(mockGetVerdictMatrix).toHaveBeenCalledWith('run-1', undefined);
+  });
+
+  it('takes no live updates in accessibility mode', async () => {
+    mockAccessibilityMode = true;
+    const { result } = renderHook(() => useTestRunLive('run-1'), { wrapper });
+
+    await waitFor(() => expect(result.current.matrix).toBeDefined());
+    expect(mockSubscribeToChannel).not.toHaveBeenCalled();
+    expect(subscribedHandlers.has(EventType.TEST_RUN_PROGRESSED)).toBe(false);
   });
 
   it('subscribes to channel with project_id', async () => {

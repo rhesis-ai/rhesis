@@ -102,6 +102,21 @@ export default function BaseDrawer({
 }: BaseDrawerProps) {
   const hasFooter = !!(closeButtonText || onSave || onDelete || error);
   const isFillLayout = contentLayout === 'fill';
+  const paperRef = React.useRef<HTMLDivElement>(null);
+
+  // A failed save marks fields invalid but leaves focus on the button, so a
+  // screen reader user hears nothing. Move focus to the first invalid field,
+  // where its label and error are read (WCAG 3.3.1).
+  const handleSave = onSave
+    ? () => {
+        onSave();
+        window.setTimeout(() => {
+          paperRef.current
+            ?.querySelector<HTMLElement>('[aria-invalid="true"]')
+            ?.focus();
+        }, 0);
+      }
+    : undefined;
 
   return (
     <Drawer
@@ -111,6 +126,7 @@ export default function BaseDrawer({
       variant="temporary"
       ModalProps={{ keepMounted: true }}
       PaperProps={{
+        ref: paperRef,
         sx: {
           // Full width on narrow viewports so the form reflows (WCAG 1.4.10).
           width: { xs: '100%', sm: width },
@@ -171,6 +187,7 @@ export default function BaseDrawer({
             (typeof error === 'string' ? (
               <Typography
                 id={errorId}
+                role="alert"
                 color="error"
                 variant="body2"
                 sx={{ mb: 1.5 }}
@@ -178,7 +195,9 @@ export default function BaseDrawer({
                 {error}
               </Typography>
             ) : (
-              <Box sx={{ mb: 1.5 }}>{error}</Box>
+              <Box role="alert" sx={{ mb: 1.5 }}>
+                {error}
+              </Box>
             ))}
           <Box
             sx={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}
@@ -217,7 +236,7 @@ export default function BaseDrawer({
             {onSave && (
               <Button
                 variant="contained"
-                onClick={onSave}
+                onClick={handleSave}
                 disabled={loading || saveDisabled}
                 {...(saveDataTour ? { 'data-tour': saveDataTour } : {})}
                 startIcon={

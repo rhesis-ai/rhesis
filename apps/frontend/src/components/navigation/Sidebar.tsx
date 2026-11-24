@@ -106,6 +106,9 @@ const TOGGLE_NUDGE_RIGHT_PX = 8;
 // the row count always agrees with the badge.
 const MIN_USAGE_ROWS = 3;
 
+/** Viewport height below which the footer would leave no room for the nav. */
+const SHORT_VIEWPORT = '@media (max-height: 700px)';
+
 function LeftPanelCloseIcon() {
   return (
     <SvgIcon viewBox="0 0 24 24" sx={{ fontSize: TOGGLE_ICON_PX }}>
@@ -450,6 +453,12 @@ export function Sidebar() {
         transition: 'width 0.2s ease, padding 0.2s ease',
         overflowX: 'hidden',
         boxSizing: 'border-box',
+        // On short screens (e.g. 200 % zoom) the footer would squeeze the nav
+        // to nothing, so the whole sidebar scrolls instead of the nav alone.
+        [SHORT_VIEWPORT]: {
+          justifyContent: 'flex-start',
+          overflowY: 'auto',
+        },
       }}
     >
       {/* Zero-height anchors pin the scroll cues to the nav's top and bottom
@@ -476,6 +485,7 @@ export function Sidebar() {
           overflowX: 'hidden',
           scrollbarWidth: 'none',
           '&::-webkit-scrollbar': { display: 'none' },
+          [SHORT_VIEWPORT]: { flex: '0 0 auto', overflowY: 'visible' },
         }}
       >
         {/*

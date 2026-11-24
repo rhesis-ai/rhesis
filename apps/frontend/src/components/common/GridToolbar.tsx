@@ -131,6 +131,7 @@ export function PrimarySegmentedPills({
               key={value || 'all'}
               component="button"
               type="button"
+              aria-pressed={isSelected}
               onClick={() => {
                 if (mode === 'single') {
                   onSingleChange?.(value);

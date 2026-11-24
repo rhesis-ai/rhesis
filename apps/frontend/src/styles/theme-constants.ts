@@ -131,6 +131,10 @@ export const FAB_GROUP_GAP = '20px';
 /** Diameter of a page-header FAB (Figma). Shared by `Fab` and its skeleton. */
 export const FAB_SIZE = 56;
 
+/** FAB diameter on narrow viewports (below `FAB_COMPACT_BELOW`, in px). */
+export const FAB_SIZE_COMPACT = 40;
+export const FAB_COMPACT_BELOW = 599;
+
 /**
  * Inset for everything inside a grid card: the toolbar, the first and last
  * column, and the pagination footer (Figma). BaseDataGrid expresses the same

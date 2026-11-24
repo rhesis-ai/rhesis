@@ -161,7 +161,7 @@ export default function TokensGrid({
       initialTotalCount={initialTotalCount}
       refreshTrigger={refreshTrigger}
       searchPlaceholder="Search tokens…"
-      pills={{ tabs: STATUS_PILL_TABS }}
+      pills={{ tabs: STATUS_PILL_TABS, inDrawer: true }}
       drawer={drawerAdapter}
       selectionLabel="Select tokens"
       editAction={false}

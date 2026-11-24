@@ -1,5 +1,5 @@
 'use client';
-import { createTheme, PaletteMode } from '@mui/material/styles';
+import { createTheme, PaletteMode, type Theme } from '@mui/material/styles';
 import { BACKGROUND_DEFAULT, BACKGROUND_PAPER } from './theme-background';
 import React from 'react';
 import type {} from '@mui/x-data-grid/themeAugmentation';
@@ -43,6 +43,15 @@ export {
   GRID_CARD_INSET,
   GRID_TOOLBAR_MIN_HEIGHT,
 };
+
+// Module-level, so every built theme shares the same function and themes
+// built from the same options stay equal.
+const focusRingRoot = ({ theme }: { theme: Theme }) => ({
+  '&.Mui-focusVisible': {
+    outline: `2px solid ${theme.palette.primary.main}`,
+    outlineOffset: 2,
+  },
+});
 
 /** Deployment brand overrides (`BRAND_PRIMARY_COLOR`, `BRAND_SECONDARY_COLOR`, `BRAND_FONT_FAMILY`). */
 export interface BrandColors {
@@ -277,7 +286,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
         ),
       }),
       // Greyscale ramp available on palette for both modes
-      greyscale: gs,
+      greyscale: { ...gs, controlBorder },
       brandColor,
       brandSecondaryColor: brand.secondary,
       accessibilityMode: Boolean(brand.accessibilityMode),
@@ -460,6 +469,28 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
             subtitle1: 'h2',
             subtitle2: 'h2',
           },
+        },
+      },
+      // One visible keyboard focus ring for every button-like control (2.4.7).
+      // MUI's defaults are a faint ripple or, on FABs, an offset shadow.
+      MuiButtonBase: {
+        styleOverrides: { root: focusRingRoot },
+      },
+      // These sit flush inside menus, lists and tab bars that clip anything
+      // drawn outside them, so their ring goes inside the edge.
+      MuiMenuItem: {
+        styleOverrides: {
+          root: { '&.Mui-focusVisible': { outlineOffset: -2 } },
+        },
+      },
+      MuiListItemButton: {
+        styleOverrides: {
+          root: { '&.Mui-focusVisible': { outlineOffset: -2 } },
+        },
+      },
+      MuiTab: {
+        styleOverrides: {
+          root: { '&.Mui-focusVisible': { outlineOffset: -2 } },
         },
       },
       // Spinners otherwise reach screen readers as an unnamed progressbar.
@@ -964,6 +995,8 @@ declare module '@mui/material/styles' {
       label: string;
       subtitle: string;
       border: string;
+      /** Outline of an interactive control; meets 3:1 in accessibility mode (1.4.11). */
+      controlBorder: string;
       surface1: string;
       surface2: string;
       fieldSurface: string;
@@ -991,6 +1024,7 @@ declare module '@mui/material/styles' {
       label?: string;
       subtitle?: string;
       border?: string;
+      controlBorder?: string;
       surface1?: string;
       surface2?: string;
       fieldSurface?: string;

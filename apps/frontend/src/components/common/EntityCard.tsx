@@ -295,10 +295,11 @@ export default function EntityCard({
         '&:hover': onClick
           ? { boxShadow: '0px 6px 16px rgba(0,0,0,0.14)' }
           : {},
+        // Inside the edge: card grids clip anything drawn outside the card.
         '&:has(.entity-card-open:focus-visible)': {
           outline: '2px solid',
           outlineColor: 'primary.main',
-          outlineOffset: 2,
+          outlineOffset: -2,
         },
       }}
     >
@@ -410,7 +411,7 @@ export default function EntityCard({
                 font: 'inherit',
                 color: 'inherit',
                 textAlign: 'left',
-                '&:focus-visible': { outline: 'none' },
+                '&:focus-visible, &.Mui-focusVisible': { outline: 'none' },
               }}
             >
               {title}

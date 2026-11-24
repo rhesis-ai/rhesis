@@ -53,6 +53,10 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { MODEL_TYPES, type ModelType } from '@/constants/model-types';
 
+/** Ties each default-model switch to its visible label. */
+const defaultSwitchId = (label: string) =>
+  `model-default-${label.toLowerCase().replace(/[^a-z]+/g, '-')}`;
+
 export interface ConnectionFormHandle {
   submit: () => void;
 }
@@ -919,15 +923,19 @@ export const ConnectionForm = forwardRef<
                     }}
                   >
                     <Typography
+                      component="label"
+                      htmlFor={defaultSwitchId(label)}
                       sx={{
                         fontSize: 16,
                         lineHeight: '24px',
                         color: theme => theme.palette.greyscale.title,
+                        cursor: 'pointer',
                       }}
                     >
                       {label}
                     </Typography>
                     <Switch
+                      id={defaultSwitchId(label)}
                       checked={checked}
                       onChange={e => onChange(e.target.checked)}
                       size="small"

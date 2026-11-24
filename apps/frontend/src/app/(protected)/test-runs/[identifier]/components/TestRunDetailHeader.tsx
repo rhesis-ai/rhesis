@@ -6,6 +6,10 @@ import { Box, Chip, Typography, IconButton, Tooltip } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import CompareArrowsOutlinedIcon from '@mui/icons-material/CompareArrowsOutlined';
 import RestartAltOutlinedIcon from '@mui/icons-material/RestartAltOutlined';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
+import { testRunKeys, testRunUsageKeys } from '@/constants/query-keys';
 import { Fab, FabGroup } from '@/components/common/Fab';
 import { BiotechIcon, DownloadIcon } from '@/components/icons';
 import { formatDate } from '@/utils/date';
@@ -15,6 +19,7 @@ import { shortVersion } from '@/utils/api-client/interfaces/parameters';
 import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import TestRunSummarizeFab from './TestRunSummarizeFab';
 import {
+  isTerminalRunStatus,
   type RunStatus,
   RUN_STATUS_COLOR,
   RUN_STATUS_LABEL,
@@ -121,6 +126,7 @@ export function TestRunActions({
 }) {
   return (
     <FabGroup>
+      <RefreshRunFab testRun={testRun} />
       <TestRunSummarizeFab testRun={testRun} />
       <Fab
         icon={<CompareArrowsOutlinedIcon />}
@@ -148,6 +154,41 @@ export function TestRunActions({
         aria-label="Re-run test"
       />
     </FabGroup>
+  );
+}
+
+/**
+ * Accessibility mode keeps a running test run still -- nothing updates on its
+ * own (WCAG 2.2.2) -- so this reloads its status, results and usage on demand.
+ */
+function RefreshRunFab({ testRun }: { testRun: TestRunDetail }) {
+  const accessibilityMode = useAccessibilityMode();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = React.useState(false);
+  const status = testRun.status?.name?.toLowerCase() ?? '';
+  if (!accessibilityMode || isTerminalRunStatus(status)) return null;
+
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      // Prefixes: the run's detail and verdict matrix, and its usage figures.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: testRunKeys.all() }),
+        queryClient.invalidateQueries({ queryKey: testRunUsageKeys.all() }),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  return (
+    <Fab
+      icon={<RefreshIcon />}
+      tooltip="Refresh results"
+      onClick={refresh}
+      loading={refreshing}
+      aria-label="Refresh results"
+    />
   );
 }
 

@@ -6,6 +6,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { EventType } from '@/utils/websocket/types';
 import type { VerdictMatrix } from '@/utils/api-client/interfaces/test-run';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 
 const LIVE_POLL_MS = 3000;
 
@@ -27,6 +28,9 @@ export function useTestRunLive(
   const queryClient = useQueryClient();
   const { isConnected, subscribe, subscribeToChannel, unsubscribeFromChannel } =
     useWebSocketContext();
+  // Accessibility mode: no polling or pushed updates; the header's Refresh
+  // button reloads instead (WCAG 2.2.2).
+  const manualOnly = useAccessibilityMode();
 
   const [subscriptionFailed, setSubscriptionFailed] = useState(false);
   useEffect(() => setSubscriptionFailed(false), [testRunId]);
@@ -76,6 +80,7 @@ export function useTestRunLive(
     // keeps it fresh from here.
     refetchOnMount: false,
     refetchInterval: query => {
+      if (manualOnly) return false;
       if (query.state.data?.is_terminal) return false;
       if (liveUpdates) return false;
       return LIVE_POLL_MS;
@@ -84,12 +89,13 @@ export function useTestRunLive(
 
   // Subscribe to the channel once we have the project_id.
   useEffect(() => {
-    if (!matrix?.project_id || !isConnected) return;
+    if (manualOnly || !matrix?.project_id || !isConnected) return;
     subscribeToChannel(channel, matrix.project_id);
     return () => {
       unsubscribeFromChannel(channel);
     };
   }, [
+    manualOnly,
     matrix?.project_id,
     isConnected,
     channel,
@@ -99,6 +105,7 @@ export function useTestRunLive(
 
   // Handle WebSocket events.
   useEffect(() => {
+    if (manualOnly) return;
     const forThisRun =
       (handler: () => void) =>
       (msg: { channel?: string | null }): void => {
@@ -121,18 +128,18 @@ export function useTestRunLive(
       unsubProgress();
       unsubError();
     };
-  }, [testRunId, channel, subscribe, queryClient]);
+  }, [manualOnly, testRunId, channel, subscribe, queryClient]);
 
   // On reconnect, re-fetch immediately.
   const prevConnected = useRef(isConnected);
   useEffect(() => {
-    if (isConnected && !prevConnected.current) {
+    if (!manualOnly && isConnected && !prevConnected.current) {
       void queryClient.invalidateQueries({
         queryKey: verdictMatrixKey(testRunId),
       });
     }
     prevConnected.current = isConnected;
-  }, [isConnected, testRunId, queryClient]);
+  }, [manualOnly, isConnected, testRunId, queryClient]);
 
   return {
     matrix,

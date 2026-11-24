@@ -11,6 +11,8 @@ import GridToolbar, {
   type ToolbarPillTab,
 } from '@/components/common/GridToolbar';
 import SelectionModeToggle from '@/components/common/SelectionModeToggle';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 
 /**
  * Everything the toolbar renders, provided by EntityGrid. A context is used
@@ -22,7 +24,7 @@ export interface EntityGridToolbarState {
   searchQuery: string;
   setSearchQuery: (value: string) => void;
   searchPlaceholder: string;
-  pills?: { tabs: ToolbarPillTab[] };
+  pills?: { tabs: ToolbarPillTab[]; inDrawer?: boolean };
   pillValue: string;
   setPillValue: (value: string) => void;
   /** Undefined ⇒ no filter button. */
@@ -69,6 +71,10 @@ export function EntityGridToolbarSlot() {
     showGridButtons,
     showExport,
   } = useContext(EntityGridToolbarContext);
+  const theme = useTheme();
+  const narrow = useMediaQuery(theme.breakpoints.down('sm'), { noSsr: true });
+  // Wrapped pills crowd small screens; the filter drawer has the same filter.
+  const showPills = pills && !(narrow && pills.inDrawer);
 
   return (
     <GridToolbar
@@ -79,7 +85,7 @@ export function EntityGridToolbarSlot() {
       hasActiveFilters={hasActiveDrawerFilters}
       activeFilterCount={activeFilterCount}
       middleContent={
-        pills ? (
+        showPills ? (
           <ToolbarPillTabs
             tabs={pills.tabs}
             activeValue={pillValue}
