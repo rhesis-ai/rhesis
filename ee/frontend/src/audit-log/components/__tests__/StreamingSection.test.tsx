@@ -344,7 +344,12 @@ describe('StreamingSection', () => {
       await screen.findByRole('button', { name: 'Delete SIEM hook' })
     );
     expect(mockDelete).not.toHaveBeenCalled();
-    const dialog = screen.getByRole('dialog');
+    const dialog = screen.getByRole('alertdialog');
+    expect(dialog).toHaveAccessibleName('Delete destination?');
+    expect(dialog).toHaveAccessibleDescription(/stops receiving audit events/);
+    expect(
+      within(dialog).getByRole('button', { name: 'Cancel' })
+    ).toHaveFocus();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(mockDelete).toHaveBeenCalledWith('d1'));

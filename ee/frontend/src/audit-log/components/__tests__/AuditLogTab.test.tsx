@@ -86,6 +86,14 @@ describe('AuditLogTab', () => {
     ]);
   });
 
+  it('puts the open section in a tab panel named by its tab', () => {
+    render(<AuditLogTab />);
+    const tab = screen.getByRole('tab', { name: 'Events' });
+    const panel = screen.getByRole('tabpanel', { name: 'Events' });
+    expect(tab).toHaveAttribute('aria-controls', panel.id);
+    expect(panel).toContainElement(screen.getByTestId('events'));
+  });
+
   it('opens the section named in the URL, and writes the choice back', () => {
     search = 'tab=audit-log&section=settings';
     render(<AuditLogTab />);

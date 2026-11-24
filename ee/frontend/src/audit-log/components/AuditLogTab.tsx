@@ -152,7 +152,17 @@ export default function AuditLogTab() {
         />
       )}
 
-      {content}
+      {!loading && visible.length > 1 ? (
+        <Box
+          role="tabpanel"
+          id={`audit-log-tabpanel-${activeIndex}`}
+          aria-labelledby={`audit-log-tab-${activeIndex}`}
+        >
+          {content}
+        </Box>
+      ) : (
+        content
+      )}
     </Box>
   );
 }

@@ -256,19 +256,30 @@ export default function DestinationsList({
         onClose={() => !deleting && setConfirm(null)}
         maxWidth="xs"
         fullWidth
+        aria-labelledby="delete-destination-title"
+        aria-describedby="delete-destination-description"
+        // alertdialog: screen readers read the message on open, not just the title.
+        slotProps={{ paper: { role: 'alertdialog' } }}
       >
         {confirm && (
           <>
-            <DialogTitle>Delete destination?</DialogTitle>
+            <DialogTitle id="delete-destination-title">
+              Delete destination?
+            </DialogTitle>
             <DialogContent>
-              <DialogContentText>
+              <DialogContentText id="delete-destination-description">
                 {confirm.name} stops receiving audit events and its credentials
                 are removed. There is no undo. To stop for a while instead,
                 pause it.
               </DialogContentText>
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => setConfirm(null)} disabled={deleting}>
+              <Button
+                onClick={() => setConfirm(null)}
+                disabled={deleting}
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- the safe choice gets focus
+                autoFocus
+              >
                 Cancel
               </Button>
               <Button
