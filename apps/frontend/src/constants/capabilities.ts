@@ -255,6 +255,11 @@ export const Capability = {
     MANAGE: 'role:manage',
   },
   Token: {
+    // Self-service: the token routes only ever act on the caller's own tokens.
+    CREATE: 'token:create',
+    READ: 'token:read',
+    UPDATE: 'token:update',
+    DELETE: 'token:delete',
     MANAGE: 'token:manage',
   },
   Recycle: {
@@ -438,6 +443,10 @@ export const CAPABILITY_LABELS: Record<string, string> = {
   'role:read': 'View roles',
   'role:manage': 'Manage roles',
   // Tokens
+  'token:create': 'Create own API tokens',
+  'token:read': 'View own API tokens',
+  'token:update': 'Edit own API tokens',
+  'token:delete': 'Delete own API tokens',
   'token:manage': 'Manage API tokens',
   // Recycle bin
   'recycle:view': 'View recycle bin',

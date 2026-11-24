@@ -346,7 +346,7 @@ async function getNavigationItems(
       segment: 'tokens',
       title: 'API',
       icon: <VpnKeyIcon key="tokens-icon" />,
-      requiredPermission: Capability.Token.MANAGE,
+      requiredPermission: Capability.Token.READ,
     },
     // Divider before footer links
     {

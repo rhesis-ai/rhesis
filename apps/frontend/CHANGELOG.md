@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **API Tokens for Members**: Members can open the API page to manage their own tokens; it no longer requires an admin role.
+
 ## [0.22.0] - 2026-11-19
 
 ### Breaking Changes

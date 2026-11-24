@@ -149,7 +149,7 @@ describe('TokensGrid', () => {
   });
 
   it('opens the refresh modal from the row action and calls onRefreshToken', async () => {
-    render(<TokensGrid onRefreshToken={onRefreshToken} />);
+    render(<TokensGrid canRefresh onRefreshToken={onRefreshToken} />);
     await screen.findByText('Token t1');
 
     const user = userEvent.setup();
@@ -163,6 +163,14 @@ describe('TokensGrid', () => {
 
     await user.click(screen.getByRole('button', { name: 'confirm-refresh' }));
     await waitFor(() => expect(onRefreshToken).toHaveBeenCalledWith('t1', 30));
+  });
+
+  it('hides the refresh row action without canRefresh', async () => {
+    render(<TokensGrid onRefreshToken={onRefreshToken} />);
+    await screen.findByText('Token t1');
+    expect(
+      screen.queryByRole('button', { name: /invalidate and refresh/i })
+    ).not.toBeInTheDocument();
   });
 
   it('deletes a token through the row delete action', async () => {

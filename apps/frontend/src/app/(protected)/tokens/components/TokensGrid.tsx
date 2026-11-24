@@ -52,6 +52,7 @@ const drawerAdapter: EntityGridDrawerAdapter<TokenFilters> = {
 
 interface TokensGridProps {
   canCreate?: boolean;
+  canRefresh?: boolean;
   onCreateClick?: () => void;
   /** Called with the refreshed token so the page can show it once. */
   onRefreshToken: (
@@ -68,6 +69,7 @@ interface TokensGridProps {
 
 export default function TokensGrid({
   canCreate,
+  canRefresh,
   onCreateClick,
   onRefreshToken,
   onBulkActionsChange,
@@ -78,17 +80,20 @@ export default function TokensGrid({
   const [refreshTarget, setRefreshTarget] = useState<Token | null>(null);
 
   const extraRowActions = useMemo(
-    () => [
-      {
-        key: 'refresh',
-        icon: RefreshIcon,
-        tooltip: 'Invalidate and refresh',
-        onClick: (_id: string, row: Record<string, unknown>) =>
-          setRefreshTarget(row as unknown as Token),
-        hoverColor: 'primary.main' as const,
-      },
-    ],
-    []
+    () =>
+      canRefresh
+        ? [
+            {
+              key: 'refresh',
+              icon: RefreshIcon,
+              tooltip: 'Invalidate and refresh',
+              onClick: (_id: string, row: Record<string, unknown>) =>
+                setRefreshTarget(row as unknown as Token),
+              hoverColor: 'primary.main' as const,
+            },
+          ]
+        : [],
+    [canRefresh]
   );
 
   const handleRefreshClose = useCallback(() => setRefreshTarget(null), []);

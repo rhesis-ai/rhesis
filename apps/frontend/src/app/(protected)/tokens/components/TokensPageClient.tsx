@@ -9,7 +9,7 @@ import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { Token, TokenResponse } from '@/utils/api-client/interfaces/token';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
-import { Can, useCanWithStatus } from '@/components/common/Can';
+import { Can, useCan, useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
@@ -25,9 +25,12 @@ export default function TokensPageClient({
   initialData,
   initialTotalCount,
 }: TokensPageClientProps) {
-  const { allowed: canManage, loading: permsLoading } = useCanWithStatus(
-    Capability.Token.MANAGE
+  const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
+    Capability.Token.READ
   );
+  // Also gates refresh: it hands back a new token value, so the backend checks
+  // token:create on it, not token:update.
+  const canCreate = useCan(Capability.Token.CREATE);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newToken, setNewToken] = useState<TokenResponse | null>(null);
@@ -75,7 +78,7 @@ export default function TokensPageClient({
   );
 
   if (permsLoading) return <PageLoadingState />;
-  if (!canManage) return <AccessDenied resource="API tokens" />;
+  if (!canRead) return <AccessDenied resource="API tokens" />;
 
   return (
     <PageLayout
@@ -85,7 +88,7 @@ export default function TokensPageClient({
       actions={
         <FabGroup>
           {bulkActionsVisible && (
-            <Can capability={Capability.Token.MANAGE}>
+            <Can capability={Capability.Token.DELETE}>
               <Fab
                 icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
                 tooltip="Delete Tokens"
@@ -98,7 +101,7 @@ export default function TokensPageClient({
               />
             </Can>
           )}
-          <Can capability={Capability.Token.MANAGE}>
+          <Can capability={Capability.Token.CREATE}>
             <Fab
               icon={<FabAddIcon />}
               tooltip="Create API token"
@@ -110,7 +113,8 @@ export default function TokensPageClient({
       }
     >
       <TokensGrid
-        canCreate={canManage}
+        canCreate={canCreate}
+        canRefresh={canCreate}
         onCreateClick={handleOpenCreateModal}
         onRefreshToken={handleRefreshToken}
         onBulkActionsChange={handleBulkActionsChange}
