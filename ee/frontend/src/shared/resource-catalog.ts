@@ -284,6 +284,11 @@ export const RESOURCE_AREAS: readonly ResourceArea[] = [
         Capability.Role.READ,
         Capability.Recycle.VIEW,
         Capability.Recycle.RESTORE,
+        // Own API tokens. Kept out of VIEW, like the built-in Viewer role.
+        Capability.Token.CREATE,
+        Capability.Token.READ,
+        Capability.Token.UPDATE,
+        Capability.Token.DELETE,
       ],
       [CapabilityLevel.MANAGE]: [
         Capability.Organization.READ,
@@ -300,6 +305,10 @@ export const RESOURCE_AREAS: readonly ResourceArea[] = [
         Capability.Polyphemus.REQUEST,
         Capability.Role.READ,
         Capability.Role.MANAGE,
+        Capability.Token.CREATE,
+        Capability.Token.READ,
+        Capability.Token.UPDATE,
+        Capability.Token.DELETE,
         Capability.Token.MANAGE,
         Capability.Recycle.VIEW,
         Capability.Recycle.RESTORE,
