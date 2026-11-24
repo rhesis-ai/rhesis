@@ -490,7 +490,7 @@ class TestCheckEndpointConnectivity:
             check_endpoint_connectivity,
         )
 
-        endpoint = MagicMock()
+        endpoint = MagicMock(timeout_seconds=3600)
 
         mock_invoker = MagicMock()
         mock_invoker.invoke = AsyncMock(side_effect=asyncio.TimeoutError())
@@ -501,8 +501,34 @@ class TestCheckEndpointConnectivity:
         ):
             result = await check_endpoint_connectivity(endpoint, publish=False)
 
-        assert result.status == PreflightCheckStatus.FAILED
-        assert "timed out" in result.message.lower()
+        # Slower than the probe waits is not broken: the run waits the full timeout.
+        assert result.status == PreflightCheckStatus.WARNING
+        assert result.message == "Endpoint did not answer within 60s"
+        assert "3600s" in result.detail
+
+    @pytest.mark.asyncio
+    async def test_probe_waits_for_the_endpoint_timeout_up_to_the_limit(self):
+        from rhesis.backend.app.services.preflight.checks import (
+            check_endpoint_connectivity,
+        )
+
+        waits = []
+
+        async def _wait_for(coro, timeout):
+            waits.append(timeout)
+            return await coro
+
+        mock_invoker = MagicMock()
+        mock_invoker.invoke = AsyncMock(return_value={"output": "Hello!"})
+        with (
+            patch(self.CONV_TRACKER, return_value=False),
+            patch(self.CREATE_INVOKER, return_value=mock_invoker),
+            patch("asyncio.wait_for", _wait_for),
+        ):
+            await check_endpoint_connectivity(MagicMock(timeout_seconds=45), publish=False)
+            await check_endpoint_connectivity(MagicMock(timeout_seconds=3600), publish=False)
+
+        assert waits == [50, 60]
 
 
 class TestValidateMetricsLoadable:
