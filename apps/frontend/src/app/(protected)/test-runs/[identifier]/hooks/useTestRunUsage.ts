@@ -7,6 +7,7 @@ import { readActiveProjectId } from '@/utils/active-project';
 import { testRunUsageKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemetry';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 
 const POLL_MS = 3000;
 
@@ -87,6 +88,7 @@ export function useTestRunUsage(
   testRunId: string,
   isRunning = false
 ): TraceMetricsResponse | null {
+  const accessibilityMode = useAccessibilityMode();
   const { activeProject } = useActiveProject();
   const projectId = activeProject?.id
     ? String(activeProject.id)
@@ -111,7 +113,9 @@ export function useTestRunUsage(
         .getMetrics({ project_id: projectId, test_run_id: testRunId });
     },
     enabled: Boolean(projectId && testRunId),
+    // Accessibility mode: refreshed only by the header's Refresh button (2.2.2).
     refetchInterval: query => {
+      if (accessibilityMode) return false;
       const usage = query.state.data;
       const signature = usage ? signatureOf(usage) : '';
       const now = Date.now();

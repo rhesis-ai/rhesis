@@ -5,6 +5,7 @@ import { testRunKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { isTerminalRunStatus } from '@/constants/test-runs';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 
 const POLL_MS = 3000;
 
@@ -20,6 +21,7 @@ export function useLiveTestRun(
   testRunId: string,
   initialTestRun: TestRunDetail
 ): TestRunDetail {
+  const accessibilityMode = useAccessibilityMode();
   const { data } = useQuery<TestRunDetail>({
     queryKey: testRunKeys.detail(testRunId),
     queryFn: () =>
@@ -29,7 +31,10 @@ export function useLiveTestRun(
     // immediately re-requesting the same data; refetchInterval is what
     // keeps it fresh from here.
     refetchOnMount: false,
+    // Accessibility mode: no updates on their own; the header's Refresh button
+    // reloads instead (WCAG 2.2.2).
     refetchInterval: query => {
+      if (accessibilityMode) return false;
       const status = query.state.data?.status?.name?.toLowerCase() ?? '';
       return isTerminalRunStatus(status) ? false : POLL_MS;
     },
