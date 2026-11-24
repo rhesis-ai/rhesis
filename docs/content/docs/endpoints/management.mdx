@@ -87,9 +87,15 @@ Run identical tests against different endpoints to compare models, environments,
 
 ## Timeout
 
-Each endpoint has a **Timeout (seconds)** field in the Overview tab. Set it to override the system default for invocations against this endpoint. Valid values are 1 to 7200 (2 hours), or up to the server's `MAX_ENDPOINT_TIMEOUT` on a self-hosted deployment. Leave it empty to use the default: 30 seconds for REST endpoints, 120 seconds for SDK endpoints.
+Each endpoint has a **Timeout (seconds)** field in the Overview tab. Set it to override the system default for invocations against this endpoint. Valid values are 1 to 7200 (2 hours), or up to the server's `MAX_ENDPOINT_TIMEOUT` on a self-hosted deployment. Leave it empty to use the default: 30 seconds for REST and WebSocket endpoints, 120 seconds for SDK endpoints.
 
-The timeout applies to both test executions and single invocations. It is stored in `endpoint_metadata` and exposed as `timeout_seconds` in the API and SDK.
+The timeout covers one whole call, from sending the request to the last byte of the answer, for every connection type. It applies to test executions, single invocations and the SDK's `Endpoint.invoke()`. It is stored in `endpoint_metadata` and exposed as `timeout_seconds` in the API and SDK.
+
+A call that reaches its timeout fails and is not retried, because the endpoint may already have done the work. In a test run, failures that never reached the endpoint or that it reports as temporary (a refused connection, HTTP 429, 502, 503 or 504) are retried with backoff, honouring `Retry-After` up to the server's `MAX_INVOKE_RETRY_WAIT`.
+
+The test button in the endpoint form and on the endpoint page waits at most 5 minutes. For an endpoint with a longer timeout it says when it stopped waiting; test runs still wait the full timeout. The pre-run connectivity check waits up to 1 minute and reports a slower endpoint as a warning.
+
+If your API takes longer than the proxies in front of it allow a request to stay open, run it as an [SDK endpoint](/docs/endpoints/sdk-endpoints#long-running-jobs) instead.
 
 A test run also limits each test as a whole, covering every call it makes, including retries and every turn of a multi-turn test. That limit is the endpoint's timeout plus 5 minutes, and at least 30 minutes. It can only be shorter than the endpoint's timeout when `per_test_timeout` or the server's `MAX_PER_TEST_TIMEOUT` is set lower; the run then shows a warning. A test stopped by it is recorded with an error that says so. To change it for one run, pass `per_test_timeout` (seconds) in the run's execution options.
 

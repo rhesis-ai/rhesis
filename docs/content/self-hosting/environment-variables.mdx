@@ -52,7 +52,7 @@ A reverse proxy, ingress or load balancer in front of Rhesis needs these rules:
 |---|---|---|---|
 | Frontend (`FRONTEND_URL`) | `/ws` (exact) | backend, port 8080 | WebSocket upgrade allowed, read timeout of several minutes or more |
 | Frontend (`FRONTEND_URL`) | `/` | frontend, port 3000 | Must append the client to `X-Forwarded-For` |
-| API host | `/` | backend, port 8080 | For API clients only; browsers never call it |
+| API host | `/` | backend, port 8080 | For API clients only; browsers never call it. WebSocket upgrade allowed for the SDK connector (`/connector`). A read timeout at least `MAX_ENDPOINT_TIMEOUT` if clients call `Endpoint.invoke()` on slow endpoints; ingress-nginx defaults to 60 seconds |
 
 Rhesis reads the client IP from the right-most `X-Forwarded-For` entry, so put exactly one proxy in
 front of the frontend. With two (for example a CDN, then a load balancer), every user shows the inner
