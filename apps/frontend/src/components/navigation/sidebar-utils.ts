@@ -72,6 +72,18 @@ const NAV_CARD_ICON_SIZE = 24;
  * what made the plan row's label start at a different x-offset in the first
  * place.
  */
+/**
+ * Keyboard focus ring for sidebar rows, drawn inside the edge: the nav's
+ * scroll container and the footer card clip anything outside it (2.4.7).
+ */
+export const NAV_FOCUS_RING_SX = {
+  '&:focus-visible': {
+    outline: '2px solid',
+    outlineColor: 'primary.main',
+    outlineOffset: -2,
+  },
+} as const;
+
 export const navCardRowSx = ({ interactive = true } = {}) =>
   ({
     display: 'flex',
@@ -83,6 +95,7 @@ export const navCardRowSx = ({ interactive = true } = {}) =>
     ...(interactive
       ? {
           cursor: 'pointer',
+          ...NAV_FOCUS_RING_SX,
           '&:hover': {
             bgcolor: (theme: {
               palette: { greyscale: { surface1: string } };

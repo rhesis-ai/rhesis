@@ -13,7 +13,12 @@ import { useCan } from '@/components/common/Can';
 import { useAmbientPermissions } from '@/contexts/PermissionsContext';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { isNotificationSection } from '@/constants/notifications';
-import { isActive, collapsedNavItemSx, COUNT_BADGE_SX } from './sidebar-utils';
+import {
+  isActive,
+  collapsedNavItemSx,
+  COUNT_BADGE_SX,
+  NAV_FOCUS_RING_SX,
+} from './sidebar-utils';
 
 interface NavItemProps {
   item: NavigationPageItem;
@@ -74,6 +79,15 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
         textDecoration: 'none',
         cursor: 'pointer',
         bgcolor: active ? 'primary.dark' : 'transparent',
+        ...NAV_FOCUS_RING_SX,
+        // On the filled active item a primary ring wouldn't show.
+        ...(active && {
+          '&:focus-visible': {
+            outline: '2px solid',
+            outlineColor: 'primary.contrastText',
+            outlineOffset: -4,
+          },
+        }),
         '&:hover': {
           bgcolor: active
             ? 'primary.dark'

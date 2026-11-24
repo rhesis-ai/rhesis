@@ -135,9 +135,11 @@ export function ProviderPicker({
                 borderColor: 'primary.main',
                 boxShadow: ELEVATION.xs,
               },
-              '&:focus-visible': {
+              // Inside the edge: the picker's scroll area clips outside it.
+              '&:focus-visible, &.Mui-focusVisible': {
                 outline: '2px solid',
                 outlineColor: theme.palette.primary.main,
+                outlineOffset: -2,
               },
             })}
           >

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import IconButton from '@mui/material/IconButton';
@@ -171,8 +171,48 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
   );
 }
 
+/**
+ * After a client-side navigation from a nav link, focus stays on that link, so
+ * Tab carries on from the sidebar and the skip link comes last. A full page
+ * load starts at the top; this restores that (2.4.1, 2.4.3).
+ */
+function useFocusResetOnNavigation(
+  target: React.RefObject<HTMLElement | null>
+) {
+  const pathname = usePathname();
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    const active = document.activeElement;
+    const lostFocus =
+      !active || active === document.body || !document.contains(active);
+    // Only when the user navigated from a nav, so in-page tabs keep focus.
+    if (lostFocus || active.closest('nav')) {
+      target.current?.focus({ preventScroll: true });
+    }
+  }, [pathname, target]);
+}
+
 /** First focusable element: lets keyboard users skip the navigation (2.4.1). */
 function SkipLink() {
+  const resetTarget = useRef<HTMLDivElement>(null);
+  useFocusResetOnNavigation(resetTarget);
+  return (
+    <>
+      <Box
+        ref={resetTarget}
+        tabIndex={-1}
+        sx={{ position: 'absolute', outline: 'none' }}
+      />
+      <SkipLinkAnchor />
+    </>
+  );
+}
+
+function SkipLinkAnchor() {
   return (
     <Box
       component="a"

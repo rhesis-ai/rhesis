@@ -252,7 +252,7 @@ function RequirementGroupHeader({
             font: 'inherit',
             color: 'inherit',
             textAlign: 'left',
-            '&:focus-visible': { outline: 'none' },
+            '&:focus-visible, &.Mui-focusVisible': { outline: 'none' },
           }}
         >
           <ExpandMoreIcon
