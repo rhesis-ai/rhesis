@@ -7,6 +7,8 @@ test sets from Garak probes as Rhesis test sets.
 
 import logging
 import random
+from functools import partial
+from typing import Optional
 
 import anyio
 from fastapi import Depends, HTTPException
@@ -25,6 +27,7 @@ from rhesis.backend.app.error_handlers import PublicHTTPException
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota.enforcement import check_quota
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.garak import (
     GarakGenerateRequest,
@@ -49,7 +52,7 @@ from rhesis.backend.app.services.garak import (
 )
 from rhesis.backend.app.services.garak.taxonomy import resolve_requirement
 from rhesis.backend.app.utils.rate_limit import GENERATION_RATE_LIMIT
-from rhesis.backend.jobs import launch_job
+from rhesis.backend.jobs import launch_reserved_job
 from rhesis.backend.jobs.garak import import_garak_probes_task, sync_garak_test_set_task
 from rhesis.backend.jobs.test_set import generate_and_save_test_set
 
@@ -290,11 +293,12 @@ async def preview_import(
     status_code=202,
     dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
 )
-def import_probes(
+async def import_probes(
     request: GarakImportRequest,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    probe_service: GarakProbeService = Depends(get_probe_service),
     _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_GENERATION)),
     _job_capacity: None = Depends(require_job_capacity),
 ):
@@ -311,18 +315,26 @@ def import_probes(
     # probes itself in the background. We deliberately do NOT ship probe
     # data (prompts) through the Celery broker: a single "Full" probe
     # carries thousands of prompts, so a multi-probe import would push
-    # megabytes through the broker on one dispatch. Per-probe extraction in
-    # the worker is bounded to the selected classes and dwarfed by the
-    # test/prompt row writes the import does anyway. (The synchronous
-    # preview endpoints still reuse the warm cache — there blocking the
-    # request thread on enumeration is what we must avoid.)
-    task_result = launch_job(
-        import_garak_probes_task,
-        current_user=current_user,
-        db=db,
-        probes=[p.model_dump() for p in request.probes],
-        name_prefix=request.name_prefix,
-        description_template=request.description_template,
+    # megabytes through the broker on one dispatch. The warm cache only
+    # supplies the prompt counts the import will create, to reserve them.
+    _, probes_by_module = await _enumerate_probes(probe_service)
+    amount = _selected_prompt_count(probes_by_module, request.probes)
+    if amount is None:
+        raise HTTPException(status_code=400, detail="Some selected probes are not available")
+
+    task_result = await anyio.to_thread.run_sync(
+        partial(
+            launch_reserved_job,
+            import_garak_probes_task,
+            org=_quota_gate,
+            resource=QuotaResource.TEST_GENERATION,
+            amount=amount,
+            current_user=current_user,
+            db=db,
+            probes=[p.model_dump() for p in request.probes],
+            name_prefix=request.name_prefix,
+            description_template=request.description_template,
+        )
     )
 
     return GarakImportTaskResponse(
@@ -330,6 +342,23 @@ def import_probes(
         probe_count=len(request.probes),
         message=f"Import started for {len(request.probes)} probe(s).",
     )
+
+
+def _selected_prompt_count(probes_by_module: dict, selections) -> Optional[int]:
+    """How many tests importing *selections* creates, or None if one is not in the cache.
+
+    The worker can import a module the cache leaves out, so an unlisted
+    selection would create tests nobody reserved.
+    """
+    counts = {
+        (probe.module_name, probe.class_name): probe.prompt_count
+        for probes in probes_by_module.values()
+        for probe in probes
+    }
+    keys = [(s.module_name, s.class_name) for s in selections]
+    if any(key not in counts for key in keys):
+        return None
+    return sum(counts[key] for key in keys)
 
 
 def _build_sync_preview(
@@ -394,11 +423,12 @@ async def preview_sync(
     status_code=202,
     dependencies=[per_user_rate_limit(GENERATION_RATE_LIMIT)],
 )
-def sync_test_set(
+async def sync_test_set(
     test_set_id: str,
-    db: Session = Depends(get_tenant_db_session),
+    db: OffLoopSession = Depends(get_off_loop_tenant_session),
     tenant_context=Depends(get_tenant_context),
     current_user: User = Depends(require_current_user_or_token),
+    probe_service: GarakProbeService = Depends(get_probe_service),
     _quota_gate: Organization = Depends(require_quota(QuotaResource.TEST_GENERATION)),
     _job_capacity: None = Depends(require_job_capacity),
 ):
@@ -410,39 +440,62 @@ def sync_test_set(
     background task rather than blocking the request — returns HTTP 202
     Accepted with a `task_id` that can be polled via `GET /jobs/by-celery-id/{task_id}`.
     """
+    organization_id, _ = tenant_context
+    _, probes_by_module = await _enumerate_probes(probe_service)
     try:
-        organization_id, _ = tenant_context
-
-        sync_service = GarakSyncService(db)
-        # Validate the test set is syncable up front so an invalid request
-        # gets a synchronous 400 (via the ValueError handler below) instead of
-        # a background task that fails silently. This is a cheap metadata read
-        # — no probe extraction. The task re-resolves and extracts the probes
-        # itself in the background; we deliberately don't ship probe data
-        # (prompts) through the Celery broker (see import_probes for why).
-        sync_service.resolve_sync_target(test_set_id, organization_id)
-
-        task_result = launch_job(
-            sync_garak_test_set_task,
-            current_user=current_user,
-            db=db,
-            test_set_id=test_set_id,
-            entity_type="TestSet",
-            entity_id=test_set_id,
+        task_result = await anyio.to_thread.run_sync(
+            _launch_sync,
+            db,
+            probes_by_module,
+            test_set_id,
+            organization_id,
+            current_user,
+            _quota_gate,
         )
-
-        return GarakSyncTaskResponse(
-            task_id=str(task_result.id),
-            test_set_id=test_set_id,
-            message=f"Sync started for test set {test_set_id}.",
-        )
-
     except ValueError as e:
         logger.warning(f"Sync validation error: {e}")
         raise HTTPException(
             status_code=400,
             detail=str(e),
         ) from e
+
+    return GarakSyncTaskResponse(
+        task_id=str(task_result.id),
+        test_set_id=test_set_id,
+        message=f"Sync started for test set {test_set_id}.",
+    )
+
+
+def _launch_sync(
+    db: Session,
+    probes_by_module: dict,
+    test_set_id: str,
+    organization_id: str,
+    current_user: User,
+    org: Organization,
+):
+    """Validate the sync target, reserve the tests it would add, and launch the sync job."""
+    # Validate the test set is syncable up front so an invalid request gets a
+    # synchronous 400 (ValueError) instead of a background task that fails
+    # silently. The task re-resolves and extracts the probes itself; we
+    # deliberately don't ship probe data (prompts) through the Celery broker
+    # (see import_probes for why).
+    GarakSyncService(db).resolve_sync_target(test_set_id, organization_id)
+    preview = _build_sync_preview(db, probes_by_module, test_set_id, organization_id) or {}
+    if preview.get("can_sync") is False:
+        raise ValueError(preview.get("error") or "This test set cannot be synced")
+
+    return launch_reserved_job(
+        sync_garak_test_set_task,
+        org=org,
+        resource=QuotaResource.TEST_GENERATION,
+        amount=preview.get("to_add", 0),
+        current_user=current_user,
+        db=db,
+        test_set_id=test_set_id,
+        entity_type="TestSet",
+        entity_id=test_set_id,
+    )
 
 
 @router.post(
@@ -499,13 +552,23 @@ def generate_dynamic_probe(
     generator = GarakDynamicGenerator()
     config, probe_metadata = generator.build(probe_info)
 
-    # Choose a random test count in [100, 200] if the caller did not specify one
-    num_tests = request.num_tests if request.num_tests is not None else random.randint(100, 200)
+    num_tests = request.num_tests
+    if num_tests is None:
+        # A random count in [100, 200], capped at what the quota has left.
+        num_tests = random.randint(100, 200)
+        remaining = check_quota(
+            db, str(_quota_gate.id), _quota_gate, QuotaResource.TEST_GENERATION
+        ).remaining
+        if remaining is not None:
+            num_tests = max(min(num_tests, remaining), 1)
 
     test_set_name = request.name or f"Garak Dynamic: {probe_info.full_name}"
 
-    task_result = launch_job(
+    task_result = launch_reserved_job(
         generate_and_save_test_set,
+        org=_quota_gate,
+        resource=QuotaResource.TEST_GENERATION,
+        amount=num_tests,
         current_user=current_user,
         db=db,
         config=config.model_dump(),

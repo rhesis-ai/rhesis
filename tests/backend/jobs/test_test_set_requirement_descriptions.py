@@ -45,7 +45,7 @@ def _config_passed_to_synthesizer(test_type: str):
             "rhesis.backend.jobs.test_set._save_test_set_to_database",
             return_value=_fake_db_test_set(),
         ),
-        patch("rhesis.backend.jobs.test_set.dispatch_accrual"),
+        patch("rhesis.backend.app.services.usage.dispatch_accrual"),
     ):
         generate_and_save_test_set(
             config={

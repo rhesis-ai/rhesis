@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Dict, List, Optional
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, type_coerce
+from sqlalchemy import and_, func, or_, type_coerce, update
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session, joinedload
 
@@ -210,3 +210,35 @@ def count_active_jobs(
             )
             .scalar()
         ) or 0
+
+
+def claim_quota_reservation(db: Session, celery_task_id: str) -> Optional[dict]:
+    """Mark this task's quota reservation settled and return it, or None if there is none left.
+
+    One guarded update, so only one caller ever gets it back. Does not commit: the
+    caller settles the reservation in the same transaction.
+    """
+    job = models.Job
+    return db.execute(
+        update(job)
+        .where(
+            job.celery_task_id == celery_task_id,
+            job.quota_reservation.isnot(None),
+            job.quota_settled_at.is_(None),
+        )
+        .values(quota_settled_at=func.now())
+        .returning(job.quota_reservation)
+    ).scalar()
+
+
+def has_quota_reservation(db: Session, celery_task_id: str) -> bool:
+    """Whether this task's job row holds a quota reservation, settled or not."""
+    return (
+        db.query(models.Job.id)
+        .filter(
+            models.Job.celery_task_id == celery_task_id,
+            models.Job.quota_reservation.isnot(None),
+        )
+        .first()
+        is not None
+    )

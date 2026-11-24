@@ -316,6 +316,33 @@ class TestFlowResourceQuotaGate:
 
         assert response.status_code != status.HTTP_402_PAYMENT_REQUIRED, response.text
 
+    def test_owasp_generate_reserves_the_whole_request(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_org_id,
+        clean_registry,
+        _bypass_model_validation,
+    ):
+        """One unit fits, but the job would create ten: the route claims all ten
+        up front, so a request bigger than what is left gets a 402."""
+        from rhesis.backend.app.quota.enforcement import _read_usage
+
+        limit = 5
+        _install(
+            QuotaPolicy(limits={QuotaResource.TEST_GENERATION: limit}, overage=OveragePolicy.HARD)
+        )
+        increment_usage(test_db, test_org_id, QuotaResource.TEST_GENERATION, 2)
+        payload = {"purpose": "Customer service chatbot"}
+
+        too_big = authenticated_client.post("/owasp/generate", json={**payload, "num_tests": 10})
+        fits = authenticated_client.post("/owasp/generate", json={**payload, "num_tests": 3})
+
+        assert too_big.status_code == status.HTTP_402_PAYMENT_REQUIRED, too_big.text
+        assert too_big.json()["requested"] == 10
+        assert fits.status_code == status.HTTP_202_ACCEPTED, fits.text
+        assert _read_usage(test_db, test_org_id, QuotaResource.TEST_GENERATION) == 5
+
     def test_test_pipeline_at_the_limit_returns_402(
         self,
         authenticated_client: TestClient,

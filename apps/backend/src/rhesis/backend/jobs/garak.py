@@ -15,7 +15,6 @@ from typing import Any, Dict, List, Optional
 
 from rhesis.backend.app.models.enums import NotificationEventType
 from rhesis.backend.app.quota import QuotaResource
-from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.celery.core import app
 from rhesis.backend.jobs.base import EmailEnabledJob, email_notification, in_app_notification
 from rhesis.backend.notifications.email.template_service import EmailTemplate
@@ -39,6 +38,7 @@ def import_garak_probes_task(
     probes: List[Dict[str, Any]],
     name_prefix: Optional[str],
     description_template: Optional[str],
+    quota_reservation: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Import selected Garak probes as Rhesis test sets.
@@ -56,6 +56,7 @@ def import_garak_probes_task(
             dicts, from GarakProbeSelection.model_dump())
         name_prefix: Prefix for auto-generated test set names
         description_template: Optional description template
+        quota_reservation: What the route reserved for this import, if anything
 
     Returns:
         dict: Same shape as GarakImporter.import_probes() — test_sets,
@@ -89,11 +90,8 @@ def import_garak_probes_task(
 
     # Imported probes are generated tests same as the LLM generation path
     # (both ultimately create rows via bulk_create_test_set/bulk_create_tests),
-    # so they count toward the same TEST_GENERATION quota -- see
-    # tasks/test_set.py's own dispatch_accrual call for the pattern this
-    # mirrors. No session needed here: the accrual is queued and the worker
-    # task opens its own.
-    dispatch_accrual(org_id, QuotaResource.TEST_GENERATION, result["total_tests"])
+    # so they count toward the same TEST_GENERATION quota.
+    self.settle_quota(QuotaResource.TEST_GENERATION, result["total_tests"], quota_reservation)
 
     return result
 
@@ -112,6 +110,7 @@ def import_garak_probes_task(
 def sync_garak_test_set_task(
     self,
     test_set_id: str,
+    quota_reservation: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Sync a Garak-imported test set with the latest probe.
@@ -124,6 +123,7 @@ def sync_garak_test_set_task(
 
     Args:
         test_set_id: ID of the test set to sync
+        quota_reservation: What the route reserved for the tests it expects to add
 
     Returns:
         dict: Fields of GarakSyncService's SyncResult dataclass.
@@ -145,10 +145,7 @@ def sync_garak_test_set_task(
         f"{result.unchanged} unchanged"
     )
 
-    # Only `added` counts as generated tests -- `removed`/`unchanged` are not
-    # new rows, so accruing the whole result would overcount. See
-    # import_garak_probes_task's dispatch_accrual for why this counts the
-    # same way as the LLM generation path.
-    dispatch_accrual(org_id, QuotaResource.TEST_GENERATION, result.added)
+    # Only `added` counts as generated tests: `removed`/`unchanged` are not new rows.
+    self.settle_quota(QuotaResource.TEST_GENERATION, result.added, quota_reservation)
 
     return asdict(result)

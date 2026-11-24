@@ -63,6 +63,11 @@ class Job(Base, OrganizationAndUserMixin, ProjectMixin):
 
     job_metadata = Column(JSONB, nullable=True)
 
+    # What the launching route reserved (QuotaReservation.to_wire), and when it was
+    # settled; set once, by a guarded update (jobs/quota.py).
+    quota_reservation = Column(JSONB, nullable=True)
+    quota_settled_at = Column(DateTime(timezone=True), nullable=True)
+
     user = relationship("User", foreign_keys="[Job.user_id]", lazy="joined")
 
     @property
