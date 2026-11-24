@@ -353,21 +353,25 @@ class QuotaReservation:
                 exc_info=True,
             )
 
-    def _settle(self, db: Session, consumed: int) -> None:
+    def apply(self, db: Session, consumed: int) -> None:
+        """Accrue the overrun or release the unused part, without committing *db*."""
+        consumed = max(consumed, 0)
         if self.period_start is None:
             dispatch_accrual(self.org_id, self.resource, consumed)
-            return
-        if consumed > self.amount:
+        elif consumed > self.amount:
             dispatch_accrual(self.org_id, self.resource, consumed - self.amount)
-            return
-        unused = self.amount - consumed
-        try:
+        else:
+            unused = self.amount - consumed
             release_usage(db, self.org_id, self.resource, unused, self.period_start)
+
+    def _settle(self, db: Session, consumed: int) -> None:
+        try:
+            self.apply(db, consumed)
             db.commit()
         except Exception:
             # The work may have left the session in a failed transaction; retry on a clean one.
             db.rollback()
-            release_usage(db, self.org_id, self.resource, unused, self.period_start)
+            self.apply(db, consumed)
             db.commit()
 
 

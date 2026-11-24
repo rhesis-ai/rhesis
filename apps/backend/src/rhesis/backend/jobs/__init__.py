@@ -210,6 +210,7 @@ def launch_job(
                 entity_id=entity_id,
                 job_metadata=job_metadata,
                 trace_id=trace_id,
+                quota_reservation=kwargs.get("quota_reservation"),
             )
         except Exception as exc:
             logger.warning(f"Could not record job row before dispatch: {exc}", exc_info=True)

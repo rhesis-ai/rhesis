@@ -313,29 +313,29 @@ class BaseJob(Task):
 
         Without one (a job launched by plain ``launch_job``) the units are accrued.
         """
-        from rhesis.backend.app.quota.enforcement import QuotaReservation
         from rhesis.backend.app.services.usage import dispatch_accrual
 
         if not reservation:
             dispatch_accrual(self.get_tenant_context()[0], resource, consumed)
             return
-        claim = QuotaReservation.from_wire(reservation)
-        # After parsing, so a bad payload still leaves on_failure to release it;
-        # before settling, so a failure after this point does not release it again.
-        self.request.quota_settled = True
-        with self.get_db_session() as db:
-            claim.settle(db, consumed)
+        try:
+            self._settle_reservation(reservation, consumed)
+        except Exception as e:
+            # Logged, not raised: the work is saved, and a retry would redo it.
+            self.log_with_context(
+                "error",
+                "Could not settle the quota reservation",
+                error=str(e),
+                exception_type=type(e).__name__,
+            )
 
     def _release_quota_reservation(self, kwargs) -> None:
         """Give back a reservation the job will never settle, once it has failed for good."""
-        from rhesis.backend.app.quota.enforcement import QuotaReservation
-
-        raw = (kwargs or {}).get("quota_reservation")
-        if not raw or getattr(self.request, "quota_settled", False):
+        reservation = (kwargs or {}).get("quota_reservation")
+        if not reservation:
             return
         try:
-            with self.get_db_session() as db:
-                QuotaReservation.from_wire(raw).settle(db, 0)
+            self._settle_reservation(reservation, 0)
         except Exception as e:
             self.log_with_context(
                 "error",
@@ -343,6 +343,21 @@ class BaseJob(Task):
                 error=str(e),
                 exception_type=type(e).__name__,
             )
+
+    def _settle_reservation(self, reservation: dict, consumed: int) -> None:
+        from rhesis.backend.app.quota.enforcement import QuotaReservation
+        from rhesis.backend.jobs.quota import Settled, settle_job_reservation
+
+        result = settle_job_reservation(self.request.id, self.get_tenant_context(), consumed)
+        if result is not Settled.NO_ROW:
+            return
+        # No job row to guard it (recording is best effort): settle once per run instead.
+        if getattr(self.request, "quota_settled", False):
+            return
+        claim = QuotaReservation.from_wire(reservation)
+        self.request.quota_settled = True
+        with self.get_db_session() as db:
+            claim.settle(db, consumed)
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """Log failed task with context information."""

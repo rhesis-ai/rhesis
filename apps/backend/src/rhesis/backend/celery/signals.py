@@ -437,6 +437,27 @@ def handle_task_revoked(sender=None, request=None, **kw):
         # before_start has not copied them onto the request yet.
         headers = getattr(request, "headers", None) or {}
         _mark_job_cancelled(task_id, task_name, headers)
+        _release_quota_reservation(task_id, headers, getattr(request, "kwargs", None) or {})
+
+
+def _release_quota_reservation(task_id: str, headers: dict, task_kwargs: dict) -> None:
+    """Give back what the route reserved for a job that will now never settle it."""
+    from rhesis.backend.app.database import get_db_with_tenant_variables
+    from rhesis.backend.app.quota.enforcement import QuotaReservation
+    from rhesis.backend.jobs.quota import Settled, settle_job_reservation
+
+    reservation = task_kwargs.get("quota_reservation")
+    if not reservation:
+        return
+    tenant = (headers.get("organization_id"), headers.get("user_id"), headers.get("project_id"))
+    try:
+        if settle_job_reservation(task_id, tenant, 0) is not Settled.NO_ROW:
+            return
+        # No job row to guard it: the message's own copy is all there is.
+        with get_db_with_tenant_variables(*(value or "" for value in tenant)) as db:
+            QuotaReservation.from_wire(reservation).settle(db, 0)
+    except Exception as exc:
+        logger.warning(f"Could not release quota for revoked job {task_id}: {exc}", exc_info=True)
 
 
 def _mark_job_cancelled(task_id: str, task_name: str, headers: dict) -> None:
