@@ -128,6 +128,8 @@ class RetryConfig:
     DEFAULT_PING_TIMEOUT = int(os.environ.get("RHESIS_PING_TIMEOUT", "30"))  # seconds
     SLOW_RETRY_INTERVAL = 60  # seconds - wait between retry cycles
     REGISTRATION_DELAY = 0.5  # seconds - stabilization delay after connect
+    # A socket that stayed up this long resets the reconnect backoff when it drops.
+    STABLE_CONNECTION_SECONDS = 10.0
 
     # Exponential backoff params
     BACKOFF_MULTIPLIER = 1
