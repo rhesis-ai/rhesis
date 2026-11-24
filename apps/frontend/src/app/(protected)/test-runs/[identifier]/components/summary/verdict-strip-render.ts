@@ -183,7 +183,14 @@ export function describeStrip(label: string, cells: CellState[]): string {
     if (c === 'failed' || c === 'error') failurePositions.push(i + 1);
   });
 
-  const summary = `${label}: ${passed} of ${total} tests passed.`;
+  // Mid-run, say how many are unresolved, or "0 of 5 passed" reads as 5 failures.
+  const running = cells.filter(
+    c => c === 'pending' || c === 'generating' || c === 'evaluating'
+  ).length;
+  const summary =
+    running > 0
+      ? `${label}: ${passed} of ${total} tests passed, ${running} still running.`
+      : `${label}: ${passed} of ${total} tests passed.`;
   if (failurePositions.length === 0) return summary;
 
   if (failurePositions.length === 1) {
