@@ -96,16 +96,13 @@ export function DeleteModal({
       aria-describedby="delete-dialog-description"
       maxWidth="sm"
       fullWidth
-      PaperProps={
-        showTopBorder
-          ? {
-              sx: {
-                borderTop: '4px solid',
-                borderColor: 'error.main',
-              },
-            }
-          : undefined
-      }
+      PaperProps={{
+        // alertdialog: screen readers read the message on open, not just the title.
+        role: 'alertdialog',
+        ...(showTopBorder && {
+          sx: { borderTop: '4px solid', borderColor: 'error.main' },
+        }),
+      }}
     >
       <DialogTitle id="delete-dialog-title" sx={{ typography: 'h5' }}>
         {defaultTitle}
