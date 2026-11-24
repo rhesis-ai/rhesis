@@ -24,7 +24,7 @@ from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.test_set import TestSet
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
-from rhesis.backend.app.quota.enforcement import enforce_quota
+from rhesis.backend.app.quota.enforcement import reserve_quota
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas import services as services_schemas
 from rhesis.backend.app.schemas.base import MAX_BULK_ITEMS
@@ -144,139 +144,148 @@ def generate_test_set(
     Returns:
         Task information including task ID and estimated test count
     """
-    # The dependency checks one unit; the job accrues every generated test.
-    enforce_quota(
-        db,
-        str(_quota_gate.id),
-        _quota_gate,
-        QuotaResource.TEST_GENERATION,
-        amount=request.num_tests,
+    # The dependency checks one unit; this claims the whole request, before the
+    # pending test set exists, and the job settles it with what it generated.
+    reservation = reserve_quota(
+        db, str(_quota_gate.id), _quota_gate, QuotaResource.TEST_GENERATION, request.num_tests
     )
+    launched = False
     try:
-        # config.requirements and name are enforced by TestSetGenerationRequest,
-        # so they arrive non-empty and already stripped.
-        name = request.name
-
-        # Callers that already scope the request (the X-Project-Id header, or a
-        # project-bound API token) need not repeat the project in the body.
-        project_id = str(request.project_id) if request.project_id else scoped_project_id
-        if not project_id:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "A project_id is required to generate a test set. "
-                    "Send it in the request body or scope the request with "
-                    "the X-Project-Id header."
-                ),
-            )
-
-        # Resolve TestSetType for the pending row
-        from rhesis.backend.app.constants import TestSetType as TestSetTypeEnum
-
-        resolved_type = request.test_type or TestSetTypeEnum.SINGLE_TURN
-        # The Celery task and its downstream synthesizers expect the plain string.
-        test_type = resolved_type.value
-
-        # Pre-create a placeholder task_id so we can stamp the test set before launching
-        import uuid as _uuid
-
-        placeholder_task_id = str(_uuid.uuid4())
-
-        # Create the empty TestSet row up front so the frontend can redirect immediately
-        db_test_set = create_pending_test_set(
-            db=db,
-            name=name,
-            organization_id=str(current_user.organization_id),
-            user_id=str(current_user.id),
-            project_id=project_id,
-            task_id=placeholder_task_id,
-            requested_tests=request.num_tests,
-            test_type=resolved_type,
-            description=request.description,
-        )
-        db.commit()
-
-        # Read here, under the test set's project: the job's session has no project
-        # bound when the project came in the body, and RLS would hide project rows.
-        descriptions = requirement_descriptions_in_project(
-            db,
-            str(current_user.organization_id),
-            str(current_user.id),
-            project_id,
-            request.config.requirements,
-        )
-
-        # Launch background task with the pre-created test_set_id.
-        # If launch fails (broker down, serialisation error, etc.) mark the row
-        # as failed immediately so it never stays stuck at 'in_progress'.
         try:
-            task_result = launch_job(
-                generate_and_save_test_set,
-                current_user=current_user,
+            # config.requirements and name are enforced by TestSetGenerationRequest,
+            # so they arrive non-empty and already stripped.
+            name = request.name
+
+            # Callers that already scope the request (the X-Project-Id header, or a
+            # project-bound API token) need not repeat the project in the body.
+            project_id = str(request.project_id) if request.project_id else scoped_project_id
+            if not project_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "A project_id is required to generate a test set. "
+                        "Send it in the request body or scope the request with "
+                        "the X-Project-Id header."
+                    ),
+                )
+
+            # Resolve TestSetType for the pending row
+            from rhesis.backend.app.constants import TestSetType as TestSetTypeEnum
+
+            resolved_type = request.test_type or TestSetTypeEnum.SINGLE_TURN
+            # The Celery task and its downstream synthesizers expect the plain string.
+            test_type = resolved_type.value
+
+            # Pre-create a placeholder task_id so we can stamp the test set before launching
+            import uuid as _uuid
+
+            placeholder_task_id = str(_uuid.uuid4())
+
+            # Create the empty TestSet row up front so the frontend can redirect immediately
+            db_test_set = create_pending_test_set(
                 db=db,
-                celery_task_id=placeholder_task_id,
-                entity_type="TestSet",
-                entity_id=str(db_test_set.id),
-                config={**request.config.model_dump(), "requirement_descriptions": descriptions},
-                num_tests=request.num_tests,
-                batch_size=request.batch_size,
-                sources=[s.model_dump() for s in request.sources] if request.sources else None,
                 name=name,
-                test_type=test_type,
-                model_id=str(request.model_id) if request.model_id else None,
-                test_set_id=str(db_test_set.id),
+                organization_id=str(current_user.organization_id),
+                user_id=str(current_user.id),
+                project_id=project_id,
+                task_id=placeholder_task_id,
+                requested_tests=request.num_tests,
+                test_type=resolved_type,
+                description=request.description,
             )
-        except Exception as launch_err:
-            logger.error(
-                "Failed to launch test set generation task; marking TestSet as failed",
+            db.commit()
+
+            # Read here, under the test set's project: the job's session has no project
+            # bound when the project came in the body, and RLS would hide project rows.
+            descriptions = requirement_descriptions_in_project(
+                db,
+                str(current_user.organization_id),
+                str(current_user.id),
+                project_id,
+                request.config.requirements,
+            )
+
+            # Launch background task with the pre-created test_set_id.
+            # If launch fails (broker down, serialisation error, etc.) mark the row
+            # as failed immediately so it never stays stuck at 'in_progress'.
+            try:
+                task_result = launch_job(
+                    generate_and_save_test_set,
+                    current_user=current_user,
+                    db=db,
+                    celery_task_id=placeholder_task_id,
+                    entity_type="TestSet",
+                    entity_id=str(db_test_set.id),
+                    config={
+                        **request.config.model_dump(),
+                        "requirement_descriptions": descriptions,
+                    },
+                    num_tests=request.num_tests,
+                    batch_size=request.batch_size,
+                    sources=[s.model_dump() for s in request.sources] if request.sources else None,
+                    name=name,
+                    test_type=test_type,
+                    model_id=str(request.model_id) if request.model_id else None,
+                    test_set_id=str(db_test_set.id),
+                    quota_reservation=reservation.to_wire(),
+                )
+                launched = True
+            except Exception as launch_err:
+                logger.error(
+                    "Failed to launch test set generation task; marking TestSet as failed",
+                    extra={
+                        "test_set_id": str(db_test_set.id),
+                        "error": str(launch_err),
+                    },
+                )
+                # Refresh the row so we can safely mutate it after the previous commit.
+                db.refresh(db_test_set)
+                attrs = dict(db_test_set.attributes or {})
+                metadata = dict(attrs.get("metadata", {}))
+                generation = dict(metadata.get("generation", {}))
+                generation["status"] = "failed"
+                # GET /test_sets/{id} returns this verbatim, so it says no more than the
+                # response does -- a broker error carries the connection string with it.
+                generation["error"] = "Failed to start test set generation."
+                metadata["generation"] = generation
+                attrs["metadata"] = metadata
+                db_test_set.attributes = attrs
+                db.commit()
+                raise handle_execution_error(
+                    launch_err, operation="launch test set generation task", purpose="generation"
+                )
+
+            logger.info(
+                "Test set generation task launched",
                 extra={
+                    "task_id": task_result.id,
                     "test_set_id": str(db_test_set.id),
-                    "error": str(launch_err),
+                    "user_id": current_user.id,
+                    "organization_id": current_user.organization_id,
+                    "num_tests": request.num_tests,
                 },
             )
-            # Refresh the row so we can safely mutate it after the previous commit.
-            db.refresh(db_test_set)
-            attrs = dict(db_test_set.attributes or {})
-            metadata = dict(attrs.get("metadata", {}))
-            generation = dict(metadata.get("generation", {}))
-            generation["status"] = "failed"
-            # GET /test_sets/{id} returns this verbatim, so it says no more than the
-            # response does -- a broker error carries the connection string with it.
-            generation["error"] = "Failed to start test set generation."
-            metadata["generation"] = generation
-            attrs["metadata"] = metadata
-            db_test_set.attributes = attrs
-            db.commit()
-            raise handle_execution_error(
-                launch_err, operation="launch test set generation task", purpose="generation"
+
+            return TestSetGenerationResponse(
+                task_id=task_result.id,
+                test_set_id=str(db_test_set.id),
+                message=f"Test set generation started. "
+                f"You will be notified when {request.num_tests} tests are ready.",
+                estimated_tests=request.num_tests,
             )
 
-        logger.info(
-            "Test set generation task launched",
-            extra={
-                "task_id": task_result.id,
-                "test_set_id": str(db_test_set.id),
-                "user_id": current_user.id,
-                "organization_id": current_user.organization_id,
-                "num_tests": request.num_tests,
-            },
-        )
-
-        return TestSetGenerationResponse(
-            task_id=task_result.id,
-            test_set_id=str(db_test_set.id),
-            message=f"Test set generation started. "
-            f"You will be notified when {request.num_tests} tests are ready.",
-            estimated_tests=request.num_tests,
-        )
-
-    except HTTPException:
+        except HTTPException:
+            raise
+        except Exception as e:
+            http_exception = handle_execution_error(
+                e, operation="generate test set", purpose="generation"
+            )
+            raise http_exception
+    except BaseException:
+        # Settles once: a job that did launch owns the claim from here.
+        if not launched:
+            reservation.settle(db, 0)
         raise
-    except Exception as e:
-        http_exception = handle_execution_error(
-            e, operation="generate test set", purpose="generation"
-        )
-        raise http_exception
 
 
 @router.post("/bulk", response_model=schemas.TestSetBulkResponse)

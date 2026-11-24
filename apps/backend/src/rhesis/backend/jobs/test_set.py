@@ -600,6 +600,9 @@ def generate_and_save_test_set(
         self.set_entity("TestSet", str(db_test_set.id))
         self.emit(f"Saved {len(test_set.tests)} tests to test set")
 
+        # As soon as the tests are saved, the same as the OWASP job.
+        self.settle_quota(QuotaResource.TEST_GENERATION, len(test_set.tests), quota_reservation)
+
         # Build and return result
         result = _build_task_result(
             self,
@@ -612,8 +615,6 @@ def generate_and_save_test_set(
             user_id,
             tests_generated=len(test_set.tests),
         )
-
-        self.settle_quota(QuotaResource.TEST_GENERATION, len(test_set.tests), quota_reservation)
 
         self.log_with_context(
             "info",
