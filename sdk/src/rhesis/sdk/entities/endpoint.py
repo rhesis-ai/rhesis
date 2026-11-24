@@ -3,6 +3,7 @@ from typing import Any, ClassVar, Dict, Optional
 
 from rhesis.sdk.clients import APIClient, Methods
 from rhesis.sdk.clients import Endpoints as ApiEndpoints
+from rhesis.sdk.config import INVOKE_RESPONSE_MARGIN, MAX_ENDPOINT_TIMEOUT
 from rhesis.sdk.entities.base_collection import BaseCollection
 from rhesis.sdk.entities.base_entity import BaseEntity, handle_http_errors
 from rhesis.sdk.errors import RhesisAPIError
@@ -152,7 +153,12 @@ class Endpoint(BaseEntity):
             method=Methods.POST,
             data=input_data,
             url_params=f"{self.id}/invoke",
+            timeout=self._invoke_wait_seconds(),
         )
+
+    def _invoke_wait_seconds(self) -> float:
+        """How long invoke() waits: as long as the backend waits for the endpoint, plus a margin."""
+        return float((self.timeout_seconds or MAX_ENDPOINT_TIMEOUT) + INVOKE_RESPONSE_MARGIN)
 
     def test(self) -> None:
         try:

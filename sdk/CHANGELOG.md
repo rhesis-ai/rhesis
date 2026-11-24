@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `Endpoint.invoke()` waits as long as the backend waits for the endpoint, its `timeout_seconds` plus 30 seconds, instead of giving up after 30 seconds. An `Endpoint` built from just an id waits up to 7230 seconds, since its timeout isn't known.
+
 ### Fixed
 
 - The connector keeps each test and metric result until the backend acknowledges it, and resends unacknowledged results after reconnecting, and otherwise after 30 seconds, backing off to 5 minutes, paced at 200 per second. Against a backend without acknowledgements it keeps a result only while it cannot be sent. It keeps at most 1000 results for at most 10 minutes, logging each one it drops, and drops a result that cannot be serialized instead of retrying it.

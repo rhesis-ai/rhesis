@@ -389,3 +389,29 @@ class TestEndpointTimeoutSeconds:
             {"name": "ep", "connection_type": "REST", "timeout_seconds": 300}
         )
         assert endpoint.timeout_seconds == 300
+
+
+class TestEndpointInvokeTimeout:
+    """invoke() waits as long as the backend waits for the endpoint, plus a margin."""
+
+    @pytest.mark.parametrize(
+        "connection_type,timeout_seconds,expected",
+        [
+            (ConnectionType.REST, 3600, 3630.0),
+            (ConnectionType.REST, 30, 60.0),
+            # Built from just an id: the timeout isn't known, so wait the longest allowed.
+            (None, None, 7230.0),
+        ],
+    )
+    @patch("requests.request")
+    def test_invoke_waits_for_the_endpoint_timeout(
+        self, mock_request, connection_type, timeout_seconds, expected
+    ):
+        mock_request.return_value = MagicMock(json=MagicMock(return_value={"output": "ok"}))
+        endpoint = Endpoint(
+            id="ep-1", connection_type=connection_type, timeout_seconds=timeout_seconds
+        )
+
+        endpoint.invoke(input="hi")
+
+        assert mock_request.call_args.kwargs["timeout"] == expected
