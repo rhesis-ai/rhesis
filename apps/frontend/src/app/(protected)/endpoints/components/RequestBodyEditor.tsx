@@ -18,6 +18,7 @@ import { editorContainerSx } from './endpoint-styles';
 import VariableChip from './VariableChip';
 import { SYSTEM_PROMPT_CHIP, SYSTEM_PROMPT_KEY } from './mapping-variables';
 import EditorKeyboardHint from '@/components/common/EditorKeyboardHint';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 
 // Injected once — colors {{ ... }} template tokens inline inside Monaco
 const DECORATION_CSS_ID = 'rhesis-template-decoration-css';
@@ -129,6 +130,7 @@ export default function RequestBodyEditor({
   const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
 
   const editorRef = useRef<EditorInstance | null>(null);
+  const accessibilityMode = useAccessibilityMode();
   const monacoRef = useRef<MonacoInstance | null>(null);
   const decorationsRef = useRef<string[]>([]);
   const [filesAnchor, setFilesAnchor] = React.useState<null | HTMLElement>(
@@ -322,6 +324,7 @@ export default function RequestBodyEditor({
           formatOnType: true,
           formatOnPaste: true,
           ariaLabel: 'Request body template (JSON)',
+          tabFocusMode: accessibilityMode,
         }}
       />
       <Box sx={{ px: 1, pb: 0.5 }}>

@@ -3,6 +3,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import EditorKeyboardHint from '@/components/common/EditorKeyboardHint';
+import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import { useTheme } from '@mui/material/styles';
 import dynamic from 'next/dynamic';
 import type { OnMount } from '@monaco-editor/react';
@@ -103,6 +104,7 @@ export default function HeadersEditor({
 }: HeadersEditorProps) {
   const theme = useTheme();
   const editorRef = useRef<Editor | null>(null);
+  const accessibilityMode = useAccessibilityMode();
   const monacoRef = useRef<Parameters<OnMount>[1] | null>(null);
   const decorationsRef = useRef<string[]>([]);
   const authTokenRef = useRef(authToken);
@@ -256,6 +258,7 @@ export default function HeadersEditor({
             fontSize: CODE_FONT_SIZE,
             wordWrap: 'on',
             ariaLabel: 'Request headers (JSON)',
+            tabFocusMode: accessibilityMode,
           }}
         />
       </Box>
