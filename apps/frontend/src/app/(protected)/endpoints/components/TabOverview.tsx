@@ -33,7 +33,8 @@ import { Capability } from '@/constants/capabilities';
 import JsonMonacoField from '../[identifier]/components/JsonMonacoField';
 import type { FormData } from './EndpointForm';
 import { jsonFieldSx } from './endpoint-styles';
-import { MAX_TIMEOUT_SECONDS, timeoutSecondsError } from './timeoutSeconds';
+import { timeoutSecondsError } from './timeoutSeconds';
+import { useMaxEndpointTimeoutSeconds } from '@/contexts/FeaturesContext';
 
 const VERSION_INFO_DOCS_URL =
   'https://docs.rhesis.ai/docs/endpoints/management#version-information';
@@ -152,6 +153,7 @@ export default function TabOverview({
   versionInfoError = null,
 }: TabOverviewProps) {
   const theme = useTheme();
+  const maxTimeoutSeconds = useMaxEndpointTimeoutSeconds();
   const editorTheme = theme.palette.mode === 'dark' ? 'vs-dark' : 'light';
   // Optional, so the editor starts closed unless there's already something in it.
   const [versionInfoOpen, setVersionInfoOpen] = useState(() =>
@@ -327,12 +329,15 @@ export default function TabOverview({
           value={formData.timeout_seconds}
           onChange={e => onChange('timeout_seconds', e.target.value)}
           placeholder="30"
-          error={Boolean(timeoutSecondsError(formData.timeout_seconds))}
+          error={Boolean(
+            timeoutSecondsError(formData.timeout_seconds, maxTimeoutSeconds)
+          )}
           helperText={
-            timeoutSecondsError(formData.timeout_seconds) ?? undefined
+            timeoutSecondsError(formData.timeout_seconds, maxTimeoutSeconds) ??
+            undefined
           }
           slotProps={{
-            htmlInput: { min: 1, max: MAX_TIMEOUT_SECONDS, step: 1 },
+            htmlInput: { min: 1, max: maxTimeoutSeconds, step: 1 },
           }}
         />
       </Stack>

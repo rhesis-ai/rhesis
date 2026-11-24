@@ -22,6 +22,11 @@ import EditableField from '@/components/common/EditableField';
 import ViewField from '@/components/common/ViewField';
 import { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { useEndpointDetailContext } from './EndpointDetailContext';
+import { useMaxEndpointTimeoutSeconds } from '@/contexts/FeaturesContext';
+import {
+  parseTimeoutSeconds,
+  timeoutSecondsError,
+} from '../../components/timeoutSeconds';
 import { ENVIRONMENTS } from './endpoint-detail-shared';
 import {
   formatConfigSource,
@@ -58,6 +63,7 @@ export default function EndpointOverviewTab() {
   const a11yId = useId();
   const { endpoint, projects, saveFields } = useEndpointDetailContext();
   const canEditEndpoint = useCan(Capability.Endpoint.UPDATE);
+  const maxTimeoutSeconds = useMaxEndpointTimeoutSeconds();
 
   const detailsInitial = useMemo(
     () => detailsFromEndpoint(endpoint),
@@ -77,13 +83,17 @@ export default function EndpointOverviewTab() {
         title="Endpoint details"
         initialValue={detailsInitial}
         onSave={async draft => {
-          const parsedTimeout = parseInt(draft.timeout_seconds, 10);
+          // Stay in edit mode; the field shows why.
+          if (timeoutSecondsError(draft.timeout_seconds, maxTimeoutSeconds)) {
+            return false;
+          }
           await saveFields({
             name: draft.name,
             description: draft.description,
             environment: draft.environment as Endpoint['environment'],
             timeout_seconds:
-              !isNaN(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : null,
+              parseTimeoutSeconds(draft.timeout_seconds, maxTimeoutSeconds) ??
+              null,
             disable_tracing: draft.disable_tracing,
           });
         }}
@@ -182,9 +192,23 @@ export default function EndpointOverviewTab() {
                     }))
                   }
                   placeholder="30"
-                  helperText="Leave empty for the system default (30s for REST, 120s for SDK endpoints)"
+                  error={Boolean(
+                    timeoutSecondsError(
+                      draft.timeout_seconds,
+                      maxTimeoutSeconds
+                    )
+                  )}
+                  helperText={
+                    timeoutSecondsError(
+                      draft.timeout_seconds,
+                      maxTimeoutSeconds
+                    ) ??
+                    'Leave empty for the system default (30s for REST, 120s for SDK endpoints)'
+                  }
                   slotProps={{
-                    input: { inputProps: { min: 1 } },
+                    input: {
+                      inputProps: { min: 1, max: maxTimeoutSeconds, step: 1 },
+                    },
                   }}
                 />
               ) : (

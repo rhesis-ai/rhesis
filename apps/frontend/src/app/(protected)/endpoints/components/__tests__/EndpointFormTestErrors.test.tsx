@@ -190,11 +190,11 @@ describe('Endpoint create drawer — steps and submit', () => {
     renderDrawer();
     await user.type(screen.getByLabelText(/endpoint name/i), 'My Endpoint');
     fireEvent.change(screen.getByLabelText('Seconds'), {
-      target: { value: '5000' },
+      target: { value: '9000' },
     });
 
     expect(
-      screen.getByText('Enter whole seconds from 1 to 3600.')
+      screen.getByText('Enter whole seconds from 1 to 7200.')
     ).toBeInTheDocument();
     expect(nextButton()).toBeDisabled();
 
