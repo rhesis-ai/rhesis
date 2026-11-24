@@ -94,12 +94,17 @@ export async function waitForDrawerHeadingHidden(
 /** UUID that is valid but unlikely to exist in Quick Start seed data. */
 export const NON_EXISTENT_UUID = '00000000-0000-0000-0000-000000000099';
 
+// DeleteModal is an alertdialog; some other delete confirmations are plain dialogs.
+function deleteDialog(page: Page) {
+  return page.getByRole('alertdialog').or(page.getByRole('dialog'));
+}
+
 /**
  * Confirm a MUI deletion dialog by clicking the primary destructive button.
  * Waits for the dialog to close after confirmation.
  */
 export async function confirmDeleteDialog(page: Page) {
-  const dialog = page.getByRole('dialog');
+  const dialog = deleteDialog(page);
   await dialog.getByRole('button', { name: /delete/i }).click();
   await dialog.waitFor({ state: 'hidden', timeout: 15_000 });
 }
@@ -108,7 +113,7 @@ export async function confirmDeleteDialog(page: Page) {
  * Cancel a MUI deletion dialog by clicking the Cancel button.
  */
 export async function cancelDeleteDialog(page: Page) {
-  const dialog = page.getByRole('dialog');
+  const dialog = deleteDialog(page);
   await dialog.getByRole('button', { name: /cancel/i }).click();
   await dialog.waitFor({ state: 'hidden', timeout: 10_000 });
 }
