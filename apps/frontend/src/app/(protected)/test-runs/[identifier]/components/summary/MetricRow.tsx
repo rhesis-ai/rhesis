@@ -148,7 +148,8 @@ function MetricRowInner({
         <Tooltip title={fullName} placement="top" arrow>
           <Typography
             variant="body2"
-            noWrap
+            // Accessibility mode wraps long names instead of truncating them.
+            noWrap={!theme.palette.accessibilityMode}
             sx={{ display: 'block', maxWidth: '100%' }}
           >
             {trimmedName}

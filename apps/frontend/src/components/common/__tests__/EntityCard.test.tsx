@@ -1,7 +1,9 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
 import EntityCard from '../EntityCard';
+import { getDesignTokens } from '@/styles/theme';
 
 const defaultProps = {
   icon: <span data-testid="icon">★</span>,
@@ -258,6 +260,33 @@ describe('EntityCard', () => {
       expect(screen.getByText('My Entity')).toHaveStyle({
         paddingRight: '36px',
       });
+    });
+  });
+});
+
+describe('EntityCard description in accessibility mode', () => {
+  const themed = (accessibilityMode: boolean) =>
+    createTheme(getDesignTokens('light', { accessibilityMode }));
+
+  it('clips a long description to its line count by default', () => {
+    render(
+      <ThemeProvider theme={themed(false)}>
+        <EntityCard {...defaultProps} />
+      </ThemeProvider>
+    );
+    expect(screen.getByTestId('entity-card-description')).toHaveStyle({
+      overflow: 'hidden',
+    });
+  });
+
+  it('shows the whole description, so larger text spacing cannot cut it off', () => {
+    render(
+      <ThemeProvider theme={themed(true)}>
+        <EntityCard {...defaultProps} />
+      </ThemeProvider>
+    );
+    expect(screen.getByTestId('entity-card-description')).not.toHaveStyle({
+      overflow: 'hidden',
     });
   });
 });
