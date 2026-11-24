@@ -18,10 +18,15 @@ from rhesis.backend.app.utils.response_extractor import (
     summarize_endpoint_failure,
     truncate_for_narration,
 )
-from rhesis.backend.jobs.execution.batch.context import ExecutionContext
+from rhesis.backend.jobs.execution.batch.context import ExecutionContext, per_test_timeout_error
 from rhesis.backend.jobs.execution.batch.evaluation import evaluate_metrics
 from rhesis.backend.jobs.execution.batch.invocation import is_multi_turn_test, run_test
-from rhesis.backend.jobs.execution.shared import RUN_TIME_LIMIT_ERROR, is_task_revoked
+from rhesis.backend.jobs.execution.shared import (
+    CALL_TIMEOUT_ERROR,
+    PER_TEST_TIMEOUT_ERROR,
+    RUN_TIME_LIMIT_ERROR,
+    is_task_revoked,
+)
 from rhesis.sdk.models.base import ModelCallRefused
 
 logger = logging.getLogger(__name__)
@@ -142,7 +147,14 @@ def _is_retriable_failure(result: Dict[str, Any]) -> bool:
         return False
 
     error = result.get("error", "")
-    if error.startswith(("Timeout after", "Test data not pre-fetched", RUN_TIME_LIMIT_ERROR)):
+    if error.startswith(
+        (
+            PER_TEST_TIMEOUT_ERROR,
+            CALL_TIMEOUT_ERROR,
+            "Test data not pre-fetched",
+            RUN_TIME_LIMIT_ERROR,
+        )
+    ):
         return False
     return True
 
@@ -534,6 +546,7 @@ async def _execute_single_test(
         penelope_metrics: Dict[str, Any] = {}
         metrics_results: Dict[str, Any] = {}
 
+        per_test_limit = asyncio.timeout(ctx.per_test_timeout)
         try:
             # --- Run the test ---
             try:
@@ -547,7 +560,8 @@ async def _execute_single_test(
                     deferred_traces,
                     penelope_agent,
                 )
-                result = await asyncio.wait_for(coro, timeout=ctx.per_test_timeout)
+                async with per_test_limit:
+                    result = await coro
                 output = result.get("output", {})
                 penelope_metrics = result.get("penelope_metrics", {})
                 deferred_traces = result.get("deferred_traces", deferred_traces)
@@ -558,12 +572,20 @@ async def _execute_single_test(
                         on_test_phase(test_id, TestPhase.EVALUATING)
                     except Exception:
                         logger.debug("on_test_phase(evaluating) failed", exc_info=True)
-            except asyncio.TimeoutError:
+            except TimeoutError as e:
+                if not per_test_limit.expired():
+                    # Raised inside the test after its own retries, not by this limit.
+                    logger.error(f"[BATCH] Test {test_id} failed: {e!r}", exc_info=True)
+                    failure = _failure_result(test_id, e, (time.monotonic() - start_time) * 1000)
+                    failure["error"] = (
+                        f"{CALL_TIMEOUT_ERROR}: {e}" if str(e) else CALL_TIMEOUT_ERROR
+                    )
+                    return failure
                 logger.error(f"[BATCH] Test {test_id} timed out after {ctx.per_test_timeout}s")
                 return {
                     "test_id": test_id,
                     "status": "failed",
-                    "error": f"Timeout after {ctx.per_test_timeout}s",
+                    "error": per_test_timeout_error(ctx),
                     "execution_time": (time.monotonic() - start_time) * 1000,
                 }
             except Exception as e:
