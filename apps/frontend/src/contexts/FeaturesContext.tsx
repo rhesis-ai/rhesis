@@ -17,7 +17,10 @@
  * silently at runtime.
  */
 
-import { DEFAULT_MAX_TIMEOUT_SECONDS } from '@/constants/endpoint-timeout';
+import {
+  DEFAULT_ENDPOINT_TIMEOUT_SECONDS,
+  DEFAULT_MAX_TIMEOUT_SECONDS,
+} from '@/constants/endpoint-timeout';
 import { FeatureName } from '@/constants/features';
 import { featureKeys } from '@/constants/query-keys';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
@@ -53,6 +56,8 @@ interface FeaturesState {
   modelsReady: boolean | null;
   /** `null` means unknown; read it through `useMaxEndpointTimeoutSeconds`. */
   maxEndpointTimeoutSeconds: number | null;
+  /** `null` means unknown; read it through `useDefaultEndpointTimeoutSeconds`. */
+  defaultEndpointTimeoutSeconds: Readonly<Record<string, number>> | null;
   loading: boolean;
   error: Error | null;
 }
@@ -67,6 +72,7 @@ const DEFAULT_STATE: FeaturesState = {
   rhesisKeyEnabled: false,
   modelsReady: null,
   maxEndpointTimeoutSeconds: null,
+  defaultEndpointTimeoutSeconds: null,
   loading: true,
   error: null,
 };
@@ -122,6 +128,7 @@ export function FeaturesProvider({
         rhesisKeyEnabled: false,
         modelsReady: null,
         maxEndpointTimeoutSeconds: null,
+        defaultEndpointTimeoutSeconds: null,
         loading: false,
         error: error instanceof Error ? error : new Error(String(error)),
       };
@@ -139,6 +146,8 @@ export function FeaturesProvider({
       rhesisKeyEnabled: data.rhesis_key_enabled ?? false,
       modelsReady: data.models_ready ?? null,
       maxEndpointTimeoutSeconds: data.max_endpoint_timeout_seconds ?? null,
+      defaultEndpointTimeoutSeconds:
+        data.default_endpoint_timeout_seconds ?? null,
       loading: false,
       error: null,
     };
@@ -240,6 +249,22 @@ export function useMaxEndpointTimeoutSeconds(): number {
   return (
     useContext(FeaturesContext).maxEndpointTimeoutSeconds ??
     DEFAULT_MAX_TIMEOUT_SECONDS
+  );
+}
+
+/**
+ * The timeout an endpoint of this connection type gets when it sets none, from
+ * the server. Falls back to the built-in defaults while loading or on an older
+ * backend.
+ */
+export function useDefaultEndpointTimeoutSeconds(
+  connectionType: string
+): number {
+  const fromServer = useContext(FeaturesContext).defaultEndpointTimeoutSeconds;
+  return (
+    fromServer?.[connectionType] ??
+    DEFAULT_ENDPOINT_TIMEOUT_SECONDS[connectionType] ??
+    DEFAULT_ENDPOINT_TIMEOUT_SECONDS.REST
   );
 }
 

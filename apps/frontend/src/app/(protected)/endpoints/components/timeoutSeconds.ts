@@ -1,4 +1,8 @@
-import { DEFAULT_MAX_TIMEOUT_SECONDS } from '@/constants/endpoint-timeout';
+import {
+  DEFAULT_ENDPOINT_TIMEOUT_SECONDS,
+  DEFAULT_MAX_TIMEOUT_SECONDS,
+  LONG_REQUEST_LIMIT_SECONDS,
+} from '@/constants/endpoint-timeout';
 
 // `max` is the server's MAX_ENDPOINT_TIMEOUT, from useMaxEndpointTimeoutSeconds().
 
@@ -26,18 +30,23 @@ export function parseTimeoutSeconds(
     : undefined;
 }
 
-// The backend's REST default, and the proxy's budget for test calls
-// (LONG_RUNNING_TIMEOUT_MS in utils/backend-proxy.ts).
-const DEFAULT_TIMEOUT_SECONDS = 30;
-const TEST_PROXY_LIMIT_SECONDS = 300;
+/** How long one call may take: the endpoint's timeout, else its connection type's default. */
+export function endpointTimeoutSeconds(
+  value: string,
+  max: number = DEFAULT_MAX_TIMEOUT_SECONDS,
+  defaultSeconds: number = DEFAULT_ENDPOINT_TIMEOUT_SECONDS.REST
+): number {
+  return parseTimeoutSeconds(value, max) ?? defaultSeconds;
+}
 
 /** How long a test from the UI can wait at most: the endpoint's timeout, capped by the proxy. */
 export function testWaitSeconds(
   value: string,
-  max: number = DEFAULT_MAX_TIMEOUT_SECONDS
+  max: number = DEFAULT_MAX_TIMEOUT_SECONDS,
+  defaultSeconds: number = DEFAULT_ENDPOINT_TIMEOUT_SECONDS.REST
 ): number {
   return Math.min(
-    parseTimeoutSeconds(value, max) ?? DEFAULT_TIMEOUT_SECONDS,
-    TEST_PROXY_LIMIT_SECONDS
+    endpointTimeoutSeconds(value, max, defaultSeconds),
+    LONG_REQUEST_LIMIT_SECONDS
   );
 }

@@ -52,6 +52,8 @@ interface TabTestProps {
   testStartedAt?: number | null;
   /** The longest a test can wait: the endpoint's timeout, capped by the proxy. */
   maxWaitSeconds?: number;
+  /** The endpoint's own timeout, which test runs wait for in full. */
+  endpointTimeoutSeconds?: number;
   onCancelTest?: () => void;
   onRunTest: (inputData: Record<string, unknown>) => void;
 }
@@ -99,6 +101,7 @@ export default function TabTest({
   isTestingEndpoint,
   testStartedAt,
   maxWaitSeconds,
+  endpointTimeoutSeconds,
   onCancelTest,
   onRunTest,
 }: TabTestProps) {
@@ -234,6 +237,7 @@ export default function TabTest({
             isTesting={isTestingEndpoint}
             startedAt={testStartedAt}
             maxWaitSeconds={maxWaitSeconds}
+            endpointTimeoutSeconds={endpointTimeoutSeconds}
             onCancel={onCancelTest}
             subtitle="What your API returned, and the value Rhesis reads for each variable."
             emptyText="Fill in the test values and click Send test request."
