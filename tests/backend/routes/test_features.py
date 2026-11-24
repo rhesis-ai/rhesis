@@ -171,8 +171,10 @@ class TestFeaturesEndpoint:
             "models_ready",
             "embedding_model_ready",
             "max_endpoint_timeout_seconds",
+            "default_endpoint_timeout_seconds",
         }
         assert body["max_endpoint_timeout_seconds"] == 7200
+        assert body["default_endpoint_timeout_seconds"] == {"REST": 30, "WebSocket": 30, "SDK": 120}
         assert set(body["license"].keys()) == {"edition", "licensed", "is_paid"}
         # `plan` is the client's whole contract for displaying a plan: a label
         # to render verbatim, plus the two booleans that decide styling and

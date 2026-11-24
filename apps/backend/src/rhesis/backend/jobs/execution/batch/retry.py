@@ -28,15 +28,21 @@ def _is_transient(exc: BaseException) -> bool:
     """Return ``True`` for exceptions that should trigger a retry."""
     if isinstance(exc, EndpointInvocationError):
         return exc.transient
-    return isinstance(exc, (TimeoutError, ConnectionError, OSError))
+    # A timed-out call may have done its work; TimeoutError is an OSError, so check it first.
+    if isinstance(exc, TimeoutError):
+        return False
+    return isinstance(exc, (ConnectionError, OSError))
 
 
-def _make_wait(min_wait: float, max_wait: float) -> Callable[[RetryCallState], float]:
+def _make_wait(
+    min_wait: float, max_wait: float, retry_after_cap: float
+) -> Callable[[RetryCallState], float]:
     """Return a tenacity wait callable that honours ``Retry-After`` headers.
 
     When the failed attempt raised an ``EndpointInvocationError`` that
     carries a ``retry_after`` value (parsed from the endpoint's
-    ``Retry-After`` response header), that value is used as-is.
+    ``Retry-After`` response header), that value is used, up to
+    ``retry_after_cap`` so one header can't park a test for hours.
     Otherwise falls back to exponential backoff with jitter so that
     callers don't all hammer the endpoint at the same moment.
     """
@@ -45,8 +51,11 @@ def _make_wait(min_wait: float, max_wait: float) -> Callable[[RetryCallState], f
     def _wait(retry_state: RetryCallState) -> float:
         exc = retry_state.outcome.exception() if retry_state.outcome else None
         if isinstance(exc, EndpointInvocationError) and exc.retry_after is not None:
-            logger.debug("Honouring Retry-After=%.1fs from endpoint", exc.retry_after)
-            return exc.retry_after
+            wait = min(exc.retry_after, retry_after_cap)
+            logger.debug(
+                "Honouring Retry-After=%.1fs from endpoint (waiting %.1fs)", exc.retry_after, wait
+            )
+            return wait
         return _exp_jitter(retry_state)
 
     return _wait
@@ -89,6 +98,7 @@ async def invoke_with_retry(
     min_wait: float = 1.0,
     max_wait: float = 30.0,
     label: str = "invoke_endpoint",
+    retry_after_cap: float | None = None,
 ) -> Any:
     """Call *coro_factory* up to *max_attempts* times with exponential backoff.
 
@@ -97,7 +107,7 @@ async def invoke_with_retry(
 
     The function retries when it catches an ``EndpointInvocationError``
     with ``transient=True``, or a recognised transient stdlib exception
-    (``TimeoutError``, ``ConnectionError``, ``OSError``).
+    (``ConnectionError``, ``OSError``). A ``TimeoutError`` is never retried.
 
     If the coroutine returns an ``ErrorResponse`` (the invoker signals
     an endpoint-level error without raising), the response is classified
@@ -107,7 +117,8 @@ async def invoke_with_retry(
     When the endpoint responds with a ``Retry-After`` header (e.g. on
     HTTP 429), the parsed value on ``EndpointInvocationError.retry_after``
     is used as the wait duration instead of the default exponential
-    backoff, so callers respect the endpoint's rate-limit window.
+    backoff, so callers respect the endpoint's rate-limit window. It is
+    capped by ``retry_after_cap``, which defaults to ``MAX_INVOKE_RETRY_WAIT``.
 
     Returns:
         The value returned by the coroutine on success.
@@ -116,10 +127,15 @@ async def invoke_with_retry(
         EndpointInvocationError: When all attempts are exhausted or a
             permanent failure is detected.
     """
+    if retry_after_cap is None:
+        from rhesis.backend.app.config.settings import get_job_limit_settings
+
+        retry_after_cap = get_job_limit_settings().max_invoke_retry_wait
+
     retrier = AsyncRetrying(
         retry=retry_if_exception(_is_transient),
         stop=stop_after_attempt(max_attempts),
-        wait=_make_wait(min_wait, max_wait),
+        wait=_make_wait(min_wait, max_wait, retry_after_cap),
         before_sleep=_log_before_retry(label),
         reraise=True,
     )

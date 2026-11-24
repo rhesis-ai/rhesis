@@ -69,7 +69,7 @@ def effective_endpoint_timeout(endpoint: Any) -> Optional[float]:
     endpoints. The REST default (30s) is left out: it never moves the per-test floor.
     """
     from rhesis.backend.app.models.enums import EndpointConnectionType
-    from rhesis.backend.app.services.invokers.sdk_invoker import SDK_FUNCTION_TIMEOUT
+    from rhesis.backend.app.services.invokers.common.timeouts import SDK_FUNCTION_TIMEOUT
 
     timeout = getattr(endpoint, "timeout_seconds", None)
     if timeout:

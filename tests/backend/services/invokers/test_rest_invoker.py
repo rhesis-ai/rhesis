@@ -178,10 +178,10 @@ class TestRestEndpointInvoker:
             result = await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
 
         host = urlparse(sample_endpoint_rest.url).netloc
-        assert result.error_type == "network_error"
-        assert result.output == (
-            f"Could not reach {host}: it did not respond within 30 seconds. "
-            "If the API is just slow, raise the endpoint's Timeout (seconds) setting."
+        assert result.error_type == "call_timeout"
+        assert result.output.startswith(
+            f"{host} did not finish within 30 seconds. If it is just slow, raise "
+            "the endpoint's Timeout (seconds)."
         )
 
     @pytest.mark.asyncio
@@ -199,8 +199,8 @@ class TestRestEndpointInvoker:
         ) as request:
             result = await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
 
-        assert request.await_args.kwargs["timeout"] == 90.0
-        assert "it did not respond within 90 seconds." in result.output
+        assert request.await_args.kwargs["timeout"].read == 90.0
+        assert "did not finish within 90 seconds." in result.output
 
     @pytest.mark.asyncio
     async def test_invoke_read_timeout_of_one_second_is_singular(
@@ -217,7 +217,7 @@ class TestRestEndpointInvoker:
         ):
             result = await invoker.invoke(mock_db, sample_endpoint_rest, sample_input_data)
 
-        assert "it did not respond within 1 second." in result.output
+        assert "did not finish within 1 second." in result.output
 
     @pytest.mark.asyncio
     async def test_invoke_connect_timeout_keeps_plain_reason(

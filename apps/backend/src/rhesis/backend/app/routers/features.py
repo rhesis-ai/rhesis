@@ -28,6 +28,7 @@ from rhesis.backend.app.features import FeatureRegistry
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaRegistry, limits_to_wire
+from rhesis.backend.app.services.invokers.common.timeouts import DEFAULT_CALL_TIMEOUTS
 from rhesis.backend.app.services.model_setup import readiness_for_request
 from rhesis.backend.app.services.plan import build_plan
 from rhesis.backend.app.utils.user_model_utils import ModelReadiness
@@ -106,6 +107,8 @@ class FeaturesResponse(BaseModel):
     embedding_model_ready: bool = False
     #: Longest timeout_seconds an endpoint may set (MAX_ENDPOINT_TIMEOUT).
     max_endpoint_timeout_seconds: int
+    #: Timeout per connection type when an endpoint sets none.
+    default_endpoint_timeout_seconds: Dict[str, int]
 
 
 def get_model_readiness(
@@ -149,4 +152,7 @@ def list_features(
         models_ready=bool(readiness and readiness.ready),
         embedding_model_ready=bool(readiness and readiness.embedding is None),
         max_endpoint_timeout_seconds=get_job_limit_settings().max_endpoint_timeout,
+        default_endpoint_timeout_seconds={
+            kind: int(seconds) for kind, seconds in DEFAULT_CALL_TIMEOUTS.items()
+        },
     )

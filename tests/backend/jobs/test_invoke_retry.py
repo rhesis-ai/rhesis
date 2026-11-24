@@ -251,19 +251,47 @@ class TestInvokeWithRetry:
         assert call_count == 2
 
     @pytest.mark.asyncio
-    async def test_timeout_error_is_retried(self):
+    async def test_timeout_error_is_not_retried(self):
+        """The call may have done its work; a second try could repeat it."""
         call_count = 0
 
         async def _factory():
             nonlocal call_count
             call_count += 1
-            if call_count < 2:
-                raise TimeoutError("deadline exceeded")
-            return {"output": "ok"}
+            raise TimeoutError("deadline exceeded")
 
-        result = await invoke_with_retry(_factory, max_attempts=3, **FAST)
-        assert result == {"output": "ok"}
-        assert call_count == 2
+        with pytest.raises(TimeoutError):
+            await invoke_with_retry(_factory, max_attempts=3, **FAST)
+        assert call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_call_timeout_response_is_not_retried(self):
+        calls = []
+
+        async def _factory():
+            calls.append(1)
+            return ErrorResponse(
+                error_type="call_timeout",
+                output="api.example.com did not finish within 30 seconds.",
+                message="timed out",
+            )
+
+        with pytest.raises(EndpointInvocationError) as exc_info:
+            await invoke_with_retry(_factory, max_attempts=3, **FAST)
+        assert not exc_info.value.transient
+        assert len(calls) == 1
+
+    def test_retry_after_is_capped(self):
+        """A huge Retry-After waits retry_after_cap, not the header's value."""
+        from types import SimpleNamespace
+
+        from rhesis.backend.jobs.execution.batch.retry import _make_wait
+
+        exc = EndpointInvocationError("rate limited", transient=True, retry_after=86400)
+        state = SimpleNamespace(outcome=SimpleNamespace(exception=lambda: exc))
+        assert _make_wait(1, 30, retry_after_cap=7)(state) == 7
+        exc.retry_after = 3
+        assert _make_wait(1, 30, retry_after_cap=7)(state) == 3
 
     @pytest.mark.asyncio
     async def test_value_error_not_retried(self):

@@ -1,10 +1,10 @@
 """Tests for REST invoker timeout override from endpoint.timeout_seconds."""
 
+import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
-from tenacity import wait_none
 
 from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.models.enums import EndpointAuthType, EndpointConnectionType
@@ -53,7 +53,9 @@ class TestRestInvokerTimeout:
         ) as mock_req:
             await invoker.invoke(Mock(), endpoint, {"input": "hi"}, test_execution_context=None)
             _, call_kwargs = mock_req.call_args
-            assert call_kwargs.get("timeout") == 90.0
+            assert call_kwargs["timeout"].read == 90.0
+            # Connecting gets a short share, so a dropped attempt stays a retryable error.
+            assert call_kwargs["timeout"].connect == 10.0
 
     @pytest.mark.asyncio
     async def test_no_timeout_uses_default(self):
@@ -66,7 +68,7 @@ class TestRestInvokerTimeout:
         ) as mock_req:
             await invoker.invoke(Mock(), endpoint, {"input": "hi"}, test_execution_context=None)
             _, call_kwargs = mock_req.call_args
-            assert call_kwargs.get("timeout") is None
+            assert call_kwargs["timeout"].read == 30.0
 
 
 def _failing_client(error: Exception) -> AsyncMock:
@@ -75,34 +77,56 @@ def _failing_client(error: Exception) -> AsyncMock:
     return client
 
 
-# The real backoff waits 1-10s between tries; the attempt count is what matters here.
-_request_without_backoff = RestEndpointInvoker._async_request.retry_with(wait=wait_none())
+class TestRestInvokerDeadline:
+    @pytest.mark.asyncio
+    async def test_deadline_covers_the_whole_call(self):
+        """httpx's timeout is per socket read; a slow trickle must still stop at the timeout."""
+        endpoint = _make_endpoint(timeout_seconds_in_metadata=1)
+        invoker = RestEndpointInvoker()
+
+        async def _slow(*_args, **_kwargs):
+            await asyncio.sleep(30)
+
+        with patch.object(invoker, "_async_request", side_effect=_slow):
+            result = await asyncio.wait_for(
+                invoker.invoke(Mock(), endpoint, {"input": "hi"}), timeout=10
+            )
+        assert result.error_type == "call_timeout"
+        assert "did not finish within 1 second." in result.output
+
+    @pytest.mark.asyncio
+    async def test_connect_timeout_stays_a_network_error(self):
+        """It never reached the API, so the run's retry may try again."""
+        endpoint = _make_endpoint()
+        invoker = RestEndpointInvoker()
+        with patch.object(
+            invoker, "_async_request", new_callable=AsyncMock, side_effect=httpx.ConnectTimeout("")
+        ):
+            result = await invoker.invoke(Mock(), endpoint, {"input": "hi"})
+        assert result.error_type == "network_error"
 
 
 class TestRestInvokerRetries:
     @pytest.mark.asyncio
-    async def test_read_timeout_is_not_retried(self):
-        """The API had its whole timeout to answer; another try only triples the wait."""
-        client = _failing_client(httpx.ReadTimeout("no answer"))
+    @pytest.mark.parametrize(
+        "error", [httpx.ReadTimeout("no answer"), httpx.ConnectError("refused")]
+    )
+    async def test_request_is_sent_once(self, error):
+        """Retries belong to invoke_with_retry; a second layer here multiplied the attempts."""
+        client = _failing_client(error)
         with patch(
             "rhesis.backend.app.services.invokers.rest_invoker._get_http_client",
             return_value=client,
         ):
-            with pytest.raises(httpx.ReadTimeout):
-                await _request_without_backoff(
-                    RestEndpointInvoker(), "POST", "https://api.example.com", {}, {}, timeout=60
+            with pytest.raises(type(error)):
+                await RestEndpointInvoker()._async_request(
+                    "POST", "https://api.example.com", {}, {}, timeout=60
                 )
         assert client.post.await_count == 1
 
-    @pytest.mark.asyncio
-    async def test_connection_error_is_still_retried(self):
-        client = _failing_client(httpx.ConnectError("refused"))
-        with patch(
-            "rhesis.backend.app.services.invokers.rest_invoker._get_http_client",
-            return_value=client,
-        ):
-            with pytest.raises(httpx.ConnectError):
-                await _request_without_backoff(
-                    RestEndpointInvoker(), "POST", "https://api.example.com", {}, {}
-                )
-        assert client.post.await_count == 3
+
+def test_short_timeouts_keep_half_for_connecting():
+    from rhesis.backend.app.services.invokers.rest_invoker import _http_timeout
+
+    timeout = _http_timeout(4)
+    assert (timeout.connect, timeout.pool, timeout.read) == (2, 2, 4)

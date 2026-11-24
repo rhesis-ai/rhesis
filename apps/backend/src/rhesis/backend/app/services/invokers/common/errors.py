@@ -168,6 +168,8 @@ _TRANSIENT_ERROR_TYPES = frozenset(
         #
         # ``sdk_connection_lost`` stays out for the same reason: the call reached
         # the SDK and its connector dropped mid-run, so the function may have run.
+        # ``call_timeout`` (a REST or WebSocket call past its deadline) stays out too,
+        # since the request reached the target.
         "sdk_send_failed",
         "sdk_disconnected",
     }

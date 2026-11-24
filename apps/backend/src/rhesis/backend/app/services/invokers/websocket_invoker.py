@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import time
@@ -11,6 +12,11 @@ from rhesis.backend.app.models.endpoint import Endpoint
 from rhesis.backend.app.services.invokers.base import BaseEndpointInvoker
 from rhesis.backend.app.services.invokers.common.connection_errors import url_host
 from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
+from rhesis.backend.app.services.invokers.common.timeouts import (
+    CALL_TIMEOUT_ERROR_TYPE,
+    call_timeout,
+    call_timeout_message,
+)
 from rhesis.backend.app.services.invokers.context import InvocationContext
 from rhesis.backend.app.services.invokers.templating.filters import TemplateInputError
 from rhesis.backend.app.utils.redact import mask_secret
@@ -151,14 +157,24 @@ class WebSocketEndpointInvoker(BaseEndpointInvoker):
             logger.info(f"Input data keys: {list(input_data.keys())}")
             logger.debug(f"Full input data: {json.dumps(input_data, indent=2, default=str)}")
 
-            # Run the async WebSocket communication
-            result = await self._async_invoke(db, endpoint, input_data)
+            # One deadline for connect, send and the whole response stream.
+            async with asyncio.timeout(call_timeout(endpoint)):
+                result = await self._async_invoke(db, endpoint, input_data)
 
             duration = time.time() - start_time
             logger.info(f"=== WebSocket invocation completed in {duration:.2f}s ===")
 
             return result
 
+        except TimeoutError:
+            message = call_timeout_message(url_host(endpoint.url), call_timeout(endpoint))
+            logger.warning(message)
+            return self._create_error_response(
+                error_type=CALL_TIMEOUT_ERROR_TYPE,
+                output_message=message,
+                message=message,
+                request_details=self._safe_request_details(locals(), "WebSocket"),
+            )
         except Exception as e:
             duration = time.time() - start_time
             logger.error(f"=== WebSocket invocation failed after {duration:.2f}s ===")

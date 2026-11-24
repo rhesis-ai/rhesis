@@ -13,6 +13,10 @@ from rhesis.backend.app.constants import TestExecutionContext as TestContextCons
 from rhesis.backend.app.error_handlers import PublicHTTPException
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
 from rhesis.backend.app.services.connector.pending import CONNECTION_LOST_ERROR
+from rhesis.backend.app.services.invokers.common.timeouts import (
+    SDK_FUNCTION_TIMEOUT,
+    call_timeout,
+)
 from rhesis.backend.app.services.invokers.templating.filters import TemplateInputError
 from rhesis.telemetry.constants import ConversationContext as ConversationConstants
 
@@ -21,10 +25,6 @@ from .common.schemas import ErrorResponse
 from .context import InvocationContext
 
 logger = logging.getLogger(__name__)
-
-# SDK function execution timeout in seconds
-# Configurable via environment variable for long-running LLM operations
-SDK_FUNCTION_TIMEOUT = float(os.environ.get("SDK_FUNCTION_TIMEOUT", "120.0"))
 
 
 class SdkEndpointInvoker(BaseEndpointInvoker):
@@ -634,8 +634,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             tp = self.context.input_data.get("test_parameters")
             if tp:
                 execute_extras["test_parameters"] = tp
-            ep_ts = endpoint.timeout_seconds
-            timeout = float(ep_ts) if ep_ts else SDK_FUNCTION_TIMEOUT
+            timeout = call_timeout(endpoint)
 
             if use_rpc:
                 result = await self._execute_via_rpc(
@@ -695,8 +694,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             # Re-raise HTTPExceptions (configuration errors)
             raise
         except asyncio.TimeoutError:
-            ep_ts = endpoint.timeout_seconds
-            effective_timeout = float(ep_ts) if ep_ts else SDK_FUNCTION_TIMEOUT
+            effective_timeout = call_timeout(endpoint)
             logger.error(f"Timeout waiting for SDK function after {effective_timeout}s")
             return self._create_error_response(
                 error_type="sdk_timeout",
