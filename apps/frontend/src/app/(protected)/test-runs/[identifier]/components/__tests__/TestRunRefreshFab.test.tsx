@@ -7,19 +7,27 @@ let mockAccessibilityMode = true;
 jest.mock('@/hooks/useAccessibilityMode', () => ({
   useAccessibilityMode: () => mockAccessibilityMode,
 }));
+const mockAnnounce = jest.fn();
+jest.mock('@/components/common/LiveAnnouncer', () => ({
+  useAnnounce: () => mockAnnounce,
+}));
 jest.mock('../TestRunSummarizeFab', () => ({
   __esModule: true,
   default: () => null,
 }));
 
-import { TestRunActions } from '../TestRunDetailHeader';
+import { TestRunActions, describeRefreshedRun } from '../TestRunDetailHeader';
 
-function renderActions(status: string, queryClient = new QueryClient()) {
-  const testRun = {
+function run(status: string, stats?: TestRunDetail['stats']) {
+  return {
     id: 'run-1',
     status: { name: status },
+    stats,
   } as unknown as TestRunDetail;
-  render(
+}
+
+function actions(testRun: TestRunDetail, queryClient: QueryClient) {
+  return (
     <QueryClientProvider client={queryClient}>
       <TestRunActions
         testRun={testRun}
@@ -31,9 +39,14 @@ function renderActions(status: string, queryClient = new QueryClient()) {
   );
 }
 
+function renderActions(status: string, queryClient = new QueryClient()) {
+  return render(actions(run(status), queryClient));
+}
+
 describe('Refresh results button', () => {
   beforeEach(() => {
     mockAccessibilityMode = true;
+    mockAnnounce.mockReset();
   });
 
   it('reloads a running test run on demand in accessibility mode', async () => {
@@ -49,7 +62,32 @@ describe('Refresh results button', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['test-run-usage'] });
   });
 
-  it('is not shown once the run has finished', () => {
+  it('stays and announces the new state when the run finished meanwhile', async () => {
+    const queryClient = new QueryClient();
+    let rerender: (ui: React.ReactElement) => void = () => {};
+    jest
+      .spyOn(queryClient, 'invalidateQueries')
+      .mockImplementation(async () => {
+        // The refetch lands before invalidateQueries resolves.
+        rerender(
+          actions(run('completed', { total: 4, passed: 3 }), queryClient)
+        );
+      });
+    ({ rerender } = render(actions(run('progress'), queryClient)));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh results' }));
+
+    await waitFor(() =>
+      expect(mockAnnounce).toHaveBeenCalledWith(
+        'Results updated. Status: Completed. 3 of 4 tests passed.'
+      )
+    );
+    expect(
+      screen.getByRole('button', { name: 'Refresh results' })
+    ).toBeInTheDocument();
+  });
+
+  it('is not shown for a run that had already finished', () => {
     renderActions('completed');
     expect(
       screen.queryByRole('button', { name: 'Refresh results' })
@@ -62,5 +100,13 @@ describe('Refresh results button', () => {
     expect(
       screen.queryByRole('button', { name: 'Refresh results' })
     ).not.toBeInTheDocument();
+  });
+});
+
+describe('describeRefreshedRun', () => {
+  it('leaves out counts the run does not have', () => {
+    expect(describeRefreshedRun(run('progress'))).toBe(
+      'Results updated. Status: In Progress.'
+    );
   });
 });
