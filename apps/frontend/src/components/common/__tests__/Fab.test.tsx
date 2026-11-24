@@ -10,6 +10,16 @@ describe('Fab', () => {
     ).toBeInTheDocument();
   });
 
+  it('names only the button, not the tooltip wrapper', () => {
+    const { container } = render(
+      <Fab icon={<span />} tooltip="Download results" />
+    );
+    expect(container.querySelectorAll('[aria-label]')).toHaveLength(1);
+    expect(
+      screen.getByRole('button', { name: 'Download results' })
+    ).toBeInTheDocument();
+  });
+
   it('prefers an explicit aria-label over the tooltip', () => {
     render(
       <Fab icon={<span />} tooltip="Delete" aria-label="Delete Test Runs" />

@@ -108,7 +108,9 @@ export function Fab({
 
   if (tooltip) {
     return (
-      <Tooltip title={tooltip} placement="bottom">
+      // describeChild: the button already carries the name; without it the
+      // wrapper span gets it too and is read again as a group.
+      <Tooltip title={tooltip} placement="bottom" describeChild>
         {/* Span needed so tooltip fires on hover even when the FAB is disabled */}
         <span style={{ display: 'inline-flex' }}>{button}</span>
       </Tooltip>
