@@ -17,11 +17,24 @@ import pytest
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app.services.connector.manager import ConnectionManager
+from rhesis.backend.app.services.connector.pending import PendingCall
 from rhesis.backend.app.services.connector.schemas import (
     ConnectionStatus,
     FunctionMetadata,
     WebSocketConnectionContext,
 )
+
+
+def _call(run_id, connection_id):
+    """A test call dispatched on *connection_id*, as send_test_request records it."""
+    return PendingCall(
+        kind="test",
+        run_id=run_id,
+        connection_id=connection_id,
+        worker_id="worker",
+        organization_id=None,
+        user_id=None,
+    )
 
 
 class TestConnectionManager:
@@ -295,8 +308,9 @@ class TestConnectionManager:
             project_context["project_id"], project_context["environment"]
         )
         manager._connection_projects[conn_id] = {key}
-        # Results are accepted only from the connection the test was dispatched to.
-        manager._pending_test_connections[sample_test_result_message["test_run_id"]] = conn_id
+        # Results are accepted only for a call dispatched to this connection's scope.
+        run_id = sample_test_result_message["test_run_id"]
+        manager._pending["test"][run_id] = _call(run_id, conn_id)
 
         with patch("rhesis.backend.app.services.connector.manager.message_handler") as mock_handler:
             mock_handler.handle_test_result_message = AsyncMock()
@@ -436,7 +450,7 @@ class TestConnectionManager:
             project_context["project_id"], project_context["environment"]
         )
         manager._connection_projects[conn_id] = {key}
-        manager._pending_test_connections["validation_abc123"] = conn_id
+        manager._pending["test"]["validation_abc123"] = _call("validation_abc123", conn_id)
 
         session = Mock()
         opened = []

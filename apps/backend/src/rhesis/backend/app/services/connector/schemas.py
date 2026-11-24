@@ -64,6 +64,9 @@ class RegisterMessage(BaseModel):
     sdk_version: str
     functions: List[FunctionMetadata]
     metrics: List[MetricMetadata] = Field(default_factory=list)
+    # The SDK keeps each result until acknowledged. Released SDKs warn on unknown
+    # message types, so only connections that ask for acks get them.
+    result_ack: bool = False
 
 
 class ExecuteTestMessage(BaseModel):
@@ -137,6 +140,18 @@ class MetricResultMessage(BaseModel):
     details: Dict[str, Any] = Field(default_factory=dict)
     error: Optional[str] = None
     duration_ms: float
+
+
+class ResultAckMessage(BaseModel):
+    """Sent to the SDK once a result is handled for good: accepted, or ignored as late.
+
+    A result rejected only because this connection may not answer it yet gets no
+    ack, so the SDK sends it again after registering.
+    """
+
+    type: str = "result_ack"
+    test_run_id: Optional[str] = None
+    metric_run_id: Optional[str] = None
 
 
 class ConnectionStatus(BaseModel):

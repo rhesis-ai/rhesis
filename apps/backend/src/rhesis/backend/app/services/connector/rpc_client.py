@@ -4,11 +4,22 @@ import asyncio
 import json
 import logging
 import threading
-from typing import Any, Dict
+import time
+from typing import Any, Dict, Optional
 
 import redis.asyncio as redis
 
 from rhesis.backend.app.config.settings import get_redis_settings
+from rhesis.backend.app.services.connector import pending as pending_calls
+from rhesis.backend.app.services.connector.pending import (
+    METRIC,
+    TEST,
+    PendingCall,
+    StrandedClock,
+    call_record_key,
+    connection_lost_result,
+    reachable_via_redis,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +178,7 @@ class SDKRpcClient:
             - {"status": "error", "error": str, "duration_ms": float}
             - {"error": "timeout"}
             - {"error": "sdk_disconnected"}
+            - {"error": "connection_lost", "details": str} (dropped mid-call, no reconnect)
             - {"error": "send_failed", "details": str}
         """
         environment = environment.lower()
@@ -190,6 +202,7 @@ class SDKRpcClient:
             timeout=timeout,
             disconnected_details=f"No connection for {connection_id}",
             dispatch_log_context=dispatch_context,
+            kind=TEST,
         )
 
     # --- Metric dispatch ---
@@ -225,6 +238,7 @@ class SDKRpcClient:
             run_id=metric_run_id,
             timeout=timeout,
             disconnected_details=f"No connection for {project_id}:{environment}",
+            kind=METRIC,
         )
 
     async def send_and_await_metric_by_connection(
@@ -259,6 +273,7 @@ class SDKRpcClient:
             timeout=timeout,
             disconnected_details=f"No worker for connection {connection_id}",
             dispatch_log_context=dispatch_context,
+            kind=METRIC,
         )
 
     async def send_and_await_metric_by_org(
@@ -319,6 +334,7 @@ class SDKRpcClient:
         timeout: float,
         disconnected_details: str,
         dispatch_log_context: str = "",
+        kind: str = TEST,
     ) -> Dict[str, Any]:
         """Shared Redis RPC dispatch + response wait flow."""
         if not self._redis:
@@ -338,6 +354,8 @@ class SDKRpcClient:
         worker_channel = f"ws:rpc:{worker_id}"
         response_channel = f"ws:rpc:response:{run_id}"
         pubsub = self._redis.pubsub()
+        # The receiving replica sizes its call record from this.
+        request = {**request, "timeout": timeout}
 
         try:
             await pubsub.subscribe(response_channel)
@@ -345,30 +363,82 @@ class SDKRpcClient:
             logger.debug(
                 f"Routed RPC request {run_id} to worker {worker_id} {dispatch_log_context}"
             )
-
-            async def _wait_for_response() -> Dict[str, Any]:
-                async for message in pubsub.listen():
-                    if message["type"] == "message":
-                        result = json.loads(message["data"])
-                        await pubsub.unsubscribe(response_channel)
-                        if not isinstance(result, dict):
-                            logger.warning(f"Unexpected response payload type: {type(result)!r}")
-                            return {
-                                "error": "send_failed",
-                                "details": "Invalid response payload format",
-                            }
-                        if "status" not in result and "error" not in result:
-                            logger.warning(f"Unexpected response format: {result}")
-                        return result
-                return {"error": "send_failed", "details": "Response stream ended unexpectedly"}
-
-            return await asyncio.wait_for(_wait_for_response(), timeout=timeout)
+            return await self._await_response(pubsub, kind, run_id, timeout)
         except asyncio.TimeoutError:
             logger.error(f"RPC request timed out after {timeout}s: {run_id}")
-            await pubsub.unsubscribe(response_channel)
+            await self._abandon_call(kind, run_id)
             return {"error": "timeout"}
         except Exception as e:
             logger.error(f"Error during RPC call for {run_id}: {e}")
             return {"error": "send_failed", "details": str(e)}
         finally:
+            try:
+                await pubsub.unsubscribe(response_channel)
+            except Exception:
+                pass  # Closing below drops the subscription anyway.
             await pubsub.close()
+
+    async def _await_response(
+        self, pubsub: Any, kind: str, run_id: str, timeout: float
+    ) -> Dict[str, Any]:
+        """Wait for the published result, giving up early if the call is stranded.
+
+        Raises ``asyncio.TimeoutError`` after *timeout*.
+        """
+        deadline = time.monotonic() + timeout
+        clock = StrandedClock()
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise asyncio.TimeoutError
+            message = await pubsub.get_message(
+                ignore_subscribe_messages=True,
+                timeout=min(pending_calls.CALL_CHECK_INTERVAL_SECONDS, remaining),
+            )
+            if message and message.get("type") == "message":
+                return _parse_response(message["data"])
+            if await self._give_up_if_stranded(kind, run_id, clock):
+                return connection_lost_result()
+
+    async def _give_up_if_stranded(self, kind: str, run_id: str, clock: StrandedClock) -> bool:
+        """True once the call's connector has been gone for the grace and we won its claim."""
+        key = call_record_key(kind, run_id)
+        try:
+            raw = await self._redis.get(key)
+            # No record: already claimed (the result is being published), or
+            # dispatched by a pod that writes none.
+            call: Optional[PendingCall] = PendingCall.from_record(raw) if raw else None
+            if call is None:
+                return False
+            reachable = await reachable_via_redis(self._redis, call)
+            if not clock.observe(reachable, time.monotonic()):
+                return False
+            # Giving up must win the claim, or a result was accepted meanwhile.
+            won = bool(await self._redis.delete(key))
+        except Exception as e:
+            logger.warning(f"Failed to check whether {kind} call {run_id} is stranded: {e}")
+            return False
+        if won:
+            logger.warning(
+                f"Giving up {kind} call {run_id}: connection {call.connection_id} dropped "
+                f"and none of its scope came back within "
+                f"{pending_calls.DISCONNECT_GRACE_SECONDS:.0f}s"
+            )
+        return won
+
+    async def _abandon_call(self, kind: str, run_id: str) -> None:
+        """Drop the call record, so a late result is acknowledged and ignored."""
+        try:
+            await self._redis.delete(call_record_key(kind, run_id))
+        except Exception as e:
+            logger.warning(f"Failed to drop {kind} call record {run_id}: {e}")
+
+
+def _parse_response(data: str) -> Dict[str, Any]:
+    result = json.loads(data)
+    if not isinstance(result, dict):
+        logger.warning(f"Unexpected response payload type: {type(result)!r}")
+        return {"error": "send_failed", "details": "Invalid response payload format"}
+    if "status" not in result and "error" not in result:
+        logger.warning(f"Unexpected response format: {result}")
+    return result

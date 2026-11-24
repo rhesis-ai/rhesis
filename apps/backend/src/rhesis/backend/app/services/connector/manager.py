@@ -17,7 +17,15 @@ from tenacity import (
     wait_exponential,
 )
 
+from rhesis.backend.app.services.connector.calls import CallTrackingMixin
 from rhesis.backend.app.services.connector.handler import message_handler
+from rhesis.backend.app.services.connector.pending import (
+    METRIC,
+    TEST,
+    PendingCall,
+    compare_and_delete,
+    refresh_if_ours,
+)
 from rhesis.backend.app.services.connector.redis_client import redis_manager
 from rhesis.backend.app.services.connector.schemas import (
     ConnectionStatus,
@@ -82,7 +90,7 @@ def _may_register(
     return token_scoped and authorize(principal, REGISTER_PERMISSION, project_id=None, db=db)
 
 
-class ConnectionManager:
+class ConnectionManager(CallTrackingMixin):
     """Manages WebSocket connections with SDK clients."""
 
     def __init__(self):
@@ -124,14 +132,14 @@ class ConnectionManager:
         self._metric_results: Dict[str, Dict[str, Any]] = {}
         # Events for instant notification when results arrive
         self._result_events: Dict[str, asyncio.Event] = {}
-        # Maps test_run_id → connection_id that the request was dispatched to.
-        # Used to reject test_result messages from connections that did not
-        # receive the matching execute_test message (prevents result injection).
-        self._pending_test_connections: Dict[str, str] = {}
-        # Same for metric_run_id. A metric is always dispatched on the replica
-        # that holds the SDK socket, so a missing binding means the result is
-        # not ours to accept.
-        self._pending_metric_connections: Dict[str, str] = {}
+        # run_id -> the call it answers, per kind (TEST, METRIC), for calls
+        # dispatched here. Calls are also recorded in Redis (``ws:call:*``) so any
+        # replica can accept their result. The scope check in CallTrackingMixin is
+        # the tenant boundary against result injection.
+        self._pending: Dict[str, Dict[str, PendingCall]] = {TEST: {}, METRIC: {}}
+        self._last_prune = 0.0
+        # Connections whose SDK asked for result acks in its register message.
+        self._ack_connections: set = set()
 
         # Cancelled/timed-out run tracking (prevents storing late results)
         self._cancelled_tests: OrderedDict = OrderedDict()
@@ -244,7 +252,11 @@ class ConnectionManager:
 
         Cancels the heartbeat, removes the connection-level Redis key,
         and cleans up every project:environment routing entry that was
-        registered through it.
+        registered through it. Calls in flight on it keep waiting for a
+        connection of the same scope (see ``CallTrackingMixin``).
+
+        A route is only removed while it still points at this connection: a
+        reconnected SDK may already have registered the same project:env.
         """
         logger.info(f"Disconnected: connection_id={connection_id}")
 
@@ -255,21 +267,21 @@ class ConnectionManager:
 
         self._connections.pop(connection_id, None)
         self._contexts.pop(connection_id, None)
-        # Results can no longer arrive on this socket.
-        self._pending_metric_connections = {
-            run_id: conn
-            for run_id, conn in self._pending_metric_connections.items()
-            if conn != connection_id
-        }
+        self._ack_connections.discard(connection_id)
 
-        project_keys = self._connection_projects.pop(connection_id, set())
+        project_keys = {
+            pk
+            for pk in self._connection_projects.pop(connection_id, set())
+            if self._project_routing.get(pk) == connection_id
+        }
         for pk in project_keys:
             self._cleanup_project_routing(pk)
+        metric_keys = self._connection_metric_keys.pop(connection_id, set())
 
         if redis_manager.is_available:
             try:
                 self._track_background_task(
-                    self._cleanup_redis_for_connection(connection_id, project_keys)
+                    self._cleanup_redis_for_connection(connection_id, project_keys, metric_keys)
                 )
             except Exception as e:
                 logger.warning(f"Failed to schedule Redis cleanup for {connection_id}: {e}")
@@ -284,20 +296,23 @@ class ConnectionManager:
         self._registries.pop(project_env_key, None)
         self._metric_registries.pop(project_env_key, None)
 
-    async def _cleanup_redis_for_connection(self, connection_id: str, project_keys: set) -> None:
-        """Remove all Redis keys for a disconnected connection.
+    async def _cleanup_redis_for_connection(
+        self, connection_id: str, project_keys: set, metric_keys: set
+    ) -> None:
+        """Remove the Redis keys of a disconnected connection.
 
-        Deletes the connection-level key, all project routing keys, and any
-        org-scoped metric routing keys (``ws:metric:{org}:{name}``) that were
-        registered through this connection.
+        Deletes the connection-level key, and the project and org-scoped metric
+        routing keys that still point here: another replica (or connection) may
+        have taken a route over since.
         """
-        metric_keys = self._connection_metric_keys.pop(connection_id, set())
         try:
             await redis_manager.client.delete(f"ws:conn:{connection_id}")
             for pk in project_keys:
-                await redis_manager.client.delete(f"ws:routing:{pk}")
+                await compare_and_delete(redis_manager.client, f"ws:routing:{pk}", self.worker_id)
             for org_id, metric_name in metric_keys:
-                await redis_manager.client.delete(f"ws:metric:{org_id}:{metric_name}")
+                await compare_and_delete(
+                    redis_manager.client, f"ws:metric:{org_id}:{metric_name}", connection_id
+                )
             logger.debug(
                 f"Cleaned Redis for connection {connection_id} "
                 f"({len(project_keys)} project key(s), {len(metric_keys)} metric key(s))"
@@ -335,20 +350,7 @@ class ConnectionManager:
                         30,
                         self.worker_id,
                     )
-                    for pk in self._connection_projects.get(connection_id, set()):
-                        await redis_manager.client.setex(
-                            f"ws:routing:{pk}",
-                            30,
-                            self.worker_id,
-                        )
-                    for org_id, metric_name in self._connection_metric_keys.get(
-                        connection_id, set()
-                    ):
-                        await redis_manager.client.setex(
-                            f"ws:metric:{org_id}:{metric_name}",
-                            30,
-                            connection_id,
-                        )
+                    await self._refresh_routes(connection_id)
                     logger.debug(f"Heartbeat refreshed for {connection_id}")
                 except Exception as e:
                     logger.warning(f"Heartbeat failed for {connection_id}: {e}")
@@ -357,6 +359,19 @@ class ConnectionManager:
             raise
         except Exception as e:
             logger.error(f"Unexpected error in heartbeat for {connection_id}: {e}")
+
+    async def _refresh_routes(self, connection_id: str) -> None:
+        """Refresh the routing keys this connection still owns.
+
+        After a reconnect the old socket can linger until its teardown; refreshing
+        its routes unconditionally would point them back at it.
+        """
+        client = redis_manager.client
+        for pk in self._connection_projects.get(connection_id, set()):
+            if self._project_routing.get(pk) == connection_id:
+                await refresh_if_ours(client, f"ws:routing:{pk}", self.worker_id, 30)
+        for org_id, metric_name in self._connection_metric_keys.get(connection_id, set()):
+            await refresh_if_ours(client, f"ws:metric:{org_id}:{metric_name}", connection_id, 30)
 
     def register_functions(
         self, project_id: str, environment: str, functions: List[FunctionMetadata]
@@ -466,11 +481,12 @@ class ConnectionManager:
         function_name: str,
         inputs: Dict[str, Any],
         execute_extras: Dict[str, Any] | None = None,
+        timeout: Optional[float] = None,
     ) -> bool:
         """Send test execution request to SDK via project:env routing.
 
-        Records the dispatching connection so that a matching test_result
-        message is only accepted from that same connection.
+        Records the dispatching connection and its scope so that a matching
+        test_result is only accepted from a connection of that scope.
 
         Returns:
             True if message sent successfully, False otherwise.
@@ -494,15 +510,15 @@ class ConnectionManager:
         )
 
         # Bind before sending so a fast test_result reply can never slip
-        # through before the mismatch-check has the expected connection recorded.
-        self._pending_test_connections[test_run_id] = conn_id
+        # through before the scope check has the call recorded.
+        self._register_call(TEST, test_run_id, conn_id, timeout, project_key=key)
         try:
             await websocket.send_json(message.model_dump())
             logger.info(f"Sent test request to {key}: {function_name}")
             return True
         except Exception as e:
             # Roll back the binding — the message was never delivered.
-            self._pending_test_connections.pop(test_run_id, None)
+            self._release_pending(TEST, test_run_id)
             logger.error(f"Error sending test request to {key}: {e}")
             return False
 
@@ -532,6 +548,7 @@ class ConnectionManager:
                 function_name,
                 inputs,
                 execute_extras=execute_extras,
+                timeout=timeout,
             )
             if not sent:
                 return {
@@ -539,7 +556,10 @@ class ConnectionManager:
                     "details": "Failed to send message to SDK",
                 }
 
-            await asyncio.wait_for(event.wait(), timeout=timeout)
+            given_up = await self._wait_for_result(TEST, test_run_id, event, timeout)
+            if given_up is not None:
+                self.cleanup_test_result(test_run_id)
+                return given_up
 
             result = self._test_results.get(test_run_id)
             if result:
@@ -568,6 +588,7 @@ class ConnectionManager:
         metric_run_id: str,
         metric_name: str,
         inputs: Dict[str, Any],
+        timeout: Optional[float] = None,
     ) -> bool:
         """Send a metric request directly to a connection_id.
 
@@ -584,13 +605,13 @@ class ConnectionManager:
             inputs=inputs,
         )
 
-        self._pending_metric_connections[metric_run_id] = connection_id
+        self._register_call(METRIC, metric_run_id, connection_id, timeout, metric_name=metric_name)
         try:
             await websocket.send_json(message.model_dump())
             logger.info(f"Sent metric request to conn:{connection_id}: {metric_name}")
             return True
         except Exception as e:
-            self._pending_metric_connections.pop(metric_run_id, None)
+            self._release_pending(METRIC, metric_run_id)
             logger.error(f"Error sending metric to conn:{connection_id}: {e}")
             return False
 
@@ -616,6 +637,7 @@ class ConnectionManager:
                 metric_run_id,
                 metric_name,
                 inputs,
+                timeout=timeout,
             )
             if not sent:
                 return {
@@ -625,7 +647,10 @@ class ConnectionManager:
                     ),
                 }
 
-            await asyncio.wait_for(event.wait(), timeout=timeout)
+            given_up = await self._wait_for_result(METRIC, metric_run_id, event, timeout)
+            if given_up is not None:
+                self.cleanup_metric_result(metric_run_id)
+                return given_up
 
             result = self._metric_results.get(metric_run_id)
             if result:
@@ -646,7 +671,9 @@ class ConnectionManager:
         finally:
             self._result_events.pop(metric_run_id, None)
 
-    def _resolve_test_result(self, test_run_id: str, result: Dict[str, Any]) -> None:
+    def _resolve_test_result(
+        self, test_run_id: str, result: Dict[str, Any], publish: bool = True
+    ) -> None:
         """Store a test result and wake up any waiting coroutine."""
         if test_run_id in self._cancelled_tests:
             logger.warning(f"Ignoring late result for cancelled test run: {test_run_id}")
@@ -666,7 +693,7 @@ class ConnectionManager:
             event.set()
 
         # Publish to Redis for cross-instance waiters
-        if redis_manager.is_available:
+        if publish and redis_manager.is_available:
             try:
                 self._track_background_task(self._publish_rpc_response(test_run_id, result))
             except Exception as e:
@@ -696,7 +723,9 @@ class ConnectionManager:
                 exc_info=True,
             )
 
-    def _resolve_metric_result(self, metric_run_id: str, result: Dict[str, Any]) -> None:
+    def _resolve_metric_result(
+        self, metric_run_id: str, result: Dict[str, Any], publish: bool = True
+    ) -> None:
         """Store a metric result and wake up any waiting coroutine."""
         if metric_run_id in self._cancelled_metrics:
             logger.warning(f"Ignoring late result for cancelled metric run: {metric_run_id}")
@@ -712,7 +741,7 @@ class ConnectionManager:
         if event:
             event.set()
 
-        if redis_manager.is_available:
+        if publish and redis_manager.is_available:
             try:
                 self._track_background_task(self._publish_rpc_response(metric_run_id, result))
             except Exception as e:
@@ -741,7 +770,7 @@ class ConnectionManager:
         """
         # Mark as cancelled to prevent late results from being stored
         self._cancelled_metrics[metric_run_id] = True
-        self._pending_metric_connections.pop(metric_run_id, None)
+        self._release_pending(METRIC, metric_run_id)
 
         # Remove any existing result
         if metric_run_id in self._metric_results:
@@ -782,8 +811,8 @@ class ConnectionManager:
         # Mark as cancelled to prevent late results from being stored
         self._cancelled_tests[test_run_id] = True
 
-        # Release the pending-connection binding so the dict doesn't grow unboundedly.
-        self._pending_test_connections.pop(test_run_id, None)
+        # Release the pending-call binding so the dict doesn't grow unboundedly.
+        self._release_pending(TEST, test_run_id)
 
         # Remove any existing result
         if test_run_id in self._test_results:
@@ -1018,7 +1047,7 @@ class ConnectionManager:
         )
 
         if message_type == "register":
-            return await self._handle_register_message(
+            response = await self._handle_register_message(
                 connection_id=connection_id,
                 message=message,
                 db=db,
@@ -1026,28 +1055,23 @@ class ConnectionManager:
                 organization_id=organization_id,
                 user_id=user_id,
             )
+            # Registration awaits the database; the socket may have closed meanwhile.
+            if connection_id in self._connections and message.get("result_ack") is True:
+                self._ack_connections.add(connection_id)
+            # Tells the SDK this backend acks results, so it may wait for acks.
+            if response is not None:
+                response["result_ack"] = True
+            return response
 
         elif message_type == "test_result":
             test_run_id = message.get("test_run_id")
+            ack = None
             if test_run_id:
-                expected_conn = self._pending_test_connections.get(test_run_id)
-                if expected_conn != connection_id:
-                    # Only the connection the test was dispatched to may answer.
-                    # Every dispatch binds first (send_test_request and the RPC
-                    # path), so a missing binding is rejected too.
-                    logger.warning(
-                        "test_result rejected: connection mismatch "
-                        "(test_run_id=%s, expected=%s, got=%s)",
-                        test_run_id,
-                        expected_conn,
-                        connection_id,
-                    )
-                    return None
-                # Release the binding immediately so the dict stays bounded
-                # even when cleanup_test_result() is never called (e.g.
-                # fire-and-forget callers of send_test_request).
-                self._pending_test_connections.pop(test_run_id, None)
-                self._resolve_test_result(test_run_id, message)
+                # Every dispatch records the call first (send_test_request and the
+                # RPC path), so a result for no known call is never resolved.
+                accepted, ack = await self._accept_result(TEST, test_run_id, connection_id, message)
+                if not accepted:
+                    return ack
 
             await message_handler.handle_test_result_message(
                 msg_project_id,
@@ -1056,24 +1080,14 @@ class ConnectionManager:
                 db=db,
                 db_factory=db_factory,
             )
-            return None
+            return ack
 
         elif message_type == "metric_result":
             metric_run_id = message.get("metric_run_id")
-            if metric_run_id:
-                expected_conn = self._pending_metric_connections.get(metric_run_id)
-                if expected_conn != connection_id:
-                    logger.warning(
-                        "metric_result rejected: connection mismatch "
-                        "(metric_run_id=%s, expected=%s, got=%s)",
-                        metric_run_id,
-                        expected_conn,
-                        connection_id,
-                    )
-                    return None
-                self._pending_metric_connections.pop(metric_run_id, None)
-                self._resolve_metric_result(metric_run_id, message)
-            return None
+            if not metric_run_id:
+                return None
+            _, ack = await self._accept_result(METRIC, metric_run_id, connection_id, message)
+            return ack
 
         elif message_type == "pong":
             await message_handler.handle_pong_message(msg_project_id, msg_environment)
@@ -1304,6 +1318,9 @@ class ConnectionManager:
         """
         request_id = request.get("request_id")
         request_type = request.get("request_type", "execute_test")
+        if request_type == "deliver_result":
+            self._accept_delivered_result(request)
+            return
         inputs = request.get("inputs", {})
         name = request.get("function_name") or request.get("metric_name", "")
         logger.debug(f"RPC request received: {request_id} - {name} (type={request_type})")
@@ -1320,7 +1337,9 @@ class ConnectionManager:
                     f"Connection {conn_id} not found",
                 )
                 return
-            self._pending_metric_connections[request_id] = conn_id
+            self._register_call(
+                METRIC, request_id, conn_id, request.get("timeout"), metric_name=name
+            )
             await self._forward_metric_to_sdk(request_id, conn_id, websocket, name, inputs)
             return
 
@@ -1340,12 +1359,21 @@ class ConnectionManager:
         websocket = self._connections[routed_conn_id]
 
         if request_type == "execute_metric":
-            self._pending_metric_connections[request_id] = routed_conn_id
+            self._register_call(
+                METRIC,
+                request_id,
+                routed_conn_id,
+                request.get("timeout"),
+                project_key=key,
+                metric_name=name,
+            )
             await self._forward_metric_to_sdk(request_id, key, websocket, name, inputs)
         else:
             # Bind before forwarding so the result validator can check the
             # connection even if the reply arrives before _forward_to_sdk returns.
-            self._pending_test_connections[request_id] = routed_conn_id
+            self._register_call(
+                TEST, request_id, routed_conn_id, request.get("timeout"), project_key=key
+            )
             extras = _extract_execute_test_message_extras(request)
             await self._forward_to_sdk(
                 request_id, key, websocket, name, inputs, execute_extras=extras
@@ -1420,8 +1448,7 @@ class ConnectionManager:
             logger.info(f"Forwarding {request_prefix}RPC request {request_id} ({call_name}) to SDK")
             await websocket.send_json(message.model_dump())
         except Exception as e:
-            if is_metric:
-                self._pending_metric_connections.pop(request_id, None)
+            self._release_pending(METRIC if is_metric else TEST, request_id)
             logger.error(f"Error forwarding {request_prefix}RPC request {request_id}: {e}")
             await self._cleanup_stale_routing(key)
             await self._publish_error_response(
@@ -1438,11 +1465,17 @@ class ConnectionManager:
         """
         logger.warning(f"Removing stale routing: {project_env_key}")
 
+        # Unbind it from its connection too, so neither that connection's heartbeat
+        # nor its teardown touches the key again.
+        stale_conn = self._project_routing.get(project_env_key)
+        self._connection_projects.get(stale_conn, set()).discard(project_env_key)
         self._cleanup_project_routing(project_env_key)
 
         if redis_manager.is_available:
             try:
-                await redis_manager.client.delete(f"ws:routing:{project_env_key}")
+                await compare_and_delete(
+                    redis_manager.client, f"ws:routing:{project_env_key}", self.worker_id
+                )
             except Exception as e:
                 logger.warning(f"Failed to remove stale routing key: {e}")
 

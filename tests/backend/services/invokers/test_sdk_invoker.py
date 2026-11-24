@@ -59,6 +59,23 @@ class TestSdkEndpointInvoker:
         assert function_kwargs["_rhesis_test_context"] == test_execution_context
         assert function_kwargs["input"] == "test"
 
+    def test_connection_lost_maps_to_sdk_connection_lost(self):
+        """A connector that dropped mid-call and never came back is its own failure."""
+        error = SdkEndpointInvoker()._check_result_errors(
+            {"error": "connection_lost", "details": "did not reconnect within 90s"}, "fn"
+        )
+
+        assert error is not None
+        assert error.error_type == "sdk_connection_lost"
+        assert error.message == "did not reconnect within 90s"
+
+    def test_function_error_named_connection_lost_stays_a_function_error(self):
+        error = SdkEndpointInvoker()._check_result_errors(
+            {"status": "error", "error": "connection_lost", "duration_ms": 1.0}, "fn"
+        )
+
+        assert error.error_type == "sdk_function_error"
+
     def test_prepare_function_kwargs_renders_params_in_mapping(self, sample_endpoint_sdk):
         """{{ params.model }} in request_mapping renders from input_data['params']."""
         sample_endpoint_sdk.request_mapping = {

@@ -109,6 +109,15 @@ class TestClassifyErrorResponse:
         )
         assert classify_error_response(resp).transient is False
 
+    def test_sdk_connection_lost_is_not_retried(self):
+        """The call reached the SDK before its connector dropped, so it may have run."""
+        resp = ErrorResponse(
+            output="SDK disconnected while the function was running",
+            error_type="sdk_connection_lost",
+            message="did not reconnect within 90s",
+        )
+        assert classify_error_response(resp).transient is False
+
     def test_sdk_function_error_stays_permanent(self):
         """The SDK function itself raising is the target's answer, not transport."""
         resp = ErrorResponse(

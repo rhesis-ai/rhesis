@@ -1,10 +1,24 @@
-"""SDK results are accepted only from the connection the call was dispatched to."""
+"""SDK results are accepted only from a connection of the scope the call was dispatched to."""
 
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
 from rhesis.backend.app.services.connector.manager import ConnectionManager
+from rhesis.backend.app.services.connector.pending import PendingCall
+from rhesis.backend.app.services.connector.schemas import WebSocketConnectionContext
+
+
+def _call(run_id, connection_id):
+    """A test call dispatched on *connection_id*, as send_test_request records it."""
+    return PendingCall(
+        kind="test",
+        run_id=run_id,
+        connection_id=connection_id,
+        worker_id="worker",
+        organization_id=None,
+        user_id=None,
+    )
 
 
 @pytest.mark.security
@@ -85,11 +99,60 @@ class TestMetricResultBinding:
             resolve.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_disconnect_drops_the_binding(self, manager):
+    async def test_disconnect_keeps_the_call_for_a_reconnect(self, manager):
         await manager.send_metric_by_connection("conn-a", "run-2", "m", {})
         with patch.object(manager, "_track_background_task"):
             manager.disconnect_by_connection_id("conn-a")
-        assert "run-2" not in manager._pending_metric_connections
+        assert "run-2" in manager._pending["metric"]
+
+    @staticmethod
+    def _with_connections(*connections):
+        manager = ConnectionManager()
+        for conn_id, org, user, metric in connections:
+            manager._connections[conn_id] = AsyncMock()
+            manager._contexts[conn_id] = WebSocketConnectionContext(
+                connection_id=conn_id, user_id=user, organization_id=org
+            )
+            manager._connection_metric_keys[conn_id] = {(org, metric)}
+        return manager
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "org, user, metric, accepted",
+        [
+            ("org-1", "user-1", "m", True),
+            ("org-2", "user-1", "m", False),
+            ("org-1", "user-1", "other", False),
+            ("org-1", "user-2", "m", False),
+        ],
+        ids=["same-scope", "other-org", "metric-not-registered", "other-user"],
+    )
+    async def test_metric_only_result_after_reconnect(self, org, user, metric, accepted):
+        manager = self._with_connections(
+            ("conn-a", "org-1", "user-1", "m"), ("conn-b", org, user, metric)
+        )
+        await manager.send_metric_by_connection("conn-a", "run-3", "m", {})
+        with (
+            patch.object(manager, "_track_background_task"),
+            patch.object(manager, "_resolve_metric_result") as resolve,
+        ):
+            manager.disconnect_by_connection_id("conn-a")
+            await self._send_result(manager, "conn-b", "run-3")
+
+        assert resolve.called is accepted
+
+    @pytest.mark.asyncio
+    async def test_same_scope_connection_cannot_answer_while_dispatcher_is_alive(self):
+        """Finding 5: a second SDK in the scope must not inject a score for a live call."""
+        manager = self._with_connections(
+            ("conn-a", "org-1", "user-1", "m"), ("conn-b", "org-1", "user-1", "m")
+        )
+        await manager.send_metric_by_connection("conn-a", "run-4", "m", {})
+        with patch.object(manager, "_resolve_metric_result") as resolve:
+            await self._send_result(manager, "conn-b", "run-4")
+            resolve.assert_not_called()
+            await self._send_result(manager, "conn-a", "run-4")
+        resolve.assert_called_once()
 
 
 @pytest.mark.security
@@ -121,7 +184,7 @@ class TestTestResultBinding:
 
     @pytest.mark.asyncio
     async def test_result_from_the_dispatched_connection_is_handled(self, manager):
-        manager._pending_test_connections["run-1"] = "conn-a"
+        manager._pending["test"]["run-1"] = _call("run-1", "conn-a")
         with patch.object(manager, "_resolve_test_result") as resolve:
             handled = await self._send_result(manager, "conn-b", "run-1")
             resolve.assert_not_called()
