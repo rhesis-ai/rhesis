@@ -29,6 +29,7 @@ echo ""
 # Step 1: Export client config
 echo -e "${YELLOW}[1/8] Exporting client config...${NC}"
 cd "$(dirname "$0")/.."
+test -s "$PRIVATE_KEY_FILE" || { echo -e "${RED}No private key at $PRIVATE_KEY_FILE (set PRIVATE_KEY_FILE)${NC}"; exit 1; }
 (umask 077 && terraform output -json wireguard_peer_configs | jq -r ".\"${PEER_ID}\".config" \
   | sed "s|^PrivateKey = .*|PrivateKey = $(cat "$PRIVATE_KEY_FILE")|" > "$CONFIG_PATH")
 echo -e "${GREEN}✓ Config exported to $CONFIG_PATH${NC}"

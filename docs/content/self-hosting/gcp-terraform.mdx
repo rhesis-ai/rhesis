@@ -407,6 +407,11 @@ module "wireguard_server" {
   gke_public_endpoints = { customer = module.gke.cluster_endpoint }
 }
 
+output "peer_configs" {
+  value     = module.wireguard_server.peer_configs
+  sensitive = true
+}
+
 resource "google_compute_network_peering" "wireguard_to_customer" {
   name         = "peering-wireguard-to-customer"
   network      = module.wireguard_network.vpc_self_link
