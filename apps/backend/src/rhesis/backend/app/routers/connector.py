@@ -180,6 +180,8 @@ async def websocket_endpoint(
         membership_watch.cancel()
         keepalive.cancel()
         connection_manager.disconnect_by_connection_id(context.connection_id)
+        # Let both finish unwinding before the endpoint returns.
+        await asyncio.gather(membership_watch, keepalive, return_exceptions=True)
 
 
 async def _send_pings(websocket: WebSocket, connection_id: str) -> None:
