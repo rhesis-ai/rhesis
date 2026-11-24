@@ -176,7 +176,7 @@ trigger_results_collection(test_config, str(test_run.id), results)`}
 Inside `run_batch`, each test is executed as an `asyncio` task and guarded by:
 
 - `batch_concurrency` (default `10`)
-- `per_test_timeout` (default `1800` seconds)
+- `per_test_timeout` (default: the endpoint's timeout plus 300 seconds, at least `1800`)
 - cooperative cancellation checks against Celery revoke state
 - one recovery pass for transient failures
 

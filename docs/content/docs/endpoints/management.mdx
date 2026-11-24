@@ -87,9 +87,11 @@ Run identical tests against different endpoints to compare models, environments,
 
 ## Timeout
 
-Each endpoint has a **Timeout (seconds)** field in the Overview tab. Set it to override the system default for invocations against this endpoint. Valid values are 1 to 3600. Leave it empty to use the default: 30 seconds for REST endpoints, 120 seconds for SDK endpoints.
+Each endpoint has a **Timeout (seconds)** field in the Overview tab. Set it to override the system default for invocations against this endpoint. Valid values are 1 to 7200 (2 hours), or up to the server's `MAX_ENDPOINT_TIMEOUT` on a self-hosted deployment. Leave it empty to use the default: 30 seconds for REST endpoints, 120 seconds for SDK endpoints.
 
 The timeout applies to both test executions and single invocations. It is stored in `endpoint_metadata` and exposed as `timeout_seconds` in the API and SDK.
+
+A test run also limits each test as a whole, covering every call it makes, including retries and every turn of a multi-turn test. That limit is the endpoint's timeout plus 5 minutes, and at least 30 minutes. It can only be shorter than the endpoint's timeout when `per_test_timeout` or the server's `MAX_PER_TEST_TIMEOUT` is set lower; the run then shows a warning. A test stopped by it is recorded with an error that says so. To change it for one run, pass `per_test_timeout` (seconds) in the run's execution options.
 
 ## Disabling Tracing
 

@@ -26,7 +26,7 @@ Enter the endpoint **Name**, an optional **Description**, and the **Environment*
 
 **Environment** tags the endpoint so you can keep configurations apart and spot production endpoints on the grid.
 
-**Timeout** — overrides the default invocation timeout for this endpoint (1 -- 3600 seconds). Leave it empty to use the system default: 30s for REST, 120s for SDK endpoints.
+**Timeout** — overrides the default invocation timeout for this endpoint (1 -- 7200 seconds). Leave it empty to use the system default: 30s for REST, 120s for SDK endpoints.
 
 **Enable tracing** — on by default. Turn it off when the endpoint already emits its own telemetry; invocations then skip [trace](/docs/tracing) and telemetry collection.
 
