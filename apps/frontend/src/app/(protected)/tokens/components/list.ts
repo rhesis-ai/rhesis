@@ -32,7 +32,7 @@ const TOKENS_FILTERS = {
 export const tokensList = defineList({
   title: 'API Tokens',
   resource: 'API tokens',
-  capability: Capability.Token.MANAGE,
+  capability: Capability.Token.READ,
   defaultPageSize: 10,
   filters: TOKENS_FILTERS,
   list: (factory: ApiClientFactory, params) =>
@@ -40,7 +40,7 @@ export const tokensList = defineList({
   delete: {
     bulk: (factory: ApiClientFactory, ids: string[]) =>
       factory.getTokensClient().bulkDeleteTokens(ids),
-    capability: Capability.Token.MANAGE,
+    capability: Capability.Token.DELETE,
     capabilityMode: 'ambient',
     labelSingular: 'token',
     labelPlural: 'tokens',

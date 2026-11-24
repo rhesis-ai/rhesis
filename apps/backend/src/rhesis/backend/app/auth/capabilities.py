@@ -364,6 +364,11 @@ class Permission:
         MANAGE = "role:manage"
 
     class Token(_PermissionEnum):
+        # Self-service: the token routes only act on the caller's own tokens.
+        CREATE = "token:create"
+        READ = "token:read"
+        UPDATE = "token:update"
+        DELETE = "token:delete"
         MANAGE = "token:manage"
 
     # --- Recycle bin (org-scoped) -------------------------------------------
