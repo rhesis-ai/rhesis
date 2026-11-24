@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
 from rhesis.backend.app.quota import OveragePolicy, QuotaPolicy, QuotaRegistry, QuotaResource
-from rhesis.backend.app.quota.enforcement import QuotaExceededError, QuotaVerdict
+from rhesis.backend.app.quota.enforcement import QuotaExceededError, QuotaVerdict, reserve_quota
 from rhesis.backend.app.services.usage import count_org_endpoints, count_org_projects
 from rhesis.backend.metrics.strategies import local
 from rhesis.sdk.metrics import MetricConfig
@@ -219,6 +219,26 @@ class TestAsyncGenerationChecksTheRequestedCount:
         )
         assert response.status_code == status.HTTP_402_PAYMENT_REQUIRED
         assert response.json()["requested"] == 5
+
+    def test_a_request_that_fails_after_reserving_gives_it_back(
+        self, authenticated_client: TestClient, limit, test_db: Session, test_org_id: str
+    ):
+        """No project to put the test set in: a 400 after the claim, which is given back."""
+        from rhesis.backend.app.quota.enforcement import _read_usage
+
+        limit(QuotaResource.TEST_GENERATION, 10)
+        with patch(
+            "rhesis.backend.app.routers.test_set.reserve_quota",
+            wraps=reserve_quota,
+        ) as reserve:
+            response = authenticated_client.post(
+                "/test_sets/generate",
+                json={"name": "quota", "num_tests": 5, "config": {"requirements": ["be polite"]}},
+            )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST, response.text
+        reserve.assert_called_once()
+        assert _read_usage(test_db, test_org_id, QuotaResource.TEST_GENERATION) == 0
 
 
 @pytest.mark.security

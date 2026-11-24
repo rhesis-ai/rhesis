@@ -43,6 +43,22 @@ def _mock_probe_service(probes_by_module):
     return service
 
 
+def _cached(*keys, count=1):
+    """A probe service whose cache lists the given (module, class) probes."""
+    probes_by_module = {}
+    for module, cls in keys:
+        probes_by_module.setdefault(module, []).append(
+            GarakProbeInfo(
+                module_name=module,
+                class_name=cls,
+                full_name=f"{module}.{cls}",
+                description="d",
+                prompt_count=count,
+            )
+        )
+    return _mock_probe_service(probes_by_module)
+
+
 @pytest.mark.unit
 class TestImportProbesDispatch:
     @pytest.mark.asyncio
@@ -62,7 +78,7 @@ class TestImportProbesDispatch:
                 db=mock_db,
                 tenant_context=(str(current_user.organization_id), str(current_user.id)),
                 current_user=current_user,
-                probe_service=_mock_probe_service({}),
+                probe_service=_cached(("dan", "Dan_11_0"), ("encoding", "InjectBase64")),
                 _quota_gate=MagicMock(),
             )
 
@@ -102,7 +118,7 @@ class TestImportProbesDispatch:
                 db=MagicMock(),
                 tenant_context=(str(current_user.organization_id), str(current_user.id)),
                 current_user=current_user,
-                probe_service=_mock_probe_service({}),
+                probe_service=_cached(("dan", "Dan_11_0"), ("encoding", "InjectBase64")),
                 _quota_gate=MagicMock(),
             )
 
@@ -175,6 +191,64 @@ class TestReservedAmounts:
             )
 
         assert mock_launcher.call_args.kwargs["amount"] == 9
+
+    def test_duplicate_selections_are_rejected(self):
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError, match="listed twice"):
+            GarakImportRequest(
+                probes=[GarakProbeSelection(module_name="dan", class_name="Dan_11_0")] * 2
+            )
+
+    @pytest.mark.asyncio
+    async def test_a_selection_missing_from_the_cache_is_a_400(self):
+        from fastapi import HTTPException
+
+        request = GarakImportRequest(
+            probes=[
+                GarakProbeSelection(module_name="dan", class_name="Dan_11_0"),
+                GarakProbeSelection(module_name="excluded", class_name="Hidden"),
+            ],
+        )
+        with patch("rhesis.backend.app.routers.garak.launch_reserved_job") as mock_launcher:
+            with pytest.raises(HTTPException) as exc_info:
+                await import_probes(
+                    request=request,
+                    db=MagicMock(),
+                    tenant_context=("org", "user"),
+                    current_user=MagicMock(),
+                    probe_service=_cached(("dan", "Dan_11_0")),
+                    _quota_gate=MagicMock(),
+                )
+
+        assert exc_info.value.status_code == 400
+        mock_launcher.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_sync_that_cannot_run_is_a_400(self):
+        from fastapi import HTTPException
+
+        with (
+            patch("rhesis.backend.app.routers.garak.GarakSyncService"),
+            patch(
+                "rhesis.backend.app.routers.garak._build_sync_preview",
+                return_value={"can_sync": False, "to_add": 0, "error": "Probe gone"},
+            ),
+            patch("rhesis.backend.app.routers.garak.launch_reserved_job") as mock_launcher,
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await sync_test_set(
+                    test_set_id="ts",
+                    db=MagicMock(),
+                    tenant_context=("org", "user"),
+                    current_user=MagicMock(),
+                    probe_service=_mock_probe_service({}),
+                    _quota_gate=MagicMock(),
+                )
+
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail == "Probe gone"
+        mock_launcher.assert_not_called()
 
 
 @pytest.mark.unit
@@ -281,6 +355,45 @@ class TestGenerateDynamicProbeDispatch:
 
         _, call_kwargs = mock_launcher.call_args
         assert call_kwargs["model_id"] == "model-123"
+
+    def _generate(self, request, remaining):
+        current_user = MagicMock(id=uuid4(), organization_id=uuid4())
+        with (
+            patch("rhesis.backend.app.routers.garak.GarakDynamicGenerator") as mock_generator_cls,
+            patch(
+                "rhesis.backend.app.routers.garak.check_quota",
+                return_value=MagicMock(remaining=remaining),
+            ),
+            patch("rhesis.backend.app.routers.garak.launch_reserved_job") as mock_launcher,
+        ):
+            mock_generator_cls.return_value.build.return_value = (
+                MagicMock(model_dump=MagicMock(return_value={"generation_prompt": "x"})),
+                {"garak_probe": "fitd.FITD"},
+            )
+            mock_launcher.return_value = MagicMock(id="task-dyn")
+            generate_dynamic_probe(
+                request=request,
+                current_user=current_user,
+                probe_service=self._dynamic_probe_service(),
+                db=MagicMock(),
+                _quota_gate=MagicMock(),
+            )
+        return mock_launcher.call_args.kwargs
+
+    def test_reserves_the_requested_count(self):
+        request = GarakGenerateRequest(module_name="fitd", class_name="FITD", num_tests=12)
+        call_kwargs = self._generate(request, remaining=5)
+        assert call_kwargs["amount"] == call_kwargs["num_tests"] == 12
+
+    def test_the_default_count_fits_what_is_left(self):
+        request = GarakGenerateRequest(module_name="fitd", class_name="FITD")
+        call_kwargs = self._generate(request, remaining=40)
+        assert call_kwargs["amount"] == call_kwargs["num_tests"] == 40
+
+    def test_the_default_count_is_unchanged_when_unlimited(self):
+        request = GarakGenerateRequest(module_name="fitd", class_name="FITD")
+        call_kwargs = self._generate(request, remaining=None)
+        assert 100 <= call_kwargs["amount"] == call_kwargs["num_tests"] <= 200
 
     def test_defaults_model_id_to_none_when_omitted(self):
         request = GarakGenerateRequest(module_name="fitd", class_name="FITD")
