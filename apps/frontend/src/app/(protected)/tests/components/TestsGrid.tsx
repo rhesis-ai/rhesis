@@ -512,7 +512,7 @@ export default function TestsTable({
       enabled={insightsFilterReady}
       banner={insightsBanner}
       searchPlaceholder="Search tests…"
-      pills={{ tabs: TEST_TYPE_PILL_TABS }}
+      pills={{ tabs: TEST_TYPE_PILL_TABS, inDrawer: true }}
       drawer={drawerAdapter}
       selectionLabel="Select tests"
       showExport={canExport}

@@ -412,7 +412,7 @@ export default function EntityGrid<
       searchQuery,
       setSearchQuery,
       searchPlaceholder: searchPlaceholder ?? `Search ${descriptor.resource}…`,
-      pills: pills ? { tabs: pills.tabs } : undefined,
+      pills: pills ? { tabs: pills.tabs, inDrawer: pills.inDrawer } : undefined,
       pillValue,
       setPillValue,
       openFilterDrawer,

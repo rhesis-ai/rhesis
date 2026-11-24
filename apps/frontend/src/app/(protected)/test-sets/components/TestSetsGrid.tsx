@@ -388,7 +388,7 @@ export default function TestSetsGrid({
       refreshTrigger={refreshTrigger}
       mapRows={mapRows}
       searchPlaceholder="Search test sets…"
-      pills={{ tabs: TEST_TYPE_PILL_TABS }}
+      pills={{ tabs: TEST_TYPE_PILL_TABS, inDrawer: true }}
       drawer={drawerAdapter}
       selectionLabel="Select test sets"
       getRowUrl={row => `/test-sets/${row.id}`}

@@ -5,6 +5,7 @@ import { Box, CircularProgress, Fab as MuiFab, Tooltip } from '@mui/material';
 import type { BoxProps } from '@mui/material/Box';
 import type { FabProps as MuiFabProps } from '@mui/material/Fab';
 import { ELEVATION, FAB_GROUP_GAP, FAB_SIZE } from '@/styles/theme';
+import { FAB_COMPACT_BELOW, FAB_SIZE_COMPACT } from '@/styles/theme-constants';
 
 export { FAB_GROUP_GAP };
 export { default as FabAddIcon } from './FabAddIcon';
@@ -42,6 +43,18 @@ export const fabButtonSx = {
   },
   '&:active': {
     boxShadow: ELEVATION.xs,
+  },
+  // MUI's focus style is a larger, offset shadow; the theme draws a ring instead.
+  '&.Mui-focusVisible': {
+    boxShadow: ELEVATION.xs,
+  },
+  // Smaller on phones and at high zoom, so header actions don't crowd the title.
+  [`@media (max-width: ${FAB_COMPACT_BELOW}px)`]: {
+    width: FAB_SIZE_COMPACT,
+    height: FAB_SIZE_COMPACT,
+    minWidth: FAB_SIZE_COMPACT,
+    minHeight: FAB_SIZE_COMPACT,
+    padding: 0.5,
   },
 } as const;
 
@@ -118,6 +131,7 @@ export function FabGroup({ children, sx, ...props }: FabGroupProps) {
     <Box
       sx={{
         display: 'flex',
+        flexWrap: 'wrap',
         alignItems: 'center',
         ...sx,
         gap: FAB_GROUP_GAP,

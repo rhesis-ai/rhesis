@@ -87,7 +87,12 @@ export interface EntityGridProps<
   // ── toolbar ──
   searchPlaceholder?: string;
   /** Pill tabs; `allValue` (default `'all'`) maps to "no pill filter". */
-  pills?: { tabs: ToolbarPillTab[]; allValue?: string };
+  pills?: {
+    tabs: ToolbarPillTab[];
+    allValue?: string;
+    /** The filter drawer offers the same filter, so the pills hide on narrow screens. */
+    inDrawer?: boolean;
+  };
   drawer?: EntityGridDrawerAdapter<TDrawer>;
   /** Descriptor-filter values owned by the caller, merged after `toFilters`. */
   externalFilters?: Partial<FiltersOf<S>>;

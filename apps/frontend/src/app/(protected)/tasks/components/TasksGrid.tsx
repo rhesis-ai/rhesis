@@ -176,7 +176,7 @@ export default function TasksGrid({
       initialTotalCount={initialTotalCount}
       refreshTrigger={refreshTrigger}
       searchPlaceholder="Search tasks…"
-      pills={{ tabs: STATUS_PILL_TABS }}
+      pills={{ tabs: STATUS_PILL_TABS, inDrawer: true }}
       drawer={drawerAdapter}
       selectionLabel="Select tasks"
       getRowUrl={getRowUrl}

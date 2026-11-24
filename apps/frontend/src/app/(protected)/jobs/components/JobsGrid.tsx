@@ -251,7 +251,7 @@ export default function JobsGrid({
       initialTotalCount={initialTotalCount}
       pollMs={pollMs}
       searchPlaceholder="Search jobs…"
-      pills={{ tabs: STATUS_PILL_TABS }}
+      pills={{ tabs: STATUS_PILL_TABS, inDrawer: true }}
       drawer={drawerAdapter}
       getRowUrl={getRowUrl}
       showGridButtons={false}

@@ -12,6 +12,8 @@ import * as React from 'react';
  * - `handleReset` resets draft to `empty` (matches the "Reset" button).
  * - `handleApply` commits the draft via `onApply` then closes the drawer.
  */
+const SHORT_VIEWPORT = '@media (max-height: 600px)';
+
 export function useFilterDrawerDraft<T>(
   open: boolean,
   committed: T,
@@ -105,6 +107,9 @@ export function FilterDrawerShell({
           p: 3.75,
           gap: 3.75,
           boxSizing: 'border-box',
+          // Short screens (high zoom): scroll the whole drawer, or header and
+          // buttons leave only a sliver for the filters.
+          [SHORT_VIEWPORT]: { overflowY: 'auto', p: 2, gap: 2 },
         },
       }}
       sx={{
@@ -151,6 +156,7 @@ export function FilterDrawerShell({
           flexDirection: 'column',
           gap: 5,
           pt: '4px',
+          [SHORT_VIEWPORT]: { flex: '0 0 auto', overflowY: 'visible', gap: 3 },
         }}
       >
         {children}
@@ -284,7 +290,9 @@ export function filterChipSx(active: boolean): SxProps<Theme> {
     py: '6px',
     borderRadius: BORDER_RADIUS.pill,
     border: active ? '2px solid' : '1px solid',
-    borderColor: active ? 'primary.main' : theme.palette.greyscale.border,
+    borderColor: active
+      ? 'primary.main'
+      : theme.palette.greyscale.controlBorder,
     bgcolor: active ? 'primary.main' : 'transparent',
     color: active
       ? theme.palette.primary.contrastText
