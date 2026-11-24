@@ -152,17 +152,20 @@ export default function AuditLogTab() {
         />
       )}
 
-      {!loading && visible.length > 1 ? (
-        <Box
-          role="tabpanel"
-          id={`audit-log-tabpanel-${activeIndex}`}
-          aria-labelledby={`audit-log-tab-${activeIndex}`}
-        >
-          {content}
-        </Box>
-      ) : (
-        content
-      )}
+      {!loading && visible.length > 1
+        ? // One panel per tab, so every tab's aria-controls points at an element.
+          visible.map((s, index) => (
+            <Box
+              key={s.id}
+              role="tabpanel"
+              id={`audit-log-tabpanel-${index}`}
+              aria-labelledby={`audit-log-tab-${index}`}
+              hidden={index !== activeIndex}
+            >
+              {index === activeIndex && content}
+            </Box>
+          ))
+        : content}
     </Box>
   );
 }

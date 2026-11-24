@@ -94,6 +94,17 @@ describe('AuditLogTab', () => {
     expect(panel).toContainElement(screen.getByTestId('events'));
   });
 
+  it('gives every tab a panel to control', () => {
+    const { container } = render(<AuditLogTab />);
+    for (const tab of screen.getAllByRole('tab')) {
+      const id = tab.getAttribute('aria-controls');
+      expect(container.querySelector(`#${id}`)).toHaveAttribute(
+        'role',
+        'tabpanel'
+      );
+    }
+  });
+
   it('opens the section named in the URL, and writes the choice back', () => {
     search = 'tab=audit-log&section=settings';
     render(<AuditLogTab />);
