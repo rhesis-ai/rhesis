@@ -8,6 +8,7 @@ test sets from Garak probes as Rhesis test sets.
 import logging
 import random
 from functools import partial
+from typing import Optional
 
 import anyio
 from fastapi import Depends, HTTPException
@@ -26,6 +27,7 @@ from rhesis.backend.app.error_handlers import PublicHTTPException
 from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
+from rhesis.backend.app.quota.enforcement import check_quota
 from rhesis.backend.app.routers.base import RhesisRouter
 from rhesis.backend.app.schemas.garak import (
     GarakGenerateRequest,
@@ -317,6 +319,8 @@ async def import_probes(
     # supplies the prompt counts the import will create, to reserve them.
     _, probes_by_module = await _enumerate_probes(probe_service)
     amount = _selected_prompt_count(probes_by_module, request.probes)
+    if amount is None:
+        raise HTTPException(status_code=400, detail="Some selected probes are not available")
 
     task_result = await anyio.to_thread.run_sync(
         partial(
@@ -340,15 +344,21 @@ async def import_probes(
     )
 
 
-def _selected_prompt_count(probes_by_module: dict, selections) -> int:
-    """How many tests importing *selections* creates, from the cached probe list."""
-    wanted = {(s.module_name, s.class_name) for s in selections}
-    return sum(
-        probe.prompt_count
+def _selected_prompt_count(probes_by_module: dict, selections) -> Optional[int]:
+    """How many tests importing *selections* creates, or None if one is not in the cache.
+
+    The worker can import a module the cache leaves out, so an unlisted
+    selection would create tests nobody reserved.
+    """
+    counts = {
+        (probe.module_name, probe.class_name): probe.prompt_count
         for probes in probes_by_module.values()
         for probe in probes
-        if (probe.module_name, probe.class_name) in wanted
-    )
+    }
+    keys = [(s.module_name, s.class_name) for s in selections]
+    if any(key not in counts for key in keys):
+        return None
+    return sum(counts[key] for key in keys)
 
 
 def _build_sync_preview(
@@ -472,6 +482,8 @@ def _launch_sync(
     # (see import_probes for why).
     GarakSyncService(db).resolve_sync_target(test_set_id, organization_id)
     preview = _build_sync_preview(db, probes_by_module, test_set_id, organization_id) or {}
+    if preview.get("can_sync") is False:
+        raise ValueError(preview.get("error") or "This test set cannot be synced")
 
     return launch_reserved_job(
         sync_garak_test_set_task,
@@ -540,8 +552,15 @@ def generate_dynamic_probe(
     generator = GarakDynamicGenerator()
     config, probe_metadata = generator.build(probe_info)
 
-    # Choose a random test count in [100, 200] if the caller did not specify one
-    num_tests = request.num_tests if request.num_tests is not None else random.randint(100, 200)
+    num_tests = request.num_tests
+    if num_tests is None:
+        # A random count in [100, 200], capped at what the quota has left.
+        num_tests = random.randint(100, 200)
+        remaining = check_quota(
+            db, str(_quota_gate.id), _quota_gate, QuotaResource.TEST_GENERATION
+        ).remaining
+        if remaining is not None:
+            num_tests = max(min(num_tests, remaining), 1)
 
     test_set_name = request.name or f"Garak Dynamic: {probe_info.full_name}"
 

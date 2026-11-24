@@ -4,7 +4,7 @@ Pydantic schemas for Garak API endpoints.
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class GarakProbeClassResponse(BaseModel):
@@ -108,6 +108,18 @@ class GarakImportRequest(BaseModel):
         description="Optional description template for test sets",
         max_length=2000,
     )
+
+    @field_validator("probes")
+    @classmethod
+    def no_duplicate_probes(cls, probes: List[GarakProbeSelection]) -> List[GarakProbeSelection]:
+        # Each entry becomes its own test set.
+        seen = set()
+        for probe in probes:
+            key = (probe.module_name, probe.class_name)
+            if key in seen:
+                raise ValueError(f"Probe {probe.module_name}.{probe.class_name} is listed twice")
+            seen.add(key)
+        return probes
 
 
 class GarakProbePreview(BaseModel):
