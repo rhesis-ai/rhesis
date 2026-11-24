@@ -397,8 +397,9 @@ module "wireguard_server" {
   machine_type        = "e2-medium"
 
   # One entry per person who needs access, and which environment(s) they can reach.
+  # public_key is the output of \`wg pubkey\` on that person's machine (see below).
   wireguard_peers = [
-    { identifier = "admin-you", ip = "10.0.0.2", subnets = ["customer"] },
+    { identifier = "admin-you", ip = "10.0.0.2", subnets = ["customer"], public_key = "<wg pubkey output>" },
   ]
 
   subnet_cidrs         = { customer = "10.2.0.0/15" }
@@ -431,11 +432,24 @@ resource "google_compute_network_peering" "customer_to_wireguard" {
 Both sides of a peering must exist before it goes `ACTIVE`: apply the customer cluster first
 (creating the inactive return-side peering), then the WireGuard project.
 
-Retrieve each peer's client config from Terraform output and import it into a WireGuard client:
+Terraform never holds a private key. Each person generates their own key pair on their machine
+and shares only the public key, which goes in `public_key` above:
 
 <CodeBlock filename="Terminal" language="bash">
-{`terraform output -json peer_configs | jq -r '.["admin-you"].config' > admin-you.conf`}
+{`umask 077 && wg genkey | tee admin-you.key | wg pubkey`}
 </CodeBlock>
+
+The server generates its own private key on the VM. The apply that creates it prints the server's
+public key; set it as `server_public_key` on the module so the peer configs include it. Then
+retrieve each peer's config, add that person's private key, and import it into a WireGuard client:
+
+<CodeBlock filename="Terminal" language="bash">
+{`terraform output -json peer_configs | jq -r '.["admin-you"].config' \\
+  | sed "s|^PrivateKey = .*|PrivateKey = $(cat admin-you.key)|" > admin-you.conf`}
+</CodeBlock>
+
+To rotate the server key, change `server_key_rotation` and apply; every peer then needs the new
+server public key.
 
 Connecting sets your machine's DNS resolver to the WireGuard server's tunnel IP
 (`10.0.0.1`), which matters once you add internal DNS below.
