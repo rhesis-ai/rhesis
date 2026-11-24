@@ -345,8 +345,12 @@ describe('RequirementTable', () => {
     const [core, preference] = screen
       .getAllByRole('button', { expanded: true })
       .map(groupRow);
-    expect(core).toHaveTextContent(/^Core110100%/);
-    expect(preference).toHaveTextContent(/^Preference110100%/);
+    expect(core).toHaveTextContent(
+      /^Core1 total,1 passed,0 failed,100% pass rate,/
+    );
+    expect(preference).toHaveTextContent(
+      /^Preference1 total,1 passed,0 failed,100% pass rate,/
+    );
   });
 
   it('shows the tests of a requirement with no metrics, errored ones as failed', () => {
@@ -376,7 +380,9 @@ describe('RequirementTable', () => {
       .getAllByRole('button', { expanded: true })
       .map(groupRow);
     // Total 1, Passed 0, Failed 1.
-    expect(header).toHaveTextContent(/^Destination Planning101/);
+    expect(header).toHaveTextContent(
+      /^Destination Planning1 total,0 passed,1 failed,/
+    );
   });
 
   it('shows unscored tests of a requirement with no metrics as no verdict', () => {
@@ -404,7 +410,9 @@ describe('RequirementTable', () => {
       .getAllByRole('button', { expanded: true })
       .map(groupRow);
     // Neither passed nor failed, so no pass rate either.
-    expect(header).toHaveTextContent(/^Destination Planning100--/);
+    expect(header).toHaveTextContent(
+      /^Destination Planning1 total,0 passed,0 failed,-- pass rate,/
+    );
   });
 
   it('derives group header Total/Passed/Failed from the per-test rollup', () => {
