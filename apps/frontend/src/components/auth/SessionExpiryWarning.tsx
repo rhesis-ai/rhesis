@@ -34,6 +34,8 @@ export default function SessionExpiryWarning() {
   const expiresAt = session?.expires ? Date.parse(session.expires) : NaN;
   const [remaining, setRemaining] = React.useState<number | null>(null);
   const [extending, setExtending] = React.useState(false);
+  // Read by the interval, so an extension in flight holds off the redirect.
+  const extendingRef = React.useRef(false);
   const [extendFailed, setExtendFailed] = React.useState(false);
 
   const open = remaining !== null && remaining <= SESSION_WARNING_LEAD_MS;
@@ -43,6 +45,7 @@ export default function SessionExpiryWarning() {
     const tick = () => {
       const left = expiresAt - Date.now();
       if (left <= 0) {
+        if (extendingRef.current) return;
         window.location.assign('/auth/signin?session_expired=true');
         return;
       }
@@ -66,6 +69,7 @@ export default function SessionExpiryWarning() {
 
   const staySignedIn = async () => {
     setExtending(true);
+    extendingRef.current = true;
     setExtendFailed(false);
     try {
       // Re-issues the session cookie with a fresh expiry.
@@ -75,6 +79,7 @@ export default function SessionExpiryWarning() {
       setExtendFailed(true);
     } finally {
       setExtending(false);
+      extendingRef.current = false;
     }
   };
 

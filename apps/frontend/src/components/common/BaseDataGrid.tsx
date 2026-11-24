@@ -39,6 +39,7 @@ import {
   GridRowParams,
   GridColumnMenu,
   type GridCellParams,
+  GRID_CHECKBOX_SELECTION_FIELD,
   gridClasses,
   type GridCallbackDetails,
   type GridColumnGroupingModel,
@@ -817,7 +818,11 @@ export default function BaseDataGrid({
     if (event.key !== 'Enter' || params.cellMode === 'edit') return;
     // Focus is on a control inside the cell (checkbox, action button).
     if (event.target !== event.currentTarget) return;
-    if (params.field === '__check__' || params.field === 'actions') return;
+    if (
+      params.field === GRID_CHECKBOX_SELECTION_FIELD ||
+      params.field === 'actions'
+    )
+      return;
     event.preventDefault();
     handleRowClickWithLink(apiRef.current.getRowParams(params.id), event);
   };

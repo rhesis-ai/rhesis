@@ -44,6 +44,15 @@ export {
   GRID_TOOLBAR_MIN_HEIGHT,
 };
 
+// Module-level, so every built theme shares the same function and themes
+// built from the same options stay equal.
+const focusRingRoot = ({ theme }: { theme: Theme }) => ({
+  '&.Mui-focusVisible': {
+    outline: `2px solid ${theme.palette.primary.main}`,
+    outlineOffset: 2,
+  },
+});
+
 /** Deployment brand overrides (`BRAND_PRIMARY_COLOR`, `BRAND_SECONDARY_COLOR`, `BRAND_FONT_FAMILY`). */
 export interface BrandColors {
   primary?: string;
@@ -465,14 +474,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
       // One visible keyboard focus ring for every button-like control (2.4.7).
       // MUI's defaults are a faint ripple or, on FABs, an offset shadow.
       MuiButtonBase: {
-        styleOverrides: {
-          root: ({ theme }: { theme: Theme }) => ({
-            '&.Mui-focusVisible': {
-              outline: `2px solid ${theme.palette.primary.main}`,
-              outlineOffset: 2,
-            },
-          }),
-        },
+        styleOverrides: { root: focusRingRoot },
       },
       // These sit flush inside menus, lists and tab bars that clip anything
       // drawn outside them, so their ring goes inside the edge.
