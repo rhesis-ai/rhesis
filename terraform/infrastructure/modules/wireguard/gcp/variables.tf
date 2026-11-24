@@ -61,12 +61,35 @@ variable "wireguard_peer_cidr" {
 }
 
 variable "wireguard_peers" {
-  description = "List of WireGuard peers with subnet access"
+  description = "List of WireGuard peers with subnet access. Each peer generates its own key pair (wg genkey | wg pubkey) and supplies only the public key."
   type = list(object({
     identifier = string
     ip         = string
     subnets    = list(string)
+    public_key = string
   }))
+
+  validation {
+    condition     = alltrue([for p in var.wireguard_peers : can(regex("^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw480]=$", p.public_key))])
+    error_message = "Each peer public_key must be a WireGuard public key (wg pubkey output)."
+  }
+}
+
+variable "server_public_key" {
+  description = "The server's public key, printed by the apply that generates it on the VM. Only used to render peer_configs."
+  type        = string
+  default     = null
+}
+
+variable "server_key_rotation" {
+  description = "Changing this makes the VM generate a new server private key on the next apply."
+  type        = string
+  default     = "initial"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9._-]+$", var.server_key_rotation))
+    error_message = "server_key_rotation may only contain letters, digits, '.', '_' and '-'."
+  }
 }
 
 variable "subnet_cidrs" {

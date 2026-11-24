@@ -52,6 +52,19 @@ variable "wireguard_peers" {
     identifier = string
     ip         = string
     subnets    = list(string)
+    public_key = string
   }))
   default = []
+}
+
+variable "wireguard_server_public_key" {
+  description = "WireGuard server public key, as printed by the apply that generated it. Public; used only to render the peer configs."
+  type        = string
+  default     = null
+}
+
+variable "wireguard_server_key_rotation" {
+  description = "Change to make the VPN server generate a new private key on the next apply. Every peer config must then be updated."
+  type        = string
+  default     = "2026-11-24"
 }

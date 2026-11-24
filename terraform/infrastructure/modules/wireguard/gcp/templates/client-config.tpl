@@ -1,5 +1,5 @@
 [Interface]
-PrivateKey = ${peer_private_key}
+PrivateKey = <your private key: the one you generated, never shared>
 Address = ${peer_ip}/32
 DNS = ${server_tunnel_ip}
 

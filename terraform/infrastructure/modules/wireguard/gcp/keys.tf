@@ -1,9 +1,4 @@
-# WireGuard key pairs using the wireguard provider (idempotent, no local tooling needed).
-# Keys are generated once on creation and stored in Terraform state.
-# To rotate keys intentionally: terraform taint module.wireguard_server.wireguard_asymmetric_key.server
-
-resource "wireguard_asymmetric_key" "server" {}
-
-resource "wireguard_asymmetric_key" "peers" {
-  for_each = { for p in var.wireguard_peers : p.identifier => p }
-}
+# No private keys in Terraform: each peer generates its own key pair and supplies the
+# public key, and the server generates its private key on the VM (server-key.sh.tpl).
+# The wireguard provider stays declared only so Terraform can drop the old
+# wireguard_asymmetric_key resources from state; remove it once that has applied.

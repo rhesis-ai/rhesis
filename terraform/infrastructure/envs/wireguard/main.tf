@@ -86,6 +86,8 @@ module "wireguard_server" {
   subnet_self_link    = module.wireguard.subnet_self_links["main"]
   deletion_protection = var.wireguard_deletion_protection
   wireguard_peers     = var.wireguard_peers
+  server_public_key   = var.wireguard_server_public_key
+  server_key_rotation = var.wireguard_server_key_rotation
 
   # prd uses Shared VPC cross-project NIC (private endpoint) — same pattern dev previously used.
   # dev/stg use public endpoints locked to WireGuard external IP — no extra NIC needed.

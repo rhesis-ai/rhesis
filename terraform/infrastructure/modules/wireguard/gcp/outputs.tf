@@ -9,22 +9,19 @@ output "server_tunnel_ip" {
 }
 
 output "server_public_key" {
-  description = "WireGuard server public key"
-  value       = wireguard_asymmetric_key.server.public_key
-  sensitive   = true
+  description = "WireGuard server public key, as set in server_public_key"
+  value       = var.server_public_key
 }
 
 output "peer_configs" {
-  description = "Client configurations for each peer"
+  description = "Client configurations for each peer, without the private key (each peer adds its own)"
   value = {
     for peer in var.wireguard_peers : peer.identifier => {
-      ip          = peer.ip
-      private_key = wireguard_asymmetric_key.peers[peer.identifier].private_key
-      public_key  = wireguard_asymmetric_key.peers[peer.identifier].public_key
+      ip         = peer.ip
+      public_key = peer.public_key
       config = templatefile("${path.module}/templates/client-config.tpl", {
         peer_ip           = peer.ip
-        peer_private_key  = wireguard_asymmetric_key.peers[peer.identifier].private_key
-        server_public_key = wireguard_asymmetric_key.server.public_key
+        server_public_key = coalesce(var.server_public_key, "<server public key from the apply log>")
         server_endpoint   = "${google_compute_address.wireguard.address}:${var.wireguard_port}"
         server_tunnel_ip  = var.wireguard_tunnel_ip
         allowed_ips = join(", ", concat(

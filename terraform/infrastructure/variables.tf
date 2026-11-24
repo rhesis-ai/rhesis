@@ -47,6 +47,7 @@ variable "wireguard_peers" {
     identifier = string
     ip         = string
     subnets    = list(string)
+    public_key = string
   }))
   default = []
 }
