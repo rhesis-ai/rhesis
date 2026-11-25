@@ -25,6 +25,7 @@ import {
   fromSchedule,
   toScheduleSpec,
   type ScheduleForm,
+  changedFields,
 } from '@/components/common/run-drawer/schedule-form';
 import { Capability } from '@/constants/capabilities';
 import {
@@ -36,10 +37,7 @@ import {
 } from '@/constants/test-run-schedules';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { getApiErrorMessage } from '@/utils/error-utils';
-import type {
-  ScheduleSpec,
-  TestRunScheduleDetail,
-} from '@/utils/api-client/interfaces/test-run-schedule';
+import type { TestRunScheduleDetail } from '@/utils/api-client/interfaces/test-run-schedule';
 import ScheduleScopeDialog, { type ScopeOption } from './ScheduleScopeDialog';
 import ScheduleStatusChip from './ScheduleStatusChip';
 import { useScheduleActions, useScheduleDetail } from './useSchedules';
@@ -64,20 +62,6 @@ type DeleteScope = ScheduleScope | 'whole';
 
 const BOTH_CHANGED =
   "Change the date of this run or the schedule's settings, not both. Undo one of them to save.";
-
-/** Fields of the spec that differ from the stored ones, so a PATCH sends only those. */
-function changedFields(
-  before: ScheduleSpec,
-  after: ScheduleSpec
-): Partial<ScheduleSpec> {
-  const changes: Partial<ScheduleSpec> = {};
-  (Object.keys(after) as (keyof ScheduleSpec)[]).forEach(key => {
-    if (JSON.stringify(after[key]) !== JSON.stringify(before[key])) {
-      (changes as Record<string, unknown>)[key] = after[key];
-    }
-  });
-  return changes;
-}
 
 export default function ScheduleEditDrawer({
   scheduleId,
@@ -108,6 +92,7 @@ export default function ScheduleEditDrawer({
   // Fill the fields once per opened schedule or run. A refetch while open (after a save,
   // or the minute refresh) must not throw away what the person typed.
   const filledFor = useRef<string | null>(null);
+  const filledWith = useRef<ScheduleForm | null>(null);
   const openKey = scheduleId
     ? `${scheduleId}|${occurrence?.original ?? ''}`
     : null;
@@ -116,8 +101,16 @@ export default function ScheduleEditDrawer({
       filledFor.current = null;
       return;
     }
-    if (!initialForm || filledFor.current === openKey) return;
+    if (!initialForm) return;
+    if (filledFor.current === openKey) {
+      // Newer data arrived: take it, unless the person has started editing.
+      if (form !== filledWith.current) return;
+      filledWith.current = initialForm;
+      setForm(initialForm);
+      return;
+    }
     filledFor.current = openKey;
+    filledWith.current = initialForm;
     setForm(initialForm);
     setError(null);
     if (occurrenceLocal) {
@@ -326,7 +319,9 @@ export default function ScheduleEditDrawer({
                 <Button
                   size="small"
                   variant="outlined"
-                  onClick={() => actions.runNow(schedule)}
+                  onClick={async () => {
+                    if (await actions.runNow(schedule)) onClose();
+                  }}
                 >
                   Run now
                 </Button>
@@ -349,15 +344,17 @@ export default function ScheduleEditDrawer({
                   Resume
                 </Button>
               )}
-              {editable && needsOwner && (
-                <Button
-                  size="small"
-                  variant="contained"
-                  onClick={() => onTakeOver(schedule)}
-                >
-                  Take over
-                </Button>
-              )}
+              {editable &&
+                needsOwner &&
+                can(schedule, Capability.TestRun.EXECUTE) && (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => onTakeOver(schedule)}
+                  >
+                    Take over
+                  </Button>
+                )}
               <Button
                 size="small"
                 component={Link}
@@ -369,9 +366,26 @@ export default function ScheduleEditDrawer({
 
             {occurrence && repeating && (
               <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  This run ({formatRunTime(occurrence.at, zone)})
-                </Typography>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    mb: 1,
+                  }}
+                >
+                  <Typography variant="subtitle2">
+                    This run ({formatRunTime(occurrence.at, zone)})
+                  </Typography>
+                  {editable && (
+                    <Button
+                      size="small"
+                      onClick={() => void remove(SCHEDULE_SCOPE.ONE)}
+                    >
+                      Skip this run
+                    </Button>
+                  )}
+                </Box>
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <TextField
                     label="Date"
@@ -383,7 +397,7 @@ export default function ScheduleEditDrawer({
                     fullWidth
                   />
                   <TextField
-                    label="Time"
+                    label={`Time (${zone})`}
                     type="time"
                     value={moveTime}
                     onChange={e => setMoveTime(e.target.value)}
@@ -402,6 +416,7 @@ export default function ScheduleEditDrawer({
                 onPreviewError={setPreviewError}
                 showName
                 sdkEndpoint={schedule.endpoint?.connection_type === 'SDK'}
+                initialForm={initialForm ?? undefined}
               />
             ) : (
               <Alert severity="info">

@@ -1,6 +1,11 @@
 'use client';
 
-import { Box, Chip, Typography } from '@mui/material';
+import { useState } from 'react';
+import { Box, Button, Chip, Typography } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
+import RunDrawer from '@/components/common/RunDrawer';
+import { can } from '@/components/common/Can';
+import { Capability } from '@/constants/capabilities';
 import { useQuery } from '@tanstack/react-query';
 import { SectionCard } from '@/components/common/SectionCard';
 import { modelKeys } from '@/constants/query-keys';
@@ -48,7 +53,7 @@ const METRICS_SOURCE_LABEL: Record<string, string> = {
   execution_time: 'Picked for this schedule',
 };
 
-/** What each run uses. Read-only; change the timing in the edit drawer. */
+/** What each run uses. Edit opens the run drawer on this schedule. */
 export default function ScheduleConfiguration({
   schedule,
 }: {
@@ -58,11 +63,25 @@ export default function ScheduleConfiguration({
   const executionModel = useModelName(settings.execution_model_id);
   const evaluationModel = useModelName(settings.evaluation_model_id);
   const source = settings.metrics_source;
+  const [editing, setEditing] = useState(false);
+  const editable =
+    can(schedule, Capability.TestRun.UPDATE) && Boolean(schedule.test_set);
 
   return (
     <SectionCard
       title="Run settings"
       subtitle="Every run of this schedule uses these settings."
+      actions={
+        editable ? (
+          <Button
+            variant="outlined"
+            startIcon={<EditIcon />}
+            onClick={() => setEditing(true)}
+          >
+            Edit
+          </Button>
+        ) : undefined
+      }
     >
       <Row label="Metrics">
         <Typography variant="body2">
@@ -82,11 +101,24 @@ export default function ScheduleConfiguration({
       <Row label="Evaluation model">
         <Typography variant="body2">{evaluationModel}</Typography>
       </Row>
+      <Row label="Endpoint">
+        <Typography variant="body2">
+          {schedule.endpoint?.name ?? '—'}
+        </Typography>
+      </Row>
       <Row label="Execution mode">
         <Typography variant="body2">
           {settings.execution_mode ?? 'Default'}
         </Typography>
       </Row>
+      {schedule.test_set && (
+        <RunDrawer
+          open={editing}
+          onClose={() => setEditing(false)}
+          mode="executeTestSet"
+          data={{ testSetId: schedule.test_set.id, schedule }}
+        />
+      )}
     </SectionCard>
   );
 }

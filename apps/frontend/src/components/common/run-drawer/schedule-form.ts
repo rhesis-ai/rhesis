@@ -127,9 +127,26 @@ const localToUtc = (date: string, time: string, zone: string) =>
   dayjs.tz(`${date} ${time}`, 'YYYY-MM-DD HH:mm', zone).utc().toISOString();
 
 /** Field problems the drawer shows under each field, before asking the server. */
-export function formProblems(form: ScheduleForm, now: dayjs.Dayjs = dayjs()) {
+export function formProblems(
+  form: ScheduleForm,
+  now: dayjs.Dayjs = dayjs(),
+  /** The stored schedule's form: dates it already had may stay in the past. */
+  initial?: ScheduleForm
+) {
   const problems: Partial<Record<keyof ScheduleForm, string>> = {};
-  if (!form.repeat) {
+  const keptRunAt =
+    initial !== undefined &&
+    !initial.repeat &&
+    initial.date === form.date &&
+    initial.time === form.time &&
+    initial.timezone === form.timezone;
+  const keptEnd =
+    initial !== undefined &&
+    initial.ends === ENDS.ON &&
+    initial.endsOn === form.endsOn;
+  if (!form.repeat && keptRunAt) {
+    // A finished run-once schedule can be renamed without picking a new date.
+  } else if (!form.repeat) {
     const at = dayjs.tz(
       `${form.date} ${form.time}`,
       'YYYY-MM-DD HH:mm',
@@ -145,6 +162,7 @@ export function formProblems(form: ScheduleForm, now: dayjs.Dayjs = dayjs()) {
   if (
     form.repeat &&
     form.ends === ENDS.ON &&
+    !keptEnd &&
     !dayjs(form.endsOn).isAfter(now, 'day')
   ) {
     problems.endsOn = 'Enter a date after today';
@@ -253,4 +271,25 @@ export function fromSchedule(schedule: {
     return { ...form, frequency: FREQUENCY.MONTHLY, time, monthDay: dom };
   }
   return custom;
+}
+
+/** Fields of the spec that differ from the stored ones, so a PATCH sends only those. */
+export function changedFields(
+  before: ScheduleSpec,
+  after: ScheduleSpec
+): Partial<ScheduleSpec> {
+  const changes: Partial<ScheduleSpec> = {};
+  (Object.keys(after) as (keyof ScheduleSpec)[]).forEach(key => {
+    if (JSON.stringify(after[key]) !== JSON.stringify(before[key])) {
+      (changes as Record<string, unknown>)[key] = after[key];
+    }
+  });
+  return changes;
+}
+
+/** Whether two forms run at the same times; name and notify don't count. */
+export function sameTiming(a: ScheduleForm, b: ScheduleForm): boolean {
+  const { name: _a, notify: _an, ...left } = toScheduleSpec(a);
+  const { name: _b, notify: _bn, ...right } = toScheduleSpec(b);
+  return JSON.stringify(left) === JSON.stringify(right);
 }

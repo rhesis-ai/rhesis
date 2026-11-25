@@ -40,6 +40,7 @@ import {
   MONTH_DAYS,
   WEEKDAYS,
   formProblems,
+  sameTiming,
   formatRunTime,
   timeZones,
   toScheduleSpec,
@@ -59,6 +60,8 @@ interface Props {
   sdkEndpoint?: boolean;
   /** Several test sets: one schedule each. */
   testSetCount?: number;
+  /** Editing a stored schedule: its unchanged dates may be in the past. */
+  initialForm?: ScheduleForm;
 }
 
 function useDebounced<T>(value: T, delay: number): T {
@@ -85,10 +88,13 @@ export default function RunDrawerScheduleSection({
   showName = false,
   sdkEndpoint = false,
   testSetCount = 1,
+  initialForm,
 }: Props) {
   const set = <K extends keyof ScheduleForm>(key: K, value: ScheduleForm[K]) =>
     onChange({ ...form, [key]: value });
-  const problems = formProblems(form);
+  const problems = formProblems(form, undefined, initialForm);
+  // Unchanged timing was valid when saved; the preview may still refuse a past date.
+  const keptTiming = initialForm !== undefined && sameTiming(form, initialForm);
   const zones = useMemo(() => timeZones(), []);
 
   const specText = JSON.stringify(toScheduleSpec(form));
@@ -108,8 +114,8 @@ export default function RunDrawerScheduleSection({
     : null;
 
   useEffect(() => {
-    onPreviewError(hasProblems ? 'invalid' : previewError);
-  }, [hasProblems, previewError, onPreviewError]);
+    onPreviewError(hasProblems ? 'invalid' : keptTiming ? null : previewError);
+  }, [hasProblems, previewError, keptTiming, onPreviewError]);
 
   return (
     <Box sx={drawerSectionSx}>

@@ -68,6 +68,7 @@ import {
 } from '@/utils/api-client/interfaces/parameters';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { getApiErrorMessage } from '@/utils/error-utils';
+import { getApiErrorStatus } from '@/utils/api-client/is-not-found-error';
 import {
   executeBatchedTestRuns,
   assignTagsToRuns,
@@ -89,11 +90,19 @@ import { Capability } from '@/constants/capabilities';
 import { useCan } from '@/components/common/Can';
 import RunDrawerScheduleSection from '@/components/common/run-drawer/RunDrawerScheduleSection';
 import {
+  changedFields,
   defaultScheduleForm,
   formatRunTime,
+  fromSchedule,
   toScheduleSpec,
   type ScheduleForm,
 } from '@/components/common/run-drawer/schedule-form';
+import type {
+  TestRunScheduleDetail,
+  TestRunScheduleUpdate,
+} from '@/utils/api-client/interfaces/test-run-schedule';
+import { useQueryClient } from '@tanstack/react-query';
+import { scheduleKeys } from '@/constants/query-keys';
 
 // ---------------------------------------------------------------------------
 // Shared local types
@@ -159,7 +168,14 @@ export interface RerunConfig {
 // ---------------------------------------------------------------------------
 
 type RunDrawerModeProps =
-  | { mode: 'executeTestSet'; data: { testSetId: string } }
+  | {
+      mode: 'executeTestSet';
+      data: {
+        testSetId: string;
+        /** Edit this schedule's settings instead of starting or scheduling a run. */
+        schedule?: TestRunScheduleDetail;
+      };
+    }
   | { mode: 'newTestRun'; data?: undefined }
   | {
       mode: 'runExperiment';
@@ -185,6 +201,8 @@ type RunDrawerProps = {
   initialSchedule?: boolean;
   /** Schedule fields to start from, e.g. carried over from the compact create drawer. */
   scheduleSeed?: ScheduleForm;
+  /** Endpoint to preselect, e.g. carried over from the compact create drawer. */
+  endpointSeed?: string;
 } & RunDrawerModeProps;
 
 // ---------------------------------------------------------------------------
@@ -378,8 +396,15 @@ export default function RunDrawer(props: RunDrawerProps) {
   const [reuseDropped, setReuseDropped] = useState(false);
   useEffect(() => {
     if (!open) return;
-    setScheduleMode(Boolean(props.initialSchedule) && canSchedule);
-    setScheduleForm(props.scheduleSeed ?? defaultScheduleForm());
+    setScheduleMode(
+      (Boolean(props.initialSchedule) && canSchedule) ||
+        (mode === 'executeTestSet' && Boolean(props.data.schedule))
+    );
+    setScheduleForm(
+      mode === 'executeTestSet' && props.data.schedule
+        ? fromSchedule(props.data.schedule)
+        : (props.scheduleSeed ?? defaultScheduleForm())
+    );
     setReuseDropped(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the drawer opens
   }, [open]);
@@ -430,6 +455,7 @@ export default function RunDrawer(props: RunDrawerProps) {
   >([]);
 
   const apiFactory = useMemo(() => new ApiClientFactory(), []);
+  const queryClient = useQueryClient();
 
   // -----------------------------------------------------------------------
   // Derived helpers
@@ -439,6 +465,8 @@ export default function RunDrawer(props: RunDrawerProps) {
   const experimentData = mode === 'runExperiment' ? props.data : null;
   const executeTestSetId =
     mode === 'executeTestSet' ? props.data.testSetId : null;
+  const editingSchedule =
+    mode === 'executeTestSet' ? (props.data.schedule ?? null) : null;
   const gridTestSetIds =
     mode === 'createFromGrid' ? props.data.selectedTestSetIds : null;
 
@@ -607,7 +635,7 @@ export default function RunDrawer(props: RunDrawerProps) {
         if (!mounted) return;
         setTestSetMetrics(metrics || []);
 
-        if (mode === 'executeTestSet') {
+        if (mode === 'executeTestSet' && !editingSchedule) {
           setMetricMode(
             metrics?.length > 0 ? 'use_test_set' : 'use_requirement'
           );
@@ -624,7 +652,48 @@ export default function RunDrawer(props: RunDrawerProps) {
     return () => {
       mounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- editingSchedule is fixed while open
   }, [open, executeTestSetId, rerunConfig?.testSetId, mode, apiFactory]);
+
+  // Editing a schedule: start from what its runs use now.
+  useEffect(() => {
+    if (!open || !editingSchedule) return;
+    const settings = editingSchedule.run_settings;
+    setExecutionMode(settings.execution_mode ?? 'Parallel');
+    setSelectedExecutionModelId(settings.execution_model_id ?? '');
+    setSelectedEvaluationModelId(settings.evaluation_model_id ?? '');
+    if (
+      settings.metrics_source === 'execution_time' &&
+      settings.metrics.length > 0
+    ) {
+      setMetricMode('define_custom');
+      setSelectedMetrics(
+        settings.metrics.map(m => ({ id: m.id as UUID, name: m.name }))
+      );
+    } else {
+      setMetricMode(
+        settings.metrics_source === 'test_set'
+          ? 'use_test_set'
+          : 'use_requirement'
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fill once per open
+  }, [open]);
+
+  // Pick the schedule's endpoint once the endpoint list has it.
+  const endpointSeeded = useRef(false);
+  useEffect(() => {
+    if (!open) {
+      endpointSeeded.current = false;
+      return;
+    }
+    const id = editingSchedule?.endpoint?.id ?? props.endpointSeed;
+    if (!id || endpointSeeded.current) return;
+    if (filteredEndpoints.some(e => e.id === id)) {
+      endpointSeeded.current = true;
+      setSelectedEndpoint(id as UUID);
+    }
+  }, [open, editingSchedule, filteredEndpoints, props.endpointSeed]);
 
   // Rerun: pre-fill metrics from original attributes. Models are NOT
   // carried forward so the rerun picks up the user's current defaults
@@ -1068,6 +1137,29 @@ export default function RunDrawer(props: RunDrawerProps) {
     setScheduleMode(true);
   };
 
+  const saveScheduleSettings = async (
+    schedule: TestRunScheduleDetail,
+    endpointId: string,
+    runSettings: NonNullable<TestRunScheduleUpdate['run_settings']>
+  ) => {
+    // Send only the timing that changed: changing it clears moved and skipped runs.
+    const spec = changedFields(
+      toScheduleSpec(fromSchedule(schedule)),
+      toScheduleSpec(scheduleForm)
+    );
+    await apiFactory.getTestRunSchedulesClient().update(schedule.id, {
+      ...spec,
+      ...(endpointId !== schedule.endpoint?.id
+        ? { endpoint_id: endpointId }
+        : {}),
+      run_settings: runSettings,
+    });
+    await queryClient.invalidateQueries({ queryKey: scheduleKeys.all() });
+    notifications.show(`Saved ${schedule.name}`, { severity: 'success' });
+    onSuccess?.();
+    onClose();
+  };
+
   const doSchedule = async () => {
     const testSetIds = resolveTestSetIds();
     const endpointId = resolveEndpointId();
@@ -1094,6 +1186,10 @@ export default function RunDrawer(props: RunDrawerProps) {
         execution_model_id: selectedExecutionModelId || null,
         evaluation_model_id: selectedEvaluationModelId || null,
       };
+      if (editingSchedule) {
+        await saveScheduleSettings(editingSchedule, endpointId, runSettings);
+        return;
+      }
       const created = await apiFactory.getTestRunSchedulesClient().create({
         ...(testSetIds.length > 1
           ? { test_set_ids: testSetIds }
@@ -1111,10 +1207,26 @@ export default function RunDrawer(props: RunDrawerProps) {
             : 'Schedule created',
         { severity: 'success', autoHideDuration: 6000 }
       );
+      await queryClient.invalidateQueries({ queryKey: scheduleKeys.all() });
       onSuccess?.();
       onClose();
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Failed to schedule the run'));
+      if (getApiErrorStatus(err) === 403) {
+        setError(
+          editingSchedule
+            ? "You don't have permission to change this schedule."
+            : "You don't have permission to schedule runs in this project."
+        );
+        return;
+      }
+      setError(
+        getApiErrorMessage(
+          err,
+          editingSchedule
+            ? 'Could not save the schedule'
+            : 'Failed to schedule the run'
+        )
+      );
     } finally {
       setExecuting(false);
     }
@@ -2064,23 +2176,27 @@ export default function RunDrawer(props: RunDrawerProps) {
   // Dynamic title for createFromGrid
   // -----------------------------------------------------------------------
 
-  const title = scheduleMode
-    ? resolveTestSetIds().length > 1
-      ? 'Schedule Test Sets'
-      : 'Schedule Test Set'
-    : mode === 'createFromGrid' && gridTestSetIds
-      ? gridTestSetIds.length > 1
-        ? 'Execute Test Sets'
-        : 'Execute Test Set'
-      : cfg.title;
+  const title = editingSchedule
+    ? `Edit ${editingSchedule.name}`
+    : scheduleMode
+      ? resolveTestSetIds().length > 1
+        ? 'Schedule Test Sets'
+        : 'Schedule Test Set'
+      : mode === 'createFromGrid' && gridTestSetIds
+        ? gridTestSetIds.length > 1
+          ? 'Execute Test Sets'
+          : 'Execute Test Set'
+        : cfg.title;
 
-  const saveButtonText = scheduleMode
-    ? 'Schedule Run'
-    : mode === 'createFromGrid' && gridTestSetIds
-      ? gridTestSetIds.length > 1
-        ? 'Run Test Sets'
-        : 'Run Test Set'
-      : cfg.saveButtonText;
+  const saveButtonText = editingSchedule
+    ? 'Save'
+    : scheduleMode
+      ? 'Schedule Run'
+      : mode === 'createFromGrid' && gridTestSetIds
+        ? gridTestSetIds.length > 1
+          ? 'Run Test Sets'
+          : 'Run Test Set'
+        : cfg.saveButtonText;
 
   // -----------------------------------------------------------------------
   // Render
@@ -2096,9 +2212,15 @@ export default function RunDrawer(props: RunDrawerProps) {
       onSave={handleExecute}
       saveDisabled={!canSave}
       saveButtonText={saveButtonText}
-      loadingText={scheduleMode ? 'Scheduling...' : undefined}
+      loadingText={
+        editingSchedule
+          ? 'Saving...'
+          : scheduleMode
+            ? 'Scheduling...'
+            : undefined
+      }
       saveMenu={
-        canSchedule
+        canSchedule && !editingSchedule
           ? [
               scheduleMode
                 ? {
@@ -2125,6 +2247,9 @@ export default function RunDrawer(props: RunDrawerProps) {
               onPreviewError={setSchedulePreviewError}
               sdkEndpoint={selectedEndpointIsSdk}
               testSetCount={resolveTestSetIds().length}
+              initialForm={
+                editingSchedule ? fromSchedule(editingSchedule) : undefined
+              }
             />
           )}
           {/* Execution Target */}
@@ -2280,24 +2405,26 @@ export default function RunDrawer(props: RunDrawerProps) {
             </Box>
           </Box>
 
-          {/* Test Run Tags */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <FormSectionDivider headline="Test Run Tags" />
-            <BaseTag
-              value={tags}
-              onChange={setTags}
-              label="Tags"
-              placeholder="Add tags (press Enter or comma to add)"
-              chipColor="default"
-              addOnBlur
-              delimiters={[',', 'Enter']}
-              size="small"
-              margin="none"
-              fullWidth
-              chipClassName={tagStyles.modalTag}
-              sx={drawerTagFieldSx}
-            />
-          </Box>
+          {/* Test Run Tags: schedules don't store tags, so not in schedule mode */}
+          {!scheduleMode && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <FormSectionDivider headline="Test Run Tags" />
+              <BaseTag
+                value={tags}
+                onChange={setTags}
+                label="Tags"
+                placeholder="Add tags (press Enter or comma to add)"
+                chipColor="default"
+                addOnBlur
+                delimiters={[',', 'Enter']}
+                size="small"
+                margin="none"
+                fullWidth
+                chipClassName={tagStyles.modalTag}
+                sx={drawerTagFieldSx}
+              />
+            </Box>
+          )}
         </>
       )}
       {cfg.experimentsEditable && effectiveProjectId && (
