@@ -19,6 +19,8 @@ Test run status reflects **execution completion**, not assertion results. A run 
 
 `Queued`, `Progress`, and `Cancelled` are set by the execution lifecycle. `Completed`, `Partial`, and `Failed` are the terminal states computed from results.
 
+A run started by a [schedule](/docs/test-runs/scheduling) goes through the same states. Schedules add no run statuses: the run only carries `attributes.trigger = "schedule"` and `attributes.scheduled_for`. Runs without `trigger` count as manual.
+
 ## Determination logic
 
 When execution finishes, the `collect_results` task runs `TestRunProcessor` (`jobs/execution/result_processor.py`), which aggregates stored test results and calls `determine_overall_status`:

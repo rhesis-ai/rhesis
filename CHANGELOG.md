@@ -23,6 +23,10 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 - SSO role mapping: organization and project roles can follow the groups your identity provider sends at sign-in, with a preview of who changes before you save and a JSON editor. The SSO settings are now split into Connection, Sign-in and Role mapping tabs, and the identity provider is recognised from the issuer URL.
 - A failed SSO sign-in now shows a page that explains what went wrong, with a reference the administrator can find in the backend log.
 
+### Added
+
+- Scheduled test runs. Run a test set against an endpoint once at a set time or on a repeating schedule, from the run drawer or the new Schedules tab on Test Runs. Schedules have a week calendar, a page of their own, notifications, and MCP tools. Self-hosted deployments need no change: the existing `beat` service starts the runs. `SCHEDULE_MIN_INTERVAL_MINUTES` and `SCHEDULE_DISPATCH_ENABLED` are optional.
+
 ### Changed
 
 - A test run's per-test time limit now follows the endpoint's timeout: the timeout plus 300 seconds, and at least 1800 seconds as before. Endpoints with a timeout above 25 minutes no longer fail at 30 minutes. An explicit `per_test_timeout` in the run's execution options still wins.

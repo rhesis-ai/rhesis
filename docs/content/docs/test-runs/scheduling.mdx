@@ -1,0 +1,94 @@
+---
+title: Scheduling Test Runs
+description: Run a test set against an endpoint later, once or on a repeating schedule, and follow its runs on a calendar.
+keywords: [scheduled test runs, recurring LLM tests, nightly regression, test schedule, cron]
+---
+
+# Scheduling Test Runs
+
+A schedule runs a test set against an endpoint later: once at a set time, or repeatedly (daily,
+weekdays, chosen days, monthly, or a cron expression). Each time it is due, Rhesis starts an
+ordinary [test run](/docs/test-runs), so results and costs look the same as for a run you start by
+hand.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-test-run-schedules.webp"
+  darkSrc="/screenshots/rhesis-ai-test-run-schedules-dark.webp"
+  alt="Schedules tab: a week calendar with past runs and planned runs"
+/>
+
+## Schedule a test set
+
+1. Open the test set and click the run button (**Execute test set**).
+2. In the drawer, click the arrow next to **Execute Test Set** and pick **Schedule run…**.
+3. Choose the endpoint and run options, then set **Run once** or **Repeat**.
+4. Click **Schedule Run**.
+
+The box under the fields says when it runs and lists the next runs. If the timing can't be saved,
+for example a cron expression that runs more than once an hour, the box says why.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-test-run-schedule-drawer.webp"
+  darkSrc="/screenshots/rhesis-ai-test-run-schedule-drawer-dark.webp"
+  alt="Run drawer in schedule mode, repeating every weekday at 09:00"
+/>
+
+Scheduled runs always call the endpoint, so **Reuse Outputs** is not available. An SDK endpoint is
+reached only while your connector is running. Each run uses the tests in the set when it starts.
+
+You can also schedule from **Test Runs › Schedules** with **+**, or by clicking a day on the
+calendar.
+
+## Follow and change schedules
+
+**Test Runs › Schedules** shows every schedule in the project as a week calendar or a list. Past
+runs sit on the slot they were scheduled for. On the **Runs** tab, runs from a schedule show
+**From schedule:** under their name, and **Source › Schedule** in the filter shows only those.
+
+Click a planned run to move it or change the schedule from that run on. When you save, pick
+**This run only** (date and time of that one run) or **This and following runs** (everything else;
+earlier runs keep their settings).
+
+Each schedule has its own page with the next run, upcoming runs, cost so far and previous runs. A
+test set with schedules shows a banner linking to them.
+
+<ThemeAwareImage
+  lightSrc="/screenshots/rhesis-ai-test-run-schedule-page.webp"
+  darkSrc="/screenshots/rhesis-ai-test-run-schedule-page-dark.webp"
+  alt="Schedule page with next run, schedule details and upcoming runs"
+/>
+
+## Notifications
+
+**Notify me** is **When something goes wrong** by default: a failed or partial run, or a pass rate
+lower than the previous scheduled run. You can pick **After every run** or **Never**. Unless it is
+**Never**, you also hear once after the first run.
+
+You are also notified when a schedule pauses itself or skips a run.
+
+## Pauses, skips and missed runs
+
+| What happened | What Rhesis does |
+|---|---|
+| The previous run of the schedule is still going | Skips this run |
+| Your organization reached its test execution limit | Skips this run |
+| The endpoint or test set was deleted, or the test set is empty | Pauses the schedule |
+| A model the runs need isn't available | Pauses the schedule |
+| Five runs in a row failed | Pauses the schedule |
+| The owner can no longer run tests in the project | Pauses and shows **Needs a new owner** |
+
+**Resume** continues from the next planned time; runs missed while paused are not made up.
+
+A run that is late is shown as **Overdue**, usually because the scheduler isn't running. It still
+starts if the scheduler comes back within an hour. Later than that, it is skipped and you are
+notified.
+
+Runs execute as the schedule's owner and use their model access. When the owner loses access,
+everyone who can change test runs in the project is notified. **Take over** checks that the models
+are available to you, then makes you the owner and resumes the schedule.
+
+## Limits
+
+A schedule runs at most once an hour; self-hosted deployments can change this with
+[`SCHEDULE_MIN_INTERVAL_MINUTES`](/self-hosting/environment-variables#scheduled-test-runs). Every
+scheduled run counts toward your organization's test execution limit.
