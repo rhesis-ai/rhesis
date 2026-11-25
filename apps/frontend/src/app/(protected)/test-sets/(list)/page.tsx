@@ -2,8 +2,8 @@ import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
 import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
-import TestSetsPageClient from './components/TestSetsPageClient';
-import { testSetsList } from './components/list';
+import TestSetsPageClient from '../components/TestSetsPageClient';
+import { testSetsList } from '../components/list';
 
 /**
  * Server component: fetches the first page of test sets before rendering so

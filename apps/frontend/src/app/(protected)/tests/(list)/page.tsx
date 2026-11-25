@@ -3,8 +3,8 @@ import { prefetchList } from '@/utils/server-prefetch';
 import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
 import { parseInsightsFailedTestsSearchParams } from '@/app/(protected)/insights/utils/insights-failed-tests';
-import TestsPageClient from './components/TestsPageClient';
-import { testsList } from './components/list';
+import TestsPageClient from '../components/TestsPageClient';
+import { testsList } from '../components/list';
 
 interface TestsPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

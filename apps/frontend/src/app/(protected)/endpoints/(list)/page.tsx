@@ -2,8 +2,8 @@ import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
 import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
-import EndpointsPageClient from './components/EndpointsPageClient';
-import { endpointsList } from './components/list';
+import EndpointsPageClient from '../components/EndpointsPageClient';
+import { endpointsList } from '../components/list';
 
 /**
  * Server component: fetches the first page of endpoints before rendering so

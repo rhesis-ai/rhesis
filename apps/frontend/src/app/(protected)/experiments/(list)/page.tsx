@@ -5,8 +5,8 @@ import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
 import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
-import ExperimentsClientWrapper from './components/ExperimentsClientWrapper';
-import { experimentsList } from './components/list';
+import ExperimentsClientWrapper from '../components/ExperimentsClientWrapper';
+import { experimentsList } from '../components/list';
 import { requireSession } from '@/utils/require-session';
 
 /**

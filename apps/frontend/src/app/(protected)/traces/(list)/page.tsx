@@ -4,12 +4,12 @@ import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { getServerActiveProjectId } from '@/utils/server-active-project';
 import { prefetchList } from '@/utils/server-prefetch';
 import { emptyFilters, listParams } from '@/utils/list';
-import TracesClientWrapper from './components/TracesClientWrapper';
-import { tracesList } from './components/list';
+import TracesClientWrapper from '../components/TracesClientWrapper';
+import { tracesList } from '../components/list';
 import {
   hasTraceUrlFilters,
   viewFromSearchParams,
-} from './components/trace-url-state';
+} from '../components/trace-url-state';
 import { requireSession } from '@/utils/require-session';
 
 interface TracesPageProps {

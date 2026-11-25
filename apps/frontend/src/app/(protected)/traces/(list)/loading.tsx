@@ -1,6 +1,6 @@
 import PageListSkeleton from '@/components/loading/PageListSkeleton';
 import { PAGE_HEADERS } from '@/constants/page-headers';
 
-export default function ExperimentsLoading() {
-  return <PageListSkeleton header={PAGE_HEADERS.experiments} />;
+export default function TracesLoading() {
+  return <PageListSkeleton header={PAGE_HEADERS.traces} showPills={false} />;
 }

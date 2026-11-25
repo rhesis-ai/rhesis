@@ -2,8 +2,8 @@ import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetchList } from '@/utils/server-prefetch';
 import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
-import RequirementsClient from './components/RequirementsClient';
-import { requirementsList } from './components/list';
+import RequirementsClient from '../components/RequirementsClient';
+import { requirementsList } from '../components/list';
 import type { UUID } from 'crypto';
 import { requireSession } from '@/utils/require-session';
 

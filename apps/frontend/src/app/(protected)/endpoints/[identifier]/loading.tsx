@@ -1,10 +1,18 @@
-import PageDetailSkeleton from '@/components/loading/PageDetailSkeleton';
-import { directoryCrumb, PAGE_HEADERS } from '@/constants/page-headers';
+'use client';
 
+import { useSearchParams } from 'next/navigation';
+import PageDetailSkeleton from '@/components/loading/PageDetailSkeleton';
+import { normalizeTabParam, TAB_KEYS, TAB_LABELS } from './components/tabs';
+
+// The trail depends on the endpoint (Projects › project › endpoint when it
+// belongs to one, Endpoints › endpoint otherwise), so all of it waits.
 export default function EndpointDetailLoading() {
+  const activeKey = normalizeTabParam(useSearchParams().get('tab'));
   return (
     <PageDetailSkeleton
-      header={{ crumbs: [directoryCrumb(PAGE_HEADERS.endpoints)] }}
+      breadcrumbCount={3}
+      tabs={TAB_KEYS.map(key => TAB_LABELS[key])}
+      activeTab={TAB_KEYS.indexOf(activeKey)}
     />
   );
 }

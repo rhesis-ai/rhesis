@@ -2,20 +2,23 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * A `loading.tsx` is the fallback for every route below it that has none of
- * its own. A directory's loading view draws that directory's real title, so a
- * page under it (a detail page, a create form) must bring its own fallback, or
- * it briefly shows the directory's header instead of its own.
+ * A `loading.tsx` is the fallback for every route below it, and Next.js shows
+ * the outermost one a navigation enters: opening a detail page from another
+ * section shows the section's own loading view first, even when the detail
+ * page has one of its own. A directory's loading view draws that directory's
+ * real title, so it must cover only the directory page itself (list pages sit
+ * in a `(list)` route group for this), never a detail or create page below it.
  */
 
 const PROTECTED = path.join(__dirname, '..', '(protected)');
 
-/** Loading views that draw a directory page's own header. */
+/** Loading views that draw a directory page's own header: any use of a page
+ *  header other than as a detail page's first breadcrumb. */
 function drawsDirectoryHeader(loadingFile: string): boolean {
-  const source = fs.readFileSync(loadingFile, 'utf8');
-  return /header=\{PAGE_HEADERS\.\w+\}|\{\.\.\.PAGE_HEADERS\.\w+\}|PAGE_HEADERS\.models/.test(
-    source
-  );
+  const source = fs
+    .readFileSync(loadingFile, 'utf8')
+    .replace(/directoryCrumb\(\s*PAGE_HEADERS\.\w+\s*\)/g, '');
+  return /PAGE_HEADERS\.\w+/.test(source);
 }
 
 function pageDirs(dir: string): string[] {
@@ -30,29 +33,25 @@ function pageDirs(dir: string): string[] {
   return found;
 }
 
-function nearestLoading(dir: string): string | null {
-  for (let cur = dir; cur.startsWith(PROTECTED); cur = path.dirname(cur)) {
-    const candidate = path.join(cur, 'loading.tsx');
-    if (fs.existsSync(candidate)) return candidate;
+function loadingFiles(dir: string): string[] {
+  const found: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const child = path.join(dir, entry.name);
+    if (entry.isDirectory()) found.push(...loadingFiles(child));
+    else if (entry.name === 'loading.tsx') found.push(child);
   }
-  return null;
+  return found;
 }
 
 describe('route loading boundaries', () => {
   it('never shows a directory header in place of a page below it', () => {
-    const borrowed = pageDirs(PROTECTED)
-      .map(dir => ({ dir, loading: nearestLoading(dir) }))
-      .filter(
-        ({ dir, loading }) =>
-          loading !== null &&
-          path.dirname(loading) !== dir &&
-          drawsDirectoryHeader(loading)
-      )
-      .map(({ dir, loading }) =>
-        [
-          path.relative(PROTECTED, dir),
-          path.relative(PROTECTED, loading!),
-        ].join(' <- ')
+    const borrowed = loadingFiles(PROTECTED)
+      .filter(drawsDirectoryHeader)
+      .flatMap(loading =>
+        pageDirs(path.dirname(loading)).map(
+          dir =>
+            `${path.relative(PROTECTED, dir)} <- ${path.relative(PROTECTED, loading)}`
+        )
       );
 
     expect(borrowed).toEqual([]);

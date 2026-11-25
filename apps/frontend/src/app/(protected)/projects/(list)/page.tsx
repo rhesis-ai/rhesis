@@ -4,7 +4,7 @@ import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { prefetch } from '@/utils/server-prefetch';
 import { Capability } from '@/constants/capabilities';
 import type { Project } from '@/utils/api-client/interfaces/project';
-import ProjectsClientWrapper from './components/ProjectsClientWrapper';
+import ProjectsClientWrapper from '../components/ProjectsClientWrapper';
 import { requireSession } from '@/utils/require-session';
 
 /**

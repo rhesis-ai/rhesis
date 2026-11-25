@@ -3,10 +3,10 @@ import { prefetchList } from '@/utils/server-prefetch';
 import { firstPageParams } from '@/utils/list';
 import { Capability } from '@/constants/capabilities';
 import { requireSession } from '@/utils/require-session';
-import MetricsClientComponent from './components/MetricsClient';
+import MetricsClientComponent from '../components/MetricsClient';
 import type { UUID } from 'crypto';
-import { metricsList } from './components/list';
-import { hasMetricUrlFilters } from './components/metric-url-state';
+import { metricsList } from '../components/list';
+import { hasMetricUrlFilters } from '../components/metric-url-state';
 
 interface MetricsPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
