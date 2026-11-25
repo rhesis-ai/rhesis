@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   Box,
   Button,
@@ -44,6 +44,8 @@ interface Props {
   onOpenRun: (scheduleId: string, occurrence: OccurrenceRef) => void;
   onCreateOnDay: (date: string) => void;
   onShowList: () => void;
+  /** Week/List switch, shown at the end of the header row. */
+  viewToggle?: ReactNode;
 }
 
 function useWeekData(start: dayjs.Dayjs) {
@@ -139,6 +141,7 @@ export default function SchedulesWeekView({
   onOpenRun,
   onCreateOnDay,
   onShowList,
+  viewToggle,
 }: Props) {
   const zone = useMemo(() => browserTimeZone(), []);
   const [anchor, setAnchor] = useState(() => dayjs().tz(zone));
@@ -167,6 +170,7 @@ export default function SchedulesWeekView({
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
         <IconButton
+          edge="start"
           aria-label="Previous week"
           onClick={() => setAnchor(a => a.subtract(1, 'week'))}
         >
@@ -191,6 +195,7 @@ export default function SchedulesWeekView({
         >
           Times in {zone}
         </Typography>
+        {viewToggle}
       </Box>
 
       {hourly.length > 0 && (

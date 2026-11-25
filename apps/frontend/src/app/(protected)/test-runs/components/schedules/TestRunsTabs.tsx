@@ -1,13 +1,16 @@
 'use client';
 
-import { Badge, Tab, Tabs } from '@mui/material';
+import DetailTabNav from '@/components/common/DetailTabNav';
 import {
+  SCHEDULE_STATUS,
   TEST_RUNS_TAB,
   type TestRunsTab,
 } from '@/constants/test-run-schedules';
 import { useSchedules } from './useSchedules';
 
-/** Runs | Schedules. The badge counts active schedules and turns orange when one is overdue. */
+const ORDER: TestRunsTab[] = [TEST_RUNS_TAB.RUNS, TEST_RUNS_TAB.SCHEDULES];
+
+/** Runs | Schedules (n), where n counts the schedules still planned. */
 export default function TestRunsTabs({
   value,
   onChange,
@@ -16,28 +19,27 @@ export default function TestRunsTabs({
   onChange: (tab: TestRunsTab) => void;
 }) {
   const schedules = useSchedules();
-  const items = schedules.data ?? [];
-  const active = items.filter(s => s.status === 'Scheduled').length;
-  const overdue = items.some(s => s.overdue);
+  const active = (schedules.data ?? []).filter(
+    s => s.status === SCHEDULE_STATUS.SCHEDULED
+  ).length;
+  const tabs = ORDER.map((key, index) => ({
+    key,
+    label:
+      key === TEST_RUNS_TAB.SCHEDULES && active > 0
+        ? `Schedules (${active})`
+        : key === TEST_RUNS_TAB.SCHEDULES
+          ? 'Schedules'
+          : 'Runs',
+    id: `test-runs-tab-${index}`,
+    'aria-controls': `test-runs-tabpanel-${index}`,
+  }));
   return (
-    <Tabs
-      value={value}
-      onChange={(_, tab: TestRunsTab) => onChange(tab)}
-      sx={{ mb: 2 }}
-    >
-      <Tab value={TEST_RUNS_TAB.RUNS} label="Runs" />
-      <Tab
-        value={TEST_RUNS_TAB.SCHEDULES}
-        label={
-          <Badge
-            badgeContent={active}
-            color={overdue ? 'warning' : 'primary'}
-            sx={{ pr: active ? 1.5 : 0 }}
-          >
-            Schedules
-          </Badge>
-        }
-      />
-    </Tabs>
+    <DetailTabNav
+      tabs={tabs}
+      activeIndex={ORDER.indexOf(value)}
+      onChange={index => onChange(ORDER[index])}
+      aria-label="Test runs sections"
+      sx={{ mb: 3 }}
+    />
   );
 }

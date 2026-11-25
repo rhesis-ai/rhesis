@@ -79,21 +79,27 @@ export default function SchedulesTab({
   const [deleting, setDeleting] = useState<TestRunSchedule | null>(null);
   const items = schedules.data ?? [];
 
+  const viewToggle = (
+    <ToggleButtonGroup
+      size="small"
+      exclusive
+      value={view}
+      onChange={(_, next: View | null) => next && setView(next)}
+      aria-label="Calendar or list"
+    >
+      <ToggleButton value="week">Week</ToggleButton>
+      <ToggleButton value="list">List</ToggleButton>
+    </ToggleButtonGroup>
+  );
+
   return (
     <Box>
       <OverdueBanner schedules={items} />
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
-        <ToggleButtonGroup
-          size="small"
-          exclusive
-          value={view}
-          onChange={(_, next: View | null) => next && setView(next)}
-          aria-label="Calendar or list"
-        >
-          <ToggleButton value="week">Week</ToggleButton>
-          <ToggleButton value="list">List</ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
+      {view === 'list' && (
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
+          {viewToggle}
+        </Box>
+      )}
       {schedules.isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
@@ -105,6 +111,7 @@ export default function SchedulesTab({
           onOpenRun={(id, occurrence) => onOpenSchedule(id, occurrence)}
           onCreateOnDay={onCreateOnDay}
           onShowList={() => setView('list')}
+          viewToggle={viewToggle}
         />
       ) : (
         <SchedulesListView
