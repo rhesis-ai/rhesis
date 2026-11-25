@@ -268,7 +268,8 @@ function RequirementGroupHeader({
           <Typography
             variant="body2"
             fontWeight={600}
-            noWrap
+            // Accessibility mode wraps long names instead of truncating them.
+            noWrap={!theme.palette.accessibilityMode}
             sx={{ display: 'block', maxWidth: '100%' }}
             title={requirement.name}
           >

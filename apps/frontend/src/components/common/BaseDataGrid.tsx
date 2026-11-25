@@ -310,6 +310,9 @@ export function applyFlexColumnSizing(columns: GridColDef[]): GridColDef[] {
   return mapped;
 }
 
+/** Room for a two- or three-line header title when titles wrap. */
+const WRAPPED_HEADER_HEIGHT = 72;
+
 // Create a styled version of DataGrid with Figma-aligned borders and headers
 const StyledDataGrid = styled(DataGrid)(({ theme }) => ({
   border: 'none',
@@ -930,7 +933,28 @@ export default function BaseDataGrid({
     resolvedSlots.baseCheckbox = TooltipCheckbox;
   }
 
+  const wrapText = Boolean(theme.palette.accessibilityMode);
+
   const dataGridSx: SxProps<Theme> = [
+    // Accessibility mode: headers and cells wrap instead of truncating, so
+    // larger text spacing never hides text (WCAG 1.4.12); rows grow to fit.
+    wrapText && {
+      '& .MuiDataGrid-columnHeaderTitle': {
+        whiteSpace: 'normal',
+        lineHeight: 1.25,
+        overflow: 'visible',
+      },
+      // A single word wider than its column breaks rather than overflows.
+      '& .MuiDataGrid-cell': {
+        whiteSpace: 'normal',
+        overflowWrap: 'anywhere',
+        py: 1,
+      },
+      '& .MuiDataGrid-cell .MuiTypography-root': {
+        whiteSpace: 'normal',
+        overflowWrap: 'anywhere',
+      },
+    },
     // Toolbar/footer are siblings of .MuiDataGrid-main, so they stay visible.
     !columnsMeasured && {
       '& .MuiDataGrid-main': { visibility: 'hidden' },
@@ -982,6 +1006,10 @@ export default function BaseDataGrid({
                     },
                   })}
                   disableVirtualization={false}
+                  {...(wrapText && {
+                    getRowHeight: () => 'auto' as const,
+                    columnHeaderHeight: WRAPPED_HEADER_HEIGHT,
+                  })}
                   {...(hasActionsColumn && { columnBufferPx: 500 })}
                   loading={loading}
                   slots={resolvedSlots}

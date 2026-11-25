@@ -445,10 +445,14 @@ export default function EntityCard({
           lineHeight: `${DESCRIPTION_LINE_HEIGHT}px`,
           minHeight: `${DESCRIPTION_LINE_HEIGHT * descriptionLines}px`,
           color: 'text.primary',
-          display: '-webkit-box',
-          WebkitLineClamp: descriptionLines,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
+          // Accessibility mode shows the whole description, so larger text
+          // spacing can't cut it off (WCAG 1.4.12).
+          ...(!theme.palette.accessibilityMode && {
+            display: '-webkit-box',
+            WebkitLineClamp: descriptionLines,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }),
         }}
       >
         {description ?? ''}
