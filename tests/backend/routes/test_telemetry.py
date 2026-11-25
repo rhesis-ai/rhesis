@@ -491,3 +491,102 @@ class TestTraceJSONSerialization:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["status"] == "received"
+
+
+@pytest.mark.integration
+class TestTraceReadsInRequestedProject:
+    """The detail and metrics routes read the project named by ``project_id``, as
+    the list route does, even when the session's active project is another one."""
+
+    @pytest.fixture(autouse=True)
+    def project_check_uses_test_db(self, test_db, monkeypatch):
+        @contextmanager
+        def _fake(*_args, **_kwargs):
+            yield test_db
+
+        monkeypatch.setattr(dependencies, "get_db_with_tenant_variables", _fake)
+
+    @pytest.fixture
+    def other_project(
+        self, test_db, test_organization, db_user, db_owner_user, db_status
+    ) -> Project:
+        project = Project(
+            name="Telemetry Requested Project",
+            description=fake.text(max_nb_chars=60),
+            icon="📡",
+            is_active=True,
+            user_id=db_user.id,
+            owner_id=db_owner_user.id,
+            organization_id=test_organization.id,
+            status_id=db_status.id,
+        )
+        test_db.add(project)
+        test_db.flush()
+        return project
+
+    def _ingest(self, client: TestClient, test_db, project_id: str) -> str:
+        span = TraceDataFactory.minimal_data(project_id=project_id)
+        response = client.post(
+            "/telemetry/traces", json={"spans": [span]}, headers={"X-Project-Id": project_id}
+        )
+        assert response.status_code == status.HTTP_200_OK
+        return span["trace_id"]
+
+    def _join(self, test_db, project: Project, test_organization, user_id) -> None:
+        test_db.add(
+            ProjectMembership(
+                project_id=project.id, user_id=user_id, organization_id=test_organization.id
+            )
+        )
+        test_db.flush()
+
+    def test_trace_detail_in_another_member_project(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        db_project,
+        other_project,
+        authenticated_user_id,
+    ):
+        self._join(test_db, other_project, test_organization, authenticated_user_id)
+        trace_id = self._ingest(authenticated_client, test_db, str(other_project.id))
+
+        scope_to_project(test_db, db_project.id)
+        response = authenticated_client.get(
+            f"/telemetry/traces/{trace_id}?project_id={other_project.id}"
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["trace_id"] == trace_id
+
+    def test_metrics_in_another_member_project(
+        self,
+        authenticated_client: TestClient,
+        test_db,
+        test_organization,
+        db_project,
+        other_project,
+        authenticated_user_id,
+    ):
+        self._join(test_db, other_project, test_organization, authenticated_user_id)
+        self._ingest(authenticated_client, test_db, str(other_project.id))
+
+        scope_to_project(test_db, db_project.id)
+        response = authenticated_client.get(f"/telemetry/metrics?project_id={other_project.id}")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["total_traces"] == 1
+
+    @pytest.mark.parametrize("path", ["/telemetry/traces/{trace_id}", "/telemetry/metrics"])
+    def test_a_project_the_caller_cannot_access_is_refused(
+        self, path, authenticated_client: TestClient, test_db, db_project
+    ):
+        unknown_project = "123e4567-e89b-12d3-a456-426614174000"
+        trace_id = self._ingest(authenticated_client, test_db, str(db_project.id))
+
+        response = authenticated_client.get(
+            f"{path.format(trace_id=trace_id)}?project_id={unknown_project}"
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
