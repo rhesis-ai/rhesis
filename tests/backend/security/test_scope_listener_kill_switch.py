@@ -1,9 +1,9 @@
-"""The scope-listener kill switch must never take effect in production.
+"""The scope-listener kill switch must never take effect on a hosted deployment.
 
 ``RHESIS_DISABLE_SCOPE_LISTENER=1`` turns off the ORM-layer tenant filter and
-stamp. It is a local/self-host escape hatch; in production it is ignored, so a
-misconfigured environment variable cannot silently drop tenant scoping on a
-hosted deployment.
+stamp. It is a local/development debugging escape hatch; on staging and
+production it is ignored, so a misconfigured environment variable cannot
+silently drop tenant scoping on a hosted deployment.
 """
 
 import pytest
@@ -26,16 +26,17 @@ def _set_env(monkeypatch, backend_env: str) -> None:
 
 
 @pytest.mark.unit
-def test_kill_switch_ignored_in_production(monkeypatch, reset_settings_cache):
-    _set_env(monkeypatch, "production")
+@pytest.mark.parametrize("backend_env", ["production", "staging"])
+def test_kill_switch_ignored_on_hosted_envs(monkeypatch, reset_settings_cache, backend_env):
+    _set_env(monkeypatch, backend_env)
 
     assert scope_events._kill_switch_set() is True
     assert scope_events._kill_switch_active() is False
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("backend_env", ["local", "development", "staging"])
-def test_kill_switch_honoured_outside_production(monkeypatch, reset_settings_cache, backend_env):
+@pytest.mark.parametrize("backend_env", ["local", "development"])
+def test_kill_switch_honoured_in_local_development(monkeypatch, reset_settings_cache, backend_env):
     _set_env(monkeypatch, backend_env)
 
     assert scope_events._kill_switch_active() is True

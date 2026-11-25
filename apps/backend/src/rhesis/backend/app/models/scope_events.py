@@ -47,9 +47,10 @@ original design intent even though only Token is load bearing today.
 KNOBS
 -----
 RHESIS_DISABLE_SCOPE_LISTENER=1   Kill switch. Both filter and stamp are no-ops.
-                                   Dev/self-host only: it is ignored when
-                                   BACKEND_ENV=production, so it can never turn off
-                                   tenant scoping on a hosted deployment.
+                                   Local/development only: it is honoured only for
+                                   BACKEND_ENV=local/development and ignored on any
+                                   hosted deployment (staging or production), so it
+                                   can never turn off tenant scoping there.
                                    Scope ONLY of this switch: the ORM-layer
                                    auto_filter / auto_stamp listeners. It does NOT
                                    disable the PostgreSQL RLS GUCs (set in
@@ -136,15 +137,16 @@ def _kill_switch_set() -> bool:
 def _kill_switch_active() -> bool:
     """Return True when the scope-listener kill switch is set and honoured.
 
-    The switch is a local/self-host escape hatch. It is ignored in production so
-    it can never turn off tenant scoping on a hosted deployment, no matter how
-    the environment is set.
+    The switch is a local/development debugging escape hatch. It is honoured only
+    for BACKEND_ENV=local/development, so it can never turn off tenant scoping on
+    a hosted deployment (staging or production), no matter how the environment is
+    set.
     """
     if not _kill_switch_set():
         return False
     from rhesis.backend.app.config.settings import get_application_settings
 
-    return not get_application_settings().is_production
+    return get_application_settings().is_local_development
 
 
 def _build_tenant_classes():
@@ -239,8 +241,8 @@ def setup_scope_listeners():
     Register auto-filter and auto-stamp event listeners.
 
     Called once at import time from models/__init__.py.
-    No-ops if already registered, or if RHESIS_DISABLE_SCOPE_LISTENER=1 is set
-    outside production (the switch is ignored in production).
+    No-ops if already registered, or if RHESIS_DISABLE_SCOPE_LISTENER=1 is set in
+    local/development (the switch is ignored on staging and production).
     """
     global _listeners_registered
 
@@ -249,8 +251,8 @@ def setup_scope_listeners():
 
     if _kill_switch_set() and not _kill_switch_active():
         logger.warning(
-            "RHESIS_DISABLE_SCOPE_LISTENER is set but ignored in production; "
-            "auto-filter and auto-stamp stay active."
+            "RHESIS_DISABLE_SCOPE_LISTENER is set but ignored outside "
+            "local/development; auto-filter and auto-stamp stay active."
         )
     if _kill_switch_active():
         logger.warning(
