@@ -15,6 +15,7 @@ import {
   FAB_SIZE,
   GRID_CARD_INSET,
   GRID_TOOLBAR_MIN_HEIGHT,
+  rem,
 } from './theme-constants';
 import {
   contrastTextFor,
@@ -304,56 +305,56 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
         fontFamily: ff,
         fontWeight: w800,
         fontSize: '3rem', // 48px
-        lineHeight: '57.6px',
+        lineHeight: rem(57.6),
         color: gs.title,
       },
       h2: {
         fontFamily: ff,
         fontWeight: w800,
         fontSize: '2.5rem', // 40px
-        lineHeight: '48px',
+        lineHeight: rem(48),
         color: gs.title,
       },
       h3: {
         fontFamily: ff,
         fontWeight: w800,
         fontSize: '2.0625rem', // 33px
-        lineHeight: '39.6px',
+        lineHeight: rem(39.6),
         color: gs.title,
       },
       h4: {
         fontFamily: ff,
         fontWeight: 700,
         fontSize: '1.75rem', // 28px – Figma H4/Bold
-        lineHeight: '33.6px',
+        lineHeight: rem(33.6),
         color: gs.title,
       },
       h5: {
         fontFamily: ff,
         fontWeight: 700,
         fontSize: '1.4375rem', // 23px
-        lineHeight: '27.6px',
+        lineHeight: rem(27.6),
         color: gs.title,
       },
       h6: {
         fontFamily: ff,
         fontWeight: w600,
         fontSize: '1.25rem', // 20px
-        lineHeight: '24px',
+        lineHeight: rem(24),
         color: gs.title,
       },
       body1: {
         fontFamily: ff,
         fontWeight: 400,
         fontSize: '1rem', // 16px
-        lineHeight: '24px',
+        lineHeight: rem(24),
         color: mode === 'light' ? '#3D3D3D' : '#E6EDF3',
       },
       body2: {
         fontFamily: ff,
         fontWeight: 400,
         fontSize: '0.875rem', // 14px
-        lineHeight: '22px',
+        lineHeight: rem(22),
         color: mode === 'light' ? '#3D3D3D' : '#E6EDF3',
       },
       button: {
@@ -366,7 +367,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
         fontFamily: ff,
         fontWeight: 400,
         fontSize: '0.75rem', // 12px
-        lineHeight: '18px',
+        lineHeight: rem(18),
         color: gs.subtitle,
       },
       subtitle1: {
@@ -387,7 +388,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
         fontFamily: ff,
         fontWeight: w600,
         fontSize: '0.75rem',
-        lineHeight: '18px',
+        lineHeight: rem(18),
         letterSpacing: '0.04em',
         textTransform: 'uppercase' as const,
         color: gs.subtitle,
@@ -397,35 +398,35 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
         fontFamily: ff,
         fontWeight: 400,
         fontSize: '1rem', // 16px
-        lineHeight: '24px',
+        lineHeight: rem(24),
         color: gs.body,
       },
       bodyMReg: {
         fontFamily: ff,
         fontWeight: 400,
         fontSize: '0.875rem', // 14px
-        lineHeight: '22px',
+        lineHeight: rem(22),
         color: gs.body,
       },
       bodyMBold: {
         fontFamily: ff,
         fontWeight: 700,
         fontSize: '0.875rem', // 14px
-        lineHeight: '22px',
+        lineHeight: rem(22),
         color: gs.body,
       },
       bodySReg: {
         fontFamily: ff,
         fontWeight: 400,
         fontSize: '0.75rem', // 12px
-        lineHeight: '18px',
+        lineHeight: rem(18),
         color: gs.body,
       },
       captionBold: {
         fontFamily: ff,
         fontWeight: w600,
         fontSize: '0.75rem', // 12px
-        lineHeight: '18px',
+        lineHeight: rem(18),
         color: gs.body,
       },
       // ── Legacy custom variants (kept for backwards-compat) ──────────────
@@ -634,7 +635,7 @@ const getDesignTokens = (mode: PaletteMode, brand: BrandColors = {}) => {
               textTransform: 'none',
               fontWeight: w600,
               fontSize: '0.875rem',
-              lineHeight: '22px',
+              lineHeight: rem(22),
               paddingLeft: '16px',
               paddingRight: '16px',
               border: `1px solid ${controlBorder}`,
@@ -1000,6 +1001,7 @@ declare module '@mui/material/styles' {
       surface1: string;
       surface2: string;
       fieldSurface: string;
+      chipSurface: string;
     };
     /**
      * The raw configured `BRAND_PRIMARY_COLOR`, before any per-mode lightening.

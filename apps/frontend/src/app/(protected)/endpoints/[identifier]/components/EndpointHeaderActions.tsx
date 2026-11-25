@@ -12,6 +12,7 @@ import { Fab, FabGroup } from '@/components/common/Fab';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useDeleteEndpoint } from '@/hooks/useEndpoints';
 import { useEndpointDetailContext } from './EndpointDetailContext';
+import { rem } from '@/styles/theme-constants';
 
 export default function EndpointHeaderActions() {
   const router = useRouter();
@@ -68,7 +69,7 @@ export default function EndpointHeaderActions() {
         </Can>
         <Can capability={Capability.Endpoint.DELETE}>
           <Fab
-            icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+            icon={<DeleteOutlineIcon sx={{ fontSize: rem(28) }} />}
             tooltip="Delete endpoint"
             aria-label="Delete endpoint"
             onClick={() => setDeleteDialogOpen(true)}

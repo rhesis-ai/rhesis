@@ -20,6 +20,7 @@ import type { User } from '@/utils/api-client/interfaces/user';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { can } from '@/utils/affordances';
 import { Capability } from '@/constants/capabilities';
+import { rem } from '@/styles/theme-constants';
 
 interface AssigneeDisplay {
   name?: string;
@@ -54,8 +55,8 @@ function UserFieldContent({
     return (
       <Typography
         sx={{
-          fontSize: 16,
-          lineHeight: '24px',
+          fontSize: rem(16),
+          lineHeight: rem(24),
           color: theme => theme.palette.greyscale.body,
         }}
       >
@@ -79,8 +80,8 @@ function UserFieldContent({
       </Avatar>
       <Typography
         sx={{
-          fontSize: 16,
-          lineHeight: '24px',
+          fontSize: rem(16),
+          lineHeight: rem(24),
           color: theme => theme.palette.greyscale.body,
         }}
       >

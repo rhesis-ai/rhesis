@@ -15,6 +15,7 @@ import { useAmbientPermissions } from '@/contexts/PermissionsContext';
 import { useEndpointConfigured } from '@/hooks/useEndpointConfigured';
 import { collapsedNavGroupSx } from './sidebar-utils';
 import { NavItem } from './NavItem';
+import { rem } from '@/styles/theme-constants';
 
 interface NavSectionProps {
   header: NavigationHeaderItem;
@@ -83,9 +84,9 @@ export function NavSection({ header, items, collapsed }: NavSectionProps) {
         >
           <Typography
             sx={{
-              fontSize: 12,
+              fontSize: rem(12),
               fontWeight: 600,
-              lineHeight: '18px',
+              lineHeight: rem(18),
               color: theme => theme.palette.greyscale.subtitle,
               textTransform: 'uppercase',
               letterSpacing: '0.04em',
@@ -102,9 +103,9 @@ export function NavSection({ header, items, collapsed }: NavSectionProps) {
               }}
             >
               {sectionOpen ? (
-                <KeyboardArrowUpIcon sx={{ fontSize: 20 }} />
+                <KeyboardArrowUpIcon sx={{ fontSize: rem(20) }} />
               ) : (
-                <KeyboardArrowDownIcon sx={{ fontSize: 20 }} />
+                <KeyboardArrowDownIcon sx={{ fontSize: rem(20) }} />
               )}
             </Box>
           )}

@@ -23,6 +23,7 @@ import { useListAuthGate } from '@/hooks/useListAuthGate';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { testKeys, testSetKeys } from '@/constants/query-keys';
 import type { TestDetail } from '@/utils/api-client/interfaces/tests';
+import { rem } from '@/styles/theme-constants';
 
 interface TestsPageClientProps {
   /**
@@ -149,7 +150,7 @@ export default function TestsPageClient({
               <>
                 <Can capability={Capability.TestSet.UPDATE}>
                   <Fab
-                    icon={<CategoryIcon sx={{ fontSize: 28 }} />}
+                    icon={<CategoryIcon sx={{ fontSize: rem(28) }} />}
                     tooltip={
                       bulkActions.assignDisabled
                         ? 'Select tests with the same test type'
@@ -162,7 +163,7 @@ export default function TestsPageClient({
                 </Can>
                 <Can capability={Capability.Test.DELETE}>
                   <Fab
-                    icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+                    icon={<DeleteOutlineIcon sx={{ fontSize: rem(28) }} />}
                     tooltip="Delete Tests"
                     aria-label="Delete Tests"
                     onClick={() => bulkHandlersRef.current.onDelete()}

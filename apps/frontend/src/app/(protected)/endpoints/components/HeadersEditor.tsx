@@ -7,7 +7,7 @@ import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import { useTheme } from '@mui/material/styles';
 import dynamic from 'next/dynamic';
 import type { OnMount } from '@monaco-editor/react';
-import { CODE_FONT_SIZE } from '@/styles/theme-constants';
+import { CODE_FONT_SIZE, scaledPx } from '@/styles/theme-constants';
 import { editorContainerSx } from './endpoint-styles';
 
 // Shared with RequestBodyEditor — colours {{ ... }} tokens inside Monaco
@@ -255,7 +255,7 @@ export default function HeadersEditor({
             scrollBeyondLastLine: false,
             automaticLayout: true,
             padding: { top: 8, bottom: 8 },
-            fontSize: CODE_FONT_SIZE,
+            fontSize: scaledPx(CODE_FONT_SIZE),
             wordWrap: 'on',
             ariaLabel: 'Request headers (JSON)',
             tabFocusMode: accessibilityMode,

@@ -28,6 +28,7 @@ import {
   type BatchRunOutcome,
 } from '@/utils/test-run-batch';
 import { getApiErrorMessage } from '@/utils/error-utils';
+import { rem } from '@/styles/theme-constants';
 
 interface TestSetHeaderActionsProps {
   testSetId: string;
@@ -168,7 +169,7 @@ export default function TestSetHeaderActions({
       <FabGroup>
         <Can capability={Capability.TestSet.DELETE}>
           <Fab
-            icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+            icon={<DeleteOutlineIcon sx={{ fontSize: rem(28) }} />}
             tooltip="Delete test set"
             onClick={() => setDeleteDialogOpen(true)}
             loading={isDeleting}
@@ -176,7 +177,7 @@ export default function TestSetHeaderActions({
         </Can>
         <Can capability={Capability.TestSet.EXPORT}>
           <Fab
-            icon={<DownloadIcon sx={{ fontSize: 28 }} />}
+            icon={<DownloadIcon sx={{ fontSize: rem(28) }} />}
             tooltip="Download test set (CSV)"
             onClick={handleDownload}
             loading={isDownloading}
@@ -184,7 +185,7 @@ export default function TestSetHeaderActions({
         </Can>
         <Can capability={Capability.TestSet.EXECUTE}>
           <Fab
-            icon={<PlayArrowIcon sx={{ fontSize: 28 }} />}
+            icon={<PlayArrowIcon sx={{ fontSize: rem(28) }} />}
             tooltip="Execute test set"
             onClick={() => setExecuteDrawerOpen(true)}
             disabled={testCount === 0}
@@ -193,7 +194,7 @@ export default function TestSetHeaderActions({
         {isGarakTestSet && (
           <Can capability={Capability.TestSet.UPDATE}>
             <Fab
-              icon={<RefreshIcon sx={{ fontSize: 28 }} />}
+              icon={<RefreshIcon sx={{ fontSize: rem(28) }} />}
               tooltip="Sync from Garak"
               onClick={handleGarakSyncPreview}
               loading={isSyncing}

@@ -1,6 +1,7 @@
 'use client';
 
 import { Box, Button, CircularProgress } from '@mui/material';
+import { rem } from '@/styles/theme-constants';
 
 interface OnboardingNavButtonsProps {
   onBack?: () => void;
@@ -38,7 +39,7 @@ export default function OnboardingNavButtons({
           sx={{
             borderWidth: 2,
             fontWeight: 700,
-            fontSize: 14,
+            fontSize: rem(14),
             px: 2,
             py: 1,
             '&:hover': { borderWidth: 2 },
@@ -57,7 +58,7 @@ export default function OnboardingNavButtons({
         }
         sx={{
           fontWeight: 700,
-          fontSize: 14,
+          fontSize: rem(14),
           px: 2,
           py: 1,
         }}

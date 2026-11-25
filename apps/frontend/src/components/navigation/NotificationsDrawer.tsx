@@ -30,6 +30,7 @@ import {
   isNotificationSection,
 } from '@/constants/notifications';
 import { useNotifications } from '@/contexts/NotificationsContext';
+import { rem } from '@/styles/theme-constants';
 
 const PAGE_SIZE = 30;
 
@@ -464,7 +465,7 @@ export default function NotificationsDrawer({
                             <Typography
                               component="span"
                               sx={{
-                                fontSize: 10,
+                                fontSize: rem(10),
                                 fontWeight: 700,
                                 letterSpacing: '0.04em',
                                 textTransform: 'uppercase',

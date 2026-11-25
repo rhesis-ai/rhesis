@@ -19,7 +19,7 @@ import {
 import { formatDistanceToNow, format } from 'date-fns';
 import EmojiPicker from 'emoji-picker-react';
 import { Comment, EntityType } from '@/types/comments';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { BORDER_RADIUS, rem } from '@/styles/theme-constants';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { UserAvatar } from '@/components/common/UserAvatar';
 import { createReactionTooltipText } from '@/utils/comment-utils';
@@ -160,8 +160,8 @@ export function CommentItem({
           <Typography
             sx={{
               fontWeight: 700,
-              fontSize: 14,
-              lineHeight: '22px',
+              fontSize: rem(14),
+              lineHeight: rem(22),
               color: 'text.primary',
               whiteSpace: 'nowrap',
             }}
@@ -172,8 +172,8 @@ export function CommentItem({
           <Typography
             sx={{
               flex: 1,
-              fontSize: 12,
-              lineHeight: '18px',
+              fontSize: rem(12),
+              lineHeight: rem(18),
               letterSpacing: '0.48px',
               textTransform: 'uppercase',
               color: 'text.secondary',
@@ -226,8 +226,8 @@ export function CommentItem({
           ) : (
             <Typography
               sx={{
-                fontSize: 16,
-                lineHeight: '24px',
+                fontSize: rem(16),
+                lineHeight: rem(24),
                 color: 'text.secondary',
                 whiteSpace: 'pre-wrap',
               }}
@@ -279,13 +279,13 @@ export function CommentItem({
                         : {},
                     }}
                   >
-                    <Typography sx={{ fontSize: 14, lineHeight: '22px' }}>
+                    <Typography sx={{ fontSize: rem(14), lineHeight: rem(22) }}>
                       {emoji}
                     </Typography>
                     <Typography
                       sx={{
-                        fontSize: 14,
-                        lineHeight: '22px',
+                        fontSize: rem(14),
+                        lineHeight: rem(22),
                         color: theme => theme.palette.greyscale.body,
                       }}
                     >
@@ -304,7 +304,7 @@ export function CommentItem({
                   onClick={e => setEmojiAnchorEl(e.currentTarget)}
                   sx={{ p: 0 }}
                 >
-                  <EmojiIcon sx={{ fontSize: 20 }} />
+                  <EmojiIcon sx={{ fontSize: rem(20) }} />
                 </IconButton>
               </Tooltip>
             </Can>

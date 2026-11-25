@@ -16,6 +16,7 @@ import { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { JsonPreview } from '@/app/(protected)/endpoints/components/JsonPreview';
 import { testPreviewSx } from '@/app/(protected)/endpoints/components/endpoint-styles';
 import { asVersionInfo, versionInfoSourceLabel } from '@/utils/version-info';
+import { rem } from '@/styles/theme-constants';
 
 interface TestRunConfigurationTabProps {
   testRun: TestRunDetail;
@@ -125,8 +126,8 @@ export default function TestRunConfigurationTab({
                       <Typography
                         className="field-link-text"
                         sx={{
-                          fontSize: 16,
-                          lineHeight: '24px',
+                          fontSize: rem(16),
+                          lineHeight: rem(24),
                           color: theme => theme.palette.greyscale.body,
                           transition: 'color 0.2s',
                         }}
@@ -134,7 +135,7 @@ export default function TestRunConfigurationTab({
                         {config.test_set.name || '—'}
                       </Typography>
                       <OpenInNewIcon
-                        sx={{ fontSize: 14, color: 'text.disabled' }}
+                        sx={{ fontSize: rem(14), color: 'text.disabled' }}
                       />
                     </Box>
                   </Link>
@@ -172,8 +173,8 @@ export default function TestRunConfigurationTab({
                       <Typography
                         className="field-link-text"
                         sx={{
-                          fontSize: 16,
-                          lineHeight: '24px',
+                          fontSize: rem(16),
+                          lineHeight: rem(24),
                           color: theme => theme.palette.greyscale.body,
                           transition: 'color 0.2s',
                         }}
@@ -181,7 +182,7 @@ export default function TestRunConfigurationTab({
                         {config.endpoint.name || '—'}
                       </Typography>
                       <OpenInNewIcon
-                        sx={{ fontSize: 14, color: 'text.disabled' }}
+                        sx={{ fontSize: rem(14), color: 'text.disabled' }}
                       />
                     </Box>
                   </Link>
@@ -221,8 +222,8 @@ export default function TestRunConfigurationTab({
             <Box>
               <Typography
                 sx={{
-                  fontSize: 14,
-                  lineHeight: '22px',
+                  fontSize: rem(14),
+                  lineHeight: rem(22),
                   color: theme => theme.palette.greyscale.subtitle,
                   px: FIELD_INSET,
                   mb: '6px',
@@ -260,8 +261,8 @@ export default function TestRunConfigurationTab({
             <Switch checked={preflightEnabled} disabled size="small" />
             <Typography
               sx={{
-                fontSize: 16,
-                lineHeight: '24px',
+                fontSize: rem(16),
+                lineHeight: rem(24),
                 color: theme => theme.palette.greyscale.title,
               }}
             >

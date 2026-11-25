@@ -16,6 +16,7 @@ import {
   isSessionUnauthenticated,
 } from '@/hooks/useIsAuthenticated';
 import { scaledVh } from '@/styles/viewport-scaling';
+import { rem } from '@/styles/theme-constants';
 
 export default function LandingPage() {
   const { data: session, status } = useSession();
@@ -181,7 +182,9 @@ export default function LandingPage() {
               gap: 1,
             }}
           >
-            <RocketLaunchIcon sx={{ fontSize: 28, color: 'primary.main' }} />
+            <RocketLaunchIcon
+              sx={{ fontSize: rem(28), color: 'primary.main' }}
+            />
             <Typography variant="h6">Quick Start Mode</Typography>
           </Box>
         ) : (

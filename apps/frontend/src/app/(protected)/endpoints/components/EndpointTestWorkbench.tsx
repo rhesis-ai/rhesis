@@ -23,6 +23,7 @@ import {
   KeyboardArrowDownIcon,
   KeyboardArrowUpIcon,
 } from '@/components/icons';
+import { rem } from '@/styles/theme-constants';
 
 const FILE_VAR_RE = /^(files?|images?)$/i;
 
@@ -207,8 +208,8 @@ export default function EndpointTestWorkbench({
                     >
                       <Typography
                         sx={{
-                          fontSize: 12,
-                          lineHeight: '20px',
+                          fontSize: rem(12),
+                          lineHeight: rem(20),
                           color: theme => theme.palette.greyscale.body,
                           fontFamily: 'monospace',
                           whiteSpace: 'pre-wrap',
@@ -221,7 +222,7 @@ export default function EndpointTestWorkbench({
                     {!rawResponse && path && (
                       <Typography
                         sx={{
-                          fontSize: 11,
+                          fontSize: rem(11),
                           color: theme => theme.palette.greyscale.subtitle,
                           fontFamily: 'monospace',
                           pt: '3px',
@@ -257,7 +258,7 @@ export default function EndpointTestWorkbench({
           variant="body2"
           sx={{
             fontFamily: 'monospace',
-            fontSize: 12,
+            fontSize: rem(12),
             color: 'text.secondary',
           }}
         >
@@ -311,8 +312,8 @@ export default function EndpointTestWorkbench({
         ) : (
           <Typography
             sx={{
-              fontSize: 12,
-              lineHeight: '24px',
+              fontSize: rem(12),
+              lineHeight: rem(24),
               color: theme => theme.palette.greyscale.subtitle,
               fontFamily: 'monospace',
             }}

@@ -3,6 +3,7 @@
 import { Box, Typography } from '@mui/material';
 import BrandMark from '@/components/common/BrandMark';
 import { useNavigationItems } from '@/contexts/NavigationItemsContext';
+import { rem } from '@/styles/theme-constants';
 
 interface OnboardingStepHeaderProps {
   title: string;
@@ -37,9 +38,9 @@ export default function OnboardingStepHeader({
       <Typography
         component="h2"
         sx={{
-          fontSize: 33,
+          fontSize: rem(33),
           fontWeight: 800,
-          lineHeight: '39.6px',
+          lineHeight: rem(39.6),
           color: 'primary.main',
           width: '100%',
         }}
@@ -48,8 +49,8 @@ export default function OnboardingStepHeader({
       </Typography>
       <Typography
         sx={{
-          fontSize: 16,
-          lineHeight: '24px',
+          fontSize: rem(16),
+          lineHeight: rem(24),
           color: theme => theme.palette.greyscale.body,
           px: 2.5,
           width: '100%',

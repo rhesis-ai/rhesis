@@ -34,6 +34,7 @@ import {
   testValueVars,
   type TestValues,
 } from './testValues';
+import { rem } from '@/styles/theme-constants';
 
 /** A response mapping typed as JSON, or null while it isn't one yet. */
 function parseResponseMappingJson(text: string): Record<string, string> | null {
@@ -172,7 +173,7 @@ export default function MappingEditor({
         {v.groupLabel && (
           <Typography
             variant="caption"
-            sx={{ color: 'text.secondary', fontSize: 11, fontWeight: 600 }}
+            sx={{ color: 'text.secondary', fontSize: rem(11), fontWeight: 600 }}
           >
             {v.groupLabel}
           </Typography>
@@ -191,7 +192,7 @@ export default function MappingEditor({
               variant="caption"
               sx={{
                 fontFamily: 'monospace',
-                fontSize: 10,
+                fontSize: rem(10),
                 color: 'success.main',
               }}
             >
@@ -201,7 +202,7 @@ export default function MappingEditor({
         </Box>
         <Typography
           variant="caption"
-          sx={{ color: 'text.disabled', fontSize: 10, lineHeight: 1.4 }}
+          sx={{ color: 'text.disabled', fontSize: rem(10), lineHeight: 1.4 }}
         >
           {v.description}
           {v.docsUrl && (
@@ -276,7 +277,7 @@ export default function MappingEditor({
 
   const inlineCode = {
     fontFamily: 'monospace',
-    fontSize: 12,
+    fontSize: rem(12),
     bgcolor: (t: { palette: { mode: string } }) =>
       t.palette.mode === 'light'
         ? 'rgba(0,0,0,0.06)'
@@ -456,7 +457,7 @@ export default function MappingEditor({
             display: 'block',
             color: 'text.disabled',
             fontFamily: 'monospace',
-            fontSize: 10,
+            fontSize: rem(10),
           }}
         >
           {pendingPath}
@@ -472,7 +473,9 @@ export default function MappingEditor({
               <ListItemText
                 primary={label}
                 slotProps={{
-                  primary: { sx: { fontFamily: 'monospace', fontSize: 12 } },
+                  primary: {
+                    sx: { fontFamily: 'monospace', fontSize: rem(12) },
+                  },
                 }}
               />
             </ListItemButton>
@@ -499,7 +502,7 @@ export default function MappingEditor({
                 <ListItemText
                   primary="Remove mapping"
                   slotProps={{
-                    primary: { sx: { fontSize: 12, color: 'error.main' } },
+                    primary: { sx: { fontSize: rem(12), color: 'error.main' } },
                   }}
                 />
               </ListItemButton>

@@ -2,6 +2,7 @@
 
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import { rem } from '@/styles/theme-constants';
 
 interface MetadataItem {
   label: string;
@@ -27,8 +28,8 @@ export default function DetailMetadataStrip({
           <Typography
             variant="caption"
             sx={{
-              fontSize: 12,
-              lineHeight: '18px',
+              fontSize: rem(12),
+              lineHeight: rem(18),
               color: theme => theme.palette.greyscale.body,
             }}
           >
@@ -37,8 +38,8 @@ export default function DetailMetadataStrip({
           <Typography
             variant="caption"
             sx={{
-              fontSize: 12,
-              lineHeight: '18px',
+              fontSize: rem(12),
+              lineHeight: rem(18),
               color: theme => theme.palette.greyscale.subtitle,
             }}
           >

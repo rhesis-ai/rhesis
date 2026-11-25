@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { rem } from '@/styles/theme-constants';
 
 // ── useFilterDrawerDraft ───────────────────────────────────────────────────────
 
@@ -129,7 +130,7 @@ export function FilterDrawerShell({
       >
         <Typography
           sx={{
-            fontSize: 22,
+            fontSize: rem(22),
             fontWeight: 700,
             color: theme => theme.palette.greyscale.title,
             lineHeight: 1.1,
@@ -181,7 +182,7 @@ export function FilterDrawerShell({
                 borderColor: 'primary.main',
                 color: 'primary.main',
                 fontWeight: 700,
-                fontSize: 14,
+                fontSize: rem(14),
                 borderRadius: BORDER_RADIUS.sm,
                 px: '16px',
                 py: '8px',
@@ -197,7 +198,7 @@ export function FilterDrawerShell({
               onClick={onApply}
               sx={{
                 fontWeight: 700,
-                fontSize: 14,
+                fontSize: rem(14),
                 borderRadius: BORDER_RADIUS.sm,
                 px: '16px',
                 py: '8px',
@@ -251,21 +252,27 @@ export function FilterSection({
       >
         <Typography
           sx={{
-            fontSize: 18,
+            fontSize: rem(18),
             fontWeight: 700,
             color: theme => theme.palette.greyscale.title,
-            lineHeight: '25px',
+            lineHeight: rem(25),
           }}
         >
           {title}
         </Typography>
         {open ? (
           <KeyboardArrowUpIcon
-            sx={{ fontSize: 20, color: theme => theme.palette.greyscale.label }}
+            sx={{
+              fontSize: rem(20),
+              color: theme => theme.palette.greyscale.label,
+            }}
           />
         ) : (
           <KeyboardArrowDownIcon
-            sx={{ fontSize: 20, color: theme => theme.palette.greyscale.label }}
+            sx={{
+              fontSize: rem(20),
+              color: theme => theme.palette.greyscale.label,
+            }}
           />
         )}
       </ButtonBase>
@@ -298,9 +305,9 @@ export function filterChipSx(active: boolean): SxProps<Theme> {
       ? theme.palette.primary.contrastText
       : theme.palette.greyscale.body,
     cursor: 'pointer',
-    fontSize: 13,
+    fontSize: rem(13),
     fontWeight: active ? 600 : 400,
-    lineHeight: '20px',
+    lineHeight: rem(20),
     transition: 'all 0.15s ease',
     outline: 'none',
     // Keyboard focus only; ButtonBase adds .Mui-focusVisible (2.4.7).
@@ -319,8 +326,8 @@ export function filterChipSx(active: boolean): SxProps<Theme> {
 /** Shared Select styling for filter drawer dropdowns (Figma Input/Dropdown). */
 export const filterDrawerSelectSx: SxProps<Theme> = theme => ({
   borderRadius: BORDER_RADIUS.sm,
-  fontSize: 14,
-  lineHeight: '22px',
+  fontSize: rem(14),
+  lineHeight: rem(22),
   '& .MuiOutlinedInput-notchedOutline': {
     borderRadius: BORDER_RADIUS.sm,
     borderColor: theme.palette.greyscale.border,
@@ -333,8 +340,8 @@ export const filterDrawerSelectSx: SxProps<Theme> = theme => ({
     boxSizing: 'border-box',
   },
   '& .MuiInputLabel-root': {
-    fontSize: 12,
-    lineHeight: '18px',
+    fontSize: rem(12),
+    lineHeight: rem(18),
     color: theme.palette.greyscale.subtitle,
   },
   '& .MuiInputLabel-shrink': {

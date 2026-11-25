@@ -8,6 +8,7 @@ import BuildCircleOutlinedIcon from '@mui/icons-material/BuildCircleOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { StreamingState } from '@/hooks/useArchitectChat';
+import { rem } from '@/styles/theme-constants';
 
 const VISIBLE_COMPLETED = 2;
 const FOLD_DELAY_MS = 600;
@@ -174,9 +175,11 @@ export default function ToolCallList({
           }}
         >
           {tool.success ? (
-            <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
+            <CheckCircleIcon
+              sx={{ fontSize: rem(14), color: 'success.main' }}
+            />
           ) : (
-            <ErrorIcon sx={{ fontSize: 14, color: 'error.main' }} />
+            <ErrorIcon sx={{ fontSize: rem(14), color: 'error.main' }} />
           )}
           <Tooltip title={tool.success ? '' : tool.error || ''}>
             <Typography
@@ -234,7 +237,7 @@ export default function ToolCallList({
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <BuildCircleOutlinedIcon
                 sx={{
-                  fontSize: 14,
+                  fontSize: rem(14),
                   color: 'info.main',
                   '@keyframes spin': {
                     from: { transform: 'rotate(0deg)' },
@@ -283,17 +286,23 @@ export default function ToolCallList({
           }}
         >
           {hiddenFailures > 0 ? (
-            <ErrorIcon sx={{ fontSize: 14, color: 'error.main' }} />
+            <ErrorIcon sx={{ fontSize: rem(14), color: 'error.main' }} />
           ) : (
-            <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
+            <CheckCircleIcon
+              sx={{ fontSize: rem(14), color: 'success.main' }}
+            />
           )}
           <Typography variant="caption" color="text.secondary">
             {collapsedSummary}
           </Typography>
           {expandedCompleted ? (
-            <ExpandLessIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+            <ExpandLessIcon
+              sx={{ fontSize: rem(14), color: 'text.secondary' }}
+            />
           ) : (
-            <ExpandMoreIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+            <ExpandMoreIcon
+              sx={{ fontSize: rem(14), color: 'text.secondary' }}
+            />
           )}
         </ButtonBase>
       )}

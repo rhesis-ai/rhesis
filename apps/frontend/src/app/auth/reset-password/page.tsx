@@ -20,6 +20,7 @@ import { getBaseUrl } from '@/utils/url-resolver';
 import { DEFAULT_PASSWORD_POLICY, validatePassword } from '@/utils/validation';
 import AuthPageShell from '@/components/auth/AuthPageShell';
 import { useAuthStyles } from '@/components/auth/useAuthStyles';
+import { rem } from '@/styles/theme-constants';
 
 interface PasswordPolicy {
   min_length: number;
@@ -155,7 +156,7 @@ export default function ResetPasswordPage() {
             alignItems: 'center',
           }}
         >
-          <CheckCircleIcon sx={{ fontSize: 48, color: 'success.main' }} />
+          <CheckCircleIcon sx={{ fontSize: rem(48), color: 'success.main' }} />
           <Typography sx={{ ...heading, textAlign: 'center' }}>
             Password reset!
           </Typography>
@@ -181,7 +182,9 @@ export default function ResetPasswordPage() {
           }}
         >
           <Box sx={{ textAlign: 'center', mb: 0 }}>
-            <LockResetIcon sx={{ fontSize: 48, color: tokens.accent, mb: 1 }} />
+            <LockResetIcon
+              sx={{ fontSize: rem(48), color: tokens.accent, mb: 1 }}
+            />
             <Typography sx={heading}>Set a new password</Typography>
           </Box>
 

@@ -19,6 +19,7 @@ import {
   RequirementTopicList,
 } from './RequirementDimensionLists';
 import InsightsImpactDot from './InsightsImpactDot';
+import { rem } from '@/styles/theme-constants';
 
 const MAX_CHILDREN_SHOWN = 3;
 
@@ -164,8 +165,8 @@ export default function RequirementColumn({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 0.75,
-                  fontSize: 13,
-                  lineHeight: '20px',
+                  fontSize: rem(13),
+                  lineHeight: rem(20),
                   color: 'text.secondary',
                 }}
               >

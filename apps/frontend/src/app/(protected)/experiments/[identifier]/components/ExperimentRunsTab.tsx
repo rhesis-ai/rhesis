@@ -40,6 +40,7 @@ import { BORDER_RADIUS } from '@/styles/theme';
 import { formatDate } from '@/utils/date';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { passRate } from '@/constants/outcomes';
+import { rem } from '@/styles/theme-constants';
 
 interface ExperimentRunsTabProps {
   experimentId: string;
@@ -275,7 +276,9 @@ export default function ExperimentRunsTab({
                 gap: '10px',
               }}
             >
-              <PlayArrowIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+              <PlayArrowIcon
+                sx={{ fontSize: rem(32), color: 'primary.main' }}
+              />
               <Typography
                 variant="h6"
                 sx={{
@@ -301,7 +304,7 @@ export default function ExperimentRunsTab({
                   borderRadius: BORDER_RADIUS.md,
                   px: '20px',
                   py: '12px',
-                  fontSize: 18,
+                  fontSize: rem(18),
                   fontWeight: 700,
                 }}
               >

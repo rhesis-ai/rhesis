@@ -35,6 +35,7 @@ import { useAuthStyles } from './useAuthStyles';
 import { useNavigationItems } from '@/contexts/NavigationItemsContext';
 import { DEFAULT_PRODUCT_NAME } from '@/config/branding';
 import { EMAIL_NOT_VERIFIED, EMAIL_UNDELIVERABLE } from '@/constants/auth';
+import { rem } from '@/styles/theme-constants';
 
 interface ProviderInfo {
   name: string;
@@ -625,7 +626,11 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
             }}
           >
             <Typography
-              sx={{ fontFamily: AUTH_FONT_SANS, fontSize: 14, color: t.muted }}
+              sx={{
+                fontFamily: AUTH_FONT_SANS,
+                fontSize: rem(14),
+                color: t.muted,
+              }}
             >
               Enter your email and we&apos;ll send you a link to sign in
               instantly.
@@ -691,11 +696,11 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
               textAlign: 'center',
             }}
           >
-            <EmailIcon sx={{ fontSize: 44, color: t.accent }} />
+            <EmailIcon sx={{ fontSize: rem(44), color: t.accent }} />
             <Typography
               sx={{
                 fontFamily: AUTH_FONT_SANS,
-                fontSize: 16,
+                fontSize: rem(16),
                 fontWeight: 600,
                 color: t.ink,
               }}
@@ -703,7 +708,11 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
               Check your email!
             </Typography>
             <Typography
-              sx={{ fontFamily: AUTH_FONT_SANS, fontSize: 14, color: t.muted }}
+              sx={{
+                fontFamily: AUTH_FONT_SANS,
+                fontSize: rem(14),
+                color: t.muted,
+              }}
             >
               We&apos;ve sent a sign-in link to <strong>{email}</strong>. Click
               the link in the email to sign in.
@@ -733,7 +742,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                   <Typography
                     sx={{
                       fontFamily: AUTH_FONT_SANS,
-                      fontSize: 12,
+                      fontSize: rem(12),
                       color: t.muted,
                     }}
                   >
@@ -776,7 +785,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
                 <Typography
                   sx={{
                     fontFamily: AUTH_FONT_SANS,
-                    fontSize: 12,
+                    fontSize: rem(12),
                     color: t.muted,
                   }}
                 >
@@ -802,7 +811,7 @@ export default function AuthForm({ isRegistration = false }: AuthFormProps) {
           <Typography
             sx={{
               fontFamily: AUTH_FONT_SANS,
-              fontSize: 13,
+              fontSize: rem(13),
               textAlign: 'center',
               color: t.muted,
             }}

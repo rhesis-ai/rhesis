@@ -48,6 +48,7 @@ import {
 import OwaspGenerateForm, {
   type OwaspGenerateFooterState,
 } from './OwaspGenerateForm';
+import { rem } from '@/styles/theme-constants';
 
 /** Garak/OWASP lists need extra room vs the default 578 form drawer. */
 const SECURITY_DRAWER_WIDTH = 680;
@@ -555,8 +556,8 @@ export default function SecurityTestDrawer({
                 >
                   <Typography
                     sx={{
-                      fontSize: 18,
-                      lineHeight: '25px',
+                      fontSize: rem(18),
+                      lineHeight: rem(25),
                       fontWeight: 700,
                       color: theme => theme.palette.greyscale.title,
                     }}
@@ -569,9 +570,9 @@ export default function SecurityTestDrawer({
                     disabled={loadingModules || visibleProbesCount === 0}
                     sx={{
                       flexShrink: 0,
-                      fontSize: 14,
+                      fontSize: rem(14),
                       fontWeight: 700,
-                      lineHeight: '22px',
+                      lineHeight: rem(22),
                       textTransform: 'none',
                     }}
                   >
@@ -580,8 +581,8 @@ export default function SecurityTestDrawer({
                 </Stack>
                 <Typography
                   sx={{
-                    fontSize: 12,
-                    lineHeight: '18px',
+                    fontSize: rem(12),
+                    lineHeight: rem(18),
                     color: theme => theme.palette.greyscale.subtitle,
                   }}
                 >
@@ -905,7 +906,9 @@ export default function SecurityTestDrawer({
                   bgcolor: alpha(theme.palette.success.main, 0.12),
                 })}
               >
-                <CheckCircleIcon sx={{ fontSize: 56, color: 'success.main' }} />
+                <CheckCircleIcon
+                  sx={{ fontSize: rem(56), color: 'success.main' }}
+                />
               </Box>
               <Stack spacing={0.5} alignItems="center">
                 <Typography variant="h5" fontWeight="bold">

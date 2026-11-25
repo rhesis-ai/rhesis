@@ -13,6 +13,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import MarkdownContent from '@/components/common/MarkdownContent';
 import { countProgress, isPlanComplete } from '@/utils/architect/plan';
+import { rem } from '@/styles/theme-constants';
 
 export { countProgress, isPlanComplete };
 
@@ -52,7 +53,9 @@ export default function PlanDisplay({ plan }: PlanDisplayProps) {
           sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, mr: 1 }}
         >
           {isComplete ? (
-            <CheckCircleIcon sx={{ fontSize: 18, color: 'success.main' }} />
+            <CheckCircleIcon
+              sx={{ fontSize: rem(18), color: 'success.main' }}
+            />
           ) : null}
           <Typography
             variant="subtitle2"

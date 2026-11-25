@@ -5,7 +5,7 @@ import { Box, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { BORDER_RADIUS, rem } from '@/styles/theme-constants';
 
 export type FilledStatusAlertSeverity = 'success' | 'error';
 
@@ -51,7 +51,7 @@ export function FilledStatusAlert({
           display: 'flex',
         }}
       >
-        <Icon sx={{ fontSize: 22, color: 'inherit' }} />
+        <Icon sx={{ fontSize: rem(22), color: 'inherit' }} />
       </Box>
       <Box
         sx={{
@@ -65,8 +65,8 @@ export function FilledStatusAlert({
         <Typography
           sx={{
             fontWeight: 700,
-            fontSize: 18,
-            lineHeight: '25px',
+            fontSize: rem(18),
+            lineHeight: rem(25),
             color: 'inherit',
           }}
         >
@@ -76,8 +76,8 @@ export function FilledStatusAlert({
           <Typography
             sx={{
               fontWeight: 400,
-              fontSize: 16,
-              lineHeight: '24px',
+              fontSize: rem(16),
+              lineHeight: rem(24),
               color: 'inherit',
             }}
           >

@@ -5,6 +5,7 @@ import { Box, Typography, Paper, IconButton, Alert } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CloseIcon from '@mui/icons-material/Close';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
+import { rem } from '@/styles/theme-constants';
 
 interface DragAndDropUploadProps {
   onFileSelect: (file: File) => void;
@@ -148,7 +149,7 @@ export default function DragAndDropUpload({
               width: '100%',
             }}
           >
-            <InsertDriveFileIcon sx={{ fontSize: 24 }} />
+            <InsertDriveFileIcon sx={{ fontSize: rem(24) }} />
             <Box sx={{ flex: 1, textAlign: 'left' }}>
               <Typography variant="body1">{selectedFile.name}</Typography>
               <Typography variant="caption" color="text.secondary">
@@ -168,7 +169,9 @@ export default function DragAndDropUpload({
           </Box>
         ) : (
           <>
-            <CloudUploadIcon sx={{ fontSize: 32, color: 'text.secondary' }} />
+            <CloudUploadIcon
+              sx={{ fontSize: rem(32), color: 'text.secondary' }}
+            />
             <Typography variant="body1">
               {isDragOver ? 'Drop file here' : 'Drag & drop or click to browse'}
             </Typography>

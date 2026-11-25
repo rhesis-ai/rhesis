@@ -3,6 +3,7 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
+import { rem } from '@/styles/theme-constants';
 
 interface ViewFieldProps {
   label: string;
@@ -41,8 +42,8 @@ export default function ViewField({
       {/* Label — greyscale.subtitle */}
       <Typography
         sx={{
-          fontSize: 14,
-          lineHeight: '22px',
+          fontSize: rem(14),
+          lineHeight: rem(22),
           color: theme => theme.palette.greyscale.subtitle,
           px: '14px',
           mb: '6px',
@@ -66,8 +67,8 @@ export default function ViewField({
           <Typography
             sx={[
               {
-                fontSize: 16,
-                lineHeight: '24px',
+                fontSize: rem(16),
+                lineHeight: rem(24),
                 color: theme => theme.palette.greyscale.body,
                 whiteSpace: multiline ? 'pre-wrap' : 'normal',
                 wordBreak: 'break-word',
@@ -84,8 +85,8 @@ export default function ViewField({
       {helperText && (
         <Typography
           sx={{
-            fontSize: 12,
-            lineHeight: '18px',
+            fontSize: rem(12),
+            lineHeight: rem(18),
             color: theme => theme.palette.greyscale.subtitle,
             px: '14px',
             pt: '3px',

@@ -42,6 +42,7 @@ import {
   drawerSectionSx,
 } from '@/components/common/drawerFormFieldSx';
 import { TEST_TYPES, type TestTypeValue } from '@/constants/test-types';
+import { rem } from '@/styles/theme-constants';
 
 export interface OwaspGenerateFooterState {
   onSave?: () => void;
@@ -369,7 +370,7 @@ export default function OwaspGenerateForm({
   if (results) {
     return (
       <Stack spacing={2} alignItems="center" sx={{ py: 4 }}>
-        <CheckCircleIcon sx={{ fontSize: 56, color: 'success.main' }} />
+        <CheckCircleIcon sx={{ fontSize: rem(56), color: 'success.main' }} />
         <Typography variant="h6">Generation started!</Typography>
         <Stack spacing={0.5} sx={{ textAlign: 'center' }}>
           {results.map(result => (
@@ -619,8 +620,8 @@ export default function OwaspGenerateForm({
             <Stack direction="row" justifyContent="space-between" mb={1}>
               <Typography
                 sx={{
-                  fontSize: 12,
-                  lineHeight: '18px',
+                  fontSize: rem(12),
+                  lineHeight: rem(18),
                   color: theme => theme.palette.greyscale.subtitle,
                 }}
               >

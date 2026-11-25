@@ -32,6 +32,7 @@ import RequirementDrawer, {
   type RequirementDetailsInput,
 } from '../../components/RequirementDrawer';
 import { useRequirementActions } from './useRequirementActions';
+import { rem } from '@/styles/theme-constants';
 
 type Relation = 'Parent' | 'Child';
 
@@ -310,7 +311,7 @@ export default function RequirementLinkedRequirements({
             }}
           >
             <AccountTreeOutlinedIcon
-              sx={{ fontSize: 32, color: 'primary.main' }}
+              sx={{ fontSize: rem(32), color: 'primary.main' }}
             />
             <Typography
               variant="h6"

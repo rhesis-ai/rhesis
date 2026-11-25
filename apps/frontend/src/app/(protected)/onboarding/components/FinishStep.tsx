@@ -11,6 +11,7 @@ import {
   labelForReferralSource,
   type ProfileAnswers,
 } from '@/constants/user-profile';
+import { rem } from '@/styles/theme-constants';
 
 interface FormData extends ProfileAnswers {
   firstName: string;
@@ -83,8 +84,8 @@ export default function FinishStep({
           <Box>
             <Typography
               sx={{
-                fontSize: 14,
-                lineHeight: '22px',
+                fontSize: rem(14),
+                lineHeight: rem(22),
                 color: theme => theme.palette.greyscale.subtitle,
                 px: '14px',
                 mb: '6px',
@@ -97,8 +98,8 @@ export default function FinishStep({
                 <Typography
                   key={invite.id}
                   sx={{
-                    fontSize: 16,
-                    lineHeight: '24px',
+                    fontSize: rem(16),
+                    lineHeight: rem(24),
                     color: theme => theme.palette.greyscale.body,
                     bgcolor: theme => theme.palette.greyscale.fieldSurface,
                     borderRadius: '4px',

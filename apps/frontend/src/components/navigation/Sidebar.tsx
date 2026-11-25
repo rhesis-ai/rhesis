@@ -77,6 +77,7 @@ import { useNotifications } from '@/contexts/NotificationsContext';
 import { useScrollEdges } from '@/hooks/useScrollEdges';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import VisuallyHidden from '@/components/common/VisuallyHidden';
+import { rem } from '@/styles/theme-constants';
 
 // ── Figma "left_panel_close" / "left_panel_open" SVG icons ──────────────────
 // Exact filled path from Figma node 841:38433 (Material Symbols Rounded w300).
@@ -332,15 +333,15 @@ export function Sidebar() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <DataUsageOutlinedIcon
             sx={{
-              fontSize: 24,
+              fontSize: rem(24),
               color: theme => theme.palette.greyscale.body,
             }}
           />
           <Typography
             sx={{
-              fontSize: 14,
+              fontSize: rem(14),
               fontWeight: 700,
-              lineHeight: '22px',
+              lineHeight: rem(22),
               color: theme => theme.palette.greyscale.body,
             }}
           >
@@ -868,9 +869,9 @@ export function Sidebar() {
               <Typography
                 sx={{
                   display: 'block',
-                  fontSize: 14,
+                  fontSize: rem(14),
                   fontWeight: 400,
-                  lineHeight: '22px',
+                  lineHeight: rem(22),
                   color: theme => theme.palette.greyscale.title,
                   textDecoration: 'underline',
                   whiteSpace: 'nowrap',

@@ -54,6 +54,7 @@ import type { UUID } from 'crypto';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import { DeleteModal } from '@/components/common/DeleteModal';
+import { rem } from '@/styles/theme-constants';
 
 const TAB_KEYS = ['basic', 'linked-requirements', 'tuning'] as const;
 
@@ -399,7 +400,7 @@ function MetricLinkedRequirements({
               textAlign: 'center',
             }}
           >
-            <RouteIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+            <RouteIcon sx={{ fontSize: rem(32), color: 'primary.main' }} />
             <Typography
               variant="h6"
               sx={{ fontWeight: 600, color: 'primary.main' }}

@@ -4,6 +4,7 @@ import * as React from 'react';
 import { Box, type BoxProps } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
 import { BORDER_RADIUS } from '@/styles/theme';
+import { rem } from '@/styles/theme-constants';
 
 /** Rectangular tag surface — never pill-shaped (see GridBadge for badges). */
 export const tagSurfaceSx: SxProps<Theme> = {
@@ -15,13 +16,10 @@ export const tagSurfaceSx: SxProps<Theme> = {
   py: '2px',
   height: 26,
   maxWidth: 200,
-  bgcolor: theme =>
-    theme.palette.mode === 'light'
-      ? '#f3f4f6'
-      : theme.palette.greyscale.surface1,
+  bgcolor: theme => theme.palette.greyscale.chipSurface,
   color: theme => theme.palette.greyscale.body,
-  fontSize: 14,
-  lineHeight: '22px',
+  fontSize: rem(14),
+  lineHeight: rem(22),
   fontWeight: 600,
   whiteSpace: 'nowrap',
   overflow: 'hidden',
@@ -86,7 +84,7 @@ export function TagRow({
         <Box
           component="span"
           sx={{
-            fontSize: 14,
+            fontSize: rem(14),
             color: theme => theme.palette.greyscale.subtitle,
           }}
         >

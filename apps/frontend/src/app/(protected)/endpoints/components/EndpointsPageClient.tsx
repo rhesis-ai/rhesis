@@ -20,6 +20,7 @@ import PageLoadingState from '@/components/common/PageLoadingState';
 import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 import { useInvalidateUsage } from '@/hooks/useInvalidateUsage';
 import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
+import { rem } from '@/styles/theme-constants';
 
 interface EndpointsPageClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -108,7 +109,7 @@ export default function EndpointsPageClient({
             {bulkActionsVisible && (
               <Can capability={Capability.Endpoint.DELETE}>
                 <Fab
-                  icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+                  icon={<DeleteOutlineIcon sx={{ fontSize: rem(28) }} />}
                   tooltip="Delete Endpoints"
                   aria-label="Delete Endpoints"
                   onClick={onBulkDelete}

@@ -12,6 +12,7 @@ import type { SxProps, Theme } from '@mui/material/styles';
 import { gridClasses, type GridColDef, type GridRowId } from '@mui/x-data-grid';
 import type { SvgIconComponent } from '@mui/icons-material';
 import { EditIcon, DeleteIcon } from '@/components/icons';
+import { rem } from '@/styles/theme-constants';
 
 export const ROW_ACTIONS_CLASS = 'row-actions';
 
@@ -208,7 +209,7 @@ export function createRowActionsColumn({
                 }}
                 sx={actionIconButtonSx('primary.main')}
               >
-                <EditIcon sx={{ fontSize: 18 }} />
+                <EditIcon sx={{ fontSize: rem(18) }} />
               </IconButton>
             </Tooltip>
           )}
@@ -225,7 +226,7 @@ export function createRowActionsColumn({
                   }}
                   sx={actionIconButtonSx(action.hoverColor ?? 'warning.main')}
                 >
-                  <ActionIcon sx={{ fontSize: 18 }} />
+                  <ActionIcon sx={{ fontSize: rem(18) }} />
                 </IconButton>
               </Tooltip>
             );
@@ -240,7 +241,7 @@ export function createRowActionsColumn({
                 }}
                 sx={actionIconButtonSx('error.main')}
               >
-                <DeleteIconComponent sx={{ fontSize: 18 }} />
+                <DeleteIconComponent sx={{ fontSize: rem(18) }} />
               </IconButton>
             </Tooltip>
           )}

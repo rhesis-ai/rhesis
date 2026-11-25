@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Box, Typography } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
+import { rem } from '@/styles/theme-constants';
 
 export interface StepNavItem {
   key: string;
@@ -115,9 +116,9 @@ export function StepNav({
                 <Typography
                   component="span"
                   sx={{
-                    fontSize: 18,
+                    fontSize: rem(18),
                     fontWeight: 700,
-                    lineHeight: '25px',
+                    lineHeight: rem(25),
                     color: theme =>
                       selected
                         ? theme.palette.greyscale.title

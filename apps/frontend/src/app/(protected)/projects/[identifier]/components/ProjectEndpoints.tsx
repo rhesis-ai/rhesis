@@ -13,6 +13,7 @@ import { Capability } from '@/constants/capabilities';
 import { sectionEditButtonSx } from '@/components/common/SectionCardActions';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { useInvalidateUsage } from '@/hooks/useInvalidateUsage';
+import { rem } from '@/styles/theme-constants';
 
 interface ProjectEndpointsProps {
   projectId: string;
@@ -51,7 +52,7 @@ export default function ProjectEndpoints({ projectId }: ProjectEndpointsProps) {
           <Button
             variant="outlined"
             size="small"
-            startIcon={<AddIcon sx={{ fontSize: 20 }} />}
+            startIcon={<AddIcon sx={{ fontSize: rem(20) }} />}
             onClick={e => setTypeMenuAnchor(e.currentTarget)}
             sx={sectionEditButtonSx}
           >

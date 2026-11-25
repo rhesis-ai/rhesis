@@ -11,7 +11,7 @@ import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import Typography from '@mui/material/Typography';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { BORDER_RADIUS } from '@/styles/theme-constants';
+import { BORDER_RADIUS, rem } from '@/styles/theme-constants';
 import {
   CapabilityLevel,
   groupAreaCapabilitiesByResource,
@@ -104,7 +104,7 @@ function PermissionCheckbox({
       label={
         <Typography
           variant={compact ? 'caption' : 'body2'}
-          sx={{ fontSize: 12 }}
+          sx={{ fontSize: rem(12) }}
         >
           {label}
         </Typography>
@@ -177,7 +177,7 @@ export default function PermissionGroupControl({
               mx: '1px',
               px: 1.5,
               py: 0.5,
-              fontSize: 12,
+              fontSize: rem(12),
               fontWeight: 600,
               textTransform: 'none',
               color: (t: Theme) => t.palette.greyscale.subtitle,
@@ -268,7 +268,7 @@ export default function PermissionGroupControl({
                 sx={{
                   fontWeight: 700,
                   color: 'greyscale.body',
-                  fontSize: 10,
+                  fontSize: rem(10),
                   lineHeight: 1.2,
                   ...crudHeaderCellSx,
                 }}
@@ -297,7 +297,7 @@ export default function PermissionGroupControl({
             >
               <Typography
                 variant="body2"
-                sx={{ fontWeight: 600, fontSize: 13 }}
+                sx={{ fontWeight: 600, fontSize: rem(13) }}
               >
                 {row.label}
               </Typography>

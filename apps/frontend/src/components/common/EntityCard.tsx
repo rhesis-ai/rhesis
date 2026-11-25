@@ -14,6 +14,7 @@ import {
 import { DeleteIcon } from '@/components/icons';
 import { BORDER_RADIUS, ELEVATION, GRID_CARD_INSET } from '@/styles/theme';
 import GridBadge from '@/components/common/GridBadge';
+import { rem } from '@/styles/theme-constants';
 
 export type EntityCardTone = 'neutral' | 'success' | 'warning' | 'error';
 
@@ -99,8 +100,8 @@ function toneColor(tone: EntityCardTone, theme: Theme): string {
 }
 
 const smallMutedSx = {
-  fontSize: 13,
-  lineHeight: '20px',
+  fontSize: rem(13),
+  lineHeight: rem(20),
   color: 'text.secondary',
   whiteSpace: 'nowrap',
 } as const;
@@ -187,7 +188,7 @@ function Relation({ relation }: { relation: EntityCardRelation }) {
             gap: 0.5,
             color: muted ? 'text.disabled' : 'text.primary',
             '& .MuiSvgIcon-root': {
-              fontSize: 16,
+              fontSize: rem(16),
               color: muted ? 'inherit' : 'text.secondary',
             },
           }}
@@ -340,7 +341,7 @@ export default function EntityCard({
                   sx={{
                     color: 'primary.dark',
                     padding: '2px',
-                    '& .MuiSvgIcon-root': { fontSize: 20 },
+                    '& .MuiSvgIcon-root': { fontSize: rem(20) },
                   }}
                 >
                   <DeleteIcon />
@@ -384,7 +385,7 @@ export default function EntityCard({
               justifyContent: 'center',
               color: 'text.primary',
               flexShrink: 0,
-              '& .MuiSvgIcon-root': { fontSize: 20 },
+              '& .MuiSvgIcon-root': { fontSize: rem(20) },
               '& svg:not(.MuiSvgIcon-root)': { width: 20, height: 20 },
             }}
           >
@@ -393,9 +394,9 @@ export default function EntityCard({
         )}
         <Typography
           sx={{
-            fontSize: 18,
+            fontSize: rem(18),
             fontWeight: 700,
-            lineHeight: '25px',
+            lineHeight: rem(25),
             color: 'text.primary',
             wordBreak: 'break-word',
             flex: 1,
@@ -440,7 +441,7 @@ export default function EntityCard({
       <Typography
         data-testid="entity-card-description"
         sx={{
-          fontSize: 14,
+          fontSize: rem(14),
           fontWeight: 400,
           lineHeight: `${DESCRIPTION_LINE_HEIGHT}px`,
           minHeight: `${DESCRIPTION_LINE_HEIGHT * descriptionLines}px`,
@@ -474,7 +475,7 @@ export default function EntityCard({
           flexWrap: 'wrap',
           columnGap: 2,
           rowGap: 0.5,
-          fontSize: 14,
+          fontSize: rem(14),
           lineHeight: `${RELATIONS_LINE_HEIGHT}px`,
           minHeight: `${RELATIONS_LINE_HEIGHT}px`,
           color: 'text.secondary',
@@ -503,7 +504,7 @@ export default function EntityCard({
               <>
                 <Avatar
                   src={userAvatar}
-                  sx={{ width: 20, height: 20, fontSize: 11 }}
+                  sx={{ width: 20, height: 20, fontSize: rem(11) }}
                 >
                   {!userAvatar ? firstName[0].toUpperCase() : undefined}
                 </Avatar>

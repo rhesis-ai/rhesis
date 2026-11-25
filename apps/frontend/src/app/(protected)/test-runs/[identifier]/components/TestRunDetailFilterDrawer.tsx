@@ -20,6 +20,7 @@ import {
   useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 import type { MetricOutcomeFilter } from './TestRunFilterBar';
+import { rem } from '@/styles/theme-constants';
 
 export type TestRunDetailDrawerFilters = {
   overruleFilter: 'all' | 'overruled' | 'original' | 'conflicting';
@@ -153,9 +154,9 @@ function CompactSegmentedPills({
               justifyContent: 'center',
               px: '12px',
               py: '6px',
-              fontSize: 13,
+              fontSize: rem(13),
               fontWeight: 700,
-              lineHeight: '20px',
+              lineHeight: rem(20),
               cursor: 'pointer',
               border: '1px solid',
               borderColor: 'primary.main',
@@ -211,7 +212,7 @@ function ActivityFilterRow({
     >
       <Typography
         sx={{
-          fontSize: 14,
+          fontSize: rem(14),
           color: theme => theme.palette.greyscale.body,
           flexShrink: 0,
         }}
@@ -242,7 +243,7 @@ function MetricOutcomeLegend() {
           }}
         >
           {icon}
-          <Typography sx={{ fontSize: 12 }}>{label}</Typography>
+          <Typography sx={{ fontSize: rem(12) }}>{label}</Typography>
         </Box>
       ))}
     </Box>
@@ -275,7 +276,7 @@ function MetricOutcomeRow({
       <Typography
         title={label}
         sx={{
-          fontSize: 14,
+          fontSize: rem(14),
           color: theme => theme.palette.greyscale.body,
           minWidth: 0,
           overflow: 'hidden',
@@ -471,7 +472,7 @@ export default function TestRunDetailFilterDrawer({
                   />
                 }
                 label={
-                  <Typography sx={{ fontSize: 14 }}>
+                  <Typography sx={{ fontSize: rem(14) }}>
                     {requirement.name}
                   </Typography>
                 }

@@ -25,6 +25,7 @@ import { useFeature } from '@/contexts/FeaturesContext';
 import { FeatureName } from '@/constants/features';
 import { getMemberRoleExtensions } from '@/lib/extension-registries';
 import { useUsers } from '@/hooks/useLookups';
+import { rem } from '@/styles/theme-constants';
 
 function getUserDisplayName(user: User): string {
   if (user.name) return user.name;
@@ -151,7 +152,7 @@ export default function ProjectAddMemberDrawer({
                   <Box>
                     <Box
                       component="span"
-                      sx={{ display: 'block', fontSize: 14 }}
+                      sx={{ display: 'block', fontSize: rem(14) }}
                     >
                       {getUserDisplayName(option)}
                     </Box>
@@ -159,7 +160,7 @@ export default function ProjectAddMemberDrawer({
                       component="span"
                       sx={{
                         display: 'block',
-                        fontSize: 12,
+                        fontSize: rem(12),
                         color: 'text.secondary',
                       }}
                     >

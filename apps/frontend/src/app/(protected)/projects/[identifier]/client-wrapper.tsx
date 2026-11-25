@@ -31,6 +31,7 @@ import { format } from 'date-fns';
 import { useDeleteProject } from '@/hooks/useEndpoints';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { detailPageTitle } from '@/utils/document-title';
+import { rem } from '@/styles/theme-constants';
 
 interface ClientWrapperProps {
   project: Project;
@@ -175,7 +176,7 @@ export default function ClientWrapper({
     <FabGroup>
       <Can capability={Capability.Project.UPDATE}>
         <Fab
-          icon={<EditIcon sx={{ fontSize: 28 }} />}
+          icon={<EditIcon sx={{ fontSize: rem(28) }} />}
           tooltip="Edit project"
           aria-label="Edit project"
           onClick={() => setIsDrawerOpen(true)}
@@ -184,7 +185,7 @@ export default function ClientWrapper({
       </Can>
       <Can capability={Capability.Project.UPDATE}>
         <Fab
-          icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+          icon={<DeleteOutlineIcon sx={{ fontSize: rem(28) }} />}
           tooltip={
             isActiveProject ? ACTIVE_PROJECT_DELETE_BLOCKED : 'Delete project'
           }

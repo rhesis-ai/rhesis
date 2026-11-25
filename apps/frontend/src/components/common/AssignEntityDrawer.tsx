@@ -18,6 +18,7 @@ import {
   type ToolbarPillTab,
 } from '@/components/common/GridToolbar';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { rem } from '@/styles/theme-constants';
 
 export interface AssignEntityDrawerProps {
   open: boolean;
@@ -197,8 +198,8 @@ export default function AssignEntityDrawer({
                   onClick={onCreateNew}
                   sx={{
                     fontWeight: 400,
-                    fontSize: 14,
-                    lineHeight: '22px',
+                    fontSize: rem(14),
+                    lineHeight: rem(22),
                     color: 'primary.main',
                     px: '16px',
                     py: '8px',
@@ -208,7 +209,7 @@ export default function AssignEntityDrawer({
                       marginLeft: 0,
                     },
                     '& .MuiButton-startIcon > *:nth-of-type(1)': {
-                      fontSize: 20,
+                      fontSize: rem(20),
                     },
                   }}
                 >

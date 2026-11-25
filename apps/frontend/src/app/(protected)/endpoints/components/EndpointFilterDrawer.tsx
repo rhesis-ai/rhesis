@@ -10,6 +10,7 @@ import {
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
 import { useStatuses } from '@/hooks/useLookups';
+import { rem } from '@/styles/theme-constants';
 
 export interface EndpointFilters {
   connectionType: string;
@@ -47,7 +48,7 @@ const ENVIRONMENT_OPTIONS = [
 
 const selectSx = {
   borderRadius: BORDER_RADIUS.sm,
-  fontSize: 14,
+  fontSize: rem(14),
   '& .MuiOutlinedInput-notchedOutline': {
     borderRadius: BORDER_RADIUS.sm,
   },

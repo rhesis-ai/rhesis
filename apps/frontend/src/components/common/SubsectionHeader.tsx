@@ -1,6 +1,7 @@
 'use client';
 
 import { Box, Typography } from '@mui/material';
+import { rem } from '@/styles/theme-constants';
 
 interface SubsectionHeaderProps {
   headline: string;
@@ -16,9 +17,9 @@ export default function SubsectionHeader({
     <Box sx={{ mb: '20px' }}>
       <Typography
         sx={{
-          fontSize: 18,
+          fontSize: rem(18),
           fontWeight: 700,
-          lineHeight: '25px',
+          lineHeight: rem(25),
           color: 'text.primary',
         }}
       >
@@ -27,8 +28,8 @@ export default function SubsectionHeader({
       {description ? (
         <Typography
           sx={{
-            fontSize: 12,
-            lineHeight: '18px',
+            fontSize: rem(12),
+            lineHeight: rem(18),
             color: theme => theme.palette.greyscale?.subtitle ?? '#7f8a9b',
           }}
         >

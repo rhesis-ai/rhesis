@@ -37,6 +37,7 @@ import {
   ParameterValue,
 } from '@/utils/api-client/interfaces/parameters';
 import { useNotifications } from '@/components/common/NotificationContext';
+import { rem } from '@/styles/theme-constants';
 
 export interface FieldRowState extends ParameterField {
   _key: string;
@@ -402,8 +403,8 @@ export function FieldEditor({
       >
         <Typography
           sx={{
-            fontSize: 16,
-            lineHeight: '24px',
+            fontSize: rem(16),
+            lineHeight: rem(24),
             color: theme => theme.palette.greyscale.title,
           }}
         >
@@ -553,8 +554,8 @@ export function DefaultValueEditor({
         >
           <Typography
             sx={{
-              fontSize: 16,
-              lineHeight: '24px',
+              fontSize: rem(16),
+              lineHeight: rem(24),
               color: theme => theme.palette.greyscale.title,
             }}
           >

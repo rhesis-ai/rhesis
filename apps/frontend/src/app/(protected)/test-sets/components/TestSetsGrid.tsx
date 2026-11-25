@@ -34,6 +34,7 @@ import TestSetFilterDrawer, {
   EMPTY_TEST_SET_FILTERS,
   countActiveTestSetFilters,
 } from './TestSetFilterDrawer';
+import { rem } from '@/styles/theme-constants';
 
 interface TestSetsGridProps {
   canCreate?: boolean;
@@ -257,7 +258,7 @@ export default function TestSetsGrid({
           if (count === 0) return null;
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <ChatIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <ChatIcon sx={{ fontSize: rem(16), color: 'text.secondary' }} />
               <Typography variant="body2">{count}</Typography>
             </Box>
           );
@@ -276,7 +277,9 @@ export default function TestSetsGrid({
           if (count === 0) return null;
           return (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <DescriptionIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <DescriptionIcon
+                sx={{ fontSize: rem(16), color: 'text.secondary' }}
+              />
               <Typography variant="body2">{count}</Typography>
             </Box>
           );
@@ -305,7 +308,7 @@ export default function TestSetsGrid({
               }}
             >
               <InsertDriveFileOutlined
-                sx={{ fontSize: 16, color: 'text.secondary' }}
+                sx={{ fontSize: rem(16), color: 'text.secondary' }}
               />
               <Typography variant="body2">{count}</Typography>
             </Box>

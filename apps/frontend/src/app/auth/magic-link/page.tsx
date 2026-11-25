@@ -8,6 +8,7 @@ import { signIn } from 'next-auth/react';
 import { getBaseUrl } from '@/utils/url-resolver';
 import AuthPageShell from '@/components/auth/AuthPageShell';
 import { useAuthStyles } from '@/components/auth/useAuthStyles';
+import { rem } from '@/styles/theme-constants';
 
 export default function MagicLinkPage() {
   const { heading, primaryButton } = useAuthStyles();
@@ -76,7 +77,7 @@ export default function MagicLinkPage() {
 
       {status === 'error' && (
         <>
-          <ErrorOutlineIcon sx={{ fontSize: 48, color: 'error.main' }} />
+          <ErrorOutlineIcon sx={{ fontSize: rem(48), color: 'error.main' }} />
           <Typography sx={{ ...heading, textAlign: 'center' }}>
             Sign-in failed
           </Typography>

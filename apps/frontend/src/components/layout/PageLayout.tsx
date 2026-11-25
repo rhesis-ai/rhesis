@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography';
 import Link from '@mui/material/Link';
 import NextLink from 'next/link';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { FAB_GROUP_GAP } from '@/styles/theme-constants';
+import { FAB_GROUP_GAP, rem } from '@/styles/theme-constants';
 
 /** Below this width the title takes its own row and the actions wrap under it. */
 const TITLE_MIN_WIDTH = '12rem';
@@ -78,8 +78,8 @@ function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                 underline="hover"
                 sx={{
                   color: theme => theme.palette.greyscale.subtitle,
-                  fontSize: 14,
-                  lineHeight: '22px',
+                  fontSize: rem(14),
+                  lineHeight: rem(22),
                   fontWeight: 400,
                 }}
               >
@@ -89,7 +89,7 @@ function PageBreadcrumbs({ items }: { items: BreadcrumbItem[] }) {
             {showSeparator && (
               <ChevronRightIcon
                 sx={{
-                  fontSize: 20,
+                  fontSize: rem(20),
                   color: theme => theme.palette.greyscale.subtitle,
                 }}
                 aria-hidden

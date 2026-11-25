@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Paper, Typography } from '@mui/material';
 import { SectionEditButton } from '@/components/common/SectionCardActions';
-import { BORDER_RADIUS, ELEVATION } from '@/styles/theme-constants';
+import { BORDER_RADIUS, ELEVATION, rem } from '@/styles/theme-constants';
 
 interface GeneralInfoCardProps {
   /** Card heading — defaults to "General Information". */
@@ -41,7 +41,7 @@ export function GeneralInfoCard({
       >
         <Typography
           variant="h6"
-          sx={{ fontWeight: 600, fontSize: 20, color: 'primary.main' }}
+          sx={{ fontWeight: 600, fontSize: rem(20), color: 'primary.main' }}
         >
           {title}
         </Typography>

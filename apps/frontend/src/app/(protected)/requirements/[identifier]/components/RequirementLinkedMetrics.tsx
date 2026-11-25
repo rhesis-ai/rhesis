@@ -38,6 +38,7 @@ import { isTunableMetric } from '@/utils/metric-tunable';
 import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import type { UUID } from 'crypto';
+import { rem } from '@/styles/theme-constants';
 
 interface TuningSummary {
   agreement: MetricTuningAgreement;
@@ -562,7 +563,7 @@ export default function RequirementLinkedMetrics({
               textAlign: 'center',
             }}
           >
-            <AutoGraphIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+            <AutoGraphIcon sx={{ fontSize: rem(32), color: 'primary.main' }} />
             <Typography
               variant="h6"
               sx={{ fontWeight: 600, color: 'primary.main' }}

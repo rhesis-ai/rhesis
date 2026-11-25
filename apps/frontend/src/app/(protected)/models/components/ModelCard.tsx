@@ -19,6 +19,7 @@ import {
 import type { ModelType } from '@/constants/model-types';
 import { getAvailabilityReasonCopy, type ValidationStatus } from '../types';
 import { useIsLocalMode } from '@/contexts/FeaturesContext';
+import { rem } from '@/styles/theme-constants';
 
 const MODEL_TYPE_LABELS: Record<ModelType, string> = {
   language: 'Language',
@@ -138,7 +139,9 @@ export function ConnectedModelCard({
     ) : undefined;
 
   const topRightActions = showValidationError ? (
-    <WarningIcon sx={{ fontSize: 16, color: 'warning.main', flexShrink: 0 }} />
+    <WarningIcon
+      sx={{ fontSize: rem(16), color: 'warning.main', flexShrink: 0 }}
+    />
   ) : undefined;
 
   const providerIcon = PROVIDER_ICONS[model.icon || 'custom'] ?? (

@@ -15,6 +15,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { useAccessibilityMode } from '@/hooks/useAccessibilityMode';
 import JsonMonacoField from '@/app/(protected)/endpoints/[identifier]/components/JsonMonacoField';
+import { rem } from '@/styles/theme-constants';
 
 interface TestParametersBlockProps {
   test: TestDetail;
@@ -146,9 +147,9 @@ export default function TestParametersBlock({
         <Box>
           <Typography
             sx={{
-              fontSize: 18,
+              fontSize: rem(18),
               fontWeight: 700,
-              lineHeight: '25px',
+              lineHeight: rem(25),
               color: 'text.primary',
             }}
           >
@@ -156,8 +157,8 @@ export default function TestParametersBlock({
           </Typography>
           <Typography
             sx={{
-              fontSize: 12,
-              lineHeight: '18px',
+              fontSize: rem(12),
+              lineHeight: rem(18),
               color: 'text.secondary',
               display: 'block',
               mb: 2,

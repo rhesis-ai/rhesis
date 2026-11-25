@@ -31,6 +31,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { can } from '@/utils/affordances';
 import { Capability } from '@/constants/capabilities';
 import { formatDate } from '@/utils/date';
+import { rem } from '@/styles/theme-constants';
 
 interface IdentityDraft {
   description: string;
@@ -131,15 +132,15 @@ export default function ExperimentOverviewTab({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 0.5,
-                    fontSize: 16,
-                    lineHeight: '24px',
+                    fontSize: rem(16),
+                    lineHeight: rem(24),
                     color: theme => theme.palette.greyscale.body,
                     textDecoration: 'none',
                     '&:hover': { textDecoration: 'underline' },
                   }}
                 >
                   {experiment.project?.name ?? experiment.project_id}
-                  <ArrowOutwardIcon sx={{ fontSize: 14, opacity: 0.7 }} />
+                  <ArrowOutwardIcon sx={{ fontSize: rem(14), opacity: 0.7 }} />
                 </Box>
               </ViewField>
             </Grid>
@@ -148,7 +149,7 @@ export default function ExperimentOverviewTab({
                 <Box>
                   <Typography
                     sx={{
-                      fontSize: 14,
+                      fontSize: rem(14),
                       color: 'text.secondary',
                       px: '14px',
                       mb: '6px',
@@ -203,7 +204,7 @@ export default function ExperimentOverviewTab({
               <Grid size={12}>
                 <Typography
                   sx={{
-                    fontSize: 14,
+                    fontSize: rem(14),
                     color: 'text.secondary',
                     px: '14px',
                     mb: '6px',

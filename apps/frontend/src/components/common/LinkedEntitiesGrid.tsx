@@ -22,6 +22,7 @@ import {
 } from '@/components/common/GridToolbar';
 import { rowActionsHoverSx } from '@/components/common/createRowActionsColumn';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
+import { rem } from '@/styles/theme-constants';
 
 // --- Context for sharing toolbar state with the toolbar slot ---
 
@@ -199,9 +200,9 @@ export default function LinkedEntitiesGrid({
         >
           <Typography
             sx={{
-              fontSize: 20,
+              fontSize: rem(20),
               fontWeight: 600,
-              lineHeight: '24px',
+              lineHeight: rem(24),
               color: 'primary.main',
             }}
           >
@@ -215,13 +216,15 @@ export default function LinkedEntitiesGrid({
               sx={{
                 borderWidth: 2,
                 fontWeight: 700,
-                fontSize: 14,
-                lineHeight: '22px',
+                fontSize: rem(14),
+                lineHeight: rem(22),
                 borderRadius: BORDER_RADIUS.sm,
                 px: '16px',
                 py: '8px',
                 '& .MuiButton-startIcon': { marginRight: '4px', marginLeft: 0 },
-                '& .MuiButton-startIcon > *:nth-of-type(1)': { fontSize: 20 },
+                '& .MuiButton-startIcon > *:nth-of-type(1)': {
+                  fontSize: rem(20),
+                },
                 '&:hover': { borderWidth: 2 },
               }}
             >

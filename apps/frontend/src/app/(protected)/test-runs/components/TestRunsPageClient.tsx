@@ -14,6 +14,7 @@ import RunDrawer from '@/components/common/RunDrawer';
 import { testRunsList } from './list';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import { rem } from '@/styles/theme-constants';
 
 interface TestRunsPageClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -52,7 +53,7 @@ export default function TestRunsPageClient({
             {bulkActionsVisible && (
               <Can capability={Capability.TestRun.DELETE}>
                 <Fab
-                  icon={<DeleteOutlineIcon sx={{ fontSize: 28 }} />}
+                  icon={<DeleteOutlineIcon sx={{ fontSize: rem(28) }} />}
                   tooltip="Delete Test Runs"
                   aria-label="Delete Test Runs"
                   onClick={onBulkDelete}

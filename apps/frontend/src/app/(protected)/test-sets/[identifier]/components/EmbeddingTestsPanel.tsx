@@ -44,6 +44,7 @@ import {
 import { getEmbeddingViewSurfaceBg } from '@/utils/embedding/embeddingViewSurface';
 import TestSetTestsGrid from './TestSetTestsGrid';
 import EmbeddingColorLegend from './EmbeddingColorLegend';
+import { rem } from '@/styles/theme-constants';
 
 const EmbeddingAtlasView = dynamic(() => import('./EmbeddingAtlasView'), {
   ssr: false,
@@ -632,7 +633,7 @@ export default function EmbeddingTestsPanel({
                         <Typography
                           variant="body2"
                           sx={{
-                            fontSize: 12,
+                            fontSize: rem(12),
                             lineHeight: 1.4,
                             mb: 0.5,
                             color: 'text.primary',
@@ -648,7 +649,7 @@ export default function EmbeddingTestsPanel({
                               label={test.requirement.name}
                               size="small"
                               variant="outlined"
-                              sx={{ height: 18, fontSize: 10 }}
+                              sx={{ height: 18, fontSize: rem(10) }}
                             />
                           )}
                           {test.category?.name && (
@@ -656,7 +657,7 @@ export default function EmbeddingTestsPanel({
                               label={test.category.name}
                               size="small"
                               variant="outlined"
-                              sx={{ height: 18, fontSize: 10 }}
+                              sx={{ height: 18, fontSize: rem(10) }}
                             />
                           )}
                           {test.topic?.name && (
@@ -664,7 +665,7 @@ export default function EmbeddingTestsPanel({
                               label={test.topic.name}
                               size="small"
                               variant="outlined"
-                              sx={{ height: 18, fontSize: 10 }}
+                              sx={{ height: 18, fontSize: rem(10) }}
                             />
                           )}
                         </Stack>

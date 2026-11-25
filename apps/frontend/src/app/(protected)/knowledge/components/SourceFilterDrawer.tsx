@@ -9,6 +9,7 @@ import {
   useFilterDrawerDraft,
 } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
+import { rem } from '@/styles/theme-constants';
 
 export interface SourceFilters {
   sourceType: string;
@@ -39,10 +40,11 @@ const SOURCE_TYPE_OPTIONS = [
 const textFieldSx = {
   '& .MuiOutlinedInput-root': {
     borderRadius: BORDER_RADIUS.sm,
-    fontSize: 14,
+    fontSize: rem(14),
   },
   '& .MuiOutlinedInput-input': {
-    padding: '20px 14px',
+    py: 2.5,
+    px: 1.75,
   },
 };
 

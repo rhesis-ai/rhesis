@@ -36,6 +36,7 @@ import {
   drawerFooterSaveButtonSx,
   DRAWER_WIDTH,
 } from '@/components/common/drawerFormFieldSx';
+import { rem } from '@/styles/theme-constants';
 
 interface ClientSecretDisplayDrawerProps {
   open: boolean;
@@ -104,9 +105,9 @@ export default function ClientSecretDisplayDrawer({
       <Box sx={{ flexShrink: 0 }}>
         <Typography
           sx={{
-            fontSize: 23,
+            fontSize: rem(23),
             fontWeight: 700,
-            lineHeight: '27.6px',
+            lineHeight: rem(27.6),
             color: theme => theme.palette.greyscale.title,
           }}
         >

@@ -78,10 +78,11 @@ import {
   type ProjectEnvironmentsData,
 } from './project-data';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { rem } from '@/styles/theme-constants';
 
 const FIGMA_BODY_SX = {
-  fontSize: 14,
-  lineHeight: '22px',
+  fontSize: rem(14),
+  lineHeight: rem(22),
   color: (theme: { palette: { greyscale: { body: string } } }) =>
     theme.palette.greyscale.body,
 } as const;
@@ -428,7 +429,7 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
                         }}
                         aria-label={`Promote experiment to ${row.name}`}
                       >
-                        <PromoteIcon sx={{ fontSize: 18 }} />
+                        <PromoteIcon sx={{ fontSize: rem(18) }} />
                       </IconButton>
                     </span>
                   </Tooltip>
@@ -451,7 +452,7 @@ export default forwardRef<ProjectEnvironmentsHandle, ProjectEnvironmentsProps>(
                       }}
                       aria-label={`Remove environment ${row.name}`}
                     >
-                      <DeleteIcon sx={{ fontSize: 18 }} />
+                      <DeleteIcon sx={{ fontSize: rem(18) }} />
                     </IconButton>
                   </Tooltip>
                 )}

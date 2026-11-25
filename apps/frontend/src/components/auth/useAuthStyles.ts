@@ -9,6 +9,7 @@ import {
   getAuthTokens,
   type AuthTokens,
 } from './authTokens';
+import { rem } from '@/styles/theme-constants';
 
 export interface AuthStyles {
   /** Resolved palette for the current mode — for one-off colours. */
@@ -53,19 +54,19 @@ export function useAuthStyles(): AuthStyles {
       tokens: t,
       heading: {
         fontFamily: fontSans,
-        fontSize: 24,
+        fontSize: rem(24),
         fontWeight: 700,
         letterSpacing: '-0.02em',
         color: t.ink,
       },
       subheading: {
         fontFamily: fontSans,
-        fontSize: 14,
+        fontSize: rem(14),
         color: t.muted,
       },
       body: {
         fontFamily: fontSans,
-        fontSize: 14,
+        fontSize: rem(14),
         lineHeight: 1.55,
         color: t.body,
       },
@@ -73,7 +74,7 @@ export function useAuthStyles(): AuthStyles {
         height: AUTH_SHAPE.buttonHeight,
         borderRadius: AUTH_SHAPE.button,
         fontFamily: fontSans,
-        fontSize: 15,
+        fontSize: rem(15),
         fontWeight: 700,
         textTransform: 'none',
         boxShadow: t.accentShadow,
@@ -83,7 +84,7 @@ export function useAuthStyles(): AuthStyles {
         height: AUTH_SHAPE.buttonHeight,
         borderRadius: AUTH_SHAPE.button,
         fontFamily: fontSans,
-        fontSize: 15,
+        fontSize: rem(15),
         fontWeight: 600,
         textTransform: 'none',
         borderWidth: '1.5px',
@@ -111,7 +112,7 @@ export function useAuthStyles(): AuthStyles {
       },
       quietLink: {
         fontFamily: fontSans,
-        fontSize: 13,
+        fontSize: rem(13),
         color: t.muted,
         textDecoration: 'none',
       },

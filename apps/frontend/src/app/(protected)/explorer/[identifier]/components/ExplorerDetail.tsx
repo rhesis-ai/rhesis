@@ -83,6 +83,7 @@ import SuggestionsDialog from './SuggestionsDialog';
 import { ScoreMetricsTooltip } from './scoreMetricsTooltip';
 import { METRIC_SCOPES } from '@/constants/metric-scopes';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { rem } from '@/styles/theme-constants';
 
 const GENERATE_PROGRESS_NOTIFICATION_KEY = 'explorer-generate-progress';
 const EVALUATE_PROGRESS_NOTIFICATION_KEY = 'explorer-evaluate-progress';
@@ -3019,7 +3020,9 @@ export default function ExplorerDetail({
               flexWrap: 'wrap',
             }}
           >
-            <TuneOutlinedIcon sx={{ fontSize: 16, color: 'text.disabled' }} />
+            <TuneOutlinedIcon
+              sx={{ fontSize: rem(16), color: 'text.disabled' }}
+            />
             <Typography variant="caption" color="text.secondary">
               <Box component="span" sx={{ fontWeight: 600 }}>
                 Endpoint:
@@ -3048,7 +3051,10 @@ export default function ExplorerDetail({
                 </Box>
               )}
             </Typography>
-            <Box component="span" sx={{ color: 'text.disabled', fontSize: 12 }}>
+            <Box
+              component="span"
+              sx={{ color: 'text.disabled', fontSize: rem(12) }}
+            >
               ·
             </Box>
             <Typography variant="caption" color="text.secondary">

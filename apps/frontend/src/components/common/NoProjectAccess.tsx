@@ -10,6 +10,7 @@ import ProjectSwitcherDrawer from '@/components/navigation/ProjectSwitcherDrawer
 import { useActiveProject } from '@/contexts/ActiveProjectContext';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { rem } from '@/styles/theme-constants';
 
 /**
  * Shown when the authenticated user belongs to an organization but has no
@@ -66,7 +67,9 @@ export default function NoProjectAccess() {
             justifyContent: 'center',
           }}
         >
-          <LockOutlinedIcon sx={{ fontSize: 36, color: 'text.secondary' }} />
+          <LockOutlinedIcon
+            sx={{ fontSize: rem(36), color: 'text.secondary' }}
+          />
         </Box>
 
         {/* Heading */}

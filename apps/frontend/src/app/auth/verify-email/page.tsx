@@ -10,6 +10,7 @@ import { getBaseUrl } from '@/utils/url-resolver';
 import { DEFAULT_AUTHENTICATED_PATH } from '@/constants/paths';
 import AuthPageShell from '@/components/auth/AuthPageShell';
 import { useAuthStyles } from '@/components/auth/useAuthStyles';
+import { rem } from '@/styles/theme-constants';
 
 export default function VerifyEmailPage() {
   const { heading, primaryButton } = useAuthStyles();
@@ -71,7 +72,7 @@ export default function VerifyEmailPage() {
 
       {status === 'success' && (
         <>
-          <CheckCircleIcon sx={{ fontSize: 48, color: 'success.main' }} />
+          <CheckCircleIcon sx={{ fontSize: rem(48), color: 'success.main' }} />
           <Typography sx={{ ...heading, textAlign: 'center' }}>
             Email verified!
           </Typography>
@@ -91,7 +92,7 @@ export default function VerifyEmailPage() {
 
       {status === 'error' && (
         <>
-          <ErrorOutlineIcon sx={{ fontSize: 48, color: 'error.main' }} />
+          <ErrorOutlineIcon sx={{ fontSize: rem(48), color: 'error.main' }} />
           <Typography sx={{ ...heading, textAlign: 'center' }}>
             Verification failed
           </Typography>

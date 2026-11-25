@@ -19,6 +19,7 @@ import OnboardingNavButtons from './OnboardingNavButtons';
 import { ONBOARDING_STEPS } from './onboarding-steps';
 import { useLimits } from '@/contexts/FeaturesContext';
 import { QuotaResource } from '@/constants/quota';
+import { rem } from '@/styles/theme-constants';
 
 interface FormData {
   invites: { id: string; email: string }[];
@@ -228,8 +229,8 @@ export default function InviteTeamStep({
             alignItems: 'center',
             gap: 0.5,
             color: 'primary.main',
-            fontSize: 16,
-            lineHeight: '24px',
+            fontSize: rem(16),
+            lineHeight: rem(24),
             cursor:
               formData.invites.length >= maxInvites ? 'not-allowed' : 'pointer',
             opacity: formData.invites.length >= maxInvites ? 0.5 : 1,
@@ -237,7 +238,7 @@ export default function InviteTeamStep({
           }}
           disabled={formData.invites.length >= maxInvites}
         >
-          <AddIcon sx={{ fontSize: 24 }} />
+          <AddIcon sx={{ fontSize: rem(24) }} />
           Add another email
         </Link>
       </Stack>

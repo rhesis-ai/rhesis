@@ -44,6 +44,7 @@ import type {
   VerdictRow,
 } from '@/utils/api-client/interfaces/test-run';
 import { passRate } from '@/constants/outcomes';
+import { rem } from '@/styles/theme-constants';
 
 interface RequirementGroupProps {
   requirement: VerdictRequirement;
@@ -259,7 +260,7 @@ function RequirementGroupHeader({
           <ExpandMoreIcon
             aria-hidden
             sx={{
-              fontSize: 18,
+              fontSize: rem(18),
               transform: expanded ? 'rotate(0deg)' : 'rotate(-90deg)',
               transition: 'transform 200ms',
               flexShrink: 0,

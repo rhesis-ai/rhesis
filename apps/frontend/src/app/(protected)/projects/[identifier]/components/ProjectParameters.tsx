@@ -36,6 +36,7 @@ import {
 } from './parameter-schema-shared';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
+import { rem } from '@/styles/theme-constants';
 
 interface ProjectParametersProps {
   projectId: string;
@@ -178,7 +179,7 @@ export default function ProjectParameters({
         <Button
           variant="outlined"
           size="small"
-          startIcon={<AddIcon sx={{ fontSize: 20 }} />}
+          startIcon={<AddIcon sx={{ fontSize: rem(20) }} />}
           onClick={handleAdd}
           sx={sectionEditButtonSx}
         >
@@ -370,8 +371,8 @@ export default function ProjectParameters({
               />
               <Typography
                 sx={{
-                  fontSize: 12,
-                  lineHeight: '18px',
+                  fontSize: rem(12),
+                  lineHeight: rem(18),
                   color: theme => theme.palette.greyscale.subtitle,
                 }}
               >

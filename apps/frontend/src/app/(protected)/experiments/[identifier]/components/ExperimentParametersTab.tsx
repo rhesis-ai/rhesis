@@ -7,6 +7,7 @@ import { SectionCard } from '@/components/common/SectionCard';
 import { ArrowOutwardIcon, TuneIcon } from '@/components/icons';
 import { ParameterSchema } from '@/utils/api-client/interfaces/parameters';
 import { BORDER_RADIUS } from '@/styles/theme';
+import { rem } from '@/styles/theme-constants';
 
 const TYPE_LABELS: Record<string, string> = {
   text: 'Text (multi-line)',
@@ -77,15 +78,15 @@ export default function ExperimentParametersTab({
             >
               <TuneIcon
                 sx={{
-                  fontSize: 32,
+                  fontSize: rem(32),
                   color: 'primary.main',
                 }}
               />
               <Typography
                 sx={{
-                  fontSize: 20,
+                  fontSize: rem(20),
                   fontWeight: 600,
-                  lineHeight: '24px',
+                  lineHeight: rem(24),
                   color: 'primary.main',
                   whiteSpace: 'nowrap',
                 }}
@@ -97,8 +98,8 @@ export default function ExperimentParametersTab({
             <Typography
               variant="body2"
               sx={{
-                fontSize: 14,
-                lineHeight: '22px',
+                fontSize: rem(14),
+                lineHeight: rem(22),
                 color: 'text.primary',
                 textAlign: 'center',
               }}
@@ -116,9 +117,9 @@ export default function ExperimentParametersTab({
               variant="contained"
               startIcon={<ArrowOutwardIcon />}
               sx={{
-                fontSize: 18,
+                fontSize: rem(18),
                 fontWeight: 700,
-                lineHeight: '25px',
+                lineHeight: rem(25),
                 px: '20px',
                 py: '12px',
                 borderRadius: BORDER_RADIUS.md,
