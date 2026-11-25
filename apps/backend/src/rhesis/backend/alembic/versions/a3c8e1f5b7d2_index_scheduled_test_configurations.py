@@ -6,7 +6,7 @@ keeps that scan to a handful of rows. ``next_run_at`` itself can't be indexed: P
 text-to-timestamptz cast isn't immutable.
 
 Revision ID: a3c8e1f5b7d2
-Revises: e1f4a7c2b9d3
+Revises: a7c3e9f1b5d2
 Create Date: 2026-11-25
 
 """
@@ -16,7 +16,7 @@ from typing import Sequence, Union
 from alembic import op
 
 revision: str = "a3c8e1f5b7d2"
-down_revision: Union[str, None] = "e1f4a7c2b9d3"
+down_revision: Union[str, None] = "a7c3e9f1b5d2"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
