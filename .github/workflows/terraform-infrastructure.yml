@@ -7,7 +7,7 @@ on:
         description: 'Target environment'
         required: true
         type: choice
-        options: [dev, stg, prd, admin, billing]
+        options: [dev, stg, prd, admin, billing, admin-state]
         default: dev
       action:
         description: 'Terraform action'
