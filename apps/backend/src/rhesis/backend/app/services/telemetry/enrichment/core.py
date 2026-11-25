@@ -193,7 +193,7 @@ def calculate_token_costs(spans: List[Trace]) -> Optional[TokenCosts]:
     """
     usd_to_eur = get_usd_to_eur_rate()
 
-    logger.info(f"🔍 Calculating costs for {len(spans)} spans")
+    logger.debug(f"🔍 Calculating costs for {len(spans)} spans")
 
     cost_breakdown = [
         _price_span(span, usd_to_eur)
@@ -202,7 +202,8 @@ def calculate_token_costs(spans: List[Trace]) -> Optional[TokenCosts]:
     ]
 
     if not cost_breakdown:
-        logger.warning("⚠️  No cost breakdown calculated - trace has no llm.invoke spans")
+        # Normal for traces that made no LLM call, such as a plain endpoint invocation.
+        logger.debug("No cost breakdown calculated - trace has no llm.invoke spans")
         return None
 
     def total(field: str) -> Optional[float]:

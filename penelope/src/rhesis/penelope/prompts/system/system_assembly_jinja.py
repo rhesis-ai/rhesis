@@ -82,16 +82,16 @@ def get_system_prompt(
         ...     available_tools="send_message_to_target, analyze, extract"
         ... )
     """
-    logger.info("=== SYSTEM PROMPT ASSEMBLY DEBUG ===")
-    logger.info(f"Instructions length: {len(instructions)} chars")
-    logger.info(f"Goal length: {len(goal)} chars")
-    logger.info(f"Scenario length: {len(scenario) if scenario else 0} chars")
-    logger.info(f"Restrictions length: {len(restrictions) if restrictions else 0} chars")
-    logger.info(f"Context length: {len(context) if context else 0} chars")
-    logger.info(f"Available tools length: {len(available_tools) if available_tools else 0} chars")
-    logger.info(f"Files info length: {len(files_info) if files_info else 0} chars")
-    logger.info(f"Turn budget: min_turns={min_turns}, max_turns={max_turns}")
-    logger.info(f"Has evaluation contract: {bool(simulated_user_objective)}")
+    logger.debug("=== SYSTEM PROMPT ASSEMBLY DEBUG ===")
+    logger.debug(f"Instructions length: {len(instructions)} chars")
+    logger.debug(f"Goal length: {len(goal)} chars")
+    logger.debug(f"Scenario length: {len(scenario) if scenario else 0} chars")
+    logger.debug(f"Restrictions length: {len(restrictions) if restrictions else 0} chars")
+    logger.debug(f"Context length: {len(context) if context else 0} chars")
+    logger.debug(f"Available tools length: {len(available_tools) if available_tools else 0} chars")
+    logger.debug(f"Files info length: {len(files_info) if files_info else 0} chars")
+    logger.debug(f"Turn budget: min_turns={min_turns}, max_turns={max_turns}")
+    logger.debug(f"Has evaluation contract: {bool(simulated_user_objective)}")
 
     # Render the template
     rendered_prompt = SYSTEM_PROMPT_TEMPLATE.render(

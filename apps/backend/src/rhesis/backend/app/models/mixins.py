@@ -520,7 +520,7 @@ def _process_pending_embedding_jobs(session: Session) -> None:
     if not jobs:
         return
 
-    logger.info(
+    logger.debug(
         "Deferred embedding: after_commit running %d job(s) (committed session id=%s)",
         len(jobs),
         id(session),
@@ -544,7 +544,7 @@ def _process_pending_embedding_jobs(session: Session) -> None:
                     user_id=job["user_id"],
                     organization_id=job["organization_id"],
                 )
-                logger.info(
+                logger.debug(
                     "Deferred embedding: enqueue_embedding submitted for %s id=%s",
                     job["entity_type"],
                     job["entity_id"],

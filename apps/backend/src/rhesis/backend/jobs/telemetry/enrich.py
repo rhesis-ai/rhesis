@@ -32,7 +32,7 @@ def enrich_trace_async(self, trace_id: str, project_id: str, organization_id: st
     try:
         bind_scope_to_session(db, organization_id, "", project_id)
 
-        logger.info(f"Starting async enrichment for trace {trace_id}")
+        logger.debug(f"Starting async enrichment for trace {trace_id}")
 
         # Use same enricher as sync path (code reuse!)
         enricher = TraceEnricher(db)
@@ -43,7 +43,7 @@ def enrich_trace_async(self, trace_id: str, project_id: str, organization_id: st
             enriched_fields = [
                 field for field, value in enriched_data.model_dump().items() if value is not None
             ]
-            logger.info(f"Completed async enrichment for trace {trace_id}: {enriched_fields}")
+            logger.debug(f"Completed async enrichment for trace {trace_id}: {enriched_fields}")
 
             return {
                 "status": "success",

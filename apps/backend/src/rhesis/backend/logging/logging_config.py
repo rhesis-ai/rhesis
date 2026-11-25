@@ -385,6 +385,42 @@ def _prune_dev_logs(log_dir: Path, keep: int) -> None:
 _configured = False
 
 
+class _GeminiSamplingDeprecationFilter(logging.Filter):
+    """Drop LiteLLM's per-call notice that Gemini 3+ will stop taking `temperature`.
+
+    It fires on every evaluation call that sets a temperature. Removing the parameter
+    would change how judges sample, so the notice is filtered instead.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "`temperature`, `top_p`, and `top_k` continue to function" not in str(record.msg)
+
+
+def _route_library_loggers() -> None:
+    """Send LiteLLM and Penelope through the root handlers only.
+
+    Both attach their own stderr handler. In a Celery worker that output comes back a
+    second time as ``celery.redirected`` warnings, and everywhere it skips our format.
+    """
+    try:
+        # Import first: LiteLLM attaches its handler at import, which would come after this.
+        import litellm  # noqa: F401
+    except ImportError:
+        pass
+    for name in ("LiteLLM", "LiteLLM Router", "LiteLLM Proxy"):
+        library_logger = logging.getLogger(name)
+        library_logger.handlers.clear()
+        library_logger.propagate = True
+    logging.getLogger("LiteLLM").addFilter(_GeminiSamplingDeprecationFilter())
+
+    # Penelope adds its own handler only to a logger that has none, so a NullHandler
+    # keeps it from doing that whenever it is imported.
+    penelope_logger = logging.getLogger("rhesis.penelope")
+    penelope_logger.handlers.clear()
+    penelope_logger.addHandler(logging.NullHandler())
+    penelope_logger.propagate = True
+
+
 def set_logger(worker_role: str | None = None):
     """Configure the root logger once at startup.
 
@@ -454,6 +490,8 @@ def set_logger(worker_role: str | None = None):
         logger.propagate = True
 
     logging.getLogger("uvicorn.access").addFilter(_QuietProbeAccessFilter())
+
+    _route_library_loggers()
 
     # Suppress verbose Celery-internal loggers that emit misleading task-signature
     # dumps and other low-signal debug chatter at the DEBUG level.

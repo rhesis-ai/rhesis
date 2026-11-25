@@ -1189,7 +1189,7 @@ def update_traces_with_test_result_id(
     Returns:
         Number of spans updated
     """
-    logger.info(
+    logger.debug(
         f"[TRACE_LINKING] Starting trace linking for test_result_id={test_result_id}, "
         f"test_run_id={test_run_id}, test_id={test_id}, "
         f"test_configuration_id={test_configuration_id}, organization_id={organization_id}"
@@ -1271,7 +1271,7 @@ def update_traces_with_test_result_id(
     # The context manager (get_db_with_tenant_variables) handles the final commit
     db.flush()
 
-    logger.info(f"[TRACE_LINKING] Updated {result} traces with test_result_id={test_result_id}")
+    logger.debug(f"[TRACE_LINKING] Updated {result} traces with test_result_id={test_result_id}")
 
     return result
 
