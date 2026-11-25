@@ -81,6 +81,7 @@ export const TEST_RUNS_PARAM = {
   TAB: 'tab',
   SCHEDULE: 'schedule',
   OCCURRENCE: 'occurrence',
+  TEST_SET: 'test_set',
 } as const;
 
 export const scheduleLink = (scheduleId: string) =>

@@ -82,7 +82,7 @@ export default function TestSetScheduleBanner({
   const href =
     schedules.length === 1
       ? `/test-runs/schedules/${schedules[0].id}`
-      : `/test-runs?${TEST_RUNS_PARAM.TAB}=${TEST_RUNS_TAB.SCHEDULES}`;
+      : `/test-runs?${TEST_RUNS_PARAM.TAB}=${TEST_RUNS_TAB.SCHEDULES}&${TEST_RUNS_PARAM.TEST_SET}=${testSetId}`;
 
   return (
     <Alert

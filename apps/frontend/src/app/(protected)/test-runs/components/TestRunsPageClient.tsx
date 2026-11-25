@@ -25,6 +25,7 @@ import type { ScheduleForm } from '@/components/common/run-drawer/schedule-form'
 import TestRunsTabs from './schedules/TestRunsTabs';
 import SchedulesTab from './schedules/SchedulesTab';
 import type { OccurrenceRef } from './schedules/ScheduleEditDrawer';
+import type { ScheduleTargets } from './schedules/ScheduleCreateDrawer';
 
 interface TestRunsPageClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -61,9 +62,11 @@ export default function TestRunsPageClient({
     open: boolean;
     date: string | null;
   }>({ open: false, date: null });
-  const [scheduleSeed, setScheduleSeed] = React.useState<ScheduleForm | null>(
-    null
-  );
+  const [scheduleSeed, setScheduleSeed] = React.useState<{
+    form: ScheduleForm;
+    targets: ScheduleTargets;
+  } | null>(null);
+  const testSetFilter = searchParams.get(TEST_RUNS_PARAM.TEST_SET);
 
   // Tab, open schedule and open run live in the URL, so Back works and links can open them.
   const setParams = React.useCallback(
@@ -73,7 +76,8 @@ export default function TestRunsPageClient({
         value === null ? next.delete(key) : next.set(key, value)
       );
       const query = next.toString();
-      router.replace(query ? `${pathname}?${query}` : pathname, {
+      // push, so Back closes a drawer or returns to the previous tab.
+      router.push(query ? `${pathname}?${query}` : pathname, {
         scroll: false,
       });
     },
@@ -166,10 +170,14 @@ export default function TestRunsPageClient({
                 setScheduleCreate({ open: false, date: null })
               }
               onCreateOnDay={date => setScheduleCreate({ open: true, date })}
-              onMoreOptions={form => {
+              onMoreOptions={(form, targets) => {
                 setScheduleCreate({ open: false, date: null });
-                setScheduleSeed(form);
+                setScheduleSeed({ form, targets });
               }}
+              testSetId={testSetFilter}
+              onClearTestSet={() =>
+                setParams({ [TEST_RUNS_PARAM.TEST_SET]: null })
+              }
             />
           ) : (
             <TestRunsGrid
@@ -184,17 +192,31 @@ export default function TestRunsPageClient({
         </Box>
       </PageLayout>
 
-      <RunDrawer
-        mode="newTestRun"
-        open={createDrawerOpen || scheduleSeed !== null}
-        initialSchedule={scheduleSeed !== null}
-        scheduleSeed={scheduleSeed ?? undefined}
-        onClose={() => {
-          setCreateDrawerOpen(false);
-          setScheduleSeed(null);
-        }}
-        onSuccess={handleCreateSuccess}
-      />
+      {scheduleSeed?.targets.testSetId ? (
+        <RunDrawer
+          mode="executeTestSet"
+          data={{ testSetId: scheduleSeed.targets.testSetId }}
+          open
+          initialSchedule
+          scheduleSeed={scheduleSeed.form}
+          endpointSeed={scheduleSeed.targets.endpointId ?? undefined}
+          onClose={() => setScheduleSeed(null)}
+          onSuccess={handleCreateSuccess}
+        />
+      ) : (
+        <RunDrawer
+          mode="newTestRun"
+          open={createDrawerOpen || scheduleSeed !== null}
+          initialSchedule={scheduleSeed !== null}
+          scheduleSeed={scheduleSeed?.form}
+          endpointSeed={scheduleSeed?.targets.endpointId ?? undefined}
+          onClose={() => {
+            setCreateDrawerOpen(false);
+            setScheduleSeed(null);
+          }}
+          onSuccess={handleCreateSuccess}
+        />
+      )}
     </>
   );
 }

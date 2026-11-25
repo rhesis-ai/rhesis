@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Box,
+  Chip,
   CircularProgress,
   ToggleButton,
   ToggleButtonGroup,
@@ -12,7 +13,9 @@ import { Capability } from '@/constants/capabilities';
 import type { ScheduleForm } from '@/components/common/run-drawer/schedule-form';
 import type { TestRunSchedule } from '@/utils/api-client/interfaces/test-run-schedule';
 import OverdueBanner from './OverdueBanner';
-import ScheduleCreateDrawer from './ScheduleCreateDrawer';
+import ScheduleCreateDrawer, {
+  type ScheduleTargets,
+} from './ScheduleCreateDrawer';
 import ScheduleEditDrawer, { type OccurrenceRef } from './ScheduleEditDrawer';
 import ScheduleScopeDialog from './ScheduleScopeDialog';
 import SchedulesListView from './SchedulesListView';
@@ -31,7 +34,10 @@ interface Props {
   createOpen: boolean;
   createDate: string | null;
   onCreateClose: () => void;
-  onMoreOptions: (form: ScheduleForm) => void;
+  onMoreOptions: (form: ScheduleForm, targets: ScheduleTargets) => void;
+  /** Show only this test set's schedules, from the URL. */
+  testSetId: string | null;
+  onClearTestSet: () => void;
   /** A day picked on the calendar: open the create drawer on it. */
   onCreateOnDay: (date: string) => void;
 }
@@ -70,6 +76,8 @@ export default function SchedulesTab({
   onCreateClose,
   onMoreOptions,
   onCreateOnDay,
+  testSetId,
+  onClearTestSet,
 }: Props) {
   const [view, setView] = useRememberedView();
   const canCreate = useCan(Capability.TestRun.EXECUTE);
@@ -77,7 +85,18 @@ export default function SchedulesTab({
   const actions = useScheduleActions();
   const [takeOver, setTakeOver] = useState<TestRunSchedule | null>(null);
   const [deleting, setDeleting] = useState<TestRunSchedule | null>(null);
-  const items = schedules.data ?? [];
+  const all = useMemo(() => schedules.data ?? [], [schedules.data]);
+  const items = useMemo(
+    () => (testSetId ? all.filter(s => s.test_set?.id === testSetId) : all),
+    [all, testSetId]
+  );
+  const scheduleIds = useMemo(
+    () => (testSetId ? new Set(items.map(s => s.id)) : null),
+    [items, testSetId]
+  );
+  const testSetName =
+    all.find(s => s.test_set?.id === testSetId)?.test_set?.name ??
+    'this test set';
 
   const viewToggle = (
     <ToggleButtonGroup
@@ -94,7 +113,19 @@ export default function SchedulesTab({
 
   return (
     <Box>
-      <OverdueBanner schedules={items} />
+      <OverdueBanner
+        schedules={items}
+        onView={overdue =>
+          overdue.length === 1 ? onOpenSchedule(overdue[0].id) : setView('list')
+        }
+      />
+      {testSetId && (
+        <Chip
+          label={`Test set: ${testSetName}`}
+          onDelete={onClearTestSet}
+          sx={{ mb: 1.5 }}
+        />
+      )}
       {view === 'list' && (
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
           {viewToggle}
@@ -111,6 +142,8 @@ export default function SchedulesTab({
           onOpenRun={(id, occurrence) => onOpenSchedule(id, occurrence)}
           onCreateOnDay={onCreateOnDay}
           onShowList={() => setView('list')}
+          onOpenSchedule={id => onOpenSchedule(id)}
+          scheduleIds={scheduleIds}
           viewToggle={viewToggle}
         />
       ) : (

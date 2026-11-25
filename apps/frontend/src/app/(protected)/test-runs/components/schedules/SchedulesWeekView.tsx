@@ -29,8 +29,9 @@ import type { OccurrenceRef } from './ScheduleEditDrawer';
 import {
   CARD_COLOR,
   CARD_KIND,
-  CARD_LABEL,
   buildWeek,
+  cardCaption,
+  dayAfter,
   weekStart,
   type WeekCard,
 } from './week-model';
@@ -44,13 +45,17 @@ interface Props {
   onOpenRun: (scheduleId: string, occurrence: OccurrenceRef) => void;
   onCreateOnDay: (date: string) => void;
   onShowList: () => void;
+  /** Open a schedule's drawer, e.g. from the hourly strip. */
+  onOpenSchedule: (scheduleId: string) => void;
+  /** Only these schedules, when the list is filtered to a test set. */
+  scheduleIds?: Set<string> | null;
   /** Week/List switch, shown at the end of the header row. */
   viewToggle?: ReactNode;
 }
 
-function useWeekData(start: dayjs.Dayjs) {
+function useWeekData(start: dayjs.Dayjs, zone: string) {
   const from = start.utc().toISOString();
-  const to = start.add(7, 'day').utc().toISOString();
+  const to = dayAfter(start, 7, zone).utc().toISOString();
   const occurrences = useQuery({
     queryKey: scheduleKeys.occurrences(from, to),
     queryFn: () =>
@@ -60,7 +65,7 @@ function useWeekData(start: dayjs.Dayjs) {
     refetchInterval: SCHEDULES_REFETCH_MS,
   });
   // A run starts at most an hour after its time, so look a little past the week.
-  const runsTo = start.add(7, 'day').add(1, 'hour').utc().toISOString();
+  const runsTo = dayAfter(start, 7, zone).add(1, 'hour').utc().toISOString();
   const runs = useQuery({
     queryKey: testRunKeys.list(`schedule|${from}|${runsTo}`),
     queryFn: () =>
@@ -78,19 +83,25 @@ function useWeekData(start: dayjs.Dayjs) {
 function Card({
   card,
   zone,
+  scheduleZone,
   onOpenRun,
 }: {
   card: WeekCard;
   zone: string;
+  /** The schedule's own zone; its time is shown in brackets when it differs. */
+  scheduleZone?: string;
   onOpenRun: Props['onOpenRun'];
 }) {
   const color = CARD_COLOR[card.kind];
   const time = dayjs(card.at).tz(zone).format('HH:mm');
+  const ownTime =
+    scheduleZone && scheduleZone !== zone
+      ? ` (${dayjs(card.at).tz(scheduleZone).format('HH:mm')} ${scheduleZone})`
+      : '';
   const body = (
     <>
       <Typography variant="caption" color="text.secondary">
-        {time}
-        {CARD_LABEL[card.kind] ? ` · ${CARD_LABEL[card.kind]}` : ''}
+        {cardCaption(card, `${time}${ownTime}`)}
       </Typography>
       <Typography variant="body2" noWrap>
         {card.name}
@@ -141,12 +152,18 @@ export default function SchedulesWeekView({
   onOpenRun,
   onCreateOnDay,
   onShowList,
+  onOpenSchedule,
+  scheduleIds,
   viewToggle,
 }: Props) {
   const zone = useMemo(() => browserTimeZone(), []);
   const [anchor, setAnchor] = useState(() => dayjs().tz(zone));
   const start = weekStart(anchor);
-  const { occurrences, runs } = useWeekData(start);
+  const { occurrences, runs } = useWeekData(start, zone);
+  const zones = useMemo(
+    () => new Map(schedules.map(s => [s.id, s.timezone])),
+    [schedules]
+  );
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const days = useMemo(
@@ -154,14 +171,22 @@ export default function SchedulesWeekView({
       buildWeek(
         start,
         zone,
-        occurrences.data?.items ?? [],
-        runs.data?.data ?? [],
+        (occurrences.data?.items ?? []).filter(
+          o => !scheduleIds || scheduleIds.has(o.schedule_id)
+        ),
+        (runs.data?.data ?? []).filter(
+          r =>
+            !scheduleIds ||
+            scheduleIds.has(String(r.test_configuration?.id ?? ''))
+        ),
         schedules
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- start is derived from anchor
-    [anchor, zone, occurrences.data, runs.data, schedules]
+    [anchor, zone, occurrences.data, runs.data, schedules, scheduleIds]
   );
-  const hourly = occurrences.data?.hourly ?? [];
+  const hourly = (occurrences.data?.hourly ?? []).filter(
+    h => !scheduleIds || scheduleIds.has(h.id)
+  );
   // Only planned runs gate the calendar: if past runs fail to load, it still shows what's planned.
   const loading = occurrences.isLoading;
   const end = start.add(6, 'day');
@@ -212,9 +237,21 @@ export default function SchedulesWeekView({
             borderRadius: BORDER_RADIUS.sm,
           }}
         >
-          <Typography variant="body2">
-            Every hour: {hourly.map(h => h.name).join(', ')} (not drawn on each
-            day)
+          <Typography variant="body2" component="div">
+            Every hour:{' '}
+            {hourly.map((h, index) => (
+              <span key={h.id}>
+                {index > 0 && ', '}
+                <MuiLink
+                  component="button"
+                  variant="body2"
+                  onClick={() => onOpenSchedule(h.id)}
+                >
+                  {h.name}
+                </MuiLink>
+              </span>
+            ))}{' '}
+            (not drawn on each day)
           </Typography>
           <MuiLink
             component="button"
@@ -271,6 +308,7 @@ export default function SchedulesWeekView({
                       key={card.key}
                       card={card}
                       zone={zone}
+                      scheduleZone={zones.get(card.scheduleId)}
                       onOpenRun={onOpenRun}
                     />
                   ))

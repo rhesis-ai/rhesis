@@ -6,6 +6,7 @@ import type {
   TestRunSchedule,
 } from '@/utils/api-client/interfaces/test-run-schedule';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
+import { passRate } from '@/constants/outcomes';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -68,6 +69,22 @@ export const weekStart = (anchor: dayjs.Dayjs) => {
   return day.subtract((day.day() + 6) % 7, 'day');
 };
 
+/**
+ * Midnight `days` after `start`, in `zone`. Adding days to a zoned dayjs keeps its offset,
+ * which is an hour off across a clock change.
+ */
+export const dayAfter = (start: dayjs.Dayjs, days: number, zone: string) =>
+  dayjs.tz(start.add(days, 'day').format('YYYY-MM-DD'), zone);
+
+/** A card's caption: time, then what kind of card it is. */
+export function cardCaption(card: WeekCard, time: string): string {
+  if (card.kind === CARD_KIND.RAN && typeof card.passRate === 'number') {
+    return `${time} · Ran · ${Math.round(card.passRate)}%`;
+  }
+  const label = CARD_LABEL[card.kind];
+  return label ? `${time} · ${label}` : time;
+}
+
 const RUNNING = new Set(['Queued', 'Progress']);
 const FAILED = new Set(['Failed', 'Partial']);
 
@@ -96,6 +113,12 @@ function runCard(run: TestRunDetail): WeekCard | null {
     at: scheduledFor,
     original: scheduledFor,
     runId: String(run.id),
+    passRate: run.stats
+      ? passRate(
+          run.stats.passed,
+          (run.stats as { failed?: number }).failed ?? 0
+        )
+      : null,
   };
 }
 

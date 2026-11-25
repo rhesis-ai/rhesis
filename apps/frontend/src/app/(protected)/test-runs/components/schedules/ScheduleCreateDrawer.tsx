@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Autocomplete, Box, Button, TextField } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import dayjs from 'dayjs';
 import BaseDrawer from '@/components/common/BaseDrawer';
 import RunDrawerScheduleSection from '@/components/common/run-drawer/RunDrawerScheduleSection';
 import {
@@ -17,13 +18,32 @@ import { getApiErrorMessage } from '@/utils/error-utils';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useScheduleActions } from './useSchedules';
 
+/** What the compact drawer had picked, carried over to the full run drawer. */
+export interface ScheduleTargets {
+  testSetId: string | null;
+  endpointId: string | null;
+}
+
 interface Props {
   open: boolean;
   /** A day picked on the calendar (YYYY-MM-DD); the form starts on it. */
   initialDate?: string | null;
   onClose: () => void;
   /** Open the full run drawer in schedule mode, carrying these fields over. */
-  onMoreOptions: (form: ScheduleForm) => void;
+  onMoreOptions: (form: ScheduleForm, targets: ScheduleTargets) => void;
+}
+
+/** The default time on a picked day, or the next full hour when that has passed today. */
+export function dayStart(
+  date: string,
+  time: string,
+  zone: string,
+  now: dayjs.Dayjs = dayjs()
+): string {
+  const at = dayjs.tz(`${date} ${time}`, 'YYYY-MM-DD HH:mm', zone);
+  if (at.isAfter(now)) return time;
+  const next = now.tz(zone).add(1, 'hour').startOf('hour');
+  return next.format('YYYY-MM-DD') === date ? next.format('HH:mm') : time;
 }
 
 interface Option {
@@ -50,7 +70,16 @@ export default function ScheduleCreateDrawer({
   useEffect(() => {
     if (!open) return;
     const base = defaultScheduleForm();
-    setForm(initialDate ? { ...base, repeat: false, date: initialDate } : base);
+    setForm(
+      initialDate
+        ? {
+            ...base,
+            repeat: false,
+            date: initialDate,
+            time: dayStart(initialDate, base.time, base.timezone),
+          }
+        : base
+    );
     setTestSet(null);
     setEndpoint(null);
     setError(null);
@@ -142,7 +171,14 @@ export default function ScheduleCreateDrawer({
           sdkEndpoint={sdk}
         />
         <Box>
-          <Button onClick={() => onMoreOptions(form)}>
+          <Button
+            onClick={() =>
+              onMoreOptions(form, {
+                testSetId: testSet?.id ?? null,
+                endpointId: endpoint?.id ?? null,
+              })
+            }
+          >
             More options (metrics, models, tags)
           </Button>
         </Box>
