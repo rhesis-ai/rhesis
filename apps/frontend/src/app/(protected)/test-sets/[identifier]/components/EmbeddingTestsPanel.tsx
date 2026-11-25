@@ -29,6 +29,7 @@ import BubbleChartOutlinedIcon from '@mui/icons-material/BubbleChartOutlined';
 import { formatDistanceToNow } from 'date-fns';
 import { BetaBadge } from '@/components/common/BetaBadge';
 import { useEmbeddingGraph } from '@/hooks/useEmbeddingGraph';
+import { useEmbeddingsEnabled } from '@/contexts/FeaturesContext';
 import { getTestDisplayContent } from '@/app/(protected)/tests/components/test-grid-helpers';
 import TestsQuickFilterField from '@/app/(protected)/tests/components/TestsQuickFilterField';
 import { combineTestFiltersToOData } from '@/utils/odata-filter';
@@ -91,8 +92,10 @@ export default function EmbeddingTestsPanel({
 }: EmbeddingTestsPanelProps) {
   const theme = useTheme();
   const router = useRouter();
+  const embeddingsEnabled = useEmbeddingsEnabled();
+  const clusterViewEnabled = CLUSTER_VIEW_ENABLED && embeddingsEnabled;
   const [activeTab, setActiveTab] = useState(LIST_VIEW_TAB);
-  const clustersActive = CLUSTER_VIEW_ENABLED && activeTab === CLUSTER_VIEW_TAB;
+  const clustersActive = clusterViewEnabled && activeTab === CLUSTER_VIEW_TAB;
 
   const { graph, isLoading, isComputing, error, computeGraph } =
     useEmbeddingGraph(testSetId, { enabled: clustersActive });
@@ -288,7 +291,7 @@ export default function EmbeddingTestsPanel({
             : undefined,
       }}
     >
-      {CLUSTER_VIEW_ENABLED && (
+      {clusterViewEnabled && (
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs
             value={activeTab}
@@ -309,7 +312,7 @@ export default function EmbeddingTestsPanel({
         </Box>
       )}
 
-      {(!CLUSTER_VIEW_ENABLED || activeTab === LIST_VIEW_TAB) && (
+      {(!clusterViewEnabled || activeTab === LIST_VIEW_TAB) && (
         <Box sx={{ p: 2.5, width: '100%', minHeight: 400 }}>
           <TestSetTestsGrid
             testSetId={testSetId}
@@ -322,7 +325,7 @@ export default function EmbeddingTestsPanel({
         </Box>
       )}
 
-      {CLUSTER_VIEW_ENABLED && activeTab === CLUSTER_VIEW_TAB && (
+      {clusterViewEnabled && activeTab === CLUSTER_VIEW_TAB && (
         <Box
           sx={{
             p: 2.5,

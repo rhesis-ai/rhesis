@@ -52,6 +52,7 @@ interface FeaturesState {
   limits: Readonly<Record<string, number | null>>;
   isLocalMode: boolean;
   rhesisKeyEnabled: boolean;
+  embeddingsEnabled: boolean;
   /** `null` means unknown (loading, fetch error, or an older backend). */
   modelsReady: boolean | null;
   /** `null` means unknown; read it through `useMaxEndpointTimeoutSeconds`. */
@@ -70,6 +71,7 @@ const DEFAULT_STATE: FeaturesState = {
   limits: {},
   isLocalMode: false,
   rhesisKeyEnabled: false,
+  embeddingsEnabled: false,
   modelsReady: null,
   maxEndpointTimeoutSeconds: null,
   defaultEndpointTimeoutSeconds: null,
@@ -126,6 +128,7 @@ export function FeaturesProvider({
         limits: {},
         isLocalMode: false,
         rhesisKeyEnabled: false,
+        embeddingsEnabled: false,
         modelsReady: null,
         maxEndpointTimeoutSeconds: null,
         defaultEndpointTimeoutSeconds: null,
@@ -144,6 +147,7 @@ export function FeaturesProvider({
       limits: data.limits ?? {},
       isLocalMode: data.is_local ?? false,
       rhesisKeyEnabled: data.rhesis_key_enabled ?? false,
+      embeddingsEnabled: data.embeddings_enabled ?? false,
       modelsReady: data.models_ready ?? null,
       maxEndpointTimeoutSeconds: data.max_endpoint_timeout_seconds ?? null,
       defaultEndpointTimeoutSeconds:
@@ -229,6 +233,14 @@ export function useIsLocalMode(): boolean {
  */
 export function useRhesisKeyEnabled(): boolean {
   return useContext(FeaturesContext).rhesisKeyEnabled;
+}
+
+/**
+ * Whether embedding generation and its UI are on (EMBEDDINGS_ENABLED).
+ * Fail-closed: `false` while loading or on error.
+ */
+export function useEmbeddingsEnabled(): boolean {
+  return useContext(FeaturesContext).embeddingsEnabled;
 }
 
 /**

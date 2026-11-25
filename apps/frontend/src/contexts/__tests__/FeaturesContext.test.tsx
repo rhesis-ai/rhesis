@@ -11,6 +11,7 @@ import {
   useIsLocalMode,
   useModelsReady,
   usePlan,
+  useEmbeddingsEnabled,
   useRhesisKeyEnabled,
 } from '../FeaturesContext';
 
@@ -284,6 +285,49 @@ describe('useIsLocalMode', () => {
 
     await waitFor(() =>
       expect(screen.getByTestId('local-mode')).toHaveTextContent('false')
+    );
+  });
+});
+
+function EmbeddingsEnabledProbe() {
+  const embeddingsEnabled = useEmbeddingsEnabled();
+  return (
+    <div data-testid="embeddings-enabled">{String(embeddingsEnabled)}</div>
+  );
+}
+
+describe('useEmbeddingsEnabled', () => {
+  it('returns true when the backend reports embeddings_enabled', async () => {
+    mockGetFeatures.mockResolvedValue({
+      license: LICENSE,
+      enabled: [],
+      embeddings_enabled: true,
+    });
+
+    render(
+      <FeaturesProvider>
+        <EmbeddingsEnabledProbe />
+      </FeaturesProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('embeddings-enabled')).toHaveTextContent('true')
+    );
+  });
+
+  it('defaults to false when embeddings_enabled is absent (older backend)', async () => {
+    mockGetFeatures.mockResolvedValue({ license: LICENSE, enabled: [] });
+
+    render(
+      <FeaturesProvider>
+        <EmbeddingsEnabledProbe />
+      </FeaturesProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('embeddings-enabled')).toHaveTextContent(
+        'false'
+      )
     );
   });
 });

@@ -14,6 +14,7 @@ import { userSettingsKeys } from '@/constants/query-keys';
 const mockRefreshFeatures = jest.fn();
 const mockDeleteModel = jest.fn();
 const mockFetchUserSettings = jest.fn();
+let mockEmbeddingsEnabled = false;
 
 jest.mock('next-auth/react', () => ({
   useSession: () => ({
@@ -25,6 +26,7 @@ jest.mock('next-auth/react', () => ({
 jest.mock('@/contexts/FeaturesContext', () => ({
   useRefreshFeatures: () => mockRefreshFeatures,
   useRhesisKeyEnabled: () => false,
+  useEmbeddingsEnabled: () => mockEmbeddingsEnabled,
 }));
 
 jest.mock('@/contexts/OrganizationContext', () => ({
@@ -146,6 +148,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockDeleteModel.mockResolvedValue(undefined);
   mockFetchUserSettings.mockResolvedValue(null);
+  mockEmbeddingsEnabled = false;
 });
 
 describe('ModelsPageClient', () => {
@@ -208,5 +211,42 @@ describe('ModelsPageClient', () => {
 
     expect(await screen.findByText('nope')).toBeInTheDocument();
     expect(mockRefreshFeatures).not.toHaveBeenCalled();
+  });
+
+  describe('embedding models', () => {
+    const EMBEDDING_MODEL = {
+      ...MODEL,
+      id: 'model-3',
+      name: 'My embedder',
+      model_type: 'embedding',
+    } as unknown as Model;
+    const withEmbedder = {
+      ...INITIAL_DATA,
+      models: [MODEL, EMBEDDING_MODEL],
+    };
+
+    it('are hidden while embeddings are off', () => {
+      render(<ModelsPageClient initialData={withEmbedder} />);
+
+      expect(screen.getByText('My model')).toBeInTheDocument();
+      expect(screen.queryByText('My embedder')).not.toBeInTheDocument();
+    });
+
+    it('do not count as connected models while embeddings are off', () => {
+      render(
+        <ModelsPageClient
+          initialData={{ ...INITIAL_DATA, models: [EMBEDDING_MODEL] }}
+        />
+      );
+
+      expect(screen.getByText(/No models connected yet/)).toBeInTheDocument();
+    });
+
+    it('are listed when embeddings are on', () => {
+      mockEmbeddingsEnabled = true;
+      render(<ModelsPageClient initialData={withEmbedder} />);
+
+      expect(screen.getByText('My embedder')).toBeInTheDocument();
+    });
   });
 });
