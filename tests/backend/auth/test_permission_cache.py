@@ -294,6 +294,17 @@ class TestPermissionCacheRedisMode:
         cache._redis.scan.assert_called_once()
         cache._redis.delete.assert_called_once_with(key)
 
+    def test_bust_org_deletes_only_keys_in_that_org_segment(self):
+        cache = self._make_redis_cache()
+        in_org = cache._make_key(USER_ID, ORG_ID, PROJECT_ID, "test_set:read")
+        # The org id appearing elsewhere in a key must not count.
+        elsewhere = cache._make_key(USER_ID, OTHER_ORG_ID, PROJECT_ID, f"x:{ORG_ID}:y")
+        cache._redis.scan.return_value = (0, [in_org, elsewhere])
+
+        cache.bust_org(ORG_ID)
+
+        cache._redis.delete.assert_called_once_with(in_org)
+
     def test_bust_user_scan_no_keys_skips_delete(self):
         cache = self._make_redis_cache()
         cache._redis.scan.return_value = (0, [])

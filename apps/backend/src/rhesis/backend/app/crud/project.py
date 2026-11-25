@@ -204,7 +204,9 @@ def delete_project(
         db, models.Project, project_id, organization_id=organization_id, user_id=user_id
     )
     # Unenrolling busts the members; org admins reach projects without a membership.
-    _bust_organization_permissions(organization_id)
+    # delete_item has committed by now, and raises on failure.
+    if deleted is not None:
+        _bust_organization_permissions(organization_id)
     return deleted
 
 

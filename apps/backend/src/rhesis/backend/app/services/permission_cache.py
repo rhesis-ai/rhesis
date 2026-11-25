@@ -215,11 +215,14 @@ class PermissionCache(RedisBackedCache):
 
     def bust_org(self, org_id: UUID) -> None:
         """Bust every user's cached entries within *org_id* (e.g. after a project is deleted)."""
-        marker = f":{org_id}:"
-        self._delete_matching(
-            f"{_KEY_PREFIX}:*{marker}*",
-            lambda key: key.startswith(f"{_KEY_PREFIX}:") and marker in key,
-        )
+        org = str(org_id)
+
+        def in_org(key) -> bool:
+            # perm:v1:{user}:{org}:... -- compare the org segment itself, not a substring.
+            parts = (key.decode() if isinstance(key, bytes) else key).split(":")
+            return len(parts) > 3 and parts[0] == "perm" and parts[3] == org
+
+        self._delete_matching(f"{_KEY_PREFIX}:*:{org}:*", in_org, refine=True)
 
     def clear_all(self) -> None:
         """Clear every entry in this cache.
@@ -254,13 +257,18 @@ class PermissionCache(RedisBackedCache):
         """Delete all keys matching ``prefix*`` via SCAN or in-memory iteration."""
         self._delete_matching(f"{prefix}*", lambda key: key.startswith(prefix))
 
-    def _delete_matching(self, pattern: str, matches) -> None:
-        """Delete keys matching the Redis glob *pattern* (or *matches*, in memory)."""
+    def _delete_matching(self, pattern: str, matches, refine: bool = False) -> None:
+        """Delete keys matching the Redis glob *pattern* (or *matches*, in memory).
+
+        ``refine`` also checks Redis keys against *matches*, for a glob coarser than the key.
+        """
         if self._using_redis:
             try:
                 cursor = 0
                 while True:
                     cursor, keys = self._redis.scan(cursor, match=pattern, count=100)
+                    if refine:
+                        keys = [key for key in keys if matches(key)]
                     if keys:
                         self._redis.delete(*keys)
                     if cursor == 0:
