@@ -406,3 +406,23 @@ def test_use_per_loop_litellm_logging_worker_is_idempotent(monkeypatch):
 
     assert isinstance(installed, async_utils._PerLoopLoggingWorker)
     assert logging_worker.GLOBAL_LOGGING_WORKER is installed
+
+
+def test_a_changed_litellm_worker_does_not_break_calls(monkeypatch):
+    """If litellm's worker internals change, dropping a closed loop's worker must not raise."""
+    from litellm.litellm_core_utils import logging_worker
+
+    import rhesis.sdk.async_utils as async_utils
+
+    class ChangedWorker(logging_worker.LoggingWorker):
+        def _unstarted_dequeued_tasks(self):
+            raise AttributeError("renamed in a newer litellm")
+
+    per_loop = async_utils._PerLoopLoggingWorker(ChangedWorker, fallback=None)
+
+    async def touch():
+        return per_loop._worker()
+
+    asyncio.run(touch())
+    assert isinstance(asyncio.run(touch()), ChangedWorker)
+    assert len(per_loop._workers) == 1

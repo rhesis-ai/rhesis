@@ -82,19 +82,28 @@ class _PerLoopLoggingWorker:
         """
         for loop in [loop for loop in self._workers if loop.is_closed()]:
             closed = self._workers.pop(loop)
-            # Each worker registers an atexit flush; without this they pile up.
-            atexit.unregister(closed._flush_on_exit)
-            leftovers = closed._unstarted_dequeued_tasks()
-            if closed._queue is not None:
-                leftovers += closed._drain_pending(closed._queue)
-            if not leftovers:
-                continue
-            worker.start()
-            for task in leftovers:
-                try:
-                    worker._queue.put_nowait(task)
-                except asyncio.QueueFull:
-                    task["coroutine"].close()
+            try:
+                self._hand_over(closed, worker)
+            except Exception:
+                # These are litellm internals; if a release changes them, lose the leftover
+                # logging rather than fail the call that is being made.
+                logger.debug("Could not move litellm logging off a closed loop", exc_info=True)
+
+    @staticmethod
+    def _hand_over(closed, worker):
+        # Each worker registers an atexit flush; without this they pile up.
+        atexit.unregister(closed._flush_on_exit)
+        leftovers = closed._unstarted_dequeued_tasks()
+        if closed._queue is not None:
+            leftovers += closed._drain_pending(closed._queue)
+        if not leftovers:
+            return
+        worker.start()
+        for task in leftovers:
+            try:
+                worker._queue.put_nowait(task)
+            except asyncio.QueueFull:
+                task["coroutine"].close()
 
     def __getattr__(self, name):
         return getattr(self._worker(), name)
