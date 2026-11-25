@@ -1,9 +1,9 @@
-import asyncio
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
+import aiohttp
 import requests
 from pydantic import BaseModel
 
@@ -72,28 +72,14 @@ class LiteLLMProxy(BaseLLM):
             headers["Authorization"] = f"Bearer {self.api_key}"
         return headers
 
-    def generate(
+    def _request(
         self,
         prompt: str,
-        system_prompt: Optional[str] = None,
-        schema: Optional[Union[Type[BaseModel], dict]] = None,
-        *args,
-        **kwargs,
-    ) -> Union[str, dict]:
-        """Run a chat completion via the LiteLLM Proxy.
-
-        Args:
-            prompt: The user prompt.
-            system_prompt: Optional system prompt.
-            schema: Either a Pydantic model or OpenAI-wrapped JSON schema dict
-                for structured output validation.
-
-        Returns:
-            str or dict: Raw text if no schema, validated dict if schema provided.
-
-        Raises:
-            requests.exceptions.HTTPError: If the proxy returns a non-2xx status.
-        """
+        system_prompt: Optional[str],
+        schema: Optional[Union[Type[BaseModel], dict]],
+        kwargs: Dict[str, Any],
+    ) -> Tuple[str, Dict[str, Any], float]:
+        """The ``(url, payload, timeout)`` of one chat completion request."""
         messages: List[Dict[str, str]] = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
@@ -126,18 +112,13 @@ class LiteLLMProxy(BaseLLM):
             self.model_name,
             len(prompt),
         )
+        return url, payload, timeout
 
-        response = requests.post(
-            url,
-            headers=self._build_headers(),
-            json=payload,
-            timeout=timeout,
-        )
-        response.raise_for_status()
-
-        data = response.json()
+    def _content(
+        self, data: Dict[str, Any], schema: Optional[Union[Type[BaseModel], dict]]
+    ) -> Union[str, dict]:
         # The proxy speaks OpenAI's response shape, so `usage` is right here
-        # alongside the content. `generate_batch` loops over this method, so
+        # alongside the content. `generate_batch` loops over `generate`, so
         # emitting here covers the batch path too.
         self._emit_usage(data.get("usage"))
         content = data["choices"][0]["message"]["content"]
@@ -148,9 +129,58 @@ class LiteLLMProxy(BaseLLM):
 
         return content
 
-    async def a_generate(self, *args, **kwargs) -> Union[str, dict]:
-        """Async version of generate. Runs sync generate() in a thread pool."""
-        return await asyncio.to_thread(self.generate, *args, **kwargs)
+    def generate(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        schema: Optional[Union[Type[BaseModel], dict]] = None,
+        *args,
+        **kwargs,
+    ) -> Union[str, dict]:
+        """Run a chat completion via the LiteLLM Proxy.
+
+        Args:
+            prompt: The user prompt.
+            system_prompt: Optional system prompt.
+            schema: Either a Pydantic model or OpenAI-wrapped JSON schema dict
+                for structured output validation.
+
+        Returns:
+            str or dict: Raw text if no schema, validated dict if schema provided.
+
+        Raises:
+            requests.exceptions.HTTPError: If the proxy returns a non-2xx status.
+        """
+        url, payload, timeout = self._request(prompt, system_prompt, schema, kwargs)
+        response = requests.post(url, headers=self._build_headers(), json=payload, timeout=timeout)
+        response.raise_for_status()
+        return self._content(response.json(), schema)
+
+    async def a_generate(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        schema: Optional[Union[Type[BaseModel], dict]] = None,
+        *args,
+        **kwargs,
+    ) -> Union[str, dict]:
+        """Async version of :meth:`generate`, on an async HTTP client.
+
+        It used to run ``generate`` through ``asyncio.to_thread``, so every
+        concurrent call held a thread of the event loop's default pool for the
+        whole request: a process made at most that many calls at once
+        (``min(32, os.cpu_count() + 4)``, 14 on a 10-core host), however many
+        evaluations were waiting.
+
+        Raises:
+            aiohttp.ClientResponseError: If the proxy returns a non-2xx status.
+        """
+        url, payload, timeout = self._request(prompt, system_prompt, schema, kwargs)
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
+            async with session.post(url, headers=self._build_headers(), json=payload) as response:
+                response.raise_for_status()
+                data = await response.json(content_type=None)
+        return self._content(data, schema)
 
     def generate_batch(
         self,

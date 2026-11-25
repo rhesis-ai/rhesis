@@ -7,7 +7,9 @@ using a persistent background thread/loop to avoid event loop lifecycle issues.
 import asyncio
 import atexit
 import logging
+import os
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from threading import Thread
 
@@ -18,6 +20,19 @@ _background_thread = None
 # Threads making their first run_sync() call at the same moment would otherwise each start
 # a loop, and litellm's Vertex client then mixes state across them and hangs.
 _loop_lock = threading.Lock()
+
+
+def _loop_threads() -> int:
+    """Threads for blocking calls made from the background loop (``asyncio.to_thread``).
+
+    Providers without an async client and several metric fallbacks run their blocking
+    call this way, one thread each for its whole duration. Python's default pool is
+    ``min(32, os.cpu_count() + 4)``, and in a container ``os.cpu_count()`` reports the
+    host's cores, not the container's: 14 on a 10-core host, whatever the workload. That
+    capped a process at 14 model calls in flight. These threads mostly wait on the
+    network, so the size follows concurrency, not cores.
+    """
+    return int(os.environ.get("RHESIS_SDK_LOOP_THREADS", "64"))
 
 
 def reset_litellm_vertex_async_locks() -> None:
@@ -136,6 +151,9 @@ def _get_background_loop():
             if _background_loop is not None and _background_loop.is_closed():
                 reset_litellm_vertex_async_locks()
             _background_loop = asyncio.new_event_loop()
+            _background_loop.set_default_executor(
+                ThreadPoolExecutor(max_workers=_loop_threads(), thread_name_prefix="rhesis-sdk-io")
+            )
             _background_thread = Thread(
                 target=_background_loop.run_forever,
                 daemon=True,

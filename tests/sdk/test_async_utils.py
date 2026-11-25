@@ -426,3 +426,28 @@ def test_a_changed_litellm_worker_does_not_break_calls(monkeypatch):
     asyncio.run(touch())
     assert isinstance(asyncio.run(touch()), ChangedWorker)
     assert len(per_loop._workers) == 1
+
+
+class TestBackgroundLoopThreads:
+    """Blocking calls made from the background loop get a pool sized for I/O, not cores."""
+
+    def _pool_size(self):
+        from rhesis.sdk.async_utils import _get_background_loop, close_background_loop
+
+        close_background_loop()
+        try:
+            loop = _get_background_loop()
+            return loop._default_executor._max_workers
+        finally:
+            close_background_loop()
+
+    def test_defaults_to_64_whatever_the_core_count(self, monkeypatch):
+        monkeypatch.delenv("RHESIS_SDK_LOOP_THREADS", raising=False)
+        monkeypatch.setattr("os.cpu_count", lambda: 2)
+
+        assert self._pool_size() == 64
+
+    def test_follows_the_environment(self, monkeypatch):
+        monkeypatch.setenv("RHESIS_SDK_LOOP_THREADS", "128")
+
+        assert self._pool_size() == 128

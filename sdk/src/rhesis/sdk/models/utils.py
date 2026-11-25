@@ -1,6 +1,8 @@
+import asyncio
 import logging
 from typing import Type, Union
 
+import aiohttp
 import jsonschema
 import requests
 from pydantic import BaseModel
@@ -38,7 +40,8 @@ def _is_retryable_exception(exc: BaseException) -> bool:
     - HTTP 429 (rate limit), 500, 502, 503, 504 (server errors), regardless of
       whether the error comes from ``requests`` or from an LLM SDK
       (litellm/openai ``RateLimitError``, ``APIStatusError``, …), which expose
-      the HTTP status via a ``status_code`` attribute rather than a ``response``.
+      the HTTP status via a ``status_code`` attribute rather than a ``response``,
+      and ``aiohttp``'s ``ClientResponseError``, which uses ``status``.
 
     Does NOT retry on:
     - Client errors (400, 401, 403, 404)
@@ -48,6 +51,9 @@ def _is_retryable_exception(exc: BaseException) -> bool:
         return True
     if isinstance(exc, requests.exceptions.HTTPError) and exc.response is not None:
         return exc.response.status_code in RETRYABLE_STATUS_CODES
+    # aiohttp: the same two transient cases. A status error has `.status` (below).
+    if isinstance(exc, (aiohttp.ClientConnectionError, asyncio.TimeoutError)):
+        return True
     # litellm / openai errors carry `.status_code`; aiohttp uses `.status`.
     status = getattr(exc, "status_code", None) or getattr(exc, "status", None)
     return status in RETRYABLE_STATUS_CODES
