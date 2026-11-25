@@ -60,7 +60,7 @@ export default function KpiCard({
     <CardContent sx={{ flexGrow: 1, p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
         <Typography variant="body2" color="text.secondary" fontWeight={500}>
-          {title}
+          <TextPlaceholder>{title}</TextPlaceholder>
         </Typography>
         {infoTooltip && (
           <Tooltip title={infoTooltip} placement="top" arrow>

@@ -631,10 +631,22 @@ export default function BaseDataGrid({
   const router = useRouter();
   const apiRef = useGridApiRef();
 
-  const gridColumns = React.useMemo(
-    () => applyFlexColumnSizing(columns),
-    [columns]
-  );
+  const gridColumns = React.useMemo(() => {
+    const sized = applyFlexColumnSizing(columns);
+    if (!skeleton) return sized;
+    // A loading view shows no column names either: each header is a
+    // placeholder as wide as its label, and the sort and menu icons wait.
+    return sized.map(column => ({
+      ...column,
+      sortable: false,
+      disableColumnMenu: true,
+      renderHeader: () => (
+        <SkeletonSlot variant="text">
+          <span>{column.headerName ?? column.field}</span>
+        </SkeletonSlot>
+      ),
+    }));
+  }, [columns, skeleton]);
 
   const hasActionsColumn = gridColumns.some(col => col.field === 'actions');
 
@@ -963,6 +975,8 @@ export default function BaseDataGrid({
     // page it stands in for. Auto height would size an empty grid at two rows,
     // and the skeleton overlay draws rows to fill the measured area.
     skeleton && {
+      // The active sort's arrow would still show beside a placeholder header.
+      '& .MuiDataGrid-iconButtonContainer': { visibility: 'hidden' },
       '& .MuiDataGrid-main': {
         // The main area holds the column header row as well as the rows.
         minHeight:
