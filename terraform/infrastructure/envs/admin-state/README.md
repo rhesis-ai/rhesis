@@ -24,15 +24,19 @@ deleted.
     `dev`/`stg`/`prd` remote state.
   This replaces the earlier bucket-wide `objectAdmin` each SA carried with access scoped to
   the prefixes each root actually uses.
-- **Data-access audit logs** (`DATA_READ`/`DATA_WRITE`) for `storage.googleapis.com` in the
-  admin project.
+## Data-access audit logging (out of band, once)
 
-## Bootstrap grants (out of band, once)
+`DATA_READ`/`DATA_WRITE` audit logging for `storage.googleapis.com` is enabled on the admin
+project by a project owner, not by this root: it is a project-IAM-policy edit that would
+need `projectIamAdmin` on the CI SA, which is broader than this root should hold. It changes
+rarely, so it is a one-time setting.
 
-Like `envs/billing`, this root's runner needs rights it did not have before it could
-manage these resources. The authoritative IAM policy cannot be set by an SA that lacks
-`setIamPolicy`, so grant these to `terraform-wireguard@rhesis-platform-admin.iam.gserviceaccount.com`
-before the first plan, then this root keeps them as code:
+## Bootstrap grant (out of band, once)
+
+Like `envs/billing`, this root's runner needs a right it cannot grant itself: the
+authoritative bucket IAM policy cannot be set by an SA that lacks `setIamPolicy`. Grant this
+to `terraform-wireguard@rhesis-platform-admin.iam.gserviceaccount.com` before the first
+plan, then this root keeps it as code:
 
 - `roles/storage.admin` on the bucket (manage bucket settings and IAM):
   ```
@@ -40,10 +44,6 @@ before the first plan, then this root keeps them as code:
     --member=serviceAccount:terraform-wireguard@rhesis-platform-admin.iam.gserviceaccount.com \
     --role=roles/storage.admin
   ```
-- `roles/resourcemanager.projectIamAdmin` on `rhesis-platform-admin` (edit the project IAM
-  policy for the audit config). This is the one broad grant this root needs; if it is not
-  acceptable to hold it on a CI SA long-term, set the audit config once by hand and drop
-  the `google_project_iam_audit_config` resource from this root.
 
 ## Legacy state objects to remove
 

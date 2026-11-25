@@ -11,7 +11,7 @@
 #   - Per-env IAM: each env's SA writes only its own state prefix and reads only the
 #     prefixes its root consumes via terraform_remote_state. terraform-wireguard is the
 #     admin SA and holds storage.admin on the bucket to manage it.
-#   - Data-access audit logging, so reads and writes of state are recorded.
+# Data-access audit logging is set on the project out of band, not here (see README.md).
 #
 # Bootstrap note (same pattern as envs/billing): this root's runner, terraform-wireguard,
 # needs rights it did not have before it could manage the bucket and the project audit
@@ -189,23 +189,10 @@ resource "google_storage_bucket_iam_policy" "state" {
   policy_data = data.google_iam_policy.state.policy_data
 }
 
-# ── Audit logging ────────────────────────────────────────────────────
-# Record reads and writes of objects in the admin project (which is where the state bucket
-# lives). ADMIN_READ/ADMIN_WRITE for storage are always on and free; DATA_READ and
-# DATA_WRITE are the ones that have to be turned on, and they are what shows who touched
-# state. This edits the project IAM policy, so terraform-wireguard needs project-level IAM
-# rights for it; see README.md.
-resource "google_project_iam_audit_config" "storage_data_access" {
-  project = var.project_id
-  service = "storage.googleapis.com"
-
-  audit_log_config {
-    log_type = "DATA_READ"
-  }
-  audit_log_config {
-    log_type = "DATA_WRITE"
-  }
-}
+# Data-access audit logging (DATA_READ/DATA_WRITE for storage.googleapis.com) is enabled on
+# the admin project out of band rather than here: it is a project-IAM-policy edit that would
+# need projectIamAdmin on the CI SA, which is broader than this root should require. It
+# changes rarely, so it is set once by a project owner; see README.md.
 
 # ── Adopt the existing bucket ────────────────────────────────────────
 # The bucket predates this root. Import it instead of trying to create a second one with
