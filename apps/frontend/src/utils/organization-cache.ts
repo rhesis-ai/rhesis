@@ -18,7 +18,8 @@ const TTL_MS = 30_000;
 const MAX_ENTRIES = 1000;
 
 interface Entry {
-  value: Organization;
+  // A pending load too, so concurrent prefetches share one backend call.
+  value: Promise<Organization>;
   expiresAt: number;
 }
 
@@ -41,14 +42,21 @@ export async function cachedOrganization(
   const hit = entries.get(key);
   if (hit && hit.expiresAt > Date.now()) return hit.value;
 
-  const value = await load();
+  const value = load();
+  const entry: Entry = { value, expiresAt: Date.now() + TTL_MS };
   entries.delete(key);
-  entries.set(key, { value, expiresAt: Date.now() + TTL_MS });
+  entries.set(key, entry);
   if (entries.size > MAX_ENTRIES) {
     // Maps iterate in insertion order, so the first key is the oldest write.
     entries.delete(entries.keys().next().value as string);
   }
-  return value;
+  try {
+    return await value;
+  } catch (error) {
+    // Don't keep a failure; the next render tries again.
+    if (entries.get(key) === entry) entries.delete(key);
+    throw error;
+  }
 }
 
 /** Drop every user's cached copy of an organisation. */
@@ -60,12 +68,13 @@ export function forgetOrganization(organizationId: string): void {
 }
 
 const ORGANIZATION_PATH = /^\/organizations\/([^/]+)/;
+const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /** The organisation a backend path writes to, if any. */
 export function organizationWrittenBy(
   method: string,
   backendPath: string
 ): string | null {
-  if (method === 'GET' || method === 'HEAD') return null;
+  if (!WRITE_METHODS.has(method.toUpperCase())) return null;
   return ORGANIZATION_PATH.exec(backendPath)?.[1] ?? null;
 }

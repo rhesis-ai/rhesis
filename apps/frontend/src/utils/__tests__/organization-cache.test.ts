@@ -30,6 +30,18 @@ describe('cachedOrganization', () => {
     expect(load).toHaveBeenCalledTimes(1);
   });
 
+  it('shares one load between concurrent callers', async () => {
+    const load = jest.fn().mockResolvedValue(org('Acme'));
+
+    await Promise.all([
+      cachedOrganization('user-1', 'org-1', load),
+      cachedOrganization('user-1', 'org-1', load),
+      cachedOrganization('user-1', 'org-1', load),
+    ]);
+
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps users apart, since the response carries their permitted actions', async () => {
     const load = jest.fn().mockResolvedValue(org('Acme'));
 
@@ -40,11 +52,11 @@ describe('cachedOrganization', () => {
   });
 
   it('loads again once the entry has expired', async () => {
-    jest.useFakeTimers();
+    jest.useFakeTimers({ now: 0 });
     const load = jest.fn().mockResolvedValue(org('Acme'));
 
     await cachedOrganization('user-1', 'org-1', load);
-    jest.advanceTimersByTime(31_000);
+    jest.setSystemTime(31_000);
     await cachedOrganization('user-1', 'org-1', load);
 
     expect(load).toHaveBeenCalledTimes(2);
@@ -68,6 +80,8 @@ describe('organizationWrittenBy', () => {
     ['PUT', '/organizations/org-1', 'org-1'],
     ['PATCH', '/organizations/org-1/settings', 'org-1'],
     ['GET', '/organizations/org-1', null],
+    ['OPTIONS', '/organizations/org-1', null],
+    ['DELETE', '/organizations/org-1/members/u-1', 'org-1'],
     ['PUT', '/projects/p-1', null],
   ])('%s %s -> %s', (method, path, expected) => {
     expect(organizationWrittenBy(method, path)).toBe(expected);
