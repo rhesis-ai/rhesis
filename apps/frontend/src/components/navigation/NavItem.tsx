@@ -55,11 +55,13 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
 
   const shown = !isGated || (!ambient.loading && permitted);
   // A link only prefetches once it scrolls into view, and the sidebar scrolls.
-  // Without the prefetch the route's loading view, which is the page's own
-  // code, can't draw, and navigation falls back to the generic spinner.
+  // Without the prefetch the route's loading view can't draw, and navigation
+  // falls back to the generic spinner. Repeated on every page change: a
+  // prefetch of the page being shown can be skipped, and Next ignores repeats
+  // of routes it already holds.
   React.useEffect(() => {
-    if (shown) router.prefetch(fullPath);
-  }, [shown, router, fullPath]);
+    if (shown && !active) router.prefetch(fullPath);
+  }, [shown, active, pathname, router, fullPath]);
 
   if (isGated) {
     // Hide the item entirely, both while the RBAC status/scope set is still

@@ -113,9 +113,28 @@ describe('NavItem current page', () => {
 });
 
 describe('NavItem prefetch', () => {
+  afterEach(() => {
+    mockPathname = '/';
+  });
+
   it('prefetches its route even when scrolled out of view', () => {
     mockPrefetch.mockClear();
     render(<NavItem item={testSetsItem()} collapsed={false} />);
+    expect(mockPrefetch).toHaveBeenCalledWith(
+      `/${NotificationSection.TEST_SETS}`
+    );
+  });
+
+  it('prefetches its route once the user leaves it', () => {
+    mockPrefetch.mockClear();
+    mockPathname = `/${NotificationSection.TEST_SETS}`;
+    const { rerender } = render(
+      <NavItem item={testSetsItem()} collapsed={false} />
+    );
+    expect(mockPrefetch).not.toHaveBeenCalled();
+
+    mockPathname = '/tests';
+    rerender(<NavItem item={testSetsItem()} collapsed={false} />);
     expect(mockPrefetch).toHaveBeenCalledWith(
       `/${NotificationSection.TEST_SETS}`
     );
