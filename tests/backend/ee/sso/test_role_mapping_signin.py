@@ -23,7 +23,13 @@ from rhesis.backend.app.models.user import User
 from rhesis.backend.app.scope import bypass_tenant_filter
 from rhesis.backend.ee.rbac.models import OrganizationMember, Role
 from rhesis.backend.ee.sso.router import resolve_sso_user
-from rhesis.backend.ee.sso.schemas import MappingRule, ProjectGrant, RoleMapping, SSOConfig
+from rhesis.backend.ee.sso.schemas import (
+    GROUPS_UNAVAILABLE,
+    MappingRule,
+    ProjectGrant,
+    RoleMapping,
+    SSOConfig,
+)
 from rhesis.backend.ee.sso.user_utils import SSOLoginError
 from tests.backend.ee.rbac._rbac_helpers import (
     _add_project_member,
@@ -190,6 +196,15 @@ class TestOrgRole:
         env.sign_in(email, cfg, claims={"_claim_names": {"groups": "src1"}})
         assert env.org_role(uid) == "Admin"
 
+    def test_unknown_groups_leave_roles_and_snapshot_alone(self, env):
+        uid, email = env.user("Member")
+        cfg = env.config(env.rule("admins", "Admin", support="Member"), everyone_else="None")
+        env.sign_in(email, cfg, ["admins"])
+        env.sign_in(email, cfg, claims={GROUPS_UNAVAILABLE: True})
+        assert env.org_role(uid) == "Admin"
+        assert env.project_role(uid, env.support) == "Member"
+        assert env.snapshot(uid)[0]["values"] == ["admins"]
+
     def test_disabled_mapping_does_nothing(self, env):
         uid, email = env.user("Member")
         cfg = env.config(env.rule("admins", "Admin"))
@@ -267,6 +282,24 @@ class TestBlock:
         assert env.project_role(uid, env.support) == "Admin"
         env.sign_in(email, cfg, ["eng"])
         assert env.project_role(uid, env.support) == "Admin"
+
+    @pytest.mark.parametrize(
+        "claims",
+        [{GROUPS_UNAVAILABLE: True}, {"_claim_names": {"groups": "src1"}}],
+        ids=["fetch-failed", "overage"],
+    )
+    def test_unknown_groups_refused_when_blocking(self, env, claims):
+        _, email = env.user("Admin")
+        cfg = env.config(env.rule("a", "Admin"), everyone_else="block")
+        with pytest.raises(SSOLoginError) as exc:
+            env.sign_in(email, cfg, claims=claims)
+        assert exc.value.reason_code == "groups_unavailable"
+
+    def test_owner_let_in_when_groups_unknown(self, env):
+        uid, email = env.user("Owner")
+        cfg = env.config(env.rule("a", "Admin"), everyone_else="block")
+        env.sign_in(email, cfg, claims={GROUPS_UNAVAILABLE: True})
+        assert env.org_role(uid) == "Owner"
 
     def test_project_rule_match_is_not_blocked(self, env):
         uid, email = env.user("Member")

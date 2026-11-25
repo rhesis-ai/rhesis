@@ -20,7 +20,7 @@ from rhesis.backend.app.utils.ssrf_http_client import (
     SSRFError,
     validate_endpoint_origin,
 )
-from rhesis.backend.ee.sso.schemas import SSOConfig
+from rhesis.backend.ee.sso.schemas import GROUPS_UNAVAILABLE, SSOConfig
 
 #: Keeps SSO state keyed apart from other OAuth flows. The value reproduces the
 #: original ``sso-state-`` derivation exactly, so logins already in flight when
@@ -284,6 +284,14 @@ def _claim_missing(claims: Mapping[str, Any], path: Union[str, Iterable[str]]) -
             return True
         node = node[segment]
     return False
+
+
+class SSOAuthError(ValueError):
+    """An IdP answer Rhesis can't sign in with, and the reason the person is told."""
+
+    def __init__(self, reason_code: str, message: str):
+        self.reason_code = reason_code
+        super().__init__(message)
 
 
 class OIDCProvider(AuthProvider):
@@ -559,6 +567,7 @@ class OIDCProvider(AuthProvider):
         email_source = claims
         claim_path = kwargs.get("claim_path")
         needs_groups = claim_path is not None and _claim_missing(claims, claim_path)
+        answered = False
         if not email or needs_groups:
             if not email:
                 logger.warning(
@@ -573,13 +582,22 @@ class OIDCProvider(AuthProvider):
                 email_source = userinfo
             # OIDC Core 5.3.2: only an answer for the same subject may add claims (groups
             # can be set up to reach userinfo only). The ID token stays authoritative.
-            if userinfo and claims.get("sub") and userinfo.get("sub") == claims.get("sub"):
+            answered = bool(
+                userinfo and claims.get("sub") and userinfo.get("sub") == claims.get("sub")
+            )
+            if answered:
                 claims = {**userinfo, **claims}
+        # Only Rhesis sets this marker, never the IdP or a profile attribute.
+        claims.pop(GROUPS_UNAVAILABLE, None)
+        if needs_groups and not answered and _claim_missing(claims, claim_path):
+            # Userinfo failed or answered for someone else: the groups are unknown, not empty.
+            logger.warning("SSO groups unavailable for issuer %s", self._config.issuer_url)
+            claims[GROUPS_UNAVAILABLE] = True
 
         if not email:
-            raise ValueError("Could not determine user email from IdP")
+            raise SSOAuthError("email_missing", "Could not determine user email from IdP")
         if email_marked_unverified(email_source):
-            raise ValueError("IdP reports the user email as unverified")
+            raise SSOAuthError("email_unverified", "IdP reports the user email as unverified")
 
         logger.info(
             "SSO OIDC authentication successful: provider=%s, org_config_issuer=%s",

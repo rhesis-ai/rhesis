@@ -18,7 +18,7 @@ from rhesis.backend.ee.sso.oidc import (
     _OIDC_METADATA_CACHE,
     OIDCProvider,
 )
-from rhesis.backend.ee.sso.schemas import SSOConfig
+from rhesis.backend.ee.sso.schemas import GROUPS_UNAVAILABLE, SSOConfig
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -346,6 +346,93 @@ class TestAuthenticate:
         )
 
         assert auth_user.email == "bob@example.com"
+
+
+class TestGroupsFromUserinfo:
+    """Groups the ID token leaves out are fetched from userinfo; a failed fetch marks
+    them unknown instead of empty, so role mapping leaves roles alone."""
+
+    async def _sign_in(self, userinfo, token_claims=None):
+        private_key = _generate_rsa_keypair()
+        config = _sso_config()
+        provider = OIDCProvider(config)
+        now = int(time.time())
+        id_token = _make_id_token(
+            private_key,
+            {
+                "sub": "user-1",
+                "email": "a@example.com",
+                "iss": config.issuer_url,
+                "aud": config.client_id,
+                "exp": now + 300,
+                "iat": now,
+                "nonce": "nonce",
+                **(token_claims or {}),
+            },
+        )
+
+        def resp(body, ok=True):
+            r = MagicMock()
+            r.is_success = ok
+            r.json.return_value = body
+            r.raise_for_status = MagicMock(
+                side_effect=None if ok else RuntimeError("userinfo down")
+            )
+            return r
+
+        async def get(url, **kwargs):
+            if "openid-configuration" in url:
+                return resp(_metadata())
+            if "userinfo" in url:
+                if isinstance(userinfo, Exception):
+                    raise userinfo
+                return resp(userinfo or {}, ok=userinfo is not None)
+            return resp(_jwks_from_private_key(private_key))
+
+        http = MagicMock()
+        http.get = get
+        http.post = AsyncMock(return_value=resp({"id_token": id_token, "access_token": "at"}))
+        provider._http = http
+        user = await provider.authenticate(
+            request=MagicMock(),
+            code="code",
+            code_verifier="v",
+            nonce="nonce",
+            redirect_uri="http://localhost/callback",
+            claim_path="groups",
+        )
+        return user.raw_data
+
+    @pytest.mark.asyncio
+    async def test_groups_merged_from_userinfo(self):
+        claims = await self._sign_in({"sub": "user-1", "groups": ["qa"]})
+        assert claims["groups"] == ["qa"]
+        assert GROUPS_UNAVAILABLE not in claims
+
+    @pytest.mark.asyncio
+    async def test_userinfo_without_groups_means_no_groups(self):
+        claims = await self._sign_in({"sub": "user-1"})
+        assert "groups" not in claims
+        assert GROUPS_UNAVAILABLE not in claims
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "userinfo",
+        [None, ConnectionError("timeout"), {"sub": "someone-else", "groups": ["admins"]}],
+        ids=["http-error", "network-error", "other-subject"],
+    )
+    async def test_failed_fetch_marks_groups_unknown(self, userinfo):
+        claims = await self._sign_in(userinfo)
+        assert claims[GROUPS_UNAVAILABLE] is True
+        assert "groups" not in claims
+
+    @pytest.mark.asyncio
+    async def test_marker_from_the_idp_is_dropped(self):
+        claims = await self._sign_in(
+            {"sub": "user-1", GROUPS_UNAVAILABLE: True},
+            token_claims={"groups": ["qa"], GROUPS_UNAVAILABLE: True},
+        )
+        assert GROUPS_UNAVAILABLE not in claims
 
 
 # ---------------------------------------------------------------------------

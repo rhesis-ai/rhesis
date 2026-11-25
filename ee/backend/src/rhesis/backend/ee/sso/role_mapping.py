@@ -17,7 +17,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from rhesis.backend.ee.sso.audit import SSOAuditEvent, audit_log
-from rhesis.backend.ee.sso.schemas import ClaimPath, RoleMapping
+from rhesis.backend.ee.sso.schemas import GROUPS_UNAVAILABLE, ClaimPath, RoleMapping
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,11 @@ def extract_claim_values(claims: Mapping[str, Any], path: ClaimPath) -> Optional
     if isinstance(node, list):
         return [v for v in node if isinstance(v, str)]
     return None
+
+
+def groups_unknown(claims: Mapping[str, Any], path: ClaimPath) -> bool:
+    """True when the IdP's groups for this sign-in can't be known (overage, failed fetch)."""
+    return bool(claims.get(GROUPS_UNAVAILABLE)) or has_group_overage(claims, path)
 
 
 def has_group_overage(claims: Mapping[str, Any], path: ClaimPath) -> bool:
@@ -190,13 +195,13 @@ def decide_for_claims(
 ) -> Optional[MappingDecision]:
     """The decision for a sign-in, or None when the groups can't be known.
 
-    A missing claim counts as no groups (so the fallback applies); an Entra overage
-    leaves everything alone, because the person may well be in mapped groups.
+    A missing claim counts as no groups (so the fallback applies). An Entra overage or a
+    failed userinfo call leaves everything alone, because the person may well be in
+    mapped groups.
     """
-    if has_group_overage(claims, mapping.claim):
+    if groups_unknown(claims, mapping.claim):
         logger.warning(
-            "SSO role mapping skipped for org %s: the IdP left groups out of the token "
-            "(group overage)",
+            "SSO role mapping skipped for org %s: the groups for this sign-in are unknown",
             organization_id,
         )
         return None
@@ -652,6 +657,7 @@ __all__ = [
     "decide",
     "decide_for_claims",
     "extract_claim_values",
+    "groups_unknown",
     "has_group_overage",
     "is_owner",
     "snapshot_values",

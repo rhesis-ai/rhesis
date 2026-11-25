@@ -20,6 +20,10 @@ MAX_PROJECTS_PER_RULE = 50
 MAX_CLAIM_DEPTH = 4
 
 
+#: Set on the sign-in claims when the groups claim could not be fetched.
+GROUPS_UNAVAILABLE = "_rhesis_groups_unavailable"
+
+
 class ProjectGrant(BaseModel):
     project_id: UUID
     role_id: UUID

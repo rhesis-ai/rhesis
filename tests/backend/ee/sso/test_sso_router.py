@@ -423,3 +423,96 @@ class TestSSOCallbackAudit:
         # The org's id, not the slug the signed state carried.
         assert kwargs == {"organization_id": callback_env.org.id}
         assert "record_user_event" not in callback_env.names()
+
+
+class TestSSOCallbackErrorPage:
+    """Every failed sign-in lands on the friendly error page with a public code and a
+    reference, while the real reason goes to the log."""
+
+    ORG_SLUG = TestSSOCallbackTenantContext.ORG_SLUG
+    callback_env = TestSSOCallbackTenantContext.callback_env
+    _run = TestSSOCallbackTenantContext._run
+
+    @staticmethod
+    def _query(resp):
+        from urllib.parse import parse_qs, urlparse
+
+        url = urlparse(resp.headers["location"])
+        assert url.path == "/auth/sso-error"
+        return {k: v[0] for k, v in parse_qs(url.query).items()}
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "reason, code",
+        [
+            ("domain_not_allowed", "domain_not_allowed"),
+            ("auto_provision_disabled", "not_invited"),
+            ("seat_limit_reached", "no_seats"),
+            ("cross_org_collision", "account_elsewhere"),
+            ("no_matching_group", "no_access"),
+            ("groups_unavailable", "groups_unavailable"),
+            ("something_new", "login_failed"),
+        ],
+    )
+    async def test_refusal_reason_becomes_public_code(
+        self, callback_env, monkeypatch, caplog, reason, code
+    ):
+        from rhesis.backend.app.utils.request_context import reset_request_id, set_request_id
+        from rhesis.backend.ee.sso import router as sso_router
+        from rhesis.backend.ee.sso.user_utils import SSOLoginError
+
+        def _reject(*args, **kwargs):
+            raise SSOLoginError(reason)
+
+        monkeypatch.setattr(sso_router, "find_or_create_sso_user", _reject)
+        token = set_request_id("req123")
+        try:
+            with caplog.at_level("WARNING"):
+                resp = await self._run(callback_env)
+        finally:
+            reset_request_id(token)
+
+        assert self._query(resp) == {"error": code, "ref": "req123"}
+        assert f"reason={reason}" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_idp_error_is_logged_and_shown(self, callback_env, caplog):
+        from rhesis.backend.ee.sso.router import sso_callback
+
+        with caplog.at_level("WARNING"):
+            resp = await sso_callback(
+                request=callback_env.request,
+                code="",
+                state="",
+                error="access_denied",
+                db=callback_env.db,
+            )
+        assert self._query(resp)["error"] == "idp_denied"
+        assert "access_denied" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_unverified_email_has_its_own_code(self, callback_env, monkeypatch):
+        from rhesis.backend.ee.sso import router as sso_router
+        from rhesis.backend.ee.sso.oidc import SSOAuthError
+
+        async def _authenticate(*args, **kwargs):
+            raise SSOAuthError("email_unverified", "unverified")
+
+        monkeypatch.setattr(
+            sso_router, "OIDCProvider", lambda _cfg: SimpleNamespace(authenticate=_authenticate)
+        )
+        resp = await self._run(callback_env)
+        assert self._query(resp)["error"] == "email_unverified"
+
+    @pytest.mark.asyncio
+    async def test_unexpected_error_is_generic(self, callback_env, monkeypatch, caplog):
+        from rhesis.backend.ee.sso import router as sso_router
+
+        def _boom(*args, **kwargs):
+            raise RuntimeError("db exploded")
+
+        monkeypatch.setattr(sso_router, "find_or_create_sso_user", _boom)
+        with caplog.at_level("WARNING"):
+            resp = await self._run(callback_env)
+        assert self._query(resp)["error"] == "login_failed"
+        assert "db exploded" in caplog.text
