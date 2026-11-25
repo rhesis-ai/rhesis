@@ -10,7 +10,8 @@ import { test, expect, type Page } from '@playwright/test';
  * Only landmarks present in both are compared: CI data differs from local, and
  * a list that loads empty shows its empty state instead of the grid.
  *
- * Tagged @sanity so it runs in CI alongside the other smoke tests.
+ * Tagged @sanity so it runs with the smoke tests; it skips itself on a dev
+ * server, so run it against `next build` + `next start`.
  */
 
 const ROUTES = [
@@ -66,15 +67,37 @@ function measure(page: Page): Promise<Positions> {
 
 type NextWindow = {
   next: {
-    router: { prefetch: (href: string) => void; push: (href: string) => void };
+    router: { push: (href: string) => void };
   };
 };
 
 const isRouteRsc = (url: string, route: string) =>
   new URL(url).pathname === route && url.includes('_rsc=');
 
+/** How long the dev overlay is given to mount before the server counts as a build. */
+const DEV_OVERLAY_WAIT_MS = 5000;
+
 test.describe('Loading view alignment @sanity', () => {
   test.setTimeout(90_000);
+
+  // Next prefetches nothing on a dev server, so no loading view is cached and
+  // there is nothing to compare. Runs against a production build.
+  test.beforeAll(async ({ browser }, testInfo) => {
+    const page = await browser.newPage({
+      baseURL: testInfo.project.use.baseURL,
+    });
+    await page.goto('/');
+    const isDevServer = await page
+      .locator('nextjs-portal')
+      .waitFor({ state: 'attached', timeout: DEV_OVERLAY_WAIT_MS })
+      .then(() => true)
+      .catch(() => false);
+    await page.close();
+    test.skip(
+      isDevServer,
+      'needs a production build: dev servers do not prefetch'
+    );
+  });
 
   for (const route of ROUTES) {
     test(`${route} loading view lines up with the page`, async ({ page }) => {
@@ -91,14 +114,9 @@ test.describe('Loading view alignment @sanity', () => {
         }
       });
 
+      // The app's own prefetching must fetch the loading view, including for
+      // sidebar links scrolled out of view; without it the view can't draw.
       await page.goto('/architect');
-      // What a visible link does: fetch the route's loading view. (Sidebar
-      // links can sit under its scroll arrows, so the router is driven directly.)
-      await page.evaluate(
-        target =>
-          (window as unknown as NextWindow).next.router.prefetch(target),
-        route
-      );
       await expect
         .poll(
           () =>
