@@ -20,6 +20,7 @@ from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.schemas import UserCreate
 from rhesis.backend.app.schemas.websocket import EventType
 from rhesis.backend.app.services.websocket import membership
+from rhesis.backend.app.services.websocket.credential_liveness import SocketCredential
 
 MEMBERSHIP = "rhesis.backend.app.services.websocket.membership"
 
@@ -126,9 +127,11 @@ class TestFrontendSocketMembership:
     @pytest.fixture
     def user(self, make_ws_user):
         user = make_ws_user()
+        # Bare credential: nothing to re-check, so these tests isolate membership.
+        credential = SocketCredential(user_id=str(user.id))
         with patch(
             "rhesis.backend.app.routers.websocket.authenticate_websocket_token",
-            AsyncMock(return_value=(user, resolve_principal(user))),
+            AsyncMock(return_value=(user, resolve_principal(user), credential)),
         ):
             yield user
 
@@ -136,7 +139,7 @@ class TestFrontendSocketMembership:
         self, authenticated_client: TestClient, ws_manager, user
     ):
         with patch(
-            "rhesis.backend.app.routers.websocket.membership_is_current",
+            f"{MEMBERSHIP}.membership_is_current",
             AsyncMock(return_value=False),
         ):
             with authenticated_client.websocket_connect("/ws?token=t") as ws:
@@ -152,7 +155,7 @@ class TestFrontendSocketMembership:
         self, authenticated_client: TestClient, ws_manager, user
     ):
         with patch(
-            "rhesis.backend.app.routers.websocket.membership_is_current",
+            f"{MEMBERSHIP}.membership_is_current",
             AsyncMock(return_value=True),
         ):
             with authenticated_client.websocket_connect("/ws?token=t") as ws:

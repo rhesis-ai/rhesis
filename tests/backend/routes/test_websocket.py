@@ -45,13 +45,19 @@ def mock_ws_manager():
 def mock_authenticate_token(mock_user):
     """Mock WebSocket token authentication.
 
-    ``authenticate_websocket_token`` returns a ``(user, Principal)`` tuple so the
-    endpoint can register the connection's principal for SP9 channel authz.
+    ``authenticate_websocket_token`` returns a ``(user, Principal, SocketCredential)``
+    triple: the principal drives SP9 channel authz, the credential drives the
+    periodic revocation re-check.
     """
     from rhesis.backend.app.auth.principal import resolve_principal
+    from rhesis.backend.app.services.websocket.credential_liveness import SocketCredential
 
     with patch("rhesis.backend.app.routers.websocket.authenticate_websocket_token") as mock_auth:
-        mock_auth.return_value = (mock_user, resolve_principal(mock_user))
+        mock_auth.return_value = (
+            mock_user,
+            resolve_principal(mock_user),
+            SocketCredential(user_id=str(mock_user.id)),
+        )
         yield mock_auth
 
 
@@ -182,11 +188,13 @@ class TestAuthenticateWebSocketToken:
 
             result = asyncio.run(authenticate_websocket_token(mock_ws, "valid_token"))
 
-            # Returns a (user, Principal) tuple so token scopes reach channel authz.
+            # Returns (user, Principal, SocketCredential) so token scopes reach
+            # channel authz and the credential drives the revocation re-check.
             assert result is not None
-            user, principal = result
+            user, principal, credential = result
             assert user == mock_user
             assert principal.user_id == mock_user.id
+            assert credential.user_id == str(mock_user.id)
             mock_auth.assert_called_once()
 
     def test_authenticate_with_no_token(self):

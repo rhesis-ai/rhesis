@@ -325,8 +325,10 @@ async def test_frontend_websocket_records_the_user(test_db, rhesis_api_key):
     from rhesis.backend.app.routers.websocket import authenticate_websocket_token
 
     websocket = _websocket()
-    user, _principal = await authenticate_websocket_token(websocket, rhesis_api_key)
+    user, _principal, credential = await authenticate_websocket_token(websocket, rhesis_api_key)
 
     provenance = resolve_provenance(websocket)
     assert provenance.actor_type is ActorType.API_TOKEN
     assert provenance.actor_id == str(user.id)
+    # An rh-* socket is re-checked by its token value, so revocation closes it.
+    assert credential.api_token_value == rhesis_api_key
