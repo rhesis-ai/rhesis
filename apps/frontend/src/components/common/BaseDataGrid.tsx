@@ -975,8 +975,9 @@ export default function BaseDataGrid({
     // page it stands in for. Auto height would size an empty grid at two rows,
     // and the skeleton overlay draws rows to fill the measured area.
     skeleton && {
-      // The active sort's arrow would still show beside a placeholder header.
-      '& .MuiDataGrid-iconButtonContainer': { visibility: 'hidden' },
+      // The active sort's arrow would still show beside a placeholder header;
+      // MUI sets the sorted column's container back to visible.
+      '& .MuiDataGrid-iconButtonContainer': { display: 'none' },
       '& .MuiDataGrid-main': {
         // The main area holds the column header row as well as the rows.
         minHeight:
