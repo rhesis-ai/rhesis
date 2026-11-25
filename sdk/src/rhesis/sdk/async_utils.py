@@ -44,6 +44,90 @@ def reset_litellm_vertex_async_locks() -> None:
         logger.debug("Could not reset litellm Vertex async locks", exc_info=True)
 
 
+class _PerLoopLoggingWorker:
+    """Stands in for litellm's ``GLOBAL_LOGGING_WORKER`` with one worker per event loop.
+
+    litellm queues every async call's success logging on one process-wide worker, whose queue
+    and task belong to a single loop. When calls come from several loops (one per worker
+    thread, or ``asyncio.run()`` per call), the worker rebinds to each new loop in turn. The
+    task it leaves on the old loop is garbage collected while pending ("Task was destroyed
+    but it is pending!"), and coroutines it moves across loops fail with "cannot reuse
+    already awaited coroutine".
+    """
+
+    def __init__(self, worker_class, fallback):
+        self._worker_class = worker_class
+        self._fallback = fallback
+        # Not a WeakKeyDictionary: each worker holds its loop, so the key would never die.
+        self._workers = {}
+        self._lock = threading.Lock()
+
+    def _worker(self):
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return self._fallback
+        with self._lock:
+            worker = self._workers.get(loop)
+            if worker is None:
+                worker = self._workers[loop] = self._worker_class()
+                self._move_closed_loops_to(worker)
+            return worker
+
+    def _move_closed_loops_to(self, worker):
+        """Drop the workers of closed loops, handing their unsent logging to ``worker``.
+
+        ``asyncio.run()`` often closes its loop before the worker has run, so its queue still
+        holds that call's success logging. litellm moves it the same way on a loop change.
+        """
+        for loop in [loop for loop in self._workers if loop.is_closed()]:
+            closed = self._workers.pop(loop)
+            try:
+                self._hand_over(closed, worker)
+            except Exception:
+                # These are litellm internals; if a release changes them, lose the leftover
+                # logging rather than fail the call that is being made.
+                logger.debug("Could not move litellm logging off a closed loop", exc_info=True)
+
+    @staticmethod
+    def _hand_over(closed, worker):
+        # Each worker registers an atexit flush; without this they pile up.
+        atexit.unregister(closed._flush_on_exit)
+        leftovers = closed._unstarted_dequeued_tasks()
+        if closed._queue is not None:
+            leftovers += closed._drain_pending(closed._queue)
+        if not leftovers:
+            return
+        worker.start()
+        for task in leftovers:
+            try:
+                worker._queue.put_nowait(task)
+            except asyncio.QueueFull:
+                task["coroutine"].close()
+
+    def __getattr__(self, name):
+        return getattr(self._worker(), name)
+
+
+def use_per_loop_litellm_logging_worker() -> None:
+    """Give each event loop its own litellm logging worker. Idempotent.
+
+    litellm's completion and caching paths look ``GLOBAL_LOGGING_WORKER`` up at call time,
+    so replacing it covers every call made afterwards. Its realtime and Bedrock realtime
+    handlers bind the original worker at import and keep it.
+    """
+    try:
+        from litellm.litellm_core_utils import logging_worker
+    except ImportError:
+        return
+    current = logging_worker.GLOBAL_LOGGING_WORKER
+    if isinstance(current, _PerLoopLoggingWorker):
+        return
+    logging_worker.GLOBAL_LOGGING_WORKER = _PerLoopLoggingWorker(
+        logging_worker.LoggingWorker, fallback=current
+    )
+
+
 def _get_background_loop():
     """Lazily create a single background thread with its own event loop."""
     global _background_loop, _background_thread

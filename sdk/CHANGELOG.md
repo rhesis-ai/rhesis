@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- LiteLLM calls made from more than one event loop (one per worker thread, or `asyncio.run()` per call) no longer log "Task was destroyed but it is pending!" and LiteLLM `LoggingWorker` errors. Each event loop now gets its own LiteLLM logging worker.
 - The connector keeps each test and metric result until the backend acknowledges it, and resends unacknowledged results after reconnecting, and otherwise after 30 seconds, backing off to 5 minutes, paced at 200 per second. Against a backend without acknowledgements it keeps a result only while it cannot be sent. It keeps at most 1000 results for at most 10 minutes, logging each one it drops, and drops a result that cannot be serialized instead of retrying it.
 - After a connection that had stayed up drops, the connector reconnects at once instead of waiting out a backoff that grew with every earlier drop (up to 60 seconds), and sends during the reconnect go straight to the outbox.
 - The backend's keepalive `ping` is logged at debug level instead of info.
