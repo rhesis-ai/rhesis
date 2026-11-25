@@ -117,7 +117,7 @@ spec:
               FROM v_subscriptions
               WHERE status IN ('trial', 'active', 'past_due')
                 AND ((current_grant_id IS NULL AND term_start < (now() AT TIME ZONE 'UTC')::date)
-                     OR days_to_license_expiry <= 14)
+                     OR days_to_license_expiry <= 30)
         - refId: B
           datasourceUid: __expr__
           relativeTimeRange:
@@ -139,7 +139,7 @@ spec:
         category: licensing
       annotations:
         summary: "{{ $labels.customer }}: license expires in {{ $values.A.Value }} days or was never issued"
-        description: "A live subscription whose license expires within 14 days ({{ $values.A.Value }}; -1 = none issued). Owner: {{ $labels.owner }}. If the contract was renewed, issue a new license for the subscription; if not, cancel or expire the subscription."
+        description: "A live subscription whose license expires within a month (30 days) ({{ $values.A.Value }}; -1 = none issued). Owner: {{ $labels.owner }}. If the contract was renewed, issue a new license for the subscription; if not, cancel or expire the subscription."
     - uid: rhesis-licensing-term-ended
       title: Subscription term ended
       condition: B
