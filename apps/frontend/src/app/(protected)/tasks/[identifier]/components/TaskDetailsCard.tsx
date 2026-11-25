@@ -71,8 +71,8 @@ function UserFieldContent({
         src={user.picture}
         alt={user.name}
         sx={{
-          width: AVATAR_SIZES.SMALL,
-          height: AVATAR_SIZES.SMALL,
+          width: rem(AVATAR_SIZES.SMALL),
+          height: rem(AVATAR_SIZES.SMALL),
           bgcolor: 'primary.main',
         }}
       >

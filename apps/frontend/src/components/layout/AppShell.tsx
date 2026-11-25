@@ -9,6 +9,7 @@ import { useTheme } from '@mui/material/styles';
 import MenuIcon from '@mui/icons-material/Menu';
 import { usePathname } from 'next/navigation';
 import { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED_WIDTH } from './sidebar-constants';
+import { rem } from '@/styles/theme-constants';
 import { scaledVh } from '@/styles/viewport-scaling';
 
 /** Routes that use the full main column (no AppShell content padding). */
@@ -117,7 +118,7 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
               component="nav"
               aria-label="Main navigation"
               sx={{
-                width: SIDEBAR_WIDTH,
+                width: rem(SIDEBAR_WIDTH),
                 height: '100%',
                 bgcolor: theme => theme.palette.greyscale.surface1,
               }}
@@ -139,7 +140,8 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: `${sidebarWidth}px 1fr`,
+          // rem, so the sidebar widens with the browser's font size.
+          gridTemplateColumns: `${rem(sidebarWidth)} 1fr`,
           minHeight: scaledVh(),
           transition: 'grid-template-columns 0.2s ease',
         }}
@@ -149,7 +151,7 @@ export function AppShell({ children, sidebar, topBar }: AppShellProps) {
           component="nav"
           aria-label="Main navigation"
           sx={{
-            width: sidebarWidth,
+            width: rem(sidebarWidth),
             flexShrink: 0,
             position: 'sticky',
             top: 0,

@@ -161,7 +161,8 @@ export default function RequirementTable({
             variant="caption"
             color="text.secondary"
             fontWeight={600}
-            noWrap
+            // Accessibility mode wraps this header like the names below it.
+            noWrap={!theme.palette.accessibilityMode}
             sx={{ overflow: 'hidden' }}
           >
             Requirement / Metric

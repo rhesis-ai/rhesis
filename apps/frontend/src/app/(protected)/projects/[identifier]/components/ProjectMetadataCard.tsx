@@ -27,7 +27,7 @@ import {
   editableOutlinedFieldSx,
   readOnlyOutlinedFieldSx,
 } from '@/components/common/drawerFormFieldSx';
-import { SECTION_GRID } from '@/styles/theme-constants';
+import { SECTION_GRID, rem } from '@/styles/theme-constants';
 import { Project } from '@/utils/api-client/interfaces/project';
 import { User } from '@/utils/api-client/interfaces/user';
 import { useUsers } from '@/hooks/useLookups';
@@ -227,8 +227,8 @@ export default function ProjectMetadataCard({
                           src={picture}
                           alt={displayName}
                           sx={{
-                            width: AVATAR_SIZES.SMALL,
-                            height: AVATAR_SIZES.SMALL,
+                            width: rem(AVATAR_SIZES.SMALL),
+                            height: rem(AVATAR_SIZES.SMALL),
                           }}
                         >
                           <PersonIcon fontSize="small" />
@@ -245,8 +245,8 @@ export default function ProjectMetadataCard({
                           src={user.picture}
                           alt={getUserDisplayName(user)}
                           sx={{
-                            width: AVATAR_SIZES.MEDIUM,
-                            height: AVATAR_SIZES.MEDIUM,
+                            width: rem(AVATAR_SIZES.MEDIUM),
+                            height: rem(AVATAR_SIZES.MEDIUM),
                           }}
                         >
                           <PersonIcon fontSize="small" />

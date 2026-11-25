@@ -440,7 +440,7 @@ export function Sidebar() {
   return (
     <Box
       sx={{
-        width: sidebarWidth,
+        width: rem(sidebarWidth),
         height: '100%',
         display: 'flex',
         flexDirection: 'column',

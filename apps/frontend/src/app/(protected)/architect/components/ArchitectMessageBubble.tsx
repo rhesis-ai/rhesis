@@ -113,8 +113,8 @@ export default function ArchitectMessageBubble({
       ) : (
         <Box
           sx={{
-            width: AVATAR_SIZES.MEDIUM,
-            height: AVATAR_SIZES.MEDIUM,
+            width: rem(AVATAR_SIZES.MEDIUM),
+            height: rem(AVATAR_SIZES.MEDIUM),
             borderRadius: theme => theme.shape.circular,
             display: 'flex',
             alignItems: 'center',

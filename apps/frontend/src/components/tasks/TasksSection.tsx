@@ -176,8 +176,8 @@ export function TasksSection({
             src={params.row.assignee?.picture}
             alt={params.row.assignee?.name || 'Unassigned'}
             sx={{
-              width: AVATAR_SIZES.SMALL,
-              height: AVATAR_SIZES.SMALL,
+              width: rem(AVATAR_SIZES.SMALL),
+              height: rem(AVATAR_SIZES.SMALL),
               bgcolor: 'primary.main',
             }}
           >
