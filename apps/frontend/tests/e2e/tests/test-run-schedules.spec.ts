@@ -60,6 +60,35 @@ test.describe('Test run schedules @crud', () => {
     await page.getByRole('tab', { name: 'Configuration' }).click();
     await expect(page.getByText('Run settings')).toBeVisible();
 
+    // Run settings open in the run drawer and save back to the same schedule.
+    // .last(): the header's Edit FAB (timing) comes first.
+    await page
+      .getByRole('button', { name: 'Edit', exact: true })
+      .last()
+      .click();
+    await expect(page.getByText(`Edit ${name}`).first()).toBeVisible();
+    const save = page.getByRole('button', { name: 'Save', exact: true });
+    await expect(save).toBeEnabled({ timeout: 15_000 });
+    await save.click();
+    await expect(page.getByText(`Saved ${name}`).first()).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // The test set banner's link: the Schedules tab shows that test set's schedules only.
+    await page.getByRole('tab', { name: 'Summary' }).click();
+    const testSetHref = await page
+      .locator('main')
+      .locator('a[href^="/test-sets/"]')
+      .first()
+      .getAttribute('href');
+    const testSetId = testSetHref?.split('/').pop();
+    await page.goto(`/test-runs?tab=schedules&test_set=${testSetId}`);
+    await expect(page.getByText(/^Test set: /)).toBeVisible({
+      timeout: 15_000,
+    });
+    await showList(page);
+    await expect(row(page, name)).toBeVisible({ timeout: 15_000 });
+
     await page.goto('/test-runs?tab=schedules');
     await showList(page);
     await page.getByRole('button', { name: `Actions for ${name}` }).click();
