@@ -10,9 +10,6 @@ import { useDetailTabNav } from '@/hooks/useDetailTabNav';
 import { useRouter } from 'next/navigation';
 import { TestSet } from '@/utils/api-client/interfaces/test-set';
 import type { TestDetail } from '@/utils/api-client/interfaces/tests';
-import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
-import type { Task } from '@/types/tasks';
-import type { Comment } from '@/types/comments';
 import { TasksAndCommentsWrapper } from '@/components/tasks/TasksAndCommentsWrapper';
 import TestSetDetailsCard from './TestSetDetailsCard';
 import TestSetTagsMetricsCard from './TestSetTagsMetricsCard';
@@ -26,13 +23,6 @@ interface TestSetDetailTabsProps {
   testCount: number;
   /** Server-prefetched first page of the Tests tab; undefined falls back to a client fetch. */
   initialTests?: TestDetail[];
-  /** Server-prefetched first page of the Test Runs tab. */
-  initialRuns?: TestRunDetail[];
-  initialRunsTotalCount?: number;
-  /** Server-prefetched first page of the Tasks tab. */
-  initialTasks?: Task[];
-  initialTasksTotalCount?: number;
-  initialComments?: Comment[];
   isGenerating?: boolean;
   currentUserId: string;
   currentUserName: string;
@@ -43,11 +33,6 @@ export default function TestSetDetailTabs({
   testSet,
   testCount,
   initialTests,
-  initialRuns,
-  initialRunsTotalCount,
-  initialTasks,
-  initialTasksTotalCount,
-  initialComments,
   isGenerating = false,
   currentUserId,
   currentUserName,
@@ -107,20 +92,13 @@ export default function TestSetDetailTabs({
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={2} prefix="test-set-detail">
-        <TestSetRunsGrid
-          testSetId={testSet.id as string}
-          initialData={initialRuns}
-          initialTotalCount={initialRunsTotalCount}
-        />
+        <TestSetRunsGrid testSetId={testSet.id as string} />
       </DetailTabPanel>
 
       <DetailTabPanel value={activeTab} index={3} prefix="test-set-detail">
         <TasksAndCommentsWrapper
           entityType="TestSet"
           entityId={testSet.id as string}
-          initialTasks={initialTasks}
-          initialTasksTotalCount={initialTasksTotalCount}
-          initialComments={initialComments}
           currentUserId={currentUserId}
           currentUserName={currentUserName}
           currentUserPicture={currentUserPicture}

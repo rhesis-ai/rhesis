@@ -2,11 +2,9 @@ import * as React from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import { createServerApiFactory } from '@/utils/api-client/server-factory';
 import { notFoundIfEntityMissing } from '@/utils/entity-not-found-server';
-import { prefetch, prefetchList } from '@/utils/server-prefetch';
-import { Capability } from '@/constants/capabilities';
+import { prefetchList } from '@/utils/server-prefetch';
 import { firstPageParams } from '@/utils/list';
 import { requireSession } from '@/utils/require-session';
-import { entityTasksList } from '@/components/tasks/list';
 import { format } from 'date-fns';
 
 import { PageLayout } from '@/components/layout/PageLayout';
@@ -17,7 +15,6 @@ import { detailPageTitle } from '@/utils/document-title';
 import TestSetHeaderActions from './components/TestSetHeaderActions';
 import TestSetDetailTabs from './components/TestSetDetailTabs';
 import { testSetTestsList } from './components/list';
-import { testSetRunsList } from './components/testSetRunsList';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -31,25 +28,12 @@ export default async function TestSetPage({ params }: PageProps) {
   const apiFactory = await createServerApiFactory();
   const testSetsClient = apiFactory.getTestSetsClient();
 
-  // First pages of the Tests, Test Runs, and Tasks tabs; the tests total
-  // doubles as the header count. Only needs `identifier`, not `testSet`.
+  // First page of the Tests tab, whose total doubles as the header count. The
+  // Test Runs and Tasks tabs fetch their own data when opened.
   const linkedTests = testSetTestsList(identifier);
-  const linkedRuns = testSetRunsList(identifier);
-  const tasks = entityTasksList('TestSet', identifier);
-  const tabsPromise = Promise.all([
-    prefetchList(linkedTests.capability, () =>
-      linkedTests.list(apiFactory, firstPageParams(linkedTests))
-    ),
-    prefetchList(linkedRuns.capability, () =>
-      linkedRuns.list(apiFactory, firstPageParams(linkedRuns))
-    ),
-    prefetchList(tasks.capability, () =>
-      tasks.list(apiFactory, firstPageParams(tasks))
-    ),
-    prefetch(Capability.Comment.READ, () =>
-      apiFactory.getCommentsClient().getComments('TestSet', identifier)
-    ),
-  ]);
+  const testsPromise = prefetchList(linkedTests.capability, () =>
+    linkedTests.list(apiFactory, firstPageParams(linkedTests))
+  );
 
   let testSet;
   try {
@@ -59,19 +43,7 @@ export default async function TestSetPage({ params }: PageProps) {
     throw error;
   }
 
-  if (testSet.test_set_type_id) {
-    try {
-      const typeLookupClient = apiFactory.getTypeLookupClient();
-      const testSetType = await typeLookupClient.getTypeLookup(
-        testSet.test_set_type_id as string
-      );
-      testSet = { ...testSet, test_set_type: testSetType };
-    } catch {
-      // keep original if fetch fails
-    }
-  }
-
-  const [testsPage, runsPage, tasksPage, comments] = await tabsPromise;
+  const testsPage = await testsPromise;
   const testCount =
     testsPage.initialData !== undefined
       ? testsPage.initialTotalCount
@@ -135,11 +107,6 @@ export default async function TestSetPage({ params }: PageProps) {
             testSet={serializedTestSet}
             testCount={testCount}
             initialTests={testsPage.initialData}
-            initialRuns={runsPage.initialData}
-            initialRunsTotalCount={runsPage.initialTotalCount}
-            initialTasks={tasksPage.initialData}
-            initialTasksTotalCount={tasksPage.initialTotalCount}
-            initialComments={comments}
             isGenerating={isGenerating}
             currentUserId={session.user?.id || ''}
             currentUserName={session.user?.name || ''}
