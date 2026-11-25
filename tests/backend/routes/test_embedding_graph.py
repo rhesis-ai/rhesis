@@ -8,6 +8,7 @@ import pytest
 from fastapi import status
 
 from rhesis.backend.app import models
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.models.type_lookup import TypeLookup
 
 
@@ -70,6 +71,18 @@ class TestTestSetEmbeddingGraphRoutes:
         assert body.get("status") == "pending"
         assert body.get("task_id") == "celery-task-id"
         mock_task.delay.assert_called_once()
+
+    @patch("rhesis.backend.app.routers.test_set.compute_test_set_graph_task")
+    def test_routes_are_not_available_when_embeddings_are_off(
+        self, mock_task, authenticated_client, db_test_set, monkeypatch
+    ):
+        monkeypatch.setattr(get_application_settings(), "embeddings_enabled", False)
+        base = f"/test_sets/{db_test_set.id}/embeddings"
+
+        assert authenticated_client.get(f"{base}/graph").status_code == status.HTTP_404_NOT_FOUND
+        compute = authenticated_client.post(f"{base}/compute-graph")
+        assert compute.status_code == status.HTTP_404_NOT_FOUND
+        mock_task.delay.assert_not_called()
 
 
 @pytest.mark.unit
@@ -152,3 +165,23 @@ class TestSourceEmbeddingGraphRoutes:
         body = response.json()
         assert body.get("status") == "pending"
         assert body.get("task_id") == "src-task-id"
+
+    @patch("rhesis.backend.app.routers.source.compute_source_graph_task")
+    def test_routes_are_not_available_when_embeddings_are_off(
+        self,
+        mock_task,
+        authenticated_client,
+        test_db,
+        test_organization,
+        db_user,
+        db_status,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(get_application_settings(), "embeddings_enabled", False)
+        src = self._create_source(test_db, test_organization, db_user, db_status)
+        base = f"/sources/{src.id}/embeddings"
+
+        assert authenticated_client.get(f"{base}/graph").status_code == status.HTTP_404_NOT_FOUND
+        compute = authenticated_client.post(f"{base}/compute-graph")
+        assert compute.status_code == status.HTTP_404_NOT_FOUND
+        mock_task.delay.assert_not_called()

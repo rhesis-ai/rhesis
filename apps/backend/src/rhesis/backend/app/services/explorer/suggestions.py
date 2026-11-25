@@ -9,6 +9,7 @@ import anyio
 from pydantic import BaseModel, Field, create_model
 from sqlalchemy.orm import Session
 
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.crud import user as user_crud
 from rhesis.backend.app.quota.enforcement import stream_error_message
@@ -290,6 +291,7 @@ async def generate_suggestions(
     AsyncGenerator (stream=True)
         Yields typed dicts as described above.
     """
+    generate_embeddings = generate_embeddings and get_application_settings().embeddings_enabled
     ctx = await anyio.to_thread.run_sync(
         _prepare_suggestion_context,
         db,
@@ -415,6 +417,7 @@ async def suggestion_pipeline_stream(
              any suggestion could be produced -- e.g. quota exhaustion)
       - ``{"type": "done"}``
     """
+    generate_embeddings = generate_embeddings and get_application_settings().embeddings_enabled
     pipeline_t0 = time.monotonic()
 
     def _ts() -> str:

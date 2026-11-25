@@ -40,6 +40,7 @@ import PageLoadingState from '@/components/common/PageLoadingState';
 import { type ValidationStatus } from '../types';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import {
+  useEmbeddingsEnabled,
   useRefreshFeatures,
   useRhesisKeyEnabled,
 } from '@/contexts/FeaturesContext';
@@ -71,6 +72,7 @@ export default function ModelsPageClient({
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
   const rhesisKeyEnabled = useRhesisKeyEnabled();
+  const embeddingsEnabled = useEmbeddingsEnabled();
   // Model readiness rides on `GET /features`, so every change to the models
   // or the defaults refetches it.
   const refreshFeatures = useRefreshFeatures();
@@ -268,7 +270,9 @@ export default function ModelsPageClient({
     const defaultGenerationId = userSettings?.models?.generation?.model_id;
     const defaultEvaluationId = userSettings?.models?.evaluation?.model_id;
     const defaultExecutionId = userSettings?.models?.execution?.model_id;
-    const defaultEmbeddingId = userSettings?.models?.embedding?.model_id;
+    const defaultEmbeddingId = embeddingsEnabled
+      ? userSettings?.models?.embedding?.model_id
+      : undefined;
 
     setModelValidationStatus(prev => {
       const newStatus = new Map(prev);
@@ -314,6 +318,7 @@ export default function ModelsPageClient({
     userSettings?.models?.evaluation?.model_id,
     userSettings?.models?.execution?.model_id,
     userSettings?.models?.embedding?.model_id,
+    embeddingsEnabled,
     validateModel,
     status,
   ]);
@@ -395,7 +400,14 @@ export default function ModelsPageClient({
     { value: 'embedding', label: 'Embedding' },
   ];
 
-  const filteredModels = connectedModels.filter(model => {
+  // Embedding models stay in the database but are not shown while embeddings are off.
+  const visibleModels = embeddingsEnabled
+    ? connectedModels
+    : connectedModels.filter(
+        model => model.model_type !== MODEL_TYPES.EMBEDDING
+      );
+
+  const filteredModels = visibleModels.filter(model => {
     const typeMatch =
       modelTypeFilter === 'all' ||
       // Decision models (Jev) are added through the language flow, so they list here too
@@ -428,7 +440,11 @@ export default function ModelsPageClient({
   return (
     <PageLayout
       title="Models"
-      description="Connect language models for test generation and language-model-as-judge evaluation, and embedding models for platform use. Set your defaults for generation, evaluation, and execution."
+      description={
+        embeddingsEnabled
+          ? 'Connect language models for test generation and language-model-as-judge evaluation, and embedding models for platform use. Set your defaults for generation, evaluation, and execution.'
+          : 'Connect language models for test generation and language-model-as-judge evaluation. Set your defaults for generation, evaluation, and execution.'
+      }
       breadcrumbs={[]}
       actions={
         <FabGroup>
@@ -445,7 +461,9 @@ export default function ModelsPageClient({
               icon={<FabAddIcon />}
               tooltip="Add model"
               aria-label="Add model"
-              onClick={handleFabClick}
+              onClick={
+                embeddingsEnabled ? handleFabClick : handleAddLanguageModel
+              }
             />
             <Menu
               anchorEl={fabAnchorEl}
@@ -480,11 +498,13 @@ export default function ModelsPageClient({
         activeFilterCount={countActiveModelFilters(drawerFilters)}
         {...directoryToolbarProps}
         middleContent={
-          <ToolbarPillTabs
-            tabs={typeFilterOptions}
-            activeValue={modelTypeFilter}
-            onChange={v => setModelTypeFilter(v as ModelTypeFilter)}
-          />
+          embeddingsEnabled ? (
+            <ToolbarPillTabs
+              tabs={typeFilterOptions}
+              activeValue={modelTypeFilter}
+              onChange={v => setModelTypeFilter(v as ModelTypeFilter)}
+            />
+          ) : undefined
         }
       />
 
@@ -495,7 +515,7 @@ export default function ModelsPageClient({
       ) : filteredModels.length === 0 ? (
         <Box sx={{ py: 4, textAlign: 'center' }}>
           <Typography color="text.secondary">
-            {connectedModels.length === 0
+            {visibleModels.length === 0
               ? 'No models connected yet. Use the + button to add one.'
               : 'No models match your search.'}
           </Typography>

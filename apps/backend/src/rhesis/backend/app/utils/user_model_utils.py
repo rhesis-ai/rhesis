@@ -448,7 +448,10 @@ def check_model_readiness(db: Session, user: User) -> ModelReadiness:
     Computed on each call and never stored. See :func:`model_setup_problem`.
     """
     problems = {}
-    for purpose in ("generation", "evaluation", "embedding"):
+    purposes = ["generation", "evaluation"]
+    if get_application_settings().embeddings_enabled:
+        purposes.append("embedding")
+    for purpose in purposes:
         problem = model_setup_problem(db, user, purpose)
         if problem is not None:
             logger.info("Model not ready for user_id=%s: %s", user.id, problem.log_message)

@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 
+from rhesis.backend.app.auth.feature_gates import require_embeddings_enabled
 from rhesis.backend.app.auth.quota_gates import require_quota
 from rhesis.backend.app.auth.user_utils import require_current_user_or_token
 from rhesis.backend.app.database import get_db_with_tenant_variables
@@ -313,7 +314,13 @@ async def generate_content_endpoint(
         ) from e
 
 
-@router.post("/generate/embedding", dependencies=[per_user_rate_limit(INFERENCE_RATE_LIMIT)])
+@router.post(
+    "/generate/embedding",
+    dependencies=[
+        Depends(require_embeddings_enabled),
+        per_user_rate_limit(INFERENCE_RATE_LIMIT),
+    ],
+)
 def generate_embedding_endpoint(
     request: GenerateEmbeddingRequest,
     db: Session = Depends(get_tenant_db_session),

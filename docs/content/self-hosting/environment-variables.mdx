@@ -208,6 +208,7 @@ where you can paste a Rhesis API key or add your own model with no restart. See
 | `DEFAULT_EVALUATION_MODEL` | Model for evaluation / judging | `rhesis/rhesis-default` |
 | `DEFAULT_EXECUTION_MODEL` | Model for multi-turn execution | `rhesis/rhesis-default` |
 | `DEFAULT_EMBEDDING_MODEL` | Model for embeddings | `rhesis/rhesis-embedding` |
+| `EMBEDDINGS_ENABLED` | Generates embeddings for tests, test results, traces and source chunks, serves `POST /services/generate/embedding`, and shows embedding models on the Models page. Set it on the backend and the worker. | `false` |
 
 Provider keys, read at runtime when a `DEFAULT_*_MODEL` targets that provider:
 

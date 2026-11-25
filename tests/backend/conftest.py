@@ -113,6 +113,9 @@ _TEST_ENV_VARS = {
     # unrelated tests 429 each other. tests/backend/security/test_rate_limiting.py
     # turns the limiter back on where it is under test.
     "RATELIMIT_ENABLED": "false",
+    # Off by default in deployments. On here so the embedding tests cover the feature;
+    # the tests of the off path switch it off themselves.
+    "EMBEDDINGS_ENABLED": "true",
 }
 
 

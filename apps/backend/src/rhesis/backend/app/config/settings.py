@@ -144,6 +144,8 @@ class ApplicationSettings(BaseSettings):
     cloud_run_revision: str | None = Field(default=None, alias="K_REVISION")
     json_logger_enabled: bool = Field(default=False, alias="JSON_LOGGER_ENABLED")
     enable_rhesis_key: bool = Field(default=False, alias="ENABLE_RHESIS_KEY")
+    # Generates embeddings on save, for test-set and source graphs, and in explorer suggestions.
+    embeddings_enabled: bool = Field(default=False, alias="EMBEDDINGS_ENABLED")
     # Unset means on for BACKEND_ENV=local/development, off for staging/production.
     outbound_allow_private_networks: bool | None = Field(
         default=None, alias="OUTBOUND_ALLOW_PRIVATE_NETWORKS"

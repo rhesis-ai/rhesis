@@ -5,6 +5,7 @@ from collections.abc import Callable
 from typing import Any
 from uuid import UUID
 
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.celery.core import app
 from rhesis.backend.jobs.base import SilentJob
 
@@ -271,6 +272,8 @@ def _run_source_embedding_graph(db, *, source_id: str, user_id: str) -> None:
 )
 def compute_test_set_graph_task(self, test_set_id: str, user_id: str):
     """Compute embedding graph for a test set and store on ``attributes`` JSON."""
+    if not get_application_settings().embeddings_enabled:
+        return
     with self.get_db_session() as db:
         _run_test_set_embedding_graph(db, test_set_id=test_set_id, user_id=user_id)
 
@@ -283,5 +286,7 @@ def compute_test_set_graph_task(self, test_set_id: str, user_id: str):
 )
 def compute_source_graph_task(self, source_id: str, user_id: str):
     """Compute embedding graph for a source and store under ``source_metadata`` JSON."""
+    if not get_application_settings().embeddings_enabled:
+        return
     with self.get_db_session() as db:
         _run_source_embedding_graph(db, source_id=source_id, user_id=user_id)

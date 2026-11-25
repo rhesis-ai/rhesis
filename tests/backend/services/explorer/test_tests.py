@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from rhesis.backend.app import models
+from rhesis.backend.app.config.settings import get_application_settings
 from rhesis.backend.app.crud import test_set as test_set_crud
 from rhesis.backend.app.crud.explorer import create_explorer_test, get_test_ids_in_test_sets
 from rhesis.backend.app.database import without_soft_delete_filter
@@ -807,6 +808,29 @@ class TestCreateTestNode:
             .all()
         )
         assert rows == [], "the create path embedded inline instead of leaving it deferred"
+
+    def test_creating_a_test_queues_no_embedding_when_embeddings_are_off(
+        self,
+        test_db,
+        explorer_test_set,
+        test_org_id,
+        authenticated_user_id,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(get_application_settings(), "embeddings_enabled", False)
+
+        result = create_test_node(
+            db=test_db,
+            test_set_id=explorer_test_set.id,
+            organization_id=test_org_id,
+            user_id=authenticated_user_id,
+            topic="Safety",
+            input="No embedding while the flag is off",
+            output="ok",
+        )
+
+        queued = test_db.info.get("pending_embedding_jobs", [])
+        assert not any(job["entity_id"] == result.id for job in queued)
 
 
 # ============================================================================

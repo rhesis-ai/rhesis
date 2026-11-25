@@ -39,14 +39,14 @@ _PLATFORM_KEY = "rhesis.backend.app.services.platform_key"
 
 @pytest.fixture
 def deployment(monkeypatch):
-    """Pin the deployment: ``deployment(cloud_key=..., platform_key_feature=...)``.
+    """Pin the deployment: ``deployment(cloud_key=..., platform_key_feature=..., embeddings=...)``.
 
     ``cloud_key`` is this deployment's own ``RHESIS_API_KEY``, which is what makes
     the ``DEFAULT_*_MODEL`` settings buildable on Rhesis cloud.
     """
     patches = []
 
-    def _set(*, cloud_key=None, platform_key_feature=False):
+    def _set(*, cloud_key=None, platform_key_feature=False, embeddings=True):
         if cloud_key:
             monkeypatch.setenv("RHESIS_API_KEY", cloud_key)
         else:
@@ -63,7 +63,9 @@ def deployment(monkeypatch):
             ),
             (
                 f"{_UTILS}.get_application_settings",
-                SimpleNamespace(enable_rhesis_key=platform_key_feature),
+                SimpleNamespace(
+                    enable_rhesis_key=platform_key_feature, embeddings_enabled=embeddings
+                ),
             ),
             (f"{_PLATFORM_KEY}.get_rhesis_settings", SimpleNamespace(api_key=cloud_key)),
         ):
@@ -232,6 +234,19 @@ class TestCheckModelReadiness:
         assert readiness.ready
         # No embedding model and no key: reported, but models_ready stays True.
         assert readiness.embedding is not None
+
+    def test_embedding_is_not_checked_when_embeddings_are_off(
+        self, test_db, user, own_model, deployment
+    ):
+        deployment(platform_key_feature=True, embeddings=False)
+        apply_default_model_ids(
+            user, {"generation": str(own_model.id), "evaluation": str(own_model.id)}
+        )
+
+        readiness = check_model_readiness(test_db, user)
+
+        assert readiness.ready
+        assert readiness.embedding is None
 
     def test_jev_evaluation_default_is_ready(self, test_db, user, own_model, jev_model, deployment):
         deployment(platform_key_feature=True)

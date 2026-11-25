@@ -75,6 +75,11 @@ export interface FeaturesResponse {
    */
   rhesis_key_enabled?: boolean;
   /**
+   * Whether embedding generation and its UI are on (EMBEDDINGS_ENABLED).
+   * Optional to tolerate older backends that predate this field.
+   */
+  embeddings_enabled?: boolean;
+  /**
    * Whether the user's default generation and evaluation models can be built.
    * Also `false` before the org exists, so never gate on it during onboarding.
    */
