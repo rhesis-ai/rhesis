@@ -29,6 +29,8 @@ class ScheduleTiming:
     run_at: datetime | None
     timezone: str
     ends_at: datetime | None = None
+    # Set by a "this and following" edit: the cron yields nothing before it.
+    starts_at: datetime | None = None
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "ScheduleTiming":
@@ -37,6 +39,7 @@ class ScheduleTiming:
             run_at=parse_instant(data.get("run_at")),
             timezone=data.get("timezone") or "UTC",
             ends_at=parse_instant(data.get("ends_at")),
+            starts_at=parse_instant(data.get("starts_at")),
         )
 
     @property
@@ -117,6 +120,8 @@ def _originals_after(timing: ScheduleTiming, after: datetime) -> Iterator[dateti
     if not timing.cron:
         return
     zone = timing.zone
+    if timing.starts_at is not None:
+        after = max(after, timing.starts_at - timedelta(microseconds=1))
     iterator = croniter(timing.cron, after.astimezone(zone))
     for _ in range(_MAX_CANDIDATES):
         try:
@@ -135,13 +140,40 @@ def _is_original(timing: ScheduleTiming, instant: datetime) -> bool:
     return next(_originals_after(timing, instant - timedelta(seconds=1)), None) == instant
 
 
-def _exception_map(exceptions: Iterable[Mapping[str, Any]]) -> dict[datetime, datetime | None]:
-    """Original time to its new time, or ``None`` when that run is skipped."""
-    result: dict[datetime, datetime | None] = {}
+@dataclass(frozen=True)
+class _Changes:
+    """Exceptions split by kind. ``moved`` maps an original time to its new time."""
+
+    skipped: frozenset[datetime]
+    moved: dict[datetime, datetime]
+    # Runs kept from an earlier timetable by a "this and following" edit; not cron matches.
+    extra: tuple[tuple[datetime, datetime], ...]
+
+    def touches(self, original: datetime) -> bool:
+        return original in self.skipped or original in self.moved
+
+
+def _changes(exceptions: Iterable[Mapping[str, Any]]) -> _Changes:
+    skipped, moved, extra = set(), {}, []
     for entry in exceptions or ():
         original = parse_instant(entry["occurrence"])
-        result[original] = None if entry.get("skip") else parse_instant(entry.get("run_at"))
-    return result
+        if entry.get("skip"):
+            skipped.add(original)
+        elif entry.get("extra"):
+            extra.append((original, parse_instant(entry.get("run_at")) or original))
+        else:
+            moved[original] = parse_instant(entry["run_at"])
+    return _Changes(frozenset(skipped), moved, tuple(extra))
+
+
+def _changed_runs(timing: ScheduleTiming, changes: _Changes) -> Iterator[Occurrence]:
+    """Runs that come from exceptions rather than straight from the cron."""
+    for original, moved_to in changes.moved.items():
+        if _is_original(timing, original):
+            yield Occurrence(original, moved_to)
+    for original, at in changes.extra:
+        if original not in changes.skipped:
+            yield Occurrence(original, at)
 
 
 def occurrences(
@@ -155,17 +187,14 @@ def occurrences(
 
     ``limit`` caps how many are returned, e.g. the runs left under ``max_runs``.
     """
-    changes = _exception_map(exceptions)
+    changes = _changes(exceptions)
     result = []
     for original in _originals_after(timing, start - timedelta(microseconds=1)):
         if original >= end:
             break
-        if original in changes:
-            continue
-        result.append(Occurrence(original, original))
-    for original, moved_to in changes.items():
-        if moved_to is not None and start <= moved_to < end and _is_original(timing, original):
-            result.append(Occurrence(original, moved_to))
+        if not changes.touches(original):
+            result.append(Occurrence(original, original))
+    result.extend(o for o in _changed_runs(timing, changes) if start <= o.at < end)
     result.sort(key=lambda occurrence: occurrence.at)
     return result[:limit] if limit is not None else result
 
@@ -176,16 +205,40 @@ def compute_next_run(
     exceptions: Iterable[Mapping[str, Any]] = (),
 ) -> Occurrence | None:
     """The first run strictly after ``after``, with skips and moves applied."""
-    changes = _exception_map(exceptions)
-    candidates = []
+    changes = _changes(exceptions)
+    candidates = [o for o in _changed_runs(timing, changes) if o.at > after]
     for original in _originals_after(timing, after):
-        if original not in changes:
+        if not changes.touches(original):
             candidates.append(Occurrence(original, original))
             break
-    for original, moved_to in changes.items():
-        if moved_to is not None and moved_to > after and _is_original(timing, original):
-            candidates.append(Occurrence(original, moved_to))
     return min(candidates, key=lambda occurrence: occurrence.at, default=None)
+
+
+def find_occurrence(
+    timing: ScheduleTiming, original: datetime, exceptions: Iterable[Mapping[str, Any]] = ()
+) -> Occurrence | None:
+    """The run the schedule puts at ``original``, wherever it runs now; ``None`` if none."""
+    changes = _changes(exceptions)
+    if original in changes.skipped:
+        return None
+    for occurrence in _changed_runs(timing, changes):
+        if occurrence.original == original:
+            return occurrence
+    return Occurrence(original, original) if _is_original(timing, original) else None
+
+
+def current_occurrence(
+    next_run_at: datetime, exceptions: Iterable[Mapping[str, Any]] = ()
+) -> Occurrence:
+    """The run due at ``next_run_at``, with the time the schedule originally put it."""
+    changes = _changes(exceptions)
+    for original, moved_to in changes.moved.items():
+        if moved_to == next_run_at:
+            return Occurrence(original, moved_to)
+    for original, at in changes.extra:
+        if at == next_run_at:
+            return Occurrence(original, at)
+    return Occurrence(next_run_at, next_run_at)
 
 
 def min_gap(timing: ScheduleTiming, sample: int = 50, start: datetime | None = None) -> timedelta:

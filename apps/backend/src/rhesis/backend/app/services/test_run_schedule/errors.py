@@ -11,3 +11,7 @@ class ScheduleValidationError(ScheduleError, ValueError):
 
 class ScheduleConflict(ScheduleError):
     """The schedule changed in a way that makes the request stale (409)."""
+
+
+class ScheduleNotFound(ScheduleError):
+    """No schedule with that id in the caller's scope (404)."""
