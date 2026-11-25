@@ -106,7 +106,9 @@ function Notices({
         severity={reason === PAUSED_REASON.USER ? 'info' : 'warning'}
         key="paused"
         action={
-          needsOwner && can(schedule, Capability.TestRun.UPDATE) ? (
+          needsOwner &&
+          can(schedule, Capability.TestRun.UPDATE) &&
+          can(schedule, Capability.TestRun.EXECUTE) ? (
             <Button color="inherit" size="small" onClick={onTakeOver}>
               Take over
             </Button>

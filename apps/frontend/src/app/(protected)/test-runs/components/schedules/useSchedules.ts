@@ -27,6 +27,8 @@ export function useScheduleDetail(id: string | null) {
     queryKey: scheduleKeys.detail(id ?? ''),
     queryFn: () => client().get(id ?? ''),
     enabled: Boolean(id),
+    // The drawer fills its fields from this; never start from a cached copy.
+    staleTime: 0,
   });
 }
 

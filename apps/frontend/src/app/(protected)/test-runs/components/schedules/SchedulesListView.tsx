@@ -13,7 +13,11 @@ import {
 import Link from 'next/link';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import SectionEmptyState from '@/components/common/SectionEmptyState';
-import { formatRunTime } from '@/components/common/run-drawer/schedule-form';
+import {
+  formatRunTime,
+  timeUntil,
+} from '@/components/common/run-drawer/schedule-form';
+import { SCHEDULE_STATUS } from '@/constants/test-run-schedules';
 import type { TestRunSchedule } from '@/utils/api-client/interfaces/test-run-schedule';
 import ScheduleRowActions from './ScheduleRowActions';
 import ScheduleStatusChip from './ScheduleStatusChip';
@@ -23,6 +27,24 @@ interface Props {
   onOpen: (schedule: TestRunSchedule) => void;
   onTakeOver: (schedule: TestRunSchedule) => void;
   onDelete: (schedule: TestRunSchedule) => void;
+}
+
+/** Overdue first, then by next run; paused and finished last. */
+export function sortSchedules(schedules: TestRunSchedule[]): TestRunSchedule[] {
+  const rank = (s: TestRunSchedule) =>
+    s.overdue
+      ? 0
+      : s.status === SCHEDULE_STATUS.SCHEDULED
+        ? 1
+        : s.status === SCHEDULE_STATUS.PAUSED
+          ? 2
+          : 3;
+  return [...schedules].sort(
+    (a, b) =>
+      rank(a) - rank(b) ||
+      (a.next_run_at ?? '').localeCompare(b.next_run_at ?? '') ||
+      a.name.localeCompare(b.name)
+  );
 }
 
 const percent = (rate: number | null) =>
@@ -60,12 +82,21 @@ export default function SchedulesListView({
           </TableRow>
         </TableHead>
         <TableBody>
-          {schedules.map(schedule => (
+          {sortSchedules(schedules).map(schedule => (
             <TableRow
               key={schedule.id}
               hover
+              tabIndex={0}
+              aria-label={`Open ${schedule.name}`}
               sx={{ cursor: 'pointer' }}
               onClick={() => onOpen(schedule)}
+              onKeyDown={event => {
+                if (
+                  event.target === event.currentTarget &&
+                  event.key === 'Enter'
+                )
+                  onOpen(schedule);
+              }}
             >
               <TableCell>
                 <MuiLink
@@ -82,9 +113,23 @@ export default function SchedulesListView({
               </TableCell>
               <TableCell>{schedule.repeats}</TableCell>
               <TableCell>
-                {schedule.next_run_at
-                  ? formatRunTime(schedule.next_run_at, schedule.timezone)
-                  : '—'}
+                {schedule.next_run_at &&
+                schedule.status === SCHEDULE_STATUS.SCHEDULED ? (
+                  <>
+                    {formatRunTime(schedule.next_run_at, schedule.timezone)}
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      component="div"
+                    >
+                      {schedule.overdue
+                        ? 'Overdue'
+                        : timeUntil(schedule.next_run_at)}
+                    </Typography>
+                  </>
+                ) : (
+                  '—'
+                )}
               </TableCell>
               <TableCell>
                 {schedule.last_run ? (

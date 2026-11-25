@@ -76,7 +76,7 @@ export default function ScheduleRowActions({
           () => actions.resume(schedule),
           canUpdate && paused && !needsOwner
         )}
-        {item('Take over', onTakeOver, canUpdate && needsOwner)}
+        {item('Take over', onTakeOver, canUpdate && canRun && needsOwner)}
         {item('Delete', onDelete, canDelete)}
       </Menu>
     </>

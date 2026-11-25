@@ -119,14 +119,15 @@ export function scheduleRoute(
  * read as `error` -- same severity, different glyph (see `notificationIcon`)
  * -- since either one means "this needs the reader's attention now". */
 function notificationSeverity(n: Notification): NotificationSeverity {
+  // Before is_failure: the backend marks these as failures, but they ask for a look, not a fix.
+  if (n.event_type === SCHEDULE_NOTIFICATION.SKIPPED) return 'info';
+  if (SCHEDULE_EVENTS.includes(n.event_type)) return 'warning';
   if (n.event_type === UsageNotificationEventType.BLOCKED || n.is_failure) {
     return 'error';
   }
-  if (n.event_type === SCHEDULE_NOTIFICATION.SKIPPED) return 'info';
   if (
     n.event_type === UsageNotificationEventType.APPROACHING_LIMIT ||
-    n.event_type === EndpointNotificationEventType.SETUP_REQUIRED ||
-    SCHEDULE_EVENTS.includes(n.event_type)
+    n.event_type === EndpointNotificationEventType.SETUP_REQUIRED
   ) {
     return 'warning';
   }
@@ -140,6 +141,7 @@ function notificationIcon(n: Notification): typeof SvgIcon {
   if (n.event_type === UsageNotificationEventType.BLOCKED) {
     return ErrorOutlineIcon;
   }
+  if (SCHEDULE_EVENTS.includes(n.event_type)) return ScheduleIcon;
   if (n.is_failure) return WarningAmberOutlinedIcon;
   if (n.event_type === UsageNotificationEventType.APPROACHING_LIMIT) {
     return BarChartOutlinedIcon;
@@ -147,7 +149,6 @@ function notificationIcon(n: Notification): typeof SvgIcon {
   if (n.event_type === EndpointNotificationEventType.SETUP_REQUIRED) {
     return RouteOutlinedIcon;
   }
-  if (SCHEDULE_EVENTS.includes(n.event_type)) return ScheduleIcon;
   return CheckCircleOutlineIcon;
 }
 
