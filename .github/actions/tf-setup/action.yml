@@ -77,7 +77,14 @@ runs:
           # grant itself the permission it needs to run.
           billing)   echo "project_id=$TF_PROJECT_ID_WIREGUARD" >> "$GITHUB_OUTPUT"
                      echo "service_account=$TF_SA_WIREGUARD" >> "$GITHUB_OUTPUT" ;;
-          *)         echo "::error::Unknown environment '$ENV' -- expected dev, stg, prd, wireguard/admin, or billing."
+          # envs/admin-state manages the shared state bucket. Like billing it reuses the
+          # admin project and terraform-wireguard (the only SA in rhesis-platform-admin
+          # that Actions can impersonate). The bootstrap grant it needs (storage.admin on
+          # the bucket) is granted out-of-band; see
+          # terraform/infrastructure/envs/admin-state/README.md.
+          admin-state) echo "project_id=$TF_PROJECT_ID_WIREGUARD" >> "$GITHUB_OUTPUT"
+                     echo "service_account=$TF_SA_WIREGUARD" >> "$GITHUB_OUTPUT" ;;
+          *)         echo "::error::Unknown environment '$ENV' -- expected dev, stg, prd, wireguard/admin, billing, or admin-state."
                      exit 1 ;;
         esac
 
