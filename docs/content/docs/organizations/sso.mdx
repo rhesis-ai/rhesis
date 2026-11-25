@@ -62,6 +62,7 @@ At sign-in:
 
 - People in several mapped groups get the highest organization role, and the highest role in each project.
 - **Everyone else**, people in no mapped group, keep their role, become Viewer, become None, or are refused sign-in. A refused person who has no account is not created.
+- If the groups can't be read at sign-in (the userinfo call fails, or Entra ID sends too many groups), roles stay as they are. When everyone else is refused, the person is refused too, and asked to try again.
 - Project memberships change only for projects a rule names. Someone who leaves a group is removed from that group's projects at their next sign-in, unless they own the project.
 - Owners are never changed or refused, in the organization or in projects. A project's owner keeps their role in that project.
 
@@ -139,7 +140,7 @@ Useful endpoints:
 - If you omit `client_secret` on an update, Rhesis preserves the existing encrypted secret.
 - `allowed_domains` values are lowercased and normalized without leading dots.
 - Slugs must be lowercase, 3-50 characters, alphanumeric or hyphenated, and cannot contain consecutive hyphens.
-- Failed login attempts redirect to the SSO error page without exposing provider details.
+- A failed sign-in shows the person what went wrong (for example, not invited yet, email domain not allowed, or not in a group with access) and a reference code. Search the backend log for that code to find the line `SSO sign-in failed: reason=...` with the full cause. Provider details are never shown in the browser.
 
 ## Related pages
 

@@ -20,6 +20,7 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 ### Added
 
 - SSO role mapping: organization and project roles can follow the groups your identity provider sends at sign-in, with a preview of who changes before you save and a JSON editor. The SSO settings are now split into Connection, Sign-in and Role mapping tabs, and the identity provider is recognised from the issuer URL.
+- A failed SSO sign-in now shows a page that explains what went wrong, with a reference the administrator can find in the backend log.
 
 ### Changed
 
