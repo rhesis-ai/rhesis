@@ -9,6 +9,7 @@ import {
   formProblems,
   formatRunTime,
   fromSchedule,
+  timeUntil,
   toScheduleSpec,
 } from '../schedule-form';
 
@@ -121,5 +122,17 @@ describe('fromSchedule', () => {
       '2026-11-26',
       '09:00',
     ]);
+  });
+});
+
+describe('timeUntil', () => {
+  const now = dayjs('2026-11-25T10:00:00Z');
+  it.each([
+    ['2026-11-25T09:00:00Z', 'now'],
+    ['2026-11-25T10:20:00Z', 'in 20 min'],
+    ['2026-11-26T04:40:00Z', 'in 18 h 40 min'],
+    ['2026-11-28T10:00:00Z', 'in 3 days'],
+  ])('%s reads %s', (iso, text) => {
+    expect(timeUntil(iso, now)).toBe(text);
   });
 });
