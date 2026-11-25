@@ -168,6 +168,8 @@ List test runs. Each run tracks one execution of a test set.
 
 **Typical call:** `$select=id,status,test_set,created_at`, `$filter=status/name eq 'Completed'`
 
+Pass `trigger=schedule` for runs a schedule started, `trigger=manual` for runs a person started.
+
 ---
 
 ### `list_test_results`
@@ -537,6 +539,62 @@ The response includes `test_run_id` and `task_id`. Poll `get_job_status` with `t
 **Key parameters:**
 - `test_set_identifier` (required, path parameter) — test set UUID, nano_id, or slug
 - `endpoint_id` (required, path parameter) — UUID of the target endpoint
+
+---
+
+## Scheduling
+
+A schedule runs a test set against an endpoint later: once at a set time, or on a repeating
+timetable. Nothing runs when it is created. Each time it is due, an ordinary test run starts, as
+the person who created the schedule. Describe timing with the `repeats` text the API returns
+("Every weekday at 09:00"), never with the cron expression.
+
+### `schedule_test_set`
+Create a schedule. Asks for confirmation.
+
+**Key parameters:**
+- `test_set_id` — the test set; or `test_set_ids` to create one schedule per set
+- `endpoint_id` (required) — the endpoint each run calls
+- `schedule` (required) — `{name, cron | run_at, timezone, ends_at, max_runs, notify}`
+  - `cron`: 5 fields in `timezone`, e.g. `0 9 * * 1-5` for weekdays at 09:00
+  - `run_at`: ISO 8601 with an offset, for a single run
+  - `timezone`: IANA name, e.g. `Europe/Berlin`
+  - `notify`: `problems` (default), `always` or `never`
+  - leave `name` empty to name it after the test set
+- `run_settings` — same options as `execute_test_set`: `execution_options`, `metrics`,
+  `execution_model_id`, `evaluation_model_id`
+
+Schedules run at most once an hour unless the deployment allows more; the error names the limit.
+
+### `list_test_run_schedules`
+List schedules with `status` (Scheduled, Paused, Finished), `repeats`, `next_run_at`, `overdue`,
+`paused_reason` and `last_run`. Filter with `test_set_id` or `status`.
+
+### `get_test_run_schedule`
+One schedule with its next five runs, its recent runs (name, status, pass rate, cost) and usage so
+far (`run_count`, `total_cost_usd`, `total_tokens`, `expected_month_usd`).
+
+### `update_test_run_schedule`
+Change a schedule from now on. Only the fields sent change; runs that already happened keep their
+settings. A schedule can't move to another test set. Asks for confirmation.
+
+### `pause_test_run_schedule`
+Pause a schedule. Nothing runs until it is resumed.
+
+### `resume_test_run_schedule`
+Resume from the next future time. Runs missed while paused are not made up. Refused when
+`paused_reason` is `creator_access`: the owner can no longer run tests, and someone with access has
+to take the schedule over in the app.
+
+### `skip_next_test_run_schedule_run`
+Skip only the next run.
+
+### `run_test_run_schedule_now`
+Start one run now, as the caller, without changing the planned times. Follow up like
+`execute_test_set`.
+
+### `delete_test_run_schedule`
+Stop and remove a schedule. Its past runs are kept. Asks for confirmation.
 
 ---
 

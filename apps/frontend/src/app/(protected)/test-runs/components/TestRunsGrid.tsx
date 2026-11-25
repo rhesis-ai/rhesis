@@ -36,6 +36,7 @@ import { formatDate } from '@/utils/date';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { usageColumns, USAGE_COLUMNS_HIDDEN_BY_DEFAULT } from './usage-columns';
 import { rem } from '@/styles/theme-constants';
+import RunNameCell, { scheduleOf } from './RunNameCell';
 
 interface TestRunsGridProps {
   canCreate?: boolean;
@@ -79,6 +80,7 @@ function toFilters(state: EntityGridFilterState<TestRunFilters>) {
     commentsPresence: state.drawer.comments,
     tasksPresence: state.drawer.tasks,
     runKind: state.drawer.runKind,
+    source: state.drawer.source ?? 'all',
     annotations: state.drawer.annotations ?? 'all',
   };
 }
@@ -166,6 +168,12 @@ export default function TestRunsGrid({
         minWidth: 120,
         filterable: true,
         valueGetter: (_, row) => row.name || '',
+        renderCell: params => (
+          <RunNameCell
+            name={params.row.name || ''}
+            schedule={scheduleOf(params.row)}
+          />
+        ),
       },
       {
         field: 'test_configuration.test_set.name',

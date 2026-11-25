@@ -11,12 +11,15 @@ import {
 import { Requirement } from './interfaces/requirement';
 import { PaginatedResponse, PaginationParams } from './interfaces/pagination';
 import { joinUrl } from '@/utils/url';
+import type { ScheduleTrigger } from '@/constants/test-run-schedules';
 
 type TestRunsQueryParams = Partial<PaginationParams> & {
   test_configuration_id?: string;
   filter?: string;
   has_experiment?: boolean;
   has_annotations?: boolean;
+  /** Only runs a schedule started, or only runs a person started. */
+  trigger?: ScheduleTrigger;
 };
 
 const DEFAULT_PAGINATION: PaginationParams = {
@@ -35,6 +38,7 @@ export class TestRunsClient extends BaseApiClient {
       filter,
       has_experiment,
       has_annotations,
+      trigger,
       ...paginationParams
     } = params;
 
@@ -50,6 +54,7 @@ export class TestRunsClient extends BaseApiClient {
       $filter?: string;
       has_experiment?: boolean;
       has_annotations?: boolean;
+      trigger?: ScheduleTrigger;
     } = {
       ...DEFAULT_PAGINATION,
       ...paginationParams,
@@ -65,6 +70,10 @@ export class TestRunsClient extends BaseApiClient {
 
     if (has_annotations !== undefined) {
       fetchParams.has_annotations = has_annotations;
+    }
+
+    if (trigger) {
+      fetchParams.trigger = trigger;
     }
 
     return this.fetchPaginated<TestRunDetail>(

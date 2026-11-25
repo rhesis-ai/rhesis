@@ -719,6 +719,66 @@ def get_last_completed_test_run(
     }
 
 
+def resolve_execution_targets(
+    db: Session,
+    test_set_identifier: str,
+    endpoint_id: uuid.UUID,
+    current_user: models.User,
+) -> tuple[models.TestSet, models.Endpoint]:
+    """The test set and endpoint a run would use, checked the way a run checks them.
+
+    Raises ``ValueError`` when either is missing or the set has no tests, and
+    ``PermissionError`` when either belongs to another organization.
+    """
+    from rhesis.backend.app.crud import endpoint as endpoint_crud
+
+    if not test_set_identifier:
+        raise ValueError("test_set_identifier is required")
+    if not endpoint_id:
+        raise ValueError("endpoint_id is required")
+
+    db_test_set = test_set_crud.resolve_test_set(
+        test_set_identifier, db, organization_id=str(current_user.organization_id)
+    )
+    if db_test_set is None:
+        raise ValueError(f"Test Set not found with identifier: {test_set_identifier}")
+    logger.info(f"Successfully resolved test set: {db_test_set.name} (ID: {db_test_set.id})")
+
+    db_endpoint = endpoint_crud.get_endpoint(
+        db,
+        endpoint_id=endpoint_id,
+        organization_id=str(current_user.organization_id),
+        user_id=str(current_user.id),
+    )
+    if not db_endpoint:
+        from rhesis.backend.app.database import no_project_scope_hint
+
+        raise ValueError(f"Endpoint not found: {endpoint_id}{no_project_scope_hint(db)}")
+    logger.info(f"Successfully verified endpoint: {db_endpoint.name} (ID: {db_endpoint.id})")
+
+    _validate_user_access(current_user, db_test_set, db_endpoint)
+    _validate_test_set_not_empty(db, db_test_set)
+    return db_test_set, db_endpoint
+
+
+def resolve_metrics_source(
+    db: Session, test_set_id: uuid.UUID, metrics: List[Dict[str, Any]] | None
+) -> str:
+    """Where a run's metrics come from: the request, the test set, or the requirements."""
+    from rhesis.backend.app.schemas.test_set import MetricsSource
+
+    if metrics:
+        return MetricsSource.EXECUTION_TIME.value
+    # Queried by ID rather than via test_set.metrics -- that many-to-many
+    # relationship isn't guaranteed eager-loaded on the resolved test set.
+    test_set_metrics_count = (
+        db.query(models.Metric.id).filter(models.Metric.test_sets.any(id=test_set_id)).count()
+    )
+    if test_set_metrics_count > 0:
+        return MetricsSource.TEST_SET.value
+    return MetricsSource.REQUIREMENT.value
+
+
 def execute_test_set_on_endpoint(
     db: Session,
     test_set_identifier: str,
@@ -760,46 +820,13 @@ def execute_test_set_on_endpoint(
         PermissionError: For access control errors
         RuntimeError: For execution errors
     """
-    from rhesis.backend.app.crud import endpoint as endpoint_crud
-
     logger.info(
         f"Starting test set execution for identifier: {test_set_identifier} "
         f"and endpoint: {endpoint_id}, user: {current_user.id}"
     )
-
-    # Validate input parameters
-    if not test_set_identifier:
-        raise ValueError("test_set_identifier is required")
-    if not endpoint_id:
-        raise ValueError("endpoint_id is required")
-
-    # Resolve test set
-    logger.debug(f"Resolving test set with identifier: {test_set_identifier}")
-    db_test_set = test_set_crud.resolve_test_set(
-        test_set_identifier, db, organization_id=str(current_user.organization_id)
+    db_test_set, db_endpoint = resolve_execution_targets(
+        db, test_set_identifier, endpoint_id, current_user
     )
-    if db_test_set is None:
-        raise ValueError(f"Test Set not found with identifier: {test_set_identifier}")
-    logger.info(f"Successfully resolved test set: {db_test_set.name} (ID: {db_test_set.id})")
-
-    # Verify endpoint exists
-    logger.debug(f"Verifying endpoint exists: {endpoint_id}")
-    db_endpoint = endpoint_crud.get_endpoint(
-        db,
-        endpoint_id=endpoint_id,
-        organization_id=str(current_user.organization_id),
-        user_id=str(current_user.id),
-    )
-    if not db_endpoint:
-        from rhesis.backend.app.database import no_project_scope_hint
-
-        raise ValueError(f"Endpoint not found: {endpoint_id}{no_project_scope_hint(db)}")
-    logger.info(f"Successfully verified endpoint: {db_endpoint.name} (ID: {db_endpoint.id})")
-
-    # Check user access permissions
-    _validate_user_access(current_user, db_test_set, db_endpoint)
-
-    _validate_test_set_not_empty(db, db_test_set)
     enforce_test_run_quota(
         db, str(current_user.organization_id), str(current_user.id), db_test_set.id
     )
@@ -809,29 +836,7 @@ def execute_test_set_on_endpoint(
         _validate_reference_test_run(db, reference_test_run_id, db_test_set, current_user)
         logger.info(f"Output reuse enabled: reference_test_run_id={reference_test_run_id}")
 
-    # Determine metrics source based on the hierarchy:
-    # 1. Execution-time metrics (if provided) -> "execution_time"
-    # 2. Test set metrics (if test set has metrics) -> "test_set"
-    # 3. Requirement metrics (fallback) -> "requirement"
-    from rhesis.backend.app.schemas.test_set import MetricsSource
-
-    if metrics and len(metrics) > 0:
-        metrics_source = MetricsSource.EXECUTION_TIME.value
-        logger.debug("Metrics source: execution_time (user-provided metrics)")
-    else:
-        # Queried by ID rather than via db_test_set.metrics -- that many-to-many
-        # relationship isn't guaranteed eager-loaded on the resolved test set.
-        test_set_metrics_count = (
-            db.query(models.Metric.id)
-            .filter(models.Metric.test_sets.any(id=db_test_set.id))
-            .count()
-        )
-        if test_set_metrics_count > 0:
-            metrics_source = MetricsSource.TEST_SET.value
-            logger.debug(f"Metrics source: test_set ({test_set_metrics_count} metrics on test set)")
-        else:
-            metrics_source = MetricsSource.REQUIREMENT.value
-            logger.debug("Metrics source: requirement (fallback to test requirements)")
+    metrics_source = resolve_metrics_source(db, db_test_set.id, metrics)
 
     parameters_ref: Dict[str, Any] | None = None
     has_version = bool(experiment_version and str(experiment_version).strip())
@@ -1034,6 +1039,7 @@ def _create_test_configuration(
     execution_model_id: uuid.UUID | None = None,
     evaluation_model_id: uuid.UUID | None = None,
     parameters_ref: Dict[str, Any] | None = None,
+    commit: bool = True,
 ) -> str:
     """Create test configuration and return its ID as string.
 
@@ -1111,7 +1117,11 @@ def _create_test_configuration(
 
     # Create the test configuration
     db_test_config = test_configuration_crud.create_test_configuration(
-        db=db, test_configuration=test_config, organization_id=organization_id, user_id=user_id
+        db=db,
+        test_configuration=test_config,
+        organization_id=organization_id,
+        user_id=user_id,
+        commit=commit,
     )
     # Access the ID immediately while we're still in the same transaction context
     # This avoids any potential session expiration or RLS context issues
@@ -1133,15 +1143,8 @@ def _submit_test_configuration_for_execution(
         Tuple of (celery_result, test_run_id_str, test_run_name)
     """
     from rhesis.backend.app.crud import test_configuration as test_configuration_crud
-    from rhesis.backend.jobs import launch_job
-    from rhesis.backend.jobs.execution.run import create_test_run, plan_run_for_user
-    from rhesis.backend.jobs.test_configuration import execute_test_configuration
+    from rhesis.backend.app.services.test_configuration_execution import execute_configuration
 
-    logger.debug(
-        f"Submitting test configuration for execution: test_configuration_id={test_config_id}"
-    )
-
-    # Look up the test configuration to create the test run
     db_test_config = test_configuration_crud.get_test_configuration(
         db,
         test_configuration_id=uuid.UUID(test_config_id),
@@ -1151,47 +1154,7 @@ def _submit_test_configuration_for_execution(
     if not db_test_config:
         raise ValueError(f"Test configuration not found: {test_config_id}")
 
-    # Metrics are resolved here, so this is where the run's models can be checked.
-    metric_plan = plan_run_for_user(db, db_test_config, current_user)
-
-    # Create the test run with Queued status so the user sees it immediately
-    test_run = create_test_run(
-        db,
-        db_test_config,
-        current_user_id=str(current_user.id),
-        metric_plan=metric_plan,
-    )
-    db.commit()
-
-    test_run_id = str(test_run.id)
-    logger.info(f"Created test run {test_run_id} with Queued status")
-
-    try:
-        result = launch_job(
-            execute_test_configuration,
-            test_config_id,
-            test_run_id=test_run_id,
-            current_user=current_user,
-            db=db,
-            entity_type="TestRun",
-            entity_id=test_run_id,
-        )
-    except Exception:
-        # Mark the queued test run as failed so it doesn't stay stuck
-        from rhesis.backend.jobs.enums import RunStatus
-        from rhesis.backend.jobs.execution.run import update_test_run_status
-
-        # Same rule as the response: the stored text is shown in the UI, and a
-        # broker error carries the connection string with it. Full text in the log.
-        logger.exception("Failed to submit test configuration %s for execution", test_config_id)
-        update_test_run_status(
-            db,
-            test_run,
-            RunStatus.FAILED.value,
-            error="Failed to submit the test run for execution.",
-        )
-        db.commit()
-        raise
-
+    # execute_test_set_on_endpoint has already checked the quota.
+    result, test_run = execute_configuration(db, db_test_config, current_user, check_quota=False)
     logger.info(f"Test configuration execution submitted with task ID: {result.id}")
-    return result, test_run_id, test_run.name
+    return result, str(test_run.id), test_run.name

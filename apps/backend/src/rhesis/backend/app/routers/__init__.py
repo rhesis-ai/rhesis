@@ -57,6 +57,7 @@ from .test import router as test_router
 from .test_configuration import router as test_configuration_router
 from .test_result import router as test_result_router
 from .test_run import router as test_run_router
+from .test_run_schedule import router as test_run_schedule_router
 from .test_set import router as test_set_router
 from .token import router as token_router
 from .tools import router as tools_router
@@ -79,6 +80,7 @@ __all__ = [
     "connector",
     "test_set",
     "test_configuration",
+    "test_run_schedule",
     "test_result",
     "status",
     "topic",
@@ -128,6 +130,7 @@ routers = sorted(
         telemetry_router,
         test_set_router,
         test_configuration_router,
+        test_run_schedule_router,
         test_result_router,
         source_router,
         status_router,

@@ -107,18 +107,26 @@ def _render_garak_sync_completed(task, retval, error) -> RenderedNotification:
     )
 
 
-def _render_execution_completed(task, retval, error) -> RenderedNotification:
+def _render_execution_completed(task, retval, error) -> Optional[RenderedNotification]:
     test_run_id = retval.get("test_run_id") or _task_headers(task).get("test_run_id")
     if error:
         return RenderedNotification(title="Test run failed", is_failure=True, entity_id=test_run_id)
+    # A scheduled run says whether it is worth a notification (its notify setting).
+    if retval.get("notify") is False:
+        return None
     passed = retval.get("tests_passed", 0)
     failed = retval.get("tests_failed", 0)
+    body = f"{passed} passed, {failed} failed"
+    schedule_name = retval.get("schedule_name")
+    if schedule_name:
+        return RenderedNotification(
+            title=retval.get("schedule_title") or f"{schedule_name} finished",
+            body=body,
+            is_failure=bool(retval.get("schedule_problem")),
+            entity_id=test_run_id,
+        )
     name = retval.get("test_set_name") or "Test run"
-    return RenderedNotification(
-        title=f'"{name}" finished',
-        body=f"{passed} passed, {failed} failed",
-        entity_id=test_run_id,
-    )
+    return RenderedNotification(title=f'"{name}" finished', body=body, entity_id=test_run_id)
 
 
 def _render_architect_plan_completed(task, retval, error) -> Optional[RenderedNotification]:
@@ -198,6 +206,16 @@ NOTIFICATION_CATALOG: Dict[str, NotificationKind] = {
         entity_type=EntityType.TEST_RUN.value,
         render=_render_execution_completed,
     ),
+    # Emitted directly from services/test_run_schedule/outcomes.py. No entity: the
+    # payload carries schedule_id and a link to the schedule's drawer.
+    **{
+        event_type: NotificationKind(
+            event_type=event_type,
+            section=NotificationSection.TEST_RUNS,
+            entity_type=None,
+        )
+        for event_type in NotificationEventType.TestRunSchedule
+    },
     NotificationEventType.Task.ASSIGNED: NotificationKind(
         event_type=NotificationEventType.Task.ASSIGNED,
         section=NotificationSection.TASKS,

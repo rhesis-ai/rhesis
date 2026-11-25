@@ -10,6 +10,7 @@ import { UsersClient } from './users-client';
 import { ProjectsClient } from './projects-client';
 import { TestRunsClient } from './test-runs-client';
 import { TestConfigurationsClient } from './test-configurations-client';
+import { TestRunSchedulesClient } from './test-run-schedules-client';
 import { PromptsClient } from './prompts-client';
 import { StatusClient } from './status-client';
 import { RequirementClient } from './requirement-client';
@@ -146,6 +147,14 @@ export class ApiClientFactory {
 
   getTestConfigurationsClient(): TestConfigurationsClient {
     return new TestConfigurationsClient(
+      this.sessionToken,
+      undefined,
+      this.projectId
+    );
+  }
+
+  getTestRunSchedulesClient(): TestRunSchedulesClient {
+    return new TestRunSchedulesClient(
       this.sessionToken,
       undefined,
       this.projectId

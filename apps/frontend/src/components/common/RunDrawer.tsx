@@ -68,6 +68,7 @@ import {
 } from '@/utils/api-client/interfaces/parameters';
 import { useNotifications } from '@/components/common/NotificationContext';
 import { getApiErrorMessage } from '@/utils/error-utils';
+import { getApiErrorStatus } from '@/utils/api-client/is-not-found-error';
 import {
   executeBatchedTestRuns,
   assignTagsToRuns,
@@ -85,6 +86,23 @@ import { QuotaResource } from '@/constants/quota';
 import { useQuotaErrorHandler, useQuotaGate } from '@/hooks/useQuotaGate';
 import { useRunTestCount } from '@/hooks/useRunTestCount';
 import { rem } from '@/styles/theme-constants';
+import { Capability } from '@/constants/capabilities';
+import { useCan } from '@/components/common/Can';
+import RunDrawerScheduleSection from '@/components/common/run-drawer/RunDrawerScheduleSection';
+import {
+  changedFields,
+  defaultScheduleForm,
+  formatRunTime,
+  fromSchedule,
+  toScheduleSpec,
+  type ScheduleForm,
+} from '@/components/common/run-drawer/schedule-form';
+import type {
+  TestRunScheduleDetail,
+  TestRunScheduleUpdate,
+} from '@/utils/api-client/interfaces/test-run-schedule';
+import { useQueryClient } from '@tanstack/react-query';
+import { scheduleKeys } from '@/constants/query-keys';
 
 // ---------------------------------------------------------------------------
 // Shared local types
@@ -103,6 +121,7 @@ interface EndpointOption {
   environment?: 'development' | 'staging' | 'production' | 'local';
   project_id?: string;
   organization_id?: string;
+  connection_type?: string;
 }
 
 interface SelectedMetric {
@@ -149,7 +168,14 @@ export interface RerunConfig {
 // ---------------------------------------------------------------------------
 
 type RunDrawerModeProps =
-  | { mode: 'executeTestSet'; data: { testSetId: string } }
+  | {
+      mode: 'executeTestSet';
+      data: {
+        testSetId: string;
+        /** Edit this schedule's settings instead of starting or scheduling a run. */
+        schedule?: TestRunScheduleDetail;
+      };
+    }
   | { mode: 'newTestRun'; data?: undefined }
   | {
       mode: 'runExperiment';
@@ -171,6 +197,12 @@ type RunDrawerProps = {
    *  resolving its id via pollForTestRun) hook in here rather than every
    *  mode picking up router logic that most callers don't want. */
   onExecuted?: (outcome: BatchRunOutcome) => void;
+  /** Open on "Schedule run" instead of "Execute now". */
+  initialSchedule?: boolean;
+  /** Schedule fields to start from, e.g. carried over from the compact create drawer. */
+  scheduleSeed?: ScheduleForm;
+  /** Endpoint to preselect, e.g. carried over from the compact create drawer. */
+  endpointSeed?: string;
 } & RunDrawerModeProps;
 
 // ---------------------------------------------------------------------------
@@ -275,6 +307,13 @@ const RERUN_OUTLINE_BUTTON_SX = {
   '&:hover': { borderWidth: 2 },
 } as const;
 
+/** Modes that can schedule; re-run and experiment runs stay "now" only. */
+const SCHEDULABLE_MODES = new Set<RunDrawerProps['mode']>([
+  'executeTestSet',
+  'newTestRun',
+  'createFromGrid',
+]);
+
 const EXPERIMENT_SECTION_DESCRIPTION =
   "Each selected experiment triggers its own test run with that experiment's parameters pinned. Leave empty to run without an experiment.";
 
@@ -314,6 +353,7 @@ export default function RunDrawer(props: RunDrawerProps) {
           environment: e.environment,
           project_id: e.project_id,
           organization_id: e.organization_id,
+          connection_type: e.connection_type,
         })),
     [rawEndpoints]
   );
@@ -342,6 +382,32 @@ export default function RunDrawer(props: RunDrawerProps) {
 
   // ---- Execution mode ----
   const [executionMode, setExecutionMode] = useState<string>('Parallel');
+
+  // ---- Schedule (run later instead of now) ----
+  const canSchedule =
+    useCan(Capability.TestRun.EXECUTE) && SCHEDULABLE_MODES.has(mode);
+  const [scheduleMode, setScheduleMode] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState<ScheduleForm>(() =>
+    defaultScheduleForm()
+  );
+  const [schedulePreviewError, setSchedulePreviewError] = useState<
+    string | null
+  >(null);
+  const [reuseDropped, setReuseDropped] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    setScheduleMode(
+      (Boolean(props.initialSchedule) && canSchedule) ||
+        (mode === 'executeTestSet' && Boolean(props.data.schedule))
+    );
+    setScheduleForm(
+      mode === 'executeTestSet' && props.data.schedule
+        ? fromSchedule(props.data.schedule)
+        : (props.scheduleSeed ?? defaultScheduleForm())
+    );
+    setReuseDropped(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the drawer opens
+  }, [open]);
 
   // ---- Scoring target ----
   const [scoringTarget, setScoringTarget] = useState<ScoringTarget>('fresh');
@@ -389,6 +455,7 @@ export default function RunDrawer(props: RunDrawerProps) {
   >([]);
 
   const apiFactory = useMemo(() => new ApiClientFactory(), []);
+  const queryClient = useQueryClient();
 
   // -----------------------------------------------------------------------
   // Derived helpers
@@ -398,6 +465,8 @@ export default function RunDrawer(props: RunDrawerProps) {
   const experimentData = mode === 'runExperiment' ? props.data : null;
   const executeTestSetId =
     mode === 'executeTestSet' ? props.data.testSetId : null;
+  const editingSchedule =
+    mode === 'executeTestSet' ? (props.data.schedule ?? null) : null;
   const gridTestSetIds =
     mode === 'createFromGrid' ? props.data.selectedTestSetIds : null;
 
@@ -566,7 +635,7 @@ export default function RunDrawer(props: RunDrawerProps) {
         if (!mounted) return;
         setTestSetMetrics(metrics || []);
 
-        if (mode === 'executeTestSet') {
+        if (mode === 'executeTestSet' && !editingSchedule) {
           setMetricMode(
             metrics?.length > 0 ? 'use_test_set' : 'use_requirement'
           );
@@ -583,7 +652,48 @@ export default function RunDrawer(props: RunDrawerProps) {
     return () => {
       mounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- editingSchedule is fixed while open
   }, [open, executeTestSetId, rerunConfig?.testSetId, mode, apiFactory]);
+
+  // Editing a schedule: start from what its runs use now.
+  useEffect(() => {
+    if (!open || !editingSchedule) return;
+    const settings = editingSchedule.run_settings;
+    setExecutionMode(settings.execution_mode ?? 'Parallel');
+    setSelectedExecutionModelId(settings.execution_model_id ?? '');
+    setSelectedEvaluationModelId(settings.evaluation_model_id ?? '');
+    if (
+      settings.metrics_source === 'execution_time' &&
+      settings.metrics.length > 0
+    ) {
+      setMetricMode('define_custom');
+      setSelectedMetrics(
+        settings.metrics.map(m => ({ id: m.id as UUID, name: m.name }))
+      );
+    } else {
+      setMetricMode(
+        settings.metrics_source === 'test_set'
+          ? 'use_test_set'
+          : 'use_requirement'
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fill once per open
+  }, [open]);
+
+  // Pick the schedule's endpoint once the endpoint list has it.
+  const endpointSeeded = useRef(false);
+  useEffect(() => {
+    if (!open) {
+      endpointSeeded.current = false;
+      return;
+    }
+    const id = editingSchedule?.endpoint?.id ?? props.endpointSeed;
+    if (!id || endpointSeeded.current) return;
+    if (filteredEndpoints.some(e => e.id === id)) {
+      endpointSeeded.current = true;
+      setSelectedEndpoint(id as UUID);
+    }
+  }, [open, editingSchedule, filteredEndpoints, props.endpointSeed]);
 
   // Rerun: pre-fill metrics from original attributes. Models are NOT
   // carried forward so the rerun picks up the user's current defaults
@@ -1018,7 +1128,115 @@ export default function RunDrawer(props: RunDrawerProps) {
     }
   };
 
+  const enterScheduleMode = () => {
+    // Scheduled runs always call the endpoint, so reusing outputs is off.
+    if (scoringTarget === 'reuse') {
+      setScoringTarget('fresh');
+      setReuseDropped(true);
+    }
+    setScheduleMode(true);
+  };
+
+  const saveScheduleSettings = async (
+    schedule: TestRunScheduleDetail,
+    endpointId: string,
+    runSettings: NonNullable<TestRunScheduleUpdate['run_settings']>
+  ) => {
+    // Send only the timing that changed: changing it clears moved and skipped runs.
+    const spec = changedFields(
+      toScheduleSpec(fromSchedule(schedule)),
+      toScheduleSpec(scheduleForm)
+    );
+    await apiFactory.getTestRunSchedulesClient().update(schedule.id, {
+      ...spec,
+      ...(endpointId !== schedule.endpoint?.id
+        ? { endpoint_id: endpointId }
+        : {}),
+      run_settings: runSettings,
+    });
+    await queryClient.invalidateQueries({ queryKey: scheduleKeys.all() });
+    notifications.show(`Saved ${schedule.name}`, { severity: 'success' });
+    onSuccess?.();
+    onClose();
+  };
+
+  const doSchedule = async () => {
+    const testSetIds = resolveTestSetIds();
+    const endpointId = resolveEndpointId();
+    if (!endpointId || testSetIds.length === 0) return;
+    setExecuting(true);
+    try {
+      const runSettings = {
+        execution_options: {
+          execution_mode: executionMode,
+          run_preflight_checks: preflightEnabled,
+        },
+        ...(cfg.showMetrics &&
+        metricMode === 'define_custom' &&
+        selectedMetrics.length > 0
+          ? {
+              metrics: selectedMetrics.map(m => ({
+                id: m.id,
+                name: m.name,
+                scope: m.scope,
+              })),
+            }
+          : {}),
+        // The selectors use '' for "default model"; the API wants null.
+        execution_model_id: selectedExecutionModelId || null,
+        evaluation_model_id: selectedEvaluationModelId || null,
+      };
+      if (editingSchedule) {
+        await saveScheduleSettings(editingSchedule, endpointId, runSettings);
+        return;
+      }
+      const created = await apiFactory.getTestRunSchedulesClient().create({
+        ...(testSetIds.length > 1
+          ? { test_set_ids: testSetIds }
+          : { test_set_id: testSetIds[0] }),
+        endpoint_id: endpointId,
+        schedule: toScheduleSpec(scheduleForm),
+        run_settings: runSettings,
+      });
+      const first = created[0];
+      notifications.show(
+        created.length > 1
+          ? `Created ${created.length} schedules`
+          : first?.next_run_at
+            ? `Scheduled ${first.name}. Next run ${formatRunTime(first.next_run_at, first.timezone)}.`
+            : 'Schedule created',
+        { severity: 'success', autoHideDuration: 6000 }
+      );
+      await queryClient.invalidateQueries({ queryKey: scheduleKeys.all() });
+      onSuccess?.();
+      onClose();
+    } catch (err) {
+      if (getApiErrorStatus(err) === 403) {
+        setError(
+          editingSchedule
+            ? "You don't have permission to change this schedule."
+            : "You don't have permission to schedule runs in this project."
+        );
+        return;
+      }
+      setError(
+        getApiErrorMessage(
+          err,
+          editingSchedule
+            ? 'Could not save the schedule'
+            : 'Failed to schedule the run'
+        )
+      );
+    } finally {
+      setExecuting(false);
+    }
+  };
+
   const handleExecute = async () => {
+    if (scheduleMode) {
+      await doSchedule();
+      return;
+    }
     if (preflightEnabled) {
       startPreflight();
       return;
@@ -1069,7 +1287,16 @@ export default function RunDrawer(props: RunDrawerProps) {
     executionQuota.exhausted,
   ]);
 
-  const quotaExhaustedMessage = executionQuota.notice;
+  const quotaExhaustedMessage = scheduleMode ? null : executionQuota.notice;
+  const selectedEndpointIsSdk =
+    filteredEndpoints.find(e => e.id === resolveEndpointId())
+      ?.connection_type === 'SDK';
+  // Scheduling spends nothing yet, so only the targets and the schedule itself gate it.
+  const canSave = scheduleMode
+    ? Boolean(resolveEndpointId()) &&
+      resolveTestSetIds().length > 0 &&
+      !schedulePreviewError
+    : canExecute;
 
   // Effective test set type for multi-turn detection
   const effectiveTestSetType = useMemo(() => {
@@ -1949,19 +2176,27 @@ export default function RunDrawer(props: RunDrawerProps) {
   // Dynamic title for createFromGrid
   // -----------------------------------------------------------------------
 
-  const title =
-    mode === 'createFromGrid' && gridTestSetIds
-      ? gridTestSetIds.length > 1
-        ? 'Execute Test Sets'
-        : 'Execute Test Set'
-      : cfg.title;
+  const title = editingSchedule
+    ? `Edit ${editingSchedule.name}`
+    : scheduleMode
+      ? resolveTestSetIds().length > 1
+        ? 'Schedule Test Sets'
+        : 'Schedule Test Set'
+      : mode === 'createFromGrid' && gridTestSetIds
+        ? gridTestSetIds.length > 1
+          ? 'Execute Test Sets'
+          : 'Execute Test Set'
+        : cfg.title;
 
-  const saveButtonText =
-    mode === 'createFromGrid' && gridTestSetIds
-      ? gridTestSetIds.length > 1
-        ? 'Run Test Sets'
-        : 'Run Test Set'
-      : cfg.saveButtonText;
+  const saveButtonText = editingSchedule
+    ? 'Save'
+    : scheduleMode
+      ? 'Schedule Run'
+      : mode === 'createFromGrid' && gridTestSetIds
+        ? gridTestSetIds.length > 1
+          ? 'Run Test Sets'
+          : 'Run Test Set'
+        : cfg.saveButtonText;
 
   // -----------------------------------------------------------------------
   // Render
@@ -1975,8 +2210,27 @@ export default function RunDrawer(props: RunDrawerProps) {
       loading={loading || endpointsLoading || executing}
       error={error ?? quotaExhaustedMessage}
       onSave={handleExecute}
-      saveDisabled={!canExecute}
+      saveDisabled={!canSave}
       saveButtonText={saveButtonText}
+      loadingText={
+        editingSchedule
+          ? 'Saving...'
+          : scheduleMode
+            ? 'Scheduling...'
+            : undefined
+      }
+      saveMenu={
+        canSchedule && !editingSchedule
+          ? [
+              scheduleMode
+                ? {
+                    label: 'Execute now',
+                    onClick: () => setScheduleMode(false),
+                  }
+                : { label: 'Schedule run…', onClick: enterScheduleMode },
+            ]
+          : undefined
+      }
     >
       {loading || endpointsLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -1986,6 +2240,18 @@ export default function RunDrawer(props: RunDrawerProps) {
         renderRerunTestRunContent()
       ) : (
         <>
+          {scheduleMode && (
+            <RunDrawerScheduleSection
+              form={scheduleForm}
+              onChange={setScheduleForm}
+              onPreviewError={setSchedulePreviewError}
+              sdkEndpoint={selectedEndpointIsSdk}
+              testSetCount={resolveTestSetIds().length}
+              initialForm={
+                editingSchedule ? fromSchedule(editingSchedule) : undefined
+              }
+            />
+          )}
           {/* Execution Target */}
           <Box sx={RERUN_SECTION_SX}>
             <FormSectionDivider
@@ -2001,7 +2267,8 @@ export default function RunDrawer(props: RunDrawerProps) {
           </Box>
 
           {/* Experiment */}
-          {cfg.experimentsEditable &&
+          {!scheduleMode &&
+            cfg.experimentsEditable &&
             effectiveProjectId &&
             (() => {
               const experimentGroups = renderSelectedExperimentGroups();
@@ -2049,7 +2316,13 @@ export default function RunDrawer(props: RunDrawerProps) {
             />
             <Box sx={RERUN_FIELDS_SX}>
               {renderExecutionMode()}
-              {renderScoringTarget()}
+              {!scheduleMode && renderScoringTarget()}
+              {scheduleMode && reuseDropped && (
+                <Alert severity="info">
+                  Scheduled runs always call the endpoint, so this switched to
+                  fresh outputs.
+                </Alert>
+              )}
               {cfg.showMetrics && renderMetrics()}
               <ModelSelector
                 value={selectedEvaluationModelId}
@@ -2132,24 +2405,26 @@ export default function RunDrawer(props: RunDrawerProps) {
             </Box>
           </Box>
 
-          {/* Test Run Tags */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <FormSectionDivider headline="Test Run Tags" />
-            <BaseTag
-              value={tags}
-              onChange={setTags}
-              label="Tags"
-              placeholder="Add tags (press Enter or comma to add)"
-              chipColor="default"
-              addOnBlur
-              delimiters={[',', 'Enter']}
-              size="small"
-              margin="none"
-              fullWidth
-              chipClassName={tagStyles.modalTag}
-              sx={drawerTagFieldSx}
-            />
-          </Box>
+          {/* Test Run Tags: schedules don't store tags, so not in schedule mode */}
+          {!scheduleMode && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <FormSectionDivider headline="Test Run Tags" />
+              <BaseTag
+                value={tags}
+                onChange={setTags}
+                label="Tags"
+                placeholder="Add tags (press Enter or comma to add)"
+                chipColor="default"
+                addOnBlur
+                delimiters={[',', 'Enter']}
+                size="small"
+                margin="none"
+                fullWidth
+                chipClassName={tagStyles.modalTag}
+                sx={drawerTagFieldSx}
+              />
+            </Box>
+          )}
         </>
       )}
       {cfg.experimentsEditable && effectiveProjectId && (

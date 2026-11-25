@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey
+from sqlalchemy import Column, ForeignKey, Index, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
@@ -12,6 +12,14 @@ from .mixins import OrganizationMixin, ProjectMixin
 class TestConfiguration(Base, ProjectMixin, OrganizationMixin):
     __tablename__ = "test_configuration"
     __audit__ = AuditPolicy(plain=("attributes",))
+    __table_args__ = (
+        # Keeps the schedule dispatcher's per-minute scan to the scheduled configurations.
+        Index(
+            "ix_test_configuration_scheduled",
+            "id",
+            postgresql_where=text("attributes ? 'schedule' AND deleted_at IS NULL"),
+        ),
+    )
     endpoint_id = Column(GUID(), ForeignKey("endpoint.id"), nullable=False, index=True)
     category_id = Column(GUID(), ForeignKey("category.id"))
     topic_id = Column(GUID(), ForeignKey("topic.id"))

@@ -15,6 +15,17 @@ import { testRunsList } from './list';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import type { TestRunDetail } from '@/utils/api-client/interfaces/test-run';
 import { rem } from '@/styles/theme-constants';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import {
+  TEST_RUNS_PARAM,
+  TEST_RUNS_TAB,
+  type TestRunsTab,
+} from '@/constants/test-run-schedules';
+import type { ScheduleForm } from '@/components/common/run-drawer/schedule-form';
+import TestRunsTabs from './schedules/TestRunsTabs';
+import SchedulesTab from './schedules/SchedulesTab';
+import type { OccurrenceRef } from './schedules/ScheduleEditDrawer';
+import type { ScheduleTargets } from './schedules/ScheduleCreateDrawer';
 
 interface TestRunsPageClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -32,6 +43,56 @@ export default function TestRunsPageClient({
   const [refreshTrigger, setRefreshTrigger] = React.useState(0);
   const { bulkActionsVisible, onBulkDelete, handleBulkActionsChange } =
     useBulkActionsBridge();
+  const canSchedule = useCan(Capability.TestRun.EXECUTE);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tab: TestRunsTab =
+    searchParams.get(TEST_RUNS_PARAM.TAB) === TEST_RUNS_TAB.SCHEDULES
+      ? TEST_RUNS_TAB.SCHEDULES
+      : TEST_RUNS_TAB.RUNS;
+  const openScheduleId = searchParams.get(TEST_RUNS_PARAM.SCHEDULE);
+  const occurrenceParam = searchParams.get(TEST_RUNS_PARAM.OCCURRENCE);
+  const openOccurrence: OccurrenceRef | null = React.useMemo(() => {
+    if (!occurrenceParam) return null;
+    const [original, at] = occurrenceParam.split('|');
+    return { original, at: at || original };
+  }, [occurrenceParam]);
+  const [scheduleCreate, setScheduleCreate] = React.useState<{
+    open: boolean;
+    date: string | null;
+  }>({ open: false, date: null });
+  const [scheduleSeed, setScheduleSeed] = React.useState<{
+    form: ScheduleForm;
+    targets: ScheduleTargets;
+  } | null>(null);
+  const testSetFilter = searchParams.get(TEST_RUNS_PARAM.TEST_SET);
+
+  // Tab, open schedule and open run live in the URL, so Back works and links can open them.
+  const setParams = React.useCallback(
+    (changes: Record<string, string | null>) => {
+      const next = new URLSearchParams(searchParams.toString());
+      Object.entries(changes).forEach(([key, value]) =>
+        value === null ? next.delete(key) : next.set(key, value)
+      );
+      const query = next.toString();
+      // push, so Back closes a drawer or returns to the previous tab.
+      router.push(query ? `${pathname}?${query}` : pathname, {
+        scroll: false,
+      });
+    },
+    [router, pathname, searchParams]
+  );
+  const openSchedule = React.useCallback(
+    (id: string | null, occurrence?: OccurrenceRef | null) =>
+      setParams({
+        [TEST_RUNS_PARAM.TAB]: TEST_RUNS_TAB.SCHEDULES,
+        [TEST_RUNS_PARAM.SCHEDULE]: id,
+        [TEST_RUNS_PARAM.OCCURRENCE]:
+          id && occurrence ? `${occurrence.original}|${occurrence.at}` : null,
+      }),
+    [setParams]
+  );
 
   useDocumentTitle('Test Runs');
 
@@ -64,35 +125,98 @@ export default function TestRunsPageClient({
                 />
               </Can>
             )}
-            <Can capability={Capability.TestRun.CREATE}>
-              <Fab
-                icon={<FabAddIcon />}
-                tooltip="New Test Run"
-                aria-label="New Test Run"
-                onClick={() => setCreateDrawerOpen(true)}
-              />
-            </Can>
+            {tab === TEST_RUNS_TAB.SCHEDULES ? (
+              canSchedule && (
+                <Fab
+                  icon={<FabAddIcon />}
+                  tooltip="New schedule"
+                  aria-label="New schedule"
+                  onClick={() => setScheduleCreate({ open: true, date: null })}
+                />
+              )
+            ) : (
+              <Can capability={Capability.TestRun.CREATE}>
+                <Fab
+                  icon={<FabAddIcon />}
+                  tooltip="New Test Run"
+                  aria-label="New Test Run"
+                  onClick={() => setCreateDrawerOpen(true)}
+                />
+              </Can>
+            )}
           </FabGroup>
         }
       >
         <Box sx={{ mt: 2, mb: 2 }}>
-          <TestRunsGrid
-            canCreate={canCreateTestRun}
-            onCreateClick={() => setCreateDrawerOpen(true)}
-            onBulkActionsChange={handleBulkActionsChange}
-            refreshTrigger={refreshTrigger}
-            initialData={initialData}
-            initialTotalCount={initialTotalCount}
+          <TestRunsTabs
+            value={tab}
+            onChange={next =>
+              setParams({
+                [TEST_RUNS_PARAM.TAB]:
+                  next === TEST_RUNS_TAB.SCHEDULES ? next : null,
+                [TEST_RUNS_PARAM.SCHEDULE]: null,
+                [TEST_RUNS_PARAM.OCCURRENCE]: null,
+              })
+            }
           />
+          {tab === TEST_RUNS_TAB.SCHEDULES ? (
+            <SchedulesTab
+              openScheduleId={openScheduleId}
+              openOccurrence={openOccurrence}
+              onOpenSchedule={openSchedule}
+              createOpen={scheduleCreate.open}
+              createDate={scheduleCreate.date}
+              onCreateClose={() =>
+                setScheduleCreate({ open: false, date: null })
+              }
+              onCreateOnDay={date => setScheduleCreate({ open: true, date })}
+              onMoreOptions={(form, targets) => {
+                setScheduleCreate({ open: false, date: null });
+                setScheduleSeed({ form, targets });
+              }}
+              testSetId={testSetFilter}
+              onClearTestSet={() =>
+                setParams({ [TEST_RUNS_PARAM.TEST_SET]: null })
+              }
+            />
+          ) : (
+            <TestRunsGrid
+              canCreate={canCreateTestRun}
+              onCreateClick={() => setCreateDrawerOpen(true)}
+              onBulkActionsChange={handleBulkActionsChange}
+              refreshTrigger={refreshTrigger}
+              initialData={initialData}
+              initialTotalCount={initialTotalCount}
+            />
+          )}
         </Box>
       </PageLayout>
 
-      <RunDrawer
-        mode="newTestRun"
-        open={createDrawerOpen}
-        onClose={() => setCreateDrawerOpen(false)}
-        onSuccess={handleCreateSuccess}
-      />
+      {scheduleSeed?.targets.testSetId ? (
+        <RunDrawer
+          mode="executeTestSet"
+          data={{ testSetId: scheduleSeed.targets.testSetId }}
+          open
+          initialSchedule
+          scheduleSeed={scheduleSeed.form}
+          endpointSeed={scheduleSeed.targets.endpointId ?? undefined}
+          onClose={() => setScheduleSeed(null)}
+          onSuccess={handleCreateSuccess}
+        />
+      ) : (
+        <RunDrawer
+          mode="newTestRun"
+          open={createDrawerOpen || scheduleSeed !== null}
+          initialSchedule={scheduleSeed !== null}
+          scheduleSeed={scheduleSeed?.form}
+          endpointSeed={scheduleSeed?.targets.endpointId ?? undefined}
+          onClose={() => {
+            setCreateDrawerOpen(false);
+            setScheduleSeed(null);
+          }}
+          onSuccess={handleCreateSuccess}
+        />
+      )}
     </>
   );
 }

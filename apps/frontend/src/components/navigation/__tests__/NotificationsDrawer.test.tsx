@@ -371,4 +371,59 @@ describe('NotificationsDrawer', () => {
     expect(await screen.findByText(/Org usage/)).toBeInTheDocument();
     expect(await screen.findByText(/View test sets/)).toBeInTheDocument();
   });
+
+  it('opens the schedule from a needs-owner notice, offering Take over', async () => {
+    mockGetNotifications.mockResolvedValue([
+      notification({
+        id: 'n-owner',
+        event_type: 'test_run_schedule.needs_owner',
+        title: 'Weekday regression needs a new owner',
+        entity_type: null,
+        entity_id: null,
+        payload: { link: '/test-runs?tab=schedules&schedule=s-1' },
+      }),
+    ]);
+    render(<NotificationsDrawer open onClose={jest.fn()} />);
+
+    fireEvent.click(
+      await screen.findByText('Weekday regression needs a new owner')
+    );
+    expect(screen.getByText(/^Take over/)).toBeInTheDocument();
+    expect(screen.getByTestId('ScheduleIcon')).toBeInTheDocument();
+    expect(mockPush).toHaveBeenCalledWith(
+      '/test-runs?tab=schedules&schedule=s-1'
+    );
+  });
+
+  it('ignores a schedule link that leaves the app', async () => {
+    mockGetNotifications.mockResolvedValue([
+      notification({
+        id: 'n-missed',
+        event_type: 'test_run_schedule.missed',
+        title: "Weekday regression didn't run",
+        payload: { link: '//evil.example/x' },
+      }),
+    ]);
+    render(<NotificationsDrawer open onClose={jest.fn()} />);
+
+    fireEvent.click(await screen.findByText("Weekday regression didn't run"));
+    expect(mockPush).toHaveBeenCalledWith('/test-runs');
+  });
+
+  it('shows a paused schedule as a warning, not a failure', async () => {
+    mockGetNotifications.mockResolvedValue([
+      notification({
+        id: 'n-paused',
+        event_type: 'test_run_schedule.paused',
+        title: 'Weekday regression paused',
+        is_failure: true,
+        payload: { link: '/test-runs?tab=schedules&schedule=s-1' },
+      }),
+    ]);
+    render(<NotificationsDrawer open onClose={jest.fn()} />);
+
+    await screen.findByText('Weekday regression paused');
+    expect(screen.getByTestId('ScheduleIcon')).toBeInTheDocument();
+    expect(screen.queryByTestId('WarningAmberOutlinedIcon')).toBeNull();
+  });
 });

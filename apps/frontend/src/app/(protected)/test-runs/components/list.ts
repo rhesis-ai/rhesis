@@ -72,6 +72,8 @@ const TEST_RUNS_FILTERS = {
   // Not OData -- surfaced as `has_experiment`/`has_annotations` top-level params via `extraParams`.
   runKind: { kind: 'raw', toOData: () => undefined },
   annotations: { kind: 'raw', toOData: () => undefined },
+  // Surfaced as the `trigger` param: runs a schedule started, or a person.
+  source: { kind: 'raw', toOData: () => undefined },
 } as const;
 
 export const testRunsList = defineList<TestRunDetail, typeof TEST_RUNS_FILTERS>(
@@ -86,6 +88,9 @@ export const testRunsList = defineList<TestRunDetail, typeof TEST_RUNS_FILTERS>(
       ...(filters.runKind === 'experiments' ? { has_experiment: true } : {}),
       ...(filters.annotations === 'with' ? { has_annotations: true } : {}),
       ...(filters.annotations === 'without' ? { has_annotations: false } : {}),
+      ...(filters.source === 'manual' || filters.source === 'schedule'
+        ? { trigger: filters.source }
+        : {}),
     }),
     list: (factory: ApiClientFactory, params) => {
       const { $filter, ...rest } = params;

@@ -351,6 +351,18 @@ rejected.
 | `MAX_ACTIVE_JOBS_PER_ORG` | Test runs, generations, Garak imports, explorations and tuning runs an organization may have queued or running at once (`0` turns the cap off) | `10` |
 | `IMPORT_MAX_SESSIONS_PER_ORG` | File imports an organization may have open at once | `5` |
 
+## Scheduled test runs
+
+`celery beat` queues a check for due schedules every minute and a worker runs it. Docker Compose runs
+beat as the `beat` service and the Helm chart as the `celery-beat` Deployment. Without beat, no
+scheduled run starts and the app shows those runs as overdue. Set these variables on the backend and
+the worker.
+
+| Variable | Description | Default |
+|---|---|---|
+| `SCHEDULE_MIN_INTERVAL_MINUTES` | Shortest time allowed between two runs of one schedule | `60` |
+| `SCHEDULE_DISPATCH_ENABLED` | Start scheduled runs. Set to `false` to stop them without changing any schedule | `true` |
+
 ## Data retention
 
 Two scheduled sweeps hard-delete rows past a retention window: one for `job` and `activity_log`

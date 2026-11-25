@@ -1,4 +1,3 @@
-import uuid as uuid_lib
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Query, Response
@@ -19,20 +18,15 @@ from rhesis.backend.app.models.organization import Organization
 from rhesis.backend.app.models.user import User
 from rhesis.backend.app.quota import QuotaResource
 from rhesis.backend.app.routers.base import RhesisRouter
-from rhesis.backend.app.services.job_capacity import JobCapacityExceededError
-from rhesis.backend.app.services.test_set import enforce_test_run_quota
+from rhesis.backend.app.services.test_configuration_execution import (
+    RunSubmissionError,
+    build_parameters_ref,
+    execute_configuration,
+)
 from rhesis.backend.app.utils.database_exceptions import handle_database_exceptions
 from rhesis.backend.app.utils.decorators import with_count_header
 from rhesis.backend.app.utils.execution_validation import handle_execution_error
 from rhesis.backend.app.utils.rate_limit import EXECUTION_RATE_LIMIT
-from rhesis.backend.jobs import launch_job
-from rhesis.backend.jobs.enums import RunStatus
-from rhesis.backend.jobs.execution.run import (
-    create_test_run,
-    plan_run_for_user,
-    update_test_run_status,
-)
-from rhesis.backend.jobs.test_configuration import execute_test_configuration
 
 router = RhesisRouter(
     prefix="/test_configurations",
@@ -145,13 +139,16 @@ def update_test_configuration(
     if db_test_configuration is None:
         raise HTTPException(status_code=404, detail="Test configuration not found")
 
-    return test_configuration_crud.update_test_configuration(
-        db=db,
-        test_configuration_id=test_configuration_id,
-        test_configuration=test_configuration,
-        organization_id=organization_id,
-        user_id=user_id,
-    )
+    try:
+        return test_configuration_crud.update_test_configuration(
+            db=db,
+            test_configuration_id=test_configuration_id,
+            test_configuration=test_configuration,
+            organization_id=organization_id,
+            user_id=user_id,
+        )
+    except test_configuration_crud.ScheduleManagedElsewhere as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.delete("/{test_configuration_id}", response_model=schemas.TestConfiguration)
@@ -199,7 +196,6 @@ def execute_test_configuration_endpoint(
     """
     try:
         organization_id, user_id = tenant_context
-        # Verify the test configuration exists
         db_test_configuration = test_configuration_crud.get_test_configuration(
             db,
             test_configuration_id=test_configuration_id,
@@ -208,77 +204,22 @@ def execute_test_configuration_endpoint(
         )
         if db_test_configuration is None:
             raise HTTPException(status_code=404, detail="Test configuration not found")
-        if db_test_configuration.test_set_id:
-            enforce_test_run_quota(db, organization_id, user_id, db_test_configuration.test_set_id)
 
-        # Update test configuration with parameter references if provided
+        parameters_ref = None
         if execution_request:
-            parameters_ref = {}
-            if execution_request.experiment_id is not None:
-                parameters_ref["experiment_id"] = str(execution_request.experiment_id)
-            if execution_request.version and str(execution_request.version).strip():
-                parameters_ref["version"] = str(execution_request.version).strip()
-            if execution_request.environment is not None:
-                parameters_ref["environment"] = str(execution_request.environment)
-
-            if parameters_ref:
-                attrs = (
-                    dict(db_test_configuration.attributes)
-                    if db_test_configuration.attributes
-                    else {}
-                )
-                attrs["parameters_ref"] = parameters_ref
-                db_test_configuration.attributes = attrs
-                db.commit()
-
-        # Metrics are resolved here, so this is where the run's models can be checked.
-        metric_plan = plan_run_for_user(db, db_test_configuration, current_user)
-
-        # Pre-generate the Celery task ID so it can be stored in the test
-        # run record before the task is dispatched.  This guarantees the
-        # cancel endpoint always has a task_id to revoke, even if the
-        # request is cancelled before the worker starts executing.
-        celery_task_id = str(uuid_lib.uuid4())
-
-        # Create the test run immediately with Queued status so the user
-        # can see it in the UI even before a worker picks up the task.
-        # Pass task_id so it is persisted atomically with the record.
-        test_run = create_test_run(
-            db,
-            db_test_configuration,
-            task_info={"id": celery_task_id},
-            current_user_id=str(current_user.id) if current_user else None,
-            metric_plan=metric_plan,
-        )
-        db.commit()
-
-        # Dispatch the task using the same pre-generated ID so Celery
-        # registers it under the known UUID.
+            parameters_ref = build_parameters_ref(
+                execution_request.experiment_id,
+                execution_request.version,
+                execution_request.environment,
+            )
         try:
-            task = launch_job(
-                execute_test_configuration,
-                str(test_configuration_id),
-                test_run_id=str(test_run.id),
-                current_user=current_user,
-                celery_task_id=celery_task_id,
-                db=db,
-                entity_type="TestRun",
-                entity_id=str(test_run.id),
+            task, test_run = execute_configuration(
+                db, db_test_configuration, current_user, parameters_ref=parameters_ref
             )
-        except Exception as exc:
-            # Mark the queued test run as failed so it doesn't stay stuck. The
-            # stored text is shown in the UI, so it says no more than the response
-            # does -- a broker error carries the connection string with it.
-            update_test_run_status(
-                db,
-                test_run,
-                RunStatus.FAILED.value,
-                error="Failed to submit the test run for execution.",
-            )
-            db.commit()
-            if isinstance(exc, JobCapacityExceededError):  # re-checked at dispatch
-                raise
-            raise internal_error(exc, context="submitting test configuration task") from exc
+        except RunSubmissionError as exc:
+            raise internal_error(
+                exc.__cause__ or exc, context="submitting test configuration task"
+            ) from exc
 
         return {
             "test_configuration_id": str(test_configuration_id),

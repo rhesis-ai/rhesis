@@ -80,6 +80,19 @@ describe('testRunsList filters', () => {
 });
 
 describe('testRunsList extraParams', () => {
+  it('maps source to trigger, and sends nothing for all', () => {
+    const params = (source: string) =>
+      listParams(testRunsList, {
+        page: 1,
+        pageSize: 50,
+        sort: testRunsList.defaultSort,
+        filters: { ...empty, source },
+      });
+    expect(params('schedule').trigger).toBe('schedule');
+    expect(params('manual').trigger).toBe('manual');
+    expect(params('all').trigger).toBeUndefined();
+  });
+
   it('maps runKind to has_experiment', () => {
     const params = listParams(testRunsList, {
       page: 1,

@@ -40,6 +40,14 @@ _JOB_ID_CACHE_ATTR = "_rhesis_job_id"
 # Use self.get_db_session() for tenant-aware database operations
 
 
+def _wants_notification(retval) -> bool:
+    """False when the task's result says this completion shouldn't notify anyone.
+
+    Used by scheduled test runs, whose own notify setting decides.
+    """
+    return not (isinstance(retval, dict) and retval.get("notify") is False)
+
+
 def email_notification(template=None, subject_template=None):
     """
     Decorator to configure email notifications for task completion.
@@ -257,7 +265,7 @@ class BaseJob(Task):
         )
 
         # Send email notification for successful completion if enabled
-        if self.send_email_notification_flag:
+        if self.send_email_notification_flag and _wants_notification(retval):
             try:
                 self.log_with_context("debug", "Attempting to send success email notification")
                 email_kwargs = {}
@@ -295,7 +303,7 @@ class BaseJob(Task):
         Split out of ``on_success`` so ``SilentJob`` can call it without
         inheriting the rest of that method -- see SilentJob.on_success.
         """
-        if getattr(self, "_notification_kind", None) is None:
+        if getattr(self, "_notification_kind", None) is None or not _wants_notification(retval):
             return
         try:
             self._send_task_completion_notification(retval, None)

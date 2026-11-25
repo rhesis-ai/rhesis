@@ -17,6 +17,7 @@ import BarChartOutlinedIcon from '@mui/icons-material/BarChartOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import RouteOutlinedIcon from '@mui/icons-material/RouteOutlined';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
+import ScheduleIcon from '@mui/icons-material/Schedule';
 import type SvgIcon from '@mui/material/SvgIcon';
 import { FilterDrawerShell } from '@/components/common/FilterDrawer';
 import { BORDER_RADIUS } from '@/styles/theme';
@@ -29,6 +30,7 @@ import {
   UsageNotificationEventType,
   isNotificationSection,
 } from '@/constants/notifications';
+import { SCHEDULE_NOTIFICATION } from '@/constants/test-run-schedules';
 import { useNotifications } from '@/contexts/NotificationsContext';
 import { rem } from '@/styles/theme-constants';
 
@@ -86,12 +88,40 @@ function sectionLinkLabel(
   return itemCount > 1 ? `${label}s` : label;
 }
 
-type NotificationSeverity = 'success' | 'warning' | 'error';
+type NotificationSeverity = 'success' | 'info' | 'warning' | 'error';
+
+const SCHEDULE_EVENTS: string[] = Object.values(SCHEDULE_NOTIFICATION);
+
+/** Where a schedule notice opens: the schedule's drawer, from the payload's link. */
+export function scheduleRoute(
+  n: Notification
+): { route: string; label: string } | null {
+  if (!SCHEDULE_EVENTS.includes(n.event_type)) return null;
+  const link = n.payload?.link;
+  // Same-origin paths only; a payload never sends the reader off the app.
+  if (
+    typeof link !== 'string' ||
+    !link.startsWith('/') ||
+    link.startsWith('//')
+  ) {
+    return null;
+  }
+  return {
+    route: link,
+    label:
+      n.event_type === SCHEDULE_NOTIFICATION.NEEDS_OWNER
+        ? 'Take over'
+        : 'View schedule',
+  };
+}
 
 /** The colour a row's icon takes. `usage.blocked` and any other failure both
  * read as `error` -- same severity, different glyph (see `notificationIcon`)
  * -- since either one means "this needs the reader's attention now". */
 function notificationSeverity(n: Notification): NotificationSeverity {
+  // Before is_failure: the backend marks these as failures, but they ask for a look, not a fix.
+  if (n.event_type === SCHEDULE_NOTIFICATION.SKIPPED) return 'info';
+  if (SCHEDULE_EVENTS.includes(n.event_type)) return 'warning';
   if (n.event_type === UsageNotificationEventType.BLOCKED || n.is_failure) {
     return 'error';
   }
@@ -111,6 +141,7 @@ function notificationIcon(n: Notification): typeof SvgIcon {
   if (n.event_type === UsageNotificationEventType.BLOCKED) {
     return ErrorOutlineIcon;
   }
+  if (SCHEDULE_EVENTS.includes(n.event_type)) return ScheduleIcon;
   if (n.is_failure) return WarningAmberOutlinedIcon;
   if (n.event_type === UsageNotificationEventType.APPROACHING_LIMIT) {
     return BarChartOutlinedIcon;
@@ -264,7 +295,9 @@ export default function NotificationsDrawer({
       }
     }
     onClose();
-    const eventRoute = NOTIFICATION_EVENT_ROUTES[notification.event_type];
+    const eventRoute =
+      scheduleRoute(notification) ??
+      NOTIFICATION_EVENT_ROUTES[notification.event_type];
     if (eventRoute) router.push(eventRoute.route);
     else if (section) router.push(SECTION_ROUTES[section]);
   };
@@ -405,6 +438,7 @@ export default function NotificationsDrawer({
                   const severity = notificationSeverity(n);
                   const Icon = notificationIcon(n);
                   const link =
+                    scheduleRoute(n)?.label ??
                     NOTIFICATION_EVENT_ROUTES[n.event_type]?.label ??
                     sectionLinkLabel(section, n.item_count);
                   return (

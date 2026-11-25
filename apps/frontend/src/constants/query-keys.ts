@@ -15,6 +15,16 @@ export const testKeys = {
 };
 export const testSetKeys = createEntityKeys('test-sets');
 export const testRunKeys = createEntityKeys('test-runs');
+export const scheduleKeys = {
+  ...createEntityKeys('test-run-schedules'),
+  /** Calendar window: every active schedule's runs between two instants. */
+  occurrences: (from: string, to: string) =>
+    ['test-run-schedules', 'occurrences', from, to] as const,
+  /** The plain-words summary and next runs for a spec being edited. */
+  preview: (spec: string) => ['test-run-schedules', 'preview', spec] as const,
+  forTestSet: (testSetId: string) =>
+    ['test-run-schedules', 'test-set', testSetId] as const,
+};
 export const endpointKeys = {
   ...createEntityKeys('endpoints'),
   // Under the 'endpoints' root so invalidating endpoint queries refreshes it too.

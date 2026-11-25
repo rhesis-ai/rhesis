@@ -332,6 +332,157 @@ tools:
       endpoint_id:
         description: "REQUIRED. The UUID of the target endpoint (path parameter)."
 
+  # ── Test Run Schedules ───────────────────────────────────
+  - name: schedule_test_set
+    label: Scheduling test set
+    method: POST
+    path: /test_run_schedules/
+    requires_confirmation: true
+    description: >
+      Run a test set against an endpoint later: once at a set time, or on
+      a repeating schedule. ENTITY: TestSet + Endpoint → TestRunSchedule
+      (no run is created now; each time the schedule is due, a normal test
+      run starts). PREREQUISITES: test_set_id from list_test_sets,
+      endpoint_id from list_endpoints. Set schedule.cron (5 fields, in
+      schedule.timezone, e.g. "0 9 * * 1-5" for weekdays at 09:00) OR
+      schedule.run_at (ISO 8601 with offset), never both. Runs can be at
+      most once an hour unless the deployment allows more; a refusal names
+      the limit. schedule.notify is "problems" (default), "always" or
+      "never". Leave schedule.name empty to name it after the test set.
+      To schedule several test sets the same way, send test_set_ids
+      instead of test_set_id: one schedule each. Response is a list; each
+      item has id, name, repeats (plain words) and next_run_at — tell the
+      user the repeats text and the next run, never the cron expression.
+      Runs execute as the person who created the schedule. NEVER: use
+      this when the user wants results now — use execute_test_set.
+    parameters:
+      test_set_id:
+        description: "Test set UUID. Use this or test_set_ids."
+      test_set_ids:
+        description: "Several test set UUIDs; creates one schedule per set."
+      endpoint_id:
+        description: "REQUIRED. UUID of the endpoint each run calls."
+      schedule:
+        description: >
+          REQUIRED. {name, cron | run_at, timezone (IANA, e.g.
+          "Europe/Berlin"; ask or use the user's), ends_at, max_runs,
+          notify}.
+      run_settings:
+        description: >
+          Optional. Same options as execute_test_set: execution_options
+          ({execution_mode: Parallel|Sequential}), metrics,
+          execution_model_id, evaluation_model_id. Omit for defaults.
+
+  - name: list_test_run_schedules
+    label: Listing schedules
+    method: GET
+    path: /test_run_schedules/
+    description: >
+      List test run schedules. ENTITY: TestRunSchedule. Each has id, name,
+      status (Scheduled, Paused, Finished), repeats (plain words),
+      next_run_at, overdue, paused_reason, test_set, endpoint, owner and
+      last_run (name, status, pass_rate). CHAIN: get_test_run_schedule for
+      recent runs and cost so far. Use test_set_id to list one test set's
+      schedules and status to narrow by state. Refer to schedules by name
+      and describe timing with repeats, not cron.
+    parameters:
+      test_set_id:
+        description: "Only schedules of this test set (UUID)."
+      status:
+        description: "Only these states: Scheduled, Paused, Finished."
+
+  - name: get_test_run_schedule
+    label: Checking schedule
+    method: GET
+    path: /test_run_schedules/{schedule_id}
+    description: >
+      Get one schedule with its next five run times (upcoming), its most
+      recent runs (recent_runs: name, status, pass_rate, total_cost_usd,
+      trigger) and usage so far (run_count, total_cost_usd, total_tokens,
+      expected_month_usd). PREREQUISITES: schedule_id from
+      list_test_run_schedules. CHAIN: analyze a run with get_test_run.
+      If paused_reason is creator_access, the owner can no longer run
+      tests; someone with access must take it over in the app.
+    parameters:
+      schedule_id:
+        description: "REQUIRED. UUID of the schedule."
+
+  - name: update_test_run_schedule
+    label: Changing schedule
+    method: PATCH
+    path: /test_run_schedules/{schedule_id}
+    requires_confirmation: true
+    description: >
+      Change a schedule from now on: name, cron or run_at, timezone,
+      ends_at, max_runs, notify, endpoint_id or run_settings. Only the
+      fields sent change. Runs that already happened keep their settings.
+      A schedule can't move to another test set. Setting a new future
+      run_at on a Finished run-once schedule makes it Scheduled again.
+    parameters:
+      schedule_id:
+        description: "REQUIRED. UUID of the schedule."
+
+  - name: pause_test_run_schedule
+    label: Pausing schedule
+    method: POST
+    path: /test_run_schedules/{schedule_id}/pause
+    requires_confirmation: false
+    description: >
+      Pause a schedule. Nothing runs until it is resumed.
+    parameters:
+      schedule_id:
+        description: "REQUIRED. UUID of the schedule."
+
+  - name: resume_test_run_schedule
+    label: Resuming schedule
+    method: POST
+    path: /test_run_schedules/{schedule_id}/resume
+    requires_confirmation: false
+    description: >
+      Resume a paused schedule from its next future time; runs missed
+      while paused are not made up. Refused when the owner lost access
+      (paused_reason creator_access): tell the user to take it over in the
+      app instead.
+    parameters:
+      schedule_id:
+        description: "REQUIRED. UUID of the schedule."
+
+  - name: skip_next_test_run_schedule_run
+    label: Skipping next scheduled run
+    method: POST
+    path: /test_run_schedules/{schedule_id}/skip_next
+    requires_confirmation: false
+    description: >
+      Skip only the schedule's next run. The ones after it stay planned.
+    parameters:
+      schedule_id:
+        description: "REQUIRED. UUID of the schedule."
+
+  - name: run_test_run_schedule_now
+    label: Running schedule now
+    method: POST
+    path: /test_run_schedules/{schedule_id}/run_now
+    requires_confirmation: false
+    description: >
+      Start one run of the schedule now, as the caller, without changing
+      its planned times. Refused while one of its runs is still going.
+      Response has test_run_id and task_id; follow up like
+      execute_test_set (get_test_run, then results).
+    parameters:
+      schedule_id:
+        description: "REQUIRED. UUID of the schedule."
+
+  - name: delete_test_run_schedule
+    label: Deleting schedule
+    method: DELETE
+    path: /test_run_schedules/{schedule_id}
+    requires_confirmation: true
+    description: >
+      Stop and remove a schedule. Its past runs are kept.
+    parameters:
+      schedule_id:
+        description: "REQUIRED. UUID of the schedule."
+
   - name: list_test_set_tests
     label: Listing tests in test set
     method: GET
@@ -592,7 +743,8 @@ tools:
       Queued, Running, Completed, Failed. Use $select to request only
       the fields you need (e.g. $select=id,name,status,test_set,created_at).
       Use $filter to narrow results (e.g. $filter=status/name eq
-      'Completed').
+      'Completed'). Pass trigger=schedule for only the runs a schedule
+      started, trigger=manual for the ones a person started.
 
   - name: get_test_run
     label: Checking test run status

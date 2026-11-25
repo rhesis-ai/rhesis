@@ -70,6 +70,13 @@ TOOL_REGISTRY: Dict[str, ToolEntry] = {
     "execute_test_set": ToolEntry(
         mode=AgentMode.EXECUTING,
     ),
+    # Scheduling is running later: the same execution guidance applies.
+    "schedule_test_set": ToolEntry(
+        mode=AgentMode.EXECUTING,
+    ),
+    "run_test_run_schedule_now": ToolEntry(
+        mode=AgentMode.EXECUTING,
+    ),
 }
 
 
