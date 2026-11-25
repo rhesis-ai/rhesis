@@ -593,7 +593,7 @@ def _requested_project(
     """
     organization_id, user_id = tenant_context
     if project_id is not None:
-        assert_project_access(request, current_user, project_id, db=db)
+        project_id = assert_project_access(request, current_user, project_id, db=db)
     effective_project_id = project_id or scope_project_id
     if effective_project_id and effective_project_id != scope_project_id:
         with temporary_project_scope(db, organization_id, user_id, effective_project_id):
@@ -793,8 +793,8 @@ def get_trace(
     # The response reads relationships too, so all of it runs in the project's scope.
     with _requested_project(
         request, current_user, db, tenant_context, project_id, scope_project_id
-    ):
-        return _trace_detail(db, tenant_context[0], trace_id, project_id)
+    ) as effective_project_id:
+        return _trace_detail(db, tenant_context[0], trace_id, effective_project_id)
 
 
 def _trace_detail(
@@ -1059,11 +1059,11 @@ def get_metrics(
 
     with _requested_project(
         request, current_user, db, tenant_context, project_id, scope_project_id
-    ):
+    ) as effective_project_id:
         return _metrics(
             db,
             organization_id,
-            project_id,
+            effective_project_id,
             environment,
             start_time_after,
             start_time_before,
