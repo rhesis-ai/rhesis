@@ -1,0 +1,33 @@
+# Accessibility
+
+Frontend changes keep the app usable with a keyboard, a screen reader and high zoom. Automated checks catch part of that; the rest needs a short manual check by whoever builds the screen. What users see is described on [Accessibility](/docs/organizations/accessibility).
+
+## What CI checks
+
+| Check | Where | Fails on |
+|---|---|---|
+| ESLint | `eslint.config.mjs` | The `jsx-a11y` recommended rules, plus `rhesis-a11y/icon-button-name`, `select-label` and `progress-name` for MUI components the plugin can't see into: an `IconButton` without `aria-label`, a `Select` without a label, a `LinearProgress` without a name |
+| axe | `tests/e2e/tests/a11y.spec.ts` (`@a11y`) | Serious or critical WCAG 2.x A/AA violations on every top-level route, in light and dark mode |
+| Unit tests | `jest-axe` in Jest | Violations in components whose tests assert `toHaveNoViolations` |
+
+The axe spec allows one known rule, `color-contrast`, because the default palette keeps the brand colours; accessibility mode clears it. Never add a rule to `KNOWN_VIOLATIONS` to make a new violation pass.
+
+The axe spec runs with the Docker-backed end-to-end tests (`make test-e2e`, `make test-e2e-ci`); see [Testing](/contribute/frontend/testing).
+
+## What CI can't check
+
+Automated tools find only part of the accessibility problems on a page; a page can pass axe and still be unusable. Before opening a PR that adds or changes a screen:
+
+1. **Keyboard.** Unplug the mouse. Tab through the screen: every control is reachable, the focus ring is visible, the order follows the layout, and Esc closes dialogs and returns focus to what opened them.
+2. **Zoom.** At 400 % browser zoom (320 px wide), nothing is cut off and the page doesn't scroll sideways. Grids and code editors may scroll inside their own frame.
+3. **Screen reader.** With VoiceOver (macOS: Cmd+F5), check that icon buttons say what they do, toggles say whether they're on, and messages that appear on their own (errors, results) are read.
+
+## Accessibility mode in code
+
+Behaviour that only applies in [accessibility mode](/docs/organizations/accessibility) reads `useAccessibilityMode()` from `@/hooks/useAccessibilityMode`. Keep the default behaviour unchanged when it returns `false`.
+
+- **Colours** come from the theme; in accessibility mode the theme raises them to the required contrast. A hard-coded colour bypasses that and fails the contrast check.
+- **Selected states** (a tab, a toggle, a pill, the current page) need `aria-selected`, `aria-pressed` or `aria-current`, not only a background colour: Windows contrast themes remove background colours, and the forced-colours styles in `apps/frontend/src/styles/forced-colors.css` key off these attributes.
+- **Motion**: gate animations on `useReducedMotion()`, which is true for the operating system setting and in accessibility mode.
+- **Messages that appear on their own** (a result, a status change) aren't read by screen readers if their element is new. Announce them with `useAnnounce()` from `@/components/common/LiveAnnouncer`; notifications from `useNotifications()` already are.
+- **Removals** of something that can be added back (unlinking, removing a tag) open a `DeleteModal` in accessibility mode instead of acting at once.
