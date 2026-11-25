@@ -23,6 +23,7 @@ T = TypeVar("T")
 # Test/test-set blow-up that necessitated this guard was caused by a 22-join
 # SQL statement; anything close to that warrants a second look.
 _MAX_EAGER_LOADS_WARN = 12
+_warned_eager_load_models: set[str] = set()
 
 
 def resolve_chain(model: Type, names: list) -> tuple:
@@ -143,7 +144,12 @@ class QueryBuilder:
         return self.with_related(*derived_field_load_options(self.model, extra_chains))
 
     def _maybe_warn_load_count(self) -> None:
-        if self._eager_load_count >= _MAX_EAGER_LOADS_WARN:
+        # Once per model and process: the same query shape repeats on every request.
+        if (
+            self._eager_load_count >= _MAX_EAGER_LOADS_WARN
+            and self.model.__name__ not in _warned_eager_load_models
+        ):
+            _warned_eager_load_models.add(self.model.__name__)
             logger.warning(
                 "QueryBuilder(%s) has accumulated %d eager loads; consider "
                 "whether the response schema actually needs all of these.",
