@@ -50,9 +50,19 @@ spec:
             rawSql: |
               SELECT id::text AS subscription, customer_slug AS customer, COALESCE(owner, 'unassigned') AS owner, deployment, edition,
                 environment, term_end::text AS term_end, COALESCE(primary_contact_email, '') AS contact,
+                -- The stage the reminder is in. A new stage is a new alert instance,
+                -- so it notifies when the countdown crosses 60, 30, 14 and 7 even
+                -- if the evaluation on that exact day was missed.
+                CASE
+                  WHEN days_to_renewal <= 7 THEN '7'
+                  WHEN days_to_renewal <= 14 THEN '14'
+                  WHEN days_to_renewal <= 30 THEN '30'
+                  WHEN days_to_renewal <= 60 THEN '60'
+                  ELSE '90'
+                END AS stage,
                 days_to_renewal AS value
               FROM v_subscriptions
-              WHERE status IN ('trial', 'active', 'past_due') AND days_to_renewal IN (90, 60, 30, 14, 7)
+              WHERE status IN ('trial', 'active', 'past_due') AND days_to_renewal BETWEEN 0 AND 90
         - refId: B
           datasourceUid: __expr__
           relativeTimeRange:
@@ -72,9 +82,11 @@ spec:
       labels:
         severity: info
         category: licensing
+        # Routed to the weekly sub-route in notification-policy.yaml.
+        reminder: renewal
       annotations:
         summary: "{{ $labels.customer }}: {{ $labels.edition }} ({{ $labels.deployment }}) renews in {{ $values.A.Value }} days"
-        description: "Term ends {{ $labels.term_end }}. Owner: {{ $labels.owner }}. Contact: {{ $labels.contact }}. Fires once on each of 90/60/30/14/7 days before the end of the term. After the renewal is signed: [Enterprise] Subscription (renew), then issue a new license for it."
+        description: "Term ends {{ $labels.term_end }}. Owner: {{ $labels.owner }}. Contact: {{ $labels.contact }}. Firing from 90 days before the end of the term; notifies on entering each stage (90/60/30/14/7 days), then weekly. After the renewal is signed: [Enterprise] Subscription (renew), then issue a new license for it."
     - uid: rhesis-licensing-license-not-covered
       title: License expiring or missing
       condition: B

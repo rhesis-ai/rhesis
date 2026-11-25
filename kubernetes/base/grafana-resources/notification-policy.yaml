@@ -17,8 +17,22 @@ spec:
     group_interval: 5m
     repeat_interval: 4h
     routes:
-      # Licensing reminders (licensing-alerts.yaml) are business follow-ups, not
-      # incidents: same receiver, but once a day is enough.
+      # Renewal reminders fire for the whole 90 days before a term ends, as one
+      # alert per subscription and stage (90/60/30/14/7 days, see
+      # licensing-alerts.yaml): each new stage notifies at once, a stage that
+      # lasts weeks repeats weekly. First match wins, so this precedes the
+      # general licensing route.
+      - receiver: default-notifications
+        object_matchers:
+          - ["category", "=", "licensing"]
+          - ["reminder", "=", "renewal"]
+        group_by:
+          - alertname
+          - subscription
+          - stage
+        repeat_interval: 168h
+      # Other licensing alerts (licensing-alerts.yaml) are business follow-ups,
+      # not incidents: same receiver, but once a day is enough.
       - receiver: default-notifications
         object_matchers:
           - ["category", "=", "licensing"]
