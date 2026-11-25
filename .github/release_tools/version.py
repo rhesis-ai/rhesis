@@ -7,7 +7,12 @@ import re
 import subprocess
 from pathlib import Path
 
-from release_tools.config import COMPONENTS, PLATFORM_PINNED_FILES, PLATFORM_VERSION_FILE
+from release_tools.config import (
+    COMPONENTS,
+    PLATFORM_PINNED_FILES,
+    PLATFORM_VERSION_FILE,
+    SDK_CORE_REQUIREMENT,
+)
 from release_tools.utils import error, info, success
 
 
@@ -116,10 +121,17 @@ def update_version_file(
 
     if dry_run:
         info(f"Would update {config.config_file} version to: {new_version}")
+        if component == "sdk":
+            info(f"Would raise the SDK's rhesis requirement to: >={new_version}")
         return True
 
     if config.config_type == "pyproject":
-        return _update_pyproject_version(config_path, new_version)
+        # Checked first so a missing requirement fails before any file changes.
+        if component == "sdk" and not _sdk_core_floor_found(repo_root):
+            return False
+        if not _update_pyproject_version(config_path, new_version):
+            return False
+        return component != "sdk" or pin_sdk_core_floor(new_version, repo_root)
     if config.config_type == "package":
         return _update_package_version(config_path, new_version, repo_root)
 
@@ -153,6 +165,27 @@ def pin_platform_files(new_version: str, repo_root: Path) -> bool:
             return False
         path.write_text(text)
         success(f"Pinned {rel_path} to: {new_version}")
+    return True
+
+
+def _sdk_core_floor_found(repo_root: Path) -> bool:
+    rel_path, pattern = SDK_CORE_REQUIREMENT
+    count = len(re.findall(pattern, (repo_root / rel_path).read_text()))
+    if count != 1:
+        error(f"Expected one rhesis[telemetry] requirement in {rel_path}, found {count}")
+    return count == 1
+
+
+def pin_sdk_core_floor(new_version: str, repo_root: Path) -> bool:
+    """Raise the SDK's requirement on the core package to the version being released"""
+    if not _sdk_core_floor_found(repo_root):
+        return False
+    rel_path, pattern = SDK_CORE_REQUIREMENT
+    path = repo_root / rel_path
+    path.write_text(
+        re.sub(pattern, lambda m: f"{m.group(1)}{new_version}{m.group(3)}", path.read_text())
+    )
+    success(f"Raised the rhesis requirement in {rel_path} to: >={new_version}")
     return True
 
 
