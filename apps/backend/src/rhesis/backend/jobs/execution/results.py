@@ -10,6 +10,7 @@ from uuid import UUID
 from rhesis.backend.app.crud.test_run import get_test_run
 from rhesis.backend.app.database import get_db_with_tenant_variables
 from rhesis.backend.app.models.enums import NotificationEventType
+from rhesis.backend.app.services.test_run_schedule.outcomes import record_run_outcome
 from rhesis.backend.celery.core import app
 from rhesis.backend.jobs.base import EmailEnabledJob, email_notification, in_app_notification
 from rhesis.backend.jobs.execution.result_processor import TestRunProcessor
@@ -141,6 +142,16 @@ def collect_results(self, *args, **kwargs) -> Dict[str, Any]:
                 self.set_progress(total, total)
             _emit_terminal_tick(self, test_run, org_id, user_id, project_id, total)
             self.log_with_context("info", f"Test run update completed for: {test_run_id}")
+
+            # A scheduled run updates its schedule, and its notify setting decides
+            # whether the completion email and notification go out.
+            try:
+                outcome = record_run_outcome(db, test_run, summary_data)
+            except Exception:
+                logger.exception("Could not record the schedule outcome of run %s", test_run_id)
+                outcome = None
+            if outcome:
+                summary_data.update(outcome)
 
             return summary_data
 

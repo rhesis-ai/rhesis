@@ -134,6 +134,16 @@ class NotificationEventType:
     class TestRun(str, Enum):
         EXECUTION_COMPLETED = "test_run.execution_completed"
 
+    class TestRunSchedule(str, Enum):
+        #: The system paused a schedule (endpoint or test set gone, failures in a row, ...).
+        PAUSED = "test_run_schedule.paused"
+        #: A run didn't happen because the scheduler was down for over an hour.
+        MISSED = "test_run_schedule.missed"
+        #: A run was skipped, e.g. for the organization's quota. Once per streak.
+        SKIPPED = "test_run_schedule.skipped"
+        #: The owner can no longer run tests in the project; someone has to take it over.
+        NEEDS_OWNER = "test_run_schedule.needs_owner"
+
     class Task(str, Enum):
         ASSIGNED = "task.assigned"
 
