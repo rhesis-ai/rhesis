@@ -15,6 +15,17 @@ jest.mock('@/contexts/PermissionsContext', () => ({
 }));
 
 const mockUnreadBySection: Record<string, number> = {};
+let mockPathname = '/';
+
+jest.mock('next/navigation', () => ({
+  ...jest.requireActual('next/navigation'),
+  usePathname: () => mockPathname,
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    prefetch: jest.fn(),
+  }),
+}));
 
 jest.mock('@/contexts/NotificationsContext', () => ({
   useNotifications: () => ({
@@ -75,5 +86,27 @@ describe('NavItem notification badge', () => {
     render(<NavItem item={testSetsItem()} collapsed={true} />);
     // MUI Badge renders the count in a span with class MuiBadge-badge.
     expect(document.querySelector('.MuiBadge-badge')).toHaveTextContent('2');
+  });
+});
+
+describe('NavItem current page', () => {
+  afterEach(() => {
+    mockPathname = '/';
+  });
+
+  it('marks the item for the current page', () => {
+    mockPathname = `/${NotificationSection.TEST_SETS}`;
+    render(<NavItem item={testSetsItem()} collapsed={false} />);
+    expect(screen.getByRole('link', { name: /Test Sets/ })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+  });
+
+  it('leaves other items unmarked', () => {
+    render(<NavItem item={testSetsItem()} collapsed={false} />);
+    expect(screen.getByRole('link', { name: /Test Sets/ })).not.toHaveAttribute(
+      'aria-current'
+    );
   });
 });

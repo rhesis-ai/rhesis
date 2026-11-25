@@ -64,6 +64,7 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
     <Box
       component={NextLink}
       href={fullPath}
+      aria-current={active ? 'page' : undefined}
       sx={{
         display: 'flex',
         alignItems: 'center',
