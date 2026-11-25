@@ -69,8 +69,10 @@ def derived_field_load_options(
     (each a flat ``[name, ...]`` path, e.g. ``["_tags_relationship", "tag"]``),
     deduped by full chain.
 
-    ``cascade`` limits the cascade to the named relationships, for a response
-    schema that nests only some of them; ``None`` cascades into all of them.
+    ``cascade`` limits only the cascade into related models, to the named
+    relationships, for a response schema that nests only some of them; ``None``
+    cascades into all of them. The model's own derived fields always load, so
+    ``cascade=()`` means "this model's fields only", not "no derived loads".
     """
     from rhesis.backend.app.models.mixins import (
         CommentsMixin,

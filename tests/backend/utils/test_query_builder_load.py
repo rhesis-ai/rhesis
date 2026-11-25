@@ -408,3 +408,12 @@ class TestQueryBuilderCount:
         after = QueryBuilder(test_db, models.Test).with_organization_filter(test_org_id).count()
 
         assert after == before - 1
+
+    def test_distinct_queries_keep_the_subquery_count(
+        self, test_db: Session, test_org_id, test_test
+    ):
+        builder = QueryBuilder(test_db, models.Test).with_organization_filter(test_org_id)
+        plain = builder.count()
+        builder.query = builder.query.distinct()
+
+        assert builder.count() == plain

@@ -408,7 +408,8 @@ class QueryBuilder:
 
     def count(self) -> int:
         """Execute query and return the count of results without pagination"""
-        if self.query._distinct:
+        # DISTINCT or GROUP BY change what a row is; Query.count() handles those.
+        if getattr(self.query, "_distinct", True) or getattr(self.query, "_group_by_clauses", ()):
             return self.query.count()
         # Query.count() wraps every column in a subquery. Counting the id keeps the model in
         # the column list, so the tenant and soft-delete criteria still attach.
