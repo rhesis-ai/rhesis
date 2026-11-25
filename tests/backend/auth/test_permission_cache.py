@@ -157,6 +157,30 @@ class TestPermissionCacheUnit:
 
         assert self.cache.get(OTHER_USER_ID, ORG_ID, PROJECT_ID, "test_set:read") is True
 
+    # --- project access and bust_org ---
+
+    def test_project_access_is_remembered_per_project(self):
+        self.cache.set_project_access(USER_ID, ORG_ID, PROJECT_ID)
+        assert self.cache.has_project_access(USER_ID, ORG_ID, PROJECT_ID) is True
+        assert self.cache.has_project_access(USER_ID, ORG_ID, OTHER_PROJECT_ID) is False
+        assert self.cache.has_project_access(OTHER_USER_ID, ORG_ID, PROJECT_ID) is False
+
+    def test_bust_user_drops_project_access(self):
+        self.cache.set_project_access(USER_ID, ORG_ID, PROJECT_ID)
+        self.cache.bust_user(USER_ID, ORG_ID)
+        assert self.cache.has_project_access(USER_ID, ORG_ID, PROJECT_ID) is False
+
+    def test_bust_org_clears_every_user_in_the_org_only(self):
+        self.cache.set_project_access(USER_ID, ORG_ID, PROJECT_ID)
+        self.cache.set(OTHER_USER_ID, ORG_ID, PROJECT_ID, "test_set:read", True)
+        self.cache.set(USER_ID, OTHER_ORG_ID, PROJECT_ID, "test_set:read", True)
+
+        self.cache.bust_org(ORG_ID)
+
+        assert self.cache.has_project_access(USER_ID, ORG_ID, PROJECT_ID) is False
+        assert self.cache.get(OTHER_USER_ID, ORG_ID, PROJECT_ID, "test_set:read") is None
+        assert self.cache.get(USER_ID, OTHER_ORG_ID, PROJECT_ID, "test_set:read") is True
+
     def test_bust_user_does_not_affect_other_orgs(self):
         """Busting (user, org1) must not clear (user, org2) entries."""
         self.cache.set(USER_ID, ORG_ID, PROJECT_ID, "test_set:read", True)

@@ -7,6 +7,7 @@ Writes to membership route through ``services.organization`` so that a user's
 ``default_project`` is repaired alongside.
 """
 
+import logging
 import uuid
 from typing import List, Optional
 
@@ -24,6 +25,9 @@ from rhesis.backend.app.utils.query_utils import include
 
 # Relationships serialized by schemas.ProjectDetail -- owner (tags load via the mixin cascade).
 _PROJECT_RELATED_FIELDS = (include(models.Project.owner),)
+
+
+logger = logging.getLogger(__name__)
 
 
 def get_project(
@@ -196,9 +200,21 @@ def delete_project(
     from rhesis.backend.app.services.project_membership import unenroll_all_project_members
 
     unenroll_all_project_members(db, project_id, organization_id)
-    return delete_item(
+    deleted = delete_item(
         db, models.Project, project_id, organization_id=organization_id, user_id=user_id
     )
+    # Unenrolling busts the members; org admins reach projects without a membership.
+    _bust_organization_permissions(organization_id)
+    return deleted
+
+
+def _bust_organization_permissions(organization_id) -> None:
+    try:
+        from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+        get_permission_cache().bust_org(uuid.UUID(str(organization_id)))
+    except Exception as exc:
+        logger.warning("permission cache bust failed for org %s: %s", organization_id, exc)
 
 
 # ProjectMembership CRUD

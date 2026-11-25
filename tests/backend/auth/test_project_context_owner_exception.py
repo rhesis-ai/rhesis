@@ -292,3 +292,55 @@ class TestEeAdminException:
 
         with _ee_provider_active():
             assert _call(viewer_id, org_id, project_id) is None
+
+
+@pytest.mark.integration
+class TestProjectAccessCache:
+    """A passed check is cached like authorize(); denials and busts are not served from it."""
+
+    @staticmethod
+    def _owner_with_project(db):
+        org_id = _create_org(db)
+        owner_id = _create_user(db, org_id)
+        _set_owner(db, org_id, owner_id)
+        _assign_owner_role(db, org_id, owner_id)
+        project_id = _create_project(db, org_id)
+        _point_session_at_org(db, org_id)
+        return org_id, owner_id, project_id
+
+    @staticmethod
+    def _no_session(monkeypatch):
+        @contextmanager
+        def _fail(*_args, **_kwargs):
+            raise AssertionError("the check opened a session")
+            yield  # pragma: no cover
+
+        monkeypatch.setattr(dependencies, "get_db_with_tenant_variables", _fail)
+
+    def test_a_pass_is_served_from_the_cache(self, patch_ctx_session, monkeypatch):
+        org_id, owner_id, project_id = self._owner_with_project(patch_ctx_session)
+        assert _call(owner_id, org_id, project_id) == str(project_id)
+
+        self._no_session(monkeypatch)
+        assert _call(owner_id, org_id, project_id) == str(project_id)
+
+    def test_bust_user_makes_it_check_again(self, patch_ctx_session, monkeypatch):
+        from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+        org_id, owner_id, project_id = self._owner_with_project(patch_ctx_session)
+        _call(owner_id, org_id, project_id)
+        get_permission_cache().bust_user(owner_id, org_id)
+
+        self._no_session(monkeypatch)
+        with pytest.raises(AssertionError, match="opened a session"):
+            _call(owner_id, org_id, project_id)
+
+    def test_a_denial_is_not_cached(self, patch_ctx_session):
+        from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+        db = patch_ctx_session
+        org_id, _owner_id, project_id = self._owner_with_project(db)
+        other_id = _create_user(db, org_id)
+
+        assert _call(other_id, org_id, project_id) is None
+        assert not get_permission_cache().has_project_access(other_id, org_id, project_id)

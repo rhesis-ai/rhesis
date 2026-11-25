@@ -146,6 +146,22 @@ def assert_project_access(
                     detail=f"User is not a member of project {project_id}",
                 )
 
+    # Cached like authorize(): a recent pass skips the session and both lookups. Membership
+    # writes bust it per user, and deleting a project busts the whole organization.
+    from rhesis.backend.app.auth.principal import resolve_principal_from_request
+    from rhesis.backend.app.auth.rbac import _scope_fingerprint
+    from rhesis.backend.app.services.permission_cache import get_permission_cache
+
+    cache = get_permission_cache()
+    cache_key = (
+        current_user.id,
+        current_user.organization_id,
+        project_id,
+        _scope_fingerprint(resolve_principal_from_request(current_user, request)),
+    )
+    if cache.has_project_access(*cache_key):
+        return str(project_id)
+
     if db is not None:
         _check(db)
     else:
@@ -154,6 +170,10 @@ def assert_project_access(
         with get_db_with_tenant_variables(org_id, user_id_str, "") as session:
             _check(session)
 
+    try:
+        cache.set_project_access(*cache_key)
+    except Exception as exc:
+        logger.warning("assert_project_access: cache set failed (non-fatal): %s", exc)
     return str(project_id)
 
 
