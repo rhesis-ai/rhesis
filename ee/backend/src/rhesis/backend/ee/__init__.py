@@ -58,10 +58,12 @@ def bootstrap_providers() -> None:
     from rhesis.backend.ee.audit import register_audit
     from rhesis.backend.ee.licensing.provider import SignedTokenLicenseProvider
     from rhesis.backend.ee.licensing.quota_provider import ConfigQuotaProvider
+    from rhesis.backend.ee.otlp import register_otlp_worker_hooks
 
     FeatureRegistry.set_license_provider(SignedTokenLicenseProvider())
     QuotaRegistry.set_quota_provider(ConfigQuotaProvider())
     register_audit()
+    register_otlp_worker_hooks()
     log_license_summary()
 
 
@@ -147,6 +149,7 @@ def bootstrap(app: "FastAPI") -> None:
     from rhesis.backend.ee.api_clients.router import router as api_clients_router
     from rhesis.backend.ee.audit.router import router as audit_router
     from rhesis.backend.ee.audit.streaming.router import router as audit_destinations_router
+    from rhesis.backend.ee.otlp.router import router as otlp_router
     from rhesis.backend.ee.rbac.provider import PermissionAuthorizationProvider
     from rhesis.backend.ee.rbac.router import router as rbac_router
     from rhesis.backend.ee.reports.router import router as reports_router
@@ -271,6 +274,11 @@ def bootstrap(app: "FastAPI") -> None:
 
     register_reports()
 
+    # OTLP/HTTP trace ingest (GenAI conventions).
+    from rhesis.backend.ee.otlp import register_otlp_ingest
+
+    register_otlp_ingest()
+
     # ---- Public routes (must run before include_router) ------------------
     # AuthenticatedAPIRoute resolves dependencies at registration time;
     # extending the existing list (rather than rebinding) is what lets
@@ -288,6 +296,14 @@ def bootstrap(app: "FastAPI") -> None:
 
     # ---- Middleware ------------------------------------------------------
     app.add_middleware(TokenEndpointCacheHeadersMiddleware)
+    # Answers OTLP ingest errors as google.rpc.Status, whichever layer raised them.
+    from rhesis.backend.app.config.settings import get_trace_ingest_settings
+    from rhesis.backend.ee.otlp.error_middleware import OTLPErrorMiddleware
+
+    app.add_middleware(
+        OTLPErrorMiddleware,
+        retry_after_seconds=lambda: get_trace_ingest_settings().retry_after_seconds,
+    )
 
     # ---- Routers ---------------------------------------------------------
     # EE routers must use the same authenticated route class as core routers
@@ -301,6 +317,7 @@ def bootstrap(app: "FastAPI") -> None:
         rbac_router,
         audit_router,
         audit_destinations_router,
+        otlp_router,
         reports_router,
     ):
         r.route_class = app.router.route_class
@@ -316,5 +333,5 @@ def bootstrap(app: "FastAPI") -> None:
 
     logger.info(
         "EE bootstrap complete - license provider installed; "
-        "registered features: [sso, api_clients, rbac, audit_log, advanced_reports]"
+        "registered features: [sso, api_clients, rbac, audit_log, advanced_reports, otlp_ingest]"
     )
