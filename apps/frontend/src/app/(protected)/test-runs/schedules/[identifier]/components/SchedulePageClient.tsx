@@ -36,6 +36,7 @@ import { useScheduleActions } from '../../../components/schedules/useSchedules';
 import type { TestRunSchedule } from '@/utils/api-client/interfaces/test-run-schedule';
 import ScheduleSummary, { RUNS_PER_PAGE } from './ScheduleSummary';
 import ScheduleConfiguration from './ScheduleConfiguration';
+import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 
 const SCHEDULES_HREF = `/test-runs?${TEST_RUNS_PARAM.TAB}=${TEST_RUNS_TAB.SCHEDULES}`;
 const TABS = [
@@ -70,7 +71,7 @@ export default function SchedulePageClient({ scheduleId }: Props) {
   if (!canRead) return <AccessDenied resource="test runs" />;
 
   const breadcrumbs = [
-    { label: 'Test Runs', href: '/test-runs' },
+    directoryCrumb(PAGE_HEADERS.testRuns),
     { label: 'Schedules', href: SCHEDULES_HREF },
   ];
 

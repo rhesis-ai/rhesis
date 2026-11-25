@@ -60,6 +60,11 @@ import MultiFileUpload from '@/components/common/MultiFileUpload';
 import { EntityType } from '@/types/entity-type';
 import { useTypeLookups } from '@/hooks/useLookups';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import {
+  MANUAL_TEST_WRITER_HEADER,
+  PAGE_HEADERS,
+  directoryCrumb,
+} from '@/constants/page-headers';
 
 type TestType = 'Single-Turn' | 'Multi-Turn';
 
@@ -638,11 +643,11 @@ export default function ManualTestWriter({
   return (
     <>
       <PageLayout
-        title="Manual Test Writer"
-        description="Create test cases manually. One test case per row."
+        title={MANUAL_TEST_WRITER_HEADER.title}
+        description={MANUAL_TEST_WRITER_HEADER.description}
         breadcrumbs={[
-          { label: 'Tests', href: '/tests' },
-          { label: 'Manual Test Writer' },
+          directoryCrumb(PAGE_HEADERS.tests),
+          { label: MANUAL_TEST_WRITER_HEADER.title },
         ]}
         actions={
           <FabGroup>

@@ -15,6 +15,7 @@ import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { useBulkActionsBridge } from '@/hooks/useBulkActionsBridge';
 import { rem } from '@/styles/theme-constants';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 interface TokensPageClientProps {
   /** Server-fetched first page -- when present, skips the initial client fetch. */
@@ -83,8 +84,8 @@ export default function TokensPageClient({
 
   return (
     <PageLayout
-      title="API Tokens"
-      description="Create API tokens to authenticate with the Rhesis SDK and programmatically manage your testing workflows from your code."
+      title={PAGE_HEADERS.tokens.title}
+      description={PAGE_HEADERS.tokens.description}
       breadcrumbs={[]}
       actions={
         <FabGroup>

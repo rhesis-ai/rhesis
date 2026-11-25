@@ -28,6 +28,7 @@ import { playgroundPanelSx } from './playgroundPanelSx';
 import PlaygroundChat from './PlaygroundChat';
 import PlaygroundEndpointDrawer from './PlaygroundEndpointDrawer';
 import { scaledVh } from '@/styles/viewport-scaling';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 /**
  * Placeholder shown when no endpoint is selected.
@@ -218,8 +219,8 @@ export default function PlaygroundClient({
 
   return (
     <PageLayout
-      title="Playground"
-      description="Chat with your endpoints interactively to test their responses and generate test cases from your conversations."
+      title={PAGE_HEADERS.playground.title}
+      description={PAGE_HEADERS.playground.description}
       breadcrumbs={[]}
       actions={
         <FabGroup>

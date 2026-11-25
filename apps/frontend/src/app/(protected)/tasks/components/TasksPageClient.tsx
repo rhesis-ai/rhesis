@@ -17,6 +17,7 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { EntityType } from '@/types/tasks';
 import type { Task } from '@/utils/api-client/interfaces/task';
 import { rem } from '@/styles/theme-constants';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 interface TasksPageClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -90,8 +91,8 @@ export default function TasksPageClient({
   return (
     <>
       <PageLayout
-        title="Tasks"
-        description="Track and manage work items linked to tests, endpoints, and comments across your organization."
+        title={PAGE_HEADERS.tasks.title}
+        description={PAGE_HEADERS.tasks.description}
         breadcrumbs={[]}
         actions={
           <FabGroup>

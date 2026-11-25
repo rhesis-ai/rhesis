@@ -22,6 +22,7 @@ import TestDetailTabs from './components/TestDetailTabs';
 import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
 import { isMultiTurnTest } from '@/constants/test-types';
 import { isMultiTurnConfig } from '@/utils/api-client/interfaces/multi-turn-test-config';
+import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -88,7 +89,7 @@ export default async function TestDetailPage({ params }: PageProps) {
     : test.id;
 
   const breadcrumbs = [
-    { label: 'Tests', href: '/tests' },
+    directoryCrumb(PAGE_HEADERS.tests),
     { label: title, href: `/tests/${identifier}` },
   ];
 

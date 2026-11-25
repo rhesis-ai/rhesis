@@ -58,6 +58,7 @@ import RequirementFilterDrawer, {
 import { useList } from '@/hooks/useList';
 import { requirementsList } from './list';
 import { rem } from '@/styles/theme-constants';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 interface RequirementsClientProps {
   organizationId: UUID;
@@ -535,7 +536,7 @@ export default function RequirementsClient({
 
   if (isInitialLoad) {
     return (
-      <PageLayout title="Requirements" breadcrumbs={[]}>
+      <PageLayout title={PAGE_HEADERS.requirements.title} breadcrumbs={[]}>
         <Box
           sx={{
             display: 'flex',
@@ -556,8 +557,8 @@ export default function RequirementsClient({
 
   return (
     <PageLayout
-      title="Requirements"
-      description="Requirements are atomic expectations for your application, measured through one or more metrics to determine if requirements are met."
+      title={PAGE_HEADERS.requirements.title}
+      description={PAGE_HEADERS.requirements.description}
       breadcrumbs={[]}
       actions={
         <FabGroup>

@@ -2,6 +2,7 @@ import type { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { Report } from '@/utils/api-client/interfaces/report';
 import { Capability } from '@/constants/capabilities';
 import { defineList } from '@/utils/list';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 const REPORTS_FILTERS = {
   search: { kind: 'search', columns: ['title', 'endpoint/name', 'user/name'] },
@@ -9,7 +10,7 @@ const REPORTS_FILTERS = {
 } as const;
 
 export const reportsList = defineList<Report, typeof REPORTS_FILTERS>({
-  title: 'Reports',
+  title: PAGE_HEADERS.reports.title,
   resource: 'reports',
   capability: Capability.Report.READ,
   defaultPageSize: 25,

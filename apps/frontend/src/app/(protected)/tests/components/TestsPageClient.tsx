@@ -24,6 +24,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { testKeys, testSetKeys } from '@/constants/query-keys';
 import type { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { rem } from '@/styles/theme-constants';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 interface TestsPageClientProps {
   /**
@@ -141,8 +142,8 @@ export default function TestsPageClient({
   return (
     <>
       <PageLayout
-        title="Tests"
-        description="Individual test cases that evaluate your AI endpoints for quality, safety, and reliability."
+        title={PAGE_HEADERS.tests.title}
+        description={PAGE_HEADERS.tests.description}
         breadcrumbs={[]}
         actions={
           <FabGroup>

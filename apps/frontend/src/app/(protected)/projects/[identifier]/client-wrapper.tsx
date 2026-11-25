@@ -32,6 +32,7 @@ import { useDeleteProject } from '@/hooks/useEndpoints';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { detailPageTitle } from '@/utils/document-title';
 import { rem } from '@/styles/theme-constants';
+import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 
 interface ClientWrapperProps {
   project: Project;
@@ -72,7 +73,7 @@ export default function ClientWrapper({
 
   const title = currentProject.name || `Project ${params.identifier}`;
   const breadcrumbs: BreadcrumbItem[] = [
-    { label: 'Projects', href: '/projects' },
+    directoryCrumb(PAGE_HEADERS.projects),
     { label: title },
   ];
 

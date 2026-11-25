@@ -65,6 +65,7 @@ import {
   isEmbeddingModel,
 } from '@/utils/model-capabilities';
 import { SCORE_TYPES } from '@/constants/score-types';
+import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 
 type EditableSectionType = 'general' | 'evaluation' | 'configuration';
 
@@ -889,7 +890,7 @@ export function MetricDetailView({
           entityTableName="metric"
           listUrl="/metrics"
           breadcrumbs={[
-            { label: 'Metrics', href: '/metrics' },
+            directoryCrumb(PAGE_HEADERS.metrics),
             { label: 'Not Found', href: `/metrics/${metricId}` },
           ]}
           onBack={() => router.push('/metrics')}
@@ -1744,7 +1745,7 @@ export function MetricDetailView({
     <PageLayout
       title={metric.name}
       breadcrumbs={[
-        { label: 'Metrics', href: '/metrics' },
+        directoryCrumb(PAGE_HEADERS.metrics),
         { label: metric.name, href: `/metrics/${metricId}` },
       ]}
       actions={

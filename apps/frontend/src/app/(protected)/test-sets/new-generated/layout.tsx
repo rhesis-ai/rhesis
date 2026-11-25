@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { PageLayout } from '@/components/layout/PageLayout';
 import DocumentTitle from '@/components/common/DocumentTitle';
+import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 
 export const metadata: Metadata = {
   title: 'Generate Test Set',
@@ -16,7 +17,7 @@ export default function GenerateTestSetLayout({
       title="Generate Test Set"
       description="Describe what you want to test and let AI generate a curated set of test cases for your application."
       breadcrumbs={[
-        { label: 'Test Sets', href: '/test-sets' },
+        directoryCrumb(PAGE_HEADERS.testSets),
         { label: 'Generate Test Set', href: '/test-sets/new-generated' },
       ]}
       fullHeight

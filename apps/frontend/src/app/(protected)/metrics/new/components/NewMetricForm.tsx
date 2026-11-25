@@ -48,6 +48,11 @@ import {
   canJudgeScoreType,
   isEmbeddingModel,
 } from '@/utils/model-capabilities';
+import {
+  NEW_METRIC_CRUMB,
+  PAGE_HEADERS,
+  directoryCrumb,
+} from '@/constants/page-headers';
 
 interface MetricFormData {
   name: string;
@@ -1277,8 +1282,8 @@ export default function NewMetricForm({
     <PageLayout
       title={getTitle()}
       breadcrumbs={[
-        { label: 'Metrics', href: '/metrics' },
-        { label: 'New Metric' },
+        directoryCrumb(PAGE_HEADERS.metrics),
+        { label: NEW_METRIC_CRUMB },
       ]}
     >
       <Box sx={{ width: '100%' }}>

@@ -7,6 +7,7 @@ import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import JobsGrid from './JobsGrid';
 import { jobsList } from './list';
 import type { Job } from '@/utils/api-client/interfaces/job';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 interface JobsPageClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -26,8 +27,8 @@ export default function JobsPageClient({
 
   return (
     <PageLayout
-      title="Jobs"
-      description="Background work the platform is doing, and what it logged along the way."
+      title={PAGE_HEADERS.jobs.title}
+      description={PAGE_HEADERS.jobs.description}
       breadcrumbs={[]}
     >
       <JobsGrid

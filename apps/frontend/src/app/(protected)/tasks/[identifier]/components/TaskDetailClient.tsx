@@ -26,6 +26,7 @@ import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { detailPageTitle } from '@/utils/document-title';
+import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 
 interface TaskDetailClientProps {
   identifier: string;
@@ -110,7 +111,7 @@ export default function TaskDetailClient({
         entityTableName="task"
         listUrl="/tasks"
         breadcrumbs={[
-          { label: 'Tasks', href: '/tasks' },
+          directoryCrumb(PAGE_HEADERS.tasks),
           { label: 'Not Found', href: `/tasks/${taskId}` },
         ]}
         onBack={() => router.push('/tasks')}
@@ -141,7 +142,7 @@ export default function TaskDetailClient({
     <PageLayout
       title={task.title}
       breadcrumbs={[
-        { label: 'Tasks', href: '/tasks' },
+        directoryCrumb(PAGE_HEADERS.tasks),
         { label: task.title, href: `/tasks/${taskId}` },
       ]}
       metadata={metadataStrip}

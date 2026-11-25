@@ -37,6 +37,7 @@ import {
   isValidEntityType,
 } from '@/utils/entity-helpers';
 import ActivityLogViewer from './ActivityLogViewer';
+import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 
 /**
  * Fallback poll interval for a running job while the WebSocket is not
@@ -217,7 +218,10 @@ export default function JobDetailClient({
     return (
       <PageLayout
         title="Job"
-        breadcrumbs={[{ label: 'Jobs', href: '/jobs' }, { label: 'Not found' }]}
+        breadcrumbs={[
+          directoryCrumb(PAGE_HEADERS.jobs),
+          { label: 'Not found' },
+        ]}
       >
         <Alert severity="error">
           This job could not be loaded. It may have been removed by the
@@ -237,7 +241,7 @@ export default function JobDetailClient({
     <PageLayout
       title={job.name || job.job_type}
       breadcrumbs={[
-        { label: 'Jobs', href: '/jobs' },
+        directoryCrumb(PAGE_HEADERS.jobs),
         { label: job.name || job.job_type },
       ]}
       actions={

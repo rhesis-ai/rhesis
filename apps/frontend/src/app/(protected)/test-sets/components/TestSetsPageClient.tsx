@@ -22,6 +22,7 @@ import { Capability } from '@/constants/capabilities';
 import { useListAuthGate } from '@/hooks/useListAuthGate';
 import type { TestSet } from '@/utils/api-client/interfaces/test-set';
 import { rem } from '@/styles/theme-constants';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 interface TestSetsPageClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -112,8 +113,8 @@ export default function TestSetsPageClient({
   return (
     <>
       <PageLayout
-        title="Test Sets"
-        description="Curated collections of tests you can version, share, and execute against your AI endpoints."
+        title={PAGE_HEADERS.testSets.title}
+        description={PAGE_HEADERS.testSets.description}
         breadcrumbs={[]}
         actions={
           <FabGroup>

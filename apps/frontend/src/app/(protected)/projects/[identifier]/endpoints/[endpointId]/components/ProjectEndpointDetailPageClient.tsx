@@ -21,6 +21,7 @@ import {
 import { isValidEndpointId } from '@/utils/is-valid-endpoint-id';
 import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import type { Project } from '@/utils/api-client/interfaces/project';
+import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 
 interface ProjectEndpointDetailPageClientProps {
   projectId: string;
@@ -98,7 +99,7 @@ export default function ProjectEndpointDetailPageClient({
         entityTableName="endpoint"
         listUrl={`/projects/${projectId}`}
         breadcrumbs={[
-          { label: 'Projects', href: '/projects' },
+          directoryCrumb(PAGE_HEADERS.projects),
           {
             label: projectName || 'Project',
             href: `/projects/${projectId}`,
@@ -132,7 +133,7 @@ export default function ProjectEndpointDetailPageClient({
   }
 
   const breadcrumbs = [
-    { label: 'Projects', href: '/projects' },
+    directoryCrumb(PAGE_HEADERS.projects),
     {
       label: projectName || 'Project',
       href: `/projects/${projectId}`,

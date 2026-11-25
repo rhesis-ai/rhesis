@@ -31,6 +31,7 @@ import { Can, useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { OWASP_METRIC_FILTER_VALUE, OWASP_METRIC_TAG_NAME } from './list';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 export interface FilterState {
   search: string;
   backend: string[];
@@ -270,7 +271,7 @@ export default function MetricsDirectoryTab({
 
   if (isInitialLoad) {
     return (
-      <PageLayout title="Metrics" breadcrumbs={[]}>
+      <PageLayout title={PAGE_HEADERS.metrics.title} breadcrumbs={[]}>
         <Box
           sx={{
             display: 'flex',
@@ -291,7 +292,7 @@ export default function MetricsDirectoryTab({
 
   if (error && metrics.length === 0) {
     return (
-      <PageLayout title="Metrics" breadcrumbs={[]}>
+      <PageLayout title={PAGE_HEADERS.metrics.title} breadcrumbs={[]}>
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <Typography color="error">{error}</Typography>
         </Box>
@@ -301,8 +302,8 @@ export default function MetricsDirectoryTab({
 
   return (
     <PageLayout
-      title="Metrics"
-      description="Metrics are quantifiable measurements that evaluate requirements and determine if requirements are met."
+      title={PAGE_HEADERS.metrics.title}
+      description={PAGE_HEADERS.metrics.description}
       breadcrumbs={[]}
       actions={
         <FabGroup>

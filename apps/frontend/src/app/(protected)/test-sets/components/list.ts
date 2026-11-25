@@ -2,6 +2,7 @@ import type { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Capability } from '@/constants/capabilities';
 import { defineList } from '@/utils/list';
 import { escapeODataValue } from '@/utils/odata-filter';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 function containsClause(column: string, value: string): string | undefined {
   return value.trim()
@@ -56,7 +57,7 @@ const TEST_SETS_FILTERS = {
 } as const;
 
 export const testSetsList = defineList({
-  title: 'Test Sets',
+  title: PAGE_HEADERS.testSets.title,
   resource: 'test sets',
   capability: Capability.TestSet.READ,
   defaultPageSize: 25,

@@ -8,6 +8,7 @@ import { CircularProgress, Box } from '@mui/material';
 import { useSession } from 'next-auth/react';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 
 export default function SwaggerEndpointPage() {
   const params = useParams<{ identifier: string }>();
@@ -46,7 +47,7 @@ export default function SwaggerEndpointPage() {
   }
 
   const breadcrumbs = [
-    { label: 'Projects', href: '/projects' },
+    directoryCrumb(PAGE_HEADERS.projects),
     { label: projectName || 'Project', href: `/projects/${params.identifier}` },
     { label: 'Add Swagger Endpoint' },
   ];

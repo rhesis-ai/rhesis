@@ -26,6 +26,7 @@ import TestRunsTabs from './schedules/TestRunsTabs';
 import SchedulesTab from './schedules/SchedulesTab';
 import type { OccurrenceRef } from './schedules/ScheduleEditDrawer';
 import type { ScheduleTargets } from './schedules/ScheduleCreateDrawer';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 interface TestRunsPageClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -106,8 +107,8 @@ export default function TestRunsPageClient({
   return (
     <>
       <PageLayout
-        title="Test Runs"
-        description="Executions of your test sets against AI endpoints. Track status, results, and history of each run."
+        title={PAGE_HEADERS.testRuns.title}
+        description={PAGE_HEADERS.testRuns.description}
         breadcrumbs={[]}
         actions={
           <FabGroup>
