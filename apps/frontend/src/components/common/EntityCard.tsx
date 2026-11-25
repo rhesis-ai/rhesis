@@ -326,6 +326,9 @@ export default function EntityCard({
       onClick={skeleton ? undefined : onClick}
       inert={skeleton || undefined}
       sx={{
+        // A placeholder's sample text can't wrap like real text, so the card
+        // may not widen its grid column to fit it.
+        ...(skeleton && { minWidth: 0 }),
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'stretch',

@@ -50,7 +50,8 @@ export function SkeletonSlot({
     <Skeleton
       variant={variant}
       sx={[
-        { maxWidth: 'none', flexShrink: 0, ...delayedRevealSx },
+        // Never wider than its container: sample text can't wrap.
+        { maxWidth: '100%', flexShrink: 0, ...delayedRevealSx },
         ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
       ]}
       aria-hidden
