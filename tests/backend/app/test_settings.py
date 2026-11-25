@@ -792,6 +792,7 @@ def test_application_settings_is_production(
         ("development", None, True),
         ("staging", None, False),
         ("production", None, False),
+        # A self-host operator can still opt in, even in production (issue #3188).
         ("production", "true", True),
         ("local", "false", False),
     ],
