@@ -127,7 +127,7 @@ class TestExecuteTestConfiguration:
         with (
             patch(_RESOLVE, side_effect=_OWN_MODEL_BROKEN) as resolve,
             patch(
-                "rhesis.backend.app.routers.test_configuration.launch_job",
+                "rhesis.backend.jobs.launch_job",
                 return_value=MagicMock(id="task-1"),
             ) as launch,
         ):
@@ -149,7 +149,7 @@ class TestExecuteTestConfiguration:
     ):
         with (
             patch(_RESOLVE, side_effect=_OWN_MODEL_BROKEN),
-            patch("rhesis.backend.app.routers.test_configuration.launch_job") as launch,
+            patch("rhesis.backend.jobs.launch_job") as launch,
         ):
             response = authenticated_client.post(
                 f"/test_configurations/{llm_metric_configuration.id}/execute"
@@ -169,7 +169,7 @@ class TestExecuteTestConfiguration:
         """The #2681 split: the deployment's own default is a 500, with a hint."""
         with (
             patch(_RESOLVE, side_effect=ValueError("RHESIS_API_KEY is not set")),
-            patch("rhesis.backend.app.routers.test_configuration.launch_job") as launch,
+            patch("rhesis.backend.jobs.launch_job") as launch,
         ):
             response = authenticated_client.post(
                 f"/test_configurations/{llm_metric_configuration.id}/execute"
@@ -189,7 +189,7 @@ class TestExecuteTestConfiguration:
         with (
             patch(_RESOLVE, return_value=MagicMock()) as resolve,
             patch(
-                "rhesis.backend.app.routers.test_configuration.launch_job",
+                "rhesis.backend.jobs.launch_job",
                 return_value=MagicMock(id="task-1"),
             ),
         ):
@@ -207,7 +207,7 @@ class TestExecuteTestConfiguration:
         with (
             patch(_RESOLVE, return_value=MagicMock()) as resolve,
             patch(
-                "rhesis.backend.app.routers.test_configuration.launch_job",
+                "rhesis.backend.jobs.launch_job",
                 return_value=MagicMock(id="task-1"),
             ),
         ):
@@ -228,7 +228,7 @@ class TestExecuteTestConfiguration:
 
         with (
             patch(_RESOLVE, side_effect=_resolve),
-            patch("rhesis.backend.app.routers.test_configuration.launch_job") as launch,
+            patch("rhesis.backend.jobs.launch_job") as launch,
         ):
             response = authenticated_client.post(
                 f"/test_configurations/{multi_turn_sdk_configuration.id}/execute"

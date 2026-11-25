@@ -1133,15 +1133,8 @@ def _submit_test_configuration_for_execution(
         Tuple of (celery_result, test_run_id_str, test_run_name)
     """
     from rhesis.backend.app.crud import test_configuration as test_configuration_crud
-    from rhesis.backend.jobs import launch_job
-    from rhesis.backend.jobs.execution.run import create_test_run, plan_run_for_user
-    from rhesis.backend.jobs.test_configuration import execute_test_configuration
+    from rhesis.backend.app.services.test_configuration_execution import execute_configuration
 
-    logger.debug(
-        f"Submitting test configuration for execution: test_configuration_id={test_config_id}"
-    )
-
-    # Look up the test configuration to create the test run
     db_test_config = test_configuration_crud.get_test_configuration(
         db,
         test_configuration_id=uuid.UUID(test_config_id),
@@ -1151,47 +1144,7 @@ def _submit_test_configuration_for_execution(
     if not db_test_config:
         raise ValueError(f"Test configuration not found: {test_config_id}")
 
-    # Metrics are resolved here, so this is where the run's models can be checked.
-    metric_plan = plan_run_for_user(db, db_test_config, current_user)
-
-    # Create the test run with Queued status so the user sees it immediately
-    test_run = create_test_run(
-        db,
-        db_test_config,
-        current_user_id=str(current_user.id),
-        metric_plan=metric_plan,
-    )
-    db.commit()
-
-    test_run_id = str(test_run.id)
-    logger.info(f"Created test run {test_run_id} with Queued status")
-
-    try:
-        result = launch_job(
-            execute_test_configuration,
-            test_config_id,
-            test_run_id=test_run_id,
-            current_user=current_user,
-            db=db,
-            entity_type="TestRun",
-            entity_id=test_run_id,
-        )
-    except Exception:
-        # Mark the queued test run as failed so it doesn't stay stuck
-        from rhesis.backend.jobs.enums import RunStatus
-        from rhesis.backend.jobs.execution.run import update_test_run_status
-
-        # Same rule as the response: the stored text is shown in the UI, and a
-        # broker error carries the connection string with it. Full text in the log.
-        logger.exception("Failed to submit test configuration %s for execution", test_config_id)
-        update_test_run_status(
-            db,
-            test_run,
-            RunStatus.FAILED.value,
-            error="Failed to submit the test run for execution.",
-        )
-        db.commit()
-        raise
-
+    # execute_test_set_on_endpoint has already checked the quota.
+    result, test_run = execute_configuration(db, db_test_config, current_user, check_quota=False)
     logger.info(f"Test configuration execution submitted with task ID: {result.id}")
-    return result, test_run_id, test_run.name
+    return result, str(test_run.id), test_run.name

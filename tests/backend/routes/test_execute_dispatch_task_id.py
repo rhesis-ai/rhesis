@@ -35,6 +35,7 @@ class TestExecuteDispatchTaskId:
         test_run.id = uuid4()
 
         captured = {}
+        configuration = MagicMock(organization_id=organization_id)
 
         def fake_create_test_run(
             db, config, task_info=None, current_user_id=None, metric_plan=None
@@ -46,18 +47,18 @@ class TestExecuteDispatchTaskId:
         with (
             patch(
                 "rhesis.backend.app.routers.test_configuration.test_configuration_crud.get_test_configuration",
-                return_value=MagicMock(),
+                return_value=configuration,
             ),
             patch(
-                "rhesis.backend.app.routers.test_configuration.create_test_run",
+                "rhesis.backend.jobs.execution.run.create_test_run",
                 side_effect=fake_create_test_run,
             ),
             # The model check; it returns the metric plan the run is created with.
             patch(
-                "rhesis.backend.app.routers.test_configuration.plan_run_for_user",
+                "rhesis.backend.jobs.execution.run.plan_run_for_user",
                 return_value={"metric_backends": ["sdk"]},
             ),
-            patch("rhesis.backend.app.routers.test_configuration.launch_job") as mock_launch,
+            patch("rhesis.backend.jobs.launch_job") as mock_launch,
         ):
             mock_launch.return_value = MagicMock(id="ignored")
 
