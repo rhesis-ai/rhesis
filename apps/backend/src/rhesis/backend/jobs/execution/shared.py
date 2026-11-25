@@ -66,9 +66,10 @@ def run_on_thread_loop(coro):
       SDK RPC client is cached per thread. A closed loop leaves its pooled
       connections dead, so every other SDK test failed with "Event loop is closed"
       surfacing as "Failed to send request to SDK".
-    - LiteLLM's LoggingWorker spawns background tasks on the loop that are
-      destroyed mid-flight, producing "Task was destroyed but it is pending!"
-      and potentially dropping logging callbacks.
+
+    LiteLLM's logging worker is per loop (see
+    ``rhesis.sdk.async_utils.use_per_loop_litellm_logging_worker``), so several
+    threads each on their own loop don't disturb each other's logging.
     """
     loop = getattr(_thread_local, "loop", None)
     if loop is None or loop.is_closed():
