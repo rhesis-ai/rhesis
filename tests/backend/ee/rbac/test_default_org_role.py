@@ -626,9 +626,12 @@ class TestCoreHookDispatch:
         from rhesis.backend.app.auth import org_membership_hook as hook
 
         called = []
+        saved = list(hook._handlers)
         hook.register_org_membership_handler(lambda db, u, o: called.append((u, o)))
         try:
             hook.on_user_org_assigned(db=None, user_id=uuid.uuid4(), organization_id=None)
             assert called == []
         finally:
-            hook.reset_org_membership_handlers()
+            # Restore, not reset: clearing drops the real default-role handler, and
+            # every user created later in this process then gets no role.
+            hook._handlers[:] = saved
