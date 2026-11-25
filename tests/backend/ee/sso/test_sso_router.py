@@ -226,7 +226,7 @@ class TestSSOCallbackTenantContext:
 
         org = SimpleNamespace(id=uuid4())
         user = SimpleNamespace(id=uuid4())
-        auth_user = SimpleNamespace(email="new.user@example.com")
+        auth_user = SimpleNamespace(email="new.user@example.com", raw_data={})
         calls = []
 
         def _record(name, retval=None):
@@ -247,7 +247,9 @@ class TestSSOCallbackTenantContext:
         monkeypatch.setattr(sso_router, "check_sso_available", lambda: True)
         monkeypatch.setattr(sso_router, "_get_org_or_404", lambda _db, _slug: org)
         monkeypatch.setattr(
-            sso_router, "_get_sso_config", lambda _org: SimpleNamespace(enabled=True)
+            sso_router,
+            "_get_sso_config",
+            lambda _org: SimpleNamespace(enabled=True, role_mapping=None),
         )
         monkeypatch.setattr(
             sso_router,
@@ -271,6 +273,8 @@ class TestSSOCallbackTenantContext:
         monkeypatch.setattr(
             sso_router, "find_or_create_sso_user", _record("find_or_create_sso_user", user)
         )
+        monkeypatch.setattr(sso_router, "find_sso_user_in_org", lambda *_a: None)
+        monkeypatch.setattr(sso_router, "store_claims_snapshot", lambda *_a: None)
 
         monkeypatch.setattr(sso_router, "audit_log", _record("audit_log"))
         monkeypatch.setattr(sso_router, "record_user_event", _record("record_user_event"))
@@ -293,7 +297,7 @@ class TestSSOCallbackTenantContext:
             # What the frontend BFF sends; the callback refuses direct hits.
             headers={"X-Rhesis-Client": "web"},
         )
-        db = SimpleNamespace(commit=lambda: calls.append(("commit", (), {})))
+        db = SimpleNamespace(commit=lambda: calls.append(("commit", (), {})), flush=lambda: None)
 
         return SimpleNamespace(
             org=org,
