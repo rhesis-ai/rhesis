@@ -12,12 +12,12 @@ import path from 'path';
 
 const PROTECTED = path.join(__dirname, '..', '(protected)');
 
-/** Loading views that draw a directory page's own header: any use of a page
- *  header other than as a detail page's first breadcrumb. */
+/** Loading views that draw one particular page (the page itself in skeleton
+ *  mode, or a page's header), as opposed to a neutral fallback. */
 function drawsDirectoryHeader(loadingFile: string): boolean {
-  const source = fs
-    .readFileSync(loadingFile, 'utf8')
-    .replace(/directoryCrumb\(\s*PAGE_HEADERS\.\w+\s*\)/g, '');
+  const raw = fs.readFileSync(loadingFile, 'utf8');
+  if (raw.includes('<SkeletonMode>')) return true;
+  const source = raw.replace(/directoryCrumb\(\s*PAGE_HEADERS\.\w+\s*\)/g, '');
   return /PAGE_HEADERS\.\w+/.test(source);
 }
 
