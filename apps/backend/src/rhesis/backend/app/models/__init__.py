@@ -137,3 +137,8 @@ setup_scope_listeners()
 from rhesis.backend.app.models.audit_capture import setup_audit_listeners  # noqa: E402
 
 setup_audit_listeners()
+
+# Batched comment/task/file counts for CountsMixin rows
+from rhesis.backend.app.models.entity_counts import setup_entity_counts_listeners  # noqa: E402
+
+setup_entity_counts_listeners()

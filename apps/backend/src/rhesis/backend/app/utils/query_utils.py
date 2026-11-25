@@ -137,8 +137,8 @@ class QueryBuilder:
     def with_default_derived_field_loads(
         self, extra_chains: list | None = None, cascade: Collection[str] | None = None
     ) -> "QueryBuilder":
-        """Eager-load comments/tasks/files/tags for this model (and one level of
-        cascade into related models that carry the same mixins) -- see
+        """Eager-load tags and batch comment/task/file counts for this model (and one
+        level of cascade into related models that carry the same mixins) -- see
         ``derived_field_loads.derived_field_load_options`` for the policy.
         """
         from rhesis.backend.app.utils.derived_field_loads import derived_field_load_options

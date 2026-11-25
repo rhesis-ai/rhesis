@@ -146,25 +146,45 @@ class TasksMixin:
         )
 
 
+# Where entity_counts.attach_counts stores a row's batched counts.
+BATCHED_COUNTS_KEY = "_batched_counts"
+
+
 class CountsMixin:
-    """Mixin that provides count properties for comments and tasks"""
+    """Mixin that provides count properties for comments, tasks and files.
+
+    Reads counts batched by a ``BatchCounts`` query (see ``entity_counts``); a row
+    loaded any other way counts its own relationship.
+    """
+
+    def _batched_count(self, key: str) -> int | None:
+        return (self.__dict__.get(BATCHED_COUNTS_KEY) or {}).get(key)
 
     @property
     @safe_relationship(default_factory=int)
     def comments_count(self):
         """Get the count of comments for this entity"""
+        batched = self._batched_count("comments")
+        if batched is not None:
+            return batched
         return len(self.comments) if hasattr(self, "comments") and self.comments else 0
 
     @property
     @safe_relationship(default_factory=int)
     def tasks_count(self):
         """Get the count of tasks for this entity"""
+        batched = self._batched_count("tasks")
+        if batched is not None:
+            return batched
         return len(self.tasks) if hasattr(self, "tasks") and self.tasks else 0
 
     @property
     @safe_relationship(default_factory=int)
     def files_count(self):
         """Get the count of files for this entity"""
+        batched = self._batched_count("files")
+        if batched is not None:
+            return batched
         return len(self.files) if hasattr(self, "files") and self.files else 0
 
     @property
@@ -173,16 +193,14 @@ class CountsMixin:
         """Get the counts of comments, tasks, and files for this entity"""
         counts = {}
 
-        # Add comment count if the model has comments relationship
-        if hasattr(self, "comments"):
+        # Checked on the class: hasattr on the instance would lazy-load the relationship.
+        if hasattr(type(self), "comments"):
             counts["comments"] = self.comments_count
 
-        # Add task count if the model has tasks relationship
-        if hasattr(self, "tasks"):
+        if hasattr(type(self), "tasks"):
             counts["tasks"] = self.tasks_count
 
-        # Add file count if the model has files relationship
-        if hasattr(self, "files"):
+        if hasattr(type(self), "files"):
             counts["files"] = self.files_count
 
         return counts

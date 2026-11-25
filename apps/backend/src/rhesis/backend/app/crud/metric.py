@@ -37,11 +37,10 @@ _METRIC_RELATED_FIELDS = (
     include(models.Metric.model),
     include(models.Metric.backend_type),
     # requirements serializes as RequirementReference, which reads counts/tags;
-    # with_default_derived_field_loads only cascades those into many-to-one
-    # relations, so these chains are explicit to avoid an N+1 per requirement.
+    # with_default_derived_field_loads only cascades tags into many-to-one
+    # relations, so the tags chain is explicit to avoid an N+1 per requirement.
+    # Counts come from its BatchCounts option, which reaches loaded M2M rows too.
     include(models.Metric.requirements),
-    include(models.Metric.requirements, models.Requirement.comments),
-    include(models.Metric.requirements, models.Requirement.tasks),
     include(
         models.Metric.requirements, models.Requirement._tags_relationship, models.TaggedItem.tag
     ),

@@ -433,8 +433,8 @@ def get_item_detail(
             don't fit the generic filters above -- e.g. deferring a large
             column (``TestRun``'s ``endpoint.last_token``).
         derived_fields: Set False for a response schema that serializes none of
-            comments/tasks/tags. The default cascade costs 3+ selectin queries
-            and can re-add a joinedload ``related_fields`` deliberately left out
+            comments/tasks/tags. The default costs tag selectin loads plus up to
+            3 grouped counts, and can re-add a joinedload ``related_fields`` deliberately left out
             (any one-hop relation carrying ``TagsMixin``, e.g. ``organization``).
             Also skips ``selectin_chains``, which is applied through the same
             call.
@@ -510,7 +510,7 @@ def get_items_detail(
     Get multiple items with explicitly declared relationships eagerly loaded,
     pagination, sorting, and filtering.
 
-    Also always selectin-loads comments/tasks/files/tags for any model that has
+    Also always loads comment/task/file counts and tags for any model that has
     them -- see QueryBuilder.with_default_derived_field_loads for why.
 
     Args:
