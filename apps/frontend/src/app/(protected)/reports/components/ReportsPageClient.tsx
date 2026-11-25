@@ -19,6 +19,7 @@ import type { Report } from '@/utils/api-client/interfaces/report';
 import ReportStatusChip from './ReportStatusChip';
 import ReportCreateDrawer from './create/ReportCreateDrawer';
 import { reportsList } from './list';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 const STATUS_TABS = [
   { label: 'All', value: 'all' },
@@ -108,8 +109,8 @@ export default function ReportsPageClient({
 
   return (
     <PageLayout
-      title="Reports"
-      description="Summaries of an endpoint's test runs, for a release or a review. Drafts stay live; published reports are frozen."
+      title={PAGE_HEADERS.reports.title}
+      description={PAGE_HEADERS.reports.description}
       breadcrumbs={[]}
       actions={
         <FabGroup>

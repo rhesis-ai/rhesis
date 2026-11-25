@@ -45,6 +45,7 @@ import { Capability } from '@/constants/capabilities';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { detailPageTitle } from '@/utils/document-title';
+import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 
 interface SourcePreviewClientWrapperProps {
   source: Source;
@@ -421,7 +422,7 @@ export default function SourcePreviewClientWrapper({
     <PageLayout
       title={displayTitle}
       breadcrumbs={[
-        { label: 'Knowledge', href: '/knowledge' },
+        directoryCrumb(PAGE_HEADERS.knowledge),
         { label: displayTitle, href: `/knowledge/${localSource.id}` },
       ]}
     >

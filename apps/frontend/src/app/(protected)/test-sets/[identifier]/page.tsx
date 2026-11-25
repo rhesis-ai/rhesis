@@ -16,6 +16,7 @@ import TestSetHeaderActions from './components/TestSetHeaderActions';
 import TestSetDetailTabs from './components/TestSetDetailTabs';
 import TestSetScheduleBanner from './components/TestSetScheduleBanner';
 import { testSetTestsList } from './components/list';
+import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 
 interface PageProps {
   params: Promise<{ identifier: string }>;
@@ -57,7 +58,7 @@ export default async function TestSetPage({ params }: PageProps) {
 
   const title = testSet.name || `Test Set ${identifier}`;
   const breadcrumbs = [
-    { label: 'Test Sets', href: '/test-sets' },
+    directoryCrumb(PAGE_HEADERS.testSets),
     { label: title, href: `/test-sets/${identifier}` },
   ];
 

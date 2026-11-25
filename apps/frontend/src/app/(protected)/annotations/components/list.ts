@@ -5,6 +5,7 @@ import type {
 } from '@/utils/api-client/interfaces/annotation';
 import { Capability } from '@/constants/capabilities';
 import { defineList } from '@/utils/list';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 /**
  * All filters are plain REST query params, not OData -- the annotations
@@ -32,7 +33,7 @@ export const annotationsList = defineList<
   Annotation,
   typeof ANNOTATIONS_FILTERS
 >({
-  title: 'Annotations',
+  title: PAGE_HEADERS.annotations.title,
   resource: 'annotations',
   capability: Capability.Annotation.READ,
   defaultPageSize: 25,

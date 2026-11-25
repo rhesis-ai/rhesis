@@ -77,6 +77,11 @@ export const SCHEDULE_NOTIFICATION = {
 /** Tabs and URL keys on the Test Runs page. */
 export const TEST_RUNS_TAB = { RUNS: 'runs', SCHEDULES: 'schedules' } as const;
 export type TestRunsTab = (typeof TEST_RUNS_TAB)[keyof typeof TEST_RUNS_TAB];
+/** The Test Runs tabs in display order, with their labels. */
+export const TEST_RUNS_TABS: readonly { key: TestRunsTab; label: string }[] = [
+  { key: TEST_RUNS_TAB.RUNS, label: 'Runs' },
+  { key: TEST_RUNS_TAB.SCHEDULES, label: 'Schedules' },
+];
 export const TEST_RUNS_PARAM = {
   TAB: 'tab',
   SCHEDULE: 'schedule',

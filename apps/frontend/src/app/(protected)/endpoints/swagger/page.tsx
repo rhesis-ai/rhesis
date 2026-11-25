@@ -1,9 +1,10 @@
 import SwaggerEndpointForm from '../components/SwaggerEndpointForm';
 import { PageLayout } from '@/components/layout/PageLayout';
+import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 
 export default function SwaggerEndpointPage() {
   const breadcrumbs = [
-    { label: 'Endpoints', href: '/endpoints' },
+    directoryCrumb(PAGE_HEADERS.endpoints),
     { label: 'Import Swagger Endpoint' },
   ];
 

@@ -1,6 +1,7 @@
 import type { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { Capability } from '@/constants/capabilities';
 import { defineList } from '@/utils/list';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 const TASKS_FILTERS = {
   search: { kind: 'search', columns: ['title', 'description'] },
@@ -15,7 +16,7 @@ const TASKS_FILTERS = {
  * which server-rendered `initialData` would short-circuit on the client.
  */
 export const tasksList = defineList({
-  title: 'Tasks',
+  title: PAGE_HEADERS.tasks.title,
   resource: 'tasks',
   capability: Capability.Task.READ,
   defaultPageSize: 25,

@@ -31,6 +31,7 @@ import ExperimentFilterDrawer, {
   countActiveExperimentFilters,
 } from './ExperimentFilterDrawer';
 import { formatDate } from '@/utils/date';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 function toFilters(state: EntityGridFilterState<ExperimentFilters>) {
   return {
@@ -166,8 +167,8 @@ export default function ExperimentsClientWrapper({
 
   return (
     <PageLayout
-      title="Experiments"
-      description="Experiments are named bundles of parameter values that can be pinned to test runs, ensuring reproducible and comparable executions across your project."
+      title={PAGE_HEADERS.experiments.title}
+      description={PAGE_HEADERS.experiments.description}
       actions={
         <FabGroup>
           <Fab

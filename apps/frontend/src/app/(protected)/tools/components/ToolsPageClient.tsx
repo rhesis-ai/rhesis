@@ -36,6 +36,7 @@ import {
 import { useNotifications } from '@/components/common/NotificationContext';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 interface ToolsPageClientProps {
   /** Server-fetched tools -- when present, skips the initial client fetch. */
@@ -206,8 +207,8 @@ export default function ToolsPageClient({
 
   return (
     <PageLayout
-      title="Tools"
-      description="Connect tools and external services to import knowledge sources and enhance your evaluation workflows."
+      title={PAGE_HEADERS.tools.title}
+      description={PAGE_HEADERS.tools.description}
       breadcrumbs={[]}
       actions={
         <FabGroup>
@@ -238,7 +239,7 @@ export default function ToolsPageClient({
             card
             icon={BuildIcon}
             title="No tool connections yet"
-            description="Connect tools and external services to import knowledge sources and enhance your evaluation workflows."
+            description={PAGE_HEADERS.tools.description}
             actionLabel={canCreateTool ? 'Add tool connection' : undefined}
             onAction={canCreateTool ? openConnectionDrawer : undefined}
           />

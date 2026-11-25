@@ -2,6 +2,7 @@ import type { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { Capability } from '@/constants/capabilities';
 import { defineList } from '@/utils/list';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 /** `value` is a `PresenceFilterValue` ('all'/'with'/'without') at every call site. */
 function presenceClause(
@@ -49,7 +50,7 @@ export const TESTS_FILTERS = {
  * so `tests/page.tsx` skips the prefetch when its search params are present.
  */
 export const testsList = defineList<TestDetail, typeof TESTS_FILTERS>({
-  title: 'Tests',
+  title: PAGE_HEADERS.tests.title,
   resource: 'tests',
   capability: Capability.Test.READ,
   defaultPageSize: 25,

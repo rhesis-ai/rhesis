@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Box } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Organization } from '@/utils/api-client/interfaces/organization';
@@ -18,55 +18,11 @@ import BrandingFontForm from './BrandingFontForm';
 import OrganizationCurrencyForm from './OrganizationCurrencyForm';
 import OrganizationAccessibilityForm from './OrganizationAccessibilityForm';
 import DangerZone from './DangerZone';
-
-interface BuiltInTab {
-  id: string;
-  label: string;
-  order: number;
-  dynamic: false;
-}
-
-interface DynamicTab {
-  id: string;
-  label: string;
-  order: number;
-  dynamic: true;
-  component: React.ComponentType;
-}
-
-type MergedTab = BuiltInTab | DynamicTab;
-
-const BUILT_IN_TABS: BuiltInTab[] = [
-  { id: 'information', label: 'Information', order: 0, dynamic: false },
-  { id: 'branding', label: 'Branding', order: 1, dynamic: false },
-  { id: 'preferences', label: 'Preferences', order: 2, dynamic: false },
-  { id: 'danger', label: 'Danger zone', order: 999, dynamic: false },
-];
-
-const LEGACY_TAB_MAP: Record<string, string> = {
-  'sso-api': 'sso',
-  // The Preferences tab was called Display until the currency settings were
-  // given the same words as the personal ones. Links to ?tab=display are out
-  // there, in the docs among other places.
-  display: 'preferences',
-};
+import { activeTabIndex, mergeOrgSettingsTabs, type DynamicTab } from './tabs';
 
 interface OrganizationSettingsTabsProps {
   organization: Organization;
   onUpdate: () => void;
-}
-
-function resolveTabParam(
-  param: string | null,
-  validIds: readonly string[]
-): string {
-  if (param && param in LEGACY_TAB_MAP) {
-    return LEGACY_TAB_MAP[param];
-  }
-  if (param && validIds.includes(param)) {
-    return param;
-  }
-  return 'information';
 }
 
 export default function OrganizationSettingsTabs({
@@ -78,29 +34,17 @@ export default function OrganizationSettingsTabs({
 
   const dynamicTabs = useMemo(() => getOrgSettingsTabs(), []);
 
-  const allTabs: MergedTab[] = useMemo(() => {
-    const merged: MergedTab[] = [
-      ...BUILT_IN_TABS,
-      ...dynamicTabs.map(
-        (t): DynamicTab => ({
-          id: t.id,
-          label: t.title,
-          order: t.order,
-          dynamic: true,
-          component: t.component,
-        })
-      ),
-    ];
-    return merged.sort((a, b) => a.order - b.order);
-  }, [dynamicTabs]);
+  const allTabs = useMemo(
+    () => mergeOrgSettingsTabs(dynamicTabs),
+    [dynamicTabs]
+  );
 
   const tabIds = useMemo(() => allTabs.map(t => t.id), [allTabs]);
 
-  const activeTab = useMemo(() => {
-    const key = resolveTabParam(searchParams.get('tab'), tabIds);
-    const idx = tabIds.indexOf(key);
-    return idx >= 0 ? idx : 0;
-  }, [searchParams, tabIds]);
+  const activeTab = useMemo(
+    () => activeTabIndex(searchParams.get('tab'), tabIds),
+    [searchParams, tabIds]
+  );
 
   // Registered tabs (Team, …) are their own page; the built-in ones are "Settings".
   const activeTabInfo = allTabs[activeTab];

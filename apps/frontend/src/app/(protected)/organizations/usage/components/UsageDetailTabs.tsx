@@ -7,21 +7,7 @@ import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
 import UsageOverviewTab from './UsageOverviewTab';
 import UsageOverTimeTab from './UsageOverTimeTab';
-
-const TAB_KEYS = ['resources', 'timeline'] as const;
-type UsageTabKey = (typeof TAB_KEYS)[number];
-
-const TAB_LABELS: Record<UsageTabKey, string> = {
-  resources: 'Resources',
-  timeline: 'Timeline',
-};
-
-function normalizeTabParam(param: string | null): UsageTabKey {
-  if (param && TAB_KEYS.includes(param as UsageTabKey)) {
-    return param as UsageTabKey;
-  }
-  return 'resources';
-}
+import { normalizeTabParam, TAB_KEYS, TAB_LABELS } from './tabs';
 
 export default function UsageDetailTabs() {
   const router = useRouter();

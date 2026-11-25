@@ -8,10 +8,8 @@ import DetailMetadataStrip from '@/components/common/DetailMetadataStrip';
 import type { RequirementWithMetrics } from '@/utils/api-client/interfaces/requirement';
 import type { TestDetail } from '@/utils/api-client/interfaces/tests';
 import { API_ENDPOINTS } from '@/utils/api-client/config';
-import RequirementDetailTabs, {
-  REQUIREMENT_TAB_KEYS,
-  type RequirementTabKey,
-} from './RequirementDetailTabs';
+import RequirementDetailTabs from './RequirementDetailTabs';
+import { REQUIREMENT_TAB_KEYS, type RequirementTabKey } from './tabs';
 import RequirementSuggestionsFab from './RequirementSuggestionsFab';
 import { SOURCES_CARD_ID } from './RequirementSourcesCard';
 import type { RuleHintId } from './requirement-suggestions';
@@ -23,6 +21,7 @@ import { useCanWithStatus } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { detailPageTitle } from '@/utils/document-title';
+import { directoryCrumb, PAGE_HEADERS } from '@/constants/page-headers';
 
 interface RequirementDetailClientProps {
   requirement: RequirementWithMetrics;
@@ -77,7 +76,7 @@ export default function RequirementDetailClient({
 
   const title = requirement.name || `Requirement ${identifier}`;
   const breadcrumbs = [
-    { label: 'Requirements', href: API_ENDPOINTS.requirements },
+    directoryCrumb(PAGE_HEADERS.requirements),
     ...(requirement.parent
       ? [
           {

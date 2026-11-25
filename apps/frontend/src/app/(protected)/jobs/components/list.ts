@@ -3,6 +3,7 @@ import type { Job } from '@/utils/api-client/interfaces/job';
 import { Capability } from '@/constants/capabilities';
 import { defineList } from '@/utils/list';
 import { escapeODataValue } from '@/utils/odata-filter';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 const JOBS_FILTERS = {
   /** Name and job_type are the two things a user can read off a row. */
@@ -39,7 +40,7 @@ const JOBS_FILTERS = {
 } as const;
 
 export const jobsList = defineList<Job, typeof JOBS_FILTERS>({
-  title: 'Jobs',
+  title: PAGE_HEADERS.jobs.title,
   resource: 'jobs',
   capability: Capability.Job.READ,
   defaultPageSize: 25,

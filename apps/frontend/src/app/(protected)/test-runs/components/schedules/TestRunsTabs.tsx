@@ -3,11 +3,10 @@
 import DetailTabNav from '@/components/common/DetailTabNav';
 import {
   TEST_RUNS_TAB,
+  TEST_RUNS_TABS,
   type TestRunsTab,
 } from '@/constants/test-run-schedules';
 import { useSchedules } from './useSchedules';
-
-const ORDER: TestRunsTab[] = [TEST_RUNS_TAB.RUNS, TEST_RUNS_TAB.SCHEDULES];
 
 /** Runs | Schedules (n), where n counts every schedule in the project. */
 export default function TestRunsTabs({
@@ -19,21 +18,19 @@ export default function TestRunsTabs({
 }) {
   const schedules = useSchedules();
   const count = (schedules.data ?? []).length;
-  const tabs = ORDER.map((key, index) => ({
+  const tabs = TEST_RUNS_TABS.map(({ key, label }, index) => ({
     key,
     label:
       key === TEST_RUNS_TAB.SCHEDULES && count > 0
-        ? `Schedules (${count})`
-        : key === TEST_RUNS_TAB.SCHEDULES
-          ? 'Schedules'
-          : 'Runs',
+        ? `${label} (${count})`
+        : label,
     id: `test-runs-tab-${index}`,
   }));
   return (
     <DetailTabNav
       tabs={tabs}
-      activeIndex={ORDER.indexOf(value)}
-      onChange={index => onChange(ORDER[index])}
+      activeIndex={TEST_RUNS_TABS.findIndex(tab => tab.key === value)}
+      onChange={index => onChange(TEST_RUNS_TABS[index].key)}
       aria-label="Test runs sections"
       sx={{ mb: 3 }}
     />

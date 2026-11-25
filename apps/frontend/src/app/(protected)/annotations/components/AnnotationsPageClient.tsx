@@ -10,6 +10,7 @@ import { annotationsList } from './list';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import type { Annotation } from '@/utils/api-client/interfaces/annotation';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 interface AnnotationsPageClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -29,8 +30,8 @@ export default function AnnotationsPageClient({
 
   return (
     <PageLayout
-      title="Annotations"
-      description="Browse human judgments on test results and traces across your project."
+      title={PAGE_HEADERS.annotations.title}
+      description={PAGE_HEADERS.annotations.description}
       breadcrumbs={[]}
     >
       <Box sx={{ mt: 2, mb: 2 }}>

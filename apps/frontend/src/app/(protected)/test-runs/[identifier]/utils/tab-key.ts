@@ -19,6 +19,14 @@ export const TAB_KEYS = [
 
 export type TabKey = (typeof TAB_KEYS)[number];
 
+export const TAB_LABELS: Record<TabKey, string> = {
+  summary: 'Summary',
+  configuration: 'Configuration',
+  linked_entities: 'Tests',
+  traces: 'Traces',
+  annotations: 'Annotations',
+};
+
 export function tabIndexFromKey(
   key: string | null,
   preferLinkedEntities: boolean

@@ -46,6 +46,7 @@ import ReportSlot from './ReportSlot';
 import ReportTitle from './ReportTitle';
 import { EditRequirementsDrawer, EditRunsDrawer } from './EditSelectionDrawers';
 import { ReportReloadError, useReport } from './useReport';
+import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 
 function day(value?: string | null): string {
   return value ? format(new Date(value), 'dd/MM/yyyy') : '—';
@@ -248,7 +249,7 @@ export default function ReportDetailClient({
         />
       }
       breadcrumbs={[
-        { label: 'Reports', href: '/reports' },
+        directoryCrumb(PAGE_HEADERS.reports),
         { label: report.title, href: `/reports/${report.id}` },
       ]}
       metadata={metadata}

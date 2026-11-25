@@ -44,6 +44,7 @@ import {
   ACTIVE_PROJECT_DELETE_BLOCKED,
   PROJECT_DELETE_WARNING,
 } from '../constants';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
@@ -213,7 +214,7 @@ export default function ProjectsClientWrapper({
 
   if (!isAuthenticated(status)) {
     return (
-      <PageLayout title="Projects" breadcrumbs={[]}>
+      <PageLayout title={PAGE_HEADERS.projects.title} breadcrumbs={[]}>
         <Alert severity="error" sx={{ mb: 3 }}>
           Session expired. Please refresh the page or log in again.
         </Alert>
@@ -237,8 +238,8 @@ export default function ProjectsClientWrapper({
 
   return (
     <PageLayout
-      title="Projects"
-      description="Organize your AI applications by grouping endpoints, tests, and results into projects."
+      title={PAGE_HEADERS.projects.title}
+      description={PAGE_HEADERS.projects.description}
       breadcrumbs={[]}
       actions={
         <FabGroup>

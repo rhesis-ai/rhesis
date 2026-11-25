@@ -1,0 +1,6 @@
+import PageListSkeleton from '@/components/loading/PageListSkeleton';
+import { PAGE_HEADERS } from '@/constants/page-headers';
+
+export default function JobsLoading() {
+  return <PageListSkeleton header={PAGE_HEADERS.jobs} />;
+}

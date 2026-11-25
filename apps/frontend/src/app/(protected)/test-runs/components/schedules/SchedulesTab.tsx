@@ -22,6 +22,11 @@ import SchedulesListView from './SchedulesListView';
 import SchedulesWeekView from './SchedulesWeekView';
 import TakeOverDialog from './TakeOverDialog';
 import { useScheduleActions, useSchedules } from './useSchedules';
+import {
+  readRememberedView,
+  SCHEDULES_VIEW_KEY,
+  type SchedulesView,
+} from './schedules-view';
 
 interface Props {
   /** Open schedule (drawer), from the URL. */
@@ -42,24 +47,19 @@ interface Props {
   onCreateOnDay: (date: string) => void;
 }
 
-type View = 'week' | 'list';
-const VIEW_KEY = 'rhesis.schedules.view';
+type View = SchedulesView;
 
 /** Week or list, remembered per viewer. Storage can be missing or blocked. */
 function useRememberedView(): [View, (view: View) => void] {
   const [view, setView] = useState<View>('week');
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(VIEW_KEY);
-      if (saved === 'week' || saved === 'list') setView(saved);
-    } catch {
-      // Private mode or blocked storage: keep the default.
-    }
+    const saved = readRememberedView();
+    if (saved) setView(saved);
   }, []);
   const remember = (next: View) => {
     setView(next);
     try {
-      window.localStorage.setItem(VIEW_KEY, next);
+      window.localStorage.setItem(SCHEDULES_VIEW_KEY, next);
     } catch {
       // Not remembered, still switched.
     }

@@ -19,8 +19,7 @@ import TestMetadataCard from './TestMetadataCard';
 import TestTechnicalCard from './TestTechnicalCard';
 import TestFormElementsCard from './TestFormElementsCard';
 import TestInterpretationCard from './TestInterpretationCard';
-
-const TAB_KEYS = ['basic', 'linked', 'history', 'tasks'] as const;
+import { TAB_KEYS, TAB_LABELS } from './tabs';
 
 interface TestDetailTabsProps {
   test: TestDetail;
@@ -53,14 +52,7 @@ export default function TestDetailTabs({
 
   const navTabs = TAB_KEYS.map((key, index) => ({
     key,
-    label:
-      key === 'basic'
-        ? 'Overview'
-        : key === 'linked'
-          ? 'Test Sets'
-          : key === 'history'
-            ? 'Execution History'
-            : 'Tasks',
+    label: TAB_LABELS[key],
     ...(key === 'linked' && { icon: <LinkIcon /> }),
     id: `test-detail-tab-${index}`,
     'aria-controls': `test-detail-tabpanel-${index}`,

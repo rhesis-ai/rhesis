@@ -6,6 +6,7 @@ import type {
 import { Capability } from '@/constants/capabilities';
 import { defineList } from '@/utils/list';
 import { escapeODataValue } from '@/utils/odata-filter';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 /** `value` is a `PresenceFilterValue` ('all'/'with'/'without') at every call site. */
 function presenceClause(
@@ -78,7 +79,7 @@ const TEST_RUNS_FILTERS = {
 
 export const testRunsList = defineList<TestRunDetail, typeof TEST_RUNS_FILTERS>(
   {
-    title: 'Test Runs',
+    title: PAGE_HEADERS.testRuns.title,
     resource: 'test runs',
     capability: Capability.TestRun.READ,
     defaultPageSize: 50,

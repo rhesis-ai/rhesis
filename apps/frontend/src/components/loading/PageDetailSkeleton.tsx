@@ -2,13 +2,10 @@
 
 import Box from '@mui/material/Box';
 import Skeleton from '@mui/material/Skeleton';
-import {
-  BORDER_RADIUS,
-  GRID_CARD_INSET,
-  SECTION_GRID,
-} from '@/styles/theme-constants';
+import { GRID_CARD_INSET, SECTION_GRID } from '@/styles/theme-constants';
 import DelayedReveal from './DelayedReveal';
-import SkeletonPageHeader from './SkeletonPageHeader';
+import SkeletonPageHeader, { type LoadingHeader } from './SkeletonPageHeader';
+import SkeletonTabBar, { type SkeletonTab } from './SkeletonTabBar';
 import { skeletonSurfaceSx } from './skeletonSurface';
 import { skeletonTextSx } from './skeletonText';
 
@@ -30,18 +27,6 @@ const HEADER = {
   descriptionWidth: 460,
 } as const;
 
-/** Tab bar, mirroring `DetailTabNav`. */
-const TABS = {
-  /** Gap between tabs; DetailTabNav's default `tabGap`. */
-  gap: '50px',
-  /** Gap between a label and its underline. */
-  labelGap: '8px',
-  /** Height of the active tab's underline. */
-  underlineHeight: 3,
-  /** The underline is a solid bar in the real nav; dim it so it reads as a placeholder. */
-  underlineOpacity: 0.35,
-} as const;
-
 /** Section cards inside the tab panel. */
 const SECTION = {
   /** Inset matching a SectionCard's padding. */
@@ -56,7 +41,7 @@ const SECTION = {
   fieldValueWidth: '72%',
 } as const;
 
-/** Tab label widths — detail pages run 3-5 tabs (Overview, Test Sets, …). */
+/** Tab widths for a detail page that doesn't pass its labels. */
 const TAB_WIDTHS = [78, 96, 132, 62];
 
 /** Section cards, each with a heading and a 2-column field grid. */
@@ -76,104 +61,90 @@ export interface PageDetailSkeletonProps {
    * also drop the DetailTabPanel top inset that the bar would sit above.
    */
   showTabs?: boolean;
+  /** What the route knows about its header, drawn at once. */
+  header?: LoadingHeader;
+  /** The page's tab labels, so the bar has its real tabs; generic widths
+   *  when omitted. */
+  tabs?: readonly SkeletonTab[];
+  /** Index of the active tab. */
+  activeTab?: number;
 }
 
 export default function PageDetailSkeleton({
   actionCount = 2,
   breadcrumbCount = 2,
   showTabs = true,
+  header,
+  tabs,
+  activeTab = 0,
 }: PageDetailSkeletonProps = {}) {
   return (
-    <DelayedReveal>
+    <>
       <SkeletonPageHeader
         actionCount={actionCount}
         breadcrumbCount={breadcrumbCount}
         titleWidth={HEADER.titleWidth}
         descriptionWidth={HEADER.descriptionWidth}
+        {...header}
       />
+      <DelayedReveal>
+        {showTabs && (
+          <SkeletonTabBar tabs={tabs ?? TAB_WIDTHS} active={activeTab} />
+        )}
 
-      {/* DetailTabNav: 18px labels at 50px gaps, active tab underlined */}
-      {showTabs && (
-        <Box sx={{ display: 'flex', gap: TABS.gap }} aria-hidden>
-          {TAB_WIDTHS.map((width, idx) => (
+        {/* Tab panel content: DetailTabPanel applies pt: 5 */}
+        <Box
+          sx={{
+            pt: showTabs ? SECTION.panelTop : 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: SECTION.gap,
+          }}
+          aria-hidden
+        >
+          {SECTIONS.map(section => (
             <Box
-              key={width}
+              key={section.key}
               sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: TABS.labelGap,
+                ...skeletonSurfaceSx,
+                p: SECTION.inset,
               }}
             >
               <Skeleton
                 variant="text"
-                width={width}
-                sx={skeletonTextSx('h6')}
+                width={section.heading}
+                sx={{ ...skeletonTextSx('h6'), mb: SECTION.headingGap }}
               />
               <Box
                 sx={{
-                  height: TABS.underlineHeight,
-                  borderRadius: BORDER_RADIUS.xs,
-                  bgcolor: idx === 0 ? 'primary.main' : 'transparent',
-                  opacity: idx === 0 ? TABS.underlineOpacity : 0,
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+                  columnGap: SECTION_GRID.columnSpacing,
+                  rowGap: SECTION_GRID.rowSpacing,
                 }}
-              />
+              >
+                {Array.from(
+                  { length: section.fields },
+                  (_, i) => `${section.key}-field-${i}`
+                ).map(key => (
+                  <Box key={key}>
+                    <Skeleton
+                      variant="text"
+                      width={SECTION.fieldLabelWidth}
+                      sx={skeletonTextSx('bodySReg')}
+                    />
+                    <Skeleton
+                      variant="text"
+                      width={SECTION.fieldValueWidth}
+                      sx={skeletonTextSx('bodyLReg')}
+                    />
+                  </Box>
+                ))}
+              </Box>
             </Box>
           ))}
         </Box>
-      )}
-
-      {/* Tab panel content: DetailTabPanel applies pt: 5 */}
-      <Box
-        sx={{
-          pt: showTabs ? SECTION.panelTop : 0,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: SECTION.gap,
-        }}
-        aria-hidden
-      >
-        {SECTIONS.map(section => (
-          <Box
-            key={section.key}
-            sx={{
-              ...skeletonSurfaceSx,
-              p: SECTION.inset,
-            }}
-          >
-            <Skeleton
-              variant="text"
-              width={section.heading}
-              sx={{ ...skeletonTextSx('h6'), mb: SECTION.headingGap }}
-            />
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
-                columnGap: SECTION_GRID.columnSpacing,
-                rowGap: SECTION_GRID.rowSpacing,
-              }}
-            >
-              {Array.from(
-                { length: section.fields },
-                (_, i) => `${section.key}-field-${i}`
-              ).map(key => (
-                <Box key={key}>
-                  <Skeleton
-                    variant="text"
-                    width={SECTION.fieldLabelWidth}
-                    sx={skeletonTextSx('bodySReg')}
-                  />
-                  <Skeleton
-                    variant="text"
-                    width={SECTION.fieldValueWidth}
-                    sx={skeletonTextSx('bodyLReg')}
-                  />
-                </Box>
-              ))}
-            </Box>
-          </Box>
-        ))}
-      </Box>
-    </DelayedReveal>
+      </DelayedReveal>
+    </>
   );
 }

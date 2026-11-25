@@ -5,25 +5,11 @@ import { Box } from '@mui/material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DetailTabNav from '@/components/common/DetailTabNav';
 import DetailTabPanel from '@/components/common/DetailTabPanel';
-import { TAB_KEYS, type EndpointTabKey } from './endpoint-detail-shared';
+import { normalizeTabParam, TAB_KEYS, TAB_LABELS } from './tabs';
 import EndpointOverviewTab from './EndpointOverviewTab';
 import EndpointConnectionTab from './EndpointConnectionTab';
 import EndpointMappingTab from './EndpointMappingTab';
 import EndpointTestTab from './EndpointTestTab';
-
-const TAB_LABELS: Record<EndpointTabKey, string> = {
-  overview: 'Basics',
-  connection: 'Connection',
-  mapping: 'Mapping',
-  test: 'Test',
-};
-
-function normalizeTabParam(param: string | null): EndpointTabKey {
-  if (param && TAB_KEYS.includes(param as EndpointTabKey)) {
-    return param as EndpointTabKey;
-  }
-  return 'overview';
-}
 
 export default function EndpointDetailTabs() {
   const router = useRouter();

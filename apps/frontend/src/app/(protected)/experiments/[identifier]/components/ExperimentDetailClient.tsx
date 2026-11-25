@@ -48,21 +48,14 @@ import ExperimentVersionsGrid from './ExperimentVersionsGrid';
 import ExperimentRunsTab from './ExperimentRunsTab';
 import type { ExperimentRunsData } from './experiment-data';
 import ExperimentParametersTab from './ExperimentParametersTab';
+import { TAB_KEYS, TAB_LABELS } from './tabs';
 import { formatDate } from '@/utils/date';
 import DetailEntityMissingState from '@/components/common/DetailEntityMissingState';
 import { isNotFoundApiError } from '@/utils/api-client/is-not-found-error';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { detailPageTitle } from '@/utils/document-title';
-
-const TAB_KEYS = ['overview', 'parameters', 'versions', 'runs'] as const;
-
-const TAB_LABELS: Record<(typeof TAB_KEYS)[number], string> = {
-  overview: 'Overview',
-  parameters: 'Parameters',
-  versions: 'Versions',
-  runs: 'Experiment Runs',
-};
+import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 
 export interface ExperimentDetailData {
   experiment: ExperimentDetail;
@@ -278,7 +271,7 @@ export default function ExperimentDetailClient({
 
   const breadcrumbs: BreadcrumbItem[] = useMemo(
     () => [
-      { label: 'Experiments', href: '/experiments' },
+      directoryCrumb(PAGE_HEADERS.experiments),
       { label: experiment.name || 'Experiment' },
     ],
     [experiment]
@@ -293,7 +286,7 @@ export default function ExperimentDetailClient({
         entityTableName="experiment"
         listUrl="/experiments"
         breadcrumbs={[
-          { label: 'Experiments', href: '/experiments' },
+          directoryCrumb(PAGE_HEADERS.experiments),
           { label: 'Not Found', href: `/experiments/${experimentId}` },
         ]}
         onBack={() => window.history.back()}

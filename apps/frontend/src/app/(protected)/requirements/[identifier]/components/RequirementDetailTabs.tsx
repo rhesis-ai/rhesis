@@ -13,24 +13,11 @@ import RequirementExamples from './RequirementExamples';
 import RequirementLinkedMetrics from './RequirementLinkedMetrics';
 import RequirementLinkedTests from './RequirementLinkedTests';
 import RequirementLinkedRequirements from './RequirementLinkedRequirements';
-
-export const REQUIREMENT_TAB_KEYS = [
-  'basic',
-  'examples',
-  'linked-metrics',
-  'linked-tests',
-  'linked-requirements',
-] as const;
-
-export type RequirementTabKey = (typeof REQUIREMENT_TAB_KEYS)[number];
-
-const NAV_LABELS: Record<RequirementTabKey, string> = {
-  basic: 'Basic Information',
-  examples: 'Examples',
-  'linked-metrics': 'Metrics',
-  'linked-tests': 'Tests',
-  'linked-requirements': 'Requirements',
-};
+import {
+  NAV_LABELS,
+  REQUIREMENT_TAB_KEYS,
+  type RequirementTabKey,
+} from './tabs';
 
 /** Parent (if any) plus children: the rows of the Linked Requirements tab. */
 export function linkedRequirementCount(

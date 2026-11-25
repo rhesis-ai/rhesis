@@ -22,6 +22,7 @@ import ToolImportDrawer from './ToolImportDrawer';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import type { Source } from '@/utils/api-client/interfaces/source';
 import { rem } from '@/styles/theme-constants';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 interface KnowledgeClientWrapperProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -59,8 +60,8 @@ export default function KnowledgeClientWrapper({
   if (!isAuthenticated(status)) {
     return (
       <PageLayout
-        title="Knowledge"
-        description="Upload knowledge sources to use as context for test generation and evaluation workflows."
+        title={PAGE_HEADERS.knowledge.title}
+        description={PAGE_HEADERS.knowledge.description}
         breadcrumbs={[]}
       >
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -81,8 +82,8 @@ export default function KnowledgeClientWrapper({
   return (
     <>
       <PageLayout
-        title="Knowledge"
-        description="Upload knowledge sources to use as context for test generation and evaluation workflows."
+        title={PAGE_HEADERS.knowledge.title}
+        description={PAGE_HEADERS.knowledge.description}
         breadcrumbs={[]}
         actions={
           <FabGroup>

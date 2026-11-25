@@ -50,6 +50,7 @@ import {
   type ModelType,
 } from '@/constants/model-types';
 import { useCreateModel } from '@/hooks/useCreateModel';
+import { PAGE_HEADERS, modelsDescription } from '@/constants/page-headers';
 
 type ModelTypeFilter = 'all' | 'language' | 'embedding';
 
@@ -439,12 +440,8 @@ export default function ModelsPageClient({
 
   return (
     <PageLayout
-      title="Models"
-      description={
-        embeddingsEnabled
-          ? 'Connect language models for test generation and language-model-as-judge evaluation, and embedding models for platform use. Set your defaults for generation, evaluation, and execution.'
-          : 'Connect language models for test generation and language-model-as-judge evaluation. Set your defaults for generation, evaluation, and execution.'
-      }
+      title={PAGE_HEADERS.models.title}
+      description={modelsDescription(embeddingsEnabled)}
       breadcrumbs={[]}
       actions={
         <FabGroup>

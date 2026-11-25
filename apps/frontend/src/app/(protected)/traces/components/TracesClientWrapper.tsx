@@ -21,6 +21,7 @@ import {
   filtersFromSearchParams,
   viewFromSearchParams,
 } from './trace-url-state';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 interface TracesClientWrapperProps {
   currentUserId?: string;
@@ -77,8 +78,8 @@ export default function TracesClientWrapper({
   if (!isAuthenticated(status)) {
     return (
       <PageLayout
-        title="Traces"
-        description="OpenTelemetry traces from test runs and live endpoint traffic. Inspect spans, metrics, and annotations."
+        title={PAGE_HEADERS.traces.title}
+        description={PAGE_HEADERS.traces.description}
         breadcrumbs={[]}
       >
         <Alert severity="error" sx={{ mb: 3 }}>
@@ -95,8 +96,8 @@ export default function TracesClientWrapper({
 
   return (
     <PageLayout
-      title="Traces"
-      description="OpenTelemetry traces from test runs and live endpoint traffic. Inspect spans, metrics, and annotations."
+      title={PAGE_HEADERS.traces.title}
+      description={PAGE_HEADERS.traces.description}
       breadcrumbs={[]}
       actions={
         <FabGroup>

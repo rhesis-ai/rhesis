@@ -21,6 +21,7 @@ import { isAuthenticated, isSessionLoading } from '@/hooks/useIsAuthenticated';
 import { useInvalidateUsage } from '@/hooks/useInvalidateUsage';
 import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { rem } from '@/styles/theme-constants';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 interface EndpointsPageClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -77,7 +78,7 @@ export default function EndpointsPageClient({
 
   if (isSessionLoading(status)) {
     return (
-      <PageLayout title="Endpoints" breadcrumbs={[]}>
+      <PageLayout title={PAGE_HEADERS.endpoints.title} breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography>Loading...</Typography>
         </Box>
@@ -90,7 +91,7 @@ export default function EndpointsPageClient({
 
   if (!isAuthenticated(status)) {
     return (
-      <PageLayout title="Endpoints" breadcrumbs={[]}>
+      <PageLayout title={PAGE_HEADERS.endpoints.title} breadcrumbs={[]}>
         <Box sx={{ p: 3 }}>
           <Typography color="error">No session token available</Typography>
         </Box>
@@ -101,8 +102,8 @@ export default function EndpointsPageClient({
   return (
     <>
       <PageLayout
-        title="Endpoints"
-        description="Connect the Rhesis platform to your application under test via endpoints to enable comprehensive testing and evaluation workflows."
+        title={PAGE_HEADERS.endpoints.title}
+        description={PAGE_HEADERS.endpoints.description}
         breadcrumbs={[]}
         actions={
           <FabGroup>

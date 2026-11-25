@@ -37,6 +37,7 @@ import {
 } from '../hooks/useRequirementInsightsData';
 import InsightsEmptyState from './InsightsEmptyState';
 import { resolveInsightsPageView } from '../utils/insights-page-view';
+import { PAGE_HEADERS } from '@/constants/page-headers';
 
 interface InsightsPageProps {
   /** Server-resolved endpoint (same pick as `resolveEndpointId`), so the first render already has a selection. */
@@ -299,8 +300,8 @@ export default function InsightsPage({
 
   return (
     <PageLayout
-      title="Insights"
-      description="View pass rates by requirement, impact or parent requirement, broken down by metric and topic. Filter by time range or pick specific test runs in the filter drawer."
+      title={PAGE_HEADERS.insights.title}
+      description={PAGE_HEADERS.insights.description}
       breadcrumbs={[]}
       actions={
         <FabGroup>

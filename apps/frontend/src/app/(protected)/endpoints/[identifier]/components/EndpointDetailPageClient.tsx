@@ -21,6 +21,7 @@ import {
 import { isValidEndpointId } from '@/utils/is-valid-endpoint-id';
 import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import type { Project } from '@/utils/api-client/interfaces/project';
+import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 
 interface EndpointDetailPageClientProps {
   identifier: string;
@@ -101,7 +102,7 @@ export default function EndpointDetailPageClient({
         entityTableName="endpoint"
         listUrl="/endpoints"
         breadcrumbs={[
-          { label: 'Endpoints', href: '/endpoints' },
+          directoryCrumb(PAGE_HEADERS.endpoints),
           { label: 'Not Found', href: `/endpoints/${identifier}` },
         ]}
         onBack={() => router.push('/endpoints')}
@@ -135,11 +136,11 @@ export default function EndpointDetailPageClient({
   const breadcrumbs =
     endpoint.project_id && projectName
       ? [
-          { label: 'Projects', href: '/projects' },
+          directoryCrumb(PAGE_HEADERS.projects),
           { label: projectName, href: `/projects/${endpoint.project_id}` },
           { label: endpoint.name },
         ]
-      : [{ label: 'Endpoints', href: '/endpoints' }, { label: endpoint.name }];
+      : [directoryCrumb(PAGE_HEADERS.endpoints), { label: endpoint.name }];
 
   const metadataStrip = (
     <DetailMetadataStrip
