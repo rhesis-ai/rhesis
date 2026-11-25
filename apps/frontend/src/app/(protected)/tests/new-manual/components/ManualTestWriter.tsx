@@ -59,6 +59,7 @@ import {
 import MultiFileUpload from '@/components/common/MultiFileUpload';
 import { EntityType } from '@/types/entity-type';
 import { useTypeLookups } from '@/hooks/useLookups';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import {
   MANUAL_TEST_WRITER_HEADER,
@@ -114,6 +115,8 @@ export default function ManualTestWriter({
   const router = useRouter();
   const { data: session, status } = useSession();
   const notifications = useNotifications();
+  // As the route's loading view: nothing fetched, the table drawn inert.
+  const skeleton = useSkeletonMode();
 
   const [testType, setTestType] = useState<TestType>(() => {
     if (typeof window !== 'undefined') {
@@ -208,7 +211,8 @@ export default function ManualTestWriter({
   const testTypeValue =
     testType === 'Single-Turn' ? TEST_TYPES.SINGLE_TURN : TEST_TYPES.MULTI_TURN;
   const { data: resolvedTestSetTypes } = useTypeLookups(
-    `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}' and type_value eq '${testTypeValue}'`
+    `type_name eq '${TYPE_NAMES.TEST_SET_TYPE}' and type_value eq '${testTypeValue}'`,
+    !skeleton
   );
   useEffect(() => {
     if (resolvedTestSetTypes && resolvedTestSetTypes.length > 0) {
@@ -674,6 +678,7 @@ export default function ManualTestWriter({
       >
         <Box sx={{ mt: 2, mb: 2 }}>
           <Paper
+            inert={skeleton || undefined}
             sx={{
               width: '100%',
               borderRadius: BORDER_RADIUS.md,

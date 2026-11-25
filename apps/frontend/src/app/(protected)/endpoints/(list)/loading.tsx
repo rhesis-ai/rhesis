@@ -1,6 +1,13 @@
-import PageListSkeleton from '@/components/loading/PageListSkeleton';
-import { PAGE_HEADERS } from '@/constants/page-headers';
+'use client';
 
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
+import EndpointsPageClient from '@/app/(protected)/endpoints/components/EndpointsPageClient';
+
+/** The Endpoints page itself, drawn as placeholders until its data arrives. */
 export default function EndpointsLoading() {
-  return <PageListSkeleton header={PAGE_HEADERS.endpoints} showPills={false} />;
+  return (
+    <SkeletonMode>
+      <EndpointsPageClient />
+    </SkeletonMode>
+  );
 }

@@ -1,8 +1,19 @@
-import PageCardGridSkeleton from '@/components/loading/PageCardGridSkeleton';
-import { PAGE_HEADERS } from '@/constants/page-headers';
+'use client';
 
-// requirements renders a grid of EntityCards, not a DataGrid, so the catch-all
-// table skeleton would be the wrong shape here.
+import { useSession } from 'next-auth/react';
+import type { UUID } from 'crypto';
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
+import RequirementsClient from '../components/RequirementsClient';
+
+/** The Requirements page itself, drawn as placeholders until its data arrives. */
 export default function RequirementsLoading() {
-  return <PageCardGridSkeleton header={PAGE_HEADERS.requirements} />;
+  const { data: session } = useSession();
+  return (
+    <SkeletonMode>
+      <RequirementsClient
+        organizationId={session?.user?.organization_id as UUID}
+        userId={session?.user?.id as UUID | undefined}
+      />
+    </SkeletonMode>
+  );
 }

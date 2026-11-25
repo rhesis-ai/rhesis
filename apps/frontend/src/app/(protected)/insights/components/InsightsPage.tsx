@@ -38,6 +38,7 @@ import {
 import InsightsEmptyState from './InsightsEmptyState';
 import { resolveInsightsPageView } from '../utils/insights-page-view';
 import { PAGE_HEADERS } from '@/constants/page-headers';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 
 interface InsightsPageProps {
   /** Server-resolved endpoint (same pick as `resolveEndpointId`), so the first render already has a selection. */
@@ -50,6 +51,8 @@ export default function InsightsPage({
   initialEndpointId,
   initialInsights,
 }: InsightsPageProps) {
+  // As the route's loading view: no fetches, the dashboard drawn loading.
+  const skeleton = useSkeletonMode();
   const { activeProject } = useActiveProject();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.TestResult.READ
@@ -82,7 +85,7 @@ export default function InsightsPage({
       sort_by: 'name',
       sort_order: 'asc',
     },
-    !permsLoading && canRead
+    !skeleton && !permsLoading && canRead
   );
   const endpointsError = endpointsHasError
     ? 'Failed to load endpoints. Please try again.'
@@ -105,7 +108,11 @@ export default function InsightsPage({
     loading: insightsLoading,
     error,
     noRuns,
-  } = useRequirementInsightsData(filters, !permsLoading && canRead, seed);
+  } = useRequirementInsightsData(
+    filters,
+    !skeleton && !permsLoading && canRead,
+    seed
+  );
 
   const filteredColumns = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -158,7 +165,7 @@ export default function InsightsPage({
   }, []);
 
   useEffect(() => {
-    if (endpointsLoading) return;
+    if (skeleton || endpointsLoading) return;
 
     if (projectEndpoints.length === 0) {
       setFilters(prev =>
@@ -188,6 +195,7 @@ export default function InsightsPage({
           }
     );
   }, [
+    skeleton,
     endpointsLoading,
     endpoints,
     activeProject?.id,
@@ -211,7 +219,7 @@ export default function InsightsPage({
 
   const fabLoading = endpointsLoading || insightsLoading;
 
-  const pageView = resolveInsightsPageView({
+  const resolvedPageView = resolveInsightsPageView({
     endpointsLoading,
     endpointsError,
     projectEndpointCount: projectEndpoints.length,
@@ -220,6 +228,7 @@ export default function InsightsPage({
     error,
     noRuns,
   });
+  const pageView = skeleton ? 'content' : resolvedPageView;
 
   // Insights show one endpoint at a time, so an empty one shouldn't hide that
   // a sibling endpoint has results.
@@ -257,6 +266,7 @@ export default function InsightsPage({
 
   // Counts as reviewed only once real results are on screen, not an empty state
   const showsResults =
+    !skeleton &&
     pageView === 'content' &&
     !!filters.endpointId &&
     !insightsLoading &&
@@ -295,8 +305,8 @@ export default function InsightsPage({
     onFilterDrawerOpenChange: setFilterDrawerOpen,
   } as const;
 
-  if (permsLoading) return <PageLoadingState />;
-  if (!canRead) return <AccessDenied resource="insights" />;
+  if (!skeleton && permsLoading) return <PageLoadingState />;
+  if (!skeleton && !canRead) return <AccessDenied resource="insights" />;
 
   return (
     <PageLayout
@@ -381,7 +391,7 @@ export default function InsightsPage({
               insights={{
                 summary,
                 columns: filteredColumns,
-                loading: insightsLoading,
+                loading: skeleton || insightsLoading,
                 error,
                 noRuns,
               }}

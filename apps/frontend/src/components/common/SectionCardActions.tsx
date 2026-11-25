@@ -2,6 +2,7 @@
 
 import { Box, Button, CircularProgress } from '@mui/material';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { SkeletonSlot } from '@/components/loading/SkeletonMode';
 import { BORDER_RADIUS, rem } from '@/styles/theme-constants';
 
 /** Figma Button 1413:8164 — outlined Edit on section cards */
@@ -52,16 +53,18 @@ export function SectionEditButton({
   disabled,
 }: SectionEditButtonProps) {
   return (
-    <Button
-      size="small"
-      variant="outlined"
-      startIcon={<EditOutlinedIcon sx={{ fontSize: rem(20) }} />}
-      onClick={onClick}
-      disabled={disabled}
-      sx={sectionEditButtonSx}
-    >
-      Edit
-    </Button>
+    <SkeletonSlot>
+      <Button
+        size="small"
+        variant="outlined"
+        startIcon={<EditOutlinedIcon sx={{ fontSize: rem(20) }} />}
+        onClick={onClick}
+        disabled={disabled}
+        sx={sectionEditButtonSx}
+      >
+        Edit
+      </Button>
+    </SkeletonSlot>
   );
 }
 

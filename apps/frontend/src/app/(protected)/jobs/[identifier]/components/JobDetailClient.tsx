@@ -37,6 +37,7 @@ import {
   isValidEntityType,
 } from '@/utils/entity-helpers';
 import ActivityLogViewer from './ActivityLogViewer';
+import Field from './JobField';
 import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
 
 /**
@@ -46,19 +47,6 @@ import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
  * connects (or a reconnect) -- it is not the primary update mechanism.
  */
 const LIVE_POLL_MS = 3000;
-
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <Box>
-      <Typography variant="caption" color="text.secondary" display="block">
-        {label}
-      </Typography>
-      <Typography variant="body2" component="div">
-        {value}
-      </Typography>
-    </Box>
-  );
-}
 
 function formatTimestamp(value?: string): string {
   if (!value) return '—';

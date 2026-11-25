@@ -7,7 +7,7 @@ const mockRouterPush = jest.fn();
 // ── module mocks (must be declared before importing the component) ─────────
 jest.mock('next/navigation', () => ({
   usePathname: jest.fn(() => '/insights'),
-  useRouter: jest.fn(() => ({ push: mockRouterPush })),
+  useRouter: jest.fn(() => ({ push: mockRouterPush, prefetch: jest.fn() })),
 }));
 
 jest.mock('next-auth/react', () => ({

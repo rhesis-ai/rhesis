@@ -1,6 +1,13 @@
-import PageListSkeleton from '@/components/loading/PageListSkeleton';
-import { PAGE_HEADERS } from '@/constants/page-headers';
+'use client';
 
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
+import AnnotationsPageClient from '@/app/(protected)/annotations/components/AnnotationsPageClient';
+
+/** The Annotations page itself, drawn as placeholders until its data arrives. */
 export default function AnnotationsLoading() {
-  return <PageListSkeleton header={PAGE_HEADERS.annotations} />;
+  return (
+    <SkeletonMode>
+      <AnnotationsPageClient />
+    </SkeletonMode>
+  );
 }

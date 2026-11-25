@@ -13,6 +13,11 @@ import {
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import type { ActivityLogEntry } from '@/utils/api-client/interfaces/job';
 import { ACTIVITY_LEVEL_COLOR } from '@/constants/jobs';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
+import {
+  PLACEHOLDER_TEXT,
+  TextPlaceholder,
+} from '@/components/loading/TextPlaceholder';
 import { CODE_FONT_SIZE, rem } from '@/styles/theme-constants';
 import { BORDER_RADIUS } from '@/styles/theme';
 
@@ -27,6 +32,8 @@ interface ActivityLogViewerProps {
 
 const LEVELS = ['info', 'warning', 'error'] as const;
 
+const SKELETON_LINES = ['line-1', 'line-2', 'line-3', 'line-4'];
+
 export default function ActivityLogViewer({
   entries,
   live,
@@ -34,6 +41,8 @@ export default function ActivityLogViewer({
   onFollowChange,
   onCopy,
 }: ActivityLogViewerProps) {
+  // A loading view draws the viewer inert, its log lines as placeholders.
+  const skeleton = useSkeletonMode();
   const [hiddenLevels, setHiddenLevels] = React.useState<Set<string>>(
     () => new Set()
   );
@@ -65,7 +74,11 @@ export default function ActivityLogViewer({
   };
 
   return (
-    <Paper variant="outlined" sx={{ borderRadius: BORDER_RADIUS.md }}>
+    <Paper
+      variant="outlined"
+      sx={{ borderRadius: BORDER_RADIUS.md }}
+      inert={skeleton || undefined}
+    >
       <Box
         sx={{
           display: 'flex',
@@ -120,7 +133,13 @@ export default function ActivityLogViewer({
           p: 1.5,
         }}
       >
-        {visible.length === 0 ? (
+        {skeleton ? (
+          SKELETON_LINES.map(key => (
+            <Typography key={key} variant="body2">
+              <TextPlaceholder>{PLACEHOLDER_TEXT.long}</TextPlaceholder>
+            </Typography>
+          ))
+        ) : visible.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             {entries.length === 0
               ? 'No activity recorded for this job.'

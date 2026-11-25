@@ -29,6 +29,9 @@ import ToolImportPanel, {
 } from './ToolImportPanel';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { useToolProviders } from '@/hooks/useToolProviders';
+import type { ToolProvider } from '@/utils/api-client/interfaces/tool-provider';
+
+const NO_PROVIDERS: ToolProvider[] = [];
 
 interface ToolImportDrawerProps {
   open: boolean;
@@ -54,7 +57,9 @@ export default function ToolImportDrawer({
     onBack: onClose,
   });
 
-  const { data: toolProviders = [] } = useToolProviders();
+  // A stable fallback: a fresh [] each render would rebuild loadTools, and the
+  // closed drawer's reset effect would then loop until the providers arrive.
+  const { data: toolProviders = NO_PROVIDERS } = useToolProviders();
 
   const loadTools = useCallback(async () => {
     if (!isAuthenticated(status)) return;

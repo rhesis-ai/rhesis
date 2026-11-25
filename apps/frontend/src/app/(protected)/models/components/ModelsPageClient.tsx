@@ -23,7 +23,12 @@ import type { Status } from '@/utils/api-client/interfaces/status';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import { UUID } from 'crypto';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
-import { ConnectedModelCard, PlatformKeyDrawer } from '.';
+import {
+  ConnectedModelCard,
+  ConnectedModelCardPlaceholders,
+  PlatformKeyDrawer,
+} from '.';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 import { ModelConnectionDrawer } from './ModelConnectionDrawer';
 import ModelFilterDrawer, {
   EMPTY_MODEL_FILTERS,
@@ -71,6 +76,8 @@ export default function ModelsPageClient({
   initialData,
 }: ModelsPageClientProps) {
   const { data: session, status } = useSession();
+  // As the route's loading view: no fetches, cards drawn as placeholders.
+  const skeleton = useSkeletonMode();
   const queryClient = useQueryClient();
   const rhesisKeyEnabled = useRhesisKeyEnabled();
   const embeddingsEnabled = useEmbeddingsEnabled();
@@ -128,7 +135,7 @@ export default function ModelsPageClient({
   const fabMenuOpen = Boolean(fabAnchorEl);
 
   useEffect(() => {
-    if (initialData !== undefined) return;
+    if (skeleton || initialData !== undefined) return;
     if (status === 'unauthenticated') {
       setLoading(false);
       return;
@@ -176,7 +183,7 @@ export default function ModelsPageClient({
     }
 
     loadData();
-  }, [initialData, queryClient, userScope, status]);
+  }, [initialData, queryClient, userScope, status, skeleton]);
 
   const handleFabClick = (event: React.MouseEvent<HTMLElement>) => {
     setFabAnchorEl(event.currentTarget);
@@ -505,11 +512,11 @@ export default function ModelsPageClient({
         }
       />
 
-      {loading ? (
+      {loading && !skeleton ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
-      ) : filteredModels.length === 0 ? (
+      ) : filteredModels.length === 0 && !skeleton ? (
         <Box sx={{ py: 4, textAlign: 'center' }}>
           <Typography color="text.secondary">
             {visibleModels.length === 0
@@ -529,6 +536,9 @@ export default function ModelsPageClient({
             gap: '24px',
           }}
         >
+          {skeleton && (
+            <ConnectedModelCardPlaceholders canDelete={canDeleteModel} />
+          )}
           {filteredModels.map(model => (
             <ConnectedModelCard
               key={model.id}
@@ -583,7 +593,7 @@ export default function ModelsPageClient({
         title="Delete Model Connection"
       />
 
-      {rhesisKeyEnabled && (
+      {rhesisKeyEnabled && !skeleton && (
         <PlatformKeyDrawer
           open={platformKeyDrawerOpen}
           onClose={() => setPlatformKeyDrawerOpen(false)}

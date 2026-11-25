@@ -13,9 +13,9 @@ import type { SxProps, Theme } from '@mui/material/styles';
  * fetch or serialize, so they are exactly the pages that resolve inside this
  * window and never show a skeleton at all.
  *
- * Page headers are not held: `SkeletonPageHeader` draws a route's known title
- * and description at once, so the hold only covers what waits for data, and
- * `nextjs-toploader` shows progress from the click.
+ * Known text is not held: a page rendered in `SkeletonMode` shows its title,
+ * description, labels and headings at once, and only its placeholders
+ * (`SkeletonSlot`) wait; `nextjs-toploader` shows progress from the click.
  *
  * 200ms is the common skeleton delay (long enough to skip a flash on a fast
  * response, short enough that a slow page shows its shape almost at once).

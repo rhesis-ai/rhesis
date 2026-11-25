@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
@@ -52,6 +52,15 @@ export function SidebarProjectSwitcher({
   const { activeProject } = useActiveProject();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const close = () => setAnchor(null);
+
+  // The menu navigates with router.push, which prefetches nothing, and a
+  // route's loading view can only draw once its code is here.
+  const activeProjectId = activeProject?.id;
+  useEffect(() => {
+    router.prefetch('/projects');
+    router.prefetch('/projects/create-new');
+    if (activeProjectId) router.prefetch(`/projects/${activeProjectId}`);
+  }, [router, activeProjectId]);
 
   const triggerProps = {
     onClick: (e: React.MouseEvent<HTMLElement>) => setAnchor(e.currentTarget),

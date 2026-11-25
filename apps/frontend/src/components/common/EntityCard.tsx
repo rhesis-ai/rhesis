@@ -9,12 +9,18 @@ import {
   Typography,
   Avatar,
   IconButton,
+  Skeleton,
   Tooltip,
 } from '@mui/material';
 import { DeleteIcon } from '@/components/icons';
 import { BORDER_RADIUS, ELEVATION, GRID_CARD_INSET } from '@/styles/theme';
 import GridBadge from '@/components/common/GridBadge';
 import { rem } from '@/styles/theme-constants';
+import {
+  SkeletonSlot,
+  useSkeletonMode,
+} from '@/components/loading/SkeletonMode';
+import { delayedRevealSx } from '@/components/loading/DelayedReveal';
 
 export type EntityCardTone = 'neutral' | 'success' | 'warning' | 'error';
 
@@ -85,6 +91,39 @@ const DESCRIPTION_MAX_LINES = 2;
 const CONTEXT_LINE_HEIGHT = 20;
 const FACTS_LINE_HEIGHT = 24;
 const RELATIONS_LINE_HEIGHT = 22;
+
+/** Cards a loading view draws: two rows at the directories' three columns. */
+const SKELETON_CARD_COUNT = 6;
+
+/** Keys for a loading view's placeholder cards. */
+export const skeletonCardKeys = Array.from(
+  { length: SKELETON_CARD_COUNT },
+  (_, i) => `skeleton-card-${i}`
+);
+
+/** Last description line's length in skeleton mode, so it reads as a paragraph. */
+const SKELETON_LAST_LINE_WIDTH = '60%';
+
+/**
+ * A text placeholder as wide as `children`: `fit-content` keeps it from
+ * stretching across a block parent. Where the text would run out of room it
+ * shrinks, as the real text wraps or shortens there.
+ */
+function TextSlot({ children }: { children: React.ReactNode }) {
+  return (
+    <SkeletonSlot
+      variant="text"
+      sx={{
+        width: 'fit-content',
+        maxWidth: '100%',
+        flexShrink: 1,
+        minWidth: 0,
+      }}
+    >
+      <span>{children}</span>
+    </SkeletonSlot>
+  );
+}
 
 function toneColor(tone: EntityCardTone, theme: Theme): string {
   switch (tone) {
@@ -237,6 +276,11 @@ export default function EntityCard({
   descriptionLines = DESCRIPTION_MAX_LINES,
 }: EntityCardProps) {
   const theme = useTheme();
+  // In a route's loading view the card keeps its layout and draws every value
+  // as a placeholder of that value's size; nothing is clickable.
+  const skeleton = useSkeletonMode();
+  const slot = (node: React.ReactNode) =>
+    skeleton && node ? <TextSlot>{node}</TextSlot> : node;
 
   const firstName = userName ? userName.split(' ')[0] : undefined;
   const hasTopRightContent = !!topRightActions || !!onDelete;
@@ -260,13 +304,26 @@ export default function EntityCard({
           component="span"
           key={`${fact.key}-sep`}
           aria-hidden
-          sx={{ ...smallMutedSx, color: 'text.disabled' }}
+          sx={{
+            ...smallMutedSx,
+            color: 'text.disabled',
+            visibility: skeleton ? 'hidden' : undefined,
+          }}
         >
           ·
         </Box>
       );
     }
-    factNodes.push(<Fact key={fact.key} fact={fact} />);
+    const node = <Fact key={fact.key} fact={fact} />;
+    factNodes.push(
+      !skeleton ? (
+        node
+      ) : fact.kind === 'type' ? (
+        <SkeletonSlot key={fact.key}>{node}</SkeletonSlot>
+      ) : (
+        <TextSlot key={fact.key}>{node}</TextSlot>
+      )
+    );
   });
 
   // The card is not itself a button: it holds other buttons (delete, actions),
@@ -275,8 +332,12 @@ export default function EntityCard({
   return (
     <Box
       data-testid="entity-card"
-      onClick={onClick}
+      onClick={skeleton ? undefined : onClick}
+      inert={skeleton || undefined}
       sx={{
+        // A placeholder's sample text can't wrap like real text, so the card
+        // may not widen its grid column to fit it.
+        ...(skeleton && { minWidth: 0 }),
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'stretch',
@@ -289,13 +350,14 @@ export default function EntityCard({
         boxShadow: ELEVATION.xs,
         position: 'relative',
         gap: 1.25,
-        cursor: onClick ? 'pointer' : 'inherit',
+        cursor: onClick && !skeleton ? 'pointer' : 'inherit',
         height: '100%',
         boxSizing: 'border-box',
         transition: 'box-shadow 0.2s ease',
-        '&:hover': onClick
-          ? { boxShadow: '0px 6px 16px rgba(0,0,0,0.14)' }
-          : {},
+        '&:hover':
+          onClick && !skeleton
+            ? { boxShadow: '0px 6px 16px rgba(0,0,0,0.14)' }
+            : {},
         // Inside the edge: card grids clip anything drawn outside the card.
         '&:has(.entity-card-open:focus-visible)': {
           outline: '2px solid',
@@ -317,37 +379,48 @@ export default function EntityCard({
           }}
           onClick={e => e.stopPropagation()}
         >
-          {topRightActions}
+          {skeleton && topRightActions ? (
+            <SkeletonSlot>
+              <Box component="span" sx={{ display: 'inline-flex' }}>
+                {topRightActions}
+              </Box>
+            </SkeletonSlot>
+          ) : (
+            topRightActions
+          )}
           {onDelete && (
-            <Tooltip title={deleteDisabledReason || deleteLabel}>
-              {/* The span keeps the tooltip working on a disabled button, and
+            // Flex, so the circle hugs the button instead of a text line.
+            <SkeletonSlot variant="circular" sx={{ display: 'inline-flex' }}>
+              <Tooltip title={deleteDisabledReason || deleteLabel}>
+                {/* The span keeps the tooltip working on a disabled button, and
                   carries the cursor — MUI sets pointer-events: none on the
                   button itself once disabled. */}
-              <Box
-                component="span"
-                sx={{
-                  display: 'inline-flex',
-                  cursor: deleteDisabledReason ? 'not-allowed' : undefined,
-                }}
-              >
-                <IconButton
-                  size="small"
-                  aria-label={deleteLabel}
-                  disabled={!!deleteDisabledReason}
-                  onClick={e => {
-                    e.stopPropagation();
-                    onDelete();
-                  }}
+                <Box
+                  component="span"
                   sx={{
-                    color: 'primary.dark',
-                    padding: '2px',
-                    '& .MuiSvgIcon-root': { fontSize: rem(20) },
+                    display: 'inline-flex',
+                    cursor: deleteDisabledReason ? 'not-allowed' : undefined,
                   }}
                 >
-                  <DeleteIcon />
-                </IconButton>
-              </Box>
-            </Tooltip>
+                  <IconButton
+                    size="small"
+                    aria-label={deleteLabel}
+                    disabled={!!deleteDisabledReason}
+                    onClick={e => {
+                      e.stopPropagation();
+                      onDelete();
+                    }}
+                    sx={{
+                      color: 'primary.dark',
+                      padding: '2px',
+                      '& .MuiSvgIcon-root': { fontSize: rem(20) },
+                    }}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </Box>
+              </Tooltip>
+            </SkeletonSlot>
           )}
         </Box>
       )}
@@ -364,7 +437,7 @@ export default function EntityCard({
           pr: hasTopRightContent ? '36px' : 0,
         }}
       >
-        {context}
+        {slot(context)}
       </Typography>
 
       {/* 2 Title row */}
@@ -376,21 +449,23 @@ export default function EntityCard({
         }}
       >
         {icon && (
-          <Box
-            sx={{
-              width: 24,
-              height: 24,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'text.primary',
-              flexShrink: 0,
-              '& .MuiSvgIcon-root': { fontSize: rem(20) },
-              '& svg:not(.MuiSvgIcon-root)': { width: 20, height: 20 },
-            }}
-          >
-            {icon}
-          </Box>
+          <SkeletonSlot variant="circular">
+            <Box
+              sx={{
+                width: 24,
+                height: 24,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'text.primary',
+                flexShrink: 0,
+                '& .MuiSvgIcon-root': { fontSize: rem(20) },
+                '& svg:not(.MuiSvgIcon-root)': { width: 20, height: 20 },
+              }}
+            >
+              {icon}
+            </Box>
+          </SkeletonSlot>
         )}
         <Typography
           sx={{
@@ -403,7 +478,9 @@ export default function EntityCard({
             pr: hasTopRightContent ? '36px' : 0,
           }}
         >
-          {onClick ? (
+          {skeleton ? (
+            <TextSlot>{title}</TextSlot>
+          ) : onClick ? (
             <ButtonBase
               className="entity-card-open"
               disableRipple
@@ -456,7 +533,18 @@ export default function EntityCard({
           }),
         }}
       >
-        {description ?? ''}
+        {skeleton
+          ? Array.from({ length: descriptionLines }, (_, i) => (
+              <Skeleton
+                key={i}
+                variant="text"
+                width={
+                  i === descriptionLines - 1 ? SKELETON_LAST_LINE_WIDTH : '100%'
+                }
+                sx={delayedRevealSx}
+              />
+            ))
+          : (description ?? '')}
       </Typography>
       <Box
         sx={{
@@ -481,9 +569,15 @@ export default function EntityCard({
           color: 'text.secondary',
         }}
       >
-        {relations.map(relation => (
-          <Relation key={relation.key} relation={relation} />
-        ))}
+        {relations.map(relation =>
+          skeleton ? (
+            <TextSlot key={relation.key}>
+              <Relation relation={relation} />
+            </TextSlot>
+          ) : (
+            <Relation key={relation.key} relation={relation} />
+          )
+        )}
       </Box>
 
       {/* 5 Footer */}
@@ -502,20 +596,24 @@ export default function EntityCard({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
             {firstName && (
               <>
-                <Avatar
-                  src={userAvatar}
-                  sx={{ width: rem(20), height: rem(20), fontSize: rem(11) }}
-                >
-                  {!userAvatar ? firstName[0].toUpperCase() : undefined}
-                </Avatar>
-                {firstName}
+                <SkeletonSlot variant="circular">
+                  <Avatar
+                    src={userAvatar}
+                    sx={{ width: rem(20), height: rem(20), fontSize: rem(11) }}
+                  >
+                    {!userAvatar ? firstName[0].toUpperCase() : undefined}
+                  </Avatar>
+                </SkeletonSlot>
+                {slot(firstName)}
               </>
             )}
           </Box>
           {footerAction ? (
-            <Box onClick={e => e.stopPropagation()}>{footerAction}</Box>
+            <SkeletonSlot>
+              <Box onClick={e => e.stopPropagation()}>{footerAction}</Box>
+            </SkeletonSlot>
           ) : (
-            updatedText
+            slot(updatedText)
           )}
         </Box>
       )}

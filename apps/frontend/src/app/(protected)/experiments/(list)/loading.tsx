@@ -1,8 +1,13 @@
-import PageListSkeleton from '@/components/loading/PageListSkeleton';
-import { PAGE_HEADERS } from '@/constants/page-headers';
+'use client';
 
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
+import ExperimentsClientWrapper from '@/app/(protected)/experiments/components/ExperimentsClientWrapper';
+
+/** The Experiments page itself, drawn as placeholders until its data arrives. */
 export default function ExperimentsLoading() {
   return (
-    <PageListSkeleton header={PAGE_HEADERS.experiments} showPills={false} />
+    <SkeletonMode>
+      <ExperimentsClientWrapper />
+    </SkeletonMode>
   );
 }

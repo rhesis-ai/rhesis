@@ -7,6 +7,11 @@ import CostTooltip from '../../test-runs/[identifier]/components/summary/CostToo
 import ModelLabel from '@/components/common/ModelLabel';
 import { spanTypeLabel } from '@/constants/span-types';
 import { useCurrency } from '@/contexts/CurrencyContext';
+import {
+  SkeletonMode,
+  useSkeletonMode,
+} from '@/components/loading/SkeletonMode';
+import { TextPlaceholder } from '@/components/loading/TextPlaceholder';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { TraceMetricsResponse } from '@/utils/api-client/interfaces/telemetry';
 import {
@@ -58,11 +63,27 @@ export default function TraceMetricsSummary({
   refreshTrigger,
   costScope = 'project',
 }: TraceMetricsSummaryProps) {
+  const skeleton = useSkeletonMode();
   const [metrics, setMetrics] = useState<TraceMetricsResponse | null>(null);
+  // Until the scope's first answer the tiles keep their placeholders, so they
+  // neither vanish and come back nor show the previous scope's figures. A
+  // refresh of the same scope keeps the figures on screen.
+  const scopeKey = [
+    projectId,
+    testRunId,
+    environment,
+    startTimeAfter,
+    startTimeBefore,
+  ].join('|');
+  const [answeredFor, setAnsweredFor] = useState<string | null>(null);
+  const answered = answeredFor === scopeKey;
 
   useEffect(() => {
+    if (skeleton) return;
+    const setAnswered = () => setAnsweredFor(scopeKey);
     if (!projectId) {
       setMetrics(null);
+      setAnswered();
       return;
     }
 
@@ -83,12 +104,14 @@ export default function TraceMetricsSummary({
         });
         if (!cancelled) {
           setMetrics(result);
+          setAnswered();
         }
       } catch {
         // The tiles are supplementary; a failure here must not take the table
         // down with it, and the table surfaces its own errors.
         if (!cancelled) {
           setMetrics(null);
+          setAnswered();
         }
       }
     };
@@ -105,7 +128,11 @@ export default function TraceMetricsSummary({
     startTimeAfter,
     startTimeBefore,
     refreshTrigger,
+    scopeKey,
+    skeleton,
   ]);
+
+  if (skeleton || !answered) return <TraceMetricsSkeleton />;
 
   // Held back for a scope that has traced nothing: the table below says so in
   // its own empty state, and four tiles of zero say it less well.
@@ -210,6 +237,31 @@ export default function TraceMetricsSummary({
         </Typography>
       )}
     </Box>
+  );
+}
+
+const TILE_TITLES = ['Traces', 'Spans', 'Cost', 'Models'];
+
+/** The four tiles as placeholders, in the loading view and until the first
+ *  figures arrive on the page. */
+function TraceMetricsSkeleton() {
+  return (
+    <SkeletonMode>
+      <Box sx={{ mb: 3 }} aria-hidden>
+        <Grid container spacing={3}>
+          {TILE_TITLES.map(title => (
+            <Grid key={title} size={{ xs: 12, sm: 6, md: 3 }}>
+              <KpiCard
+                title={title}
+                // Blank: KpiCard draws its own value placeholder in skeleton mode.
+                value=""
+                subtitle={<TextPlaceholder />}
+              />
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
+    </SkeletonMode>
   );
 }
 

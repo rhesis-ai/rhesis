@@ -57,6 +57,10 @@ import {
 import { BORDER_RADIUS, ELEVATION } from '@/styles/theme';
 import { HIGHLIGHTED_ROW_CLASS } from '@/constants/notifications';
 import { rem } from '@/styles/theme-constants';
+import {
+  SkeletonSlot,
+  useSkeletonMode,
+} from '@/components/loading/SkeletonMode';
 
 /**
  * Shared "grid card" look — the bordered, rounded, shadowed Paper every grid
@@ -431,6 +435,16 @@ const HideRowsPerPageBelowContext = React.createContext<number | undefined>(
   undefined
 );
 
+/** MUI X's default row and column-header heights, and the density multipliers. */
+const MUI_ROW_HEIGHT = 52;
+const MUI_COLUMN_HEADER_HEIGHT = 56;
+const DENSITY_FACTOR: Record<GridDensity, number> = {
+  compact: 0.7,
+  standard: 1,
+  comfortable: 1.3,
+};
+const DEFAULT_PAGE_SIZE = 25;
+
 function FigmaPaginationFooter() {
   const theme = useTheme();
   const textColor = theme.palette.greyscale.body;
@@ -529,38 +543,44 @@ function FigmaPaginationFooter() {
 
       {/* Prev / range / Next */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: '30px' }}>
-        <IconButton
-          onClick={() =>
-            apiRef.current.setPaginationModel({ page: page - 1, pageSize })
-          }
-          disabled={isFirst}
-          aria-label="Previous page"
-          sx={navBtnSx(!isFirst)}
-        >
-          <ArrowBackIosNewIcon />
-        </IconButton>
+        <SkeletonSlot>
+          <IconButton
+            onClick={() =>
+              apiRef.current.setPaginationModel({ page: page - 1, pageSize })
+            }
+            disabled={isFirst}
+            aria-label="Previous page"
+            sx={navBtnSx(!isFirst)}
+          >
+            <ArrowBackIosNewIcon />
+          </IconButton>
+        </SkeletonSlot>
 
-        <Typography
-          sx={{
-            fontSize: rem(12),
-            fontWeight: 600,
-            color: textColor,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {from}–{to} of {rowCount}
-        </Typography>
+        <SkeletonSlot variant="text">
+          <Typography
+            sx={{
+              fontSize: rem(12),
+              fontWeight: 600,
+              color: textColor,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {from}–{to} of {rowCount}
+          </Typography>
+        </SkeletonSlot>
 
-        <IconButton
-          onClick={() =>
-            apiRef.current.setPaginationModel({ page: page + 1, pageSize })
-          }
-          disabled={isLast}
-          aria-label="Next page"
-          sx={navBtnSx(!isLast)}
-        >
-          <ArrowForwardIosIcon />
-        </IconButton>
+        <SkeletonSlot>
+          <IconButton
+            onClick={() =>
+              apiRef.current.setPaginationModel({ page: page + 1, pageSize })
+            }
+            disabled={isLast}
+            aria-label="Next page"
+            sx={navBtnSx(!isLast)}
+          >
+            <ArrowForwardIosIcon />
+          </IconButton>
+        </SkeletonSlot>
       </Box>
     </Box>
   );
@@ -605,14 +625,28 @@ export default function BaseDataGrid({
   hideFooter = false,
   hideRowsPerPageBelow = 10,
 }: BaseDataGridProps) {
+  // In a route's loading view the grid draws placeholder rows in its own columns.
+  const skeleton = useSkeletonMode();
   const theme = useTheme();
   const router = useRouter();
   const apiRef = useGridApiRef();
 
-  const gridColumns = React.useMemo(
-    () => applyFlexColumnSizing(columns),
-    [columns]
-  );
+  const gridColumns = React.useMemo(() => {
+    const sized = applyFlexColumnSizing(columns);
+    if (!skeleton) return sized;
+    // A loading view shows no column names either: each header is a
+    // placeholder as wide as its label, and the sort and menu icons wait.
+    return sized.map(column => ({
+      ...column,
+      sortable: false,
+      disableColumnMenu: true,
+      renderHeader: () => (
+        <SkeletonSlot variant="text">
+          <span>{column.headerName ?? column.field}</span>
+        </SkeletonSlot>
+      ),
+    }));
+  }, [columns, skeleton]);
 
   const hasActionsColumn = gridColumns.some(col => col.field === 'actions');
 
@@ -937,6 +971,21 @@ export default function BaseDataGrid({
   const wrapText = Boolean(theme.palette.accessibilityMode);
 
   const dataGridSx: SxProps<Theme> = [
+    // A loading view holds one page of rows, so the card is as tall as the
+    // page it stands in for. Auto height would size an empty grid at two rows,
+    // and the skeleton overlay draws rows to fill the measured area.
+    skeleton && {
+      // The active sort's arrow would still show beside a placeholder header;
+      // MUI sets the sorted column's container back to visible.
+      '& .MuiDataGrid-iconButtonContainer': { display: 'none' },
+      '& .MuiDataGrid-main': {
+        // The main area holds the column header row as well as the rows.
+        minHeight:
+          ((paginationModel?.pageSize ?? DEFAULT_PAGE_SIZE) * MUI_ROW_HEIGHT +
+            MUI_COLUMN_HEADER_HEIGHT) *
+          DENSITY_FACTOR[density ?? 'standard'],
+      },
+    },
     // Accessibility mode: headers and cells wrap instead of truncating, so
     // larger text spacing never hides text (WCAG 1.4.12); rows grow to fit.
     wrapText && {
@@ -980,7 +1029,9 @@ export default function BaseDataGrid({
   const hasRowUrl = !!(getRowUrl || linkPath);
 
   return (
-    <>
+    // In a loading view the grid is all placeholders: out of the accessibility
+    // tree and focus order, so screen readers don't meet a grid of empty headers.
+    <Box inert={skeleton || undefined} sx={{ display: 'contents' }}>
       <RowActionsHoverGrid enabled={hasActionsColumn}>
         {rowActionsRootProps => {
           const grid = (
@@ -992,7 +1043,7 @@ export default function BaseDataGrid({
                   columns={gridColumns}
                   {...(columnGroupingModel && { columnGroupingModel })}
                   getRowId={getRowId}
-                  {...(autoHeight && { autoHeight: true })}
+                  {...(autoHeight && !skeleton && { autoHeight: true })}
                   pagination
                   hideFooter={hideFooter}
                   paginationMode={serverSidePagination ? 'server' : 'client'}
@@ -1001,11 +1052,17 @@ export default function BaseDataGrid({
                   onPaginationModelChange={onPaginationModelChange}
                   pageSizeOptions={pageSizeOptions}
                   checkboxSelection={checkboxSelection}
-                  {...(checkboxSelection && {
-                    slotProps: {
+                  slotProps={{
+                    ...(checkboxSelection && {
                       baseCheckbox: { color: 'primary' as const },
-                    },
-                  })}
+                    }),
+                    ...(skeleton && {
+                      loadingOverlay: {
+                        variant: 'skeleton',
+                        noRowsVariant: 'skeleton',
+                      },
+                    }),
+                  }}
                   disableVirtualization={false}
                   {...(wrapText && {
                     getRowHeight: () => 'auto' as const,
@@ -1091,6 +1148,6 @@ export default function BaseDataGrid({
           Open in new tab
         </MenuItem>
       </Menu>
-    </>
+    </Box>
   );
 }

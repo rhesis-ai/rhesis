@@ -13,6 +13,7 @@ import GridToolbar, {
 import SelectionModeToggle from '@/components/common/SelectionModeToggle';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
+import { SkeletonSlot } from '@/components/loading/SkeletonMode';
 
 /**
  * Everything the toolbar renders, provided by EntityGrid. A context is used
@@ -96,18 +97,30 @@ export function EntityGridToolbarSlot() {
       rightContent={
         <>
           {selection && (
-            <SelectionModeToggle
-              checked={selection.checked}
-              onChange={selection.onChange}
-              label={selection.label}
-            />
+            // As tall as the grid buttons beside it: the switch is shorter,
+            // and a short bar among taller ones reads as a misfit.
+            <SkeletonSlot sx={{ alignSelf: 'stretch' }}>
+              <SelectionModeToggle
+                checked={selection.checked}
+                onChange={selection.onChange}
+                label={selection.label}
+              />
+            </SkeletonSlot>
           )}
           {toolbarRight}
           {showGridButtons && (
             <>
-              <GridToolbarColumnsButton />
-              <GridToolbarDensitySelector />
-              {showExport && <GridToolbarExport />}
+              <SkeletonSlot>
+                <GridToolbarColumnsButton />
+              </SkeletonSlot>
+              <SkeletonSlot>
+                <GridToolbarDensitySelector />
+              </SkeletonSlot>
+              {showExport && (
+                <SkeletonSlot>
+                  <GridToolbarExport />
+                </SkeletonSlot>
+              )}
             </>
           )}
         </>

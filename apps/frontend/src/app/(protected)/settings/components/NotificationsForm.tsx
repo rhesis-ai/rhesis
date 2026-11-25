@@ -12,6 +12,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { useUserScope } from '@/hooks/useIsAuthenticated';
 import { userSettingsKeys } from '@/constants/query-keys';
 import { SectionCard } from '@/components/common/SectionCard';
+import { CARD_HEADINGS } from './tabs';
 
 interface NotificationsFormProps {
   userSettings?: UserSettings;
@@ -81,8 +82,8 @@ export default function NotificationsForm({
 
   return (
     <SectionCard
-      title="Email notifications"
-      subtitle="Choose which emails to receive. The matching in-app notifications keep coming either way."
+      title={CARD_HEADINGS.emails.title}
+      subtitle={CARD_HEADINGS.emails.subtitle}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {EMAIL_TOGGLES.map(toggle => (

@@ -1,6 +1,13 @@
-import PageListSkeleton from '@/components/loading/PageListSkeleton';
-import { PAGE_HEADERS } from '@/constants/page-headers';
+'use client';
 
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
+import JobsPageClient from '@/app/(protected)/jobs/components/JobsPageClient';
+
+/** The Jobs page itself, drawn as placeholders until its data arrives. */
 export default function JobsLoading() {
-  return <PageListSkeleton header={PAGE_HEADERS.jobs} />;
+  return (
+    <SkeletonMode>
+      <JobsPageClient />
+    </SkeletonMode>
+  );
 }

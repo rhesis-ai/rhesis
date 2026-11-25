@@ -1,6 +1,13 @@
-import PageListSkeleton from '@/components/loading/PageListSkeleton';
-import { PAGE_HEADERS } from '@/constants/page-headers';
+'use client';
 
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
+import TracesClientWrapper from '../components/TracesClientWrapper';
+
+/** The Traces page itself, drawn as placeholders until its data arrives. */
 export default function TracesLoading() {
-  return <PageListSkeleton header={PAGE_HEADERS.traces} showPills={false} />;
+  return (
+    <SkeletonMode>
+      <TracesClientWrapper />
+    </SkeletonMode>
+  );
 }

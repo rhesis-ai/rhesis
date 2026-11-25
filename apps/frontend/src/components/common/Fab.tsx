@@ -4,6 +4,10 @@ import React from 'react';
 import { Box, CircularProgress, Fab as MuiFab, Tooltip } from '@mui/material';
 import type { BoxProps } from '@mui/material/Box';
 import type { FabProps as MuiFabProps } from '@mui/material/Fab';
+import {
+  SkeletonSlot,
+  useSkeletonMode,
+} from '@/components/loading/SkeletonMode';
 import { ELEVATION, FAB_GROUP_GAP, FAB_SIZE } from '@/styles/theme';
 import {
   FAB_COMPACT_BELOW,
@@ -85,6 +89,7 @@ export function Fab({
   sx,
   ...props
 }: FabProps) {
+  const skeleton = useSkeletonMode();
   const button = (
     <MuiFab
       size={size}
@@ -109,6 +114,9 @@ export function Fab({
       )}
     </MuiFab>
   );
+
+  // A loading view draws a placeholder in the button's place, at its size.
+  if (skeleton) return <SkeletonSlot variant="circular">{button}</SkeletonSlot>;
 
   if (tooltip) {
     return (

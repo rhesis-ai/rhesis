@@ -18,6 +18,7 @@ import { EntityType } from '@/types/tasks';
 import type { Task } from '@/utils/api-client/interfaces/task';
 import { rem } from '@/styles/theme-constants';
 import { PAGE_HEADERS } from '@/constants/page-headers';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 
 interface TasksPageClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -32,6 +33,7 @@ export default function TasksPageClient({
   const gate = useListAuthGate(tasksList);
   const canCreateTask = useCan(Capability.Task.CREATE);
   const searchParams = useSearchParams();
+  const skeleton = useSkeletonMode();
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false);
   const [initialEntity, setInitialEntity] = React.useState<
     TaskDrawerInitialEntity | undefined
@@ -44,7 +46,8 @@ export default function TasksPageClient({
 
   React.useEffect(() => {
     const shouldOpen = searchParams.get('create') === 'true';
-    if (!shouldOpen) return;
+    // The loading view leaves ?create=true for the real page to act on.
+    if (skeleton || !shouldOpen) return;
 
     const entityType = searchParams.get('entityType') as EntityType | null;
     const entityId = searchParams.get('entityId');
@@ -73,7 +76,7 @@ export default function TasksPageClient({
     const newUrl = new URL(window.location.href);
     newUrl.searchParams.delete('create');
     window.history.replaceState({}, '', newUrl.toString());
-  }, [searchParams]);
+  }, [skeleton, searchParams]);
 
   const handleCreateSuccess = React.useCallback(() => {
     setCreateDrawerOpen(false);

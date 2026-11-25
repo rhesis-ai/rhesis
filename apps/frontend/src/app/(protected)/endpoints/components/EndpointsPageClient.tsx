@@ -22,6 +22,7 @@ import { useInvalidateUsage } from '@/hooks/useInvalidateUsage';
 import type { Endpoint } from '@/utils/api-client/interfaces/endpoint';
 import { rem } from '@/styles/theme-constants';
 import { PAGE_HEADERS } from '@/constants/page-headers';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 
 interface EndpointsPageClientProps {
   /** Server-fetched first page — when present, skips the initial client fetch. */
@@ -36,6 +37,7 @@ export default function EndpointsPageClient({
   const { status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const skeleton = useSkeletonMode();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Endpoint.READ
   );
@@ -53,13 +55,14 @@ export default function EndpointsPageClient({
   useDocumentTitle('Endpoints');
 
   React.useEffect(() => {
-    if (searchParams.get('create') !== '1') return;
+    // The loading view leaves ?create=1 for the real page to act on.
+    if (skeleton || searchParams.get('create') !== '1') return;
 
     const projectId = searchParams.get('projectId') ?? undefined;
     setCreateProjectId(projectId || undefined);
     setCreateDrawerOpen(true);
     router.replace('/endpoints', { scroll: false });
-  }, [searchParams, router]);
+  }, [skeleton, searchParams, router]);
 
   const handleCreate = React.useCallback(() => {
     setCreateProjectId(undefined);

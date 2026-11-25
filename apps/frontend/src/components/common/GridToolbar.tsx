@@ -11,6 +11,7 @@ import {
   GRID_TOOLBAR_MIN_HEIGHT,
 } from '@/styles/theme';
 import { rem } from '@/styles/theme-constants';
+import { SkeletonSlot } from '@/components/loading/SkeletonMode';
 
 export interface ToolbarPillTab {
   label: string;
@@ -106,92 +107,94 @@ export function PrimarySegmentedPills({
 }: PrimarySegmentedPillsProps) {
   return (
     <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-      <Box
-        sx={{
-          display: 'inline-flex',
-          // Narrow viewports: segments wrap instead of being clipped
-          // (WCAG 1.4.10); a full pill radius would look broken then.
-          flexWrap: { xs: 'wrap', sm: 'nowrap' },
-          maxWidth: '100%',
-          border: '1px solid',
-          borderColor: 'primary.main',
-          borderRadius: { xs: BORDER_RADIUS.md, sm: BORDER_RADIUS.pill },
-          overflow: 'hidden',
-        }}
-      >
-        {tabs.map(({ value, label, icon }, idx) => {
-          const isSelected =
-            mode === 'single'
-              ? activeValue === value
-              : value === clearValue
-                ? selectedValues.length === 0
-                : selectedValues.includes(value);
+      <SkeletonSlot sx={{ borderRadius: BORDER_RADIUS.pill }}>
+        <Box
+          sx={{
+            display: 'inline-flex',
+            // Narrow viewports: segments wrap instead of being clipped
+            // (WCAG 1.4.10); a full pill radius would look broken then.
+            flexWrap: { xs: 'wrap', sm: 'nowrap' },
+            maxWidth: '100%',
+            border: '1px solid',
+            borderColor: 'primary.main',
+            borderRadius: { xs: BORDER_RADIUS.md, sm: BORDER_RADIUS.pill },
+            overflow: 'hidden',
+          }}
+        >
+          {tabs.map(({ value, label, icon }, idx) => {
+            const isSelected =
+              mode === 'single'
+                ? activeValue === value
+                : value === clearValue
+                  ? selectedValues.length === 0
+                  : selectedValues.includes(value);
 
-          return (
-            <Box
-              key={value || 'all'}
-              component="button"
-              type="button"
-              aria-pressed={isSelected}
-              onClick={() => {
-                if (mode === 'single') {
-                  onSingleChange?.(value);
-                  return;
-                }
-                if (value === clearValue) {
-                  onMultiChange?.([]);
-                  return;
-                }
-                const next = selectedValues.includes(value)
-                  ? selectedValues.filter(v => v !== value)
-                  : [...selectedValues, value];
-                onMultiChange?.(next);
-              }}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px',
-                px: '16px',
-                py: '8px',
-                fontSize: rem(14),
-                fontWeight: 700,
-                lineHeight: rem(22),
-                cursor: 'pointer',
-                border: 'none',
-                borderRadius: 0,
-                ...(idx > 0 && {
-                  borderLeft: '1px solid',
-                  borderColor: 'primary.main',
-                }),
-                bgcolor: isSelected ? 'primary.main' : 'transparent',
-                color: isSelected ? 'primary.contrastText' : 'primary.main',
-                transition: 'background-color 0.15s, color 0.15s',
-                outline: 'none',
-                WebkitTapHighlightColor: 'transparent',
-                '&:focus-visible': {
-                  outline: '2px solid',
-                  outlineColor: 'primary.main',
-                  outlineOffset: -2,
-                  zIndex: 1,
-                },
-                '&:hover': {
-                  bgcolor: isSelected
-                    ? 'primary.dark'
-                    : theme => `${theme.palette.primary.main}0f`,
-                },
-                whiteSpace: 'nowrap',
-                '& svg': {
-                  fontSize: rem(20),
-                },
-              }}
-            >
-              {icon}
-              {label}
-            </Box>
-          );
-        })}
-      </Box>
+            return (
+              <Box
+                key={value || 'all'}
+                component="button"
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => {
+                  if (mode === 'single') {
+                    onSingleChange?.(value);
+                    return;
+                  }
+                  if (value === clearValue) {
+                    onMultiChange?.([]);
+                    return;
+                  }
+                  const next = selectedValues.includes(value)
+                    ? selectedValues.filter(v => v !== value)
+                    : [...selectedValues, value];
+                  onMultiChange?.(next);
+                }}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  px: '16px',
+                  py: '8px',
+                  fontSize: rem(14),
+                  fontWeight: 700,
+                  lineHeight: rem(22),
+                  cursor: 'pointer',
+                  border: 'none',
+                  borderRadius: 0,
+                  ...(idx > 0 && {
+                    borderLeft: '1px solid',
+                    borderColor: 'primary.main',
+                  }),
+                  bgcolor: isSelected ? 'primary.main' : 'transparent',
+                  color: isSelected ? 'primary.contrastText' : 'primary.main',
+                  transition: 'background-color 0.15s, color 0.15s',
+                  outline: 'none',
+                  WebkitTapHighlightColor: 'transparent',
+                  '&:focus-visible': {
+                    outline: '2px solid',
+                    outlineColor: 'primary.main',
+                    outlineOffset: -2,
+                    zIndex: 1,
+                  },
+                  '&:hover': {
+                    bgcolor: isSelected
+                      ? 'primary.dark'
+                      : theme => `${theme.palette.primary.main}0f`,
+                  },
+                  whiteSpace: 'nowrap',
+                  '& svg': {
+                    fontSize: rem(20),
+                  },
+                }}
+              >
+                {icon}
+                {label}
+              </Box>
+            );
+          })}
+        </Box>
+      </SkeletonSlot>
     </Box>
   );
 }
@@ -307,11 +310,13 @@ export function GridToolbar({
   return (
     <Box sx={[baseSx, ...(Array.isArray(sx) ? sx : sx ? [sx] : [])]}>
       {onFilterClick ? (
-        <FilterButton
-          onClick={onFilterClick}
-          hasActiveFilters={hasActiveFilters}
-          activeFilterCount={activeFilterCount}
-        />
+        <SkeletonSlot>
+          <FilterButton
+            onClick={onFilterClick}
+            hasActiveFilters={hasActiveFilters}
+            activeFilterCount={activeFilterCount}
+          />
+        </SkeletonSlot>
       ) : null}
       {leadingContent}
       {showSearch ? (
@@ -326,13 +331,15 @@ export function GridToolbar({
             />
           </Box>
         ) : (
-          <SearchPill
-            value={searchQuery}
-            onChange={onSearchChange}
-            placeholder={searchPlaceholder}
-            width={searchWidth}
-            variant={searchVariant}
-          />
+          <SkeletonSlot sx={{ borderRadius: BORDER_RADIUS.pill }}>
+            <SearchPill
+              value={searchQuery}
+              onChange={onSearchChange}
+              placeholder={searchPlaceholder}
+              width={searchWidth}
+              variant={searchVariant}
+            />
+          </SkeletonSlot>
         )
       ) : null}
       {middleContent}

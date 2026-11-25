@@ -32,6 +32,7 @@ import { HIGHLIGHTED_ROW_CLASS } from '@/constants/notifications';
 import type { WithPermittedActions } from '@/types/affordances';
 import type { FilterSpecMap, FiltersOf } from '@/utils/list';
 import type { EntityGridProps, EntityGridSelectionContext } from './types';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 
 function capitalize(label: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
@@ -96,6 +97,8 @@ export default function EntityGrid<
 }: EntityGridProps<T, S, TDrawer, TBulk>) {
   const router = useRouter();
   const deleteSpec = descriptor.delete;
+  // As a route's loading view: no fetch, the grid itself drawn loading.
+  const skeleton = useSkeletonMode();
 
   // ── Toolbar-owned state ────────────────────────────────────────────────────
   const allPillValue = pills?.allValue ?? 'all';
@@ -145,7 +148,7 @@ export default function EntityGrid<
   } = useList(descriptor, {
     filters,
     extraFilters,
-    enabled,
+    enabled: skeleton ? false : enabled,
     initialData,
     initialTotalCount,
     pollMs,
@@ -450,7 +453,7 @@ export default function EntityGrid<
 
   // ── Render ─────────────────────────────────────────────────────────────────
   const deleteCount = pendingDeleteId ? 1 : selectedRows.length;
-  const loading = isLoading || extraLoading;
+  const loading = skeleton || isLoading || extraLoading;
 
   const content = (
     <EntityGridToolbarContext.Provider value={toolbarContextValue}>
@@ -548,9 +551,9 @@ export default function EntityGrid<
   return (
     <GridStateGate
       active={!embedded}
-      data={hasLoadedOnce.current ? {} : null}
+      data={skeleton || hasLoadedOnce.current ? {} : null}
       error={error}
-      isEmpty={!loading && totalCount === 0 && !filtersActive}
+      isEmpty={!skeleton && !loading && totalCount === 0 && !filtersActive}
       emptyState={emptyState}
     >
       {embedded ? content : <Paper sx={GRID_PAPER_SX}>{content}</Paper>}

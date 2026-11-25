@@ -23,7 +23,7 @@ jest.mock('@/utils/api-client/client-factory', () => ({
 }));
 
 jest.mock('next/navigation', () => ({
-  useRouter: () => ({ push: mockPush }),
+  useRouter: () => ({ push: mockPush, prefetch: jest.fn() }),
 }));
 
 jest.mock('@/contexts/NotificationsContext', () => ({

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useSyncExternalStore } from 'react';
 import {
   Box,
   Chip,
@@ -9,6 +9,10 @@ import {
   ToggleButtonGroup,
 } from '@mui/material';
 import { useCan } from '@/components/common/Can';
+import {
+  SkeletonSlot,
+  useSkeletonMode,
+} from '@/components/loading/SkeletonMode';
 import { Capability } from '@/constants/capabilities';
 import type { ScheduleForm } from '@/components/common/run-drawer/schedule-form';
 import type { TestRunSchedule } from '@/utils/api-client/interfaces/test-run-schedule';
@@ -49,15 +53,23 @@ interface Props {
 
 type View = SchedulesView;
 
-/** Week or list, remembered per viewer. Storage can be missing or blocked. */
+const subscribeNever = () => () => {};
+
+/**
+ * Week or list, remembered per viewer. Storage can be missing or blocked.
+ * Read during render ('week' on the server), so the loading view and the page
+ * open in the remembered view without first drawing the week.
+ */
 function useRememberedView(): [View, (view: View) => void] {
-  const [view, setView] = useState<View>('week');
-  useEffect(() => {
-    const saved = readRememberedView();
-    if (saved) setView(saved);
-  }, []);
+  const saved = useSyncExternalStore<View>(
+    subscribeNever,
+    () => readRememberedView() ?? 'week',
+    () => 'week'
+  );
+  const [chosen, setChosen] = useState<View | null>(null);
+  const view = chosen ?? saved;
   const remember = (next: View) => {
-    setView(next);
+    setChosen(next);
     try {
       window.localStorage.setItem(SCHEDULES_VIEW_KEY, next);
     } catch {
@@ -81,11 +93,16 @@ export default function SchedulesTab({
 }: Props) {
   const [view, setView] = useRememberedView();
   const canCreate = useCan(Capability.TestRun.EXECUTE);
-  const schedules = useSchedules();
+  // As a route's loading view: the views draw their own placeholders, no data.
+  const skeleton = useSkeletonMode();
+  const schedules = useSchedules(!skeleton);
   const actions = useScheduleActions();
   const [takeOver, setTakeOver] = useState<TestRunSchedule | null>(null);
   const [deleting, setDeleting] = useState<TestRunSchedule | null>(null);
-  const all = useMemo(() => schedules.data ?? [], [schedules.data]);
+  const all = useMemo(
+    () => (skeleton ? [] : (schedules.data ?? [])),
+    [skeleton, schedules.data]
+  );
   const items = useMemo(
     () => (testSetId ? all.filter(s => s.test_set?.id === testSetId) : all),
     [all, testSetId]
@@ -99,16 +116,18 @@ export default function SchedulesTab({
     'this test set';
 
   const viewToggle = (
-    <ToggleButtonGroup
-      size="small"
-      exclusive
-      value={view}
-      onChange={(_, next: View | null) => next && setView(next)}
-      aria-label="Calendar or list"
-    >
-      <ToggleButton value="week">Week</ToggleButton>
-      <ToggleButton value="list">List</ToggleButton>
-    </ToggleButtonGroup>
+    <SkeletonSlot>
+      <ToggleButtonGroup
+        size="small"
+        exclusive
+        value={view}
+        onChange={(_, next: View | null) => next && setView(next)}
+        aria-label="Calendar or list"
+      >
+        <ToggleButton value="week">Week</ToggleButton>
+        <ToggleButton value="list">List</ToggleButton>
+      </ToggleButtonGroup>
+    </SkeletonSlot>
   );
 
   return (
@@ -120,18 +139,20 @@ export default function SchedulesTab({
         }
       />
       {testSetId && (
-        <Chip
-          label={`Test set: ${testSetName}`}
-          onDelete={onClearTestSet}
-          sx={{ mb: 1.5 }}
-        />
+        <SkeletonSlot sx={{ mb: 1.5 }}>
+          <Chip
+            label={`Test set: ${testSetName}`}
+            onDelete={onClearTestSet}
+            sx={{ mb: skeleton ? 0 : 1.5 }}
+          />
+        </SkeletonSlot>
       )}
       {view === 'list' && (
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1.5 }}>
           {viewToggle}
         </Box>
       )}
-      {schedules.isLoading ? (
+      {schedules.isLoading && !skeleton ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
           <CircularProgress />
         </Box>
@@ -155,38 +176,46 @@ export default function SchedulesTab({
         />
       )}
 
-      <ScheduleEditDrawer
-        scheduleId={openScheduleId}
-        occurrence={openOccurrence}
-        onClose={() => onOpenSchedule(null)}
-        onTakeOver={setTakeOver}
-      />
-      <ScheduleCreateDrawer
-        open={createOpen}
-        initialDate={createDate}
-        onClose={onCreateClose}
-        onMoreOptions={onMoreOptions}
-      />
-      <TakeOverDialog schedule={takeOver} onClose={() => setTakeOver(null)} />
-      <ScheduleScopeDialog
-        open={Boolean(deleting)}
-        title={`Delete ${deleting?.name ?? 'schedule'}?`}
-        options={[
-          {
-            value: 'whole',
-            label: 'The whole schedule',
-            description: 'Nothing else will run. Its past runs are kept.',
-          },
-        ]}
-        initial="whole"
-        confirmText="Delete"
-        destructive
-        onCancel={() => setDeleting(null)}
-        onConfirm={() => {
-          if (deleting) void actions.remove(deleting);
-          setDeleting(null);
-        }}
-      />
+      {/* Drawers and dialogs follow the URL; the loading view leaves them to the page. */}
+      {!skeleton && (
+        <>
+          <ScheduleEditDrawer
+            scheduleId={openScheduleId}
+            occurrence={openOccurrence}
+            onClose={() => onOpenSchedule(null)}
+            onTakeOver={setTakeOver}
+          />
+          <ScheduleCreateDrawer
+            open={createOpen}
+            initialDate={createDate}
+            onClose={onCreateClose}
+            onMoreOptions={onMoreOptions}
+          />
+          <TakeOverDialog
+            schedule={takeOver}
+            onClose={() => setTakeOver(null)}
+          />
+          <ScheduleScopeDialog
+            open={Boolean(deleting)}
+            title={`Delete ${deleting?.name ?? 'schedule'}?`}
+            options={[
+              {
+                value: 'whole',
+                label: 'The whole schedule',
+                description: 'Nothing else will run. Its past runs are kept.',
+              },
+            ]}
+            initial="whole"
+            confirmText="Delete"
+            destructive
+            onCancel={() => setDeleting(null)}
+            onConfirm={() => {
+              if (deleting) void actions.remove(deleting);
+              setDeleting(null);
+            }}
+          />
+        </>
+      )}
     </Box>
   );
 }

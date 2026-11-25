@@ -26,6 +26,7 @@ import { UUID } from 'crypto';
 import type { TypeLookup } from '@/utils/api-client/interfaces/type-lookup';
 import {
   ConnectedToolCard,
+  ConnectedToolCardPlaceholders,
   ToolConnectionDrawer,
   ToolFilterDrawer,
   ToolFilters,
@@ -37,6 +38,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { isAuthenticated } from '@/hooks/useIsAuthenticated';
 import { PAGE_HEADERS } from '@/constants/page-headers';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 
 interface ToolsPageClientProps {
   /** Server-fetched tools -- when present, skips the initial client fetch. */
@@ -50,6 +52,8 @@ export default function ToolsPageClient({
   initialProviderTypes = [],
 }: ToolsPageClientProps) {
   const { status } = useSession();
+  // As the route's loading view: no fetches, cards drawn as placeholders.
+  const skeleton = useSkeletonMode();
   const notifications = useNotifications();
   const { allowed: canRead, loading: permsLoading } = useCanWithStatus(
     Capability.Tool.READ
@@ -74,7 +78,7 @@ export default function ToolsPageClient({
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
 
   useEffect(() => {
-    if (initialData !== undefined) return;
+    if (skeleton || initialData !== undefined) return;
     if (status === 'unauthenticated') {
       setLoading(false);
       return;
@@ -102,7 +106,7 @@ export default function ToolsPageClient({
     }
 
     loadData();
-  }, [initialData, status]);
+  }, [initialData, status, skeleton]);
 
   const handleConnect = async (
     _: string,
@@ -230,11 +234,11 @@ export default function ToolsPageClient({
       )}
 
       <Box sx={{ mt: 2, mb: 2 }}>
-        {loading ? (
+        {loading && !skeleton ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
-        ) : tools.length === 0 ? (
+        ) : tools.length === 0 && !skeleton ? (
           <EntityEmptyState
             card
             icon={BuildIcon}
@@ -255,7 +259,7 @@ export default function ToolsPageClient({
               {...directoryToolbarProps}
             />
 
-            {filteredTools.length === 0 ? (
+            {filteredTools.length === 0 && !skeleton ? (
               <EntityEmptyState
                 card
                 showAddIcon={false}
@@ -280,6 +284,7 @@ export default function ToolsPageClient({
                   gap: 3,
                 }}
               >
+                {skeleton && <ConnectedToolCardPlaceholders />}
                 {filteredTools.map(tool => (
                   <ConnectedToolCard
                     key={tool.id}
@@ -302,18 +307,20 @@ export default function ToolsPageClient({
         onApply={f => setFilters(f)}
       />
 
-      <ToolConnectionDrawer
-        open={connectionDrawerOpen}
-        providers={supportedProviderTypes}
-        tool={toolToEdit}
-        mode={toolToEdit ? 'edit' : 'create'}
-        onClose={() => {
-          setConnectionDrawerOpen(false);
-          setTimeout(() => setToolToEdit(null), 300);
-        }}
-        onConnect={handleConnect}
-        onUpdate={handleUpdate}
-      />
+      {!skeleton && (
+        <ToolConnectionDrawer
+          open={connectionDrawerOpen}
+          providers={supportedProviderTypes}
+          tool={toolToEdit}
+          mode={toolToEdit ? 'edit' : 'create'}
+          onClose={() => {
+            setConnectionDrawerOpen(false);
+            setTimeout(() => setToolToEdit(null), 300);
+          }}
+          onConnect={handleConnect}
+          onUpdate={handleUpdate}
+        />
+      )}
 
       <DeleteModal
         open={deleteDialogOpen}

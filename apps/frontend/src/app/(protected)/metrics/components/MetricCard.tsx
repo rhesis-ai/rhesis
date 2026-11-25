@@ -1,8 +1,10 @@
 import React from 'react';
 import EntityCard, {
+  skeletonCardKeys,
   type EntityCardFact,
   type EntityCardRelation,
 } from '@/components/common/EntityCard';
+import { TEST_TYPES } from '@/constants/test-types';
 import { RequirementsIcon, TuneIcon } from '@/components/icons';
 
 interface MetricCardProps {
@@ -91,5 +93,25 @@ export default function MetricCard({
       onDelete={onDelete}
       onClick={onClick}
     />
+  );
+}
+
+/** A loading view's cards: the real card in skeleton mode, with typical values. */
+export function MetricCardPlaceholders() {
+  return (
+    <>
+      {skeletonCardKeys.map(key => (
+        <MetricCard
+          key={key}
+          title="Answer relevancy"
+          description=""
+          backend="rhesis"
+          scoreType="numeric"
+          metricScope={[TEST_TYPES.SINGLE_TURN]}
+          usedIn={[]}
+          showUsage
+        />
+      ))}
+    </>
   );
 }

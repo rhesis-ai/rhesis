@@ -16,6 +16,7 @@ jest.mock('@/contexts/PermissionsContext', () => ({
 
 const mockUnreadBySection: Record<string, number> = {};
 let mockPathname = '/';
+const mockPrefetch = jest.fn();
 
 jest.mock('next/navigation', () => ({
   ...jest.requireActual('next/navigation'),
@@ -23,7 +24,7 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: jest.fn(),
     replace: jest.fn(),
-    prefetch: jest.fn(),
+    prefetch: mockPrefetch,
   }),
 }));
 
@@ -107,6 +108,35 @@ describe('NavItem current page', () => {
     render(<NavItem item={testSetsItem()} collapsed={false} />);
     expect(screen.getByRole('link', { name: /Test Sets/ })).not.toHaveAttribute(
       'aria-current'
+    );
+  });
+});
+
+describe('NavItem prefetch', () => {
+  afterEach(() => {
+    mockPathname = '/';
+  });
+
+  it('prefetches its route even when scrolled out of view', () => {
+    mockPrefetch.mockClear();
+    render(<NavItem item={testSetsItem()} collapsed={false} />);
+    expect(mockPrefetch).toHaveBeenCalledWith(
+      `/${NotificationSection.TEST_SETS}`
+    );
+  });
+
+  it('prefetches its route once the user leaves it', () => {
+    mockPrefetch.mockClear();
+    mockPathname = `/${NotificationSection.TEST_SETS}`;
+    const { rerender } = render(
+      <NavItem item={testSetsItem()} collapsed={false} />
+    );
+    expect(mockPrefetch).not.toHaveBeenCalled();
+
+    mockPathname = '/tests';
+    rerender(<NavItem item={testSetsItem()} collapsed={false} />);
+    expect(mockPrefetch).toHaveBeenCalledWith(
+      `/${NotificationSection.TEST_SETS}`
     );
   });
 });

@@ -23,8 +23,6 @@ import {
   PAUSED_REASON,
   SCHEDULE_STATUS,
   SCHEDULES_REFETCH_MS,
-  TEST_RUNS_PARAM,
-  TEST_RUNS_TAB,
 } from '@/constants/test-run-schedules';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import { is404ApiError } from '@/utils/api-client/is-not-found-error';
@@ -36,10 +34,7 @@ import { useScheduleActions } from '../../../components/schedules/useSchedules';
 import type { TestRunSchedule } from '@/utils/api-client/interfaces/test-run-schedule';
 import ScheduleSummary, { RUNS_PER_PAGE } from './ScheduleSummary';
 import ScheduleConfiguration from './ScheduleConfiguration';
-import { TABS } from './tabs';
-import { PAGE_HEADERS, directoryCrumb } from '@/constants/page-headers';
-
-const SCHEDULES_HREF = `/test-runs?${TEST_RUNS_PARAM.TAB}=${TEST_RUNS_TAB.SCHEDULES}`;
+import { SCHEDULE_CRUMBS, TABS } from './tabs';
 
 interface Props {
   scheduleId: string;
@@ -67,10 +62,7 @@ export default function SchedulePageClient({ scheduleId }: Props) {
 
   if (!canRead) return <AccessDenied resource="test runs" />;
 
-  const breadcrumbs = [
-    directoryCrumb(PAGE_HEADERS.testRuns),
-    { label: 'Schedules', href: SCHEDULES_HREF },
-  ];
+  const breadcrumbs = SCHEDULE_CRUMBS;
 
   if (detail.isError) {
     const deleted = is404ApiError(detail.error);

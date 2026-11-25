@@ -5,6 +5,7 @@ import { useNotifications } from '@/components/common/NotificationContext';
 import { RequirementClient } from '@/utils/api-client/requirement-client';
 import { DeleteModal } from '@/components/common/DeleteModal';
 import EntityCard, {
+  skeletonCardKeys,
   type EntityCardFact,
   type EntityCardRelation,
 } from '@/components/common/EntityCard';
@@ -176,6 +177,36 @@ export default function RequirementCard({
         itemType="requirement"
         itemName={requirement.name}
       />
+    </>
+  );
+}
+
+/** Typical values for a loading view's cards, only the fields the card reads. */
+const PLACEHOLDER_REQUIREMENT = {
+  id: '00000000-0000-0000-0000-000000000000',
+  name: 'Requirement name',
+  impact: { type_value: 'High' },
+  metrics: [],
+  sources: [],
+  test_counts: { total: 0 },
+  examples_count: 0,
+  user: { name: 'Owner' },
+  updated_at: new Date(0).toISOString(),
+} as unknown as RequirementListItem;
+
+const noop = () => {};
+
+/** A loading view's cards: the real card in skeleton mode. */
+export function RequirementCardPlaceholders() {
+  return (
+    <>
+      {skeletonCardKeys.map(key => (
+        <RequirementCard
+          key={key}
+          requirement={PLACEHOLDER_REQUIREMENT}
+          onRefresh={noop}
+        />
+      ))}
     </>
   );
 }

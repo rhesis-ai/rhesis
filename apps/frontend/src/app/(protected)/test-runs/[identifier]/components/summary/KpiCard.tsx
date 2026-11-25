@@ -11,6 +11,7 @@ import {
   type TypographyProps,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { TextPlaceholder } from '@/components/loading/TextPlaceholder';
 import { INLINE_ICON_SIZE } from './summary-tokens';
 
 interface KpiCardProps {
@@ -59,7 +60,7 @@ export default function KpiCard({
     <CardContent sx={{ flexGrow: 1, p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
         <Typography variant="body2" color="text.secondary" fontWeight={500}>
-          {title}
+          <TextPlaceholder>{title}</TextPlaceholder>
         </Typography>
         {infoTooltip && (
           <Tooltip title={infoTooltip} placement="top" arrow>
@@ -79,7 +80,7 @@ export default function KpiCard({
               fontWeight={600}
               sx={{ fontVariantNumeric: 'tabular-nums', color: valueColor }}
             >
-              {value}
+              <TextPlaceholder>{String(value)}</TextPlaceholder>
             </Typography>
             {valueLabel && (
               <Typography variant="caption" color="text.secondary">
@@ -94,7 +95,7 @@ export default function KpiCard({
               fontWeight={600}
               sx={{ fontVariantNumeric: 'tabular-nums' }}
             >
-              {secondary.value}
+              <TextPlaceholder>{String(secondary.value)}</TextPlaceholder>
             </Typography>
             <Typography variant="caption" color="text.secondary">
               {secondary.label}
@@ -113,7 +114,7 @@ export default function KpiCard({
             color: valueColor,
           }}
         >
-          {value}
+          <TextPlaceholder>{String(value)}</TextPlaceholder>
           {valueSuffix && (
             <Typography
               component="span"

@@ -1,6 +1,13 @@
-import PageListSkeleton from '@/components/loading/PageListSkeleton';
-import { PAGE_HEADERS } from '@/constants/page-headers';
+'use client';
 
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
+import ReportsPageClient from '@/app/(protected)/reports/components/ReportsPageClient';
+
+/** The Reports page itself, drawn as placeholders until its data arrives. */
 export default function ReportsLoading() {
-  return <PageListSkeleton header={PAGE_HEADERS.reports} />;
+  return (
+    <SkeletonMode>
+      <ReportsPageClient />
+    </SkeletonMode>
+  );
 }

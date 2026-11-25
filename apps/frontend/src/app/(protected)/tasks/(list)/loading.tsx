@@ -1,6 +1,13 @@
-import PageListSkeleton from '@/components/loading/PageListSkeleton';
-import { PAGE_HEADERS } from '@/constants/page-headers';
+'use client';
 
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
+import TasksPageClient from '@/app/(protected)/tasks/components/TasksPageClient';
+
+/** The Tasks page itself, drawn as placeholders until its data arrives. */
 export default function TasksLoading() {
-  return <PageListSkeleton header={PAGE_HEADERS.tasks} />;
+  return (
+    <SkeletonMode>
+      <TasksPageClient />
+    </SkeletonMode>
+  );
 }

@@ -6,6 +6,7 @@ import WarningIcon from '@mui/icons-material/Warning';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import SendIcon from '@mui/icons-material/Send';
 import EntityCard, {
+  skeletonCardKeys,
   type EntityCardFact,
 } from '@/components/common/EntityCard';
 import { can } from '@/components/common/Can';
@@ -221,4 +222,37 @@ export function ConnectedModelCard({
   }
 
   return card;
+}
+
+/** Typical values for a loading view's cards, only the fields the card reads. */
+const PLACEHOLDER_MODEL = {
+  id: '00000000-0000-0000-0000-000000000000',
+  name: 'Model connection',
+  model_name: 'model-name-latest',
+  endpoint: '',
+  model_type: 'language',
+  provider_type: { type_value: 'openai' },
+} as unknown as Model;
+
+/**
+ * A loading view's cards: the real card in skeleton mode. `canDelete` follows
+ * the page's own permission, so the delete placeholder shows only for users
+ * who get the button.
+ */
+export function ConnectedModelCardPlaceholders({
+  canDelete,
+}: {
+  canDelete: boolean;
+}) {
+  return (
+    <>
+      {skeletonCardKeys.map(key => (
+        <ConnectedModelCard
+          key={key}
+          model={PLACEHOLDER_MODEL}
+          onDelete={canDelete ? () => {} : undefined}
+        />
+      ))}
+    </>
+  );
 }

@@ -17,6 +17,7 @@ import {
 import Link from 'next/link';
 import dayjs from 'dayjs';
 import { SectionCard } from '@/components/common/SectionCard';
+import ScheduleRow from './ScheduleRow';
 import { can } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
 import {
@@ -63,23 +64,6 @@ const percent = (rate: number | null) =>
 
 const money = (usd: number | null | undefined) =>
   usd === null || usd === undefined ? '—' : formatCost(usd);
-
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <Box sx={{ display: 'flex', gap: 2, py: 0.5 }}>
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        sx={{ minWidth: theme => theme.spacing(16) }}
-      >
-        {label}
-      </Typography>
-      <Typography variant="body2" component="div">
-        {value}
-      </Typography>
-    </Box>
-  );
-}
 
 function Notices({
   schedule,
@@ -259,10 +243,10 @@ export default function ScheduleSummary({
         </SectionCard>
 
         <SectionCard title="Schedule">
-          <Row label="Repeats" value={schedule.repeats} />
-          <Row label="Runs as" value={schedule.owner?.name ?? '—'} />
-          <Row label="Time zone" value={zone} />
-          <Row
+          <ScheduleRow label="Repeats" value={schedule.repeats} />
+          <ScheduleRow label="Runs as" value={schedule.owner?.name ?? '—'} />
+          <ScheduleRow label="Time zone" value={zone} />
+          <ScheduleRow
             label="Ends"
             value={
               schedule.ends_at
@@ -272,7 +256,7 @@ export default function ScheduleSummary({
                   : 'Never'
             }
           />
-          <Row
+          <ScheduleRow
             label="Test set"
             value={
               schedule.test_set ? (
@@ -287,8 +271,14 @@ export default function ScheduleSummary({
               )
             }
           />
-          <Row label="Endpoint" value={schedule.endpoint?.name ?? '—'} />
-          <Row label="Notify" value={SCHEDULE_NOTIFY_LABEL[schedule.notify]} />
+          <ScheduleRow
+            label="Endpoint"
+            value={schedule.endpoint?.name ?? '—'}
+          />
+          <ScheduleRow
+            label="Notify"
+            value={SCHEDULE_NOTIFY_LABEL[schedule.notify]}
+          />
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             Each run uses the tests in the set at the time it starts.
           </Typography>
@@ -301,7 +291,7 @@ export default function ScheduleSummary({
             </Typography>
           ) : (
             <>
-              <Row
+              <ScheduleRow
                 label="Runs"
                 value={
                   usage.first_run_at
@@ -309,7 +299,7 @@ export default function ScheduleSummary({
                     : usage.run_count
                 }
               />
-              <Row
+              <ScheduleRow
                 label="Total cost"
                 value={`${money(usage.total_cost_usd)}${
                   usage.avg_cost_usd !== null
@@ -317,14 +307,14 @@ export default function ScheduleSummary({
                     : ''
                 }`}
               />
-              <Row
+              <ScheduleRow
                 label="Total tokens"
                 value={`${formatTokenCount(usage.total_tokens)} (${formatTokenCount(
                   usage.input_tokens
                 )} in, ${formatTokenCount(usage.output_tokens)} out)`}
               />
               {schedule.last_run && (
-                <Row
+                <ScheduleRow
                   label="Last run"
                   value={`${schedule.last_run.name ?? ''} ${money(
                     schedule.last_run.total_cost_usd
@@ -332,7 +322,7 @@ export default function ScheduleSummary({
                 />
               )}
               {usage.expected_month_usd !== null && (
-                <Row
+                <ScheduleRow
                   label="Expected per month"
                   value={`≈ ${money(usage.expected_month_usd)}`}
                 />

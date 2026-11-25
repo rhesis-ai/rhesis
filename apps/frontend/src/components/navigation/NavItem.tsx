@@ -2,7 +2,7 @@
 
 import React from 'react';
 import NextLink from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
@@ -29,6 +29,7 @@ interface NavItemProps {
 
 export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const fullPath = parentPath
     ? `${parentPath}/${item.segment}`
     : `/${item.segment}`;
@@ -51,6 +52,16 @@ export function NavItem({ item, collapsed, parentPath = '' }: NavItemProps) {
   } else if (item.requiredPermission) {
     permitted = singlePermitted;
   }
+
+  const shown = !isGated || (!ambient.loading && permitted);
+  // A link only prefetches once it scrolls into view, and the sidebar scrolls.
+  // Without the prefetch the route's loading view can't draw, and navigation
+  // falls back to the generic spinner. Repeated on every page change: a
+  // prefetch of the page being shown can be skipped, and Next ignores repeats
+  // of routes it already holds.
+  React.useEffect(() => {
+    if (shown && !active) router.prefetch(fullPath);
+  }, [shown, active, pathname, router, fullPath]);
 
   if (isGated) {
     // Hide the item entirely, both while the RBAC status/scope set is still

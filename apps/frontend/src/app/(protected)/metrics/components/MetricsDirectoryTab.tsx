@@ -21,7 +21,8 @@ import EntityEmptyState from '@/components/common/EntityEmptyState';
 import { getEntityEmptyStateEnrichment } from '@/constants/entity-empty-state-env';
 import { Fab, FabAddIcon, FabGroup } from '@/components/common/Fab';
 import { InsertChartIcon, SearchIcon } from '@/components/icons';
-import MetricCard from './MetricCard';
+import MetricCard, { MetricCardPlaceholders } from './MetricCard';
+import { useSkeletonMode } from '@/components/loading/SkeletonMode';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { MetricsClient } from '@/utils/api-client/metrics-client';
@@ -111,6 +112,8 @@ export default function MetricsDirectoryTab({
   const { status } = useSession();
   const canCreate = useCan(Capability.Metric.CREATE);
   const canDelete = useCan(Capability.Metric.DELETE);
+  // As the route's loading view: cards drawn as placeholders, no empty states.
+  const skeleton = useSkeletonMode();
 
   // Dialog state
   const [assignDialogOpen, setAssignDialogOpen] = React.useState(false);
@@ -151,12 +154,13 @@ export default function MetricsDirectoryTab({
 
   // True empty = server returned zero results and no filters are active
   const isTrueEmpty =
+    !skeleton &&
     totalCount === 0 &&
     !filters.search &&
     filters.backend.length === 0 &&
     activeAdvancedFilterCount === 0;
 
-  const isFilteredEmpty = totalCount === 0 && !isTrueEmpty;
+  const isFilteredEmpty = !skeleton && totalCount === 0 && !isTrueEmpty;
 
   const clearFilters = () => {
     setFilters({
@@ -267,7 +271,8 @@ export default function MetricsDirectoryTab({
   };
 
   // First load — no data at all yet, show a full-page spinner
-  const isInitialLoad = isLoading && metrics.length === 0 && totalCount === 0;
+  const isInitialLoad =
+    !skeleton && isLoading && metrics.length === 0 && totalCount === 0;
 
   if (isInitialLoad) {
     return (
@@ -454,6 +459,7 @@ export default function MetricsDirectoryTab({
                 mb: 4,
               })}
             >
+              {skeleton && <MetricCardPlaceholders />}
               {metrics.map(metric => {
                 const requirementNames = getAssignedRequirementNames(metric);
                 const hasAssignedRequirements =

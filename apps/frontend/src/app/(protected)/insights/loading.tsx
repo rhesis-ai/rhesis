@@ -1,8 +1,13 @@
-import PageDashboardSkeleton from '@/components/loading/PageDashboardSkeleton';
-import { PAGE_HEADERS } from '@/constants/page-headers';
+'use client';
 
-// Insights is a dashboard: filter bar, pass-rate summary, requirement
-// breakdown and per-requirement rows. Neither list shape fits it.
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
+import InsightsPage from './components/InsightsPage';
+
+/** The Insights dashboard itself, drawn as placeholders until its data arrives. */
 export default function InsightsLoading() {
-  return <PageDashboardSkeleton header={PAGE_HEADERS.insights} />;
+  return (
+    <SkeletonMode>
+      <InsightsPage />
+    </SkeletonMode>
+  );
 }

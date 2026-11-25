@@ -4,6 +4,7 @@ import { PageLayout } from '@/components/layout/PageLayout';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { UsageProvider } from '@/contexts/UsageContext';
 import UsageDetailTabs from './UsageDetailTabs';
+import { USAGE_CRUMB, USAGE_DESCRIPTION, USAGE_TITLE } from './tabs';
 import AccessDenied from '@/components/common/AccessDenied';
 import PageLoadingState from '@/components/common/PageLoadingState';
 import { useCanWithStatus } from '@/components/common/Can';
@@ -33,13 +34,12 @@ export default function UsagePageClient({
 
   const breadcrumbs = [
     { label: organizationName, href: '/organizations' },
-    { label: 'Usage', href: '/organizations/usage' },
+    USAGE_CRUMB,
   ];
 
   const pageHeader = {
-    title: 'Usage',
-    description:
-      "Track your organization's metered resource consumption against its plan limits.",
+    title: USAGE_TITLE,
+    description: USAGE_DESCRIPTION,
     breadcrumbs,
   };
 

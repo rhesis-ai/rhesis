@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import EntityCard from '../EntityCard';
 import { getDesignTokens } from '@/styles/theme';
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
 
 const defaultProps = {
   icon: <span data-testid="icon">★</span>,
@@ -287,6 +288,32 @@ describe('EntityCard description in accessibility mode', () => {
     );
     expect(screen.getByTestId('entity-card-description')).not.toHaveStyle({
       overflow: 'hidden',
+    });
+  });
+
+  describe('in skeleton mode', () => {
+    it('keeps its layout but drops the description and every click', async () => {
+      const onClick = jest.fn();
+      const onDelete = jest.fn();
+      render(
+        <SkeletonMode>
+          <EntityCard {...defaultProps} onClick={onClick} onDelete={onDelete} />
+        </SkeletonMode>
+      );
+
+      const card = screen.getByTestId('entity-card');
+      // Out of the accessibility tree and the focus order.
+      expect(card).toHaveAttribute('inert');
+      expect(
+        screen.queryByText('A helpful description')
+      ).not.toBeInTheDocument();
+      expect(card.querySelectorAll('.MuiSkeleton-root').length).toBeGreaterThan(
+        0
+      );
+
+      await userEvent.click(card);
+      expect(onClick).not.toHaveBeenCalled();
+      expect(onDelete).not.toHaveBeenCalled();
     });
   });
 });

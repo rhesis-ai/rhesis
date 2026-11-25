@@ -9,6 +9,7 @@ import { useUserScope } from '@/hooks/useIsAuthenticated';
 import { writeUserSettingsCache } from '@/hooks/useUserSettings';
 import { ApiClientFactory } from '@/utils/api-client/client-factory';
 import type { UserSettings } from '@/utils/api-client/interfaces/user';
+import { CARD_HEADINGS } from './tabs';
 
 interface AccessibilityPreferenceFormProps {
   userSettings?: UserSettings;
@@ -46,7 +47,7 @@ export default function AccessibilityPreferenceForm({
 
   return (
     <AccessibilityModeCard
-      subtitle="Applies to you only, on top of your organization's setting."
+      subtitle={CARD_HEADINGS.accessibility.subtitle}
       checked={userSettings?.ui?.accessibility_mode === true}
       onElsewhere={forcedByDeployment || forcedByOrganization}
       lockedReason={lockedReason}

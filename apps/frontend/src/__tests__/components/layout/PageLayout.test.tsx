@@ -1,9 +1,12 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import lightTheme from '@/styles/theme';
 import { PageLayout } from '@/components/layout/PageLayout';
+import { SkeletonMode } from '@/components/loading/SkeletonMode';
+import { SKELETON_DELAY_MS } from '@/components/loading/DelayedReveal';
+import { LiveAnnouncerProvider } from '@/components/common/LiveAnnouncer';
 
 function renderWithTheme(ui: React.ReactElement) {
   return render(<ThemeProvider theme={lightTheme}>{ui}</ThemeProvider>);
@@ -95,5 +98,86 @@ describe('PageLayout', () => {
     );
     expect(screen.getByTestId('only-child')).toBeInTheDocument();
     expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+  });
+});
+
+describe('PageLayout as a loading view', () => {
+  function renderLoading(ui: React.ReactElement) {
+    return renderWithTheme(
+      <LiveAnnouncerProvider>
+        <SkeletonMode>{ui}</SkeletonMode>
+      </LiveAnnouncerProvider>
+    );
+  }
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('marks the page busy', () => {
+    const { container } = renderLoading(
+      <PageLayout title="Tests">
+        <div />
+      </PageLayout>
+    );
+    expect(container.querySelector('[aria-busy="true"]')).not.toBeNull();
+  });
+
+  it('is not busy outside a loading view', () => {
+    const { container } = renderWithTheme(
+      <PageLayout title="Tests">
+        <div />
+      </PageLayout>
+    );
+    expect(container.querySelector('[aria-busy]')).toBeNull();
+  });
+
+  it('announces the page it is loading, after the placeholder delay', () => {
+    jest.useFakeTimers();
+    renderLoading(
+      <PageLayout title="Tests">
+        <div />
+      </PageLayout>
+    );
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent('');
+
+    // The delay, then the live region's own clear-and-set step.
+    act(() => {
+      jest.advanceTimersByTime(SKELETON_DELAY_MS + 200);
+    });
+    expect(status).toHaveTextContent('Loading Tests');
+  });
+
+  it('stays quiet when the page arrives before the delay', () => {
+    jest.useFakeTimers();
+    const view = (loading: boolean) => (
+      <ThemeProvider theme={lightTheme}>
+        <LiveAnnouncerProvider>
+          {loading && (
+            <SkeletonMode>
+              <PageLayout title="Tests">
+                <div />
+              </PageLayout>
+            </SkeletonMode>
+          )}
+        </LiveAnnouncerProvider>
+      </ThemeProvider>
+    );
+    const { rerender } = render(view(true));
+    rerender(view(false));
+    act(() => {
+      jest.advanceTimersByTime(SKELETON_DELAY_MS + 200);
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('');
+  });
+
+  it('keeps metadata labels without values away from screen readers', () => {
+    renderLoading(
+      <PageLayout title="Tests" metadata={<span>created by:</span>}>
+        <div />
+      </PageLayout>
+    );
+    expect(screen.getByText('created by:').closest('[inert]')).not.toBeNull();
   });
 });
