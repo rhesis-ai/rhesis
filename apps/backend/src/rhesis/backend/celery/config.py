@@ -120,6 +120,7 @@ CELERY_CONFIG = {
         "rhesis.backend.jobs.heartbeat",
         "rhesis.backend.jobs.audit_retention",
         "rhesis.backend.jobs.model_prices",
+        "rhesis.backend.jobs.test_run_schedules",
     ],
     # Run by the single `celery beat` process (the chart's beat Deployment, the
     # compose `beat` service). The retention sweeps are no-ops until their
@@ -133,6 +134,13 @@ CELERY_CONFIG = {
             "task": "rhesis.backend.jobs.heartbeat.beat_heartbeat",
             "schedule": 300.0,
             "options": {"expires": 240},
+        },
+        # Starts scheduled test runs. Expires so a backlog after downtime fires once,
+        # not once per minute missed; a schedule's own missed-run handling covers the gap.
+        "test-run-schedule-dispatch": {
+            "task": "rhesis.backend.jobs.test_run_schedules.dispatch_due_schedules",
+            "schedule": 60.0,
+            "options": {"expires": 50},
         },
         "job-retention-sweep": {
             "task": "rhesis.backend.jobs.retention.sweep_expired_jobs",

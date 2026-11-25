@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any, List, Optional
 
-from sqlalchemy import func
+from sqlalchemy import DateTime, cast, func
 from sqlalchemy.orm import Session, joinedload
 
 from rhesis.backend.app import models, schemas
@@ -202,6 +202,46 @@ def replace_run_settings(
         config.endpoint_id = endpoint_id
     db.flush()
     return config
+
+
+def find_due_schedule_ids(
+    db: Session, now: datetime, status_name: str, project_id: uuid.UUID | None
+) -> List[uuid.UUID]:
+    """Schedules in ``project_id`` (``None``: project-less) whose next run is due by ``now``.
+
+    Project RLS shows project-less rows in every project's scope too, hence the explicit filter.
+    """
+    project_filter = (
+        models.TestConfiguration.project_id.is_(None)
+        if project_id is None
+        else models.TestConfiguration.project_id == project_id
+    )
+    next_run_at = models.TestConfiguration.attributes["schedule"]["next_run_at"].astext
+    rows = (
+        db.query(models.TestConfiguration.id)
+        .join(models.Status, models.TestConfiguration.status_id == models.Status.id)
+        .filter(
+            models.TestConfiguration.attributes.has_key("schedule"),
+            models.TestConfiguration.deleted_at.is_(None),
+            models.Status.name == status_name,
+            project_filter,
+            next_run_at.isnot(None),
+            cast(next_run_at, DateTime(timezone=True)) <= now,
+        )
+        .all()
+    )
+    return [row.id for row in rows]
+
+
+def lock_schedule(db: Session, config_id: uuid.UUID) -> bool:
+    """Lock the schedule's row for this transaction, or ``False`` if another worker has it."""
+    row = (
+        db.query(models.TestConfiguration.id)
+        .filter(models.TestConfiguration.id == config_id)
+        .with_for_update(skip_locked=True)
+        .first()
+    )
+    return row is not None
 
 
 def get_schedule(db: Session, config_id: uuid.UUID) -> Optional[models.TestConfiguration]:

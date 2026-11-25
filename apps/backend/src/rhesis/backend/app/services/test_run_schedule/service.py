@@ -118,10 +118,15 @@ def _new_schedule(spec: ScheduleSpecIn) -> dict[str, Any]:
     }
 
 
-def plan_next_run(db: Session, config: TestConfiguration, schedule: dict, after: datetime) -> str:
-    """Set ``next_run_at`` from ``after`` on and return the state that follows from it."""
+def plan_next_run(
+    db: Session, config: TestConfiguration, schedule: dict, after: datetime, starting: int = 0
+) -> str:
+    """Set ``next_run_at`` from ``after`` on and return the state that follows from it.
+
+    ``starting`` counts runs about to start that aren't in the database yet.
+    """
     max_runs = schedule.get("max_runs")
-    if max_runs is not None and count_schedule_runs(db, config.id) >= max_runs:
+    if max_runs is not None and count_schedule_runs(db, config.id) + starting >= max_runs:
         upcoming = None
     else:
         upcoming = timing.compute_next_run(

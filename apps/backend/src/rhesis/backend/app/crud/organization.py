@@ -56,6 +56,11 @@ def get_session_variables(db: Session):
         return {"error": str(e)}
 
 
+def list_organization_ids(db: Session) -> list[str]:
+    """Every organization's id. Organization is exempt from the tenant filter."""
+    return [str(row[0]) for row in db.query(models.Organization.id).all()]
+
+
 def get_organization(
     db: Session,
     organization_id: uuid.UUID,
