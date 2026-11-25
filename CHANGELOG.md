@@ -15,8 +15,9 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ### Upgrading a self-hosted deployment
 
-1. If you set `MAX_PER_TEST_TIMEOUT` or `EXECUTION_TIME_LIMIT`, consider removing them. Unset, they now follow the new `MAX_ENDPOINT_TIMEOUT` (default 7200): a test may take the endpoint timeout plus 300s, and a run that plus 900s. Values you set still win, and the backend logs a warning at startup when they are lower than the endpoint ceiling.
-2. If API clients call `Endpoint.invoke()` on endpoints slower than a minute, raise the read timeout on the proxy in front of the API host to at least `MAX_ENDPOINT_TIMEOUT`. ingress-nginx defaults to 60 seconds; set the `nginx.ingress.kubernetes.io/proxy-read-timeout` annotation on the backend ingress.
+1. Embeddings are now off by default. To keep generating them, set `EMBEDDINGS_ENABLED=true` on the backend and the worker, or `config.embeddingsEnabled: true` in the Helm chart.
+2. If you set `MAX_PER_TEST_TIMEOUT` or `EXECUTION_TIME_LIMIT`, consider removing them. Unset, they now follow the new `MAX_ENDPOINT_TIMEOUT` (default 7200): a test may take the endpoint timeout plus 300s, and a run that plus 900s. Values you set still win, and the backend logs a warning at startup when they are lower than the endpoint ceiling.
+3. If API clients call `Endpoint.invoke()` on endpoints slower than a minute, raise the read timeout on the proxy in front of the API host to at least `MAX_ENDPOINT_TIMEOUT`. ingress-nginx defaults to 60 seconds; set the `nginx.ingress.kubernetes.io/proxy-read-timeout` annotation on the backend ingress.
 
 ### Added
 
@@ -25,6 +26,7 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 
 ### Changed
 
+- Embedding generation is off unless `EMBEDDINGS_ENABLED` is set. While it is off, saving tests, test results, traces and source chunks no longer queues embedding jobs, and embedding models are hidden on the Models page.
 - A test run's per-test time limit now follows the endpoint's timeout: the timeout plus 300 seconds, and at least 1800 seconds as before. Endpoints with a timeout above 25 minutes no longer fail at 30 minutes. An explicit `per_test_timeout` in the run's execution options still wins.
 - Endpoint timeouts can be up to 7200 seconds (was 3600). Self-hosted deployments set the ceiling with `MAX_ENDPOINT_TIMEOUT`; the per-test and run limits are derived from it.
 - A test stopped by the per-test limit now says which limit it hit and how to raise it, instead of "Timeout after Ns". A run whose tests may outlast the run time limit, or whose per-test limit is shorter than the endpoint's timeout, gets a warning in its activity log and its `warnings` attribute.

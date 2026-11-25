@@ -110,6 +110,8 @@ flowchart LR
 
 ### Diversity ordering (within the current batch)
 
+Diversity ordering needs `EMBEDDINGS_ENABLED` to be set on the deployment (see [environment variables](/self-hosting/environment-variables)). Without it, suggestions stay in the order the LLM returned them.
+
 After the LLM finishes the batch, Explorer computes an **embedding** for each of the 20 suggestions and re-orders them using a centroid-based diversity score on **that batch only** (distance from the mean direction of the suggestion vectors in embedding space). A **high** diversity score means the prompt stands out from the *other suggestions in the same run* — near-paraphrases sink to the bottom; the most varied wording and scenarios rise to the top. That makes the table easier to scan: you see spread across the batch before you accept anything.
 
 <Callout type="info">
@@ -128,7 +130,7 @@ Other controls:
 
 - **Generation guide** — expands a field (up to 1000 characters) with optional text sent to the model together with your examples; use it on the next generate or **Regenerate** run
 - **Regenerate** — runs the pipeline again (same topic scope; update the guide first if you want different steering)
-- **Accept** (per row) — persists that row as a test in your tree (with `generate_embedding: true` so it can be used in future sampling)
+- **Accept** (per row) — persists that row as a test in your tree; with `EMBEDDINGS_ENABLED` set, the test is also embedded (`generate_embedding: true`)
 - **Accept all** — persists every remaining row; the dialog closes when all succeed
 
 Hover the **Input** cell on a suggestion row to see a tooltip that includes **Diversity:** and a numeric score when reordering has completed. Use the **Score** chip and metric tooltip the same way as on the main grid.
