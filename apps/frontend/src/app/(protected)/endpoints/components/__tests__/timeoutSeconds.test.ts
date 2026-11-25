@@ -1,4 +1,9 @@
-import { parseTimeoutSeconds, timeoutSecondsError } from '../timeoutSeconds';
+import {
+  endpointTimeoutSeconds,
+  parseTimeoutSeconds,
+  testWaitSeconds,
+  timeoutSecondsError,
+} from '../timeoutSeconds';
 
 describe('timeoutSeconds', () => {
   it.each(['', '  ', '1', '120', '7200'])('accepts %j', value => {
@@ -16,5 +21,15 @@ describe('timeoutSeconds', () => {
     expect(parseTimeoutSeconds('')).toBeUndefined();
     expect(parseTimeoutSeconds('7201')).toBeUndefined();
     expect(parseTimeoutSeconds('1.5')).toBeUndefined();
+  });
+
+  it('falls back to the connection type default when empty', () => {
+    expect(endpointTimeoutSeconds('', 7200, 120)).toBe(120);
+    expect(endpointTimeoutSeconds('3600', 7200, 120)).toBe(3600);
+  });
+
+  it('caps the UI test wait at the proxy limit', () => {
+    expect(testWaitSeconds('3600')).toBe(300);
+    expect(testWaitSeconds('', 7200, 30)).toBe(30);
   });
 });

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { LONG_REQUEST_LIMIT_SECONDS } from '@/constants/endpoint-timeout';
 import { webClientHeaders } from '@/utils/provenance';
 import { getServerBackendUrl } from '@/utils/url-resolver';
 
@@ -43,7 +44,7 @@ const LONG_RUNNING_PATH_SUFFIXES = [
   '/execute',
 ];
 
-const LONG_RUNNING_TIMEOUT_MS = 300_000;
+const LONG_RUNNING_TIMEOUT_MS = LONG_REQUEST_LIMIT_SECONDS * 1000;
 
 /** Pick the timeout budget for a given backend-relative pathname. */
 export function resolveTimeoutMs(pathname: string): number {

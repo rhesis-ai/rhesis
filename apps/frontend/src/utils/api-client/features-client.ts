@@ -84,6 +84,8 @@ export interface FeaturesResponse {
    * MAX_ENDPOINT_TIMEOUT). Optional to tolerate an older backend.
    */
   max_endpoint_timeout_seconds?: number;
+  /** Timeout per connection type when an endpoint sets none. */
+  default_endpoint_timeout_seconds?: Record<string, number>;
 }
 
 /**

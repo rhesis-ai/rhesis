@@ -173,6 +173,30 @@ class TestEndpointService:
             assert exc_info.value.transient is False
             assert "Internal error" in str(exc_info.value)
 
+    @pytest.mark.asyncio
+    async def test_invoke_endpoint_timeout_is_not_transient(
+        self, test_db: Session, db_endpoint_minimal: Endpoint
+    ):
+        """A timeout may have reached the endpoint, so retrying could repeat its work."""
+        service = EndpointService()
+
+        mock_invoker = Mock()
+        mock_invoker.invoke = AsyncMock(side_effect=TimeoutError())
+
+        with patch(
+            "rhesis.backend.app.services.endpoint.service.create_invoker", return_value=mock_invoker
+        ):
+            with pytest.raises(EndpointInvocationError) as exc_info:
+                await service.invoke_endpoint(
+                    test_db,
+                    str(db_endpoint_minimal.id),
+                    {},
+                    organization_id=str(db_endpoint_minimal.organization_id),
+                )
+
+        assert exc_info.value.error_type == "call_timeout"
+        assert exc_info.value.transient is False
+
     def test_get_schema_success(self):
         """Test successful schema retrieval"""
         service = EndpointService()

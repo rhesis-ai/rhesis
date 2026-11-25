@@ -119,10 +119,12 @@ const formatSeconds = (total: number) =>
 function WaitingStatus({
   startedAt,
   maxWaitSeconds,
+  endpointTimeoutSeconds,
   onCancel,
 }: {
   startedAt: number;
   maxWaitSeconds?: number;
+  endpointTimeoutSeconds?: number;
   onCancel?: () => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
@@ -145,6 +147,11 @@ function WaitingStatus({
       <Typography variant="body2" sx={{ flex: 1 }}>
         Waiting for your API… {formatSeconds(elapsed)}
         {maxWaitSeconds ? ` of up to ${formatSeconds(maxWaitSeconds)}` : ''}
+        {maxWaitSeconds &&
+        endpointTimeoutSeconds &&
+        endpointTimeoutSeconds > maxWaitSeconds
+          ? `. This check stops there; test runs wait the endpoint's full ${formatSeconds(endpointTimeoutSeconds)}.`
+          : ''}
       </Typography>
       {onCancel && (
         <Button size="small" onClick={onCancel}>
@@ -162,6 +169,8 @@ interface TestResponseCardProps {
   startedAt?: number | null;
   /** The longest the running test can wait, shown beside the elapsed time. */
   maxWaitSeconds?: number;
+  /** The endpoint's own timeout; named when the check stops before it. */
+  endpointTimeoutSeconds?: number;
   onCancel?: () => void;
   /** Shown under the waiting line, e.g. the request being sent. */
   waitingDetails?: React.ReactNode;
@@ -184,6 +193,7 @@ export function TestResponseCard({
   isTesting,
   startedAt,
   maxWaitSeconds,
+  endpointTimeoutSeconds,
   onCancel,
   waitingDetails,
   notice,
@@ -225,6 +235,7 @@ export function TestResponseCard({
             <WaitingStatus
               startedAt={startedAt}
               maxWaitSeconds={maxWaitSeconds}
+              endpointTimeoutSeconds={endpointTimeoutSeconds}
               onCancel={onCancel}
             />
           ) : (

@@ -149,6 +149,9 @@ _PROBE_TEST_CONFIGURATION = {
 }
 # Interpretation is a full structured answer, so it needs longer than the one-token probe.
 _INTERPRETATION_PROBE_TIMEOUT = 30.0
+# Longest the connectivity probe waits. Well under the 120s the whole preflight gets
+# (routers/preflight.py), so a slow endpoint ends as this check's warning, not a timeout.
+PROBE_WAIT_LIMIT = 60.0
 
 
 def _probe_interpretation(db: Session, user: User, model) -> tuple[bool, str]:
@@ -313,9 +316,13 @@ async def check_endpoint_connectivity(
 
     The probe is awaited on the event loop, so the invoker gets ``db=None``: every
     psycopg call it would otherwise make there -- the auth-token refresh, a trace
-    lookup -- would block the whole worker for as long as the probe runs, up to the
-    30-second timeout below. The orchestrator does that work first, in a worker
-    thread, on a session of its own (:func:`_load_endpoint_for_probe`).
+    lookup -- would block the whole worker for as long as the probe runs. The
+    orchestrator does that work first, in a worker thread, on a session of its own
+    (:func:`_load_endpoint_for_probe`).
+
+    The probe waits for the endpoint's own timeout, up to PROBE_WAIT_LIMIT. A slower
+    endpoint that hasn't answered by then is a warning, not a failure: the run itself
+    will wait the full timeout.
     """
     check_id = CHECK_ENDPOINT_CONNECTIVITY
 
@@ -328,11 +335,15 @@ async def check_endpoint_connectivity(
 
     try:
         from rhesis.backend.app.services.invokers import create_invoker
+        from rhesis.backend.app.services.invokers.common.timeouts import call_timeout
         from rhesis.backend.app.services.invokers.context import InvocationContext
         from rhesis.backend.app.services.invokers.conversation import (
             ConversationTracker,
         )
 
+        endpoint_timeout = call_timeout(endpoint)
+        # A little past the call's own deadline, so a call that times out reports why.
+        probe_wait = min(endpoint_timeout + 5, PROBE_WAIT_LIMIT)
         input_data: dict = {"input": "[place your input here]"}
 
         if ConversationTracker.detect_stateless_mode(endpoint):
@@ -344,7 +355,7 @@ async def check_endpoint_connectivity(
             input_data["messages"] = messages
 
         context = InvocationContext(db=None, endpoint=endpoint, input_data=input_data)
-        response = await asyncio.wait_for(create_invoker(context).invoke(), timeout=30.0)
+        response = await asyncio.wait_for(create_invoker(context).invoke(), timeout=probe_wait)
 
         from rhesis.backend.app.services.invokers.common.schemas import (
             ErrorResponse,
@@ -381,8 +392,9 @@ async def check_endpoint_connectivity(
     except asyncio.TimeoutError:
         result = _make_result(
             check_id,
-            PreflightCheckStatus.FAILED,
-            "Endpoint connectivity check timed out",
+            PreflightCheckStatus.WARNING,
+            f"Endpoint did not answer within {probe_wait:g}s",
+            f"Its timeout is {endpoint_timeout:g}s, so tests will wait longer than this check.",
         )
     except Exception as e:
         result = _make_result(

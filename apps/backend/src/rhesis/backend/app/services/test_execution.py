@@ -26,6 +26,7 @@ from rhesis.backend.app.services.run_models import (
 from rhesis.backend.app.services.usage import dispatch_accrual
 from rhesis.backend.jobs.execution.executors.data import get_test_and_prompt, get_test_metrics
 from rhesis.backend.jobs.execution.executors.metrics import determine_status_from_metrics
+from rhesis.backend.jobs.execution.executors.output_providers import SingleTurnOutput
 from rhesis.backend.jobs.execution.executors.runners import MultiTurnRunner, SingleTurnRunner
 
 logger = logging.getLogger(__name__)
@@ -330,6 +331,8 @@ async def _execute_single_turn_in_place(
 
     runner = SingleTurnRunner()
     execution_time, processed_result, metrics_results = await runner.run(
+        # One attempt: the caller holds an HTTP request open, and retry waits would outlast it.
+        output_provider=SingleTurnOutput(model=evaluation_model, invoke_attempts=1),
         db=db,
         test=test,
         endpoint_id=endpoint_id,

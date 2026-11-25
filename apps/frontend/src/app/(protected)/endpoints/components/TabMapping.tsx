@@ -43,6 +43,8 @@ interface TabMappingProps {
   isSlowApi?: boolean;
   /** The longest a test can wait: the endpoint's timeout, capped by the proxy. */
   maxWaitSeconds?: number;
+  /** The endpoint's own timeout, which test runs wait for in full. */
+  endpointTimeoutSeconds?: number;
   onCancelTest?: () => void;
   /** For the cURL preview of the request being sent. */
   url?: string;
@@ -64,6 +66,7 @@ export default function TabMapping({
   testStartedAt,
   isSlowApi = false,
   maxWaitSeconds,
+  endpointTimeoutSeconds,
   onCancelTest,
   url = '',
   method = 'POST',
@@ -186,6 +189,7 @@ export default function TabMapping({
             waiting={{
               startedAt: testStartedAt,
               maxWaitSeconds,
+              endpointTimeoutSeconds,
               onCancel: onCancelTest,
               waitingDetails: (
                 <RawResponseCollapse

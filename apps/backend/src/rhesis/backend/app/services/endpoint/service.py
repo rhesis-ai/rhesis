@@ -15,6 +15,7 @@ from rhesis.backend.app.schemas.endpoint import EndpointTestRequest
 from rhesis.backend.app.services.invokers import create_invoker
 from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
 from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
+from rhesis.backend.app.services.invokers.common.timeouts import CALL_TIMEOUT_ERROR_TYPE
 from rhesis.backend.app.services.invokers.context import InvocationContext
 from rhesis.backend.app.services.invokers.conversation import (
     ConversationTracker,
@@ -379,7 +380,15 @@ class EndpointService:
             raise EndpointInvocationError(
                 str(e), transient=False, status_code=400, error_type="validation_error"
             ) from e
-        except (TimeoutError, ConnectionError, socket.gaierror) as e:
+        except TimeoutError as e:
+            # Not transient: the call may have reached the endpoint, which may not be idempotent.
+            raise EndpointInvocationError(
+                str(e) or "Endpoint call timed out",
+                transient=False,
+                status_code=504,
+                error_type=CALL_TIMEOUT_ERROR_TYPE,
+            ) from e
+        except (ConnectionError, socket.gaierror) as e:
             # Not OSError as a whole: FileNotFoundError and PermissionError from
             # the storage and file-extraction code above are also OSErrors, and a
             # network_error detail is passed through to the client unmasked --

@@ -11,6 +11,13 @@ DEFAULT_LLM_TIMEOUT = 300
 # so a slow-but-progressing download is not cut off — only a stalled one.
 DEFAULT_API_TIMEOUT = 30
 
+# Endpoint.invoke() waits the endpoint's timeout plus INVOKE_RESPONSE_MARGIN, so it never
+# gives up before the backend does. When the timeout isn't known (an Endpoint built from just
+# an id), it waits the longest the backend allows by default; the backend still answers when
+# the endpoint does.
+MAX_ENDPOINT_TIMEOUT = 7200
+INVOKE_RESPONSE_MARGIN = 30
+
 # Module level variables
 api_key: Optional[str] = None
 base_url: Optional[str] = None

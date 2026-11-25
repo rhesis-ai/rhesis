@@ -13,6 +13,11 @@ from rhesis.backend.app.constants import TestExecutionContext as TestContextCons
 from rhesis.backend.app.error_handlers import PublicHTTPException
 from rhesis.backend.app.schemas.test_execution import TestExecutionContext
 from rhesis.backend.app.services.connector.pending import CONNECTION_LOST_ERROR
+from rhesis.backend.app.services.invokers.common.timeouts import (
+    SDK_FUNCTION_TIMEOUT,
+    call_timeout,
+    call_timeout_message,
+)
 from rhesis.backend.app.services.invokers.templating.filters import TemplateInputError
 from rhesis.telemetry.constants import ConversationContext as ConversationConstants
 
@@ -21,10 +26,6 @@ from .common.schemas import ErrorResponse
 from .context import InvocationContext
 
 logger = logging.getLogger(__name__)
-
-# SDK function execution timeout in seconds
-# Configurable via environment variable for long-running LLM operations
-SDK_FUNCTION_TIMEOUT = float(os.environ.get("SDK_FUNCTION_TIMEOUT", "120.0"))
 
 
 class SdkEndpointInvoker(BaseEndpointInvoker):
@@ -275,7 +276,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         )
 
     def _check_result_errors(
-        self, result: Dict[str, Any], function_name: str
+        self, result: Dict[str, Any], function_name: str, timeout: float
     ) -> Union[ErrorResponse, None]:
         """
         Check result for errors and return ErrorResponse if found.
@@ -283,6 +284,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
         Args:
             result: Result dictionary from SDK execution
             function_name: Name of the function (for logging)
+            timeout: The call's timeout in seconds, for the timeout message
 
         Returns:
             ErrorResponse if error found, None otherwise
@@ -317,11 +319,8 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
 
         # Check if timeout occurred
         if result.get("error") == "timeout":
-            return self._create_error_response(
-                error_type="sdk_timeout",
-                output_message="SDK function execution timed out",
-                message="Function did not respond within the configured timeout",
-                request_details=self._safe_request_details(locals(), "SDK"),
+            return self._sdk_timeout_response(
+                function_name, timeout, self._safe_request_details(locals(), "SDK")
             )
 
         # Check if SDK function returned error
@@ -335,6 +334,17 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             )
 
         return None
+
+    def _sdk_timeout_response(
+        self, function_name: str, timeout: float, request_details: Any
+    ) -> ErrorResponse:
+        message = call_timeout_message(f"SDK function {function_name}", timeout, suggest_sdk=False)
+        return self._create_error_response(
+            error_type="sdk_timeout",
+            output_message=message,
+            message=message,
+            request_details=request_details,
+        )
 
     def _map_sdk_response(self, result: Dict[str, Any], function_name: str) -> Dict[str, Any]:
         """Map SDK output to standardized response format.
@@ -634,8 +644,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             tp = self.context.input_data.get("test_parameters")
             if tp:
                 execute_extras["test_parameters"] = tp
-            ep_ts = endpoint.timeout_seconds
-            timeout = float(ep_ts) if ep_ts else SDK_FUNCTION_TIMEOUT
+            timeout = call_timeout(endpoint)
 
             if use_rpc:
                 result = await self._execute_via_rpc(
@@ -666,7 +675,7 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
                 f"Raw SDK result keys: {list(result.keys())}, trace_id={result.get('trace_id')}"
             )
 
-            error_response = self._check_result_errors(result, function_name)
+            error_response = self._check_result_errors(result, function_name, timeout)
             if error_response:
                 return error_response
 
@@ -695,14 +704,10 @@ class SdkEndpointInvoker(BaseEndpointInvoker):
             # Re-raise HTTPExceptions (configuration errors)
             raise
         except asyncio.TimeoutError:
-            ep_ts = endpoint.timeout_seconds
-            effective_timeout = float(ep_ts) if ep_ts else SDK_FUNCTION_TIMEOUT
+            effective_timeout = call_timeout(endpoint)
             logger.error(f"Timeout waiting for SDK function after {effective_timeout}s")
-            return self._create_error_response(
-                error_type="sdk_timeout",
-                output_message="SDK function execution timed out",
-                message=f"Function did not respond within {effective_timeout} seconds",
-                request_details=self._safe_request_details(locals(), "SDK"),
+            return self._sdk_timeout_response(
+                function_name, effective_timeout, self._safe_request_details(locals(), "SDK")
             )
         except TemplateInputError as e:
             return self._template_error_response(e, self._safe_request_details(locals(), "SDK"))

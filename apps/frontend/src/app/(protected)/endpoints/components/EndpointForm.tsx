@@ -33,11 +33,15 @@ import TabMapping from './TabMapping';
 import TabTest from './TabTest';
 import type { EndpointTestResult } from './TestResponseCard';
 import {
+  endpointTimeoutSeconds as resolveEndpointTimeoutSeconds,
   parseTimeoutSeconds,
   testWaitSeconds,
   timeoutSecondsError,
 } from './timeoutSeconds';
-import { useMaxEndpointTimeoutSeconds } from '@/contexts/FeaturesContext';
+import {
+  useDefaultEndpointTimeoutSeconds,
+  useMaxEndpointTimeoutSeconds,
+} from '@/contexts/FeaturesContext';
 import { useTestRun } from './useTestRun';
 import {
   DEFAULT_TEST_VALUES,
@@ -173,6 +177,8 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
   ) {
     const router = useRouter();
     const maxTimeoutSeconds = useMaxEndpointTimeoutSeconds();
+    // The form only creates REST endpoints.
+    const defaultTimeoutSeconds = useDefaultEndpointTimeoutSeconds('REST');
     const params = useParams<{ identifier?: string }>();
     const projectIdFromUrl = projectIdProp ?? params?.identifier ?? '';
 
@@ -321,7 +327,13 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
     const resetTabTest = tabTest.reset;
     const maxWaitSeconds = testWaitSeconds(
       formData.timeout_seconds,
-      maxTimeoutSeconds
+      maxTimeoutSeconds,
+      defaultTimeoutSeconds
+    );
+    const endpointTimeoutSeconds = resolveEndpointTimeoutSeconds(
+      formData.timeout_seconds,
+      maxTimeoutSeconds,
+      defaultTimeoutSeconds
     );
     useEffect(() => {
       resetTabTest();
@@ -682,6 +694,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
               testStartedAt={mappingTest.startedAt}
               isSlowApi={mappingTest.isSlow}
               maxWaitSeconds={maxWaitSeconds}
+              endpointTimeoutSeconds={endpointTimeoutSeconds}
               onCancelTest={mappingTest.cancel}
               onRunTest={handleRunTest}
               resultIsCurrent={mappingTestKey === connectionKey}
@@ -710,6 +723,7 @@ const EndpointForm = forwardRef<EndpointFormHandle, EndpointFormProps>(
               isTestingEndpoint={tabTest.isTesting}
               testStartedAt={tabTest.startedAt}
               maxWaitSeconds={maxWaitSeconds}
+              endpointTimeoutSeconds={endpointTimeoutSeconds}
               onCancelTest={tabTest.cancel}
               onRunTest={handleTabRunTest}
             />

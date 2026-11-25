@@ -29,7 +29,11 @@ interface ResponseMappingCardProps {
   /** Elapsed time, Cancel and the request being sent, while a test runs. */
   waiting?: Pick<
     React.ComponentProps<typeof TestResponseCard>,
-    'startedAt' | 'maxWaitSeconds' | 'onCancel' | 'waitingDetails'
+    | 'startedAt'
+    | 'maxWaitSeconds'
+    | 'endpointTimeoutSeconds'
+    | 'onCancel'
+    | 'waitingDetails'
   >;
   notice?: React.ReactNode;
 }

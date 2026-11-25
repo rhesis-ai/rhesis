@@ -121,6 +121,7 @@ class APIClient:
         data: Optional[dict] = None,
         params: Optional[dict] = None,
         url_params: Optional[str] = None,
+        timeout: Optional[float] = None,
     ) -> dict:
         """
         Send a request to the API.
@@ -131,6 +132,7 @@ class APIClient:
             data: The data to send in the request body.
             params: Query parameters.
             url_params: Additional URL path parameters.
+            timeout: Seconds to wait for the answer; DEFAULT_API_TIMEOUT when None.
 
         Returns:
             dict: The JSON response from the API.
@@ -147,7 +149,7 @@ class APIClient:
             headers=self.headers,
             json=data,
             params=params,
-            timeout=DEFAULT_API_TIMEOUT,
+            timeout=timeout or DEFAULT_API_TIMEOUT,
         )
         response.raise_for_status()
         return response.json()

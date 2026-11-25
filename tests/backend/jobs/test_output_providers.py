@@ -161,6 +161,66 @@ class TestSingleTurnOutput:
 # ============================================================================
 
 
+class TestSingleTurnOutputRetry:
+    """Sequential runs retry a flaky endpoint the way batch runs do."""
+
+    SERVICE = "rhesis.backend.jobs.execution.executors.output_providers.get_endpoint_service"
+
+    async def _get_output(self, *results, attempts=None):
+        from rhesis.backend.jobs.execution.batch import retry as retry_module
+
+        service = AsyncMock()
+        service.invoke_endpoint = AsyncMock(side_effect=list(results))
+        with (
+            patch(self.SERVICE, return_value=service),
+            patch.object(retry_module, "wait_exponential_jitter", lambda **_: lambda _s: 0),
+        ):
+            output = await SingleTurnOutput(invoke_attempts=attempts).get_output(
+                db=MagicMock(),
+                endpoint_id="ep-123",
+                prompt_content="hi",
+                organization_id="org-1",
+                user_id="user-1",
+                test_parameters={},
+            )
+        return output, service.invoke_endpoint.await_count
+
+    @pytest.mark.asyncio
+    async def test_transient_failure_is_retried(self):
+        from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
+
+        unavailable = ErrorResponse(
+            error_type="http_error", output="busy", message="HTTP 503", status_code=503
+        )
+        output, calls = await self._get_output(unavailable, {"output": "ok"})
+        assert calls == 2
+        assert output.response["output"] == "ok"
+
+    @pytest.mark.asyncio
+    async def test_one_attempt_when_a_client_is_waiting(self):
+        """In-place execution answers an HTTP request; retry waits would outlast it."""
+        from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
+
+        unavailable = ErrorResponse(
+            error_type="http_error", output="busy", message="HTTP 503", status_code=503
+        )
+        _, calls = await self._get_output(unavailable, {"output": "ok"}, attempts=1)
+        assert calls == 1
+
+    @pytest.mark.asyncio
+    async def test_call_timeout_is_reported_once(self):
+        from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
+
+        timed_out = ErrorResponse(
+            error_type="call_timeout",
+            output="api.example.com did not finish within 30 seconds.",
+            message="timed out",
+        )
+        output, calls = await self._get_output(timed_out)
+        assert calls == 1
+        assert "did not finish within 30 seconds" in str(output.response)
+
+
 class TestLoadRunParams:
     """Tests for _load_run_params helper."""
 

@@ -72,6 +72,35 @@ class TestOutput:
     contract_usable: bool = True
 
 
+async def _invoke_with_retry(*, label: str, max_attempts: int, **invoke_kwargs) -> Any:
+    """Invoke the endpoint with the same retries as a batch run, minus the recovery rounds.
+
+    Transient failures (429, 503, a dropped connection) are retried with backoff. A
+    permanent failure, or the last transient one, comes back as its ErrorResponse so it
+    is reported like any endpoint error.
+    """
+    from rhesis.backend.app.services.invokers.common.errors import EndpointInvocationError
+    from rhesis.backend.jobs.execution.batch.context import (
+        DEFAULT_INVOKE_RETRY_MAX_WAIT,
+        DEFAULT_INVOKE_RETRY_MIN_WAIT,
+    )
+    from rhesis.backend.jobs.execution.batch.retry import invoke_with_retry
+
+    endpoint_service = get_endpoint_service()
+    try:
+        return await invoke_with_retry(
+            lambda: endpoint_service.invoke_endpoint(**invoke_kwargs),
+            max_attempts=max_attempts,
+            min_wait=DEFAULT_INVOKE_RETRY_MIN_WAIT,
+            max_wait=DEFAULT_INVOKE_RETRY_MAX_WAIT,
+            label=label,
+        )
+    except EndpointInvocationError as e:
+        if e.error_response is None:
+            raise
+        return e.error_response
+
+
 class OutputProvider(ABC):
     """Gets test output from some source."""
 
@@ -96,8 +125,12 @@ class SingleTurnOutput(OutputProvider):
     and process_endpoint_result() (from executors.results).
     """
 
-    def __init__(self, model=None):
+    def __init__(self, model=None, invoke_attempts: Optional[int] = None):
+        """``invoke_attempts`` defaults to a run's; pass 1 when a client waits on the answer."""
+        from rhesis.backend.jobs.execution.batch.context import DEFAULT_INVOKE_MAX_ATTEMPTS
+
         self.model = model
+        self.invoke_attempts = invoke_attempts or DEFAULT_INVOKE_MAX_ATTEMPTS
 
     async def get_output(
         self,
@@ -144,15 +177,15 @@ class SingleTurnOutput(OutputProvider):
             if input_files:
                 input_data["files"] = input_files
 
-        # Reuse existing EndpointService singleton
-        endpoint_service = get_endpoint_service()
-        result = await endpoint_service.invoke_endpoint(
+        result = await _invoke_with_retry(
             db=db,
             endpoint_id=endpoint_id,
             input_data=input_data,
             organization_id=organization_id,
             user_id=user_id,
             test_execution_context=test_execution_context,
+            label=f"single_turn[{str(test_id)[:8]}]",
+            max_attempts=self.invoke_attempts,
         )
         execution_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 

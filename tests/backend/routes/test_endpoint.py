@@ -1049,7 +1049,7 @@ class TestEndpointOffLoopRoutes(EndpointTestMixin, BaseEntityTests):
             response = authenticated_client.post("/endpoints/test", json=test_config)
 
         assert response.status_code == status.HTTP_200_OK, response.text
-        assert http_client.post.call_args.kwargs["timeout"] == 120.0
+        assert http_client.post.call_args.kwargs["timeout"].read == 120.0
 
     def test_test_endpoint_read_timeout_names_requested_timeout(
         self, authenticated_client: TestClient
@@ -1077,12 +1077,12 @@ class TestEndpointOffLoopRoutes(EndpointTestMixin, BaseEntityTests):
             response = authenticated_client.post("/endpoints/test", json=test_config)
 
         assert response.status_code == status.HTTP_200_OK, response.text
-        assert http_client.post.call_args.kwargs["timeout"] == 120.0
+        assert http_client.post.call_args.kwargs["timeout"].read == 120.0
         body = response.json()
-        assert body["error_type"] == "network_error"
-        assert body["output"] == (
-            "Could not reach api.example.com: it did not respond within 120 seconds. "
-            "If the API is just slow, raise the endpoint's Timeout (seconds) setting."
+        assert body["error_type"] == "call_timeout"
+        assert body["output"].startswith(
+            "api.example.com did not finish within 120 seconds. If it is just slow, raise "
+            "the endpoint's Timeout (seconds)."
         )
 
     def test_test_endpoint_rejects_out_of_range_timeout(self, authenticated_client: TestClient):
@@ -1127,7 +1127,7 @@ class TestEndpointOffLoopRoutes(EndpointTestMixin, BaseEntityTests):
             )
 
         assert response.status_code == status.HTTP_200_OK, response.text
-        assert http_client.post.call_args.kwargs["timeout"] == 90.0
+        assert http_client.post.call_args.kwargs["timeout"].read == 90.0
 
     def test_test_endpoint_mapping_nonexistent_endpoint(self, authenticated_client: TestClient):
         """A mapping test against an unknown endpoint is a 404, raised off the loop."""

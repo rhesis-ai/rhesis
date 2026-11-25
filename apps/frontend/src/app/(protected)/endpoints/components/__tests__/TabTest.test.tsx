@@ -169,3 +169,37 @@ describe('TabTest', () => {
     expect(editor).toHaveValue(typed);
   });
 });
+
+describe('TabTest waiting status', () => {
+  it('says when the check stops before a test run would', () => {
+    render(
+      <TabTest
+        {...defaultProps}
+        values={{} as TestValues}
+        onValuesChange={jest.fn()}
+        isTestingEndpoint
+        testStartedAt={Date.now()}
+        maxWaitSeconds={300}
+        endpointTimeoutSeconds={3600}
+      />
+    );
+    expect(
+      screen.getByText(/test runs wait the endpoint's full 60:00/)
+    ).toBeInTheDocument();
+  });
+
+  it('adds nothing when the check waits the full timeout', () => {
+    render(
+      <TabTest
+        {...defaultProps}
+        values={{} as TestValues}
+        onValuesChange={jest.fn()}
+        isTestingEndpoint
+        testStartedAt={Date.now()}
+        maxWaitSeconds={30}
+        endpointTimeoutSeconds={30}
+      />
+    );
+    expect(screen.queryByText(/test runs wait/)).not.toBeInTheDocument();
+  });
+});

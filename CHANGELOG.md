@@ -16,6 +16,7 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 ### Upgrading a self-hosted deployment
 
 1. If you set `MAX_PER_TEST_TIMEOUT` or `EXECUTION_TIME_LIMIT`, consider removing them. Unset, they now follow the new `MAX_ENDPOINT_TIMEOUT` (default 7200): a test may take the endpoint timeout plus 300s, and a run that plus 900s. Values you set still win, and the backend logs a warning at startup when they are lower than the endpoint ceiling.
+2. If API clients call `Endpoint.invoke()` on endpoints slower than a minute, raise the read timeout on the proxy in front of the API host to at least `MAX_ENDPOINT_TIMEOUT`. ingress-nginx defaults to 60 seconds; set the `nginx.ingress.kubernetes.io/proxy-read-timeout` annotation on the backend ingress.
 
 ### Added
 
@@ -27,6 +28,12 @@ This is the main changelog for the entire Rhesis repository. For detailed compon
 - A test run's per-test time limit now follows the endpoint's timeout: the timeout plus 300 seconds, and at least 1800 seconds as before. Endpoints with a timeout above 25 minutes no longer fail at 30 minutes. An explicit `per_test_timeout` in the run's execution options still wins.
 - Endpoint timeouts can be up to 7200 seconds (was 3600). Self-hosted deployments set the ceiling with `MAX_ENDPOINT_TIMEOUT`; the per-test and run limits are derived from it.
 - A test stopped by the per-test limit now says which limit it hit and how to raise it, instead of "Timeout after Ns". A run whose tests may outlast the run time limit, or whose per-test limit is shorter than the endpoint's timeout, gets a warning in its activity log and its `warnings` attribute.
+- An endpoint's timeout now covers the whole call on every connection type. WebSocket endpoints, which had no limit, now stop at their timeout (30 seconds by default). A REST call that trickled data could run past it before. A call that reaches it says which endpoint or SDK function stopped and after how many seconds.
+- A REST or WebSocket call that reaches its timeout is no longer retried, the same as SDK calls, because the endpoint may already have done the work. The REST invoker's own retry is gone, so in a test run a flaky endpoint gets the run's retries once instead of up to three times each. Calls outside test runs, such as the test button, the playground and Explorer, are no longer retried. A `Retry-After` header is honoured up to `MAX_INVOKE_RETRY_WAIT`.
+- Sequential runs now retry temporary endpoint failures (HTTP 429, 502, 503, 504 and dropped connections), as parallel runs do.
+- The pre-run connectivity check waits for the endpoint's timeout, up to 1 minute, and reports a slower endpoint as a warning instead of a failure.
+- The test button in the endpoint form and on the endpoint page says when it stops waiting before the endpoint's timeout. Test runs still wait the full timeout.
+- The Helm chart gives worker pods 9000 seconds to finish running jobs on shutdown (was the Kubernetes default of 30), which covers a test run at the default run time limit. Set `workers[].terminationGracePeriodSeconds` to change it. Docker Compose does the same for the worker service (was 10 seconds); set `WORKER_STOP_GRACE_PERIOD` to change it. `docker compose stop` now waits for running test runs.
 
 ### Fixed
 

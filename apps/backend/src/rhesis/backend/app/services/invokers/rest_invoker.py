@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import threading
@@ -6,20 +7,21 @@ from typing import Any, Dict, Union
 import httpx
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from tenacity import (
-    retry,
-    retry_if_exception,
-    stop_after_attempt,
-    wait_exponential,
-)
 
 from rhesis.backend.app.models.endpoint import Endpoint
+from rhesis.backend.app.models.enums import EndpointConnectionType
 from rhesis.backend.app.services.invokers.base import BaseEndpointInvoker
 from rhesis.backend.app.services.invokers.common.connection_errors import (
     describe_connection_error,
     url_host,
 )
 from rhesis.backend.app.services.invokers.common.schemas import ErrorResponse
+from rhesis.backend.app.services.invokers.common.timeouts import (
+    CALL_TIMEOUT_ERROR_TYPE,
+    call_timeout,
+    call_timeout_message,
+    default_call_timeout,
+)
 from rhesis.backend.app.services.invokers.templating.filters import TemplateInputError
 from rhesis.backend.app.utils.redact import mask_secret
 from rhesis.backend.app.utils.ssrf_http_client import (
@@ -40,19 +42,24 @@ logger = logging.getLogger(__name__)
 # worker thread (i.e. the same batch), avoiding the TCP handshake overhead of
 # creating a fresh client per invocation.
 _tls = threading.local()
-_DEFAULT_HTTP_TIMEOUT = 30.0
+_DEFAULT_HTTP_TIMEOUT = default_call_timeout(EndpointConnectionType.REST)
+
+# The request reached the API, so it may be doing the work: a timeout here is not retried.
+# Connect and pool timeouts never reached it and stay ordinary (retryable) network errors.
+_SENT_REQUEST_TIMEOUTS = (TimeoutError, httpx.ReadTimeout, httpx.WriteTimeout)
+
+# Connecting gets a short share of the deadline, so a host that drops the attempt fails
+# as a retryable ConnectTimeout before the call's own deadline can fire.
+_CONNECT_TIMEOUT_LIMIT = 10.0
+
+
+def _http_timeout(call_seconds: float) -> httpx.Timeout:
+    connect = min(_CONNECT_TIMEOUT_LIMIT, call_seconds / 2)
+    return httpx.Timeout(call_seconds, connect=connect, pool=connect)
 
 
 def _network_error_message(endpoint: Endpoint, exc: Exception) -> str:
-    host = url_host(endpoint.url)
-    if isinstance(exc, httpx.ReadTimeout):
-        waited = float(endpoint.timeout_seconds or _DEFAULT_HTTP_TIMEOUT)
-        unit = "second" if waited == 1 else "seconds"
-        return (
-            f"Could not reach {host}: it did not respond within {waited:g} {unit}. "
-            "If the API is just slow, raise the endpoint's Timeout (seconds) setting."
-        )
-    return f"Could not reach {host}: {describe_connection_error(exc)}."
+    return f"Could not reach {url_host(endpoint.url)}: {describe_connection_error(exc)}."
 
 
 # The event loop holds only a weak reference to a running task. The close below is
@@ -154,11 +161,23 @@ class RestEndpointInvoker(BaseEndpointInvoker):
                 db, endpoint, input_data
             )
 
-            # Make async request and handle response
-            ep_timeout = float(endpoint.timeout_seconds) if endpoint.timeout_seconds else None
-            response = await self._async_request(
-                method, url, headers, request_body, timeout=ep_timeout
-            )
+            # One deadline for the whole call; httpx's own timeout is per socket operation.
+            timeout = call_timeout(endpoint)
+            try:
+                async with asyncio.timeout(timeout):
+                    response = await self._async_request(
+                        method, url, headers, request_body, timeout=_http_timeout(timeout)
+                    )
+            except _SENT_REQUEST_TIMEOUTS:
+                message = call_timeout_message(url_host(endpoint.url), timeout)
+                return self._create_error_response(
+                    error_type=CALL_TIMEOUT_ERROR_TYPE,
+                    output_message=message,
+                    message=message,
+                    request_details=self._create_request_details(
+                        method, url, headers, request_body
+                    ),
+                )
 
             # Log response summary
             logger.debug(f"Response received: {response.status_code}")
@@ -453,16 +472,6 @@ class RestEndpointInvoker(BaseEndpointInvoker):
 
         return headers
 
-    @retry(
-        # Not a read timeout: the API already had its whole timeout to answer,
-        # and two more tries would triple the wait for the same result.
-        retry=retry_if_exception(
-            lambda e: isinstance(e, httpx.HTTPError) and not isinstance(e, httpx.ReadTimeout)
-        ),
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=10),
-        reraise=True,
-    )
     async def _async_request(
         self,
         method: str,
@@ -470,11 +479,12 @@ class RestEndpointInvoker(BaseEndpointInvoker):
         headers: Dict[str, str],
         body: Any,
         *,
-        timeout: float | None = None,
+        timeout: httpx.Timeout | float | None = None,
     ) -> httpx.Response:
-        """Make an async HTTP request. Retried on transient failures.
+        """Make one async HTTP request, never retried here.
 
-        Uses the thread-local AsyncClient so TCP connections are pooled
+        Retries belong to the caller (``invoke_with_retry`` in test runs), so the attempts
+        don't multiply. Uses the thread-local AsyncClient so TCP connections are pooled
         across all tests in the same worker-thread batch.
         """
         client = _get_http_client()

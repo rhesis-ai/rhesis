@@ -191,6 +191,33 @@ def chat(input: str, *, model: str, temperature: float, system_prompt: str) -> d
 
 For more details on request-mapping and context-resolved injection, see [Connector Injection](/docs/experiments/connector-injection).
 
+## Long-running jobs
+
+A REST endpoint keeps one HTTP request open for the whole call. Load balancers and proxies often close a request that stays quiet for a minute or two, so an API that takes longer, such as an agent that works for an hour, fails there whatever its timeout says. The SDK connection does not have that limit: your function can take as long as the endpoint's **Timeout (seconds)**, up to 2 hours by default.
+
+If your API starts a job and lets you check on it, wrap that in an `async` function:
+
+<CodeBlock filename="research.py" language="python">
+{`import asyncio
+
+import httpx
+from rhesis.sdk import endpoint
+
+@endpoint()
+async def research(input: str) -> dict:
+    async with httpx.AsyncClient(base_url="https://agent.example.com", timeout=30) as api:
+        job = (await api.post("/jobs", json={"prompt": input})).json()
+        while True:
+            status = (await api.get(f"/jobs/{job['id']}")).json()
+            if status["state"] == "done":
+                return {"output": status["result"]}
+            if status["state"] == "failed":
+                raise RuntimeError(status.get("error", "job failed"))
+            await asyncio.sleep(10)`}
+</CodeBlock>
+
+Then set the endpoint's **Timeout (seconds)** above the longest job you expect. An `async` function waits without holding a thread, so many tests can wait at once.
+
 ## SDK vs. REST Endpoints
 
 | Aspect | SDK Endpoints | REST Endpoints |

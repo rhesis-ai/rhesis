@@ -6,6 +6,8 @@ import { PlayArrowIcon } from '@/components/icons';
 import { SectionCard } from '@/components/common/SectionCard';
 import { useEndpointDetailContext } from './EndpointDetailContext';
 import { invokeEndpoint } from '@/actions/endpoints';
+import { LONG_REQUEST_LIMIT_SECONDS } from '@/constants/endpoint-timeout';
+import { useDefaultEndpointTimeoutSeconds } from '@/contexts/FeaturesContext';
 import EndpointTestWorkbench from '../../components/EndpointTestWorkbench';
 import { useCan } from '@/components/common/Can';
 import { Capability } from '@/constants/capabilities';
@@ -20,6 +22,11 @@ import {
 export default function EndpointTestTab() {
   const { endpoint } = useEndpointDetailContext();
   const canInvoke = useCan(Capability.Endpoint.UPDATE);
+  const defaultTimeoutSeconds = useDefaultEndpointTimeoutSeconds(
+    endpoint.connection_type ?? 'REST'
+  );
+  const endpointTimeoutSeconds =
+    endpoint.timeout_seconds ?? defaultTimeoutSeconds;
 
   const requestTemplate = useMemo(
     () => JSON.stringify(endpoint.request_mapping ?? {}, null, 2),
@@ -86,6 +93,7 @@ export default function EndpointTestTab() {
     setRawResponse(null);
     setError(null);
     setStatusCode('');
+    const startedAt = Date.now();
     try {
       const inputData: Record<string, unknown> = { ...varValues };
       for (const [k, files] of Object.entries(fileValues)) {
@@ -146,7 +154,16 @@ export default function EndpointTestTab() {
         }
       }
     } catch (err) {
-      setError((err as Error).message);
+      // The check gives up before a run would; say so rather than blame the endpoint.
+      const waited = (Date.now() - startedAt) / 1000;
+      const stoppedEarly =
+        endpointTimeoutSeconds > LONG_REQUEST_LIMIT_SECONDS &&
+        waited >= LONG_REQUEST_LIMIT_SECONDS - 5;
+      setError(
+        stoppedEarly
+          ? `No answer within ${LONG_REQUEST_LIMIT_SECONDS / 60} minutes, so this check stopped waiting. Test runs wait the endpoint's full timeout (${endpointTimeoutSeconds}s).`
+          : (err as Error).message
+      );
     } finally {
       setIsTestingEndpoint(false);
     }
